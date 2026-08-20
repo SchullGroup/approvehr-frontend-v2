@@ -240,6 +240,40 @@ should have been a button doing it. "An absence with no approved leave behind it
 prorates against 22 working days" becomes **"Unpaid day — 1 day will be
 deducted"** with **Approve leave** and **Fix record** beside it.
 
+## Where the build actually got to
+
+Updated 20 August 2026, after Phases 0 and 1 shipped.
+
+| Phase | State | Evidence |
+|---|---|---|
+| **0 — the doors** | **done** | register / verify / reset password; roles editor with a privilege-escalation guard and a last-owner guard; notification inbox; setup wizard writing the feature flags; self-service profile |
+| **1 — payroll completeness** | **done** | pay components with taxable/pensionable flags, salary grades, loans with generated schedules, expenses, bulk import with a mapping preview — and the run that assembles them |
+| **2 — closing the lifecycle** | in progress | offboarding, equipment, documents, policies, shifts, audit trail |
+| **3 — money movement** | schema done, modules pending | bank accounts, batches, instructions, append-only ledger, provider seam |
+| **4 — depth** | schema done, modules pending | performance, help desk, knowledge base, public careers page, webhooks |
+
+Counts, so the next revision of this document can be checked against something:
+**86 data models, 16 backend modules, 347 backend tests, 52 frontend routes.**
+
+### The two findings that changed the plan
+
+**Our own engine had the bug we were selling against.** Additions were folded
+into gross before the salary split, so a ₦100,000 bonus raised the employee's
+pension deduction by ₦4,800 and their NHF by ₦1,500. Pension is charged on
+monthly emoluments and NHF on basic salary; a bonus is neither. The existing
+assertion only checked that gross and PAYE went up, so it passed. Fixed, and the
+assertion count went from 50 to 89 — every expected value hand-worked against a
+separate implementation written purely to check the first one.
+
+**The tax bands needed to become data, but not editable data.** This document
+originally said bands should be customer-owned configuration. They should not:
+a company cannot choose its own tax brackets. What they need is an *effective
+date*, because the Nigeria Tax Act 2025 changed them. They are now dated
+schedules shipped by us — and the 2025 figures are deliberately absent, because
+nobody has put the gazette in front of the code and a guessed band produces a
+confident wrong number that gets filed. Every 2026 period comes back flagged so
+a run cannot be approved without somebody being told.
+
 ### Phasing
 
 Each phase is shippable and demonstrable on its own. Ordering is by how much it
