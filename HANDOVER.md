@@ -9,7 +9,7 @@ first principles, and each one cost real debugging time to find.
 ```bash
 cd /Users/mac/Documents/Schulltech/ApproveHR/web
 npm run check   # typecheck + lint + contrast verification + payroll maths verification
-npm run build   # 77 routes, all currently green
+npm run build   # 52 routes, 93 prerendered pages, all currently green
 npm run dev     # then use your browser tool against the printed localhost port
 ```
 
@@ -25,10 +25,15 @@ session before falling back to anything else.
 
 ApproveHR is Schull Technologies' HR/payroll/hiring SaaS for Nigerian
 companies. The user is building it to compete with **SeamlessHR**, an
-established, well-funded incumbent. Everything in this repo is a **design
-and product prototype** — there is no backend, no auth, no database. State
-lives in localStorage or in-memory mock data. The point of this phase is a
-fully-clickable product to demo and user-test, not a shippable app.
+established, well-funded incumbent.
+
+**This is no longer a prototype and this file used to say it was.** There is a
+real backend — Express 5, Prisma 7, Postgres, 16 modules, 347 tests — with real
+password auth, real JWT sessions and a real database. The frontend detects
+whether the API answers and runs in one of two modes; see "The API connection"
+below. Demo mode against localStorage is still there, deliberately, because this
+product gets shown on laptops in rooms with no database, but it is now the
+fallback rather than the whole thing.
 
 The user cares a great deal about two things, consistently, across the whole
 session — keep both in mind for every decision you make:
@@ -297,7 +302,7 @@ storage directly in the hook body — but prefer the factory to copying.
   rename this session) orphans old data. Consider a version field in the
   persisted payload if you change the shape again.
 
-## Route map (77 routes, all currently building clean)
+## Route map (52 routes, all currently building clean)
 
 ### Marketing (`app/(marketing)/`) — public site, own chrome/nav/footer
 
@@ -522,3 +527,261 @@ If you disagree with a decision recorded here, that's fine — but change it
 deliberately and update this file to say what you changed and why, the same
 way this file itself exists because the user asked for continuity. The next
 person after you will thank you for it.
+
+---
+
+# What changed in the parity build
+
+Everything below happened after the section above was written, and several
+entries contradict it. Where they conflict, this is the later word.
+
+Read `PARITY.md` first for *why* — it is the gap analysis against the incumbent
+and the phased plan. This section is the *what*.
+
+## Both repos now exist, and the frontend is finally in version control
+
+- `web/` → **`SchullGroup/approvehr-frontend`** (private). Before this session it
+  had **zero tracked files in any git repo** — the whole frontend existed on one
+  disk. If you take one thing from this file: commit early.
+- `approvehr-api/` → `SchullGroup/approvehr-backend` (private).
+- `.env` is now **ignored** and `.env.example` is the committed template. It was
+  briefly the other way round, on the documented grounds that `NEXT_PUBLIC_*`
+  values compile into the client bundle and are therefore public anyway. True,
+  and still a footgun: the next person adds a real secret to a file they
+  reasonably assume is ignored.
+
+## A real bug in the payroll engine, and what it means for the pitch
+
+`computePayslip` folded additions into gross **before** applying the
+basic/housing/transport split. A ₦100,000 bonus on a ₦500,000 salary therefore
+raised "basic" by ₦60,000, which raised the employee's pension deduction from
+₦40,000 to ₦48,000 and their NHF from ₦7,500 to ₦9,000.
+
+Both wrong. Pension is charged on monthly emoluments (Pension Reform Act 2014);
+NHF on basic salary (NHF Act). A discretionary bonus is neither. **The old
+assertion only checked that gross and PAYE went up, so it passed for months** —
+which is the lesson: an assertion that does not name the figure it is protecting
+protects nothing.
+
+The split now applies to the contractual figure alone. Allowances sit beside it
+and enter the pension and NHF bases only when explicitly marked `pensionable`,
+which **defaults to false because that is what the statute says**.
+
+### The engine's public shape changed
+
+- `Variation` now carries itemised `allowances: AllowanceSpec[]` and
+  `deductions: DeductionSpec[]`. The old scalar `additionsKobo` /
+  `postTaxDeductionsKobo` still work and behave as one unlabelled taxable,
+  **non-pensionable** allowance and one post-tax deduction respectively.
+- Percentages resolve against the **contractual** figure, never a running total.
+  That is deliberate and has its own assertion: resolving against a total makes
+  each line's value depend on the order the array happens to be in, so two runs
+  of the same data can disagree.
+- Post-tax deductions are **capped at available net**, with the shortfall
+  reported as `unrecoveredDeductionKobo`. A loan instalment cannot be recovered
+  from somebody who earned less than it — one month of unpaid leave is enough to
+  cause it — and the loans module carries the remainder rather than the engine
+  producing a negative payslip.
+- **89 assertions**, up from 50, every expected value hand-worked against a
+  separate implementation written in Python purely to check the TypeScript.
+
+### PAYE bands are versioned now
+
+`PAYE_BANDS` was a single hardcoded array, defended on the grounds that a
+company cannot choose its own tax brackets. Right, and incomplete: bands are
+*versioned*. `TAX_SCHEDULES` holds dated schedules with citations and
+`scheduleFor(schedules, date)` resolves one.
+
+**The Nigeria Tax Act 2025 bands are deliberately not entered.** Nobody has put
+the gazetted figures in front of this code, and a guessed band is worse than a
+missing one — it produces a confident wrong number that gets filed and
+penalised. Instead `confirmedThrough` on the 2011 schedule stops at the end of
+2025, so `scheduleFor` returns `stale: true` for every 2026 period and the run
+raises it as an exception the approver must look at.
+
+My first draft *threw* for a stale schedule. Today is August 2026, so that would
+have broken every run in the product. Refusing to pay anybody because a lookup
+table is stale is the worse failure.
+
+## The reconciliation gate — read this before touching the run
+
+`src/modules/payroll/reconcile.ts` exists because of what an audit of the live
+incumbent system found in its own data on 20 August 2026:
+
+| Their live figure | Why it is impossible |
+|---|---|
+| Net ₦3,218,741.96 against gross ₦1,833,500.33 | net exceeded gross by ₦1.47m |
+| Gross ₦833,500.33 − deductions ₦88,958.37 = net ₦700,211.96 | out by ₦44,330 |
+| PAYE ₦1.8m on ₦3.2m payroll | 56% effective; top *marginal* band is 24% |
+| Millions in gross, `0` employees | two separate runs |
+
+All rendered on screen without complaint. **The failure was not the arithmetic
+— it was that nothing between the arithmetic and the screen ever asked whether
+the answer added up.** Each of those five figures now has an assertion proving
+it is refused.
+
+Checks are exact integer identities with **no tolerance**. A tolerance is a
+decision that being slightly wrong is acceptable, and on a payment file it is
+not. `reconcile()` returns every discrepancy rather than throwing on the first,
+because one refusal naming eleven problems beats eleven refusals naming one.
+
+If you add a figure to `ComputedPayslip`, add its identity here too.
+
+## Backend: 16 modules, 86 models, 347 tests
+
+New this build: `permissions`, `notifications`, `setup`, `pay-components`,
+`grades`, `loans`, `reimbursements`, `imports`, `payroll` (router/service — it
+was engine-only), plus `auth` completed with register, verify-email and password
+reset.
+
+### Conventions worth knowing before you write a module
+
+- **Copy `src/modules/departments/`.** It is the reference shape:
+  `router.ts` + `schemas.ts` + `service.ts`, and its service is the reference for
+  refusing an operation and *naming* the blockers rather than failing silently.
+- **"Writes return ids, reads return shapes."** No `include` on a create or
+  update — Prisma loads relations in parallel inside a transaction and it
+  surfaces as a pg deprecation warning.
+- **Multi-tenancy is in the client, not the arguments.** `requireDb(req)` returns
+  a scoped client. Never thread an `organizationId` through a service signature,
+  and never `findUnique` on a scoped model (the extension rewrites it to
+  `findFirst`). New model with an `organizationId`? Add it to `SCOPED_MODELS` in
+  `src/db/tenant.ts`. Without one? Add it to the comment below that list *with
+  the reason* — `TaxBand` is there because statute belongs to no tenant.
+- **Money crosses the API as integer kobo.** Prisma returns `Decimal`; never
+  `Number()` one into arithmetic. `toKobo(String(value))` is the seam.
+  `Number(Decimal)` is fine for a *rate* — five decimal places, far inside float
+  precision — and that distinction is written where it is relied on.
+- `exactOptionalPropertyTypes` is on. Use `compact()` from `lib/http.ts` rather
+  than relaxing the compiler.
+- A create through the scoped client needs
+  `as Prisma.<Model>UncheckedCreateInput`, because the extension injects
+  `organizationId` and the checked type does not know that.
+
+### Six new permissions, and why they are separate
+
+`MANAGE_ROLES` is deliberately **not** folded into `MANAGE_SETTINGS`: changing
+the company address and granting yourself `APPROVE_PAYROLL` are not the same
+kind of act, and one permission covering both means the office manager who
+maintains the address can also pay themselves. Same reasoning splits
+`MANAGE_PAY_STRUCTURE` from `RUN_PAYROLL`, and `IMPORT_DATA` from
+`EDIT_RECORDS` — one careless upload creates or overwrites hundreds of records,
+and blast radius is what a permission is for.
+
+The permissions module enforces two guards worth keeping: a caller cannot grant
+a permission they do not themselves hold (otherwise `MANAGE_ROLES` *is* every
+permission), and a change that would leave nobody holding `MANAGE_ROLES` is
+refused, because locking everyone out is unrecoverable without database access.
+
+## Progressive disclosure is the usability argument — don't remove it
+
+`OrgFeatures` holds per-company feature flags written by the setup wizard's five
+questions. A five-person business sees six nav items instead of thirty. The
+incumbent shows ~120 routes to that same business, and that is the single
+biggest thing we do better.
+
+Two rules that follow, both in `PARITY.md` and both load-bearing:
+
+1. **One route per concept, rendered by role.** Not `/performance/manager` and
+   `/performance/my-objectives` and `/performance/executive`. One
+   `/performance` that reads `useCan()` and `useIsManager()`. The incumbent has
+   ~120 routes largely because it did the opposite.
+2. **Turning a flag off never deletes data.** That is why the flags are a table
+   and not a migration.
+
+`src/lib/permissions.ts` (`usePermissions` / `useCan` / `<Can>` /
+`useIsManager`) and `src/lib/store/features.ts` (`useFeatures`) are the
+primitives. The sidebar is filtered by both — see `nav.tsx`, where every item
+may carry a `permission` and a `feature`.
+
+## Assembling a payroll run
+
+`src/modules/payroll/assemble.ts` is the join between four modules that
+deliberately do not know about each other. Each exports one function returning
+specs in the engine's own shape:
+
+| Module | Seam |
+|---|---|
+| pay-components | `resolveComponentsFor(db, employeeId, period)` |
+| loans | `dueRepaymentsFor(db, employeeId, period)` |
+| reimbursements | `payableClaimsFor(db, employeeId, period)` |
+
+Nothing in `assemble.ts` does arithmetic on money. That stays in the engine,
+which is what keeps its 89 assertions meaningful.
+
+Two things there that will bite you:
+
+- **`unpaidDaysFor` mirrors the attendance roster's precedence exactly** —
+  holiday, then rest day, then approved leave, then no clock-in. If those two
+  ever diverge, the timesheet and the payslip disagree about the same day, and
+  the person who finds out is the employee docked for a day they filed leave
+  for. The order is stated in a comment in both places.
+- **Prepare settles nothing.** It is re-runnable, because the normal loop is run
+  it, read the exceptions, fix a bank account, run it again. If preparing
+  consumed a loan instalment, running twice would take two months of somebody's
+  repayment. **Approval is the one-way door**, and it is where the settings
+  snapshot is frozen onto the run.
+
+`BLOCKER` versus `WARNING` on a `PayrollException` is whether the run would be
+*wrong* or merely *surprising*. A missing account number blocks; a stale tax
+schedule warns.
+
+## Capabilities we cannot perform: the seam pattern
+
+Three places need a credential or a transport nobody has wired. All three follow
+the same shape, first established in `src/modules/auth/delivery.ts`:
+
+> One registration function, one accessor, a warning logged at module load
+> **and** at every call, dev behaviour that is obviously dev, and production
+> behaviour that **refuses**.
+
+- **Email** — `delivery.ts`. Outside production it returns the token so you can
+  test a reset flow; in production it returns null, always.
+- **Payments** — `src/modules/payments/provider.ts`. With no provider
+  registered, `submit` refuses. It does not return a fake reference and it does
+  not set the batch to COMPLETED. The bank upload file **does** work and is the
+  real fallback.
+- **File upload** — receipts, CVs and documents accept an object-storage *key*.
+  The schema never stores a file.
+
+Do not "finish" any of these with something that looks like success. A green
+"Paid" that moved no money is the worst thing a payroll product can ship, and
+the audit above found the incumbent doing a version of exactly that.
+
+## CI
+
+`.github/workflows/ci.yml`. Runs a real Postgres service rather than mocking one
+— the tenant-isolation tests open transactions and assert that one organisation
+cannot read another's rows, which cannot be mocked usefully.
+
+Two checks in the docker job exist for specific failure modes:
+
+- The container must **start** and answer `/health`. An image that builds and
+  then cannot boot is what a build-only job misses.
+- `/health/ready` must return **503** with no database reachable. A 200 there
+  means a broken task stays in the ALB target group taking traffic — the exact
+  bug `docs/deployment.md` asks the infrastructure to stop having. Asserting it
+  stops readiness quietly degrading into a second liveness endpoint.
+
+## New verification in `npm run check`
+
+Beyond typecheck, lint, contrast and payroll: a CSV parser suite (97 assertions
+— quoted fields containing commas and newlines, and the BOM Excel writes) and
+**600 reconciled loan schedules**. Neither was asked for; both were written by
+the module that needed them, and that is the right instinct. Keep it.
+
+## Things that are still not done
+
+1. **Most screens still read localStorage.** The endpoints exist; each screen is
+   a `useEmployeeDirectory`-shaped hook and a browser check. Do them one at a
+   time.
+2. **`web/src/lib/payroll/engine.ts` should be deleted** once the payroll screens
+   read from the API, and `Employee.grossMonthly` renamed to kobo with it. Two
+   implementations of tax law is exactly one too many, and the backend's is
+   authoritative.
+3. **The ETL out of the Django database.** Nothing exists. The `imports` module
+   is the shape to reuse — validate, then apply.
+4. **The Nigeria Tax Act 2025 bands.** See above. This one needs a human with
+   the gazette.
+5. **`TODO(shifts)` in `assemble.ts`.** A rostered employee currently prorates
+   against the office month.
