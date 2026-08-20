@@ -1,0 +1,710 @@
+"use client";
+
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { ApiError } from "@/lib/api/client";
+import {
+  FEATURE_KEYS,
+  setup,
+  type ApiFeatures,
+  type ApiSeeded,
+  type ApiWizardQuestion,
+  type FeatureKey,
+  type FeaturePatch,
+  type HeadcountBand,
+} from "@/lib/api/setup";
+import { EMPLOYEES } from "@/lib/mock/people";
+import { useSession } from "./session";
+
+/**
+ * Which parts of the product this company sees.
+ *
+ * This is Rule 2 of `PARITY.md` on the frontend: a five-person business sees
+ * six nav items instead of thirty, because it answered five questions once.
+ * Nothing is deleted when a flag is off — `/settings/features` turns it back on
+ * and the data is still there.
+ *
+ * ## One store, one request
+ *
+ * The sidebar reads `useFeatures()` on **every** page, so this is a module-level
+ * singleton rather than a per-hook `useState`: twenty components asking for the
+ * flags is one request, not twenty. Everything that changes a flag writes back
+ * into the same cache, so the nav, the wizard and the settings page cannot
+ * disagree about what is on.
+ *
+ * ## Why not `createPersistedState`
+ *
+ * `lib/store/persisted.ts` models a value whose home is localStorage. This
+ * store's home is the API; localStorage is only the demo branch, and what it
+ * holds is the answers, not the state. So the factory's shape does not fit —
+ * but its **hydration rule does and is obeyed**: the snapshot starts at
+ * `LOADING`, storage is read after mount, and the server snapshot is a stable
+ * constant. See that file for why reading storage in `getSnapshot` breaks.
+ *
+ * ## Demo mode
+ *
+ * Answered questions persist to this browser and drive the same nav filtering.
+ * The demo needs its own copy of the question set (`DEMO_QUESTIONS` below) for
+ * the obvious reason that there is no server to ask. That copy is a demo prop:
+ * the connected path never touches it, and if the two ever disagree the served
+ * one is right.
+ */
+
+/* -------------------------------------------------------------------- shape */
+
+export type FeatureFlags = Record<FeatureKey, boolean>;
+
+type Source = "loading" | "api" | "demo";
+
+type State = {
+  flags: FeatureFlags;
+  headcountBand: HeadcountBand;
+  setupStep: number;
+  totalSteps: number;
+  setupCompletedAt: string | null;
+  setupRequired: boolean;
+  loading: boolean;
+  /** A message ready to show. `null` when the last load worked. */
+  error: string | null;
+  source: Source;
+};
+
+/**
+ * What a brand-new company sees: the smallest product that still pays people
+ * correctly. These mirror the schema defaults on `OrgFeatures`, and they are
+ * what renders for the half-second before the real row arrives — so getting
+ * them wrong would flash nav items that then vanish.
+ */
+const BASE_FLAGS: FeatureFlags = {
+  departments: false,
+  grades: false,
+  shifts: false,
+  loans: false,
+  expenses: false,
+  appraisals: false,
+  hiring: true,
+};
+
+const TOTAL_STEPS_FALLBACK = 5;
+
+const LOADING: State = {
+  flags: BASE_FLAGS,
+  headcountBand: "UNDER_10",
+  setupStep: 0,
+  totalSteps: TOTAL_STEPS_FALLBACK,
+  setupCompletedAt: null,
+  /* Not "true" until something says so. A nav that renders during a load must
+     not decide the customer needs setting up. */
+  setupRequired: false,
+  loading: true,
+  error: null,
+  source: "loading",
+};
+
+/* ------------------------------------------------------------------- labels */
+
+/**
+ * One plain line per capability, shared by the settings page and the wizard's
+ * summary so the two describe the same thing the same way.
+ *
+ * Each line says what it *is*, in words a shop owner uses. None of them explain
+ * why the product wants it — the switch beside them is the argument.
+ */
+export const FEATURE_COPY: Record<
+  FeatureKey,
+  { label: string; line: string }
+> = {
+  departments: {
+    label: "Departments and teams",
+    line: "Group people into departments, and see what each one costs a month.",
+  },
+  grades: {
+    label: "Salary grades",
+    line: "Put people on a band, then raise a whole band at once.",
+  },
+  shifts: {
+    label: "Shifts and nights",
+    line: "Rotas, night duty and weekend cover instead of one working pattern.",
+  },
+  loans: {
+    label: "Staff loans and advances",
+    line: "Track repayments straight out of payroll.",
+  },
+  expenses: {
+    label: "Expense claims",
+    line: "Staff claim money back, you approve it and pay it.",
+  },
+  appraisals: {
+    label: "Appraisals",
+    line: "Scored reviews on a cycle, on top of shared goals.",
+  },
+  hiring: {
+    label: "Hiring",
+    line: "Post a role, track candidates, send an offer.",
+  },
+};
+
+/** Every band, with the wording the wizard uses, for the settings page select. */
+export const HEADCOUNT_LABELS: Record<HeadcountBand, string> = {
+  UNDER_10: "Fewer than 10",
+  FROM_10_TO_50: "10 to 50",
+  FROM_50_TO_250: "50 to 250",
+  OVER_250: "More than 250",
+};
+
+/* --------------------------------------------------------- the demo fallback */
+
+/**
+ * A mirror of the served question set, for demonstrations with no database.
+ *
+ * The wording, order and flag mappings are the API's to change. This exists so
+ * the wizard — the second thing a customer sees, and our clearest usability
+ * argument — can be shown on a laptop in a room with no backend. It is read
+ * only when `useSession().isConnected` is false.
+ */
+const DEMO_QUESTIONS: ApiWizardQuestion[] = [
+  {
+    id: "headcount",
+    step: 1,
+    question: "How many people do you pay?",
+    help: "Everyone on the payroll, full-time or not.",
+    options: [
+      {
+        value: "UNDER_10",
+        label: "Fewer than 10",
+        sets: { headcountBand: "UNDER_10", departments: false, grades: false },
+      },
+      {
+        value: "FROM_10_TO_50",
+        label: "10 to 50",
+        sets: {
+          headcountBand: "FROM_10_TO_50",
+          departments: true,
+          grades: false,
+        },
+      },
+      {
+        value: "FROM_50_TO_250",
+        label: "50 to 250",
+        sets: {
+          headcountBand: "FROM_50_TO_250",
+          departments: true,
+          grades: true,
+        },
+      },
+      {
+        value: "OVER_250",
+        label: "More than 250",
+        sets: { headcountBand: "OVER_250", departments: true, grades: true },
+      },
+    ],
+  },
+  {
+    id: "shifts",
+    step: 2,
+    question: "Does anyone work shifts or nights?",
+    help: "A rota, night duty, or weekend cover.",
+    options: [
+      { value: "yes", label: "Yes", sets: { shifts: true } },
+      { value: "no", label: "No", sets: { shifts: false } },
+    ],
+  },
+  {
+    id: "loans",
+    step: 3,
+    question: "Do you give staff loans or salary advances?",
+    help: "Money you recover from their salary later.",
+    options: [
+      { value: "yes", label: "Yes", sets: { loans: true } },
+      { value: "no", label: "No", sets: { loans: false } },
+    ],
+  },
+  {
+    id: "expenses",
+    step: 4,
+    question: "Do staff claim money back from you?",
+    help: "Transport, airtime, anything they paid for and you refund.",
+    options: [
+      { value: "yes", label: "Yes", sets: { expenses: true } },
+      { value: "no", label: "No", sets: { expenses: false } },
+    ],
+  },
+  {
+    id: "appraisals",
+    step: 5,
+    question: "Do you run formal appraisals?",
+    help: "Scored reviews on a cycle, not just shared goals.",
+    options: [
+      { value: "yes", label: "Yes", sets: { appraisals: true } },
+      { value: "no", label: "No", sets: { appraisals: false } },
+    ],
+  },
+];
+
+const DEMO_KEY = "approvehr.features.demo";
+const DEMO_VERSION = 1;
+
+type DemoState = {
+  flags: FeatureFlags;
+  headcountBand: HeadcountBand;
+  setupStep: number;
+  setupCompletedAt: string | null;
+};
+
+/** The band the seed company is actually in. Ten people is ten people. */
+function seedBand(): HeadcountBand {
+  const size = EMPLOYEES.length;
+  if (size < 10) return "UNDER_10";
+  if (size <= 50) return "FROM_10_TO_50";
+  if (size <= 250) return "FROM_50_TO_250";
+  return "OVER_250";
+}
+
+function optionFor(questionId: string, value: string) {
+  return DEMO_QUESTIONS.find((q) => q.id === questionId)?.options.find(
+    (option) => option.value === value,
+  );
+}
+
+function applySets(state: DemoState, sets: FeaturePatch): DemoState {
+  const flags = { ...state.flags };
+  for (const key of FEATURE_KEYS) {
+    const value = sets[key];
+    if (value !== undefined) flags[key] = value;
+  }
+  return {
+    ...state,
+    flags,
+    headcountBand: sets.headcountBand ?? state.headcountBand,
+  };
+}
+
+/**
+ * Applying a patch the way the server does it, without a second copy of the
+ * rule: a named band applies that band's own option first, then the explicit
+ * patch lands on top. So `{ headcountBand: "UNDER_10" }` switches departments
+ * and grades off, and `{ headcountBand: "UNDER_10", departments: true }` keeps
+ * departments — because the caller said so.
+ */
+function demoApply(state: DemoState, patch: FeaturePatch): DemoState {
+  let next = state;
+  if (patch.headcountBand) {
+    const option = optionFor("headcount", patch.headcountBand);
+    if (option) next = applySets(next, option.sets);
+  }
+  return applySets(next, patch);
+}
+
+/**
+ * The demo's starting point: the seed company's real size, run through the same
+ * question the wizard asks. Derived rather than declared, so the demo cannot
+ * claim a shape its own data contradicts.
+ */
+function demoDefaults(): DemoState {
+  const base: DemoState = {
+    flags: BASE_FLAGS,
+    headcountBand: "UNDER_10",
+    setupStep: 0,
+    setupCompletedAt: null,
+  };
+  return demoApply(base, { headcountBand: seedBand() });
+}
+
+function readDemo(): DemoState {
+  const defaults = demoDefaults();
+  try {
+    const raw = window.localStorage.getItem(DEMO_KEY);
+    if (!raw) return defaults;
+    const parsed = JSON.parse(raw) as { v?: number; data?: Partial<DemoState> };
+    if (parsed.v !== DEMO_VERSION || !parsed.data) return defaults;
+    return {
+      ...defaults,
+      ...parsed.data,
+      flags: { ...defaults.flags, ...parsed.data.flags },
+    };
+  } catch {
+    return defaults;
+  }
+}
+
+function writeDemo(state: DemoState): DemoState {
+  try {
+    window.localStorage.setItem(
+      DEMO_KEY,
+      JSON.stringify({ v: DEMO_VERSION, data: state }),
+    );
+  } catch {
+    /* Private browsing, or storage full. The in-memory cache still holds for
+       this session, so the demo stays consistent — it just will not survive a
+       reload. There is nothing useful to tell the user about that mid-wizard. */
+  }
+  return state;
+}
+
+/* ------------------------------------------------------------ the singleton */
+
+let cache: State = LOADING;
+/** Which session this cache belongs to. A different org must not inherit it. */
+let loadedFor: string | null = null;
+let inflight: Promise<void> | null = null;
+const listeners = new Set<() => void>();
+
+function set(next: State) {
+  cache = next;
+  listeners.forEach((listener) => listener());
+}
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+function fromApi(features: ApiFeatures): State {
+  return {
+    flags: {
+      departments: features.departments,
+      grades: features.grades,
+      shifts: features.shifts,
+      loans: features.loans,
+      expenses: features.expenses,
+      appraisals: features.appraisals,
+      hiring: features.hiring,
+    },
+    headcountBand: features.headcountBand,
+    setupStep: features.setupStep,
+    totalSteps: features.totalSteps,
+    setupCompletedAt: features.setupCompletedAt,
+    setupRequired: features.setupRequired,
+    loading: false,
+    error: null,
+    source: "api",
+  };
+}
+
+function fromDemo(demo: DemoState): State {
+  return {
+    flags: demo.flags,
+    headcountBand: demo.headcountBand,
+    setupStep: demo.setupStep,
+    totalSteps: DEMO_QUESTIONS.length,
+    setupCompletedAt: demo.setupCompletedAt,
+    setupRequired: demo.setupCompletedAt === null,
+    loading: false,
+    error: null,
+    source: "demo",
+  };
+}
+
+/**
+ * Load once per session key.
+ *
+ * The key is `api:<organizationId>` or `demo`, so signing out of one company
+ * and into another reloads rather than showing the previous company's nav.
+ */
+async function ensure(key: string, force = false): Promise<void> {
+  if (!force && loadedFor === key) return;
+  if (inflight) return inflight;
+
+  loadedFor = key;
+  if (!cache.loading) set({ ...cache, loading: true, error: null });
+
+  inflight = (async () => {
+    try {
+      if (key === "demo") {
+        set(fromDemo(readDemo()));
+        return;
+      }
+      set(fromApi(await setup.features()));
+    } catch (error) {
+      /* A failed load must not invent flags. The last known state stays, with a
+         message beside it — a nav that guesses is worse than one that is stale. */
+      set({
+        ...cache,
+        loading: false,
+        error:
+          error instanceof ApiError
+            ? error.message
+            : "Could not read which features are on.",
+      });
+    } finally {
+      inflight = null;
+    }
+  })();
+
+  return inflight;
+}
+
+/** Writes straight into the cache, so every screen sees it at once. */
+function commit(features: ApiFeatures) {
+  set(fromApi(features));
+}
+
+/* --------------------------------------------------------------------- hooks */
+
+function useLoadedState(): State {
+  const { isConnected, isLoading, user } = useSession();
+  const state = useSyncExternalStore(subscribe, () => cache, () => LOADING);
+
+  const key = isConnected ? `api:${user?.organizationId ?? "self"}` : "demo";
+
+  useEffect(() => {
+    /* Nothing to load until the session knows whether it is signed in — loading
+       demo first and API second would flash a different nav. */
+    if (isLoading) return;
+    void ensure(key);
+  }, [key, isLoading]);
+
+  return state;
+}
+
+/**
+ * The flags, flat.
+ *
+ * `const features = useFeatures(); features.loans` — that shape is the point:
+ * the sidebar filters items with it, and a filter should not have to reach
+ * through a wrapper. `headcountBand` rides along because "how many people do
+ * you pay" is the answer that decides two of the flags, and screens legitimately
+ * want to know it.
+ *
+ * Safe to call anywhere, including during the first render on the server: it
+ * returns the smallest-product defaults with `loading: true` and never throws.
+ */
+export function useFeatures(): FeatureFlags & {
+  headcountBand: HeadcountBand;
+  setupRequired: boolean;
+  setupStep: number;
+  totalSteps: number;
+  setupCompletedAt: string | null;
+  loading: boolean;
+  error: string | null;
+  /** `"api"` or `"demo"` once loaded. Screens that say which mode they are in. */
+  source: Source;
+  reload: () => void;
+} {
+  const state = useLoadedState();
+  const { isConnected, user } = useSession();
+
+  const reload = useCallback(() => {
+    void ensure(isConnected ? `api:${user?.organizationId ?? "self"}` : "demo", true);
+  }, [isConnected, user?.organizationId]);
+
+  return {
+    ...state.flags,
+    headcountBand: state.headcountBand,
+    setupRequired: state.setupRequired,
+    setupStep: state.setupStep,
+    totalSteps: state.totalSteps,
+    setupCompletedAt: state.setupCompletedAt,
+    loading: state.loading,
+    error: state.error,
+    source: state.source,
+    reload,
+  };
+}
+
+/**
+ * The settings page's hook: the same state, plus the write.
+ *
+ * `editable` is false when the API is connected and this account has no
+ * `MANAGE_SETTINGS` — the reads are open to everybody because the nav is built
+ * from them, but reshaping the product for the whole company is not.
+ */
+export function useFeatureSettings() {
+  const state = useLoadedState();
+  const { isConnected, can } = useSession();
+  const [saving, setSaving] = useState<FeatureKey | "headcountBand" | null>(null);
+
+  const editable = !isConnected || can("MANAGE_SETTINGS");
+
+  const save = useCallback(
+    async (
+      patch: FeaturePatch,
+      field: FeatureKey | "headcountBand",
+    ): Promise<FeatureFlags & { headcountBand: HeadcountBand }> => {
+      setSaving(field);
+      try {
+        if (!isConnected) {
+          const next = writeDemo(demoApply(readDemo(), patch));
+          set(fromDemo(next));
+          return { ...next.flags, headcountBand: next.headcountBand };
+        }
+        const features = await setup.updateFeatures(patch);
+        commit(features);
+        return {
+          departments: features.departments,
+          grades: features.grades,
+          shifts: features.shifts,
+          loans: features.loans,
+          expenses: features.expenses,
+          appraisals: features.appraisals,
+          hiring: features.hiring,
+          headcountBand: features.headcountBand,
+        };
+      } finally {
+        setSaving(null);
+      }
+    },
+    [isConnected],
+  );
+
+  return {
+    flags: state.flags,
+    headcountBand: state.headcountBand,
+    loading: state.loading,
+    error: state.error,
+    source: state.source,
+    setupRequired: state.setupRequired,
+    editable,
+    saving,
+    /** Returns the state the server settled on, which may not be what was sent. */
+    setFeature: useCallback(
+      (key: FeatureKey, value: boolean) => {
+        const patch: FeaturePatch = {};
+        patch[key] = value;
+        return save(patch, key);
+      },
+      [save],
+    ),
+    setHeadcountBand: useCallback(
+      (headcountBand: HeadcountBand) => save({ headcountBand }, "headcountBand"),
+      [save],
+    ),
+  };
+}
+
+/* -------------------------------------------------------------- the wizard */
+
+type WizardState = {
+  questions: ApiWizardQuestion[];
+  /** Answered up to here. `0` means nothing answered. */
+  step: number;
+  setupCompletedAt: string | null;
+  loading: boolean;
+  error: string | null;
+};
+
+/**
+ * The wizard, fetched.
+ *
+ * Only mounted on `/setup`, so this one is a plain hook rather than a singleton:
+ * one screen, one request. The questions are the server's — see the note at the
+ * top of `lib/api/setup.ts` for why none of them are written here.
+ */
+export function useWizard() {
+  const { isConnected, isLoading, can } = useSession();
+  const [attempt, setAttempt] = useState(0);
+  const [state, setState] = useState<WizardState>({
+    questions: [],
+    step: 0,
+    setupCompletedAt: null,
+    loading: true,
+    error: null,
+  });
+
+  useEffect(() => {
+    if (isLoading) return;
+    let cancelled = false;
+
+    void (async () => {
+      if (!isConnected) {
+        const demo = readDemo();
+        if (cancelled) return;
+        setState({
+          questions: DEMO_QUESTIONS,
+          step: demo.setupStep,
+          setupCompletedAt: demo.setupCompletedAt,
+          loading: false,
+          error: null,
+        });
+        return;
+      }
+      try {
+        const wizard = await setup.wizard();
+        if (cancelled) return;
+        setState({
+          questions: wizard.questions,
+          step: wizard.step,
+          setupCompletedAt: wizard.setupCompletedAt,
+          loading: false,
+          error: null,
+        });
+      } catch (error) {
+        if (cancelled) return;
+        setState((current) => ({
+          ...current,
+          loading: false,
+          error:
+            error instanceof ApiError
+              ? error.message
+              : "Could not load the questions.",
+        }));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isConnected, isLoading, attempt]);
+
+  const answer = useCallback(
+    async (questionId: string, value: string): Promise<void> => {
+      if (!isConnected) {
+        const option = optionFor(questionId, value);
+        const question = DEMO_QUESTIONS.find((q) => q.id === questionId);
+        if (!option || !question) return;
+        const current = readDemo();
+        const next = writeDemo({
+          ...demoApply(current, option.sets),
+          setupStep: Math.max(current.setupStep, question.step),
+        });
+        set(fromDemo(next));
+        setState((s) => ({ ...s, step: next.setupStep }));
+        return;
+      }
+      const result = await setup.answer(questionId, value);
+      commit(result);
+      setState((s) => ({ ...s, step: result.setupStep }));
+    },
+    [isConnected],
+  );
+
+  /**
+   * Finish.
+   *
+   * Returns what was seeded when the API did the seeding, and `null` in demo
+   * mode — where nothing was created, and saying otherwise would be a lie about
+   * the one part of setup that does real work.
+   */
+  const complete = useCallback(async (): Promise<ApiSeeded | null> => {
+    if (!isConnected) {
+      const current = readDemo();
+      const next = writeDemo({
+        ...current,
+        setupStep: DEMO_QUESTIONS.length,
+        setupCompletedAt: current.setupCompletedAt ?? new Date().toISOString(),
+      });
+      set(fromDemo(next));
+      setState((s) => ({ ...s, setupCompletedAt: next.setupCompletedAt }));
+      return null;
+    }
+    const result = await setup.complete();
+    commit(result);
+    setState((s) => ({ ...s, setupCompletedAt: result.setupCompletedAt }));
+    return result.seeded;
+  }, [isConnected]);
+
+  const reload = useCallback(() => {
+    setState((s) => ({ ...s, loading: true, error: null }));
+    setAttempt((n) => n + 1);
+  }, []);
+
+  return {
+    ...state,
+    /** False when this account may read the questions but not answer them. */
+    canAnswer: !isConnected || can("MANAGE_SETTINGS"),
+    answer,
+    complete,
+    reload,
+  };
+}

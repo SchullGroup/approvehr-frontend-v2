@@ -1,0 +1,28 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "approvehr-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
+      "port": 3000
+    },
+    {
+      "name": "approvehr-marketing",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "/Users/mac/Documents/Schulltech/approvehr-marketing",
+        "run",
+        "start",
+        "--",
+        "--port",
+        "3100"
+      ],
+      "port": 3100
+    }
+  ]
+}

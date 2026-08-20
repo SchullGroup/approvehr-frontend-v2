@@ -1,0 +1,227 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import {
+  Badge,
+  Callout,
+  Card,
+  CardBody,
+  CardHeader,
+  Field,
+  Select,
+  Switch,
+  useToast,
+} from "@/components/ui";
+import { PageBody, PageHeader } from "@/components/portal/shell";
+import { ApiError } from "@/lib/api/client";
+import { FEATURE_KEYS, type FeatureKey, type HeadcountBand } from "@/lib/api/setup";
+import {
+  FEATURE_COPY,
+  HEADCOUNT_LABELS,
+  useFeatureSettings,
+} from "@/lib/store/features";
+
+/**
+ * Turn on more features.
+ *
+ * The other half of Rule 2 in `PARITY.md`. Setup hides most of the product on
+ * day one, which is only defensible if there is one obvious place that shows
+ * everything hidden and turns it on in a click. This is that place: every
+ * capability in the system, one plain line each, and a switch.
+ *
+ * ## Off is hidden, never deleted
+ *
+ * Switching something off hides its screens and keeps its data — the API is
+ * built that way on purpose, and the page says so once, at the top, because it
+ * is the fear that stops somebody trying a switch at all.
+ *
+ * ## The headcount answer is not a switch
+ *
+ * "How many people do you pay?" sits above the switches because it moves two of
+ * them: below ten people, departments and grades go off, since a hierarchy of
+ * four people is a fiction somebody has to maintain. The API applies that rule,
+ * and this page **reports what actually changed** rather than predicting it —
+ * the response is the truth, and a switch that flips without a word looks like
+ * a bug.
+ */
+export function FeaturesScreen() {
+  const features = useFeatureSettings();
+  const toast = useToast();
+  const connected = features.source === "api";
+
+  /* Which row is mid-request, so only that switch goes quiet. */
+  const [pending, setPending] = useState<FeatureKey | "headcountBand" | null>(
+    null,
+  );
+
+  const toggle = async (key: FeatureKey, value: boolean) => {
+    setPending(key);
+    try {
+      await features.setFeature(key, value);
+      toast.push({
+        title: `${FEATURE_COPY[key].label} ${value ? "is on" : "is off"}`,
+        tone: value ? "success" : "info",
+        ...(value
+          ? {}
+          : { detail: "Nothing was deleted. Switch it back on any time." }),
+      });
+    } catch (error) {
+      toast.push({
+        title: "That did not save",
+        tone: "danger",
+        detail:
+          error instanceof ApiError
+            ? error.message
+            : "Something went wrong. Try again.",
+      });
+    } finally {
+      setPending(null);
+    }
+  };
+
+  const changeBand = async (band: HeadcountBand) => {
+    const before = features.flags;
+    setPending("headcountBand");
+    try {
+      const after = await features.setHeadcountBand(band);
+      /* Report the side effect from the response, never from a guess at the
+         rule. Two copies of that rule is how the page starts lying. */
+      const switchedOff = FEATURE_KEYS.filter(
+        (key) => before[key] && !after[key],
+      );
+      toast.push({
+        title: `Set to ${HEADCOUNT_LABELS[band].toLowerCase()}`,
+        tone: switchedOff.length > 0 ? "info" : "success",
+        ...(switchedOff.length > 0
+          ? {
+              /* "Switched off:" rather than a joined sentence — two of these
+                 labels contain the word "and" and reading them in a list
+                 produced "Departments and teams and Salary grades". */
+              detail: `Switched off: ${switchedOff
+                .map((key) => FEATURE_COPY[key].label)
+                .join(", ")}. Turn ${
+                switchedOff.length > 1 ? "them" : "it"
+              } back on below.`,
+            }
+          : {}),
+      });
+    } catch (error) {
+      toast.push({
+        title: "That did not save",
+        tone: "danger",
+        detail:
+          error instanceof ApiError
+            ? error.message
+            : "Something went wrong. Try again.",
+      });
+    } finally {
+      setPending(null);
+    }
+  };
+
+  const on = FEATURE_KEYS.filter((key) => features.flags[key]).length;
+
+  return (
+    <>
+      <PageHeader
+        title="Turn on more features"
+        description="Switch on the parts of the product you use. Switching one off hides it and keeps the data."
+        breadcrumb={[{ href: "/settings", label: "Settings" }]}
+        meta={
+          <Badge tone={connected ? "success" : "warning"} size="sm" dot>
+            {connected ? "Live from the API" : "Demo data, this browser only"}
+          </Badge>
+        }
+      />
+
+      <PageBody className="flex flex-col gap-6">
+        {features.error && (
+          <Callout tone="danger" title="Could not read your features">
+            {features.error}
+          </Callout>
+        )}
+
+        {!features.editable && (
+          <Callout tone="info" title="You cannot change these">
+            Ask whoever manages settings for this company.
+          </Callout>
+        )}
+
+        {features.setupRequired && features.editable && (
+          /* Five questions set all of this at once, so the way out of here is a
+             link to them rather than a sentence about them. */
+          <Callout tone="accent" title="Setup is not finished">
+            <Link
+              href="/setup"
+              className="font-medium underline decoration-accent-line underline-offset-4 hover:decoration-accent"
+            >
+              Answer the five setup questions
+            </Link>{" "}
+            and these get set for you.
+          </Callout>
+        )}
+
+        <Card>
+          <CardHeader
+            title="How many people do you pay?"
+            description="Everyone on the payroll, full-time or not."
+            level={2}
+          />
+          <CardBody>
+            {/* The heading above is the label, so the field's own one is for
+                screen readers. Nothing explains the side effect up front: the
+                toast reports what actually changed, and offers the way back. */}
+            <Field label="How many people do you pay?" hideLabel>
+              <Select
+                value={features.headcountBand}
+                disabled={
+                  !features.editable ||
+                  features.loading ||
+                  pending === "headcountBand"
+                }
+                onChange={(event) => {
+                  void changeBand(event.target.value as HeadcountBand);
+                }}
+                className="max-w-xs"
+              >
+                {(
+                  Object.keys(HEADCOUNT_LABELS) as HeadcountBand[]
+                ).map((band) => (
+                  <option key={band} value={band}>
+                    {HEADCOUNT_LABELS[band]}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader
+            title="Features"
+            description={`${on} of ${FEATURE_KEYS.length} on. Changes save as you make them.`}
+            level={2}
+          />
+          <CardBody className="flex flex-col divide-y divide-line py-0">
+            {FEATURE_KEYS.map((key) => (
+              <div key={key} className="py-4">
+                <Switch
+                  label={FEATURE_COPY[key].label}
+                  description={FEATURE_COPY[key].line}
+                  checked={features.flags[key]}
+                  disabled={
+                    !features.editable || features.loading || pending === key
+                  }
+                  onChange={(event) => {
+                    void toggle(key, event.target.checked);
+                  }}
+                />
+              </div>
+            ))}
+          </CardBody>
+        </Card>
+      </PageBody>
+    </>
+  );
+}
