@@ -33,6 +33,8 @@ import { useSession } from "@/lib/store/session";
 import { useLeaveBalances } from "@/lib/store/leave-balances";
 import { useFeatures } from "@/lib/store/features";
 import { MyLoans } from "@/app/(app)/payroll/loans";
+import { MyRota } from "@/app/(app)/people/shifts";
+import { MyAssets } from "@/app/(app)/people/assets";
 import { useEmployeeStore } from "@/lib/store/employees";
 import { fullName, missingForPayroll } from "@/lib/types";
 import { self } from "@/lib/api/self";
@@ -66,9 +68,10 @@ import { self } from "@/lib/api/self";
 export function ProfileScreen() {
   const { isLoading, isSignedIn, employee, employeeId, mode, signOut } =
     useSession();
-  /* A staff loan card only belongs here for a company that lends to staff —
-     the same flag that decides whether Loans is in the nav at all. */
-  const { loans: loansEnabled } = useFeatures();
+  /* A staff loan card only belongs here for a company that lends to staff, and
+     a rota only for a company that runs one — the same flags that decide
+     whether Loans and Shifts are in the nav at all. */
+  const { loans: loansEnabled, shifts: shiftsEnabled } = useFeatures();
 
   if (isLoading) {
     return (
@@ -163,10 +166,22 @@ export function ProfileScreen() {
           <SecurityCard onSignOut={signOut} apiMode={mode === "api"} />
         </div>
 
-        {/* Composed, not reimplemented: `MyLoans` is exported from the loans
-            module so there is one component that knows what a loan looks like
-            to the person repaying it. */}
+        {/* Composed, not reimplemented: `MyLoans` and `MyRota` are exported
+            from their own modules so there is one component that knows what a
+            loan looks like to the person repaying it, and one that knows what a
+            rota looks like to the person working it.
+
+            The rota sits above the loan because it carries the only thing on
+            this page that might need an answer today: a colleague asking to be
+            covered on Thursday. */}
+        {shiftsEnabled && <MyRota />}
         {loansEnabled && <MyLoans />}
+
+        {/* Same principle, and no feature flag: every company hands somebody a
+            laptop or a phone, and the person holding it is the one who has to
+            hand it back. `GET /assets/employees/:id` needs no permission for
+            your own id, so this renders for everybody. */}
+        <MyAssets />
 
         {/* Employment facts. Read-only: the company owns these. */}
         <Card>
