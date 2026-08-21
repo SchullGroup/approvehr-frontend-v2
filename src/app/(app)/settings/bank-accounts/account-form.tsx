@@ -181,7 +181,7 @@ export function AccountForm({
         >
           <Input
             value={accountNumber}
-            inputMode="numeric"
+            digits={10}
             autoComplete="off"
             placeholder="0123456789"
             onChange={(e) => {

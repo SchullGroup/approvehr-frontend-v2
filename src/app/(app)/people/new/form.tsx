@@ -1085,7 +1085,7 @@ export function NewEmployeeForm() {
                         >
                           <Input
                             data-employee-field="bankAccount"
-                            inputMode="numeric"
+                            digits={10}
                             value={draft.bankAccount}
                             onChange={(e) => set("bankAccount", e.target.value)}
                             placeholder="0123456789"
@@ -1132,6 +1132,7 @@ export function NewEmployeeForm() {
                         >
                           <Input
                             data-employee-field="tin"
+                            digits={10}
                             value={draft.tin}
                             onChange={(e) => set("tin", e.target.value)}
                             placeholder="1234567890"
