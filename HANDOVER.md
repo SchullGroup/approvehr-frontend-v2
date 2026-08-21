@@ -1570,3 +1570,78 @@ demo-mode refusal. Both template downloads run without error.
 "try those again" loop. All three need the directory, and signing in needs a
 password this session could not enter — they are covered by the backend tests
 above instead. Somebody with credentials should walk them once.
+
+---
+
+# The importer and the ETL now disagree on purpose
+
+The change above — `employee_no` no longer required, a number generated instead —
+was right for the surface it was written for and **silently wrong one layer
+down**, because `scripts/etl/migrate.ts` reuses the importer's own `checkRows`
+rather than writing a second validator. That reuse is the right design and is
+why it broke: a rule relaxed for spreadsheet uploads was relaxed for the legacy
+migration at the same instant, and nothing in either module said they were
+different callers.
+
+Four assertions in `tests/etl.test.ts` caught it. They were the only thing that
+did, and it is worth being precise about what they caught, because "8 imported
+where 7 was expected" reads like a stale expectation somebody should update:
+
+- **The migration is re-runnable, and `(organizationId, employeeNo)` is its
+  idempotency key** — the table at the top of `migrate.ts` says so. A generated
+  `AHR-0001` exists in no legacy database, so a second run cannot match it.
+- **`employeeNoByLegacy` only records numbers the legacy row actually carries.**
+  So a generated number is never learned, and tiers 4 and up cannot resolve that
+  person's payslips, leave or approvals. They land as a record with no history —
+  a directory row that looks complete and quietly is not.
+
+Only the fixture's DOB saved it from literal duplication: the row happens to
+carry `01/01/1990`, so the second run caught it on the name-plus-date-of-birth
+duplicate check. A legacy row with no staff number, no email **and** no date of
+birth would have been added again on every run, and nothing would have said so.
+
+## The fix, and why it is a parameter
+
+`CheckOptions.requireEmployeeNo` in `src/modules/imports/service.ts`, threaded
+through `checkRows`, `validateEmployees` and `applyEmployees` as a **function
+argument, never a request field** — a client must not be able to choose how
+strict its own import is. `ETL_CHECK` in `migrate.ts` is the one caller that
+sets it.
+
+Both behaviours are correct for their caller and neither is a default worth
+having globally:
+
+| | Spreadsheet upload | Legacy ETL |
+|---|---|---|
+| How often | once, by hand | repeatedly, by script |
+| No staff number | generate `AHR-0001`, say what it costs | **refuse the row**, name the column |
+| Why | refusing a shop owner whose file has no such column is the product disagreeing with itself | the number *is* the key; generating one breaks idempotency and strands history |
+
+The refusal names the consequence rather than the rule, so somebody reads it and
+goes and puts a number in the legacy database.
+
+**Standing rule this leaves behind:** `src/modules/imports/` has two callers with
+different contracts. Relaxing a validation rule there is not a local change —
+run `tests/etl.test.ts` as well as `tests/imports.test.ts`, and if only the ETL
+ones move, ask which caller the rule was really for before editing the
+expectation.
+
+## The suite's flakiness is a dev server, and it is measurable now
+
+The entry above says six or seven tests fail intermittently and guesses that
+`tests/setup.ts` sharing a database with development is the cause. That guess is
+right, and it is worth writing down how it was separated from a real bug, because
+this batch contained one of each:
+
+- **With two `tsx watch src/server.ts` dev servers running** against the same
+  `DATABASE_URL`: 4 failures, all in `tests/etl.test.ts`, all reproducible alone
+  with the dev servers stopped. **Genuine bug** — the one above.
+- **With no dev server:** 997/997, then 996/997 where the single failure was
+  `tests/webhooks.test.ts` timing out at 5000ms on a file this batch never
+  touched, passing 3/3 alone.
+
+So the test that distinguishes them is cheap and should be the first move every
+time: **stop every dev server, re-run the file alone.** An assertion that fails
+on exact values is a bug; a 5s timeout on an untouched file is the shared
+database. `pgrep -f "src/server.ts"` before running the suite is worth the two
+seconds.
