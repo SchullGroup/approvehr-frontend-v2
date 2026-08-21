@@ -5,7 +5,7 @@ import { PayrollSettingsForm } from "./form";
 export const metadata: Metadata = {
   title: "Payroll settings",
   description:
-    "Working month, salary structure, statutory rates and the checks that block a run.",
+    "Working month, salary structure, statutory rates and the checks that stop payroll.",
 };
 
 export default function PayrollSettingsPage() {

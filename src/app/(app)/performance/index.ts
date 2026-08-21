@@ -16,6 +16,7 @@
  * one that drifts from it.
  */
 export { AppraisalsTab } from "./appraisals";
+export { AppraiserMapTab } from "./appraiser-map";
 export { KpisTab } from "./kpis";
 export { ReviewFormModal } from "./review-form";
 export { SkillsTab } from "./skills";

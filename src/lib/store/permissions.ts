@@ -10,6 +10,7 @@ import {
   type SectionKey,
 } from "@/lib/api/permissions";
 import { EMPLOYEES } from "@/lib/mock/people";
+import { SEED_ROLES, type SeedRole } from "@/lib/mock/roles";
 /* The leaf, not `@/lib/permissions` — that import would close a cycle this
    module cannot survive. The file's header explains it. */
 import { PERMISSION_KEYS, type PermissionKey } from "@/lib/permission-keys";
@@ -211,64 +212,15 @@ const DEMO_CATALOGUE: Catalogue = {
 /* ------------------------------------------------------------ the demo seed */
 
 /**
- * The four roles the product actually ships, with demo people in them.
+ * The four shipped roles and their demo members now live in
+ * `lib/mock/roles.ts`.
  *
- * Deliberately the shipped four rather than the six in `lib/store/company.ts`,
- * which predate the backend and disagree with it. Payroll officer holds
- * "Prepare payroll" and not "Approve payroll" — that split is the product's
- * argument, and a demo that blurs it argues the wrong thing.
+ * They moved because two callers below this module need the same answer and
+ * cannot import it from here: the offline sign-in picker in
+ * `lib/store/session.ts`, and the role badge in `lib/roles.ts`. This module
+ * imports `store/session.ts`, so an import back would close a cycle. The seed is
+ * data; this file is the behaviour around it.
  */
-type SeedRole = {
-  id: string;
-  name: string;
-  description: string;
-  permissions: PermissionKey[];
-  members: string[];
-};
-
-const SEED_ROLES: SeedRole[] = [
-  {
-    id: "role-owner",
-    name: "Owner",
-    description: "Full access. Created with the company and cannot be deleted.",
-    permissions: [...PERMISSION_KEYS],
-    members: ["p-02"],
-  },
-  {
-    id: "role-hr-manager",
-    name: "HR manager",
-    description: "Runs people operations. Holds no payroll permission at all.",
-    permissions: [
-      "VIEW_SALARIES",
-      "EDIT_RECORDS",
-      "APPROVE_LEAVE_ALL",
-      "MANAGE_HIRING",
-      "EXPORT_DATA",
-      "IMPORT_DATA",
-      "MANAGE_SETTINGS",
-    ],
-    members: ["p-05", "p-06"],
-  },
-  {
-    id: "role-payroll-officer",
-    name: "Payroll officer",
-    description: "Prepares the run. Somebody else approves it.",
-    permissions: [
-      "VIEW_SALARIES",
-      "RUN_PAYROLL",
-      "MANAGE_PAY_STRUCTURE",
-      "EXPORT_DATA",
-    ],
-    members: ["p-08"],
-  },
-  {
-    id: "role-employee",
-    name: "Employee",
-    description: "Their own record, their own payslips, their own requests.",
-    permissions: [],
-    members: ["p-01", "p-03", "p-04", "p-07", "p-09", "p-10"],
-  },
-];
 
 /** Demo accounts stand in for `User` rows. The employee id doubles as the user id. */
 function demoAccount(employeeId: string): RoleMember | null {
@@ -937,4 +889,29 @@ export function useRolePreview() {
     available: !isConnected,
     set,
   };
+}
+
+/**
+ * Which roles a demo persona holds, honouring edits made on `/settings/roles`.
+ *
+ * Empty when connected, because the demo state is then not the truth and a badge
+ * that read it would be describing a role the person may not hold. The connected
+ * answer comes with the session — see `lib/roles.ts`.
+ *
+ * `lib/mock/roles.ts` has the same lookup against the raw seed, for the two
+ * callers that run below this module and cannot use a hook. This one is the
+ * live version: move somebody into Payroll officer on `/settings/roles` and
+ * their badge changes with the next render, which is the whole reason the demo
+ * roles are editable at all.
+ */
+export function useDemoRoles(employeeId: string | null): { id: string; name: string }[] {
+  const { isConnected } = useSession();
+  const state = useSyncExternalStore(demo.subscribe, demo.read, demo.getServerSnapshot);
+
+  return useMemo(() => {
+    if (isConnected || !employeeId) return [];
+    return demoRoles(state)
+      .filter((role) => demoMembers(state, role.id).includes(employeeId))
+      .map(({ id, name }) => ({ id, name }));
+  }, [isConnected, state, employeeId]);
 }

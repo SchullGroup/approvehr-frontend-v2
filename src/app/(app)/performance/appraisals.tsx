@@ -5,6 +5,7 @@ import { ClipboardList, Layers, MessagesSquare } from "lucide-react";
 import {
   Badge,
   Button,
+  Callout,
   Card,
   CardBody,
   CardHeader,
@@ -21,6 +22,7 @@ import {
   type ApiReview,
 } from "@/lib/api/performance";
 import { useCan } from "@/lib/permissions";
+import { useFeatures } from "@/lib/store/features";
 import {
   useAppraisals,
   useCycleMutations,
@@ -51,17 +53,35 @@ import { ReviewFormModal } from "./review-form";
  * answer — and it does not claim more, because `Review.authorId` is still
  * written for the peer row that carries the answers. Nothing in the read path
  * returns it to anybody, including HR.
+ *
+ * ## Nobody appraising somebody is an exception, and it survives the toast
+ *
+ * Starting a cycle fills in the obvious mapping — everybody's line manager, at
+ * 100% — and returns `withoutAppraiser`: the people who have no manager either,
+ * by name. They will finish the cycle with **no mark**, which is the performance
+ * module's version of running payroll with nobody's bank account: every screen
+ * looks finished and one person silently got nothing.
+ *
+ * So it is a callout on the page and not only a toast. A toast disappears in six
+ * seconds, and this needs somebody to act on it. This is the *simple* mode's
+ * safety net and it works with the multi-appraiser flag off, which is the point
+ * — a company that never opens the mapping surface still gets told.
  */
 export function AppraisalsTab() {
   const appraisals = useAppraisals();
   const framework = useFramework();
   const cycles = useCycleMutations();
+  const features = useFeatures();
   const canManage = useCan("MANAGE_SETTINGS");
   const toast = useToast();
 
   const [opened, setOpened] = useState<string | null>(null);
   const [questionsFor, setQuestionsFor] = useState<ApiCycle | null>(null);
   const [creatingCycle, setCreatingCycle] = useState(false);
+  const [unappraised, setUnappraised] = useState<{
+    cycleName: string;
+    names: string[];
+  } | null>(null);
 
   const run = async (action: () => Promise<unknown>, success: string) => {
     try {
@@ -79,6 +99,36 @@ export function AppraisalsTab() {
             : "Something went wrong. Try again.",
       });
       return false;
+    }
+  };
+
+  /**
+   * Starting a cycle, kept apart from `run` because the result matters.
+   *
+   * `run` throws its result away, which is right for five of the six mutations
+   * here and wrong for this one: `withoutAppraiser` is the list of people who
+   * would finish with no mark, and a helper that discards it is a helper that
+   * discards the only warning anybody gets.
+   */
+  const startCycle = async (cycle: ApiCycle) => {
+    try {
+      const result = await cycles.activate(cycle.id);
+      toast.push({ title: `${cycle.name} started`, tone: "success" });
+      setUnappraised(
+        result.withoutAppraiser.length > 0
+          ? { cycleName: cycle.name, names: result.withoutAppraiser }
+          : null,
+      );
+      appraisals.reload();
+    } catch (error) {
+      toast.push({
+        title: "That did not work",
+        tone: "danger",
+        detail:
+          error instanceof ApiError
+            ? error.message
+            : "Something went wrong. Try again.",
+      });
     }
   };
 
@@ -109,6 +159,36 @@ export function AppraisalsTab() {
         </p>
       )}
 
+      {/* Not a toast. Somebody has to act on this, and a toast is gone in six
+          seconds. It stays until the page is left or somebody dismisses it. */}
+      {unappraised && (
+        <Callout tone="danger" title="Some people have nobody appraising them">
+          <p>
+            {unappraised.names.join(", ")}{" "}
+            {unappraised.names.length === 1 ? "has" : "have"} no manager, so
+            starting {unappraised.cycleName} gave{" "}
+            {unappraised.names.length === 1 ? "them" : "them"} no appraiser.{" "}
+            {unappraised.names.length === 1 ? "They" : "They"} will finish this
+            cycle with no mark unless somebody is assigned.
+          </p>
+          <p className="mt-2 flex flex-wrap items-center gap-3">
+            <span>
+              Set a manager on their record
+              {features.multiAppraiser
+                ? ", or assign an appraiser on the Who appraises whom tab."
+                : "."}
+            </span>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setUnappraised(null)}
+            >
+              Dismiss
+            </Button>
+          </p>
+        </Callout>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-3">
         <Stat label="Waiting on you" value={String(owed.length)} />
         <Stat label="Reviews about you" value={String(record.length)} />
@@ -122,7 +202,13 @@ export function AppraisalsTab() {
       <Card>
         <CardHeader
           title="Waiting on you"
-          description="Your own review, and one for each person who reports to you."
+          description={
+            /* With several appraisers per person, "your reports" is wrong: a
+               functional manager owes forms for people who report elsewhere. */
+            features.multiAppraiser
+              ? "Your own review, and one for each person you appraise."
+              : "Your own review, and one for each person who reports to you."
+          }
         />
         {appraisals.loading ? (
           <CardBody className="flex items-center gap-2 text-[0.875rem] text-muted">
@@ -307,12 +393,7 @@ export function AppraisalsTab() {
                             <Button
                               variant="accent"
                               size="sm"
-                              onClick={() =>
-                                void run(
-                                  () => cycles.activate(cycle.id),
-                                  `${cycle.name} started`,
-                                )
-                              }
+                              onClick={() => void startCycle(cycle)}
                             >
                               Start it
                             </Button>

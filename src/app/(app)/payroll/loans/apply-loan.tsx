@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { AlertTriangle, Wallet } from "lucide-react";
 import {
   Button,
@@ -16,14 +16,11 @@ import {
   useToast,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
-import { employees as employeesApi, toEmployee } from "@/lib/api/endpoints";
 import { kobo, naira, type ApiLoanDetail } from "@/lib/api/loans";
 import { addMonths, monthLabel, priceLoan } from "@/lib/loans/schedule";
-import { calculatePayslip, NO_VARIATION } from "@/lib/payroll/engine";
-import { usePayrollSettings } from "@/lib/payroll/use-settings";
 import { useLoanActions } from "@/lib/store/loans";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
-import { useEmployeeStore } from "@/lib/store/employees";
+import { usePayPreview } from "@/lib/store/pay-components";
 import { useSession } from "@/lib/store/session";
 import { TODAY } from "@/lib/today";
 
@@ -45,15 +42,23 @@ import { TODAY } from "@/lib/today";
  * commit, and a form that collects an amount and a term without showing it has
  * made the applicant do payroll arithmetic in their head.
  *
- * The take-home figure runs through the same payroll engine that computes a real
- * payslip, with the instalment as a post-tax deduction — which is what a loan
- * repayment is. It is not tax-deductible, so it comes off after PAYE, and the
- * "about" in the copy is doing honest work: a real month can carry a bonus,
- * unpaid days or a mid-month rise.
+ * The take-home figure is the applicant's real one, read from the API — the same
+ * payslip preview the record page and the allowances panel show, computed by the
+ * engine the payroll run uses. This screen used to compute it in the browser
+ * from a second copy of that engine, which for a while was on the 2011 PAYE
+ * bands and therefore quoted a take-home ₦683.33 a month too high.
  *
- * When the pay figure is not available, the deduction is still shown and the
- * take-home line says plainly that it cannot be worked out. An invented number
- * here would be a number somebody borrows against.
+ * The "after" figure needs no engine at all, which is the point worth keeping: a
+ * loan repayment is an **after-tax** deduction, so it comes off net once PAYE,
+ * pension and NHF are all settled and take-home falls by exactly its own
+ * amount. The single piece of arithmetic here is the cap — an instalment cannot
+ * take more than there is, and the payroll run carries the remainder forward
+ * rather than paying somebody a negative amount.
+ *
+ * When the pay figure is not available — no API, no permission to read it, or no
+ * salary on the record — the deduction is still shown and the take-home line
+ * says plainly that it cannot be worked out. An invented number here would be a
+ * number somebody borrows against.
  */
 
 /* ------------------------------------------------------------------ parsing */
@@ -100,59 +105,6 @@ function comfortableTerm(
     if (priced && priced.instalmentKobo <= ceiling) return term;
   }
   return null;
-}
-
-/* -------------------------------------------------------------- the pay seam */
-
-/**
- * The target's contractual monthly gross, in naira, or `null`.
- *
- * Demo mode reads the **live** local store rather than the seed array, so a
- * salary edited on `/people/[id]` shows up here — the mistake `HANDOVER.md`
- * records against `RUN_PEOPLE`. Connected, it asks for the one employee rather
- * than paging the directory: a form needs one number, and loading two hundred
- * records to find it is slowest for the company with the most staff.
- */
-function useMonthlyGross(employeeId: string | null): {
-  gross: number | null;
-  loading: boolean;
-} {
-  const { isConnected } = useSession();
-  const local = useEmployeeStore();
-  const [fetched, setFetched] = useState<{ id: string; gross: number | null } | null>(
-    null,
-  );
-
-  useEffect(() => {
-    if (!isConnected || !employeeId) return;
-    let cancelled = false;
-    const controller = new AbortController();
-    void (async () => {
-      try {
-        const row = await employeesApi.get(employeeId, controller.signal);
-        if (!cancelled) setFetched({ id: employeeId, gross: toEmployee(row).grossMonthly });
-      } catch {
-        /* No pay on this record, or no permission to read it. Either way the
-           preview says so rather than guessing. */
-        if (!cancelled) setFetched({ id: employeeId, gross: null });
-      }
-    })();
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [isConnected, employeeId]);
-
-  if (!isConnected) {
-    const found = local.all.find((employee) => employee.id === employeeId);
-    return { gross: found?.grossMonthly ?? null, loading: false };
-  }
-
-  const matched = fetched !== null && fetched.id === employeeId;
-  return {
-    gross: matched ? fetched.gross : null,
-    loading: Boolean(employeeId) && !matched,
-  };
 }
 
 /* --------------------------------------------------------------- the picker */
@@ -219,7 +171,6 @@ export function ApplyLoanModal({
   canApplyForOthers?: boolean;
 }) {
   const { employeeId: selfId } = useSession();
-  const { settings } = usePayrollSettings();
   const { apply } = useLoanActions();
   const toast = useToast();
 
@@ -239,7 +190,21 @@ export function ApplyLoanModal({
   const forSomebodyElse = Boolean(
     applicantId && selfId && applicantId !== selfId,
   );
-  const { gross } = useMonthlyGross(applicantId);
+  /**
+   * The applicant's payslip, from the API.
+   *
+   * `GET /pay-components/preview/:employeeId` — their real net, with their real
+   * allowances and deductions in it, rather than a figure derived from the
+   * headline salary. Offline it is unavailable and every figure below that
+   * depends on it disappears; there is no browser-side engine to fall back to
+   * any more, and a loan is the last place to want an estimate.
+   *
+   * Not debounced: nothing the applicant types changes this request. Only the
+   * instalment moves, and that is arithmetic on the answer rather than a new
+   * question.
+   */
+  const pay = usePayPreview(applicantId);
+  const netBeforeKobo = pay.data?.payslip.netKobo ?? null;
 
   const principal = parseNaira(amount);
   const months = parseWhole(term);
@@ -259,26 +224,30 @@ export function ApplyLoanModal({
     [principal, months, interestRate, startPeriod],
   );
 
-  /* The whole point of the screen. Both figures come from the payroll engine, so
-     the "after" line is the same arithmetic a payslip would run — the instalment
-     enters as a post-tax deduction, which is what a loan repayment is. */
+  /**
+   * The whole point of the screen, in whole kobo.
+   *
+   * `netBeforeKobo` is the engine's. The instalment is subtracted from it and
+   * capped at what is there — the same cap `computePayslip` applies, for the
+   * same reason: a month of unpaid leave is enough to make an instalment
+   * unrecoverable, and the loan carries the remainder rather than the payslip
+   * going negative.
+   */
   const effect = useMemo(() => {
-    if (!priced || gross === null || gross <= 0) return null;
-    const before = calculatePayslip("preview", gross, NO_VARIATION, settings);
-    const monthly = naira(priced.instalmentKobo);
-    const after = calculatePayslip(
-      "preview",
-      gross,
-      { additions: 0, postTaxDeductions: monthly, unpaidDays: 0 },
-      settings,
-    );
-    return { monthly, netBefore: before.netPay, netAfter: after.netPay };
-  }, [priced, gross, settings]);
+    if (!priced || netBeforeKobo === null || netBeforeKobo <= 0) return null;
+    const monthlyKobo = priced.instalmentKobo;
+    const takenKobo = Math.min(monthlyKobo, netBeforeKobo);
+    return {
+      monthlyKobo,
+      netBeforeKobo,
+      netAfterKobo: netBeforeKobo - takenKobo,
+    };
+  }, [priced, netBeforeKobo]);
 
   const overCommitted =
-    effect !== null && effect.netAfter <= 0
+    effect !== null && effect.netAfterKobo <= 0
       ? "none"
-      : effect !== null && effect.monthly > effect.netBefore / 3
+      : effect !== null && effect.monthlyKobo > effect.netBeforeKobo / 3
         ? "tight"
         : null;
 
@@ -287,7 +256,7 @@ export function ApplyLoanModal({
       ? comfortableTerm(
           priced.principalKobo,
           interestRate,
-          kobo(effect.netBefore),
+          effect.netBeforeKobo,
           months ?? 1,
         )
       : null;
@@ -433,11 +402,11 @@ export function ApplyLoanModal({
                   the pay it comes out of has no "leaving about" — printing a
                   negative take-home would be arithmetic nobody can act on, and
                   the warning underneath is the thing to read instead. */}
-              {effect && effect.netAfter > 0 ? (
+              {effect && effect.netAfterKobo > 0 ? (
                 <>
                   , leaving about{" "}
                   <strong className="font-semibold">
-                    {formatMoney(effect.netAfter, "NGN", { decimals: true })}
+                    {money(effect.netAfterKobo)}
                   </strong>{" "}
                   to take home.
                 </>
@@ -446,11 +415,10 @@ export function ApplyLoanModal({
               )}
             </p>
 
-            {effect && effect.netAfter > 0 ? (
+            {effect && effect.netAfterKobo > 0 ? (
               <p className="mt-1.5 text-[0.875rem] text-body">
-                Take-home now{" "}
-                {formatMoney(effect.netBefore, "NGN", { decimals: true })} ·
-                first deduction {monthLabel(startPeriod)} · last{" "}
+                Take-home now {money(effect.netBeforeKobo)} · first deduction{" "}
+                {monthLabel(startPeriod)} · last{" "}
                 {monthLabel(
                   priced.lines[priced.lines.length - 1]?.dueDate ?? startPeriod,
                 )}
@@ -463,10 +431,10 @@ export function ApplyLoanModal({
                 )}
                 .
                 {effect
-                  ? ` Take-home now ${formatMoney(effect.netBefore, "NGN", {
-                      decimals: true,
-                    })}.`
-                  : " Take-home is not shown because this record has no monthly pay on it."}
+                  ? ` Take-home now ${money(effect.netBeforeKobo)}.`
+                  : pay.available
+                    ? " Take-home is not shown because there is no pay figure on this record we can read."
+                    : " Take-home is worked out by the payroll engine on the API, which is not answering, so it is not shown."}
               </p>
             )}
 
@@ -509,9 +477,8 @@ export function ApplyLoanModal({
             title="That leaves nothing to live on"
           >
             <p className="text-[0.875rem] leading-relaxed">
-              {money(kobo(effect.monthly))} a month is more than the whole
-              take-home of{" "}
-              {formatMoney(effect.netBefore, "NGN", { decimals: true })}.
+              {money(effect.monthlyKobo)} a month is more than the whole
+              take-home of {money(effect.netBeforeKobo)}.
             </p>
             {suggestion && (
               <Button
@@ -532,8 +499,8 @@ export function ApplyLoanModal({
             title="More than a third of take-home"
           >
             <p className="text-[0.875rem] leading-relaxed">
-              {money(kobo(effect.monthly))} out of{" "}
-              {formatMoney(effect.netBefore, "NGN", { decimals: true })} a month.
+              {money(effect.monthlyKobo)} out of {money(effect.netBeforeKobo)} a
+              month.
             </p>
             {suggestion && (
               <Button

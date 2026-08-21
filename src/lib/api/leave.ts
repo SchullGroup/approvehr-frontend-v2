@@ -1,6 +1,6 @@
 "use client";
 
-import { ApiError, request, requestPaged } from "@/lib/api/client";
+import { request, requestPaged } from "@/lib/api/client";
 
 /**
  * Leave — `/api/v1/leave`.
@@ -15,7 +15,8 @@ import { ApiError, request, requestPaged } from "@/lib/api/client";
  * | Undo a decision | `POST /leave/requests/:id/reopen` | `APPROVE_LEAVE_ALL` |
  * | Withdraw | `POST /leave/requests/:id/cancel` | nothing |
  * | Balances | `GET /leave/balances/:id` | `VIEW_SALARIES`, or your own |
- * | Public holidays | `GET /leave/holidays` | nothing — **no route yet, see below** |
+ * | The holiday calendar | `GET /leave/holidays` | nothing |
+ * | Add, edit or remove a holiday | `POST`/`PATCH`/`DELETE /leave/holidays` | `MANAGE_SETTINGS` |
  *
  * ## The request's own status is the truth
  *
@@ -52,25 +53,30 @@ import { ApiError, request, requestPaged } from "@/lib/api/client";
  * - Deciding a request that is already decided is a 409 telling you to reopen it
  *   first.
  *
- * ## The holiday calendar is data, and no route serves it yet
+ * ## The holiday calendar, and why it never filters
  *
- * `PublicHoliday` is a real model with a real `confirmed` flag, because Nigerian
- * holidays are proclaimed at short notice and the Eid dates move with the lunar
- * calendar — which is the whole reason they are rows and not a constant. Three
- * services read that table (attendance, overtime, payroll proration) and **no
- * endpoint returns it.** `GET /leave/holidays` is where it belongs; asking for it
- * today answers 404.
+ * `GET /leave/holidays` accepts `confirmedOnly`, and this wrapper never sends it.
+ * That is deliberate and matches the API's own default. Nigerian holidays are
+ * frequently not gazetted until days before — the Eid dates move with the lunar
+ * calendar and Independence Day observance shifts when it falls at a weekend — so
+ * an unconfirmed row means "expected, not announced", and it is precisely the
+ * date somebody needs to plan around. A calendar that hides it hides the only
+ * uncertain thing on it. Callers that genuinely need settled dates only (an SLA
+ * clock) ask the API directly; no screen does.
  *
- * So `holidays()` returns `null` on that 404 instead of throwing, and the screen
- * says the calendar is not published rather than quietly showing the demo list.
- * Falling back would put four seeded dates under a badge reading "Live from the
- * API", which is the one thing the two-mode design exists to prevent. When the
- * route lands, delete the `null` branch — nothing else changes.
+ * `awaitingProclamation` comes back beside the list so a screen can say how many
+ * dates are unsettled without walking it. It is a count, not a filter.
  *
- * The one endpoint that does carry holiday names is `GET /helpdesk/analytics`,
- * and it is the wrong source twice over: it needs `EDIT_RECORDS`, and it filters
- * to `confirmed: true`, so it would drop precisely the awaiting-proclamation
- * dates this card exists to flag.
+ * Writing needs `MANAGE_SETTINGS`, because five services read that table —
+ * attendance status, overtime rates, payroll proration and the help desk's
+ * working-hours SLA. Adding a date changes what people are paid.
+ *
+ * **`DELETE` is a hard delete and the API checks nothing.** No leave request,
+ * payslip or timesheet references a holiday by id, so nothing refuses and nothing
+ * cascades: the row goes and every one of those five readers silently recomputes
+ * the day as ordinary. A screen offering the control has to say that, because
+ * nothing else will. `HOLIDAY_DELETE_EFFECTS` at the bottom is that sentence,
+ * written once so the dialog and the calendar cannot drift apart.
  *
  * ## Units and shapes
  *
@@ -144,6 +150,12 @@ type WireHoliday = {
   date: string;
   name: string;
   confirmed: boolean;
+};
+
+/** `GET /leave/holidays` answers an object, not an array. */
+type WireHolidayList = {
+  holidays: WireHoliday[];
+  awaitingProclamation: number;
 };
 
 type WireType = {
@@ -238,12 +250,46 @@ export type LeaveTypeRow = {
  * `confirmed` is the load-bearing field. An unconfirmed holiday is shown as
  * awaiting proclamation, never assumed — a company that rosters against an Eid
  * date the government has not yet declared has rostered against a guess.
+ *
+ * The `id` is what edit, confirm and delete address, so it is not optional in
+ * either mode: the demo store mints its own rather than keying on the date, which
+ * would break the moment somebody corrected one.
  */
 export type PublicHolidayRow = {
+  id: string;
   /** `YYYY-MM-DD`. */
   date: string;
   name: string;
   confirmed: boolean;
+};
+
+/**
+ * The calendar, with the count that is worth surfacing beside it.
+ *
+ * `awaitingProclamation` is the API's own figure, not `holidays.filter(...)`
+ * length recomputed here. Same number today; a second implementation is still a
+ * second thing to keep in step.
+ */
+export type HolidayCalendar = {
+  holidays: PublicHolidayRow[];
+  awaitingProclamation: number;
+};
+
+export type NewHolidayInput = {
+  /** `YYYY-MM-DD`. */
+  date: string;
+  name: string;
+  /**
+   * Absent means confirmed, matching the API and the column default. Somebody
+   * adding a date they have seen proclaimed should not have to say so twice.
+   */
+  confirmed?: boolean;
+};
+
+export type HolidayPatch = {
+  date?: string;
+  name?: string;
+  confirmed?: boolean;
 };
 
 export type LeaveListParams = {
@@ -323,6 +369,13 @@ function toDetail(wire: WireDetail): LeaveDetail {
     balance: wire.balance ? toBalance(wire.balance) : null,
   };
 }
+
+const toHoliday = (wire: WireHoliday): PublicHolidayRow => ({
+  id: wire.id,
+  date: wire.date.slice(0, 10),
+  name: wire.name,
+  confirmed: wire.confirmed,
+});
 
 const toType = (wire: WireType): LeaveTypeRow => ({
   id: wire.id,
@@ -417,33 +470,52 @@ export const leaveApi = {
     ),
 
   /**
-   * The company's holiday calendar, or `null` when the API does not serve one.
+   * The company's holiday calendar for a year, or every year on file.
    *
-   * `null` rather than `[]` because the two mean opposite things to a reader: an
-   * empty array is "we looked and there are none", and this is "nobody can
-   * answer that question yet". A 404 on a collection route is the route being
-   * absent, not a missing record — see the header. Every other failure still
-   * throws, so a 403 or a network drop is not silently read as "no calendar".
+   * `confirmedOnly` is never sent. See the header: the unconfirmed dates are the
+   * ones the calendar exists for.
    */
-  holidays: async (
-    year?: number,
-    signal?: AbortSignal,
-  ): Promise<PublicHolidayRow[] | null> => {
-    try {
-      const rows = await request<WireHoliday[]>("/leave/holidays", {
-        ...(year ? { query: { year } } : {}),
-        ...(signal ? { signal } : {}),
-      });
-      return rows.map((wire) => ({
-        date: wire.date.slice(0, 10),
-        name: wire.name,
-        confirmed: wire.confirmed,
-      }));
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 404) return null;
-      throw error;
-    }
+  holidays: async (year?: number, signal?: AbortSignal): Promise<HolidayCalendar> => {
+    const wire = await request<WireHolidayList>("/leave/holidays", {
+      ...(year ? { query: { year } } : {}),
+      ...(signal ? { signal } : {}),
+    });
+    return {
+      holidays: wire.holidays.map(toHoliday),
+      awaitingProclamation: wire.awaitingProclamation,
+    };
   },
+
+  /**
+   * Adds a date. Writes return the id and nothing else, which is the API's
+   * convention throughout — a caller that wants the row reads the list again.
+   *
+   * A same-date, same-name duplicate is a 409 naming both. Show it verbatim.
+   */
+  createHoliday: async (input: NewHolidayInput): Promise<{ id: string }> =>
+    request<{ id: string }>("/leave/holidays", {
+      method: "POST",
+      body: {
+        date: input.date,
+        name: input.name,
+        ...(input.confirmed === undefined ? {} : { confirmed: input.confirmed }),
+      },
+    }),
+
+  /** In practice: confirming one that has been proclaimed. */
+  updateHoliday: async (id: string, patch: HolidayPatch): Promise<{ id: string }> =>
+    request<{ id: string }>(`/leave/holidays/${id}`, {
+      method: "PATCH",
+      body: {
+        ...(patch.date === undefined ? {} : { date: patch.date }),
+        ...(patch.name === undefined ? {} : { name: patch.name }),
+        ...(patch.confirmed === undefined ? {} : { confirmed: patch.confirmed }),
+      },
+    }),
+
+  /** Hard. Nothing is checked, nothing cascades — see the header. */
+  deleteHoliday: async (id: string): Promise<{ id: string }> =>
+    request<{ id: string }>(`/leave/holidays/${id}`, { method: "DELETE" }),
 
   balances: async (
     employeeId: string,
@@ -463,6 +535,45 @@ export const leaveApi = {
 /** `1` → `1 day`. Used in three places and got the plural wrong in one of them. */
 export const daysLabel = (days: number): string =>
   `${days} ${days === 1 ? "day" : "days"}`;
+
+/**
+ * What removing a date actually does, in the order it bites.
+ *
+ * Every line was read out of the API rather than assumed, because the shape of
+ * this hazard is not what it looks like. There is no foreign key from a leave
+ * request, a payslip or a timesheet to a `PublicHoliday` — the readers all match
+ * on the date — so `DELETE /leave/holidays/:id` has nothing to check and checks
+ * nothing. It is a hard delete that succeeds quietly and moves numbers on four
+ * other screens. A confirm dialog that only says "are you sure" is a lie by
+ * omission here.
+ *
+ * Sources: `leave/service.ts#deleteHoliday` (the hard delete and why),
+ * `payroll/assemble.ts#unpaidDaysFor`, `overtime/service.ts`,
+ * `attendance/service.ts` and `helpdesk/working-hours.ts`.
+ */
+export const HOLIDAY_DELETE_EFFECTS: readonly string[] = [
+  "Nothing refuses it. No leave request, payslip or timesheet points at a holiday by id, so there is no reference to check and the API checks none.",
+  "Leave already approved keeps its day count. A request stores the days it was granted and that figure does not move.",
+  "The date becomes an ordinary day again everywhere the calendar is read live — the attendance timesheet, overtime rates, the unpaid days payroll prorates against, and the help desk's response clock.",
+  "A payroll run already approved keeps its own figures. A run not yet made will come out different.",
+];
+
+/**
+ * Which readers already act on an unconfirmed date, and which wait.
+ *
+ * The split is real and it is not tidy, which is why it is worth stating on
+ * screen. Payroll's unpaid-day count and the overtime calculation read every row
+ * and do not look at `confirmed`; attendance's day status and the help desk's SLA
+ * clock filter to `confirmed: true`, on the reasoning that you cannot excuse a
+ * breach with a holiday nobody declared. So an expected date is already costing
+ * money before it is announced, and still shows as a working day on the
+ * timesheet.
+ */
+export const UNCONFIRMED_HOLIDAY_EFFECT = {
+  acts: "Payroll proration and overtime rates already treat these as holidays.",
+  waits:
+    "The attendance timesheet and the help desk's response clock keep treating them as working days until they are confirmed.",
+} as const;
 
 /** How a decided request reads. `pending` is deliberately absent — it has none. */
 export const DECISION_LABEL: Record<LeaveRowStatus, string> = {

@@ -72,7 +72,7 @@ export function PayrollScreen() {
             size="sm"
           >
             <Play aria-hidden="true" className="size-3.5" />
-            {hasCurrentPeriod ? "Open this run" : "Start a run"}
+            {hasCurrentPeriod ? "Open this month's payroll" : "Run payroll"}
           </ButtonLink>
         }
       />
@@ -93,7 +93,7 @@ export function PayrollScreen() {
           <EmptyState
             icon={<CalendarClock aria-hidden="true" />}
             title={`No payroll run for ${periodLabel(currentPeriod)} yet`}
-            description="Preparing a run works out everybody's pay and lists anything wrong with their records. It pays nobody and can be done as many times as you like."
+            description="Running payroll works out everybody's pay and lists anything wrong with their records. It pays nobody, and you can do it as many times as you like."
             action={
               <ButtonLink href="/payroll/runs/new" variant="accent">
                 <Play aria-hidden="true" className="size-4" />
@@ -120,14 +120,14 @@ export function PayrollScreen() {
                     value={String(current.employeeCount)}
                   />
                   <Stat
-                    label="Stops the run"
+                    label="Stops payroll"
                     value={String(counts.blockers)}
                     hint={counts.blockers === 0 ? "Nothing" : "Fix these first"}
                   />
                   <Stat
                     label="Worth a look"
                     value={String(counts.warnings)}
-                    hint="Does not stop the run"
+                    hint="Does not stop payroll"
                   />
                   <Stat
                     label="Pays on"
@@ -172,7 +172,7 @@ export function PayrollScreen() {
                       {
                         href: "/payroll/pay-setup",
                         label: "Allowances and deductions",
-                        meta: "What goes into a run",
+                        meta: "What goes into a payroll",
                       },
                     ].map((item) => (
                       <Link
@@ -201,7 +201,7 @@ export function PayrollScreen() {
           <Card>
             <CardHeader
               title="Every run"
-              description="Newest period first."
+              description="Newest month first."
               action={
                 <Badge tone="neutral" size="sm">
                   {runs.length} {runs.length === 1 ? "period" : "periods"}
@@ -255,10 +255,12 @@ export function PayrollScreen() {
           <p className="flex items-start gap-2 text-[0.75rem] leading-relaxed text-muted">
             <Receipt aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
             <span>
-              These figures are worked out in this browser from the employee
-              directory, and only this browser has them. Allowances, loans and
-              expense claims come from the database, so a run here shows salary,
-              statutory deductions and any scheduled repayment — not the rest.
+              These figures are illustrative. Nothing in this browser computes
+              PAYE — they were produced by the payroll engine on the API for the
+              demo salaries and are fixed, so a demo run shows salary, statutory
+              deductions and any scheduled repayment and nothing else.
+              Allowances, loans and expense claims come from the database, and a
+              real run computes every figure live.
             </span>
           </p>
         )}

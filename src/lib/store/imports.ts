@@ -93,6 +93,18 @@ export type Severity = "error" | "warning";
 export type RowProblem = {
   row: number;
   column: string;
+  /**
+   * Our canonical field, as against `column`, which is their heading.
+   *
+   * Both are needed and for different readers. `column` is what the person sees
+   * — telling somebody the problem is in `taxState` when their spreadsheet says
+   * "State of Tax" is unhelpful. `field` is what a fix has to be written back
+   * to, and without it the report can only describe a problem, never mend one.
+   *
+   * That was the gap: the only route out of a failed row was to download the
+   * rejects, edit them in a spreadsheet and upload again.
+   */
+  field: string;
   value: string | null;
   problem: string;
   severity: Severity;
@@ -200,6 +212,9 @@ function translate(
   ): RowProblem => ({
     row: issue.row + offset,
     column: columns[issue.column] ?? issue.column,
+    /* `issue.column` is already our canonical name; `columns` is what turns it
+       back into their heading. So the field a fix writes to is free here. */
+    field: issue.column,
     value: issue.value,
     problem: issue.problem,
     severity,
@@ -215,6 +230,39 @@ function translate(
       ...report.warnings.map((issue) => problem(issue, "warning")),
     ],
   };
+}
+
+/**
+ * Lays the person's corrections back over freshly mapped rows.
+ *
+ * Keys are `row:field`, where `row` is the file's own 1-based row number. The
+ * mapped array is 0-based over the same rows, so the index is `row - 1`. A key
+ * naming a row the file no longer has is skipped rather than trusted — the file
+ * can be swapped underneath a stale fix, and guessing would write somebody
+ * else's correction onto this person.
+ *
+ * Returns the same array it was given, mutated. The caller has just built it and
+ * nothing else holds a reference, so copying up to 10,000 rows to be tidy would
+ * cost real memory for no safety.
+ */
+function applyFixes(
+  rows: ImportRow[],
+  fixes: Record<string, string>,
+): ImportRow[] {
+  for (const [key, value] of Object.entries(fixes)) {
+    const separator = key.indexOf(":");
+    if (separator < 0) continue;
+
+    const row = Number(key.slice(0, separator));
+    const field = key.slice(separator + 1);
+    if (!Number.isInteger(row) || field === "") continue;
+
+    const target = rows[row - 1];
+    if (!target) continue;
+
+    (target as unknown as Record<string, string | null>)[field] = value;
+  }
+  return rows;
 }
 
 const messageOf = (error: unknown): string =>
@@ -240,6 +288,55 @@ export function useEmployeeImport() {
      importing would copy the lot. */
   const mapped = useRef<ImportRow[]>([]);
 
+  /**
+   * Cells the person has corrected here rather than in their spreadsheet.
+   *
+   * Keyed `row:field`. Small by nature — it holds the handful of cells a report
+   * complained about, not the file — so unlike `mapped` it is safe in state, and
+   * it needs to be in state because the inputs rendering it must re-render.
+   *
+   * This is the **only** home for a correction, and that is load-bearing.
+   *
+   * The obvious implementation writes the mended value into `mapped.current`.
+   * It does not work: `runCheck` rebuilds that array with
+   * `mapRows(file.csv.rows, mapping)` on every run, so an in-place write is
+   * discarded by the very next check. The person would type a correction, press
+   * check, and watch the same error come back — a fix that looks applied and is
+   * not, which is worse than no fix button at all.
+   *
+   * So corrections live here and `runCheck` re-applies them after mapping. The
+   * raw file stays the raw file, and re-running is idempotent.
+   */
+  const [fixes, setFixes] = useState<Record<string, string>>({});
+
+  /**
+   * Records a correction to one cell.
+   *
+   * `row` is the file's own 1-based row number, as reported. `translate` builds
+   * that as `report.row + start`, where `start` is the slice's index into the
+   * mapped rows and `report.row` is 1-based within the slice — so the index
+   * back into the mapped rows is `row - 1`. That arithmetic is applied in
+   * `applyFixes` rather than here, in one place, because writing a correction
+   * onto the wrong person's row would be the worst possible outcome of a
+   * feature meant to prevent bad data.
+   */
+  const fixCell = useCallback((row: number, field: string, value: string) => {
+    const trimmed = value.trim();
+
+    setFixes((prior) => {
+      const key = `${row}:${field}`;
+      if (trimmed === "") {
+        /* Clearing a correction is not the same as correcting to empty: drop it
+           from the record so the count reflects real fixes. */
+        if (!(key in prior)) return prior;
+        const rest = { ...prior };
+        delete rest[key];
+        return rest;
+      }
+      return { ...prior, [key]: trimmed };
+    });
+  }, []);
+
   useEffect(() => {
     if (!isConnected) return;
     const controller = new AbortController();
@@ -262,6 +359,9 @@ export function useEmployeeImport() {
     setError(null);
     setCheck(null);
     setResult(null);
+    /* Corrections belong to the file that needed them. Carrying them into a new
+       upload would write one spreadsheet's fixes onto another's rows. */
+    setFixes({});
     mapped.current = [];
 
     /* An .xlsx is a zip of XML, and reading it as text produces line noise. The
@@ -311,6 +411,7 @@ export function useEmployeeImport() {
     setMapping({});
     setCheck(null);
     setResult(null);
+    setFixes({});
     setError(null);
     setProgress(null);
     mapped.current = [];
@@ -345,7 +446,10 @@ export function useEmployeeImport() {
     setError(null);
     setResult(null);
 
-    const rows = mapRows(file.csv.rows, mapping);
+    /* Mapped from the raw file, then the person's corrections laid back over
+       the top. Order matters: mapping first so a re-mapped column is honoured,
+       fixes second so they survive the re-map. See `fixes`. */
+    const rows = applyFixes(mapRows(file.csv.rows, mapping), fixes);
     mapped.current = rows;
     const columns = reverseHeadings(mapping);
 
@@ -473,7 +577,7 @@ export function useEmployeeImport() {
       authoritative: true,
     });
     return true;
-  }, [file, mapping, isConnected]);
+  }, [file, mapping, isConnected, fixes]);
 
   /* -------------------------------------------------------------- step four */
 
@@ -627,6 +731,11 @@ export function useEmployeeImport() {
             {
               row,
               column: "",
+              /* No field: the row was never sent, so nothing about it is wrong
+                 and there is no cell to mend. The report renders no fix input
+                 for an empty field, which is the correct outcome — offering one
+                 would invite somebody to "fix" a row that only needs sending. */
+              field: "",
               value: null,
               problem: "This row was not sent, because an earlier part failed.",
               severity: "error" as const,
@@ -655,6 +764,9 @@ export function useEmployeeImport() {
     resetMapping,
     runCheck,
     runImport,
+    fixCell,
+    fixes,
+    fixCount: Object.keys(fixes).length,
     downloadTemplate,
     downloadRowsToFix,
     downloadNotImported,

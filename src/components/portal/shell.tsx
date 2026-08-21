@@ -8,6 +8,7 @@ import { cn } from "@/lib/cn";
 import { Logo } from "@/components/brand/logo";
 import { Avatar, Badge } from "@/components/ui";
 import { NAV, visibleNav, type BadgeSource, type NavGroup } from "./nav";
+import { SessionRoleBadge } from "./role-badge";
 import { usePermissions } from "@/lib/permissions";
 import { useFeatures } from "@/lib/store/features";
 import { useUnreadCount } from "@/lib/store/notifications";
@@ -19,7 +20,6 @@ import { rosterFor } from "@/lib/workflows/attendance";
 import { TODAY } from "@/lib/today";
 import { buildApprovalQueue } from "@/lib/workflows/queue";
 import { useSession } from "@/lib/store/session";
-import { fullName } from "@/lib/types";
 
 /**
  * The app shell. The sidebar is a light surface rather than a saturated slab:
@@ -312,6 +312,19 @@ function SidebarNav({
  * accounts on the sign-in screen actually changes the product. Sign-out is a
  * real affordance rather than a decorative menu — without it the gate would be
  * a one-way door and switching roles would mean clearing site data.
+ *
+ * ## Why the role is here and not only on `/profile`
+ *
+ * This is the one place a name is on screen on every route, which makes it the
+ * one place the *kind* of user can be stated on every route. The product shows a
+ * different app per role by design — the sidebar is filtered by permission and
+ * by feature — and until this badge existed nothing told you which of those apps
+ * you were looking at. See `lib/roles.ts`.
+ *
+ * The badge sits beside the name from `sm` up and inside the open menu always.
+ * On a 320px top bar there is room for the avatar and the chevron and not much
+ * else, and a role name that pushed the sign-out affordance off screen would be
+ * a worse trade than one extra tap.
  */
 function UserMenu() {
   const { displayName, employee, user, mode, signOut } = useSession();
@@ -349,6 +362,7 @@ function UserMenu() {
             {subtitle}
           </span>
         </span>
+        <SessionRoleBadge className="hidden shrink-0 sm:inline-flex" />
         <ChevronDown aria-hidden="true" className="size-3.5 shrink-0 text-faint" />
       </button>
 
@@ -370,6 +384,9 @@ function UserMenu() {
               <p className="truncate text-[0.75rem] text-muted">
                 {email ?? "No email on record"}
               </p>
+              {/* Unconditional here, which is what makes the small-screen trade
+                  above acceptable: the answer is always one tap away. */}
+              <SessionRoleBadge className="mt-1.5" />
               {/* Which mode you are in, stated rather than implied. A demo that
                   looks connected is the one thing worse than a demo. */}
               <p className="mt-1.5 text-[0.75rem] text-faint">

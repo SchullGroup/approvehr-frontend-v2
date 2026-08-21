@@ -287,7 +287,7 @@ export function CounterOfferModal({
         <Field
           label="First deduction"
           error={failure?.messageFor("startPeriod")}
-          help="A run that has already been prepared cannot take this month's."
+          help="Payroll that has already been calculated cannot take this month's."
         >
           <Select
             value={startsIn}

@@ -11,7 +11,13 @@ import {
   Textarea,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
-import { dayLabel, type AnswerBody, type ApiFormQuestion } from "@/lib/api/performance";
+import {
+  dayLabel,
+  weightLabel,
+  type AnswerBody,
+  type ApiAppraiserContext,
+  type ApiFormQuestion,
+} from "@/lib/api/performance";
 import { useReview, useReviewMutations } from "@/lib/store/performance";
 
 /**
@@ -36,6 +42,19 @@ import { useReview, useReviewMutations } from "@/lib/store/performance";
  * Same rule as the API, checked here too so the refusal arrives before the
  * request. A form that says "some required fields are missing" on a
  * twelve-question form costs somebody ten minutes of scrolling.
+ *
+ * ## What the author is to the subject, when there is an answer to that
+ *
+ * `review.appraiser` is **absent** on a form written before the appraiser
+ * mapping existed, and on every self-review. Absent means the question has no
+ * answer, so the strip is not rendered at all — a role of "line manager" or a
+ * weight of "0%" would be a claim rather than a blank. Presence is what is
+ * checked, never a value; see convention 3 in the handover.
+ *
+ * When it is present and there is more than one appraiser, it says so. Somebody
+ * marking a third of a mark should know that is what they are doing: a 2 written
+ * as the whole judgement and a 2 written as one of three opinions are different
+ * acts, and only one of them ends a career.
  */
 
 /** 1–5, in words. A bare number is not a scale anybody agrees on. */
@@ -219,6 +238,15 @@ export function ReviewFormModal({
           )}
         </div>
 
+        {/* Presence, not a value. Absent is a form the mapping never covered. */}
+        {review.appraiser && (
+          <AppraiserStrip
+            appraiser={review.appraiser}
+            subjectName={review.subjectName}
+            mine={review.mine}
+          />
+        )}
+
         {failed && (
           <p
             role="status"
@@ -301,6 +329,52 @@ export function ReviewFormModal({
 }
 
 /* -------------------------------------------------------------------------- */
+
+/**
+ * What this author is to this subject, and how much of the mark it is.
+ *
+ * Only rendered when the API returned an assignment. `appraiserCount` is what
+ * turns "40%" from a fraction into a sentence — a share is meaningless without
+ * knowing what it is a share of, and one appraiser at 100% needs no sentence at
+ * all, so it does not get one.
+ */
+function AppraiserStrip({
+  appraiser,
+  subjectName,
+  mine,
+}: {
+  appraiser: ApiAppraiserContext;
+  subjectName: string;
+  mine: boolean;
+}) {
+  const shared = appraiser.appraiserCount > 1;
+
+  return (
+    <div className="rounded-md border border-line bg-canvas px-3.5 py-3">
+      <p className="flex flex-wrap items-center gap-2 text-[0.875rem] text-ink">
+        <Badge tone="accent" size="sm">
+          {appraiser.roleLabel}
+        </Badge>
+        <span>
+          {mine ? "You are appraising" : "Appraising"} {subjectName} as their{" "}
+          {appraiser.roleLabel.toLowerCase()}
+          {shared
+            ? `, for ${weightLabel(appraiser.weightBp)} of the mark — one of ${appraiser.appraiserCount} appraisers.`
+            : ", and yours is the whole mark."}
+        </span>
+      </p>
+      {appraiser.note && (
+        <p className="mt-1.5 text-[0.875rem] text-body">{appraiser.note}</p>
+      )}
+      {shared && (
+        <p className="mt-1.5 text-[0.875rem] text-muted">
+          The final mark is the weighted average of everybody who answers. Answer
+          for the part of the work you actually saw.
+        </p>
+      )}
+    </div>
+  );
+}
 
 function AnswerField({
   question,

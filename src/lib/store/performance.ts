@@ -25,6 +25,8 @@ import {
   type ApiMyReviews,
   type ApiPeerFeedback,
   type ApiQuestion,
+  type ApiAppraiserEntry,
+  type ApiAppraiserMap,
   type ApiReview,
   type ApiReviewDetail,
   type AnswerBody,
@@ -1644,6 +1646,126 @@ export function useRating() {
           );
         }
         return performanceApi.rate(competencyId, body);
+      },
+      [isConnected],
+    ),
+  };
+}
+
+/* ==========================================================================
+ * The appraiser map — a power-user surface, and offline it does not exist
+ * ======================================================================== */
+
+const APPRAISER_OFFLINE =
+  "Who appraises whom needs the API. A mapping is what a mark is defended " +
+  "with months later, and one kept in this browser would never reach the " +
+  "cycle it belongs to.";
+
+export type AppraiserMapState = {
+  map: ApiAppraiserMap | null;
+  loading: boolean;
+  error: ApiError | null;
+  /** False in demo mode. `refusal` is the sentence to render. */
+  editable: boolean;
+  refusal: string;
+  reload: () => void;
+};
+
+/**
+ * Who appraises whom in one cycle.
+ *
+ * Read-only-and-absent in demo mode, for the same reason `store/teams.ts` has no
+ * demo teams: the mapping decides who owes a form and how much their mark
+ * counts, and a set of weights held in one browser would describe a cycle the
+ * demo's own appraisal screens are not running.
+ *
+ * The `null` cycle id is a real state, not a guard against a bug — the screen
+ * renders before a cycle has been chosen, and there is no map until one is.
+ */
+export function useAppraiserMap(
+  cycleId: string | null,
+  params: { departmentId?: string; exceptionsOnly?: boolean } = {},
+): AppraiserMapState {
+  const { isConnected } = useSession();
+  const active = cycleId !== null && isConnected;
+  const departmentId = params.departmentId;
+  const exceptionsOnly = params.exceptionsOnly ?? false;
+
+  const load = useCallback(
+    async (signal: AbortSignal) =>
+      performanceApi.appraiserMap(
+        cycleId ?? "",
+        {
+          ...(departmentId ? { departmentId } : {}),
+          exceptionsOnly,
+        },
+        signal,
+      ),
+    [cycleId, departmentId, exceptionsOnly],
+  );
+
+  const fetched = useFetched<ApiAppraiserMap>(
+    `appraisers|${cycleId ?? "none"}|${departmentId ?? ""}|${String(exceptionsOnly)}`,
+    active,
+    load,
+  );
+
+  /* Never touches state. Nothing is derived offline — see the note above — so
+     this is a stable constant rather than a computed value. */
+  const offlineValue = useMemo<AppraiserMapState>(
+    () => ({
+      map: null,
+      loading: false,
+      error: null,
+      editable: false,
+      refusal: APPRAISER_OFFLINE,
+      reload: fetched.reload,
+    }),
+    [fetched.reload],
+  );
+
+  if (!isConnected) return offlineValue;
+
+  return {
+    map: fetched.data,
+    loading: fetched.loading,
+    error: fetched.error,
+    editable: true,
+    refusal: APPRAISER_OFFLINE,
+    reload: fetched.reload,
+  };
+}
+
+/**
+ * Writing the mapping.
+ *
+ * `setAppraisers` sends the **whole set** for one person, because that is the
+ * shape in which the weight rule is enforceable — the API refuses anything that
+ * does not sum to 100%, and an endpoint taking one appraiser at a time could not
+ * check that. Nothing is validated here *instead*: `weightProblem` in
+ * `lib/api/performance.ts` exists so the same refusal can be shown while
+ * somebody is still editing the row, in the API's own words.
+ */
+export function useAppraiserMutations() {
+  const { isConnected } = useSession();
+
+  return {
+    editable: isConnected,
+    refusal: APPRAISER_OFFLINE,
+
+    setAppraisers: useCallback(
+      async (cycleId: string, employeeId: string, appraisers: ApiAppraiserEntry[]) => {
+        if (!isConnected) offline(APPRAISER_OFFLINE);
+        return performanceApi.setAppraisers(cycleId, employeeId, appraisers);
+      },
+      [isConnected],
+    ),
+
+    /** Give everybody unmapped their line manager at 100%. Idempotent. */
+    autoAssign: useCallback(
+      async (cycleId: string) => {
+        if (!isConnected) offline(APPRAISER_OFFLINE);
+        return performanceApi.autoAssignAppraisers(cycleId);
       },
       [isConnected],
     ),

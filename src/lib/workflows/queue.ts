@@ -228,14 +228,21 @@ export function toQueueItem(item: ApprovalItem): QueueItem {
  *   approver is looking for.
  * - **A leave row deep-links to its request.** `/people/leave?request=<id>`
  *   opens that request on the leave screen, so "decide this" and "look at this
- *   properly" are one click apart rather than a search.
+ *   properly" are one click apart rather than a search. An exit row does the
+ *   same, for a stronger reason: an exit carries *two* approvals and a checklist,
+ *   and `HREF[record_change]` would drop somebody on the directory with no way
+ *   to tell which leaver the row was about.
  */
 export function queueItemFromApproval(row: ApprovalRow): QueueItem {
   const label = deadlineLabel(row.deadlineAt);
   const href =
     row.subjectType === "leave_requests"
       ? `/people/leave?request=${row.subjectId}`
-      : HREF[row.kind];
+      : row.subjectType === "exit_processes"
+        ? /* An exit's two approvals need the checklist in front of you, and
+             `HREF[record_change]` would land on the directory. */
+          `/people/offboarding/${row.subjectId}`
+        : HREF[row.kind];
 
   return {
     id: row.id,

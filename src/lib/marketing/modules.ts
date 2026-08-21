@@ -40,6 +40,16 @@ export type Wash = "indigo" | "green" | "amber" | "blue" | "violet" | "rose";
 
 export type ModuleDef = {
   id: ModuleId;
+  /**
+   * The module's name, and the only place it is written.
+   *
+   * It is also the heading the **signed-in app's sidebar** files its screens
+   * under: `MODULE_ITEMS` in components/portal/nav.tsx imports `MODULES` and
+   * reads this, keyed by `id`. So renaming a module here renames it in the
+   * product too, which is the point — the sidebar used to say Hiring / People /
+   * Pay / Grow, four headings against these six names, and a customer who
+   * bought "Time & Leave" signed in to find no such thing.
+   */
   label: string;
   /** One line, used on cards and in the platform rail. */
   headline: string;

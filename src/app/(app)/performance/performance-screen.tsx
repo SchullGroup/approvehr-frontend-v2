@@ -15,6 +15,7 @@ import { useCan, useIsManager } from "@/lib/permissions";
 import { useFeatures } from "@/lib/store/features";
 import { SCOPE_LABEL, type KpiScope } from "@/lib/store/performance";
 import { AppraisalsTab } from "./appraisals";
+import { AppraiserMapTab } from "./appraiser-map";
 import { KpisTab } from "./kpis";
 import { SkillsTab } from "./skills";
 import {
@@ -77,14 +78,34 @@ export function PerformanceScreen({ initialTab }: { initialTab: PerformanceTab }
   const scope =
     chosenScope && scopes.includes(chosenScope) ? chosenScope : fallback;
 
-  const available = PERFORMANCE_TABS.filter(
-    (id) => id === "kpis" || features.appraisals,
-  );
+  /**
+   * Which tabs exist at all.
+   *
+   * KPIs always. Appraisals and Skills with the `appraisals` flag. **Who
+   * appraises whom only with `multiAppraiser` and `EDIT_RECORDS`** — the mapping
+   * is an aggregate over everybody, and a company that has not asked for several
+   * appraisers per person must never see a weighting table it did not ask for.
+   * That is the whole progressive-disclosure argument, applied one level deeper
+   * than a module.
+   */
+  const available = PERFORMANCE_TABS.filter((id) => {
+    if (id === "kpis") return true;
+    if (!features.appraisals) return false;
+    if (id === "appraisers") return features.multiAppraiser && canSeeCompany;
+    return true;
+  });
   const activeTab = available.includes(tab) ? tab : "kpis";
 
   const items: TabItem[] = available.map((id) => ({
     id,
-    label: id === "kpis" ? "KPIs" : id === "appraisals" ? "Appraisals" : "Skills",
+    label:
+      id === "kpis"
+        ? "KPIs"
+        : id === "appraisals"
+          ? "Appraisals"
+          : id === "skills"
+            ? "Skills"
+            : "Who appraises whom",
   }));
 
   /**
@@ -141,7 +162,9 @@ export function PerformanceScreen({ initialTab }: { initialTab: PerformanceTab }
             ? "What people are aiming at, and how far along it is."
             : activeTab === "appraisals"
               ? "Reviews on a cycle: what you owe, and what was said about you."
-              : "Levels against the targets the company set."
+              : activeTab === "skills"
+                ? "Levels against the targets the company set."
+                : "Who marks whom in a cycle, and how much each opinion counts."
         }
         meta={
           <Badge tone={scope === "mine" ? "neutral" : "accent"} size="sm">
@@ -163,6 +186,7 @@ export function PerformanceScreen({ initialTab }: { initialTab: PerformanceTab }
           {activeTab === "skills" && (
             <SkillsTab canSeeCompany={canSeeCompany} isManager={isManager} />
           )}
+          {activeTab === "appraisers" && <AppraiserMapTab />}
         </Tabs>
       </PageBody>
     </>

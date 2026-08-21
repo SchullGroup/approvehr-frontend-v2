@@ -54,6 +54,25 @@ export type Employee = {
   tin: string | null;
   nhfNumber: string | null;
 
+  /**
+   * Declared annual rent, in **integer kobo**, and when it was declared.
+   *
+   * Kobo rather than naira, unlike `grossMonthly` above, because this field is
+   * new and the naira boundary is a legacy the rest of this type is waiting to
+   * shed — see `toEmployee` in `lib/api/endpoints.ts`. Do not add a second
+   * naira money field here.
+   *
+   * Optional *and* nullable, and the two mean nearly the same thing on purpose:
+   * `null` is "asked and undeclared", `undefined` is a source that does not
+   * carry the field at all (the demo seed). Both render as undeclared, because
+   * under the Nigeria Tax Act 2025 undeclared earns no personal relief and there
+   * is nothing softer to say about either. **Zero is different from both** — it
+   * is a declaration that happens to earn nothing, and `rentDeclaredAt` is what
+   * distinguishes it.
+   */
+  annualRentKobo?: number | null;
+  rentDeclaredAt?: string | null;
+
   nextOfKin?: { name: string; relationship: string; phone: string } | null;
   avatarUrl?: string;
 };

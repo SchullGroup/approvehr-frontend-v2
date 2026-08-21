@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { DoorOpen, Search, UserMinus } from "lucide-react";
+import { DoorOpen, ListChecks, Search, UserMinus } from "lucide-react";
 import {
   Badge,
   Button,
+  ButtonLink,
   Callout,
   Card,
   CardBody,
@@ -64,12 +65,27 @@ export function OffboardingScreen() {
           ) : undefined
         }
         action={
-          <Can permission="EDIT_RECORDS">
-            <Button variant="accent" size="sm" onClick={() => setStarting(true)}>
-              <UserMinus aria-hidden="true" className="size-4" />
-              Record a leaver
-            </Button>
-          </Can>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Second, and quieter. The checklist is something a company edits
+                once if at all — the defaults are seeded so that nobody has to
+                open it before processing their first leaver. */}
+            <Can permission="MANAGE_SETTINGS">
+              <ButtonLink
+                href="/people/offboarding/checklist"
+                variant="secondary"
+                size="sm"
+              >
+                <ListChecks aria-hidden="true" className="size-4" />
+                Exit checklist
+              </ButtonLink>
+            </Can>
+            <Can permission="EDIT_RECORDS">
+              <Button variant="accent" size="sm" onClick={() => setStarting(true)}>
+                <UserMinus aria-hidden="true" className="size-4" />
+                Record a leaver
+              </Button>
+            </Can>
+          </div>
         }
       />
 

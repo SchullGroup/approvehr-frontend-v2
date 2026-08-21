@@ -1,0 +1,258 @@
+/**
+ * Reference lists: the values that fill dropdowns and are not the product's own
+ * enums.
+ *
+ * ## Why this file exists
+ *
+ * These lists were declared inline in each screen that needed them, and had
+ * already drifted apart:
+ *
+ * - `people/new/form.tsx` offered **five** tax states — Lagos, Abuja, Ogun,
+ *   Rivers, Kano — so an employee taxed anywhere else could not be recorded.
+ * - `settings/company/form.tsx` offered all 36 states **and FCT**.
+ * - Those two disagreed on the name of the same place: `Abuja` in one, `FCT` in
+ *   the other. PAYE is remitted to a *state* tax authority, so a company filed
+ *   under `FCT` with staff taxed in `Abuja` never joins up.
+ * - `BANKS` and `PFAS` existed twice each, in `people/new/form.tsx` and
+ *   `people/[id]/record.tsx`, differing only by a leading empty option — two
+ *   copies that would drift the moment anybody added a bank to one.
+ *
+ * One definition, imported everywhere. That is the whole point of the file.
+ *
+ * ## These are defaults, not a model
+ *
+ * A company must be able to add, rename, reorder and retire any of these. The
+ * database-backed version of this (a tenant-scoped lookup table with an
+ * editor under Settings) is the real destination; this module is the seam it
+ * plugs into, so call sites do not change again when it lands. Call the
+ * accessor functions rather than reading the arrays directly, and the swap is
+ * invisible to screens.
+ *
+ * ## What is deliberately absent: bank codes
+ *
+ * Every entry in `BANKS` has a name and no code, and that is not an oversight.
+ * `src/modules/payments/file.ts` in the API says it plainly: the Bank Code
+ * column "is left empty rather than guessed: a wrong bank code routes money to
+ * the wrong institution." CBN/NIBSS codes are real data with real consequences
+ * and none are entered here from memory. They belong to the lookup table, where
+ * a company enters the codes their own bank portal expects and can be shown
+ * which are still missing.
+ *
+ * The same restraint applies to the bank list itself. It seeds institutions that
+ * are unambiguously operating, and does not attempt to be the CBN register —
+ * several Nigerian banks have merged or had licences revoked in recent years and
+ * a stale list presented as authoritative is worse than a short one a company
+ * completes itself.
+ */
+
+export type ReferenceItem = {
+  label: string;
+  /** Filled by the company, not shipped. See the note above. */
+  code?: string;
+};
+
+/* -------------------------------------------------------------------------- */
+/* Tax states                                                                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The 36 states and the Federal Capital Territory.
+ *
+ * `FCT` is the canonical spelling, because the tax authority is the FCT-IRS and
+ * that is the name on the filing. `Abuja` is accepted on the way in and mapped
+ * — see `canonicalTaxState`.
+ */
+export const NIGERIAN_STATES: readonly string[] = [
+  "Abia",
+  "Adamawa",
+  "Akwa Ibom",
+  "Anambra",
+  "Bauchi",
+  "Bayelsa",
+  "Benue",
+  "Borno",
+  "Cross River",
+  "Delta",
+  "Ebonyi",
+  "Edo",
+  "Ekiti",
+  "Enugu",
+  "FCT",
+  "Gombe",
+  "Imo",
+  "Jigawa",
+  "Kaduna",
+  "Kano",
+  "Katsina",
+  "Kebbi",
+  "Kogi",
+  "Kwara",
+  "Lagos",
+  "Nasarawa",
+  "Niger",
+  "Ogun",
+  "Ondo",
+  "Osun",
+  "Oyo",
+  "Plateau",
+  "Rivers",
+  "Sokoto",
+  "Taraba",
+  "Yobe",
+  "Zamfara",
+];
+
+/**
+ * Maps a stored tax state onto its canonical name.
+ *
+ * Existing records hold `Abuja`, because that is what the employee form offered.
+ * Reading them back through this keeps an old record selectable in a list that
+ * now says `FCT`, instead of silently showing an empty dropdown — which is how
+ * somebody's tax state gets quietly blanked on their next save.
+ *
+ * Unknown values pass through unchanged. A state this does not recognise is
+ * still the truth about that employee and must not be dropped.
+ */
+export function canonicalTaxState(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed === "") return trimmed;
+
+  const aliases: Record<string, string> = {
+    abuja: "FCT",
+    "federal capital territory": "FCT",
+    "fct abuja": "FCT",
+    "abuja fct": "FCT",
+  };
+  const mapped = aliases[trimmed.toLowerCase()];
+  if (mapped) return mapped;
+
+  const known = NIGERIAN_STATES.find(
+    (state) => state.toLowerCase() === trimmed.toLowerCase(),
+  );
+  return known ?? trimmed;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Banks and pension providers                                                 */
+/* -------------------------------------------------------------------------- */
+
+/** Codes are intentionally absent. See the file header. */
+export const BANKS: readonly ReferenceItem[] = [
+  { label: "Access Bank" },
+  { label: "Citibank Nigeria" },
+  { label: "Ecobank Nigeria" },
+  { label: "Fidelity Bank" },
+  { label: "First Bank of Nigeria" },
+  { label: "First City Monument Bank" },
+  { label: "Globus Bank" },
+  { label: "Guaranty Trust Bank" },
+  { label: "Jaiz Bank" },
+  { label: "Keystone Bank" },
+  { label: "Kuda Microfinance Bank" },
+  { label: "Lotus Bank" },
+  { label: "Moniepoint Microfinance Bank" },
+  { label: "OPay" },
+  { label: "PalmPay" },
+  { label: "Parallex Bank" },
+  { label: "Polaris Bank" },
+  { label: "PremiumTrust Bank" },
+  { label: "Providus Bank" },
+  { label: "Stanbic IBTC Bank" },
+  { label: "Standard Chartered Bank Nigeria" },
+  { label: "Sterling Bank" },
+  { label: "SunTrust Bank" },
+  { label: "Union Bank of Nigeria" },
+  { label: "United Bank for Africa" },
+  { label: "Unity Bank" },
+  { label: "Wema Bank" },
+  { label: "Zenith Bank" },
+];
+
+/**
+ * Licensed pension fund administrators.
+ *
+ * Same restraint as the banks: a starting point a company edits, not the PenCom
+ * register. The sector has consolidated repeatedly and an out-of-date name in a
+ * dropdown is a remittance sent to an administrator that no longer exists under
+ * that name.
+ */
+export const PENSION_PROVIDERS: readonly string[] = [
+  "ARM Pension Managers",
+  "Access Pensions",
+  "CrusaderSterling Pensions",
+  "FCMB Pensions",
+  "Fidelity Pension Managers",
+  "Guaranty Trust Pension Managers",
+  "Leadway Pensure PFA",
+  "NLPC Pension Fund Administrators",
+  "NPF Pensions",
+  "Nigerian University Pension Management Company",
+  "Norrenberger Pensions",
+  "PAL Pensions",
+  "Premium Pension",
+  "Radix Pension Managers",
+  "Stanbic IBTC Pension Managers",
+  "Tangerine APT Pensions",
+  "Trustfund Pensions",
+  "Veritas Glanvills Pensions",
+];
+
+/* -------------------------------------------------------------------------- */
+/* Free-text taxonomies                                                       */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Why a candidate was not taken forward.
+ *
+ * Editable for a reason beyond taste: these are the categories a company would
+ * have to stand behind if a rejection were ever questioned, so the wording has
+ * to be theirs.
+ */
+export const REJECTION_REASONS: readonly string[] = [
+  "Not enough relevant experience",
+  "Skills did not match the role",
+  "Salary expectation outside range",
+  "Withdrew from the process",
+  "Did not attend the interview",
+  "Failed a required check",
+  "Role filled by another candidate",
+  "Role no longer open",
+];
+
+/* -------------------------------------------------------------------------- */
+/* Accessors                                                                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Prepends the blank option a `<select>` needs for "not set".
+ *
+ * Both copies of `BANKS` and `PFAS` differed from each other only by a leading
+ * `""`, which is a formatting detail leaking into what looked like data. It
+ * belongs here instead.
+ */
+export function withBlank(values: readonly string[]): readonly string[] {
+  return ["", ...values];
+}
+
+/** Bank names only, for a plain `<select>`. */
+export function bankNames(): readonly string[] {
+  return BANKS.map((bank) => bank.label);
+}
+
+/**
+ * The list of tax states to show, with a stored value guaranteed present.
+ *
+ * Pass what the record currently holds. If it is a value the list does not carry
+ * — an old spelling, or a state a company added before this was centralised — it
+ * is included rather than dropped, so opening a record never silently clears a
+ * field the user did not touch.
+ */
+export function taxStateOptions(current?: string | null): readonly string[] {
+  if (!current) return NIGERIAN_STATES;
+
+  const canonical = canonicalTaxState(current);
+  if (canonical === "" || NIGERIAN_STATES.includes(canonical)) {
+    return NIGERIAN_STATES;
+  }
+  return [...NIGERIAN_STATES, canonical].sort((a, b) => a.localeCompare(b));
+}

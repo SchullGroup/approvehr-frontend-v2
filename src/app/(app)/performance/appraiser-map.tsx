@@ -1,0 +1,807 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { AlertTriangle, Network, Plus, Trash2, Wand2 } from "lucide-react";
+import { cn } from "@/lib/cn";
+import {
+  Badge,
+  Button,
+  Callout,
+  Card,
+  CardBody,
+  CardHeader,
+  EmptyState,
+  Field,
+  Input,
+  Modal,
+  Select,
+  Spinner,
+  Stat,
+  Switch,
+  useToast,
+} from "@/components/ui";
+import { ApiError } from "@/lib/api/client";
+import {
+  APPRAISER_ROLES,
+  APPRAISER_ROLE_HELP,
+  APPRAISER_ROLE_LABEL,
+  FULL_WEIGHT_BP,
+  evenWeights,
+  weightLabel,
+  weightProblem,
+  type ApiAppraiserEntry,
+  type ApiAppraiserMapRow,
+  type AppraiserRole,
+} from "@/lib/api/performance";
+import { useEmployeeDirectory } from "@/lib/store/employees-api";
+import {
+  useAppraiserMap,
+  useAppraiserMutations,
+  useAppraisals,
+} from "@/lib/store/performance";
+
+/**
+ * Who appraises whom — the power-user surface, and only when it is asked for.
+ *
+ * ## This tab does not exist for most companies
+ *
+ * `multiAppraiser` is off by default and the setup wizard never asks about it. A
+ * company with one manager per person sees no tab, no roles, no weights and
+ * never the word "matrix" — their mapping is filled in for them when a cycle
+ * starts (one line manager each, at 100%) and nothing here is needed to run an
+ * appraisal. That is the default, and it is the whole reason this is a flag
+ * rather than a feature.
+ *
+ * ## What it shows, and why it is shaped like a payroll run
+ *
+ * An employee with no appraiser in an open cycle is the performance module's
+ * missing bank account: every screen looks finished and one person silently
+ * finishes the period with no mark. The payroll run answers that shape with a
+ * blockers list, so this does too — **exceptions first, by name, before the
+ * table**, and the API decides the severity so the two cannot disagree.
+ *
+ * ## The weight rule lives on the server
+ *
+ * `setAppraisers` refuses a set that does not sum to exactly 100%. The dialog
+ * checks the same thing with `weightProblem` so the refusal arrives while
+ * somebody is still looking at the row — but it checks it **as well as**, never
+ * instead of, and the words are the same words. HANDOVER's register is full of
+ * client-side rules that were not real rules.
+ */
+export function AppraiserMapTab() {
+  /* The cycle list is fetched here rather than passed down from the screen, so
+     opening `/performance` on the KPI tab does not request it. */
+  const { cycles, loading: cyclesLoading } = useAppraisals();
+  const mutations = useAppraiserMutations();
+  const toast = useToast();
+
+  /**
+   * The cycle that is actually running, else the newest.
+   *
+   * Not the first in the list: a published cycle is history and a draft has
+   * nothing wrong with it yet, so the one somebody opened this to look at is the
+   * one people are currently being marked in.
+   */
+  const suggested =
+    cycles.find((cycle) => cycle.stage !== "PUBLISHED" && cycle.stage !== "DRAFT") ??
+    cycles[0];
+
+  const [chosen, setChosen] = useState<string | null>(null);
+  const [exceptionsOnly, setExceptionsOnly] = useState(false);
+  const [editing, setEditing] = useState<ApiAppraiserMapRow | null>(null);
+  const [autoBusy, setAutoBusy] = useState(false);
+
+  const cycleId =
+    chosen && cycles.some((cycle) => cycle.id === chosen)
+      ? chosen
+      : (suggested?.id ?? null);
+
+  const { map, loading, error, editable, refusal, reload } = useAppraiserMap(cycleId, {
+    exceptionsOnly,
+  });
+
+  if (!editable) {
+    return (
+      <Callout tone="warning" title="The mapping needs the API">
+        {refusal}
+      </Callout>
+    );
+  }
+
+  if (cyclesLoading && cycles.length === 0) {
+    return (
+      <p className="flex items-center gap-2 text-[0.875rem] text-muted">
+        <Spinner size="sm" />
+        Reading the cycles
+      </p>
+    );
+  }
+
+  if (cycles.length === 0) {
+    return (
+      <EmptyState
+        icon={<Network aria-hidden="true" />}
+        title="No cycles yet"
+        description="A mapping belongs to a cycle: who was best placed to judge somebody last half is not who is best placed this half. Create a cycle on the Appraisals tab first."
+      />
+    );
+  }
+
+  const blockers =
+    map?.rows.flatMap((row) =>
+      row.exceptions
+        .filter((issue) => issue.severity === "BLOCKER")
+        .map((issue) => ({ key: `${row.employeeId}-${issue.code}`, ...issue })),
+    ) ?? [];
+  const warnings =
+    map?.rows.flatMap((row) =>
+      row.exceptions
+        .filter((issue) => issue.severity === "WARNING")
+        .map((issue) => ({ key: `${row.employeeId}-${issue.code}`, ...issue })),
+    ) ?? [];
+
+  const autoAssign = async () => {
+    if (!cycleId) return;
+    setAutoBusy(true);
+    try {
+      const result = await mutations.autoAssign(cycleId);
+      toast.push({
+        title:
+          result.created === 0
+            ? "Everybody already has an appraiser"
+            : result.created === 1
+              ? "1 person given their line manager"
+              : `${result.created} people given their line manager`,
+        tone: "success",
+        /* Named, not counted. These are the people who would otherwise finish
+           the cycle with no mark at all. */
+        ...(result.withoutManager.length > 0
+          ? {
+              detail: `Still nobody appraising: ${result.withoutManager.join(", ")}. They have no manager either — assign somebody by hand.`,
+            }
+          : {}),
+      });
+      reload();
+    } catch (caught) {
+      toast.push({
+        title: "That did not work",
+        tone: "danger",
+        detail:
+          caught instanceof ApiError
+            ? caught.message
+            : "Something went wrong. Try again.",
+      });
+    } finally {
+      setAutoBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <Field label="Cycle" className="min-w-[16rem]">
+          <Select
+            value={cycleId ?? ""}
+            onChange={(event) => {
+              const value = event.target.value;
+              setChosen(value);
+            }}
+          >
+            {cycles.map((cycle) => (
+              <option key={cycle.id} value={cycle.id}>
+                {cycle.name} — {cycle.stageLabel}
+              </option>
+            ))}
+          </Select>
+        </Field>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <Switch
+            label="Only what is wrong"
+            checked={exceptionsOnly}
+            onChange={(event) => setExceptionsOnly(event.target.checked)}
+          />
+          <Button
+            variant="secondary"
+            size="sm"
+            loading={autoBusy}
+            disabled={autoBusy}
+            onClick={() => void autoAssign()}
+          >
+            <Wand2 aria-hidden="true" className="size-4" />
+            Fill in the obvious
+          </Button>
+        </div>
+      </div>
+
+      {error && (
+        <Callout tone="danger" title="Could not read the mapping">
+          {error.message}
+        </Callout>
+      )}
+
+      {map && (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <Stat label="People in the cycle" value={String(map.counts.people)} />
+          <Stat
+            label="One manager, 100%"
+            value={String(map.counts.simple)}
+            hint="nobody had to configure these"
+          />
+          <Stat
+            label="Several appraisers"
+            value={String(map.counts.multiAppraiser)}
+            hint="with roles and weights"
+          />
+          <Stat
+            label="Nobody appraising"
+            value={String(map.counts.unassigned)}
+            trend={
+              map.counts.unassigned > 0
+                ? { direction: "down", label: "Would get no mark" }
+                : undefined
+            }
+          />
+        </div>
+      )}
+
+      {/* Exceptions first, before the table, in the shape the payroll run uses.
+          A blocker buried in row 40 of a table is a blocker nobody read. */}
+      {(blockers.length > 0 || warnings.length > 0) && (
+        <Card>
+          <CardHeader
+            title={
+              blockers.length > 0
+                ? blockers.length === 1
+                  ? "1 thing will produce a mark nobody can defend"
+                  : `${blockers.length} things will produce marks nobody can defend`
+                : "Worth a look"
+            }
+            description={
+              map?.started
+                ? "This cycle is running, so these are live."
+                : "Nothing has started yet, so none of this is final."
+            }
+          />
+          <CardBody className="flex flex-col gap-2">
+            {[...blockers, ...warnings].map((issue) => (
+              <p
+                key={issue.key}
+                className={cn(
+                  "flex gap-2.5 rounded-md border px-3.5 py-2.5 text-[0.875rem]",
+                  issue.severity === "BLOCKER"
+                    ? "border-danger-line bg-danger-soft text-ink"
+                    : "border-warning-line bg-warning-soft text-ink",
+                )}
+              >
+                <AlertTriangle
+                  aria-hidden="true"
+                  className={cn(
+                    "mt-0.5 size-4 shrink-0",
+                    issue.severity === "BLOCKER"
+                      ? "text-danger-text"
+                      : "text-warning-text",
+                  )}
+                />
+                <span>
+                  <span className="sr-only">
+                    {issue.severity === "BLOCKER" ? "Blocker: " : "Warning: "}
+                  </span>
+                  {issue.message}
+                </span>
+              </p>
+            ))}
+          </CardBody>
+        </Card>
+      )}
+
+      <Card>
+        <CardHeader
+          title="Who appraises whom"
+          description="One line manager at 100% is the ordinary answer. Change it for the people a project lead or another department's manager actually judges."
+        />
+        {loading ? (
+          <CardBody className="flex items-center gap-2 text-[0.875rem] text-muted">
+            <Spinner size="sm" />
+            Reading the mapping
+          </CardBody>
+        ) : !map || map.rows.length === 0 ? (
+          <EmptyState
+            compact
+            icon={<Network aria-hidden="true" />}
+            title={exceptionsOnly ? "Nothing is wrong" : "Nobody in this cycle"}
+            description={
+              exceptionsOnly
+                ? "Everybody has an appraiser and every set of weights makes 100%."
+                : "A cycle covers everybody who is still employed. Add people first."
+            }
+          />
+        ) : (
+          <CardBody className="flex flex-col gap-2">
+            {map.rows.map((row) => (
+              <PersonRow key={row.employeeId} row={row} onEdit={() => setEditing(row)} />
+            ))}
+          </CardBody>
+        )}
+      </Card>
+
+      {editing && cycleId && (
+        <AppraisersDialog
+          cycleId={cycleId}
+          row={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            reload();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * One person, their appraisers, and what is wrong.
+ *
+ * The weighted mark is rendered beside **how much of the weight has answered**,
+ * never on its own. A 3.4 that is 40% in and a 3.4 that is complete are
+ * different claims, and only one of them is a mark.
+ */
+function PersonRow({
+  row,
+  onEdit,
+}: {
+  row: ApiAppraiserMapRow;
+  onEdit: () => void;
+}) {
+  const worst = row.exceptions.some((issue) => issue.severity === "BLOCKER")
+    ? "BLOCKER"
+    : row.exceptions.length > 0
+      ? "WARNING"
+      : null;
+
+  return (
+    <div
+      className={cn(
+        "flex flex-wrap items-center gap-3 rounded-md border p-3",
+        worst === "BLOCKER"
+          ? "border-danger-line bg-danger-soft"
+          : worst === "WARNING"
+            ? "border-warning-line"
+            : "border-line",
+      )}
+    >
+      <div className="min-w-0 flex-1">
+        <p className="text-[0.9375rem] font-medium text-ink">{row.employeeName}</p>
+        <p className="mt-0.5 flex flex-wrap items-center gap-2 text-[0.75rem] text-muted">
+          <span>{row.jobTitle}</span>
+          {row.departmentName && <span>{row.departmentName}</span>}
+        </p>
+
+        {row.appraisers.length === 0 ? (
+          <p className="mt-2 text-[0.875rem] text-ink">
+            Nobody.
+            {row.lineManagerName
+              ? ` Their line manager is ${row.lineManagerName}.`
+              : " They have no line manager either."}
+          </p>
+        ) : (
+          <ul className="mt-2 flex flex-wrap gap-1.5">
+            {row.appraisers.map((one) => (
+              <li
+                key={one.assignmentId}
+                className="flex items-center gap-2 rounded-md border border-line bg-surface px-2.5 py-1.5"
+              >
+                {/* Submitted or not is a shape as well as a colour: a filled dot
+                    for in, a ring for outstanding. */}
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "size-2 shrink-0 rounded-full",
+                    one.submitted
+                      ? "bg-success-strong"
+                      : "border border-line-strong bg-transparent",
+                  )}
+                />
+                <span className="text-[0.8125rem] text-ink">
+                  {one.appraiserName}
+                  <span className="text-muted">
+                    {" · "}
+                    {one.roleLabel}
+                    {" · "}
+                    {weightLabel(one.weightBp)}
+                  </span>
+                </span>
+                <span className="sr-only">
+                  {one.submitted ? "review sent" : "review outstanding"}
+                </span>
+                {one.unavailable && (
+                  <Badge tone="danger" size="sm">
+                    Has left
+                  </Badge>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="shrink-0 text-right">
+        <p className="text-[0.75rem] uppercase tracking-wide text-faint">Mark</p>
+        <p className="tabular text-[0.9375rem] font-medium text-ink">
+          {row.weightedRating === null ? "—" : row.weightedRating}
+        </p>
+        <p className="text-[0.75rem] text-muted">
+          {row.weightedRating === null
+            ? "nothing in yet"
+            : `${weightLabel(row.submittedWeightBp)} in`}
+        </p>
+      </div>
+
+      <Button variant="secondary" size="sm" onClick={onEdit}>
+        {row.appraisers.length === 0 ? "Assign" : "Change"}
+      </Button>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+type DraftRow = {
+  appraiserId: string;
+  role: AppraiserRole;
+  /** Percent as typed. Converted to whole basis points on save, once. */
+  weightPct: string;
+  note: string;
+};
+
+const bpOf = (pct: string): number => Math.round(Number(pct || "0") * 100);
+
+/**
+ * The whole set for one person, replaced.
+ *
+ * ## Why the dialog sends the set and not one appraiser
+ *
+ * Because "the weights make 100%" is only checkable against a set. An endpoint
+ * that added one appraiser at a time would leave the first of three sitting at
+ * 34%, so either the rule is checked at some later moment nothing can see, or it
+ * is not a rule. The API takes a `PUT` of the whole set for exactly that reason,
+ * and this dialog is shaped to match it rather than the other way round.
+ *
+ * ## Adding a row re-splits the weights
+ *
+ * `evenWeights` splits in whole basis points that sum to exactly 10000 — three
+ * ways is 33.34/33.33/33.33, not three 33.33s that make 99.99. Somebody who
+ * wants an uneven split types over it; somebody who just wants three appraisers
+ * never has to think about the arithmetic. This is the entire reason weights are
+ * integer basis points rather than percentages.
+ */
+function AppraisersDialog({
+  cycleId,
+  row,
+  onClose,
+  onSaved,
+}: {
+  cycleId: string;
+  row: ApiAppraiserMapRow;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const { employees } = useEmployeeDirectory({ pageSize: 200 });
+  const { setAppraisers } = useAppraiserMutations();
+
+  const [rows, setRows] = useState<DraftRow[]>(() =>
+    row.appraisers.length > 0
+      ? row.appraisers.map((one) => ({
+          appraiserId: one.appraiserId,
+          role: one.role,
+          weightPct: String(one.weightBp / 100),
+          note: one.note ?? "",
+        }))
+      : /* The obvious starting point: their line manager, all of it. Not an
+           empty row — the ordinary answer should need no typing. */
+        row.lineManagerId
+        ? [
+            {
+              appraiserId: row.lineManagerId,
+              role: "LINE_MANAGER" as AppraiserRole,
+              weightPct: "100",
+              note: "",
+            },
+          ]
+        : [],
+  );
+  const [failed, setFailed] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  /** Everybody but the subject: the API refuses a self-appraisal outright. */
+  const candidates = useMemo(
+    () =>
+      employees
+        .filter((person) => person.id !== row.employeeId)
+        .map((person) => ({
+          id: person.id,
+          name: `${person.firstName} ${person.lastName}`,
+          jobTitle: person.jobTitle,
+        })),
+    [employees, row.employeeId],
+  );
+
+  /* Somebody who has already sent their review cannot be dropped — the API
+     refuses it, because a submitted mark counting for nothing with no record of
+     why is worse than a stale mapping. Their row is shown, and locked. */
+  const submittedIds = new Set(
+    row.appraisers.filter((one) => one.submitted).map((one) => one.appraiserId),
+  );
+
+  const entries: ApiAppraiserEntry[] = rows
+    .filter((draft) => draft.appraiserId !== "")
+    .map((draft) => ({
+      appraiserId: draft.appraiserId,
+      role: draft.role,
+      weightBp: bpOf(draft.weightPct),
+      ...(draft.note.trim() ? { note: draft.note.trim() } : {}),
+    }));
+
+  const weightIssue = weightProblem(entries);
+  const duplicated =
+    new Set(entries.map((entry) => entry.appraiserId)).size !== entries.length;
+  const lineManagers = entries.filter((entry) => entry.role === "LINE_MANAGER").length;
+  const missingSubmitted = [...submittedIds].filter(
+    (id) => !entries.some((entry) => entry.appraiserId === id),
+  );
+
+  /* Every one of these is the API's rule, checked here so it lands while the row
+     is still on screen. The server is where each of them is real. */
+  const localProblem =
+    duplicated
+      ? "The same person is listed twice. One appraiser, one row, one role."
+      : lineManagers > 1
+        ? "Only one person can be the line manager. Make the others functional managers or project leads."
+        : missingSubmitted.length > 0
+          ? `${row.appraisers
+              .filter((one) => missingSubmitted.includes(one.appraiserId))
+              .map((one) => one.appraiserName)
+              .join(", ")} already sent their review. Change their weight rather than taking them off.`
+          : entries.some((entry) => entry.weightBp < 1)
+            ? "An appraiser with no weight is not an appraiser. Remove the row instead."
+            : weightIssue;
+
+  const setRow = (index: number, patch: Partial<DraftRow>) =>
+    setRows((current) =>
+      current.map((draft, at) => (at === index ? { ...draft, ...patch } : draft)),
+    );
+
+  const addRow = () =>
+    setRows((current) => {
+      const next = [
+        ...current,
+        { appraiserId: "", role: "FUNCTIONAL_MANAGER" as AppraiserRole, weightPct: "0", note: "" },
+      ];
+      const split = evenWeights(next.length);
+      return next.map((draft, at) => ({
+        ...draft,
+        weightPct: String((split[at] ?? 0) / 100),
+      }));
+    });
+
+  const removeRow = (index: number) =>
+    setRows((current) => {
+      const next = current.filter((_, at) => at !== index);
+      if (next.length === 0) return next;
+      const split = evenWeights(next.length);
+      return next.map((draft, at) => ({
+        ...draft,
+        weightPct: String((split[at] ?? 0) / 100),
+      }));
+    });
+
+  const splitEvenly = () =>
+    setRows((current) => {
+      const split = evenWeights(current.length);
+      return current.map((draft, at) => ({
+        ...draft,
+        weightPct: String((split[at] ?? 0) / 100),
+      }));
+    });
+
+  const save = () => {
+    setFailed(null);
+    setBusy(true);
+    void (async () => {
+      try {
+        await setAppraisers(cycleId, row.employeeId, entries);
+        onSaved();
+      } catch (caught) {
+        setFailed(
+          caught instanceof ApiError
+            ? caught.message
+            : "Something went wrong. Try again.",
+        );
+      } finally {
+        setBusy(false);
+      }
+    })();
+  };
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={`Who appraises ${row.employeeName}`}
+      description="Everybody who has a say, and how much of the mark each one carries. The shares have to make 100%."
+      size="lg"
+      footer={
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p
+            className={cn(
+              "tabular text-[0.875rem]",
+              localProblem ? "text-danger-text" : "text-muted",
+            )}
+          >
+            {entries.length === 0
+              ? "Nobody assigned"
+              : `${weightLabel(entries.reduce((sum, entry) => sum + entry.weightBp, 0))} of ${weightLabel(FULL_WEIGHT_BP)}`}
+          </p>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button
+              variant="accent"
+              loading={busy}
+              disabled={busy || localProblem !== null}
+              onClick={save}
+            >
+              Save the mapping
+            </Button>
+          </div>
+        </div>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        {failed && (
+          <p
+            role="status"
+            className="rounded-md border border-danger-line bg-danger-soft px-3.5 py-2.5 text-[0.875rem] text-ink"
+          >
+            {failed}
+          </p>
+        )}
+
+        {localProblem && !failed && (
+          <p
+            role="status"
+            className="rounded-md border border-warning-line bg-warning-soft px-3.5 py-2.5 text-[0.875rem] text-ink"
+          >
+            {localProblem}
+          </p>
+        )}
+
+        {rows.length === 0 && (
+          <Callout tone="warning" title="Nobody would appraise them">
+            Saving with an empty list is allowed and it is a real state — it is how
+            you undo a mapping. They will finish the cycle with no mark, and the
+            cycle will say so by name.
+          </Callout>
+        )}
+
+        {rows.map((draft, index) => {
+          const locked = submittedIds.has(draft.appraiserId);
+          return (
+            <div
+              key={index}
+              className="flex flex-col gap-3 rounded-md border border-line p-3"
+            >
+              <div className="grid gap-3 sm:grid-cols-[2fr_1.4fr_5.5rem]">
+                <Field label="Appraiser" required>
+                  <Select
+                    value={draft.appraiserId}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setRow(index, { appraiserId: value });
+                    }}
+                  >
+                    <option value="">Choose somebody</option>
+                    {candidates.map((person) => (
+                      <option key={person.id} value={person.id}>
+                        {person.name} — {person.jobTitle}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+
+                <Field
+                  label="As their"
+                  help={APPRAISER_ROLE_HELP[draft.role]}
+                >
+                  <Select
+                    value={draft.role}
+                    onChange={(event) => {
+                      const value = event.target.value as AppraiserRole;
+                      setRow(index, { role: value });
+                    }}
+                  >
+                    {APPRAISER_ROLES.map((role) => (
+                      <option key={role} value={role}>
+                        {APPRAISER_ROLE_LABEL[role]}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+
+                <Field label="Share %" required>
+                  <Input
+                    type="number"
+                    min="0.01"
+                    max="100"
+                    step="0.01"
+                    value={draft.weightPct}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setRow(index, { weightPct: value });
+                    }}
+                  />
+                </Field>
+              </div>
+
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <Field
+                  label="Why"
+                  help="Optional. For when the role alone does not say it."
+                  className="min-w-[16rem] flex-1"
+                >
+                  <Input
+                    value={draft.note}
+                    placeholder="Ran the Lagos migration all half"
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setRow(index, { note: value });
+                    }}
+                  />
+                </Field>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={locked}
+                  onClick={() => removeRow(index)}
+                  aria-label="Remove this appraiser"
+                >
+                  <Trash2 aria-hidden="true" className="size-3.5" />
+                  Remove
+                </Button>
+              </div>
+
+              {locked && (
+                <p className="text-[0.75rem] text-muted">
+                  They have already sent this review. Their weight can change; they
+                  cannot be taken off.
+                </p>
+              )}
+            </div>
+          );
+        })}
+
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" size="sm" onClick={addRow}>
+            <Plus aria-hidden="true" className="size-4" />
+            Add an appraiser
+          </Button>
+          {rows.length > 1 && (
+            <Button variant="ghost" size="sm" onClick={splitEvenly}>
+              Split evenly
+            </Button>
+          )}
+        </div>
+
+        <p className="text-[0.875rem] text-muted">
+          The mark is the weighted average of whoever has answered, so a share of
+          0% is not a thing — remove the row instead. Everybody added is told, and
+          gets their own form straight away if the cycle is running.
+        </p>
+      </div>
+    </Modal>
+  );
+}

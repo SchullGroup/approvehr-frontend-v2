@@ -82,12 +82,21 @@ export function Resign() {
             showValue={false}
             size="sm"
           />
-          <Link
-            href={`/people/offboarding/${exit.id}`}
-            className="text-[0.875rem] font-medium text-accent-text underline-offset-4 hover:underline"
-          >
-            Open my checklist
-          </Link>
+          {/* One link, not two. Withdrawing lives on the checklist page beside
+              everything else about this exit — a second door to it here would be
+              a second place to keep the wording right, and the page is where
+              somebody can see what withdrawing would stop. */}
+          <div className="flex flex-col items-start gap-0.5">
+            <Link
+              href={`/people/offboarding/${exit.id}`}
+              className="text-[0.875rem] font-medium text-accent-text underline-offset-4 hover:underline"
+            >
+              Open my checklist
+            </Link>
+            <span className="text-[0.75rem] text-faint">
+              Changed your mind? You can withdraw it there.
+            </span>
+          </div>
         </CardBody>
       </Card>
     );

@@ -68,7 +68,31 @@ export default async function ModulePage({
   return (
     <>
       {/* Hero */}
-      <section className={cn("px-4 pb-20 pt-16 sm:pt-20", WASH_CLASS[mod.wash])}>
+      {/*
+       * The wash runs up behind the floating nav.
+       *
+       * `MarketingNav` is `sticky top-0` and therefore occupies flow space at
+       * the top of the page, and the marketing layout's ground is `bg-sand`. So
+       * at scroll-top a washed hero used to start *below* the nav, leaving a
+       * 68px band of sand above a lavender hero — a visible colour seam on
+       * every product page. (It only showed at scroll-top: once stuck, the
+       * header's own box is transparent and the wash scrolls under it.)
+       *
+       * `-mt-20` pulls the section up behind the nav and the top padding adds
+       * the same 80px back, so the heading lands exactly where it did before
+       * while the wash reaches y=0. The pull is deliberately larger than the
+       * nav's rendered height — overshooting only hides more of the wash behind
+       * an opaque pill, whereas undershooting leaves a sliver of sand.
+       *
+       * The nav carries `z-50` and this section no z-index, so the pill still
+       * paints above the wash.
+       */}
+      <section
+        className={cn(
+          "-mt-20 px-4 pb-20 pt-36 sm:pt-40",
+          WASH_CLASS[mod.wash],
+        )}
+      >
         <div className="container-page">
           <Reveal>
             <nav aria-label="Breadcrumb" className="mb-6">

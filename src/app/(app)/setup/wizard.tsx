@@ -20,7 +20,7 @@ import type {
   ApiWizardQuestion,
   FeatureKey,
 } from "@/lib/api/setup";
-import { FEATURE_KEYS } from "@/lib/api/setup";
+import { FEATURE_KEYS, MODULE_FEATURE_KEYS } from "@/lib/api/setup";
 import {
   FEATURE_COPY,
   useFeatures,
@@ -186,7 +186,11 @@ export function SetupWizard() {
   if (done) {
     return (
       <Done
-        flags={FEATURE_KEYS.filter((key) => features[key])}
+        /* Modules only. The three employee-record field groups are switchable
+           in Settings and default on, so listing them here would report
+           "you turned on Bank accounts" to somebody who answered five
+           questions about shifts and loans. */
+        flags={MODULE_FEATURE_KEYS.filter((key) => features[key])}
         seeded={seeded}
         returning={phase !== "done"}
       />

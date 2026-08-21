@@ -54,7 +54,7 @@ export default function StatutoryPage() {
           { href: "/payroll/statutory", label: "Statutory" },
         ]}
         title="Statutory filings"
-        description="August 2026. Every schedule is generated from the run itself, split by body."
+        description="August 2026. Every schedule is generated from the payroll itself, split by body."
         action={
           <Button variant="secondary" size="sm">
             <Download aria-hidden="true" className="size-3.5" />

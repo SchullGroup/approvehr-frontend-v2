@@ -40,11 +40,11 @@ import {
   useLeaveMutations,
   useLeaveRequestDetail,
   useLeaveRequests,
-  usePublicHolidays,
 } from "@/lib/store/leave-api";
 import { useSession } from "@/lib/store/session";
 import { TODAY, shortDate } from "@/lib/today";
 import { BookLeaveDialog } from "./book-leave";
+import { HolidayCalendarCard } from "./holiday-calendar";
 
 const STATUS: Record<LeaveRowStatus, { tone: BadgeTone; label: string }> = {
   pending: { tone: "warning", label: "Waiting" },
@@ -105,6 +105,10 @@ export function LeaveScreen() {
   const search = useSearchParams();
   const toast = useToast();
   const canDecide = useCan("APPROVE_LEAVE_ALL");
+  /* Only for whether the "manage the calendar" link is offered. Nothing on this
+     screen writes a holiday — that lives in settings, where the consequences of
+     deleting one can be stated at the size they deserve. */
+  const canManageSettings = useCan("MANAGE_SETTINGS");
   const session = useSession();
 
   /* `session.employeeId` is the person on the payroll. Never `user.id`, which is
@@ -135,7 +139,6 @@ export function LeaveScreen() {
   const noRecord = onlyMine && employeeId === null && !session.isLoading;
   const requests = noRecord ? NO_REQUESTS : fetched;
 
-  const holidays = usePublicHolidays();
   const mutations = useLeaveMutations();
 
   /* Opened from the approvals inbox as `?request=<id>`, so "decide this" and
@@ -154,6 +157,10 @@ export function LeaveScreen() {
      fixed snapshot and `TODAY` is its "now" — using the real clock there would
      age the whole dataset until it stopped making sense. */
   const today = connected ? new Date().toISOString().slice(0, 10) : TODAY;
+
+  /* From `today`, not `new Date()`: demo mode runs on `TODAY`, and the real clock
+     would open the calendar on a year the seed has nothing in. */
+  const calendarYear = Number(today.slice(0, 4));
 
   const pending = requests.filter((r) => r.status === "pending");
 
@@ -508,63 +515,13 @@ export function LeaveScreen() {
               </CardBody>
             </Card>
 
-            <Card>
-              <CardHeader
-                title="Public holidays"
-                description={
-                  holidays.connected
-                    ? "The company calendar."
-                    : "Maintained for you."
-                }
-                action={
-                  <CalendarDays aria-hidden="true" className="size-4 text-faint" />
-                }
-              />
-              <CardBody className="flex flex-col gap-2">
-                {holidays.loading && (
-                  <p className="text-[0.875rem] text-muted">Loading holidays…</p>
-                )}
-
-                {/* The seed list is not shown here as a stand-in. A date nobody
-                    has published is a date nobody should roster against. */}
-                {holidays.unavailable && (
-                  <p className="text-[0.875rem] text-muted">
-                    The API does not publish a holiday calendar yet, so none is
-                    shown. Nigerian dates move at short notice and a stale list
-                    is worse than no list.
-                  </p>
-                )}
-
-                {!holidays.loading &&
-                  !holidays.unavailable &&
-                  holidays.holidays.length === 0 && (
-                    <p className="text-[0.875rem] text-muted">
-                      Nothing on the calendar yet.
-                    </p>
-                  )}
-
-                {holidays.holidays.map((h) => (
-                  <div
-                    key={`${h.date}-${h.name}`}
-                    className="flex items-center gap-3 rounded-md border border-line p-2.5"
-                  >
-                    <span className="tabular w-20 shrink-0 text-[0.75rem] text-muted">
-                      {h.confirmed ? h.date.slice(5) : "TBC"}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate text-[0.875rem] text-ink">
-                      {h.name}
-                    </span>
-                    {!h.confirmed && (
-                      <Badge tone="warning" size="sm">
-                        Awaiting proclamation
-                      </Badge>
-                    )}
-                  </div>
-                ))}
-              </CardBody>
-            </Card>
           </div>
         </div>
+
+        {/* The calendar sits full width rather than in the 340px column it used
+            to hold a four-line list in: twelve months do not fit in a rail, and
+            the reason it was a list was that no endpoint served the dates. */}
+        <HolidayCalendarCard defaultYear={calendarYear} canManage={canManageSettings} />
       </PageBody>
 
       <RequestPanel

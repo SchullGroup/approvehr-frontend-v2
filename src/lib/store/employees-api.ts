@@ -378,7 +378,12 @@ export function useEmployeeMutations() {
         jobTitle: draft.jobTitle ?? "Not set",
         startDate: draft.startDate ?? new Date().toISOString().slice(0, 10),
         grossMonthlyKobo: toKobo(draft.grossMonthly ?? 0),
-        taxState: draft.taxState ?? "Lagos",
+        /* Omitted rather than defaulted to Lagos. `POST /employees` now falls
+           back to the *company's* own PAYE state, which is the honest answer
+           for a company in Kano — and "Lagos" here was a guess that looked like
+           a decision. The API refuses only if the company has no state either,
+           and says where to set one. */
+        ...(draft.taxState ? { taxState: draft.taxState } : {}),
         ...(draft.email ? { email: draft.email } : {}),
         ...(draft.phone ? { phone: draft.phone } : {}),
         ...(draft.dateOfBirth ? { dateOfBirth: draft.dateOfBirth } : {}),
@@ -390,6 +395,12 @@ export function useEmployeeMutations() {
           : {}),
         ...(draft.tin ? { tin: draft.tin } : {}),
         ...(draft.nhfNumber ? { nhfNumber: draft.nhfNumber } : {}),
+        /* `!= null` rather than truthiness: zero declared rent is a declaration
+           — "I pay none" — and dropping it would leave the person looking
+           undeclared to the payroll run that warns about exactly that. */
+        ...(draft.annualRentKobo != null
+          ? { annualRentKobo: draft.annualRentKobo }
+          : {}),
         ...(draft.departmentId ? { departmentId: draft.departmentId } : {}),
         ...(draft.workLocationId
           ? { workLocationId: draft.workLocationId }

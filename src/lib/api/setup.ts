@@ -29,8 +29,12 @@ export type HeadcountBand =
   | "FROM_50_TO_250"
   | "OVER_250";
 
-/** The switchable capabilities. `headcountBand` is an answer, not a switch. */
-export const FEATURE_KEYS = [
+/**
+ * The capabilities that decide which **screens** exist. Set by the wizard.
+ *
+ * `headcountBand` is an answer, not a switch, so it is not in here.
+ */
+export const MODULE_FEATURE_KEYS = [
   "departments",
   "grades",
   "shifts",
@@ -40,6 +44,51 @@ export const FEATURE_KEYS = [
   "hiring",
 ] as const;
 
+/**
+ * The three statutory field groups on an employee record.
+ *
+ * These hide **fields on a form**, not screens, which is why they are a separate
+ * list rather than seven items that happen to include three of a different kind.
+ * The setup wizard's summary shows modules and would be worse for listing
+ * "Bank account" beside "Hiring"; the Settings page shows both, in two groups.
+ *
+ * There is no wizard question for them either, on purpose: asking a shop owner
+ * about RSA PINs before they have added anybody is the opposite of what those
+ * five questions are for. The groups are collapsed and opt-in on the form
+ * already, and these flags are for the company that never wants to see them.
+ */
+export const RECORD_FIELD_KEYS = ["taxSetup", "pensionSetup", "bankDetails"] as const;
+
+/**
+ * Depth inside a module that is already on. A third kind of switch.
+ *
+ * `multiAppraiser` does not add a screen and does not hide a field — it changes
+ * how much of an existing module a company is asked to think about. Off, a
+ * person has one manager who appraises them and the word "matrix" appears
+ * nowhere in the product. On, appraisals grow a mapping surface with roles and
+ * weights.
+ *
+ * It is deliberately **not** a wizard question. The wizard's five questions are
+ * the argument for this product against an incumbent that shows a five-person
+ * business a hundred and twenty routes; asking that business about matrix
+ * management during sign-up would be losing the argument on the second screen.
+ * A company reaches this on the Settings page, once it has a reason to.
+ *
+ * The API refuses turning it on while `appraisals` is off, and turns it off with
+ * appraisals. Nothing is deleted either way.
+ */
+export const ADVANCED_FEATURE_KEYS = ["multiAppraiser"] as const;
+
+/** Everything switchable, in the order the Settings page shows it. */
+export const FEATURE_KEYS = [
+  ...MODULE_FEATURE_KEYS,
+  ...RECORD_FIELD_KEYS,
+  ...ADVANCED_FEATURE_KEYS,
+] as const;
+
+export type ModuleFeatureKey = (typeof MODULE_FEATURE_KEYS)[number];
+export type RecordFieldKey = (typeof RECORD_FIELD_KEYS)[number];
+export type AdvancedFeatureKey = (typeof ADVANCED_FEATURE_KEYS)[number];
 export type FeatureKey = (typeof FEATURE_KEYS)[number];
 
 /** What a PATCH sends, and what a wizard option's `sets` looks like. */
@@ -56,6 +105,14 @@ export type ApiFeatures = {
   departments: boolean;
   hiring: boolean;
   grades: boolean;
+  /** PAYE state, TIN and the annual rent declaration. */
+  taxSetup: boolean;
+  /** RSA PIN, pension fund administrator, NHF number. */
+  pensionSetup: boolean;
+  /** Bank name and NUBAN. */
+  bankDetails: boolean;
+  /** Several appraisers per person, with roles and weights. Needs `appraisals`. */
+  multiAppraiser: boolean;
   setupStep: number;
   totalSteps: number;
   setupCompletedAt: string | null;

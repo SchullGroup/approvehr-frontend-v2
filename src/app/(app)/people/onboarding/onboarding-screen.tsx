@@ -170,7 +170,7 @@ export function OnboardingScreen() {
             value={String(blocked.length)}
             hint="missing bank, PIN or TIN"
             {...(blocked.length > 0
-              ? { trend: { direction: "down" as const, label: "Will miss the run" } }
+              ? { trend: { direction: "down" as const, label: "Will miss this month's pay" } }
               : {})}
           />
         </div>

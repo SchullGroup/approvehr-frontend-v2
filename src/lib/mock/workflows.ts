@@ -185,11 +185,52 @@ export const LEAVE_REQUESTS: LeaveRequest[] = [
   { id: "lv-07", employeeId: "p-01", type: "Annual", from: "2026-10-06", to: "2026-10-17", days: 10, status: "pending", approverId: "p-02", requestedAt: "2026-08-14" },
 ];
 
-export const PUBLIC_HOLIDAYS = [
-  { date: "2026-10-01", name: "Independence Day", confirmed: true },
-  { date: "2026-12-25", name: "Christmas Day", confirmed: true },
-  { date: "2026-12-26", name: "Boxing Day", confirmed: true },
-  { date: "2026-09-27", name: "Eid al-Mawlid", confirmed: false },
+export type PublicHoliday = {
+  id: string;
+  /** `YYYY-MM-DD`. */
+  date: string;
+  name: string;
+  /**
+   * Whether the date is settled.
+   *
+   * `false` is not "probably wrong" — it is "expected, not yet gazetted", which
+   * is the normal state of a Nigerian moveable feast until days beforehand.
+   */
+  confirmed: boolean;
+};
+
+/**
+ * The demo calendar — Nigeria's 2026 public holidays.
+ *
+ * **This is seed data and every screen that renders it says so.** It exists
+ * because the product gets shown on laptops with no database, and a leave screen
+ * with an empty calendar demonstrates nothing. Connected, the calendar comes from
+ * `GET /leave/holidays` and this array is not read at all.
+ *
+ * The split between the two `confirmed` values is the honest part, not decoration:
+ *
+ * - The **fixed** dates are statute. New Year, Workers' Day, Democracy Day,
+ *   Independence Day, Christmas and Boxing Day fall where they fall. Good Friday
+ *   and Easter Monday are computed from Easter Sunday, 5 April 2026.
+ * - The **lunar** dates — both Eids and Mawlid — are `confirmed: false` because
+ *   they are sighting-dependent and the Federal Government proclaims them days
+ *   in advance. The dates here are the widely-published estimates and are
+ *   deliberately marked as unsettled rather than presented as fact. That is what
+ *   the flag is for, and it is why the calendar is rows in a table and not a
+ *   constant compiled into a bundle.
+ */
+export const PUBLIC_HOLIDAYS: PublicHoliday[] = [
+  { id: "ph-2026-01", date: "2026-01-01", name: "New Year's Day", confirmed: true },
+  { id: "ph-2026-02", date: "2026-03-20", name: "Eid al-Fitr", confirmed: false },
+  { id: "ph-2026-03", date: "2026-04-03", name: "Good Friday", confirmed: true },
+  { id: "ph-2026-04", date: "2026-04-06", name: "Easter Monday", confirmed: true },
+  { id: "ph-2026-05", date: "2026-05-01", name: "Workers' Day", confirmed: true },
+  { id: "ph-2026-06", date: "2026-05-27", name: "Eid al-Adha", confirmed: false },
+  { id: "ph-2026-07", date: "2026-06-12", name: "Democracy Day", confirmed: true },
+  { id: "ph-2026-08", date: "2026-09-27", name: "Eid al-Mawlid", confirmed: false },
+  { id: "ph-2026-09", date: "2026-10-01", name: "Independence Day", confirmed: true },
+  { id: "ph-2026-10", date: "2026-12-25", name: "Christmas Day", confirmed: true },
+  { id: "ph-2026-11", date: "2026-12-26", name: "Boxing Day", confirmed: true },
 ];
 
 /* ========================================================= Performance ==== */

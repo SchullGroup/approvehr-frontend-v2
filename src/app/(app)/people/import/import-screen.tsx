@@ -210,6 +210,15 @@ export function ImportScreen() {
             onBack={() => stepper.goTo(1)}
             onDownload={imp.downloadRowsToFix}
             onContinue={() => stepper.goTo(3)}
+            /* Fixing a cell here and re-checking, rather than downloading the
+               rejects and editing them in Excel. `runCheck` re-applies the
+               corrections over freshly mapped rows, so pressing this repeatedly
+               is safe and the raw file is never altered. */
+            fixes={imp.fixes}
+            fixCount={imp.fixCount}
+            onFix={imp.fixCell}
+            onRecheck={() => void imp.runCheck()}
+            rechecking={imp.progress !== null}
           />
         )}
 

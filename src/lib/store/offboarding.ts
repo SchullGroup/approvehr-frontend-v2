@@ -13,6 +13,7 @@ import {
   type ApiExitReadiness,
   type ApiExitRow,
   type ApiExitTask,
+  type ApiExitTemplate,
   type ExitKind,
   type ExitListParams,
   type ExitStatus,
@@ -20,11 +21,16 @@ import {
   type ExitTaskOutcome,
   type InterviewBody,
   type StartExitBody,
+  type TemplateBody,
   type UpdateTaskBody,
+  type UpdateTemplateBody,
 } from "@/lib/api/offboarding";
 import { employeeById } from "@/lib/mock/people";
+import { useCan } from "@/lib/permissions";
+import { remainingDays } from "@/lib/workflows/leave";
 import { TODAY } from "@/lib/today";
 import { createPersistedState } from "./persisted";
+import { useLeaveBalances } from "./leave-balances";
 import { useSession } from "./session";
 import { useEmployeeStore } from "./employees";
 
@@ -70,6 +76,18 @@ import { useEmployeeStore } from "./employees";
  * - **One signed-in person.** The two-person rule therefore bites: you cannot
  *   confirm what you ticked. That is not a limitation to work around — it is the
  *   control, working. Confirmation is never a blocker, so the flow still closes.
+ * - **The money on the final-pay card is zero.** There is no loan book and no
+ *   equipment register in this browser to read one from. Untaken leave *is* real
+ *   — it comes from the leave store through `useLeaveBalances` — and the card
+ *   shows a line only where there is something to show, so nothing reads as an
+ *   invented figure. Connected, all three are real.
+ * - **An exit does not appear in `/approvals`.** Connected, the API writes an
+ *   `ApprovalRequest` index row when an exit is raised and the inbox picks it up
+ *   with no frontend change. The demo inbox is derived from the leave requests by
+ *   `lib/workflows/queue.ts`, and adding exits to it means a third `QueueRef`
+ *   variant and a decide path that reaches these writes — which are `useExit(id)`
+ *   hooks rather than free functions. Worth doing; not done, and stated here
+ *   rather than left for somebody to find by demonstrating it.
  */
 
 /* ------------------------------------------------------------ demo shapes */
@@ -123,7 +141,27 @@ type DemoExit = {
   interview: ApiExitInterview | null;
 };
 
-type DemoState = { exits: DemoExit[] };
+/**
+ * The company's own checklist, editable in the demo.
+ *
+ * Stored as a whole list rather than as a diff against `DEFAULT_TASKS`, because
+ * that is what the API returns and a screen should not be able to tell which
+ * source it is reading. `active: false` mirrors the server's "switched off, not
+ * destroyed" — deleting a line would bring it straight back, since a company with
+ * no templates is a company that gets the defaults seeded.
+ */
+type DemoTemplate = {
+  id: string;
+  kind: ExitTaskKind;
+  label: string;
+  owner: string;
+  order: number;
+  mandatory: boolean;
+  appliesTo: ExitKind[];
+  active: boolean;
+};
+
+type DemoState = { exits: DemoExit[]; templates: DemoTemplate[] };
 
 /* ----------------------------------------------------------------- labels */
 
@@ -178,6 +216,9 @@ const DEFAULT_TASKS: readonly {
   owner: string;
   mandatory: boolean;
   appliesTo: ExitKind[];
+  /** Never set on a default — every seeded line is on. Here so the defaults and
+      the company's own edited list are the same shape to `generateTasks`. */
+  active?: boolean;
 }[] = [
   {
     kind: "HANDOVER",
@@ -246,14 +287,31 @@ function assigneeFor(
   return null;
 }
 
+/**
+ * The checklist for one exit.
+ *
+ * Reads the company's **own** list where there is one, falling back to the
+ * defaults for the seed exit, which is built before the store exists. An edit on
+ * the checklist settings screen has to show up on the next exit or that screen is
+ * a form that writes to nothing.
+ */
 function generateTasks(
   kind: ExitKind,
   employeeId: string,
   managerId: string | null,
+  templates?: readonly {
+    kind: ExitTaskKind;
+    label: string;
+    owner: string;
+    mandatory: boolean;
+    appliesTo: ExitKind[];
+    active?: boolean;
+  }[],
 ): DemoTask[] {
-  return DEFAULT_TASKS.filter(
-    (t) => t.appliesTo.length === 0 || t.appliesTo.includes(kind),
-  ).map((template, index) => ({
+  return (templates ?? DEFAULT_TASKS)
+    .filter((t) => t.active !== false)
+    .filter((t) => t.appliesTo.length === 0 || t.appliesTo.includes(kind))
+    .map((template, index) => ({
     id: nextId("task"),
     kind: template.kind,
     label: template.label,
@@ -347,10 +405,25 @@ function seedExits(): DemoExit[] {
   ];
 }
 
+function seedTemplates(): DemoTemplate[] {
+  return DEFAULT_TASKS.map((template, index) => ({
+    id: `tpl-${index}`,
+    kind: template.kind,
+    label: template.label,
+    owner: template.owner,
+    order: index,
+    mandatory: template.mandatory,
+    appliesTo: template.appliesTo,
+    active: true,
+  }));
+}
+
 const store = createPersistedState<DemoState>({
+  /* Version 2: the state grew `templates`. A stored version-1 payload is dropped
+     rather than merged — see the note in `persisted.ts`. */
   key: "approvehr.offboarding.store",
-  empty: { exits: seedExits() },
-  version: 1,
+  empty: { exits: seedExits(), templates: seedTemplates() },
+  version: 2,
 });
 
 /* ------------------------------------------------------- demo serialising */
@@ -473,7 +546,24 @@ function serializeRow(exit: DemoExit): ApiExitRow {
  * the blockers come out in — the refusal message is built from this list, so a
  * different order would read as a different refusal.
  */
-function buildReadiness(exit: DemoExit): ApiExitReadiness {
+/**
+ * What is left, and what still has to be decided about the final payslip.
+ *
+ * `untakenLeave` is passed in rather than read here: leave lives in its own store
+ * and `useLeaveBalances` is the only sanctioned way to ask for a balance —
+ * importing the pure function and forgetting the company policy argument is the
+ * documented way that number ends up with two answers.
+ *
+ * The money figures stay at zero in demo mode and the card shows a line only
+ * where there is something to show. There is no loan book and no equipment
+ * register in this browser, and a made-up outstanding balance on a screen whose
+ * whole argument is "the exit reaches payroll" would be the one kind of lie this
+ * product refuses to tell.
+ */
+function buildReadiness(
+  exit: DemoExit,
+  untakenLeave: { leaveType: string; days: number }[] = [],
+): ApiExitReadiness {
   const sorted = sortTasks(exit.tasks);
   const outstanding = sorted.filter((t) => t.completedAt === null);
   const managerRequired = exit.managerId !== null;
@@ -532,6 +622,15 @@ function buildReadiness(exit: DemoExit): ApiExitReadiness {
     /* No register in this browser. Empty is the truthful answer, and it is not
        a blocker anywhere. */
     assetsStillHeld: [],
+    finalPay: {
+      lastWorkingDay: exit.lastWorkingDay,
+      outstandingLoanKobo: 0,
+      untakenLeave,
+      heldValueKobo: 0,
+      agreed: exit.tasks.some(
+        (task) => task.kind === "PAYROLL" && task.completedAt !== null,
+      ),
+    },
   };
 }
 
@@ -543,6 +642,7 @@ const refuse = (status: number, code: string, message: string, details?: Record<
 function replace(exit: DemoExit) {
   const state = store.read();
   store.commit({
+    ...state,
     exits: state.exits.map((row) => (row.id === exit.id ? exit : row)),
   });
 }
@@ -612,12 +712,12 @@ function demoStart(body: StartExitBody, actingId: string | null): DemoExit {
     declinedReason: null,
     completedAt: null,
     createdAt: new Date().toISOString(),
-    tasks: generateTasks(body.kind, targetId, managerId),
+    tasks: generateTasks(body.kind, targetId, managerId, store.read().templates),
     interview: null,
   };
 
   const state = store.read();
-  store.commit({ exits: [created, ...state.exits] });
+  store.commit({ ...state, exits: [created, ...state.exits] });
   return created;
 }
 
@@ -686,6 +786,41 @@ function demoDecline(id: string, reason: string) {
   const exit = findExit(id);
   assertOpen(exit);
   replace({ ...exit, status: "DECLINED", declinedReason: reason });
+}
+
+/**
+ * Taking it back. `CANCELLED`, not `DECLINED` — see the API wrapper.
+ *
+ * The permission rule is the server's, mirrored here so the demo refuses what
+ * the API refuses: your own notice, or HR cancelling anybody's. In demo mode
+ * `actingId` is the signed-in person, so withdrawing somebody else's exit
+ * without `EDIT_RECORDS` fails here exactly as it would over the wire.
+ */
+function demoWithdraw(
+  id: string,
+  reason: string | undefined,
+  actingId: string | null,
+  isHr: boolean,
+) {
+  const exit = findExit(id);
+  assertOpen(exit);
+
+  const self = actingId !== null && actingId === exit.employeeId;
+  if (!self && !isHr) {
+    throw refuse(
+      403,
+      "not_yours",
+      "You can withdraw your own notice. Cancelling somebody else's exit is done by HR.",
+    );
+  }
+
+  replace({
+    ...exit,
+    status: "CANCELLED",
+    declinedReason:
+      reason?.trim() ||
+      (self ? "Withdrawn by the person leaving." : "Cancelled by HR."),
+  });
 }
 
 function demoUpdateTask(taskId: string, body: UpdateTaskBody, actingId: string | null) {
@@ -1023,6 +1158,8 @@ type DetailState = {
 export function useExit(id: string) {
   const { isConnected, isLoading, actingId } = useSession();
   const employees = useEmployeeStore();
+  const balances = useLeaveBalances();
+  const isHr = useCan("EDIT_RECORDS");
   const demo = useSyncExternalStore(
     store.subscribe,
     store.read,
@@ -1074,6 +1211,21 @@ export function useExit(id: string) {
     [demo.exits, id],
   );
 
+  /* Days never taken, for the final-pay card. Read through the one hook that
+     knows the company's leave policy — see `useLeaveBalances`. */
+  const untakenLeave = useMemo(() => {
+    if (!localExit) return [];
+    return balances
+      .forEmployee(localExit.employeeId)
+      .map((balance) => ({
+        leaveType: balance.type,
+        /* Entitled less taken less pending — the same figure every leave screen
+           shows, through the same helper, so the exit cannot quote a third. */
+        days: remainingDays(balance),
+      }))
+      .filter((entry) => entry.days > 0);
+  }, [balances, localExit]);
+
   const matched = fetched !== null && fetched.id === id;
   const source: Source = isConnected ? "api" : "demo";
 
@@ -1123,7 +1275,7 @@ export function useExit(id: string) {
         ? fetched.readiness
         : null
       : localExit
-        ? buildReadiness(localExit)
+        ? buildReadiness(localExit, untakenLeave)
         : null,
     loading: isConnected ? !matched : false,
     error: matched ? fetched.error : null,
@@ -1157,6 +1309,15 @@ export function useExit(id: string) {
           () => demoDecline(id, reason),
         ),
       [run, id],
+    ),
+    /** Taking it back. The leaver's own door, and HR's cancel. */
+    withdraw: useCallback(
+      (reason?: string) =>
+        run(
+          () => offboardingApi.withdraw(id, reason),
+          () => demoWithdraw(id, reason, actingId, isHr),
+        ),
+      [run, id, actingId, isHr],
     ),
     updateTask: useCallback(
       (taskId: string, body: UpdateTaskBody) =>
@@ -1320,6 +1481,217 @@ export function useStartExit() {
   );
 
   return { start, source };
+}
+
+/**
+ * The checklist a company starts every exit from.
+ *
+ * ## Why this exists at all
+ *
+ * `ExitTaskTemplate` has been a table with five endpoints and no screen — which
+ * means a company could not add "hand back the fuel card" without somebody
+ * calling the API by hand, and the seven defaults were effectively hardcoded
+ * policy. A model with no interface is a promise the product does not keep.
+ *
+ * ## And why it is not on the default path
+ *
+ * A five-person business should never open it. The defaults are seeded on first
+ * read precisely so nobody has to configure a checklist before processing their
+ * first leaver (PARITY.md Rule 3), so this is a link off the Leavers screen
+ * rather than a step in the flow.
+ *
+ * Switching a line off never destroys it, in both modes — for the reason in the
+ * API wrapper: a company with no templates gets the defaults seeded, so a real
+ * delete would bring back the line they just removed.
+ */
+export function useExitTemplates(includeInactive = false) {
+  const { isConnected, isLoading } = useSession();
+  const demo = useSyncExternalStore(
+    store.subscribe,
+    store.read,
+    store.getServerSnapshot,
+  );
+
+  const [attempt, setAttempt] = useState(0);
+  const [fetched, setFetched] = useState<{
+    key: string;
+    rows: ApiExitTemplate[];
+    error: ApiError | null;
+  } | null>(null);
+
+  const key = includeInactive ? "all" : "active";
+
+  useEffect(() => {
+    if (isLoading || !isConnected) return;
+    let cancelled = false;
+    const controller = new AbortController();
+
+    void (async () => {
+      try {
+        const result = await offboardingApi.templates(
+          { includeInactive },
+          controller.signal,
+        );
+        if (!cancelled) setFetched({ key, rows: result.rows, error: null });
+      } catch (error) {
+        if (cancelled) return;
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setFetched({
+          key,
+          rows: [],
+          error: error instanceof ApiError ? error : null,
+        });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [key, includeInactive, isConnected, isLoading, attempt]);
+
+  const local = useMemo(
+    () =>
+      demo.templates
+        .filter((row) => includeInactive || row.active)
+        .slice()
+        .sort((a, b) => a.order - b.order || a.label.localeCompare(b.label))
+        .map(serializeTemplate),
+    [demo.templates, includeInactive],
+  );
+
+  const matched = fetched !== null && fetched.key === key;
+  const rows = isConnected ? (matched ? fetched.rows : EMPTY_TEMPLATES) : local;
+
+  const refresh = useCallback(() => setAttempt((n) => n + 1), []);
+
+  const run = useCallback(
+    async (api: () => Promise<unknown>, localWrite: () => void) => {
+      if (isConnected) {
+        await api();
+        setAttempt((n) => n + 1);
+        return;
+      }
+      localWrite();
+    },
+    [isConnected],
+  );
+
+  return {
+    rows,
+    loading: isConnected && !matched,
+    error: matched ? fetched.error : null,
+    source: (isConnected ? "api" : "demo") as Source,
+    counts: {
+      total: rows.length,
+      active: rows.filter((row) => row.active).length,
+      mandatory: rows.filter((row) => row.active && row.mandatory).length,
+    },
+    reload: refresh,
+
+    add: useCallback(
+      (body: TemplateBody) =>
+        run(
+          () => offboardingApi.createTemplate(body),
+          () => demoAddTemplate(body),
+        ),
+      [run],
+    ),
+    edit: useCallback(
+      (id: string, body: UpdateTemplateBody) =>
+        run(
+          () => offboardingApi.updateTemplate(id, body),
+          () => demoEditTemplate(id, body),
+        ),
+      [run],
+    ),
+    /** Off, not gone. */
+    switchOff: useCallback(
+      (id: string) =>
+        run(
+          () => offboardingApi.deactivateTemplate(id),
+          () => demoEditTemplate(id, { active: false }),
+        ),
+      [run],
+    ),
+  };
+}
+
+const EMPTY_TEMPLATES: ApiExitTemplate[] = [];
+
+function serializeTemplate(row: DemoTemplate): ApiExitTemplate {
+  return {
+    id: row.id,
+    kind: row.kind,
+    kindLabel: TASK_KIND_LABELS[row.kind],
+    label: row.label,
+    owner: row.owner,
+    order: row.order,
+    mandatory: row.mandatory,
+    appliesTo: row.appliesTo,
+    appliesToLabel:
+      row.appliesTo.length === 0
+        ? "Every exit"
+        : row.appliesTo.map((kind) => KIND_LABELS[kind]).join(", "),
+    active: row.active,
+  };
+}
+
+/** Refuses the same duplicate the API refuses, with the same wording. */
+function demoAddTemplate(body: TemplateBody) {
+  const state = store.read();
+  const clash = state.templates.find(
+    (row) => row.label.toLowerCase() === body.label.trim().toLowerCase(),
+  );
+  if (clash) {
+    throw refuse(
+      409,
+      "duplicate",
+      clash.active
+        ? `"${clash.label}" is already on the checklist.`
+        : `"${clash.label}" is on the checklist but switched off. Turn it back on instead of adding a second copy.`,
+    );
+  }
+
+  store.commit({
+    ...state,
+    templates: [
+      ...state.templates,
+      {
+        id: nextId("tpl"),
+        kind: body.kind,
+        label: body.label.trim(),
+        owner: body.owner.trim(),
+        order: state.templates.reduce((max, row) => Math.max(max, row.order), -1) + 1,
+        mandatory: body.mandatory ?? true,
+        appliesTo: body.appliesTo ?? [],
+        active: true,
+      },
+    ],
+  });
+}
+
+function demoEditTemplate(id: string, body: UpdateTemplateBody) {
+  const state = store.read();
+  const existing = state.templates.find((row) => row.id === id);
+  if (!existing) throw refuse(404, "not_found", "That checklist item.");
+
+  store.commit({
+    ...state,
+    templates: state.templates.map((row) =>
+      row.id === id
+        ? {
+            ...row,
+            ...(body.kind === undefined ? {} : { kind: body.kind }),
+            ...(body.label === undefined ? {} : { label: body.label.trim() }),
+            ...(body.owner === undefined ? {} : { owner: body.owner.trim() }),
+            ...(body.mandatory === undefined ? {} : { mandatory: body.mandatory }),
+            ...(body.appliesTo === undefined ? {} : { appliesTo: body.appliesTo }),
+            ...(body.active === undefined ? {} : { active: body.active }),
+          }
+        : row,
+    ),
+  });
 }
 
 /** Resets the demo book. For the settings page's "clear demo data" control. */

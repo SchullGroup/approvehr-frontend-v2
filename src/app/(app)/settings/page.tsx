@@ -29,7 +29,7 @@ const GROUPS = [
         href: "/settings/payroll",
         title: "Payroll",
         description:
-          "Working month, salary structure, pension and NHF rates, and the checks that block a run.",
+          "Working month, salary structure, pension and NHF rates, and the checks that stop payroll.",
         icon: <Banknote aria-hidden="true" />,
       },
       {

@@ -29,15 +29,17 @@ import {
   type ProfileError,
 } from "@/lib/store/company";
 import { useEmployeeStore } from "@/lib/store/employees";
+import { NIGERIAN_STATES } from "@/lib/reference/lists";
 
-/** The 36 states plus the FCT — a Nigerian company files PAYE to one of these. */
-const STATES = [
-  "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa", "Benue",
-  "Borno", "Cross River", "Delta", "Ebonyi", "Edo", "Ekiti", "Enugu", "FCT",
-  "Gombe", "Imo", "Jigawa", "Kaduna", "Kano", "Katsina", "Kebbi", "Kogi",
-  "Kwara", "Lagos", "Nasarawa", "Niger", "Ogun", "Ondo", "Osun", "Oyo",
-  "Plateau", "Rivers", "Sokoto", "Taraba", "Yobe", "Zamfara",
-];
+/*
+ * The 36 states plus the FCT — a Nigerian company files PAYE to one of these.
+ *
+ * This list used to be declared here, and a five-entry version of it was
+ * declared again in the employee form, where the two disagreed on whether the
+ * capital is called `FCT` or `Abuja`. Both now come from one place; see the
+ * header of `lib/reference/lists.ts` for why that mattered.
+ */
+const STATES = NIGERIAN_STATES;
 
 /**
  * Company profile.

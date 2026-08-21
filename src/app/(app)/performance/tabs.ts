@@ -7,7 +7,20 @@
  * passing `tsc` and `lint` cleanly. `people/shifts/tabs.ts` exists for the same
  * reason and says so.
  */
-export const PERFORMANCE_TABS = ["kpis", "appraisals", "skills"] as const;
+export const PERFORMANCE_TABS = [
+  "kpis",
+  "appraisals",
+  "skills",
+  /**
+   * Who appraises whom. Last, and usually absent.
+   *
+   * Gated on `multiAppraiser`, which is off by default and which the setup
+   * wizard never asks about — so a company with one manager per person never
+   * sees this tab and never sees a weighting table. `performance-screen.tsx`
+   * decides; the id lives here so a link to it survives a reload.
+   */
+  "appraisers",
+] as const;
 
 export type PerformanceTab = (typeof PERFORMANCE_TABS)[number];
 

@@ -5,7 +5,7 @@ import { PayrollRunWizard } from "./wizard";
 
 export const metadata: Metadata = {
   title: "Run payroll",
-  description: "Prepare a period, work through what it flags, then approve it.",
+  description: "Calculate a month's pay, fix what it flags, then approve it. Nothing is paid until you approve.",
 };
 
 export default function NewPayrollRunPage() {

@@ -11,6 +11,7 @@ import {
   CardBody,
   CardFooter,
   CardHeader,
+  Input,
   Stat,
   TBody,
   TD,
@@ -50,11 +51,29 @@ export function CheckReport({
   onBack,
   onDownload,
   onContinue,
+  fixes,
+  fixCount,
+  onFix,
+  onRecheck,
+  rechecking,
 }: {
   check: CheckOutcome;
   onBack: () => void;
   onDownload: () => void;
   onContinue: () => void;
+  /**
+   * Corrections made here, keyed `row:field`.
+   *
+   * Until now the only way out of a failed row was to download the rejects, fix
+   * them in a spreadsheet and upload the file again — which for one missing
+   * phone number in a 500-row file is an absurd amount of work, and is the
+   * moment most people give up on an import.
+   */
+  fixes: Record<string, string>;
+  fixCount: number;
+  onFix: (row: number, field: string, value: string) => void;
+  onRecheck: () => void;
+  rechecking: boolean;
 }) {
   const [showAll, setShowAll] = useState(false);
 
@@ -69,6 +88,9 @@ export function CheckReport({
           who: row.name ?? row.employeeNo ?? "No name in this row",
           employeeNo: row.employeeNo,
           column: issue.column,
+          /* Our canonical field, which is what a correction writes to. Empty for
+             a row that was never sent — there is nothing to mend there. */
+          field: issue.field,
           value: issue.value,
           problem: issue.problem,
           severity: issue.severity,
@@ -191,6 +213,25 @@ export function CheckReport({
 
         {ordered.length > 0 && (
           <>
+            {fixCount > 0 && (
+              <div className="flex flex-wrap items-center gap-3 border-b border-line bg-sunken px-4 py-3">
+                <span className="flex-1 text-[0.875rem] text-body">
+                  {fixCount === 1
+                    ? "1 correction not checked yet."
+                    : `${fixCount} corrections not checked yet.`}{" "}
+                  Nothing is imported until you check them.
+                </span>
+                <Button
+                  variant="accent"
+                  size="sm"
+                  onClick={onRecheck}
+                  loading={rechecking}
+                >
+                  Check again
+                </Button>
+              </div>
+            )}
+
             <TableWrap
               className="rounded-none border-0 border-b border-line"
               caption="Every problem, with the row and column it is in"
@@ -201,6 +242,7 @@ export function CheckReport({
                 <TH>Column in your file</TH>
                 <TH>What is in it</TH>
                 <TH>What to fix</TH>
+                <TH className="w-56">Fix it here</TH>
                 <TH>Result</TH>
               </THead>
               <TBody>
@@ -237,11 +279,43 @@ export function CheckReport({
                       </span>
                     </TD>
                     <TD className="align-top">
+                      {line.field ? (
+                        <Input
+                          aria-label={`${line.column || "Value"} for row ${line.row}`}
+                          value={fixes[`${line.row}:${line.field}`] ?? ""}
+                          placeholder={
+                            line.value === null || line.value === ""
+                              ? "Type the missing value"
+                              : "Type a correction"
+                          }
+                          onChange={(e) =>
+                            onFix(line.row, line.field, e.target.value)
+                          }
+                        />
+                      ) : (
+                        /* Nothing to mend: this row was never sent. */
+                        <span className="text-[0.8125rem] text-muted">—</span>
+                      )}
+                    </TD>
+                    <TD className="align-top">
                       <Badge
-                        tone={line.severity === "error" ? "danger" : "warning"}
+                        tone={
+                          fixes[`${line.row}:${line.field}`]
+                            ? "info"
+                            : line.severity === "error"
+                              ? "danger"
+                              : "warning"
+                        }
                         size="sm"
                       >
-                        {line.severity === "error" ? "Skipped" : "Imports"}
+                        {/* A pending fix is neither "Skipped" nor "Imports" — it
+                            is unknown until the check runs again, and claiming
+                            either would be a guess about the API's verdict. */}
+                        {fixes[`${line.row}:${line.field}`]
+                          ? "Fixed — check again"
+                          : line.severity === "error"
+                            ? "Skipped"
+                            : "Imports"}
                       </Badge>
                     </TD>
                   </TR>

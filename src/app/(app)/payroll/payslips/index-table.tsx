@@ -114,10 +114,21 @@ export function PayslipIndex() {
         <EmptyState
           icon={<CalendarClock aria-hidden="true" />}
           title="No payslips yet"
-          description="Payslips are written when a period is prepared. Prepare one and they will appear here."
+          /*
+           * "Payslips are written when a period is prepared. Prepare one" was
+           * three pieces of internal vocabulary in one sentence: `prepare` and
+           * `period` are the engine's own words, and "a run" is a noun that no
+           * first-time user has met. It also read as an instruction to do
+           * something whose consequences were unstated — the reason somebody
+           * hesitates over a payroll button is the fear that money moves.
+           *
+           * So: say what a payslip is, in whose words, and say what this does
+           * not do.
+           */
+          description="Payslips are created when you run payroll for a month — one for each person. Nothing is paid until you approve it."
           action={
             <ButtonLink href="/payroll/runs/new" variant="accent">
-              Prepare a run
+              Run payroll
             </ButtonLink>
           }
         />
@@ -141,7 +152,7 @@ export function PayslipIndex() {
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)]">
         <div className="flex flex-col gap-4">
-          <Field label="Which run" className="max-w-sm">
+          <Field label="Which month" className="max-w-sm">
             <Select
               value={runId ?? ""}
               onChange={(e) => setChosen(e.target.value)}
@@ -193,7 +204,7 @@ export function PayslipIndex() {
           description={
             run
               ? `${periodLabel(run.period)} · pays ${run.payDate}`
-              : "Pick a run above."
+              : "Pick a month above."
           }
           action={
             <SegmentedControl

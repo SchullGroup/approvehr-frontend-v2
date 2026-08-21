@@ -97,7 +97,7 @@ import { TODAY } from "@/lib/today";
 
 const STEPS = [
   { id: "period", label: "Period", hint: "Month and pay date" },
-  { id: "check", label: "Check", hint: "Prepare and fix" },
+  { id: "check", label: "Check", hint: "Calculate and fix" },
   { id: "review", label: "Review", hint: "Every payslip" },
   { id: "approve", label: "Approve", hint: "Settle and freeze" },
 ];
@@ -185,7 +185,7 @@ export function PayrollRunWizard() {
       toast.push({
         title:
           result.discrepancies.length > 0
-            ? "Prepared, but the figures do not add up"
+            ? "Calculated, but the figures do not add up"
             : `Prepared ${periodLabel(period)}`,
         tone: result.discrepancies.length > 0 ? "danger" : "success",
         detail: `${result.headcount} ${result.headcount === 1 ? "person" : "people"} · ${result.blockers} to fix · ${result.warnings} to look at`,
@@ -193,7 +193,7 @@ export function PayrollRunWizard() {
       if (stepper.index === 0) stepper.goTo(1);
     } catch (caught) {
       toast.push({
-        title: "Could not prepare this run",
+        title: "Could not calculate this payroll",
         tone: "danger",
         detail:
           caught instanceof ApiError
@@ -251,10 +251,10 @@ export function PayrollRunWizard() {
         <Card>
           <CardHeader
             title="What are you paying?"
-            description="The period decides which contracts, joiners and leavers are picked up."
+            description="The month decides which contracts, joiners and leavers are picked up."
           />
           <CardBody className="grid max-w-2xl gap-5 sm:grid-cols-2">
-            <Field label="Pay period" required>
+            <Field label="Pay month" required>
               <Input
                 type="month"
                 value={period}
@@ -313,7 +313,7 @@ export function PayrollRunWizard() {
       {stepper.index === 1 && (
         <div className="flex flex-col gap-5">
           {!canPrepare && (
-            <Callout tone="warning" title="You cannot prepare a run">
+            <Callout tone="warning" title="You cannot run payroll yet">
               Preparing payroll needs the &ldquo;Run payroll&rdquo; permission.
               Somebody who has it can prepare this period, and you will still be
               able to review and approve it.
@@ -340,7 +340,7 @@ export function PayrollRunWizard() {
                 {busy !== "prepare" && (
                   <RefreshCw aria-hidden="true" className="size-4" />
                 )}
-                {run ? "Prepare again" : `Prepare ${periodLabel(period)}`}
+                {run ? "Calculate again" : `Calculate ${periodLabel(period)}`}
               </Button>
               {run && (
                 <p className="text-[0.75rem] leading-relaxed text-muted">
@@ -372,8 +372,8 @@ export function PayrollRunWizard() {
             <EmptyState
               compact
               icon={<ShieldCheck aria-hidden="true" />}
-              title="Nothing prepared yet"
-              description="Prepare the period and anything wrong with the records will be listed here, with the screen that fixes it."
+              title="Nothing calculated yet"
+              description="Calculate the month and anything wrong with the records will be listed here, with the screen that fixes it."
             />
           )}
         </div>
@@ -390,7 +390,7 @@ export function PayrollRunWizard() {
               compact
               icon={<ShieldCheck aria-hidden="true" />}
               title="Nothing to review"
-              description="Go back a step and prepare the period first."
+              description="Go back a step and calculate the month first."
             />
           )}
         </div>
@@ -435,7 +435,7 @@ export function PayrollRunWizard() {
                   <SummaryRow label="People" value={String(run.employeeCount)} />
                   <SummaryRow label="Pays on" value={run.payDate} />
                   <SummaryRow
-                    label="Stops the run"
+                    label="Stops payroll"
                     value={
                       <span
                         className={cn(

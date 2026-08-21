@@ -270,6 +270,10 @@ export type ComputedPayslip = {
   taxableGrossKobo: number;
   taxableMonthlyKobo: number;
   consolidatedReliefMonthlyKobo: number;
+  /** Which regime granted it. `RENT_RELIEF` from 2026; the CRA before. */
+  reliefKind: "CONSOLIDATED_RELIEF" | "RENT_RELIEF";
+  /** Rent relief applies and nothing was declared, so none was granted. */
+  reliefUnclaimed: boolean;
   payeKobo: number;
   postTaxDeductions: { code: string; label: string; amountKobo: number }[];
   postTaxDeductionsKobo: number;
@@ -290,6 +294,80 @@ export type PayslipPreview = {
     contractGrossKobo: number;
     rosteredDays: number | null;
   };
+};
+
+/* ------------------------------------------------------------------- quotes */
+
+/**
+ * `POST /payroll/quote` — a payslip for a salary figure, attached to nobody.
+ *
+ * The endpoint three screens need and `/preview` cannot serve, because none of
+ * them has an employee id: the settings form previewing an **unsaved** rate
+ * change, and the add-an-employee form previewing a salary as it is typed.
+ *
+ * Until this existed those screens ran a second copy of the payroll engine in
+ * the browser. That copy sat on the 2011 PAYE bands for a while after the
+ * Nigeria Tax Act 2025 went into the API, so they quoted ₦63,266.67 on ₦500,000
+ * a month where the answer was ₦63,950. It is deleted; this is the replacement.
+ *
+ * ## What you may send
+ *
+ * `settings` omitted means "this company's saved settings", which is what the
+ * add-an-employee form wants — the figures a real run would produce. Supplying
+ * it overrides them for the one call, which is what makes an unsaved change
+ * previewable. **Bands are not part of it**: they are resolved from `period`,
+ * because a company cannot choose its own tax brackets. Supplying settings that
+ * could not produce a lawful payslip is refused with the reason, not computed.
+ */
+export type QuoteSettings = {
+  workingDaysPerMonth: number;
+  basicPercent: number;
+  housingPercent: number;
+  transportPercent: number;
+  pensionEnabled: boolean;
+  pensionEmployeeRate: number;
+  pensionEmployerRate: number;
+  pensionOnBasic: boolean;
+  pensionOnHousing: boolean;
+  pensionOnTransport: boolean;
+  nhfEnabled: boolean;
+  nhfRate: number;
+  nhfOnGross: boolean;
+};
+
+export type QuoteVariation = {
+  /** One taxable, non-pensionable addition. A bonus, or overtime. */
+  additionsKobo?: number;
+  /** A loan instalment or an advance recovery. Never tax-deductible. */
+  postTaxDeductionsKobo?: number;
+  unpaidDays?: number;
+  /** Declared annual rent. Absent means undeclared, which means no relief. */
+  annualRentKobo?: number;
+};
+
+export type QuoteBody = {
+  /** Contractual monthly gross, integer kobo. */
+  grossMonthlyKobo: number;
+  /** `YYYY-MM`. Omit for this month. The period picks the statute. */
+  period?: string;
+  settings?: QuoteSettings;
+  variation?: QuoteVariation;
+};
+
+export type PayslipQuote = {
+  slip: ComputedPayslip;
+  period: { start: string; end: string };
+  /** Which settings answered: the ones sent, or the company's saved ones. */
+  settingsSource: "supplied" | "company";
+  taxSchedule: {
+    effectiveFrom: string;
+    citation: string;
+    confirmedThrough: string;
+    /** Nobody has confirmed this schedule covers the period. Shown, not hidden. */
+    stale: boolean;
+  };
+  /** Non-empty means the company's stored settings need attention first. */
+  settingsIssues: { field: string; message: string }[];
 };
 
 /* ------------------------------------------------------------------ mapping */
@@ -462,6 +540,18 @@ export const payrollApi = {
   preview: (employeeId: string, period: string, signal?: AbortSignal) =>
     request<PayslipPreview>("/payroll/preview", {
       query: { employeeId, period },
+      ...(signal ? { signal } : {}),
+    }),
+
+  /**
+   * A payslip for a salary figure. POST, and it still writes nothing — the body
+   * is a nested object with a settings block in it, which is the only reason it
+   * is not a GET.
+   */
+  quote: (body: QuoteBody, signal?: AbortSignal) =>
+    request<PayslipQuote>("/payroll/quote", {
+      method: "POST",
+      body,
       ...(signal ? { signal } : {}),
     }),
 };

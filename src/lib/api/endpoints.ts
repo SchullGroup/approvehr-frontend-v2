@@ -33,6 +33,22 @@ export type ApiUser = {
   organizationId: string;
   employeeId: string | null;
   permissions: string[];
+  /**
+   * The roles behind those permissions, by their human names.
+   *
+   * A permission set cannot be read back into a role — `VIEW_SALARIES` does not
+   * say whether its holder is the owner or the payroll officer — so anything
+   * that wants to state *which lens* somebody is looking through needs the name
+   * rather than the set. `lib/roles.ts` is the only consumer.
+   *
+   * All three endpoints that hand back an account now agree on this shape:
+   * sign-in, register and `/auth/me`. `/auth/me` used to nest it one level
+   * deeper, as the join table does.
+   *
+   * Possibly empty. An account in no role is a state the API can describe, and
+   * it is not the same as being an employee.
+   */
+  roles: { id: string; name: string }[];
 };
 
 export const auth = {
@@ -70,7 +86,6 @@ export const auth = {
     request<
       ApiUser & {
         organization: { id: string; legalName: string; tradingName: string | null };
-        roles: { role: { id: string; name: string } }[];
       }
     >("/auth/me"),
 
@@ -113,6 +128,9 @@ export type ApiEmployee = {
   taxState: string;
   tin: string | null;
   nhfNumber: string | null;
+  /** Integer kobo, or null for undeclared. See `Employee.annualRentKobo`. */
+  annualRentKobo: number | null;
+  rentDeclaredAt: string | null;
   nextOfKin: { name: string; relationship: string | null; phone: string | null } | null;
   avatarUrl: string | null;
   archived: boolean;
@@ -659,6 +677,10 @@ export function toEmployee(api: ApiEmployee): Employee {
     taxState: api.taxState,
     tin: api.tin,
     nhfNumber: api.nhfNumber,
+    /* Already kobo on both sides. Nothing to convert, which is the direction
+       the rest of this function is meant to move in. */
+    annualRentKobo: api.annualRentKobo,
+    rentDeclaredAt: api.rentDeclaredAt,
     nextOfKin: api.nextOfKin
       ? {
           name: api.nextOfKin.name,

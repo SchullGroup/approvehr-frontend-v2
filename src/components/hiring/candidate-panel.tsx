@@ -42,16 +42,19 @@ import {
 } from "@/lib/types";
 import { daysInStage } from "@/lib/mock/hiring";
 import { employeeById } from "@/lib/mock/people";
+import { REJECTION_REASONS as REJECTION_REASON_OPTIONS } from "@/lib/reference/lists";
 import { StagePill, stageLabel } from "./stage-pill";
 
-const REJECTION_REASONS = [
-  "Below the experience bar",
-  "Salary expectations out of band",
-  "Failed a knockout question",
-  "Stronger candidates in pipeline",
-  "Withdrew / unresponsive",
-  "Role closed",
-];
+/*
+ * Shared rather than declared here, and reworded on the way.
+ *
+ * The old wording was internal shorthand — "below the experience bar", "failed a
+ * knockout question", "out of band" — which reads fine to a recruiter who set
+ * the bar and means nothing to anybody else. These are the categories a company
+ * would have to stand behind if a rejection were questioned, so they say what
+ * they mean in plain words.
+ */
+const REJECTION_REASONS = REJECTION_REASON_OPTIONS;
 
 const SOURCE_LABEL: Record<PipelineCard["candidate"]["source"], string> = {
   careers_page: "Careers page",

@@ -9,10 +9,12 @@ import {
   CardHeader,
   Field,
   Input,
+  Money,
   Select,
   useToast,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
+import { koboFromDecimal, naira } from "@/lib/api/payroll";
 import { useCan } from "@/lib/permissions";
 import { validateEmployee } from "@/lib/store/employees";
 import type { EmployeePatch } from "@/lib/store/employees-api";
@@ -58,7 +60,7 @@ type SectionError = { field: keyof EmployeePatch; message: string };
 export type EditableField = {
   key: keyof EmployeePatch;
   label: string;
-  type?: "text" | "email" | "tel" | "date" | "number" | "select";
+  type?: "text" | "email" | "tel" | "date" | "number" | "select" | "money";
   options?: { value: string; label: string }[];
   help?: string;
   required?: boolean;
@@ -95,6 +97,8 @@ export function EditableSection({
   const canEdit = useCan("EDIT_RECORDS");
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<EmployeePatch>({});
+  /* Money fields only: the naira text being typed, before it becomes kobo. */
+  const [text, setText] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<SectionError[]>([]);
   const [busy, setBusy] = useState(false);
 
@@ -108,16 +112,26 @@ export function EditableSection({
   function open() {
     /* Seed the draft from the record so Cancel is a true revert. */
     const seed: EmployeePatch = {};
+    const seedText: Record<string, string> = {};
     for (const f of fields) {
-      seed[f.key] = valueOf(f) as never;
+      const value = valueOf(f);
+      seed[f.key] = value as never;
+      if (f.type === "money") {
+        seedText[String(f.key)] =
+          value === null || value === undefined
+            ? ""
+            : String(naira(Number(value)));
+      }
     }
     setDraft(seed);
+    setText(seedText);
     setErrors([]);
     setEditing(true);
   }
 
   function cancel() {
     setDraft({});
+    setText({});
     setErrors([]);
     setEditing(false);
   }
@@ -125,9 +139,34 @@ export function EditableSection({
   async function save() {
     /* Only send what actually changed. */
     const patch: EmployeePatch = {};
+    const bad: SectionError[] = [];
+
     for (const f of fields) {
+      if (f.type === "money") {
+        const typed = (text[String(f.key)] ?? "").replace(/[^\d.]/g, "").trim();
+        /* Emptied means withdrawn, which is `null` rather than `0`. */
+        if (typed === "") {
+          if (valueOf(f) !== null && valueOf(f) !== undefined) {
+            patch[f.key] = null as never;
+          }
+          continue;
+        }
+        if (!Number.isFinite(Number(typed))) {
+          bad.push({ field: f.key, message: `Enter ${f.label.toLowerCase()} as a number.` });
+          continue;
+        }
+        /* Integer kobo, split on the point rather than multiplied. */
+        const kobo = koboFromDecimal(typed);
+        if (kobo !== Number(valueOf(f) ?? NaN)) patch[f.key] = kobo as never;
+        continue;
+      }
       const next = draft[f.key];
       if (next !== valueOf(f)) patch[f.key] = next as never;
+    }
+
+    if (bad.length > 0) {
+      setErrors(bad);
+      return;
     }
 
     if (Object.keys(patch).length === 0) {
@@ -237,6 +276,8 @@ export function EditableSection({
                       <span className="font-medium text-danger-text">
                         {f.emptyLabel ?? "Not provided"}
                       </span>
+                    ) : f.type === "money" ? (
+                      <Money amount={naira(Number(value))} />
                     ) : f.format ? (
                       f.format(value)
                     ) : (
@@ -255,7 +296,17 @@ export function EditableSection({
                 help={f.help}
                 error={errorFor(f.key)}
               >
-                {f.type === "select" ? (
+                {f.type === "money" ? (
+                  <Input
+                    inputMode="numeric"
+                    value={text[String(f.key)] ?? ""}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      setText((t) => ({ ...t, [String(f.key)]: raw }));
+                      setErrors((x) => x.filter((y) => y.field !== f.key));
+                    }}
+                  />
+                ) : f.type === "select" ? (
                   <Select
                     value={String(draft[f.key] ?? "")}
                     onChange={(e) => {

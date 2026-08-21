@@ -16,7 +16,7 @@ export default function PayslipsPage() {
           { href: "/payroll/payslips", label: "Payslips" },
         ]}
         title="Payslips"
-        description="Every payslip for the period, and whether it actually reached the person."
+        description="Every payslip for the month, and whether it actually reached the person."
       />
       <PageBody>
         <PayslipIndex />

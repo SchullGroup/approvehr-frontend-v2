@@ -45,9 +45,13 @@ export function PayslipView({ id }: { id: string }) {
 
   const record = usePayslipRecord(id, runHint);
   const { employees } = useEmployeeDirectory({ pageSize: 200 });
-  /* The rates that computed a demo payslip are the ones in this browser's
-     settings, so quoting them cannot drift. Against the API they are unknown
-     for a stored payslip and are left off rather than derived. */
+  /* Quoting this browser's settings on a demo payslip cannot drift, and the
+     reason changed: a demo payslip is now read from fixed illustrative figures
+     rather than computed here, and the demo run **withholds** those figures
+     entirely once the settings no longer match what they were generated on. So a
+     demo payslip existing is itself proof that these rates are the ones behind
+     it. Against the API the rates are unknown for a stored payslip and are left
+     off rather than derived. */
   const { settings } = usePayrollSettings();
   const { settings: company } = useCompanySettings();
 

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { CURRENT_USER, EMPLOYEES, employeeById } from "@/lib/mock/people";
+import { seedRolesFor } from "@/lib/mock/roles";
 import type { Employee } from "@/lib/types";
 import { SessionExpiredError, onAuthChange, tokens } from "@/lib/api/client";
 import { auth, type ApiUser } from "@/lib/api/endpoints";
@@ -145,13 +146,30 @@ function safeRemove(key: string) {
   }
 }
 
+/**
+ * One account on the offline sign-in screen.
+ *
+ * The role travels with the person because the picker is the one moment where
+ * choosing an account *is* choosing a role: every screen afterwards behaves as
+ * that person. It used to guess — anybody in the People department was labelled
+ * "Full access", which was true of nobody in particular and wrong for the
+ * Payroll officer, who holds a genuinely narrower set.
+ */
+export type SignInOption = {
+  employee: Employee;
+  /** From the demo seed. Empty for a persona in no role, which is not an error. */
+  roles: { id: string; name: string }[];
+};
+
 /** Accounts offered on the offline sign-in screen, the seed user first. */
-export function signInOptions(): Employee[] {
-  return [...EMPLOYEES].sort((a, b) => {
-    if (a.id === CURRENT_USER.id) return -1;
-    if (b.id === CURRENT_USER.id) return 1;
-    return a.firstName.localeCompare(b.firstName);
-  });
+export function signInOptions(): SignInOption[] {
+  return [...EMPLOYEES]
+    .sort((a, b) => {
+      if (a.id === CURRENT_USER.id) return -1;
+      if (b.id === CURRENT_USER.id) return 1;
+      return a.firstName.localeCompare(b.firstName);
+    })
+    .map((employee) => ({ employee, roles: seedRolesFor(employee.id) }));
 }
 
 export function useSession() {
@@ -226,6 +244,16 @@ export function useSession() {
     /** True when talking to the API rather than the seed data. */
     isConnected: state.mode === "api" && state.status === "signed_in",
     user: state.user,
+    /**
+     * The roles on the *account*, named. Empty in demo mode, where there is no
+     * account — `useSessionRoles()` in `lib/roles.ts` is the hook that answers
+     * for both modes and the one screens should use.
+     *
+     * Defaulted rather than read straight off `user`: the field is new, and an
+     * API one deploy behind sends a user object without it. An undefined array
+     * reaching `.map` is a blank screen; an empty one is a missing badge.
+     */
+    roles: state.user?.roles ?? [],
     employee,
     displayName,
     employeeId: state.employeeId,

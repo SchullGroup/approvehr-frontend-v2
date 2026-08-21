@@ -2,7 +2,6 @@
 
 import { Info } from "lucide-react";
 import {
-  Badge,
   Callout,
   Card,
   CardBody,
@@ -25,8 +24,11 @@ import { PageBody, PageHeader } from "@/components/portal/shell";
 import { EMPLOYEES } from "@/lib/mock/people";
 import { useCompanySettings } from "@/lib/store/company";
 import { useLeaveBalances } from "@/lib/store/leave-balances";
+import { useSession } from "@/lib/store/session";
+import { TODAY } from "@/lib/today";
 import { remainingDays } from "@/lib/workflows/leave";
 import { fullName } from "@/lib/types";
+import { HolidaysPanel } from "./holidays-panel";
 
 const ACCRUAL_LABEL = {
   annual_upfront: "Granted in full on 1 January",
@@ -49,7 +51,14 @@ const ACCRUAL_LABEL = {
 export function LeavePolicyForm() {
   const { settings, updateLeave, updateLeaveType } = useCompanySettings();
   const leaveBalances = useLeaveBalances();
+  const { isConnected } = useSession();
   const toast = useToast();
+
+  /* Demo mode runs on `TODAY`; the real clock would open the calendar on a year
+     the seed has nothing in. Same reasoning as `/people/leave`. */
+  const calendarYear = Number(
+    (isConnected ? new Date().toISOString().slice(0, 10) : TODAY).slice(0, 4),
+  );
 
   const policy = settings.leave;
 
@@ -265,21 +274,10 @@ export function LeavePolicyForm() {
           </Card>
         </div>
 
-        <Card>
-          <CardHeader title="Public holidays" level={3} />
-          <CardBody>
-            <p className="text-[0.875rem] leading-relaxed text-body">
-              Nigerian public holidays are maintained for you, including the ones
-              proclaimed at short notice. They are shown on{" "}
-              <Badge tone="neutral" size="sm">
-                Time off
-              </Badge>{" "}
-              and excluded from the working-day count on attendance timesheets.
-              An unconfirmed holiday is marked as awaiting proclamation rather
-              than assumed.
-            </p>
-          </CardBody>
-        </Card>
+        {/* Was a paragraph describing a calendar nobody could see or change.
+            `GET/POST/PATCH/DELETE /leave/holidays` exist now, so it is the real
+            thing. Demo mode edits a seeded copy and says so. */}
+        <HolidaysPanel defaultYear={calendarYear} />
       </PageBody>
     </>
   );

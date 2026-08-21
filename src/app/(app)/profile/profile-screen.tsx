@@ -29,12 +29,14 @@ import {
   useToast,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { SessionRoleBadge } from "@/components/portal/role-badge";
 import { useSession } from "@/lib/store/session";
 import { useLeaveBalances } from "@/lib/store/leave-balances";
 import { useFeatures } from "@/lib/store/features";
 import { MyLoans } from "@/app/(app)/payroll/loans";
 import { MyRota } from "@/app/(app)/people/shifts";
 import { MyAssets } from "@/app/(app)/people/assets";
+import { Resign } from "@/app/(app)/people/offboarding";
 import { useEmployeeStore } from "@/lib/store/employees";
 import { fullName, missingForPayroll } from "@/lib/types";
 import { self } from "@/lib/api/self";
@@ -120,6 +122,11 @@ export function ProfileScreen() {
               <p className="mt-1 text-[0.875rem] text-muted">
                 Staff number {employee.employeeNo} · {employee.location}
               </p>
+              {/* Job title and role are different facts and both belong here.
+                  "Talent Acquisition Lead" is what they do; "HR manager" is what
+                  the software lets them do, and it is the second one that
+                  explains why this screen looks the way it does. */}
+              <SessionRoleBadge size="md" className="mt-2.5" />
             </div>
             {mode === "offline" && (
               <Badge tone="warning" size="sm">
@@ -182,6 +189,18 @@ export function ProfileScreen() {
             hand it back. `GET /assets/employees/:id` needs no permission for
             your own id, so this renders for everybody. */}
         <MyAssets />
+
+        {/* The employee's own door out, and the last thing on the page for the
+            obvious reason.
+
+            It sits directly under the kit they hold because those two are one
+            thought: the laptop you hand back is what you are looking at while
+            you decide to go. `Resign` renders nothing when the sign-in has no
+            staff record, so it needs no guard here.
+
+            Until now the only way to resign was for HR to record it for you —
+            the screen existed and nothing linked to it. */}
+        <Resign />
 
         {/* Employment facts. Read-only: the company owns these. */}
         <Card>

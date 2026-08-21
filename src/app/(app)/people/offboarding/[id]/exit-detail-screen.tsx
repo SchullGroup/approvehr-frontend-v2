@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { DoorOpen, Laptop } from "lucide-react";
+import { Banknote, CalendarClock, CreditCard, DoorOpen, Laptop } from "lucide-react";
 import {
   Badge,
   Button,
@@ -22,8 +22,13 @@ import {
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
-import type { ApiExitTask } from "@/lib/api/offboarding";
+import {
+  formatKobo,
+  type ApiExitFinalPay,
+  type ApiExitTask,
+} from "@/lib/api/offboarding";
 import { useCan } from "@/lib/permissions";
+import { useEquipment } from "@/lib/store/assets";
 import { useExit } from "@/lib/store/offboarding";
 import { useSession } from "@/lib/store/session";
 import { shortDate } from "@/lib/today";
@@ -63,7 +68,15 @@ export function ExitDetailScreen({ id }: { id: string }) {
 
   const [closing, setClosing] = useState(false);
   const [declining, setDeclining] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  /* Returning a laptop is the equipment register's operation, not this module's
+     — two modules writing the same rows is how a register grows two truths. The
+     button lives here because this is where somebody is standing when the laptop
+     lands on the desk. `enabled: false` because nothing on this screen needs the
+     register's list, only its one write. */
+  const equipment = useEquipment({}, false);
 
   if (exitState.loading) {
     return (
@@ -154,6 +167,11 @@ export function ExitDetailScreen({ id }: { id: string }) {
 
   const held = readiness.assetsStillHeld.filter((asset) => asset.returnRequired);
 
+  /* Their own notice, theirs to take back. HR may cancel anybody's; the API
+     enforces both and this only decides which button to offer. */
+  const mine = employeeId !== null && exit.employee.id === employeeId;
+  const canWithdraw = !closed && (mine || isHr);
+
   return (
     <>
       <PageHeader
@@ -183,10 +201,18 @@ export function ExitDetailScreen({ id }: { id: string }) {
           </Callout>
         )}
 
+        {exit.status === "CANCELLED" && (
+          <Callout tone="info" title={`${firstName} is staying`}>
+            {exit.declinedReason ?? "The exit was cancelled."} Nothing was
+            archived and nothing was closed — they are still on the payroll. If
+            they change their mind again, start a new one.
+          </Callout>
+        )}
+
         {exit.status === "COMPLETED" && (
           <Callout tone="success" title="Closed">
             {firstName}&rsquo;s record is archived, not deleted. Past payslips still
-            work.
+            work. Their sign-in has been switched off.
           </Callout>
         )}
 
@@ -264,6 +290,20 @@ export function ExitDetailScreen({ id }: { id: string }) {
                     Not going ahead
                   </Button>
                 )}
+
+                {/* Different words for a different fact. "Not going ahead" is
+                    somebody refusing; this is the person changing their mind,
+                    and a report that cannot tell them apart says nothing. */}
+                {canWithdraw && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => setWithdrawing(true)}
+                  >
+                    {mine ? "I am staying after all" : `${firstName} is staying`}
+                  </Button>
+                )}
               </div>
 
               {/* One short line, naming what is in the way. */}
@@ -286,12 +326,19 @@ export function ExitDetailScreen({ id }: { id: string }) {
           onVerify={exitState.verifyTask}
         />
 
+        {/* Presence, not falsiness. `finalPay` is new on `GET /readiness`, and a
+            screen served against an API that predates it should lose one card
+            rather than crash on the leaver's page. */}
+        {readiness.finalPay !== undefined && (
+          <FinalPayCard finalPay={readiness.finalPay} firstName={firstName} />
+        )}
+
         {held.length > 0 && (
           <Card>
             <CardHeader
               title="Still on the equipment register"
               level={3}
-              description={`${firstName} has not handed these back.`}
+              description={`${firstName} has not handed these back. A checklist line ticked as returned while this still says otherwise stops the exit closing.`}
               action={
                 <ButtonLink href="/people/assets" variant="secondary" size="sm">
                   Open the register
@@ -316,8 +363,33 @@ export function ExitDetailScreen({ id }: { id: string }) {
                     </p>
                     <p className="tabular mt-0.5 text-[0.875rem] text-muted">
                       {asset.tag} · since {shortDate(asset.assignedOn)}
+                      {asset.valueKobo === null
+                        ? ""
+                        : ` · ${formatKobo(asset.valueKobo)}`}
                     </p>
                   </div>
+
+                  {/* Written by the assets module, not this one. The button is
+                      here because this is where the person is standing when the
+                      laptop arrives, and making them find the register to close
+                      an exit is how a register goes stale. */}
+                  {isHr && !closed && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={busy}
+                      onClick={() =>
+                        void run(async () => {
+                          await equipment.takeBack(asset.assetId, {
+                            outcome: "RETURNED",
+                          });
+                          await exitState.reload();
+                        }, `${asset.name} back on the register`)
+                      }
+                    >
+                      Got it back
+                    </Button>
+                  )}
                 </div>
               ))}
             </CardBody>
@@ -375,8 +447,24 @@ export function ExitDetailScreen({ id }: { id: string }) {
             if (ok) setClosing(false);
           })();
         }}
-        body="Their record is kept, not deleted. Past payslips still work."
+        body="Their record is kept, not deleted, so past payslips and approvals still work. Their sign-in is switched off."
       />
+
+      {withdrawing && (
+        <WithdrawDialog
+          firstName={firstName}
+          mine={mine}
+          busy={busy}
+          onClose={() => setWithdrawing(false)}
+          onWithdraw={async (reason) => {
+            const ok = await run(
+              () => exitState.withdraw(reason || undefined),
+              mine ? "Your notice has been withdrawn" : `${firstName} is staying`,
+            );
+            if (ok) setWithdrawing(false);
+          }}
+        />
+      )}
 
       {declining && (
         <DeclineDialog
@@ -457,6 +545,192 @@ function DeclineDialog({
           maxLength={500}
           onChange={(e) => setReason(e.target.value)}
           placeholder="Agreed to stay on for another six months."
+        />
+      </Field>
+    </Modal>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Final pay.
+ *
+ * ## No total, on purpose
+ *
+ * The final figure belongs to the payroll run — it is the only thing holding the
+ * tax schedule, the proration divisor and the reconciliation gate. A "final pay:
+ * ₦412,000" on this card would be a second answer somebody has to reconcile
+ * against the payslip, and the two would disagree the first time anything
+ * changed.
+ *
+ * So this card is the list of things that *change* that figure and that nobody
+ * remembers: money still owed, leave never taken, kit never handed back. Each is
+ * a decision for a person, which is why each is stated separately rather than
+ * netted off into a number that looks like an answer.
+ *
+ * The same three facts are raised on the payroll run itself as warnings, from the
+ * same calculation — so what somebody reads here and what stops them approving
+ * blind are the same sentence.
+ *
+ * A line with nothing in it is left out rather than shown as zero. In demo mode
+ * there is no loan book and no register in the browser, so those two are always
+ * empty, and inventing a balance on the one screen whose argument is "the exit
+ * reaches payroll" would be the worst possible place to make something up.
+ */
+function FinalPayCard({
+  finalPay,
+  firstName,
+}: {
+  finalPay: ApiExitFinalPay;
+  firstName: string;
+}) {
+  const untaken = finalPay.untakenLeave.reduce((sum, row) => sum + row.days, 0);
+
+  const rows: { icon: React.ReactNode; label: string; detail: string }[] = [
+    {
+      icon: <CalendarClock aria-hidden="true" />,
+      label: `Last day ${shortDate(finalPay.lastWorkingDay)}`,
+      detail: "Their final payslip is the one covering this date.",
+    },
+  ];
+
+  if (finalPay.outstandingLoanKobo > 0) {
+    rows.push({
+      icon: <CreditCard aria-hidden="true" />,
+      label: `${formatKobo(finalPay.outstandingLoanKobo)} still owed on a loan`,
+      detail:
+        "Payroll takes one instalment. Recover the rest from the final pay or write it off — there is no next month.",
+    });
+  }
+
+  if (untaken > 0) {
+    rows.push({
+      icon: <CalendarClock aria-hidden="true" />,
+      /* Deliberately **not** one summed figure. Adding annual, sick and
+         compassionate days together produces a headline number nobody would ever
+         pay out — untaken sick leave is not money owed — and a card that states
+         it as "29 days not taken" is teaching a non-HR owner something false on
+         the screen where they decide what to pay. */
+      label: `Leave not taken: ${finalPay.untakenLeave
+        .map((row) => `${row.days} ${row.leaveType.toLowerCase()}`)
+        .join(", ")}`,
+      detail:
+        "Annual leave is normally payable and sick leave is not. Decide which of it is before the final payslip.",
+    });
+  }
+
+  if (finalPay.heldValueKobo > 0) {
+    rows.push({
+      icon: <Laptop aria-hidden="true" />,
+      label: `${formatKobo(finalPay.heldValueKobo)} of equipment still out`,
+      detail: "Get it back or agree a deduction before the final payslip.",
+    });
+  }
+
+  return (
+    <Card>
+      <CardHeader
+        title="Final pay"
+        level={3}
+        description={`What has to be decided before ${firstName}'s last payslip. The figure itself comes from the payroll run.`}
+        action={
+          <Badge tone={finalPay.agreed ? "success" : "warning"} size="sm">
+            {finalPay.agreed ? "Agreed" : "Not agreed yet"}
+          </Badge>
+        }
+      />
+      <CardBody className="flex flex-col gap-2">
+        {rows.map((row) => (
+          <div
+            key={row.label}
+            className="flex items-start gap-3 rounded-md border border-line p-3"
+          >
+            <span
+              aria-hidden="true"
+              className="flex size-8 shrink-0 items-center justify-center rounded-md bg-sunken text-muted [&>svg]:size-4"
+            >
+              {row.icon}
+            </span>
+            <div className="min-w-0">
+              <p className="text-[0.9375rem] font-medium text-ink">{row.label}</p>
+              <p className="mt-0.5 text-[0.875rem] text-muted">{row.detail}</p>
+            </div>
+          </div>
+        ))}
+
+        <p className="flex items-start gap-2 text-[0.875rem] text-muted">
+          <Banknote aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
+          The payroll run raises each of these again before anybody approves it,
+          from this same list.
+        </p>
+      </CardBody>
+    </Card>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Taking it back.
+ *
+ * The reason is optional here and required on "not going ahead", which is
+ * deliberate: why somebody left is a field every report comes back to, and why
+ * they changed their mind is nobody's business but theirs. Making a person
+ * explain themselves to a form before it will let them stay is the wrong tone
+ * for the one screen in this flow that is good news.
+ */
+function WithdrawDialog({
+  firstName,
+  mine,
+  busy,
+  onClose,
+  onWithdraw,
+}: {
+  firstName: string;
+  /** True when this is the signed-in person's own notice. */
+  mine: boolean;
+  busy: boolean;
+  onClose: () => void;
+  onWithdraw: (reason: string) => Promise<void>;
+}) {
+  const [reason, setReason] = useState("");
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={mine ? "Withdraw my notice" : `Cancel ${firstName}'s exit`}
+      description={
+        mine
+          ? "Your checklist stops and nothing is closed. Your manager and HR will be told."
+          : `${firstName} stays on the payroll and their checklist stops. Nothing is archived.`
+      }
+      footer={
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            variant="accent"
+            disabled={busy}
+            onClick={() => void onWithdraw(reason.trim())}
+          >
+            {busy ? "Saving…" : mine ? "Withdraw it" : "Cancel the exit"}
+          </Button>
+        </div>
+      }
+    >
+      <Field label="Anything you want to add" help="Optional.">
+        <Textarea
+          rows={3}
+          value={reason}
+          autoFocus
+          maxLength={500}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder={
+            mine ? "We agreed a new role." : "They accepted a counter-offer."
+          }
         />
       </Field>
     </Modal>

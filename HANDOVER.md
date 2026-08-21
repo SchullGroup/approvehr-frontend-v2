@@ -147,23 +147,34 @@ earlier version of this file told you not to shrink it; the user looked at the
 result on a real screen and said it read as too wide. Whitespace at the margins
 is what makes a page look composed rather than merely full.
 
-## The payroll engine exists twice, and that is temporary
+## The payroll engine exists ONCE. Keep it that way.
 
-`web/src/lib/payroll/engine.ts` (floating-point naira, 33 assertions) and
-`approvehr-api/src/modules/payroll/engine.ts` (**integer kobo**, 50 assertions)
-implement the same statute. The backend one is authoritative and is the one to
-trust: it was cross-checked against an independent Decimal implementation before
-being committed, and it cannot drift the way the float version can.
+**This section used to say the engine existed twice and that it was temporary.
+It is now one, and the second one is deleted.** The whole of the rest of this
+section is kept because the reasoning is still the reasoning; read it as history
+plus a standing rule.
 
-The frontend copy stays only until the payroll screens read from the API. When
-they do, delete `web/src/lib/payroll/engine.ts` rather than keeping it "for
-offline" — two implementations of tax law is exactly one too many. If you change
-statutory maths before that happens, **change both**, and put the new assertion
-in both suites.
+`approvehr-api/src/modules/payroll/engine.ts` is the payroll engine. Integer
+kobo, dated `TAX_SCHEDULES`, a relief regime that rides on the schedule, and
+100-odd hand-worked assertions. There is no other. `web/src/lib/payroll/` now
+holds `settings.ts` and `use-settings.ts` and nothing that computes tax.
 
-### The frontend engine, in detail
+**Do not add a second one, for any reason, including offline mode.** The one that
+existed cost real money in wrong figures: when the Nigeria Tax Act 2025 bands
+went into the backend, the frontend copy stayed on the 2011 bands and four
+screens quoted ₦63,266.67 on ₦500,000 a month where the answer was ₦63,950. See
+"The frontend engine is gone" below for what those four screens do now.
 
-`src/lib/payroll/engine.ts` implements real Nigerian PAYE, pension and NHF
+### The frontend engine, in detail — HISTORICAL
+
+Kept because the *reasoning* below is still binding on the backend engine and on
+anybody reading a payslip: the order of operations, statutory rates being company
+settings rather than constants, bands being statute and therefore not a setting,
+and employer pension sitting on top of gross. Only the file it describes is gone.
+`scripts/verify-payroll.ts` is now a cross-repo fixture check — see the last
+section of this file.
+
+`src/lib/payroll/engine.ts` implemented real Nigerian PAYE, pension and NHF
 maths against the Personal Income Tax Act, the Pension Reform Act 2014, and
 the NHF Act. **This is hand-verified, not vibes-verified.**
 `scripts/verify-payroll.ts` has 33 assertions with hand-worked expected
@@ -808,19 +819,9 @@ the module that needed them, and that is the right instinct. Keep it.
    with the local store as the demo fallback. That is not a leftover: the product
    gets shown on laptops with no database, and the rule is that it must never
    *look* connected when it is not.
-2. **`web/src/lib/payroll/engine.ts` should still be deleted**, and this is now
-   urgent rather than tidy. It is a preview calculator for four screens —
-   `/settings/payroll`, `/people/new`, `/people/[id]` and the loan application —
-   and when the 2025 Act went into the backend it was left on the 2011 bands, so
-   all four quoted last year's tax for a while: ₦63,266.67 against the correct
-   ₦63,950 on ₦500,000 a month. It is on the current law now, and
-   `scripts/verify-payroll.ts` compares its top marginal rate against the
-   backend's newest schedule so they cannot drift again — but the guard skips
-   when `approvehr-api` is not checked out beside this repo, so CI cannot run it.
-   The real fix is to delete the file and have those four screens call
-   `GET /payroll/preview`, which already exists and is the same engine the run
-   uses. Two implementations of tax law is one too many, and one of them being
-   *wrong* is how that stops being an abstract concern.
+2. **Done — `web/src/lib/payroll/engine.ts` is deleted.** See "The frontend
+   engine is gone" at the end of this file for what replaced it, including the
+   one backend endpoint that had to be added and what demo mode does now.
 3. **The ETL out of the Django database** exists at `scripts/etl/` — introspect,
    plan, fixture, migrate — and is tested against a synthetic legacy database.
    What is *not* done is the mapping: every column name in `plan.ts` is still
@@ -843,3 +844,567 @@ the module that needed them, and that is the right instinct. Keep it.
    `/health/ready`. Terraform is not installed on the machine that wrote them,
    so they are **not validated** — read the diff and run a plan before anything
    is applied.
+
+---
+
+# The frontend engine is gone
+
+The last entry in the list above is closed. `web/src/lib/payroll/engine.ts` — the
+second implementation of Nigerian statutory tax, in floating-point naira, in the
+browser — is deleted. This section is what replaced it and why each choice was
+made, because two of the choices are ones a reasonable person would make
+differently and should not undo by accident.
+
+## Who was using it, and what each one does now
+
+| Screen | Was | Is |
+|---|---|---|
+| `/settings/payroll` preview | `calculatePayslip` on ₦1,000,000 with the **draft** settings | `POST /payroll/quote` with the draft settings in the body |
+| `/people/new` first payslip | `calculatePayslip` on the salary being typed | `POST /payroll/quote`, settings omitted so the company's **saved** ones answer |
+| `/people/[id]` compensation | API when connected, engine offline | API when connected, fixed illustrative figures offline |
+| Loan application take-home | two `calculatePayslip` calls, before and after | one `GET /pay-components/preview/:id` for their real net, minus the instalment |
+| `lib/store/payroll.ts` demo run | `calculatePayslip` per person | fixed illustrative figures, or a refusal |
+
+`lib/store/payslip-quote.ts` is the hook. `lib/mock/payroll.ts` now owns the
+`PayrollEmployee` type, which used to live in the engine.
+
+## One endpoint had to be added: `POST /payroll/quote`
+
+`GET /payroll/preview` already existed and could not serve three of those five
+callers, because it takes an `employeeId` and they have no employee: one is
+previewing settings nobody has saved, one a person nobody has created. So the
+backend gained `POST /payroll/quote` — a gross figure, an optional settings
+block, an optional variation, and no database row required.
+
+Two rules in it are load-bearing:
+
+- **The caller may choose the settings. It may never choose the bands.** Bands
+  and the relief regime come from the period, because a company cannot choose its
+  own tax brackets or decide the Consolidated Relief Allowance still exists.
+- **Supplied settings that are invalid are refused, not computed.** Stored
+  settings that are invalid are reported in `settingsIssues` and computed anyway
+  — the reader of a quote is usually not the person who can fix the company's
+  settings, and a blank panel would not tell them why.
+
+`tests/payroll-quote.test.ts`, 16 assertions, including ₦63,950.00 on ₦500,000
+under the 2025 Act and ₦63,266.67 on the same salary in December 2025. Those are
+the two figures from the incident, and having both come out of one code path is
+the point of the whole exercise.
+
+### And a real bug found next door
+
+`engineSettingsFor` in `pay-components/service.ts` resolved the PAYE bands from
+the period and **did not carry the schedule's `relief` with them**.
+`computePayslip` defaults to the CRA when no regime is passed, so
+`GET /pay-components/preview` was granting 2026 employees a relief the Act
+abolished while `payroll/prepare` was not — one engine, two answers, on adjacent
+screens. Fixed, with an assertion in `tests/pay-components.test.ts` that is
+deliberately the only 2026 block in a file otherwise disciplined to June 2025.
+
+## Demo mode: fixed illustrative figures, and two refusals
+
+This is the decision to read before changing anything here.
+
+With no API there is no authoritative figure. The options were to omit payroll
+from demo mode, or to show fixed figures and label them. **Fixed figures won**,
+for one reason: this product is shown on laptops in rooms with no database, and a
+payroll product whose payroll module is empty in that room does not get bought.
+Omission is the right answer for a *preview* — a salary being typed is not a
+figure anybody needs to see wrong — and it is the wrong answer for the module
+that carries the pitch.
+
+- `src/lib/mock/demo-payslips.ts` is **generated** by
+  `approvehr-api/scripts/emit-demo-payslips.ts`, which is in that repo because it
+  is the only place allowed to import the engine. Its header carries the exact
+  command. Do not hand-edit it.
+- It covers the ten demo salaries, on the default settings, with no allowances
+  and no declared rent. Every screen that renders a figure from it says
+  "illustrative" in the same breath.
+- **It refuses twice.** A salary it has no row for — an edited one, or a person
+  created in demo mode — raises a BLOCKER on the run naming them, and shows no
+  figures on their record. Settings moved away from what the figures were
+  generated on raises a BLOCKER for the whole run, because the figures no longer
+  describe that company. `settingsMatchFixture` is that rule.
+- The one piece of arithmetic left in the browser is the post-tax deduction, and
+  it is the piece that needs no engine: an after-tax deduction takes exactly its
+  own amount off take-home, capped at what is there. Same rule as
+  `demoNetEffectKobo` in `lib/store/pay-components.ts`.
+
+## `npm run verify-payroll` is now a cross-repo check
+
+It used to test the frontend engine (33 assertions) with a divergence guard
+bolted on. There is no frontend engine to test, so it checks what this repo can
+still be wrong about: 51 assertions over the fixture's reconciliation identities
+(exact integers, no tolerance, the same ones `reconcile.ts` demands), every demo
+salary having a row, the fixture's settings still being this repo's defaults, and
+— when `approvehr-api` is checked out beside this repo — the fixture's recorded
+tax schedule matching the API's newest **band for band**, parsed out of the
+backend source as text.
+
+That last one is the guard the original incident needed. It was tested by
+tampering with a band and a relief cap in the fixture and confirming both fail.
+It still skips when the sibling repo is absent, because the frontend's CI clones
+this repo alone — so CI proves the fixture reconciles, and a developer with both
+repos proves it is current. The package script keeps its name, so `npm run check`
+and `.github/workflows/ci.yml` needed no change.
+
+## Staleness, which is the frontend bug worth knowing about
+
+`usePayslipQuote` debounces the request and matches the answer against the
+**live** key, not the debounced one. Debouncing alone leaves last keystroke's
+figure on screen beside an input that has already moved, which on a salary
+preview is a wrong number wearing a right number's label. `lib/use-debounced.ts`
+says this in its header.
+
+**The same defect still exists in `payroll/pay-setup/pay-components-panel.tsx`**,
+which debounces an amount into `usePayPreview` and derives nothing from the live
+value. It was left alone deliberately — it is not one of the five callers this
+change was about — but it is a two-line fix and worth doing next time that file
+is open.
+
+# The public holiday calendar
+
+`/people/leave` used to say "The API does not publish a holiday calendar yet".
+It did not, and then it did — `GET/POST/PATCH/DELETE /leave/holidays` — so that
+string, and the `unavailable` state it hung off, are both gone.
+
+## What was built
+
+| File | What |
+|---|---|
+| `lib/api/leave.ts` | `holidays()` reshaped to the real envelope (`{ holidays, awaitingProclamation }`), plus `createHoliday` / `updateHoliday` / `deleteHoliday`. `PublicHolidayRow` gained the `id` that edit and delete address. The old "no route yet, returns `null` on 404" branch is deleted. |
+| `lib/store/holidays.ts` | **New.** `usePublicHolidays(year)` and `useHolidayMutations()`, shaped on `lib/store/shifts.ts` — demo value in a `useMemo`, fetch in an async IIFE behind a `cancelled` guard, staleness by comparing a key during render. Split out of `leave-api.ts` because the calendar and two hundred leave requests should not share a refresh. |
+| `people/leave/holiday-calendar.tsx` | **New.** Twelve mini-months, full width, replacing the four-line list in the 340px rail. |
+| `settings/leave/holidays-panel.tsx`, `holiday-form.tsx` | **New.** List, add, edit, delete, mark confirmed. Gated on `MANAGE_SETTINGS`; read-only for anybody else, with a line saying why. |
+| `lib/mock/workflows.ts` | `PUBLIC_HOLIDAYS` grew from 4 dates to Nigeria's 2026 set, with ids and a header explaining which dates are statute and which are lunar estimates. |
+
+## Three things worth not re-deciding
+
+- **`confirmedOnly` is never sent.** The API defaults it off deliberately;
+  Nigerian dates are frequently not gazetted until days before, and an
+  unconfirmed row is the one somebody needs to plan around. A calendar that
+  filters them shows only the dates nobody had to think about.
+
+- **The confirmed/unconfirmed distinction does not depend on colour.** Filled
+  disc against dashed outline, plus the name and status as `sr-only` text in
+  every marked cell. The tint is a second cue, not the cue.
+
+- **Deleting is a hard delete and the API checks nothing**, because no leave
+  request, payslip or timesheet references a holiday by id — they all match on
+  the date. So a date a leave request has already been costed against can be
+  removed with no refusal and no cascade: the request keeps its stored day
+  count, an approved run keeps its own figures, and everything that recomputes
+  live (timesheet, overtime rates, payroll's unpaid days, the help desk's SLA
+  clock) quietly treats the day as ordinary. `HOLIDAY_DELETE_EFFECTS` in
+  `lib/api/leave.ts` is that paragraph, written once so the confirm dialog and
+  the calendar cannot drift. **Do not replace it with "are you sure?"** — and do
+  not make the UI refuse the delete either, since the API allows it and
+  pretending otherwise teaches the wrong model.
+
+## The asymmetry that surprises people
+
+`UNCONFIRMED_HOLIDAY_EFFECT`, also in `lib/api/leave.ts`: payroll proration and
+the overtime calculation read **every** holiday row and never look at
+`confirmed`, while attendance's day status and the help desk's working-hours SLA
+filter to `confirmed: true`. An expected date therefore already costs money
+before it is announced and still shows as a working day on the timesheet. Both
+screens say so beside the `awaitingProclamation` count, which is the only reason
+that count is worth surfacing.
+
+## One honest gap, demo mode only
+
+`lib/workflows/attendance.ts#isHoliday` reads the `PUBLIC_HOLIDAYS` seed array
+directly, not the demo store. An untouched demo calendar agrees with the demo
+timesheet exactly — same source — and stops agreeing the moment somebody adds or
+removes a date in `/settings/leave`. The settings panel says this in a callout
+rather than leaving it to be discovered. Connected there is no gap: every reader
+is the one table. Threading a holiday set through `workflows/attendance.ts` is
+the real fix if anybody wants it.
+
+## Verified
+
+`npm run check` and `npm run build` green. In the browser, in demo mode: add
+(sorted into place, persisted), edit (date moved, weekday recomputed), mark
+confirmed, delete (the four-point dialog), the duplicate refusal shown verbatim,
+year switching to an empty year, and the propagation — confirming Eid al-Fitr in
+settings flipped the March cell on `/people/leave` from dashed to filled and
+moved both the callout and the legend from 3 to 2. **Connected mode was not
+exercised**: no API was running on this machine. The wire shapes were checked
+against `approvehr-api/tests/holidays.test.ts` rather than against a live server.
+
+---
+
+# Adding an employee is a wizard now
+
+`/people/new` was one page of thirty-odd fields with a "Save and add another"
+button that navigated away and left a toast behind. It is now four steps plus a
+success state, with the statutory fields as opt-in groups and a company setting
+that removes them altogether. Four separate requests landed in one change
+because they were all the same file.
+
+## What the API actually requires — this had never been tested
+
+There was **no `tests/employees.test.ts` at all**, which is how the following
+survived: the wizard's whole premise is "two steps get somebody paid", and one
+part of it was false. `taxState` was required by `createEmployeeSchema`, so
+offering to skip tax setup would have handed somebody a 422 for taking the offer.
+
+`taxState` is now optional and `employees/service.ts#create` falls back to the
+organisation's own PAYE state — which is what `Organization.taxState` is
+documented as being for, and exactly what `modules/imports` already did with a
+spreadsheet that has no `tax_state` column. It refuses only when neither exists,
+and the message names both places a state can come from. The two create paths
+now default the same way on purpose; if you change one, change the other.
+
+Pension PIN, TIN, NHF and bank account were already optional. `tests/employees.test.ts`
+pins all of it, 13 assertions, including the org in **Kano** rather than Lagos so
+an inherited state cannot pass by matching a hardcoded default.
+
+`organizationTaxState` reaches the organisation through `db.user` rather than
+`unscopedDb` or a threaded `organizationId`. `User` is scoped, every
+authenticated caller has one, and every user in the tenant reaches the same
+organisation — so the extension guarantees the answer. See the comment there
+before "simplifying" it to `unscopedDb.organization`.
+
+## The rent declaration finally has a field — two of them
+
+Third attempt at this slice. `Employee.annualRent` + `rentDeclaredAt`, the
+engine's `RENT_RELIEF` regime and the run's `rent_relief_unclaimed` warning had
+all existed for a while with **nowhere in the UI to enter the figure**. A warning
+about a problem nobody can fix is worse than no warning.
+
+- `annualRentKobo` is on the employee create and update schemas, and on the
+  serializer. Integer kobo, converted through `toNaira`/`toKobo`, never a float
+  multiply.
+- **Three states, not two.** `null` is undeclared and earns no relief; `0` is a
+  declaration that happens to earn nothing; a figure earns 20% capped at
+  ₦500,000. A figure — including zero — stamps `rentDeclaredAt`; `null` clears
+  both, because "declared, amount unknown" would earn a relief nobody claimed.
+  A PATCH that does not mention rent does not re-date an old declaration.
+- On the frontend it is the **one money field on `Employee` already in kobo**
+  (`annualRentKobo`), deliberately, because `grossMonthly` being in naira is a
+  legacy this type is waiting to shed. Do not add a second naira money field.
+- The wizard's tax group has it, and so does `/people/[id]` → Pay & statutory,
+  through a new `type: "money"` on `EditableSection` — which exists precisely
+  because `type: "number"` there would have written naira into a kobo column and
+  under-declared somebody's rent by a factor of a hundred.
+- The live preview passes it to `POST /payroll/quote` as
+  `variation.annualRentKobo`, so the panel answers the question the field raises:
+  declaring ₦1.8m of rent is worth ₦360,000 of relief.
+
+## Three new feature flags, and why they are not wizard questions
+
+`OrgFeatures.taxSetup`, `pensionSetup`, `bankDetails`. Migration
+`20260821160000_employee_field_group_flags`. They hide **fields on a form**
+rather than screens, which is the one thing that makes them different from the
+seven above them:
+
+- **All three default `true`**, in the schema, the migration and `BASE_FLAGS`.
+  Every company that existed before the columns did was shown those fields, and
+  a flag arriving switched off would have silently stopped asking for somebody's
+  pension PIN. A new company turns them off in Settings in one click.
+- **No sixth wizard question.** `TOTAL_STEPS` is still 5. Asking a shop owner
+  about RSA PINs before they have added anybody is the opposite of what those
+  five questions are for — and the groups are collapsed and opt-in anyway, so
+  the minute-long add works with the flags on.
+- **The headcount rule does not touch them.** PAYE and pension are statutory for
+  four people exactly as much as for four hundred, so headcount is not an
+  argument for hiding the fields.
+- `FEATURE_KEYS` in `lib/api/setup.ts` is now `MODULE_FEATURE_KEYS` +
+  `RECORD_FIELD_KEYS`. `/setup`'s summary lists modules only; `/settings/features`
+  shows both, in two cards. If you add a flag, put it in the right list — the
+  wizard's "you turned these on" panel is the thing that breaks otherwise.
+- Turning one off still blocks payroll for the same reasons. The readiness panel
+  says "Not asked for here — switched off in Settings" beside each item rather
+  than quietly dropping it, because a checklist that omits the reason looks like
+  the product changed its mind about needing a TIN.
+
+## Drafts are local, and the UI says so in those words
+
+`lib/store/employee-draft.ts`, on `createPersistedState`. A server-side draft
+would need a model, a migration, a router, a tenant-isolation test and a decision
+about who may read somebody else's half-typed salary, for a thing whose value is
+four minutes of typing. **The cost is one sentence and it is on screen wherever
+the draft is mentioned:** this draft does not follow you to another device and
+clearing site data removes it. A draft that silently vanishes when somebody opens
+their laptop instead of their desktop is worse than no draft, because they would
+have trusted it.
+
+Explicit save only, never on keystroke — a draft that saves itself is one nobody
+can choose not to keep. Resuming is a banner with two buttons and never
+automatic, which also keeps it out of an effect. A successful create discards it:
+a draft that has become a record is not a draft.
+
+## Small things in the wizard worth not undoing
+
+- **Content is chosen by step id, never index.** The flags arrive
+  asynchronously, so the step list can shrink under somebody mid-form; by id
+  that moves them to a real step, by index it moves them to whatever sits at 2.
+- **A real `<form>`, so Enter submits the step.** Every control that is not the
+  primary action therefore carries `type="button"` — `Button` sets no default
+  type and an HTML button in a form defaults to submit. Adding a button here
+  without it will make Enter do the wrong thing.
+- **A closed group is `hidden`, not unmounted**, so closing it does not throw
+  away what was typed. `Accordion` from the design system was wrong for this: it
+  is single-open, and somebody may have a bank account and a pension PIN to hand
+  at once.
+- **`focusField` queries a `data-employee-field` attribute.** The old form passed
+  `id="firstName"` to `Input` inside a `Field` — which generates the id and wires
+  `<label for>` to it, so all six of those labels pointed at nothing. Do not put
+  an `id` on a control inside a `Field`.
+- The success step clears the form and the aside disappears with it. "3 still
+  needed" beside a blank page reads as a complaint about the person just created.
+  What is outstanding for the real record is in the modal, with a link to fix it.
+
+## Verified
+
+`npm run check` green (the one remaining lint warning is in `shell.tsx`, another
+agent's in-flight edit, not this change). `npx vitest run tests/employees.test.ts
+tests/setup.test.ts tests/imports.test.ts tests/payroll-quote.test.ts` — 59
+passing.
+
+In the browser, demo mode: required-field refusal with the message on the field,
+both essential steps, the three groups opening and closing independently with the
+consequence sentence swapping for the purpose, the review step reading
+"Nothing declared — no personal relief", the success modal naming the person,
+"Add another" returning to a blank step 1 of 5, Save draft → reload → the resume
+banner → "Carry on with it" restoring the value, and all three flags off
+collapsing the wizard to **4** steps with the readiness panel explaining why each
+item is not being asked for.
+
+**Not exercised:** connected mode (no API was running on this machine — the wire
+shapes are checked by `tests/employees.test.ts` instead), and the rent field's
+*edit* interaction on `/people/[id]`, where the preview pane's scrolling gave up.
+Its arithmetic is asserted separately: the kobo round-trip through
+`koboFromDecimal`/`naira` is exact for whole and fractional naira and for zero.
+
+---
+
+# Teams, and who appraises whom
+
+Two things, one change, because the second could not be built honestly without
+the first: a **Team** that is not a department, and an explicit **appraiser
+mapping** per cycle so a person can be marked by more than one manager.
+
+## The word "team" meant two things, and now it means one
+
+`/people/departments` used to label a nested department "Team", on the argument
+that "a team is a department with a parent". That argument is still right about
+*structure* — Division → Department → Sub-department is a shape a group company
+needs and it is still one table — and it was wrong about the word. A department
+is one column on the employee (`departmentId`), so a person is in exactly one
+node of it and every payroll report and every past payslip depends on that. What
+that shape cannot express is somebody being in Engineering **and** on the
+Platform team, which is the shape every company with more than one project
+actually has.
+
+So: nested departments are **sub-departments** now, everywhere in that screen,
+and `Team` is its own model with its own membership list. Two things called a
+team, one of which moves your cost centre and one of which does not, is the kind
+of ambiguity somebody eventually gets paid wrong over.
+
+The "With teams" column on each row is now "Rolled up", for the same reason.
+
+### The one rule, enforced in one function
+
+**A team that belongs to a department implies its members are in that
+department.** `alignMemberDepartments` in `modules/teams/service.ts` is the only
+place that is true, and every write that could break it calls it: adding members,
+and moving the team between departments.
+
+It is enforced by **moving people**, not by refusing them, and it reports exactly
+who it moved. Refusing would make the ordinary act — "put Ada on Backend" — fail
+with a lecture about cost centres. The move is never silent: every such write
+returns `moved` as a **list of names**, `lib/api/teams.ts` types it, and the
+screen renders the names in the toast. `membershipEffect` in that file is the
+sentence shown *before* the write, so the dialog and the toast cannot describe
+the same act differently.
+
+The inverse is deliberately **not** enforced: leaving a team does not leave a
+department. Their department stands on its own and guessing where to put them
+instead would be worse.
+
+A team with `departmentId: null` is cross-functional and implies nothing.
+
+`departmentMismatch` on a member is surfaced, never repaired. It should be false
+everywhere the rule has run; a true one is a row from before the rule or a
+department changed on the person's own record afterwards. Quietly re-aligning it
+would be moving a cost centre without being asked.
+
+### Teams have no demo mode, on purpose
+
+`lib/store/teams.ts` refuses every write offline, in the same words
+`store/departments.ts` uses, and the reason is that one rule: on a departmental
+team, adding somebody moves their `departmentId`, and a cost centre built in
+browser storage would never reach a payroll run. `shifts.ts` argues the opposite
+for the rota and is right, because nothing else reads the rota. The honest
+consequence, stated on screen: **the teams surface can only be demonstrated
+against a running API.**
+
+## Multi-appraiser: a table, not a second manager column
+
+The request is always "Ada reports to Chidi but Ngozi actually judges her
+engineering". The cheap answer is `secondManagerId` on `Employee`, and it fails
+three ways at once: it cannot say in what capacity, it cannot differ between this
+half and last half, and it cannot say how much each opinion counts — which is the
+one thing anybody asks when they dispute a mark.
+
+`AppraiserAssignment` is one row per (cycle, subject, appraiser) with an
+`AppraiserRole` (line manager / functional / project lead / skip-level) and
+`weightBp`.
+
+- **Per cycle**, because who was best placed to judge somebody last half is not
+  who is best placed this half, and a mark has to keep explaining itself years
+  later against the mapping that produced it.
+- **Basis points, not percentages.** Three appraisers at "33.3%" that sum to 99.9
+  is a rounding argument nobody can win. `evenWeights(3)` is 3334/3333/3333 and
+  sums to exactly 10000. This is the same reasoning as money being kobo, and
+  `evenWeights` exists so nobody has to do the arithmetic by hand.
+
+### The weight rule is real because of the shape of the endpoint
+
+`PUT /performance/cycles/:id/appraisers/:employeeId` takes the **whole set** and
+refuses it unless the weights sum to exactly 10000. That is the only shape in
+which the rule is checkable: an endpoint that added one appraiser at a time would
+leave the first of three at 34%, so the check would end up in a form somewhere
+and be a suggestion. `weightProblem` in `lib/api/performance.ts` shows the same
+refusal in the same words while somebody is still editing, **as well as** the
+server check, never instead of it.
+
+Four more refusals, each of which would otherwise live in a form: a published
+cycle is closed to re-weighting; nobody appraises themselves; at most one line
+manager; and **an appraiser who has already sent their review cannot be
+removed** — their answers exist, and dropping the row that gives them weight
+would leave a submitted mark counting for nothing with no record of why. Change
+their weight instead.
+
+### The default is the simple one and nobody configures it
+
+`activateCycle` calls `autoAssignFromReportingLine` **before** it creates
+anything, so a company that has never opened the mapping screen gets exactly what
+it had before: one line manager each, at 100%. The mapping is therefore always
+the source of truth once a cycle is running, and every downstream reader has one
+answer instead of "the assignment if there is one, else `managerId`". Manager
+forms come from the mapping and never from `managerId` — reading both would let
+the two disagree about who owes a form.
+
+`multiAppraiser` on `OrgFeatures` gates the *interface*, not the data. Off — the
+default, and the wizard never asks — a person has one manager who appraises them
+and the word "matrix" appears nowhere. The dependency is asymmetric and lives in
+`applyAppraisalDependency` in `modules/setup/service.ts`: turning it on while
+appraisals are off is **refused** and names the fix, while turning appraisals off
+takes it off quietly, because a flag whose parent is off is not a decision
+anybody made. Nothing is deleted either way.
+
+### Nobody appraising somebody is an exception, in the payroll run's shape
+
+An employee with no appraiser in an open cycle is the performance module's
+missing bank account: every screen looks finished and one person silently
+finishes the period with no mark. So `appraiserMap` returns
+`BLOCKER`/`WARNING` exceptions with the same severities and the same
+name-the-person discipline the payroll run uses, and the screen renders them
+**above** the table. A blocker buried in row 40 is a blocker nobody read.
+
+`NO_APPRAISER` is a WARNING in a draft and a BLOCKER once the cycle is running —
+colouring the whole company red before anybody has started teaches people to
+ignore the colour.
+
+This also has to work with the flag **off**, and it does: `activateCycle` returns
+`withoutAppraiser` by name, and `appraisals.tsx` renders it as a dismissible
+callout rather than only a toast, because somebody has to act on it and a toast
+is gone in six seconds. `startCycle` is kept out of the shared `run` helper for
+exactly that reason — `run` throws its result away, which is right for the other
+five mutations and would here discard the only warning anybody gets.
+
+### The weighted mark divides by submitted weight, not by 10000
+
+Dividing by the whole weight while half the appraisers have not answered halves
+everybody's mark mid-cycle and reads as a company-wide collapse in performance.
+`weightedRating` is over `submittedWeightBp`, which is returned beside it so a
+reader can see how much of the mark it is, and it is **null** rather than 0 when
+nothing is in.
+
+Same discipline on the review form: `ApiReviewDetail.appraiser` is **absent**
+when there is no assignment — a manager review written before the mapping existed
+has no answer to "what are you to this person", and rendering "line manager, 0%"
+would be a claim rather than a blank. The strip checks for the key, never a
+value. When there is more than one appraiser it says so, because a 2 written as
+the whole judgement and a 2 written as one of three opinions are different acts.
+
+### Reading rights follow the mapping
+
+A functional manager does not appear in the reporting line, so `mayReadReview`
+and `listReviews` now also admit an **assigned appraiser** — scoped to
+`(cycleId, subjectId)` pairs rather than a flat subject list, because appraising
+Ada at mid-year is not permission to read her end-of-year form. Marking somebody
+without being allowed to read their self-review is worse than not being asked.
+
+## Tenancy: two models with no organizationId, and both are pinned
+
+`Team` is scoped and is in `SCOPED_MODELS`. **`TeamMember` and
+`AppraiserAssignment` are not, and cannot be** — no column. `TeamMember` is a
+join between two already-scoped tables and the churniest table in its section;
+`AppraiserAssignment` hangs off `ReviewCycle` exactly like `Review`.
+
+So each has exactly one door, and `tests/tenant-isolation.test.ts` asserts
+**both halves**: that a bare `db.teamMember.findMany` / `db.appraiserAssignment
+.findFirst` genuinely reads across tenants, and that starting the read at the
+scoped parent closes it. A test that only asserted the door would pass just as
+well if the extension had silently started scoping them, and then nobody would
+notice the day it stopped.
+
+`requireTeam` is the door for teams. `assignmentsInCycle` is the door for
+assignments. Do not query either model by a bare id.
+
+## Selection, not drag
+
+The brief asked for "drag-or-select" assignment. `assign-people-dialog.tsx` is
+select, and the choice is not laziness: assigning staff is a **bulk** act, and
+nine drags is nine chances to drop somebody in the wrong unit with no record of
+it. Select-many-then-confirm also gets keyboard and screen-reader support free
+from a native checkbox. People already in the unit are shown, ticked and
+disabled, not filtered out — "who is already in Sales" is most of what somebody
+needs while choosing.
+
+## Verified
+
+Backend, `npx vitest run` on the touched files: `teams.test.ts` +
+`appraiser-mapping.test.ts` + `tenant-isolation.test.ts` = **58 passing**;
+`performance.test.ts` + `setup.test.ts` = **70 passing**. Three cases were added
+to `setup.test.ts` for the appraisal dependency, which had none.
+
+Frontend: `npm run check` green (typecheck, lint, contrast, payroll, CSV, loans),
+`npm run build` green at 77 routes.
+
+In the browser, **connected** against the live API on port 8000, signed in as the
+seeded administrator: the Structure/Teams tabs, "Sub-departments" and "Rolled up"
+replacing the two old team labels, the teams list with the cross-functional
+badge, the team drawer, the add-people dialog showing `membershipEffect`
+verbatim, and — on the mapping tab — the stats, seven named blockers, the
+33.34/33.33/33.33 chips, the live weight refusal ("These add up to 90%. Add
+10%."), the disabled Save behind it, and a real `PUT` that moved "Nobody
+appraising" from 7 to 6. Over the wire with `curl`: the flag dependency refusal,
+the department move naming Grace Effiong and not naming the person already there,
+and `getReview` returning `appraiser: { FUNCTIONAL_MANAGER, 33.33%, of 3 }`.
+
+**Not exercised:** the review form's appraiser strip rendered in a browser. The
+appraisals screen could not load its list — see below — so the strip was verified
+from the endpoint payload it reads plus `tests/appraiser-mapping.test.ts`'s
+"tells the appraiser what they are on the form, and for how much".
+
+### One thing found and not fixed
+
+`GET /performance/reviews/mine` intermittently 500s from the running dev API with
+`PrismaClientKnownRequestError: Server has closed the connection.`, at a
+different Prisma call site each time (`cyclesInOrg`, then `myReviews`) — neither
+of which this change touched. Serial `curl` to the same endpoint with the same
+token returns 200 every time; three concurrent curls returned `500 200 500` once
+and `200 200 200` later. `/employees`, `/leave/requests`,
+`/performance/cycles` and `/performance/competencies` all survived the same
+3-way concurrency test.
+
+This is the class of flakiness this file already records under "The suite is
+flaky", and that entry says it is worth chasing rather than retrying past,
+because one instance of it turned out to be a genuine cross-tenant bug. It is
+left alone here because it is not this change's, and because the port-8000
+process was started outside the session that found it.

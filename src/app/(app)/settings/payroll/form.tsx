@@ -15,10 +15,15 @@ import {
   Input,
   Money,
   Select,
+  Skeleton,
   Switch,
   useToast,
 } from "@/components/ui";
-import { calculatePayslip } from "@/lib/payroll/engine";
+import { naira } from "@/lib/api/payroll";
+import {
+  quoteSettingsFrom,
+  usePayslipQuote,
+} from "@/lib/store/payslip-quote";
 import {
   STATUTORY,
   validateSettings,
@@ -35,6 +40,13 @@ import { usePayrollSettings } from "@/lib/payroll/use-settings";
  * The live preview beside the form exists because none of these numbers mean
  * anything in the abstract — you change a rate to see what it does to a
  * payslip, so the payslip is on screen while you change it.
+ *
+ * That preview is computed by the API, on the **draft** settings, through
+ * `POST /payroll/quote`. It used to be computed here, by a second copy of the
+ * payroll engine that lived in the browser and spent a while on the 2011 PAYE
+ * bands after the Nigeria Tax Act 2025 went into the API — so this panel quoted
+ * ₦63,266.67 where the answer was ₦63,950. With no API there is no preview and
+ * the panel says so, because the only other option is that copy coming back.
  */
 export function PayrollSettingsForm() {
   const { settings, save, reset } = usePayrollSettings();
@@ -51,7 +63,6 @@ export function PayrollSettingsForm() {
     setSaved(false);
   }
 
-  const preview = calculatePayslip("preview", 1_000_000, undefined, draft);
   const splitTotal =
     draft.salarySplit.basic +
     draft.salarySplit.housing +
@@ -340,7 +351,7 @@ export function PayrollSettingsForm() {
               />
             </Field>
 
-            <FieldSet legend="Block the run when">
+            <FieldSet legend="Stop payroll when">
               <div className="flex flex-col gap-3">
                 <Checkbox
                   label="An employee has no bank account"
@@ -423,34 +434,109 @@ export function PayrollSettingsForm() {
 
       {/* Live preview */}
       <aside className="lg:sticky lg:top-20">
-        <Card>
-          <CardHeader
-            title="Preview"
-            description="A ₦1,000,000 monthly salary under these settings."
-          />
-          <CardBody className="flex flex-col gap-2.5">
-            <PreviewRow label="Gross" value={preview.grossMonthly} strong />
-            <div className="h-px bg-line" />
-            <PreviewRow label="Basic" value={preview.basic} muted />
-            <PreviewRow label="Housing" value={preview.housing} muted />
-            <PreviewRow label="Transport" value={preview.transport} muted />
-            <div className="h-px bg-line" />
-            <PreviewRow label="Pension" value={-preview.pensionEmployee} />
-            <PreviewRow label="NHF" value={-preview.nhf} />
-            <PreviewRow label="PAYE" value={-preview.payeMonthly} />
-            <div className="h-px bg-line" />
-            <PreviewRow label="Net pay" value={preview.netPay} strong />
-            <div className="mt-1 rounded-md bg-canvas p-2.5">
-              <p className="text-[0.75rem] leading-relaxed text-muted">
-                Employer pension of{" "}
-                <Money amount={Math.round(preview.pensionEmployer)} /> sits on
-                top of gross and is not deducted.
-              </p>
-            </div>
-          </CardBody>
-        </Card>
+        <Preview draft={draft} blocked={issues.length > 0} />
       </aside>
     </div>
+  );
+}
+
+/** ₦1,000,000 a month, in kobo. A round figure makes the rates readable. */
+const PREVIEW_GROSS_KOBO = 1_000_000_00;
+
+/**
+ * What these settings pay, on one salary.
+ *
+ * Four states, and three of them show no figures. That is the point: the only
+ * arithmetic that can answer this lives on the server, so when it cannot be
+ * reached the honest output is a sentence. The panel that used to be here always
+ * had a number, and for a while the number was last year's.
+ */
+function Preview({
+  draft,
+  /** Settings that are invalid. Nothing is asked until they are fixed. */
+  blocked,
+}: {
+  draft: PayrollSettings;
+  blocked: boolean;
+}) {
+  const { quote, loading, error, available } = usePayslipQuote(
+    blocked
+      ? null
+      : {
+          grossMonthlyKobo: PREVIEW_GROSS_KOBO,
+          settings: quoteSettingsFrom(draft),
+        },
+  );
+  const slip = quote?.slip ?? null;
+
+  return (
+    <Card>
+      <CardHeader
+        title="Preview"
+        description="A ₦1,000,000 monthly salary under these settings."
+      />
+      <CardBody className="flex flex-col gap-2.5">
+        {!available ? (
+          <p className="text-[0.875rem] leading-relaxed text-muted">
+            A payslip is worked out by the payroll engine on the server, and
+            there is no second copy of it in this browser — there was once, and
+            it spent a while quoting the wrong year&rsquo;s tax. Start the API to
+            see what these settings pay.
+          </p>
+        ) : blocked ? (
+          <p className="text-[0.875rem] leading-relaxed text-muted">
+            Fix the problems above and the preview comes back. Settings that
+            cannot produce a lawful payslip are not previewed.
+          </p>
+        ) : loading || !slip ? (
+          <>
+            <Skeleton className="h-5 w-full" />
+            <Skeleton className="h-5 w-full" />
+            <Skeleton className="h-5 w-2/3" />
+            <span className="sr-only">Working out the payslip</span>
+            {error && (
+              <p className="text-[0.875rem] leading-relaxed text-danger-text">
+                {error.message}
+              </p>
+            )}
+          </>
+        ) : (
+          <>
+            <PreviewRow label="Gross" value={naira(slip.grossKobo)} strong />
+            <div className="h-px bg-line" />
+            <PreviewRow label="Basic" value={naira(slip.basicKobo)} muted />
+            <PreviewRow label="Housing" value={naira(slip.housingKobo)} muted />
+            <PreviewRow
+              label="Transport"
+              value={naira(slip.transportKobo)}
+              muted
+            />
+            <div className="h-px bg-line" />
+            <PreviewRow label="Pension" value={-naira(slip.pensionEmployeeKobo)} />
+            <PreviewRow label="NHF" value={-naira(slip.nhfKobo)} />
+            <PreviewRow label="PAYE" value={-naira(slip.payeKobo)} />
+            <div className="h-px bg-line" />
+            <PreviewRow label="Net pay" value={naira(slip.netKobo)} strong />
+            <div className="mt-1 flex flex-col gap-2 rounded-md bg-canvas p-2.5">
+              <p className="text-[0.75rem] leading-relaxed text-muted">
+                Employer pension of{" "}
+                <Money amount={naira(slip.pensionEmployerKobo)} /> sits on top of
+                gross and is not deducted.
+              </p>
+              {/* Named rather than implied. The bands are statute and not a
+                  setting on this screen, so the reader should be able to see
+                  which statute answered. */}
+              <p className="text-[0.75rem] leading-relaxed text-muted">
+                PAYE on {quote?.taxSchedule.citation.split("(")[0]?.trim()}
+                {quote?.taxSchedule.stale
+                  ? " — nobody has confirmed these bands cover this period."
+                  : "."}
+              </p>
+            </div>
+          </>
+        )}
+      </CardBody>
+    </Card>
   );
 }
 

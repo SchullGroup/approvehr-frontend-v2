@@ -268,6 +268,15 @@ export type ApiCycleActivated = ApiCycle & {
   participants: number;
   /** How many people were told in the app. Not an email count — see the store. */
   notified: number;
+  /**
+   * Anybody the cycle started without an appraiser, by name.
+   *
+   * Starting a cycle fills in the obvious mapping — one line manager each — so
+   * this is the people who have no manager either. They will finish the cycle
+   * with no mark unless somebody is assigned, which is why it is a name list and
+   * not a count.
+   */
+  withoutAppraiser: string[];
 };
 
 export type ApiCyclePublished = ApiCycle & {
@@ -364,9 +373,135 @@ export type ApiFormQuestion = {
 export type ApiReviewDetail = ApiReview & {
   /** Whether *this* caller is the one who has to fill it in. */
   mine: boolean;
+  /**
+   * What the author is to the subject, on a manager form.
+   *
+   * **Absent when there is no appraiser assignment** — not a role of "line
+   * manager" and not a weight of 0. A manager review written before the mapping
+   * existed has no answer to this question, and rendering "0% of the mark" would
+   * be a wrong claim rather than a blank. Check for the key, not for a value.
+   */
+  appraiser?: ApiAppraiserContext;
   questions: ApiFormQuestion[];
   /** Prompts, not ids: a refusal that names the questions is a refusal you can act on. */
   outstanding: string[];
+};
+
+/* -------------------------------------------------- multi-appraiser mapping */
+
+/** Mirrors `AppraiserRole`. */
+export type AppraiserRole =
+  | "LINE_MANAGER"
+  | "FUNCTIONAL_MANAGER"
+  | "PROJECT_LEAD"
+  | "SKIP_LEVEL";
+
+export type ApiAppraiserContext = {
+  role: AppraiserRole;
+  /** The API's wording. Do not keep a second copy of these labels. */
+  roleLabel: string;
+  /** Basis points. 10000 is the whole mark. Never a float. */
+  weightBp: number;
+  note: string | null;
+  /** How many appraisers this person has, so "30%" reads as a share of what. */
+  appraiserCount: number;
+};
+
+export type ApiAppraiser = {
+  assignmentId: string;
+  appraiserId: string;
+  appraiserName: string;
+  jobTitle: string;
+  role: AppraiserRole;
+  roleLabel: string;
+  weightBp: number;
+  note: string | null;
+  /** Null until the cycle has started and the form exists. */
+  reviewId: string | null;
+  submitted: boolean;
+  rating: number | null;
+  /** Archived or exited: their share of the mark can never be filled in. */
+  unavailable: boolean;
+};
+
+/**
+ * Exceptions, in the same shape the payroll run uses for blockers.
+ *
+ * That is deliberate, not a coincidence of naming. An employee with no appraiser
+ * in an open cycle is the performance module's missing bank account: everything
+ * looks finished and one person silently got nothing.
+ */
+export type ApiAppraiserException = {
+  severity: "BLOCKER" | "WARNING";
+  code:
+    | "NO_APPRAISER"
+    | "WEIGHTS_NOT_WHOLE"
+    | "APPRAISER_UNAVAILABLE"
+    | "NO_LINE_MANAGER";
+  message: string;
+};
+
+export type ApiAppraiserMapRow = {
+  employeeId: string;
+  employeeName: string;
+  jobTitle: string;
+  departmentId: string | null;
+  departmentName: string | null;
+  /** Their reporting line, so the screen can offer the obvious appraiser. */
+  lineManagerId: string | null;
+  lineManagerName: string | null;
+  appraisers: ApiAppraiser[];
+  totalWeightBp: number;
+  /** How much of the weight has actually answered. */
+  submittedWeightBp: number;
+  /**
+   * The weighted mark over **submitted** weight, or null when nothing is in.
+   *
+   * Not a share of the whole: dividing by 10000 mid-cycle halves everybody's
+   * mark and reads as a company-wide collapse. Show it beside
+   * `submittedWeightBp` so a reader can see how much of the mark it is.
+   */
+  weightedRating: number | null;
+  exceptions: ApiAppraiserException[];
+};
+
+export type ApiAppraiserMap = {
+  cycleId: string;
+  cycleName: string;
+  stage: ReviewCycleStage;
+  /** False for a draft, where nothing is wrong yet. */
+  started: boolean;
+  rows: ApiAppraiserMapRow[];
+  counts: {
+    people: number;
+    /** Exactly one line manager at 100% — the shape nobody had to configure. */
+    simple: number;
+    multiAppraiser: number;
+    unassigned: number;
+    blockers: number;
+    warnings: number;
+  };
+};
+
+export type ApiAppraiserEntry = {
+  appraiserId: string;
+  role: AppraiserRole;
+  weightBp: number;
+  note?: string;
+};
+
+export type ApiAppraisersSet = {
+  subjectId: string;
+  row: ApiAppraiserMapRow | null;
+  formsCreated: number;
+  removed: number;
+};
+
+export type ApiAutoAssigned = {
+  cycleId: string;
+  created: number;
+  /** Named, never counted: these are the people who would get no mark. */
+  withoutManager: string[];
 };
 
 /**
@@ -688,6 +823,54 @@ export const performanceApi = {
       signalOf(signal),
     ),
 
+  /* ------------------------------------------------------ appraiser mapping */
+
+  /** The whole map for a cycle. `EDIT_RECORDS` — an aggregate over everybody. */
+  appraiserMap: (
+    cycleId: string,
+    params: { departmentId?: string; teamId?: string; exceptionsOnly?: boolean } = {},
+    signal?: AbortSignal,
+  ) =>
+    request<ApiAppraiserMap>(`/performance/cycles/${cycleId}/appraisers`, {
+      query: {
+        departmentId: params.departmentId,
+        teamId: params.teamId,
+        exceptionsOnly: params.exceptionsOnly ? "true" : undefined,
+      },
+      ...signalOf(signal),
+    }),
+
+  /** One person's appraisers. The subject, their manager, or an appraiser. */
+  appraisersOf: (cycleId: string, employeeId: string, signal?: AbortSignal) =>
+    request<ApiAppraiserMapRow & { cycleId: string; cycleName: string }>(
+      `/performance/cycles/${cycleId}/appraisers/${employeeId}`,
+      signalOf(signal),
+    ),
+
+  /**
+   * The **whole** set for one person, replaced.
+   *
+   * `PUT` and the whole set, because that is the only shape in which "the
+   * weights make 100%" is a rule the API can check. An empty array clears the
+   * mapping and the cycle then reports it as a blocker — somebody having no
+   * appraiser is a fact about the company, not a malformed request.
+   */
+  setAppraisers: (
+    cycleId: string,
+    employeeId: string,
+    appraisers: ApiAppraiserEntry[],
+  ) =>
+    request<ApiAppraisersSet>(
+      `/performance/cycles/${cycleId}/appraisers/${employeeId}`,
+      { method: "PUT", body: { appraisers } },
+    ),
+
+  /** Fill in the obvious mapping for anybody who has none. Idempotent. */
+  autoAssignAppraisers: (cycleId: string) =>
+    request<ApiAutoAssigned>(`/performance/cycles/${cycleId}/appraisers/auto`, {
+      method: "POST",
+    }),
+
   /** A manager or `EDIT_RECORDS`: nobody else knows who a person's peers are. */
   askPeers: (cycleId: string, subjectId: string, peerIds: string[]) =>
     request<{ subjectId: string; asked: number; notified: number }>(
@@ -843,3 +1026,89 @@ export function currentQuarter(today: string): string {
   const quarter = Math.floor((Number(month) - 1) / 3) + 1;
   return `${year}-Q${quarter}`;
 }
+
+/* ------------------------------------------------- appraiser weight helpers */
+
+/** The whole mark, in basis points. Integers, for the same reason money is kobo. */
+export const FULL_WEIGHT_BP = 10_000;
+
+/**
+ * `2500` as `"25%"`, `3333` as `"33.33%"`.
+ *
+ * The API formats weights inside its own messages; this is for the places the
+ * interface renders one on its own. Same rounding, so a refusal quoting "90%"
+ * and a table cell reading "90%" agree.
+ */
+export function weightLabel(bp: number): string {
+  const whole = bp / 100;
+  return `${Number.isInteger(whole) ? whole : Number(whole.toFixed(2))}%`;
+}
+
+/**
+ * Split the whole mark n ways in whole basis points, summing to exactly 10000.
+ *
+ * The remainder goes to the first rows rather than being dropped: three ways is
+ * 3334/3333/3333, which the server accepts, where 3333×3 is 9999 and is refused.
+ * This is the entire reason weights are integers — there is no honest way to
+ * write "a third" as a percentage with two decimal places.
+ */
+export function evenWeights(count: number): number[] {
+  if (count <= 0) return [];
+  const base = Math.floor(FULL_WEIGHT_BP / count);
+  const remainder = FULL_WEIGHT_BP - base * count;
+  return Array.from({ length: count }, (_, index) =>
+    index < remainder ? base + 1 : base,
+  );
+}
+
+/**
+ * What is wrong with a set of weights, in the API's own words, before sending it.
+ *
+ * Checked here **as well as** on the server, never instead of it: the server is
+ * where the rule is real (`setAppraisers` refuses a set that does not sum to
+ * 10000), and this exists so the refusal arrives while the person is still
+ * looking at the row. Same wording, so the two never contradict each other.
+ */
+export function weightProblem(entries: { weightBp: number }[]): string | null {
+  if (entries.length === 0) return null;
+  const total = entries.reduce((sum, entry) => sum + entry.weightBp, 0);
+  if (total === FULL_WEIGHT_BP) return null;
+  return total < FULL_WEIGHT_BP
+    ? `These add up to ${weightLabel(total)}. Add ${weightLabel(FULL_WEIGHT_BP - total)}.`
+    : `These add up to ${weightLabel(total)}. Take off ${weightLabel(total - FULL_WEIGHT_BP)}.`;
+}
+
+/**
+ * The roles, in the order the picker offers them, with a label and one line.
+ *
+ * **A second copy of labels the API also sends, and deliberately narrow.** The
+ * API returns `roleLabel` on every assignment it returns, and that is what every
+ * *rendered* assignment uses — see `ApiAppraiser.roleLabel`. This exists for the
+ * one case the API cannot serve: a row that does not exist yet, in a picker,
+ * before anything has been written. Ordered line-manager-first because that is
+ * the answer for almost everybody.
+ *
+ * If a role is added to the enum, it goes here too — the object is keyed by the
+ * union, so `tsc` refuses to build until it is.
+ */
+export const APPRAISER_ROLES: readonly AppraiserRole[] = [
+  "LINE_MANAGER",
+  "FUNCTIONAL_MANAGER",
+  "PROJECT_LEAD",
+  "SKIP_LEVEL",
+];
+
+export const APPRAISER_ROLE_LABEL: Record<AppraiserRole, string> = {
+  LINE_MANAGER: "Line manager",
+  FUNCTIONAL_MANAGER: "Functional manager",
+  PROJECT_LEAD: "Project lead",
+  SKIP_LEVEL: "Skip-level",
+};
+
+/** What the role *is*, not why to pick it. One line each, for the picker. */
+export const APPRAISER_ROLE_HELP: Record<AppraiserRole, string> = {
+  LINE_MANAGER: "The person's own manager. One at most.",
+  FUNCTIONAL_MANAGER: "Owns the craft rather than the reporting line.",
+  PROJECT_LEAD: "Ran the work they spent the period on.",
+  SKIP_LEVEL: "Their manager's manager, checking the mark.",
+};

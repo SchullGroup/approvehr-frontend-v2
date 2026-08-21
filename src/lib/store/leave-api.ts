@@ -10,14 +10,9 @@ import {
   type LeaveRow,
   type LeaveRowStatus,
   type LeaveTypeRow,
-  type PublicHolidayRow,
 } from "@/lib/api/leave";
 import { employeeById } from "@/lib/mock/people";
-import {
-  PUBLIC_HOLIDAYS,
-  type LeaveRequest,
-  type LeaveType,
-} from "@/lib/mock/workflows";
+import { type LeaveRequest, type LeaveType } from "@/lib/mock/workflows";
 import { TODAY } from "@/lib/today";
 import { fullName } from "@/lib/types";
 import { clashesWith, remainingDays } from "@/lib/workflows/leave";
@@ -665,89 +660,9 @@ export function useEmployeeLeaveBalances(
 
 /* --------------------------------------------------------- public holidays */
 
-export type PublicHolidaysState = {
-  holidays: PublicHolidayRow[];
-  /**
-   * True when the API is live but publishes no holiday calendar.
-   *
-   * Distinct from an empty list, which means the calendar exists and has nothing
-   * in it. A screen has to be able to tell those apart, because one of them is
-   * a fact about the company and the other is a gap in the product.
-   */
-  unavailable: boolean;
-  loading: boolean;
-  connected: boolean;
-};
-
-/**
- * The public holiday calendar.
- *
- * Demo mode reads `PUBLIC_HOLIDAYS` from the seed, which is the right source
- * there: no database, and the dates are real Nigerian ones. Connected it comes
- * from the API, because holidays are announced at short notice — the Eid dates
- * move with the lunar calendar and Independence Day observance shifts when it
- * falls at a weekend — and a constant compiled into a bundle cannot be told
- * about any of that.
- *
- * `GET /leave/holidays` does not exist yet, so today this resolves `unavailable`
- * against the running API. It deliberately does **not** fall back to the seed
- * list: a page badged "Live from the API" showing four hardcoded dates is the
- * exact failure the two-mode design is built to avoid. See the header of
- * `lib/api/leave.ts`.
- */
-export function usePublicHolidays(year?: number): PublicHolidaysState {
-  const { isConnected } = useSession();
-
-  /* Three states, and the difference matters: `undefined` is "not asked yet",
-     `null` is "the API has no calendar", an array is an answer. Folding the
-     first two together would report the gap while the request was still in
-     flight. */
-  const [fetched, setFetched] = useState<PublicHolidayRow[] | null | undefined>(
-    undefined,
-  );
-
-  useEffect(() => {
-    if (!isConnected) return;
-    const controller = new AbortController();
-    let cancelled = false;
-
-    void (async () => {
-      try {
-        const rows = await leaveApi.holidays(year, controller.signal);
-        if (!cancelled) setFetched(rows);
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        /* A 403 or a dropped connection is not "no calendar", but from this
-           card's point of view it is the same outcome: nothing to show, and no
-           pretending otherwise. */
-        if (!cancelled) setFetched(null);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [isConnected, year]);
-
-  const demo = useMemo<PublicHolidayRow[]>(
-    () =>
-      PUBLIC_HOLIDAYS.map((holiday) => ({
-        date: holiday.date,
-        name: holiday.name,
-        confirmed: holiday.confirmed,
-      })),
-    [],
-  );
-
-  if (!isConnected) {
-    return { holidays: demo, unavailable: false, loading: false, connected: false };
-  }
-
-  return {
-    holidays: fetched ?? [],
-    unavailable: fetched === null,
-    loading: fetched === undefined,
-    connected: true,
-  };
-}
+/* The calendar moved to `lib/store/holidays.ts` when it stopped being a list you
+   look at and became one you edit. `usePublicHolidays` lives there, alongside
+   `useHolidayMutations`. Leave requests and holidays share a router on the API;
+   they do not share a screen, a cache or a refresh, and a hook that reloaded
+   "leave" after a holiday was added would refetch two hundred requests to redraw
+   twelve dates. */

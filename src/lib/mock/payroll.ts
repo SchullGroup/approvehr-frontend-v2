@@ -1,6 +1,30 @@
-import type { PayrollEmployee } from "@/lib/payroll/engine";
 import { EMPLOYEES } from "./people";
 import { fullName, type Employee } from "@/lib/types";
+
+/**
+ * One person as the payroll surface needs them.
+ *
+ * Declared here rather than imported, now that the frontend payroll engine is
+ * gone: this is a *projection of the directory*, not an engine input. Nothing in
+ * the browser computes a payslip from it — the API does, or demo mode reads
+ * fixed illustrative figures keyed on `grossMonthly` (`lib/mock/demo-payslips`).
+ *
+ * `grossMonthly` is naira, in step with `Employee`. Every figure derived from it
+ * is kobo, and the conversion happens once, at the boundary.
+ */
+export type PayrollEmployee = {
+  id: string;
+  name: string;
+  jobTitle: string;
+  department: string;
+  grossMonthly: number;
+  bankAccount: string | null;
+  pensionPin: string | null;
+  taxState: string;
+  /** Set when the person joined or left mid-period. */
+  joinedThisPeriod?: boolean;
+  leftThisPeriod?: boolean;
+};
 
 /** The period this prototype's run covers. */
 const PERIOD_START = "2026-08-01";

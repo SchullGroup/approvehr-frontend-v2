@@ -250,7 +250,35 @@ export type ApiExitReadiness = {
     name: string;
     assignedOn: string;
     returnRequired: boolean;
+    /** Kobo. What the register says it cost. Null when nobody recorded one. */
+    valueKobo: number | null;
   }[];
+  finalPay: ApiExitFinalPay;
+};
+
+/**
+ * The three things that move somebody's last payslip.
+ *
+ * Deliberately **not a total**. The final figure is the payroll run's — it is the
+ * only thing holding the tax schedule, the proration divisor and the
+ * reconciliation gate — and a second "final pay" computed on this screen would be
+ * a second answer somebody has to reconcile against the payslip. So this names
+ * what has to be decided and leaves the arithmetic where it belongs.
+ *
+ * This is the one place in this file where money crosses, so the kobo → naira
+ * seam is here and nowhere else. `outstandingLoanKobo` and `heldValueKobo` are
+ * integer kobo on the wire; `formatKobo` below is what a screen should render.
+ */
+export type ApiExitFinalPay = {
+  lastWorkingDay: string;
+  /** Still owed on a staff loan, in kobo. */
+  outstandingLoanKobo: number;
+  /** Days never taken, per type. Whether it is payable is company policy. */
+  untakenLeave: { leaveType: string; days: number }[];
+  /** What the register values the kit they still hold at, in kobo. */
+  heldValueKobo: number;
+  /** True once a "Final pay" line has been ticked off. */
+  agreed: boolean;
 };
 
 /** One line on the default checklist. Owned by Settings, not by this flow. */
@@ -418,6 +446,25 @@ export const offboardingApi = {
     }),
 
   /**
+   * Taking it back.
+   *
+   * Needs **no permission** when it is your own notice — the whole point, since
+   * requiring one would mean a resignation can only be undone by asking the
+   * person you just told you were leaving. HR may cancel anybody's. Lands on
+   * `CANCELLED`, not `DECLINED`: "we said no" and "they changed their mind" are
+   * different facts and the enum has always had both.
+   *
+   * The reason is optional here and required on `decline`, which is deliberate.
+   * Why somebody left is a field every report comes back to; why they changed
+   * their mind is nobody's business but theirs.
+   */
+  withdraw: (id: string, reason?: string) =>
+    request<ApiExit>(`/offboarding/${id}/withdraw`, {
+      method: "POST",
+      body: reason === undefined ? {} : { reason },
+    }),
+
+  /**
    * Close the record.
    *
    * Refuses with 422 while anything mandatory is outstanding, naming it in the
@@ -426,10 +473,10 @@ export const offboardingApi = {
    * same transaction. Nothing is ever deleted.
    */
   complete: (id: string) =>
-    request<ApiExit & { note?: string }>(`/offboarding/${id}/complete`, {
-      method: "POST",
-      body: {},
-    }),
+    request<ApiExit & { note?: string; accessRevoked?: boolean }>(
+      `/offboarding/${id}/complete`,
+      { method: "POST", body: {} },
+    ),
 
   /** Returns the whole exit, so a screen re-renders from one answer. */
   updateTask: (taskId: string, body: UpdateTaskBody) =>
@@ -509,6 +556,19 @@ export const offboardingApi = {
 };
 
 /* ------------------------------------------------------------------- copy */
+
+/**
+ * Kobo, as naira, for the final-pay card.
+ *
+ * The only money in this module, so its formatting lives beside its type rather
+ * than in a shared helper nothing else here would use. Whole naira: a kobo on a
+ * loan balance is noise on a screen whose job is "there is money outstanding".
+ */
+export function formatKobo(kobo: number): string {
+  return `₦${Math.round(kobo / 100).toLocaleString("en-NG")}`;
+}
+
+
 
 /**
  * Kinds, for a picker.

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { ApiError } from "@/lib/api/client";
 import {
   FEATURE_KEYS,
+  RECORD_FIELD_KEYS,
   setup,
   type ApiFeatures,
   type ApiSeeded,
@@ -82,6 +83,19 @@ const BASE_FLAGS: FeatureFlags = {
   expenses: false,
   appraisals: false,
   hiring: true,
+  /* The three field groups start **on**, unlike every module above, and the
+     schema default matches. Every company that existed before these columns did
+     was shown the tax, pension and bank fields, and a flag that arrived
+     switched off would have quietly stopped asking for somebody's pension PIN.
+     A new company turns them off in Settings in one click; the form collapses
+     them either way, which is what makes the minute-long add possible without
+     touching a setting at all. */
+  taxSetup: true,
+  pensionSetup: true,
+  bankDetails: true,
+  /* Off, like every module. A company with one manager per person must never be
+     shown a weighting table it did not ask for. */
+  multiAppraiser: false,
 };
 
 const TOTAL_STEPS_FALLBACK = 5;
@@ -141,6 +155,49 @@ export const FEATURE_COPY: Record<
     label: "Hiring",
     line: "Post a role, track candidates, send an offer.",
   },
+  /* The three below hide fields on an employee record rather than screens, and
+     their lines say what you lose rather than what they are — because that is
+     the question somebody switching one off is actually asking. */
+  taxSetup: {
+    label: "Tax details",
+    line: "Ask for a PAYE state, a TIN and declared rent. Off means payslips show no PAYE.",
+  },
+  pensionSetup: {
+    label: "Pension and NHF",
+    line: "Ask for an RSA PIN, a pension provider and an NHF number. Off means no pension is deducted or remitted.",
+  },
+  bankDetails: {
+    label: "Bank accounts",
+    line: "Ask for a bank and an account number. Off means you pay people some other way.",
+  },
+  /* Depth inside appraisals rather than a screen of its own. The line names the
+     situation rather than the mechanism: nobody searches for "matrix
+     management", and everybody recognises "two managers judging one person". */
+  multiAppraiser: {
+    label: "More than one appraiser per person",
+    line: "For people judged by a project lead or another department's manager as well as their own. Each appraiser gets a share of the mark.",
+  },
+};
+
+/**
+ * The one sentence a person needs before they skip a group on the form.
+ *
+ * Deliberately harsher than `FEATURE_COPY.line`: that one describes a setting,
+ * this one is read at the moment somebody is deciding not to fill something in,
+ * and the consequence lands on a payslip somebody else receives. Kept here
+ * rather than in the form so the Settings page and the form cannot describe the
+ * same choice differently.
+ */
+export const SKIP_CONSEQUENCE: Record<
+  (typeof RECORD_FIELD_KEYS)[number],
+  string
+> = {
+  taxSetup:
+    "Skip this and their payslip will not show PAYE, and nothing is filed to a state revenue service until you add it.",
+  pensionSetup:
+    "Skip this and no pension is deducted or remitted for them, and the payroll run will hold them back until an RSA PIN is added.",
+  bankDetails:
+    "Skip this and payroll has nowhere to send the money — you can add the account before the run.",
 };
 
 /** Every band, with the wording the wizard uses, for the settings page select. */
@@ -291,7 +348,17 @@ function demoApply(state: DemoState, patch: FeaturePatch): DemoState {
     const option = optionFor("headcount", patch.headcountBand);
     if (option) next = applySets(next, option.sets);
   }
-  return applySets(next, patch);
+  next = applySets(next, patch);
+
+  /* The one dependency the server enforces, mirrored so the demo does not teach
+     a shape the connected product refuses. Appraisals off takes the mapping off
+     with it; the *refusal* half (turning the mapping on while appraisals are
+     off) is the API's and is not re-implemented, because the settings page
+     cannot offer that switch while appraisals are off in the first place. */
+  if (!next.flags.appraisals && next.flags.multiAppraiser) {
+    next = { ...next, flags: { ...next.flags, multiAppraiser: false } };
+  }
+  return next;
 }
 
 /**
@@ -370,6 +437,10 @@ function fromApi(features: ApiFeatures): State {
       expenses: features.expenses,
       appraisals: features.appraisals,
       hiring: features.hiring,
+      taxSetup: features.taxSetup,
+      pensionSetup: features.pensionSetup,
+      bankDetails: features.bankDetails,
+      multiAppraiser: features.multiAppraiser,
     },
     headcountBand: features.headcountBand,
     setupStep: features.setupStep,
@@ -539,6 +610,10 @@ export function useFeatureSettings() {
           expenses: features.expenses,
           appraisals: features.appraisals,
           hiring: features.hiring,
+          taxSetup: features.taxSetup,
+          pensionSetup: features.pensionSetup,
+          bankDetails: features.bankDetails,
+          multiAppraiser: features.multiAppraiser,
           headcountBand: features.headcountBand,
         };
       } finally {

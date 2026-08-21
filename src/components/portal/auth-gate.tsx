@@ -16,6 +16,7 @@ import {
   Spinner,
 } from "@/components/ui";
 import { Logo } from "@/components/brand/logo";
+import { RoleBadge } from "./role-badge";
 import { ApiError } from "@/lib/api/client";
 import { signInOptions, useApiReachable, useSession } from "@/lib/store/session";
 import { fullName } from "@/lib/types";
@@ -224,7 +225,7 @@ function SignIn() {
             </Callout>
 
             <ul className="mt-7 flex flex-col gap-2">
-              {signInOptions().map((employee) => {
+              {signInOptions().map(({ employee, roles }) => {
                 const active = selected === employee.id;
                 return (
                   <li key={employee.id}>
@@ -248,11 +249,12 @@ function SignIn() {
                           {employee.jobTitle} · {employee.department}
                         </span>
                       </span>
-                      {employee.department === "People" && (
-                        <Badge tone="accent" size="sm">
-                          Full access
-                        </Badge>
-                      )}
+                      {/* The persona's actual seeded role. This used to read
+                          "Full access" for anybody in the People department,
+                          which was a guess from the org chart: it was wrong for
+                          the Payroll officer, who holds a deliberately narrower
+                          set, and it said nothing at all about everybody else. */}
+                      <RoleBadge roles={roles} className="shrink-0" />
                     </button>
                   </li>
                 );

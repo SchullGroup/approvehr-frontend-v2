@@ -5,12 +5,20 @@ import {
   BriefcaseBusiness,
   Building2,
   CalendarClock,
+  CalendarDays,
+  CalendarRange,
   ChartNoAxesColumn,
+  ClipboardCheck,
   Clock,
   CreditCard,
+  DoorOpen,
+  FileBadge,
+  FileSignature,
   FileText,
   FileUp,
+  FolderOpen,
   Landmark,
+  Laptop,
   LayoutDashboard,
   LifeBuoy,
   Megaphone,
@@ -18,6 +26,7 @@ import {
   ReceiptText,
   Settings,
   ShieldCheck,
+  SlidersHorizontal,
   Target,
   Timer,
   UserRound,
@@ -26,6 +35,7 @@ import {
 } from "lucide-react";
 import type { PermissionKey } from "@/lib/permissions";
 import type { FeatureKey } from "@/lib/api/setup";
+import { MODULES, type ModuleId } from "@/lib/marketing/modules";
 
 /**
  * Badges that are computed from a live store rather than typed in here.
@@ -87,222 +97,337 @@ export type NavGroup = {
   items: NavItem[];
 };
 
-/*
- * Grouped by what someone is trying to do, not by which team owns the module.
- * "Hiring" sits above "Payroll" because a recruiter opens this product far
- * more often than a finance lead does.
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Yours: the day, the queue, and your own record.
+ *
+ * Ungrouped and unheaded because none of it belongs to a module — a staff
+ * member with no permissions at all still needs every one of these, and
+ * filing "My profile" under Core HR would make the person the subject of a
+ * module rather than the owner of a record.
+ */
+const PERSONAL: NavItem[] = [
+  {
+    href: "/dashboard",
+    label: "Home",
+    icon: <LayoutDashboard aria-hidden="true" />,
+    always: true,
+  },
+  {
+    href: "/approvals",
+    label: "My approvals",
+    icon: <ClipboardCheck aria-hidden="true" />,
+    badgeSource: "approvals",
+    always: true,
+  },
+  {
+    href: "/notifications",
+    label: "Notifications",
+    icon: <Bell aria-hidden="true" />,
+    badgeSource: "unreadNotifications",
+    always: true,
+  },
+  {
+    /* Everybody's own record. The one screen a staff member with no
+       permissions at all still needs, which is why it has no gate. */
+    href: "/profile",
+    label: "My profile",
+    icon: <UserRound aria-hidden="true" />,
+    always: true,
+  },
+  {
+    /* The other side of the Core HR "Documents" register below, and the only
+       documents screen everybody can open — `DocumentsScreen` says so itself
+       and sends anybody without EDIT_RECORDS here. It sits beside "My profile"
+       rather than under Core HR because two items reading "Documents" and "My
+       documents" in one group is a riddle, and because this is where the
+       "send us your work permit" notification lands (`HREF.mine`). */
+    href: "/documents",
+    label: "My documents",
+    icon: <FileBadge aria-hidden="true" />,
+    always: true,
+  },
+];
+
+/**
+ * One entry per module the marketing site sells, keyed by its id.
+ *
+ * **The headings are not written here.** They come from `MODULES` in
+ * `lib/marketing/modules.ts` — the same array the website's product dropdown,
+ * the module grid and `/product/[module]` render from — so the sidebar can only
+ * ever say "Time & Leave" if that is what the customer was sold. It used to say
+ * Hiring / People / Pay / Grow, four headings against the site's six names, and
+ * somebody who bought "Time & Leave" signed in to find no such thing.
+ *
+ * `Record<ModuleId, …>` is the guard that keeps them in step: add a seventh
+ * module to the marketing site and this file stops compiling until somebody
+ * decides which screens live in it. A missing group would otherwise be
+ * invisible — `visibleNav` drops empty groups by design, so an unfiled module
+ * would look exactly like one the company has switched off.
+ *
+ * Order comes from `MODULES` too, so the sidebar reads down in the same order
+ * the dropdown reads down.
+ *
+ * Two rules for anything added here:
+ *
+ * - **Every href appears once.** `resolveActiveHref` in `shell.tsx` picks the
+ *   longest match and the row compares `item.href === activeHref`, so listing
+ *   one route in two groups highlights both — the multi-active bug HANDOVER
+ *   records, re-introduced by duplication rather than by prefixes.
+ * - **A `permission` or `feature` moves with its item.** Dropping one turns a
+ *   hidden door into a visible one.
+ */
+const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
+  /* "Every employee record, contract and document in one system" — plus the
+     org structure and the leaving process, which are the same record's first
+     and last day. */
+  "core-hr": [
+    {
+      href: "/people",
+      label: "Directory",
+      icon: <Users aria-hidden="true" />,
+      permission: "EDIT_RECORDS",
+    },
+    {
+      /* The screen is titled "Departments and teams" and is being reworked;
+         the route is not moving. */
+      href: "/people/departments",
+      label: "Departments",
+      icon: <Building2 aria-hidden="true" />,
+      permission: "EDIT_RECORDS",
+      feature: "departments",
+    },
+    {
+      href: "/people/onboarding",
+      label: "Onboarding",
+      icon: <UserRoundPlus aria-hidden="true" />,
+      permission: "EDIT_RECORDS",
+    },
+    {
+      /* Was reachable only from a notification. `EDIT_RECORDS` matches the
+         Directory beside it: a leavers list is the directory read backwards,
+         and the screen's own actions are already gated on it. */
+      href: "/people/offboarding",
+      label: "Leavers",
+      icon: <DoorOpen aria-hidden="true" />,
+      permission: "EDIT_RECORDS",
+    },
+    {
+      /* The HR register — what is on file and what is outstanding. The
+         personal view is "My documents" in the block above. */
+      href: "/people/documents",
+      label: "Documents",
+      icon: <FolderOpen aria-hidden="true" />,
+      permission: "EDIT_RECORDS",
+    },
+    {
+      /* Laptops, phones and SIM cards. Gated to the register's audience
+         because a staff member's own kit already renders on `/profile`, and
+         the point of this nav is that a five-person company is not shown
+         thirty rows. */
+      href: "/people/assets",
+      label: "Equipment",
+      icon: <Laptop aria-hidden="true" />,
+      permission: "EDIT_RECORDS",
+    },
+    {
+      href: "/people/import",
+      label: "Import",
+      icon: <FileUp aria-hidden="true" />,
+      permission: "IMPORT_DATA",
+    },
+  ],
+
+  payroll: [
+    {
+      href: "/payroll",
+      label: "Payroll runs",
+      icon: <Banknote aria-hidden="true" />,
+      permission: "RUN_PAYROLL",
+    },
+    {
+      href: "/payroll/pay-setup",
+      label: "Pay setup",
+      icon: <SlidersHorizontal aria-hidden="true" />,
+      permission: "MANAGE_PAY_STRUCTURE",
+    },
+    {
+      href: "/payroll/payslips",
+      label: "Payslips",
+      icon: <Receipt aria-hidden="true" />,
+      always: true,
+    },
+    {
+      href: "/payroll/loans",
+      label: "Loans",
+      icon: <CreditCard aria-hidden="true" />,
+      feature: "loans",
+    },
+    {
+      href: "/payroll/expenses",
+      label: "Expenses",
+      icon: <ReceiptText aria-hidden="true" />,
+      feature: "expenses",
+    },
+    {
+      href: "/payroll/payments",
+      label: "Payments",
+      icon: <Landmark aria-hidden="true" />,
+      permission: "RUN_PAYROLL",
+    },
+    {
+      href: "/payroll/statutory",
+      label: "Statutory filings",
+      icon: <FileText aria-hidden="true" />,
+      permission: "RUN_PAYROLL",
+    },
+  ],
+
+  /* The site calls this "Recruitment"; the routes are `/hiring/*` and the
+     module id is `hiring`. The heading follows the site, the URLs do not
+     move — a live job advert's link is not worth a rename. */
+  hiring: [
+    {
+      href: "/hiring",
+      label: "Pipeline",
+      icon: <BriefcaseBusiness aria-hidden="true" />,
+      permission: "MANAGE_HIRING",
+      feature: "hiring",
+    },
+    {
+      href: "/hiring/postings",
+      label: "Job adverts",
+      icon: <Megaphone aria-hidden="true" />,
+      permission: "MANAGE_HIRING",
+      feature: "hiring",
+    },
+    {
+      href: "/hiring/interviews",
+      label: "Interviews",
+      icon: <CalendarClock aria-hidden="true" />,
+      permission: "MANAGE_HIRING",
+      feature: "hiring",
+    },
+    {
+      href: "/hiring/offers",
+      label: "Offers",
+      icon: <FileSignature aria-hidden="true" />,
+      permission: "MANAGE_HIRING",
+      feature: "hiring",
+    },
+  ],
+
+  /* Attendance, shifts, leave and overtime were split across "People" and
+     nowhere. The site sells them as one module and the product computes them
+     from one clock, so they are one group. */
+  time: [
+    {
+      href: "/people/attendance",
+      label: "Attendance",
+      icon: <Clock aria-hidden="true" />,
+      badgeSource: "notClockedIn",
+      always: true,
+    },
+    {
+      /* Was reachable only from a link on the attendance screen. `shifts` is
+         the flag the screen itself reads, so the nav asks the same question
+         rather than a second one. */
+      href: "/people/shifts",
+      label: "Shifts",
+      icon: <CalendarRange aria-hidden="true" />,
+      feature: "shifts",
+    },
+    {
+      href: "/people/leave",
+      label: "Time off",
+      icon: <CalendarDays aria-hidden="true" />,
+      badgeSource: "pendingLeave",
+      always: true,
+    },
+    {
+      href: "/people/overtime",
+      label: "Overtime",
+      icon: <Timer aria-hidden="true" />,
+      /* No feature flag: overtime has its own on/off in its policy, and
+         OrgFeatures has no key for it. Gating on the permission alone means
+         a company that has not switched it on still sees an empty screen
+         explaining how to, rather than nothing at all. */
+      permission: "VIEW_SALARIES",
+    },
+  ],
+
+  /* One route, rendered by role — PARITY.md Rule 1. The label names what is
+     inside it rather than repeating the heading. */
+  performance: [
+    {
+      href: "/performance",
+      label: "KPIs & appraisals",
+      icon: <Target aria-hidden="true" />,
+      always: true,
+    },
+  ],
+
+  /* The help desk *is* Employee Support: a queue of HR requests with owners
+     and response targets, and the knowledge base the answers become. Both
+     used to sit in the bottom block next to Settings, which read as "help
+     with the software" and hid a module the site sells by name. */
+  desk: [
+    {
+      href: "/help",
+      label: "Help desk",
+      icon: <LifeBuoy aria-hidden="true" />,
+      always: true,
+    },
+    {
+      href: "/help/kb",
+      label: "Help articles",
+      icon: <BookOpen aria-hidden="true" />,
+    },
+  ],
+};
+
+/**
+ * Company-wide, and genuinely no module's.
+ *
+ * Reports reads across all six; Settings and Roles configure all six. Nothing
+ * here would be true of one heading and false of the others, which is the test
+ * for belonging in this block rather than in a module.
+ */
+const COMPANY_WIDE: NavItem[] = [
+  {
+    href: "/reports",
+    label: "Reports",
+    icon: <ChartNoAxesColumn aria-hidden="true" />,
+    permission: "EXPORT_DATA",
+  },
+  {
+    href: "/settings",
+    label: "Settings",
+    icon: <Settings aria-hidden="true" />,
+    permission: "MANAGE_SETTINGS",
+  },
+  {
+    href: "/settings/roles",
+    label: "Roles",
+    icon: <ShieldCheck aria-hidden="true" />,
+    permission: "MANAGE_ROLES",
+  },
+];
+
+/**
+ * Yours, then the six modules the site sells, then the company's.
+ *
+ * Assembled rather than written out so the headings and their order come from
+ * one place — see `MODULE_ITEMS` above.
  */
 export const NAV: NavGroup[] = [
-  {
-    items: [
-      {
-        href: "/dashboard",
-        label: "Home",
-        icon: <LayoutDashboard aria-hidden="true" />,
-        always: true,
-      },
-      {
-        href: "/approvals",
-        label: "My approvals",
-        icon: <Target aria-hidden="true" />,
-        badgeSource: "approvals",
-        always: true,
-      },
-      {
-        href: "/notifications",
-        label: "Notifications",
-        icon: <Bell aria-hidden="true" />,
-        badgeSource: "unreadNotifications",
-        always: true,
-      },
-      {
-        /* Everybody's own record. The one screen a staff member with no
-           permissions at all still needs, which is why it has no gate. */
-        href: "/profile",
-        label: "My profile",
-        icon: <UserRound aria-hidden="true" />,
-        always: true,
-      },
-    ],
-  },
-  {
-    heading: "Hiring",
-    items: [
-      {
-        href: "/hiring",
-        label: "Pipeline",
-        icon: <BriefcaseBusiness aria-hidden="true" />,
-        permission: "MANAGE_HIRING",
-        feature: "hiring",
-      },
-      {
-        href: "/hiring/postings",
-        label: "Job adverts",
-        icon: <Megaphone aria-hidden="true" />,
-        permission: "MANAGE_HIRING",
-        feature: "hiring",
-      },
-      {
-        href: "/hiring/interviews",
-        label: "Interviews",
-        icon: <CalendarClock aria-hidden="true" />,
-        permission: "MANAGE_HIRING",
-        feature: "hiring",
-      },
-      {
-        href: "/hiring/offers",
-        label: "Offers",
-        icon: <FileText aria-hidden="true" />,
-        permission: "MANAGE_HIRING",
-        feature: "hiring",
-      },
-    ],
-  },
-  {
-    heading: "People",
-    items: [
-      {
-        href: "/people",
-        label: "Directory",
-        icon: <Users aria-hidden="true" />,
-        permission: "EDIT_RECORDS",
-      },
-      {
-        href: "/people/onboarding",
-        label: "Onboarding",
-        icon: <UserRoundPlus aria-hidden="true" />,
-        permission: "EDIT_RECORDS",
-      },
-      {
-        href: "/people/import",
-        label: "Import",
-        icon: <FileUp aria-hidden="true" />,
-        permission: "IMPORT_DATA",
-      },
-      {
-        href: "/people/departments",
-        label: "Departments",
-        icon: <Building2 aria-hidden="true" />,
-        permission: "EDIT_RECORDS",
-        feature: "departments",
-      },
-      {
-        href: "/people/attendance",
-        label: "Attendance",
-        icon: <Clock aria-hidden="true" />,
-        badgeSource: "notClockedIn",
-        always: true,
-      },
-      {
-        href: "/people/overtime",
-        label: "Overtime",
-        icon: <Timer aria-hidden="true" />,
-        /* No feature flag: overtime has its own on/off in its policy, and
-           OrgFeatures has no key for it. Gating on the permission alone means
-           a company that has not switched it on still sees an empty screen
-           explaining how to, rather than nothing at all. */
-        permission: "VIEW_SALARIES",
-      },
-      {
-        href: "/people/leave",
-        label: "Time off",
-        icon: <CalendarClock aria-hidden="true" />,
-        badgeSource: "pendingLeave",
-        always: true,
-      },
-    ],
-  },
-  {
-    heading: "Pay",
-    items: [
-      {
-        href: "/payroll",
-        label: "Payroll runs",
-        icon: <Banknote aria-hidden="true" />,
-        permission: "RUN_PAYROLL",
-      },
-      {
-        href: "/payroll/pay-setup",
-        label: "Pay setup",
-        icon: <Landmark aria-hidden="true" />,
-        permission: "MANAGE_PAY_STRUCTURE",
-      },
-      {
-        href: "/payroll/payslips",
-        label: "Payslips",
-        icon: <Receipt aria-hidden="true" />,
-        always: true,
-      },
-      {
-        href: "/payroll/loans",
-        label: "Loans",
-        icon: <CreditCard aria-hidden="true" />,
-        feature: "loans",
-      },
-      {
-        href: "/payroll/expenses",
-        label: "Expenses",
-        icon: <ReceiptText aria-hidden="true" />,
-        feature: "expenses",
-      },
-      {
-        href: "/payroll/payments",
-        label: "Payments",
-        icon: <Landmark aria-hidden="true" />,
-        permission: "RUN_PAYROLL",
-      },
-      {
-        href: "/payroll/statutory",
-        label: "Statutory filings",
-        icon: <FileText aria-hidden="true" />,
-        permission: "RUN_PAYROLL",
-      },
-    ],
-  },
-  {
-    heading: "Grow",
-    items: [
-      {
-        href: "/performance",
-        label: "Performance",
-        icon: <Target aria-hidden="true" />,
-        always: true,
-      },
-      {
-        href: "/reports",
-        label: "Reports",
-        icon: <ChartNoAxesColumn aria-hidden="true" />,
-        permission: "EXPORT_DATA",
-      },
-    ],
-  },
-  {
-    items: [
-      {
-        href: "/settings",
-        label: "Settings",
-        icon: <Settings aria-hidden="true" />,
-        permission: "MANAGE_SETTINGS",
-      },
-      {
-        href: "/settings/roles",
-        label: "Roles",
-        icon: <ShieldCheck aria-hidden="true" />,
-        permission: "MANAGE_ROLES",
-      },
-      {
-        href: "/help/kb",
-        label: "Help articles",
-        icon: <BookOpen aria-hidden="true" />,
-      },
-      {
-        href: "/help",
-        label: "Help",
-        icon: <LifeBuoy aria-hidden="true" />,
-        always: true,
-      },
-    ],
-  },
+  { items: PERSONAL },
+  ...MODULES.map((module) => ({
+    heading: module.label,
+    items: MODULE_ITEMS[module.id],
+  })),
+  { items: COMPANY_WIDE },
 ];
 
 /* -------------------------------------------------------------------------- */
@@ -323,7 +448,10 @@ export const NAV: NavGroup[] = [
  * has switched off has no screen to show.
  *
  * A group whose every item is filtered out disappears with its heading. A
- * heading over nothing is worse than no heading.
+ * heading over nothing is worse than no heading, and with the groups now named
+ * after the modules it is also the mechanism that keeps the promise: a company
+ * with hiring switched off has no "Recruitment" heading rather than an empty
+ * one, and a five-person business sees four or five headings, not six.
  *
  * While permissions are still loading, `permissions` is the token's claim set,
  * which is the same answer in all but the rarest case (a role edited in another

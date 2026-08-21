@@ -40,12 +40,13 @@ import { useSession } from "./session";
  * The whole value of this screen is the sentence "this puts ₦34,512.80 more in
  * their account". Producing that number means running PAYE, pension and NHF
  * with the component's `taxable` / `pensionable` / `preTax` flags honoured, and
- * the only implementation that does that correctly is the one on the server —
- * `web/src/lib/payroll/engine.ts` predates the flags and treats every addition
- * as pensionable, which is exactly the bug the backend engine's header warns
- * about. Reimplementing tax law here to make a demo look complete would give
- * two answers to a question that has one, and the wrong one would be the one on
- * the laptop in the room.
+ * the only implementation that does that is the one on the server. There was a
+ * second one in this browser — it predated the flags, treated every addition as
+ * pensionable, and was left on the 2011 PAYE bands for a while after the Nigeria
+ * Tax Act 2025 went into the API. It has been deleted, and it is not coming
+ * back: reimplementing tax law here to make a demo look complete would give two
+ * answers to a question that has one, and the wrong one would be the one on the
+ * laptop in the room.
  *
  * So demo mode answers only where the arithmetic is exact and needs no engine:
  * an **after-tax deduction takes exactly its own amount off take-home**, because

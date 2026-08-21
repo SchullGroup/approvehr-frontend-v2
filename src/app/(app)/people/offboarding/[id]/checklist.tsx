@@ -24,6 +24,8 @@ import {
   type ExitTaskOutcome,
   type UpdateTaskBody,
 } from "@/lib/api/offboarding";
+import { useEmployeeDirectory } from "@/lib/store/employees-api";
+import { Select } from "@/components/ui";
 
 /**
  * The checklist: one card per group, one row per line.
@@ -71,6 +73,7 @@ export function Checklist({
   const toast = useToast();
   const [busy, setBusy] = useState<string | null>(null);
   const [recording, setRecording] = useState<ApiExitTask | null>(null);
+  const [handing, setHanding] = useState<ApiExitTask | null>(null);
 
   async function run(taskId: string, action: () => Promise<void>) {
     setBusy(taskId);
@@ -125,6 +128,7 @@ export function Checklist({
                     }
                     onVerify={() => void run(task.id, () => onVerify(task.id))}
                     onRecord={() => setRecording(task)}
+                    onHandOver={canVerify ? () => setHanding(task) : undefined}
                   />
                 ))}
               </CardBody>
@@ -145,6 +149,22 @@ export function Checklist({
           }}
         />
       )}
+
+      {handing && (
+        <HandOverDialog
+          task={handing}
+          onClose={() => setHanding(null)}
+          onSave={async (assigneeId) => {
+            const ok = await run(handing.id, () =>
+              onUpdate(handing.id, { assigneeId }),
+            );
+            if (ok) {
+              toast.push({ title: "Handed over", tone: "success" });
+              setHanding(null);
+            }
+          }}
+        />
+      )}
     </>
   );
 }
@@ -161,6 +181,7 @@ function TaskRow({
   onTick,
   onVerify,
   onRecord,
+  onHandOver,
 }: {
   task: ApiExitTask;
   closed: boolean;
@@ -172,6 +193,8 @@ function TaskRow({
   onTick: (next: boolean) => void;
   onVerify: () => void;
   onRecord: () => void;
+  /** Absent for anybody who cannot reassign — HR only. */
+  onHandOver?: (() => void) | undefined;
 }) {
   const stuck = task.outcome === "NOT_RETURNED";
   const owner = ownerLabel(task.owner);
@@ -271,6 +294,17 @@ function TaskRow({
         {showOutcome && choices.length > 0 && (
           <Button variant="ghost" size="sm" disabled={busy} onClick={onRecord}>
             {task.kind === "EQUIPMENT" ? "Say what happened" : "Write it off"}
+          </Button>
+        )}
+
+        {/* `PATCH /tasks/:id` has always taken an `assigneeId` and notified
+            whoever it landed on, and nothing ever sent one — so a line owned by
+            "IT" stayed owned by nobody in particular, which in a thirty-person
+            company means it stays undone. Only offered while the line is open:
+            handing over something already finished is not a thing to do. */}
+        {onHandOver && !closed && !task.completed && (
+          <Button variant="ghost" size="sm" disabled={busy} onClick={onHandOver}>
+            {task.assigneeName ? "Hand to somebody else" : "Give it to somebody"}
           </Button>
         )}
       </div>
@@ -381,6 +415,86 @@ function OutcomeDialog({
           />
         </Field>
       </div>
+    </Modal>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Giving a line to a person.
+ *
+ * `PATCH /tasks/:id` has always taken an `assigneeId` and notified whoever the
+ * line landed on. Nothing ever sent one, so every line owned by a *role* — "IT",
+ * "Finance" — was owned by nobody, and a task with no name on it in a
+ * thirty-person company is a task that gets done on the last day or not at all.
+ *
+ * The directory is loaded here rather than by the screen above, so opening a
+ * leaver's page does not fetch two hundred people on the chance that somebody
+ * reassigns something. This component only exists while the dialog is open.
+ *
+ * "Back to the role" sends `null`, which is the API's own way of saying the line
+ * belongs to whoever is free again — a real answer, not a cleared field.
+ */
+function HandOverDialog({
+  task,
+  onClose,
+  onSave,
+}: {
+  task: ApiExitTask;
+  onClose: () => void;
+  onSave: (assigneeId: string | null) => Promise<void>;
+}) {
+  const { employees, loading } = useEmployeeDirectory({ pageSize: 200 });
+  const [assigneeId, setAssigneeId] = useState(task.assigneeId ?? "");
+  const [busy, setBusy] = useState(false);
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={task.label}
+      description={`Right now this is ${ownerLabel(task.owner)}${
+        task.assigneeName ? ` — ${task.assigneeName}` : " and nobody in particular"
+      }.`}
+      footer={
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            variant="accent"
+            disabled={busy || assigneeId === (task.assigneeId ?? "")}
+            onClick={() => {
+              setBusy(true);
+              void onSave(assigneeId === "" ? null : assigneeId).finally(() =>
+                setBusy(false),
+              );
+            }}
+          >
+            {busy ? "Saving…" : "Hand it over"}
+          </Button>
+        </div>
+      }
+    >
+      <Field
+        label="Who is doing it"
+        help="They are told, once, when it changes hands."
+      >
+        <Select
+          value={assigneeId}
+          onChange={(e) => setAssigneeId(e.target.value)}
+        >
+          <option value="">
+            {loading ? "Loading people…" : `Back to ${ownerLabel(task.owner)}`}
+          </option>
+          {employees.map((person) => (
+            <option key={person.id} value={person.id}>
+              {person.firstName} {person.lastName} · {person.jobTitle}
+            </option>
+          ))}
+        </Select>
+      </Field>
     </Modal>
   );
 }

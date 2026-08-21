@@ -4,7 +4,7 @@ import { NewEmployeeForm } from "./form";
 
 export const metadata: Metadata = {
   title: "Add employee",
-  description: "Create a record for a new starter.",
+  description: "Create a record for a new starter, in two required steps.",
 };
 
 export default function NewEmployeePage() {
@@ -16,7 +16,7 @@ export default function NewEmployeePage() {
           { href: "/people/new", label: "Add employee" },
         ]}
         title="Add an employee"
-        description="Only name, role, start date and salary are required. Bank and statutory details can follow once they hand them over."
+        description="Two steps get somebody onto payroll: their name, and their job and salary. Tax, pension and bank details are optional groups you open if you have them."
       />
       <PageBody>
         <NewEmployeeForm />

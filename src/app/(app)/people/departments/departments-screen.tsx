@@ -9,6 +9,7 @@ import {
   Plus,
   RotateCcw,
   Trash2,
+  UserPlus,
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -27,22 +28,37 @@ import {
   Money,
   Select,
   Stat,
+  Tabs,
   useToast,
+  type TabItem,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import { useDepartments, type DepartmentNode } from "@/lib/store/departments";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
+import { AssignPeopleDialog } from "./assign-people-dialog";
+import { TeamsPanel } from "./teams-panel";
 
 /**
- * Departments and teams.
+ * Departments and teams — two tabs, because they are two different things.
  *
- * ## Why one tree and not two lists
+ * ## Why the tree is one table and the teams are another
  *
- * A team is a department with a parent. The interface labels by depth — top
- * level reads "Department", anything nested reads "Team" — so the model stays
- * simple and a company that wants Division → Department → Team is not blocked by
- * a two-level ceiling.
+ * The tree is the **cost-centre structure**, and it is one column on the
+ * employee: `departmentId`. A person sits in exactly one node of it, and every
+ * payroll report and every past payslip depends on that. Nesting is still
+ * allowed — Division → Department → Sub-department is a shape a group company
+ * needs — so it stays one table.
+ *
+ * What that shape cannot express is somebody being in Engineering **and** on the
+ * Platform team, which is the shape every company with more than one project
+ * actually has. So a team is its own thing, on the other tab, and joining one
+ * does not move anybody's pay.
+ *
+ * **This screen used to call a nested department a "Team", and that was a name
+ * collision waiting to happen.** It says "Sub-department" now: two things called
+ * a team, one of which moves your cost centre and one of which does not, is the
+ * kind of ambiguity somebody eventually gets paid wrong over.
  *
  * ## The two numbers
  *
@@ -56,10 +72,35 @@ export function DepartmentsScreen() {
   const { employees } = useEmployeeDirectory({ pageSize: 200 });
   const toast = useToast();
 
+  const [tab, setTab] = useState<"structure" | "teams">("structure");
   const [creating, setCreating] = useState<{ parentId?: string } | null>(null);
   const [editing, setEditing] = useState<DepartmentNode | null>(null);
   const [archiving, setArchiving] = useState<DepartmentNode | null>(null);
+  const [assigning, setAssigning] = useState<DepartmentNode | null>(null);
+  const [assignBusy, setAssignBusy] = useState(false);
+  const [assignFailed, setAssignFailed] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  /**
+   * Name, id, job title and where they are now, for both assignment dialogs.
+   *
+   * `toEmployee` in `lib/api/endpoints.ts` renders a missing department as the
+   * em-dash placeholder `"—"` rather than null, because most screens print the
+   * field straight into a table cell. Here it has to be **absent**, so the
+   * dialog can say "No department" instead of "Now in —", which reads as a
+   * department somebody named after a punctuation mark.
+   */
+  const people = useMemo(
+    () =>
+      employees.map((person) => ({
+        id: person.id,
+        name: `${person.firstName} ${person.lastName}`,
+        jobTitle: person.jobTitle,
+        departmentName:
+          person.department && person.department !== "—" ? person.department : null,
+      })),
+    [employees],
+  );
 
   const totalPayroll = useMemo(
     () => departments.tree.reduce((sum, node) => sum + node.payrollKobo, 0),
@@ -93,13 +134,18 @@ export function DepartmentsScreen() {
     }
   };
 
+  const tabs: TabItem[] = [
+    { id: "structure", label: "Structure", count: departments.counts.departments },
+    { id: "teams", label: "Teams" },
+  ];
+
   return (
     <>
       <PageHeader
         title="Departments and teams"
         description="Your org structure, and what each unit costs a month."
         action={
-          departments.editable ? (
+          departments.editable && tab === "structure" ? (
             <Button
               variant="accent"
               size="sm"
@@ -127,73 +173,149 @@ export function DepartmentsScreen() {
           </Callout>
         )}
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Stat
-            label="Departments"
-            value={String(departments.counts.departments)}
-          />
-          <Stat label="Teams" value={String(departments.counts.teams)} />
-          <Stat
-            label="Monthly payroll"
-            value={<Money amount={totalPayroll / 100} compact />}
-            hint="across every unit"
-          />
-          <Stat
-            label="Unassigned"
-            value={String(departments.counts.unassignedEmployees)}
-            trend={
-              departments.counts.unassignedEmployees > 0
-                ? { direction: "down", label: "No cost centre" }
-                : undefined
-            }
-            hint="people in no department"
-          />
-        </div>
-
-        {departments.counts.unassignedEmployees > 0 && (
-          <Callout tone="warning" title="Some people are in no department">
-            They will not appear in any department payroll report, and no head is
-            responsible for them. Assign them from a person&rsquo;s record, or from
-            the directory.
-          </Callout>
-        )}
-
-        <Card>
-          <CardHeader
-            title="Structure"
-            description="Top level is a department. Anything nested inside one is a team."
-          />
-          {departments.tree.length === 0 ? (
-            <EmptyState
-              icon={<Building2 aria-hidden="true" />}
-              title={departments.loading ? "Loading…" : "No departments yet"}
-              description={
-                departments.loading
-                  ? "Reading your structure."
-                  : "Add your first department to start grouping people and reporting payroll by cost centre."
-              }
-            />
-          ) : (
-            <CardBody className="flex flex-col gap-1.5">
-              {departments.tree.map((node) => (
-                <DepartmentRow
-                  key={node.id}
-                  node={node}
-                  expanded={expanded}
-                  onToggle={toggle}
-                  editable={departments.editable}
-                  onAddTeam={(parentId) => setCreating({ parentId })}
-                  onEdit={setEditing}
-                  onArchive={setArchiving}
-                  onRestore={(id) =>
-                    void run(() => departments.restore(id), "Restored")
-                  }
+        <Tabs
+          items={tabs}
+          value={tab}
+          onChange={(next) => setTab(next === "teams" ? "teams" : "structure")}
+        >
+          {tab === "structure" ? (
+            <div className="flex flex-col gap-6">
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <Stat
+                  label="Departments"
+                  value={String(departments.counts.departments)}
                 />
-              ))}
-            </CardBody>
+                {/* The API still calls a nested department a "team" in this
+                    count. The label does not, because the Teams tab owns that
+                    word now — see the header. */}
+                <Stat
+                  label="Sub-departments"
+                  value={String(departments.counts.teams)}
+                  hint="nested inside another"
+                />
+                <Stat
+                  label="Monthly payroll"
+                  value={<Money amount={totalPayroll / 100} compact />}
+                  hint="across every unit"
+                />
+                <Stat
+                  label="Unassigned"
+                  value={String(departments.counts.unassignedEmployees)}
+                  trend={
+                    departments.counts.unassignedEmployees > 0
+                      ? { direction: "down", label: "No cost centre" }
+                      : undefined
+                  }
+                  hint="people in no department"
+                />
+              </div>
+
+              {departments.counts.unassignedEmployees > 0 && (
+                <Callout tone="warning" title="Some people are in no department">
+                  They will not appear in any department payroll report, and no
+                  head is responsible for them. Use{" "}
+                  <strong>Assign people</strong> on the department they belong
+                  to, or set it on their own record.
+                </Callout>
+              )}
+
+              <Card>
+                <CardHeader
+                  title="Structure"
+                  description="Top level is a department. Anything nested inside one is a sub-department, and it rolls up into its parent."
+                />
+                {departments.tree.length === 0 ? (
+                  <EmptyState
+                    icon={<Building2 aria-hidden="true" />}
+                    title={departments.loading ? "Loading…" : "No departments yet"}
+                    description={
+                      departments.loading
+                        ? "Reading your structure."
+                        : "Add your first department to start grouping people and reporting payroll by cost centre."
+                    }
+                  />
+                ) : (
+                  <CardBody className="flex flex-col gap-1.5">
+                    {departments.tree.map((node) => (
+                      <DepartmentRow
+                        key={node.id}
+                        node={node}
+                        expanded={expanded}
+                        onToggle={toggle}
+                        editable={departments.editable}
+                        onAddChild={(parentId) => setCreating({ parentId })}
+                        onEdit={setEditing}
+                        onArchive={setArchiving}
+                        onAssign={setAssigning}
+                        onRestore={(id) =>
+                          void run(() => departments.restore(id), "Restored")
+                        }
+                      />
+                    ))}
+                  </CardBody>
+                )}
+              </Card>
+            </div>
+          ) : (
+            <TeamsPanel
+              departments={departments.flat.map((one) => ({
+                id: one.id,
+                name: one.name,
+                depth: one.depth,
+                archived: one.archived,
+              }))}
+              employees={people}
+            />
           )}
-        </Card>
+        </Tabs>
       </PageBody>
+
+      {assigning && (
+        <AssignPeopleDialog
+          title={`Assign people to ${assigning.name}`}
+          description="Move a group into this department in one go, rather than editing records one at a time."
+          effect={`Everybody chosen is reported under ${assigning.name} from now on. Past payslips keep the department they were run with.`}
+          confirmLabel="Move them here"
+          busy={assignBusy}
+          failed={assignFailed}
+          candidates={people.map((person) => ({
+            id: person.id,
+            name: person.name,
+            jobTitle: person.jobTitle,
+            currentLabel: person.departmentName || null,
+            already: person.departmentName === assigning.name,
+          }))}
+          onClose={() => {
+            setAssigning(null);
+            setAssignFailed(null);
+          }}
+          onAssign={(employeeIds) => {
+            setAssignBusy(true);
+            setAssignFailed(null);
+            void (async () => {
+              try {
+                const result = await departments.assign(assigning.id, employeeIds);
+                toast.push({
+                  title:
+                    result.moved === 1
+                      ? `1 person moved into ${assigning.name}`
+                      : `${result.moved} people moved into ${assigning.name}`,
+                  tone: "success",
+                });
+                setAssigning(null);
+              } catch (error) {
+                setAssignFailed(
+                  error instanceof ApiError
+                    ? error.message
+                    : "Something went wrong. Try again.",
+                );
+              } finally {
+                setAssignBusy(false);
+              }
+            })();
+          }}
+        />
+      )}
 
       {creating && (
         <CreateDialog
@@ -262,23 +384,26 @@ function DepartmentRow({
   expanded,
   onToggle,
   editable,
-  onAddTeam,
+  onAddChild,
   onEdit,
   onArchive,
+  onAssign,
   onRestore,
 }: {
   node: DepartmentNode;
   expanded: Set<string>;
   onToggle: (id: string) => void;
   editable: boolean;
-  onAddTeam: (parentId: string) => void;
+  onAddChild: (parentId: string) => void;
   onEdit: (node: DepartmentNode) => void;
   onArchive: (node: DepartmentNode) => void;
+  onAssign: (node: DepartmentNode) => void;
   onRestore: (id: string) => void;
 }) {
   const isOpen = expanded.has(node.id);
   const hasChildren = node.children.length > 0;
-  const isTeam = node.depth > 0;
+  /* Nested means sub-department, not "team". The Teams tab owns that word. */
+  const isNested = node.depth > 0;
 
   return (
     <div>
@@ -307,7 +432,7 @@ function DepartmentRow({
           </button>
         ) : (
           <span aria-hidden="true" className="inline-block size-5">
-            {isTeam && (
+            {isNested && (
               <CornerDownRight className="size-4 text-faint" aria-hidden="true" />
             )}
           </span>
@@ -317,17 +442,17 @@ function DepartmentRow({
           aria-hidden="true"
           className={cn(
             "flex size-8 shrink-0 items-center justify-center rounded-md [&>svg]:size-4",
-            isTeam ? "bg-sunken text-muted" : "bg-accent-soft text-accent-text",
+            isNested ? "bg-sunken text-muted" : "bg-accent-soft text-accent-text",
           )}
         >
-          {isTeam ? <Users aria-hidden="true" /> : <Building2 aria-hidden="true" />}
+          {isNested ? <Users aria-hidden="true" /> : <Building2 aria-hidden="true" />}
         </span>
 
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-2 text-[0.9375rem] font-medium text-ink">
             {node.name}
-            <Badge tone={isTeam ? "neutral" : "accent"} size="sm">
-              {isTeam ? "Team" : "Department"}
+            <Badge tone={isNested ? "neutral" : "accent"} size="sm">
+              {isNested ? "Sub-department" : "Department"}
             </Badge>
             {node.archived && (
               <Badge tone="neutral" size="sm">
@@ -369,7 +494,7 @@ function DepartmentRow({
           </div>
           <div>
             <p className="text-[0.75rem] uppercase tracking-wide text-faint">
-              With teams
+              Rolled up
             </p>
             <p className="tabular text-[0.9375rem] font-medium text-ink">
               {node.totalEmployees}
@@ -399,13 +524,22 @@ function DepartmentRow({
             ) : (
               <>
                 <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => onAssign(node)}
+                  aria-label={`Assign people to ${node.name}`}
+                >
+                  <UserPlus aria-hidden="true" className="size-3.5" />
+                  Assign people
+                </Button>
+                <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => onAddTeam(node.id)}
-                  aria-label={`Add a team inside ${node.name}`}
+                  onClick={() => onAddChild(node.id)}
+                  aria-label={`Add a sub-department inside ${node.name}`}
                 >
                   <Plus aria-hidden="true" className="size-3.5" />
-                  Team
+                  Sub-unit
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => onEdit(node)}>
                   Edit
@@ -432,9 +566,10 @@ function DepartmentRow({
               expanded={expanded}
               onToggle={onToggle}
               editable={editable}
-              onAddTeam={onAddTeam}
+              onAddChild={onAddChild}
               onEdit={onEdit}
               onArchive={onArchive}
+              onAssign={onAssign}
               onRestore={onRestore}
             />
           </div>
@@ -468,11 +603,13 @@ function CreateDialog({
     <Modal
       open
       onClose={onClose}
-      title={parentId ? `Add a team in ${parentName}` : "Add a department"}
+      title={
+        parentId ? `Add a sub-department in ${parentName}` : "Add a department"
+      }
       description={
         parentId
-          ? "A team sits inside a department and rolls its headcount and payroll up into it."
-          : "A top-level unit. You can add teams inside it afterwards."
+          ? "It sits inside its parent and rolls its headcount and payroll up into it. For a working group that spans departments, use the Teams tab instead."
+          : "A top-level cost centre. You can nest units inside it afterwards."
       }
       footer={
         <div className="flex justify-end gap-2">
@@ -491,7 +628,7 @@ function CreateDialog({
               }).finally(() => setBusy(false));
             }}
           >
-            {busy ? "Adding…" : parentId ? "Add team" : "Add department"}
+            {busy ? "Adding…" : parentId ? "Add sub-department" : "Add department"}
           </Button>
         </div>
       }
