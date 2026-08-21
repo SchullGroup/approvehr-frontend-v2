@@ -2,10 +2,14 @@ import type { Metadata } from "next";
 import {
   Banknote,
   Bell,
+  BookOpen,
   Building2,
   CalendarDays,
+  Landmark,
   Plug,
   ShieldCheck,
+  Timer,
+  Webhook,
   Users,
 } from "lucide-react";
 import { LinkCard } from "@/components/ui";
@@ -41,6 +45,20 @@ const GROUPS = [
         description:
           "Entitlements, accrual, carry-over and the public holiday calendar.",
         icon: <CalendarDays aria-hidden="true" />,
+      },
+      {
+        href: "/settings/bank-accounts",
+        title: "Bank accounts",
+        description:
+          "The accounts salaries are paid from. One is the default for a payment run.",
+        icon: <Landmark aria-hidden="true" />,
+      },
+      {
+        href: "/settings/overtime",
+        title: "Overtime",
+        description:
+          "Whether overtime is paid, from how many minutes, and the weekday, weekend and public-holiday rates.",
+        icon: <Timer aria-hidden="true" />,
       },
     ],
   },
@@ -78,6 +96,20 @@ const GROUPS = [
         description:
           "Accounting, biometric devices and single sign-on.",
         icon: <Plug aria-hidden="true" />,
+      },
+      {
+        href: "/settings/knowledge",
+        title: "Knowledge base",
+        description:
+          "Write and publish help articles, and see the searches that found nothing.",
+        icon: <BookOpen aria-hidden="true" />,
+      },
+      {
+        href: "/settings/webhooks",
+        title: "Webhooks",
+        description:
+          "We POST signed JSON to a URL you control. The one integration that needs nobody else's credential.",
+        icon: <Webhook aria-hidden="true" />,
       },
     ],
   },

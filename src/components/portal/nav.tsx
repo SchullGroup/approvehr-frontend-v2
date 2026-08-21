@@ -1,6 +1,7 @@
 import {
   Banknote,
   Bell,
+  BookOpen,
   BriefcaseBusiness,
   Building2,
   CalendarClock,
@@ -12,11 +13,13 @@ import {
   Landmark,
   LayoutDashboard,
   LifeBuoy,
+  Megaphone,
   Receipt,
   ReceiptText,
   Settings,
   ShieldCheck,
   Target,
+  Timer,
   UserRound,
   UserRoundPlus,
   Users,
@@ -133,6 +136,13 @@ export const NAV: NavGroup[] = [
         feature: "hiring",
       },
       {
+        href: "/hiring/postings",
+        label: "Job adverts",
+        icon: <Megaphone aria-hidden="true" />,
+        permission: "MANAGE_HIRING",
+        feature: "hiring",
+      },
+      {
         href: "/hiring/interviews",
         label: "Interviews",
         icon: <CalendarClock aria-hidden="true" />,
@@ -184,6 +194,16 @@ export const NAV: NavGroup[] = [
         always: true,
       },
       {
+        href: "/people/overtime",
+        label: "Overtime",
+        icon: <Timer aria-hidden="true" />,
+        /* No feature flag: overtime has its own on/off in its policy, and
+           OrgFeatures has no key for it. Gating on the permission alone means
+           a company that has not switched it on still sees an empty screen
+           explaining how to, rather than nothing at all. */
+        permission: "VIEW_SALARIES",
+      },
+      {
         href: "/people/leave",
         label: "Time off",
         icon: <CalendarClock aria-hidden="true" />,
@@ -226,6 +246,12 @@ export const NAV: NavGroup[] = [
         feature: "expenses",
       },
       {
+        href: "/payroll/payments",
+        label: "Payments",
+        icon: <Landmark aria-hidden="true" />,
+        permission: "RUN_PAYROLL",
+      },
+      {
         href: "/payroll/statutory",
         label: "Statutory filings",
         icon: <FileText aria-hidden="true" />,
@@ -263,6 +289,11 @@ export const NAV: NavGroup[] = [
         label: "Roles",
         icon: <ShieldCheck aria-hidden="true" />,
         permission: "MANAGE_ROLES",
+      },
+      {
+        href: "/help/kb",
+        label: "Help articles",
+        icon: <BookOpen aria-hidden="true" />,
       },
       {
         href: "/help",

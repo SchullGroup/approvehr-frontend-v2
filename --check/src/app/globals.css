@@ -1,0 +1,529 @@
+@import "tailwindcss";
+
+/* ==========================================================================
+   APPROVEHR design tokens
+
+   Layout language follows Stripe: generous whitespace, a tight type scale,
+   low contrast hairlines, soft layered elevation, restrained motion.
+   Every text colour below is verified against WCAG 2.1 AA on white — run
+   `npm run verify-contrast` to re-check after any change.
+   No monospace family is defined anywhere in this system, by design.
+
+   Brand mapping — both values are taken from the ApproveHR logo:
+     accent   #2b3990  the wordmark indigo. 10.1:1 on white, carries white.
+     success  #8ac97d  the checkmark green. A fill that carries ink, never
+                       text — "approved" is the product's core verb, so the
+                       brand green is the approval colour rather than a
+                       decorative one.
+   ========================================================================== */
+
+@theme {
+  /* ---- Neutrals ------------------------------------------------------ */
+  --color-ink: #0a1f2d; /* 17.1:1  Headings, primary text          */
+  --color-ink-soft: #16334a; /* 11.4:1  Secondary headings         */
+  --color-body: #4a5a68; /*  7.1:1  Body copy                      */
+  --color-muted: #586675; /*  5.9:1  Secondary text                */
+  /* Was #83929e at 3.2:1, on the reasoning that it was for icons and large
+     text only. It was not: it is used for 11px section headings and table
+     hints, which need 4.5:1. Darkened until it clears AA on every tinted
+     background it appears on, including bg-sunken and the callout tints.
+     The cost is a compressed bottom to the scale — muted 5.9 to faint 5.3 —
+     which is the arithmetic of fitting five text weights above 4.5:1. */
+  --color-faint: #616d76; /*  5.3:1  Tertiary text and icons        */
+
+  --color-canvas: #f7f9fb;
+  --color-surface: #ffffff;
+  --color-sunken: #f1f5f8;
+
+  --color-line: #e3e9ed; /* Decorative dividers only               */
+  --color-line-strong: #cdd7de;
+  --color-control-line: #6b7c89; /* 4.3:1  Input and control borders */
+
+  /* ---- Accent. ApproveHR indigo. ------------------------------------- */
+  /* Unlike a light accent, this one is dark enough to carry white text,
+     so accent and accent-text are the same value.                       */
+  --color-accent: #2b3990; /* 10.1:1                                */
+  --color-accent-text: #2b3990; /* 10.1:1                             */
+  --color-accent-hover: #242f76;
+  --color-accent-soft: #f0f2f9;
+  --color-accent-line: #c8cfe8;
+
+  /* ---- Semantic. Two tone: -text for copy, base for fills. ----------- */
+  /* success base is the brand green: ink on it reads 8.6:1.             */
+  --color-success: #8ac97d;
+  --color-success-strong: #529546;
+  --color-success-text: #417739; /* 5.4:1                              */
+  --color-success-soft: #f1f8ef;
+  --color-success-line: #c1e0b8;
+
+  --color-warning: #d99400;
+  --color-warning-text: #8a5a00; /* 5.9:1 */
+  --color-warning-soft: #fdf8ec;
+  --color-warning-line: #f0dcae;
+
+  --color-danger: #dc3b32;
+  --color-danger-text: #b3261e; /* 6.5:1 */
+  --color-danger-soft: #fdf2f1;
+  --color-danger-line: #f5cdc9;
+
+  --color-info: #2b87c4;
+  --color-info-text: #1a5f8a; /* 6.9:1 */
+  --color-info-soft: #eff7fc;
+  --color-info-line: #c2ddef;
+
+  /* ---- Categorical. Charts and pipeline stages only, never status. --- */
+  --color-cat-1: #2b3990;
+  --color-cat-2: #12a374;
+  --color-cat-3: #d99400;
+  --color-cat-4: #7c5cd6;
+  --color-cat-5: #2b87c4;
+  --color-cat-6: #c8873c;
+
+  /* ---- Typography ---------------------------------------------------- */
+  /* Geist is a neo grotesque in the same lineage as Stripe's Sohne. */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+
+  --text-display: 4.25rem;
+  --text-display--line-height: 1.03;
+  --text-display--letter-spacing: -0.035em;
+  --text-display--font-weight: 600;
+
+  --text-h1: 3rem;
+  --text-h1--line-height: 1.08;
+  --text-h1--letter-spacing: -0.03em;
+  --text-h1--font-weight: 600;
+
+  --text-h2: 2.125rem;
+  --text-h2--line-height: 1.15;
+  --text-h2--letter-spacing: -0.024em;
+  --text-h2--font-weight: 600;
+
+  --text-h3: 1.5rem;
+  --text-h3--line-height: 1.25;
+  --text-h3--letter-spacing: -0.018em;
+  --text-h3--font-weight: 600;
+
+  --text-h4: 1.1875rem;
+  --text-h4--line-height: 1.35;
+  --text-h4--letter-spacing: -0.012em;
+  --text-h4--font-weight: 600;
+
+  --text-lead: 1.1875rem;
+  --text-lead--line-height: 1.6;
+  --text-lead--letter-spacing: -0.008em;
+
+  --text-eyebrow: 0.8125rem;
+  --text-eyebrow--line-height: 1.2;
+  --text-eyebrow--letter-spacing: 0.08em;
+  --text-eyebrow--font-weight: 600;
+
+  /* ---- Radius -------------------------------------------------------- */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 22px;
+
+  /* ---- Elevation. Soft, layered, tinted with the ink hue. ------------ */
+  --shadow-xs: 0 1px 1px rgb(10 31 45 / 0.04);
+  --shadow-sm: 0 1px 2px rgb(10 31 45 / 0.05), 0 1px 1px rgb(10 31 45 / 0.03);
+  --shadow-md: 0 2px 4px rgb(10 31 45 / 0.04), 0 4px 12px rgb(10 31 45 / 0.05);
+  --shadow-lg: 0 4px 8px rgb(10 31 45 / 0.04), 0 12px 28px rgb(10 31 45 / 0.07);
+  --shadow-xl: 0 8px 16px rgb(10 31 45 / 0.05), 0 24px 48px rgb(10 31 45 / 0.09);
+
+  /* ---- Motion -------------------------------------------------------- */
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out-soft: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* ==================================================================== */
+  /* MARKETING SURFACE                                                    */
+  /* The signed-in app is a tool: cool, quiet, dense. The public site is  */
+  /* an argument: warm, roomy, typographic. Same brand, different job —   */
+  /* so the marketing ground is its own set of tokens rather than a       */
+  /* reskin of the product canvas.                                        */
+  /* ==================================================================== */
+  --color-sand: #f6f3ee; /* page ground                                */
+  --color-sand-deep: #ece7de; /* alternating band                     */
+  --color-sand-line: #ddd6ca; /* hairline on sand                     */
+  --color-slate: #14120f; /* near-black, warm. 17.9:1 on sand         */
+  --color-slate-soft: #3d3830; /* 9.2:1 on sand                       */
+  --color-slate-muted: #6b655c; /* 4.9:1 on sand                      */
+  --color-night: #1a1815; /* dark mockup cards                        */
+  --color-night-line: #2e2a25;
+
+  /* Washed module tints, PeopleForce style. Each is a brand or semantic
+     hue pulled back far enough to sit under text at full contrast. */
+  --color-wash-indigo: #eceefa;
+  --color-wash-green: #e9f5e4;
+  --color-wash-amber: #fbf1dd;
+  --color-wash-blue: #e6f1fa;
+  --color-wash-violet: #efeafb;
+  --color-wash-rose: #fbeae9;
+
+  --text-mega: 5.5rem;
+  --text-mega--line-height: 0.94;
+  --text-mega--letter-spacing: -0.04em;
+  --text-mega--font-weight: 500;
+}
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    border-color: var(--color-line);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-surface);
+    color: var(--color-body);
+    font-family: var(--font-sans);
+    font-synthesis-weight: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    color: var(--color-ink);
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* Numeric alignment without resorting to a monospace face. */
+  .tabular,
+  table td,
+  table th {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* One consistent, high contrast focus treatment everywhere. */
+  :focus-visible {
+    outline: 2px solid var(--color-accent-text);
+    outline-offset: 2px;
+    border-radius: var(--radius-xs);
+  }
+
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  ::selection {
+    background-color: var(--color-accent);
+    color: #ffffff;
+  }
+
+  /* Controls inherit the family so nothing falls back to a system mono. */
+  input,
+  textarea,
+  select,
+  button {
+    font-family: inherit;
+    font-size: inherit;
+  }
+
+  [hidden] {
+    display: none !important;
+  }
+}
+
+/* ==========================================================================
+   Utilities
+   ========================================================================== */
+
+/* A conventional 1200px measure with real margin either side.
+   This was 1440px (stepping to 1520px above 1600px) to fill a 27" monitor, and
+   it read as too wide — a wall of content edge to edge with nothing framing it.
+   Whitespace at the margins is what makes a page look composed rather than
+   merely full, so the width is now standard and the padding grows with the
+   viewport instead of the content doing so. */
+@utility container-page {
+  margin-inline: auto;
+  width: 100%;
+  max-width: 1200px;
+  padding-inline: 1.5rem;
+}
+
+@media (min-width: 640px) {
+  .container-page {
+    padding-inline: 2rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .container-page {
+    padding-inline: 3rem;
+  }
+}
+
+@utility container-narrow {
+  margin-inline: auto;
+  width: 100%;
+  max-width: 760px;
+  padding-inline: 1.25rem;
+}
+
+/* Wide content scrolls inside its own box so the page never does. */
+@utility scroll-x {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+@utility skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 999;
+  padding: 0.75rem 1.25rem;
+  background: var(--color-ink);
+  color: #ffffff;
+  border-radius: 0 0 var(--radius-md) 0;
+}
+
+@utility sr-only-focusable {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Flat surfaces.
+
+   These four utilities used to draw an ambient grid and a pair of soft
+   gradients — a 32px indigo lattice behind page headers, a fall of colour down
+   the sidebar, and a radial brand wash on empty states.
+
+   They are now plain fills, and the reason is readability. A hairline lattice
+   at 4% opacity is invisible against a card and clearly visible *through* small
+   text, which puts a varying background luminance behind every glyph. That does
+   two things: it makes the type feel unsteady to read, and it makes the real
+   contrast ratio of any text sitting on it unknowable — the measured figure
+   depends on whether a grid line happens to fall behind a stroke. Contrast you
+   cannot measure is contrast you cannot promise.
+
+   The utilities are kept rather than deleted so no call site has to change and
+   the intent stays legible in a diff. The marketing surface is untouched: its
+   type is large, its ground is a solid sand fill, and it never had the grid.
+   -------------------------------------------------------------------------- */
+
+@utility grid-surface {
+  background-color: var(--color-surface);
+}
+
+@utility grid-fade {
+  background-color: var(--color-surface);
+}
+
+@utility sidebar-surface {
+  background-color: var(--color-surface);
+}
+
+@utility brand-wash {
+  background-color: var(--color-accent-soft);
+}
+
+/* Score bars inside a hovered card grow to their target width. The width is
+   passed per bar as --w so one rule drives every score in the system. */
+.group:hover [data-score] {
+  width: var(--w);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-score] {
+    width: var(--w) !important;
+    transition: none !important;
+  }
+}
+
+@utility scrollbar-slim {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line-strong) transparent;
+  &::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--color-line-strong);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+}
+
+/* ==========================================================================
+   Motion. All of it is suppressed under reduced motion.
+   ========================================================================== */
+
+@keyframes ahr-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ahr-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ahr-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes ahr-shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+
+@utility animate-rise {
+  animation: ahr-rise 0.5s var(--ease-out-soft) both;
+}
+
+@utility animate-fade {
+  animation: ahr-fade 0.4s var(--ease-out-soft) both;
+}
+
+@utility animate-scale-in {
+  animation: ahr-scale-in 0.22s var(--ease-out-soft) both;
+}
+
+@utility animate-shimmer {
+  background-size: 200% 100%;
+  animation: ahr-shimmer 1.4s linear infinite;
+}
+
+/* --------------------------------------------------------------------------
+   Marketing motion. Scroll reveals are driven by an IntersectionObserver that
+   flips data-reveal from "idle" to "in"; the transition lives here so a single
+   media query below can switch the whole site to static.
+   -------------------------------------------------------------------------- */
+
+@utility reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition:
+    opacity 0.7s var(--ease-out-soft),
+    transform 0.7s var(--ease-out-soft);
+  transition-delay: var(--reveal-delay, 0ms);
+
+  &[data-reveal="in"] {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Continuous logo rail. Duplicated track translated by exactly -50% so the
+   seam lands on an identical frame and the loop is invisible. */
+@keyframes ahr-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@utility marquee-track {
+  animation: ahr-marquee var(--marquee-duration, 42s) linear infinite;
+  will-change: transform;
+}
+
+/* Zelt-style pill button lift. Kept as a utility so every CTA on the site
+   shares one motion signature rather than each section inventing its own. */
+@utility pill-press {
+  transition:
+    transform 0.18s var(--ease-out-soft),
+    background-color 0.18s var(--ease-out-soft),
+    box-shadow 0.18s var(--ease-out-soft);
+
+  &:hover {
+    transform: translateY(-2px);
+  }
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .marquee-track {
+    animation: none !important;
+  }
+
+  [data-reveal] {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ==========================================================================
+   Print. Payslips, contracts and compliance exports get printed.
+   ========================================================================== */
+
+@media print {
+  body {
+    background: #ffffff;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}
