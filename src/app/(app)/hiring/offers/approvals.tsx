@@ -102,10 +102,14 @@ export function OfferApprovals() {
 
   return (
     <div className="flex flex-col gap-5">
-      {bands.count === 0 && !bands.loading && (
-        <Callout tone="warning" title="No salary grades to check against">
-          Nothing can say whether these offers are in band until the pay
-          structure has grades on it.
+      {/* Why there is no band, when there is no band. Three different facts
+          end in an empty ladder — no grades, still loading, or no permission to
+          read the pay structure — and `note` is the one that applies. Saying
+          "no grades" to somebody who simply cannot see them sends them to build
+          a ladder that already exists. */}
+      {bands.note && !bands.loading && (
+        <Callout tone="warning" title="These are not being checked against a band">
+          {bands.note}
         </Callout>
       )}
 
@@ -262,11 +266,7 @@ function OfferCard({
                   <Money amount={offer.grossMonthly} decimals size="lg" />
                   <span className="text-[0.875rem] text-muted">a month</span>
                 </p>
-                <p className="text-[0.875rem] text-body">
-                  {bands.loading
-                    ? "Loading the grade ladder…"
-                    : "There is no salary grade to place this against."}
-                </p>
+                <p className="text-[0.875rem] text-body">{bands.note}</p>
               </div>
             )}
 

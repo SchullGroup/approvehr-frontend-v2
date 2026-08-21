@@ -30,6 +30,7 @@ import {
   Tabs,
   Textarea,
   Timeline,
+  useToast,
   type TimelineEntry,
 } from "@/components/ui";
 import {
@@ -90,6 +91,19 @@ export function CandidatePanel({
   const [tab, setTab] = useState("overview");
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState(REJECTION_REASONS[0]);
+  const toast = useToast();
+
+  /**
+   * What a control does when there is nothing behind it.
+   *
+   * `Interview`, `Scorecard` and the pipeline `Application` have no route, so
+   * booking an interview and marking somebody hired write nowhere. A button with
+   * no handler is the quiet version of lying about that — it looks like it
+   * worked. Answering, and saying what did not happen, is the honest version and
+   * still leaves a button where a person expects one.
+   */
+  const nothingHappened = (title: string, detail: string) =>
+    toast.push({ title, tone: "info", detail });
 
   if (!card) return null;
 
@@ -198,15 +212,20 @@ export function CandidatePanel({
                 ]}
               />
 
+              {/* The filename is all the seed holds, and it is all the API
+                  holds either — a CV is recorded as a storage key and no upload
+                  pipeline is wired, in any environment. So this names the file
+                  and says it cannot be opened, in the same words the screening
+                  queue uses, rather than offering a button that opens nothing. */}
               <div className="rounded-lg border border-line bg-canvas p-3">
-                <div className="flex items-center gap-2.5">
+                <div className="flex flex-wrap items-center gap-2.5">
                   <FileText aria-hidden="true" className="size-4 shrink-0 text-faint" />
                   <span className="min-w-0 flex-1 truncate text-[0.875rem] text-ink">
                     {card.candidate.cvFileName}
                   </span>
-                  <Button size="sm" variant="secondary">
-                    Open CV
-                  </Button>
+                  <Badge tone="neutral" size="sm">
+                    CV cannot be opened
+                  </Badge>
                 </div>
               </div>
 
@@ -298,7 +317,17 @@ export function CandidatePanel({
                   </Badge>
                 </div>
               ))}
-              <Button variant="secondary" size="sm" className="self-start">
+              <Button
+                variant="secondary"
+                size="sm"
+                className="self-start"
+                onClick={() =>
+                  nothingHappened(
+                    "Nothing was booked",
+                    "Interviews have no endpoint yet, so no invitation went out and no diary changed.",
+                  )
+                }
+              >
                 <CalendarClock aria-hidden="true" className="size-4" />
                 Schedule interview
               </Button>
@@ -389,7 +418,16 @@ export function CandidatePanel({
                   Advance to {stageLabel(target)}
                 </Button>
               ) : (
-                <Button variant="approve" className="flex-1">
+                <Button
+                  variant="approve"
+                  className="flex-1"
+                  onClick={() =>
+                    nothingHappened(
+                      "Nothing was recorded",
+                      "Hiring somebody creates an employee record, and the pipeline has no endpoint to do it from yet. Add them from the people directory.",
+                    )
+                  }
+                >
                   <Check aria-hidden="true" className="size-4" />
                   Mark as hired
                 </Button>

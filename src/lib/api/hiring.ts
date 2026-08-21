@@ -459,6 +459,31 @@ export function toApplicantRecordFromRow(row: ApiApplication): ApplicantRecord {
   return toApplicantRecord({ ...row, otherApplications: [] });
 }
 
+/**
+ * The list row wins; the detail contributes only the history.
+ *
+ * ## Why the precedence matters, and how getting it wrong looked
+ *
+ * The first version of this preferred the detail response outright, because it
+ * carries strictly more. That is true and it was still wrong: the detail is
+ * fetched once per id, and `advance` and `decline` reload the **list**. So
+ * screening somebody in left the page showing "Waiting on a first look" beside a
+ * "Screen in" button, over a record the database had already moved — the exact
+ * failure the two-mode badges exist to prevent, arrived at from the other
+ * direction. It survived typecheck and lint and was found by pressing the button.
+ *
+ * So the row is authoritative for every field the row has, and the detail
+ * contributes the one field it alone knows. A reload then updates the whole
+ * screen and the history simply persists.
+ */
+export function mergeApplicantHistory(
+  base: ApplicantRecord,
+  detail: ApiApplicationDetail | null,
+): ApplicantRecord {
+  if (detail === null) return base;
+  return { ...base, otherApplications: toApplicantRecord(detail).otherApplications };
+}
+
 /* -------------------------------------------------------- offers and bands */
 
 /**

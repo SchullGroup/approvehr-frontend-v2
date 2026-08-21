@@ -13,7 +13,7 @@ import {
   queueBars,
   toAdvanceBody,
   toAdvertBody,
-  toApplicantRecord,
+  mergeApplicantHistory,
   toApplicantRecordFromRow,
   toNumbers,
   toRoleRow,
@@ -358,6 +358,16 @@ export type ApplicantView = {
   record: ApplicantRecord | null;
   /** The seeded half — stage, interviews, scorecards, offer. Null off the seed. */
   card: PipelineCard | null;
+  /**
+   * How `record` was found: by the id in the URL, or by the seeded candidate's
+   * email address.
+   *
+   * Worth reporting, because an email match joins two records that were never
+   * linked, and they can disagree — a seeded pipeline card marked rejected
+   * beside a careers-page application still marked as waiting. The screen says
+   * which join it is looking at rather than letting the reader assume one record.
+   */
+  matchedBy: "id" | "email" | null;
   screenIn: (input?: ScreenInInput) => Promise<{ note: string; candidateId: string }>;
   screenOut: (reason?: string) => Promise<{ note: string }>;
   reload: () => Promise<void>;
@@ -366,9 +376,10 @@ export type ApplicantView = {
 /**
  * One person, from whichever source holds them.
  *
- * ## The id in the URL is two different ids, and that is not a mistake
+ * ## The id in the URL is three different ids, and that is not a mistake
  *
- * `/hiring/candidates/{id}` is linked from three places with three kinds of id:
+ * `/hiring/candidates/{id}` is linked from three places, each with its own kind
+ * of id:
  *
  *   - the pipeline board links a seeded pipeline **application** id (`app-02`);
  *   - the screening queue links the **candidate** id the API returned from
@@ -380,7 +391,9 @@ export type ApplicantView = {
  * up: every screened-in `JobApplication` carries the `candidateId` it produced,
  * and that list has an endpoint. So this hook matches on either id against the
  * applications list, which is one request the module makes anyway, and resolves
- * all three without asking the caller which kind it has.
+ * all three without asking the caller which kind it has. A seeded pipeline id
+ * then gets a fourth chance, on the candidate's email address, which is how the
+ * demo shows one person's application beside their board card.
  *
  * ## Two sources, both reported
  *
@@ -391,15 +404,28 @@ export type ApplicantView = {
  */
 export function useApplicantRecord(id: string): ApplicantView {
   const applications = useApplications();
+  const card = cardById(id) ?? null;
+  const cardEmail = card?.candidate.email ?? null;
 
-  const row = useMemo(
-    () =>
-      applications.applications.find(
-        (application) =>
-          application.id === id || application.candidateId === id,
-      ) ?? null,
-    [applications.applications, id],
-  );
+  /* Id first, then email. Email is the identity the API itself dedupes
+     candidates on — `Candidate` is unique on `(organizationId, email)` — so it
+     is the right second key rather than a convenience: a seeded pipeline card
+     and a careers-page application for the same person are the same person, and
+     the pipeline id will never appear in the applications table. Connected, a
+     seed email matches nothing, which is the correct answer. */
+  const found = useMemo(() => {
+    const byId = applications.applications.find(
+      (application) => application.id === id || application.candidateId === id,
+    );
+    if (byId) return { row: byId, matchedBy: "id" as const };
+    if (cardEmail === null) return null;
+    const byEmail = applications.applications.find(
+      (application) => application.email === cardEmail,
+    );
+    return byEmail ? { row: byEmail, matchedBy: "email" as const } : null;
+  }, [applications.applications, id, cardEmail]);
+
+  const row = found?.row ?? null;
 
   /* The detail call adds one thing to the list row: everything else this email
      address has applied for. Worth a second request — three applications for
@@ -437,10 +463,13 @@ export function useApplicantRecord(id: string): ApplicantView {
       ? fetched.detail
       : null;
 
-  const record = useMemo(() => {
-    if (detail) return toApplicantRecord(detail);
-    return row ? toApplicantRecordFromRow(row) : null;
-  }, [detail, row]);
+  /* The row wins. See `mergeApplicantHistory` for why — preferring the detail
+     left the screen showing a stale status after a write, because `advance`
+     reloads the list and the detail is fetched once per id. */
+  const record = useMemo(
+    () => (row ? mergeApplicantHistory(toApplicantRecordFromRow(row), detail) : null),
+    [detail, row],
+  );
 
   const applicationId = record?.applicationId ?? null;
 
@@ -466,7 +495,8 @@ export function useApplicantRecord(id: string): ApplicantView {
     loading: applications.loading,
     error: applications.error,
     record,
-    card: cardById(id) ?? null,
+    card,
+    matchedBy: record === null ? null : (found?.matchedBy ?? null),
     screenIn,
     screenOut,
     reload: applications.reload,
@@ -523,6 +553,16 @@ export type OfferBands = {
   error: ApiError | null;
   /** How many grades the ladder holds. Zero has its own sentence on screen. */
   count: number;
+  /**
+   * Why there is no band, in one sentence, or null when there is one.
+   *
+   * Three different facts end in an empty ladder and a screen must not say the
+   * same thing about all of them. `GET /grades` needs `MANAGE_PAY_STRUCTURE`,
+   * which plenty of recruiters do not hold — so the commonest answer here is
+   * "you cannot see the pay structure", not "there are no grades". Guessing
+   * wrong sends somebody to build a ladder that already exists.
+   */
+  note: string | null;
   /** Naira in, a real kobo band out. Null when there is no ladder to place in. */
   bandFor: (grossMonthly: number) => OfferBand | null;
 };
@@ -554,6 +594,13 @@ export function useOfferBands(): OfferBands {
     loading: grades.loading,
     error: grades.error,
     count: grades.rows.length,
+    note: grades.loading
+      ? "Loading the grade ladder…"
+      : grades.error
+        ? grades.error.message
+        : grades.rows.length === 0
+          ? "There are no salary grades yet, so nothing can say whether this is in band."
+          : null,
     bandFor,
   };
 }

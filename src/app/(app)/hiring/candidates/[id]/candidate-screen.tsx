@@ -246,6 +246,7 @@ function Record({ id }: { id: string }) {
                 record={record}
                 live={view.live}
                 editable={view.editable}
+                matchedByEmail={view.matchedBy === "email"}
                 onScreenIn={() => setScreening(true)}
                 onDecline={() => setDeclining(true)}
                 onRetry={view.reload}
@@ -452,7 +453,11 @@ function SeededRole({ card }: { card: PipelineCard }) {
           columns={1}
           items={[
             {
-              term: "Band",
+              /* "Range on the role", not "Band" — the offer card below places
+                 the figure against a *grade* band from the pay structure, and
+                 two things both called "band" on one page cannot be told
+                 apart. This pair is what the requisition was opened at. */
+              term: "Range on the role",
               value: (
                 <>
                   <Money amount={card.requisition.salaryMin} decimals /> –{" "}
@@ -534,6 +539,7 @@ function Application({
   record,
   live,
   editable,
+  matchedByEmail,
   onScreenIn,
   onDecline,
   onRetry,
@@ -541,6 +547,8 @@ function Application({
   record: ApplicantRecord;
   live: boolean;
   editable: boolean;
+  /** True when this was joined to the pipeline candidate by email, not by id. */
+  matchedByEmail: boolean;
   onScreenIn: () => void;
   onDecline: () => void;
   onRetry: () => Promise<void>;
@@ -553,6 +561,16 @@ function Application({
         action={<SourceBadge live={live} />}
       />
       <CardBody className="flex flex-col gap-4">
+        {/* An email match joins two records nothing had linked, so they can
+            disagree — a pipeline card marked rejected beside an application
+            still marked as waiting. Saying which join this is beats letting
+            somebody read the two as one record. */}
+        {matchedByEmail && (
+          <p className="text-[0.75rem] text-muted">
+            Matched to the pipeline candidate by email address, so the two
+            records can disagree about where this person got to.
+          </p>
+        )}
         {record.declineReason && (
           <Callout tone="danger" title="Turned down">
             {record.declineReason}
@@ -664,7 +682,6 @@ const RECOMMENDATION = {
 
 /** Stage, offer, screening answers, scorecards, interviews. Seeded throughout. */
 function Pipeline({ card }: { card: PipelineCard }) {
-  const bands = useOfferBands();
   const submitted = card.scorecards.filter((s) => s.submittedAt);
   const pending = card.scorecards.filter((s) => !s.submittedAt);
   const stageDef = STAGES.find((s) => s.id === card.stage);
@@ -678,8 +695,6 @@ function Pipeline({ card }: { card: PipelineCard }) {
           0,
         ) / submitted.length
       : null;
-
-  const offerPlacement = card.offer ? bands.bandFor(card.offer.grossMonthly) : null;
 
   return (
     <>
@@ -698,7 +713,7 @@ function Pipeline({ card }: { card: PipelineCard }) {
         <Card>
           <CardHeader
             title="Offer"
-            description="Placed against the grade ladder, not against the requisition's own figures."
+            description="Placed against the grade ladder, which is what the company actually pays for this level."
             action={
               <span className="inline-flex flex-wrap items-center gap-2">
                 <Badge
@@ -718,35 +733,12 @@ function Pipeline({ card }: { card: PipelineCard }) {
             }
           />
           <CardBody className="flex flex-col gap-5">
-            {offerPlacement ? (
-              /* The real ladder, live whenever the API is up — so the meter can
-                 say "above what we pay for this work" rather than "above two
-                 numbers somebody typed into the requisition". */
-              <BandPosition
-                grade={offerPlacement.band}
-                offerKobo={offerPlacement.offerKobo}
-                gradeLabel={offerPlacement.label}
-                label="Against the grade ladder"
-              />
-            ) : (
-              <p className="flex items-baseline gap-2">
-                <Money amount={card.offer.grossMonthly} decimals size="lg" />
-                <span className="text-[0.875rem] text-muted">
-                  a month · {bands.loading ? "loading the grade ladder…" : "no grades to place it against yet"}
-                </span>
-              </p>
-            )}
+            <OfferAgainstBand grossMonthly={card.offer.grossMonthly} />
 
             <div className="flex flex-wrap items-end justify-between gap-4">
               <DescriptionList
                 columns={2}
-                items={[
-                  { term: "Start date", value: card.offer.startDate },
-                  {
-                    term: "Grade ladder",
-                    value: bands.live ? "From the API" : "Seeded ladder",
-                  },
-                ]}
+                items={[{ term: "Start date", value: card.offer.startDate }]}
               />
               {card.offer.status === "pending_approval" && (
                 <ButtonLink href="/hiring/offers" variant="accent" size="sm">
@@ -918,6 +910,49 @@ function Pipeline({ card }: { card: PipelineCard }) {
         </CardBody>
       </Card>
     </>
+  );
+}
+
+/**
+ * The offer, placed against the real grade ladder.
+ *
+ * Its own component so the `/grades` request only happens for a candidate who
+ * actually has an offer. Most do not, and `GET /grades` needs
+ * `MANAGE_PAY_STRUCTURE` — which plenty of recruiters do not hold — so calling
+ * it from `Pipeline` would put a refused request on every candidate page for no
+ * benefit.
+ *
+ * The seeded offer figure is naira; `bandFor` converts it to kobo, once, in
+ * `lib/api/hiring.ts`. Nothing here multiplies by 100.
+ */
+function OfferAgainstBand({ grossMonthly }: { grossMonthly: number }) {
+  const bands = useOfferBands();
+  const placement = bands.bandFor(grossMonthly);
+
+  if (!placement) {
+    return (
+      <div className="flex flex-col gap-2">
+        <p className="flex items-baseline gap-2">
+          <Money amount={grossMonthly} decimals size="lg" />
+          <span className="text-[0.875rem] text-muted">a month</span>
+        </p>
+        <p className="text-[0.875rem] text-body">{bands.note}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <BandPosition
+        grade={placement.band}
+        offerKobo={placement.offerKobo}
+        gradeLabel={placement.label}
+        label="Against the grade ladder"
+      />
+      <span className="self-start">
+        <SourceBadge live={bands.live} note="The band, not the offer." />
+      </span>
+    </div>
   );
 }
 

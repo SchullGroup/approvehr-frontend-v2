@@ -27,7 +27,7 @@ export default function OffersPage() {
         ]}
         title="Offer approvals"
         meta={<SourceBadge live={false} note="The offers themselves." />}
-        description="Nothing here has reached a candidate yet, and approving does not send it — offers have no endpoint. The band each one is checked against is live."
+        description="Nothing here has reached a candidate yet, and approving does not send it — offers have no endpoint. Each one is checked against the pay structure's own grades, and every card says where those came from."
       />
       <PageBody>
         <OfferApprovals />

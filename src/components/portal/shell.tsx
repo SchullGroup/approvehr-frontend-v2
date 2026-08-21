@@ -18,7 +18,6 @@ import { useEmployeeStore } from "@/lib/store/employees";
 import { rosterFor } from "@/lib/workflows/attendance";
 import { TODAY } from "@/lib/today";
 import { buildApprovalQueue } from "@/lib/workflows/queue";
-import { CURRENT_USER } from "@/lib/mock/people";
 import { useSession } from "@/lib/store/session";
 import { fullName } from "@/lib/types";
 
@@ -318,7 +317,11 @@ function UserMenu() {
   const { displayName, employee, user, mode, signOut } = useSession();
   const [open, setOpen] = useState(false);
 
-  const name = displayName ?? fullName(CURRENT_USER);
+  /* No seed fallback. `UserMenu` only renders behind `AuthGate`, so a missing
+     name means the session is mid-load rather than absent — and borrowing a
+     mock employee's name is how a menu ends up telling somebody they are
+     signed in as a person they have never met. */
+  const name = displayName ?? "Your account";
   /* An API user has no job title — that lives on the employee record — so the
      subtitle falls back through employee, then to the mode itself, which is
      more useful than a blank line. */
