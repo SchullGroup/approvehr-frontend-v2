@@ -19,24 +19,58 @@ import {
 } from "./settings";
 
 /**
- * Annual PAYE bands. These are statute, not company policy, so they stay in
- * the engine — a company cannot choose its own tax rates. When the Finance Act
- * changes them, it changes here, once.
+ * Annual PAYE bands, per the **Nigeria Tax Act 2025**, effective 1 January 2026.
+ *
+ * ## This file is a preview calculator, not the authority
+ *
+ * The authoritative engine is `approvehr-api/src/modules/payroll/engine.ts`,
+ * which works in integer kobo, resolves a *dated* schedule so a run for a past
+ * period computes on the law in force then, and carries 104 assertions. This one
+ * exists only so four screens can show a preview without a round trip:
+ * `/settings/payroll`, `/people/new`, `/people/[id]` and the loan application.
+ *
+ * It has no date. It always computes on the schedule in force now, which is
+ * correct for a preview of what somebody will be paid next month and wrong for
+ * anything historical. Do not use it for anything historical.
+ *
+ * **These bands diverged once and it shipped.** When the 2025 Act was entered in
+ * the backend, this array was left on the 2011 figures, so all four screens
+ * quoted last year's tax — ₦63,266.67 against the correct ₦63,950 on ₦500,000 a
+ * month. `scripts/verify-payroll.ts` now asserts these figures against the
+ * backend's own schedule, so the two cannot drift apart silently again. If that
+ * check fails, this array is stale; do not edit the assertion to match it.
+ *
+ * The real fix is to delete this file and have those screens call
+ * `GET /payroll/preview`, which already exists and is the same engine the run
+ * uses. Two implementations of tax law is one too many. Until then, this one is
+ * at least the current law.
  */
 const PAYE_BANDS: [number, number][] = [
-  [300_000, 0.07],
-  [300_000, 0.11],
-  [500_000, 0.15],
-  [500_000, 0.19],
-  [1_600_000, 0.21],
-  [Infinity, 0.24],
+  [800_000, 0.0],
+  [2_200_000, 0.15],
+  [9_000_000, 0.18],
+  [13_000_000, 0.21],
+  [25_000_000, 0.23],
+  [Infinity, 0.25],
 ];
+
+/**
+ * Rent relief: 20% of annual rent paid, capped at ₦500,000.
+ *
+ * Replaced the Consolidated Relief Allowance from 1 January 2026. Nothing
+ * declared means nothing granted — that is the statute, and it means a
+ * homeowner's only personal relief is the 0% band.
+ */
+const RENT_RELIEF_RATE = 0.2;
+const RENT_RELIEF_CAP = 500_000;
 
 export type Variation = {
   /** Added to gross before tax — bonus, overtime, allowance. */
   additions: number;
   /** Taken after tax — loan repayment, salary advance, damages. */
   postTaxDeductions: number;
+  /** Annual rent the employee has declared, for rent relief. */
+  annualRent?: number;
   /** Days of unpaid leave in the period. Reduces gross pro rata. */
   unpaidDays: number;
 };
@@ -82,11 +116,19 @@ export function annualPaye(taxableAnnual: number): number {
 }
 
 /**
- * Consolidated Relief Allowance: the greater of ₦200,000 or 1% of gross,
- * plus 20% of gross. Applied to gross after pension and NHF are removed.
+ * Personal relief, under the regime in force now.
+ *
+ * The Consolidated Relief Allowance — `max(₦200,000, 1% of gross) + 20% of
+ * gross` — was abolished on 1 January 2026 and is not implemented here, because
+ * this file only ever previews the current month. The backend keeps it for
+ * periods before 2026; see `ReliefRegime` there.
+ *
+ * `annualRent` is what the employee has declared. Zero means undeclared, which
+ * means no relief and a higher bill — which is why the record screen should ask.
  */
-export function consolidatedRelief(grossAnnual: number): number {
-  return Math.max(200_000, grossAnnual * 0.01) + grossAnnual * 0.2;
+export function personalRelief(annualRent: number): number {
+  if (annualRent <= 0) return 0;
+  return Math.min(RENT_RELIEF_CAP, annualRent * RENT_RELIEF_RATE);
 }
 
 export function calculatePayslip(
@@ -129,7 +171,9 @@ export function calculatePayslip(
 
   const grossAnnual = grossMonthly * 12;
   const reliefsAnnual = (pensionEmployee + nhf) * 12;
-  const craAnnual = consolidatedRelief(grossAnnual);
+  /* Rent relief, not the CRA — see `personalRelief`. Undeclared rent means no
+     relief, which is the statute rather than a fallback. */
+  const craAnnual = personalRelief(variation.annualRent ?? 0);
 
   const taxableAnnual = Math.max(0, grossAnnual - reliefsAnnual - craAnnual);
   const payeMonthly = annualPaye(taxableAnnual) / 12;

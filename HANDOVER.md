@@ -592,16 +592,48 @@ company cannot choose its own tax brackets. Right, and incomplete: bands are
 *versioned*. `TAX_SCHEDULES` holds dated schedules with citations and
 `scheduleFor(schedules, date)` resolves one.
 
-**The Nigeria Tax Act 2025 bands are deliberately not entered.** Nobody has put
-the gazetted figures in front of this code, and a guessed band is worse than a
-missing one — it produces a confident wrong number that gets filed and
-penalised. Instead `confirmedThrough` on the 2011 schedule stops at the end of
-2025, so `scheduleFor` returns `stale: true` for every 2026 period and the run
-raises it as an exception the approver must look at.
+**The Nigeria Tax Act 2025 bands are now entered** — this file used to say they
+were deliberately absent, on the grounds that a guessed band is worse than a
+missing one. That reasoning still stands; the bands are in because three
+independent sources were checked and agree exactly:
 
-My first draft *threw* for a stale schedule. Today is August 2026, so that would
-have broken every run in the product. Refusing to pay anybody because a lookup
-table is stale is the worse failure.
+- PwC Worldwide Tax Summaries, which states them as band *widths*, the form this
+  engine stores.
+- KPMG GMS Flash Alert 2025-168, which states them as cumulative thresholds. The
+  two reconcile: 800,000 / +2,200,000 = 3,000,000 / +9,000,000 = 12,000,000 /
+  +13,000,000 = 25,000,000 / +25,000,000 = 50,000,000 / above.
+- EY, for the 26 June 2025 signing date and the abolition of the CRA.
+
+First ₦800,000 exempt, then 15 / 18 / 21 / 23 / 25 per cent. The wider 0% band
+also replaces the old 1%-of-income minimum tax.
+
+### The relief regime changed, not just the table
+
+**The Consolidated Relief Allowance is abolished**, replaced by relief on *rent*
+— 20% of annual rent paid, capped at ₦500,000. That is a different **input**, not
+a different formula: the old relief was a function of income, the new one of
+something the employee has to declare and the old regime never asked for.
+
+So `ReliefRegime` rides on the `TaxSchedule`. December 2025 gets the CRA, January
+2026 onwards gets rent relief, from one code path with no date branch anybody has
+to remember. `Employee.annualRent` and `rentDeclaredAt` are new;
+`Variation.annualRentKobo` carries it into the engine.
+
+**Null means undeclared, and undeclared means no relief.** That is the statute,
+not a defensive default, and it costs real money — on ₦500,000 a month, somebody
+who has not declared pays ₦63,950 against ₦63,266.67 under the old regime, so the
+reform makes them *worse off* until they declare. `ComputedPayslip.reliefUnclaimed`
+reports it per person and the run raises a WARNING naming the headcount, because
+the only way those people find out is if something tells them.
+
+At the other end, ₦60,000 a month now pays exactly nothing against ₦1,819.67
+before.
+
+`confirmedThrough` on the 2026 schedule stops at the end of 2026. Push it forward
+when somebody checks again; do not remove it. A 2027 period comes back
+`stale: true` and still computes — my first draft *threw* on a stale schedule,
+and since today is 2026 that would have broken every run in the product. Refusing
+to pay anybody because a lookup table is stale is the worse failure.
 
 ## The reconciliation gate — read this before touching the run
 
@@ -772,16 +804,42 @@ the module that needed them, and that is the right instinct. Keep it.
 
 ## Things that are still not done
 
-1. **Most screens still read localStorage.** The endpoints exist; each screen is
-   a `useEmployeeDirectory`-shaped hook and a browser check. Do them one at a
-   time.
-2. **`web/src/lib/payroll/engine.ts` should be deleted** once the payroll screens
-   read from the API, and `Employee.grossMonthly` renamed to kobo with it. Two
-   implementations of tax law is exactly one too many, and the backend's is
-   authoritative.
-3. **The ETL out of the Django database.** Nothing exists. The `imports` module
-   is the shape to reuse — validate, then apply.
-4. **The Nigeria Tax Act 2025 bands.** See above. This one needs a human with
-   the gazette.
-5. **`TODO(shifts)` in `assemble.ts`.** A rostered employee currently prorates
-   against the office month.
+1. **The screens are switched over.** Every one reads the API when one answers,
+   with the local store as the demo fallback. That is not a leftover: the product
+   gets shown on laptops with no database, and the rule is that it must never
+   *look* connected when it is not.
+2. **`web/src/lib/payroll/engine.ts` should still be deleted**, and this is now
+   urgent rather than tidy. It is a preview calculator for four screens —
+   `/settings/payroll`, `/people/new`, `/people/[id]` and the loan application —
+   and when the 2025 Act went into the backend it was left on the 2011 bands, so
+   all four quoted last year's tax for a while: ₦63,266.67 against the correct
+   ₦63,950 on ₦500,000 a month. It is on the current law now, and
+   `scripts/verify-payroll.ts` compares its top marginal rate against the
+   backend's newest schedule so they cannot drift again — but the guard skips
+   when `approvehr-api` is not checked out beside this repo, so CI cannot run it.
+   The real fix is to delete the file and have those four screens call
+   `GET /payroll/preview`, which already exists and is the same engine the run
+   uses. Two implementations of tax law is one too many, and one of them being
+   *wrong* is how that stops being an abstract concern.
+3. **The ETL out of the Django database** exists at `scripts/etl/` — introspect,
+   plan, fixture, migrate — and is tested against a synthetic legacy database.
+   What is *not* done is the mapping: every column name in `plan.ts` is still
+   `inferred`, and the fixture is built from the same guesses, so the tests prove
+   the machinery and not the aim. `--apply` refuses to write until the tiers it
+   touches are confirmed. Somebody with credentials runs `introspect.ts`,
+   corrects `plan.ts`, and the guard opens on its own. Six models are mapped but
+   unimplemented; `migrate.ts` names each one rather than omitting it quietly.
+4. **The Nigeria Tax Act 2025 bands are in.** See above.
+5. **The suite is flaky.** Six or seven different backend tests have failed
+   intermittently and passed on a clean re-run. `fileParallelism` is already
+   false, so it is not files racing — it is tests asserting exact counts against
+   a database other files write to. One instance was a genuine bug (an unscoped
+   count in the insights module reading another organisation's rows), so the
+   flakes are worth chasing rather than retrying past.
+6. **The infrastructure deltas are on a branch, unapplied.**
+   `SchullGroup/approvehr-infrastructure`, branch `node-worker-and-secrets`:
+   the Celery worker command replaced with the Node one, secrets moved from an
+   S3 `.env` to Secrets Manager, and the target group pointed at
+   `/health/ready`. Terraform is not installed on the machine that wrote them,
+   so they are **not validated** — read the diff and run a plan before anything
+   is applied.

@@ -16,7 +16,7 @@ import {
 } from "@/lib/api/payroll";
 import {
   calculatePayslip,
-  consolidatedRelief,
+  personalRelief,
   type PayrollEmployee,
 } from "@/lib/payroll/engine";
 import type { PayrollSettings } from "@/lib/payroll/settings";
@@ -169,7 +169,10 @@ function demoPayslip(
      published formula rather than approximated. A payslip that quotes a relief
      it cannot show the working for is a payslip nobody can check. */
   const grossAnnual = computed.grossMonthly * 12;
-  const reliefAnnual = consolidatedRelief(grossAnnual);
+  /* Rent relief now, not the CRA. This demo path has no declared rent to hand,
+     so the relief is zero — which is what an undeclared employee actually gets,
+     and therefore honest rather than convenient. */
+  const reliefAnnual = personalRelief(0);
   const taxableAnnual = Math.max(
     0,
     grossAnnual - (computed.pensionEmployee + computed.nhf) * 12 - reliefAnnual,
