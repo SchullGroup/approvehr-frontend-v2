@@ -5,22 +5,32 @@ import { cn } from "@/lib/cn";
 /*
  * One button language for the whole marketing site.
  *
- *   solid    brand green fill, ink label — 8.6:1. The single primary action
- *            on any given screen. Green is the approval colour, so the button
- *            that starts a relationship wears it.
- *   dark     near-black fill, white label — 17.9:1. Secondary, and the default
- *            inside light washed cards where green would fight the tint.
+ *   solid    ApproveHR blue fill, white label — 10.1:1. The single primary
+ *            action on any given screen.
+ *
+ *            This was a solid green fill carrying an ink label, on the argument
+ *            that green is the approval colour so the button starting a
+ *            relationship should wear it. Nice idea, wrong outcome: the loudest
+ *            thing on every marketing page was not the brand's own colour, and
+ *            it did not match the primary button inside the product, so the site
+ *            and the app looked like two products. Blue is the brand; the brand
+ *            gets the primary. It also carries white text, which the green
+ *            could not — 8.6:1 with ink was the best that fill could do.
+ *   green    the old solid, kept as a secondary for a positive aside.
+ *   dark     near-black fill, white label — 17.9:1. Secondary.
  *   quiet    hairline outline on sand. Tertiary.
  *   text     inline link with a travelling arrow. Used inside cards.
  *
  * All four share the same lift on hover so the site has one motion signature.
  */
 
-type Variant = "solid" | "dark" | "quiet" | "text";
+type Variant = "solid" | "green" | "dark" | "quiet" | "text";
 type Size = "md" | "lg";
 
 const VARIANTS: Record<Variant, string> = {
   solid:
+    "bg-accent text-white hover:bg-accent-hover shadow-[0_1px_2px_rgb(20_18_15/0.14)]",
+  green:
     "bg-success text-slate hover:bg-success-strong hover:text-white shadow-[0_1px_2px_rgb(20_18_15/0.10)]",
   dark: "bg-slate text-white hover:bg-slate-soft shadow-[0_1px_2px_rgb(20_18_15/0.14)]",
   quiet:

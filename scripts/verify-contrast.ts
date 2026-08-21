@@ -93,9 +93,9 @@ const CHECKS: [string, string, string, number, string][] = [
   ["danger-text on danger-soft", "#b3261e", "#fdf2f1", 4.5, "danger callout"],
   ["info-text on surface", "#1a5f8a", SURFACE, 4.5, "info copy"],
   ["info-text on info-soft", "#1a5f8a", "#eff7fc", 4.5, "info callout"],
-  ["white on ink", SURFACE, INK, 4.5, "primary button label"],
-  ["white on accent", SURFACE, "#2b3990", 4.5, "accent button label"],
-  ["ink on success", INK, "#8ac97d", 4.5, "approve button label — brand green carries ink, never white"],
+  ["white on ink", SURFACE, INK, 4.5, "ink fill label — headers and the marketing dark pill"],
+  ["white on accent", SURFACE, "#2b3990", 4.5, "primary/accent/approve button label — the ApproveHR blue"],
+  ["ink on success", INK, "#8ac97d", 4.5, "green secondary on hover — brand green carries ink, never white"],
   ["white on danger-text", SURFACE, "#b3261e", 4.5, "destructive button label"],
   ["white on success-strong", SURFACE, "#529546", 3.0, "switch thumb against an on track"],
 ];

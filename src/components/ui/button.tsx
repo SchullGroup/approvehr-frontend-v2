@@ -6,31 +6,67 @@ import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 /*
- * Contrast, verified on the token palette:
- *   primary    white on ink            16.8:1
- *   accent     white on indigo         10.1:1
- *   approve    ink on brand green       8.6:1   (green cannot carry white text)
+ * Contrast, verified on the token palette by `npm run verify:contrast`:
+ *   primary    white on ApproveHR blue 10.1:1
+ *   accent     white on ApproveHR blue 10.1:1   (same fill — see below)
+ *   approve    white on ApproveHR blue 10.1:1   (same fill — see below)
+ *   success    success-text on success-soft     the green, now secondary
  *   secondary  ink on white            17.1:1   border at 4.3:1
  *   ghost      body on white            7.1:1
  *   danger     white on danger-text     6.5:1
+ *
+ * ## One primary fill, three names
+ *
+ * The brand's blue is the primary action everywhere. `primary` used to be
+ * near-black and `approve` used to be a solid green fill, which meant the
+ * loudest colour in the product was not a brand colour, and the three most
+ * important buttons on a screen could be three different hues.
+ *
+ * All three now share the blue. The names are kept rather than collapsed because
+ * 251 call sites use them and a rename is churn with no user-visible payoff —
+ * `accent` alone is 215 of those. A later cleanup can fold them into one; doing
+ * it here would bury this change in a diff nobody could review.
+ *
+ * ## Why `approve` is not the new green secondary
+ *
+ * The obvious reading of "green becomes secondary" is to make `approve` the soft
+ * green. That would be wrong: `approve` is on approving a payroll run — a
+ * one-way door that moves money — and it is the single most consequential control
+ * in the product. Demoting it to a quiet button to satisfy a palette decision
+ * trades real usability for tidiness.
+ *
+ * So approval stays loud and becomes on-brand, and the green moves to `success`,
+ * where it is available for the positive-but-secondary case it is actually
+ * suited to.
  */
 
 export type ButtonVariant =
   | "primary"
   | "accent"
   | "approve"
+  | "success"
   | "secondary"
   | "ghost"
   | "danger";
 export type ButtonSize = "sm" | "md" | "lg";
 
+/** The brand blue. One string, so the three names cannot drift apart. */
+const PRIMARY_FILL =
+  "bg-accent text-white shadow-sm hover:bg-accent-hover " +
+  "active:bg-accent-hover disabled:hover:bg-accent";
+
 const VARIANTS: Record<ButtonVariant, string> = {
-  primary:
-    "bg-ink text-white shadow-sm hover:bg-ink-soft active:bg-ink disabled:hover:bg-ink",
-  accent:
-    "bg-accent text-white shadow-sm hover:bg-accent-hover active:bg-accent-hover disabled:hover:bg-accent",
-  approve:
-    "bg-success text-ink shadow-sm hover:bg-success-strong hover:text-white active:bg-success-strong disabled:hover:bg-success disabled:hover:text-ink",
+  primary: PRIMARY_FILL,
+  accent: PRIMARY_FILL,
+  approve: PRIMARY_FILL,
+  /* The green, in its secondary role: a tinted fill rather than a solid one, so
+     it sits below the primary without disappearing. `success-text` on
+     `success-soft` rather than ink on solid green — the old solid fill could not
+     carry white text at all, which is what made it awkward as a primary. */
+  success:
+    "bg-success-soft text-success-text border border-success-line shadow-xs " +
+    "hover:bg-success hover:text-ink active:bg-success-line " +
+    "disabled:hover:bg-success-soft disabled:hover:text-success-text",
   secondary:
     "bg-surface text-ink border border-control-line shadow-xs hover:bg-canvas active:bg-sunken disabled:hover:bg-surface",
   ghost:
