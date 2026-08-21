@@ -54,7 +54,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-dvh flex-col bg-canvas">
       {/* Top bar */}
-      <header className="sticky top-0 z-30 border-b border-line bg-surface">
+      <header className="no-print sticky top-0 z-30 border-b border-line bg-surface">
         <div className="flex h-14 items-center gap-3 px-4 sm:px-5">
           <button
             type="button"
@@ -127,7 +127,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <div className="flex flex-1">
         {/* Sidebar */}
-        <aside className="sidebar-surface hidden w-60 shrink-0 border-r border-line lg:block">
+        <aside className="no-print sidebar-surface hidden w-60 shrink-0 border-r border-line lg:block">
           <div className="scrollbar-slim sticky top-14 max-h-[calc(100dvh-3.5rem)] overflow-y-auto px-3 py-4">
             {nav}
           </div>

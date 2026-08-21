@@ -548,12 +548,70 @@
    Print. Payslips, contracts and compliance exports get printed.
    ========================================================================== */
 
+/*
+ * Printing.
+ *
+ * One screen in the product is genuinely printed rather than viewed: a payslip.
+ * Somebody keeps it, gives it to a landlord, or attaches it to a visa
+ * application, so what comes out of the printer is a document the company is
+ * putting its name on.
+ *
+ * Before this it came out with the application around it — the hamburger, the
+ * logo, the organisation switcher, the notification bell, and the signed-in
+ * person's name and role badge sat above a payslip belonging to somebody else
+ * entirely. That last part is the real problem rather than an aesthetic one: a
+ * payslip for Adaeze Okonkwo printed with "Tunde Bakare, Head of Finance,
+ * Owner" across the top invites exactly the wrong conclusion about whose pay it
+ * records.
+ *
+ * `.no-print` already existed and the payslip screen used it on its own
+ * controls. What nothing had marked was the shell itself.
+ */
 @media print {
+  /* Ink is expensive and a tint that renders as grey mush helps nobody. */
   body {
     background: #ffffff;
   }
 
   .no-print {
     display: none !important;
+  }
+
+  /*
+   * A payslip is one page. It was spilling onto two, which for a document
+   * somebody files is the difference between one sheet and a staple.
+   */
+  @page {
+    margin: 12mm;
+  }
+
+  /* The browser's own header and footer are the browser's to draw; nothing here
+     can remove the date, the page title or the localhost URL. That is a setting
+     in the print dialogue, and worth turning off before saving a payslip a
+     third party will read. */
+
+  /* Cards stop being cards. On paper a shadow is noise and a tint is grey. */
+  [class*="shadow"] {
+    box-shadow: none !important;
+  }
+
+  /* Nothing a reader needs should straddle a page break. */
+  h1,
+  h2,
+  h3,
+  h4 {
+    break-after: avoid-page;
+  }
+
+  tr,
+  li,
+  dl > div {
+    break-inside: avoid-page;
+  }
+
+  /* A link's href is useful on paper only when it is not an app route nobody
+     can type. Left alone deliberately rather than expanded into brackets. */
+  a {
+    text-decoration: none !important;
   }
 }
