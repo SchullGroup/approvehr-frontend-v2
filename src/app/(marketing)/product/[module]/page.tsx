@@ -180,10 +180,6 @@ export default async function ModulePage({
         <div className="container-page">
           <Reveal>
             <h2 className="text-h3 text-slate">The rest of the platform</h2>
-            <p className="mt-3 max-w-xl text-[0.9375rem] text-slate-muted">
-              Every module reads from the same employee record, so nothing has
-              to be entered twice.
-            </p>
           </Reveal>
 
           <ul className="mt-9 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
