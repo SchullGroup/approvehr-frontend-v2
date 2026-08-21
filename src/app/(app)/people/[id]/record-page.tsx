@@ -150,7 +150,7 @@ export function EmployeeRecordPage({ id }: { id: string }) {
       toast.push({
         title: `${name} archived`,
         tone: "info",
-        detail: "Removed from the directory and the next payroll run.",
+        detail: "Removed from the directory and the next payroll.",
       });
       router.push("/people");
     } catch (error) {
@@ -170,7 +170,7 @@ export function EmployeeRecordPage({ id }: { id: string }) {
       toast.push({
         title: `${name} restored`,
         tone: "success",
-        detail: "They are back in the directory and the payroll run.",
+        detail: "They are back in the directory and in payroll.",
       });
     } catch (error) {
       report(`${name} was not restored`, error);

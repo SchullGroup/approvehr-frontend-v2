@@ -414,7 +414,7 @@ function AllOvertime() {
                 Rates and grace
               </ButtonLink>
               <ButtonLink size="sm" href="/payroll">
-                Payroll runs
+                Monthly payroll
               </ButtonLink>
             </div>
           </CardFooter>

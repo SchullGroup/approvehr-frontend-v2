@@ -7,8 +7,10 @@ import {
   Field,
   Input,
   Modal,
+  Picker,
   Select,
 } from "@/components/ui";
+import { NIGERIAN_BANKS, bankCodeFor } from "@/lib/reference/banks";
 import type {
   ApiBankAccount,
   CreateAccountBody,
@@ -120,14 +122,35 @@ export function AccountForm({
     >
       <div className="flex flex-col gap-4">
         <Field label="Bank" required>
-          <Input
+          {/*
+           * Was a free-text `Input` with "GTBank" as a placeholder, beside a
+           * free-text bank code with "058" as its placeholder. Two problems, and
+           * the second is the serious one: a typed bank name does not match
+           * anything, and a typed code is a number nobody checked. The API is
+           * explicit that "a wrong bank code routes money to the wrong
+           * institution".
+           *
+           * Now the NIBSS register, and choosing a bank fills its code in.
+           */}
+          <Picker
             value={bankName}
-            autoFocus={!editing}
-            placeholder="GTBank"
-            onChange={(e) => {
-              const value = e.target.value;
+            onChange={(value) => {
               setBankName(value);
+              /* Filled from the register, not typed. Only ever overwrites a code
+                 that came from a bank rather than from a person: an operator who
+                 pasted the exact string their portal wants keeps it. */
+              const known = bankCodeFor(value);
+              if (known && bankCode.trim() === "") setBankCode(known);
+              else if (known && bankCodeFor(bankName) === bankCode.trim()) {
+                setBankCode(known);
+              }
             }}
+            placeholder="Choose the bank"
+            options={NIGERIAN_BANKS.map((b) => ({
+              value: b.label,
+              label: b.label,
+              hint: `Code ${b.code}`,
+            }))}
           />
         </Field>
 

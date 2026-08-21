@@ -251,7 +251,7 @@ export function PayrollRunWizard() {
         <Card>
           <CardHeader
             title="What are you paying?"
-            description="The month decides which contracts, joiners and leavers are picked up."
+            description="The month decides whose contracts, new starters and exits are picked up."
           />
           <CardBody className="grid max-w-2xl gap-5 sm:grid-cols-2">
             <Field label="Pay month" required>

@@ -36,7 +36,7 @@ import {
  * beside it, not a paragraph about why bank changes are notified.
  *
  * The verb on the button comes from `entityType`, so it names the destination
- * rather than the mechanism. "Review run" tells you where you are about to land;
+ * rather than the mechanism. "Review payroll" tells you where you are about to land;
  * "View notification" would not.
  *
  * ## Unread, without relying on colour
@@ -95,7 +95,7 @@ const SEVERITY: Record<
  * word. `entityType` alone cannot carry that; severity has to.
  */
 const VERBS: Record<string, { decisive: string; neutral: string }> = {
-  payroll_run: { decisive: "Review run", neutral: "Open run" },
+  payroll_run: { decisive: "Review payroll", neutral: "Open payroll" },
   payslip: { decisive: "Open payslips", neutral: "Open payslips" },
   employee: { decisive: "Open record", neutral: "Open record" },
   leave_request: { decisive: "Review request", neutral: "Open request" },

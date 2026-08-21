@@ -50,7 +50,7 @@ const GROUPS = [
         href: "/settings/bank-accounts",
         title: "Bank accounts",
         description:
-          "The accounts salaries are paid from. One is the default for a payment run.",
+          "The accounts salaries are paid from. One is the default for paying salaries.",
         icon: <Landmark aria-hidden="true" />,
       },
       {

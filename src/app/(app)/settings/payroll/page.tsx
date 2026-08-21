@@ -17,7 +17,7 @@ export default function PayrollSettingsPage() {
           { href: "/settings/payroll", label: "Payroll" },
         ]}
         title="Payroll settings"
-        description="These drive every calculation. Changing them affects the next run, not runs already approved."
+        description="These drive every calculation. Changing them affects the next payroll, not ones already approved."
       />
       <PageBody>
         <PayrollSettingsForm />

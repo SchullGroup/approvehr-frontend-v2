@@ -82,7 +82,7 @@ export function OffboardingScreen() {
             <Can permission="EDIT_RECORDS">
               <Button variant="accent" size="sm" onClick={() => setStarting(true)}>
                 <UserMinus aria-hidden="true" className="size-4" />
-                Record a leaver
+                Start an exit
               </Button>
             </Can>
           </div>
@@ -121,12 +121,12 @@ export function OffboardingScreen() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search name, staff number or reason"
-              aria-label="Search leavers"
+              aria-label="Search exits"
               className="pl-9"
             />
           </div>
           <SegmentedControl
-            label="Which leavers to show"
+            label="Which exits to show"
             value={view}
             onChange={setView}
             options={[

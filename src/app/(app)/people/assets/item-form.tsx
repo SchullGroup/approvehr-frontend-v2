@@ -184,7 +184,7 @@ export function ItemForm({
         <div className="grid gap-4 sm:grid-cols-2">
           <Field
             label="Kind"
-            help="Decides whether a leaver has to hand it back."
+            help="Decides whether it must be handed back when somebody leaves."
           >
             <Select
               value={kindId}

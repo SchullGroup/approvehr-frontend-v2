@@ -69,7 +69,7 @@ export function KindsPanel({
       <Card>
         <CardHeader
           title="Kinds of equipment"
-          description="Whether a leaver has to hand one back is decided here."
+          description="Whether it must be handed back when somebody leaves is decided here."
           action={
             <div className="flex flex-wrap items-center gap-4">
               <Checkbox
@@ -255,7 +255,7 @@ function AddKindDialog({
         </Field>
 
         <Switch
-          label="A leaver has to hand it back"
+          label="Must be handed back on exit"
           description="Off for things you give away — a branded backpack, a T-shirt."
           checked={returnRequired}
           onChange={(e) => {

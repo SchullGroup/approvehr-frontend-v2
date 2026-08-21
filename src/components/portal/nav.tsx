@@ -242,7 +242,7 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
   payroll: [
     {
       href: "/payroll",
-      label: "Payroll runs",
+      label: "Monthly payroll",
       icon: <Banknote aria-hidden="true" />,
       permission: "RUN_PAYROLL",
     },

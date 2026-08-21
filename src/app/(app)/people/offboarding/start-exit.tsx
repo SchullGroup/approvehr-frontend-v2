@@ -80,7 +80,7 @@ export function StartExitDialog({
     <Modal
       open
       onClose={onClose}
-      title="Record a leaver"
+      title="Start an exit"
       description="This builds their leaving checklist straight away."
       footer={
         <div className="flex justify-end gap-2">

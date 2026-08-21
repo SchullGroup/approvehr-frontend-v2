@@ -311,7 +311,7 @@ export function OvertimePolicyForm() {
               <CardBody>
                 <Switch
                   label="A manager approves it first"
-                  description="Off means overtime is approved the moment it is worked out, and the next payroll run pays it with nobody looking."
+                  description="Off means overtime is approved the moment it is worked out, and the next payroll pays it with nobody looking."
                   checked={value.requiresApproval}
                   onChange={(e) => {
                     const next = e.target.checked;

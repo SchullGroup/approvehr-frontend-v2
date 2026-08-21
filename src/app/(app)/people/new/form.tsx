@@ -55,6 +55,8 @@ import {
 } from "@/lib/store/employee-draft";
 import { useWorkLocations } from "@/lib/store/attendance";
 import { useDepartments } from "@/lib/store/departments";
+import { NIGERIAN_BANKS } from "@/lib/reference/banks";
+import { NIGERIAN_STATES, PENSION_PROVIDERS } from "@/lib/reference/lists";
 import { koboFromDecimal, naira } from "@/lib/api/payroll";
 import { usePayslipQuote } from "@/lib/store/payslip-quote";
 import { RECORD_FIELD_KEYS, type RecordFieldKey } from "@/lib/api/setup";
@@ -124,22 +126,22 @@ import {
 
 /* ------------------------------------------------------------------ options */
 
-const TAX_STATES = ["Lagos", "Abuja", "Ogun", "Rivers", "Kano"];
-const BANKS = [
-  "GTBank",
-  "Zenith Bank",
-  "Access Bank",
-  "UBA",
-  "First Bank",
-  "Stanbic IBTC",
-  "Kuda",
-];
-const PFAS = [
-  "Stanbic IBTC Pensions",
-  "ARM Pensions",
-  "Leadway Pensure",
-  "Premium Pensions",
-];
+/*
+ * All three used to be declared here, and all three were wrong in the same way.
+ *
+ * `TAX_STATES` offered five of the thirty-seven, and called the capital "Abuja"
+ * where the company form called it "FCT" — PAYE is remitted to a state revenue
+ * service, so those two never joined up. `BANKS` offered seven institutions, so
+ * anybody banking elsewhere could not be recorded at all, and it carried no
+ * codes, which is why the Bank Code column of every payment file shipped empty.
+ *
+ * Now one source each. The bank list is 255 institutions with their real
+ * NIBSS/CBN codes, generated from Paystack's public register — see the header of
+ * `lib/reference/banks.ts` for why the codes are fetched rather than typed.
+ */
+const TAX_STATES = NIGERIAN_STATES;
+const BANKS = NIGERIAN_BANKS;
+const PFAS = PENSION_PROVIDERS;
 
 /** Titles and one-line purposes for the three opt-in groups. */
 const GROUP_COPY: Record<
@@ -1050,17 +1052,31 @@ export function NewEmployeeForm() {
                     >
                       <div className="grid gap-5 sm:grid-cols-2">
                         <Field label="Bank">
-                          <Select
+                          {/*
+                           * 255 banks, so a `<select>` would be a wheel to
+                           * scroll rather than a list to search. The Picker
+                           * turns on its filter past eight options, which is
+                           * what makes a list this long usable at all.
+                           *
+                           * The code shows as the hint because it is the thing
+                           * the bank's own portal asks for, and somebody
+                           * checking their statement against this needs to see
+                           * both. No create action: this list is the NIBSS
+                           * register, not something a company adds to.
+                           */}
+                          <Picker
                             value={draft.bankName}
-                            onChange={(e) => set("bankName", e.target.value)}
-                          >
-                            <option value="">Not known yet</option>
-                            {BANKS.map((b) => (
-                              <option key={b} value={b}>
-                                {b}
-                              </option>
-                            ))}
-                          </Select>
+                            onChange={(v) => set("bankName", v)}
+                            placeholder="Not known yet"
+                            options={[
+                              { value: "", label: "Not known yet" },
+                              ...BANKS.map((b) => ({
+                                value: b.label,
+                                label: b.label,
+                                hint: `Code ${b.code}`,
+                              })),
+                            ]}
+                          />
                         </Field>
                         <Field
                           label="Account number"
@@ -1501,7 +1517,7 @@ export function NewEmployeeForm() {
           <p className="text-body-sm leading-relaxed text-body">
             {connected
               ? "Their record is saved and they are in the directory."
-              : "Their record is saved in this browser. It will not reach a payroll run or another device."}
+              : "Their record is saved in this browser. It will not reach payroll or another device."}
           </p>
 
           {added && added.outstanding.length > 0 && (

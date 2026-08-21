@@ -103,7 +103,7 @@ export function ExitDetailScreen({ id }: { id: string }) {
               icon={<DoorOpen aria-hidden="true" />}
               title="We could not find that exit"
               action={
-                <ButtonLink href="/people/offboarding">Back to leavers</ButtonLink>
+                <ButtonLink href="/people/offboarding">Back to exit management</ButtonLink>
               }
             />
           </Card>

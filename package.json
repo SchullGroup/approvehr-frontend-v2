@@ -14,7 +14,8 @@
     "verify-csv": "tsx scripts/verify-csv.ts",
     "verify-template": "tsx scripts/verify-template.ts",
     "verify-loans": "tsx scripts/verify-loans.ts",
-    "verify-titles": "tsx scripts/verify-titles.ts"
+    "verify-titles": "tsx scripts/verify-titles.ts",
+    "refresh:banks": "tsx scripts/refresh-banks.mts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

@@ -95,7 +95,7 @@ export function IntegrationsList() {
                 level={3}
                 description={
                   category === "Banking"
-                    ? "Executes the payment file once a run is approved. Nothing moves money without that approval."
+                    ? "Executes the payment file once a payroll is approved. Nothing moves money without that approval."
                     : undefined
                 }
               />

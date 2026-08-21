@@ -322,8 +322,8 @@ export function PayrollSettingsForm() {
         {/* Exception rules */}
         <Card>
           <CardHeader
-            title="Run checks"
-            description="What stops a payroll run, and what only warns."
+            title="Checks before paying"
+            description="What stops a payroll, and what only warns."
           />
           <CardBody className="flex flex-col gap-5">
             <Field
@@ -422,7 +422,7 @@ export function PayrollSettingsForm() {
               toast.push({
                 title: "Payroll settings saved",
                 tone: "success",
-                detail: "The next run will use these.",
+                detail: "The next payroll will use these.",
               });
             }}
           >
