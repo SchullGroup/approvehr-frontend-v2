@@ -110,7 +110,7 @@ export default function DesignSystemPage() {
               <li key={s.id}>
                 <a
                   href={`#${s.id}`}
-                  className="block rounded-md px-3 py-1.5 text-[0.875rem] text-body transition-colors hover:bg-surface hover:text-ink"
+                  className="block rounded-md px-3 py-1.5 text-body-sm text-body transition-colors hover:bg-surface hover:text-ink"
                 >
                   {s.label}
                 </a>
@@ -130,19 +130,19 @@ export default function DesignSystemPage() {
               <Card>
                 <CardBody className="flex flex-col items-center gap-4 py-9">
                   <LogoMark size={56} className="text-ink" />
-                  <p className="text-[0.75rem] text-muted">Mark</p>
+                  <p className="text-meta text-muted">Mark</p>
                 </CardBody>
               </Card>
               <Card>
                 <CardBody className="flex flex-col items-center gap-4 py-9">
                   <Logo size={28} className="text-ink" />
-                  <p className="text-[0.75rem] text-muted">Lockup on light</p>
+                  <p className="text-meta text-muted">Lockup on light</p>
                 </CardBody>
               </Card>
               <Card className="overflow-hidden border-ink bg-ink">
                 <div className="flex flex-col items-center gap-4 py-9">
                   <Logo size={28} className="text-white" />
-                  <p className="text-[0.75rem] text-white/60">
+                  <p className="text-meta text-white/60">
                     Lockup on ink
                   </p>
                 </div>
@@ -188,7 +188,7 @@ export default function DesignSystemPage() {
                     >
                       Approve with confidence
                     </p>
-                    <dl className="flex shrink-0 gap-5 text-[0.75rem] text-muted">
+                    <dl className="flex shrink-0 gap-5 text-meta text-muted">
                       <div>
                         <dt className="sr-only-focusable">Token</dt>
                         <dd className="font-medium text-ink">
@@ -219,7 +219,7 @@ export default function DesignSystemPage() {
             <div className="grid gap-4 lg:grid-cols-2">
               <Card>
                 <CardBody>
-                  <p className="mb-4 text-[0.75rem] font-medium tracking-wide text-muted">
+                  <p className="mb-4 text-meta font-medium tracking-wide text-muted">
                     Radius
                   </p>
                   <div className="flex flex-wrap gap-5">
@@ -229,10 +229,10 @@ export default function DesignSystemPage() {
                           className="size-14 border border-line-strong bg-sunken"
                           style={{ borderRadius: r.value }}
                         />
-                        <p className="text-[0.75rem] font-medium text-ink">
+                        <p className="text-meta font-medium text-ink">
                           {r.name}
                         </p>
-                        <p className="tabular text-[0.75rem] text-muted">
+                        <p className="tabular text-meta text-muted">
                           {r.value}
                         </p>
                       </div>
@@ -243,7 +243,7 @@ export default function DesignSystemPage() {
 
               <Card>
                 <CardBody>
-                  <p className="mb-4 text-[0.75rem] font-medium tracking-wide text-muted">
+                  <p className="mb-4 text-meta font-medium tracking-wide text-muted">
                     Elevation
                   </p>
                   <div className="flex flex-wrap gap-5">
@@ -255,7 +255,7 @@ export default function DesignSystemPage() {
                             SHADOW_CLASS[s.name],
                           )}
                         />
-                        <p className="text-[0.75rem] font-medium text-ink">
+                        <p className="text-meta font-medium text-ink">
                           {s.name}
                         </p>
                       </div>
@@ -311,7 +311,7 @@ export default function DesignSystemPage() {
               <StatsDemo />
               <Card>
                 <CardBody>
-                  <p className="mb-4 text-[0.75rem] font-medium tracking-wide text-muted">
+                  <p className="mb-4 text-meta font-medium tracking-wide text-muted">
                     Sparklines
                   </p>
                   <SparklineDemo />
@@ -387,7 +387,7 @@ function Section({
     <section id={id} className="scroll-mt-8">
       <h2 className="text-h3 text-ink">{title}</h2>
       {intro && (
-        <p className="mt-2.5 max-w-3xl text-sm leading-relaxed text-body">
+        <p className="mt-2.5 max-w-3xl text-body-sm leading-relaxed text-body">
           {intro}
         </p>
       )}
@@ -407,11 +407,11 @@ function SwatchGrid({
 }) {
   return (
     <div className="mb-8 last:mb-0">
-      <p className="mb-1 text-[0.75rem] font-semibold tracking-wide text-ink">
+      <p className="mb-1 text-meta font-semibold tracking-wide text-ink">
         {title}
       </p>
       {note && (
-        <p className="mb-3 max-w-2xl text-[0.75rem] leading-relaxed text-muted">
+        <p className="mb-3 max-w-2xl text-meta leading-relaxed text-muted">
           {note}
         </p>
       )}
@@ -428,19 +428,19 @@ function SwatchGrid({
             />
             <div className="min-w-0 flex-1">
               <div className="flex items-baseline justify-between gap-2">
-                <p className="truncate text-[0.875rem] font-medium text-ink">
+                <p className="truncate text-body-sm font-medium text-ink">
                   {s.name}
                 </p>
                 {s.ratio && (
-                  <span className="tabular shrink-0 text-[0.75rem] font-medium text-success-text">
+                  <span className="tabular shrink-0 text-meta font-medium text-success-text">
                     {s.ratio}
                   </span>
                 )}
               </div>
-              <p className="tabular text-[0.75rem] uppercase text-muted">
+              <p className="tabular text-meta uppercase text-muted">
                 {s.hex}
               </p>
-              <p className="mt-0.5 text-[0.75rem] leading-snug text-muted">
+              <p className="mt-0.5 text-meta leading-snug text-muted">
                 {s.usage}
               </p>
             </div>

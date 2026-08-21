@@ -295,10 +295,10 @@ export function LoanDetailScreen({ id }: { id: string }) {
             />
             {loan.reason && (
               <div className="rounded-lg border border-line bg-canvas px-4 py-3">
-                <p className="text-[0.75rem] font-medium text-muted">
+                <p className="text-meta font-medium text-muted">
                   What it is for
                 </p>
-                <p className="mt-1 text-sm leading-relaxed text-ink">
+                <p className="mt-1 text-body-sm leading-relaxed text-ink">
                   {loan.reason}
                 </p>
               </div>
@@ -308,7 +308,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
 
         {loan.status === "DECLINED" && (
           <Callout tone="neutral" title="This was declined">
-            <p className="text-[0.875rem] leading-relaxed">
+            <p className="text-body-sm leading-relaxed">
               {loan.declinedReason ?? "No reason was recorded."}
               {loan.decidedByName && (
                 <>
@@ -386,7 +386,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
 
         {loan.schedule.length > 0 ? (
           <div className="flex flex-col gap-3">
-            <h2 className="text-[0.9375rem] font-semibold text-ink">
+            <h2 className="text-body font-semibold text-ink">
               The repayment schedule
             </h2>
             <TableWrap caption="Every instalment, what was taken and what is still owed">
@@ -469,7 +469,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
                           has to ring payroll about. */}
                       {row.status === "PARTIAL" && (
                         <TR className="bg-canvas">
-                          <TD colSpan={columns} className="text-[0.875rem] text-body">
+                          <TD colSpan={columns} className="text-body-sm text-body">
                             {money(row.paidAmountKobo)} of{" "}
                             {money(row.amountKobo)} came out in{" "}
                             {monthLabel(row.dueDate)} — that month&rsquo;s pay
@@ -485,7 +485,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
 
                       {row.status === "WAIVED" && (
                         <TR className="bg-canvas">
-                          <TD colSpan={columns} className="text-[0.875rem] text-body">
+                          <TD colSpan={columns} className="text-body-sm text-body">
                             Written off, so nothing more is owed on it.
                             {row.note ? ` ${row.note}` : ""}
                           </TD>
@@ -499,10 +499,10 @@ export function LoanDetailScreen({ id }: { id: string }) {
           </div>
         ) : proposed ? (
           <div className="flex flex-col gap-3">
-            <h2 className="text-[0.9375rem] font-semibold text-ink">
+            <h2 className="text-body font-semibold text-ink">
               What the schedule would be
             </h2>
-            <p className="text-[0.875rem] leading-relaxed text-body">
+            <p className="text-body-sm leading-relaxed text-body">
               Nothing is deducted until somebody approves this. Approving creates
               these {proposed.lines.length} instalments and payroll starts taking
               them in {monthLabel(proposed.lines[0]?.dueDate ?? TODAY)}.
@@ -552,7 +552,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
         )}
 
         {loan.status === "ACTIVE" && (
-          <p className="flex items-start gap-2 text-[0.875rem] text-muted">
+          <p className="flex items-start gap-2 text-body-sm text-muted">
             <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
             <span>
               Deductions come off net pay, after tax — a loan repayment is not

@@ -40,7 +40,7 @@ export function SectionHeading({
       )}
     >
       {eyebrow && (
-        <p className="mb-3 text-[0.75rem] font-semibold uppercase tracking-[0.1em] text-slate-muted">
+        <p className="mb-3 text-meta font-semibold uppercase tracking-[0.1em] text-slate-muted">
           {eyebrow}
         </p>
       )}
@@ -100,7 +100,7 @@ export function ModuleCard({
       <div className="px-7 pt-7">
         <span
           className={cn(
-            "inline-flex items-center rounded-lg px-2.5 py-1 text-[0.75rem] font-medium",
+            "inline-flex items-center rounded-lg px-2.5 py-1 text-meta font-medium",
             CHIP_CLASS[module.wash],
           )}
         >
@@ -112,7 +112,7 @@ export function ModuleCard({
           baseline across a row, however long the blurb runs. */}
       <div className="flex min-h-[13.5rem] flex-col px-7 pb-6 pt-5">
         <h3 className="text-h4 text-slate">{module.headline}</h3>
-        <p className="mt-2.5 max-w-md text-[0.9375rem] leading-relaxed text-slate-soft">
+        <p className="mt-2.5 max-w-md text-body leading-relaxed text-slate-soft">
           {module.blurb}
         </p>
         <div className="mt-auto pt-5">
@@ -162,7 +162,7 @@ export function ProofRow({
       {items.map((item, i) => (
         <Reveal key={item.label} as="div" delay={i * 70}>
           <dt className="text-mega text-slate">{item.value}</dt>
-          <dd className="mt-2 text-[0.9375rem] leading-relaxed text-slate-muted">
+          <dd className="mt-2 text-body leading-relaxed text-slate-muted">
             {item.label}
           </dd>
         </Reveal>

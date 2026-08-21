@@ -89,7 +89,7 @@ function SignIn() {
           </Link>
           <Link
             href="/"
-            className="text-[0.875rem] text-muted transition-colors hover:text-ink"
+            className="text-body-sm text-muted transition-colors hover:text-ink"
           >
             Back to the website
           </Link>
@@ -106,7 +106,7 @@ function SignIn() {
         </div>
 
         {reachable === null && (
-          <p className="mt-4 flex items-center gap-2 text-[0.875rem] text-muted">
+          <p className="mt-4 flex items-center gap-2 text-body-sm text-muted">
             <Loader2 aria-hidden="true" className="size-4 animate-spin" />
             Checking whether the API is running…
           </p>
@@ -114,7 +114,7 @@ function SignIn() {
 
         {reachable === true && (
           <>
-            <p className="mt-2 text-[0.9375rem] leading-relaxed text-body">
+            <p className="mt-2 text-body leading-relaxed text-body">
               Sign in with your work email. Your role decides what you can see
               and do.
             </p>
@@ -189,7 +189,7 @@ function SignIn() {
                   aria-hidden="true"
                   className="mt-0.5 size-4 shrink-0 text-faint"
                 />
-                <div className="text-[0.875rem] leading-relaxed text-muted">
+                <div className="text-body-sm leading-relaxed text-muted">
                   <p className="font-medium text-ink">Development seed accounts</p>
                   <p className="mt-1">
                     <code className="text-ink">grace.effiong@schull.io</code>{" "}
@@ -207,7 +207,7 @@ function SignIn() {
 
         {reachable === false && (
           <>
-            <p className="mt-2 text-[0.9375rem] leading-relaxed text-body">
+            <p className="mt-2 text-body leading-relaxed text-body">
               The API is not running, so this is the demo. Choose whose account
               to open — every screen then behaves as that person.
             </p>
@@ -242,10 +242,10 @@ function SignIn() {
                     >
                       <Avatar name={fullName(employee)} size="sm" />
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[0.875rem] font-medium text-ink">
+                        <span className="block truncate text-body-sm font-medium text-ink">
                           {fullName(employee)}
                         </span>
-                        <span className="block truncate text-[0.875rem] text-muted">
+                        <span className="block truncate text-body-sm text-muted">
                           {employee.jobTitle} · {employee.department}
                         </span>
                       </span>
@@ -270,7 +270,7 @@ function SignIn() {
                 Open the demo
                 <ArrowRight aria-hidden="true" className="size-4" />
               </Button>
-              <p className="text-[0.875rem] text-muted">
+              <p className="text-body-sm text-muted">
                 {selected
                   ? "You can switch accounts any time from the top right."
                   : "Pick an account to continue."}

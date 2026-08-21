@@ -120,7 +120,7 @@ export function KbScreen() {
 
             {articles.error && (
               <CardBody>
-                <p className="text-[0.875rem] text-danger-text">
+                <p className="text-body-sm text-danger-text">
                   {articles.error.message}
                 </p>
               </CardBody>
@@ -159,7 +159,7 @@ export function KbScreen() {
                   >
                     <span className="min-w-0 flex-1">
                       <span className="flex flex-wrap items-center gap-2">
-                        <span className="text-[0.9375rem] font-medium text-ink">
+                        <span className="text-body font-medium text-ink">
                           {article.title}
                         </span>
                         {article.categoryName && selected === null && (
@@ -168,11 +168,11 @@ export function KbScreen() {
                           </Badge>
                         )}
                       </span>
-                      <span className="mt-1 block text-[0.875rem] leading-relaxed text-muted">
+                      <span className="mt-1 block text-body-sm leading-relaxed text-muted">
                         {article.excerpt}
                       </span>
                     </span>
-                    <span className="flex shrink-0 items-center gap-1.5 text-[0.75rem] text-muted">
+                    <span className="flex shrink-0 items-center gap-1.5 text-meta text-muted">
                       <Eye aria-hidden="true" className="size-3.5" />
                       <span className="tabular">{article.views}</span>
                       <span className="sr-only-focusable">
@@ -246,7 +246,7 @@ function SectionButton({
       aria-current={active ? "true" : undefined}
       style={depth > 0 ? { marginLeft: depth * 14 } : undefined}
       className={cn(
-        "flex items-center gap-2.5 rounded-md px-3 py-2 text-left text-[0.875rem]",
+        "flex items-center gap-2.5 rounded-md px-3 py-2 text-left text-body-sm",
         "transition-colors duration-100",
         "focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent/25",
         active
@@ -258,7 +258,7 @@ function SectionButton({
         {icon}
       </span>
       <span className="min-w-0 flex-1 truncate">{label}</span>
-      <span className="tabular shrink-0 text-[0.75rem] text-muted">{count}</span>
+      <span className="tabular shrink-0 text-meta text-muted">{count}</span>
       {active && (
         <ChevronRight aria-hidden="true" className="size-3.5 shrink-0" />
       )}

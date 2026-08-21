@@ -67,14 +67,14 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
           <label
             htmlFor={id}
             className={cn(
-              "block text-sm text-ink leading-snug",
+              "block text-body-sm text-ink leading-snug",
               disabled ? "cursor-not-allowed text-muted" : "cursor-pointer",
             )}
           >
             {label}
           </label>
           {description && (
-            <span id={descId} className="mt-0.5 block text-[0.875rem] text-muted">
+            <span id={descId} className="mt-0.5 block text-body-sm text-muted">
               {description}
             </span>
           )}
@@ -120,14 +120,14 @@ export const Radio = forwardRef<HTMLInputElement, RadioProps>(function Radio(
         <label
           htmlFor={id}
           className={cn(
-            "block text-sm text-ink leading-snug",
+            "block text-body-sm text-ink leading-snug",
             disabled ? "cursor-not-allowed text-muted" : "cursor-pointer",
           )}
         >
           {label}
         </label>
         {description && (
-          <span id={descId} className="mt-0.5 block text-[0.875rem] text-muted">
+          <span id={descId} className="mt-0.5 block text-body-sm text-muted">
             {description}
           </span>
         )}
@@ -178,9 +178,9 @@ export function RadioCard({
           </span>
         )}
         <span className="min-w-0">
-          <span className="block text-sm font-medium text-ink">{label}</span>
+          <span className="block text-body-sm font-medium text-ink">{label}</span>
           {description && (
-            <span className="mt-1 block text-[0.875rem] leading-relaxed text-body">
+            <span className="mt-1 block text-body-sm leading-relaxed text-body">
               {description}
             </span>
           )}
@@ -208,14 +208,14 @@ export const Switch = forwardRef<HTMLInputElement, SwitchProps>(function Switch(
         <label
           htmlFor={id}
           className={cn(
-            "block text-sm font-medium text-ink leading-snug",
+            "block text-body-sm font-medium text-ink leading-snug",
             disabled ? "cursor-not-allowed text-muted" : "cursor-pointer",
           )}
         >
           {label}
         </label>
         {description && (
-          <span id={descId} className="mt-0.5 block text-[0.875rem] text-muted">
+          <span id={descId} className="mt-0.5 block text-body-sm text-muted">
             {description}
           </span>
         )}

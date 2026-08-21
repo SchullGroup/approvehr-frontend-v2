@@ -26,6 +26,7 @@ import {
   type NewLeaveRequest,
 } from "@/lib/store/leave";
 import { useSession } from "@/lib/store/session";
+import { useCan } from "@/lib/permissions";
 import { fullName } from "@/lib/types";
 
 type Draft = {
@@ -85,7 +86,42 @@ export function BookLeaveDialog({
   const mutations = useLeaveMutations();
   const toast = useToast();
 
-  const [draft, setDraft] = useState<Draft>(BLANK);
+  /**
+   * Whether this person may raise leave for somebody other than themselves.
+   *
+   * These are the two permissions the API itself checks, and they are named here
+   * rather than approximated because the two must not disagree. `leave/router.ts`
+   * on `POST /requests`:
+   *
+   * ```
+   * Booking for somebody else is an HR action. Booking for yourself is not.
+   * ```
+   *
+   * The form used to offer everybody a full staff picker headed "Choose
+   * someone…", so an ordinary employee could select a colleague, fill the whole
+   * form in, submit, and only then be told they were not allowed. That is the
+   * "door they cannot open" that `components/portal/nav.tsx` argues against, and
+   * it is worse here than in the nav: the nav merely shows a link, this wasted
+   * somebody's time and then refused them.
+   */
+  /* Both hooks called unconditionally, then combined. Written as
+     `useCan(a) || useCan(b)` the `||` short-circuits, so the second hook runs on
+     some renders and not others — which is the rules-of-hooks violation, and it
+     would have desynchronised the hook order the first time somebody held the
+     first permission. */
+  const mayApproveAnyLeave = useCan("APPROVE_LEAVE_ALL");
+  const mayEditRecords = useCan("EDIT_RECORDS");
+  const canBookForOthers = mayApproveAnyLeave || mayEditRecords;
+
+  /* Their own record, for the prefilled case. */
+  const me = session.employeeId ?? "";
+
+  const [draft, setDraft] = useState<Draft>(() =>
+    /* Prefilled from the start rather than on first render or in an effect. An
+       employee who may only book for themselves has exactly one valid answer to
+       this question, and asking it at all is the bug. */
+    canBookForOthers ? BLANK : { ...BLANK, employeeId: me },
+  );
   const [errors, setErrors] = useState<LeaveError[]>([]);
   const [saving, setSaving] = useState(false);
 
@@ -111,7 +147,11 @@ export function BookLeaveDialog({
   );
 
   function close() {
-    setDraft(BLANK);
+    /* Back to the same starting point the form opened with, prefill included.
+       Resetting to a bare BLANK would empty `employeeId` for somebody who has no
+       way to put it back, so the second request they raised would fail
+       validation on a field they cannot see. */
+    setDraft(canBookForOthers ? BLANK : { ...BLANK, employeeId: me });
     setErrors([]);
     onClose();
   }
@@ -196,22 +236,44 @@ export function BookLeaveDialog({
       }
     >
       <div className="flex flex-col gap-4">
-        <Field label="Employee" required error={errorFor("employeeId")}>
-          <Select
-            value={draft.employeeId}
-            onChange={(e) => {
-              const employeeId = e.target.value;
-              setDraft((d) => ({ ...d, employeeId }));
-            }}
+        {canBookForOthers ? (
+          <Field
+            label="Who is this for"
+            required
+            error={errorFor("employeeId")}
+            help="You can raise leave for anyone. Leave it on yourself to book your own."
           >
-            <option value="">Choose someone…</option>
-            {employeeOptions.map((employee) => (
-              <option key={employee.id} value={employee.id}>
-                {fullName(employee)} · {employee.jobTitle}
-              </option>
-            ))}
-          </Select>
-        </Field>
+            <Select
+              value={draft.employeeId}
+              onChange={(e) => {
+                const employeeId = e.target.value;
+                setDraft((d) => ({ ...d, employeeId }));
+              }}
+            >
+              <option value="">Choose someone…</option>
+              {employeeOptions.map((employee) => (
+                <option key={employee.id} value={employee.id}>
+                  {fullName(employee)} · {employee.jobTitle}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        ) : (
+          /* Not a disabled `<Select>`: a greyed-out dropdown still reads as
+             "there are other options, and you are shut out of them". There are
+             no other options. So it states the fact and moves on. The value is
+             already in the draft, so nothing here is load-bearing — removing
+             this block would change how the form looks and not what it sends. */
+          <Field label="Who is this for" error={errorFor("employeeId")}>
+            <p className="text-body text-ink">
+              {session.employee ? fullName(session.employee) : "You"}
+            </p>
+            <p className="mt-1 text-meta text-muted">
+              Your own leave. Ask your people team to book on behalf of somebody
+              else.
+            </p>
+          </Field>
+        )}
 
         <Field
           label="Type"

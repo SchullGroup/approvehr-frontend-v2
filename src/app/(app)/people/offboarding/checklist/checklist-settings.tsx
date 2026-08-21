@@ -129,7 +129,7 @@ export function ChecklistSettingsScreen() {
         </Callout>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-[0.875rem] text-muted">
+          <p className="text-body-sm text-muted">
             {templates.counts.active} on the list ·{" "}
             {templates.counts.mandatory} must be done before an exit can close
           </p>
@@ -174,7 +174,7 @@ export function ChecklistSettingsScreen() {
                     className="flex flex-col gap-3 rounded-md border border-line p-3 sm:flex-row sm:items-center sm:gap-4"
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="flex flex-wrap items-center gap-2 text-[0.9375rem] font-medium text-ink">
+                      <p className="flex flex-wrap items-center gap-2 text-body font-medium text-ink">
                         <span className={row.active ? "" : "text-muted"}>
                           {row.label}
                         </span>
@@ -189,7 +189,7 @@ export function ChecklistSettingsScreen() {
                           </Badge>
                         )}
                       </p>
-                      <p className="mt-0.5 text-[0.875rem] text-muted">
+                      <p className="mt-0.5 text-body-sm text-muted">
                         {ownerLabel(row.owner)} · {row.appliesToLabel}
                       </p>
                     </div>

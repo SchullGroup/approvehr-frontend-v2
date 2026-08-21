@@ -120,14 +120,14 @@ export function TestPanel({
             </Button>
           </div>
         ) : (
-          <p className="text-[0.875rem] text-body">
+          <p className="text-body-sm text-body">
             Sending needs the API — nothing in this browser can post to your
             server.
           </p>
         )}
 
         {failure && (
-          <p className="flex items-start gap-2 text-[0.875rem] text-danger-text">
+          <p className="flex items-start gap-2 text-body-sm text-danger-text">
             <XCircle aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
             <span>{failure}</span>
           </p>
@@ -174,7 +174,7 @@ function TestResult({ result }: { result: ApiTestResult }) {
             Not delivered
           </Badge>
         )}
-        <span className="text-sm text-ink">
+        <span className="text-body-sm text-ink">
           {result.statusCode === null
             ? "No response"
             : `HTTP ${result.statusCode}`}{" "}
@@ -183,7 +183,7 @@ function TestResult({ result }: { result: ApiTestResult }) {
       </div>
 
       {result.error && (
-        <p className="rounded-md border border-danger-line bg-danger-soft p-3 text-[0.875rem] text-danger-text">
+        <p className="rounded-md border border-danger-line bg-danger-soft p-3 text-body-sm text-danger-text">
           {result.error}
           {result.error.startsWith("No answer within") &&
             ` We wait ${Math.round(result.timeoutMs / 1000)} seconds and no longer.`}
@@ -191,13 +191,13 @@ function TestResult({ result }: { result: ApiTestResult }) {
       )}
 
       <section className="flex flex-col gap-2">
-        <h3 className="text-sm font-semibold text-ink">What came back</h3>
+        <h3 className="text-body-sm font-semibold text-ink">What came back</h3>
         {result.responseBody ? (
           <CodeBlock className="whitespace-pre-wrap break-all">
             {result.responseBody}
           </CodeBlock>
         ) : (
-          <p className="text-[0.875rem] text-body">
+          <p className="text-body-sm text-body">
             {result.statusCode === null
               ? "Nothing — the request never reached a server."
               : "An empty body, which is the right answer for a webhook receiver."}
@@ -206,9 +206,9 @@ function TestResult({ result }: { result: ApiTestResult }) {
       </section>
 
       <section className="flex flex-col gap-3">
-        <h3 className="text-sm font-semibold text-ink">What we sent</h3>
+        <h3 className="text-body-sm font-semibold text-ink">What we sent</h3>
         <div className="flex flex-col gap-1">
-          <p className="font-mono text-[0.75rem] break-all text-ink">
+          <p className="font-mono text-meta break-all text-ink">
             {result.sent.method} {result.sent.url}
           </p>
           <CodeBlock>
@@ -226,7 +226,7 @@ function TestResult({ result }: { result: ApiTestResult }) {
 
         <div className="flex flex-col gap-1.5">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-[0.875rem] font-medium text-ink">
+            <p className="text-body-sm font-medium text-ink">
               The string the signature covers
             </p>
             <CopyButton value={result.sent.signedString} label="Copy string" />
@@ -234,7 +234,7 @@ function TestResult({ result }: { result: ApiTestResult }) {
           <CodeBlock className="whitespace-pre-wrap break-all">
             {result.sent.signedString}
           </CodeBlock>
-          <p className="text-[0.875rem] text-body">
+          <p className="text-body-sm text-body">
             HMAC this with your secret. If it matches the signature header, your
             code is right and you are hashing the wrong bytes.
           </p>

@@ -113,7 +113,7 @@ export function CheckPanel({
                       aria-hidden="true"
                       className="mt-0.5 size-4 shrink-0 text-danger-text"
                     />
-                    <span className="text-[0.875rem] leading-relaxed text-danger-text">
+                    <span className="text-body-sm leading-relaxed text-danger-text">
                       <span className="sr-only">Blocked: </span>
                       {finding.message}
                     </span>
@@ -137,14 +137,14 @@ export function CheckPanel({
             batch when it was built, so editing a record does not reach back into
             it. What somebody needs is the order of the two steps. */}
         {blockers.length > 0 && (
-          <p className="text-[0.875rem] text-body">
+          <p className="text-body-sm text-body">
             Fix the records, then build this batch again.
           </p>
         )}
 
         {warnings.length > 0 && (
           <div className="flex flex-col gap-2.5">
-            <h3 className="text-[0.875rem] font-semibold text-ink">
+            <h3 className="text-body-sm font-semibold text-ink">
               Worth checking before you release
             </h3>
             <ul className="flex flex-col gap-2.5">
@@ -160,7 +160,7 @@ export function CheckPanel({
                         aria-hidden="true"
                         className="mt-0.5 size-4 shrink-0 text-warning-text"
                       />
-                      <span className="text-[0.875rem] leading-relaxed text-warning-text">
+                      <span className="text-body-sm leading-relaxed text-warning-text">
                         <span className="sr-only">Warning: </span>
                         {finding.message}
                       </span>
@@ -204,7 +204,7 @@ export function CheckPanel({
               batch.computedTotalKobo === batch.check.instructionTotalKobo
             }
             value={
-              <span className="text-sm font-medium text-ink">
+              <span className="text-body-sm font-medium text-ink">
                 {batch.expectedTotalKobo === batch.computedTotalKobo &&
                 batch.computedTotalKobo === batch.check.instructionTotalKobo
                   ? "Yes"
@@ -216,7 +216,7 @@ export function CheckPanel({
             term="Rows match the number of people"
             ok={batch.itemCount === batch.instructions.length}
             value={
-              <span className="tabular text-sm font-medium text-ink">
+              <span className="tabular text-body-sm font-medium text-ink">
                 {batch.instructions.length} of {batch.itemCount}
               </span>
             }
@@ -225,7 +225,7 @@ export function CheckPanel({
             term="Everybody has a ten-digit account number"
             ok={batch.instructions.every((row) => row.accountNumberOk)}
             value={
-              <span className="tabular text-sm font-medium text-ink">
+              <span className="tabular text-body-sm font-medium text-ink">
                 {batch.instructions.filter((row) => row.accountNumberOk).length} of{" "}
                 {batch.instructions.length}
               </span>
@@ -234,7 +234,7 @@ export function CheckPanel({
         </dl>
 
         {!batch.can.check && (
-          <p className="text-[0.875rem] text-muted">
+          <p className="text-body-sm text-muted">
             This batch has been approved, so the check is a read from here on.
           </p>
         )}
@@ -261,7 +261,7 @@ function Verified({
 }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 px-3.5 py-2.5">
-      <dt className="flex items-center gap-2.5 text-[0.875rem] text-body">
+      <dt className="flex items-center gap-2.5 text-body-sm text-body">
         {ok ? (
           <Check
             aria-hidden="true"
@@ -286,7 +286,7 @@ function Verified({
 function Figure({ term, value }: { term: string; value: React.ReactNode }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 px-3.5 py-2.5">
-      <dt className="pl-6 text-[0.875rem] text-body">{term}</dt>
+      <dt className="pl-6 text-body-sm text-body">{term}</dt>
       <dd className="tabular">{value}</dd>
     </div>
   );

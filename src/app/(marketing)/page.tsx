@@ -75,7 +75,7 @@ export default function HomePage() {
         <div className="container-page">
           <div className="text-center">
             <Reveal delay={40}>
-              <p className="text-[0.8125rem] font-medium uppercase tracking-[0.1em] text-slate-muted">
+              <p className="text-meta font-medium uppercase tracking-[0.1em] text-slate-muted">
                 HR, payroll and recruitment · Built for Nigeria
               </p>
             </Reveal>
@@ -107,7 +107,7 @@ export default function HomePage() {
                   {heroCta.label}
                 </Pill>
               </div>
-              <p className="mt-4 text-[0.8125rem] text-slate-muted">
+              <p className="mt-4 text-meta text-slate-muted">
                 Thirty minutes on your own numbers. No card, no install, no
                 procurement step before you have decided anything.
               </p>
@@ -144,10 +144,10 @@ export default function HomePage() {
                       />
                     </span>
                     <div>
-                      <h3 className="text-[0.9375rem] font-medium text-slate">
+                      <h3 className="text-body font-medium text-slate">
                         {item.title}
                       </h3>
-                      <p className="mt-1 text-[0.875rem] leading-relaxed text-slate-muted">
+                      <p className="mt-1 text-body-sm leading-relaxed text-slate-muted">
                         {item.body}
                       </p>
                     </div>
@@ -185,10 +185,10 @@ export default function HomePage() {
                   </div>
                   <div className="p-6">
                     <h3 className="text-h4 text-slate">{shape.title}</h3>
-                    <p className="mt-2.5 text-[0.9375rem] leading-relaxed text-slate-muted">
+                    <p className="mt-2.5 text-body leading-relaxed text-slate-muted">
                       {shape.body}
                     </p>
-                    <p className="mt-4 inline-flex rounded-full bg-white px-3 py-1 text-[0.75rem] font-medium text-slate-soft">
+                    <p className="mt-4 inline-flex rounded-full bg-white px-3 py-1 text-meta font-medium text-slate-soft">
                       {shape.setting}
                     </p>
                   </div>
@@ -251,7 +251,7 @@ export default function HomePage() {
                       strokeWidth={3}
                     />
                   </span>
-                  <span className="text-[0.9375rem] leading-relaxed text-slate-soft">
+                  <span className="text-body leading-relaxed text-slate-soft">
                     {line}
                   </span>
                 </li>
@@ -296,7 +296,7 @@ export default function HomePage() {
             ].map((item, i) => (
               <Reveal key={i} as="div" delay={i * 70}>
                 <dt className="text-mega text-slate">{item.value}</dt>
-                <dd className="mt-3 text-[0.9375rem] leading-relaxed text-slate-muted">
+                <dd className="mt-3 text-body leading-relaxed text-slate-muted">
                   {item.label}
                 </dd>
               </Reveal>
@@ -304,7 +304,7 @@ export default function HomePage() {
           </dl>
 
           <Reveal delay={220}>
-            <p className="mt-10 max-w-2xl text-[0.8125rem] leading-relaxed text-slate-muted">
+            <p className="mt-10 max-w-2xl text-meta leading-relaxed text-slate-muted">
               Figures describe the worked example above, not a customer average.
               We are pre-launch and will not quote results we have not earned.
             </p>
@@ -318,13 +318,13 @@ export default function HomePage() {
           <Reveal>
             <div className="grid gap-10 rounded-3xl bg-night p-10 lg:grid-cols-2 lg:items-center lg:p-14">
               <div>
-                <p className="mb-3 text-[0.75rem] font-semibold uppercase tracking-[0.1em] text-white/40">
+                <p className="mb-3 text-meta font-semibold uppercase tracking-[0.1em] text-white/40">
                   Pricing
                 </p>
                 <h2 className="text-h1 text-white">
                   Priced per employee, per month. In naira.
                 </h2>
-                <p className="mt-5 max-w-md text-[0.9375rem] leading-relaxed text-white/60">
+                <p className="mt-5 max-w-md text-body leading-relaxed text-white/60">
                   The rate falls as your headcount rises. No implementation fee
                   to start, no per-module upsell to run payroll properly.
                 </p>
@@ -334,18 +334,18 @@ export default function HomePage() {
               </div>
 
               <div className="rounded-2xl border border-night-line p-7">
-                <p className="text-[0.8125rem] text-white/50">
+                <p className="text-meta text-white/50">
                   A 50-person company on Growth
                 </p>
                 <p className="mt-3 text-[2.75rem] font-medium leading-none tracking-tight text-white">
                   ₦{fifty.monthly!.toLocaleString("en-NG")}
                 </p>
-                <p className="mt-2 text-[0.8125rem] text-white/50">
+                <p className="mt-2 text-meta text-white/50">
                   per month · ₦{fifty.tier.pepm!.toLocaleString("en-NG")} per
                   employee
                 </p>
                 <div className="mt-6 border-t border-night-line pt-5">
-                  <p className="text-[0.8125rem] text-white/60">
+                  <p className="text-meta text-white/60">
                     Paid annually you save{" "}
                     <span className="font-medium text-success">
                       ₦{fifty.annualSaving!.toLocaleString("en-NG")}

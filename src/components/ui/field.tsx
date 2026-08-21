@@ -77,7 +77,7 @@ export function Field({
         <label
           htmlFor={inputId}
           className={cn(
-            "text-sm font-medium text-ink",
+            "text-body-sm font-medium text-ink",
             hideLabel && "sr-only-focusable",
           )}
         >
@@ -93,7 +93,7 @@ export function Field({
         {children}
 
         {help && !hasError && (
-          <p id={helpId} className="text-[0.875rem] leading-relaxed text-muted">
+          <p id={helpId} className="text-body-sm leading-relaxed text-muted">
             {help}
           </p>
         )}
@@ -101,7 +101,7 @@ export function Field({
         {hasError && (
           <p
             id={errorId}
-            className="flex items-start gap-1.5 text-[0.875rem] leading-relaxed text-danger-text"
+            className="flex items-start gap-1.5 text-body-sm leading-relaxed text-danger-text"
           >
             <AlertCircle
               aria-hidden="true"
@@ -144,9 +144,9 @@ export function FieldSet({
           .join(" ") || undefined
       }
     >
-      <legend className="text-sm font-medium text-ink mb-1">{legend}</legend>
+      <legend className="text-body-sm font-medium text-ink mb-1">{legend}</legend>
       {help && !error && (
-        <p id={helpId} className="text-[0.875rem] text-muted -mt-1">
+        <p id={helpId} className="text-body-sm text-muted -mt-1">
           {help}
         </p>
       )}
@@ -154,7 +154,7 @@ export function FieldSet({
       {error && (
         <p
           id={errorId}
-          className="flex items-start gap-1.5 text-[0.875rem] text-danger-text"
+          className="flex items-start gap-1.5 text-body-sm text-danger-text"
         >
           <AlertCircle aria-hidden="true" className="size-3.5 shrink-0 mt-px" />
           <span>{error}</span>

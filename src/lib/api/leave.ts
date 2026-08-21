@@ -245,6 +245,24 @@ export type LeaveTypeRow = {
 };
 
 /**
+ * A leave type a company is adding for itself.
+ *
+ * Only the two fields a balance cannot be computed without are required, which
+ * mirrors the API's schema — every other field has the same default as its
+ * column, so "Study leave, 5 days" is two inputs rather than eight.
+ */
+export type NewLeaveType = {
+  name: string;
+  entitledDays: number;
+  accrual?: "ANNUAL_UPFRONT" | "MONTHLY" | "ON_COMPLETION";
+  carryOverMax?: number;
+  carryOverExpiresMonths?: number;
+  requiresEvidence?: boolean;
+  minNoticeDays?: number;
+  isPaid?: boolean;
+};
+
+/**
  * One public holiday.
  *
  * `confirmed` is the load-bearing field. An unconfirmed holiday is shown as
@@ -394,6 +412,35 @@ export const leaveApi = {
     (
       await request<WireType[]>("/leave/types", { ...(signal ? { signal } : {}) })
     ).map(toType),
+
+  /**
+   * Add a leave type of the company's own.
+   *
+   * The API's schema defaults every field except the two a balance cannot be
+   * computed without, so this takes the same shape: name and days required,
+   * everything else optional.
+   */
+  createType: async (input: NewLeaveType): Promise<LeaveTypeRow> =>
+    toType(
+      await request<WireType>("/leave/types", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    ),
+
+  /**
+   * Switch one off. Archive, not delete — see `archiveType` in the API service.
+   *
+   * Returns how many requests were raised against it, so the screen can say what
+   * stays on the record rather than implying the history goes too.
+   */
+  archiveType: (id: string): Promise<{ name: string; total?: number }> =>
+    request<{ name: string; total?: number }>(`/leave/types/${id}`, {
+      method: "DELETE",
+    }),
+
+  restoreType: (id: string): Promise<{ name: string }> =>
+    request<{ name: string }>(`/leave/types/${id}/restore`, { method: "POST" }),
 
   list: async (
     params: LeaveListParams = {},

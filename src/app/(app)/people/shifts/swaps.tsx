@@ -145,11 +145,11 @@ export function SwapPanel({
 
         {error ? (
           <CardBody>
-            <p className="text-[0.875rem] text-ink">{error.message}</p>
+            <p className="text-body-sm text-ink">{error.message}</p>
           </CardBody>
         ) : loading || accepted.loading ? (
           <CardBody>
-            <span className="flex items-center gap-2 text-[0.875rem] text-muted">
+            <span className="flex items-center gap-2 text-body-sm text-muted">
               <Spinner size="sm" />
               Loading
             </span>
@@ -182,14 +182,14 @@ export function SwapPanel({
                   className="flex flex-wrap items-start gap-3 rounded-md border border-line bg-surface px-3.5 py-3"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="text-[0.875rem] font-medium text-ink">
+                    <p className="text-body-sm font-medium text-ink">
                       {swap.requester?.name ?? "Somebody"} → {swap.counterparty.name}
                     </p>
-                    <p className="mt-0.5 text-[0.875rem] text-body">
+                    <p className="mt-0.5 text-body-sm text-body">
                       {swapAsk(swap)}
                     </p>
                     {swap.requesterShift && (
-                      <p className="tabular mt-0.5 text-[0.75rem] text-muted">
+                      <p className="tabular mt-0.5 text-meta text-muted">
                         {spokenDay(swap.requesterShift.date)} ·{" "}
                         {/* `ApiSwapSide` carries the times and not the flag. */}
                         {timesLabel({
@@ -202,12 +202,12 @@ export function SwapPanel({
                       </p>
                     )}
                     {swap.reason && (
-                      <p className="mt-1 text-[0.875rem] italic text-muted">
+                      <p className="mt-1 text-body-sm italic text-muted">
                         “{swap.reason}”
                       </p>
                     )}
                     {swap.declinedReason && (
-                      <p className="mt-1 text-[0.875rem] text-ink">
+                      <p className="mt-1 text-body-sm text-ink">
                         {swap.declinedReason}
                       </p>
                     )}

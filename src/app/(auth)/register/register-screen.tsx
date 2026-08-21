@@ -221,7 +221,7 @@ export function RegisterScreen() {
         </Button>
       </div>
 
-      <p className="mt-7 text-[0.875rem] text-muted">
+      <p className="mt-7 text-body-sm text-muted">
         Already have an account?{" "}
         <Link
           href="/dashboard"

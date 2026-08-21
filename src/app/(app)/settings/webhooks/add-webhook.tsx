@@ -138,7 +138,7 @@ export function AddWebhookModal({
       >
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2 rounded-md border border-accent-line bg-accent-soft p-4">
-            <p className="flex items-center gap-2 text-sm font-semibold text-ink">
+            <p className="flex items-center gap-2 text-body-sm font-semibold text-ink">
               <KeyRound aria-hidden="true" className="size-4" />
               Your signing secret
             </p>
@@ -148,7 +148,7 @@ export function AddWebhookModal({
             {created.secret && (
               <div className="flex flex-wrap items-center gap-3">
                 <CopyButton value={created.secret} label="Copy secret" />
-                <span className="text-[0.875rem] text-body">
+                <span className="text-body-sm text-body">
                   Put it in your server&rsquo;s configuration. You can read it
                   again on this endpoint&rsquo;s page, or replace it there if it
                   leaks.
@@ -157,7 +157,7 @@ export function AddWebhookModal({
             )}
           </div>
 
-          <p className="text-[0.875rem] text-body">
+          <p className="text-body-sm text-body">
             Nothing is sent until you press <strong>Send test event</strong>. How
             to check the signature is on that page too.
           </p>
@@ -244,7 +244,7 @@ export function EventPicker({
   error?: string | undefined;
 }) {
   if (!catalogue) {
-    return <p className="text-[0.875rem] text-body">Loading the event list…</p>;
+    return <p className="text-body-sm text-body">Loading the event list…</p>;
   }
 
   return (
@@ -283,11 +283,11 @@ function EventGroup({
 
   return (
     <div className="flex flex-col gap-2">
-      <p className="mt-2 flex items-center gap-1.5 text-[0.75rem] font-semibold uppercase tracking-[0.08em] text-muted">
+      <p className="mt-2 flex items-center gap-1.5 text-meta font-semibold uppercase tracking-[0.08em] text-muted">
         {note && <AlertTriangle aria-hidden="true" className="size-3.5" />}
         {heading}
       </p>
-      {note && <p className="-mt-1 text-[0.875rem] text-body">{note}</p>}
+      {note && <p className="-mt-1 text-body-sm text-body">{note}</p>}
       <ul className="flex flex-col divide-y divide-line rounded-md border border-line">
         {events.map((event) => (
           <li key={event.name} className="p-3">
@@ -319,7 +319,7 @@ function EventRow({
       <Checkbox
         checked={checked}
         onChange={onToggle}
-        label={<span className="font-mono text-[0.875rem]">{event.name}</span>}
+        label={<span className="font-mono text-body-sm">{event.name}</span>}
         description={event.description}
       />
       <div className="pl-7">
@@ -338,7 +338,7 @@ function EventRow({
         </Button>
         {showSample && (
           <div className="mt-2 flex flex-col gap-2">
-            <p className="text-[0.875rem] text-body">{event.raisedWhen}</p>
+            <p className="text-body-sm text-body">{event.raisedWhen}</p>
             <PayloadBlock value={event.sample} copyLabel="Copy sample" />
           </div>
         )}

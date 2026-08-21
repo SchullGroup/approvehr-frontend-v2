@@ -107,7 +107,7 @@ export function ConductPanel({
       <Card className={className}>
         <CardHeader title="Conduct" level={3} />
         <CardBody>
-          <p className="text-[0.875rem] text-body">
+          <p className="text-body-sm text-body">
             This record is not yours to read.
           </p>
         </CardBody>
@@ -153,14 +153,14 @@ export function ConductPanel({
 
         <CardBody className="flex flex-col gap-3">
           {conduct.loading ? (
-            <div className="flex items-center gap-2 text-[0.875rem] text-muted">
+            <div className="flex items-center gap-2 text-body-sm text-muted">
               <Spinner size="sm" />
               Loading
             </div>
           ) : conduct.error ? (
-            <p className="text-[0.875rem] text-body">{conduct.error.message}</p>
+            <p className="text-body-sm text-body">{conduct.error.message}</p>
           ) : actions.length === 0 ? (
-            <p className="text-[0.875rem] text-body">
+            <p className="text-body-sm text-body">
               No warnings have been recorded.
             </p>
           ) : (
@@ -188,7 +188,7 @@ export function ConductPanel({
           )}
 
           {!conduct.editable && actions.length > 0 && (
-            <p className="text-[0.75rem] text-muted">
+            <p className="text-meta text-muted">
               Demo record. Saving a warning needs the API.
             </p>
           )}
@@ -285,7 +285,7 @@ function ActionRow({
 
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-2">
-            <span className="tabular text-[0.875rem] font-medium text-ink">
+            <span className="tabular text-body-sm font-medium text-ink">
               {dayLabel(action.incidentOn)}
             </span>
             <Badge tone={LEVEL_TONE[action.level]} size="sm">
@@ -296,31 +296,31 @@ function ActionRow({
             </Badge>
           </p>
 
-          <p className="mt-1 text-[0.9375rem] leading-relaxed text-ink">
+          <p className="mt-1 text-body leading-relaxed text-ink">
             {action.summary}
           </p>
 
           {action.detail && (
-            <p className="mt-1 text-[0.875rem] leading-relaxed text-body">
+            <p className="mt-1 text-body-sm leading-relaxed text-body">
               {action.detail}
             </p>
           )}
 
           {action.outcome && (
-            <p className="mt-1.5 text-[0.875rem] leading-relaxed text-body">
+            <p className="mt-1.5 text-body-sm leading-relaxed text-body">
               <span className="font-medium text-ink">What was decided: </span>
               {action.outcome}
             </p>
           )}
 
           {action.disputeNote && (
-            <p className="mt-1.5 rounded-md border border-danger-line bg-danger-soft p-2.5 text-[0.875rem] leading-relaxed text-body">
+            <p className="mt-1.5 rounded-md border border-danger-line bg-danger-soft p-2.5 text-body-sm leading-relaxed text-body">
               <span className="font-medium text-ink">They disagree: </span>
               {action.disputeNote}
             </p>
           )}
 
-          <p className="mt-1.5 text-[0.75rem] text-muted">
+          <p className="mt-1.5 text-meta text-muted">
             {lapseLabel(action)}
             {action.issuedByName && <> · given by {action.issuedByName}</>}
             {action.acknowledgedAt && (
@@ -417,7 +417,7 @@ function RecordWarningModal({
       size="lg"
       footer={
         <div className="flex w-full flex-wrap items-center justify-between gap-3">
-          <p className="text-[0.875rem] text-body">
+          <p className="text-body-sm text-body">
             {employeeName} will see this, and so will anyone who can edit staff
             records.
           </p>
@@ -450,7 +450,7 @@ function RecordWarningModal({
     >
       <div className="flex flex-col gap-5">
         <fieldset className="flex flex-col gap-2">
-          <legend className="mb-1 text-sm font-medium text-ink">
+          <legend className="mb-1 text-body-sm font-medium text-ink">
             How serious is it?
           </legend>
           <div className="grid gap-2 sm:grid-cols-2">
@@ -602,19 +602,19 @@ function ConfirmToldModal({
       <div className="flex flex-col gap-4">
         <div className="rounded-md border border-line bg-canvas p-3">
           <p className="flex flex-wrap items-center gap-2">
-            <span className="tabular text-[0.875rem] font-medium text-ink">
+            <span className="tabular text-body-sm font-medium text-ink">
               {dayLabel(action.incidentOn)}
             </span>
             <Badge tone={LEVEL_TONE[action.level]} size="sm">
               {LEVEL_LABEL[action.level]}
             </Badge>
           </p>
-          <p className="mt-1 text-[0.9375rem] leading-relaxed text-ink">
+          <p className="mt-1 text-body leading-relaxed text-ink">
             {action.summary}
           </p>
         </div>
 
-        <p className="text-[0.9375rem] text-body">
+        <p className="text-body text-body">
           Confirming means you were told. It does not mean you agree.
         </p>
 
@@ -740,7 +740,7 @@ function EditActionModal({
         {open ? (
           <>
             <fieldset className="flex flex-col gap-2">
-              <legend className="mb-1 text-sm font-medium text-ink">
+              <legend className="mb-1 text-body-sm font-medium text-ink">
                 How serious is it?
               </legend>
               <div className="grid gap-2 sm:grid-cols-2">
@@ -788,7 +788,7 @@ function EditActionModal({
         ) : (
           <div className="rounded-md border border-line bg-canvas p-3">
             <p className="flex flex-wrap items-center gap-2">
-              <span className="tabular text-[0.875rem] font-medium text-ink">
+              <span className="tabular text-body-sm font-medium text-ink">
                 {dayLabel(action.incidentOn)}
               </span>
               <Badge tone={LEVEL_TONE[action.level]} size="sm">
@@ -798,7 +798,7 @@ function EditActionModal({
                 Confirmed {dayLabel(action.acknowledgedAt?.slice(0, 10) ?? null)}
               </Badge>
             </p>
-            <p className="mt-1 text-[0.9375rem] leading-relaxed text-ink">
+            <p className="mt-1 text-body leading-relaxed text-ink">
               {action.summary}
             </p>
           </div>

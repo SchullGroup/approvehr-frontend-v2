@@ -82,7 +82,7 @@ export function AddPeopleDialog({
       }`}
       footer={
         <div className="flex w-full items-center justify-between gap-3">
-          <p className="text-[0.875rem] text-muted">
+          <p className="text-body-sm text-muted">
             {chosen.length === 0
               ? "Nobody selected"
               : `${chosen.length} selected`}
@@ -149,7 +149,7 @@ export function AddPeopleDialog({
           </ul>
         )}
 
-        {note && <p className="text-[0.875rem] text-muted">{note}</p>}
+        {note && <p className="text-body-sm text-muted">{note}</p>}
       </div>
     </Modal>
   );

@@ -110,7 +110,7 @@ export function AppraiserMapTab() {
 
   if (cyclesLoading && cycles.length === 0) {
     return (
-      <p className="flex items-center gap-2 text-[0.875rem] text-muted">
+      <p className="flex items-center gap-2 text-body-sm text-muted">
         <Spinner size="sm" />
         Reading the cycles
       </p>
@@ -268,7 +268,7 @@ export function AppraiserMapTab() {
               <p
                 key={issue.key}
                 className={cn(
-                  "flex gap-2.5 rounded-md border px-3.5 py-2.5 text-[0.875rem]",
+                  "flex gap-2.5 rounded-md border px-3.5 py-2.5 text-body-sm",
                   issue.severity === "BLOCKER"
                     ? "border-danger-line bg-danger-soft text-ink"
                     : "border-warning-line bg-warning-soft text-ink",
@@ -301,7 +301,7 @@ export function AppraiserMapTab() {
           description="One line manager at 100% is the ordinary answer. Change it for the people a project lead or another department's manager actually judges."
         />
         {loading ? (
-          <CardBody className="flex items-center gap-2 text-[0.875rem] text-muted">
+          <CardBody className="flex items-center gap-2 text-body-sm text-muted">
             <Spinner size="sm" />
             Reading the mapping
           </CardBody>
@@ -374,14 +374,14 @@ function PersonRow({
       )}
     >
       <div className="min-w-0 flex-1">
-        <p className="text-[0.9375rem] font-medium text-ink">{row.employeeName}</p>
-        <p className="mt-0.5 flex flex-wrap items-center gap-2 text-[0.75rem] text-muted">
+        <p className="text-body font-medium text-ink">{row.employeeName}</p>
+        <p className="mt-0.5 flex flex-wrap items-center gap-2 text-meta text-muted">
           <span>{row.jobTitle}</span>
           {row.departmentName && <span>{row.departmentName}</span>}
         </p>
 
         {row.appraisers.length === 0 ? (
-          <p className="mt-2 text-[0.875rem] text-ink">
+          <p className="mt-2 text-body-sm text-ink">
             Nobody.
             {row.lineManagerName
               ? ` Their line manager is ${row.lineManagerName}.`
@@ -405,7 +405,7 @@ function PersonRow({
                       : "border border-line-strong bg-transparent",
                   )}
                 />
-                <span className="text-[0.8125rem] text-ink">
+                <span className="text-meta text-ink">
                   {one.appraiserName}
                   <span className="text-muted">
                     {" · "}
@@ -429,11 +429,11 @@ function PersonRow({
       </div>
 
       <div className="shrink-0 text-right">
-        <p className="text-[0.75rem] uppercase tracking-wide text-faint">Mark</p>
-        <p className="tabular text-[0.9375rem] font-medium text-ink">
+        <p className="text-meta uppercase tracking-wide text-faint">Mark</p>
+        <p className="tabular text-body font-medium text-ink">
           {row.weightedRating === null ? "—" : row.weightedRating}
         </p>
-        <p className="text-[0.75rem] text-muted">
+        <p className="text-meta text-muted">
           {row.weightedRating === null
             ? "nothing in yet"
             : `${weightLabel(row.submittedWeightBp)} in`}
@@ -637,7 +637,7 @@ function AppraisersDialog({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p
             className={cn(
-              "tabular text-[0.875rem]",
+              "tabular text-body-sm",
               localProblem ? "text-danger-text" : "text-muted",
             )}
           >
@@ -665,7 +665,7 @@ function AppraisersDialog({
         {failed && (
           <p
             role="status"
-            className="rounded-md border border-danger-line bg-danger-soft px-3.5 py-2.5 text-[0.875rem] text-ink"
+            className="rounded-md border border-danger-line bg-danger-soft px-3.5 py-2.5 text-body-sm text-ink"
           >
             {failed}
           </p>
@@ -674,7 +674,7 @@ function AppraisersDialog({
         {localProblem && !failed && (
           <p
             role="status"
-            className="rounded-md border border-warning-line bg-warning-soft px-3.5 py-2.5 text-[0.875rem] text-ink"
+            className="rounded-md border border-warning-line bg-warning-soft px-3.5 py-2.5 text-body-sm text-ink"
           >
             {localProblem}
           </p>
@@ -775,7 +775,7 @@ function AppraisersDialog({
               </div>
 
               {locked && (
-                <p className="text-[0.75rem] text-muted">
+                <p className="text-meta text-muted">
                   They have already sent this review. Their weight can change; they
                   cannot be taken off.
                 </p>
@@ -796,7 +796,7 @@ function AppraisersDialog({
           )}
         </div>
 
-        <p className="text-[0.875rem] text-muted">
+        <p className="text-body-sm text-muted">
           The mark is the weighted average of whoever has answered, so a share of
           0% is not a thing — remove the row instead. Everybody added is told, and
           gets their own form straight away if the cycle is running.

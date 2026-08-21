@@ -216,7 +216,7 @@ export function AssignPatternModal({
       canContinue={canContinue}
     >
       {error && (
-        <p className="mb-4 rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-[0.875rem] text-ink">
+        <p className="mb-4 rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-body-sm text-ink">
           {error}
         </p>
       )}
@@ -241,7 +241,7 @@ export function AssignPatternModal({
               />
             </span>
           </Field>
-          <p className="mt-3 text-[0.875rem] text-muted">
+          <p className="mt-3 text-body-sm text-muted">
             {chosen.length} selected
           </p>
           <div className="mt-2 flex max-h-72 flex-col gap-1 overflow-y-auto">
@@ -265,17 +265,17 @@ export function AssignPatternModal({
                   className="size-4 shrink-0 accent-[var(--color-accent)]"
                 />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[0.875rem] font-medium text-ink">
+                  <span className="block truncate text-body-sm font-medium text-ink">
                     {employee.firstName} {employee.lastName}
                   </span>
-                  <span className="tabular block text-[0.75rem] text-muted">
+                  <span className="tabular block text-meta text-muted">
                     {employee.employeeNo} · {employee.jobTitle}
                   </span>
                 </span>
               </label>
             ))}
             {visible.length === 0 && (
-              <p className="text-[0.875rem] text-body">Nobody by that name.</p>
+              <p className="text-body-sm text-body">Nobody by that name.</p>
             )}
           </div>
         </div>
@@ -306,7 +306,7 @@ export function AssignPatternModal({
                       onChange={() => setChoice({ kind: "pattern", id: row.id })}
                       className="size-4 shrink-0 accent-[var(--color-accent)]"
                     />
-                    <span className="min-w-0 flex-1 text-[0.875rem] font-medium text-ink">
+                    <span className="min-w-0 flex-1 text-body-sm font-medium text-ink">
                       {row.name}
                     </span>
                     <Badge tone="neutral" size="sm">
@@ -318,7 +318,7 @@ export function AssignPatternModal({
               ))}
 
             {shifts.filter((row) => row.active && !row.archived).length > 0 && (
-              <p className="mt-2 text-[0.75rem] font-semibold uppercase tracking-wide text-muted">
+              <p className="mt-2 text-meta font-semibold uppercase tracking-wide text-muted">
                 Or the same shift every day
               </p>
             )}
@@ -341,11 +341,11 @@ export function AssignPatternModal({
                     onChange={() => setChoice({ kind: "shift", id: row.id })}
                     className="size-4 shrink-0 accent-[var(--color-accent)]"
                   />
-                  <span className="min-w-0 flex-1 text-[0.875rem] text-ink">
+                  <span className="min-w-0 flex-1 text-body-sm text-ink">
                     <span className="font-semibold">{row.shortName}</span>{" "}
                     {row.name}
                   </span>
-                  <span className="tabular shrink-0 text-[0.875rem] text-muted">
+                  <span className="tabular shrink-0 text-body-sm text-muted">
                     {timesLabel(row)}
                   </span>
                 </label>
@@ -416,16 +416,16 @@ export function AssignPatternModal({
                 const colour = colourFor(colours, day.shiftId);
                 return (
                   <li key={day.date} className="w-[3.25rem] shrink-0 text-center">
-                    <span className="block text-[0.75rem] text-muted">
+                    <span className="block text-meta text-muted">
                       {dayAbbrev(day.date)}
                     </span>
-                    <span className="tabular block text-[0.875rem] font-semibold text-ink">
+                    <span className="tabular block text-body-sm font-semibold text-ink">
                       {dayOfMonth(day.date)}
                     </span>
                     {day.shiftId ? (
                       <span
                         className={cn(
-                          "mt-1 flex h-8 items-center justify-center rounded-sm border text-[0.75rem] font-semibold text-ink",
+                          "mt-1 flex h-8 items-center justify-center rounded-sm border text-meta font-semibold text-ink",
                           colour.block,
                         )}
                       >
@@ -434,7 +434,7 @@ export function AssignPatternModal({
                     ) : (
                       <span
                         className={cn(
-                          "mt-1 flex h-8 items-center justify-center rounded-sm border border-line text-[0.75rem] text-faint",
+                          "mt-1 flex h-8 items-center justify-center rounded-sm border border-line text-meta text-faint",
                           isWeekend(day.date) ? "bg-canvas" : "bg-surface",
                         )}
                       >
@@ -446,7 +446,7 @@ export function AssignPatternModal({
               })}
             </ul>
           </div>
-          <p className="mt-4 text-[0.875rem] text-body">
+          <p className="mt-4 text-body-sm text-body">
             {pattern ? pattern.name : shift ? shift.name : ""} from{" "}
             {shortDay(from)} to {shortDay(to)}. Everybody selected works the same
             days.
@@ -473,7 +473,7 @@ export function CycleStrip({
           <li key={day.day}>
             <span
               className={cn(
-                "flex size-7 items-center justify-center rounded-sm border text-[0.75rem] font-semibold",
+                "flex size-7 items-center justify-center rounded-sm border text-meta font-semibold",
                 day.shiftId
                   ? cn(colour.block, "text-ink")
                   : "border-line bg-canvas text-faint",

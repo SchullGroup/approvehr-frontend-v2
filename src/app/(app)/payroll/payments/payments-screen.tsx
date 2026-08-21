@@ -172,7 +172,7 @@ export function PaymentsScreen() {
         {summary.summary && !primary && (
           <Card>
             <CardBody className="flex flex-wrap items-center justify-between gap-4">
-              <p className="text-sm text-ink">
+              <p className="text-body-sm text-ink">
                 No account for salaries to come from yet.
               </p>
               <ButtonLink href="/settings/bank-accounts" variant="accent" size="sm">
@@ -212,11 +212,11 @@ export function PaymentsScreen() {
             label="Paying from"
             value={
               primary ? (
-                <span className="text-[0.9375rem] font-medium text-ink">
+                <span className="text-body font-medium text-ink">
                   {primary.bankName}
                 </span>
               ) : (
-                <span className="text-[0.9375rem] font-medium text-muted">Not set</span>
+                <span className="text-body font-medium text-muted">Not set</span>
               )
             }
             hint={primary ? `${primary.accountName} · ${primary.accountNumberMasked}` : undefined}
@@ -229,7 +229,7 @@ export function PaymentsScreen() {
         {provider && !provider.connected && (
           <Card>
             <CardBody className="flex flex-wrap items-center justify-between gap-4">
-              <p className="text-sm text-body">
+              <p className="text-body-sm text-body">
                 Bank transfers are not connected yet. Download the payment file and
                 upload it to your bank.
               </p>
@@ -304,10 +304,10 @@ export function PaymentsScreen() {
                         <Money amount={naira(batch.computedTotalKobo)} decimals />
                       </TD>
                       <TD>
-                        <span className="text-[0.875rem]">
+                        <span className="text-body-sm">
                           {batch.sourceBankName}
                         </span>
-                        <span className="tabular mt-0.5 block text-[0.75rem] text-muted">
+                        <span className="tabular mt-0.5 block text-meta text-muted">
                           {batch.sourceAccountMasked}
                         </span>
                       </TD>
@@ -348,7 +348,7 @@ export function PaymentsScreen() {
 
         <LedgerPanel canRecordFunding={can("MANAGE_SETTINGS")} />
 
-        <p className="flex items-center gap-2 text-[0.875rem] text-muted">
+        <p className="flex items-center gap-2 text-body-sm text-muted">
           <ScrollText aria-hidden="true" className="size-4 shrink-0" />
           Every payment file download is recorded in the{" "}
           <Link

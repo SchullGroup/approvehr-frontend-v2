@@ -391,7 +391,7 @@ function RoleRow({
       </span>
 
       <div className="min-w-0 flex-1">
-        <p className="flex flex-wrap items-center gap-2 text-[0.9375rem] font-medium text-ink">
+        <p className="flex flex-wrap items-center gap-2 text-body font-medium text-ink">
           <button
             type="button"
             onClick={onOpen}
@@ -411,10 +411,10 @@ function RoleRow({
             />
           )}
         </p>
-        <p className="mt-0.5 text-[0.875rem] leading-relaxed text-muted">
+        <p className="mt-0.5 text-body-sm leading-relaxed text-muted">
           {role.description ?? "No description yet."}
         </p>
-        <p className="mt-1 text-[0.875rem] text-faint">
+        <p className="mt-1 text-body-sm text-faint">
           {role.labels.length === 0
             ? "Their own record only"
             : role.labels.slice(0, 3).join(" · ") +
@@ -423,8 +423,8 @@ function RoleRow({
       </div>
 
       <div className="shrink-0 text-right">
-        <p className="text-[0.75rem] uppercase tracking-wide text-faint">People</p>
-        <p className="tabular text-[0.9375rem] font-medium text-ink">
+        <p className="text-meta uppercase tracking-wide text-faint">People</p>
+        <p className="tabular text-body font-medium text-ink">
           {role.memberCount}
         </p>
       </div>
@@ -495,7 +495,7 @@ function YourAccess({
             everything, and the sentence would contradict what is on screen. The
             banner at the top of the page carries the way out. */}
         {!access.enforced && !access.previewingRole && (
-          <p className="text-[0.875rem] leading-relaxed text-body">
+          <p className="text-body-sm leading-relaxed text-body">
             A demo session holds everything, so this list is every permission
             there is. Use <strong>See it as somebody else</strong> to see a real
             role&rsquo;s view.
@@ -503,7 +503,7 @@ function YourAccess({
         )}
 
         {held.length === 0 ? (
-          <p className="text-[0.875rem] leading-relaxed text-muted">
+          <p className="text-body-sm leading-relaxed text-muted">
             Nothing yet — you can see your own record, your own payslips and your
             own requests.
           </p>
@@ -512,7 +512,7 @@ function YourAccess({
             {held.map((permission) => {
               const via = access.grantedBy(permission);
               return (
-                <li key={permission} className="text-[0.875rem] leading-relaxed">
+                <li key={permission} className="text-body-sm leading-relaxed">
                   <span className="text-ink">
                     {labels.get(permission) ?? permission}
                   </span>
@@ -569,7 +569,7 @@ function PreviewCard({
             </option>
           ))}
         </Select>
-        <p className="text-[0.875rem] leading-relaxed text-muted">
+        <p className="text-body-sm leading-relaxed text-muted">
           It stays on until you turn it off, including after a reload.
         </p>
       </CardBody>

@@ -208,7 +208,7 @@ export function ComponentsPanel({ kind }: { kind: PayComponentKind }) {
               />
             </div>
             <div className="flex items-center gap-4">
-              <p className="text-[0.875rem] text-muted">
+              <p className="text-body-sm text-muted">
                 {onCount} switched on
               </p>
               <Checkbox
@@ -429,7 +429,7 @@ function ComponentRow({
       />
 
       <TD>
-        <span className="text-[0.875rem] text-body">{amountLine(row)}</span>
+        <span className="text-body-sm text-body">{amountLine(row)}</span>
       </TD>
 
       <TD>
@@ -445,7 +445,7 @@ function ComponentRow({
       </TD>
 
       <TD align="right">
-        <span className="tabular text-[0.875rem] text-body">
+        <span className="tabular text-body-sm text-body">
           {row.assignmentCount}
         </span>
       </TD>
@@ -571,7 +571,7 @@ function AssigneesDrawer({
 
         <ul className="flex flex-col gap-2">
           {chips.map((chip) => (
-            <li key={chip.label} className="text-[0.875rem] leading-relaxed text-body">
+            <li key={chip.label} className="text-body-sm leading-relaxed text-body">
               <span className="font-medium text-ink">{chip.label}</span> — {chip.why}
             </li>
           ))}
@@ -579,10 +579,10 @@ function AssigneesDrawer({
 
         {component.isSystem && (
           <div className="rounded-lg border border-line bg-canvas p-4">
-            <p className="text-[0.875rem] font-semibold text-ink">
+            <p className="text-body-sm font-semibold text-ink">
               Built in, so it cannot be removed
             </p>
-            <p className="mt-1 text-[0.875rem] leading-relaxed text-body">
+            <p className="mt-1 text-body-sm leading-relaxed text-body">
               Payslips point at it by name. Turning it off stops the next run
               from charging it and leaves those payslips readable.
             </p>
@@ -606,7 +606,7 @@ function AssigneesDrawer({
         )}
 
         <div>
-          <h3 className="text-[0.875rem] font-semibold text-ink">
+          <h3 className="text-body-sm font-semibold text-ink">
             {loading
               ? "Who is on it"
               : assignees.length === 0
@@ -615,7 +615,7 @@ function AssigneesDrawer({
           </h3>
 
           {assignees.length === 0 ? (
-            <p className="mt-1.5 text-[0.875rem] leading-relaxed text-muted">
+            <p className="mt-1.5 text-body-sm leading-relaxed text-muted">
               {loading
                 ? "Reading the assignments…"
                 : "Add it to somebody from their record, on the Pay tab."}
@@ -628,17 +628,17 @@ function AssigneesDrawer({
                   className="flex items-start justify-between gap-3 py-2.5"
                 >
                   <span className="min-w-0">
-                    <span className="block text-[0.875rem] font-medium text-ink">
+                    <span className="block text-body-sm font-medium text-ink">
                       {person.name}
                     </span>
-                    <span className="block text-[0.75rem] text-muted">
+                    <span className="block text-meta text-muted">
                       From {shortDate(person.effectiveFrom)}
                       {person.effectiveTo
                         ? ` to ${shortDate(person.effectiveTo)}`
                         : " — every month"}
                     </span>
                   </span>
-                  <span className="tabular shrink-0 text-[0.875rem] text-body">
+                  <span className="tabular shrink-0 text-body-sm text-body">
                     {person.amountKobo !== null
                       ? money(person.amountKobo)
                       : person.rate !== null
@@ -837,7 +837,7 @@ function ComponentDialog({
         </Field>
 
         <div className="flex flex-col gap-2">
-          <p className="text-sm font-medium text-ink">How is it worked out?</p>
+          <p className="text-body-sm font-medium text-ink">How is it worked out?</p>
           <SegmentedControl
             label="How the amount is worked out"
             options={BASIS_OPTIONS}

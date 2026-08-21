@@ -173,7 +173,7 @@ export function OvertimePolicyForm() {
         )}
 
         {loading ? (
-          <span className="flex items-center gap-2 text-[0.875rem] text-muted">
+          <span className="flex items-center gap-2 text-body-sm text-muted">
             <Spinner size="sm" />
             Loading
           </span>
@@ -337,7 +337,7 @@ export function OvertimePolicyForm() {
             </Card>
 
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface p-4">
-              <p className="text-[0.875rem] text-muted">
+              <p className="text-body-sm text-muted">
                 {dirty
                   ? `${changed.length} ${changed.length === 1 ? "change" : "changes"} not saved yet.`
                   : "Applies the next time a month is worked out."}

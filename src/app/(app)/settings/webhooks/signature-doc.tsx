@@ -39,7 +39,7 @@ export function SignatureDoc({ catalogue }: { catalogue: CatalogueView }) {
       />
       <CardBody className="flex flex-col gap-6">
         <section className="flex flex-col gap-2">
-          <h3 className="text-sm font-semibold text-ink">
+          <h3 className="text-body-sm font-semibold text-ink">
             Headers on every request
           </h3>
           <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-[auto_1fr]">
@@ -60,29 +60,29 @@ export function SignatureDoc({ catalogue }: { catalogue: CatalogueView }) {
         </section>
 
         <section className="flex flex-col gap-2">
-          <h3 className="text-sm font-semibold text-ink">
+          <h3 className="text-body-sm font-semibold text-ink">
             The signature, in one line
           </h3>
           <CodeBlock>{signature.construction}</CodeBlock>
-          <p className="text-[0.875rem] text-body">
+          <p className="text-body-sm text-body">
             {signature.algorithm}. The key is your signing secret exactly as
-            shown, <code className="font-mono text-[0.75rem]">whsec_</code>{" "}
+            shown, <code className="font-mono text-meta">whsec_</code>{" "}
             prefix included, as UTF-8 bytes.
           </p>
         </section>
 
         <section className="flex flex-col gap-2">
-          <h3 className="text-sm font-semibold text-ink">In this order</h3>
+          <h3 className="text-body-sm font-semibold text-ink">In this order</h3>
           <ol className="flex flex-col gap-2">
             {signature.steps.map((step, index) => (
               <li key={step} className="flex gap-3">
                 <span
                   aria-hidden="true"
-                  className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-sunken text-[0.75rem] font-semibold text-ink"
+                  className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-sunken text-meta font-semibold text-ink"
                 >
                   {index + 1}
                 </span>
-                <span className="text-[0.875rem] leading-relaxed text-body">
+                <span className="text-body-sm leading-relaxed text-body">
                   {step}
                 </span>
               </li>
@@ -91,10 +91,10 @@ export function SignatureDoc({ catalogue }: { catalogue: CatalogueView }) {
         </section>
 
         <section className="flex flex-col gap-3">
-          <h3 className="text-sm font-semibold text-ink">A worked example</h3>
+          <h3 className="text-body-sm font-semibold text-ink">A worked example</h3>
           {signature.example ? (
             <>
-              <p className="text-[0.875rem] text-body">
+              <p className="text-body-sm text-body">
                 If your own digest of the signed string matches the signature
                 below, your verification code is right and you are hashing the
                 wrong bytes — almost always a re-serialised body instead of the
@@ -109,7 +109,7 @@ export function SignatureDoc({ catalogue }: { catalogue: CatalogueView }) {
               <Example label="Signature" value={signature.example.signature} />
             </>
           ) : (
-            <p className="text-[0.875rem] text-body">
+            <p className="text-body-sm text-body">
               The example signature is computed by the server on request. Connect
               the API to see one you can check your code against.
             </p>
@@ -117,18 +117,18 @@ export function SignatureDoc({ catalogue }: { catalogue: CatalogueView }) {
         </section>
 
         <section className="flex flex-col gap-3">
-          <h3 className="text-sm font-semibold text-ink">
+          <h3 className="text-body-sm font-semibold text-ink">
             The body you will receive
           </h3>
           <PayloadBlock value={envelope} copyLabel="Copy envelope" />
-          <p className="text-[0.875rem] text-body">{money}</p>
+          <p className="text-body-sm text-body">{money}</p>
         </section>
 
         <section className="flex flex-col gap-2">
-          <h3 className="text-sm font-semibold text-ink">
+          <h3 className="text-body-sm font-semibold text-ink">
             If your server does not answer
           </h3>
-          <ul className="flex flex-col gap-1.5 text-[0.875rem] leading-relaxed text-body">
+          <ul className="flex flex-col gap-1.5 text-body-sm leading-relaxed text-body">
             <li>
               {retries.attempts} attempts per event, spread over{" "}
               {retryWindowLabel(retries.backoffMinutes)}.
@@ -156,8 +156,8 @@ export function SignatureDoc({ catalogue }: { catalogue: CatalogueView }) {
 function Header({ name, children }: { name: string; children: React.ReactNode }) {
   return (
     <>
-      <dt className="font-mono text-[0.75rem] text-ink">{name}</dt>
-      <dd className="text-[0.875rem] text-body sm:mt-0">{children}</dd>
+      <dt className="font-mono text-meta text-ink">{name}</dt>
+      <dd className="text-body-sm text-body sm:mt-0">{children}</dd>
     </>
   );
 }
@@ -166,7 +166,7 @@ function Example({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[0.875rem] font-medium text-ink">{label}</p>
+        <p className="text-body-sm font-medium text-ink">{label}</p>
         <CopyButton value={value} label={`Copy ${label.toLowerCase()}`} />
       </div>
       <CodeBlock className="whitespace-pre-wrap break-all">{value}</CodeBlock>

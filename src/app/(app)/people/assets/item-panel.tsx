@@ -105,7 +105,7 @@ export function ItemPanel({
       }
     >
       {loading && (
-        <div className="flex items-center gap-2 text-[0.875rem] text-muted">
+        <div className="flex items-center gap-2 text-body-sm text-muted">
           <Spinner size="sm" />
           Loading
         </div>
@@ -297,17 +297,17 @@ export function ItemPanel({
           />
 
           {detail.notes && (
-            <p className="whitespace-pre-line rounded-md bg-canvas p-3 text-[0.875rem] leading-relaxed text-body">
+            <p className="whitespace-pre-line rounded-md bg-canvas p-3 text-body-sm leading-relaxed text-body">
               {detail.notes}
             </p>
           )}
 
           <section>
-            <h3 className="text-[0.9375rem] font-semibold text-ink">
+            <h3 className="text-body font-semibold text-ink">
               Who has had it
             </h3>
             {detail.history.length === 0 ? (
-              <p className="mt-2 text-[0.875rem] text-muted">
+              <p className="mt-2 text-body-sm text-muted">
                 Nobody has been given this yet.
               </p>
             ) : (
@@ -316,9 +316,9 @@ export function ItemPanel({
           </section>
 
           <section>
-            <h3 className="text-[0.9375rem] font-semibold text-ink">Repairs</h3>
+            <h3 className="text-body font-semibold text-ink">Repairs</h3>
             {detail.repairs.length === 0 ? (
-              <p className="mt-2 text-[0.875rem] text-muted">
+              <p className="mt-2 text-body-sm text-muted">
                 Nothing has been fixed on this.
               </p>
             ) : (
@@ -329,7 +329,7 @@ export function ItemPanel({
                     className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 py-3 first:pt-0"
                   >
                     <div className="min-w-0">
-                      <p className="flex flex-wrap items-center gap-2 text-[0.875rem] text-ink">
+                      <p className="flex flex-wrap items-center gap-2 text-body-sm text-ink">
                         {repair.description}
                         {repair.open && (
                           <Badge tone="info" size="sm">
@@ -337,7 +337,7 @@ export function ItemPanel({
                           </Badge>
                         )}
                       </p>
-                      <p className="mt-0.5 text-[0.75rem] text-muted">
+                      <p className="mt-0.5 text-meta text-muted">
                         {dayLabel(repair.startedOn)}
                         {repair.completedOn
                           ? ` → ${dayLabel(repair.completedOn)}`

@@ -34,9 +34,9 @@ export function EmptyState({
           {icon}
         </span>
       )}
-      <h3 className="text-[0.9375rem] font-semibold text-ink">{title}</h3>
+      <h3 className="text-body font-semibold text-ink">{title}</h3>
       {description && (
-        <p className="mt-1.5 max-w-sm text-[0.875rem] leading-relaxed text-muted">
+        <p className="mt-1.5 max-w-sm text-body-sm leading-relaxed text-muted">
           {description}
         </p>
       )}
@@ -136,11 +136,11 @@ export function ThinkingState({
         <span className="relative inline-flex size-2.5 rounded-full bg-accent" />
       </span>
       <span className="min-w-0">
-        <span className="block text-[0.875rem] font-medium text-ink">
+        <span className="block text-body-sm font-medium text-ink">
           {label}
         </span>
         {detail && (
-          <span className="block text-[0.75rem] text-body">{detail}</span>
+          <span className="block text-meta text-body">{detail}</span>
         )}
       </span>
     </div>

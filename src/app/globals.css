@@ -112,10 +112,40 @@
   --text-lead--line-height: 1.6;
   --text-lead--letter-spacing: -0.008em;
 
-  --text-eyebrow: 0.8125rem;
+  --text-eyebrow: 0.875rem;
   --text-eyebrow--line-height: 1.2;
   --text-eyebrow--letter-spacing: 0.08em;
   --text-eyebrow--font-weight: 600;
+
+  /* ---- Body scale ----------------------------------------------------
+   *
+   * There wasn't one. Headings had tokens; body text did not, so every screen
+   * reached for an arbitrary value and the app accumulated **1,413** of them
+   * across eight different sizes — including text at 8px, 9px, 10px and 11px.
+   *
+   * That is a problem for anybody and a wall for the people this product is
+   * sold to: the owner-manager of a Nigerian SME doing their own payroll is
+   * frequently over fifty, and presbyopia is near-universal past forty-five.
+   * WCAG 2.1 sets no absolute minimum in pixels, but 1.4.4 (Resize Text) and
+   * 1.4.12 (Text Spacing) both assume a sane starting point, and 16px is the
+   * long-standing baseline for body copy.
+   *
+   * So: four steps, and `--text-meta` is the floor. Nothing in the app renders
+   * smaller than 14px. If a design seems to need 11px, the design is wrong —
+   * either it is showing something that does not belong on that screen, or the
+   * container needs to be bigger.
+   */
+  --text-body-lg: 1.0625rem; /* 17px — a lead-in inside a card         */
+  --text-body-lg--line-height: 1.55;
+
+  --text-body: 1rem; /* 16px — the baseline for anything read   */
+  --text-body--line-height: 1.6;
+
+  --text-body-sm: 0.9375rem; /* 15px — dense rows, table cells         */
+  --text-body-sm--line-height: 1.5;
+
+  --text-meta: 0.875rem; /* 14px — the floor. Labels, hints, badges */
+  --text-meta--line-height: 1.45;
 
   /* ---- Radius -------------------------------------------------------- */
   --radius-xs: 4px;

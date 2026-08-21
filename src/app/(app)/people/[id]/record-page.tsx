@@ -242,7 +242,7 @@ export function EmployeeRecordPage({ id }: { id: string }) {
         {directory.error && (
           <Card>
             <CardBody>
-              <p className="text-[0.875rem] text-body">
+              <p className="text-body-sm text-body">
                 {directory.error.message} Their manager and direct reports may be
                 missing below.
               </p>
@@ -278,7 +278,7 @@ export function EmployeeRecordPage({ id }: { id: string }) {
         confirmLabel="Archive record"
         tone="danger"
         body={
-          <div className="flex flex-col gap-3 text-sm text-body">
+          <div className="flex flex-col gap-3 text-body-sm text-body">
             <p>
               They drop out of the directory and will not be included in the
               next payroll run.

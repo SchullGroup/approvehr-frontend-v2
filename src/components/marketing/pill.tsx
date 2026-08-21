@@ -29,8 +29,8 @@ const VARIANTS: Record<Variant, string> = {
 };
 
 const SIZES: Record<Size, string> = {
-  md: "h-10 px-5 text-[0.875rem]",
-  lg: "h-12 px-6 text-[0.9375rem]",
+  md: "h-10 px-5 text-body-sm",
+  lg: "h-12 px-6 text-body",
 };
 
 const BASE =
@@ -126,7 +126,7 @@ export function LearnMore({
     <Link
       href={href}
       className={cn(
-        "group/more inline-flex items-center gap-2 text-[0.875rem] font-medium text-slate",
+        "group/more inline-flex items-center gap-2 text-body-sm font-medium text-slate",
         "transition-colors hover:text-slate-muted",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate",
         className,

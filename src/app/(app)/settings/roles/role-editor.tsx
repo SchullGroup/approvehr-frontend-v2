@@ -131,7 +131,7 @@ export function RoleEditor({
       footer={
         tab === "permissions" ? (
           <div className="flex w-full flex-wrap items-center justify-between gap-3">
-            <p className="text-[0.875rem] text-muted">
+            <p className="text-body-sm text-muted">
               {dirty ? changes.list.join(" · ") : "No changes"}
             </p>
             <div className="flex gap-2">
@@ -307,7 +307,7 @@ function PermissionsTab({
 
       {catalogue.sections.map((section) => (
         <section key={section.key} className="flex flex-col gap-3.5">
-          <h3 className="text-[0.75rem] font-semibold uppercase tracking-wide text-faint">
+          <h3 className="text-meta font-semibold uppercase tracking-wide text-faint">
             {section.title}
           </h3>
           <div className="flex flex-col divide-y divide-line rounded-md border border-line">
@@ -373,7 +373,7 @@ function PermissionRow({
       {notes.map((note) => (
         <p
           key={note}
-          className="mt-2 flex gap-2 rounded-md bg-warning-soft px-2.5 py-2 text-[0.875rem] leading-relaxed text-warning-text"
+          className="mt-2 flex gap-2 rounded-md bg-warning-soft px-2.5 py-2 text-body-sm leading-relaxed text-warning-text"
         >
           <TriangleAlert aria-hidden="true" className="mt-px size-4 shrink-0" />
           {note}
@@ -481,10 +481,10 @@ function PeopleTab({
               className="flex flex-wrap items-center gap-3 px-3.5 py-3"
             >
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[0.9375rem] font-medium text-ink">
+                <p className="truncate text-body font-medium text-ink">
                   {member.name}
                 </p>
-                <p className="truncate text-[0.875rem] text-muted">{member.email}</p>
+                <p className="truncate text-body-sm text-muted">{member.email}</p>
               </div>
               {member.lastSignInAt === null && (
                 <Badge tone="warning" size="sm">
@@ -514,7 +514,7 @@ function PeopleTab({
       )}
 
       {total > members.length && (
-        <p className="text-[0.875rem] text-muted">
+        <p className="text-body-sm text-muted">
           Showing {members.length} of {total}. Search to narrow it.
         </p>
       )}

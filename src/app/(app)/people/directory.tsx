@@ -93,10 +93,10 @@ export function Directory() {
           {connected ? "Live from the API" : "Demo data, this browser only"}
         </Badge>
         {loading && (
-          <span className="text-[0.75rem] text-muted">Loading…</span>
+          <span className="text-meta text-muted">Loading…</span>
         )}
         {error && (
-          <span className="text-[0.75rem] text-danger-text">
+          <span className="text-meta text-danger-text">
             {error.message}
           </span>
         )}
@@ -263,7 +263,7 @@ export function Directory() {
             <Download aria-hidden="true" className="size-3.5" />
             Export directory
           </Button>
-          <p className="text-[0.75rem] text-muted">
+          <p className="text-meta text-muted">
             Archived records are hidden from the directory and the payroll run,
             but stay resolvable so past payslips keep working.
           </p>

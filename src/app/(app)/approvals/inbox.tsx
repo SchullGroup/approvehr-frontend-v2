@@ -186,7 +186,7 @@ export function ApprovalInbox() {
           {queue.connected ? "Live from the API" : "Demo data, this browser only"}
         </Badge>
         {queue.loading && (
-          <span className="text-[0.75rem] text-muted">Loading…</span>
+          <span className="text-meta text-muted">Loading…</span>
         )}
       </div>
 
@@ -276,14 +276,14 @@ export function ApprovalInbox() {
       {queue.decided.length > 0 && (
         <Card>
           <CardBody>
-            <p className="text-[0.75rem] font-semibold tracking-wide text-muted">
+            <p className="text-meta font-semibold tracking-wide text-muted">
               Just decided
             </p>
             <ul className="mt-3 flex flex-col gap-2">
               {queue.decided.map(({ item, decision }) => (
                 <li
                   key={item.id}
-                  className="flex items-center gap-3 text-[0.875rem]"
+                  className="flex items-center gap-3 text-body-sm"
                 >
                   <Badge
                     tone={decision === "approved" ? "success" : "neutral"}
@@ -378,7 +378,7 @@ function ApprovalRow({
             )}
           </div>
 
-          <h3 className="mt-1.5 text-[0.9375rem] font-semibold text-ink">
+          <h3 className="mt-1.5 text-body font-semibold text-ink">
             <Link
               href={item.href}
               className="hover:text-accent-text hover:underline underline-offset-4"
@@ -386,11 +386,11 @@ function ApprovalRow({
               {item.title}
             </Link>
           </h3>
-          <p className="mt-0.5 text-[0.875rem] leading-relaxed text-body">
+          <p className="mt-0.5 text-body-sm leading-relaxed text-body">
             {item.summary}
           </p>
 
-          <div className="mt-2.5 flex flex-wrap items-center gap-3 text-[0.75rem] text-muted">
+          <div className="mt-2.5 flex flex-wrap items-center gap-3 text-meta text-muted">
             {requester && (
               <span className="flex items-center gap-1.5">
                 <Avatar name={requester} size="xs" />
@@ -403,12 +403,12 @@ function ApprovalRow({
 
         {item.amount !== undefined && (
           <div className="shrink-0 text-right">
-            <p className="text-[0.75rem] uppercase tracking-wide text-faint">
+            <p className="text-meta uppercase tracking-wide text-faint">
               Value
             </p>
             {/* Never abbreviated. This is a figure somebody reconciles against a
                 bank statement, and ₦93.0m is not that figure. */}
-            <p className="tabular text-[0.9375rem] font-semibold text-ink">
+            <p className="tabular text-body font-semibold text-ink">
               <Money amount={item.amount} decimals />
             </p>
           </div>

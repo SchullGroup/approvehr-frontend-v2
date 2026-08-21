@@ -28,7 +28,7 @@ export default function AuthLayout({
           </Link>
           <Link
             href="/"
-            className="text-[0.875rem] text-muted transition-colors hover:text-ink"
+            className="text-body-sm text-muted transition-colors hover:text-ink"
           >
             Back to the website
           </Link>
@@ -43,7 +43,7 @@ export default function AuthLayout({
       </main>
 
       <footer className="border-t border-line bg-surface">
-        <div className="mx-auto flex h-14 max-w-5xl flex-wrap items-center gap-x-5 gap-y-1 px-5 text-[0.875rem] text-muted">
+        <div className="mx-auto flex h-14 max-w-5xl flex-wrap items-center gap-x-5 gap-y-1 px-5 text-body-sm text-muted">
           <span>Schull Technologies</span>
           <Link href="/privacy" className="transition-colors hover:text-ink">
             Privacy

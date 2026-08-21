@@ -22,7 +22,7 @@ export function TableWrap({
         className,
       )}
     >
-      <table className="w-full border-collapse text-sm">
+      <table className="w-full border-collapse text-body-sm">
         {caption && <caption className="sr-only-focusable">{caption}</caption>}
         {children}
       </table>
@@ -53,7 +53,7 @@ export function TH({
     <th
       scope={scope}
       className={cn(
-        "px-4 py-3 text-[0.75rem] font-semibold tracking-wide text-muted whitespace-nowrap",
+        "px-4 py-3 text-meta font-semibold tracking-wide text-muted whitespace-nowrap",
         align === "right" && "text-right",
         align === "center" && "text-center",
         align === "left" && "text-left",
@@ -127,9 +127,9 @@ export function TDPrimary({
       scope="row"
       className={cn("px-4 py-3 text-left align-middle font-normal", className)}
     >
-      <span className="block text-sm font-medium text-ink">{title}</span>
+      <span className="block text-body-sm font-medium text-ink">{title}</span>
       {subtitle && (
-        <span className="mt-0.5 block text-[0.75rem] text-muted">
+        <span className="mt-0.5 block text-meta text-muted">
           {subtitle}
         </span>
       )}

@@ -26,7 +26,7 @@ import { asJson, koboFields } from "@/lib/api/webhooks";
  */
 
 const MONO =
-  "font-mono text-[0.75rem] leading-relaxed whitespace-pre " +
+  "font-mono text-meta leading-relaxed whitespace-pre " +
   "text-body [tab-size:2]";
 
 /* ------------------------------------------------------------------- copying */
@@ -74,7 +74,7 @@ export function CopyButton({
         )}
         {result === "copied" ? "Copied" : label}
       </Button>
-      <span aria-live="polite" className="text-[0.75rem] text-danger-text">
+      <span aria-live="polite" className="text-meta text-danger-text">
         {result === "failed" ? "Select the text and copy it by hand." : ""}
       </span>
     </span>
@@ -101,7 +101,7 @@ export function CodeBlock({
 /** A short value on one line — a URL, a digest, a header. Wraps rather than clips. */
 export function CodeInline({ children }: { children: string }) {
   return (
-    <span className="font-mono text-[0.75rem] break-all text-ink">{children}</span>
+    <span className="font-mono text-meta break-all text-ink">{children}</span>
   );
 }
 
@@ -130,7 +130,7 @@ export function PayloadBlock({
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
         {title && (
-          <p className="text-[0.875rem] font-medium text-ink">{title}</p>
+          <p className="text-body-sm font-medium text-ink">{title}</p>
         )}
         <CopyButton value={json} label={copyLabel} />
       </div>
@@ -139,7 +139,7 @@ export function PayloadBlock({
 
       {money.length > 0 && (
         <dl className="flex flex-col gap-1 rounded-md border border-line bg-canvas p-3">
-          <p className="text-[0.75rem] font-semibold uppercase tracking-[0.08em] text-muted">
+          <p className="text-meta font-semibold uppercase tracking-[0.08em] text-muted">
             Amounts are whole kobo
           </p>
           {money.map((field) => (
@@ -147,8 +147,8 @@ export function PayloadBlock({
               key={field.path}
               className="flex flex-wrap items-baseline justify-between gap-x-3"
             >
-              <dt className="font-mono text-[0.75rem] text-body">{field.path}</dt>
-              <dd className="text-[0.875rem] tabular text-ink">
+              <dt className="font-mono text-meta text-body">{field.path}</dt>
+              <dd className="text-body-sm tabular text-ink">
                 {field.kobo.toLocaleString("en-NG")} ={" "}
                 {formatMoney(field.naira, "NGN", { decimals: true })}
               </dd>

@@ -449,7 +449,7 @@ function DepartmentRow({
         </span>
 
         <div className="min-w-0 flex-1">
-          <p className="flex flex-wrap items-center gap-2 text-[0.9375rem] font-medium text-ink">
+          <p className="flex flex-wrap items-center gap-2 text-body font-medium text-ink">
             {node.name}
             <Badge tone={isNested ? "neutral" : "accent"} size="sm">
               {isNested ? "Sub-department" : "Department"}
@@ -460,12 +460,12 @@ function DepartmentRow({
               </Badge>
             )}
             {node.costCentre && (
-              <span className="tabular text-[0.75rem] text-muted">
+              <span className="tabular text-meta text-muted">
                 {node.costCentre}
               </span>
             )}
           </p>
-          <p className="mt-0.5 text-[0.875rem] text-muted">
+          <p className="mt-0.5 text-body-sm text-muted">
             {node.headName ? (
               <>
                 Led by{" "}
@@ -485,26 +485,26 @@ function DepartmentRow({
         {/* Both numbers, always. They answer different questions. */}
         <div className="flex shrink-0 items-center gap-5 text-right">
           <div>
-            <p className="text-[0.75rem] uppercase tracking-wide text-faint">
+            <p className="text-meta uppercase tracking-wide text-faint">
               Direct
             </p>
-            <p className="tabular text-[0.9375rem] font-medium text-ink">
+            <p className="tabular text-body font-medium text-ink">
               {node.directEmployees}
             </p>
           </div>
           <div>
-            <p className="text-[0.75rem] uppercase tracking-wide text-faint">
+            <p className="text-meta uppercase tracking-wide text-faint">
               Rolled up
             </p>
-            <p className="tabular text-[0.9375rem] font-medium text-ink">
+            <p className="tabular text-body font-medium text-ink">
               {node.totalEmployees}
             </p>
           </div>
           <div className="hidden sm:block">
-            <p className="text-[0.75rem] uppercase tracking-wide text-faint">
+            <p className="text-meta uppercase tracking-wide text-faint">
               Monthly
             </p>
-            <p className="tabular text-[0.9375rem] font-medium text-ink">
+            <p className="tabular text-body font-medium text-ink">
               <Money amount={node.payrollKobo / 100} compact />
             </p>
           </div>

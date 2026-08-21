@@ -437,8 +437,11 @@ const report = checkMappedRows(
 );
 
 eq("three rows checked", report.totalRows, 3);
-eq("one imports", report.toImport, 1);
-eq("two are skipped", report.toSkip, 2);
+/* Row 3 has no staff number, and that is no longer a refusal: the
+   single-employee form generates one, so the importer does too. Row 2 fails on
+   its repeated number and its impossible birthday. */
+eq("two import", report.toImport, 2);
+eq("one is skipped", report.toSkip, 1);
 eq(
   "the duplicate staff number names the row it first appeared on",
   report.rows[1]?.errors.some((issue) => issue.problem.includes("row 1")),
@@ -450,10 +453,18 @@ eq(
   true,
 );
 eq(
-  "a missing staff number is reported as an empty cell, not a missing column",
-  report.rows[2]?.errors.some((issue) => issue.problem.includes("cell is empty")),
-  true,
+  "a row with no staff number is not refused for it",
+  report.rows[2]?.errors,
+  [],
 );
+/* It is flagged instead, and the reason names what a missing email costs
+   rather than merely marking the cell. */
+eq(
+  "a row with nothing optional filled in is flagged, not blocked",
+  report.rows[2]?.missing.map((item) => item.field),
+  ["email", "bankAccount", "pensionPin", "tin", "annualRent"],
+);
+eq("and the flagged rows are counted", report.flagged, 2);
 eq(
   "row numbers are the file's own",
   report.rows.map((row) => row.row),
@@ -464,12 +475,47 @@ const noColumn = checkMappedRows([{ first_name: "Ngozi" }], {
   presentFields: new Set(["firstName"] as const),
 });
 eq(
-  "a required column the file does not have says so instead",
+  "a required column the file does not have says so instead of blaming the cell",
   noColumn.rows[0]?.errors.some((issue) =>
-    issue.problem.includes("has no employee_no column"),
+    issue.problem.includes("has no start_date column"),
   ),
   true,
 );
+
+/* Two rows claiming one work email are one person written twice, whatever their
+   staff numbers say. The API asks the same question against the directory; this
+   is the half of it the file alone can answer. */
+const sameEmail = checkMappedRows(
+  [
+    {
+      employee_no: "EMP-1",
+      first_name: "Ada",
+      last_name: "One",
+      job_title: "Analyst",
+      start_date: "2021-01-04",
+      gross_monthly: "150000",
+      email: "ada@company.test",
+    },
+    {
+      employee_no: "EMP-2",
+      first_name: "Ada",
+      last_name: "Two",
+      job_title: "Analyst",
+      start_date: "2021-01-04",
+      gross_monthly: "150000",
+      email: "ADA@company.test",
+    },
+  ],
+  { presentFields: new Set(["employeeNo", "email"] as const) },
+);
+eq(
+  "the second row sharing a work email is refused, naming the first",
+  sameEmail.rows[1]?.errors.some((issue) =>
+    issue.problem.includes("already on row 1"),
+  ),
+  true,
+);
+eq("and the first still imports", sameEmail.toImport, 1);
 
 /* --- Splitting a file into requests ------------------------------------- */
 

@@ -89,10 +89,10 @@ export function StepIndicator({
       {/* Compact rail. Shown below the medium breakpoint. */}
       <div className="sm:hidden">
         <div className="flex items-baseline justify-between gap-3">
-          <p className="text-sm font-semibold text-ink">
+          <p className="text-body-sm font-semibold text-ink">
             {steps[index]?.label}
           </p>
-          <p className="tabular shrink-0 text-[0.875rem] text-muted">
+          <p className="tabular shrink-0 text-body-sm text-muted">
             Step {index + 1} of {steps.length}
           </p>
         </div>
@@ -121,7 +121,7 @@ export function StepIndicator({
             <>
               <span
                 className={cn(
-                  "flex size-7 shrink-0 items-center justify-center rounded-full border text-[0.75rem] font-semibold tabular transition-colors duration-200",
+                  "flex size-7 shrink-0 items-center justify-center rounded-full border text-meta font-semibold tabular transition-colors duration-200",
                   isCurrent &&
                     "border-accent bg-accent text-white ring-4 ring-accent/20",
                   isDone && !isCurrent && "border-success bg-success text-ink",
@@ -140,14 +140,14 @@ export function StepIndicator({
               <span className="min-w-0 text-left">
                 <span
                   className={cn(
-                    "block text-[0.875rem] font-medium leading-tight",
+                    "block text-body-sm font-medium leading-tight",
                     isCurrent ? "text-ink" : isDone ? "text-body" : "text-muted",
                   )}
                 >
                   {step.label}
                 </span>
                 {step.optional && (
-                  <span className="block text-[0.75rem] text-faint">
+                  <span className="block text-meta text-faint">
                     Optional
                   </span>
                 )}
@@ -249,7 +249,7 @@ export function StepperModal({
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="tabular hidden text-[0.875rem] text-muted sm:inline">
+            <span className="tabular hidden text-body-sm text-muted sm:inline">
               Step {index + 1} of {steps.length}
             </span>
             {isLast ? (
@@ -304,7 +304,7 @@ export function StepHeader({
     <div className={cn("mb-5", className)}>
       <h3 className="text-h4 text-ink">{title}</h3>
       {description && (
-        <p className="mt-1.5 text-sm leading-relaxed text-body">
+        <p className="mt-1.5 text-body-sm leading-relaxed text-body">
           {description}
         </p>
       )}

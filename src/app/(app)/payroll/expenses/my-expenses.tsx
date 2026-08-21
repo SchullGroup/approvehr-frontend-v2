@@ -63,20 +63,20 @@ export function MyExpenses({ className }: { className?: string }) {
 
         <CardBody className="flex flex-col gap-4">
           {mine.error && (
-            <p className="rounded-md border border-danger-line bg-danger-soft px-3 py-2.5 text-[0.875rem] text-danger-text">
+            <p className="rounded-md border border-danger-line bg-danger-soft px-3 py-2.5 text-body-sm text-danger-text">
               {mine.error.message}
             </p>
           )}
 
           <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
             <div>
-              <p className="text-[0.875rem] text-muted">Owed to you</p>
+              <p className="text-body-sm text-muted">Owed to you</p>
               <p className="tabular mt-0.5 text-h4 text-ink">
                 {formatMoney(mine.outstanding.amount, "NGN", { decimals: true })}
               </p>
             </div>
             <div>
-              <p className="text-[0.875rem] text-muted">Waiting for a decision</p>
+              <p className="text-body-sm text-muted">Waiting for a decision</p>
               <p className="tabular mt-0.5 text-h4 text-ink">
                 {formatMoney(mine.awaitingDecision.amount, "NGN", {
                   decimals: true,
@@ -104,20 +104,20 @@ export function MyExpenses({ className }: { className?: string }) {
                   className="flex flex-wrap items-center gap-x-4 gap-y-1.5 py-2.5 first:pt-0 last:pb-0"
                 >
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[0.9375rem] text-ink">
+                    <span className="block truncate text-body text-ink">
                       {claim.description}
                     </span>
-                    <span className="block text-[0.75rem] text-muted">
+                    <span className="block text-meta text-muted">
                       {claim.type} · spent {claim.incurredOn}
                     </span>
                     {claim.status === "DECLINED" && claim.declinedReason && (
-                      <span className="mt-0.5 block text-[0.875rem] text-body">
+                      <span className="mt-0.5 block text-body-sm text-body">
                         {claim.declinedReason}
                       </span>
                     )}
                   </span>
 
-                  <span className="tabular text-[0.9375rem] font-medium text-ink">
+                  <span className="tabular text-body font-medium text-ink">
                     <Money amount={claim.amount} decimals />
                   </span>
 
@@ -140,7 +140,7 @@ export function MyExpenses({ className }: { className?: string }) {
           {mine.claims.length > recent.length && (
             <Link
               href="/payroll/expenses"
-              className="text-[0.875rem] text-accent-text underline-offset-4 hover:underline"
+              className="text-body-sm text-accent-text underline-offset-4 hover:underline"
             >
               See all {mine.claims.length} claims
             </Link>

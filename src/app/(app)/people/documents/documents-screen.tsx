@@ -187,13 +187,13 @@ export function DocumentsScreen() {
           />
           {expiring.error ? (
             <CardBody>
-              <p role="alert" className="text-[0.875rem] text-danger-text">
+              <p role="alert" className="text-body-sm text-danger-text">
                 {expiring.error.message}
               </p>
             </CardBody>
           ) : expiring.loading ? (
             <CardBody>
-              <span className="flex items-center gap-2 text-[0.875rem] text-muted">
+              <span className="flex items-center gap-2 text-body-sm text-muted">
                 <Spinner size="sm" />
                 Reading the list
               </span>
@@ -266,11 +266,11 @@ export function DocumentsScreen() {
             </Field>
 
             {register.error ? (
-              <p role="alert" className="text-[0.875rem] text-danger-text">
+              <p role="alert" className="text-body-sm text-danger-text">
                 {register.error.message}
               </p>
             ) : register.loading && register.requests.length === 0 ? (
-              <span className="flex items-center gap-2 text-[0.875rem] text-muted">
+              <span className="flex items-center gap-2 text-body-sm text-muted">
                 <Spinner size="sm" />
                 Loading
               </span>
@@ -338,7 +338,7 @@ export function DocumentsScreen() {
             )}
 
             {!register.editable && (
-              <p className="text-[0.875rem] text-muted">
+              <p className="text-body-sm text-muted">
                 Asking and dropping need the API — the person is notified when you
                 ask, and a request kept in this browser reaches nobody.
               </p>
@@ -378,7 +378,7 @@ export function DocumentsScreen() {
                     key={person.id}
                     className="flex items-center justify-between gap-3 rounded-md border border-line p-3"
                   >
-                    <span className="min-w-0 truncate text-[0.9375rem] text-ink">
+                    <span className="min-w-0 truncate text-body text-ink">
                       {person.name}
                     </span>
                     <Button
@@ -482,10 +482,10 @@ function ComplianceLine({
       }
     >
       <div className="min-w-0 flex-1">
-        <p className="text-[0.9375rem] font-medium text-ink">
+        <p className="text-body font-medium text-ink">
           {complianceSentence(row)}
         </p>
-        <p className="mt-0.5 text-[0.875rem] text-muted">
+        <p className="mt-0.5 text-body-sm text-muted">
           {row.employeeName} · {row.employeeNo}
         </p>
       </div>

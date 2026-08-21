@@ -172,10 +172,10 @@ export function AttendanceScreen() {
           <CardBody className="flex flex-wrap items-center gap-4">
             <Avatar name={session.displayName ?? myRow?.employeeName ?? "You"} size="md" />
             <div className="min-w-0 flex-1">
-              <p className="text-[0.9375rem] font-semibold text-ink">
+              <p className="text-body font-semibold text-ink">
                 {session.displayName ?? myRow?.employeeName ?? "Your day"}
               </p>
-              <p className="mt-0.5 text-[0.875rem] text-muted">
+              <p className="mt-0.5 text-body-sm text-muted">
                 {myRow?.clockIn
                   ? myRow.clockOut
                     ? `In at ${myRow.clockIn}, out at ${myRow.clockOut}.`
@@ -187,7 +187,7 @@ export function AttendanceScreen() {
             </div>
 
             {policy && !policy.selfServiceClockIn ? (
-              <p className="text-[0.875rem] text-muted">
+              <p className="text-body-sm text-muted">
                 Your HR team records attendance for everybody.
               </p>
             ) : (
@@ -411,17 +411,17 @@ function TodayView({
                       {STATUS_LABEL[row.status]}
                     </Badge>
                     {row.lateByMinutes > 0 && (
-                      <span className="mt-0.5 block text-[0.75rem] text-warning-text">
+                      <span className="mt-0.5 block text-meta text-warning-text">
                         {row.lateByMinutes} min late
                       </span>
                     )}
                     {row.leave && (
-                      <span className="mt-0.5 block text-[0.75rem] text-faint">
+                      <span className="mt-0.5 block text-meta text-faint">
                         {row.leave.type}, to {row.leave.endDate}
                       </span>
                     )}
                     {row.anomaly && (
-                      <span className="mt-0.5 block text-[0.75rem] font-medium text-warning-text">
+                      <span className="mt-0.5 block text-meta font-medium text-warning-text">
                         {row.anomaly}
                       </span>
                     )}
@@ -431,12 +431,12 @@ function TodayView({
                         and a rest day somebody worked anyway is money owed, on
                         a surface this screen does not own. */}
                     {shift ? (
-                      <span className="mt-0.5 block text-[0.75rem] text-faint">
+                      <span className="mt-0.5 block text-meta text-faint">
                         On the rota: {shift.shiftName}, {timesLabel(shift)}
                       </span>
                     ) : off ? (
                       row.clockIn ? (
-                        <span className="mt-0.5 block text-[0.75rem] text-muted">
+                        <span className="mt-0.5 block text-meta text-muted">
                           Worked a rest day on their rota —{" "}
                           <Link
                             href="/people/overtime"
@@ -446,13 +446,13 @@ function TodayView({
                           </Link>
                         </span>
                       ) : (
-                        <span className="mt-0.5 block text-[0.75rem] text-muted">
+                        <span className="mt-0.5 block text-meta text-muted">
                           Rest day on their rota — no pay is held back
                         </span>
                       )
                     ) : null}
                     {row.correctionNote && (
-                      <span className="mt-0.5 block text-[0.75rem] text-faint">
+                      <span className="mt-0.5 block text-meta text-faint">
                         Corrected: {row.correctionNote}
                       </span>
                     )}
@@ -596,7 +596,7 @@ function TimesheetView({ sheet }: { sheet: TimesheetState }) {
                     ) : onRota ? (
                       <Link
                         href="/people/shifts"
-                        className="text-[0.875rem] font-medium text-accent-text underline underline-offset-4"
+                        className="text-body-sm font-medium text-accent-text underline underline-offset-4"
                       >
                         From their rota
                       </Link>
@@ -608,7 +608,7 @@ function TimesheetView({ sheet }: { sheet: TimesheetState }) {
                             decimals: true,
                           })}`}
                         </span>
-                        <span className="text-[0.75rem] text-muted">
+                        <span className="text-meta text-muted">
                           {row.proration.unpaidDays} of{" "}
                           {row.proration.workingDaysPerMonth} days
                         </span>

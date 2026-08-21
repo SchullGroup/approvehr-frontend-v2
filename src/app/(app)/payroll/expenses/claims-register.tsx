@@ -50,7 +50,7 @@ export function StatusBadge({ claim }: { claim: Claim }) {
         {label}
       </Badge>
       {claim.status === "PAID" && claim.settledThrough && (
-        <span className="text-[0.75rem] text-muted">
+        <span className="text-meta text-muted">
           {claim.settledThrough === "payroll" ? "on a payslip" : "by transfer"}
         </span>
       )}
@@ -132,7 +132,7 @@ export function ClaimsRegister({
                         <span className="block font-medium text-ink">
                           {claim.employeeName}
                         </span>
-                        <span className="block text-[0.75rem] text-muted">
+                        <span className="block text-meta text-muted">
                           {claim.employeeNo}
                         </span>
                       </TD>
@@ -140,11 +140,11 @@ export function ClaimsRegister({
 
                     <TD className="max-w-[22rem]">
                       <span className="block text-ink">{claim.description}</span>
-                      <span className="block text-[0.75rem] text-muted">
+                      <span className="block text-meta text-muted">
                         {claim.type}
                       </span>
                       {claim.status === "DECLINED" && claim.declinedReason && (
-                        <span className="mt-1 block text-[0.875rem] text-body">
+                        <span className="mt-1 block text-body-sm text-body">
                           {claim.approvedByName
                             ? `${claim.approvedByName}: `
                             : ""}
@@ -258,7 +258,7 @@ function MarkPaidDialog({
       }
     >
       <div className="flex flex-col gap-4">
-        <p className="text-sm text-body">
+        <p className="text-body-sm text-body">
           <span className="tabular font-medium text-ink">
             <Money amount={claim.amount} decimals />
           </span>{" "}

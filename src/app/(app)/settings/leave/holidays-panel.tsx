@@ -158,7 +158,7 @@ export function HolidaysPanel({ defaultYear }: { defaultYear: number }) {
                 >
                   <ChevronLeft aria-hidden="true" className="size-4" />
                 </IconButton>
-                <span className="tabular min-w-14 text-center text-[0.875rem] font-medium text-ink">
+                <span className="tabular min-w-14 text-center text-body-sm font-medium text-ink">
                   {year}
                 </span>
                 <IconButton
@@ -207,7 +207,7 @@ export function HolidaysPanel({ defaultYear }: { defaultYear: number }) {
               tone="info"
               title={`${awaiting} ${awaiting === 1 ? "date is" : "dates are"} awaiting proclamation`}
             >
-              <span className="flex flex-col gap-1.5 text-[0.875rem] leading-relaxed">
+              <span className="flex flex-col gap-1.5 text-body-sm leading-relaxed">
                 <span>{UNCONFIRMED_HOLIDAY_EFFECT.acts}</span>
                 <span>{UNCONFIRMED_HOLIDAY_EFFECT.waits}</span>
                 {canManage && (
@@ -220,7 +220,7 @@ export function HolidaysPanel({ defaultYear }: { defaultYear: number }) {
           )}
 
           {!canManage && (
-            <p className="text-[0.875rem] text-muted">
+            <p className="text-body-sm text-muted">
               Changing the calendar is a settings permission, because it moves
               pay. Ask whoever manages settings.
             </p>

@@ -248,7 +248,7 @@ function Endpoints() {
             >
               Newer
             </Button>
-            <span className="text-[0.875rem] tabular text-muted">
+            <span className="text-body-sm tabular text-muted">
               {list.total === 1 ? "1 endpoint" : `${list.total} endpoints`} · page{" "}
               {page}
             </span>
@@ -264,7 +264,7 @@ function Endpoints() {
         )}
 
         {list.rows.length > 0 && (
-          <p className="text-[0.875rem] text-body">
+          <p className="text-body-sm text-body">
             An endpoint that fails repeatedly is switched off and a notice goes to{" "}
             <Link
               href="/notifications"
@@ -311,10 +311,10 @@ function EndpointCard({
       <CardBody className="flex flex-col gap-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-ink">
+            <p className="truncate text-body-sm font-semibold text-ink">
               {hostOf(webhook.url)}
             </p>
-            <p className="mt-0.5 truncate font-mono text-[0.75rem] text-body">
+            <p className="mt-0.5 truncate font-mono text-meta text-body">
               {pathOf(webhook.url) || "/"}
             </p>
           </div>
@@ -328,7 +328,7 @@ function EndpointCard({
         </div>
 
         {webhook.notRaisedYet.length > 0 && (
-          <p className="flex items-start gap-1.5 text-[0.875rem] text-body">
+          <p className="flex items-start gap-1.5 text-body-sm text-body">
             <AlertTriangle
               aria-hidden="true"
               className="mt-0.5 size-3.5 shrink-0 text-warning-text"
@@ -350,7 +350,7 @@ function EndpointCard({
           </Callout>
         )}
 
-        <dl className="flex flex-wrap gap-x-6 gap-y-1 text-[0.875rem]">
+        <dl className="flex flex-wrap gap-x-6 gap-y-1 text-body-sm">
           <Count label="Delivered" value={webhook.health.delivered} />
           <Count label="Waiting to retry" value={webhook.health.pending} />
           <Count label="Given up on" value={webhook.health.failed} />

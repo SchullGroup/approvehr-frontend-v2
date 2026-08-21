@@ -55,8 +55,8 @@ export function Badge({
       className={cn(
         "inline-flex items-center gap-1.5 rounded-full border font-medium whitespace-nowrap",
         size === "sm"
-          ? "px-2 py-0.5 text-[0.75rem]"
-          : "px-2.5 py-1 text-[0.75rem]",
+          ? "px-2 py-0.5 text-meta"
+          : "px-2.5 py-1 text-meta",
         TONES[tone],
         className,
       )}
@@ -93,7 +93,7 @@ export function Tag({
     <span
       className={cn(
         "inline-flex items-center gap-1.5 rounded-sm border border-line bg-canvas",
-        "px-2 py-1 text-[0.75rem] font-medium text-body whitespace-nowrap",
+        "px-2 py-1 text-meta font-medium text-body whitespace-nowrap",
         className,
       )}
     >

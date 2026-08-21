@@ -261,7 +261,7 @@ export function EmployeeRecord({
             <Avatar name={name} size="lg" tone="accent" />
             <div>
               <p className="text-h4 text-ink">{name}</p>
-              <p className="mt-0.5 text-[0.875rem] text-muted">
+              <p className="mt-0.5 text-body-sm text-muted">
                 {employee.jobTitle}
               </p>
             </div>
@@ -392,7 +392,7 @@ export function EmployeeRecord({
                     ]}
                   />
                 ) : (
-                  <p className="text-[0.875rem] text-muted">
+                  <p className="text-body-sm text-muted">
                     No next of kin recorded. This is requested during onboarding
                     and is needed for insurance claims.
                   </p>
@@ -459,27 +459,27 @@ export function EmployeeRecord({
               <CardHeader title="Reporting line" />
               <CardBody className="flex flex-col gap-4">
                 <div>
-                  <p className="mb-2 text-[0.75rem] font-semibold tracking-wide text-muted">
+                  <p className="mb-2 text-meta font-semibold tracking-wide text-muted">
                     Reports to
                   </p>
                   {manager ? (
                     <PersonLink employee={manager} />
                   ) : managerName ? (
-                    <p className="text-[0.875rem] text-body">{managerName}</p>
+                    <p className="text-body-sm text-body">{managerName}</p>
                   ) : (
-                    <p className="text-[0.875rem] text-muted">
+                    <p className="text-body-sm text-muted">
                       No manager — reports to the board.
                     </p>
                   )}
                 </div>
 
                 <div className="border-t border-line pt-4">
-                  <p className="mb-2 flex items-center gap-1.5 text-[0.75rem] font-semibold tracking-wide text-muted">
+                  <p className="mb-2 flex items-center gap-1.5 text-meta font-semibold tracking-wide text-muted">
                     <Users aria-hidden="true" className="size-3.5" />
                     Direct reports ({reports.length})
                   </p>
                   {reports.length === 0 ? (
-                    <p className="text-[0.875rem] text-muted">None.</p>
+                    <p className="text-body-sm text-muted">None.</p>
                   ) : (
                     <div className="flex flex-col gap-2">
                       {reports.map((r) => (
@@ -612,7 +612,7 @@ export function EmployeeRecord({
                 </CardBody>
               ) : balances.length === 0 ? (
                 <CardBody>
-                  <p className="text-[0.875rem] text-muted">
+                  <p className="text-body-sm text-muted">
                     No leave types are set up yet, so there is nothing to
                     measure against.
                   </p>
@@ -673,7 +673,7 @@ export function EmployeeRecord({
               />
               {leaveRequests.length === 0 ? (
                 <CardBody>
-                  <p className="text-[0.875rem] text-muted">
+                  <p className="text-body-sm text-muted">
                     No leave requested yet.
                   </p>
                 </CardBody>
@@ -827,7 +827,7 @@ function Compensation({
             <span className="sr-only">Working out this month’s figures</span>
           </>
         ) : figures === null ? (
-          <p className="text-[0.875rem] leading-relaxed text-muted">
+          <p className="text-body-sm leading-relaxed text-muted">
             {connected && preview.error
               ? preview.error.message
               : "PAYE, pension and NHF are worked out by the payroll engine on " +
@@ -847,7 +847,7 @@ function Compensation({
             <Line label="PAYE" value={-figures.paye} />
             <div className="h-px bg-line" />
             <Line label="Net monthly" value={figures.net} strong />
-            <p className="mt-1 rounded-md bg-canvas p-2.5 text-[0.75rem] leading-relaxed text-muted">
+            <p className="mt-1 rounded-md bg-canvas p-2.5 text-meta leading-relaxed text-muted">
               Employer pension of{" "}
               <Money amount={figures.pensionEmployer} decimals /> is paid on top
               and is not deducted.
@@ -906,7 +906,7 @@ function Guarded({
         <button
           type="button"
           onClick={() => setShown((s) => !s)}
-          className="inline-flex items-center gap-1 rounded-xs text-[0.75rem] font-medium text-accent-text hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+          className="inline-flex items-center gap-1 rounded-xs text-meta font-medium text-accent-text hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
         >
           {shown ? (
             <EyeOff aria-hidden="true" className="size-3" />
@@ -934,7 +934,7 @@ function Contact({
       <span className="shrink-0 text-faint [&>svg]:size-3.5">{icon}</span>
       <span
         className={cn(
-          "min-w-0 truncate text-[0.875rem]",
+          "min-w-0 truncate text-body-sm",
           value ? "text-body" : "text-danger-text",
         )}
       >
@@ -952,10 +952,10 @@ function PersonLink({ employee }: { employee: Employee }) {
     >
       <Avatar name={fullName(employee)} size="sm" />
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[0.875rem] font-medium text-ink">
+        <span className="block truncate text-body-sm font-medium text-ink">
           {fullName(employee)}
         </span>
-        <span className="block truncate text-[0.75rem] text-muted">
+        <span className="block truncate text-meta text-muted">
           {employee.jobTitle}
         </span>
       </span>
@@ -976,13 +976,26 @@ function Line({
 }) {
   return (
     <div className="flex items-baseline justify-between gap-3">
+      {/*
+       * `muted` used to mean smaller *and* fainter: 12px in `text-faint` while
+       * its siblings were 14px in `text-body`. The rows it styles are Basic,
+       * Housing and Transport — the salary split itself, which is the part
+       * somebody checks a payslip against and the part a pension is computed
+       * from. The most consequential numbers on the card were the hardest to
+       * read on it.
+       *
+       * Now `muted` changes only the colour, one step, and the size never moves.
+       * Hierarchy on a figure should come from weight and colour; shrinking a
+       * number to say "this one is subordinate" makes it subordinate and
+       * illegible, and the second was never intended.
+       */}
       <span
         className={
           strong
-            ? "text-[0.875rem] font-medium text-ink"
+            ? "text-body-sm font-medium text-ink"
             : muted
-              ? "text-[0.75rem] text-faint"
-              : "text-[0.875rem] text-body"
+              ? "text-body-sm text-muted"
+              : "text-body-sm text-body"
         }
       >
         {label}
@@ -990,8 +1003,8 @@ function Line({
       <span
         className={
           strong
-            ? "tabular text-[0.9375rem] font-semibold text-ink"
-            : "tabular text-[0.875rem] text-body"
+            ? "tabular text-body font-semibold text-ink"
+            : "tabular text-body-sm text-body"
         }
       >
         <Money amount={value} decimals />

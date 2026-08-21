@@ -183,7 +183,7 @@ export function ExpensesScreen() {
 
       <PageBody className="flex flex-col gap-6">
         {mode === "offline" && (
-          <p className="flex flex-wrap items-center gap-2 text-[0.875rem] text-muted">
+          <p className="flex flex-wrap items-center gap-2 text-body-sm text-muted">
             <Badge tone="warning" size="sm">
               Demo
             </Badge>
@@ -203,13 +203,13 @@ export function ExpensesScreen() {
           <Card>
             <CardBody className="flex flex-wrap items-start justify-between gap-5">
               <div className="min-w-0">
-                <p className="text-[0.875rem] font-medium text-muted">
+                <p className="text-body-sm font-medium text-muted">
                   {canApprove ? "Owed to staff" : "Owed to you"}
                 </p>
                 <p className="tabular mt-1 text-h2 text-ink">
                   {money(owed.amount)}
                 </p>
-                <p className="mt-1.5 text-[0.875rem] text-body">
+                <p className="mt-1.5 text-body-sm text-body">
                   {owed.claimCount === 0
                     ? "Nothing outstanding. Every approved claim has been paid."
                     : `${owed.claimCount} approved ${
@@ -226,7 +226,7 @@ export function ExpensesScreen() {
                     {summary.byType.map((row) => (
                       <span
                         key={row.typeId}
-                        className="text-[0.875rem] text-muted"
+                        className="text-body-sm text-muted"
                       >
                         {row.type}{" "}
                         <span className="tabular font-medium text-ink">
@@ -257,13 +257,13 @@ export function ExpensesScreen() {
           <Card>
             <CardBody className="flex h-full flex-wrap items-start justify-between gap-4">
               <div className="min-w-0">
-                <p className="text-[0.875rem] font-medium text-muted">
+                <p className="text-body-sm font-medium text-muted">
                   Waiting for a decision
                 </p>
                 <p className="tabular mt-1 text-h3 text-ink">
                   {money(awaiting.amount)}
                 </p>
-                <p className="mt-1.5 text-[0.875rem] text-body">
+                <p className="mt-1.5 text-body-sm text-body">
                   {awaiting.claimCount === 0
                     ? "Nothing waiting."
                     : `${awaiting.claimCount} ${

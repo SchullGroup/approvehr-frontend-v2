@@ -106,7 +106,7 @@ export function ScreenInDialog({
             { term: "Goes onto", value: roleName },
           ]}
         />
-        <p className="text-[0.875rem] text-body">
+        <p className="text-body-sm text-body">
           They go into the first stage of this role. Their candidate record is
           created from this application, so nothing is retyped.
         </p>
@@ -181,7 +181,7 @@ export function DeclineDialog({
       }
     >
       <div className="flex flex-col gap-4">
-        <p className="text-[0.875rem] text-body">
+        <p className="text-body-sm text-body">
           Nothing is sent to them. The reason stays on the record so the next
           person to read it knows what happened.
         </p>

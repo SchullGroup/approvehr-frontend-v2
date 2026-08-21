@@ -361,14 +361,14 @@ export function PostingEditor({
 
         {linkIsFixed ? (
           <div className="rounded-lg border border-line bg-canvas p-4">
-            <p className="flex items-center gap-2 text-[0.875rem] font-medium text-ink">
+            <p className="flex items-center gap-2 text-body-sm font-medium text-ink">
               <Link2 aria-hidden="true" className="size-4 text-muted" />
               Its link cannot change
             </p>
-            <p className="tabular mt-1.5 break-all text-[0.875rem] text-body">
+            <p className="tabular mt-1.5 break-all text-body-sm text-body">
               {careersPath(posting.publicPath)}
             </p>
-            <p className="mt-1.5 text-[0.875rem] text-muted">
+            <p className="mt-1.5 text-body-sm text-muted">
               People have this link already. Close this advert and write a new one
               if the address has to be different.
             </p>

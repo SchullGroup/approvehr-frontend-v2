@@ -106,7 +106,7 @@ export function Checklist({
                 title={group.label}
                 level={3}
                 action={
-                  <span className="tabular text-[0.875rem] text-muted">
+                  <span className="tabular text-body-sm text-muted">
                     {done} of {group.tasks.length}
                   </span>
                 }
@@ -251,7 +251,7 @@ function TaskRow({
         />
 
         {task.note && (
-          <p className="mt-2 ml-7 text-[0.875rem] text-body">{task.note}</p>
+          <p className="mt-2 ml-7 text-body-sm text-body">{task.note}</p>
         )}
       </div>
 

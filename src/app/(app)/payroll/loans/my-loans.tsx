@@ -74,12 +74,12 @@ export function MyLoans({ className }: { className?: string }) {
         />
         <CardBody className="flex flex-col gap-4">
           {loading ? (
-            <div className="flex items-center gap-2 text-[0.875rem] text-muted">
+            <div className="flex items-center gap-2 text-body-sm text-muted">
               <Spinner size="sm" />
               Loading
             </div>
           ) : !live ? (
-            <p className="text-[0.875rem] leading-relaxed text-body">
+            <p className="text-body-sm leading-relaxed text-body">
               You have no loan running.
               {past.length > 0 && (
                 <>
@@ -95,13 +95,13 @@ export function MyLoans({ className }: { className?: string }) {
                 <Badge tone="warning" size="sm" dot>
                   {LOAN_STATUS_LABEL.PENDING}
                 </Badge>
-                <span className="text-[0.875rem] text-muted">
+                <span className="text-body-sm text-muted">
                   applied for {formatMoney(naira(live.principalKobo), "NGN", {
                     decimals: true,
                   })}
                 </span>
               </div>
-              <p className="text-[0.9375rem] leading-relaxed text-ink">
+              <p className="text-body leading-relaxed text-ink">
                 If it is approved,{" "}
                 <strong className="font-semibold">
                   {formatMoney(naira(live.monthlyRepaymentKobo), "NGN", {
@@ -129,7 +129,7 @@ export function MyLoans({ className }: { className?: string }) {
             <>
               <div className="grid gap-4 sm:grid-cols-3">
                 <div>
-                  <p className="text-[0.75rem] font-medium text-muted">
+                  <p className="text-meta font-medium text-muted">
                     Coming out each month
                   </p>
                   <p className="mt-1">
@@ -137,7 +137,7 @@ export function MyLoans({ className }: { className?: string }) {
                   </p>
                 </div>
                 <div>
-                  <p className="text-[0.75rem] font-medium text-muted">
+                  <p className="text-meta font-medium text-muted">
                     Left to repay
                   </p>
                   <p className="mt-1">
@@ -145,10 +145,10 @@ export function MyLoans({ className }: { className?: string }) {
                   </p>
                 </div>
                 <div>
-                  <p className="text-[0.75rem] font-medium text-muted">
+                  <p className="text-meta font-medium text-muted">
                     Last deduction
                   </p>
-                  <p className="mt-1 text-sm text-ink">
+                  <p className="mt-1 text-body-sm text-ink">
                     {finishesLabel(live) ??
                       (live.startPeriod ? monthLabel(live.startPeriod) : "Not set")}
                   </p>
@@ -183,7 +183,7 @@ export function MyLoans({ className }: { className?: string }) {
           )}
 
           {past.length > 0 && live && (
-            <p className="text-[0.75rem] text-muted">
+            <p className="text-meta text-muted">
               {past.length} earlier {past.length === 1 ? "loan" : "loans"} repaid
               in full ·{" "}
               <Link

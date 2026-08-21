@@ -377,7 +377,7 @@ function Adverts() {
 
           {postings.total > postings.postings.length && (
             <CardBody className="border-t border-line">
-              <p className="text-[0.875rem] text-muted">
+              <p className="text-body-sm text-muted">
                 Showing the newest {postings.postings.length} of {postings.total}.
               </p>
             </CardBody>
@@ -478,7 +478,7 @@ function AdvertRow({
           <span className="flex flex-wrap items-center gap-2">
             {posting.title}
             {posting.requisitionReference ? (
-              <span className="tabular text-[0.75rem] font-normal text-muted">
+              <span className="tabular text-meta font-normal text-muted">
                 {posting.requisitionReference}
               </span>
             ) : (
@@ -512,11 +512,11 @@ function AdvertRow({
       </TD>
 
       <TD align="right">
-        <span className="tabular text-sm text-ink">{posting.applicationCount}</span>
+        <span className="tabular text-body-sm text-ink">{posting.applicationCount}</span>
         {waiting > 0 && (
           <Link
             href={`/hiring/postings/applications?posting=${posting.id}`}
-            className="mt-0.5 block text-[0.75rem] text-accent-text hover:underline underline-offset-4"
+            className="mt-0.5 block text-meta text-accent-text hover:underline underline-offset-4"
           >
             {waiting} waiting
           </Link>
@@ -525,12 +525,12 @@ function AdvertRow({
 
       <TD>
         {band === null ? (
-          <span className="text-[0.875rem] text-faint">Not stated</span>
+          <span className="text-body-sm text-faint">Not stated</span>
         ) : (
           <span className="flex flex-col">
-            <span className="tabular text-[0.875rem] text-ink">{band}</span>
+            <span className="tabular text-body-sm text-ink">{band}</span>
             {!posting.showSalary && (
-              <span className="text-[0.75rem] text-muted">Hidden on the advert</span>
+              <span className="text-meta text-muted">Hidden on the advert</span>
             )}
           </span>
         )}
@@ -538,16 +538,16 @@ function AdvertRow({
 
       <TD>
         {posting.closesOn ? (
-          <span className="tabular text-[0.875rem] text-body">
+          <span className="tabular text-body-sm text-body">
             {posting.closesOn}
             {!posting.acceptingApplications && posting.status === "PUBLISHED" && (
-              <span className="mt-0.5 block text-[0.75rem] text-warning-text">
+              <span className="mt-0.5 block text-meta text-warning-text">
                 Date has passed
               </span>
             )}
           </span>
         ) : (
-          <span className="text-[0.875rem] text-faint">Open</span>
+          <span className="text-body-sm text-faint">Open</span>
         )}
       </TD>
 

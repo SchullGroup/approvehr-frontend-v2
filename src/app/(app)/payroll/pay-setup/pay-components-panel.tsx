@@ -202,7 +202,7 @@ export function PayComponentsPanel({
         </div>
 
         {stale && (
-          <p className="text-[0.875rem] text-muted">
+          <p className="text-body-sm text-muted">
             Computed on the {baseline.data?.taxSchedule.citation} bands, which
             nobody has confirmed cover this period yet.
           </p>
@@ -253,11 +253,11 @@ export function PayComponentsPanel({
                       }
                     />
                     <TD>
-                      <span className="text-[0.875rem] text-body">
+                      <span className="text-body-sm text-body">
                         {assignmentLine(row)}
                       </span>
                       {row.note && (
-                        <span className="mt-0.5 block text-[0.75rem] text-muted">
+                        <span className="mt-0.5 block text-meta text-muted">
                           {row.note}
                         </span>
                       )}
@@ -276,7 +276,7 @@ export function PayComponentsPanel({
                     <TD align="right">
                       <span
                         className={cn(
-                          "tabular text-sm font-medium",
+                          "tabular text-body-sm font-medium",
                           allowance ? "text-ink" : "text-body",
                         )}
                       >
@@ -356,16 +356,16 @@ function Figure({
 }) {
   return (
     <div className="min-w-0">
-      <p className="text-[0.75rem] font-medium text-muted">{label}</p>
+      <p className="text-meta font-medium text-muted">{label}</p>
       <p
         className={cn(
           "tabular mt-1 truncate text-ink",
-          strong ? "text-h4" : "text-sm font-semibold",
+          strong ? "text-h4" : "text-body-sm font-semibold",
         )}
       >
         {value}
       </p>
-      {hint && <p className="mt-0.5 text-[0.75rem] text-faint">{hint}</p>}
+      {hint && <p className="mt-0.5 text-meta text-faint">{hint}</p>}
     </div>
   );
 }
@@ -391,7 +391,7 @@ function ChangeEffect({
 }) {
   if (loading) {
     return (
-      <div className="flex items-center gap-2.5 rounded-lg border border-line bg-canvas p-4 text-[0.875rem] text-muted">
+      <div className="flex items-center gap-2.5 rounded-lg border border-line bg-canvas p-4 text-body-sm text-muted">
         <Spinner size="sm" />
         Working out what it does to take-home pay…
       </div>
@@ -429,15 +429,15 @@ function ChangeEffect({
       <dl className="mt-3 grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
         {rows.map((row) => (
           <div key={row.label} className="flex items-baseline justify-between gap-3">
-            <dt className="text-[0.875rem] text-body">{row.label}</dt>
-            <dd className="tabular text-[0.875rem] font-medium text-ink">
+            <dt className="text-body-sm text-body">{row.label}</dt>
+            <dd className="tabular text-body-sm font-medium text-ink">
               {row.kobo === 0 ? "no change" : signedMoney(row.kobo)}
             </dd>
           </div>
         ))}
       </dl>
 
-      <p className="mt-3 border-t border-accent-line pt-3 text-[0.875rem] text-body">
+      <p className="mt-3 border-t border-accent-line pt-3 text-body-sm text-body">
         Costs the company{" "}
         <span className="tabular font-medium text-ink">
           {change.employerCostKobo === 0
@@ -447,7 +447,7 @@ function ChangeEffect({
         — salary plus the employer pension on it.
       </p>
 
-      {note && <p className="mt-2 text-[0.875rem] text-body">{note}</p>}
+      {note && <p className="mt-2 text-body-sm text-body">{note}</p>}
     </div>
   );
 }
@@ -650,14 +650,14 @@ function AddLineDialog({
                   </Badge>
                 </span>
               ))}
-              <span className="text-[0.875rem] text-muted">
+              <span className="text-body-sm text-muted">
                 {amountLine(chosen)}
               </span>
             </div>
 
             <ul className="flex flex-col gap-1">
               {flagChips(chosen, settings.pension).map((chip) => (
-                <li key={chip.label} className="text-[0.875rem] leading-relaxed text-body">
+                <li key={chip.label} className="text-body-sm leading-relaxed text-body">
                   {chip.why}
                 </li>
               ))}
@@ -852,14 +852,14 @@ function OfflineEffect({
   return (
     <div className="rounded-lg border border-line bg-canvas p-4">
       {exact === null ? (
-        <p className="text-[0.875rem] leading-relaxed text-body">
+        <p className="text-body-sm leading-relaxed text-body">
           The take-home figure needs the API. It recomputes PAYE, pension and NHF
           with this line&apos;s tax and pension settings, and there is one
           implementation of that — on the server, the same one the payroll run
           uses.
         </p>
       ) : (
-        <p className="text-sm text-ink">
+        <p className="text-body-sm text-ink">
           Take-home {exact < 0 ? "falls" : "rises"} by exactly{" "}
           <span className="tabular font-semibold">{money(Math.abs(exact))}</span>{" "}
           — an after-tax deduction does not change PAYE, pension or NHF, so

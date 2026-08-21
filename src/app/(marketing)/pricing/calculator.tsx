@@ -34,7 +34,7 @@ export function PricingCalculator() {
       <div>
         <label
           htmlFor="headcount"
-          className="block text-[0.9375rem] font-medium text-slate"
+          className="block text-body font-medium text-slate"
         >
           How many people do you pay?
         </label>
@@ -72,7 +72,7 @@ export function PricingCalculator() {
             <Plus aria-hidden="true" className="size-4" />
           </PillButton>
 
-          <span className="text-[0.875rem] text-slate-muted">employees</span>
+          <span className="text-body-sm text-slate-muted">employees</span>
         </div>
 
         <input
@@ -101,7 +101,7 @@ export function PricingCalculator() {
                 >
                   <span
                     className={cn(
-                      "text-[0.9375rem] font-medium",
+                      "text-body font-medium",
                       on ? "text-white" : "text-slate",
                     )}
                   >
@@ -109,7 +109,7 @@ export function PricingCalculator() {
                   </span>
                   <span
                     className={cn(
-                      "text-[0.8125rem] tabular-nums",
+                      "text-meta tabular-nums",
                       on ? "text-white/60" : "text-slate-muted",
                     )}
                   >
@@ -117,7 +117,7 @@ export function PricingCalculator() {
                   </span>
                   <span
                     className={cn(
-                      "ml-auto text-[0.8125rem] tabular-nums",
+                      "ml-auto text-meta tabular-nums",
                       on ? "text-white" : "text-slate-muted",
                     )}
                   >
@@ -143,7 +143,7 @@ export function PricingCalculator() {
               key={String(label)}
               onClick={() => setAnnual(value as boolean)}
               className={cn(
-                "rounded-full px-3 py-1.5 text-[0.75rem] font-medium transition-colors",
+                "rounded-full px-3 py-1.5 text-meta font-medium transition-colors",
                 annual === value
                   ? "bg-success text-slate"
                   : "text-white/60 hover:text-white",
@@ -154,7 +154,7 @@ export function PricingCalculator() {
           ))}
         </div>
 
-        <p className="mt-6 text-[0.8125rem] text-white/50">
+        <p className="mt-6 text-meta text-white/50">
           {q.tier.name} · {headcount.toLocaleString("en-NG")} employees
         </p>
 
@@ -163,7 +163,7 @@ export function PricingCalculator() {
             <p className="mt-3 text-[2.25rem] font-medium leading-none tracking-tight text-white">
               Let&apos;s talk
             </p>
-            <p className="mt-3 text-[0.875rem] leading-relaxed text-white/60">
+            <p className="mt-3 text-body-sm leading-relaxed text-white/60">
               Above 500 staff the price depends on entities, integrations and
               the support level you need. We will quote in one call.
             </p>
@@ -173,13 +173,13 @@ export function PricingCalculator() {
             <p className="mt-3 text-[2.5rem] font-medium leading-none tracking-tight text-white tabular-nums">
               {naira(payable!)}
             </p>
-            <p className="mt-2 text-[0.8125rem] text-white/50">
+            <p className="mt-2 text-meta text-white/50">
               {annual
                 ? `per year — ${ANNUAL_MONTHS_CHARGED} months charged`
                 : "per month"}
             </p>
 
-            <dl className="mt-6 flex flex-col gap-2.5 border-t border-night-line pt-5 text-[0.8125rem]">
+            <dl className="mt-6 flex flex-col gap-2.5 border-t border-night-line pt-5 text-meta">
               <div className="flex justify-between gap-3">
                 <dt className="text-white/50">Rate per employee</dt>
                 <dd className="tabular-nums text-white">
@@ -203,7 +203,7 @@ export function PricingCalculator() {
             </dl>
 
             {q.flooredUp && (
-              <p className="mt-4 rounded-xl bg-white/6 p-3 text-[0.75rem] leading-relaxed text-white/60">
+              <p className="mt-4 rounded-xl bg-white/6 p-3 text-meta leading-relaxed text-white/60">
                 Small teams are charged a {naira(q.tier.monthlyFloor)} monthly
                 minimum, so this works out above the per-employee rate.
               </p>
@@ -225,7 +225,7 @@ export function PricingCalculator() {
 
       {/* What is included */}
       <div className="lg:col-span-2">
-        <h3 className="text-[0.75rem] font-semibold uppercase tracking-[0.1em] text-slate-muted">
+        <h3 className="text-meta font-semibold uppercase tracking-[0.1em] text-slate-muted">
           Included on {q.tier.name}
         </h3>
         <ul className="mt-5 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
@@ -238,7 +238,7 @@ export function PricingCalculator() {
                   strokeWidth={3}
                 />
               </span>
-              <span className="text-[0.875rem] leading-snug text-slate-soft">
+              <span className="text-body-sm leading-snug text-slate-soft">
                 {line}
               </span>
             </li>

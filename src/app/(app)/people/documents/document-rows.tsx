@@ -119,11 +119,11 @@ export function RequestRow({
     >
       <div className="min-w-0 flex-1">
         {showPerson && (
-          <p className="text-[0.75rem] text-muted">
+          <p className="text-meta text-muted">
             {request.employeeName} · {request.employeeNo}
           </p>
         )}
-        <p className="flex flex-wrap items-center gap-2 text-[0.9375rem] font-medium text-ink">
+        <p className="flex flex-wrap items-center gap-2 text-body font-medium text-ink">
           {request.name}
           <Badge tone="neutral" size="sm">
             {CATEGORY_LABEL[request.category]}
@@ -131,7 +131,7 @@ export function RequestRow({
           <StatusChip request={request} />
         </p>
         {secondary && (
-          <p className="mt-0.5 text-[0.875rem] text-muted">{secondary}</p>
+          <p className="mt-0.5 text-body-sm text-muted">{secondary}</p>
         )}
       </div>
       {actions && <div className="flex shrink-0 flex-wrap gap-1.5">{actions}</div>}
@@ -162,7 +162,7 @@ export function DocumentRow({
         <FileText />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="flex flex-wrap items-center gap-2 text-[0.9375rem] font-medium text-ink">
+        <p className="flex flex-wrap items-center gap-2 text-body font-medium text-ink">
           {document.name}
           <Badge tone="neutral" size="sm">
             {CATEGORY_LABEL[document.category]}
@@ -186,9 +186,9 @@ export function DocumentRow({
         {/* The key, because it is all there is. Nothing here offers a download:
             there is no file endpoint yet, and a dead link is worse than a path
             somebody can go and look up. */}
-        <p className="mt-0.5 truncate text-[0.875rem] text-muted">
+        <p className="mt-0.5 truncate text-body-sm text-muted">
           Added {readableDate(document.uploadedAt)} · kept at{" "}
-          <span className="tabular text-[0.75rem]">{document.storageKey}</span>
+          <span className="tabular text-meta">{document.storageKey}</span>
         </p>
       </div>
       {action && <div className="flex shrink-0 gap-1.5">{action}</div>}

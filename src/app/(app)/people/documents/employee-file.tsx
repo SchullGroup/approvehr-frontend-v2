@@ -78,7 +78,7 @@ export function EmployeeFileDrawer({
             {file.file ? (
               <Link
                 href={`/people/${file.file.employeeId}`}
-                className="text-[0.875rem] text-accent-text underline-offset-4 hover:underline"
+                className="text-body-sm text-accent-text underline-offset-4 hover:underline"
               >
                 Open their record
               </Link>
@@ -95,19 +95,19 @@ export function EmployeeFileDrawer({
         }
       >
         {file.loading ? (
-          <div className="flex items-center gap-2 py-8 text-[0.875rem] text-muted">
+          <div className="flex items-center gap-2 py-8 text-body-sm text-muted">
             <Spinner size="sm" />
             Loading the file
           </div>
         ) : file.error ? (
-          <p role="alert" className="py-6 text-[0.875rem] text-danger-text">
+          <p role="alert" className="py-6 text-body-sm text-danger-text">
             {file.error.message}
           </p>
         ) : (
           <div className="flex flex-col gap-6">
             {outstanding.length > 0 && (
               <section className="flex flex-col gap-2">
-                <h3 className="text-[0.875rem] font-semibold text-ink">
+                <h3 className="text-body-sm font-semibold text-ink">
                   Still waiting on {outstanding.length}
                 </h3>
                 {outstanding.map((request) => (
@@ -150,7 +150,7 @@ export function EmployeeFileDrawer({
 
             <section className="flex flex-col gap-2">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <h3 className="text-[0.875rem] font-semibold text-ink">On file</h3>
+                <h3 className="text-body-sm font-semibold text-ink">On file</h3>
                 <Checkbox
                   label="Show past documents"
                   checked={includeArchived}

@@ -147,7 +147,7 @@ export function CreateRoleDialog({
         </Field>
 
         {copyable.length > 0 && (
-          <p className="text-[0.875rem] leading-relaxed text-muted">
+          <p className="text-body-sm leading-relaxed text-muted">
             {copyable
               .map(
                 (key) =>

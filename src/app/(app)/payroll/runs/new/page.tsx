@@ -25,7 +25,7 @@ export default function NewPayrollRunPage() {
             prerenderable. */}
         <Suspense
           fallback={
-            <p className="text-[0.875rem] text-muted">Loading the run…</p>
+            <p className="text-body-sm text-muted">Loading the run…</p>
           }
         >
           <PayrollRunWizard />

@@ -552,7 +552,7 @@ export function RequisitionWizard() {
               <div className="flex flex-col gap-5">
                 <div className="flex flex-col gap-2">
                   <SourceBadge live={adverts.editable} />
-                  <p className="text-[0.875rem] text-body">
+                  <p className="text-body-sm text-body">
                     This saves the job — title, location, type, pay range and
                     the text below — as a <strong>draft advert</strong>. Nothing
                     is public until you publish it. Stages, screening questions
@@ -640,19 +640,19 @@ export function RequisitionWizard() {
         <aside className="lg:sticky lg:top-20 lg:h-fit">
           <Card>
             <CardBody className="flex flex-col gap-3">
-              <h2 className="text-[0.75rem] font-semibold tracking-wide text-muted">
+              <h2 className="text-meta font-semibold tracking-wide text-muted">
                 Summary
               </h2>
               <p className="text-h4 text-ink">
                 {draft.title || "Untitled role"}
               </p>
-              <p className="text-[0.875rem] text-body">
+              <p className="text-body-sm text-body">
                 {[draft.department, draft.location].filter(Boolean).join(" · ") ||
                   "Department and location not set"}
               </p>
 
               {min > 0 && max > 0 && !bandInvalid && (
-                <p className="tabular text-[0.875rem] font-medium text-ink">
+                <p className="tabular text-body-sm font-medium text-ink">
                   <Money amount={min} decimals /> –{" "}
                   <Money amount={max} decimals />
                   <span className="font-normal text-muted"> gross monthly</span>
@@ -660,7 +660,7 @@ export function RequisitionWizard() {
               )}
 
               <div className="border-t border-line pt-3">
-                <p className="mb-1.5 text-[0.75rem] uppercase tracking-wide text-faint">
+                <p className="mb-1.5 text-meta uppercase tracking-wide text-faint">
                   Pipeline
                 </p>
                 <ol className="flex flex-col gap-1">
@@ -668,9 +668,9 @@ export function RequisitionWizard() {
                     (s, i) => (
                       <li
                         key={s.id}
-                        className="flex items-center gap-2 text-[0.75rem] text-body"
+                        className="flex items-center gap-2 text-meta text-body"
                       >
-                        <span className="tabular flex size-4 shrink-0 items-center justify-center rounded-full bg-sunken text-[0.75rem] font-semibold text-muted">
+                        <span className="tabular flex size-4 shrink-0 items-center justify-center rounded-full bg-sunken text-meta font-semibold text-muted">
                           {i + 1}
                         </span>
                         {s.label}
@@ -789,7 +789,7 @@ function ReviewBlock({
   return (
     <div className="rounded-lg border border-line">
       <div className="flex items-center justify-between border-b border-line px-3.5 py-2.5">
-        <h3 className="text-[0.875rem] font-semibold text-ink">{title}</h3>
+        <h3 className="text-body-sm font-semibold text-ink">{title}</h3>
         <Button variant="ghost" size="sm" onClick={onEdit}>
           Edit
         </Button>
@@ -800,8 +800,8 @@ function ReviewBlock({
             key={term}
             className="flex items-baseline justify-between gap-4 px-3.5 py-2.5"
           >
-            <dt className="text-[0.75rem] text-muted">{term}</dt>
-            <dd className="min-w-0 text-right text-[0.875rem] text-ink">
+            <dt className="text-meta text-muted">{term}</dt>
+            <dd className="min-w-0 text-right text-body-sm text-ink">
               {value}
             </dd>
           </div>

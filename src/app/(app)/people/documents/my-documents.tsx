@@ -78,7 +78,7 @@ export function MyDocuments({
             <div className="flex justify-end">{addButton}</div>
           )}
           {mine.loading ? (
-            <div className="flex items-center gap-2 text-[0.875rem] text-muted">
+            <div className="flex items-center gap-2 text-body-sm text-muted">
               <Spinner size="sm" />
               Loading
             </div>
@@ -92,7 +92,7 @@ export function MyDocuments({
           ) : (
             <>
               {mine.error && (
-                <p role="alert" className="text-[0.875rem] text-danger-text">
+                <p role="alert" className="text-body-sm text-danger-text">
                   {mine.error.message}
                 </p>
               )}
@@ -100,7 +100,7 @@ export function MyDocuments({
               {/* The half with something to do in it, first. */}
               {mine.outstanding.length > 0 && (
                 <section className="flex flex-col gap-2">
-                  <h4 className="text-[0.875rem] font-semibold text-ink">
+                  <h4 className="text-body-sm font-semibold text-ink">
                     {mine.outstanding.length === 1
                       ? "1 document to send"
                       : `${mine.outstanding.length} documents to send`}
@@ -123,7 +123,7 @@ export function MyDocuments({
                     />
                   ))}
                   {!mine.editable && (
-                    <p className="text-[0.875rem] text-muted">
+                    <p className="text-body-sm text-muted">
                       Attaching needs the API — a reference kept in this browser
                       is on nobody&rsquo;s record.
                     </p>
@@ -132,7 +132,7 @@ export function MyDocuments({
               )}
 
               <section className="flex flex-col gap-2">
-                <h4 className="text-[0.875rem] font-semibold text-ink">On file</h4>
+                <h4 className="text-body-sm font-semibold text-ink">On file</h4>
                 {mine.documents.length === 0 ? (
                   <EmptyState
                     compact
@@ -149,7 +149,7 @@ export function MyDocuments({
 
               {mine.settled.length > 0 && (
                 <section className="flex flex-col gap-2">
-                  <h4 className="text-[0.875rem] font-semibold text-ink">
+                  <h4 className="text-body-sm font-semibold text-ink">
                     Already answered
                   </h4>
                   {mine.settled.map((request) => (

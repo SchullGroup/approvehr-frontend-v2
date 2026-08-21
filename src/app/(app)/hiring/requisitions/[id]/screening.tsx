@@ -107,7 +107,7 @@ function ScreeningCard({
           </CardBody>
         ) : queue.error ? (
           <CardBody className="flex flex-wrap items-center gap-3">
-            <p className="text-[0.875rem] text-danger-text">
+            <p className="text-body-sm text-danger-text">
               {queue.error.message}
             </p>
             <Button
@@ -161,7 +161,7 @@ function ScreeningCard({
             ))}
             {!queue.editable && (
               <div className="flex flex-wrap items-center gap-3 border-t border-line pt-3">
-                <p className="text-[0.875rem] text-body">
+                <p className="text-body-sm text-body">
                   Screening somebody in writes a candidate into the pipeline, so
                   it needs the API.
                 </p>
@@ -175,7 +175,7 @@ function ScreeningCard({
               </div>
             )}
             {queue.cvNote && (
-              <p className="text-[0.75rem] text-muted">{queue.cvNote}</p>
+              <p className="text-meta text-muted">{queue.cvNote}</p>
             )}
           </CardBody>
         )}
@@ -290,7 +290,7 @@ function ApplicantRow({
     <div className="flex flex-col gap-3 rounded-md border border-line p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="flex flex-wrap items-center gap-2 text-[0.9375rem] font-medium text-ink">
+          <p className="flex flex-wrap items-center gap-2 text-body font-medium text-ink">
             {row.name}
             {row.waiting ? (
               <Badge tone="warning" size="sm" dot>
@@ -304,7 +304,7 @@ function ApplicantRow({
             {row.cvUrl ? (
               <a
                 href={row.cvUrl}
-                className="inline-flex items-center gap-1 text-[0.875rem] font-medium text-accent-text hover:underline underline-offset-4"
+                className="inline-flex items-center gap-1 text-body-sm font-medium text-accent-text hover:underline underline-offset-4"
               >
                 <Paperclip aria-hidden="true" className="size-3.5" />
                 Open CV
@@ -319,7 +319,7 @@ function ApplicantRow({
               </Badge>
             )}
           </p>
-          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.875rem] text-muted">
+          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
             <a
               href={`mailto:${row.email}`}
               className="inline-flex items-center gap-1 hover:text-accent-text hover:underline underline-offset-4"
@@ -345,7 +345,7 @@ function ApplicantRow({
           {!row.waiting && row.candidateId && (
             <Link
               href={`/hiring/candidates/${row.candidateId}`}
-              className="inline-flex items-center gap-1 text-[0.875rem] font-medium text-accent-text hover:underline underline-offset-4"
+              className="inline-flex items-center gap-1 text-body-sm font-medium text-accent-text hover:underline underline-offset-4"
             >
               See their record
               <ArrowRight aria-hidden="true" className="size-3.5" />
@@ -365,7 +365,7 @@ function ApplicantRow({
       </div>
 
       {row.coverNote && (
-        <p className="whitespace-pre-line rounded-md bg-canvas p-3 text-[0.875rem] leading-relaxed text-body">
+        <p className="whitespace-pre-line rounded-md bg-canvas p-3 text-body-sm leading-relaxed text-body">
           {row.coverNote}
         </p>
       )}

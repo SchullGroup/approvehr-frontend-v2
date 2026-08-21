@@ -90,15 +90,15 @@ export function PipelineBoard({
                   aria-hidden="true"
                   className={cn("size-2 rounded-full", COLUMN_ACCENT[col.id])}
                 />
-                <h3 className="text-[0.875rem] font-semibold text-ink">
+                <h3 className="text-body-sm font-semibold text-ink">
                   {col.label}
                 </h3>
-                <span className="tabular ml-auto rounded-full bg-sunken px-1.5 py-0.5 text-[0.75rem] font-semibold text-muted">
+                <span className="tabular ml-auto rounded-full bg-sunken px-1.5 py-0.5 text-meta font-semibold text-muted">
                   {items.length}
                 </span>
               </header>
 
-              <p className="border-b border-line px-3 py-2 text-[0.75rem] leading-snug text-muted">
+              <p className="border-b border-line px-3 py-2 text-meta leading-snug text-muted">
                 {col.blurb}
               </p>
 
@@ -120,7 +120,7 @@ export function PipelineBoard({
                 ))}
 
                 {items.length === 0 && (
-                  <li className="rounded-md border border-dashed border-line-strong px-3 py-6 text-center text-[0.75rem] text-faint">
+                  <li className="rounded-md border border-dashed border-line-strong px-3 py-6 text-center text-meta text-faint">
                     Nobody here yet
                   </li>
                 )}
@@ -172,15 +172,15 @@ function CandidateCard({
       >
         <Avatar name={name} size="sm" />
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[0.875rem] font-medium text-ink">
+          <span className="block truncate text-body-sm font-medium text-ink">
             {name}
           </span>
-          <span className="block truncate text-[0.75rem] text-muted">
+          <span className="block truncate text-meta text-muted">
             {card.candidate.currentTitle} · {card.candidate.currentCompany}
           </span>
         </span>
         {card.rating !== null && (
-          <span className="tabular flex shrink-0 items-center gap-0.5 text-[0.75rem] font-medium text-ink">
+          <span className="tabular flex shrink-0 items-center gap-0.5 text-meta font-medium text-ink">
             <Star
               aria-hidden="true"
               className="size-3 fill-warning text-warning"
@@ -193,7 +193,7 @@ function CandidateCard({
       <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
         <span
           className={cn(
-            "tabular inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[0.75rem]",
+            "tabular inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-meta",
             stale
               ? "bg-warning-soft text-warning-text"
               : "bg-sunken text-muted",
@@ -205,7 +205,7 @@ function CandidateCard({
         </span>
 
         {pendingScorecards > 0 && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-danger-soft px-1.5 py-0.5 text-[0.75rem] text-danger-text">
+          <span className="inline-flex items-center gap-1 rounded-full bg-danger-soft px-1.5 py-0.5 text-meta text-danger-text">
             <MessageSquare aria-hidden="true" className="size-3" />
             {pendingScorecards} scorecard{pendingScorecards > 1 ? "s" : ""} due
           </span>
@@ -243,8 +243,8 @@ export function StageStrip({
             aria-hidden="true"
             className={cn("size-2 shrink-0 rounded-full", COLUMN_ACCENT[s.id])}
           />
-          <span className="text-[0.75rem] text-body">{s.label}</span>
-          <span className="tabular text-[0.875rem] font-semibold text-ink">
+          <span className="text-meta text-body">{s.label}</span>
+          <span className="tabular text-body-sm font-semibold text-ink">
             {counts[s.id] ?? 0}
           </span>
         </li>

@@ -103,7 +103,7 @@ export function RepairDialog({
           </Callout>
         )}
 
-        <p className="text-[0.875rem] leading-relaxed text-body">
+        <p className="text-body-sm leading-relaxed text-body">
           {item.holder
             ? `${item.holder.name} keeps it on their record while it is being fixed.`
             : completedOn === ""

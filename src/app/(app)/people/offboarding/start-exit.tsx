@@ -99,7 +99,7 @@ export function StartExitDialog({
     >
       <div className="flex flex-col gap-4">
         {error && (
-          <p className="rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-[0.875rem] text-danger-text">
+          <p className="rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-body-sm text-danger-text">
             {error}
           </p>
         )}

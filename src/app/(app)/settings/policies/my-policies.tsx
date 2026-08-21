@@ -103,12 +103,12 @@ export function MyPolicies({ className }: { className?: string }) {
 
         <CardBody className="flex flex-col gap-4">
           {mine.loading ? (
-            <div className="flex items-center gap-2 text-[0.875rem] text-muted">
+            <div className="flex items-center gap-2 text-body-sm text-muted">
               <Spinner size="sm" />
               Loading
             </div>
           ) : mine.error ? (
-            <p className="text-[0.875rem] text-body">{mine.error.message}</p>
+            <p className="text-body-sm text-body">{mine.error.message}</p>
           ) : (
             <>
               {mine.outstanding.map((policy) => (
@@ -117,10 +117,10 @@ export function MyPolicies({ className }: { className?: string }) {
                   className="flex flex-wrap items-center gap-3 rounded-md border border-warning-line bg-warning-soft p-3"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="text-[0.9375rem] font-medium text-ink">
+                    <p className="text-body font-medium text-ink">
                       {policy.title}
                     </p>
-                    <p className="mt-0.5 text-[0.875rem] text-body">
+                    <p className="mt-0.5 text-body-sm text-body">
                       {policy.previouslyAcceptedVersion !== null ? (
                         <>
                           You accepted version {policy.previouslyAcceptedVersion}.
@@ -165,7 +165,7 @@ export function MyPolicies({ className }: { className?: string }) {
                       key={policy.id}
                       className="flex flex-wrap items-center justify-between gap-2"
                     >
-                      <span className="text-[0.875rem] text-body">
+                      <span className="text-body-sm text-body">
                         {policy.title}
                       </span>
                       <Button
@@ -184,7 +184,7 @@ export function MyPolicies({ className }: { className?: string }) {
 
               {mine.accepted.length > 0 && (
                 <details className="group">
-                  <summary className="cursor-pointer list-none text-[0.875rem] text-muted hover:text-ink">
+                  <summary className="cursor-pointer list-none text-body-sm text-muted hover:text-ink">
                     {mine.accepted.length} accepted{" "}
                     <span className="text-faint group-open:hidden">· show</span>
                     <span className="hidden text-faint group-open:inline">
@@ -197,12 +197,12 @@ export function MyPolicies({ className }: { className?: string }) {
                         key={policy.id}
                         className="flex flex-wrap items-center justify-between gap-2"
                       >
-                        <span className="text-[0.875rem] text-body">
+                        <span className="text-body-sm text-body">
                           {policy.title}{" "}
                           <span className="text-muted">v{policy.version}</span>
                         </span>
                         <span className="flex items-center gap-2">
-                          <span className="text-[0.75rem] text-muted">
+                          <span className="text-meta text-muted">
                             accepted {dayLabel(policy.acceptedAt.slice(0, 10))}
                           </span>
                           <Button
@@ -222,7 +222,7 @@ export function MyPolicies({ className }: { className?: string }) {
               )}
 
               {!mine.onTheRecord && (
-                <p className="text-[0.75rem] text-muted">
+                <p className="text-meta text-muted">
                   Demo — an acceptance here stays in this browser.
                 </p>
               )}

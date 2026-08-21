@@ -77,11 +77,11 @@ export function DemoForm() {
           <Check aria-hidden="true" className="size-6 text-slate" strokeWidth={3} />
         </span>
         <h2 className="mt-6 text-h3 text-slate">Request received</h2>
-        <p className="mx-auto mt-3 max-w-sm text-[0.9375rem] leading-relaxed text-slate-muted">
+        <p className="mx-auto mt-3 max-w-sm text-body leading-relaxed text-slate-muted">
           We will email {form.email} within one working day with two or three
           times. If none suit, reply with what does.
         </p>
-        <p className="mt-8 rounded-xl bg-wash-amber p-3.5 text-[0.8125rem] leading-relaxed text-slate-soft">
+        <p className="mt-8 rounded-xl bg-wash-amber p-3.5 text-meta leading-relaxed text-slate-soft">
           This is a prototype — the form is not yet wired to a backend, so
           nothing was actually sent.
         </p>
@@ -140,7 +140,7 @@ export function DemoForm() {
 
         {/* Headcount */}
         <fieldset>
-          <legend className="text-[0.875rem] font-medium text-slate">
+          <legend className="text-body-sm font-medium text-slate">
             How many people do you pay?
             <span aria-hidden="true" className="ml-0.5 text-danger-text">
               *
@@ -164,7 +164,7 @@ export function DemoForm() {
 
         {/* How they run payroll now */}
         <fieldset>
-          <legend className="text-[0.875rem] font-medium text-slate">
+          <legend className="text-body-sm font-medium text-slate">
             How do you run payroll today?
           </legend>
           <div className="mt-2.5 flex flex-wrap gap-2">
@@ -182,7 +182,7 @@ export function DemoForm() {
 
         {/* Interests */}
         <fieldset>
-          <legend className="text-[0.875rem] font-medium text-slate">
+          <legend className="text-body-sm font-medium text-slate">
             What should we focus the demo on?
           </legend>
           <div className="mt-2.5 flex flex-wrap gap-2">
@@ -207,10 +207,10 @@ export function DemoForm() {
         <div>
           <label
             htmlFor="notes"
-            className="block text-[0.875rem] font-medium text-slate"
+            className="block text-body-sm font-medium text-slate"
           >
             Anything specific you want to see?
-            <span className="ml-1.5 text-[0.75rem] font-normal text-slate-muted">
+            <span className="ml-1.5 text-meta font-normal text-slate-muted">
               Optional
             </span>
           </label>
@@ -220,7 +220,7 @@ export function DemoForm() {
             value={form.notes}
             onChange={(e) => set("notes", e.currentTarget.value)}
             placeholder="We have staff across three states and file PAYE separately for each."
-            className="mt-2 w-full resize-y rounded-xl border border-sand-line bg-white px-4 py-3 text-[0.9375rem] text-slate placeholder:text-slate-muted/60 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate"
+            className="mt-2 w-full resize-y rounded-xl border border-sand-line bg-white px-4 py-3 text-body text-slate placeholder:text-slate-muted/60 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate"
           />
         </div>
 
@@ -235,7 +235,7 @@ export function DemoForm() {
           {busy ? "Sending…" : "Request a demo"}
         </PillButton>
 
-        <p className="text-center text-[0.75rem] leading-relaxed text-slate-muted">
+        <p className="text-center text-meta leading-relaxed text-slate-muted">
           By submitting you agree we may contact you about this request. We do
           not add you to a mailing list.
         </p>
@@ -271,7 +271,7 @@ function TextField({
     <div>
       <label
         htmlFor={id}
-        className="block text-[0.875rem] font-medium text-slate"
+        className="block text-body-sm font-medium text-slate"
       >
         {label}
         {required && (
@@ -280,7 +280,7 @@ function TextField({
           </span>
         )}
         {optional && (
-          <span className="ml-1.5 text-[0.75rem] font-normal text-slate-muted">
+          <span className="ml-1.5 text-meta font-normal text-slate-muted">
             Optional
           </span>
         )}
@@ -295,7 +295,7 @@ function TextField({
         placeholder={placeholder}
         onChange={(e) => onChange(e.currentTarget.value)}
         className={cn(
-          "mt-2 h-11 w-full rounded-xl border bg-white px-4 text-[0.9375rem] text-slate",
+          "mt-2 h-11 w-full rounded-xl border bg-white px-4 text-body text-slate",
           "placeholder:text-slate-muted/60 focus:outline-none",
           "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate",
           error ? "border-danger" : "border-sand-line",
@@ -314,7 +314,7 @@ function FieldError({
   children: React.ReactNode;
 }) {
   return (
-    <p id={id} className="mt-1.5 text-[0.8125rem] text-danger-text">
+    <p id={id} className="mt-1.5 text-meta text-danger-text">
       {children}
     </p>
   );
@@ -335,7 +335,7 @@ function Chip({
       aria-pressed={selected}
       onClick={onClick}
       className={cn(
-        "rounded-full border px-3.5 py-2 text-[0.8125rem] transition-all duration-200 ease-[var(--ease-out-soft)]",
+        "rounded-full border px-3.5 py-2 text-meta transition-all duration-200 ease-[var(--ease-out-soft)]",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate",
         selected
           ? "border-slate bg-slate text-white"

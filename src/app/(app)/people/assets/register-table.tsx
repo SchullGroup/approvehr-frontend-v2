@@ -127,7 +127,7 @@ export function RegisterTable({
                   }
                 />
 
-                <TD className="tabular whitespace-nowrap text-[0.875rem] text-body">
+                <TD className="tabular whitespace-nowrap text-body-sm text-body">
                   {item.tag}
                 </TD>
 
@@ -140,12 +140,12 @@ export function RegisterTable({
                       >
                         {item.holder.name}
                       </Link>
-                      <span className="tabular block text-[0.75rem] text-muted">
+                      <span className="tabular block text-meta text-muted">
                         {item.holder.employeeNo}
                       </span>
                     </>
                   ) : (
-                    <span className="text-[0.875rem] text-muted">Nobody</span>
+                    <span className="text-body-sm text-muted">Nobody</span>
                   )}
                 </TD>
 
@@ -154,7 +154,7 @@ export function RegisterTable({
                     <Badge tone={STATUS_TONE[item.status]} size="sm" dot>
                       {STATUS_LABEL[item.status]}
                     </Badge>
-                    <span className="text-[0.75rem] text-muted">
+                    <span className="text-meta text-muted">
                       {CONDITION_LABEL[item.condition]}
                       {item.archived ? " · archived" : ""}
                     </span>
@@ -164,21 +164,21 @@ export function RegisterTable({
                 <TD className="whitespace-nowrap">
                   {item.holder ? (
                     <>
-                      <span className="block text-[0.875rem] text-body">
+                      <span className="block text-body-sm text-body">
                         {dayLabel(item.holder.assignedOn)}
                       </span>
-                      <span className="block text-[0.75rem] text-muted">
+                      <span className="block text-meta text-muted">
                         {daysSince(item.holder.assignedOn)} days
                       </span>
                     </>
                   ) : (
-                    <span className="text-[0.875rem] text-faint">—</span>
+                    <span className="text-body-sm text-faint">—</span>
                   )}
                 </TD>
 
                 <TD align="right">
                   {item.cost === null ? (
-                    <span className="text-[0.875rem] text-faint">—</span>
+                    <span className="text-body-sm text-faint">—</span>
                   ) : (
                     <Money amount={item.cost} size="sm" />
                   )}

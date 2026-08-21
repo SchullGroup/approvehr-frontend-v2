@@ -187,12 +187,12 @@ export function QuestionsDialog({
     >
       <div className="flex flex-col gap-5">
         {loading ? (
-          <span className="flex items-center gap-2 text-[0.875rem] text-muted">
+          <span className="flex items-center gap-2 text-body-sm text-muted">
             <Spinner size="sm" />
             Loading the form
           </span>
         ) : questions.length === 0 ? (
-          <p className="text-[0.875rem] text-body">
+          <p className="text-body-sm text-body">
             No questions yet. A form with none asks nobody anything.
           </p>
         ) : (
@@ -203,7 +203,7 @@ export function QuestionsDialog({
                 className="flex flex-wrap items-start justify-between gap-3 rounded-md border border-line p-3"
               >
                 <span className="min-w-0">
-                  <span className="block text-[0.875rem] font-medium text-ink">
+                  <span className="block text-body-sm font-medium text-ink">
                     {question.prompt}
                   </span>
                   <span className="mt-1.5 flex flex-wrap items-center gap-2">

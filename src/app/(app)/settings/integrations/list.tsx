@@ -69,7 +69,7 @@ export function IntegrationsList() {
               >
                 <Check aria-hidden="true" />
               </span>
-              <p className="min-w-0 flex-1 text-[0.875rem] text-body">
+              <p className="min-w-0 flex-1 text-body-sm text-body">
                 <span className="font-medium text-ink">
                   {requested.length}{" "}
                   {requested.length === 1 ? "integration" : "integrations"}{" "}
@@ -124,10 +124,10 @@ export function IntegrationsList() {
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <p className="text-[0.9375rem] font-semibold text-ink">
+                        <p className="text-body font-semibold text-ink">
                           {integration.name}
                         </p>
-                        <p className="mt-1 text-[0.875rem] leading-relaxed text-body">
+                        <p className="mt-1 text-body-sm leading-relaxed text-body">
                           {integration.detail}
                         </p>
                       </div>
@@ -162,7 +162,7 @@ export function IntegrationsList() {
 
         <Card>
           <CardHeader title="Already built in" level={3} />
-          <CardBody className="flex flex-col gap-2.5 text-[0.875rem] leading-relaxed text-body">
+          <CardBody className="flex flex-col gap-2.5 text-body-sm leading-relaxed text-body">
             <p>
               <strong className="text-ink">Statutory filing schedules.</strong>{" "}
               PAYE per state IRS, pension per PFA, NHF and NSITF — generated from

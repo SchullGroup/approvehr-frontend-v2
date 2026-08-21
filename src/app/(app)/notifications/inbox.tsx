@@ -219,7 +219,7 @@ export function NotificationsInbox() {
               <section key={group.key} aria-labelledby={`day-${group.key}`}>
                 <h2
                   id={`day-${group.key}`}
-                  className="mb-2 text-[0.75rem] font-semibold uppercase tracking-wide text-faint"
+                  className="mb-2 text-meta font-semibold uppercase tracking-wide text-faint"
                 >
                   {group.heading}
                 </h2>
@@ -310,7 +310,7 @@ function Row({
       <div className="min-w-0 flex-1">
         <p
           className={cn(
-            "flex flex-wrap items-center gap-2 text-[0.9375rem] text-ink",
+            "flex flex-wrap items-center gap-2 text-body text-ink",
             item.read ? "font-normal" : "font-semibold",
           )}
         >
@@ -325,7 +325,7 @@ function Row({
         </p>
 
         {item.body && (
-          <p className="mt-1 text-[0.875rem] leading-relaxed text-body">
+          <p className="mt-1 text-body-sm leading-relaxed text-body">
             {item.body}
           </p>
         )}
@@ -333,7 +333,7 @@ function Row({
         <time
           dateTime={item.createdAt}
           title={fullStamp(item.createdAt)}
-          className="mt-1.5 block text-[0.75rem] text-faint"
+          className="mt-1.5 block text-meta text-faint"
         >
           {whenLabel(item.createdAt, now)}
         </time>

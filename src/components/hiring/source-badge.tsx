@@ -30,7 +30,7 @@ export function SourceBadge({
       <Badge tone={live ? "success" : "warning"} size="sm" dot>
         {live ? "Live from the API" : "Demo data, this browser only"}
       </Badge>
-      {note && <span className="text-[0.75rem] text-muted">{note}</span>}
+      {note && <span className="text-meta text-muted">{note}</span>}
     </span>
   );
 }

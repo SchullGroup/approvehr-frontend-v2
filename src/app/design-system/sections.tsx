@@ -139,7 +139,7 @@ function Row({
 }) {
   return (
     <div>
-      <p className="mb-2.5 text-[0.75rem] font-medium tracking-wide text-muted">
+      <p className="mb-2.5 text-meta font-medium tracking-wide text-muted">
         {label}
       </p>
       <div className="flex flex-wrap items-center gap-2.5">{children}</div>
@@ -444,15 +444,15 @@ export function SparklineDemo() {
     <div className="flex flex-wrap items-center gap-8">
       <div className="flex items-center gap-3">
         <Sparkline values={[12, 18, 14, 22, 26, 24, 31]} />
-        <span className="text-[0.875rem] text-muted">accent</span>
+        <span className="text-body-sm text-muted">accent</span>
       </div>
       <div className="flex items-center gap-3">
         <Sparkline values={[31, 28, 30, 22, 19, 16, 11]} tone="success" />
-        <span className="text-[0.875rem] text-muted">success</span>
+        <span className="text-body-sm text-muted">success</span>
       </div>
       <div className="flex items-center gap-3">
         <Sparkline values={[8, 12, 9, 17, 14, 26, 34]} tone="danger" />
-        <span className="text-[0.875rem] text-muted">danger</span>
+        <span className="text-body-sm text-muted">danger</span>
       </div>
     </div>
   );
@@ -561,7 +561,7 @@ export function FeedbackDemo() {
       </Row>
 
       <Modal open={modal} onClose={() => setModal(false)} title="Approve payroll">
-        <p className="text-sm leading-relaxed text-body">
+        <p className="text-body-sm leading-relaxed text-body">
           You are approving August payroll for 264 employees, totalling{" "}
           <Money amount={93_000_000} className="font-medium text-ink" />. Funds
           leave the account on 28 August.
@@ -621,7 +621,7 @@ export function NavigationDemo() {
   return (
     <div className="flex flex-col gap-7">
       <div>
-        <p className="mb-2.5 text-[0.75rem] font-medium tracking-wide text-muted">
+        <p className="mb-2.5 text-meta font-medium tracking-wide text-muted">
           Tabs
         </p>
         <Tabs
@@ -634,13 +634,13 @@ export function NavigationDemo() {
             { id: "offers", label: "Offers", count: 3 },
           ]}
         />
-        <div className="mt-4 rounded-lg border border-line bg-canvas px-4 py-6 text-center text-[0.875rem] text-muted">
+        <div className="mt-4 rounded-lg border border-line bg-canvas px-4 py-6 text-center text-body-sm text-muted">
           Panel for <span className="font-medium text-ink">{tab}</span>
         </div>
       </div>
 
       <div>
-        <p className="mb-2.5 text-[0.75rem] font-medium tracking-wide text-muted">
+        <p className="mb-2.5 text-meta font-medium tracking-wide text-muted">
           Segmented control
         </p>
         <SegmentedControl
@@ -655,7 +655,7 @@ export function NavigationDemo() {
       </div>
 
       <div>
-        <p className="mb-2.5 text-[0.75rem] font-medium tracking-wide text-muted">
+        <p className="mb-2.5 text-meta font-medium tracking-wide text-muted">
           Stepper
         </p>
         <StepIndicator
@@ -672,7 +672,7 @@ export function NavigationDemo() {
       </div>
 
       <div>
-        <p className="mb-2.5 text-[0.75rem] font-medium tracking-wide text-muted">
+        <p className="mb-2.5 text-meta font-medium tracking-wide text-muted">
           Accordion
         </p>
         <Accordion
@@ -703,7 +703,7 @@ export function PeopleDemo() {
     <div className="grid gap-6 lg:grid-cols-2">
       <div className="flex flex-col gap-6">
         <div>
-          <p className="mb-2.5 text-[0.75rem] font-medium tracking-wide text-muted">
+          <p className="mb-2.5 text-meta font-medium tracking-wide text-muted">
             Avatars
           </p>
           <div className="flex items-center gap-3">
@@ -715,7 +715,7 @@ export function PeopleDemo() {
         </div>
 
         <div>
-          <p className="mb-2.5 text-[0.75rem] font-medium tracking-wide text-muted">
+          <p className="mb-2.5 text-meta font-medium tracking-wide text-muted">
             Badges
           </p>
           <div className="flex flex-wrap gap-2">
@@ -730,7 +730,7 @@ export function PeopleDemo() {
         </div>
 
         <div>
-          <p className="mb-2.5 text-[0.75rem] font-medium tracking-wide text-muted">
+          <p className="mb-2.5 text-meta font-medium tracking-wide text-muted">
             Description list
           </p>
           <Card>
@@ -752,7 +752,7 @@ export function PeopleDemo() {
       </div>
 
       <div>
-        <p className="mb-2.5 text-[0.75rem] font-medium tracking-wide text-muted">
+        <p className="mb-2.5 text-meta font-medium tracking-wide text-muted">
           Timeline
         </p>
         <Card>
@@ -808,7 +808,7 @@ export function CardsDemo() {
           description="Header, body and footer"
         />
         <CardBody>
-          <p className="text-[0.875rem] leading-relaxed text-body">
+          <p className="text-body-sm leading-relaxed text-body">
             The default surface for grouped content. Hairline border, no shadow
             at rest.
           </p>
@@ -848,7 +848,7 @@ export function CardsDemo() {
       <Card className="brand-wash">
         <CardBody className="py-8 text-center">
           <p className="text-h4 text-ink">Brand wash</p>
-          <p className="mt-1.5 text-[0.875rem] text-body">
+          <p className="mt-1.5 text-body-sm text-body">
             Indigo and green radial tint. For onboarding and empty moments only.
           </p>
         </CardBody>

@@ -124,13 +124,13 @@ export function LedgerPanel({ canRecordFunding }: { canRecordFunding: boolean })
                           {LEDGER_KIND_LABEL[row.kind] ?? row.kind}
                         </Badge>
                         {row.batchReference && (
-                          <span className="tabular text-[0.75rem] text-muted">
+                          <span className="tabular text-meta text-muted">
                             {row.batchReference}
                           </span>
                         )}
                       </span>
                       {(row.note ?? row.reference) && (
-                        <span className="mt-1 block text-[0.75rem] text-muted">
+                        <span className="mt-1 block text-meta text-muted">
                           {row.note ?? row.reference}
                         </span>
                       )}
@@ -165,17 +165,17 @@ export function LedgerPanel({ canRecordFunding }: { canRecordFunding: boolean })
             </TableWrap>
 
             <CardBody className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3 border-t border-line">
-              <p className="text-[0.875rem] text-muted">
+              <p className="text-body-sm text-muted">
                 {ledger.total} {ledger.total === 1 ? "entry" : "entries"}
               </p>
               <div className="flex flex-wrap items-center gap-x-8 gap-y-2">
-                <span className="text-[0.875rem] text-muted">
+                <span className="text-body-sm text-muted">
                   In{" "}
                   <span className="tabular font-medium text-ink">
                     <Money amount={naira(ledger.totals.inKobo)} decimals />
                   </span>
                 </span>
-                <span className="text-[0.875rem] text-muted">
+                <span className="text-body-sm text-muted">
                   Out{" "}
                   <span className="tabular font-medium text-ink">
                     <Money amount={naira(ledger.totals.outKobo)} decimals />
@@ -283,7 +283,7 @@ function RecordFundingModal({
     >
       <div className="flex flex-col gap-4">
         {error && (
-          <p className="rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-[0.875rem] text-danger-text">
+          <p className="rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-body-sm text-danger-text">
             {error}
           </p>
         )}

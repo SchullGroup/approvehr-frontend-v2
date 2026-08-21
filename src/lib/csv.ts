@@ -195,12 +195,30 @@ export function parseCsv(
   }
 
   const all = parseCsvRecords(body, delimiter);
-  const headerRecord = all.find((record) => !isBlankLine(record));
+  return fileFromRecords(all, { delimiter, notes });
+}
+
+/**
+ * Records to a `CsvFile`: name the headings, drop blank lines, square it off.
+ *
+ * Split out of `parseCsv` because a spreadsheet arrives as a grid of cells
+ * rather than as text (see `lib/xlsx.ts`), and everything after the parsing is
+ * identical — a heading with no name, a repeated heading and a short row are the
+ * same three problems whichever kind of file they came out of. One
+ * implementation means an .xlsx and a .csv of the same data produce the same
+ * columns, the same row numbers and the same notes.
+ */
+export function fileFromRecords(
+  records: readonly string[][],
+  options: { delimiter?: string; notes?: string[] } = {},
+): CsvFile {
+  const { delimiter = ",", notes = [] } = options;
+  const headerRecord = records.find((record) => !isBlankLine(record));
   if (!headerRecord) {
     return { headers: [], rows: [], records: [], delimiter, notes };
   }
 
-  const dataRecords = all.slice(all.indexOf(headerRecord) + 1);
+  const dataRecords = records.slice(records.indexOf(headerRecord) + 1);
   const kept = dataRecords.filter((record) => !isBlankLine(record));
   const blanks = dataRecords.length - kept.length;
   if (blanks > 0) {
@@ -222,7 +240,7 @@ export function parseCsv(
   );
 
   const rows: CsvRow[] = [];
-  const records: string[][] = [];
+  const out: string[][] = [];
   let ragged = 0;
 
   for (const record of kept) {
@@ -232,7 +250,7 @@ export function parseCsv(
       row[heading] = record[index] ?? "";
     });
     rows.push(row);
-    records.push(record);
+    out.push(record);
   }
 
   if (ragged > 0) {
@@ -241,7 +259,7 @@ export function parseCsv(
     );
   }
 
-  return { headers, rows, records, delimiter, notes };
+  return { headers, rows, records: out, delimiter, notes };
 }
 
 /**

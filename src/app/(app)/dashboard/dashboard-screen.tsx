@@ -57,7 +57,7 @@ export function DashboardScreen() {
         <PageBody>
           <div className="flex items-center gap-3 py-16">
             <Spinner />
-            <span className="text-[0.875rem] text-muted">Loading your day…</span>
+            <span className="text-body-sm text-muted">Loading your day…</span>
           </div>
         </PageBody>
       </>
@@ -71,13 +71,13 @@ export function DashboardScreen() {
         <PageBody>
           <Card>
             <CardBody className="flex flex-col items-start gap-3">
-              <p className="text-[0.9375rem] text-ink">
+              <p className="text-body text-ink">
                 {error ?? "Could not load your dashboard."}
               </p>
               <button
                 type="button"
                 onClick={reload}
-                className="text-[0.875rem] font-medium text-accent-text underline"
+                className="text-body-sm font-medium text-accent-text underline"
               >
                 Try again
               </button>
@@ -197,7 +197,7 @@ export function DashboardScreen() {
               <CardBody>
                 {payroll === null ? (
                   <div className="flex flex-col items-start gap-3">
-                    <p className="text-[0.9375rem] text-body">
+                    <p className="text-body text-body">
                       No run has been prepared for this month yet.
                     </p>
                     <ButtonLink href="/payroll/runs/new" variant="accent" size="sm">
@@ -216,13 +216,13 @@ export function DashboardScreen() {
                         {runStatusLabel(payroll.status)}
                       </Badge>
                     </div>
-                    <p className="text-[0.875rem] text-muted">
+                    <p className="text-body-sm text-muted">
                       Net pay for {payroll.employeeCount}{" "}
                       {payroll.employeeCount === 1 ? "person" : "people"} · gross{" "}
                       <Money amount={naira(payroll.grossKobo)} decimals />
                     </p>
                     {payroll.warnings > 0 && (
-                      <p className="text-[0.875rem] text-warning-text">
+                      <p className="text-body-sm text-warning-text">
                         {payroll.warnings}{" "}
                         {payroll.warnings === 1 ? "thing" : "things"} worth checking
                         before you approve
@@ -305,16 +305,16 @@ function Row({
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line p-3">
       <div className="min-w-0">
-        <p className="text-[0.9375rem] font-medium text-ink">
+        <p className="text-body font-medium text-ink">
           {/* Urgency carries a word as well as a colour. */}
           {urgent && (
-            <span className="mr-2 text-[0.75rem] font-semibold uppercase tracking-wide text-danger-text">
+            <span className="mr-2 text-meta font-semibold uppercase tracking-wide text-danger-text">
               Overdue
             </span>
           )}
           {label}
         </p>
-        {detail && <p className="mt-0.5 text-[0.875rem] text-muted">{detail}</p>}
+        {detail && <p className="mt-0.5 text-body-sm text-muted">{detail}</p>}
       </div>
       <ButtonLink href={href} variant="secondary" size="sm">
         {action}
@@ -341,7 +341,7 @@ function Figure({
       >
         {value.toLocaleString()}
       </p>
-      <p className="mt-0.5 text-[0.875rem] text-muted">{label}</p>
+      <p className="mt-0.5 text-body-sm text-muted">{label}</p>
     </div>
   );
 }
@@ -360,8 +360,8 @@ function Owed({
       href={href}
       className="flex items-center justify-between gap-3 rounded-md px-1 py-1 transition-colors hover:bg-canvas"
     >
-      <span className="text-[0.875rem] text-body">{label}</span>
-      <Money amount={naira(kobo)} decimals className="text-[0.9375rem] font-medium" />
+      <span className="text-body-sm text-body">{label}</span>
+      <Money amount={naira(kobo)} decimals className="text-body font-medium" />
     </Link>
   );
 }

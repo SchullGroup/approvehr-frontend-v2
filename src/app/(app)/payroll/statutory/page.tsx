@@ -112,7 +112,7 @@ export default function StatutoryPage() {
         <Card>
           <CardHeader title="How this is produced" />
           <CardBody>
-            <p className="text-[0.875rem] leading-relaxed text-body">
+            <p className="text-body-sm leading-relaxed text-body">
               Each row is computed from the approved payroll run rather than
               re-entered. PAYE splits by the employee&apos;s tax state, pension
               by their PFA, and NHF and NSITF across everyone on the run. If a

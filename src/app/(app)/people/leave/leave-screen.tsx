@@ -335,7 +335,7 @@ export function LeaveScreen() {
               action={
                 <div className="flex items-center gap-3">
                   {loading && (
-                    <span className="text-[0.75rem] text-muted">Loading…</span>
+                    <span className="text-meta text-muted">Loading…</span>
                   )}
                   {/* Offered only to somebody who can see everybody's. For
                       anyone else there is nothing to switch between. */}
@@ -410,14 +410,14 @@ export function LeaveScreen() {
                           {STATUS[r.status].label}
                         </Badge>
                         {r.decidedAt && r.status !== "pending" && (
-                          <span className="mt-0.5 block text-[0.75rem] text-faint">
+                          <span className="mt-0.5 block text-meta text-faint">
                             {shortDate(r.decidedAt)}
                           </span>
                         )}
                       </TD>
                       <TD align="right">
                         {!canDecide ? (
-                          <span className="text-[0.75rem] text-faint">—</span>
+                          <span className="text-meta text-faint">—</span>
                         ) : r.status === "pending" ? (
                           <div className="flex justify-end gap-1.5">
                             <Button
@@ -475,10 +475,10 @@ export function LeaveScreen() {
               />
               <CardBody className="flex flex-col gap-3.5">
                 {balances.loading && (
-                  <p className="text-[0.875rem] text-muted">Loading balances…</p>
+                  <p className="text-body-sm text-muted">Loading balances…</p>
                 )}
                 {shown.length === 0 && !balances.loading && (
-                  <p className="text-[0.875rem] text-muted">
+                  <p className="text-body-sm text-muted">
                     Nobody has booked leave yet.
                   </p>
                 )}
@@ -488,12 +488,12 @@ export function LeaveScreen() {
                   return (
                     <div key={person.id}>
                       <div className="mb-1 flex items-baseline justify-between gap-2">
-                        <span className="truncate text-[0.875rem] text-body">
+                        <span className="truncate text-body-sm text-body">
                           {person.name}
                         </span>
                         <span
                           className={cn(
-                            "tabular shrink-0 text-[0.75rem]",
+                            "tabular shrink-0 text-meta",
                             balance.remaining <= 3
                               ? "text-warning-text"
                               : "text-muted",
@@ -634,10 +634,10 @@ function RequestPanel({
         ) : undefined
       }
     >
-      {loading && <p className="text-[0.875rem] text-muted">Loading…</p>}
+      {loading && <p className="text-body-sm text-muted">Loading…</p>}
 
       {!loading && !request && (
-        <p className="text-[0.875rem] text-muted">
+        <p className="text-body-sm text-muted">
           That request is no longer here. It may have been withdrawn.
         </p>
       )}
@@ -663,10 +663,10 @@ function RequestPanel({
 
           {detail?.balance && (
             <div>
-              <p className="text-[0.75rem] font-semibold tracking-wide text-muted">
+              <p className="text-meta font-semibold tracking-wide text-muted">
                 {detail.balance.leaveType} balance
               </p>
-              <p className="mt-1 text-[0.875rem] text-body">
+              <p className="mt-1 text-body-sm text-body">
                 {detail.balance.remaining} of {detail.balance.entitled} days left
                 {detail.balance.pending > 0 &&
                   `, with ${detail.balance.pending} still waiting on a decision`}
@@ -680,7 +680,7 @@ function RequestPanel({
                 tone={detail.balance.remaining <= 3 ? "warning" : "accent"}
               />
               {detail.balance.remaining < 0 && (
-                <p className="mt-2 text-[0.875rem] text-warning-text">
+                <p className="mt-2 text-body-sm text-warning-text">
                   Approving this takes them past their entitlement. The days over
                   are unpaid unless you say otherwise.
                 </p>
@@ -689,11 +689,11 @@ function RequestPanel({
           )}
 
           <div>
-            <p className="text-[0.75rem] font-semibold tracking-wide text-muted">
+            <p className="text-meta font-semibold tracking-wide text-muted">
               Who else is off those days
             </p>
             {detail && detail.clashes.length === 0 ? (
-              <p className="mt-1 text-[0.875rem] text-body">
+              <p className="mt-1 text-body-sm text-body">
                 Nobody else. Cover is not a problem here.
               </p>
             ) : (
@@ -701,7 +701,7 @@ function RequestPanel({
                 {detail?.clashes.map((clash) => (
                   <li
                     key={clash.id}
-                    className="flex flex-wrap items-center gap-2 rounded-md border border-line p-2.5 text-[0.875rem]"
+                    className="flex flex-wrap items-center gap-2 rounded-md border border-line p-2.5 text-body-sm"
                   >
                     <Link
                       href={`/people/${clash.employeeId}`}
@@ -709,7 +709,7 @@ function RequestPanel({
                     >
                       {clash.employeeName}
                     </Link>
-                    <span className="tabular text-[0.75rem] text-muted">
+                    <span className="tabular text-meta text-muted">
                       {clash.from} → {clash.to}
                     </span>
                     <Badge tone={STATUS[clash.status].tone} size="sm">

@@ -87,7 +87,7 @@ function Panel({
           timeline.queryable && timeline.total > timeline.entries.length ? (
             <Link
               href={href}
-              className="text-[0.875rem] font-medium text-accent-text hover:underline"
+              className="text-body-sm font-medium text-accent-text hover:underline"
             >
               All {timeline.total}
             </Link>
@@ -96,7 +96,7 @@ function Panel({
       />
       <CardBody>
         {!timeline.queryable ? (
-          <p className="text-[0.875rem] leading-relaxed text-muted">
+          <p className="text-body-sm leading-relaxed text-muted">
             The audit trail cannot look this kind of record up yet.
           </p>
         ) : timeline.loading && timeline.entries.length === 0 ? (
@@ -106,11 +106,11 @@ function Panel({
             <span className="sr-only">Loading this record’s history</span>
           </div>
         ) : timeline.error ? (
-          <p className="text-[0.875rem] leading-relaxed text-body">
+          <p className="text-body-sm leading-relaxed text-body">
             {timeline.error.message}
           </p>
         ) : timeline.entries.length === 0 ? (
-          <p className="flex items-center gap-2 text-[0.875rem] text-muted">
+          <p className="flex items-center gap-2 text-body-sm text-muted">
             <History aria-hidden="true" className="size-4 shrink-0 text-faint" />
             Nothing recorded against this record yet.
           </p>

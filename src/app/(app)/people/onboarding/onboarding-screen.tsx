@@ -146,9 +146,9 @@ export function OnboardingScreen() {
           <Badge tone="neutral" size="sm">
             Ticks you make here are saved in this browser
           </Badge>
-          {loading && <span className="text-[0.75rem] text-muted">Loading…</span>}
+          {loading && <span className="text-meta text-muted">Loading…</span>}
           {error && (
-            <span className="text-[0.75rem] text-danger-text">
+            <span className="text-meta text-danger-text">
               {error.message}
             </span>
           )}
@@ -358,7 +358,7 @@ function StepRow({
           </span>
           <span
             className={cn(
-              "min-w-0 flex-1 truncate text-[0.875rem]",
+              "min-w-0 flex-1 truncate text-body-sm",
               done ? "text-muted line-through" : "text-ink",
             )}
           >
@@ -376,7 +376,7 @@ function StepRow({
               {done ? " — done, from their record" : " — outstanding on their record"}
             </span>
           </span>
-          <span className="shrink-0 rounded-full bg-sunken px-1.5 py-0.5 text-[0.75rem] font-medium text-muted">
+          <span className="shrink-0 rounded-full bg-sunken px-1.5 py-0.5 text-meta font-medium text-muted">
             Their record
           </span>
         </>
@@ -389,7 +389,7 @@ function StepRow({
             label={
               <span
                 className={cn(
-                  "block truncate text-[0.875rem]",
+                  "block truncate text-body-sm",
                   done ? "text-muted line-through" : "text-ink",
                 )}
               >
@@ -399,7 +399,7 @@ function StepRow({
           />
           <span
             className={cn(
-              "shrink-0 rounded-full px-1.5 py-0.5 text-[0.75rem] font-medium",
+              "shrink-0 rounded-full px-1.5 py-0.5 text-meta font-medium",
               OWNER[step.owner]?.tone ?? "bg-sunken text-muted",
             )}
           >
@@ -409,7 +409,7 @@ function StepRow({
       )}
       <span
         className={cn(
-          "shrink-0 text-[0.75rem] tabular",
+          "shrink-0 text-meta tabular",
           overdue ? "font-medium text-danger-text" : "text-faint",
         )}
       >

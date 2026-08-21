@@ -96,18 +96,18 @@ export function MyAssets({
 
       <CardBody className="flex flex-col gap-4">
         {loading && (
-          <div className="flex items-center gap-2 text-[0.875rem] text-muted">
+          <div className="flex items-center gap-2 text-body-sm text-muted">
             <Spinner size="sm" />
             Loading
           </div>
         )}
 
         {error && (
-          <p className="text-[0.875rem] text-danger-text">{error.message}</p>
+          <p className="text-body-sm text-danger-text">{error.message}</p>
         )}
 
         {!loading && !error && holding.length === 0 && (
-          <p className="flex items-center gap-2.5 text-[0.875rem] text-muted">
+          <p className="flex items-center gap-2.5 text-body-sm text-muted">
             <Laptop aria-hidden="true" className="size-4 shrink-0 text-faint" />
             Nothing is signed out to you.
           </p>
@@ -123,9 +123,9 @@ export function MyAssets({
                   className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1.5 py-3 first:pt-0 last:pb-0"
                 >
                   <div className="min-w-0">
-                    <p className="flex flex-wrap items-center gap-2 text-[0.9375rem] font-medium text-ink">
+                    <p className="flex flex-wrap items-center gap-2 text-body font-medium text-ink">
                       {item.name}
-                      <span className="tabular text-[0.75rem] font-normal text-muted">
+                      <span className="tabular text-meta font-normal text-muted">
                         {item.tag}
                       </span>
                       {tone && (
@@ -139,7 +139,7 @@ export function MyAssets({
                         </Badge>
                       )}
                     </p>
-                    <p className="mt-0.5 text-[0.875rem] text-muted">
+                    <p className="mt-0.5 text-body-sm text-muted">
                       {item.kind ? `${item.kind} · ` : ""}Given to you{" "}
                       {dayLabel(item.assignedOn)} · {daysSince(item.assignedOn)}{" "}
                       days · {CONDITION_LABEL[item.conditionOut].toLowerCase()}{" "}
@@ -157,14 +157,14 @@ export function MyAssets({
 
         {returned.length > 0 && (
           <div>
-            <p className="text-[0.75rem] font-medium uppercase tracking-wide text-faint">
+            <p className="text-meta font-medium uppercase tracking-wide text-faint">
               Already handed back
             </p>
             <ul className="mt-2 flex flex-col gap-1">
               {returned.slice(0, 4).map((item) => (
-                <li key={item.assignmentId} className="text-[0.875rem] text-muted">
+                <li key={item.assignmentId} className="text-body-sm text-muted">
                   {item.name}{" "}
-                  <span className="tabular text-[0.75rem]">{item.tag}</span> ·
+                  <span className="tabular text-meta">{item.tag}</span> ·
                   handed back {dayLabel(item.returnedOn)}
                   {item.conditionBack
                     ? ` · ${CONDITION_LABEL[item.conditionBack].toLowerCase()}`

@@ -191,7 +191,7 @@ export function KnowledgeScreen() {
 
           {unavailable ? (
             <CardBody>
-              <p className="text-[0.875rem] leading-relaxed text-warning-text">
+              <p className="text-body-sm leading-relaxed text-warning-text">
                 {unavailable}
               </p>
             </CardBody>
@@ -265,11 +265,11 @@ export function KnowledgeScreen() {
                 >
                   <Link
                     href={`/help/kb/${row.slug}`}
-                    className="min-w-0 flex-1 text-[0.9375rem] font-medium text-ink underline-offset-4 hover:text-accent-text hover:underline"
+                    className="min-w-0 flex-1 text-body font-medium text-ink underline-offset-4 hover:text-accent-text hover:underline"
                   >
                     {row.title}
                   </Link>
-                  <span className="tabular shrink-0 text-[0.875rem] text-muted">
+                  <span className="tabular shrink-0 text-body-sm text-muted">
                     {row.notHelpful} said no · {row.helpful} said yes
                   </span>
                   {row.notHelpful > row.helpful && (
@@ -332,7 +332,7 @@ export function KnowledgeScreen() {
 
           {articles.error && (
             <CardBody>
-              <p className="text-[0.875rem] text-danger-text">
+              <p className="text-body-sm text-danger-text">
                 {articles.error.message}
               </p>
             </CardBody>
@@ -407,18 +407,18 @@ export function KnowledgeScreen() {
                       </TD>
                       <TD>
                         {unavailable ? (
-                          <span className="text-[0.875rem] text-muted">
+                          <span className="text-body-sm text-muted">
                             Not switched on
                           </span>
                         ) : votes === 0 ? (
-                          <span className="text-[0.875rem] text-faint">
+                          <span className="text-body-sm text-faint">
                             No votes yet
                           </span>
                         ) : (
                           <span className="flex flex-wrap items-center gap-2">
                             <span
                               className={cn(
-                                "tabular text-[0.875rem]",
+                                "tabular text-body-sm",
                                 poor ? "font-medium text-ink" : "text-muted",
                               )}
                             >
@@ -493,7 +493,7 @@ export function KnowledgeScreen() {
           {articles.articles.length > 0 &&
             articles.total > articles.articles.length && (
               <CardBody className="border-t border-line">
-                <p className="text-[0.875rem] text-muted">
+                <p className="text-body-sm text-muted">
                   Showing {count(articles.articles.length)} of{" "}
                   {count(articles.total)}. Narrow it with the search box above.
                 </p>

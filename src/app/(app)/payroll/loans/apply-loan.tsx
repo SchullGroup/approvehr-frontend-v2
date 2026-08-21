@@ -392,7 +392,7 @@ export function ApplyLoanModal({
 
         {priced && (
           <div className="rounded-lg border border-line bg-canvas p-4">
-            <p className="text-[0.9375rem] leading-relaxed text-ink">
+            <p className="text-body leading-relaxed text-ink">
               <strong className="font-semibold">
                 {money(priced.instalmentKobo)} a month
               </strong>{" "}
@@ -416,7 +416,7 @@ export function ApplyLoanModal({
             </p>
 
             {effect && effect.netAfterKobo > 0 ? (
-              <p className="mt-1.5 text-[0.875rem] text-body">
+              <p className="mt-1.5 text-body-sm text-body">
                 Take-home now {money(effect.netBeforeKobo)} · first deduction{" "}
                 {monthLabel(startPeriod)} · last{" "}
                 {monthLabel(
@@ -424,7 +424,7 @@ export function ApplyLoanModal({
                 )}
               </p>
             ) : (
-              <p className="mt-1.5 text-[0.875rem] text-body">
+              <p className="mt-1.5 text-body-sm text-body">
                 First deduction {monthLabel(startPeriod)}, last{" "}
                 {monthLabel(
                   priced.lines[priced.lines.length - 1]?.dueDate ?? startPeriod,
@@ -476,7 +476,7 @@ export function ApplyLoanModal({
             icon={<AlertTriangle aria-hidden="true" />}
             title="That leaves nothing to live on"
           >
-            <p className="text-[0.875rem] leading-relaxed">
+            <p className="text-body-sm leading-relaxed">
               {money(effect.monthlyKobo)} a month is more than the whole
               take-home of {money(effect.netBeforeKobo)}.
             </p>
@@ -498,7 +498,7 @@ export function ApplyLoanModal({
             icon={<Wallet aria-hidden="true" />}
             title="More than a third of take-home"
           >
-            <p className="text-[0.875rem] leading-relaxed">
+            <p className="text-body-sm leading-relaxed">
               {money(effect.monthlyKobo)} out of {money(effect.netBeforeKobo)} a
               month.
             </p>

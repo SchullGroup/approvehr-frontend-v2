@@ -83,7 +83,7 @@ export function Modal({
             {description && (
               <p
                 id={`${id}-desc`}
-                className="mt-1 text-[0.875rem] leading-relaxed text-muted"
+                className="mt-1 text-body-sm leading-relaxed text-muted"
               >
                 {description}
               </p>
@@ -169,7 +169,7 @@ export function Drawer({
               {title}
             </h2>
             {description && (
-              <p className="mt-1 text-[0.875rem] text-muted">{description}</p>
+              <p className="mt-1 text-body-sm text-muted">{description}</p>
             )}
           </div>
           <IconButton label="Close panel" size="sm" onClick={onClose}>
@@ -225,7 +225,7 @@ export function ConfirmDialog({
           <button
             type="button"
             onClick={onClose}
-            className="h-10 rounded-md border border-control-line bg-surface px-4 text-sm font-medium text-ink hover:bg-canvas"
+            className="h-10 rounded-md border border-control-line bg-surface px-4 text-body-sm font-medium text-ink hover:bg-canvas"
           >
             Cancel
           </button>
@@ -234,7 +234,7 @@ export function ConfirmDialog({
             onClick={onConfirm}
             disabled={loading}
             className={cn(
-              "h-10 rounded-md px-4 text-sm font-medium text-white disabled:opacity-50",
+              "h-10 rounded-md px-4 text-body-sm font-medium text-white disabled:opacity-50",
               tone === "danger"
                 ? "bg-danger-text hover:brightness-110"
                 : "bg-ink hover:bg-ink-soft",
@@ -245,7 +245,7 @@ export function ConfirmDialog({
         </>
       }
     >
-      <div className="text-sm leading-relaxed text-body">{body}</div>
+      <div className="text-body-sm leading-relaxed text-body">{body}</div>
     </Modal>
   );
 }

@@ -244,7 +244,7 @@ export function ExitDetailScreen({ id }: { id: string }) {
                       Release {firstName}
                     </Button>
                   ) : (
-                    <p className="text-[0.875rem] text-body">
+                    <p className="text-body-sm text-body">
                       {exit.manager
                         ? `${exit.manager.name} has to release ${firstName}.`
                         : `Their manager has to release ${firstName}.`}
@@ -264,7 +264,7 @@ export function ExitDetailScreen({ id }: { id: string }) {
                       Approve and start the checklist
                     </Button>
                   ) : (
-                    <p className="text-[0.875rem] text-body">
+                    <p className="text-body-sm text-body">
                       HR has to approve this next.
                     </p>
                   ))}
@@ -308,7 +308,7 @@ export function ExitDetailScreen({ id }: { id: string }) {
 
               {/* One short line, naming what is in the way. */}
               {!closed && !readiness.canComplete && (
-                <p className="text-[0.875rem] text-muted sm:text-right">
+                <p className="text-body-sm text-muted sm:text-right">
                   {blockerLine(readiness.blockers)}
                 </p>
               )}
@@ -358,10 +358,10 @@ export function ExitDetailScreen({ id }: { id: string }) {
                     <Laptop aria-hidden="true" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-[0.9375rem] font-medium text-ink">
+                    <p className="text-body font-medium text-ink">
                       {asset.name}
                     </p>
-                    <p className="tabular mt-0.5 text-[0.875rem] text-muted">
+                    <p className="tabular mt-0.5 text-body-sm text-muted">
                       {asset.tag} · since {shortDate(asset.assignedOn)}
                       {asset.valueKobo === null
                         ? ""
@@ -653,13 +653,13 @@ function FinalPayCard({
               {row.icon}
             </span>
             <div className="min-w-0">
-              <p className="text-[0.9375rem] font-medium text-ink">{row.label}</p>
-              <p className="mt-0.5 text-[0.875rem] text-muted">{row.detail}</p>
+              <p className="text-body font-medium text-ink">{row.label}</p>
+              <p className="mt-0.5 text-body-sm text-muted">{row.detail}</p>
             </div>
           </div>
         ))}
 
-        <p className="flex items-start gap-2 text-[0.875rem] text-muted">
+        <p className="flex items-start gap-2 text-body-sm text-muted">
           <Banknote aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
           The payroll run raises each of these again before anybody approves it,
           from this same list.

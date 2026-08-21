@@ -31,13 +31,13 @@ export function LegalDocument({ doc }: { doc: LegalDoc }) {
       <div className="container-page">
         <div className="grid gap-14 lg:grid-cols-[minmax(0,1fr)_15rem] lg:gap-16">
           <article className="max-w-[42rem]">
-            <p className="text-[0.75rem] font-medium uppercase tracking-[0.08em] text-slate-muted">
+            <p className="text-meta font-medium uppercase tracking-[0.08em] text-slate-muted">
               Legal
             </p>
             <h1 className="mt-3 text-h1 text-slate">{doc.title}</h1>
             <p className="mt-6 text-lead text-slate-muted">{doc.standfirst}</p>
 
-            <p className="mt-8 text-[0.8125rem] text-slate-muted">
+            <p className="mt-8 text-meta text-slate-muted">
               Last updated {doc.updated}
             </p>
 
@@ -48,14 +48,14 @@ export function LegalDocument({ doc }: { doc: LegalDoc }) {
               aria-label="Status of this document"
               className="mt-6 rounded-2xl border border-sand-line bg-sand-deep/60 p-5"
             >
-              <h2 className="text-[0.8125rem] font-semibold text-slate">
+              <h2 className="text-meta font-semibold text-slate">
                 Status: draft
               </h2>
-              <p className="mt-2 text-[0.875rem] leading-relaxed text-slate-muted">
+              <p className="mt-2 text-body-sm leading-relaxed text-slate-muted">
                 {LEGAL_STATUS}
               </p>
               {doc.statusNote && (
-                <p className="mt-3 text-[0.875rem] leading-relaxed text-slate-muted">
+                <p className="mt-3 text-body-sm leading-relaxed text-slate-muted">
                   {doc.statusNote}
                 </p>
               )}
@@ -77,7 +77,7 @@ export function LegalDocument({ doc }: { doc: LegalDoc }) {
                 {section.body?.map((para) => (
                   <p
                     key={para.slice(0, 40)}
-                    className="mt-4 text-[0.9375rem] leading-[1.75] text-slate-soft"
+                    className="mt-4 text-body leading-[1.75] text-slate-soft"
                   >
                     {para}
                   </p>
@@ -88,7 +88,7 @@ export function LegalDocument({ doc }: { doc: LegalDoc }) {
                     {section.list.map((item) => (
                       <li
                         key={item.slice(0, 40)}
-                        className="flex gap-3 text-[0.9375rem] leading-[1.75] text-slate-soft"
+                        className="flex gap-3 text-body leading-[1.75] text-slate-soft"
                       >
                         <span
                           aria-hidden="true"
@@ -107,10 +107,10 @@ export function LegalDocument({ doc }: { doc: LegalDoc }) {
                         key={row.term}
                         className="grid gap-1 py-4 sm:grid-cols-[11rem_1fr] sm:gap-6"
                       >
-                        <dt className="text-[0.875rem] font-medium text-slate">
+                        <dt className="text-body-sm font-medium text-slate">
                           {row.term}
                         </dt>
-                        <dd className="text-[0.9375rem] leading-[1.7] text-slate-soft">
+                        <dd className="text-body leading-[1.7] text-slate-soft">
                           {row.detail}
                         </dd>
                       </div>
@@ -121,7 +121,7 @@ export function LegalDocument({ doc }: { doc: LegalDoc }) {
             ))}
 
             <div className="mt-14 border-t border-sand-line pt-6">
-              <p className="text-[0.875rem] leading-relaxed text-slate-muted">
+              <p className="text-body-sm leading-relaxed text-slate-muted">
                 Questions about this document? Write to{" "}
                 <a
                   href={`mailto:${COMPANY.legalEmail}`}
@@ -141,7 +141,7 @@ export function LegalDocument({ doc }: { doc: LegalDoc }) {
             aria-label="On this page"
             className="order-first lg:order-none lg:sticky lg:top-28 lg:self-start"
           >
-            <h2 className="text-[0.75rem] font-semibold uppercase tracking-[0.08em] text-slate-muted">
+            <h2 className="text-meta font-semibold uppercase tracking-[0.08em] text-slate-muted">
               On this page
             </h2>
             <ol className="mt-4 flex flex-col gap-2.5">
@@ -149,7 +149,7 @@ export function LegalDocument({ doc }: { doc: LegalDoc }) {
                 <li key={section.id}>
                   <a
                     href={`#${section.id}`}
-                    className="flex gap-2 text-[0.8125rem] leading-snug text-slate-muted transition-colors hover:text-slate"
+                    className="flex gap-2 text-meta leading-snug text-slate-muted transition-colors hover:text-slate"
                   >
                     <span className="tabular">{i + 1}.</span>
                     <span>{section.heading}</span>
@@ -158,7 +158,7 @@ export function LegalDocument({ doc }: { doc: LegalDoc }) {
               ))}
             </ol>
 
-            <h2 className="mt-9 border-t border-sand-line pt-6 text-[0.75rem] font-semibold uppercase tracking-[0.08em] text-slate-muted">
+            <h2 className="mt-9 border-t border-sand-line pt-6 text-meta font-semibold uppercase tracking-[0.08em] text-slate-muted">
               Other documents
             </h2>
             <ul className="mt-4 flex flex-col gap-2.5">
@@ -166,7 +166,7 @@ export function LegalDocument({ doc }: { doc: LegalDoc }) {
                 <li key={other.id}>
                   <Link
                     href={`/${other.id}`}
-                    className="group/doc inline-flex items-center gap-1.5 text-[0.8125rem] text-slate-muted transition-colors hover:text-slate"
+                    className="group/doc inline-flex items-center gap-1.5 text-meta text-slate-muted transition-colors hover:text-slate"
                   >
                     {other.label}
                     <ArrowUpRight

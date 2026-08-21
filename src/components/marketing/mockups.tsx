@@ -103,14 +103,14 @@ export function PayrollMockup({ className }: { className?: string }) {
       <div className="p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-[0.6875rem] uppercase tracking-[0.1em] text-white/40">
+            <p className="text-meta uppercase tracking-[0.1em] text-white/40">
               August payroll
             </p>
             <p className="mt-1.5 text-[1.75rem] font-medium tracking-tight text-white">
               ₦93,004,500
             </p>
           </div>
-          <span className="rounded-full bg-success/20 px-2.5 py-1 text-[0.6875rem] font-medium text-success">
+          <span className="rounded-full bg-success/20 px-2.5 py-1 text-meta font-medium text-success">
             Ready to approve
           </span>
         </div>
@@ -122,7 +122,7 @@ export function PayrollMockup({ className }: { className?: string }) {
           <span className="h-full bg-info" style={{ width: "8%" }} />
           <span className="h-full bg-white/20" style={{ width: "3%" }} />
         </div>
-        <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-[0.6875rem] text-white/50">
+        <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-meta text-white/50">
           <span className="flex items-center gap-1.5">
             <Dot className="bg-success" /> Net pay
           </span>
@@ -140,16 +140,16 @@ export function PayrollMockup({ className }: { className?: string }) {
         <div className="mt-5 flex flex-col gap-2.5">
           {rows.map((r) => (
             <div key={r.name} className="flex items-center gap-3">
-              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-white/8 text-[0.625rem] font-medium text-white/70">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-white/8 text-meta font-medium text-white/70">
                 {r.name
                   .split(" ")
                   .map((p) => p[0])
                   .join("")}
               </span>
-              <span className="min-w-0 flex-1 truncate text-[0.75rem] text-white/70">
+              <span className="min-w-0 flex-1 truncate text-meta text-white/70">
                 {r.name}
               </span>
-              <span className="text-[0.75rem] font-medium tabular-nums text-white">
+              <span className="text-meta font-medium tabular-nums text-white">
                 {r.amount}
               </span>
             </div>
@@ -158,10 +158,10 @@ export function PayrollMockup({ className }: { className?: string }) {
       </div>
 
       <div className="flex items-center gap-2 border-t border-night-line px-5 py-3.5">
-        <span className="rounded-full bg-success px-3.5 py-1.5 text-[0.75rem] font-medium text-slate">
+        <span className="rounded-full bg-success px-3.5 py-1.5 text-meta font-medium text-slate">
           Approve run
         </span>
-        <span className="rounded-full border border-white/14 px-3.5 py-1.5 text-[0.75rem] text-white/70">
+        <span className="rounded-full border border-white/14 px-3.5 py-1.5 text-meta text-white/70">
           Review
         </span>
       </div>
@@ -191,7 +191,7 @@ export function PipelineMockup({ className }: { className?: string }) {
           <div key={col.label} className="flex-1 rounded-lg bg-slate/3 p-2">
             <div className="mb-2 flex items-center gap-1.5">
               <span className={cn("size-1.5 rounded-full", col.tone)} />
-              <span className="truncate text-[0.5625rem] font-medium text-slate/70">
+              <span className="truncate text-meta font-medium text-slate/70">
                 {col.label}
               </span>
             </div>
@@ -253,18 +253,18 @@ export function PayrollCardMockup({ className }: { className?: string }) {
     <DayFrame className={cn("p-3.5", className)}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[0.5625rem] uppercase tracking-wide text-slate/40">
+          <p className="text-meta uppercase tracking-wide text-slate/40">
             August payroll
           </p>
-          <p className="mt-0.5 text-[1.0625rem] font-medium tabular-nums text-slate">
+          <p className="mt-0.5 text-body-lg font-medium tabular-nums text-slate">
             ₦93,004,500
           </p>
         </div>
         <span className="relative h-5 w-24 shrink-0">
-          <span className="absolute inset-0 flex items-center justify-center rounded-full bg-wash-amber text-[0.5625rem] font-medium text-warning-text transition-opacity duration-300 group-hover:opacity-0">
+          <span className="absolute inset-0 flex items-center justify-center rounded-full bg-wash-amber text-meta font-medium text-warning-text transition-opacity duration-300 group-hover:opacity-0">
             Ready to approve
           </span>
-          <span className="absolute inset-0 flex items-center justify-center rounded-full bg-success text-[0.5625rem] font-medium text-slate opacity-0 transition-opacity delay-200 duration-300 group-hover:opacity-100">
+          <span className="absolute inset-0 flex items-center justify-center rounded-full bg-success text-meta font-medium text-slate opacity-0 transition-opacity delay-200 duration-300 group-hover:opacity-100">
             ✓ Approved
           </span>
         </span>
@@ -296,8 +296,8 @@ export function PayrollCardMockup({ className }: { className?: string }) {
             className="flex items-center justify-between transition-transform duration-300 ease-[var(--ease-out-soft)] group-hover:translate-x-0.5"
             style={{ transitionDelay: `${i * 60}ms` }}
           >
-            <span className="text-[0.625rem] text-slate/55">{label}</span>
-            <span className="text-[0.625rem] font-medium tabular-nums text-slate">
+            <span className="text-meta text-slate/55">{label}</span>
+            <span className="text-meta font-medium tabular-nums text-slate">
               {amount}
             </span>
           </div>
@@ -318,7 +318,7 @@ export function LeaveMockup({ className }: { className?: string }) {
     <DayFrame className={cn("p-3.5", className)}>
       <div className="mb-2.5 flex items-center justify-between">
         <Bar w="72px" tone="strong" className="h-1.5" />
-        <span className="rounded-full bg-wash-green px-2 py-0.5 text-[0.5625rem] font-medium text-success-text">
+        <span className="rounded-full bg-wash-green px-2 py-0.5 text-meta font-medium text-success-text">
           2 pending
         </span>
       </div>
@@ -362,14 +362,14 @@ export function LeaveMockup({ className }: { className?: string }) {
 
       <div className="mt-3 flex items-center justify-between border-t border-slate/8 pt-2.5">
         <span className="relative h-3 w-20">
-          <span className="absolute inset-0 flex items-center text-[0.625rem] text-slate/45 transition-opacity duration-300 group-hover:opacity-0">
+          <span className="absolute inset-0 flex items-center text-meta text-slate/45 transition-opacity duration-300 group-hover:opacity-0">
             2 pending
           </span>
-          <span className="absolute inset-0 flex items-center text-[0.625rem] font-medium text-success-text opacity-0 transition-opacity delay-300 duration-300 group-hover:opacity-100">
+          <span className="absolute inset-0 flex items-center text-meta font-medium text-success-text opacity-0 transition-opacity delay-300 duration-300 group-hover:opacity-100">
             Approved
           </span>
         </span>
-        <span className="text-[0.625rem] font-medium tabular-nums text-slate/60">
+        <span className="text-meta font-medium tabular-nums text-slate/60">
           12.5 days left
         </span>
       </div>
@@ -383,14 +383,14 @@ export function RecordMockup({ className }: { className?: string }) {
   return (
     <DayFrame className={cn("p-3.5", className)}>
       <div className="flex items-center gap-2.5">
-        <span className="flex size-9 items-center justify-center rounded-full bg-accent text-[0.6875rem] font-semibold text-white">
+        <span className="flex size-9 items-center justify-center rounded-full bg-accent text-meta font-semibold text-white">
           AO
         </span>
         <div className="min-w-0 flex-1">
           <Bar w="86px" tone="strong" className="h-1.5" />
           <Bar w="58px" className="mt-1.5 h-1" />
         </div>
-        <span className="rounded-full bg-wash-green px-2 py-0.5 text-[0.5625rem] font-medium text-success-text">
+        <span className="rounded-full bg-wash-green px-2 py-0.5 text-meta font-medium text-success-text">
           Active
         </span>
       </div>
@@ -406,7 +406,7 @@ export function RecordMockup({ className }: { className?: string }) {
           "Location",
         ].map((label, i) => (
           <div key={label}>
-            <p className="text-[0.5625rem] uppercase tracking-wide text-slate/35">
+            <p className="text-meta uppercase tracking-wide text-slate/35">
               {label}
             </p>
             <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-slate/6">
@@ -440,7 +440,7 @@ export function ReviewMockup({ className }: { className?: string }) {
     <DayFrame className={cn("p-3.5", className)}>
       <div className="mb-3 flex items-center justify-between">
         <Bar w="88px" tone="strong" className="h-1.5" />
-        <span className="text-[0.625rem] font-medium tabular-nums text-slate/55">
+        <span className="text-meta font-medium tabular-nums text-slate/55">
           4.2 / 5
         </span>
       </div>
@@ -450,7 +450,7 @@ export function ReviewMockup({ className }: { className?: string }) {
         {scores.map((s, i) => (
           <div key={s.label}>
             <div className="mb-1 flex items-center justify-between">
-              <span className="text-[0.5625rem] text-slate/55">{s.label}</span>
+              <span className="text-meta text-slate/55">{s.label}</span>
             </div>
             <span className="block h-1.5 overflow-hidden rounded-full bg-slate/8">
               <span
@@ -475,7 +475,7 @@ export function ReviewMockup({ className }: { className?: string }) {
             />
           ))}
         </span>
-        <span className="text-[0.5625rem] text-slate/50">3 reviewers submitted</span>
+        <span className="text-meta text-slate/50">3 reviewers submitted</span>
       </div>
     </DayFrame>
   );
@@ -517,13 +517,13 @@ export function DeskMockup({ className }: { className?: string }) {
             </div>
             <span className="relative h-3 w-14 shrink-0">
               <span
-                className="absolute inset-0 flex items-center justify-end text-[0.5625rem] text-slate/45 transition-opacity duration-300 group-hover:opacity-0"
+                className="absolute inset-0 flex items-center justify-end text-meta text-slate/45 transition-opacity duration-300 group-hover:opacity-0"
                 style={{ transitionDelay: `${i * 120}ms` }}
               >
                 {t.label}
               </span>
               <span
-                className="absolute inset-0 flex items-center justify-end text-[0.5625rem] font-medium text-success-text opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+                className="absolute inset-0 flex items-center justify-end text-meta font-medium text-success-text opacity-0 transition-opacity duration-300 group-hover:opacity-100"
                 style={{ transitionDelay: `${i * 120 + 150}ms` }}
               >
                 Resolved
@@ -550,7 +550,7 @@ export function StatutoryMockup({ className }: { className?: string }) {
   return (
     <NightFrame className={className}>
       <div className="p-5">
-        <p className="text-[0.6875rem] uppercase tracking-[0.1em] text-white/40">
+        <p className="text-meta uppercase tracking-[0.1em] text-white/40">
           August remittances
         </p>
         <div className="mt-4 flex flex-col gap-3">
@@ -558,16 +558,16 @@ export function StatutoryMockup({ className }: { className?: string }) {
             <div key={r.label} className="flex items-center gap-3">
               <span
                 className={cn(
-                  "flex size-5 shrink-0 items-center justify-center rounded-full text-[0.625rem]",
+                  "flex size-5 shrink-0 items-center justify-center rounded-full text-meta",
                   r.done ? "bg-success text-slate" : "border border-white/20 text-white/40",
                 )}
               >
                 {r.done ? "✓" : ""}
               </span>
-              <span className="min-w-0 flex-1 truncate text-[0.75rem] text-white/70">
+              <span className="min-w-0 flex-1 truncate text-meta text-white/70">
                 {r.label}
               </span>
-              <span className="text-[0.75rem] font-medium tabular-nums text-white">
+              <span className="text-meta font-medium tabular-nums text-white">
                 {r.value}
               </span>
             </div>

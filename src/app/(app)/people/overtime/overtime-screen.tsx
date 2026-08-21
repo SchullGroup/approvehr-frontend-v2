@@ -80,7 +80,7 @@ export function OvertimeScreen() {
       <>
         <PageHeader title="Overtime" />
         <PageBody>
-          <span className="flex items-center gap-2 text-[0.875rem] text-muted">
+          <span className="flex items-center gap-2 text-body-sm text-muted">
             <Spinner size="sm" />
             Loading
           </span>
@@ -276,7 +276,7 @@ function AllOvertime() {
           <div className="rounded-lg border border-warning-line bg-warning-soft p-5">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="min-w-0">
-                <p className="flex items-center gap-2 text-[0.875rem] font-semibold text-ink">
+                <p className="flex items-center gap-2 text-body-sm font-semibold text-ink">
                   <TriangleAlert aria-hidden="true" className="size-4 shrink-0" />
                   Waiting for approval
                 </p>
@@ -287,7 +287,7 @@ function AllOvertime() {
                     size="lg"
                   />
                 </p>
-                <p className="mt-1 text-[0.875rem] text-body">
+                <p className="mt-1 text-body-sm text-body">
                   {hoursLabel(awaitingApproval.minutes)} across{" "}
                   {awaitingApproval.count === 1
                     ? "one day"
@@ -396,14 +396,14 @@ function AllOvertime() {
 
           <CardFooter>
             <div className="min-w-0">
-              <p className="text-[0.875rem] text-muted">
+              <p className="text-body-sm text-muted">
                 Approving does not pay anybody. The next payroll run picks up
                 approved hours.
               </p>
               {/* The API caps a page at 100 rows. Saying so beats a total that
                   quietly disagrees with the rows above it. */}
               {overtime.total > overtime.rows.length && (
-                <p className="mt-1 text-[0.875rem] text-muted">
+                <p className="mt-1 text-body-sm text-muted">
                   The first {overtime.rows.length} of {overtime.total} days are
                   shown, and the figures above cover those.
                 </p>
@@ -498,14 +498,14 @@ function OvertimeTableRow({
         <TD>
           <div className="flex justify-end gap-1.5 whitespace-nowrap">
             {row.status === "PAID" ? (
-              <span className="text-[0.875rem] text-muted">
+              <span className="text-body-sm text-muted">
                 A payroll run took it
               </span>
             ) : own ? (
               /* The API refuses this and so does the interface. A button that
                  answers "you cannot approve your own overtime" was a design
                  failure one click earlier. */
-              <span className="text-[0.875rem] text-muted">
+              <span className="text-body-sm text-muted">
                 Yours — somebody else approves it
               </span>
             ) : !canDecide ? null : (
@@ -537,7 +537,7 @@ function OvertimeTableRow({
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
               {row.atCap && (
                 <>
-                  <span className="flex items-center gap-2 text-[0.875rem] text-body">
+                  <span className="flex items-center gap-2 text-body-sm text-body">
                     <TriangleAlert
                       aria-hidden="true"
                       className="size-4 shrink-0 text-warning-text"
@@ -550,7 +550,7 @@ function OvertimeTableRow({
                 </>
               )}
               {row.declinedReason && (
-                <span className="text-[0.875rem] text-body">
+                <span className="text-body-sm text-body">
                   Turned down &mdash; {row.declinedReason}
                 </span>
               )}

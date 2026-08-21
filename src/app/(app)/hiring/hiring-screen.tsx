@@ -124,10 +124,10 @@ function Overview() {
       <PageBody className="flex flex-col gap-6">
         <div className="flex flex-wrap items-center gap-3">
           <SourceBadge live={live} />
-          {loading && <span className="text-[0.75rem] text-muted">Loading…</span>}
+          {loading && <span className="text-meta text-muted">Loading…</span>}
           {error && (
             <>
-              <span className="text-[0.875rem] text-danger-text">
+              <span className="text-body-sm text-danger-text">
                 {error.message}
               </span>
               <Button variant="secondary" size="sm" onClick={reload}>
@@ -235,9 +235,9 @@ function Overview() {
               />
               <CardBody className="flex flex-col gap-3">
                 {pipeline.scheduledInterviews.length === 0 ? (
-                  <p className="text-[0.875rem] text-muted">Nothing booked.</p>
+                  <p className="text-body-sm text-muted">Nothing booked.</p>
                 ) : (
-                  <p className="text-[0.875rem] text-body">
+                  <p className="text-body-sm text-body">
                     <span className="tabular font-medium text-ink">
                       {pipeline.scheduledInterviews.length}
                     </span>{" "}
@@ -259,7 +259,7 @@ function Overview() {
               <CardHeader title="Offers out" action={<SourceBadge live={false} />} />
               <CardBody className="flex flex-col gap-3">
                 {pipeline.offersOut.length === 0 && (
-                  <p className="text-[0.875rem] text-muted">No offers pending.</p>
+                  <p className="text-body-sm text-muted">No offers pending.</p>
                 )}
                 {pipeline.offersOut.map((card) => (
                   /* A plain wrapper with the link stretched over it by
@@ -271,7 +271,7 @@ function Overview() {
                     className="relative flex items-center gap-3 rounded-md border border-line p-2.5 transition-colors hover:bg-canvas"
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[0.875rem] font-medium text-ink">
+                      <p className="truncate text-body-sm font-medium text-ink">
                         <Link
                           href={`/hiring/candidates/${card.id}`}
                           className="after:absolute after:inset-0 hover:text-accent-text hover:underline underline-offset-4"
@@ -279,12 +279,12 @@ function Overview() {
                           {fullName(card.candidate)}
                         </Link>
                       </p>
-                      <p className="truncate text-[0.75rem] text-muted">
+                      <p className="truncate text-meta text-muted">
                         {card.requisition.title}
                       </p>
                     </div>
                     <div className="shrink-0 text-right">
-                      <p className="tabular text-[0.875rem] font-medium text-ink">
+                      <p className="tabular text-body-sm font-medium text-ink">
                         {formatMoney(card.offer!.grossMonthly, "NGN", {
                           decimals: true,
                         })}

@@ -37,12 +37,12 @@ export function ProgressMeter({
       {(label || showValue) && (
         <div className="mb-1.5 flex items-baseline justify-between gap-3">
           {label && (
-            <span className="text-[0.875rem] font-medium text-body">
+            <span className="text-body-sm font-medium text-body">
               {label}
             </span>
           )}
           {showValue && (
-            <span className="tabular text-[0.875rem] text-muted">
+            <span className="tabular text-body-sm text-muted">
               {Math.round(pct)}%
             </span>
           )}
@@ -148,10 +148,10 @@ export function ScoreRing({
       {(label || caption) && (
         <div className="min-w-0">
           {label && (
-            <p className="text-[0.875rem] font-medium text-ink">{label}</p>
+            <p className="text-body-sm font-medium text-ink">{label}</p>
           )}
           {caption && (
-            <p className="text-[0.75rem] leading-snug text-muted">{caption}</p>
+            <p className="text-meta leading-snug text-muted">{caption}</p>
           )}
         </div>
       )}
@@ -175,7 +175,7 @@ export function FactorBars({
         const pct = Math.max(0, Math.min(100, (f.value / f.max) * 100));
         return (
           <li key={f.label} className="grid grid-cols-[9rem_1fr_3rem] items-center gap-3">
-            <span className="truncate text-[0.875rem] text-body">
+            <span className="truncate text-body-sm text-body">
               {f.label}
             </span>
             <span className="h-1.5 overflow-hidden rounded-full bg-sunken">
@@ -184,7 +184,7 @@ export function FactorBars({
                 style={{ width: `${pct}%` }}
               />
             </span>
-            <span className="tabular text-right text-[0.875rem] text-muted">
+            <span className="tabular text-right text-body-sm text-muted">
               {Math.round(f.value)}
             </span>
           </li>

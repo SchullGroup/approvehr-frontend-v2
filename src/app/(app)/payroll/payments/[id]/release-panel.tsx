@@ -110,7 +110,7 @@ export function ReleasePanel({
           {/* Waiting on the check. A refusal with the count in it, and the
               button that clears it is in the check card above. */}
           {batch.can.approve && blockers.length > 0 && (
-            <p className="text-sm text-body">
+            <p className="text-body-sm text-body">
               {blockers.length === 1
                 ? "One problem above has to be fixed first."
                 : `${blockers.length} problems above have to be fixed first.`}
@@ -128,7 +128,7 @@ export function ReleasePanel({
                   Approve {total} for {headcount}
                 </Button>
               ) : (
-                <p className="text-sm text-body">
+                <p className="text-body-sm text-body">
                   Somebody who can approve payments has to sign this off. It is
                   waiting for them.
                 </p>
@@ -148,7 +148,7 @@ export function ReleasePanel({
                   <ArrowDownToLine aria-hidden="true" className="size-4" />
                   Download payment file
                 </Button>
-                <span className="text-[0.875rem] text-muted">
+                <span className="text-body-sm text-muted">
                   {batch.itemCount} rows · {total}
                 </span>
               </div>
@@ -164,13 +164,13 @@ export function ReleasePanel({
                     Release {total} to {headcount}
                   </Button>
                   {!providerConnected && (
-                    <p className="max-w-md text-[0.875rem] text-muted">
+                    <p className="max-w-md text-body-sm text-muted">
                       Bank transfers are not connected yet. Download the payment
                       file and upload it to your bank.
                     </p>
                   )}
                   {providerConnected && !canApprove && (
-                    <p className="max-w-md text-[0.875rem] text-muted">
+                    <p className="max-w-md text-body-sm text-muted">
                       Only somebody who can approve payments can release money.
                     </p>
                   )}
@@ -194,7 +194,7 @@ export function ReleasePanel({
                 <Ban aria-hidden="true" className="size-3.5" />
                 Stop this batch
               </Button>
-              <span className="text-[0.875rem] text-muted">
+              <span className="text-body-sm text-muted">
                 Nothing goes out and the run can be paid from a new batch.
               </span>
             </div>

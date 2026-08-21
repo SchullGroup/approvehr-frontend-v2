@@ -211,7 +211,7 @@ function Queue({ initialPostingId }: { initialPostingId: string }) {
         )}
 
         {cvNote && (
-          <p className="text-[0.875rem] text-muted">
+          <p className="text-body-sm text-muted">
             Attached CVs cannot be opened — file upload is not connected. The
             applicant&rsquo;s own note is below each row instead.
           </p>
@@ -372,7 +372,7 @@ function ApplicationRow({
     <div className="flex flex-col gap-3 rounded-md border border-line p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="flex flex-wrap items-center gap-2 text-[0.9375rem] font-medium text-ink">
+          <p className="flex flex-wrap items-center gap-2 text-body font-medium text-ink">
             {application.name}
             <Badge tone={STATUS_TONE[application.status]} size="sm" dot>
               {STATUS_LABEL[application.status]}
@@ -388,14 +388,14 @@ function ApplicationRow({
             {application.cv?.url && (
               <a
                 href={application.cv.url}
-                className="inline-flex items-center gap-1 text-[0.875rem] font-medium text-accent-text hover:underline underline-offset-4"
+                className="inline-flex items-center gap-1 text-body-sm font-medium text-accent-text hover:underline underline-offset-4"
               >
                 <Paperclip aria-hidden="true" className="size-3.5" />
                 Open CV
               </a>
             )}
           </p>
-          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.875rem] text-muted">
+          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
             <span>{application.postingTitle}</span>
             <a
               href={`mailto:${application.email}`}
@@ -424,7 +424,7 @@ function ApplicationRow({
           {application.status === "ADVANCED" && application.candidateId && (
             <Link
               href={`/hiring/candidates/${application.candidateId}`}
-              className="inline-flex items-center gap-1 text-[0.875rem] font-medium text-accent-text hover:underline underline-offset-4"
+              className="inline-flex items-center gap-1 text-body-sm font-medium text-accent-text hover:underline underline-offset-4"
             >
               See them in the pipeline
               <ArrowRight aria-hidden="true" className="size-3.5" />
@@ -450,20 +450,20 @@ function ApplicationRow({
       </div>
 
       {application.coverNote && (
-        <p className="whitespace-pre-line rounded-md bg-canvas p-3 text-[0.875rem] leading-relaxed text-body">
+        <p className="whitespace-pre-line rounded-md bg-canvas p-3 text-body-sm leading-relaxed text-body">
           {application.coverNote}
         </p>
       )}
 
       {waiting && noApprovedRole && (
-        <p className="text-[0.875rem] text-warning-text">
+        <p className="text-body-sm text-warning-text">
           {application.postingTitle} has no approved role behind it. Advancing
           will ask you for one.
         </p>
       )}
 
       {application.status === "DECLINED" && application.declineReason && (
-        <p className="text-[0.875rem] text-muted">
+        <p className="text-body-sm text-muted">
           Reason kept on file: {application.declineReason}
         </p>
       )}
@@ -577,7 +577,7 @@ function AdvanceDialog({
             />
           </Field>
         ) : (
-          <p className="text-[0.875rem] text-body">
+          <p className="text-body-sm text-body">
             They go into the first stage of {posting?.requisitionReference}. Their
             record is created from this application.
           </p>
@@ -645,7 +645,7 @@ function DeclineDialog({
       }
     >
       <div className="flex flex-col gap-4">
-        <p className="text-[0.875rem] text-body">
+        <p className="text-body-sm text-body">
           Nothing is sent to them — email is not connected. Afterwards,
           <span className="font-medium text-ink"> Copy message</span> gives you a
           short note to send from your own inbox.

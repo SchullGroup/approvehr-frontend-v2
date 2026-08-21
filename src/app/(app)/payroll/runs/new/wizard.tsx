@@ -343,14 +343,14 @@ export function PayrollRunWizard() {
                 {run ? "Calculate again" : `Calculate ${periodLabel(period)}`}
               </Button>
               {run && (
-                <p className="text-[0.75rem] leading-relaxed text-muted">
+                <p className="text-meta leading-relaxed text-muted">
                   {run.employeeCount}{" "}
                   {run.employeeCount === 1 ? "payslip" : "payslips"} ·{" "}
                   {formatKobo(run.grossKobo)} gross
                 </p>
               )}
               {settled && (
-                <p className="text-[0.75rem] leading-relaxed text-muted">
+                <p className="text-meta leading-relaxed text-muted">
                   This run is approved. Its figures are frozen and cannot be
                   prepared again.
                 </p>
@@ -363,7 +363,7 @@ export function PayrollRunWizard() {
           {detail.loading ? (
             <Card>
               <CardBody>
-                <p className="text-[0.875rem] text-muted">Loading the run…</p>
+                <p className="text-body-sm text-muted">Loading the run…</p>
               </CardBody>
             </Card>
           ) : run ? (
@@ -430,7 +430,7 @@ export function PayrollRunWizard() {
             <Card>
               <CardHeader title={periodLabel(run.period)} />
               <CardBody>
-                <dl className="flex flex-col gap-2.5 text-[0.875rem]">
+                <dl className="flex flex-col gap-2.5 text-body-sm">
                   <SummaryRow label="Status" value={<RunStatusBadge status={run.status} />} />
                   <SummaryRow label="People" value={String(run.employeeCount)} />
                   <SummaryRow label="Pays on" value={run.payDate} />
@@ -630,7 +630,7 @@ function PayslipTable({ payslips }: { payslips: Payslip[] }) {
                     <>
                       {formatKobo(slip.otherDeductionsKobo)}
                       {deductionLines.length > 0 && (
-                        <span className="mt-0.5 block text-[0.75rem] font-normal text-faint">
+                        <span className="mt-0.5 block text-meta font-normal text-faint">
                           {deductionLines.map((l) => l.label).join(", ")}
                         </span>
                       )}
@@ -648,7 +648,7 @@ function PayslipTable({ payslips }: { payslips: Payslip[] }) {
         </TBody>
       </TableWrap>
       <CardBody className="border-t border-line">
-        <p className="text-[0.75rem] leading-relaxed text-muted">
+        <p className="text-meta leading-relaxed text-muted">
           Employer pension is not in any column here. It is a company cost on top
           of gross and does not reduce anybody&apos;s pay — the totals on the next
           step show it separately.

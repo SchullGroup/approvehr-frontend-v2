@@ -115,11 +115,11 @@ export function ProfileScreen() {
           <CardBody className="flex flex-wrap items-center gap-4">
             <Avatar name={name} src={employee.avatarUrl} size="lg" />
             <div className="min-w-0 flex-1">
-              <p className="text-[1.0625rem] font-semibold text-ink">{name}</p>
-              <p className="text-[0.875rem] text-body">
+              <p className="text-body-lg font-semibold text-ink">{name}</p>
+              <p className="text-body-sm text-body">
                 {employee.jobTitle} · {employee.department}
               </p>
-              <p className="mt-1 text-[0.875rem] text-muted">
+              <p className="mt-1 text-body-sm text-muted">
                 Staff number {employee.employeeNo} · {employee.location}
               </p>
               {/* Job title and role are different facts and both belong here.
@@ -143,11 +143,11 @@ export function ProfileScreen() {
           <Card>
             <CardBody className="flex flex-wrap items-center gap-4">
               <div className="min-w-0 flex-1">
-                <p className="text-[0.9375rem] font-semibold text-ink">
+                <p className="text-body font-semibold text-ink">
                   {missing.length} {missing.length === 1 ? "detail" : "details"}{" "}
                   missing
                 </p>
-                <p className="mt-1 text-[0.875rem] text-body">
+                <p className="mt-1 text-body-sm text-body">
                   {missing.join(", ")}. Payroll needs these to pay you.
                 </p>
               </div>
@@ -432,7 +432,7 @@ function BankPanel({ employeeId }: { employeeId: string }) {
                   }
                 />
               </Field>
-              <p className="text-[0.875rem] text-muted">
+              <p className="text-body-sm text-muted">
                 Your people team is told when this changes.
               </p>
               <div className="flex gap-2">
@@ -504,7 +504,7 @@ function PayCard({ grossMonthly }: { grossMonthly: number }) {
       <CardHeader title="Your pay" level={3} />
       <CardBody className="flex flex-col gap-3">
         <div>
-          <p className="text-[0.875rem] text-muted">Gross each month</p>
+          <p className="text-body-sm text-muted">Gross each month</p>
           <p className="text-[1.25rem] font-semibold text-ink">
             <Money amount={grossMonthly} />
           </p>
@@ -535,21 +535,21 @@ function TimeOffCard({ employeeId }: { employeeId: string }) {
       <CardBody className="flex flex-col gap-3">
         {annual ? (
           <div>
-            <p className="text-[0.875rem] text-muted">{annual.type} days left</p>
+            <p className="text-body-sm text-muted">{annual.type} days left</p>
             <p className="text-[1.25rem] font-semibold text-ink">
               {remaining}
-              <span className="ml-1 text-[0.875rem] font-normal text-muted">
+              <span className="ml-1 text-body-sm font-normal text-muted">
                 of {annual.entitled}
               </span>
             </p>
             {annual.pending > 0 && (
-              <p className="mt-1 text-[0.875rem] text-muted">
+              <p className="mt-1 text-body-sm text-muted">
                 {annual.pending} waiting for approval
               </p>
             )}
           </div>
         ) : (
-          <p className="text-[0.875rem] text-muted">No balance on record yet.</p>
+          <p className="text-body-sm text-muted">No balance on record yet.</p>
         )}
         <ButtonLink href="/people/leave" variant="secondary" size="sm">
           <CalendarClock aria-hidden="true" className="size-4" />
@@ -623,7 +623,7 @@ function SecurityCard({
       <Card>
         <CardHeader title="Security" level={3} />
         <CardBody>
-          <p className="text-[0.875rem] text-muted">
+          <p className="text-body-sm text-muted">
             Sign in with a password to change it or to end other sessions.
           </p>
         </CardBody>
@@ -693,7 +693,7 @@ function SecurityCard({
               <LogOut aria-hidden="true" className="size-4" />
               {busy === "sessions" ? "Signing out…" : "Sign out everywhere"}
             </Button>
-            <p className="text-[0.875rem] text-muted">
+            <p className="text-body-sm text-muted">
               <Phone aria-hidden="true" className="mr-1 inline size-3.5" />
               Lost your phone? Sign out everywhere, then change your password.
             </p>

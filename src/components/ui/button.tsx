@@ -40,9 +40,9 @@ const VARIANTS: Record<ButtonVariant, string> = {
 };
 
 const SIZES: Record<ButtonSize, string> = {
-  sm: "h-8 px-3 text-[0.875rem] gap-1.5 rounded-sm",
-  md: "h-10 px-4 text-sm gap-2 rounded-md",
-  lg: "h-12 px-6 text-[0.9375rem] gap-2.5 rounded-md",
+  sm: "h-8 px-3 text-body-sm gap-1.5 rounded-sm",
+  md: "h-10 px-4 text-body-sm gap-2 rounded-md",
+  lg: "h-12 px-6 text-body gap-2.5 rounded-md",
 };
 
 const BASE =

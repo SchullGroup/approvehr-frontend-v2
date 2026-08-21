@@ -224,7 +224,7 @@ export function SetupWizard() {
         <h1 className="mt-5 text-h3 text-ink">
           Whoever manages settings does this part
         </h1>
-        <p className="mt-2.5 text-sm leading-relaxed text-body">
+        <p className="mt-2.5 text-body-sm leading-relaxed text-body">
           Ask them to finish setup. Everything you can use already works.
         </p>
         <div className="mt-6">
@@ -239,7 +239,7 @@ export function SetupWizard() {
   return (
     <Frame>
       <div className="flex items-center justify-between gap-4">
-        <p className="text-[0.875rem] font-medium text-muted">
+        <p className="text-body-sm font-medium text-muted">
           Question {index + 1} of {total}
         </p>
         <Button
@@ -381,18 +381,18 @@ function OptionButton({
     >
       <span
         className={cn(
-          "text-sm font-medium",
+          "text-body-sm font-medium",
           current ? "text-accent-text" : "text-ink",
         )}
       >
         {option.label}
       </span>
       {current && (
-        <span className="shrink-0 text-[0.75rem] font-medium text-accent-text">
+        <span className="shrink-0 text-meta font-medium text-accent-text">
           Now
         </span>
       )}
-      {busy && <span className="shrink-0 text-[0.75rem] text-muted">Saving…</span>}
+      {busy && <span className="shrink-0 text-meta text-muted">Saving…</span>}
     </button>
   );
 }
@@ -437,10 +437,10 @@ function Done({
               className="mt-0.5 size-4 shrink-0 text-success-text"
             />
             <span className="min-w-0">
-              <span className="block text-sm font-medium text-ink">
+              <span className="block text-body-sm font-medium text-ink">
                 {FEATURE_COPY[key].label}
               </span>
-              <span className="mt-0.5 block text-[0.875rem] text-muted">
+              <span className="mt-0.5 block text-body-sm text-muted">
                 {FEATURE_COPY[key].line}
               </span>
             </span>
@@ -464,7 +464,7 @@ function Done({
         </ButtonLink>
         <Link
           href="/settings/features"
-          className="text-[0.875rem] font-medium text-accent-text underline decoration-accent-line underline-offset-4 hover:decoration-accent"
+          className="text-body-sm font-medium text-accent-text underline decoration-accent-line underline-offset-4 hover:decoration-accent"
         >
           Turn on more features
         </Link>

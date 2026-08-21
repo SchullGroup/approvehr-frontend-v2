@@ -122,7 +122,7 @@ export function ForgotPasswordScreen() {
         </Button>
       </div>
 
-      <p className="mt-7 text-[0.875rem] text-muted">
+      <p className="mt-7 text-body-sm text-muted">
         Remembered it?{" "}
         <Link
           href="/dashboard"

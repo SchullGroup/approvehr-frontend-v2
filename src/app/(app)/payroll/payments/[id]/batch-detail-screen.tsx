@@ -229,15 +229,15 @@ export function BatchDetailScreen({ id }: { id: string }) {
               term="From"
               value={
                 <span className="flex flex-col gap-0.5">
-                  <span className="text-sm font-medium text-ink">
+                  <span className="text-body-sm font-medium text-ink">
                     {batch.sourceBankName}
                   </span>
-                  <span className="tabular text-[0.875rem] text-muted">
+                  <span className="tabular text-body-sm text-muted">
                     {batch.sourceAccountMasked}
                   </span>
                   <Link
                     href="/settings/bank-accounts"
-                    className="mt-0.5 flex items-center gap-1.5 text-[0.875rem] font-medium text-accent-text hover:underline underline-offset-4"
+                    className="mt-0.5 flex items-center gap-1.5 text-body-sm font-medium text-accent-text hover:underline underline-offset-4"
                   >
                     <Landmark aria-hidden="true" className="size-3.5" />
                     Change account
@@ -351,7 +351,7 @@ export function BatchDetailScreen({ id }: { id: string }) {
               <TR className="bg-canvas">
                 <TDPrimary title="Total" />
                 <TD />
-                <TD className="tabular text-[0.875rem] text-muted">
+                <TD className="tabular text-body-sm text-muted">
                   {people(batch.instructions.length)}
                 </TD>
                 <TD align="right" className="tabular font-semibold text-ink">
@@ -408,10 +408,10 @@ export function BatchDetailScreen({ id }: { id: string }) {
 function Fact({ term, value }: { term: string; value: React.ReactNode }) {
   return (
     <div className="min-w-0">
-      <p className="text-[0.75rem] font-medium uppercase tracking-wide text-muted">
+      <p className="text-meta font-medium uppercase tracking-wide text-muted">
         {term}
       </p>
-      <div className="mt-1.5 text-[0.9375rem] font-medium text-ink">{value}</div>
+      <div className="mt-1.5 text-body font-medium text-ink">{value}</div>
     </div>
   );
 }
@@ -419,8 +419,8 @@ function Fact({ term, value }: { term: string; value: React.ReactNode }) {
 function HistoryLine({ term, value }: { term: string; value: string }) {
   return (
     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-      <dt className="min-w-32 text-[0.875rem] text-muted">{term}</dt>
-      <dd className="text-[0.875rem] text-ink">{value}</dd>
+      <dt className="min-w-32 text-body-sm text-muted">{term}</dt>
+      <dd className="text-body-sm text-ink">{value}</dd>
     </div>
   );
 }
@@ -452,7 +452,7 @@ function InstructionState({
         {state.label}
       </Badge>
       {failureReason && (
-        <span className="text-[0.75rem] text-danger-text">{failureReason}</span>
+        <span className="text-meta text-danger-text">{failureReason}</span>
       )}
     </span>
   );

@@ -417,7 +417,7 @@ function Endpoint({ id }: { id: string }) {
             />
 
             {detail.notRaisedYet.length > 0 && (
-              <p className="text-[0.875rem] text-body">
+              <p className="text-body-sm text-body">
                 {detail.notRaisedYet.join(", ")}{" "}
                 {detail.notRaisedYet.length === 1 ? "is" : "are"} not raised by
                 anything yet. Your endpoint stays quiet for{" "}
@@ -467,7 +467,7 @@ function Endpoint({ id }: { id: string }) {
                   </>
                 ) : (
                   <div className="flex flex-wrap items-center gap-3">
-                    <span className="font-mono text-[0.875rem] text-ink">
+                    <span className="font-mono text-body-sm text-ink">
                       {detail.secretHint}
                     </span>
                     <Button
@@ -482,7 +482,7 @@ function Endpoint({ id }: { id: string }) {
                 )}
               </>
             ) : (
-              <p className="font-mono text-[0.875rem] text-ink">
+              <p className="font-mono text-body-sm text-ink">
                 {detail.secretHint}
               </p>
             )}
@@ -497,7 +497,7 @@ function Endpoint({ id }: { id: string }) {
                   <RefreshCw aria-hidden="true" className="size-4" />
                   Replace secret
                 </Button>
-                <span className="text-[0.875rem] text-body">
+                <span className="text-body-sm text-body">
                   The old one stops working immediately.
                 </span>
               </div>

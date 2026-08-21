@@ -249,10 +249,10 @@ export function LeavePolicyForm() {
                 return (
                   <div key={employee.id}>
                     <div className="mb-1 flex items-baseline justify-between gap-2">
-                      <span className="truncate text-[0.875rem] text-body">
+                      <span className="truncate text-body-sm text-body">
                         {fullName(employee)}
                       </span>
-                      <span className="tabular shrink-0 text-[0.75rem] text-muted">
+                      <span className="tabular shrink-0 text-meta text-muted">
                         {remaining} of {balance!.entitled} left
                       </span>
                     </div>
@@ -265,7 +265,7 @@ export function LeavePolicyForm() {
                   </div>
                 );
               })}
-              <p className="mt-1 flex gap-2 text-[0.75rem] leading-relaxed text-muted">
+              <p className="mt-1 flex gap-2 text-meta leading-relaxed text-muted">
                 <Info aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
                 Days taken before the tracked period are included, which is why
                 nobody starts at a full entitlement.

@@ -148,13 +148,13 @@ export function CandidatePanel({
                   </Badge>
                 )}
               </div>
-              <p className="mt-2 text-[0.75rem] text-muted">
+              <p className="mt-2 text-meta text-muted">
                 Applied {card.appliedAt} · {daysInStage(card)} days in{" "}
                 {stageLabel(card.stage).toLowerCase()}
               </p>
             </div>
             {card.rating !== null && (
-              <span className="tabular flex shrink-0 items-center gap-1 rounded-md border border-line px-2 py-1 text-[0.875rem] font-semibold text-ink">
+              <span className="tabular flex shrink-0 items-center gap-1 rounded-md border border-line px-2 py-1 text-body-sm font-semibold text-ink">
                 <Star aria-hidden="true" className="size-3.5 fill-warning text-warning" />
                 {card.rating}.0
               </span>
@@ -223,7 +223,7 @@ export function CandidatePanel({
               <div className="rounded-lg border border-line bg-canvas p-3">
                 <div className="flex flex-wrap items-center gap-2.5">
                   <FileText aria-hidden="true" className="size-4 shrink-0 text-faint" />
-                  <span className="min-w-0 flex-1 truncate text-[0.875rem] text-ink">
+                  <span className="min-w-0 flex-1 truncate text-body-sm text-ink">
                     {card.candidate.cvFileName}
                   </span>
                   <Badge tone="neutral" size="sm">
@@ -233,7 +233,7 @@ export function CandidatePanel({
               </div>
 
               <div>
-                <h4 className="mb-2 text-[0.75rem] font-semibold tracking-wide text-muted">
+                <h4 className="mb-2 text-meta font-semibold tracking-wide text-muted">
                   Activity
                 </h4>
                 <Timeline entries={activityFor(card)} />
@@ -244,7 +244,7 @@ export function CandidatePanel({
           {tab === "screening" && (
             <div className="flex flex-col gap-4">
               {card.requisition.screeningQuestions.length === 0 && (
-                <p className="text-[0.875rem] text-muted">
+                <p className="text-body-sm text-muted">
                   This role has no screening questions configured.
                 </p>
               )}
@@ -253,7 +253,7 @@ export function CandidatePanel({
                 return (
                   <div key={q.id} className="rounded-lg border border-line p-3">
                     <div className="flex items-start justify-between gap-3">
-                      <p className="text-[0.875rem] font-medium text-ink">
+                      <p className="text-body-sm font-medium text-ink">
                         {q.question}
                       </p>
                       {q.knockout && (
@@ -264,7 +264,7 @@ export function CandidatePanel({
                     </div>
                     <p
                       className={cn(
-                        "mt-1.5 text-[0.875rem]",
+                        "mt-1.5 text-body-sm",
                         answer ? "text-body" : "text-faint italic",
                       )}
                     >
@@ -279,7 +279,7 @@ export function CandidatePanel({
           {tab === "interviews" && (
             <div className="flex flex-col gap-2.5">
               {card.interviews.length === 0 && (
-                <p className="text-[0.875rem] text-muted">
+                <p className="text-body-sm text-muted">
                   No interviews scheduled.
                 </p>
               )}
@@ -290,10 +290,10 @@ export function CandidatePanel({
                 >
                   <CalendarClock aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-faint" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-[0.875rem] font-medium text-ink">
+                    <p className="text-body-sm font-medium text-ink">
                       {INTERVIEW_LABEL[iv.kind]}
                     </p>
-                    <p className="mt-0.5 text-[0.75rem] text-muted">
+                    <p className="mt-0.5 text-meta text-muted">
                       {new Date(iv.scheduledFor).toLocaleString("en-NG", {
                         weekday: "short",
                         day: "numeric",
@@ -303,7 +303,7 @@ export function CandidatePanel({
                       })}{" "}
                       · {iv.durationMins} mins
                     </p>
-                    <p className="mt-1 text-[0.75rem] text-muted">
+                    <p className="mt-1 text-meta text-muted">
                       {iv.interviewerIds
                         .map((id) => {
                           const e = employeeById(id);
@@ -364,7 +364,7 @@ export function CandidatePanel({
                         name={interviewer ? fullName(interviewer) : "?"}
                         size="xs"
                       />
-                      <span className="min-w-0 flex-1 truncate text-[0.875rem] font-medium text-ink">
+                      <span className="min-w-0 flex-1 truncate text-body-sm font-medium text-ink">
                         {interviewer ? fullName(interviewer) : "Unknown"}
                       </span>
                       {sc.recommendation && (
@@ -388,12 +388,12 @@ export function CandidatePanel({
                     </div>
 
                     {sc.notes && (
-                      <p className="mt-3 border-t border-line pt-2.5 text-[0.875rem] leading-relaxed text-body">
+                      <p className="mt-3 border-t border-line pt-2.5 text-body-sm leading-relaxed text-body">
                         {sc.notes}
                       </p>
                     )}
 
-                    <p className="tabular mt-2 text-[0.75rem] text-muted">
+                    <p className="tabular mt-2 text-meta text-muted">
                       Average {avg.toFixed(1)} / 5
                     </p>
                   </div>
@@ -401,7 +401,7 @@ export function CandidatePanel({
               })}
 
               {submitted.length === 0 && pending.length === 0 && (
-                <p className="text-[0.875rem] text-muted">
+                <p className="text-body-sm text-muted">
                   No scorecards yet. They appear once an interview is scheduled.
                 </p>
               )}
@@ -457,7 +457,7 @@ export function CandidatePanel({
         tone="danger"
         body={
           <div className="flex flex-col gap-4">
-            <p className="text-sm text-body">
+            <p className="text-body-sm text-body">
               They move out of the pipeline and the reason is recorded on the
               application. No email is sent automatically.
             </p>

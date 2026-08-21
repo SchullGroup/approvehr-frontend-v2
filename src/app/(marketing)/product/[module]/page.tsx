@@ -96,7 +96,7 @@ export default async function ModulePage({
         <div className="container-page">
           <Reveal>
             <nav aria-label="Breadcrumb" className="mb-6">
-              <ol className="flex items-center gap-2 text-[0.8125rem] text-slate-muted">
+              <ol className="flex items-center gap-2 text-meta text-slate-muted">
                 <li>
                   <Link href="/" className="hover:text-slate">
                     Product
@@ -110,7 +110,7 @@ export default async function ModulePage({
             <div className="text-center">
               <span
                 className={cn(
-                  "inline-flex items-center rounded-lg px-2.5 py-1 text-[0.75rem] font-medium",
+                  "inline-flex items-center rounded-lg px-2.5 py-1 text-meta font-medium",
                   CHIP_CLASS[mod.wash],
                 )}
               >
@@ -125,7 +125,7 @@ export default async function ModulePage({
               </p>
 
               {mod.statutory && (
-                <p className="mt-6 inline-flex rounded-full bg-white/70 px-4 py-2 text-[0.8125rem] font-medium text-slate">
+                <p className="mt-6 inline-flex rounded-full bg-white/70 px-4 py-2 text-meta font-medium text-slate">
                   {mod.statutory}
                 </p>
               )}
@@ -171,11 +171,11 @@ export default async function ModulePage({
                     )}
                   >
                     <div className={cn(flipped && "lg:order-2")}>
-                      <span className="text-[0.875rem] font-medium tabular-nums text-slate-muted">
+                      <span className="text-body-sm font-medium tabular-nums text-slate-muted">
                         {String(i + 1).padStart(2, "0")}
                       </span>
                       <h3 className="mt-2 text-h3 text-slate">{cap.title}</h3>
-                      <p className="mt-4 max-w-md text-[0.9375rem] leading-relaxed text-slate-muted">
+                      <p className="mt-4 max-w-md text-body leading-relaxed text-slate-muted">
                         {cap.detail}
                       </p>
                     </div>
@@ -214,10 +214,10 @@ export default async function ModulePage({
                   className="group flex h-full items-start gap-3 rounded-2xl border border-sand-line bg-sand p-5 transition-all duration-300 ease-[var(--ease-out-soft)] hover:-translate-y-0.5 hover:bg-white"
                 >
                   <div className="min-w-0 flex-1">
-                    <h3 className="text-[1.0625rem] font-medium text-slate">
+                    <h3 className="text-body-lg font-medium text-slate">
                       {other.label}
                     </h3>
-                    <p className="mt-1.5 text-[0.875rem] leading-snug text-slate-muted">
+                    <p className="mt-1.5 text-body-sm leading-snug text-slate-muted">
                       {other.headline}
                     </p>
                   </div>

@@ -57,7 +57,7 @@ export function PayslipView({ id }: { id: string }) {
 
   if (record.loading) {
     return (
-      <p className="text-[0.875rem] text-muted">Finding this payslip…</p>
+      <p className="text-body-sm text-muted">Finding this payslip…</p>
     );
   }
 

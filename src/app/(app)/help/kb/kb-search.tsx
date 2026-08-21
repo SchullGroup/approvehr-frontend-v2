@@ -73,7 +73,7 @@ export function KbSearch({
           — a live region inside a live region announces twice. */}
       <div aria-live="polite" className="flex flex-col gap-2">
         {search.searching && (
-          <p className="flex items-center gap-2 text-[0.875rem] text-muted">
+          <p className="flex items-center gap-2 text-body-sm text-muted">
             <Loader2
               aria-hidden="true"
               className="size-4 animate-spin text-accent-text motion-reduce:animate-none"
@@ -83,14 +83,14 @@ export function KbSearch({
         )}
 
         {search.error && (
-          <p className="text-[0.875rem] text-danger-text">
+          <p className="text-body-sm text-danger-text">
             {search.error.message}
           </p>
         )}
 
         {search.answered && search.hits.length > 0 && (
           <>
-            <p className="text-[0.75rem] text-muted">
+            <p className="text-meta text-muted">
               {search.total === 1 ? "1 article" : `${search.total} articles`}
               {search.total > search.hits.length &&
                 ` — showing the top ${search.hits.length}`}
@@ -107,10 +107,10 @@ export function KbSearch({
                     )}
                   >
                     <span className="min-w-0 flex-1">
-                      <span className="block text-[0.9375rem] font-medium text-ink">
+                      <span className="block text-body font-medium text-ink">
                         {hit.title}
                       </span>
-                      <span className="mt-0.5 block text-[0.875rem] leading-relaxed text-muted">
+                      <span className="mt-0.5 block text-body-sm leading-relaxed text-muted">
                         {hit.snippet}
                       </span>
                     </span>
@@ -127,7 +127,7 @@ export function KbSearch({
 
         {search.answered && search.hits.length === 0 && !search.error && (
           <div className="flex flex-wrap items-center gap-3 rounded-md border border-line bg-canvas p-3.5">
-            <p className="min-w-0 flex-1 text-[0.875rem] text-body">
+            <p className="min-w-0 flex-1 text-body-sm text-body">
               No article answers{" "}
               <span className="font-medium text-ink">
                 &ldquo;{search.term}&rdquo;

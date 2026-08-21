@@ -140,10 +140,10 @@ export function OfferApprovals() {
               >
                 <Avatar name={fullName(card.candidate)} size="sm" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[0.875rem] font-medium text-ink">
+                  <p className="truncate text-body-sm font-medium text-ink">
                     {fullName(card.candidate)}
                   </p>
-                  <p className="truncate text-[0.75rem] text-muted">
+                  <p className="truncate text-meta text-muted">
                     {card.requisition.title}
                   </p>
                 </div>
@@ -174,7 +174,7 @@ export function OfferApprovals() {
         tone="danger"
         body={
           <div className="flex flex-col gap-4">
-            <p className="text-[0.875rem] text-body">
+            <p className="text-body-sm text-body">
               Your reason stays on this screen. The candidate is not contacted.
             </p>
             <Field
@@ -264,9 +264,9 @@ function OfferCard({
               <div className="flex flex-col gap-2">
                 <p className="flex items-baseline gap-2">
                   <Money amount={offer.grossMonthly} decimals size="lg" />
-                  <span className="text-[0.875rem] text-muted">a month</span>
+                  <span className="text-body-sm text-muted">a month</span>
                 </p>
-                <p className="text-[0.875rem] text-body">{bands.note}</p>
+                <p className="text-body-sm text-body">{bands.note}</p>
               </div>
             )}
 
@@ -313,7 +313,7 @@ function OfferCard({
           </Button>
           <Link
             href={`/hiring/candidates/${card.id}`}
-            className="ml-auto text-[0.875rem] text-accent-text hover:underline underline-offset-4"
+            className="ml-auto text-body-sm text-accent-text hover:underline underline-offset-4"
           >
             Read the full record
           </Link>

@@ -92,7 +92,7 @@ export function ReviewFormModal({
   if (loading) {
     return (
       <Modal open onClose={onClose} title="Review" size="md">
-        <span className="flex items-center gap-2 text-[0.875rem] text-muted">
+        <span className="flex items-center gap-2 text-body-sm text-muted">
           <Spinner size="sm" />
           Loading the form
         </span>
@@ -103,7 +103,7 @@ export function ReviewFormModal({
   if (!review) {
     return (
       <Modal open onClose={onClose} title="Review" size="md">
-        <p className="text-[0.875rem] text-body">
+        <p className="text-body-sm text-body">
           {error?.message ?? "That review is not available to you."}
         </p>
       </Modal>
@@ -227,12 +227,12 @@ export function ReviewFormModal({
             {review.submitted ? "Sent" : "Not sent yet"}
           </Badge>
           {review.dueDate && (
-            <span className="text-[0.875rem] text-muted">
+            <span className="text-body-sm text-muted">
               Due {dayLabel(review.dueDate)}
             </span>
           )}
           {review.rating !== null && (
-            <span className="text-[0.875rem] text-body">
+            <span className="text-body-sm text-body">
               Overall mark {review.rating} out of 5
             </span>
           )}
@@ -250,14 +250,14 @@ export function ReviewFormModal({
         {failed && (
           <p
             role="status"
-            className="rounded-md border border-danger-line bg-danger-soft px-3.5 py-2.5 text-[0.875rem] text-ink"
+            className="rounded-md border border-danger-line bg-danger-soft px-3.5 py-2.5 text-body-sm text-ink"
           >
             {failed}
           </p>
         )}
 
         {review.questions.length === 0 ? (
-          <p className="text-[0.875rem] text-body">
+          <p className="text-body-sm text-body">
             This cycle has no questions for this form yet.
           </p>
         ) : (
@@ -309,15 +309,15 @@ export function ReviewFormModal({
 
         {!editable && review.summary && (
           <div className="border-t border-line pt-5">
-            <p className="text-[0.75rem] font-medium text-muted">In summary</p>
-            <p className="mt-1 text-[0.875rem] leading-relaxed text-ink">
+            <p className="text-meta font-medium text-muted">In summary</p>
+            <p className="mt-1 text-body-sm leading-relaxed text-ink">
               {review.summary}
             </p>
           </div>
         )}
 
         {editable && outstanding.length > 0 && (
-          <p className="text-[0.875rem] text-body">
+          <p className="text-body-sm text-body">
             {outstanding.length === 1
               ? "1 question still to answer before you can send it."
               : `${outstanding.length} questions still to answer before you can send it.`}
@@ -351,7 +351,7 @@ function AppraiserStrip({
 
   return (
     <div className="rounded-md border border-line bg-canvas px-3.5 py-3">
-      <p className="flex flex-wrap items-center gap-2 text-[0.875rem] text-ink">
+      <p className="flex flex-wrap items-center gap-2 text-body-sm text-ink">
         <Badge tone="accent" size="sm">
           {appraiser.roleLabel}
         </Badge>
@@ -364,10 +364,10 @@ function AppraiserStrip({
         </span>
       </p>
       {appraiser.note && (
-        <p className="mt-1.5 text-[0.875rem] text-body">{appraiser.note}</p>
+        <p className="mt-1.5 text-body-sm text-body">{appraiser.note}</p>
       )}
       {shared && (
-        <p className="mt-1.5 text-[0.875rem] text-muted">
+        <p className="mt-1.5 text-body-sm text-muted">
           The final mark is the weighted average of everybody who answers. Answer
           for the part of the work you actually saw.
         </p>
@@ -471,8 +471,8 @@ function ReadAnswer({
 
   return (
     <div>
-      <p className="text-[0.75rem] font-medium text-muted">{question.prompt}</p>
-      <p className="mt-1 text-[0.875rem] leading-relaxed text-ink">
+      <p className="text-meta font-medium text-muted">{question.prompt}</p>
+      <p className="mt-1 text-body-sm leading-relaxed text-ink">
         {answer ?? "Not answered"}
       </p>
     </div>

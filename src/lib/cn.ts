@@ -11,7 +11,21 @@ import { extendTailwindMerge } from "tailwind-merge";
  * heading can carry a size and a colour at the same time.
  */
 
-const FONT_SIZES = ["display", "h1", "h2", "h3", "h4", "lead", "eyebrow"];
+const FONT_SIZES = [
+  "display",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "lead",
+  "eyebrow",
+  /* The body scale. `meta` is the smallest size the app ships — see the note in
+     globals.css for why there is a floor at all. */
+  "body-lg",
+  "body",
+  "body-sm",
+  "meta",
+];
 
 const TEXT_COLOURS = [
   "ink",

@@ -116,7 +116,7 @@ function FetchedBandPosition(props: Common & { employeeId: string }) {
     return (
       <div className={cn("flex flex-col gap-2", props.className)}>
         {props.label && (
-          <p className="text-[0.75rem] font-semibold tracking-wide text-faint">
+          <p className="text-meta font-semibold tracking-wide text-faint">
             {props.label}
           </p>
         )}
@@ -130,7 +130,7 @@ function FetchedBandPosition(props: Common & { employeeId: string }) {
     return (
       <p
         className={cn(
-          "flex items-center gap-2 text-[0.875rem] text-danger-text",
+          "flex items-center gap-2 text-body-sm text-danger-text",
           props.className,
         )}
       >
@@ -144,11 +144,11 @@ function FetchedBandPosition(props: Common & { employeeId: string }) {
     return (
       <div className={cn("flex flex-col gap-2", props.className)}>
         {props.label && (
-          <p className="text-[0.75rem] font-semibold tracking-wide text-faint">
+          <p className="text-meta font-semibold tracking-wide text-faint">
             {props.label}
           </p>
         )}
-        <p className="text-[0.875rem] text-muted">
+        <p className="text-body-sm text-muted">
           Not on a grade, so there is no band to compare against.
         </p>
         {props.action}
@@ -204,12 +204,12 @@ export function BandMeter({
       {(label ?? gradeLabel) && (
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           {label && (
-            <p className="text-[0.75rem] font-semibold tracking-wide text-faint">
+            <p className="text-meta font-semibold tracking-wide text-faint">
               {label}
             </p>
           )}
           {gradeLabel && (
-            <p className="text-[0.875rem] font-medium text-ink">{gradeLabel}</p>
+            <p className="text-body-sm font-medium text-ink">{gradeLabel}</p>
           )}
         </div>
       )}
@@ -217,7 +217,7 @@ export function BandMeter({
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="flex items-baseline gap-1.5">
           <Money amount={naira(grossKobo)} decimals size="lg" />
-          <span className="text-[0.875rem] text-muted">a month</span>
+          <span className="text-body-sm text-muted">a month</span>
         </p>
         <Badge tone={badge.tone} size="sm">
           {badge.label}
@@ -259,7 +259,7 @@ export function BandMeter({
         </div>
 
         {size === "md" && (
-          <div className="mt-2 grid grid-cols-3 text-[0.75rem]">
+          <div className="mt-2 grid grid-cols-3 text-meta">
             <Edge label="Bottom" kobo={band.minGrossKobo} align="left" />
             <Edge label="Mid-point" kobo={band.midGrossKobo} align="center" />
             <Edge label="Top" kobo={band.maxGrossKobo} align="right" />
@@ -267,7 +267,7 @@ export function BandMeter({
         )}
       </div>
 
-      <p className="flex flex-wrap items-center gap-x-2 text-[0.875rem]">
+      <p className="flex flex-wrap items-center gap-x-2 text-body-sm">
         <span className="font-medium text-ink">{sentence}</span>
         {over && (
           <span className="inline-flex items-center gap-1 text-warning-text">

@@ -67,9 +67,9 @@ export function InterviewPanel({
         />
         <CardBody>
           {!recorded ? (
-            <p className="text-[0.875rem] text-muted">Not recorded yet.</p>
+            <p className="text-body-sm text-muted">Not recorded yet.</p>
           ) : declined ? (
-            <p className="text-[0.875rem] text-body">
+            <p className="text-body-sm text-body">
               {employeeFirstName} did not want an interview.
             </p>
           ) : (

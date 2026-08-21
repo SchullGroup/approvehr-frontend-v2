@@ -72,7 +72,7 @@ export function Tabs({
               tabIndex={selected ? 0 : -1}
               onClick={() => onChange(item.id)}
               className={cn(
-                "relative flex items-center gap-2 whitespace-nowrap px-3.5 py-2.5 text-sm font-medium",
+                "relative flex items-center gap-2 whitespace-nowrap px-3.5 py-2.5 text-body-sm font-medium",
                 "transition-colors duration-150 -mb-px border-b-2",
                 selected
                   ? "border-accent text-ink"
@@ -88,7 +88,7 @@ export function Tabs({
               {item.count !== undefined && (
                 <span
                   className={cn(
-                    "tabular rounded-full px-1.5 py-0.5 text-[0.75rem] font-semibold",
+                    "tabular rounded-full px-1.5 py-0.5 text-meta font-semibold",
                     selected ? "bg-accent-soft text-accent-text" : "bg-sunken text-muted",
                   )}
                 >
@@ -137,7 +137,7 @@ export function LinkTabs({
             href={item.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "flex items-center gap-2 whitespace-nowrap px-3.5 py-2.5 text-sm font-medium",
+              "flex items-center gap-2 whitespace-nowrap px-3.5 py-2.5 text-body-sm font-medium",
               "transition-colors duration-150 -mb-px border-b-2",
               active
                 ? "border-accent text-ink"
@@ -148,7 +148,7 @@ export function LinkTabs({
             {item.count !== undefined && (
               <span
                 className={cn(
-                  "tabular rounded-full px-1.5 py-0.5 text-[0.75rem] font-semibold",
+                  "tabular rounded-full px-1.5 py-0.5 text-meta font-semibold",
                   active ? "bg-accent-soft text-accent-text" : "bg-sunken text-muted",
                 )}
               >
@@ -197,7 +197,7 @@ export function SegmentedControl<T extends string>({
             aria-checked={selected}
             onClick={() => onChange(opt.value)}
             className={cn(
-              "rounded-sm px-3 py-1.5 text-[0.875rem] font-medium transition-colors duration-150",
+              "rounded-sm px-3 py-1.5 text-body-sm font-medium transition-colors duration-150",
               selected
                 ? "bg-surface text-ink shadow-xs"
                 : "text-muted hover:text-ink",
@@ -236,7 +236,7 @@ export function Accordion({
                 onClick={() => setOpen(expanded ? null : item.id)}
                 className="flex w-full items-center justify-between gap-4 py-4 text-left"
               >
-                <span className="text-[0.9375rem] font-medium text-ink">
+                <span className="text-body font-medium text-ink">
                   {item.question}
                 </span>
                 <span
@@ -254,7 +254,7 @@ export function Accordion({
             <div
               id={`panel-${item.id}`}
               hidden={!expanded}
-              className="pb-5 text-sm leading-relaxed text-body"
+              className="pb-5 text-body-sm leading-relaxed text-body"
             >
               {item.answer}
             </div>

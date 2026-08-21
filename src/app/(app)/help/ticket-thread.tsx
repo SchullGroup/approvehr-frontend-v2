@@ -278,7 +278,7 @@ export function TicketThread({
             )}
 
             <div className="flex flex-col gap-3">
-              <h3 className="text-[0.875rem] font-semibold text-ink">
+              <h3 className="text-body-sm font-semibold text-ink">
                 The conversation
               </h3>
 
@@ -303,14 +303,14 @@ export function TicketThread({
               ))}
 
               {!detail.body && detail.comments.length === 0 && (
-                <p className="text-[0.875rem] text-muted">
+                <p className="text-body-sm text-muted">
                   Nothing written yet. The first reply starts the thread.
                 </p>
               )}
             </div>
 
             {resolved ? (
-              <p className="text-[0.875rem] text-muted">
+              <p className="text-body-sm text-muted">
                 Sorted. Still not right? Press{" "}
                 <span className="font-medium text-ink">Not fixed</span> below.
               </p>
@@ -458,8 +458,8 @@ function Message({
     >
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <Avatar name={authorName} size="xs" />
-        <span className="text-[0.875rem] font-medium text-ink">{authorName}</span>
-        <span className="text-[0.75rem] text-muted">{when(at)}</span>
+        <span className="text-body-sm font-medium text-ink">{authorName}</span>
+        <span className="text-meta text-muted">{when(at)}</span>
         {opening && (
           <Badge tone="neutral" size="sm">
             What they asked
@@ -467,7 +467,7 @@ function Message({
         )}
         {internal && <InternalBadge />}
       </div>
-      <p className="whitespace-pre-wrap text-[0.875rem] leading-relaxed text-body">
+      <p className="whitespace-pre-wrap text-body-sm leading-relaxed text-body">
         {body}
       </p>
     </article>

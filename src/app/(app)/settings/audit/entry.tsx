@@ -158,10 +158,10 @@ export function TrailEntry({
           className="flex w-full items-start gap-3 rounded-sm px-1 py-0.5 text-left hover:bg-canvas focus:outline-none focus-visible:ring-3 focus-visible:ring-accent/25"
         >
           <span className="min-w-0 flex-1">
-            <span className="block text-[0.9375rem] leading-snug text-ink">
+            <span className="block text-body leading-snug text-ink">
               {sentence.text}
             </span>
-            <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.75rem] text-muted">
+            <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-meta text-muted">
               <time dateTime={entry.at} title={fullStamp(entry.at)}>
                 {timeLabel(entry.at, now)}
               </time>
@@ -222,7 +222,7 @@ function EventDetail({ id }: { id: string }) {
 
   if (error || !detail) {
     return (
-      <p className="rounded-md border border-line bg-canvas px-4 py-3 text-[0.875rem] text-body">
+      <p className="rounded-md border border-line bg-canvas px-4 py-3 text-body-sm text-body">
         {error ? error.message : "This entry could not be opened."}
       </p>
     );
@@ -296,24 +296,24 @@ export function Changes({ detail }: { detail: AuditEntryDetail }) {
       )}
 
       {note && (
-        <p className="text-[0.875rem] leading-relaxed text-body">
+        <p className="text-body-sm leading-relaxed text-body">
           {formatFieldValue(note.field, note.value).text}
         </p>
       )}
 
       {detail.diff.raw !== undefined && (
-        <p className="rounded-md border border-line bg-canvas px-4 py-3 text-[0.875rem] text-body">
+        <p className="rounded-md border border-line bg-canvas px-4 py-3 text-body-sm text-body">
           {formatFieldValue("raw", detail.diff.raw).text}
         </p>
       )}
 
       {nothing && (
-        <p className="text-[0.875rem] text-muted">
+        <p className="text-body-sm text-muted">
           Nothing on the record changed — this is the action itself.
         </p>
       )}
 
-      <p className="text-[0.75rem] leading-relaxed text-muted">
+      <p className="text-meta leading-relaxed text-muted">
         {fullStamp(detail.at)}
         {detail.actorEmail ? ` · ${detail.actorEmail}` : ""}
         {detail.ipAddress ? ` · from ${detail.ipAddress}` : ""}

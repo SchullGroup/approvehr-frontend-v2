@@ -86,7 +86,7 @@ export function ApprovalQueue({
           }
           action={
             claims.length > 0 ? (
-              <span className="text-[0.875rem] text-muted">
+              <span className="text-body-sm text-muted">
                 Worth{" "}
                 <span className="tabular font-medium text-ink">
                   <Money amount={total} decimals />
@@ -132,19 +132,19 @@ export function ApprovalQueue({
                       <span className="block font-medium text-ink">
                         {claim.employeeName}
                         {mine && (
-                          <span className="ml-1.5 text-[0.75rem] font-normal text-muted">
+                          <span className="ml-1.5 text-meta font-normal text-muted">
                             you
                           </span>
                         )}
                       </span>
-                      <span className="block text-[0.75rem] text-muted">
+                      <span className="block text-meta text-muted">
                         {claim.employeeNo}
                       </span>
                     </TD>
 
                     <TD className="max-w-[22rem]">
                       <span className="block text-ink">{claim.description}</span>
-                      <span className="block text-[0.75rem] text-muted">
+                      <span className="block text-meta text-muted">
                         {claim.type}
                       </span>
                     </TD>
@@ -153,7 +153,7 @@ export function ApprovalQueue({
                       <span className="tabular block text-ink">
                         {claim.incurredOn}
                       </span>
-                      <span className="block text-[0.75rem] text-muted">
+                      <span className="block text-meta text-muted">
                         {waiting === 0
                           ? "today"
                           : `${waiting} ${waiting === 1 ? "day" : "days"} ago`}
@@ -171,7 +171,7 @@ export function ApprovalQueue({
                     <TD align="right">
                       <div className="flex justify-end gap-1.5">
                         {mine ? (
-                          <span className="self-center text-[0.75rem] text-muted">
+                          <span className="self-center text-meta text-muted">
                             Not yours to approve
                           </span>
                         ) : (
@@ -236,7 +236,7 @@ export function ReceiptCell({
       <span className="flex min-w-0 items-center gap-1.5">
         <Paperclip aria-hidden="true" className="size-3.5 shrink-0 text-muted" />
         <span
-          className="max-w-[10rem] truncate text-[0.875rem] text-body"
+          className="max-w-[10rem] truncate text-body-sm text-body"
           title={claim.receiptKey ?? undefined}
         >
           {claim.receiptKey}
@@ -253,7 +253,7 @@ export function ReceiptCell({
     );
   }
 
-  return <span className="text-[0.875rem] text-muted">None needed</span>;
+  return <span className="text-body-sm text-muted">None needed</span>;
 }
 
 /* -------------------------------------------------------------------------- */

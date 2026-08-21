@@ -132,7 +132,7 @@ export default async function RequisitionPage({
         <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
           <Card>
             <CardBody className="flex flex-col gap-4">
-              <div className="flex flex-wrap gap-x-6 gap-y-3 text-[0.875rem]">
+              <div className="flex flex-wrap gap-x-6 gap-y-3 text-body-sm">
                 <Fact label="Salary band">
                   <span className="tabular whitespace-nowrap">
                     {band(req.salaryMin, req.salaryMax)}
@@ -152,14 +152,14 @@ export default async function RequisitionPage({
 
               <div className="grid gap-5 border-t border-line pt-4 sm:grid-cols-2">
                 <div>
-                  <h3 className="mb-2 text-[0.75rem] font-semibold tracking-wide text-muted">
+                  <h3 className="mb-2 text-meta font-semibold tracking-wide text-muted">
                     Must have
                   </h3>
                   <ul className="flex flex-col gap-1.5">
                     {req.mustHaves.map((m) => (
                       <li
                         key={m}
-                        className="flex gap-2 text-[0.875rem] text-body"
+                        className="flex gap-2 text-body-sm text-body"
                       >
                         <span aria-hidden="true" className="text-success-text">
                           ✓
@@ -171,14 +171,14 @@ export default async function RequisitionPage({
                 </div>
                 {req.niceToHaves.length > 0 && (
                   <div>
-                    <h3 className="mb-2 text-[0.75rem] font-semibold tracking-wide text-muted">
+                    <h3 className="mb-2 text-meta font-semibold tracking-wide text-muted">
                       Nice to have
                     </h3>
                     <ul className="flex flex-col gap-1.5">
                       {req.niceToHaves.map((m) => (
                         <li
                           key={m}
-                          className="flex gap-2 text-[0.875rem] text-body"
+                          className="flex gap-2 text-body-sm text-body"
                         >
                           <span aria-hidden="true" className="text-faint">
                             +
@@ -195,13 +195,13 @@ export default async function RequisitionPage({
 
           <Card>
             <CardBody className="flex flex-col gap-3.5">
-              <h3 className="text-[0.75rem] font-semibold tracking-wide text-muted">
+              <h3 className="text-meta font-semibold tracking-wide text-muted">
                 Hiring team
               </h3>
               <Person label="Hiring manager" name={manager ? fullName(manager) : "—"} role={manager?.jobTitle} />
               <Person label="Recruiter" name={recruiter ? fullName(recruiter) : "—"} role={recruiter?.jobTitle} />
               <div className="border-t border-line pt-3">
-                <p className="flex items-center gap-1.5 text-[0.75rem] text-muted">
+                <p className="flex items-center gap-1.5 text-meta text-muted">
                   <Users aria-hidden="true" className="size-3.5" />
                   {req.activeStages.length} of 5 pipeline stages in use
                 </p>
@@ -233,7 +233,7 @@ function Fact({
 }) {
   return (
     <div>
-      <dt className="text-[0.75rem] uppercase tracking-wide text-faint">
+      <dt className="text-meta uppercase tracking-wide text-faint">
         {label}
       </dt>
       <dd className="mt-0.5 font-medium text-ink">{children}</dd>
@@ -252,11 +252,11 @@ function Person({
 }) {
   return (
     <div>
-      <p className="text-[0.75rem] uppercase tracking-wide text-faint">
+      <p className="text-meta uppercase tracking-wide text-faint">
         {label}
       </p>
-      <p className="mt-0.5 text-[0.875rem] font-medium text-ink">{name}</p>
-      {role && <p className="text-[0.75rem] text-muted">{role}</p>}
+      <p className="mt-0.5 text-body-sm font-medium text-ink">{name}</p>
+      {role && <p className="text-meta text-muted">{role}</p>}
     </div>
   );
 }

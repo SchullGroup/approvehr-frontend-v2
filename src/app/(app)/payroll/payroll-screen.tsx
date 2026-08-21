@@ -178,10 +178,10 @@ export function PayrollScreen() {
                       <Link
                         key={item.href}
                         href={item.href}
-                        className="flex items-center gap-2 rounded-md border border-line p-3 text-[0.875rem] text-ink transition-colors hover:bg-canvas"
+                        className="flex items-center gap-2 rounded-md border border-line p-3 text-body-sm text-ink transition-colors hover:bg-canvas"
                       >
                         <span className="min-w-0 flex-1">{item.label}</span>
-                        <span className="shrink-0 text-[0.75rem] text-muted">
+                        <span className="shrink-0 text-meta text-muted">
                           {item.meta}
                         </span>
                         <ArrowRight
@@ -252,7 +252,7 @@ export function PayrollScreen() {
         )}
 
         {!connected && (
-          <p className="flex items-start gap-2 text-[0.75rem] leading-relaxed text-muted">
+          <p className="flex items-start gap-2 text-meta leading-relaxed text-muted">
             <Receipt aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
             <span>
               These figures are illustrative. Nothing in this browser computes

@@ -48,10 +48,10 @@ export default function DemoPage() {
                     />
                   </span>
                   <div>
-                    <h2 className="text-[0.9375rem] font-medium text-slate">
+                    <h2 className="text-body font-medium text-slate">
                       {item.title}
                     </h2>
-                    <p className="mt-1 text-[0.875rem] leading-relaxed text-slate-muted">
+                    <p className="mt-1 text-body-sm leading-relaxed text-slate-muted">
                       {item.body}
                     </p>
                   </div>
@@ -59,7 +59,7 @@ export default function DemoPage() {
               ))}
             </ul>
 
-            <p className="mt-10 border-t border-sand-line pt-6 text-[0.8125rem] leading-relaxed text-slate-muted">
+            <p className="mt-10 border-t border-sand-line pt-6 text-meta leading-relaxed text-slate-muted">
               We use what you send here to prepare the call and nothing else.
               Your details are not sold, shared or added to a marketing list
               without you asking.

@@ -138,7 +138,7 @@ export function KindsPanel({
                       </span>
                     }
                   />
-                  <TD align="right" className="tabular text-[0.875rem]">
+                  <TD align="right" className="tabular text-body-sm">
                     {kind.itemCount}
                   </TD>
                   <TD>
@@ -152,7 +152,7 @@ export function KindsPanel({
                         }}
                       />
                     ) : (
-                      <span className="text-[0.875rem] text-body">
+                      <span className="text-body-sm text-body">
                         {kind.returnRequired ? "Yes" : "No"}
                       </span>
                     )}
@@ -237,7 +237,7 @@ function AddKindDialog({
     >
       <div className="flex flex-col gap-4">
         {refusal && (
-          <p className="text-[0.875rem] leading-relaxed text-danger-text">
+          <p className="text-body-sm leading-relaxed text-danger-text">
             {refusal}
           </p>
         )}

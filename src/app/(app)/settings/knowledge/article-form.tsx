@@ -232,7 +232,7 @@ export function ArticleForm({
         )}
 
         {problem && (
-          <p className="text-[0.875rem] leading-relaxed text-danger-text">
+          <p className="text-body-sm leading-relaxed text-danger-text">
             {problem}
           </p>
         )}

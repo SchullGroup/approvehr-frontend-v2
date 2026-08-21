@@ -179,7 +179,7 @@ export function PoliciesScreen() {
 
         {policies.loading && policies.policies.length === 0 ? (
           <Card>
-            <CardBody className="flex items-center gap-2 text-[0.875rem] text-muted">
+            <CardBody className="flex items-center gap-2 text-body-sm text-muted">
               <Spinner size="sm" />
               Loading the handbook
             </CardBody>
@@ -380,7 +380,7 @@ function PolicyRow({
       </span>
 
       <div className="min-w-0 flex-1">
-        <p className="flex flex-wrap items-center gap-2 text-[0.9375rem] font-medium text-ink">
+        <p className="flex flex-wrap items-center gap-2 text-body font-medium text-ink">
           {policy.title}
           {policy.published ? (
             <Badge tone="neutral" size="sm">
@@ -408,7 +408,7 @@ function PolicyRow({
               </Badge>
             )}
         </p>
-        <p className="mt-0.5 text-[0.875rem] text-muted">
+        <p className="mt-0.5 text-body-sm text-muted">
           {acceptanceLabel(policy)}
           {policy.publishedAt && (
             <> · published {dayLabel(policy.publishedAt.slice(0, 10))}</>
@@ -502,7 +502,7 @@ function WriteSectionModal({
       size="lg"
       footer={
         <div className="flex w-full flex-wrap items-center justify-between gap-3">
-          <p className="text-[0.75rem] text-muted">
+          <p className="text-meta text-muted">
             {mustAccept
               ? "Publishing asks everyone to accept it."
               : "Publishing puts it in the handbook to read."}
@@ -671,7 +671,7 @@ function EditSectionModal({
 
         {policy.published ? (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line bg-canvas p-4">
-            <p className="text-[0.875rem] text-body">
+            <p className="text-body-sm text-body">
               Wording — version {policy.version}
             </p>
             <Button variant="secondary" size="sm" onClick={onPublishInstead}>
@@ -757,7 +757,7 @@ function PublishModal({
       size={policy.published ? "lg" : "sm"}
       footer={
         <div className="flex w-full flex-wrap items-center justify-between gap-3">
-          <p className="text-[0.875rem] text-body">{publishLine(policy)}</p>
+          <p className="text-body-sm text-body">{publishLine(policy)}</p>
           <div className="flex gap-2">
             <Button variant="secondary" onClick={onClose}>
               Cancel
@@ -784,7 +784,7 @@ function PublishModal({
     >
       {policy.published ? (
         current.loading ? (
-          <div className="flex items-center gap-2 text-[0.875rem] text-muted">
+          <div className="flex items-center gap-2 text-body-sm text-muted">
             <Spinner size="sm" />
             Loading the current wording
           </div>
@@ -805,7 +805,7 @@ function PublishModal({
           </Field>
         )
       ) : (
-        <p className="text-[0.9375rem] leading-relaxed text-body">
+        <p className="text-body leading-relaxed text-body">
           It becomes version {policy.version} of your handbook.
         </p>
       )}
@@ -866,7 +866,7 @@ function ChaseDrawer({
       width="max-w-xl"
       footer={
         <div className="flex w-full flex-wrap items-center justify-between gap-3">
-          <p className="text-[0.75rem] text-muted">
+          <p className="text-meta text-muted">
             ApproveHR cannot send the reminder itself yet.
           </p>
           <Button
@@ -893,11 +893,11 @@ function ChaseDrawer({
         />
 
         {!list.available ? (
-          <p className="text-[0.875rem] text-body">
+          <p className="text-body-sm text-body">
             The register of who has accepted needs the API.
           </p>
         ) : list.loading ? (
-          <div className="flex items-center gap-2 text-[0.875rem] text-muted">
+          <div className="flex items-center gap-2 text-body-sm text-muted">
             <Spinner size="sm" />
             Loading
           </div>
@@ -906,7 +906,7 @@ function ChaseDrawer({
             {list.error.message}
           </Callout>
         ) : list.rows.length === 0 ? (
-          <p className="text-[0.875rem] text-body">
+          <p className="text-body-sm text-body">
             {state === "outstanding"
               ? "Everybody has accepted this version."
               : "Nobody has accepted this version yet."}
@@ -919,14 +919,14 @@ function ChaseDrawer({
                 className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5"
               >
                 <span className="min-w-0">
-                  <span className="block text-[0.875rem] font-medium text-ink">
+                  <span className="block text-body-sm font-medium text-ink">
                     {row.name}
                   </span>
-                  <span className="block text-[0.75rem] text-muted">
+                  <span className="block text-meta text-muted">
                     {row.employeeNo} · {row.jobTitle}
                   </span>
                 </span>
-                <span className="text-right text-[0.75rem] text-muted">
+                <span className="text-right text-meta text-muted">
                   {row.accepted ? (
                     <>
                       Accepted {dayLabel(row.acceptedAt?.slice(0, 10) ?? null)}
@@ -946,7 +946,7 @@ function ChaseDrawer({
         )}
 
         {state === "accepted" && list.rows.length > 0 && (
-          <p className="text-[0.75rem] text-muted">
+          <p className="text-meta text-muted">
             A click and an IP address, not a signature.
           </p>
         )}

@@ -270,8 +270,8 @@ export function EditableSection({
             if (!editing) {
               return (
                 <div key={String(f.key)}>
-                  <dt className="text-[0.75rem] text-muted">{f.label}</dt>
-                  <dd className="mt-0.5 text-[0.875rem] text-ink">
+                  <dt className="text-meta text-muted">{f.label}</dt>
+                  <dd className="mt-0.5 text-body-sm text-ink">
                     {value === null || value === undefined || value === "" ? (
                       <span className="font-medium text-danger-text">
                         {f.emptyLabel ?? "Not provided"}

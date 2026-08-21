@@ -171,7 +171,7 @@ export function TeamsPanel({
             : {})}
         />
         {teams.loading ? (
-          <CardBody className="flex items-center gap-2 text-[0.875rem] text-muted">
+          <CardBody className="flex items-center gap-2 text-body-sm text-muted">
             <Spinner size="sm" />
             Loading the teams
           </CardBody>
@@ -346,7 +346,7 @@ function TeamRow({
       </span>
 
       <div className="min-w-0 flex-1">
-        <p className="flex flex-wrap items-center gap-2 text-[0.9375rem] font-medium text-ink">
+        <p className="flex flex-wrap items-center gap-2 text-body font-medium text-ink">
           {team.name}
           {/* Cross-functional is the fact worth a badge: it is the one that says
               membership implies nothing about anybody's pay. */}
@@ -365,7 +365,7 @@ function TeamRow({
             </Badge>
           )}
         </p>
-        <p className="mt-0.5 text-[0.875rem] text-muted">
+        <p className="mt-0.5 text-body-sm text-muted">
           {team.leadName ? (
             <>
               Led by{" "}
@@ -384,8 +384,8 @@ function TeamRow({
       </div>
 
       <div className="shrink-0 text-right">
-        <p className="text-[0.75rem] uppercase tracking-wide text-faint">Members</p>
-        <p className="tabular text-[0.9375rem] font-medium text-ink">
+        <p className="text-meta uppercase tracking-wide text-faint">Members</p>
+        <p className="tabular text-body font-medium text-ink">
           {team.memberCount}
         </p>
       </div>
@@ -469,7 +469,7 @@ function TeamDrawer({
         width="max-w-xl"
         footer={
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-[0.875rem] text-muted">
+            <p className="text-body-sm text-muted">
               {team
                 ? team.members.length === 1
                   ? "1 person"
@@ -491,30 +491,30 @@ function TeamDrawer({
         }
       >
         {loading ? (
-          <span className="flex items-center gap-2 text-[0.875rem] text-muted">
+          <span className="flex items-center gap-2 text-body-sm text-muted">
             <Spinner size="sm" />
             Loading the team
           </span>
         ) : !team ? (
-          <p className="text-[0.875rem] text-body">
+          <p className="text-body-sm text-body">
             {error?.message ?? "That team is not available."}
           </p>
         ) : (
           <div className="flex flex-col gap-5">
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-md border border-line p-3">
-                <p className="text-[0.75rem] uppercase tracking-wide text-faint">
+                <p className="text-meta uppercase tracking-wide text-faint">
                   Lead
                 </p>
-                <p className="mt-0.5 text-[0.875rem] text-ink">
+                <p className="mt-0.5 text-body-sm text-ink">
                   {team.leadName ?? "Nobody assigned"}
                 </p>
               </div>
               <div className="rounded-md border border-line p-3">
-                <p className="text-[0.75rem] uppercase tracking-wide text-faint">
+                <p className="text-meta uppercase tracking-wide text-faint">
                   Monthly cost
                 </p>
-                <p className="tabular mt-0.5 text-[0.875rem] text-ink">
+                <p className="tabular mt-0.5 text-body-sm text-ink">
                   <Money amount={team.payrollKobo / 100} compact />
                 </p>
               </div>
@@ -545,7 +545,7 @@ function TeamDrawer({
                     className="flex flex-wrap items-center justify-between gap-3 px-3 py-2.5"
                   >
                     <div className="min-w-0">
-                      <p className="text-[0.875rem] font-medium text-ink">
+                      <p className="text-body-sm font-medium text-ink">
                         <Link
                           href={`/people/${member.employeeId}`}
                           className="hover:text-accent-text hover:underline underline-offset-4"
@@ -553,7 +553,7 @@ function TeamDrawer({
                           {member.name}
                         </Link>
                       </p>
-                      <p className="mt-0.5 flex flex-wrap items-center gap-2 text-[0.75rem] text-muted">
+                      <p className="mt-0.5 flex flex-wrap items-center gap-2 text-meta text-muted">
                         <span>{member.jobTitle}</span>
                         {member.departmentName && (
                           <span className="flex items-center gap-1">
@@ -588,7 +588,7 @@ function TeamDrawer({
               </ul>
             )}
 
-            <p className="text-[0.875rem] text-muted">
+            <p className="text-body-sm text-muted">
               Taking somebody off a team leaves their department exactly where it is.
               Leaving a team is not leaving a cost centre.
             </p>

@@ -47,11 +47,11 @@ export function CardHeader({
       )}
     >
       <div className="min-w-0">
-        <Heading className="text-[0.9375rem] font-semibold text-ink">
+        <Heading className="text-body font-semibold text-ink">
           {title}
         </Heading>
         {description && (
-          <p className="mt-1 text-[0.875rem] leading-relaxed text-muted">
+          <p className="mt-1 text-body-sm leading-relaxed text-muted">
             {description}
           </p>
         )}
@@ -119,7 +119,7 @@ export function LinkCard({
           {icon}
         </span>
       )}
-      <span className="flex items-center gap-1.5 text-[0.9375rem] font-semibold text-ink">
+      <span className="flex items-center gap-1.5 text-body font-semibold text-ink">
         {title}
         <ArrowRight
           aria-hidden="true"
@@ -127,7 +127,7 @@ export function LinkCard({
         />
       </span>
       {description && (
-        <span className="text-[0.875rem] leading-relaxed text-body">
+        <span className="text-body-sm leading-relaxed text-body">
           {description}
         </span>
       )}
@@ -168,7 +168,7 @@ export function Stat({
       )}
     >
       <div className="flex items-start justify-between gap-3">
-        <p className="text-[0.875rem] font-medium text-muted">{label}</p>
+        <p className="text-body-sm font-medium text-muted">{label}</p>
         {icon && (
           <span aria-hidden="true" className="text-faint [&>svg]:size-4">
             {icon}
@@ -177,7 +177,7 @@ export function Stat({
       </div>
       <p className="mt-2 text-h3 text-ink tabular truncate">{value}</p>
       {(hint || trend) && (
-        <p className="mt-1.5 flex items-center gap-2 text-[0.875rem]">
+        <p className="mt-1.5 flex items-center gap-2 text-body-sm">
           {trend && (
             <span className={cn("font-medium", trendTone)}>{trend.label}</span>
           )}
@@ -226,7 +226,7 @@ export function Callout({
           {icon}
         </span>
       )}
-      <div className="min-w-0 text-[0.875rem] leading-relaxed">
+      <div className="min-w-0 text-body-sm leading-relaxed">
         {title && <p className="font-semibold mb-1">{title}</p>}
         <div className={tone === "neutral" ? "" : "text-ink/85"}>{children}</div>
       </div>

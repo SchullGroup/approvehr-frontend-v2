@@ -70,10 +70,10 @@ export function Resign() {
         />
         <CardBody className="flex flex-wrap items-center gap-4">
           <div className="min-w-0 flex-1">
-            <p className="text-[0.9375rem] font-medium text-ink">
+            <p className="text-body font-medium text-ink">
               Last day {shortDate(exit.lastWorkingDay)}
             </p>
-            <p className="mt-0.5 text-[0.875rem] text-muted">{exit.kindLabel}</p>
+            <p className="mt-0.5 text-body-sm text-muted">{exit.kindLabel}</p>
           </div>
           <ProgressMeter
             className="w-full sm:w-44"
@@ -89,11 +89,11 @@ export function Resign() {
           <div className="flex flex-col items-start gap-0.5">
             <Link
               href={`/people/offboarding/${exit.id}`}
-              className="text-[0.875rem] font-medium text-accent-text underline-offset-4 hover:underline"
+              className="text-body-sm font-medium text-accent-text underline-offset-4 hover:underline"
             >
               Open my checklist
             </Link>
-            <span className="text-[0.75rem] text-faint">
+            <span className="text-meta text-faint">
               Changed your mind? You can withdraw it there.
             </span>
           </div>
@@ -204,7 +204,7 @@ function ResignDialog({
     >
       <div className="flex flex-col gap-4">
         {error && (
-          <p className="rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-[0.875rem] text-danger-text">
+          <p className="rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-body-sm text-danger-text">
             {error}
           </p>
         )}

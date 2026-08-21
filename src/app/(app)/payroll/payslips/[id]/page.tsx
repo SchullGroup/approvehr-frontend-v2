@@ -47,7 +47,7 @@ export default async function PayslipPage({
             prerenderable. */}
         <Suspense
           fallback={
-            <p className="text-[0.875rem] text-muted">Finding this payslip…</p>
+            <p className="text-body-sm text-muted">Finding this payslip…</p>
           }
         >
           <PayslipView id={id} />

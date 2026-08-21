@@ -119,10 +119,10 @@ export function ApplyForm({
           <Check aria-hidden="true" className="size-6 text-slate" strokeWidth={3} />
         </span>
         <h2 className="mt-6 text-h3 text-slate">Application sent</h2>
-        <p className="mx-auto mt-3 max-w-sm text-[0.9375rem] leading-relaxed text-slate-muted">
+        <p className="mx-auto mt-3 max-w-sm text-body leading-relaxed text-slate-muted">
           {sent.note}
         </p>
-        <p className="mx-auto mt-4 max-w-sm text-[0.875rem] leading-relaxed text-slate-muted">
+        <p className="mx-auto mt-4 max-w-sm text-body-sm leading-relaxed text-slate-muted">
           No confirmation email will arrive — email is not connected. Your
           application is saved under {form.email}.
         </p>
@@ -137,7 +137,7 @@ export function ApplyForm({
       className="rounded-3xl border border-sand-line bg-white/70 p-7 sm:p-9"
     >
       <h2 className="text-h3 text-slate">Apply for this role</h2>
-      <p className="mt-2 text-[0.9375rem] leading-relaxed text-slate-muted">
+      <p className="mt-2 text-body leading-relaxed text-slate-muted">
         {roleTitle} at {company}. Four boxes and you are done.
       </p>
 
@@ -187,14 +187,14 @@ export function ApplyForm({
         <div>
           <label
             htmlFor="note"
-            className="block text-[0.875rem] font-medium text-slate"
+            className="block text-body-sm font-medium text-slate"
           >
             Your CV, or anything else
-            <span className="ml-1.5 text-[0.75rem] font-normal text-slate-muted">
+            <span className="ml-1.5 text-meta font-normal text-slate-muted">
               Optional
             </span>
           </label>
-          <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-slate-muted">
+          <p className="mt-1.5 text-meta leading-relaxed text-slate-muted">
             {CV_LINE}
           </p>
           <textarea
@@ -203,14 +203,14 @@ export function ApplyForm({
             value={form.note}
             onChange={(event) => set("note", event.currentTarget.value)}
             placeholder="Link to my CV: …&#10;I am on one month's notice."
-            className="mt-2 w-full resize-y rounded-xl border border-sand-line bg-white px-4 py-3 text-[0.9375rem] text-slate placeholder:text-slate-muted/60 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate"
+            className="mt-2 w-full resize-y rounded-xl border border-sand-line bg-white px-4 py-3 text-body text-slate placeholder:text-slate-muted/60 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate"
           />
         </div>
 
         {refusal && (
           <p
             role="alert"
-            className="rounded-xl bg-wash-rose p-3.5 text-[0.875rem] leading-relaxed text-slate-soft"
+            className="rounded-xl bg-wash-rose p-3.5 text-body-sm leading-relaxed text-slate-soft"
           >
             {refusal}
           </p>
@@ -227,7 +227,7 @@ export function ApplyForm({
           {busy ? "Sending…" : "Send application"}
         </PillButton>
 
-        <p className="text-center text-[0.75rem] leading-relaxed text-slate-muted">
+        <p className="text-center text-meta leading-relaxed text-slate-muted">
           {company} sees what you send here. It is not shared with anyone else and
           it is not added to a mailing list.
         </p>
@@ -261,7 +261,7 @@ function TextField({
 }) {
   return (
     <div>
-      <label htmlFor={id} className="block text-[0.875rem] font-medium text-slate">
+      <label htmlFor={id} className="block text-body-sm font-medium text-slate">
         {label}
         {required && (
           <span aria-hidden="true" className="ml-0.5 text-danger-text">
@@ -270,7 +270,7 @@ function TextField({
         )}
         {required && <span className="sr-only-focusable"> required</span>}
         {optional && (
-          <span className="ml-1.5 text-[0.75rem] font-normal text-slate-muted">
+          <span className="ml-1.5 text-meta font-normal text-slate-muted">
             Optional
           </span>
         )}
@@ -285,14 +285,14 @@ function TextField({
         placeholder={placeholder}
         onChange={(event) => onChange(event.currentTarget.value)}
         className={cn(
-          "mt-2 h-11 w-full rounded-xl border bg-white px-4 text-[0.9375rem] text-slate",
+          "mt-2 h-11 w-full rounded-xl border bg-white px-4 text-body text-slate",
           "placeholder:text-slate-muted/60 focus:outline-none",
           "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate",
           error ? "border-danger" : "border-sand-line",
         )}
       />
       {error && (
-        <p id={`${id}-error`} className="mt-1.5 text-[0.8125rem] text-danger-text">
+        <p id={`${id}-error`} className="mt-1.5 text-meta text-danger-text">
           {error}
         </p>
       )}

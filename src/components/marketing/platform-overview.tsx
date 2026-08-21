@@ -103,7 +103,7 @@ export function PlatformOverview() {
               aria-controls="platform-panel"
               onClick={() => choose(id)}
               className={cn(
-                "group flex shrink-0 items-center gap-2.5 rounded-full px-3 py-2 text-left text-[0.9375rem] transition-colors duration-200 lg:rounded-none lg:bg-transparent lg:px-0",
+                "group flex shrink-0 items-center gap-2.5 rounded-full px-3 py-2 text-left text-body transition-colors duration-200 lg:rounded-none lg:bg-transparent lg:px-0",
                 on
                   ? "bg-slate/6 font-medium text-slate"
                   : "text-slate-muted hover:text-slate",
@@ -137,11 +137,11 @@ export function PlatformOverview() {
       {/* Copy */}
       <div key={`${active}-copy`} className="animate-fade flex flex-col justify-center">
         <h3 className="text-h2 text-slate">{current.label}</h3>
-        <p className="mt-4 text-[0.9375rem] leading-relaxed text-slate-muted">
+        <p className="mt-4 text-body leading-relaxed text-slate-muted">
           {current.blurb}
         </p>
         {current.statutory && (
-          <p className="mt-4 inline-flex w-fit rounded-full bg-wash-green px-3 py-1 text-[0.75rem] font-medium text-success-text">
+          <p className="mt-4 inline-flex w-fit rounded-full bg-wash-green px-3 py-1 text-meta font-medium text-success-text">
             {current.statutory}
           </p>
         )}

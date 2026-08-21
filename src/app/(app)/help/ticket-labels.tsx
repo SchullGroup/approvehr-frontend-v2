@@ -93,7 +93,7 @@ export function TicketClockBadge({
         {clock.label}
       </Badge>
       {detail && ticket.status !== "RESOLVED" && (
-        <span className="text-[0.75rem] text-muted">
+        <span className="text-meta text-muted">
           {clock.against === "response"
             ? `${clock.waited} with no reply`
             : `open ${clock.waited}`}

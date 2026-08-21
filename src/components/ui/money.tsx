@@ -64,8 +64,8 @@ export function Money({
   size?: "sm" | "md" | "lg";
 }) {
   const sizes = {
-    sm: "text-[0.875rem]",
-    md: "text-sm",
+    sm: "text-body-sm",
+    md: "text-body-sm",
     lg: "text-h4",
   } as const;
 
@@ -81,7 +81,7 @@ export function Money({
         )}
       </span>
       {ngnRate !== undefined && currency === "USD" && (
-        <span className="tabular text-[0.75rem] text-muted">
+        <span className="tabular text-meta text-muted">
           {formatMoney(amount * ngnRate, "NGN", { compact: true })} at locked
           rate
         </span>
@@ -96,7 +96,7 @@ export function Money({
 export function MoneyHidden({ reason }: { reason?: string }) {
   return (
     <span
-      className="inline-flex items-center gap-1.5 rounded-sm border border-line bg-sunken px-2 py-1 text-[0.75rem] font-medium text-muted"
+      className="inline-flex items-center gap-1.5 rounded-sm border border-line bg-sunken px-2 py-1 text-meta font-medium text-muted"
       title={reason}
     >
       Hidden

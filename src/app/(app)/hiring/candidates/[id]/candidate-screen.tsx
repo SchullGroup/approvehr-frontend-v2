@@ -212,14 +212,14 @@ function Record({ id }: { id: string }) {
                 <Avatar name={name} size="lg" tone="accent" />
                 <div>
                   <p className="text-h4 text-ink">{name}</p>
-                  <p className="mt-0.5 text-[0.875rem] text-muted">
+                  <p className="mt-0.5 text-body-sm text-muted">
                     {card?.candidate.currentTitle ??
                       record?.postingTitle ??
                       "Applicant"}
                   </p>
                 </div>
                 {card?.rating != null && (
-                  <span className="tabular inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-[0.875rem] font-semibold text-ink">
+                  <span className="tabular inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-body-sm font-semibold text-ink">
                     <Star
                       aria-hidden="true"
                       className="size-3.5 fill-warning text-warning"
@@ -258,7 +258,7 @@ function Record({ id }: { id: string }) {
                   action={<SourceBadge live={false} />}
                 />
                 <CardBody>
-                  <p className="text-[0.875rem] text-body">
+                  <p className="text-body-sm text-body">
                     Nobody filled a form in for this person — a recruiter added
                     them. There is no application record to read, so everything
                     below is the seeded pipeline.
@@ -276,7 +276,7 @@ function Record({ id }: { id: string }) {
                   action={<SourceBadge live={false} />}
                 />
                 <CardBody className="flex flex-col items-start gap-3">
-                  <p className="text-[0.875rem] text-body">
+                  <p className="text-body-sm text-body">
                     The stage they are in, their interviews, their scorecards and
                     any offer were written by the API and cannot be read back —
                     the pipeline has no endpoint yet. The application above is
@@ -398,12 +398,12 @@ function Contact({
           {row.href ? (
             <a
               href={row.href}
-              className="min-w-0 truncate text-[0.875rem] text-body hover:text-accent-text hover:underline underline-offset-4"
+              className="min-w-0 truncate text-body-sm text-body hover:text-accent-text hover:underline underline-offset-4"
             >
               {row.text}
             </a>
           ) : (
-            <span className="min-w-0 truncate text-[0.875rem] text-body">
+            <span className="min-w-0 truncate text-body-sm text-body">
               {row.text}
             </span>
           )}
@@ -427,7 +427,7 @@ function SeededRole({ card }: { card: PipelineCard }) {
     <Card>
       <CardBody className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-[0.75rem] font-semibold tracking-wide text-muted">
+          <h2 className="text-meta font-semibold tracking-wide text-muted">
             Applying for
           </h2>
           <SourceBadge live={false} />
@@ -441,10 +441,10 @@ function SeededRole({ card }: { card: PipelineCard }) {
             className="mt-0.5 size-4 shrink-0 text-faint"
           />
           <span className="min-w-0">
-            <span className="block truncate text-[0.875rem] font-medium text-ink">
+            <span className="block truncate text-body-sm font-medium text-ink">
               {card.requisition.title}
             </span>
-            <span className="block truncate text-[0.75rem] text-muted">
+            <span className="block truncate text-meta text-muted">
               {card.requisition.reference} · {card.requisition.department}
             </span>
           </span>
@@ -489,7 +489,7 @@ function LiveAdvert({
     <Card>
       <CardBody className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-[0.75rem] font-semibold tracking-wide text-muted">
+          <h2 className="text-meta font-semibold tracking-wide text-muted">
             Applied through
           </h2>
           <SourceBadge live={live} />
@@ -503,10 +503,10 @@ function LiveAdvert({
             className="mt-0.5 size-4 shrink-0 text-faint"
           />
           <span className="min-w-0">
-            <span className="block truncate text-[0.875rem] font-medium text-ink">
+            <span className="block truncate text-body-sm font-medium text-ink">
               {record.postingTitle}
             </span>
-            <span className="block truncate text-[0.75rem] text-muted">
+            <span className="block truncate text-meta text-muted">
               Everybody else who applied to it
             </span>
           </span>
@@ -566,7 +566,7 @@ function Application({
             still marked as waiting. Saying which join this is beats letting
             somebody read the two as one record. */}
         {matchedByEmail && (
-          <p className="text-[0.75rem] text-muted">
+          <p className="text-meta text-muted">
             Matched to the pipeline candidate by email address, so the two
             records can disagree about where this person got to.
           </p>
@@ -579,15 +579,15 @@ function Application({
 
         {record.coverNote ? (
           <div>
-            <h3 className="mb-1.5 text-[0.75rem] font-semibold tracking-wide text-muted">
+            <h3 className="mb-1.5 text-meta font-semibold tracking-wide text-muted">
               What they wrote
             </h3>
-            <p className="whitespace-pre-line rounded-md bg-canvas p-3 text-[0.875rem] leading-relaxed text-body">
+            <p className="whitespace-pre-line rounded-md bg-canvas p-3 text-body-sm leading-relaxed text-body">
               {record.coverNote}
             </p>
           </div>
         ) : (
-          <p className="text-[0.875rem] text-muted">
+          <p className="text-body-sm text-muted">
             They sent no covering note.
           </p>
         )}
@@ -600,12 +600,12 @@ function Application({
           {record.cvUrl ? (
             <a
               href={record.cvUrl}
-              className="text-[0.875rem] font-medium text-accent-text hover:underline underline-offset-4"
+              className="text-body-sm font-medium text-accent-text hover:underline underline-offset-4"
             >
               Open their CV
             </a>
           ) : (
-            <span className="min-w-0 flex-1 text-[0.875rem] text-body">
+            <span className="min-w-0 flex-1 text-body-sm text-body">
               {record.cvNote ?? "No CV is attached to this application."}
             </span>
           )}
@@ -613,7 +613,7 @@ function Application({
 
         {record.otherApplications.length > 0 && (
           <div>
-            <h3 className="mb-1.5 text-[0.75rem] font-semibold tracking-wide text-muted">
+            <h3 className="mb-1.5 text-meta font-semibold tracking-wide text-muted">
               Also applied for
             </h3>
             <ul className="flex flex-col gap-1.5">
@@ -624,11 +624,11 @@ function Application({
                 >
                   <Link
                     href={`/hiring/candidates/${other.id}`}
-                    className="min-w-0 truncate text-[0.875rem] text-ink hover:text-accent-text hover:underline underline-offset-4"
+                    className="min-w-0 truncate text-body-sm text-ink hover:text-accent-text hover:underline underline-offset-4"
                   >
                     {other.postingTitle}
                   </Link>
-                  <span className="tabular shrink-0 text-[0.75rem] text-muted">
+                  <span className="tabular shrink-0 text-meta text-muted">
                     {other.statusLabel} · {other.appliedOn}
                   </span>
                 </li>
@@ -650,7 +650,7 @@ function Application({
 
         {record.waiting && !editable && (
           <div className="flex flex-wrap items-center gap-3 border-t border-line pt-4">
-            <p className="text-[0.875rem] text-body">
+            <p className="text-body-sm text-body">
               Screening somebody in writes a candidate into the pipeline, so it
               needs the API.
             </p>
@@ -757,7 +757,7 @@ function Pipeline({ card }: { card: PipelineCard }) {
         />
         <CardBody className="flex flex-col gap-3">
           {card.requisition.screeningQuestions.length === 0 && (
-            <p className="text-[0.875rem] text-muted">
+            <p className="text-body-sm text-muted">
               This role has no screening questions configured.
             </p>
           )}
@@ -766,7 +766,7 @@ function Pipeline({ card }: { card: PipelineCard }) {
             return (
               <div key={q.id} className="rounded-md border border-line p-3">
                 <div className="flex items-start justify-between gap-3">
-                  <p className="text-[0.875rem] font-medium text-ink">
+                  <p className="text-body-sm font-medium text-ink">
                     {q.question}
                   </p>
                   {q.knockout && (
@@ -777,7 +777,7 @@ function Pipeline({ card }: { card: PipelineCard }) {
                 </div>
                 <p
                   className={cn(
-                    "mt-1.5 text-[0.875rem]",
+                    "mt-1.5 text-body-sm",
                     answer ? "text-body" : "italic text-faint",
                   )}
                 >
@@ -822,7 +822,7 @@ function Pipeline({ card }: { card: PipelineCard }) {
               <div key={sc.id} className="rounded-md border border-line p-3.5">
                 <div className="flex items-center gap-2.5">
                   <Avatar name={who ? fullName(who) : "?"} size="xs" />
-                  <span className="min-w-0 flex-1 truncate text-[0.875rem] font-medium text-ink">
+                  <span className="min-w-0 flex-1 truncate text-body-sm font-medium text-ink">
                     {who ? fullName(who) : "Unknown"}
                   </span>
                   {sc.recommendation && (
@@ -846,7 +846,7 @@ function Pipeline({ card }: { card: PipelineCard }) {
                   ))}
                 </div>
                 {sc.notes && (
-                  <p className="mt-3 border-t border-line pt-2.5 text-[0.875rem] leading-relaxed text-body">
+                  <p className="mt-3 border-t border-line pt-2.5 text-body-sm leading-relaxed text-body">
                     {sc.notes}
                   </p>
                 )}
@@ -855,7 +855,7 @@ function Pipeline({ card }: { card: PipelineCard }) {
           })}
 
           {submitted.length === 0 && pending.length === 0 && (
-            <p className="text-[0.875rem] text-muted">
+            <p className="text-body-sm text-muted">
               Scorecards appear once an interview is scheduled.
             </p>
           )}
@@ -866,7 +866,7 @@ function Pipeline({ card }: { card: PipelineCard }) {
         <CardHeader title="Interviews" action={<SourceBadge live={false} />} />
         <CardBody className="flex flex-col gap-2.5">
           {card.interviews.length === 0 && (
-            <p className="text-[0.875rem] text-muted">Nothing scheduled.</p>
+            <p className="text-body-sm text-muted">Nothing scheduled.</p>
           )}
           {card.interviews.map((iv) => (
             <div
@@ -878,10 +878,10 @@ function Pipeline({ card }: { card: PipelineCard }) {
                 className="mt-0.5 size-4 shrink-0 text-faint"
               />
               <div className="min-w-0 flex-1">
-                <p className="text-[0.875rem] font-medium text-ink">
+                <p className="text-body-sm font-medium text-ink">
                   {INTERVIEW_LABEL[iv.kind] ?? iv.kind}
                 </p>
-                <p className="tabular mt-0.5 text-[0.75rem] text-muted">
+                <p className="tabular mt-0.5 text-meta text-muted">
                   {new Date(iv.scheduledFor).toLocaleString("en-NG", {
                     weekday: "short",
                     day: "numeric",
@@ -934,9 +934,9 @@ function OfferAgainstBand({ grossMonthly }: { grossMonthly: number }) {
       <div className="flex flex-col gap-2">
         <p className="flex items-baseline gap-2">
           <Money amount={grossMonthly} decimals size="lg" />
-          <span className="text-[0.875rem] text-muted">a month</span>
+          <span className="text-body-sm text-muted">a month</span>
         </p>
-        <p className="text-[0.875rem] text-body">{bands.note}</p>
+        <p className="text-body-sm text-body">{bands.note}</p>
       </div>
     );
   }

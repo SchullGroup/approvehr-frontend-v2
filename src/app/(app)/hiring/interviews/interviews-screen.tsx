@@ -142,7 +142,7 @@ function Diary() {
           <CardBody className="flex flex-col gap-4">
             {backlog.error && (
               <div className="flex flex-wrap items-center gap-3">
-                <p className="text-[0.875rem] text-danger-text">
+                <p className="text-body-sm text-danger-text">
                   {backlog.error.message}
                 </p>
                 <Button variant="secondary" size="sm" onClick={backlog.reload}>
@@ -203,10 +203,10 @@ function Diary() {
                   >
                     <Avatar name={name} size="sm" />
                     <div className="min-w-0 flex-1">
-                      <p className="text-[0.875rem] font-medium text-ink">
+                      <p className="text-body-sm font-medium text-ink">
                         {name} owes a scorecard
                       </p>
-                      <p className="text-[0.75rem] text-body">
+                      <p className="text-meta text-body">
                         {KIND_LABEL[interview.kind] ?? interview.kind} with{" "}
                         {fullName(card.candidate)} · {card.requisition.title}
                       </p>
@@ -258,7 +258,7 @@ function Diary() {
                   className="flex flex-wrap items-center gap-3 rounded-lg border border-line p-3 transition-colors hover:bg-canvas"
                 >
                   <div className="flex w-16 shrink-0 flex-col items-center rounded-md bg-sunken px-2 py-1.5">
-                    <span className="text-[0.75rem] uppercase tracking-wide text-muted">
+                    <span className="text-meta uppercase tracking-wide text-muted">
                       {when.toLocaleDateString("en-NG", { month: "short" })}
                     </span>
                     <span className="tabular text-h4 leading-none text-ink">
@@ -267,7 +267,7 @@ function Diary() {
                   </div>
 
                   <div className="min-w-0 flex-1">
-                    <p className="text-[0.875rem] font-medium text-ink">
+                    <p className="text-body-sm font-medium text-ink">
                       <Link
                         href={`/hiring/candidates/${card.id}`}
                         className="hover:text-accent-text hover:underline underline-offset-4"
@@ -275,7 +275,7 @@ function Diary() {
                         {fullName(card.candidate)}
                       </Link>
                     </p>
-                    <p className="text-[0.75rem] text-muted">
+                    <p className="text-meta text-muted">
                       {KIND_LABEL[iv.kind] ?? iv.kind} ·{" "}
                       <Link
                         href={`/hiring/requisitions/${card.requisitionId}`}
@@ -284,7 +284,7 @@ function Diary() {
                         {card.requisition.title}
                       </Link>
                     </p>
-                    <p className="tabular mt-0.5 text-[0.75rem] text-muted">
+                    <p className="tabular mt-0.5 text-meta text-muted">
                       {when.toLocaleTimeString("en-NG", {
                         hour: "2-digit",
                         minute: "2-digit",

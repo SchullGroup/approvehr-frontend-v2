@@ -130,7 +130,7 @@ export function RequisitionWorkspace({
             <Filter aria-hidden="true" className="size-3.5" />
             {showRejected ? "Hide" : "Show"} rejected
             {rejectedCount > 0 && (
-              <span className="tabular ml-0.5 text-[0.75rem] opacity-70">
+              <span className="tabular ml-0.5 text-meta opacity-70">
                 ({rejectedCount})
               </span>
             )}

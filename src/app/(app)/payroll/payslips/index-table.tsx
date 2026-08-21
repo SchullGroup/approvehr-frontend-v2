@@ -189,7 +189,7 @@ export function PayslipIndex() {
             <CardBody className="flex flex-col gap-3">
               <TotalRow label="Net paid out" kobo={run.netKobo} strong />
               <TotalRow label="Gross" kobo={run.grossKobo} />
-              <div className="flex items-center justify-between gap-3 border-t border-line pt-3 text-[0.875rem]">
+              <div className="flex items-center justify-between gap-3 border-t border-line pt-3 text-body-sm">
                 <span className="text-muted">Pays on</span>
                 <span className="font-medium text-ink">{run.payDate}</span>
               </div>
@@ -283,7 +283,7 @@ export function PayslipIndex() {
         )}
       </Card>
 
-      <p className="text-[0.75rem] leading-relaxed text-muted">
+      <p className="text-meta leading-relaxed text-muted">
         Payslips are not emailed from here yet — nothing is connected to a mail
         server, and a &ldquo;Sent&rdquo; that emailed nobody would be worse than
         no button. Open a payslip and print it in the meantime.

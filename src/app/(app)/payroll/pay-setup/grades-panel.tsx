@@ -360,7 +360,7 @@ function GradeRow({
   return (
     <TR className={cn(row.archived && "opacity-60")}>
       <TD>
-        <span className="tabular text-[0.875rem] font-medium text-ink">
+        <span className="tabular text-body-sm font-medium text-ink">
           {row.level}
         </span>
       </TD>
@@ -382,7 +382,7 @@ function GradeRow({
             <button
               type="button"
               onClick={onView}
-              className="rounded text-[0.75rem] font-medium text-warning-text hover:underline underline-offset-4"
+              className="rounded text-meta font-medium text-warning-text hover:underline underline-offset-4"
             >
               {row.outsideBand === 1
                 ? "1 person outside this band"
@@ -393,23 +393,23 @@ function GradeRow({
       />
 
       <TD>
-        <span className="block tabular text-[0.875rem] text-ink">
+        <span className="block tabular text-body-sm text-ink">
           <Money amount={naira(row.minGrossKobo)} decimals /> —{" "}
           <Money amount={naira(row.maxGrossKobo)} decimals />
         </span>
-        <span className="mt-0.5 block text-[0.75rem] text-muted">
+        <span className="mt-0.5 block text-meta text-muted">
           Mid-point <Money amount={naira(row.midGrossKobo)} decimals />
         </span>
       </TD>
 
       <TD align="right">
         {row.employees === 0 ? (
-          <span className="text-[0.875rem] text-faint">Nobody yet</span>
+          <span className="text-body-sm text-faint">Nobody yet</span>
         ) : (
           <button
             type="button"
             onClick={onView}
-            className="rounded tabular text-[0.875rem] font-medium text-accent-text hover:underline underline-offset-4"
+            className="rounded tabular text-body-sm font-medium text-accent-text hover:underline underline-offset-4"
           >
             {row.employees}
           </button>
@@ -637,18 +637,18 @@ function GradeDialog({
         {/* Facts about what will be saved, not a form. */}
         <dl className="grid gap-3 rounded-lg border border-line bg-canvas p-4 sm:grid-cols-2">
           <div>
-            <dt className="text-[0.75rem] font-semibold tracking-wide text-faint">
+            <dt className="text-meta font-semibold tracking-wide text-faint">
               Level
             </dt>
-            <dd className="tabular text-[0.875rem] font-medium text-ink">
+            <dd className="tabular text-body-sm font-medium text-ink">
               {Number.isInteger(levelValue) ? levelValue : "—"}
             </dd>
           </div>
           <div>
-            <dt className="text-[0.75rem] font-semibold tracking-wide text-faint">
+            <dt className="text-meta font-semibold tracking-wide text-faint">
               Mid-point
             </dt>
-            <dd className="text-[0.875rem] font-medium text-ink">
+            <dd className="text-body-sm font-medium text-ink">
               {midValue === null ? (
                 "—"
               ) : (
@@ -988,7 +988,7 @@ function PreviewBody({
                 <Money amount={naira(line.newGrossKobo)} decimals />
               </TD>
               <TD align="right">
-                <span className="tabular text-[0.875rem] font-medium text-success-text">
+                <span className="tabular text-body-sm font-medium text-success-text">
                   +{formatPlain(naira(line.increaseKobo))}
                 </span>
               </TD>
@@ -1013,18 +1013,18 @@ function Figure({
 }) {
   return (
     <div className="rounded-lg border border-line bg-canvas p-4">
-      <p className="text-[0.75rem] font-semibold tracking-wide text-faint">
+      <p className="text-meta font-semibold tracking-wide text-faint">
         {label}
       </p>
       <p
         className={cn(
           "mt-1 tabular",
-          strong ? "text-h4 text-ink" : "text-sm text-body",
+          strong ? "text-h4 text-ink" : "text-body-sm text-body",
         )}
       >
         {formatPlain(value)}
       </p>
-      {hint && <p className="mt-1 text-[0.75rem] text-muted">{hint}</p>}
+      {hint && <p className="mt-1 text-meta text-muted">{hint}</p>}
     </div>
   );
 }
@@ -1062,7 +1062,7 @@ function PeopleDrawer({
           </Callout>
         )}
 
-        {loading && <p className="text-[0.875rem] text-muted">Loading…</p>}
+        {loading && <p className="text-body-sm text-muted">Loading…</p>}
 
         {!loading && rows.length === 0 && !error && (
           <EmptyState
@@ -1081,8 +1081,8 @@ function PeopleDrawer({
             key={person.id}
             className="rounded-lg border border-line bg-surface p-4"
           >
-            <p className="text-[0.9375rem] font-medium text-ink">{person.name}</p>
-            <p className="text-[0.875rem] text-muted">
+            <p className="text-body font-medium text-ink">{person.name}</p>
+            <p className="text-body-sm text-muted">
               {person.jobTitle} · {person.employeeNo}
             </p>
             <BandMeter

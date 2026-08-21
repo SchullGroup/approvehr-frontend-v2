@@ -46,7 +46,7 @@ export function ReportsScreen() {
         <PageBody>
           <div className="flex items-center gap-3 py-16">
             <Spinner />
-            <span className="text-[0.875rem] text-muted">Working out the figures…</span>
+            <span className="text-body-sm text-muted">Working out the figures…</span>
           </div>
         </PageBody>
       </>
@@ -60,13 +60,13 @@ export function ReportsScreen() {
         <PageBody>
           <Card>
             <CardBody className="flex flex-col items-start gap-3">
-              <p className="text-[0.9375rem] text-ink">
+              <p className="text-body text-ink">
                 {error ?? "Could not load the reports."}
               </p>
               <button
                 type="button"
                 onClick={reload}
-                className="text-[0.875rem] font-medium text-accent-text underline"
+                className="text-body-sm font-medium text-accent-text underline"
               >
                 Try again
               </button>
@@ -165,7 +165,7 @@ export function ReportsScreen() {
                       { label: "Allowances", value: naira(grossBreakdown.allowancesKobo) },
                     ]}
                   />
-                  <p className="text-[0.875rem] text-muted">
+                  <p className="text-body-sm text-muted">
                     Employer pension of{" "}
                     <Money amount={naira(grossBreakdown.employerPensionKobo)} decimals />{" "}
                     is a cost on top of this, not a slice of it.
@@ -190,7 +190,7 @@ export function ReportsScreen() {
                   }))}
                 />
               ) : (
-                <p className="text-[0.9375rem] text-muted">
+                <p className="text-body text-muted">
                   Nobody is assigned to a department yet.
                 </p>
               )}
@@ -242,7 +242,7 @@ export function ReportsScreen() {
 function NoRunYet() {
   return (
     <div className="flex flex-col items-start gap-3 py-2">
-      <p className="text-[0.9375rem] text-body">
+      <p className="text-body text-body">
         No payroll has been run for this period, so there are no costs to report.
       </p>
       <ButtonLink href="/payroll/runs/new" variant="secondary" size="sm">
@@ -256,7 +256,7 @@ function Load({ label, value }: { label: string; value: number }) {
   return (
     <div>
       <p className="text-h3 text-ink">{value.toLocaleString()}</p>
-      <p className="mt-0.5 text-[0.875rem] text-muted">{label}</p>
+      <p className="mt-0.5 text-body-sm text-muted">{label}</p>
     </div>
   );
 }

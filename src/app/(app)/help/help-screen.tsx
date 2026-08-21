@@ -579,11 +579,11 @@ function Pager({
 
   return (
     <div className="flex items-center justify-between border-t border-line px-5 py-3">
-      <p className="tabular text-[0.875rem] text-muted">
+      <p className="tabular text-body-sm text-muted">
         {first}–{last} of {total}
       </p>
       {totalPages > 1 && (
-        <p className="tabular text-[0.875rem] text-muted">
+        <p className="tabular text-body-sm text-muted">
           Page {page} of {totalPages}
         </p>
       )}

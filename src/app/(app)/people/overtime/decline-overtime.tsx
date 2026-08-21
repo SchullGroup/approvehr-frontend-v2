@@ -56,7 +56,7 @@ export function DeclineOvertimeModal({
       }
     >
       <div className="flex flex-col gap-4">
-        <p className="text-[0.875rem] text-body">
+        <p className="text-body-sm text-body">
           Nothing is paid for this day.{" "}
           <span className="tabular font-medium text-ink">
             <Money amount={naira(row.amountKobo)} decimals />

@@ -232,7 +232,7 @@ export function ClaimForm({
       footer={
         <div className="flex flex-wrap items-center justify-end gap-3">
           {blocker && (
-            <p className="mr-auto text-[0.875rem] text-warning-text">{blocker}</p>
+            <p className="mr-auto text-body-sm text-warning-text">{blocker}</p>
           )}
           <Button variant="secondary" onClick={onClose} disabled={busy}>
             Cancel
@@ -250,7 +250,7 @@ export function ClaimForm({
     >
       <div className="flex flex-col gap-4">
         {failure && (
-          <p className="rounded-md border border-danger-line bg-danger-soft px-3 py-2.5 text-[0.875rem] text-danger-text">
+          <p className="rounded-md border border-danger-line bg-danger-soft px-3 py-2.5 text-body-sm text-danger-text">
             {failure}
           </p>
         )}
@@ -297,7 +297,7 @@ export function ClaimForm({
               {type.cap === null ? "No cap" : `Up to ${money(type.cap)} a claim`}
             </Badge>
             {type.description && (
-              <span className="text-[0.875rem] text-muted">{type.description}</span>
+              <span className="text-body-sm text-muted">{type.description}</span>
             )}
           </div>
         )}
@@ -343,8 +343,8 @@ export function ClaimForm({
               <span
                 className={
                   capNote.tone === "danger"
-                    ? "text-[0.875rem] font-medium text-danger-text"
-                    : "text-[0.875rem] text-muted"
+                    ? "text-body-sm font-medium text-danger-text"
+                    : "text-body-sm text-muted"
                 }
               >
                 {capNote.text}

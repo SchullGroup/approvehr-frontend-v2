@@ -26,7 +26,7 @@ const CLIENTS = [
 export function ClientLogos() {
   return (
     <section className="border-y border-sand-line bg-sand-deep py-14">
-      <p className="container-page mb-9 text-center text-[0.9375rem] text-slate-muted">
+      <p className="container-page mb-9 text-center text-body text-slate-muted">
         Trusted by Nigerian teams in energy, logistics, education and technology
       </p>
       <Marquee duration={55}>
@@ -88,7 +88,7 @@ export function Testimonials() {
           {TESTIMONIALS.map((t, i) => (
             <Reveal key={t.name} as="figure" delay={i * 80}>
               <div className="flex h-full flex-col rounded-3xl border border-sand-line bg-white/70 p-7">
-                <blockquote className="flex-1 text-[1.0625rem] leading-relaxed text-slate">
+                <blockquote className="flex-1 text-body-lg leading-relaxed text-slate">
                   &ldquo;{t.quote}&rdquo;
                 </blockquote>
                 <figcaption className="mt-7 flex items-center gap-3 border-t border-sand-line pt-5">
@@ -100,10 +100,10 @@ export function Testimonials() {
                     className="size-11 shrink-0 rounded-full object-cover"
                   />
                   <div className="min-w-0">
-                    <p className="truncate text-[0.9375rem] font-medium text-slate">
+                    <p className="truncate text-body font-medium text-slate">
                       {t.name}
                     </p>
-                    <p className="truncate text-[0.8125rem] text-slate-muted">
+                    <p className="truncate text-meta text-slate-muted">
                       {t.role}, {t.company}
                     </p>
                   </div>

@@ -113,14 +113,14 @@ export function SectionsPanel({
                   <FolderOpen aria-hidden="true" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[0.875rem] font-medium text-ink">
+                  <span className="block text-body-sm font-medium text-ink">
                     {section.name}
                   </span>
-                  <span className="block text-[0.75rem] text-muted">
+                  <span className="block text-meta text-muted">
                     /{section.slug}
                   </span>
                 </span>
-                <span className="tabular shrink-0 text-[0.875rem] text-muted">
+                <span className="tabular shrink-0 text-body-sm text-muted">
                   {section.articles === 1 ? "1 article" : `${section.articles} articles`}
                 </span>
                 {sections.editable && (

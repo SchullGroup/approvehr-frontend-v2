@@ -9,9 +9,10 @@
     "lint": "eslint",
     "verify-contrast": "tsx scripts/verify-contrast.ts",
     "typecheck": "tsc --noEmit",
-    "check": "npm run typecheck && npm run lint && npm run verify-titles && npm run verify-contrast && npm run verify-payroll && npm run verify-csv && npm run verify-loans",
+    "check": "npm run typecheck && npm run lint && npm run verify-titles && npm run verify-contrast && npm run verify-payroll && npm run verify-csv && npm run verify-template && npm run verify-loans",
     "verify-payroll": "tsx scripts/verify-payroll.ts",
     "verify-csv": "tsx scripts/verify-csv.ts",
+    "verify-template": "tsx scripts/verify-template.ts",
     "verify-loans": "tsx scripts/verify-loans.ts",
     "verify-titles": "tsx scripts/verify-titles.ts"
   },

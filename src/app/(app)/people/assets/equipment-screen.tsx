@@ -84,7 +84,7 @@ export function EquipmentScreen() {
     return (
       <>
         <PageHeader title="Equipment" />
-        <PageBody className="flex items-center gap-2 py-16 text-[0.875rem] text-muted">
+        <PageBody className="flex items-center gap-2 py-16 text-body-sm text-muted">
           <Spinner size="sm" />
           Loading
         </PageBody>
@@ -233,7 +233,7 @@ function Register() {
 
       <PageBody className="flex flex-col gap-6">
         {mode === "offline" && (
-          <p className="flex flex-wrap items-center gap-2 text-[0.875rem] text-muted">
+          <p className="flex flex-wrap items-center gap-2 text-body-sm text-muted">
             <Badge tone="warning" size="sm">
               Demo
             </Badge>
@@ -286,7 +286,7 @@ function Register() {
         {summary.counts.lost > 0 && (
           <Card>
             <CardBody className="flex flex-wrap items-center justify-between gap-4">
-              <p className="text-[0.9375rem] text-ink">
+              <p className="text-body text-ink">
                 {summary.counts.lost}{" "}
                 {summary.counts.lost === 1 ? "thing is" : "things are"} marked
                 lost. Whoever had it still owes it.

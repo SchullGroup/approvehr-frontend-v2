@@ -46,9 +46,9 @@ export function SourceBadge({
       <Badge tone={connected ? "success" : "warning"} size="sm" dot>
         {connected ? "Live from the API" : "Demo data, this browser only"}
       </Badge>
-      {loading && <span className="text-[0.75rem] text-muted">Loading…</span>}
+      {loading && <span className="text-meta text-muted">Loading…</span>}
       {error && (
-        <span className="text-[0.75rem] text-danger-text">{error.message}</span>
+        <span className="text-meta text-danger-text">{error.message}</span>
       )}
     </div>
   );
@@ -153,10 +153,10 @@ function ExceptionRow({ exception }: { exception: RunException }) {
         {blocking ? <ShieldAlert /> : <AlertTriangle />}
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-[0.875rem] leading-relaxed text-ink">
+        <p className="text-body-sm leading-relaxed text-ink">
           {exception.message}
         </p>
-        <p className="mt-0.5 text-[0.75rem] text-body">
+        <p className="mt-0.5 text-meta text-body">
           {blocking
             ? "The run cannot be approved while this is open."
             : "You can approve with this open. Approving records that you saw it."}
@@ -217,27 +217,27 @@ export function DiscrepancyPanel({
               >
                 <Scale />
               </span>
-              <p className="min-w-0 flex-1 text-[0.875rem] leading-relaxed text-ink">
+              <p className="min-w-0 flex-1 text-body-sm leading-relaxed text-ink">
                 {d.message}
               </p>
             </div>
             <dl className="mt-2.5 grid gap-x-6 gap-y-1 pl-7 sm:grid-cols-2">
               <div className="flex items-baseline justify-between gap-3">
-                <dt className="text-[0.75rem] text-body">Should be</dt>
-                <dd className="tabular text-[0.875rem] font-medium text-ink">
+                <dt className="text-meta text-body">Should be</dt>
+                <dd className="tabular text-body-sm font-medium text-ink">
                   {formatKobo(d.expectedKobo)}
                 </dd>
               </div>
               <div className="flex items-baseline justify-between gap-3">
-                <dt className="text-[0.75rem] text-body">Came out as</dt>
-                <dd className="tabular text-[0.875rem] font-medium text-danger-text">
+                <dt className="text-meta text-body">Came out as</dt>
+                <dd className="tabular text-body-sm font-medium text-danger-text">
                   {formatKobo(d.actualKobo)}
                 </dd>
               </div>
             </dl>
           </div>
         ))}
-        <p className="text-[0.75rem] leading-relaxed text-body">
+        <p className="text-meta leading-relaxed text-body">
           These are exact checks with no tolerance. A payment file either
           balances or it does not.
         </p>
@@ -298,20 +298,20 @@ export function TotalRow({
       <div className="min-w-0">
         <p
           className={cn(
-            "text-[0.875rem]",
+            "text-body-sm",
             strong ? "font-medium text-ink" : "text-body",
           )}
         >
           {label}
         </p>
         {note && (
-          <p className="mt-0.5 text-[0.75rem] leading-relaxed text-muted">{note}</p>
+          <p className="mt-0.5 text-meta leading-relaxed text-muted">{note}</p>
         )}
       </div>
       <p
         className={cn(
           "tabular shrink-0",
-          strong ? "text-h4 text-ink" : "text-[0.9375rem] text-body",
+          strong ? "text-h4 text-ink" : "text-body text-body",
         )}
       >
         {formatKobo(kobo)}
@@ -348,7 +348,7 @@ export function ApprovalConsequences({ run }: { run: PayrollRun }) {
           >
             <Check />
           </span>
-          <span className="text-[0.875rem] leading-relaxed text-body">{line}</span>
+          <span className="text-body-sm leading-relaxed text-body">{line}</span>
         </li>
       ))}
     </ul>

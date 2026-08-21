@@ -103,7 +103,7 @@ export function AssignPeopleDialog({
       size="lg"
       footer={
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-[0.875rem] text-muted">
+          <p className="text-body-sm text-muted">
             {moving.length === 0
               ? "Nobody chosen yet"
               : moving.length === 1
@@ -136,7 +136,7 @@ export function AssignPeopleDialog({
         {failed && (
           <p
             role="status"
-            className="rounded-md border border-danger-line bg-danger-soft px-3.5 py-2.5 text-[0.875rem] text-ink"
+            className="rounded-md border border-danger-line bg-danger-soft px-3.5 py-2.5 text-body-sm text-ink"
           >
             {failed}
           </p>
@@ -161,11 +161,11 @@ export function AssignPeopleDialog({
         </div>
 
         {candidates.length === 0 ? (
-          <p className="text-[0.875rem] text-body">
+          <p className="text-body-sm text-body">
             There is nobody to assign. Add people to the company first.
           </p>
         ) : visible.length === 0 ? (
-          <p className="text-[0.875rem] text-body">
+          <p className="text-body-sm text-body">
             Nobody matches &ldquo;{query.trim()}&rdquo;.
           </p>
         ) : (
@@ -190,11 +190,11 @@ export function AssignPeopleDialog({
                     Already here
                   </Badge>
                 ) : person.currentLabel ? (
-                  <span className="shrink-0 text-[0.75rem] text-muted">
+                  <span className="shrink-0 text-meta text-muted">
                     Now in {person.currentLabel}
                   </span>
                 ) : (
-                  <span className="shrink-0 text-[0.75rem] text-faint">
+                  <span className="shrink-0 text-meta text-faint">
                     No department
                   </span>
                 )}
@@ -204,7 +204,7 @@ export function AssignPeopleDialog({
         )}
 
         {chosen.length > moving.length && (
-          <p className="text-[0.875rem] text-muted">
+          <p className="text-body-sm text-muted">
             People already here are ticked and will not be sent again.
           </p>
         )}

@@ -477,14 +477,14 @@ function Preview({
       />
       <CardBody className="flex flex-col gap-2.5">
         {!available ? (
-          <p className="text-[0.875rem] leading-relaxed text-muted">
+          <p className="text-body-sm leading-relaxed text-muted">
             A payslip is worked out by the payroll engine on the server, and
             there is no second copy of it in this browser — there was once, and
             it spent a while quoting the wrong year&rsquo;s tax. Start the API to
             see what these settings pay.
           </p>
         ) : blocked ? (
-          <p className="text-[0.875rem] leading-relaxed text-muted">
+          <p className="text-body-sm leading-relaxed text-muted">
             Fix the problems above and the preview comes back. Settings that
             cannot produce a lawful payslip are not previewed.
           </p>
@@ -495,7 +495,7 @@ function Preview({
             <Skeleton className="h-5 w-2/3" />
             <span className="sr-only">Working out the payslip</span>
             {error && (
-              <p className="text-[0.875rem] leading-relaxed text-danger-text">
+              <p className="text-body-sm leading-relaxed text-danger-text">
                 {error.message}
               </p>
             )}
@@ -518,7 +518,7 @@ function Preview({
             <div className="h-px bg-line" />
             <PreviewRow label="Net pay" value={naira(slip.netKobo)} strong />
             <div className="mt-1 flex flex-col gap-2 rounded-md bg-canvas p-2.5">
-              <p className="text-[0.75rem] leading-relaxed text-muted">
+              <p className="text-meta leading-relaxed text-muted">
                 Employer pension of{" "}
                 <Money amount={naira(slip.pensionEmployerKobo)} /> sits on top of
                 gross and is not deducted.
@@ -526,7 +526,7 @@ function Preview({
               {/* Named rather than implied. The bands are statute and not a
                   setting on this screen, so the reader should be able to see
                   which statute answered. */}
-              <p className="text-[0.75rem] leading-relaxed text-muted">
+              <p className="text-meta leading-relaxed text-muted">
                 PAYE on {quote?.taxSchedule.citation.split("(")[0]?.trim()}
                 {quote?.taxSchedule.stale
                   ? " — nobody has confirmed these bands cover this period."
@@ -556,10 +556,10 @@ function PreviewRow({
       <span
         className={
           strong
-            ? "text-[0.875rem] font-medium text-ink"
+            ? "text-body-sm font-medium text-ink"
             : muted
-              ? "text-[0.75rem] text-faint"
-              : "text-[0.875rem] text-body"
+              ? "text-meta text-faint"
+              : "text-body-sm text-body"
         }
       >
         {label}
@@ -567,8 +567,8 @@ function PreviewRow({
       <span
         className={
           strong
-            ? "tabular text-[0.9375rem] font-semibold text-ink"
-            : "tabular text-[0.875rem] text-body"
+            ? "tabular text-body font-semibold text-ink"
+            : "tabular text-body-sm text-body"
         }
       >
         <Money amount={Math.round(value)} />

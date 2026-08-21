@@ -36,7 +36,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
       ref={ref}
       className={cn(
         CONTROL,
-        "h-10 px-3 text-sm tabular",
+        "h-10 px-3 text-body-sm tabular",
         icon && "pl-9",
         suffix && "pr-14",
         className,
@@ -62,7 +62,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
       {suffix && (
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[0.875rem] font-medium text-muted"
+          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-body-sm font-medium text-muted"
         >
           {suffix}
         </span>
@@ -82,7 +82,7 @@ export const Textarea = forwardRef<
     <textarea
       ref={ref}
       rows={rows}
-      className={cn(CONTROL, "px-3 py-2.5 text-sm resize-y", className)}
+      className={cn(CONTROL, "px-3 py-2.5 text-body-sm resize-y", className)}
       {...field}
       {...props}
     />
@@ -105,7 +105,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           ref={ref}
           className={cn(
             CONTROL,
-            "h-10 pl-3 pr-9 text-sm appearance-none cursor-pointer",
+            "h-10 pl-3 pr-9 text-body-sm appearance-none cursor-pointer",
             className,
           )}
           {...field}

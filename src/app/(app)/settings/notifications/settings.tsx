@@ -153,7 +153,7 @@ export function NotificationSettings() {
         <div className="grid gap-6 lg:grid-cols-2">
           <Card>
             <CardHeader title="How delivery works" level={3} />
-            <CardBody className="flex flex-col gap-3 text-[0.875rem] leading-relaxed text-body">
+            <CardBody className="flex flex-col gap-3 text-body-sm leading-relaxed text-body">
               <p className="flex gap-2.5">
                 <Mail
                   aria-hidden="true"
@@ -195,7 +195,7 @@ export function NotificationSettings() {
               level={3}
               description="Two things always send, whatever is set above."
             />
-            <CardBody className="flex flex-col gap-3 text-[0.875rem] leading-relaxed text-body">
+            <CardBody className="flex flex-col gap-3 text-body-sm leading-relaxed text-body">
               <p>
                 <strong className="text-ink">A security event on your own account.</strong>{" "}
                 A sign-in from a new device, or a password change. Nobody should

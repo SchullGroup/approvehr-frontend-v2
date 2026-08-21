@@ -183,17 +183,17 @@ export function PayslipDocument({
       <header className="flex flex-wrap items-start justify-between gap-6 border-b border-line pb-6">
         <div>
           <p className="text-h4 text-ink">{company.name}</p>
-          <p className="mt-0.5 text-[0.75rem] text-muted">{company.rc}</p>
-          <p className="mt-1 max-w-[18rem] text-[0.75rem] leading-snug text-muted">
+          <p className="mt-0.5 text-meta text-muted">{company.rc}</p>
+          <p className="mt-1 max-w-[18rem] text-meta leading-snug text-muted">
             {company.address}
           </p>
         </div>
         <div className="text-right">
-          <p className="text-[0.75rem] font-semibold uppercase tracking-[0.1em] text-muted">
+          <p className="text-meta font-semibold uppercase tracking-[0.1em] text-muted">
             Payslip
           </p>
           <p className="mt-1 text-h4 text-ink">{period}</p>
-          <p className="mt-0.5 text-[0.75rem] text-muted">Paid {payDate}</p>
+          <p className="mt-0.5 text-meta text-muted">Paid {payDate}</p>
         </div>
       </header>
 
@@ -214,11 +214,11 @@ export function PayslipDocument({
           be inferred from a gross that looks wrong. */}
       {slip.unpaidDays > 0 && (
         <section className="mt-5 rounded-md border border-warning-line bg-warning-soft p-4">
-          <p className="text-[0.875rem] font-medium text-ink">
+          <p className="text-body-sm font-medium text-ink">
             {slip.unpaidDays} unpaid {slip.unpaidDays === 1 ? "day" : "days"} this
             month
           </p>
-          <p className="mt-1 text-[0.75rem] leading-relaxed text-body">
+          <p className="mt-1 text-meta leading-relaxed text-body">
             {formatKobo(slip.proratedDeductionKobo)} was taken off the
             contractual salary before anything below was worked out.
           </p>
@@ -250,7 +250,7 @@ export function PayslipDocument({
             <LineItem label="Total deductions" kobo={takenKobo} total />
           </dl>
           {carried > 0 && (
-            <p className="mt-2 text-[0.75rem] leading-relaxed text-body">
+            <p className="mt-2 text-meta leading-relaxed text-body">
               {formatKobo(carried)} of the above could not be taken this month —
               there was not enough pay left after tax. It carries over to next
               month rather than being written off.
@@ -269,7 +269,7 @@ export function PayslipDocument({
       {employerLines.length > 0 && (
         <section className="mt-6 rounded-md border border-line bg-canvas p-4">
           <ColumnHead>Paid by your employer</ColumnHead>
-          <p className="mt-1.5 text-[0.75rem] leading-relaxed text-muted">
+          <p className="mt-1.5 text-meta leading-relaxed text-muted">
             Paid by {company.name} on your behalf. These are not deducted from
             your pay and do not reduce the net figure above.
           </p>
@@ -314,7 +314,7 @@ export function PayslipDocument({
                     <th
                       key={head}
                       scope="col"
-                      className="pb-2 text-[0.75rem] font-semibold uppercase tracking-wide text-muted last:text-right"
+                      className="pb-2 text-meta font-semibold uppercase tracking-wide text-muted last:text-right"
                     >
                       {head}
                     </th>
@@ -333,7 +333,7 @@ export function PayslipDocument({
                     <td
                       key={i}
                       className={cn(
-                        "tabular pt-2.5 text-[0.875rem] text-body",
+                        "tabular pt-2.5 text-body-sm text-body",
                         i === 4 && "text-right font-medium text-ink",
                       )}
                     >
@@ -345,7 +345,7 @@ export function PayslipDocument({
             </table>
           </div>
           {ytd.projected && (
-            <p className="mt-2 text-[0.75rem] leading-relaxed text-muted">
+            <p className="mt-2 text-meta leading-relaxed text-muted">
               Projected from this month, not summed from the runs — this browser
               only has the one run.
             </p>
@@ -360,13 +360,13 @@ export function PayslipDocument({
             declared, capped at ₦500,000 — so a 2026 payslip that says "after the
             consolidated relief allowance" is describing a relief nobody
             received. `reliefKind` on the payslip says which regime ran. */}
-        <p className="text-[0.75rem] leading-relaxed text-muted">
+        <p className="text-meta leading-relaxed text-muted">
           PAYE is calculated on annualised income under the Personal Income Tax
           Act as amended, after pension and National Housing Fund relief and any
           personal relief you are entitled to. Pension is remitted to your PFA
           under the Pension Reform Act 2014. Queries go to your HR help desk.
         </p>
-        <p className="mt-2 text-[0.75rem] text-muted">
+        <p className="mt-2 text-meta text-muted">
           Generated by ApproveHR · This payslip does not require a signature.
         </p>
       </footer>
@@ -378,7 +378,7 @@ export function PayslipDocument({
 
 function ColumnHead({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="text-[0.75rem] font-semibold uppercase tracking-[0.1em] text-muted">
+    <h2 className="text-meta font-semibold uppercase tracking-[0.1em] text-muted">
       {children}
     </h2>
   );
@@ -395,10 +395,10 @@ function Detail({
 }) {
   return (
     <div className="flex items-baseline justify-between gap-3 sm:justify-start">
-      <dt className="w-28 shrink-0 text-[0.75rem] text-muted">{label}</dt>
+      <dt className="w-28 shrink-0 text-meta text-muted">{label}</dt>
       <dd
         className={cn(
-          "min-w-0 truncate text-[0.875rem]",
+          "min-w-0 truncate text-body-sm",
           strong ? "font-medium text-ink" : "text-body",
         )}
       >
@@ -426,7 +426,7 @@ function LineItem({
     >
       <dt
         className={cn(
-          "min-w-0 text-[0.875rem]",
+          "min-w-0 text-body-sm",
           total ? "font-medium text-ink" : "text-body",
         )}
       >
@@ -434,7 +434,7 @@ function LineItem({
       </dt>
       <dd
         className={cn(
-          "tabular shrink-0 text-[0.875rem]",
+          "tabular shrink-0 text-body-sm",
           total ? "font-semibold text-ink" : "text-body",
         )}
       >

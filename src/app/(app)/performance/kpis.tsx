@@ -134,7 +134,7 @@ export function KpisTab({
             options={scopes.map((id) => ({ value: id, label: SCOPE_LABEL[id] }))}
           />
         ) : (
-          <span className="text-[0.875rem] text-muted">{SCOPE_LABEL[scope]}</span>
+          <span className="text-body-sm text-muted">{SCOPE_LABEL[scope]}</span>
         )}
 
         <div className="flex flex-wrap items-center gap-2">
@@ -153,7 +153,7 @@ export function KpisTab({
       </div>
 
       {kpis.error && (
-        <p className="rounded-md border border-danger-line bg-danger-soft px-3.5 py-2.5 text-[0.875rem] text-ink">
+        <p className="rounded-md border border-danger-line bg-danger-soft px-3.5 py-2.5 text-body-sm text-ink">
           {kpis.error.message}
         </p>
       )}
@@ -184,7 +184,7 @@ export function KpisTab({
           description="Company KPI at the top. Everything below ladders up to it."
         />
         {kpis.loading ? (
-          <CardBody className="flex items-center gap-2 text-[0.875rem] text-muted">
+          <CardBody className="flex items-center gap-2 text-body-sm text-muted">
             <Spinner size="sm" />
             Loading KPIs
           </CardBody>
@@ -399,8 +399,8 @@ function GoalCard({
             />
           )}
           <div className="min-w-0">
-            <p className="text-[0.9375rem] font-medium text-ink">{goal.title}</p>
-            <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[0.75rem] text-muted">
+            <p className="text-body font-medium text-ink">{goal.title}</p>
+            <div className="mt-1.5 flex flex-wrap items-center gap-2 text-meta text-muted">
               <Badge tone={goal.companyWide ? "accent" : "neutral"} size="sm">
                 {rung}
               </Badge>
@@ -465,7 +465,7 @@ function GoalCard({
       )}
 
       {goal.keyResults.length === 0 && (
-        <p className="mt-3 text-[0.875rem] text-body">
+        <p className="mt-3 text-body-sm text-body">
           No measure yet, so nothing tracks itself.
         </p>
       )}
@@ -548,7 +548,7 @@ function MeasureRow({
   return (
     <li className="flex flex-col gap-2">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <span className="text-[0.875rem] font-medium text-ink">
+        <span className="text-body-sm font-medium text-ink">
           {measure.label}
         </span>
         <span className="flex flex-wrap items-center gap-2">
@@ -580,7 +580,7 @@ function MeasureRow({
         tone={measure.met ? "ink" : "accent"}
       />
 
-      <p className="tabular text-[0.875rem] text-body">
+      <p className="tabular text-body-sm text-body">
         Now {formatMeasure(measure.currentValue, measure.unit)} · target{" "}
         {formatMeasure(measure.targetValue, measure.unit)} · started at{" "}
         {formatMeasure(measure.startValue, measure.unit)}
@@ -596,7 +596,7 @@ function MeasureRow({
             onChange={(event) => setDraft(event.target.value)}
           />
           {measure.unit && (
-            <span className="text-[0.875rem] text-muted">{measure.unit}</span>
+            <span className="text-body-sm text-muted">{measure.unit}</span>
           )}
           {changed && (
             <>
@@ -617,7 +617,7 @@ function MeasureRow({
       )}
 
       {failed && (
-        <p className="text-[0.875rem] text-danger-text" role="status">
+        <p className="text-body-sm text-danger-text" role="status">
           {failed}
         </p>
       )}

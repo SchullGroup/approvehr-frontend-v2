@@ -143,7 +143,7 @@ export function DeliveryLog({
         </div>
 
         {!retriesRunning && (
-          <p className="flex items-start gap-2 rounded-md border border-warning-line bg-warning-soft p-3 text-[0.875rem] text-warning-text">
+          <p className="flex items-start gap-2 rounded-md border border-warning-line bg-warning-soft p-3 text-body-sm text-warning-text">
             <AlertTriangle aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
             <span>
               Automatic retries are not running on this server. Fix your endpoint,
@@ -153,7 +153,7 @@ export function DeliveryLog({
         )}
 
         {log.error && (
-          <p className="text-[0.875rem] text-danger-text">{log.error}</p>
+          <p className="text-body-sm text-danger-text">{log.error}</p>
         )}
 
         {log.loading ? (
@@ -182,7 +182,7 @@ export function DeliveryLog({
                   <TR className="align-top">
                     <TDPrimary
                       title={
-                        <span className="font-mono text-[0.875rem]">
+                        <span className="font-mono text-body-sm">
                           {row.event}
                         </span>
                       }
@@ -254,7 +254,7 @@ export function DeliveryLog({
             >
               Newer
             </Button>
-            <span className="text-[0.875rem] text-muted">Page {filters.page}</span>
+            <span className="text-body-sm text-muted">Page {filters.page}</span>
             <Button
               variant="secondary"
               size="sm"
@@ -285,7 +285,7 @@ function Outcome({ row }: { row: ApiDelivery }) {
         <Badge tone="success" icon={<CheckCircle2 aria-hidden="true" />}>
           Delivered
         </Badge>
-        <span className="text-[0.75rem] tabular text-muted">
+        <span className="text-meta tabular text-muted">
           HTTP {row.statusCode ?? "200"}
         </span>
       </span>
@@ -298,7 +298,7 @@ function Outcome({ row }: { row: ApiDelivery }) {
         <Badge tone="warning" icon={<Clock aria-hidden="true" />}>
           Waiting
         </Badge>
-        <span className="text-[0.75rem] text-muted">
+        <span className="text-meta text-muted">
           {row.retryAt ? `Next try ${fullStamp(row.retryAt)}` : "Queued"}
         </span>
       </span>
@@ -310,7 +310,7 @@ function Outcome({ row }: { row: ApiDelivery }) {
       <Badge tone="danger" icon={<XCircle aria-hidden="true" />}>
         Given up
       </Badge>
-      <span className="max-w-[22rem] text-[0.75rem] text-danger-text">
+      <span className="max-w-[22rem] text-meta text-danger-text">
         {row.error ?? `HTTP ${row.statusCode ?? "?"}`}
       </span>
     </span>
@@ -320,9 +320,9 @@ function Outcome({ row }: { row: ApiDelivery }) {
 function Detail({ row }: { row: ApiDelivery }) {
   return (
     <div className="flex flex-col gap-3 rounded-md border border-line bg-canvas p-3">
-      <dl className="flex flex-col gap-1 text-[0.875rem]">
+      <dl className="flex flex-col gap-1 text-body-sm">
         <Line term="Delivery id">
-          <span className="font-mono text-[0.75rem] break-all">{row.id}</span>
+          <span className="font-mono text-meta break-all">{row.id}</span>
         </Line>
         <Line term="Status code">
           {row.statusCode === null ? "No response" : String(row.statusCode)}

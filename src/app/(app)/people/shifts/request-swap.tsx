@@ -165,7 +165,7 @@ export function RequestSwapModal({
     >
       <div className="flex flex-col gap-5">
         {error && (
-          <p className="rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-[0.875rem] text-ink">
+          <p className="rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-body-sm text-ink">
             {error}
           </p>
         )}
@@ -187,12 +187,12 @@ export function RequestSwapModal({
         </Field>
 
         {loading ? (
-          <div className="flex items-center gap-2 text-[0.875rem] text-muted">
+          <div className="flex items-center gap-2 text-body-sm text-muted">
             <Spinner size="sm" />
             Loading who is on that day
           </div>
         ) : colleagues.length === 0 ? (
-          <p className="text-[0.875rem] text-body">
+          <p className="text-body-sm text-body">
             Nobody else to ask{query.trim() ? " by that name" : ""}.
           </p>
         ) : (
@@ -221,10 +221,10 @@ export function RequestSwapModal({
                     className="size-4 shrink-0 accent-[var(--color-accent)]"
                   />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[0.875rem] font-medium text-ink">
+                    <span className="block truncate text-body-sm font-medium text-ink">
                       {row.name}
                     </span>
-                    <span className="tabular block text-[0.75rem] text-muted">
+                    <span className="tabular block text-meta text-muted">
                       {row.employeeNo}
                     </span>
                   </span>

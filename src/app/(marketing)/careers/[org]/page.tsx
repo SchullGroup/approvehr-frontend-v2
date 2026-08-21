@@ -62,7 +62,7 @@ export default async function CareersListingPage({
       <div className="container-page">
         <Reveal>
           <header className="max-w-3xl">
-            <p className="mb-3 text-[0.75rem] font-semibold uppercase tracking-[0.1em] text-slate-muted">
+            <p className="mb-3 text-meta font-semibold uppercase tracking-[0.1em] text-slate-muted">
               Careers
             </p>
             <h1 className="text-h1 text-slate">Open roles</h1>
@@ -79,7 +79,7 @@ export default async function CareersListingPage({
           <Reveal delay={80}>
             <div className="mt-14 rounded-3xl border border-sand-line bg-white/70 p-10 sm:p-14">
               <h2 className="text-h3 text-slate">Nothing open right now</h2>
-              <p className="mt-3 max-w-md text-[0.9375rem] leading-relaxed text-slate-muted">
+              <p className="mt-3 max-w-md text-body leading-relaxed text-slate-muted">
                 No roles are being advertised today. New ones appear on this page
                 the moment they go live.
               </p>
@@ -112,11 +112,11 @@ function RoleCard({ org, role }: { org: string; role: PublicRole }) {
     <article className="group relative flex flex-col gap-4 rounded-3xl border border-sand-line bg-white/70 p-7 transition-all duration-300 ease-[var(--ease-out-soft)] hover:-translate-y-0.5 hover:border-slate/25 hover:shadow-[0_12px_28px_-8px_rgb(20_18_15/0.14)] focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-slate sm:flex-row sm:items-center sm:gap-8">
       <div className="min-w-0 flex-1">
         <h2 className="text-h4 text-slate">{role.title}</h2>
-        <p className="mt-2 max-w-2xl text-[0.9375rem] leading-relaxed text-slate-soft">
+        <p className="mt-2 max-w-2xl text-body leading-relaxed text-slate-soft">
           {role.summary}
         </p>
 
-        <dl className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-[0.875rem] text-slate-muted">
+        <dl className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-body-sm text-slate-muted">
           <div className="flex items-center gap-1.5">
             <dt className="sr-only-focusable">Type of work</dt>
             <dd>{workTypeLabel(role.employmentType)}</dd>
@@ -149,7 +149,7 @@ function RoleCard({ org, role }: { org: string; role: PublicRole }) {
           would nest this link inside it — invalid, and it breaks hydration. */}
       <Link
         href={`/careers/${org}/${role.slug}`}
-        className="inline-flex shrink-0 items-center gap-2 text-[0.875rem] font-medium text-slate transition-colors hover:text-slate-muted after:absolute after:inset-0 after:content-['']"
+        className="inline-flex shrink-0 items-center gap-2 text-body-sm font-medium text-slate transition-colors hover:text-slate-muted after:absolute after:inset-0 after:content-['']"
       >
         See the role
         <span className="flex size-6 items-center justify-center rounded-full bg-slate/8 transition-all duration-200 ease-[var(--ease-out-soft)] group-hover:bg-slate group-hover:text-white">
@@ -178,7 +178,7 @@ function Unavailable({ reason }: { reason: ReadFailure }) {
   return (
     <div className="mt-14 rounded-3xl border border-sand-line bg-white/70 p-10 sm:p-14">
       <h2 className="text-h3 text-slate">Roles are not showing</h2>
-      <p className="mt-3 max-w-md text-[0.9375rem] leading-relaxed text-slate-muted">
+      <p className="mt-3 max-w-md text-body leading-relaxed text-slate-muted">
         {line}
       </p>
       <div className="mt-8">

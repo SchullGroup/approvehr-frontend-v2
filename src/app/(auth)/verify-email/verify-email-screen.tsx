@@ -113,7 +113,7 @@ export function VerifyEmailScreen({ token }: { token: string | null }) {
     return (
       <>
         <h1 className="text-h2 text-ink">Confirming your email</h1>
-        <p className="mt-4 flex items-center gap-2 text-[0.9375rem] text-muted">
+        <p className="mt-4 flex items-center gap-2 text-body text-muted">
           <Loader2 aria-hidden="true" className="size-4 animate-spin" />
           One moment.
         </p>

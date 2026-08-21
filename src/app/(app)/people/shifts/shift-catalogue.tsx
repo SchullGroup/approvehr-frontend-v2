@@ -151,11 +151,11 @@ export function ShiftCatalogue({
                     className={`size-2.5 shrink-0 rounded-sm ${colours.get(shift.id)?.swatch ?? "bg-muted"}`}
                   />
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[0.875rem] font-medium text-ink">
+                    <span className="block text-body-sm font-medium text-ink">
                       <span className="font-semibold">{shift.shortName}</span>{" "}
                       {shift.name}
                     </span>
-                    <span className="tabular block text-[0.75rem] text-muted">
+                    <span className="tabular block text-meta text-muted">
                       {timesLabel(shift)} · {hoursLabel(shift.paidMinutes)} paid
                       {shift.unpaidBreakMinutes > 0
                         ? ` · ${shift.unpaidBreakMinutes}m break`
@@ -247,7 +247,7 @@ export function ShiftCatalogue({
                   className="flex flex-col gap-2 rounded-md border border-line bg-surface px-3.5 py-3"
                 >
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="min-w-0 flex-1 text-[0.875rem] font-medium text-ink">
+                    <span className="min-w-0 flex-1 text-body-sm font-medium text-ink">
                       {pattern.name}
                     </span>
                     <Badge tone="neutral" size="sm">
@@ -403,7 +403,7 @@ function ShiftForm({
     >
       <div className="flex flex-col gap-4">
         {error && (
-          <p className="rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-[0.875rem] text-ink">
+          <p className="rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-body-sm text-ink">
             {error}
           </p>
         )}
@@ -565,7 +565,7 @@ function PatternForm({
     >
       <div className="flex flex-col gap-4">
         {error && (
-          <p className="rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-[0.875rem] text-ink">
+          <p className="rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-body-sm text-ink">
             {error}
           </p>
         )}
@@ -580,7 +580,7 @@ function PatternForm({
         </Field>
 
         <div>
-          <p className="text-sm font-medium text-ink">
+          <p className="text-body-sm font-medium text-ink">
             The cycle · {days.length} days, {working} on
           </p>
           <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -621,7 +621,7 @@ function PatternForm({
         </div>
 
         {existing && existing.peopleOn > 0 && (
-          <p className="text-[0.875rem] text-body">
+          <p className="text-body-sm text-body">
             {existing.peopleOn}{" "}
             {existing.peopleOn === 1 ? "person is" : "people are"} on this cycle.
             Saving does not move their rota.

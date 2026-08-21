@@ -149,11 +149,11 @@ export function BankAccountsScreen() {
             label="Salaries come from"
             value={
               primary ? (
-                <span className="text-[0.9375rem] font-medium text-ink">
+                <span className="text-body font-medium text-ink">
                   {primary.bankName}
                 </span>
               ) : (
-                <span className="text-[0.9375rem] font-medium text-muted">Not set</span>
+                <span className="text-body font-medium text-muted">Not set</span>
               )
             }
             hint={primary?.accountNumberMasked}
@@ -164,7 +164,7 @@ export function BankAccountsScreen() {
         {!primary && accounts.accounts.length > 0 && (
           <Card>
             <CardBody className="flex flex-wrap items-center justify-between gap-4">
-              <p className="text-sm text-ink">
+              <p className="text-body-sm text-ink">
                 No account is set for salaries to come from, so a payment batch
                 cannot be built.
               </p>
@@ -257,11 +257,11 @@ export function BankAccountsScreen() {
                           </Badge>
                         )}
                         {!account.isPrimary && account.active && !account.archived && (
-                          <span className="text-[0.875rem] text-muted">On file</span>
+                          <span className="text-body-sm text-muted">On file</span>
                         )}
                       </span>
                     </TD>
-                    <TD className="text-[0.875rem] text-muted">
+                    <TD className="text-body-sm text-muted">
                       {longDate(account.addedOn)}
                     </TD>
                     <TD align="right">
@@ -270,7 +270,7 @@ export function BankAccountsScreen() {
                             endpoint that un-archives one — it stays on file so
                             past batches keep resolving, and that is all. */}
                         {account.archived ? (
-                          <span className="text-[0.875rem] text-muted">
+                          <span className="text-body-sm text-muted">
                             Kept for past batches
                           </span>
                         ) : (
@@ -333,7 +333,7 @@ export function BankAccountsScreen() {
           )}
         </Card>
 
-        <p className="text-[0.875rem] text-muted">
+        <p className="text-body-sm text-muted">
           Every change here is recorded in the{" "}
           <Link
             href="/settings/audit"

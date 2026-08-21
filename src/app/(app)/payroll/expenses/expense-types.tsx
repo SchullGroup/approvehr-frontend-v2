@@ -138,7 +138,7 @@ export function ExpenseTypes({
                       )}
                     </span>
                     {type.description && (
-                      <span className="mt-0.5 block text-[0.875rem] text-muted">
+                      <span className="mt-0.5 block text-body-sm text-muted">
                         {type.description}
                       </span>
                     )}
@@ -150,7 +150,7 @@ export function ExpenseTypes({
                         Needed
                       </Badge>
                     ) : (
-                      <span className="text-[0.875rem] text-muted">Not needed</span>
+                      <span className="text-body-sm text-muted">Not needed</span>
                     )}
                   </TD>
 

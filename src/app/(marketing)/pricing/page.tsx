@@ -71,7 +71,7 @@ export default function PricingPage() {
               <Reveal key={tier.id} as="div" delay={i * 60}>
                 <div className="flex h-full flex-col rounded-2xl border border-sand-line bg-white/60 p-6">
                   <h3 className="text-h4 text-slate">{tier.name}</h3>
-                  <p className="mt-1 text-[0.8125rem] tabular-nums text-slate-muted">
+                  <p className="mt-1 text-meta tabular-nums text-slate-muted">
                     {tier.max === null
                       ? `${tier.min}+ employees`
                       : `${tier.min}–${tier.max} employees`}
@@ -82,11 +82,11 @@ export default function PricingPage() {
                       : `₦${tier.pepm.toLocaleString("en-NG")}`}
                   </p>
                   {tier.pepm !== null && (
-                    <p className="text-[0.75rem] text-slate-muted">
+                    <p className="text-meta text-slate-muted">
                       per employee / month
                     </p>
                   )}
-                  <p className="mt-4 text-[0.875rem] leading-relaxed text-slate-soft">
+                  <p className="mt-4 text-body-sm leading-relaxed text-slate-soft">
                     {tier.tagline}
                   </p>
 
@@ -95,7 +95,7 @@ export default function PricingPage() {
                       (line) => (
                         <li
                           key={line}
-                          className="text-[0.8125rem] leading-snug text-slate-muted"
+                          className="text-meta leading-snug text-slate-muted"
                         >
                           {tier.includes.length ? "" : "+ "}
                           {line}
@@ -120,13 +120,13 @@ export default function PricingPage() {
             {ADD_ONS.map((a, i) => (
               <Reveal key={a.name} as="div" delay={i * 60}>
                 <div className="h-full rounded-2xl border border-sand-line bg-sand p-6">
-                  <h3 className="text-[1.0625rem] font-medium text-slate">
+                  <h3 className="text-body-lg font-medium text-slate">
                     {a.name}
                   </h3>
-                  <p className="mt-1.5 text-[0.875rem] font-medium text-success-text">
+                  <p className="mt-1.5 text-body-sm font-medium text-success-text">
                     {a.price}
                   </p>
-                  <p className="mt-3 text-[0.875rem] leading-relaxed text-slate-muted">
+                  <p className="mt-3 text-body-sm leading-relaxed text-slate-muted">
                     {a.detail}
                   </p>
                 </div>
@@ -146,10 +146,10 @@ export default function PricingPage() {
             <dl className="flex flex-col divide-y divide-sand-line border-t border-sand-line">
               {FAQ.map((item) => (
                 <div key={item.q} className="py-6">
-                  <dt className="text-[1.0625rem] font-medium text-slate">
+                  <dt className="text-body-lg font-medium text-slate">
                     {item.q}
                   </dt>
-                  <dd className="mt-2.5 text-[0.9375rem] leading-relaxed text-slate-muted">
+                  <dd className="mt-2.5 text-body leading-relaxed text-slate-muted">
                     {item.a}
                   </dd>
                 </div>
@@ -166,7 +166,7 @@ export default function PricingPage() {
               <h2 className="mx-auto max-w-2xl text-h1 text-white">
                 Still not sure which tier you land in?
               </h2>
-              <p className="mx-auto mt-5 max-w-lg text-[1.0625rem] leading-relaxed text-white/60">
+              <p className="mx-auto mt-5 max-w-lg text-body-lg leading-relaxed text-white/60">
                 Tell us your headcount and how you run payroll today. We will
                 tell you what it would cost and what it would replace.
               </p>

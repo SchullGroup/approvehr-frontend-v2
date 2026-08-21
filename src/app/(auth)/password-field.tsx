@@ -89,7 +89,7 @@ export function PasswordField({
           {shown.map((rule) => (
             <li
               key={rule.id}
-              className="flex items-center gap-2 text-[0.875rem]"
+              className="flex items-center gap-2 text-body-sm"
             >
               <span
                 aria-hidden="true"

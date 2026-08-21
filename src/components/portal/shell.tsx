@@ -86,13 +86,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             type="button"
             className={cn(
               "ml-auto hidden items-center gap-2 rounded-md border border-line bg-canvas",
-              "px-3 py-1.5 text-[0.875rem] text-muted transition-colors",
+              "px-3 py-1.5 text-body-sm text-muted transition-colors",
               "hover:border-control-line hover:text-body md:flex md:w-64",
             )}
           >
             <Search aria-hidden="true" className="size-3.5 shrink-0" />
             <span className="flex-1 text-left">Search people, roles…</span>
-            <kbd className="rounded-xs border border-line bg-surface px-1.5 py-0.5 text-[0.75rem] text-faint">
+            <kbd className="rounded-xs border border-line bg-surface px-1.5 py-0.5 text-meta text-faint">
               /
             </kbd>
           </button>
@@ -235,7 +235,7 @@ function SidebarNav({
       {groups.map((group, gi) => (
         <div key={group.heading ?? `g${gi}`}>
           {group.heading && (
-            <h2 className="mb-1.5 px-2.5 text-[0.75rem] font-semibold uppercase tracking-[0.07em] text-faint">
+            <h2 className="mb-1.5 px-2.5 text-meta font-semibold uppercase tracking-[0.07em] text-faint">
               {group.heading}
             </h2>
           )}
@@ -255,7 +255,7 @@ function SidebarNav({
                     aria-current={active ? "page" : undefined}
                     onClick={onNavigate}
                     className={cn(
-                      "group flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[0.875rem] font-medium",
+                      "group flex items-center gap-2.5 rounded-md px-2.5 py-2 text-body-sm font-medium",
                       "transition-colors duration-150",
                       active
                         ? "bg-accent-soft text-accent-text"
@@ -276,14 +276,14 @@ function SidebarNav({
                     <span className="min-w-0 flex-1 truncate">{item.label}</span>
 
                     {item.soon && (
-                      <span className="shrink-0 text-[0.75rem] font-normal text-faint">
+                      <span className="shrink-0 text-meta font-normal text-faint">
                         Soon
                       </span>
                     )}
                     {count !== undefined && count > 0 && !item.soon && (
                       <span
                         className={cn(
-                          "tabular shrink-0 rounded-full px-1.5 py-0.5 text-[0.75rem] font-semibold",
+                          "tabular shrink-0 rounded-full px-1.5 py-0.5 text-meta font-semibold",
                           active
                             ? "bg-accent text-white"
                             : "bg-sunken text-muted",
@@ -355,10 +355,10 @@ function UserMenu() {
       >
         <Avatar name={name} size="xs" tone="accent" />
         <span className="hidden min-w-0 sm:block">
-          <span className="block truncate text-[0.875rem] font-medium leading-tight text-ink">
+          <span className="block truncate text-body-sm font-medium leading-tight text-ink">
             {name}
           </span>
-          <span className="block truncate text-[0.75rem] leading-tight text-muted">
+          <span className="block truncate text-meta leading-tight text-muted">
             {subtitle}
           </span>
         </span>
@@ -378,10 +378,10 @@ function UserMenu() {
             className="animate-scale-in absolute right-0 z-50 mt-1.5 w-64 rounded-lg border border-line bg-surface p-1.5 shadow-lg"
           >
             <div className="border-b border-line px-2.5 py-2">
-              <p className="truncate text-[0.875rem] font-medium text-ink">
+              <p className="truncate text-body-sm font-medium text-ink">
                 {name}
               </p>
-              <p className="truncate text-[0.75rem] text-muted">
+              <p className="truncate text-meta text-muted">
                 {email ?? "No email on record"}
               </p>
               {/* Unconditional here, which is what makes the small-screen trade
@@ -389,7 +389,7 @@ function UserMenu() {
               <SessionRoleBadge className="mt-1.5" />
               {/* Which mode you are in, stated rather than implied. A demo that
                   looks connected is the one thing worse than a demo. */}
-              <p className="mt-1.5 text-[0.75rem] text-faint">
+              <p className="mt-1.5 text-meta text-faint">
                 {mode === "api"
                   ? "Connected to the API"
                   : "Demo session — data is local to this browser"}
@@ -400,7 +400,7 @@ function UserMenu() {
                 href={`/people/${recordId}`}
                 role="menuitem"
                 onClick={() => setOpen(false)}
-                className="block rounded-md px-2.5 py-2 text-[0.875rem] text-body hover:bg-canvas hover:text-ink"
+                className="block rounded-md px-2.5 py-2 text-body-sm text-body hover:bg-canvas hover:text-ink"
               >
                 My record
               </Link>
@@ -409,7 +409,7 @@ function UserMenu() {
               href="/settings"
               role="menuitem"
               onClick={() => setOpen(false)}
-              className="block rounded-md px-2.5 py-2 text-[0.875rem] text-body hover:bg-canvas hover:text-ink"
+              className="block rounded-md px-2.5 py-2 text-body-sm text-body hover:bg-canvas hover:text-ink"
             >
               Settings
             </Link>
@@ -417,7 +417,7 @@ function UserMenu() {
               type="button"
               role="menuitem"
               onClick={() => void signOut()}
-              className="block w-full rounded-md px-2.5 py-2 text-left text-[0.875rem] text-body hover:bg-canvas hover:text-ink"
+              className="block w-full rounded-md px-2.5 py-2 text-left text-body-sm text-body hover:bg-canvas hover:text-ink"
             >
               Sign out
             </button>
@@ -434,10 +434,10 @@ function CompanySwitcher() {
       type="button"
       className={cn(
         "hidden items-center gap-2 rounded-md border border-line px-2.5 py-1.5",
-        "text-[0.875rem] font-medium text-ink transition-colors hover:bg-canvas sm:flex",
+        "text-body-sm font-medium text-ink transition-colors hover:bg-canvas sm:flex",
       )}
     >
-      <span className="flex size-5 items-center justify-center rounded-xs bg-accent text-[0.75rem] font-bold text-white">
+      <span className="flex size-5 items-center justify-center rounded-xs bg-accent text-meta font-bold text-white">
         S
       </span>
       Schull Technologies
@@ -469,7 +469,7 @@ export function PageHeader({
       <div className="px-5 pt-6 sm:px-7">
         {breadcrumb && breadcrumb.length > 0 && (
           <nav aria-label="Breadcrumb" className="mb-2.5">
-            <ol className="flex flex-wrap items-center gap-1.5 text-[0.75rem] text-muted">
+            <ol className="flex flex-wrap items-center gap-1.5 text-meta text-muted">
               {breadcrumb.map((crumb, i) => (
                 <li key={crumb.href} className="flex items-center gap-1.5">
                   {i > 0 && <span aria-hidden="true" className="text-line-strong">/</span>}
@@ -489,7 +489,7 @@ export function PageHeader({
               {meta}
             </div>
             {description && (
-              <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-body">
+              <p className="mt-1.5 max-w-2xl text-body-sm leading-relaxed text-body">
                 {description}
               </p>
             )}
@@ -524,7 +524,7 @@ export function ComingSoon({ label }: { label: string }) {
           Not built yet
         </Badge>
         <h2 className="mt-4 text-h4 text-ink">{label}</h2>
-        <p className="mt-2 max-w-sm text-sm text-body">
+        <p className="mt-2 max-w-sm text-body-sm text-body">
           This module is on the roadmap. Hiring is the first one built out end
           to end — start there.
         </p>

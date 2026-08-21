@@ -110,28 +110,28 @@ export function RepairsPanel({
                     </span>
                   }
                 />
-                <TD className="text-[0.875rem]">
+                <TD className="text-body-sm">
                   <span className="block text-ink">{repair.itemName ?? "—"}</span>
-                  <span className="tabular block text-[0.75rem] text-muted">
+                  <span className="tabular block text-meta text-muted">
                     {repair.tag ?? ""}
                   </span>
                 </TD>
-                <TD className="whitespace-nowrap text-[0.875rem]">
+                <TD className="whitespace-nowrap text-body-sm">
                   <span className="block text-body">
                     {dayLabel(repair.startedOn)}
                   </span>
-                  <span className="block text-[0.75rem] text-muted">
+                  <span className="block text-meta text-muted">
                     {repair.completedOn
                       ? `out ${dayLabel(repair.completedOn)}`
                       : `${daysSince(repair.startedOn)} days`}
                   </span>
                 </TD>
-                <TD className="text-[0.875rem] text-body">
+                <TD className="text-body-sm text-body">
                   {repair.vendor ?? "—"}
                 </TD>
                 <TD align="right">
                   {repair.cost === null ? (
-                    <span className="text-[0.875rem] text-faint">—</span>
+                    <span className="text-body-sm text-faint">—</span>
                   ) : (
                     <Money amount={repair.cost} size="sm" />
                   )}

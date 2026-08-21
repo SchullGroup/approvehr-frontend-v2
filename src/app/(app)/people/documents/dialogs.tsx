@@ -168,7 +168,7 @@ export function AskForDocumentModal({
     >
       <div className="flex flex-col gap-4">
         {error && (
-          <p role="alert" className="text-[0.875rem] text-danger-text">
+          <p role="alert" className="text-body-sm text-danger-text">
             {error}
           </p>
         )}
@@ -306,7 +306,7 @@ export function AttachDocumentModal({
     >
       <div className="flex flex-col gap-4">
         {error && (
-          <p role="alert" className="text-[0.875rem] text-danger-text">
+          <p role="alert" className="text-body-sm text-danger-text">
             {error}
           </p>
         )}
@@ -415,7 +415,7 @@ export function AddDocumentModal({
     >
       <div className="flex flex-col gap-4">
         {error && (
-          <p role="alert" className="text-[0.875rem] text-danger-text">
+          <p role="alert" className="text-body-sm text-danger-text">
             {error}
           </p>
         )}
@@ -551,7 +551,7 @@ export function WaiveModal({
     >
       <div className="flex flex-col gap-4">
         {error && (
-          <p role="alert" className="text-[0.875rem] text-danger-text">
+          <p role="alert" className="text-body-sm text-danger-text">
             {error}
           </p>
         )}

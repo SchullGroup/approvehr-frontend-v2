@@ -653,10 +653,10 @@ export function NewEmployeeForm() {
     return (
       <Card>
         <CardBody className="flex flex-col gap-3">
-          <p className="text-[0.875rem] font-medium text-ink">
+          <p className="text-body-sm font-medium text-ink">
             You cannot add an employee
           </p>
-          <p className="text-[0.875rem] text-body">
+          <p className="text-body-sm text-body">
             Creating a record changes what payroll will pay, so it needs the
             permission to edit records. Ask whoever manages access.
           </p>
@@ -690,7 +690,7 @@ export function NewEmployeeForm() {
               : "Saves in this browser only — demo data"}
           </Badge>
           {!connected && (
-            <span className="text-[0.75rem] text-muted">
+            <span className="text-meta text-muted">
               No API is answering, so this record will not reach a payroll run or
               another device.
             </span>
@@ -734,7 +734,7 @@ export function NewEmployeeForm() {
             {!finished && (
               /* The legend, once, near the top. Not repeated per field — the
                  asterisk is the reminder and this is the explanation. */
-              <p className="border-t border-line pt-4 text-[0.8125rem] text-muted">
+              <p className="border-t border-line pt-4 text-meta text-muted">
                 Fields marked <span className="font-semibold text-danger-text">*</span>{" "}
                 are required. Everything else can follow later, and the record
                 saves without it.
@@ -755,7 +755,7 @@ export function NewEmployeeForm() {
                 <p className="text-h4 text-ink">
                   {added ? `${added.name} has been added` : "Added"}
                 </p>
-                <p className="mt-1 text-[0.875rem] text-muted">
+                <p className="mt-1 text-body-sm text-muted">
                   The form is clear and ready for the next person.
                 </p>
               </div>
@@ -1314,7 +1314,7 @@ export function NewEmployeeForm() {
                   ["TIN", Boolean(draft.tin), "taxSetup"],
                 ] as [string, boolean, RecordFieldKey][]
               ).map(([label, done, key]) => (
-                <li key={label} className="flex items-start gap-2.5 text-[0.875rem]">
+                <li key={label} className="flex items-start gap-2.5 text-body-sm">
                   <span
                     className={cn(
                       "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full",
@@ -1334,7 +1334,7 @@ export function NewEmployeeForm() {
                         checklist that quietly omitted the reason would look
                         like the product had changed its mind. */}
                     {!done && !enabled[key] && (
-                      <span className="block text-[0.75rem] text-faint">
+                      <span className="block text-meta text-faint">
                         Not asked for here — switched off in Settings
                       </span>
                     )}
@@ -1355,7 +1355,7 @@ export function NewEmployeeForm() {
               aria-hidden="true"
               className="mt-0.5 size-4 shrink-0 text-faint"
             />
-            <p className="text-[0.75rem] leading-relaxed text-muted">
+            <p className="text-meta leading-relaxed text-muted">
               Saving with a status of{" "}
               <Badge tone="info" size="sm">
                 Onboarding
@@ -1379,14 +1379,14 @@ export function NewEmployeeForm() {
           <span className="flex size-12 items-center justify-center rounded-full bg-success-soft text-success-text">
             <UserRoundCheck aria-hidden="true" className="size-6" />
           </span>
-          <p className="text-[0.875rem] leading-relaxed text-body">
+          <p className="text-body-sm leading-relaxed text-body">
             {connected
               ? "Their record is saved and they are in the directory."
               : "Their record is saved in this browser. It will not reach a payroll run or another device."}
           </p>
 
           {added && added.outstanding.length > 0 && (
-            <p className="w-full rounded-md bg-canvas p-3 text-left text-[0.8125rem] leading-relaxed text-muted">
+            <p className="w-full rounded-md bg-canvas p-3 text-left text-meta leading-relaxed text-muted">
               Still outstanding: {added.outstanding.join(", ")}. Payroll will
               hold them back until these are on the record —{" "}
               <Link
@@ -1467,14 +1467,14 @@ function OptionalGroup({
         >
           <span className="min-w-0">
             <span className="flex flex-wrap items-center gap-2">
-              <span className="text-[0.9375rem] font-medium text-ink">
+              <span className="text-body font-medium text-ink">
                 {copy.title}
               </span>
               <Badge tone={filled > 0 ? "success" : "neutral"} size="sm">
                 {filled > 0 ? `${filled} of ${total} filled` : "Optional"}
               </Badge>
             </span>
-            <span className="mt-1 block text-[0.8125rem] leading-relaxed text-muted">
+            <span className="mt-1 block text-meta leading-relaxed text-muted">
               {open ? copy.purpose : SKIP_CONSEQUENCE[id]}
             </span>
           </span>
@@ -1508,7 +1508,7 @@ function ReviewBlock({
   return (
     <div className="rounded-lg border border-line">
       <div className="flex items-center justify-between gap-4 border-b border-line px-3.5 py-2.5">
-        <h3 className="text-[0.875rem] font-semibold text-ink">{title}</h3>
+        <h3 className="text-body-sm font-semibold text-ink">{title}</h3>
         <Button type="button" variant="ghost" size="sm" onClick={onEdit}>
           Edit
         </Button>
@@ -1519,8 +1519,8 @@ function ReviewBlock({
             key={term}
             className="flex items-baseline justify-between gap-4 px-3.5 py-2.5"
           >
-            <dt className="text-[0.75rem] text-muted">{term}</dt>
-            <dd className="min-w-0 text-right text-[0.875rem] text-ink">
+            <dt className="text-meta text-muted">{term}</dt>
+            <dd className="min-w-0 text-right text-body-sm text-ink">
               {value}
             </dd>
           </div>
@@ -1577,7 +1577,7 @@ function FirstPayslip({
       />
       <CardBody className="flex flex-col gap-2.5">
         {!available ? (
-          <p className="text-[0.875rem] leading-relaxed text-muted">
+          <p className="text-body-sm leading-relaxed text-muted">
             PAYE, pension and NHF are worked out by the payroll engine on the
             server. There is no second copy of it in this browser — there was
             once, and it spent a while quoting the wrong year&rsquo;s tax. The
@@ -1590,7 +1590,7 @@ function FirstPayslip({
             <Skeleton className="h-5 w-2/3" />
             <span className="sr-only">Working out the first payslip</span>
             {error && (
-              <p className="text-[0.875rem] leading-relaxed text-danger-text">
+              <p className="text-body-sm leading-relaxed text-danger-text">
                 {error.message}
               </p>
             )}
@@ -1604,7 +1604,7 @@ function FirstPayslip({
             <Row label="PAYE" value={-naira(slip.payeKobo)} />
             <div className="h-px bg-line" />
             <Row label="Net monthly" value={naira(slip.netKobo)} strong />
-            <p className="mt-1 rounded-md bg-canvas p-2.5 text-[0.75rem] leading-relaxed text-muted">
+            <p className="mt-1 rounded-md bg-canvas p-2.5 text-meta leading-relaxed text-muted">
               Employer pension of{" "}
               <Money amount={naira(slip.pensionEmployerKobo)} /> is paid on top
               and is not deducted.
@@ -1633,8 +1633,8 @@ function Row({
       <span
         className={
           strong
-            ? "text-[0.875rem] font-medium text-ink"
-            : "text-[0.875rem] text-body"
+            ? "text-body-sm font-medium text-ink"
+            : "text-body-sm text-body"
         }
       >
         {label}
@@ -1642,8 +1642,8 @@ function Row({
       <span
         className={
           strong
-            ? "tabular text-[0.9375rem] font-semibold text-ink"
-            : "tabular text-[0.875rem] text-body"
+            ? "tabular text-body font-semibold text-ink"
+            : "tabular text-body-sm text-body"
         }
       >
         <Money amount={Math.round(value)} />

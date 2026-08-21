@@ -148,7 +148,7 @@ export function AreaChart({
         )}
       </svg>
 
-      <div className="mt-2 flex justify-between text-[0.75rem] text-muted">
+      <div className="mt-2 flex justify-between text-meta text-muted">
         {points.map((p, i) => (
           <span
             key={p.label}
@@ -190,10 +190,10 @@ export function BarChart({
       <ul className="flex flex-col gap-3" aria-hidden="true">
         {points.map((p, i) => (
           <li key={p.label} className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1">
-            <span className="truncate text-[0.875rem] text-body">
+            <span className="truncate text-body-sm text-body">
               {p.label}
             </span>
-            <span className="tabular text-[0.875rem] font-medium text-ink">
+            <span className="tabular text-body-sm font-medium text-ink">
               {format(p.value)}
             </span>
             <span className="col-span-2 h-2 overflow-hidden rounded-full bg-sunken">
@@ -286,11 +286,11 @@ export function DonutChart({
 
       <div className="min-w-0">
         {centreLabel && (
-          <p className="mb-2 text-[0.875rem] text-muted">{centreLabel}</p>
+          <p className="mb-2 text-body-sm text-muted">{centreLabel}</p>
         )}
         <ul className="flex flex-col gap-1.5">
           {points.map((p, i) => (
-            <li key={p.label} className="flex items-center gap-2 text-[0.875rem]">
+            <li key={p.label} className="flex items-center gap-2 text-body-sm">
               <span
                 aria-hidden="true"
                 className="size-2.5 shrink-0 rounded-[3px]"
@@ -404,15 +404,15 @@ export function FunnelChart({
           return (
             <li key={stage.label}>
               <div className="mb-1 flex items-baseline justify-between gap-3">
-                <span className="text-[0.875rem] text-body">
+                <span className="text-body-sm text-body">
                   {stage.label}
                 </span>
                 <span className="flex items-baseline gap-2">
-                  <span className="tabular text-[0.875rem] font-medium text-ink">
+                  <span className="tabular text-body-sm font-medium text-ink">
                     {stage.value}
                   </span>
                   {dropoff !== null && dropoff > 0 && (
-                    <span className="tabular text-[0.75rem] text-muted">
+                    <span className="tabular text-meta text-muted">
                       −{dropoff}%
                     </span>
                   )}

@@ -27,10 +27,10 @@ export function Avatar({
     .join("");
 
   const sizes = {
-    xs: "size-6 text-[0.75rem]",
-    sm: "size-8 text-[0.75rem]",
-    md: "size-10 text-[0.875rem]",
-    lg: "size-14 text-sm",
+    xs: "size-6 text-meta",
+    sm: "size-8 text-meta",
+    md: "size-10 text-body-sm",
+    lg: "size-14 text-body-sm",
   } as const;
 
   const tones = {
@@ -120,18 +120,18 @@ export function Timeline({
 
           <div className="min-w-0 flex-1 pt-0.5">
             <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-              <p className="text-sm font-medium text-ink">{entry.title}</p>
-              <time className="tabular shrink-0 text-[0.75rem] text-muted">
+              <p className="text-body-sm font-medium text-ink">{entry.title}</p>
+              <time className="tabular shrink-0 text-meta text-muted">
                 {entry.timestamp}
               </time>
             </div>
             {entry.actor && (
-              <p className="mt-0.5 text-[0.75rem] text-muted">
+              <p className="mt-0.5 text-meta text-muted">
                 by {entry.actor}
               </p>
             )}
             {entry.detail && (
-              <div className="mt-1.5 text-[0.875rem] leading-relaxed text-body">
+              <div className="mt-1.5 text-body-sm leading-relaxed text-body">
                 {entry.detail}
               </div>
             )}
@@ -203,7 +203,7 @@ export function FileDrop({
           aria-hidden="true"
           className="mx-auto size-6 text-faint"
         />
-        <p className="mt-3 text-sm text-body">
+        <p className="mt-3 text-body-sm text-body">
           Drag files here, or{" "}
           <button
             type="button"
@@ -213,7 +213,7 @@ export function FileDrop({
             {label}
           </button>
         </p>
-        {hint && <p className="mt-1 text-[0.75rem] text-muted">{hint}</p>}
+        {hint && <p className="mt-1 text-meta text-muted">{hint}</p>}
 
         <input
           ref={inputRef}
@@ -237,10 +237,10 @@ export function FileDrop({
               className="flex items-center gap-3 rounded-md border border-line bg-surface px-3 py-2.5"
             >
               <FileText aria-hidden="true" className="size-4 shrink-0 text-faint" />
-              <span className="min-w-0 flex-1 truncate text-[0.875rem] text-ink">
+              <span className="min-w-0 flex-1 truncate text-body-sm text-ink">
                 {f.name}
               </span>
-              <span className="tabular shrink-0 text-[0.75rem] text-muted">
+              <span className="tabular shrink-0 text-meta text-muted">
                 {(f.size / 1024).toFixed(0)} KB
               </span>
               <button
@@ -281,8 +281,8 @@ export function DescriptionList({
     <dl className={cn("grid grid-cols-1 gap-x-6 gap-y-4", cols[columns], className)}>
       {items.map((item) => (
         <div key={item.term} className="min-w-0">
-          <dt className="text-[0.75rem] font-medium text-muted">{item.term}</dt>
-          <dd className="mt-1 text-sm text-ink">{item.value}</dd>
+          <dt className="text-meta font-medium text-muted">{item.term}</dt>
+          <dd className="mt-1 text-body-sm text-ink">{item.value}</dd>
         </div>
       ))}
     </dl>
@@ -308,7 +308,7 @@ export function CheckList({
             strokeWidth={3}
             className="mt-0.5 size-3.5 shrink-0 text-success-text"
           />
-          <span className="text-[0.875rem] leading-relaxed text-body">
+          <span className="text-body-sm leading-relaxed text-body">
             {item}
           </span>
         </li>

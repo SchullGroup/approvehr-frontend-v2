@@ -154,7 +154,7 @@ export function AppraisalsTab() {
       </div>
 
       {appraisals.error && (
-        <p className="rounded-md border border-danger-line bg-danger-soft px-3.5 py-2.5 text-[0.875rem] text-ink">
+        <p className="rounded-md border border-danger-line bg-danger-soft px-3.5 py-2.5 text-body-sm text-ink">
           {appraisals.error.message}
         </p>
       )}
@@ -211,7 +211,7 @@ export function AppraisalsTab() {
           }
         />
         {appraisals.loading ? (
-          <CardBody className="flex items-center gap-2 text-[0.875rem] text-muted">
+          <CardBody className="flex items-center gap-2 text-body-sm text-muted">
             <Spinner size="sm" />
             Loading
           </CardBody>
@@ -267,11 +267,11 @@ export function AppraisalsTab() {
       <Card>
         <CardHeader title="Peer feedback" />
         <CardBody className="flex flex-col gap-4">
-          <p className="text-[0.875rem] text-body">
+          <p className="text-body-sm text-body">
             Peer feedback is anonymous. No name is attached to an answer.
           </p>
           {appraisals.mine.peerFeedback.length === 0 ? (
-            <p className="text-[0.875rem] text-muted">
+            <p className="text-body-sm text-muted">
               Nothing from colleagues yet.
             </p>
           ) : (
@@ -288,7 +288,7 @@ export function AppraisalsTab() {
           description="Four parts, shipped ready. Rename or switch off any of them in settings."
         />
         {framework.loading ? (
-          <CardBody className="flex items-center gap-2 text-[0.875rem] text-muted">
+          <CardBody className="flex items-center gap-2 text-body-sm text-muted">
             <Spinner size="sm" />
             Loading the framework
           </CardBody>
@@ -303,7 +303,7 @@ export function AppraisalsTab() {
           <CardBody className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
             {framework.groups.map((group) => (
               <div key={group.category}>
-                <p className="flex flex-wrap items-center gap-2 text-[0.875rem] font-semibold text-ink">
+                <p className="flex flex-wrap items-center gap-2 text-body-sm font-semibold text-ink">
                   {group.category}
                   {group.category === "Leadership" && (
                     <Badge tone="neutral" size="sm">
@@ -313,7 +313,7 @@ export function AppraisalsTab() {
                 </p>
                 <ul className="mt-2 flex flex-col gap-1.5">
                   {group.competencies.map((competency) => (
-                    <li key={competency.id} className="text-[0.875rem] text-body">
+                    <li key={competency.id} className="text-body-sm text-body">
                       {competency.name}
                     </li>
                   ))}
@@ -357,10 +357,10 @@ export function AppraisalsTab() {
                   className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3"
                 >
                   <div className="min-w-0">
-                    <p className="text-[0.875rem] font-medium text-ink">
+                    <p className="text-body-sm font-medium text-ink">
                       {cycle.name}
                     </p>
-                    <p className="mt-1 flex flex-wrap items-center gap-2 text-[0.75rem] text-muted">
+                    <p className="mt-1 flex flex-wrap items-center gap-2 text-meta text-muted">
                       <Badge
                         tone={cycle.stage === "PUBLISHED" ? "neutral" : "info"}
                         size="sm"
@@ -510,11 +510,11 @@ function ReviewRow({
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3">
       <div className="min-w-0">
-        <p className="text-[0.875rem] font-medium text-ink">
+        <p className="text-body-sm font-medium text-ink">
           {review.kindLabel}
           {who ? (context === "owed" ? ` · ${who}` : ` · from ${who}`) : ""}
         </p>
-        <p className="mt-1 flex flex-wrap items-center gap-2 text-[0.75rem] text-muted">
+        <p className="mt-1 flex flex-wrap items-center gap-2 text-meta text-muted">
           <span>{review.cycleName}</span>
           {review.dueDate && <span>Due {dayLabel(review.dueDate)}</span>}
           {review.rating !== null && <span>Mark {review.rating} out of 5</span>}
@@ -544,15 +544,15 @@ function PeerBlock({ entry }: { entry: ApiPeerFeedback }) {
   if (entry.withheld) {
     return (
       <div className="rounded-md border border-line bg-canvas p-3.5">
-        <p className="text-[0.875rem] font-medium text-ink">{entry.cycleName}</p>
-        <p className="mt-1 text-[0.875rem] text-body">{entry.note}</p>
+        <p className="text-body-sm font-medium text-ink">{entry.cycleName}</p>
+        <p className="mt-1 text-body-sm text-body">{entry.note}</p>
       </div>
     );
   }
 
   return (
     <div className="rounded-md border border-line p-3.5">
-      <p className="flex flex-wrap items-center gap-2 text-[0.875rem] font-medium text-ink">
+      <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
         {entry.cycleName}
         <Badge tone="neutral" size="sm">
           {entry.responses === 1 ? "1 answer" : `${entry.responses} answers`}
@@ -561,20 +561,20 @@ function PeerBlock({ entry }: { entry: ApiPeerFeedback }) {
       <div className="mt-3 flex flex-col gap-3">
         {entry.answers.map((answer) => (
           <div key={answer.questionId}>
-            <p className="text-[0.75rem] font-medium text-muted">{answer.prompt}</p>
+            <p className="text-meta font-medium text-muted">{answer.prompt}</p>
             {answer.averageRating !== null && (
-              <p className="tabular mt-1 text-[0.875rem] text-ink">
+              <p className="tabular mt-1 text-body-sm text-ink">
                 Average {answer.averageRating} out of 5, across{" "}
                 {answer.answered === 1 ? "1 answer" : `${answer.answered} answers`}
               </p>
             )}
             {answer.yeses > 0 && (
-              <p className="tabular mt-1 text-[0.875rem] text-ink">
+              <p className="tabular mt-1 text-body-sm text-ink">
                 {answer.yeses} of {answer.answered} said yes
               </p>
             )}
             {answer.choices.length > 0 && (
-              <p className="mt-1 text-[0.875rem] text-ink">
+              <p className="mt-1 text-body-sm text-ink">
                 {answer.choices.join(" · ")}
               </p>
             )}
@@ -583,7 +583,7 @@ function PeerBlock({ entry }: { entry: ApiPeerFeedback }) {
                 {answer.texts.map((text, index) => (
                   <li
                     key={index}
-                    className="border-l-2 border-line-strong pl-3 text-[0.875rem] leading-relaxed text-body"
+                    className="border-l-2 border-line-strong pl-3 text-body-sm leading-relaxed text-body"
                   >
                     {text}
                   </li>

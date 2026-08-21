@@ -398,7 +398,7 @@ export function LoansScreen() {
 
             {list.total > list.pageSize && (
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-[0.875rem] text-muted">
+                <p className="text-body-sm text-muted">
                   Showing {from}–{to} of {list.total}
                 </p>
                 <div className="flex gap-2">
@@ -427,7 +427,7 @@ export function LoansScreen() {
             it happened to, and is spelled out there rather than as a general
             warning on a table where it may not apply to anybody. */}
         {seeEverybody && list.loans.length > 0 && (
-          <p className="flex items-start gap-2 text-[0.875rem] text-muted">
+          <p className="flex items-start gap-2 text-body-sm text-muted">
             <Wallet aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
             <span>
               Repayments come out of net pay, after tax. A loan is not

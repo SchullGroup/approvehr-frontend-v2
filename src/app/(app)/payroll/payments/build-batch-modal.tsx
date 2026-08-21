@@ -101,7 +101,7 @@ export function BuildBatchModal({
     >
       <div className="flex flex-col gap-4">
         {error && (
-          <p className="rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-[0.875rem] text-danger-text">
+          <p className="rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-body-sm text-danger-text">
             {error}
           </p>
         )}
@@ -125,17 +125,17 @@ export function BuildBatchModal({
         {run && (
           <dl className="grid grid-cols-2 gap-x-6 gap-y-3 rounded-md border border-line bg-canvas p-4">
             <div>
-              <dt className="text-[0.75rem] font-medium text-muted">Pays</dt>
-              <dd className="mt-1 text-sm text-ink">{longDate(run.payDate)}</dd>
+              <dt className="text-meta font-medium text-muted">Pays</dt>
+              <dd className="mt-1 text-body-sm text-ink">{longDate(run.payDate)}</dd>
             </div>
             <div>
-              <dt className="text-[0.75rem] font-medium text-muted">People</dt>
-              <dd className="tabular mt-1 text-sm text-ink">
+              <dt className="text-meta font-medium text-muted">People</dt>
+              <dd className="tabular mt-1 text-body-sm text-ink">
                 {run.employeeCount}
               </dd>
             </div>
             <div className="col-span-2">
-              <dt className="text-[0.75rem] font-medium text-muted">
+              <dt className="text-meta font-medium text-muted">
                 Net pay on the run
               </dt>
               <dd className="mt-1">

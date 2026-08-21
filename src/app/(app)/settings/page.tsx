@@ -125,7 +125,7 @@ export default function SettingsPage() {
       <PageBody className="flex flex-col gap-10">
         {GROUPS.map((group) => (
           <section key={group.heading}>
-            <h2 className="mb-4 text-[0.75rem] font-semibold uppercase tracking-[0.08em] text-muted">
+            <h2 className="mb-4 text-meta font-semibold uppercase tracking-[0.08em] text-muted">
               {group.heading}
             </h2>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

@@ -330,7 +330,7 @@ function Trail({ initialEntityType = "", initialEntityId = "" }: ScreenProps) {
 
         {oneRecord && (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line bg-canvas px-4 py-3">
-            <p className="text-[0.875rem] text-body">
+            <p className="text-body-sm text-body">
               One record: <span className="font-medium text-ink">{oneRecord}</span>
             </p>
             <Button variant="secondary" size="sm" onClick={() => setEntityId("")}>
@@ -372,7 +372,7 @@ function Trail({ initialEntityType = "", initialEntityId = "" }: ScreenProps) {
               <section key={group.key} aria-labelledby={`audit-day-${group.key}`}>
                 <h2
                   id={`audit-day-${group.key}`}
-                  className="mb-3 text-[0.75rem] font-semibold uppercase tracking-[0.08em] text-faint"
+                  className="mb-3 text-meta font-semibold uppercase tracking-[0.08em] text-faint"
                 >
                   {group.heading}
                 </h2>

@@ -40,7 +40,7 @@ export function PolicyDrawer({
       {...(footer ? { footer } : {})}
     >
       {detail.loading ? (
-        <div className="flex items-center gap-2 text-[0.875rem] text-muted">
+        <div className="flex items-center gap-2 text-body-sm text-muted">
           <Spinner size="sm" />
           Loading
         </div>
@@ -49,7 +49,7 @@ export function PolicyDrawer({
           {detail.error.message}
         </Callout>
       ) : (
-        <p className="whitespace-pre-wrap text-[0.9375rem] leading-relaxed text-body">
+        <p className="whitespace-pre-wrap text-body leading-relaxed text-body">
           {detail.policy?.body ?? "This section has no text."}
         </p>
       )}

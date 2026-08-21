@@ -113,7 +113,7 @@ function MiniMonth({
 
   return (
     <table className="w-full border-separate border-spacing-0.5">
-      <caption className="mb-1 text-left text-[0.75rem] font-semibold text-ink">
+      <caption className="mb-1 text-left text-meta font-semibold text-ink">
         {MONTHS[month]}
       </caption>
       <thead>
@@ -123,7 +123,7 @@ function MiniMonth({
               key={day.long}
               scope="col"
               className={cn(
-                "pb-1 text-[0.625rem] font-medium",
+                "pb-1 text-meta font-medium",
                 isWeekendColumn(column) ? "text-faint" : "text-muted",
               )}
             >
@@ -150,7 +150,7 @@ function MiniMonth({
                   {holiday ? (
                     <span
                       className={cn(
-                        "inline-flex size-5 items-center justify-center rounded-full text-[0.6875rem] font-semibold",
+                        "inline-flex size-5 items-center justify-center rounded-full text-meta font-semibold",
                         holiday.confirmed
                           ? /* Filled. Reads as a holiday with no colour at all. */
                             "bg-accent text-white"
@@ -170,7 +170,7 @@ function MiniMonth({
                   ) : (
                     <span
                       className={cn(
-                        "inline-flex size-5 items-center justify-center text-[0.6875rem]",
+                        "inline-flex size-5 items-center justify-center text-meta",
                         isWeekendColumn(column) ? "text-faint" : "text-muted",
                       )}
                     >
@@ -241,7 +241,7 @@ export function HolidayCalendarCard({
             >
               <ChevronLeft aria-hidden="true" className="size-4" />
             </IconButton>
-            <span className="tabular min-w-14 text-center text-[0.875rem] font-medium text-ink">
+            <span className="tabular min-w-14 text-center text-body-sm font-medium text-ink">
               {year}
             </span>
             <IconButton
@@ -269,7 +269,7 @@ export function HolidayCalendarCard({
             tone="warning"
             title={`${awaiting} ${awaiting === 1 ? "date is" : "dates are"} not gazetted yet`}
           >
-            <span className="flex flex-col gap-1.5 text-[0.875rem] leading-relaxed">
+            <span className="flex flex-col gap-1.5 text-body-sm leading-relaxed">
               <span>{UNCONFIRMED_HOLIDAY_EFFECT.acts}</span>
               <span>{UNCONFIRMED_HOLIDAY_EFFECT.waits}</span>
             </span>
@@ -277,19 +277,19 @@ export function HolidayCalendarCard({
         )}
 
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-          <span className="flex items-center gap-2 text-[0.75rem] text-body">
+          <span className="flex items-center gap-2 text-meta text-body">
             <span
               aria-hidden="true"
-              className="inline-flex size-5 items-center justify-center rounded-full bg-accent text-[0.6875rem] font-semibold text-white"
+              className="inline-flex size-5 items-center justify-center rounded-full bg-accent text-meta font-semibold text-white"
             >
               1
             </span>
             Gazetted
           </span>
-          <span className="flex items-center gap-2 text-[0.75rem] text-body">
+          <span className="flex items-center gap-2 text-meta text-body">
             <span
               aria-hidden="true"
-              className="inline-flex size-5 items-center justify-center rounded-full border border-dashed border-warning-text bg-warning-soft text-[0.6875rem] font-semibold text-warning-text"
+              className="inline-flex size-5 items-center justify-center rounded-full border border-dashed border-warning-text bg-warning-soft text-meta font-semibold text-warning-text"
             >
               1
             </span>
@@ -299,7 +299,7 @@ export function HolidayCalendarCard({
           {canManage && (
             <Link
               href="/settings/leave"
-              className="ml-auto text-[0.75rem] text-accent-text underline-offset-4 hover:underline"
+              className="ml-auto text-meta text-accent-text underline-offset-4 hover:underline"
             >
               Manage the calendar
             </Link>
@@ -321,7 +321,7 @@ export function HolidayCalendarCard({
             {/* The dates themselves, because "when is Eid" is also a question and
                 counting cells is not how anybody answers it. */}
             {calendar.holidays.length === 0 ? (
-              <p className="text-[0.875rem] text-muted">
+              <p className="text-body-sm text-muted">
                 Nothing on the calendar for {year}.
               </p>
             ) : (
@@ -335,10 +335,10 @@ export function HolidayCalendarCard({
                       aria-hidden="true"
                       className="size-3.5 shrink-0 text-faint"
                     />
-                    <span className="tabular w-14 shrink-0 text-[0.75rem] text-muted">
+                    <span className="tabular w-14 shrink-0 text-meta text-muted">
                       {shortDate(holiday.date)}
                     </span>
-                    <span className="min-w-0 flex-1 truncate text-[0.875rem] text-ink">
+                    <span className="min-w-0 flex-1 truncate text-body-sm text-ink">
                       {holiday.name}
                     </span>
                     {!holiday.confirmed && (

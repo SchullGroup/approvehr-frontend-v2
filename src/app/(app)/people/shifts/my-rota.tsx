@@ -111,7 +111,7 @@ export function MyRota({ className }: { className?: string }) {
         />
         <CardBody className="flex flex-col gap-4">
           {loading ? (
-            <span className="flex items-center gap-2 text-[0.875rem] text-muted">
+            <span className="flex items-center gap-2 text-body-sm text-muted">
               <Spinner size="sm" />
               Loading
             </span>
@@ -124,14 +124,14 @@ export function MyRota({ className }: { className?: string }) {
                   className="flex flex-wrap items-center gap-3 rounded-md border border-warning-line bg-warning-soft px-3.5 py-3"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="text-[0.875rem] font-semibold text-ink">
+                    <p className="text-body-sm font-semibold text-ink">
                       {swap.requester?.name ?? "A colleague"} asked you to cover
                     </p>
-                    <p className="mt-0.5 text-[0.875rem] text-body">
+                    <p className="mt-0.5 text-body-sm text-body">
                       {swapAsk(swap)}
                     </p>
                     {swap.reason && (
-                      <p className="mt-1 text-[0.875rem] italic text-muted">
+                      <p className="mt-1 text-body-sm italic text-muted">
                         “{swap.reason}”
                       </p>
                     )}
@@ -163,7 +163,7 @@ export function MyRota({ className }: { className?: string }) {
               ))}
 
               {!myRota || myRota.rosteredDays === 0 ? (
-                <p className="text-[0.875rem] leading-relaxed text-body">
+                <p className="text-body-sm leading-relaxed text-body">
                   You are not on a rota for the next four weeks.
                 </p>
               ) : (
@@ -183,13 +183,13 @@ export function MyRota({ className }: { className?: string }) {
                         )}
                       />
                       <div className="min-w-0 flex-1">
-                        <p className="text-[0.75rem] font-semibold uppercase tracking-wide text-muted">
+                        <p className="text-meta font-semibold uppercase tracking-wide text-muted">
                           Next
                         </p>
-                        <p className="text-[0.9375rem] font-semibold text-ink">
+                        <p className="text-body font-semibold text-ink">
                           {next.shiftName} · {spokenDay(next.date)}
                         </p>
-                        <p className="tabular text-[0.875rem] text-body">
+                        <p className="tabular text-body-sm text-body">
                           {timesLabel(next)}
                         </p>
                       </div>
@@ -215,10 +215,10 @@ export function MyRota({ className }: { className?: string }) {
                                 colour.swatch,
                               )}
                             />
-                            <span className="tabular w-24 shrink-0 text-[0.875rem] text-body">
+                            <span className="tabular w-24 shrink-0 text-body-sm text-body">
                               {shortDay(day.date)}
                             </span>
-                            <span className="min-w-0 flex-1 text-[0.875rem] text-ink">
+                            <span className="min-w-0 flex-1 text-body-sm text-ink">
                               <span className="font-semibold">
                                 {day.shortName}
                               </span>{" "}
@@ -245,7 +245,7 @@ export function MyRota({ className }: { className?: string }) {
                       See the whole rota
                     </ButtonLink>
                     {hidden > 0 && (
-                      <span className="text-[0.875rem] text-muted">
+                      <span className="text-body-sm text-muted">
                         {hidden} more{" "}
                         {hidden === 1 ? "day" : "days"} to {shortDay(myRota.to)}
                       </span>

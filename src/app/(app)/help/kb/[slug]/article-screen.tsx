@@ -163,7 +163,7 @@ export function ArticleScreen({ slug }: { slug: string }) {
             {paragraphs.map((block, index) => (
               <p
                 key={index}
-                className="text-[0.9375rem] leading-relaxed text-body"
+                className="text-body leading-relaxed text-body"
               >
                 {block}
               </p>
@@ -171,7 +171,7 @@ export function ArticleScreen({ slug }: { slug: string }) {
           </CardBody>
 
           <CardFooter className="flex flex-wrap items-center justify-between gap-4">
-            <span className="flex items-center gap-1.5 text-[0.75rem] text-muted">
+            <span className="flex items-center gap-1.5 text-meta text-muted">
               <Eye aria-hidden="true" className="size-3.5" />
               <span className="tabular">{article.views}</span>
               {article.views === 1 ? "read" : "reads"}
@@ -185,7 +185,7 @@ export function ArticleScreen({ slug }: { slug: string }) {
             </span>
             <Link
               href="/help/kb"
-              className="text-[0.875rem] text-muted underline-offset-4 hover:text-ink hover:underline"
+              className="text-body-sm text-muted underline-offset-4 hover:text-ink hover:underline"
             >
               All help articles
             </Link>
@@ -194,14 +194,14 @@ export function ArticleScreen({ slug }: { slug: string }) {
 
         <Card className="max-w-3xl">
           <CardBody className="flex flex-col gap-3">
-            <p className="text-[0.9375rem] font-medium text-ink">
+            <p className="text-body font-medium text-ink">
               Was this helpful?
             </p>
 
             {feedbackRefusal ? (
               /* The API's own sentence. It names what is missing and what fixes
                  it, which is more than this screen could say. */
-              <p className="text-[0.875rem] leading-relaxed text-warning-text">
+              <p className="text-body-sm leading-relaxed text-warning-text">
                 {feedbackRefusal}
               </p>
             ) : (
@@ -224,14 +224,14 @@ export function ArticleScreen({ slug }: { slug: string }) {
                 </div>
 
                 {yourVote === "helpful" && (
-                  <p className="text-[0.875rem] text-muted">
+                  <p className="text-body-sm text-muted">
                     Saved — you said yes.
                   </p>
                 )}
 
                 {yourVote === "not-helpful" && (
                   <div className="flex flex-wrap items-center gap-3">
-                    <p className="text-[0.875rem] text-muted">
+                    <p className="text-body-sm text-muted">
                       Saved — you said no.
                     </p>
                     <ButtonLink href="/help" variant="accent" size="sm">

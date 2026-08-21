@@ -109,7 +109,7 @@ export function SkillsTab({
       </div>
 
       {mine.error && (
-        <p className="rounded-md border border-danger-line bg-danger-soft px-3.5 py-2.5 text-[0.875rem] text-ink">
+        <p className="rounded-md border border-danger-line bg-danger-soft px-3.5 py-2.5 text-body-sm text-ink">
           {mine.error.message}
         </p>
       )}
@@ -135,7 +135,7 @@ export function SkillsTab({
           description="Your level, the target beside it, and the gap between."
         />
         {mine.loading ? (
-          <CardBody className="flex items-center gap-2 text-[0.875rem] text-muted">
+          <CardBody className="flex items-center gap-2 text-body-sm text-muted">
             <Spinner size="sm" />
             Loading
           </CardBody>
@@ -150,7 +150,7 @@ export function SkillsTab({
           <CardBody className="flex flex-col gap-6">
             {grouped.map((group) => (
               <div key={group.category}>
-                <p className="flex flex-wrap items-center gap-2 text-[0.875rem] font-semibold text-ink">
+                <p className="flex flex-wrap items-center gap-2 text-body-sm font-semibold text-ink">
                   {group.category}
                   {group.category === "Leadership" && (
                     <Badge tone="neutral" size="sm">
@@ -176,7 +176,7 @@ export function SkillsTab({
             description="Biggest gap first."
           />
           {gaps.loading ? (
-            <CardBody className="flex items-center gap-2 text-[0.875rem] text-muted">
+            <CardBody className="flex items-center gap-2 text-body-sm text-muted">
               <Spinner size="sm" />
               Loading
             </CardBody>
@@ -205,7 +205,7 @@ export function SkillsTab({
                     <TD>
                       {gap.competencyName}
                       {gap.category && (
-                        <span className="mt-0.5 block text-[0.75rem] text-muted">
+                        <span className="mt-0.5 block text-meta text-muted">
                           {gap.category}
                         </span>
                       )}
@@ -240,7 +240,7 @@ export function SkillsTab({
             description="Average level per skill, per department."
           />
           {grid.loading ? (
-            <CardBody className="flex items-center gap-2 text-[0.875rem] text-muted">
+            <CardBody className="flex items-center gap-2 text-body-sm text-muted">
               <Spinner size="sm" />
               Loading the grid
             </CardBody>
@@ -255,7 +255,7 @@ export function SkillsTab({
             <CardBody className="flex flex-col gap-4">
               <Legend />
               <div className="scroll-x">
-                <table className="w-full border-collapse text-[0.875rem]">
+                <table className="w-full border-collapse text-body-sm">
                   <thead>
                     <tr>
                       <th
@@ -325,8 +325,8 @@ function SkillRow({ row }: { row: ApiCompetencyRow }) {
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3">
       <div className="min-w-0">
-        <p className="text-[0.875rem] font-medium text-ink">{row.name}</p>
-        <p className="tabular mt-1 text-[0.875rem] text-muted">
+        <p className="text-body-sm font-medium text-ink">{row.name}</p>
+        <p className="tabular mt-1 text-body-sm text-muted">
           {row.level === null
             ? "Not assessed yet"
             : `Level ${row.level} of ${row.scaleMax}${
@@ -416,7 +416,7 @@ function Legend() {
         <li
           key={band.label}
           className={cn(
-            "rounded-sm border border-line px-2 py-0.5 text-[0.75rem] font-medium",
+            "rounded-sm border border-line px-2 py-0.5 text-meta font-medium",
             band.className,
           )}
         >
@@ -442,7 +442,7 @@ function HeatRow({ row, scaleMax }: { row: ApiHeatmapRow; scaleMax: number }) {
         className="sticky left-0 z-10 border-t border-line bg-surface p-2 text-left align-middle font-medium text-ink"
       >
         {row.departmentName}
-        <span className="mt-0.5 block text-[0.75rem] font-normal text-muted">
+        <span className="mt-0.5 block text-meta font-normal text-muted">
           {row.ratedPeople === 1 ? "1 person" : `${row.ratedPeople} people`}
         </span>
       </th>
@@ -452,14 +452,14 @@ function HeatRow({ row, scaleMax }: { row: ApiHeatmapRow; scaleMax: number }) {
           className="border-t border-line p-1 align-middle"
         >
           {cell.average === null ? (
-            <span className="flex h-11 items-center justify-center rounded-sm border border-line bg-canvas text-[0.875rem] text-muted">
+            <span className="flex h-11 items-center justify-center rounded-sm border border-line bg-canvas text-body-sm text-muted">
               <span aria-hidden="true">&mdash;</span>
               <span className="sr-only">Not assessed</span>
             </span>
           ) : (
             <span
               className={cn(
-                "tabular flex h-11 flex-col items-center justify-center rounded-sm border border-line text-[0.875rem] font-medium",
+                "tabular flex h-11 flex-col items-center justify-center rounded-sm border border-line text-body-sm font-medium",
                 bandFor(cell.average),
               )}
             >
@@ -468,7 +468,7 @@ function HeatRow({ row, scaleMax }: { row: ApiHeatmapRow; scaleMax: number }) {
                 <span className="sr-only"> out of {scaleMax}</span>
               </span>
               {cell.belowTarget > 0 ? (
-                <span className="flex items-center gap-1 text-[0.75rem] font-normal">
+                <span className="flex items-center gap-1 text-meta font-normal">
                   <AlertTriangle aria-hidden="true" className="size-3" />
                   {cell.belowTarget}
                   <span className="sr-only">
@@ -478,7 +478,7 @@ function HeatRow({ row, scaleMax }: { row: ApiHeatmapRow; scaleMax: number }) {
                   </span>
                 </span>
               ) : (
-                <span className="text-[0.75rem] font-normal">
+                <span className="text-meta font-normal">
                   {cell.rated === 1 ? "1 rated" : `${cell.rated} rated`}
                 </span>
               )}

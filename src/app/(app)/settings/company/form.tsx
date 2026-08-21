@@ -196,7 +196,7 @@ export function CompanyProfileForm() {
           <div className="flex flex-col gap-6">
             <Card>
               <CardHeader title="Where this is used" level={3} />
-              <CardBody className="flex flex-col gap-2.5 text-[0.875rem] leading-relaxed text-body">
+              <CardBody className="flex flex-col gap-2.5 text-body-sm leading-relaxed text-body">
                 <p>Contracts, offer letters and confirmation letters.</p>
                 <p>The header of every payslip.</p>
                 <p>PAYE, pension and NHF schedules filed on your behalf.</p>
@@ -262,7 +262,7 @@ export function CompanyProfileForm() {
             </TBody>
           </TableWrap>
           <CardBody className="border-t border-line">
-            <p className="text-[0.875rem] leading-relaxed text-muted">
+            <p className="text-body-sm leading-relaxed text-muted">
               Adding and removing entities is not wired up yet — it changes which
               tax office each employee is filed to, so it needs the migration
               step that moves people across, not just a form. The button above is

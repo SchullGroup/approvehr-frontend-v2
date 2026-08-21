@@ -141,7 +141,7 @@ export function RotaGrid({
         <div role="row" className="flex border-b border-line">
           <div
             role="columnheader"
-            className="sticky left-0 z-10 w-44 shrink-0 border-r border-line bg-surface px-3 py-2 text-left text-[0.75rem] font-semibold text-muted"
+            className="sticky left-0 z-10 w-44 shrink-0 border-r border-line bg-surface px-3 py-2 text-left text-meta font-semibold text-muted"
           >
             Person
           </div>
@@ -163,17 +163,17 @@ export function RotaGrid({
                   isWeekend(date) && "bg-canvas",
                 )}
               >
-                <span className="block text-[0.75rem] font-semibold text-muted">
+                <span className="block text-meta font-semibold text-muted">
                   {dayAbbrev(date)}
                 </span>
-                <span className="tabular block text-[0.875rem] font-semibold text-ink">
+                <span className="tabular block text-body-sm font-semibold text-ink">
                   {dayOfMonth(date)}
                 </span>
                 <span className="mt-0.5 flex flex-wrap justify-center gap-0.5">
                   {cover.map((entry) => (
                     <span
                       key={entry.shiftId}
-                      className="tabular rounded-sm bg-sunken px-1 text-[0.75rem] font-medium text-body"
+                      className="tabular rounded-sm bg-sunken px-1 text-meta font-medium text-body"
                     >
                       {entry.people}
                       {entry.shortName}
@@ -195,10 +195,10 @@ export function RotaGrid({
               role="rowheader"
               className="sticky left-0 z-10 w-44 shrink-0 border-r border-line bg-surface px-3 py-1.5"
             >
-              <span className="block truncate text-[0.875rem] font-medium text-ink">
+              <span className="block truncate text-body-sm font-medium text-ink">
                 {row.name}
               </span>
-              <span className="tabular block text-[0.75rem] text-faint">
+              <span className="tabular block text-meta text-faint">
                 {row.employeeNo} · {row.rosteredDays}{" "}
                 {row.rosteredDays === 1 ? "day" : "days"}
               </span>
@@ -240,16 +240,16 @@ export function RotaGrid({
                         className={cn("h-full w-[3px] shrink-0", colour.bar)}
                       />
                       <span className="min-w-0">
-                        <span className="block truncate text-[0.75rem] font-semibold leading-tight text-ink">
+                        <span className="block truncate text-meta font-semibold leading-tight text-ink">
                           {cell.shortName}
                         </span>
-                        <span className="tabular block text-[0.75rem] leading-tight text-body">
+                        <span className="tabular block text-meta leading-tight text-body">
                           {cell.startTime}
                         </span>
                       </span>
                     </span>
                   ) : (
-                    <span className="flex h-9 items-center justify-center text-[0.75rem] text-faint">
+                    <span className="flex h-9 items-center justify-center text-meta text-faint">
                       —
                     </span>
                   )}
@@ -288,7 +288,7 @@ export function ShiftLegend({
               aria-hidden="true"
               className={cn("size-2.5 shrink-0 rounded-sm", colour.swatch)}
             />
-            <span className="text-[0.875rem] text-body">
+            <span className="text-body-sm text-body">
               <span className="font-semibold text-ink">{shift.shortName}</span>{" "}
               {shift.name} · <span className="tabular">{timesLabel(shift)}</span>
             </span>
