@@ -8,6 +8,20 @@ import type { Employee } from "@/lib/types";
  * missing pension PIN, a missing TIN. They are what the payroll run blocks on
  * and what the record page nags about, so those paths have something real to
  * catch rather than always showing a clean board.
+ *
+ * ## The account numbers are fabricated, and they are whole
+ *
+ * Ten digits, NUBAN-shaped, and invented — they belong to nobody.
+ *
+ * They used to be stored pre-masked, as `"GTBank ····4471"`, which broke the one
+ * control that exists to reveal them: `Guarded` on the record page masks what it
+ * is given, so pressing **Show** replaced a mask with a mask and the full number
+ * was nowhere in the product. Masking is a presentation decision and belongs in
+ * the component that presents; a fixture that arrives already redacted cannot be
+ * un-redacted by anything downstream.
+ *
+ * Each one ends in the four digits the old masked string showed, so anything
+ * that quoted a last-four still reads the same.
  */
 export const EMPLOYEES: Employee[] = [
   {
@@ -18,7 +32,7 @@ export const EMPLOYEES: Employee[] = [
     jobTitle: "Engineering Manager", department: "Engineering",
     managerId: null, location: "Lagos, NG", employmentType: "full_time",
     startDate: "2022-03-14", status: "active", grossMonthly: 1_850_000,
-    bankName: "GTBank", bankAccount: "GTBank ····4471",
+    bankName: "Guaranty Trust Bank", bankAccount: "0114204471",
     pensionPin: "PEN100482913", pensionProvider: "Stanbic IBTC Pensions",
     taxState: "Lagos", tin: "1029384756", nhfNumber: "NHF0044821",
     nextOfKin: { name: "Ifeoma Okonkwo", relationship: "Sister", phone: "+234 802 445 1120" },
@@ -31,7 +45,7 @@ export const EMPLOYEES: Employee[] = [
     jobTitle: "Head of Finance", department: "Finance",
     managerId: null, location: "Lagos, NG", employmentType: "full_time",
     startDate: "2021-07-05", status: "active", grossMonthly: 2_100_000,
-    bankName: "Zenith Bank", bankAccount: "Zenith ····8820",
+    bankName: "Zenith Bank", bankAccount: "1017338820",
     pensionPin: "PEN100338217", pensionProvider: "ARM Pensions",
     taxState: "Lagos", tin: "2938475610", nhfNumber: "NHF0031882",
     nextOfKin: { name: "Bisi Bakare", relationship: "Spouse", phone: "+234 809 331 7742" },
@@ -44,7 +58,7 @@ export const EMPLOYEES: Employee[] = [
     jobTitle: "Staff Engineer", department: "Engineering",
     managerId: "p-01", location: "Lagos, NG", employmentType: "full_time",
     startDate: "2023-06-12", status: "active", grossMonthly: 1_650_000,
-    bankName: "Access Bank", bankAccount: "Access ····1194",
+    bankName: "Access Bank", bankAccount: "0691251194",
     pensionPin: "PEN100774520", pensionProvider: "Leadway Pensure",
     taxState: "Lagos", tin: "3847561029", nhfNumber: "NHF0077452",
     nextOfKin: { name: "Ada Nwosu", relationship: "Mother", phone: "+234 703 118 9920" },
@@ -57,7 +71,7 @@ export const EMPLOYEES: Employee[] = [
     jobTitle: "Principal Designer", department: "Product",
     managerId: "p-01", location: "Remote, NG", employmentType: "full_time",
     startDate: "2022-09-19", status: "on_leave", grossMonthly: 1_420_000,
-    bankName: "UBA", bankAccount: "UBA ····6612",
+    bankName: "United Bank for Africa", bankAccount: "2094476612",
     pensionPin: "PEN100918334", pensionProvider: "Stanbic IBTC Pensions",
     taxState: "Lagos", tin: "4756102938", nhfNumber: "NHF0091833",
     nextOfKin: { name: "Uche Eze", relationship: "Brother", phone: "+234 805 227 4410" },
@@ -70,7 +84,7 @@ export const EMPLOYEES: Employee[] = [
     jobTitle: "Senior People Partner", department: "People",
     managerId: "p-02", location: "Abuja, NG", employmentType: "full_time",
     startDate: "2023-01-09", status: "active", grossMonthly: 980_000,
-    bankName: "Stanbic IBTC", bankAccount: "Stanbic ····2205",
+    bankName: "Stanbic IBTC Bank", bankAccount: "0043912205",
     pensionPin: "PEN100227741", pensionProvider: "ARM Pensions",
     taxState: "Abuja", tin: "5610293847", nhfNumber: "NHF0022774",
     nextOfKin: { name: "Yusuf Bello", relationship: "Spouse", phone: "+234 806 993 2210" },
@@ -83,7 +97,7 @@ export const EMPLOYEES: Employee[] = [
     jobTitle: "Talent Acquisition Lead", department: "People",
     managerId: "p-05", location: "Lagos, NG", employmentType: "full_time",
     startDate: "2024-02-01", status: "active", grossMonthly: 890_000,
-    bankName: "GTBank", bankAccount: "GTBank ····9037",
+    bankName: "Guaranty Trust Bank", bankAccount: "0114629037",
     pensionPin: "PEN100551208", pensionProvider: "Leadway Pensure",
     taxState: "Lagos", tin: "6102938475", nhfNumber: "NHF0055120",
     nextOfKin: { name: "Obi Nwachukwu", relationship: "Father", phone: "+234 807 442 1180" },
@@ -96,7 +110,7 @@ export const EMPLOYEES: Employee[] = [
     jobTitle: "Finance Associate", department: "Finance",
     managerId: "p-02", location: "Abeokuta, NG", employmentType: "full_time",
     startDate: "2024-08-19", status: "active", grossMonthly: 700_000,
-    bankName: "First Bank", bankAccount: "First Bank ····3388",
+    bankName: "First Bank of Nigeria", bankAccount: "3086513388",
     pensionPin: "PEN100664419", pensionProvider: "Premium Pensions",
     taxState: "Ogun", tin: null, nhfNumber: "NHF0066441",
     nextOfKin: { name: "Aisha Ibrahim", relationship: "Sister", phone: "+234 813 220 7741" },
@@ -122,7 +136,7 @@ export const EMPLOYEES: Employee[] = [
     jobTitle: "Software Engineer", department: "Engineering",
     managerId: "p-01", location: "Lagos, NG", employmentType: "full_time",
     startDate: "2026-08-04", status: "probation", grossMonthly: 1_300_000,
-    bankName: "Kuda", bankAccount: "Kuda ····7741",
+    bankName: "Kuda Bank", bankAccount: "2005417741",
     pensionPin: null, pensionProvider: null,
     taxState: "Lagos", tin: "8475610293", nhfNumber: null,
     nextOfKin: { name: "Nkem Anyanwu", relationship: "Spouse", phone: "+234 814 667 3320" },
@@ -136,7 +150,7 @@ export const EMPLOYEES: Employee[] = [
     managerId: "p-02", location: "Abeokuta, NG", employmentType: "contract",
     startDate: "2023-04-17", endDate: "2026-08-31", status: "offboarding",
     grossMonthly: 760_000,
-    bankName: "Zenith Bank", bankAccount: "Zenith ····5520",
+    bankName: "Zenith Bank", bankAccount: "1017895520",
     pensionPin: "PEN100443318", pensionProvider: "Premium Pensions",
     taxState: "Ogun", tin: "9384756102", nhfNumber: "NHF0044331",
     nextOfKin: { name: "Sani Abdullahi", relationship: "Father", phone: "+234 818 553 9910" },

@@ -8,36 +8,48 @@ import { cn } from "@/lib/cn";
 /*
  * Contrast, verified on the token palette by `npm run verify:contrast`:
  *   primary    white on ApproveHR blue 10.1:1
- *   accent     white on ApproveHR blue 10.1:1   (same fill — see below)
- *   approve    white on ApproveHR blue 10.1:1   (same fill — see below)
- *   success    success-text on success-soft     the green, now secondary
+ *   accent     white on ApproveHR blue 10.1:1   (same fill as primary)
+ *   approve    success-text on success-soft  4.95:1  (same fill as success)
+ *   success    success-text on success-soft  4.95:1
  *   secondary  ink on white            17.1:1   border at 4.3:1
  *   ghost      body on white            7.1:1
  *   danger     white on danger-text     6.5:1
  *
- * ## One primary fill, three names
+ * ## Two fills, four names
  *
  * The brand's blue is the primary action everywhere. `primary` used to be
  * near-black and `approve` used to be a solid green fill, which meant the
  * loudest colour in the product was not a brand colour, and the three most
  * important buttons on a screen could be three different hues.
  *
- * All three now share the blue. The names are kept rather than collapsed because
- * 251 call sites use them and a rename is churn with no user-visible payoff —
- * `accent` alone is 215 of those. A later cleanup can fold them into one; doing
- * it here would bury this change in a diff nobody could review.
+ * `primary` and `accent` share the blue; `approve` and `success` share the green.
+ * Each pair is one string, so the names in it cannot drift apart. The names are
+ * kept rather than collapsed because 251 call sites use them — `accent` alone is
+ * 215 — and a rename is churn with no user-visible payoff. A later cleanup can
+ * fold each pair into one name.
  *
- * ## Why `approve` is not the new green secondary
+ * ## `approve` is green, and it is a secondary
  *
- * The obvious reading of "green becomes secondary" is to make `approve` the soft
- * green. That would be wrong: `approve` is on approving a payroll run — a
- * one-way door that moves money — and it is the single most consequential control
- * in the product. Demoting it to a quiet button to satisfy a palette decision
- * trades real usability for tidiness.
+ * A decision taken deliberately and worth recording, because it cuts against the
+ * usual advice. `approve` sits on approving a payroll — a one-way door that
+ * moves money, and the most consequential control in the product. The received
+ * wisdom is that such a button should be the loudest thing on its screen.
  *
- * So approval stays loud and becomes on-brand, and the green moves to `success`,
- * where it is available for the positive-but-secondary case it is actually
- * suited to.
+ * It is not, here. Green is the secondary treatment and approval wears it, so
+ * the brand's blue is the only primary anywhere in the product. The trade is
+ * accepted knowingly: consistency of the primary action across every screen,
+ * against emphasis on one screen.
+ *
+ * Two things make that safe rather than merely tidy. The approve control is
+ * never the *only* way forward on its screen competing with a louder blue — it
+ * is the terminal action of the payroll wizard, where the alternative is going
+ * back. And the guard on approving a payroll was never its colour: it is the
+ * blockers list, the exception summary, and a confirmation naming what is about
+ * to be settled. A green button that somebody has to read three counts to reach
+ * is safer than a blue one they can reach by reflex.
+ *
+ * If approval ever does sit beside a blue primary on the same screen, revisit
+ * this — that is the case the received wisdom is actually about.
  */
 
 export type ButtonVariant =
@@ -50,7 +62,18 @@ export type ButtonVariant =
   | "danger";
 export type ButtonSize = "sm" | "md" | "lg";
 
-/** The brand blue. One string, so the three names cannot drift apart. */
+/**
+ * The green, in its secondary role: a tinted fill rather than a solid one, so it
+ * sits below the primary without disappearing. `success-text` on `success-soft`
+ * rather than ink on solid green — the old solid fill could not carry white text
+ * at all, which is what made it awkward as a primary.
+ */
+const SECONDARY_GREEN =
+  "bg-success-soft text-success-text border border-success-line shadow-xs " +
+  "hover:bg-success hover:text-ink active:bg-success-line " +
+  "disabled:hover:bg-success-soft disabled:hover:text-success-text";
+
+/** The brand blue. One string, so the two names cannot drift apart. */
 const PRIMARY_FILL =
   "bg-accent text-white shadow-sm hover:bg-accent-hover " +
   "active:bg-accent-hover disabled:hover:bg-accent";
@@ -58,15 +81,8 @@ const PRIMARY_FILL =
 const VARIANTS: Record<ButtonVariant, string> = {
   primary: PRIMARY_FILL,
   accent: PRIMARY_FILL,
-  approve: PRIMARY_FILL,
-  /* The green, in its secondary role: a tinted fill rather than a solid one, so
-     it sits below the primary without disappearing. `success-text` on
-     `success-soft` rather than ink on solid green — the old solid fill could not
-     carry white text at all, which is what made it awkward as a primary. */
-  success:
-    "bg-success-soft text-success-text border border-success-line shadow-xs " +
-    "hover:bg-success hover:text-ink active:bg-success-line " +
-    "disabled:hover:bg-success-soft disabled:hover:text-success-text",
+  approve: SECONDARY_GREEN,
+  success: SECONDARY_GREEN,
   secondary:
     "bg-surface text-ink border border-control-line shadow-xs hover:bg-canvas active:bg-sunken disabled:hover:bg-surface",
   ghost:

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Download, Plus, RotateCcw, Search } from "lucide-react";
 import {
   Badge,
@@ -23,6 +24,7 @@ import {
   TableWrap,
   useToast,
   type BadgeTone,
+  rowClick,
 } from "@/components/ui";
 import { useEmployeeDirectory, useEmployeeMutations } from "@/lib/store/employees-api";
 import {
@@ -48,6 +50,7 @@ type View = "active" | "incomplete" | "archived";
  * which derives from the same list.
  */
 export function Directory() {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
   const [view, setView] = useState<View>("active");
@@ -187,7 +190,11 @@ export function Directory() {
             {visible.map((e) => {
               const gaps = missingForPayroll(e);
               return (
-                <TR key={e.id} interactive>
+                <TR
+                  key={e.id}
+                  interactive
+                  onClick={rowClick(() => router.push(`/people/${e.id}`))}
+                >
                   <TDPrimary
                     title={
                       <Link

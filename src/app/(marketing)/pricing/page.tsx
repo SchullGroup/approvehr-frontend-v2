@@ -22,7 +22,7 @@ const FAQ = [
   },
   {
     q: "Do we pay for people who have left?",
-    a: "No. Billing counts active employees on the first of the month. Leavers drop off the next cycle.",
+    a: "No. Billing counts active employees on the first of the month. Anyone who leaves drops off the next cycle.",
   },
   {
     q: "Can we run payroll only?",

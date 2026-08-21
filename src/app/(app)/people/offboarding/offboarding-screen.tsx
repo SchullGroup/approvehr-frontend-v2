@@ -166,7 +166,7 @@ export function OffboardingScreen() {
               action={
                 isHr && !query.trim() && view !== "closed" ? (
                   <Button variant="accent" onClick={() => setStarting(true)}>
-                    Record a leaver
+                    Start an exit
                   </Button>
                 ) : undefined
               }

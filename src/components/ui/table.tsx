@@ -69,6 +69,46 @@ export function TBody({ children }: { children: React.ReactNode }) {
   return <tbody className="divide-y divide-line">{children}</tbody>;
 }
 
+/**
+ * Makes a whole row follow its main link, without breaking the row.
+ *
+ * `TR interactive` only ever added a hover tint and `cursor-pointer`, so every
+ * table in the app has been showing a pointer over rows that do nothing — the
+ * name inside was the only target. A cursor that promises a click and does not
+ * deliver one is worse than a plain row.
+ *
+ * The row is deliberately **not** made focusable and given a key handler. The
+ * link inside it is already a real anchor: it is in the tab order, it is
+ * announced as a link, and it right-clicks and middle-clicks into a new tab.
+ * Adding `tabIndex` and `role="link"` to the `<tr>` as well would create a
+ * second tab stop onto the same destination, which is a worse experience for a
+ * keyboard user than no row click at all. So the anchor serves the keyboard and
+ * this serves the mouse.
+ *
+ * Two things it refuses to swallow:
+ *
+ * - a click that started on another control — a button, a link, a checkbox — so
+ *   the restore button at the end of an archived row still restores rather than
+ *   navigating away from it;
+ * - a click that ends a text selection, so somebody dragging across an account
+ *   number to copy it does not get moved to another page instead.
+ */
+export function rowClick(navigate: () => void) {
+  return (event: React.MouseEvent<HTMLTableRowElement>) => {
+    const target = event.target as HTMLElement | null;
+    if (
+      target?.closest(
+        "a, button, input, select, textarea, label, [role='button'], [role='link']",
+      )
+    ) {
+      return;
+    }
+    /* A drag that selected text is a copy, not a navigation. */
+    if ((globalThis.getSelection?.()?.toString() ?? "") !== "") return;
+    navigate();
+  };
+}
+
 export function TR({
   className,
   interactive = false,

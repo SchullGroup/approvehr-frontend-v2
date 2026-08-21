@@ -35,7 +35,16 @@ export {
 } from "./stepper";
 export type { Step, StepperState } from "./stepper";
 
-export { TableWrap, THead, TH, TBody, TR, TD, TDPrimary } from "./table";
+export {
+  TableWrap,
+  THead,
+  TH,
+  TBody,
+  TR,
+  TD,
+  TDPrimary,
+  rowClick,
+} from "./table";
 
 export {
   EmptyState,
