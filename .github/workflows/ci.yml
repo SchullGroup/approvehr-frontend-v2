@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # No database and no services. Everything this repo verifies is local: the
+    # types, the lint rules, WCAG contrast across every text-token/background
+    # pair, the payroll arithmetic, a CSV parser, and 600 loan schedules. The
+    # API is optional at runtime — the app falls back to a local demo — so it is
+    # optional here too.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # `npm ci` rather than `npm install`, deliberately: it fails when
+      # package.json and the lock disagree. The backend repo had five dependency
+      # ranges pointing at versions that were never published — invented and
+      # never reconciled — and a plain `install` hid it for weeks because
+      # node_modules already had something workable. This step is the check that
+      # a fresh clone actually builds.
+      - run: npm ci
+
+      # typecheck + lint + contrast + payroll + csv + loans, in one script, so
+      # what CI runs and what a developer runs before pushing cannot drift.
+      - name: Check
+        run: npm run check
+
+      # Not the same check as the typecheck. Every real bug found during this
+      # build — a hydration mismatch, a stale store read, a crash on
+      # `e.currentTarget`, a blank page from a nested anchor — passed tsc and
+      # lint and only showed up when the page was actually rendered. The build
+      # prerenders 90-odd pages, which catches a good share of that class.
+      - name: Build
+        run: npm run build
+
+      # A dropped route is a silent regression: a page deleted or a dynamic
+      # segment broken shows up as a smaller number and nothing else. Fail if
+      # the count falls below the floor rather than waiting for somebody to
+      # notice a 404 in the nav.
+      - name: Route count has not regressed
+        run: |
+          COUNT=$(find src/app -name 'page.tsx' | wc -l | tr -d ' ')
+          FLOOR=55
+          echo "$COUNT routes (floor $FLOOR)"
+          if [ "$COUNT" -lt "$FLOOR" ]; then
+            echo "::error::route count fell from $FLOOR to $COUNT — a page was lost"
+            exit 1
+          fi
+
+      # The marketing site is exported to its own standalone repo, and that only
+      # works while it has not reached into app code. The export script asserts
+      # it; running it here means the assertion fires on a pull request rather
+      # than at release.
+      # Exports to a throwaway directory purely to run the script's closure
+      # assertions, which are the actual check: they fail if the marketing
+      # surface has reached into `@/components/ui`, `@/lib/payroll` or an app
+      # store. The output is discarded. There is no --dry-run flag — argv[2] is
+      # the target path, so passing one would create a directory called
+      # "--dry-run".
+      - name: Marketing surface is still self-contained
+        run: npx tsx scripts/export-marketing.ts "$RUNNER_TEMP/marketing-export-check"
