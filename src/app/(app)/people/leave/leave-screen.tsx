@@ -18,6 +18,7 @@ import {
   EmptyState,
   IconButton,
   ProgressMeter,
+  SegmentedControl,
   Stat,
   TBody,
   TD,
@@ -33,14 +34,15 @@ import { DeclineDialog } from "@/components/portal/decline-dialog";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import { daysLabel, type LeaveRow, type LeaveRowStatus } from "@/lib/api/leave";
-import { PUBLIC_HOLIDAYS } from "@/lib/mock/workflows";
 import { useCan } from "@/lib/permissions";
 import {
+  usePublicHolidays,
   useLeaveBalancesFor,
   useLeaveMutations,
   useLeaveRequestDetail,
   useLeaveRequests,
 } from "@/lib/store/leave-api";
+import { useSession } from "@/lib/store/session";
 import { TODAY, shortDate } from "@/lib/today";
 import { BookLeaveDialog } from "./book-leave";
 
@@ -53,6 +55,27 @@ const STATUS: Record<LeaveRowStatus, { tone: BadgeTone; label: string }> = {
 
 /** How many balances the side card asks for. Connected, each one is a request. */
 const BALANCES_SHOWN = 8;
+
+/**
+ * Whose leave the screen is about.
+ *
+ * `mine` is the only scope somebody without `APPROVE_LEAVE_ALL` gets. The API
+ * does not restrict `GET /leave/requests` — anyone signed in can list the whole
+ * company — so this is the interface declining to offer something it should not,
+ * which is what `lib/permissions.ts` is for.
+ */
+type Scope = "everyone" | "mine";
+
+/**
+ * A stable empty array.
+ *
+ * Used when the signed-in account has no employee record and the scope is
+ * "mine": there is exactly one `requests` binding on this screen and everything
+ * reads it, rather than a filtered copy some panel forgets to use. That mistake
+ * — rendering the unfiltered rows while computing a filtered `visible` — already
+ * shipped once on the directory.
+ */
+const NO_REQUESTS: LeaveRow[] = [];
 
 /**
  * Time off.
@@ -82,10 +105,37 @@ export function LeaveScreen() {
   const search = useSearchParams();
   const toast = useToast();
   const canDecide = useCan("APPROVE_LEAVE_ALL");
+  const session = useSession();
 
-  const { requests, loading, error, connected, reload } = useLeaveRequests({
+  /* `session.employeeId` is the person on the payroll. Never `user.id`, which is
+     an account: both carry an `id`, a `firstName` and a `lastName`, so nothing
+     in the type system catches the swap — it only shows up as one person's name
+     beside another person's leave. */
+  const employeeId = session.employeeId;
+
+  const [scope, setScope] = useState<Scope>("everyone");
+  /* Somebody who cannot decide leave for everyone is only shown their own. */
+  const onlyMine = !canDecide || scope === "mine";
+
+  const {
+    requests: fetched,
+    loading,
+    error,
+    connected,
+    reload,
+  } = useLeaveRequests({
     pageSize: 200,
+    /* Connected this is the API's own filter, so the count in the header is the
+       real one rather than the length of a page filtered afterwards. */
+    ...(onlyMine && employeeId ? { employeeId } : {}),
   });
+
+  /* An account with no employee record has no leave of its own, and must not be
+     shown everybody else's as a consolation. */
+  const noRecord = onlyMine && employeeId === null && !session.isLoading;
+  const requests = noRecord ? NO_REQUESTS : fetched;
+
+  const holidays = usePublicHolidays();
   const mutations = useLeaveMutations();
 
   /* Opened from the approvals inbox as `?request=<id>`, so "decide this" and
@@ -205,7 +255,11 @@ export function LeaveScreen() {
     <>
       <PageHeader
         title="Time off"
-        description="Requests, balances, and who is away when."
+        description={
+          onlyMine
+            ? "Your requests, your balance, and what you have left."
+            : "Requests, balances, and who is away when."
+        }
         meta={
           <Badge tone={connected ? "success" : "warning"} size="sm" dot>
             {connected ? "Live from the API" : "Demo data, this browser only"}
@@ -228,6 +282,13 @@ export function LeaveScreen() {
         {error && (
           <Callout tone="danger" title="Could not read the requests">
             {error.message}
+          </Callout>
+        )}
+
+        {noRecord && (
+          <Callout tone="info" title="This account has no employee record">
+            Leave belongs to a person on the payroll, and this sign-in is not
+            linked to one yet. Ask HR to connect them.
           </Callout>
         )}
 
@@ -265,16 +326,31 @@ export function LeaveScreen() {
               title="Requests"
               description="Waiting first, then by start date."
               action={
-                loading ? (
-                  <span className="text-[0.75rem] text-muted">Loading…</span>
-                ) : undefined
+                <div className="flex items-center gap-3">
+                  {loading && (
+                    <span className="text-[0.75rem] text-muted">Loading…</span>
+                  )}
+                  {/* Offered only to somebody who can see everybody's. For
+                      anyone else there is nothing to switch between. */}
+                  {canDecide && (
+                    <SegmentedControl
+                      label="Whose leave to show"
+                      value={scope}
+                      onChange={setScope}
+                      options={[
+                        { value: "everyone", label: "Everyone" },
+                        { value: "mine", label: "Mine" },
+                      ]}
+                    />
+                  )}
+                </div>
               }
             />
             {requests.length === 0 && !loading ? (
               <EmptyState
                 icon={<CalendarDays aria-hidden="true" />}
-                title="No leave booked yet"
-                description="Book leave for somebody and it appears here, and in your approvals inbox, straight away."
+                title={onlyMine ? "You have no leave booked" : "No leave booked yet"}
+                description="Book leave and it appears here, and in the approvals inbox, straight away."
                 action={
                   <Button
                     variant="accent"
@@ -435,15 +511,41 @@ export function LeaveScreen() {
             <Card>
               <CardHeader
                 title="Public holidays"
-                description="Maintained for you."
+                description={
+                  holidays.connected
+                    ? "The company calendar."
+                    : "Maintained for you."
+                }
                 action={
                   <CalendarDays aria-hidden="true" className="size-4 text-faint" />
                 }
               />
               <CardBody className="flex flex-col gap-2">
-                {PUBLIC_HOLIDAYS.map((h) => (
+                {holidays.loading && (
+                  <p className="text-[0.875rem] text-muted">Loading holidays…</p>
+                )}
+
+                {/* The seed list is not shown here as a stand-in. A date nobody
+                    has published is a date nobody should roster against. */}
+                {holidays.unavailable && (
+                  <p className="text-[0.875rem] text-muted">
+                    The API does not publish a holiday calendar yet, so none is
+                    shown. Nigerian dates move at short notice and a stale list
+                    is worse than no list.
+                  </p>
+                )}
+
+                {!holidays.loading &&
+                  !holidays.unavailable &&
+                  holidays.holidays.length === 0 && (
+                    <p className="text-[0.875rem] text-muted">
+                      Nothing on the calendar yet.
+                    </p>
+                  )}
+
+                {holidays.holidays.map((h) => (
                   <div
-                    key={h.name}
+                    key={`${h.date}-${h.name}`}
                     className="flex items-center gap-3 rounded-md border border-line p-2.5"
                   >
                     <span className="tabular w-20 shrink-0 text-[0.75rem] text-muted">

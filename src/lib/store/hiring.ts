@@ -1,17 +1,27 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
-import { ApiError } from "@/lib/api/client";
-import type { ApiPosting, ApiPostingTally } from "@/lib/api/careers";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ApiError, tokens } from "@/lib/api/client";
 import {
+  careersApi,
+  type ApiApplicationDetail,
+  type ApiPosting,
+  type ApiPostingTally,
+} from "@/lib/api/careers";
+import {
+  offerBand,
   queueBars,
   toAdvanceBody,
   toAdvertBody,
+  toApplicantRecord,
+  toApplicantRecordFromRow,
   toNumbers,
   toRoleRow,
   toScreeningRow,
   type AdvertDraft,
+  type ApplicantRecord,
   type HiringNumbers,
+  type OfferBand,
   type RoleRow,
   type ScreenInInput,
   type ScreeningRow,
@@ -21,8 +31,10 @@ import {
   useCareersAnalytics,
   usePostings,
 } from "@/lib/store/careers";
+import { useGrades } from "@/lib/store/grades";
 import {
   INTERVIEWS,
+  cardById,
   daysInStage,
   pipelineCards,
   stageCounts,
@@ -330,5 +342,218 @@ export function pipelineSnapshot(requisitionId?: string): PipelineSnapshot {
       label: stage.label,
       value: counts[stage.id],
     })),
+  };
+}
+
+/* --------------------------------------------------------- one applicant */
+
+export type ApplicantView = {
+  /** True only when this person's details came from the database. */
+  live: boolean;
+  /** False in demo mode: screening somebody in needs the API. */
+  editable: boolean;
+  loading: boolean;
+  error: ApiError | null;
+  /** The live half — who applied, for what, and what a screener did about it. */
+  record: ApplicantRecord | null;
+  /** The seeded half — stage, interviews, scorecards, offer. Null off the seed. */
+  card: PipelineCard | null;
+  screenIn: (input?: ScreenInInput) => Promise<{ note: string; candidateId: string }>;
+  screenOut: (reason?: string) => Promise<{ note: string }>;
+  reload: () => Promise<void>;
+};
+
+/**
+ * One person, from whichever source holds them.
+ *
+ * ## The id in the URL is two different ids, and that is not a mistake
+ *
+ * `/hiring/candidates/{id}` is linked from three places with three kinds of id:
+ *
+ *   - the pipeline board links a seeded pipeline **application** id (`app-02`);
+ *   - the screening queue links the **candidate** id the API returned from
+ *     `advance`, which is a real database id;
+ *   - the applications list links the **job application** id.
+ *
+ * There is no endpoint that resolves a candidate id — `Candidate` has no route —
+ * so the middle case cannot be fetched directly. What *can* be done is look it
+ * up: every screened-in `JobApplication` carries the `candidateId` it produced,
+ * and that list has an endpoint. So this hook matches on either id against the
+ * applications list, which is one request the module makes anyway, and resolves
+ * all three without asking the caller which kind it has.
+ *
+ * ## Two sources, both reported
+ *
+ * `record` is live whenever the API answers. `card` is the seeded pipeline
+ * record, present only for a seed id. A page can have one, the other, or both —
+ * and it badges each panel from these two fields rather than deciding once for
+ * the whole screen.
+ */
+export function useApplicantRecord(id: string): ApplicantView {
+  const applications = useApplications();
+
+  const row = useMemo(
+    () =>
+      applications.applications.find(
+        (application) =>
+          application.id === id || application.candidateId === id,
+      ) ?? null,
+    [applications.applications, id],
+  );
+
+  /* The detail call adds one thing to the list row: everything else this email
+     address has applied for. Worth a second request — three applications for
+     three roles is a keen candidate and three for one role is a form being
+     hammered — but not worth holding the page for, so the row renders first and
+     this fills in behind it. Only fired once the list has answered from the
+     API, because a demo row has no id the API would recognise. */
+  const detailId = applications.editable && row ? row.id : null;
+  const [fetched, setFetched] = useState<{
+    id: string;
+    detail: ApiApplicationDetail | null;
+  } | null>(null);
+
+  useEffect(() => {
+    if (detailId === null) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const detail = await careersApi.getApplication(detailId);
+        if (!cancelled) setFetched({ id: detailId, detail });
+      } catch {
+        /* The list row is already on screen and is enough. A failure here costs
+           the cross-application history and nothing else, so it is not raised
+           as a page error. */
+        if (!cancelled) setFetched({ id: detailId, detail: null });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [detailId]);
+
+  const detail =
+    detailId !== null && fetched !== null && fetched.id === detailId
+      ? fetched.detail
+      : null;
+
+  const record = useMemo(() => {
+    if (detail) return toApplicantRecord(detail);
+    return row ? toApplicantRecordFromRow(row) : null;
+  }, [detail, row]);
+
+  const applicationId = record?.applicationId ?? null;
+
+  const screenIn = useCallback(
+    (input: ScreenInInput = {}) => {
+      if (applicationId === null) throw NO_APPLICATION;
+      return applications.advance(applicationId, toAdvanceBody(input));
+    },
+    [applications, applicationId],
+  );
+
+  const screenOut = useCallback(
+    (reason?: string) => {
+      if (applicationId === null) throw NO_APPLICATION;
+      return applications.decline(applicationId, reason);
+    },
+    [applications, applicationId],
+  );
+
+  return {
+    live: applications.editable && !applications.loading && record !== null,
+    editable: applications.editable,
+    loading: applications.loading,
+    error: applications.error,
+    record,
+    card: cardById(id) ?? null,
+    screenIn,
+    screenOut,
+    reload: applications.reload,
+  };
+}
+
+const NO_APPLICATION = new ApiError(
+  0,
+  "not_found",
+  "There is no careers-page application behind this record, so there is " +
+    "nothing to screen. Open the applications queue to find one.",
+);
+
+/* ------------------------------------------------------- the screening load */
+
+export type ScreeningBacklog = {
+  live: boolean;
+  loading: boolean;
+  error: ApiError | null;
+  numbers: HiringNumbers;
+  reload: () => void;
+};
+
+/**
+ * How many people are waiting on a first look.
+ *
+ * On the interviews screen because that is what decides whether there will be
+ * interviews next week, and it is the one figure on that page with an endpoint
+ * behind it. One request — `/careers/analytics` — rather than the list as well,
+ * because the page needs the count and not the names.
+ */
+export function useScreeningBacklog(): ScreeningBacklog {
+  const analytics = useCareersAnalytics();
+  const numbers = analytics.analytics ? toNumbers(analytics.analytics) : NO_NUMBERS;
+
+  return {
+    /* An access token plus an answer. `useCareersAnalytics` returns the demo
+       figures with `loading: false` in offline mode, so the answer alone is not
+       enough to claim these came from a database. */
+    live: tokens.has() && !analytics.loading && analytics.analytics !== null,
+    loading: analytics.loading,
+    error: analytics.error,
+    numbers,
+    reload: analytics.reload,
+  };
+}
+
+/* ---------------------------------------------------------------- the bands */
+
+export type OfferBands = {
+  /** True when the ladder came from the database. */
+  live: boolean;
+  loading: boolean;
+  error: ApiError | null;
+  /** How many grades the ladder holds. Zero has its own sentence on screen. */
+  count: number;
+  /** Naira in, a real kobo band out. Null when there is no ladder to place in. */
+  bandFor: (grossMonthly: number) => OfferBand | null;
+};
+
+/**
+ * Real salary bands, for placing an offer.
+ *
+ * The offer screen used to draw its own bar between the requisition's
+ * `salaryMin` and `salaryMax` — two seeded numbers with nothing behind them. A
+ * meter drawn against those cannot say "this is above what we pay for this
+ * work", because the band moves with whatever the seed happens to say.
+ *
+ * `/grades` is the ladder the company actually pays against, and it is live
+ * whenever the API is up. `<BandPosition />` in `payroll/pay-setup` draws it,
+ * with the midpoint marked and the marker allowed to leave the track when an
+ * offer is outside the band — which is the single case an approver has to act
+ * on, and the case the old bar clamped out of sight.
+ */
+export function useOfferBands(): OfferBands {
+  const grades = useGrades();
+
+  const bandFor = useCallback(
+    (grossMonthly: number) => offerBand(grades.rows, grossMonthly),
+    [grades.rows],
+  );
+
+  return {
+    live: grades.connected && !grades.loading,
+    loading: grades.loading,
+    error: grades.error,
+    count: grades.rows.length,
+    bandFor,
   };
 }

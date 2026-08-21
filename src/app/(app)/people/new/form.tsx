@@ -16,12 +16,20 @@ import {
   Select,
   useToast,
 } from "@/components/ui";
+import { ApiError } from "@/lib/api/client";
+import { useCan } from "@/lib/permissions";
 import {
   nextIdentity,
   useEmployeeStore,
   validateEmployee,
   type FieldError,
 } from "@/lib/store/employees";
+import {
+  useEmployeeDirectory,
+  useEmployeeMutations,
+} from "@/lib/store/employees-api";
+import { useWorkLocations } from "@/lib/store/attendance";
+import { useDepartments } from "@/lib/store/departments";
 import { calculatePayslip } from "@/lib/payroll/engine";
 import { usePayrollSettings } from "@/lib/payroll/use-settings";
 import {
@@ -44,23 +52,28 @@ import {
  * Instead the form shows, live, exactly what will block payroll if left blank.
  * The record gets created either way and the existing blocker machinery on the
  * record page, the onboarding checklist and the payroll run picks it up.
+ *
+ * ## Where the record goes
+ *
+ * Connected, `POST /employees` — which needs `EDIT_RECORDS`, so the form is not
+ * offered without it. Demo, the localStorage store, and the screen says so.
+ *
+ * This used to call the local store in **both** modes behind a 400ms
+ * `setTimeout` dressed up as a save, so adding somebody while connected showed
+ * a green "added" toast for a person the API had never heard of and whose record
+ * page 404s in the next browser. That is the exact failure the two-mode design
+ * exists to avoid: demo mode is legitimate, looking connected while not being
+ * connected is not.
+ *
+ * ## Every picker's options come from the live source
+ *
+ * Departments and locations were hardcoded string lists, and the API takes ids.
+ * A name posted to it is stripped by zod rather than refused, so the department
+ * would appear to save and quietly not — so both now read the same dual-source
+ * stores the rest of the app uses (`useDepartments`, `useWorkLocations`), whose
+ * ids are real when connected and seed-derived when not.
  */
 
-const DEPARTMENTS = [
-  "Engineering",
-  "Finance",
-  "Product",
-  "Operations",
-  "People",
-  "Sales",
-];
-const LOCATIONS = [
-  "Lagos, NG",
-  "Abuja, NG",
-  "Abeokuta, NG",
-  "Port Harcourt, NG",
-  "Remote, NG",
-];
 const TAX_STATES = ["Lagos", "Abuja", "Ogun", "Rivers", "Kano"];
 const BANKS = [
   "GTBank",
@@ -85,8 +98,9 @@ type Draft = {
   phone: string;
   dateOfBirth: string;
   jobTitle: string;
-  department: string;
-  location: string;
+  /** An id from the live source, not a name. See the header. */
+  departmentId: string;
+  workLocationId: string;
   managerId: string;
   employmentType: EmploymentType;
   status: EmploymentStatus;
@@ -108,8 +122,8 @@ const BLANK: Draft = {
   phone: "",
   dateOfBirth: "",
   jobTitle: "",
-  department: "Engineering",
-  location: "Lagos, NG",
+  departmentId: "",
+  workLocationId: "",
   managerId: "",
   employmentType: "full_time",
   status: "onboarding",
@@ -127,7 +141,17 @@ const BLANK: Draft = {
 export function NewEmployeeForm() {
   const router = useRouter();
   const toast = useToast();
-  const { directory, all, create } = useEmployeeStore();
+  /* The local store stays for demo mode only — `nextIdentity` and `create` mint
+     and store a `p-NN` record, which is the honest answer with no API and the
+     wrong one with one. */
+  const local = useEmployeeStore();
+  const mutations = useEmployeeMutations();
+  const connected = mutations.connected;
+  const canCreate = useCan("EDIT_RECORDS");
+  /* Both modes, so the manager picker offers real colleagues either way. */
+  const directory = useEmployeeDirectory({ pageSize: 200 });
+  const departments = useDepartments();
+  const locations = useWorkLocations();
   const { settings } = usePayrollSettings();
 
   const [draft, setDraft] = useState<Draft>(BLANK);
@@ -144,6 +168,47 @@ export function NewEmployeeForm() {
 
   const gross = Number(draft.grossMonthly.replace(/[^\d.]/g, "")) || 0;
 
+  /* The names behind the two ids, for the local store and for nothing else.
+     Looked up rather than kept in state so they cannot fall out of step with
+     the id that was actually chosen. */
+  const departmentName =
+    departments.flat.find((d) => d.id === draft.departmentId)?.name ?? null;
+  const locationName =
+    locations.locations.find((l) => l.id === draft.workLocationId)?.name ?? null;
+
+  /**
+   * Which statuses and employment types may be *set*.
+   *
+   * Connected the answer is the database's enum: "Probation" is not in it, and
+   * offering it would hand somebody a 422 for picking what the form showed them.
+   * Offline the local set is the honest one, because localStorage holds whatever
+   * it is given. Same rule, and same lists, as the record page.
+   */
+  const statuses = connected
+    ? [
+        { value: "onboarding", label: "Onboarding" },
+        { value: "active", label: "Active" },
+      ]
+    : [
+        { value: "onboarding", label: "Onboarding" },
+        { value: "probation", label: "Probation" },
+        { value: "active", label: "Active" },
+      ];
+
+  const types = connected
+    ? [
+        { value: "full_time", label: "Full time" },
+        { value: "part_time", label: "Part time" },
+        { value: "contract", label: "Contract" },
+        { value: "intern", label: "Internship" },
+        { value: "nysc", label: "NYSC" },
+      ]
+    : [
+        { value: "full_time", label: "Full time" },
+        { value: "contract", label: "Contract" },
+        { value: "internship", label: "Internship" },
+      ];
+
   /* Preview the first payslip as the salary is typed, so the person entering
      it sees net pay rather than only the headline figure. */
   const preview = useMemo(
@@ -158,7 +223,7 @@ export function NewEmployeeForm() {
     tin: draft.tin || null,
   } as Employee);
 
-  function submit(openAfter: boolean) {
+  async function submit(openAfter: boolean) {
     const required: FieldError[] = [];
     if (!draft.firstName.trim())
       required.push({ field: "firstName", message: "First name is required." });
@@ -190,7 +255,92 @@ export function NewEmployeeForm() {
       return;
     }
 
-    const { id, employeeNo } = nextIdentity(all);
+    const name = `${draft.firstName.trim()} ${draft.lastName.trim()}`;
+    const outstanding =
+      wouldBlock.length > 0
+        ? `${wouldBlock.length} field${wouldBlock.length > 1 ? "s" : ""} still needed before payroll.`
+        : "Record is complete and payroll-ready.";
+
+    setBusy(true);
+    try {
+      const id = connected
+        ? await createOnApi()
+        : createLocally();
+
+      toast.push({
+        title: `${name} added`,
+        tone: "success",
+        detail: outstanding,
+      });
+      router.push(openAfter ? `/people/${id}` : "/people");
+    } catch (error) {
+      /* The API answers with the field and the sentence — a NUBAN that is not
+         ten digits, an RSA PIN in the wrong shape. Put both on the input rather
+         than in a toast the person has to translate back to a field. */
+      const fieldErrors =
+        error instanceof ApiError
+          ? error.fieldErrors.map((d) => ({
+              field: d.field as keyof Employee,
+              message: d.message,
+            }))
+          : [];
+
+      if (fieldErrors.length > 0) {
+        setErrors(fieldErrors);
+        document.getElementById(String(fieldErrors[0].field))?.focus();
+      } else {
+        toast.push({
+          title: `${name} was not added`,
+          tone: "danger",
+          detail:
+            error instanceof ApiError
+              ? error.message
+              : "Something went wrong. Try again.",
+        });
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** Returns the new record's id, which is a uuid the server chose. */
+  async function createOnApi(): Promise<string> {
+    const created = await mutations.create({
+      firstName: draft.firstName.trim(),
+      lastName: draft.lastName.trim(),
+      jobTitle: draft.jobTitle.trim(),
+      startDate: draft.startDate,
+      grossMonthly: gross,
+      taxState: draft.taxState,
+      status: draft.status,
+      employmentType: draft.employmentType,
+      ...(draft.email.trim() ? { email: draft.email.trim() } : {}),
+      ...(draft.phone.trim() ? { phone: draft.phone.trim() } : {}),
+      ...(draft.dateOfBirth ? { dateOfBirth: draft.dateOfBirth } : {}),
+      ...(draft.departmentId ? { departmentId: draft.departmentId } : {}),
+      ...(draft.workLocationId
+        ? { workLocationId: draft.workLocationId }
+        : {}),
+      ...(draft.managerId ? { managerId: draft.managerId } : {}),
+      ...(draft.bankName ? { bankName: draft.bankName } : {}),
+      ...(draft.bankAccount.trim()
+        ? { bankAccount: draft.bankAccount.trim() }
+        : {}),
+      ...(draft.pensionPin.trim()
+        ? { pensionPin: draft.pensionPin.trim() }
+        : {}),
+      ...(draft.pensionProvider
+        ? { pensionProvider: draft.pensionProvider }
+        : {}),
+      ...(draft.tin.trim() ? { tin: draft.tin.trim() } : {}),
+      ...(draft.nhfNumber.trim() ? { nhfNumber: draft.nhfNumber.trim() } : {}),
+    });
+    return created.id;
+  }
+
+  /** Demo mode. A `p-NN` id in this browser, and the screen says so. */
+  function createLocally(): string {
+    const { id, employeeNo } = nextIdentity(local.all);
     const employee: Employee = {
       id,
       employeeNo,
@@ -200,9 +350,11 @@ export function NewEmployeeForm() {
       phone: draft.phone.trim() || null,
       dateOfBirth: draft.dateOfBirth || null,
       jobTitle: draft.jobTitle.trim(),
-      department: draft.department,
+      /* The local store holds display names, so the id picked above is turned
+         back into the name it belongs to. */
+      department: departmentName ?? "Unassigned",
       managerId: draft.managerId || null,
-      location: draft.location,
+      location: locationName ?? "Not set",
       employmentType: draft.employmentType,
       startDate: draft.startDate,
       status: draft.status,
@@ -216,26 +368,54 @@ export function NewEmployeeForm() {
       nhfNumber: draft.nhfNumber.trim() || null,
       nextOfKin: null,
     };
+    local.create(employee);
+    return employee.id;
+  }
 
-    setBusy(true);
-    setTimeout(() => {
-      create(employee);
-      setBusy(false);
-      toast.push({
-        title: `${fullName(employee)} added`,
-        tone: "success",
-        detail:
-          wouldBlock.length > 0
-            ? `${wouldBlock.length} field${wouldBlock.length > 1 ? "s" : ""} still needed before payroll.`
-            : "Record is complete and payroll-ready.",
-      });
-      router.push(openAfter ? `/people/${employee.id}` : "/people");
-    }, 400);
+  /* `POST /employees` needs `EDIT_RECORDS`. A form that accepts forty fields
+     and then answers 403 on Save has wasted somebody's afternoon, so it is not
+     offered — and the sentence says who to ask rather than only refusing. */
+  if (connected && !canCreate) {
+    return (
+      <Card>
+        <CardBody className="flex flex-col gap-3">
+          <p className="text-[0.875rem] font-medium text-ink">
+            You cannot add an employee
+          </p>
+          <p className="text-[0.875rem] text-body">
+            Creating a record changes what payroll will pay, so it needs the
+            permission to edit records. Ask whoever manages access.
+          </p>
+          <div>
+            <Button variant="secondary" size="sm" onClick={() => router.push("/people")}>
+              <ArrowLeft aria-hidden="true" className="size-4" />
+              Back to directory
+            </Button>
+          </div>
+        </CardBody>
+      </Card>
+    );
   }
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
       <div className="flex flex-col gap-5">
+        {/* Which source this record will be written to, stated rather than
+            implied — the same badge the directory and the record page carry. */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge tone={connected ? "success" : "warning"} size="sm" dot>
+            {connected
+              ? "Saves to the API"
+              : "Saves in this browser only — demo data"}
+          </Badge>
+          {!connected && (
+            <span className="text-[0.75rem] text-muted">
+              No API is answering, so this record will not reach a payroll run
+              or another device.
+            </span>
+          )}
+        </div>
+
         <Card>
           <CardHeader title="Who they are" />
           <CardBody className="grid gap-5 sm:grid-cols-2">
@@ -284,14 +464,20 @@ export function NewEmployeeForm() {
                 onChange={(e) => set("dateOfBirth", e.target.value)}
               />
             </Field>
-            <Field label="Location">
+            <Field
+              label="Work location"
+              {...(locations.error
+                ? { help: `${locations.error.message} Locations are unavailable.` }
+                : {})}
+            >
               <Select
-                value={draft.location}
-                onChange={(e) => set("location", e.target.value)}
+                value={draft.workLocationId}
+                onChange={(e) => set("workLocationId", e.target.value)}
               >
-                {LOCATIONS.map((l) => (
-                  <option key={l} value={l}>
-                    {l}
+                <option value="">Not set</option>
+                {locations.locations.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.name}
                   </option>
                 ))}
               </Select>
@@ -310,14 +496,22 @@ export function NewEmployeeForm() {
                 placeholder="Software Engineer"
               />
             </Field>
-            <Field label="Department">
+            <Field
+              label="Department"
+              {...(departments.error
+                ? {
+                    help: `${departments.error.message} Departments are unavailable.`,
+                  }
+                : {})}
+            >
               <Select
-                value={draft.department}
-                onChange={(e) => set("department", e.target.value)}
+                value={draft.departmentId}
+                onChange={(e) => set("departmentId", e.target.value)}
               >
-                {DEPARTMENTS.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
+                <option value="">Not assigned</option>
+                {departments.flat.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
                   </option>
                 ))}
               </Select>
@@ -328,7 +522,7 @@ export function NewEmployeeForm() {
                 onChange={(e) => set("managerId", e.target.value)}
               >
                 <option value="">No manager</option>
-                {directory.map((e) => (
+                {directory.employees.map((e) => (
                   <option key={e.id} value={e.id}>
                     {fullName(e)} — {e.jobTitle}
                   </option>
@@ -345,9 +539,11 @@ export function NewEmployeeForm() {
                   set("employmentType", e.target.value as EmploymentType)
                 }
               >
-                <option value="full_time">Full time</option>
-                <option value="contract">Contract</option>
-                <option value="internship">Internship</option>
+                {types.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
               </Select>
             </Field>
             <Field label="Start date" required error={errorFor("startDate")}>
@@ -365,9 +561,11 @@ export function NewEmployeeForm() {
                   set("status", e.target.value as EmploymentStatus)
                 }
               >
-                <option value="onboarding">Onboarding</option>
-                <option value="probation">Probation</option>
-                <option value="active">Active</option>
+                {statuses.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
               </Select>
             </Field>
           </CardBody>
@@ -476,10 +674,14 @@ export function NewEmployeeForm() {
             Cancel
           </Button>
           <div className="flex items-center gap-2">
-            <Button variant="secondary" onClick={() => submit(false)} disabled={busy}>
+            <Button
+              variant="secondary"
+              onClick={() => void submit(false)}
+              disabled={busy}
+            >
               Save and add another
             </Button>
-            <Button variant="approve" onClick={() => submit(true)} loading={busy}>
+            <Button variant="approve" onClick={() => void submit(true)} loading={busy}>
               {!busy && <Check aria-hidden="true" className="size-4" />}
               Add employee
             </Button>

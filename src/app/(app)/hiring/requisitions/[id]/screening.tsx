@@ -10,20 +10,19 @@ import {
   Card,
   CardBody,
   CardHeader,
-  DescriptionList,
   EmptyState,
-  Field,
-  Input,
-  Modal,
   Skeleton,
-  Textarea,
   useToast,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { SourceBadge } from "@/components/hiring/source-badge";
+import {
+  DeclineDialog,
+  ScreenInDialog,
+} from "@/components/hiring/screening-dialogs";
 import { ApiError } from "@/lib/api/client";
 import { careersPath } from "@/lib/api/careers";
-import type { ScreenInInput, ScreeningRow } from "@/lib/api/hiring";
+import type { ScreeningRow } from "@/lib/api/hiring";
 import { useRoleQueue, type RoleQueue } from "@/lib/store/hiring";
 
 /**
@@ -184,7 +183,8 @@ function ScreeningCard({
 
       {screening && (
         <ScreenInDialog
-          row={screening}
+          applicantName={screening.name}
+          appliedFor={screening.postingTitle}
           roleName={roleName}
           onClose={() => setScreening(null)}
           onConfirm={async (input) => {
@@ -208,7 +208,7 @@ function ScreeningCard({
 
       {declining && (
         <DeclineDialog
-          row={declining}
+          applicantName={declining.name}
           onClose={() => setDeclining(null)}
           onConfirm={async (reason) => {
             try {
@@ -370,175 +370,5 @@ function ApplicantRow({
         </p>
       )}
     </div>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-
-/**
- * The screening call, in one box.
- *
- * Every field is optional and that is the API's decision, not a shortcut: a
- * first call answers two of the four questions, and refusing to move somebody
- * until all four are known leaves the pipeline empty and the real state of play
- * in somebody's notebook. A blank field is "not asked yet" and the next call
- * fills it.
- *
- * Salaries are typed in naira. `toAdvanceBody` in `lib/api/hiring.ts` turns them
- * into kobo — nothing on this screen multiplies by 100.
- */
-function ScreenInDialog({
-  row,
-  roleName,
-  onClose,
-  onConfirm,
-}: {
-  row: ScreeningRow;
-  roleName: string;
-  onClose: () => void;
-  onConfirm: (input: ScreenInInput) => Promise<void>;
-}) {
-  const [noticeDays, setNoticeDays] = useState("");
-  const [current, setCurrent] = useState("");
-  const [expected, setExpected] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  /** Blank means "not asked". Zero is a real answer and survives. */
-  const number = (value: string): number | undefined => {
-    const cleaned = value.replace(/[^0-9.]/g, "");
-    if (cleaned === "") return undefined;
-    const parsed = Number(cleaned);
-    return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
-  };
-
-  async function confirm() {
-    setBusy(true);
-    const notice = number(noticeDays);
-    try {
-      await onConfirm({
-        ...(notice === undefined ? {} : { noticeDays: Math.round(notice) }),
-        ...(number(current) === undefined ? {} : { currentSalary: number(current) }),
-        ...(number(expected) === undefined
-          ? {}
-          : { expectedSalary: number(expected) }),
-      });
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      size="md"
-      title={`Screen ${row.name} in for ${roleName}`}
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button variant="accent" loading={busy} onClick={() => void confirm()}>
-            Screen in
-          </Button>
-        </>
-      }
-    >
-      <div className="flex flex-col gap-5">
-        <DescriptionList
-          items={[
-            { term: "Applied for", value: row.postingTitle },
-            { term: "Goes onto", value: roleName },
-          ]}
-        />
-        <p className="text-[0.875rem] text-body">
-          They go into the first stage of this role. Their candidate record is
-          created from this application, so nothing is retyped.
-        </p>
-
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Field label="Notice (days)" help="Leave blank if you have not asked.">
-            <Input
-              inputMode="numeric"
-              value={noticeDays}
-              placeholder="30"
-              onChange={(event) => setNoticeDays(event.target.value)}
-            />
-          </Field>
-          <Field label="On now (₦ a month)" help="Optional.">
-            <Input
-              inputMode="decimal"
-              value={current}
-              placeholder="650000"
-              onChange={(event) => setCurrent(event.target.value)}
-            />
-          </Field>
-          <Field label="Wants (₦ a month)" help="Optional.">
-            <Input
-              inputMode="decimal"
-              value={expected}
-              placeholder="750000"
-              onChange={(event) => setExpected(event.target.value)}
-            />
-          </Field>
-        </div>
-      </div>
-    </Modal>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-
-function DeclineDialog({
-  row,
-  onClose,
-  onConfirm,
-}: {
-  row: ScreeningRow;
-  onClose: () => void;
-  onConfirm: (reason: string) => Promise<void>;
-}) {
-  const [reason, setReason] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      size="md"
-      title={`Turn down ${row.name}?`}
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            loading={busy}
-            onClick={() => {
-              setBusy(true);
-              void onConfirm(reason).finally(() => setBusy(false));
-            }}
-          >
-            Turn down
-          </Button>
-        </>
-      }
-    >
-      <div className="flex flex-col gap-4">
-        <p className="text-[0.875rem] text-body">
-          Nothing is sent to them. The reason stays on the record so the next
-          person to read it knows what happened.
-        </p>
-        <Field label="Reason" help="Kept internal.">
-          <Textarea
-            rows={3}
-            value={reason}
-            onChange={(event) => setReason(event.target.value)}
-            placeholder="Not enough Nigerian payroll experience for this level."
-          />
-        </Field>
-      </div>
-    </Modal>
   );
 }

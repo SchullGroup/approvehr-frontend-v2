@@ -17,8 +17,10 @@ import {
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
-import { useLeaveStore } from "@/lib/store/leave";
-import { useLeaveBalances } from "@/lib/store/leave-balances";
+import {
+  useEmployeeLeaveBalances,
+  useLeaveRequests,
+} from "@/lib/store/leave-api";
 import {
   useEmployee,
   useEmployeeDirectory,
@@ -50,8 +52,13 @@ export function EmployeeRecordPage({ id }: { id: string }) {
   const record = useEmployee(id);
   const mutations = useEmployeeMutations();
   const directory = useEmployeeDirectory({ pageSize: 200 });
-  const leave = useLeaveStore();
-  const balances = useLeaveBalances();
+  /* Both leave reads are scoped to this person and go through the leave store,
+     which picks its own source. `GET /leave/balances/:id` and
+     `GET /leave/requests?employeeId=` need `VIEW_SALARIES` or the record to be
+     your own — the same rule as the record read above, so if this page opened
+     at all these will answer. */
+  const leave = useLeaveRequests({ employeeId: id });
+  const balances = useEmployeeLeaveBalances(id);
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -250,11 +257,14 @@ export function EmployeeRecordPage({ id }: { id: string }) {
           manager={manager}
           managerName={record.managerName}
           reports={reports}
-          /* Derived from live requests, so a leave decision made in the
-             approvals inbox has already moved this figure. Still local in both
-             modes: the leave screens have not been switched over yet. */
-          balances={balances.forEmployee(employee.id)}
-          leaveRequests={leave.forEmployee(employee.id)}
+          /* Live in both modes. Connected these are the leave module's own
+             figures, so a decision made in the approvals inbox has already
+             moved them; offline they come from the same local store the leave
+             screen writes to. Either way there is one place the arithmetic
+             happens. */
+          balances={balances.balances}
+          leaveRequests={leave.requests}
+          leaveLoading={leave.loading || balances.loading}
           onSave={save}
         />
       </PageBody>

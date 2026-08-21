@@ -1,6 +1,6 @@
 "use client";
 
-import { request, requestPaged } from "@/lib/api/client";
+import { ApiError, request, requestPaged } from "@/lib/api/client";
 
 /**
  * Leave — `/api/v1/leave`.
@@ -15,6 +15,7 @@ import { request, requestPaged } from "@/lib/api/client";
  * | Undo a decision | `POST /leave/requests/:id/reopen` | `APPROVE_LEAVE_ALL` |
  * | Withdraw | `POST /leave/requests/:id/cancel` | nothing |
  * | Balances | `GET /leave/balances/:id` | `VIEW_SALARIES`, or your own |
+ * | Public holidays | `GET /leave/holidays` | nothing — **no route yet, see below** |
  *
  * ## The request's own status is the truth
  *
@@ -50,6 +51,26 @@ import { request, requestPaged } from "@/lib/api/client";
  *   Ask for the note before sending, not after.
  * - Deciding a request that is already decided is a 409 telling you to reopen it
  *   first.
+ *
+ * ## The holiday calendar is data, and no route serves it yet
+ *
+ * `PublicHoliday` is a real model with a real `confirmed` flag, because Nigerian
+ * holidays are proclaimed at short notice and the Eid dates move with the lunar
+ * calendar — which is the whole reason they are rows and not a constant. Three
+ * services read that table (attendance, overtime, payroll proration) and **no
+ * endpoint returns it.** `GET /leave/holidays` is where it belongs; asking for it
+ * today answers 404.
+ *
+ * So `holidays()` returns `null` on that 404 instead of throwing, and the screen
+ * says the calendar is not published rather than quietly showing the demo list.
+ * Falling back would put four seeded dates under a badge reading "Live from the
+ * API", which is the one thing the two-mode design exists to prevent. When the
+ * route lands, delete the `null` branch — nothing else changes.
+ *
+ * The one endpoint that does carry holiday names is `GET /helpdesk/analytics`,
+ * and it is the wrong source twice over: it needs `EDIT_RECORDS`, and it filters
+ * to `confirmed: true`, so it would drop precisely the awaiting-proclamation
+ * dates this card exists to flag.
  *
  * ## Units and shapes
  *
@@ -115,6 +136,14 @@ type WireBalance = {
   taken: number;
   pending: number;
   remaining: number;
+};
+
+type WireHoliday = {
+  id: string;
+  /** `YYYY-MM-DD`, or a timestamp. Cut to the day either way. */
+  date: string;
+  name: string;
+  confirmed: boolean;
 };
 
 type WireType = {
@@ -201,6 +230,20 @@ export type LeaveTypeRow = {
   requiresEvidence: boolean;
   minNoticeDays: number;
   isPaid: boolean;
+};
+
+/**
+ * One public holiday.
+ *
+ * `confirmed` is the load-bearing field. An unconfirmed holiday is shown as
+ * awaiting proclamation, never assumed — a company that rosters against an Eid
+ * date the government has not yet declared has rostered against a guess.
+ */
+export type PublicHolidayRow = {
+  /** `YYYY-MM-DD`. */
+  date: string;
+  name: string;
+  confirmed: boolean;
 };
 
 export type LeaveListParams = {
@@ -372,6 +415,35 @@ export const leaveApi = {
         method: "POST",
       }),
     ),
+
+  /**
+   * The company's holiday calendar, or `null` when the API does not serve one.
+   *
+   * `null` rather than `[]` because the two mean opposite things to a reader: an
+   * empty array is "we looked and there are none", and this is "nobody can
+   * answer that question yet". A 404 on a collection route is the route being
+   * absent, not a missing record — see the header. Every other failure still
+   * throws, so a 403 or a network drop is not silently read as "no calendar".
+   */
+  holidays: async (
+    year?: number,
+    signal?: AbortSignal,
+  ): Promise<PublicHolidayRow[] | null> => {
+    try {
+      const rows = await request<WireHoliday[]>("/leave/holidays", {
+        ...(year ? { query: { year } } : {}),
+        ...(signal ? { signal } : {}),
+      });
+      return rows.map((wire) => ({
+        date: wire.date.slice(0, 10),
+        name: wire.name,
+        confirmed: wire.confirmed,
+      }));
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) return null;
+      throw error;
+    }
+  },
 
   balances: async (
     employeeId: string,

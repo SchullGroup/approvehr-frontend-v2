@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Check, Info, ThumbsDown } from "lucide-react";
-import { cn } from "@/lib/cn";
 import {
   Avatar,
   Badge,
@@ -20,37 +19,65 @@ import {
   Textarea,
   useToast,
 } from "@/components/ui";
+import { SourceBadge } from "@/components/hiring/source-badge";
+import { BandPosition } from "@/app/(app)/payroll/pay-setup/band-position";
+import { bandStanding } from "@/lib/grades/band";
+import type { OfferBand } from "@/lib/api/hiring";
+import { pipelineSnapshot, useOfferBands, type OfferBands } from "@/lib/store/hiring";
 import { fullName, type PipelineCard } from "@/lib/types";
 
 type Decision = "approved" | "declined";
 
 /**
- * Offer approval. The approver's real question is "is this in band, and what
- * does it do to the team's spread" — so both are computed and stated here
- * rather than left for them to work out from a number.
+ * Offer approval.
  *
- * ## The decision is not recorded anywhere, and the toast says so
+ * ## The band is real now, and that is the point of the screen
+ *
+ * The approver's question is "is this in band" — and until this change the bar
+ * on this screen was drawn between the requisition's own `salaryMin` and
+ * `salaryMax`, two seeded numbers with nothing behind them. A meter against
+ * those cannot answer the question: move the seed and the band moves with it, so
+ * "in band" meant "inside a range somebody typed next to this role", not "inside
+ * what this company pays for this work".
+ *
+ * It now reads the **grade ladder**, which is live whenever the API is up, and
+ * draws with `<BandPosition />` — the same component the pay-setup screen uses,
+ * so a figure cannot be described one way here and another way there. The marker
+ * is allowed to leave the track when an offer is outside the band, because that
+ * is the one case worth an approver's attention and the old bar clamped it to
+ * the end, which reads as "at the top" — the opposite of the truth.
+ *
+ * ## The decision is still not recorded anywhere, and the toast says so
  *
  * `Offer` is a Prisma model with `status`, `approvedById`, `approvedAt` and an
  * `outsideBand` flag that routes it to the budget holder — and no module in
  * `approvehr-api` exposes it. So pressing Approve moves a chip on this screen
- * and nothing else. The toast used to read "The recruiter can now send it to the
- * candidate", which was a claim about a system that never heard about it.
+ * and nothing else, and both the badge and the toast say that plainly. The band
+ * beside it is live; the decision is not. Two facts, two badges.
  */
-export function OfferApprovals({ initial }: { initial: PipelineCard[] }) {
+export function OfferApprovals() {
+  const pipeline = pipelineSnapshot();
+  const bands = useOfferBands();
   const [decisions, setDecisions] = useState<Record<string, Decision>>({});
   const [declining, setDeclining] = useState<PipelineCard | null>(null);
   const [note, setNote] = useState("");
   const toast = useToast();
 
-  const pending = useMemo(
-    () => initial.filter((c) => !decisions[c.id]),
-    [initial, decisions],
+  /* Only the ones actually waiting on a decision. `offersOut` also carries the
+     ones already with the candidate, which nobody has to act on. */
+  const awaiting = useMemo(
+    () =>
+      pipeline.offersOut.filter(
+        (card) => card.offer?.status === "pending_approval",
+      ),
+    [pipeline.offersOut],
   );
-  const settled = initial.filter((c) => decisions[c.id]);
+
+  const pending = awaiting.filter((card) => !decisions[card.id]);
+  const settled = awaiting.filter((card) => decisions[card.id]);
 
   function decide(card: PipelineCard, decision: Decision) {
-    setDecisions((d) => ({ ...d, [card.id]: decision }));
+    setDecisions((current) => ({ ...current, [card.id]: decision }));
     toast.push({
       title:
         decision === "approved"
@@ -61,7 +88,7 @@ export function OfferApprovals({ initial }: { initial: PipelineCard[] }) {
     });
   }
 
-  if (initial.length === 0) {
+  if (awaiting.length === 0) {
     return (
       <Card>
         <EmptyState
@@ -75,10 +102,18 @@ export function OfferApprovals({ initial }: { initial: PipelineCard[] }) {
 
   return (
     <div className="flex flex-col gap-5">
+      {bands.count === 0 && !bands.loading && (
+        <Callout tone="warning" title="No salary grades to check against">
+          Nothing can say whether these offers are in band until the pay
+          structure has grades on it.
+        </Callout>
+      )}
+
       {pending.map((card) => (
         <OfferCard
           key={card.id}
           card={card}
+          bands={bands}
           onApprove={() => decide(card, "approved")}
           onDecline={() => {
             setDeclining(card);
@@ -89,7 +124,10 @@ export function OfferApprovals({ initial }: { initial: PipelineCard[] }) {
 
       {settled.length > 0 && (
         <Card>
-          <CardHeader title="Decided in this session" />
+          <CardHeader
+            title="Decided in this session"
+            description="Kept in this browser. Nothing was written and nobody was told."
+          />
           <CardBody className="flex flex-col gap-2.5">
             {settled.map((card) => (
               <div
@@ -144,7 +182,7 @@ export function OfferApprovals({ initial }: { initial: PipelineCard[] }) {
                 rows={3}
                 value={note}
                 onChange={(e) => setNote(e.currentTarget.value)}
-                placeholder="Above band for this level — bring it under ₦1.6m or re-grade the role."
+                placeholder="Above band for this level — bring it under the top of the grade or re-grade the role."
               />
             </Field>
           </div>
@@ -158,26 +196,19 @@ export function OfferApprovals({ initial }: { initial: PipelineCard[] }) {
 
 function OfferCard({
   card,
+  bands,
   onApprove,
   onDecline,
 }: {
   card: PipelineCard;
+  bands: OfferBands;
   onApprove: () => void;
   onDecline: () => void;
 }) {
-  const offer = card.offer!;
-  const { salaryMin, salaryMax } = card.requisition;
-  const above = offer.grossMonthly > salaryMax;
-  const below = offer.grossMonthly < salaryMin;
-  /* Where the offer sits in the band, as a percentage of the range. */
-  const position = Math.max(
-    0,
-    Math.min(
-      100,
-      ((offer.grossMonthly - salaryMin) / (salaryMax - salaryMin)) * 100,
-    ),
-  );
+  const offer = card.offer;
+  if (!offer) return null;
 
+  const placement = bands.bandFor(offer.grossMonthly);
   const submitted = card.scorecards.filter((s) => s.submittedAt);
   const avg =
     submitted.length > 0
@@ -209,55 +240,37 @@ function OfferCard({
       />
       <CardBody className="flex flex-col gap-5">
         <div className="grid gap-5 sm:grid-cols-[minmax(0,1fr)_240px]">
-          <div>
-            {/* Band position — the actual decision aid. */}
-            <div className="flex items-baseline justify-between">
-              <p className="text-h3 text-ink tabular">
-                <Money amount={offer.grossMonthly} />
-              </p>
-              {above ? (
-                <Badge tone="danger" size="sm">
-                  Above band
-                </Badge>
-              ) : below ? (
-                <Badge tone="info" size="sm">
-                  Below band
-                </Badge>
-              ) : (
-                <Badge tone="success" size="sm">
-                  In band
-                </Badge>
-              )}
-            </div>
-
-            <div className="mt-3">
-              <div className="relative h-2 rounded-full bg-sunken">
-                <div
-                  className={cn(
-                    "absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-surface",
-                    above || below ? "bg-danger" : "bg-success-strong",
-                  )}
-                  style={{ left: `${above ? 100 : below ? 0 : position}%` }}
+          <div className="flex flex-col gap-4">
+            {placement ? (
+              <>
+                <BandPosition
+                  grade={placement.band}
+                  offerKobo={placement.offerKobo}
+                  gradeLabel={placement.label}
+                  label="Offer against the grade"
                 />
-              </div>
-              <div className="mt-1.5 flex justify-between text-[0.75rem] tabular text-muted">
-                <span>
-                  <Money amount={salaryMin} compact />
+                <span className="self-start">
+                  <SourceBadge
+                    live={bands.live}
+                    note="The band. The decision below is not recorded anywhere."
+                  />
                 </span>
-                <span>
-                  <Money amount={salaryMax} compact />
-                </span>
+              </>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <p className="flex items-baseline gap-2">
+                  <Money amount={offer.grossMonthly} decimals size="lg" />
+                  <span className="text-[0.875rem] text-muted">a month</span>
+                </p>
+                <p className="text-[0.875rem] text-body">
+                  {bands.loading
+                    ? "Loading the grade ladder…"
+                    : "There is no salary grade to place this against."}
+                </p>
               </div>
-            </div>
-
-            {above && (
-              <Callout tone="danger" className="mt-4" title="Outside the approved band">
-                This is{" "}
-                <Money amount={offer.grossMonthly - salaryMax} /> above the
-                ceiling agreed when the requisition was opened. Approving it
-                sets a new internal reference for this level.
-              </Callout>
             )}
+
+            {placement && <OutsideBandNote placement={placement} />}
           </div>
 
           <DescriptionList
@@ -308,4 +321,34 @@ function OfferCard({
       </CardBody>
     </Card>
   );
+}
+
+/**
+ * What approving an out-of-band offer commits the company to.
+ *
+ * `BandPosition` already draws the marker outside the track and says how far
+ * over it is. This adds the consequence, which the meter cannot: an approved
+ * offer above the top of a grade becomes the internal reference for that level,
+ * and the next person at that level will point at it.
+ */
+function OutsideBandNote({ placement }: { placement: OfferBand }) {
+  const standing = bandStanding(placement.offerKobo, placement.band);
+  if (standing === "above") {
+    return (
+      <Callout tone="danger" title="Above the top of the grade">
+        Approving this sets a new internal reference for {placement.label}. The
+        next offer at this level will be argued against it.
+      </Callout>
+    );
+  }
+  if (standing === "below") {
+    return (
+      <Callout tone="info" title="Below the bottom of the grade">
+        They would start under what {placement.label} pays. That is usually a
+        first-year rate rather than a saving — it corrects itself at the first
+        review.
+      </Callout>
+    );
+  }
+  return null;
 }

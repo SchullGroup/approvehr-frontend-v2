@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   CalendarDays,
+  Eye,
+  EyeOff,
   FileText,
   Mail,
   MapPin,
@@ -39,16 +41,18 @@ import { EmployeeFileDrawer } from "@/app/(app)/people/documents";
 import { PayComponentsPanel } from "@/app/(app)/payroll/pay-setup/pay-components-panel";
 import { RecordHistory } from "@/app/(app)/settings/audit/record-history";
 import { naira } from "@/lib/api/pay-components";
+import type { LeaveBalanceRow, LeaveRow } from "@/lib/api/leave";
 import { calculatePayslip } from "@/lib/payroll/engine";
 import { usePayrollSettings } from "@/lib/payroll/use-settings";
+import { useCan } from "@/lib/permissions";
 import { useDepartments } from "@/lib/store/departments";
 import type { EmployeePatch } from "@/lib/store/employees-api";
 import { usePayPreview } from "@/lib/store/pay-components";
+import { useSession } from "@/lib/store/session";
 import { fullName, type Employee } from "@/lib/types";
-import type { LeaveBalance } from "@/lib/mock/people";
-import type { LeaveRequest } from "@/lib/mock/workflows";
 import { shortDate } from "@/lib/today";
 import { EditableSection } from "@/components/people/editable-section";
+import { ConductPanel } from "./conduct";
 
 /**
  * Employment status, as a chip.
@@ -178,6 +182,7 @@ export function EmployeeRecord({
   reports,
   balances,
   leaveRequests,
+  leaveLoading = false,
   onSave,
 }: {
   employee: Employee;
@@ -188,17 +193,42 @@ export function EmployeeRecord({
   /** The manager's name even when their record is outside the page's slice. */
   managerName: string | null;
   reports: Employee[];
-  balances: LeaveBalance[];
-  /** This employee's own requests, newest first. Live, not seed. */
-  leaveRequests: LeaveRequest[];
+  /** Every leave type, with the API's own remaining figure when connected. */
+  balances: LeaveBalanceRow[];
+  /** This employee's own requests. Live in both modes. */
+  leaveRequests: LeaveRow[];
+  /** The leave reads are their own requests and can still be in flight. */
+  leaveLoading?: boolean;
   onSave: (patch: EmployeePatch) => Promise<unknown>;
 }) {
   const [tab, setTab] = useState("personal");
   const [fileOpen, setFileOpen] = useState(false);
   const departments = useDepartments();
+  const { employeeId: me } = useSession();
+  const canSeeSalaries = useCan("VIEW_SALARIES");
 
   const name = fullName(employee);
   const status = statusOf(employee.status);
+
+  /**
+   * Who may unmask a bank account, a pension PIN, a TIN or an NHF number.
+   *
+   * `VIEW_SALARIES`, or the record being your own — deliberately the same rule
+   * `GET /employees/:id` enforces, because a reveal that the API would refuse
+   * has no business being offered. In connected mode that makes it a second
+   * lock on a door already locked: nobody without one of the two can load this
+   * page at all. It earns its place in the other two cases — demo mode with a
+   * role previewed under `/settings/roles`, and whenever the detail endpoint's
+   * own rule is loosened.
+   *
+   * The masking itself is the part that works for everybody, and it is the
+   * point: `SENSITIVE_EMPLOYEE_FIELDS` in `approvehr-api/src/lib/audit.ts`
+   * records that an account number *changed* and never what it changed to, so
+   * the audit log never becomes a second copy of the data. Printing all ten
+   * digits permanently on a monitor in an open-plan office undoes that at the
+   * one place it matters.
+   */
+  const canReveal = canSeeSalaries || (me !== null && me === employee.id);
 
   /* The department picker sends an id, and the id it should show as selected is
      the one whose name matches the record — `Employee` carries the name only.
@@ -313,6 +343,7 @@ export function EmployeeRecord({
             { id: "employment", label: "Employment" },
             { id: "pay", label: "Pay & statutory" },
             { id: "leave", label: "Leave" },
+            { id: "conduct", label: "Conduct" },
           ]}
         />
 
@@ -498,14 +529,14 @@ export function EmployeeRecord({
                   label: "Account",
                   emptyLabel: "No bank account — payroll blocked",
                   help: "Ten digits. Payroll cannot pay without this.",
-                  format: (v) => <Guarded value={String(v)} />,
+                  format: (v) => <Guarded value={String(v)} canReveal={canReveal} />,
                 },
                 {
                   key: "pensionPin",
                   label: "Pension PIN",
                   emptyLabel: "No pension PIN — payroll blocked",
                   help: "PEN followed by 9 to 12 digits.",
-                  format: (v) => <Guarded value={String(v)} />,
+                  format: (v) => <Guarded value={String(v)} canReveal={canReveal} />,
                 },
                 {
                   key: "pensionProvider",
@@ -528,12 +559,12 @@ export function EmployeeRecord({
                   label: "TIN",
                   emptyLabel: "No TIN — payroll blocked",
                   help: "Ten digits.",
-                  format: (v) => <Guarded value={String(v)} />,
+                  format: (v) => <Guarded value={String(v)} canReveal={canReveal} />,
                 },
                 {
                   key: "nhfNumber",
                   label: "NHF number",
-                  format: (v) => <Guarded value={String(v)} />,
+                  format: (v) => <Guarded value={String(v)} canReveal={canReveal} />,
                 },
               ]}
             />
@@ -542,49 +573,74 @@ export function EmployeeRecord({
 
         {tab === "leave" && (
           <div className="flex flex-col gap-5">
-            {connected && (
-              <Badge tone="warning" size="sm" dot>
-                Leave is still demo data, this browser only
-              </Badge>
-            )}
             <Card>
               <CardHeader
                 title="Leave balances"
-                description="Taken and pending are counted from their actual requests, so a decision made in the approvals inbox shows here immediately."
+                description={
+                  connected
+                    ? "Entitlement, taken and pending as the leave module computes them — the same figures a booking is checked against."
+                    : "Taken and pending are counted from their actual requests, so a decision made in the approvals inbox shows here immediately."
+                }
               />
-              <TableWrap className="rounded-none border-0">
-                <THead>
-                  <TH>Type</TH>
-                  <TH align="right">Entitled</TH>
-                  <TH align="right">Taken</TH>
-                  <TH align="right">Pending</TH>
-                  <TH align="right">Remaining</TH>
-                </THead>
-                <TBody>
-                  {balances.map((b) => {
-                    const remaining = b.entitled - b.taken - b.pending;
-                    return (
-                      <TR key={b.type}>
-                        <TDPrimary title={b.type} />
-                        <TD align="right" className="tabular">{b.entitled}</TD>
-                        <TD align="right" className="tabular text-muted">{b.taken}</TD>
+              {leaveLoading && balances.length === 0 ? (
+                <CardBody className="flex flex-col gap-2">
+                  <Skeleton className="h-5 w-full" />
+                  <Skeleton className="h-5 w-full" />
+                  <span className="sr-only">Loading their leave balances</span>
+                </CardBody>
+              ) : balances.length === 0 ? (
+                <CardBody>
+                  <p className="text-[0.875rem] text-muted">
+                    No leave types are set up yet, so there is nothing to
+                    measure against.
+                  </p>
+                </CardBody>
+              ) : (
+                <TableWrap className="rounded-none border-0">
+                  <THead>
+                    <TH>Type</TH>
+                    <TH align="right">Entitled</TH>
+                    <TH align="right">Taken</TH>
+                    <TH align="right">Pending</TH>
+                    <TH align="right">Remaining</TH>
+                  </THead>
+                  <TBody>
+                    {balances.map((b) => (
+                      <TR key={`${b.leaveType}-${b.year}`}>
+                        <TDPrimary
+                          title={b.leaveType}
+                          {...(b.carriedIn > 0
+                            ? {
+                                subtitle: `includes ${b.carriedIn} carried in`,
+                              }
+                            : {})}
+                        />
+                        <TD align="right" className="tabular">
+                          {b.entitled}
+                        </TD>
+                        <TD align="right" className="tabular text-muted">
+                          {b.taken}
+                        </TD>
                         <TD align="right" className="tabular text-muted">
                           {b.pending || "—"}
                         </TD>
+                        {/* The source's own figure, never re-derived here.
+                            Pending is held back on purpose — a day already
+                            asked for is not a day still available. */}
                         <TD
                           align="right"
                           className={cn(
                             "tabular font-medium",
-                            remaining <= 2 ? "text-warning-text" : "text-ink",
+                            b.remaining <= 2 ? "text-warning-text" : "text-ink",
                           )}
                         >
-                          {remaining}
+                          {b.remaining}
                         </TD>
                       </TR>
-                    );
-                  })}
-                </TBody>
-              </TableWrap>
+                    ))}
+                  </TBody>
+                </TableWrap>
+              )}
             </Card>
 
             <Card>
@@ -614,8 +670,10 @@ export function EmployeeRecord({
                       .map((r) => (
                         <TR key={r.id}>
                           <TDPrimary
-                            title={r.type}
-                            subtitle={r.reason ?? r.decisionNote}
+                            title={r.leaveType}
+                            {...(r.reason ?? r.decisionNote
+                              ? { subtitle: r.reason ?? r.decisionNote ?? "" }
+                              : {})}
                           />
                           <TD className="tabular whitespace-nowrap">
                             {r.from} → {r.to}
@@ -651,6 +709,14 @@ export function EmployeeRecord({
             </Card>
           </div>
         )}
+
+        {/* Behind a tab on purpose rather than further down the employment
+            page. Every read of `GET /conduct/employees/:id/actions` writes an
+            audit event before it answers, so opening this has to be something
+            somebody chose to do — a panel that loaded with the record would
+            fill the trail that answers "who has been looking at this person's
+            warnings" with reads nobody made. */}
+        {tab === "conduct" && <ConductPanel employeeId={employee.id} />}
       </div>
 
       {/* The same file, and the same upload and request flow, as the documents
@@ -784,22 +850,48 @@ function Compensation({
  *
  * The last four digits are enough to confirm you have the right account. The
  * rest is one click away for whoever has to read it out to a bank.
+ *
+ * Without the permission there is no button, rather than a disabled one or a
+ * sentence explaining the refusal — the same choice `RecordHistory` makes for
+ * the audit panel. A control that cannot work is worse present than absent, and
+ * the masked value still answers the question somebody usually has, which is
+ * "is this the right account".
  */
-function Guarded({ value }: { value: string }) {
+function Guarded({
+  value,
+  canReveal,
+}: {
+  value: string;
+  /** `VIEW_SALARIES`, or their own record. See `canReveal` above. */
+  canReveal: boolean;
+}) {
   const [shown, setShown] = useState(false);
   const masked =
     value.length > 4 ? `•••• ${value.slice(-4)}` : "•".repeat(value.length);
+  const revealed = shown && canReveal;
 
   return (
     <span className="inline-flex items-center gap-2">
-      <span className="tabular">{shown ? value : masked}</span>
-      <button
-        type="button"
-        onClick={() => setShown((s) => !s)}
-        className="rounded-xs text-[0.75rem] font-medium text-accent-text hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
-      >
-        {shown ? "Hide" : "Show"}
-      </button>
+      <span className="tabular">{revealed ? value : masked}</span>
+      {!revealed && (
+        <span className="sr-only">
+          — hidden. Only the last four characters are shown.
+        </span>
+      )}
+      {canReveal && (
+        <button
+          type="button"
+          onClick={() => setShown((s) => !s)}
+          className="inline-flex items-center gap-1 rounded-xs text-[0.75rem] font-medium text-accent-text hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+        >
+          {shown ? (
+            <EyeOff aria-hidden="true" className="size-3" />
+          ) : (
+            <Eye aria-hidden="true" className="size-3" />
+          )}
+          {shown ? "Hide" : "Show"}
+        </button>
+      )}
     </span>
   );
 }

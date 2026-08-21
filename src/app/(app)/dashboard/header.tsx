@@ -1,7 +1,6 @@
 "use client";
 
 import { PageHeader } from "@/components/portal/shell";
-import { CURRENT_USER } from "@/lib/mock/people";
 import { useSession } from "@/lib/store/session";
 
 /**
@@ -11,6 +10,12 @@ import { useSession } from "@/lib/store/session";
  * It said "Good morning, Amara" to everyone, at every hour, because the name
  * came from the hardcoded `CURRENT_USER` and the greeting was a literal. Both
  * are now real, which is the whole point of having a session at all.
+ *
+ * The `CURRENT_USER` fallback is gone too. A greeting that falls back to
+ * somebody else's first name is the mild version of the bug HANDOVER records —
+ * four screens once rendered one person's name beside another's data because
+ * `session.user` and a mock employee have the same shape. With no session there
+ * is no name, so the greeting drops the name rather than borrowing one.
  *
  * The hour is safe to read here: `AuthGate` renders a spinner until the session
  * has loaded, so the dashboard never appears in server-rendered HTML and there
@@ -30,11 +35,12 @@ export function DashboardHeader({
   action?: React.ReactNode;
 }) {
   const { displayName } = useSession();
-  const firstName = (displayName ?? CURRENT_USER.firstName).split(" ")[0];
+  const firstName = displayName?.split(" ")[0];
+  const hello = greeting(new Date().getHours());
 
   return (
     <PageHeader
-      title={`${greeting(new Date().getHours())}, ${firstName}`}
+      title={firstName ? `${hello}, ${firstName}` : hello}
       description={description}
       action={action}
     />

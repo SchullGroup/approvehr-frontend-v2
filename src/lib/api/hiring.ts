@@ -6,13 +6,17 @@ import {
   naira,
   type AdvanceBody,
   type ApiApplication,
+  type ApiApplicationDetail,
   type ApiCareersAnalytics,
   type ApiPosting,
   type ApiPostingTally,
+  type ApplicationStatus,
   type CreatePostingBody,
   type EmploymentType,
   type PostingStatus,
 } from "@/lib/api/careers";
+import type { ApiGrade } from "@/lib/api/grades";
+import type { Band } from "@/lib/grades/band";
 
 /**
  * The hiring surface's view of `/api/v1/careers`.
@@ -328,4 +332,190 @@ export function toAdvertBody(draft: AdvertDraft): CreatePostingBody {
     ...(draft.salaryMax === undefined ? {} : { salaryMaxKobo: kobo(draft.salaryMax) }),
     ...(draft.requisitionId ? { requisitionId: draft.requisitionId } : {}),
   };
+}
+
+/* --------------------------------------------------------------- applicants */
+
+/**
+ * Everything else one email address has applied for.
+ *
+ * Three applications for three roles is a keen candidate; three for the same
+ * role is a form being hammered. The API draws the distinction by returning the
+ * list, and the difference is the whole reason it is on screen.
+ */
+export type OtherApplicationRow = {
+  id: string;
+  postingTitle: string;
+  statusLabel: string;
+  /** `YYYY-MM-DD`. */
+  appliedOn: string;
+};
+
+/**
+ * One person, as the candidate page can actually know them.
+ *
+ * This is the **live** half of a candidate record: who applied, for what,
+ * through which advert, and what a screener has done about it. It is not the
+ * pipeline record — no interviews, no scorecards, no stage — because
+ * `Interview`, `Scorecard` and the pipeline `Application` have no route. The
+ * screen renders this half live and the pipeline half from the seed, and badges
+ * each one, rather than blending the two into a page that cannot say where any
+ * given line came from.
+ */
+export type ApplicantRecord = {
+  /** The `JobApplication` id. The only applicant id this API resolves. */
+  applicationId: string;
+  /** The pipeline candidate, once screened in. Null while still waiting. */
+  candidateId: string | null;
+  firstName: string;
+  lastName: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  postingId: string;
+  postingTitle: string;
+  coverNote: string | null;
+  /** How they heard about the role. Free text, and usually absent. */
+  source: string | null;
+  /** `YYYY-MM-DD`. */
+  appliedOn: string;
+  status: ApplicationStatus;
+  statusLabel: string;
+  waiting: boolean;
+  /** `YYYY-MM-DD`, once somebody has looked. */
+  screenedOn: string | null;
+  declineReason: string | null;
+  cvUrl: string | null;
+  /** The API's own sentence about why the CV cannot be opened. */
+  cvNote: string | null;
+  otherApplications: OtherApplicationRow[];
+};
+
+/**
+ * What each status is called on screen.
+ *
+ * Sentences rather than the wire's verbs, because a person reads "waiting on a
+ * first look" and knows whose move it is. `RECEIVED` in particular is a claim
+ * about the company, not the candidate.
+ */
+export const APPLICATION_STATUS_LABEL: Record<ApplicationStatus, string> = {
+  RECEIVED: "Waiting on a first look",
+  ADVANCED: "Screened in",
+  DECLINED: "Turned down",
+  WITHDRAWN: "Withdrew",
+};
+
+export const APPLICATION_STATUS_TONE: Record<
+  ApplicationStatus,
+  "warning" | "success" | "danger" | "neutral"
+> = {
+  RECEIVED: "warning",
+  ADVANCED: "success",
+  DECLINED: "danger",
+  WITHDRAWN: "neutral",
+};
+
+export function toApplicantRecord(detail: ApiApplicationDetail): ApplicantRecord {
+  return {
+    applicationId: detail.id,
+    candidateId: detail.candidateId,
+    firstName: detail.firstName,
+    lastName: detail.lastName,
+    name: detail.name,
+    email: detail.email,
+    phone: detail.phone,
+    postingId: detail.postingId,
+    postingTitle: detail.postingTitle,
+    coverNote: detail.coverNote,
+    source: detail.source,
+    appliedOn: detail.appliedAt.slice(0, 10),
+    status: detail.status,
+    statusLabel: APPLICATION_STATUS_LABEL[detail.status],
+    waiting: detail.status === "RECEIVED",
+    screenedOn: detail.screenedAt === null ? null : detail.screenedAt.slice(0, 10),
+    declineReason: detail.declineReason,
+    cvUrl: detail.cv?.url ?? null,
+    cvNote: detail.cv?.note ?? null,
+    otherApplications: detail.otherApplications.map((entry) => ({
+      id: entry.id,
+      postingTitle: entry.postingTitle,
+      statusLabel: APPLICATION_STATUS_LABEL[entry.status],
+      appliedOn: entry.appliedAt.slice(0, 10),
+    })),
+  };
+}
+
+/**
+ * A list row, widened to a detail so one projection serves both.
+ *
+ * `GET /careers/applications` and `GET /careers/applications/:id` differ by
+ * exactly one field. Rather than a second projection that could drift from the
+ * first, the list row is widened with an empty `otherApplications` and passed
+ * through `toApplicantRecord`. The screen therefore renders the moment the list
+ * is in and gains the cross-application history a beat later, instead of
+ * holding a blank page until two requests have both landed.
+ */
+export function toApplicantRecordFromRow(row: ApiApplication): ApplicantRecord {
+  return toApplicantRecord({ ...row, otherApplications: [] });
+}
+
+/* -------------------------------------------------------- offers and bands */
+
+/**
+ * A real salary band to place an offer against.
+ *
+ * `band` is integer kobo because that is what `/grades` speaks and what
+ * `<BandPosition />` draws; `offerKobo` is the offer converted **here**, at this
+ * edge, because the seeded offer figures are naira. Nothing on the offers screen
+ * multiplies by 100.
+ */
+export type OfferBand = {
+  band: Band;
+  /** "G4 Senior", or whatever names the grade. */
+  label: string;
+  offerKobo: number;
+};
+
+/**
+ * Which grade an offer belongs to.
+ *
+ * The requisition's own `salaryMin`/`salaryMax` are a *seeded* pair with nothing
+ * behind them, and drawing a meter against them is drawing a meter against
+ * nothing — the figure moves, the band moves with it, and the picture can never
+ * say "this is above what we pay for this work". So the band comes from the
+ * grade ladder, which is live whenever the API is up.
+ *
+ * The grade containing the figure wins. When none does — which is the case worth
+ * seeing, an offer above the top of the ladder or below the bottom — the nearest
+ * band by midpoint is returned instead, and `<BandPosition />` draws the marker
+ * outside the track and says how far out it is. Returning null there would hide
+ * the one offer an approver has to think about.
+ */
+export function offerBand(
+  grades: readonly ApiGrade[],
+  /** Gross monthly, in naira, as the offer quotes it. */
+  grossMonthly: number,
+): OfferBand | null {
+  if (grades.length === 0) return null;
+  const offerKobo = kobo(grossMonthly);
+
+  const label = (grade: ApiGrade) => `${grade.code} ${grade.name}`;
+  const band = (grade: ApiGrade): Band => ({
+    minGrossKobo: grade.minGrossKobo,
+    midGrossKobo: grade.midGrossKobo,
+    maxGrossKobo: grade.maxGrossKobo,
+  });
+
+  const inside = grades.find(
+    (grade) =>
+      offerKobo >= grade.minGrossKobo && offerKobo <= grade.maxGrossKobo,
+  );
+  if (inside) return { band: band(inside), label: label(inside), offerKobo };
+
+  const nearest = [...grades].sort(
+    (a, b) =>
+      Math.abs(a.midGrossKobo - offerKobo) - Math.abs(b.midGrossKobo - offerKobo),
+  )[0];
+  if (!nearest) return null;
+  return { band: band(nearest), label: label(nearest), offerKobo };
 }

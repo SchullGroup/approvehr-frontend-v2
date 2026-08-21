@@ -5,6 +5,7 @@ import { Columns3, Filter, Table2, UserRoundPlus } from "lucide-react";
 import {
   Badge,
   Button,
+  ButtonLink,
   EmptyState,
   Money,
   SegmentedControl,
@@ -33,6 +34,13 @@ import {
  * Board and table are two views of one list, not two features. They share the
  * same state, the same panel and the same actions — switching view never
  * changes what you can do, only how much you can see at once.
+ *
+ * ## Every move here stays in this browser, and every toast says so
+ *
+ * The pipeline `Application` has no route. Dragging a card writes to React state
+ * and nothing else, in both modes — so each toast names that rather than reading
+ * like a saved change. It is the same rule the badge above this component
+ * follows: never look connected when you are not.
  */
 export function RequisitionWorkspace({
   initialCards,
@@ -83,7 +91,9 @@ export function RequisitionWorkspace({
     toast.push({
       title: `${fullName(card.candidate)} moved to ${to.replace("_", " ")}`,
       tone: goingBack ? "warning" : "success",
-      detail: goingBack ? "Moved back a stage" : undefined,
+      detail:
+        (goingBack ? "Moved back a stage. " : "") +
+        "Shown in this browser only — the pipeline has no endpoint yet.",
     });
   }
 
@@ -100,7 +110,7 @@ export function RequisitionWorkspace({
       toast.push({
         title: `${fullName(card.candidate)} rejected`,
         tone: "info",
-        detail: reason,
+        detail: `${reason} — recorded in this browser only, and nothing was sent to them.`,
       });
     }
   }
@@ -142,8 +152,16 @@ export function RequisitionWorkspace({
         <EmptyState
           icon={<UserRoundPlus aria-hidden="true" />}
           title="No candidates yet"
-          description="Share the job link or add someone you have already sourced."
-          action={<Button variant="accent">Add a candidate</Button>}
+          description="Somebody joins this board when a screener moves them out of the application queue."
+          action={
+            <ButtonLink
+              href="/hiring/postings/applications"
+              variant="accent"
+              size="sm"
+            >
+              Open the application queue
+            </ButtonLink>
+          }
         />
       ) : view === "board" ? (
         <PipelineBoard

@@ -13,6 +13,7 @@ import {
   useToast,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
+import { useCan } from "@/lib/permissions";
 import { validateEmployee } from "@/lib/store/employees";
 import type { EmployeePatch } from "@/lib/store/employees-api";
 import type { Employee } from "@/lib/types";
@@ -35,6 +36,15 @@ import type { Employee } from "@/lib/types";
  * which mode it is in — and a default here would silently write to the browser
  * on a screen that believed it was connected. It returns a promise, and a
  * rejection is expected: field errors from the API land on the right inputs.
+ *
+ * ## Editing needs `EDIT_RECORDS`, so without it there is no Edit button
+ *
+ * `PATCH /employees/:id` requires it, and half the people who can *read* a
+ * record cannot change it — a record opens for the person themselves, and almost
+ * nobody may edit their own job title or salary. An Edit button that fills a
+ * form, accepts a change and then answers 403 on Save has wasted somebody's
+ * time and taught them the product is unreliable. The section stays fully
+ * readable; only the control that cannot work is absent.
  */
 
 /**
@@ -82,6 +92,7 @@ export function EditableSection({
   onSave: (patch: EmployeePatch) => Promise<unknown>;
 }) {
   const toast = useToast();
+  const canEdit = useCan("EDIT_RECORDS");
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<EmployeePatch>({});
   const [errors, setErrors] = useState<SectionError[]>([]);
@@ -198,12 +209,12 @@ export function EditableSection({
                 Save
               </Button>
             </div>
-          ) : (
+          ) : canEdit ? (
             <Button variant="secondary" size="sm" onClick={open}>
               <Pencil aria-hidden="true" className="size-3.5" />
               Edit
             </Button>
-          )
+          ) : null
         }
       />
       <CardBody>

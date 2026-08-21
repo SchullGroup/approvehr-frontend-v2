@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { SourceBadge } from "@/components/hiring/source-badge";
-import { pipelineCards } from "@/lib/mock/hiring";
 import { OfferApprovals } from "./approvals";
 
 export const metadata: Metadata = {
@@ -12,16 +11,13 @@ export const metadata: Metadata = {
 /**
  * `/hiring/offers`
  *
- * Seeded in both modes. `Offer` exists in Prisma with an `outsideBand` flag and
- * an approval trail, and no module exposes it — so a decision taken here is not
- * recorded anywhere, which the badge and the toasts both say plainly.
+ * A shell. The offers themselves are seeded in both modes — `Offer` exists in
+ * Prisma with an `outsideBand` flag and an approval trail, and no module exposes
+ * it — but the **band** each one is measured against is the live grade ladder.
+ * Two sources on one card, so the badge belongs to the card and not to this
+ * header; see `approvals.tsx`.
  */
-
 export default function OffersPage() {
-  const awaiting = pipelineCards().filter(
-    (c) => c.offer && c.offer.status === "pending_approval",
-  );
-
   return (
     <>
       <PageHeader
@@ -30,11 +26,11 @@ export default function OffersPage() {
           { href: "/hiring/offers", label: "Offers" },
         ]}
         title="Offer approvals"
-        meta={<SourceBadge live={false} />}
-        description="Nothing here has reached a candidate yet. Approving releases the offer to the recruiter to send."
+        meta={<SourceBadge live={false} note="The offers themselves." />}
+        description="Nothing here has reached a candidate yet, and approving does not send it — offers have no endpoint. The band each one is checked against is live."
       />
       <PageBody>
-        <OfferApprovals initial={awaiting} />
+        <OfferApprovals />
       </PageBody>
     </>
   );

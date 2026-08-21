@@ -341,8 +341,30 @@ export function useEmployeeMutations() {
   const { isConnected } = useSession();
   const local = useEmployeeStore();
 
+  /**
+   * Creates a record, and refuses rather than pretending when there is no API.
+   *
+   * Demo mode does **not** fall through to the local store here, unlike
+   * `update`. `useEmployeeStore.create` mints its own `p-NN` id, and a record
+   * with a demo id created while connected would be a person the payroll run
+   * cannot see and whose record page 404s in any other browser. The new-starter
+   * form calls the local store directly in demo mode, where that is the honest
+   * answer and the screen says so.
+   *
+   * `departmentId` and `managerId` are sent, `department` and `location` are
+   * not: they are display names, and zod strips an unknown key rather than
+   * refusing it — so a name sent here would look saved and change nothing. The
+   * form sends ids from real pickers instead.
+   */
   const create = useCallback(
-    async (draft: Partial<Employee> & { firstName: string; lastName: string }) => {
+    async (
+      draft: Partial<Employee> & {
+        firstName: string;
+        lastName: string;
+        departmentId?: string;
+        workLocationId?: string;
+      },
+    ) => {
       if (!isConnected) {
         throw new ApiError(
           0,
@@ -359,10 +381,26 @@ export function useEmployeeMutations() {
         taxState: draft.taxState ?? "Lagos",
         ...(draft.email ? { email: draft.email } : {}),
         ...(draft.phone ? { phone: draft.phone } : {}),
+        ...(draft.dateOfBirth ? { dateOfBirth: draft.dateOfBirth } : {}),
         ...(draft.bankName ? { bankName: draft.bankName } : {}),
         ...(draft.bankAccount ? { bankAccount: draft.bankAccount } : {}),
         ...(draft.pensionPin ? { pensionPin: draft.pensionPin } : {}),
+        ...(draft.pensionProvider
+          ? { pensionProvider: draft.pensionProvider }
+          : {}),
         ...(draft.tin ? { tin: draft.tin } : {}),
+        ...(draft.nhfNumber ? { nhfNumber: draft.nhfNumber } : {}),
+        ...(draft.departmentId ? { departmentId: draft.departmentId } : {}),
+        ...(draft.workLocationId
+          ? { workLocationId: draft.workLocationId }
+          : {}),
+        ...(draft.managerId ? { managerId: draft.managerId } : {}),
+        /* Upper case on the wire, lower case in `Employee` — the same seam as
+           `update` below. */
+        ...(draft.status ? { status: draft.status.toUpperCase() } : {}),
+        ...(draft.employmentType
+          ? { employmentType: draft.employmentType.toUpperCase() }
+          : {}),
       });
       return toEmployee(created);
     },

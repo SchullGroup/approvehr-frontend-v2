@@ -10,9 +10,14 @@ import {
   type LeaveRow,
   type LeaveRowStatus,
   type LeaveTypeRow,
+  type PublicHolidayRow,
 } from "@/lib/api/leave";
 import { employeeById } from "@/lib/mock/people";
-import type { LeaveRequest, LeaveType } from "@/lib/mock/workflows";
+import {
+  PUBLIC_HOLIDAYS,
+  type LeaveRequest,
+  type LeaveType,
+} from "@/lib/mock/workflows";
 import { TODAY } from "@/lib/today";
 import { fullName } from "@/lib/types";
 import { clashesWith, remainingDays } from "@/lib/workflows/leave";
@@ -551,4 +556,198 @@ export function useLeaveMutations(): LeaveMutations {
   );
 
   return { create, decide, reopen, cancel, connected: isConnected };
+}
+
+/* ------------------------------------------------- every balance, one person */
+
+export type EmployeeBalancesState = {
+  balances: LeaveBalanceRow[];
+  loading: boolean;
+  error: ApiError | null;
+  connected: boolean;
+};
+
+/**
+ * Every leave type's balance for one person, for a record page.
+ *
+ * `useLeaveBalancesFor` above answers the other question — one type across
+ * several people, which is what a rota or an approval queue needs. This is the
+ * transpose, and it is a different request: `GET /leave/balances/:id` returns
+ * the whole set for one employee in a single call, so a record page does not
+ * need to know which types exist before it can ask.
+ *
+ * Both go through the same endpoint and the same demo source, so a remaining
+ * figure reads the same wherever it appears. That is the whole reason this lives
+ * beside its sibling rather than in the record page: two hooks in two files
+ * computing "days left" is how the number starts disagreeing with itself.
+ *
+ * The endpoint needs `VIEW_SALARIES` or for the record to be your own — the same
+ * rule as the employee detail read — so a 403 here means the page above it
+ * should not have opened either.
+ */
+export function useEmployeeLeaveBalances(
+  employeeId: string | null,
+): EmployeeBalancesState {
+  const { isConnected } = useSession();
+  const local = useLeaveBalances();
+
+  /* Keyed by the employee it belongs to, the same shape as `useEmployee`: a
+     slow answer for the record you have navigated away from cannot be rendered
+     against this one, `loading` is derived rather than tracked, and nothing
+     needs clearing when the id changes. */
+  const [fetched, setFetched] = useState<{
+    id: string;
+    rows: LeaveBalanceRow[];
+    error: ApiError | null;
+  } | null>(null);
+
+  const active = isConnected && employeeId !== null;
+
+  useEffect(() => {
+    if (!active || employeeId === null) return;
+    const controller = new AbortController();
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const rows = await leaveApi.balances(employeeId, undefined, controller.signal);
+        if (!cancelled) setFetched({ id: employeeId, rows, error: null });
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (!cancelled) {
+          setFetched({
+            id: employeeId,
+            rows: [],
+            error: error instanceof ApiError ? error : null,
+          });
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [active, employeeId]);
+
+  if (!isConnected) {
+    return {
+      /* Through `useLeaveBalances`, which closes over the company leave policy
+         as well as the requests. Calling `leaveBalancesFor` here instead is the
+         bug that hook exists to prevent. */
+      balances:
+        employeeId === null
+          ? []
+          : local.forEmployee(employeeId).map((balance) => ({
+              leaveTypeId: null,
+              leaveType: balance.type,
+              year: new Date(TODAY).getUTCFullYear(),
+              entitled: balance.entitled,
+              carriedIn: 0,
+              taken: balance.taken,
+              pending: balance.pending,
+              remaining: remainingDays(balance),
+            })),
+      loading: false,
+      error: null,
+      connected: false,
+    };
+  }
+
+  const matched = fetched !== null && fetched.id === employeeId;
+  return {
+    balances: matched ? fetched.rows : [],
+    loading: active && !matched,
+    error: matched ? fetched.error : null,
+    connected: true,
+  };
+}
+
+/* --------------------------------------------------------- public holidays */
+
+export type PublicHolidaysState = {
+  holidays: PublicHolidayRow[];
+  /**
+   * True when the API is live but publishes no holiday calendar.
+   *
+   * Distinct from an empty list, which means the calendar exists and has nothing
+   * in it. A screen has to be able to tell those apart, because one of them is
+   * a fact about the company and the other is a gap in the product.
+   */
+  unavailable: boolean;
+  loading: boolean;
+  connected: boolean;
+};
+
+/**
+ * The public holiday calendar.
+ *
+ * Demo mode reads `PUBLIC_HOLIDAYS` from the seed, which is the right source
+ * there: no database, and the dates are real Nigerian ones. Connected it comes
+ * from the API, because holidays are announced at short notice — the Eid dates
+ * move with the lunar calendar and Independence Day observance shifts when it
+ * falls at a weekend — and a constant compiled into a bundle cannot be told
+ * about any of that.
+ *
+ * `GET /leave/holidays` does not exist yet, so today this resolves `unavailable`
+ * against the running API. It deliberately does **not** fall back to the seed
+ * list: a page badged "Live from the API" showing four hardcoded dates is the
+ * exact failure the two-mode design is built to avoid. See the header of
+ * `lib/api/leave.ts`.
+ */
+export function usePublicHolidays(year?: number): PublicHolidaysState {
+  const { isConnected } = useSession();
+
+  /* Three states, and the difference matters: `undefined` is "not asked yet",
+     `null` is "the API has no calendar", an array is an answer. Folding the
+     first two together would report the gap while the request was still in
+     flight. */
+  const [fetched, setFetched] = useState<PublicHolidayRow[] | null | undefined>(
+    undefined,
+  );
+
+  useEffect(() => {
+    if (!isConnected) return;
+    const controller = new AbortController();
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const rows = await leaveApi.holidays(year, controller.signal);
+        if (!cancelled) setFetched(rows);
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        /* A 403 or a dropped connection is not "no calendar", but from this
+           card's point of view it is the same outcome: nothing to show, and no
+           pretending otherwise. */
+        if (!cancelled) setFetched(null);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [isConnected, year]);
+
+  const demo = useMemo<PublicHolidayRow[]>(
+    () =>
+      PUBLIC_HOLIDAYS.map((holiday) => ({
+        date: holiday.date,
+        name: holiday.name,
+        confirmed: holiday.confirmed,
+      })),
+    [],
+  );
+
+  if (!isConnected) {
+    return { holidays: demo, unavailable: false, loading: false, connected: false };
+  }
+
+  return {
+    holidays: fetched ?? [],
+    unavailable: fetched === null,
+    loading: fetched === undefined,
+    connected: true,
+  };
 }

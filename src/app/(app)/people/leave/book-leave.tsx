@@ -13,7 +13,6 @@ import {
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { daysLabel, type LeaveRow } from "@/lib/api/leave";
-import { CURRENT_USER } from "@/lib/mock/people";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import {
   useLeaveBalancesFor,
@@ -141,14 +140,15 @@ export function BookLeaveDialog({
         to: draft.to,
         ...(draft.reason.trim() ? { reason: draft.reason.trim() } : {}),
         /* Routed to whoever is signed in — they are the one looking at the
-           inbox, so a request they raise lands back with them. `employeeId`,
-           not the account id: an approver is an employee, and a user id would
-           point at nothing. */
-        ...(session.employeeId
-          ? { approverId: session.employeeId }
-          : mutations.connected
-            ? {}
-            : { approverId: CURRENT_USER.id }),
+           inbox, so a request they raise lands back with them.
+           `session.employeeId`, never `session.user.id`: an approver is a person
+           on the payroll, and an account id would point at nobody. Both records
+           carry `id`, `firstName` and `lastName`, so the compiler cannot tell
+           the two apart.
+           No session employee means no approver. The request is raised
+           unrouted and reads as "Not routed" — which is true, and better than
+           attributing it to a seeded person who is not the one signed in. */
+        ...(session.employeeId ? { approverId: session.employeeId } : {}),
       });
 
       toast.push({

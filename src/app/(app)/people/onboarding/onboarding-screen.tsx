@@ -1,11 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { Check, Plus } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
   Avatar,
   Badge,
+  Button,
   ButtonLink,
   Card,
   CardBody,
@@ -15,9 +17,15 @@ import {
   ProgressMeter,
   Skeleton,
   Stat,
+  useToast,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
-import { useEmployeeDirectory } from "@/lib/store/employees-api";
+import { ApiError } from "@/lib/api/client";
+import { useCan } from "@/lib/permissions";
+import {
+  useEmployeeDirectory,
+  useEmployeeMutations,
+} from "@/lib/store/employees-api";
 import {
   ONBOARDING_STEPS,
   useOnboardingChecklist,
@@ -50,13 +58,63 @@ const OWNER: Record<string, { label: string; tone: string }> = {
  * are read off the record and cannot be ticked by hand. The rest are somebody
  * doing something off-screen, and there is no onboarding endpoint yet, so those
  * ticks live in this browser. See `lib/store/onboarding.ts`.
+ *
+ * The API has no onboarding module — `approvehr-api/src/modules/` has one for
+ * offboarding and none for arriving — so a checklist stored server-side is not
+ * available to invent here. What *is* real in both modes is the record itself,
+ * which is why the one action on this screen writes to it.
+ *
+ * ## Finishing is a button, not a sentence telling you where to go
+ *
+ * Onboarding ends when somebody's status moves to Active, and that used to be
+ * described in the empty state and left for the reader to go and do on the
+ * record page. It is one field on a record this screen is already holding, so
+ * it is done here. It writes through `useEmployeeMutations`, which means the API
+ * when connected and localStorage when not — the same path the record page uses,
+ * never a second one.
  */
 export function OnboardingScreen() {
-  const { employees, loading, connected, error } = useEmployeeDirectory({
+  const { employees, loading, connected, error, reload } = useEmployeeDirectory({
     status: "ONBOARDING",
     pageSize: 100,
   });
   const checklist = useOnboardingChecklist();
+  const mutations = useEmployeeMutations();
+  const canEdit = useCan("EDIT_RECORDS");
+  const toast = useToast();
+  /** The id being moved, so only that card's button spins. */
+  const [finishing, setFinishing] = useState<string | null>(null);
+
+  const finish = async (employee: Employee) => {
+    const name = fullName(employee);
+    setFinishing(employee.id);
+    try {
+      await mutations.update(employee.id, { status: "active" });
+      /* Connected this refetches the filtered list, so they drop off it. In
+         demo mode the local store is the subscription behind `employees` and
+         has already re-rendered. */
+      reload();
+      toast.push({
+        title: `${name} is now active`,
+        tone: "success",
+        detail:
+          missingForPayroll(employee).length > 0
+            ? "Their record is still missing what payroll needs, so the next run will leave them out."
+            : "They are off this list and in the next payroll run.",
+      });
+    } catch (err) {
+      toast.push({
+        title: `${name} was not moved`,
+        tone: "danger",
+        detail:
+          err instanceof ApiError
+            ? err.message
+            : "Something went wrong. Try again.",
+      });
+    } finally {
+      setFinishing(null);
+    }
+  };
 
   const stepCount = employees.length * ONBOARDING_STEPS.length;
   const stepsDone = employees.reduce(
@@ -127,7 +185,7 @@ export function OnboardingScreen() {
           <Card>
             <EmptyState
               title="Nobody is onboarding right now"
-              description="Somebody appears here while their status is Onboarding. Set it on their record when they join, and move it to Active once they are settled."
+              description="Somebody appears here while their status is Onboarding, and drops off it the moment you finish them."
               action={
                 <ButtonLink href="/people/new" variant="accent" size="sm">
                   Add a starter
@@ -143,6 +201,9 @@ export function OnboardingScreen() {
                 employee={employee}
                 steps={checklist.stepsFor(employee)}
                 onToggle={(stepId) => checklist.toggle(employee.id, stepId)}
+                canFinish={canEdit}
+                finishing={finishing === employee.id}
+                onFinish={() => void finish(employee)}
               />
             ))}
           </div>
@@ -158,14 +219,22 @@ function StarterCard({
   employee,
   steps,
   onToggle,
+  canFinish,
+  finishing,
+  onFinish,
 }: {
   employee: Employee;
   steps: ResolvedStep[];
   onToggle: (stepId: string) => void;
+  /** `EDIT_RECORDS`. Without it there is no finish button, rather than a dead one. */
+  canFinish: boolean;
+  finishing: boolean;
+  onFinish: () => void;
 }) {
   const name = fullName(employee);
   const gaps = missingForPayroll(employee);
   const complete = steps.filter((s) => s.done).length;
+  const outstanding = steps.length - complete;
 
   return (
     <Card>
@@ -216,16 +285,36 @@ function StarterCard({
           ))}
         </ul>
 
-        {gaps.length > 0 && (
-          <ButtonLink
-            href={`/people/${employee.id}`}
-            variant="secondary"
-            size="sm"
-            block
-          >
-            Complete their record
-          </ButtonLink>
-        )}
+        <div className="flex flex-col gap-2">
+          {gaps.length > 0 && (
+            <ButtonLink
+              href={`/people/${employee.id}`}
+              variant="secondary"
+              size="sm"
+              block
+            >
+              Complete their record
+            </ButtonLink>
+          )}
+
+          {/* Available with steps still outstanding on purpose. Somebody can
+              be settled in the job before their pension PIN has arrived, and
+              refusing to finish them would be this screen inventing a rule the
+              payroll run does not have — the run blocks on the record, not on
+              a tick. The toast says what is still missing instead. */}
+          {canFinish && (
+            <Button
+              variant={outstanding === 0 ? "approve" : "secondary"}
+              size="sm"
+              block
+              loading={finishing}
+              onClick={onFinish}
+            >
+              {!finishing && <Check aria-hidden="true" className="size-3.5" />}
+              Finish onboarding
+            </Button>
+          )}
+        </div>
       </CardBody>
     </Card>
   );
