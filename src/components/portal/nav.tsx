@@ -209,7 +209,7 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
          Directory beside it: a leavers list is the directory read backwards,
          and the screen's own actions are already gated on it. */
       href: "/people/offboarding",
-      label: "Leavers",
+      label: "Exit management",
       icon: <DoorOpen aria-hidden="true" />,
       permission: "EDIT_RECORDS",
     },

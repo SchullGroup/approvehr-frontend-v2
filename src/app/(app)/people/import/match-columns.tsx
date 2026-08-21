@@ -57,6 +57,7 @@ export function MatchColumns({
   onBack,
   onContinue,
   busy,
+  retrying = 0,
 }: {
   csv: CsvFile;
   mapping: Mapping;
@@ -65,6 +66,14 @@ export function MatchColumns({
   onBack: () => void;
   onContinue: () => void;
   busy: boolean;
+  /**
+   * Rows left over from a partial import, when this is a second attempt.
+   *
+   * Shown rather than assumed: somebody who lands back on this step after 47 of
+   * 50 imported needs to know the next check covers three rows and not fifty,
+   * because otherwise the counts on the next screen look like a collapse.
+   */
+  retrying?: number;
 }) {
   const [filter, setFilter] = useState<"all" | "matched" | "ignored">("all");
 
@@ -99,6 +108,17 @@ export function MatchColumns({
 
   return (
     <div className="flex flex-col gap-5">
+      {retrying > 0 && (
+        <Callout
+          tone="info"
+          title={`This will check ${retrying} ${retrying === 1 ? "row" : "rows"}, not the whole file`}
+        >
+          The {retrying === 1 ? "row" : "rows"} that did not import last time,
+          with the same columns as before. Everything that landed is already in
+          and is not sent again.
+        </Callout>
+      )}
+
       {problems.missingRequired.length > 0 && (
         <Callout tone="warning" title="Some columns we have to have are missing">
           <p>
@@ -260,7 +280,9 @@ export function MatchColumns({
             disabled={!ready}
             loading={busy}
           >
-            Check the file
+            {retrying > 0
+              ? `Check ${retrying} ${retrying === 1 ? "row" : "rows"}`
+              : `Check ${csv.rows.length.toLocaleString("en-NG")} ${csv.rows.length === 1 ? "row" : "rows"}`}
             <ArrowRight aria-hidden="true" className="size-4" />
           </Button>
         </CardFooter>

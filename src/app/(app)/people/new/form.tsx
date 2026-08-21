@@ -27,6 +27,7 @@ import {
   Input,
   Modal,
   Money,
+  Picker,
   Select,
   Skeleton,
   StepIndicator,
@@ -226,6 +227,47 @@ export function NewEmployeeForm() {
   const directory = useEmployeeDirectory({ pageSize: 200 });
   const departments = useDepartments();
   const locations = useWorkLocations();
+
+  /**
+   * Which "create a new …" dialog is open, if any.
+   *
+   * The reason the two pickers are not `<select>`s. Adding the first department
+   * used to mean abandoning a half-filled form, going to Settings, creating it,
+   * and starting the form again — so in practice people left the field blank and
+   * the record went in incomplete.
+   */
+  const [creating, setCreating] = useState<null | "department" | "location">(null);
+  const [newName, setNewName] = useState("");
+  const [creatingBusy, setCreatingBusy] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  async function commitCreate() {
+    const name = newName.trim();
+    if (name === "" || creating === null) return;
+    setCreatingBusy(true);
+    setCreateError(null);
+    try {
+      if (creating === "department") {
+        const made = await departments.create({ name });
+        /* Selected immediately. Making somebody create a thing and then hunt for
+           it in the list they were already looking at is a small insult. */
+        set("departmentId", made.id);
+      } else {
+        const made = await locations.create({ name });
+        set("workLocationId", made.id);
+      }
+      setCreating(null);
+      setNewName("");
+    } catch (failure) {
+      /* The API's own words: it names a clash by the name that clashed, and says
+         when the thing exists but is switched off — which is a different fix. */
+      setCreateError(
+        failure instanceof Error ? failure.message : "That could not be created.",
+      );
+    } finally {
+      setCreatingBusy(false);
+    }
+  }
   const features = useFeatures();
   const drafts = useEmployeeDraft();
 
@@ -845,17 +887,28 @@ export function NewEmployeeForm() {
                         }
                       : {})}
                   >
-                    <Select
+                    <Picker
                       value={draft.workLocationId}
-                      onChange={(e) => set("workLocationId", e.target.value)}
-                    >
-                      <option value="">Not set</option>
-                      {locations.locations.map((l) => (
-                        <option key={l.id} value={l.id}>
-                          {l.name}
-                        </option>
-                      ))}
-                    </Select>
+                      onChange={(v) => set("workLocationId", v)}
+                      placeholder="Not set"
+                      loading={locations.loading}
+                      options={[
+                        { value: "", label: "Not set" },
+                        ...locations.locations.map((l) => ({
+                          value: l.id,
+                          label: l.name,
+                          ...(l.addressLine ? { hint: l.addressLine } : {}),
+                        })),
+                      ]}
+                      onCreate={{
+                        label: "Create a new work location",
+                        onSelect: () => {
+                          setNewName("");
+                          setCreateError(null);
+                          setCreating("location");
+                        },
+                      }}
+                    />
                   </Field>
                 </CardBody>
               </Card>
@@ -924,17 +977,27 @@ export function NewEmployeeForm() {
                         }
                       : {})}
                   >
-                    <Select
+                    <Picker
                       value={draft.departmentId}
-                      onChange={(e) => set("departmentId", e.target.value)}
-                    >
-                      <option value="">Not assigned</option>
-                      {departments.flat.map((d) => (
-                        <option key={d.id} value={d.id}>
-                          {d.name}
-                        </option>
-                      ))}
-                    </Select>
+                      onChange={(v) => set("departmentId", v)}
+                      placeholder="Not assigned"
+                      loading={departments.loading}
+                      options={[
+                        { value: "", label: "Not assigned" },
+                        ...departments.flat.map((d) => ({
+                          value: d.id,
+                          label: d.name,
+                        })),
+                      ]}
+                      onCreate={{
+                        label: "Create a new department",
+                        onSelect: () => {
+                          setNewName("");
+                          setCreateError(null);
+                          setCreating("department");
+                        },
+                      }}
+                    />
                   </Field>
                   <Field label="Reports to">
                     <Select
@@ -969,11 +1032,52 @@ export function NewEmployeeForm() {
 
             {stepId === "extras" && (
               <Card>
-                <CardHeader
-                  title="Extras"
-                  description="Nothing here is required to create the record. Open only what you have to hand — each group says what you lose by leaving it shut."
-                />
+                <CardHeader title="Extras" />
                 <CardBody className="flex flex-col gap-3">
+                  {groups.includes("bankDetails") && (
+                    <OptionalGroup
+                      id="bankDetails"
+                      open={open.bankDetails}
+                      onToggle={() =>
+                        setOpen((o) => ({ ...o, bankDetails: !o.bankDetails }))
+                      }
+                      filled={
+                        [draft.bankName, draft.bankAccount].filter(
+                          (v) => v.trim() !== "",
+                        ).length
+                      }
+                      total={2}
+                    >
+                      <div className="grid gap-5 sm:grid-cols-2">
+                        <Field label="Bank">
+                          <Select
+                            value={draft.bankName}
+                            onChange={(e) => set("bankName", e.target.value)}
+                          >
+                            <option value="">Not known yet</option>
+                            {BANKS.map((b) => (
+                              <option key={b} value={b}>
+                                {b}
+                              </option>
+                            ))}
+                          </Select>
+                        </Field>
+                        <Field
+                          label="Account number"
+                          error={errorFor("bankAccount")}
+                          help="Ten digits."
+                        >
+                          <Input
+                            data-employee-field="bankAccount"
+                            inputMode="numeric"
+                            value={draft.bankAccount}
+                            onChange={(e) => set("bankAccount", e.target.value)}
+                            placeholder="0123456789"
+                          />
+                        </Field>
+                      </div>
+                    </OptionalGroup>
+                  )}
                   {groups.includes("taxSetup") && (
                     <OptionalGroup
                       id="taxSetup"
@@ -1093,50 +1197,6 @@ export function NewEmployeeForm() {
                     </OptionalGroup>
                   )}
 
-                  {groups.includes("bankDetails") && (
-                    <OptionalGroup
-                      id="bankDetails"
-                      open={open.bankDetails}
-                      onToggle={() =>
-                        setOpen((o) => ({ ...o, bankDetails: !o.bankDetails }))
-                      }
-                      filled={
-                        [draft.bankName, draft.bankAccount].filter(
-                          (v) => v.trim() !== "",
-                        ).length
-                      }
-                      total={2}
-                    >
-                      <div className="grid gap-5 sm:grid-cols-2">
-                        <Field label="Bank">
-                          <Select
-                            value={draft.bankName}
-                            onChange={(e) => set("bankName", e.target.value)}
-                          >
-                            <option value="">Not known yet</option>
-                            {BANKS.map((b) => (
-                              <option key={b} value={b}>
-                                {b}
-                              </option>
-                            ))}
-                          </Select>
-                        </Field>
-                        <Field
-                          label="Account number"
-                          error={errorFor("bankAccount")}
-                          help="Ten digits."
-                        >
-                          <Input
-                            data-employee-field="bankAccount"
-                            inputMode="numeric"
-                            value={draft.bankAccount}
-                            onChange={(e) => set("bankAccount", e.target.value)}
-                            placeholder="0123456789"
-                          />
-                        </Field>
-                      </div>
-                    </OptionalGroup>
-                  )}
                 </CardBody>
               </Card>
             )}
@@ -1369,6 +1429,65 @@ export function NewEmployeeForm() {
       {/* The success state. Named, iconed, and offering the only two things
           anybody wants next. Not dismissible into nowhere: closing it leaves the
           cleared page behind, which says the same thing. */}
+      {/*
+       * Creating a department or a location without leaving the form.
+       *
+       * One field, because that is all either needs — the API defaults the rest,
+       * and asking for an address to record "Head office" is how somebody
+       * abandons this and leaves the field blank instead. Anything more detailed
+       * is edited in Settings afterwards.
+       */}
+      <Modal
+        open={creating !== null}
+        onClose={() => setCreating(null)}
+        size="sm"
+        title={
+          creating === "department"
+            ? "New department"
+            : "New work location"
+        }
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setCreating(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="accent"
+              loading={creatingBusy}
+              onClick={() => void commitCreate()}
+            >
+              Create and use it
+            </Button>
+          </div>
+        }
+      >
+        <Field
+          label={creating === "department" ? "Department name" : "Location name"}
+          required
+          {...(createError ? { error: createError } : {})}
+        >
+          <Input
+            autoFocus
+            value={newName}
+            onChange={(e) => {
+              setNewName(e.target.value);
+              setCreateError(null);
+            }}
+            /* Enter submits. A one-field dialog that needs a mouse to finish is
+               slower than the Settings trip it exists to avoid. */
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                void commitCreate();
+              }
+            }}
+            placeholder={
+              creating === "department" ? "Finance" : "Head office"
+            }
+          />
+        </Field>
+      </Modal>
+
       <Modal
         open={added !== null}
         onClose={() => setAdded(null)}

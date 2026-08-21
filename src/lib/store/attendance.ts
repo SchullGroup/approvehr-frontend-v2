@@ -544,6 +544,19 @@ export type LocationsState = {
   loading: boolean;
   error: ApiError | null;
   source: AttendanceSource;
+  /**
+   * Adds one and returns it, so a caller can select what it just made.
+   *
+   * The point of returning the row rather than void: a picker that offers
+   * "create a new location" has to leave the new location *chosen*. Making
+   * somebody create a thing and then find it in the list they were already
+   * looking at is the kind of small insult that makes a form feel hostile.
+   *
+   * Refuses in demo mode rather than writing to this browser — a location is
+   * company configuration, and inventing one locally would have it vanish on the
+   * next machine while every employee assigned to it kept pointing at nothing.
+   */
+  create: (input: { name: string; addressLine?: string }) => Promise<ApiWorkLocation>;
 };
 
 /**
@@ -596,6 +609,12 @@ export function useWorkLocations(): LocationsState {
       loading: false,
       error: null,
       source: "demo",
+      create: () =>
+        Promise.reject(
+          new Error(
+            "Locations cannot be added in demo mode. Connect to the API first.",
+          ),
+        ),
     };
   }
 
@@ -604,6 +623,19 @@ export function useWorkLocations(): LocationsState {
     loading: fetched === null,
     error: fetched?.error ?? null,
     source: "api",
+    create: async (input) => {
+      const made = await attendanceApi.createLocation(input);
+      /* Folded into the list held here rather than refetching: the caller is
+         about to select it, and a round trip would leave the picker briefly
+         showing a list without the thing that was just created in it. */
+      setFetched((prior) => ({
+        locations: [...(prior?.locations ?? []), made].sort((a, b) =>
+          a.name.localeCompare(b.name),
+        ),
+        error: prior?.error ?? null,
+      }));
+      return made;
+    },
   };
 }
 

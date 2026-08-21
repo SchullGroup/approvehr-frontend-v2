@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Download, Upload, Users } from "lucide-react";
+import { CheckCircle2, Download, RefreshCw, Upload, Users } from "lucide-react";
 import {
   Button,
   ButtonLink,
@@ -10,6 +10,12 @@ import {
   CardFooter,
   CardHeader,
   Stat,
+  TBody,
+  TD,
+  TH,
+  THead,
+  TR,
+  TableWrap,
 } from "@/components/ui";
 import type { ApplyOutcome, CheckOutcome } from "@/lib/store/imports";
 
@@ -24,13 +30,23 @@ const people = (value: number): string => (value === 1 ? "person" : "people");
  * five hundred salaries land in a payroll system, and it has to be the sentence
  * they would have written themselves.
  */
-export function confirmLabel(toCreate: number, toUpdate: number): string {
-  if (toCreate > 0 && toUpdate > 0) {
-    return `Add ${count(toCreate)} ${people(toCreate)} and update ${count(toUpdate)}`;
-  }
-  if (toCreate > 0) return `Add ${count(toCreate)} ${people(toCreate)}`;
-  if (toUpdate > 0) return `Update ${count(toUpdate)} ${people(toUpdate)}`;
-  return "Nothing to import";
+export function confirmLabel(
+  toCreate: number,
+  toUpdate: number,
+  toSkip = 0,
+): string {
+  const doing =
+    toCreate > 0 && toUpdate > 0
+      ? `Add ${count(toCreate)} ${people(toCreate)} and update ${count(toUpdate)}`
+      : toCreate > 0
+        ? `Add ${count(toCreate)} ${people(toCreate)}`
+        : toUpdate > 0
+          ? `Update ${count(toUpdate)} ${people(toUpdate)}`
+          : "Nothing to import";
+  /* And what it will not do. A button that says "Add 47 people" over a file of
+     50 is true and incomplete, and the three it is silent about are exactly the
+     three somebody finds out about at the first payroll run. */
+  return toSkip > 0 ? `${doing}, leave ${count(toSkip)} out` : doing;
 }
 
 /**
@@ -58,6 +74,7 @@ export function ImportResult({
   onConfirm,
   onDownload,
   onAnother,
+  onRetry,
 }: {
   check: CheckOutcome;
   result: ApplyOutcome | null;
@@ -66,6 +83,16 @@ export function ImportResult({
   onConfirm: () => void;
   onDownload: () => void;
   onAnother: () => void;
+  /**
+   * Try again with only the rows that did not land.
+   *
+   * The loop this closes: 47 of 50 imported and three did not, and until now the
+   * only way back was to download the rejects, open them in Excel and start the
+   * whole flow again. The 47 are not re-sent, because a second pass at them
+   * would be a harmless update and "harmless" is a claim about somebody's salary
+   * that nobody needs to test.
+   */
+  onRetry: () => void;
 }) {
   if (!result) {
     return (
@@ -116,7 +143,7 @@ export function ImportResult({
               disabled={check.toCreate + check.toUpdate === 0}
             >
               <CheckCircle2 aria-hidden="true" className="size-4" />
-              {confirmLabel(check.toCreate, check.toUpdate)}
+              {confirmLabel(check.toCreate, check.toUpdate, check.toSkip)}
             </Button>
           )}
         </CardFooter>
@@ -126,6 +153,10 @@ export function ImportResult({
 
   const landed = result.created + result.updated;
   const missed = result.notImported.length;
+  /* The reason beside the row number. Every row that did not land has one, and a
+     row with no reason at all is one that was never sent — which is itself the
+     reason, and is said rather than left blank. */
+  const byRow = new Map(result.problems.map((line) => [line.row, line]));
 
   return (
     <div className="flex flex-col gap-5">
@@ -158,10 +189,16 @@ export function ImportResult({
             before it stopped. {count(missed)} rows were not — they are unchanged
             in your file. {result.failure.message}
           </p>
-          <Button variant="secondary" size="sm" onClick={onDownload}>
-            <Download aria-hidden="true" className="size-3.5" />
-            Download the {count(missed)} rows that did not import
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="accent" size="sm" onClick={onRetry}>
+              <RefreshCw aria-hidden="true" className="size-3.5" />
+              Try those {count(missed)} again
+            </Button>
+            <Button variant="secondary" size="sm" onClick={onDownload}>
+              <Download aria-hidden="true" className="size-3.5" />
+              Download the {count(missed)} rows that did not import
+            </Button>
+          </div>
         </Callout>
       ) : (
         <Callout
@@ -179,12 +216,69 @@ export function ImportResult({
               : "Every row in the file landed."}
           </p>
           {missed > 0 && (
-            <Button variant="secondary" size="sm" onClick={onDownload}>
-              <Download aria-hidden="true" className="size-3.5" />
-              Download the {count(missed)} rows to fix
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="accent" size="sm" onClick={onRetry}>
+                <RefreshCw aria-hidden="true" className="size-3.5" />
+                Fix those {count(missed)} now
+              </Button>
+              <Button variant="secondary" size="sm" onClick={onDownload}>
+                <Download aria-hidden="true" className="size-3.5" />
+                Download the {count(missed)} rows to fix
+              </Button>
+            </div>
           )}
         </Callout>
+      )}
+
+      {missed > 0 && (
+        <Card>
+          <CardHeader
+            level={2}
+            title={`The ${count(missed)} ${missed === 1 ? "row" : "rows"} that did not import`}
+            description="Named, not counted. Every one of these is still exactly as it was in your file."
+          />
+          <TableWrap
+            className="rounded-none border-0 border-t border-line"
+            caption="Rows that did not import"
+          >
+            <THead>
+              <TH className="w-20">Row</TH>
+              <TH>Who</TH>
+              <TH>Why it did not import</TH>
+            </THead>
+            <TBody>
+              {result.notImported.slice(0, 60).map((row) => {
+                const line = byRow.get(row);
+                return (
+                  <TR key={row}>
+                    <TD className="tabular align-top font-medium text-ink">{row}</TD>
+                    <TD className="align-top">
+                      <span className="text-[0.875rem] text-ink">
+                        {line?.name ?? line?.employeeNo ?? "—"}
+                      </span>
+                    </TD>
+                    <TD className="align-top">
+                      <span className="text-[0.875rem] text-body">
+                        {line?.duplicate?.decision === "skip"
+                          ? `You chose to leave ${line.duplicate.name} alone.`
+                          : (line?.problems.find(
+                              (issue) => issue.severity === "error",
+                            )?.problem ??
+                            "This row was not sent, because an earlier part failed.")}
+                      </span>
+                    </TD>
+                  </TR>
+                );
+              })}
+            </TBody>
+          </TableWrap>
+          {missed > 60 && (
+            <CardBody className="py-3.5 text-[0.875rem] text-muted">
+              The first 60 are listed. Download the file above for all{" "}
+              {count(missed)}.
+            </CardBody>
+          )}
+        </Card>
       )}
 
       {result.notes.length > 0 && (

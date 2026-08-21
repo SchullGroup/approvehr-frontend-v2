@@ -3,6 +3,7 @@ export type { ButtonProps, ButtonVariant, ButtonSize } from "./button";
 
 export { Field, FieldSet, useFieldControl } from "./field";
 export { Input, Textarea, Select } from "./input";
+export { Picker, type PickerOption, type PickerProps } from "./picker";
 export { Checkbox, Radio, RadioCard, Switch } from "./choice";
 
 export {

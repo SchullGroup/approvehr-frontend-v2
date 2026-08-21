@@ -81,7 +81,7 @@ export function ExitDetailScreen({ id }: { id: string }) {
   if (exitState.loading) {
     return (
       <>
-        <PageHeader title="Leaver" breadcrumb={[{ href: "/people/offboarding", label: "Leavers" }]} />
+        <PageHeader title="Exit" breadcrumb={[{ href: "/people/offboarding", label: "Exit management" }]} />
         <PageBody className="flex flex-col gap-4">
           <Skeleton className="h-24" />
           <Skeleton className="h-64" />
@@ -96,7 +96,7 @@ export function ExitDetailScreen({ id }: { id: string }) {
   if (!exit || !readiness) {
     return (
       <>
-        <PageHeader title="Leaver" breadcrumb={[{ href: "/people/offboarding", label: "Leavers" }]} />
+        <PageHeader title="Exit" breadcrumb={[{ href: "/people/offboarding", label: "Exit management" }]} />
         <PageBody>
           <Card>
             <EmptyState
@@ -176,7 +176,7 @@ export function ExitDetailScreen({ id }: { id: string }) {
     <>
       <PageHeader
         title={exit.employee.name}
-        breadcrumb={[{ href: "/people/offboarding", label: "Leavers" }]}
+        breadcrumb={[{ href: "/people/offboarding", label: "Exit management" }]}
         description={`${exit.kindLabel} · last day ${shortDate(exit.lastWorkingDay)} · ${
           exit.employee.jobTitle
         }`}

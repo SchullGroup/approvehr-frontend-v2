@@ -4,12 +4,23 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import {
   imports as api,
+  type ApiDuplicateCounts,
+  type ApiDuplicateDecision,
+  type ApiDuplicateMatch,
   type ApiImportBatch,
   type ApiImportTemplate,
+  type ApiMissingField,
   type ApiRowReport,
   type ImportRow,
 } from "@/lib/api/imports";
-import { downloadCsv, parseCsv, toCsv, type CsvFile, type CsvRow } from "@/lib/csv";
+import {
+  downloadCsv,
+  fileFromRecords,
+  parseCsv,
+  toCsv,
+  type CsvFile,
+  type CsvRow,
+} from "@/lib/csv";
 import { checkMappedRows } from "@/lib/imports/check";
 import {
   guessMapping,
@@ -20,10 +31,12 @@ import {
   type Mapping,
 } from "@/lib/imports/mapping";
 import {
-  EMPLOYEE_COLUMNS,
-  MAX_ROWS_PER_BATCH,
-  type EmployeeField,
-} from "@/lib/imports/template";
+  buildTemplateFiles,
+  columnsFromSpecs,
+  type TemplateColumn,
+} from "@/lib/imports/template-file";
+import { MAX_ROWS_PER_BATCH, type EmployeeField } from "@/lib/imports/template";
+import { downloadXlsx, isXlsxName, readXlsx } from "@/lib/xlsx";
 import { useSession } from "./session";
 
 /**
@@ -117,21 +130,36 @@ export type RowLine = {
   name: string | null;
   action: "create" | "update" | "skip";
   problems: RowProblem[];
+  /** Somebody on file this row looks like. The caller decides, not us. */
+  duplicate: ApiDuplicateMatch | null;
+  /** Recommended fields left empty. Flagged, never blocking. */
+  missing: ApiMissingField[];
+  /** True when the staff number was generated because the file had none. */
+  employeeNoGenerated: boolean;
 };
 
-/** One validated part: the rows it covered, and the batch it belongs to. */
+/**
+ * One validated part: the rows it covered, and the batch it belongs to.
+ *
+ * `rowNumbers` rather than a from/to span, because the rows a part carries are
+ * not always contiguous. Re-submitting only the three rows that failed sends
+ * rows 12, 47 and 300 in one request, and every row number the report shows has
+ * to stay the number Excel shows — a report that renumbered them to 1, 2, 3
+ * would be worse than no row numbers at all.
+ */
 export type CheckedPart = {
   index: number;
   batchId: string;
-  /** File row numbers, 1-based and inclusive. */
-  from: number;
-  to: number;
-  rows: number;
+  /** File row numbers, in the order they were sent. */
+  rowNumbers: number[];
 };
 
 export type CheckOutcome = {
   filename: string;
+  /** Rows in the file. */
   totalRows: number;
+  /** Rows actually sent to be checked, which is fewer after a re-submission. */
+  rowsChecked: number;
   toCreate: number;
   toUpdate: number;
   toSkip: number;
@@ -140,6 +168,20 @@ export type CheckOutcome = {
   notes: string[];
   missing: { departments: string[]; salaryGrades: string[] };
   parts: CheckedPart[];
+  /** Rows that look like somebody on file, split by what has been decided. */
+  duplicates: ApiDuplicateCounts;
+  /** People who would import with a recommended field empty. */
+  flagged: number;
+  /**
+   * How many corrections had been made when this check ran.
+   *
+   * The comparison against the live count is what tells the screen whether the
+   * report in front of somebody still describes the rows that would be sent. A
+   * fix typed after a check is a fix the API has not seen, and confirming on the
+   * strength of the old report would import the unmended row while the screen
+   * showed it as mended.
+   */
+  fixCount: number;
   /**
    * False when this was the browser's own file check.
    *
@@ -200,17 +242,25 @@ export function planParts(rows: readonly ImportRow[]): { start: number; end: num
   return parts;
 }
 
-/** The API's per-part row numbers to the file's, and its columns to theirs. */
+/**
+ * The API's per-part row numbers to the file's, and its columns to theirs.
+ *
+ * `rowNumbers` is the part's own list, so `report.row` — 1-based within what was
+ * sent — is an index into it. A part is not necessarily a contiguous span: after
+ * a partial import somebody re-submits the three rows that failed, and those
+ * rows keep the numbers their spreadsheet shows.
+ */
 function translate(
   report: ApiRowReport,
-  offset: number,
+  rowNumbers: readonly number[],
   columns: Record<string, string>,
 ): RowLine {
+  const fileRow = (sentRow: number): number => rowNumbers[sentRow - 1] ?? sentRow;
   const problem = (
     issue: { row: number; column: string; value: string | null; problem: string },
     severity: Severity,
   ): RowProblem => ({
-    row: issue.row + offset,
+    row: fileRow(issue.row),
     column: columns[issue.column] ?? issue.column,
     /* `issue.column` is already our canonical name; `columns` is what turns it
        back into their heading. So the field a fix writes to is free here. */
@@ -221,7 +271,7 @@ function translate(
   });
 
   return {
-    row: report.row + offset,
+    row: fileRow(report.row),
     employeeNo: report.employeeNo,
     name: report.name,
     action: report.action,
@@ -229,7 +279,34 @@ function translate(
       ...report.errors.map((issue) => problem(issue, "error")),
       ...report.warnings.map((issue) => problem(issue, "warning")),
     ],
+    duplicate: report.duplicate,
+    missing: report.missing,
+    employeeNoGenerated: report.employeeNoGenerated,
   };
+}
+
+/** True for a row line that carries something the reader has to answer. */
+export const needsDecision = (line: RowLine): boolean =>
+  line.duplicate !== null && line.duplicate.decision === null;
+
+/**
+ * The decisions that belong to one part, renumbered to that part's own rows.
+ *
+ * The API numbers the rows it was handed from 1, so a decision about file row
+ * 300 has to arrive as row 4 of the part that carries it. Getting this wrong
+ * would apply an answer about one person to another one, which is why it is a
+ * named function with the arithmetic in one place rather than inline.
+ */
+function decisionsFor(
+  rowNumbers: readonly number[],
+  decisions: Readonly<Record<number, "skip" | "update">>,
+): ApiDuplicateDecision[] {
+  const list: ApiDuplicateDecision[] = [];
+  rowNumbers.forEach((number, index) => {
+    const action = decisions[number];
+    if (action) list.push({ row: index + 1, action });
+  });
+  return list;
 }
 
 /**
@@ -337,6 +414,41 @@ export function useEmployeeImport() {
     });
   }, []);
 
+  /**
+   * What to do about a row that looks like somebody already on file.
+   *
+   * Keyed by the file's own row number, and sent as part of the check — the API
+   * folds the decisions into the fingerprint, so a batch checked with "skip" and
+   * applied with "update" is refused rather than quietly landing the other one.
+   * A row with no answer does not import, and the report says why.
+   */
+  const [decisions, setDecisions] = useState<Record<number, "skip" | "update">>({});
+
+  const decide = useCallback((row: number, action: "skip" | "update") => {
+    setDecisions((prior) => ({ ...prior, [row]: action }));
+  }, []);
+
+  /**
+   * Whether the flagged list has been read.
+   *
+   * Not a formality. The list is people who will be in the directory with
+   * something payroll needs missing, and the alternative to an acknowledgement
+   * is a warning nobody has to look at — which for the two hundredth row of a
+   * five hundred row file is the same as no warning at all.
+   */
+  const [acknowledged, setAcknowledged] = useState(false);
+  const acknowledge = useCallback((value: boolean) => setAcknowledged(value), []);
+
+  /**
+   * Which of the file's rows to send, by row number, or null for all of them.
+   *
+   * Set after a partial import so the second attempt carries only the rows that
+   * did not land. Row *numbers* rather than a new file, because everything the
+   * report says is addressed by the number the spreadsheet shows and rebuilding
+   * a smaller file would renumber them.
+   */
+  const [selection, setSelection] = useState<number[] | null>(null);
+
   useEffect(() => {
     if (!isConnected) return;
     const controller = new AbortController();
@@ -359,20 +471,14 @@ export function useEmployeeImport() {
     setError(null);
     setCheck(null);
     setResult(null);
-    /* Corrections belong to the file that needed them. Carrying them into a new
-       upload would write one spreadsheet's fixes onto another's rows. */
+    /* Corrections, answers and any re-submission belong to the file that needed
+       them. Carrying them into a new upload would write one spreadsheet's fixes
+       onto another's rows. */
     setFixes({});
+    setDecisions({});
+    setAcknowledged(false);
+    setSelection(null);
     mapped.current = [];
-
-    /* An .xlsx is a zip of XML, and reading it as text produces line noise. The
-       message says what to do about it, because "unsupported file type" leaves
-       somebody stuck in front of the only file they have. */
-    if (/\.(xlsx|xlsm|xls|numbers|ods)$/i.test(chosen.name)) {
-      setError(
-        "That is a spreadsheet, not a CSV. In Excel: File, then Save As, then choose CSV — then upload that file.",
-      );
-      return false;
-    }
 
     if (chosen.size > 25_000_000) {
       setError(
@@ -381,15 +487,56 @@ export function useEmployeeImport() {
       return false;
     }
 
-    let text: string;
-    try {
-      text = await chosen.text();
-    } catch {
-      setError("That file could not be read. Try saving it again as CSV.");
+    /* The older binary formats, and the two that are not spreadsheets we can
+       open. `.xls` is a completely different container from `.xlsx` and `.numbers`
+       is a package; both convert in one menu item, and the message says which. */
+    if (/\.(xls|xlsm|xlsb|numbers|ods)$/i.test(chosen.name)) {
+      setError(
+        "We can read .xlsx and .csv. In Excel or Numbers: File, then Save As or Export, and choose Excel Workbook (.xlsx) or CSV — then upload that.",
+      );
       return false;
     }
 
-    const csv = parseCsv(text);
+    let csv: CsvFile;
+    if (isXlsxName(chosen.name)) {
+      /* An Excel file, which is what our own template hands them. Reading it is
+         not a nicety: offering a .xlsx template and then refusing .xlsx uploads
+         would be a trap of our own making. */
+      try {
+        const workbook = await readXlsx(await chosen.arrayBuffer());
+        /* The first sheet with more than a heading row in it. A workbook whose
+           first tab is a cover note is common, and so is our own template's
+           second tab — picking sheet one blindly imports the guide. */
+        const useful =
+          workbook.sheets.find((sheet) => sheet.grid.length > 1) ?? workbook.sheets[0];
+        if (!useful) {
+          setError("There are no sheets in that workbook.");
+          return false;
+        }
+        const notes = [...workbook.notes];
+        if (workbook.sheets.length > 1) {
+          notes.push(
+            `That workbook has ${workbook.sheets.length} sheets. We read "${useful.name}" — the first one with rows in it.`,
+          );
+        }
+        csv = fileFromRecords(useful.grid, { notes });
+      } catch {
+        setError(
+          "That .xlsx could not be opened. If it came from another system, open it in Excel and save it again — or save it as CSV and upload that.",
+        );
+        return false;
+      }
+    } else {
+      let text: string;
+      try {
+        text = await chosen.text();
+      } catch {
+        setError("That file could not be read. Try saving it again as CSV.");
+        return false;
+      }
+      csv = parseCsv(text);
+    }
+
     if (csv.headers.length === 0) {
       setError("That file is empty — there is no heading row in it.");
       return false;
@@ -412,6 +559,9 @@ export function useEmployeeImport() {
     setCheck(null);
     setResult(null);
     setFixes({});
+    setDecisions({});
+    setAcknowledged(false);
+    setSelection(null);
     setError(null);
     setProgress(null);
     mapped.current = [];
@@ -445,6 +595,10 @@ export function useEmployeeImport() {
     if (!file || !isMappingReady(mapping)) return false;
     setError(null);
     setResult(null);
+    /* A new check produces a new flagged list, so an acknowledgement of the old
+       one no longer describes anything on screen. Cheap to re-tick, and the
+       alternative is somebody carrying on past a list they have not seen. */
+    setAcknowledged(false);
 
     /* Mapped from the raw file, then the person's corrections laid back over
        the top. Order matters: mapping first so a re-mapped column is honoured,
@@ -452,30 +606,51 @@ export function useEmployeeImport() {
     const rows = applyFixes(mapRows(file.csv.rows, mapping), fixes);
     mapped.current = rows;
     const columns = reverseHeadings(mapping);
+    const fixCount = Object.keys(fixes).length;
+
+    /* The row numbers to send, and the payload built from them. After a partial
+       import that is only the rows that did not land; otherwise it is the file.
+       Row *numbers* are the unit throughout, because every message the report
+       prints names one and it has to be the number Excel shows. */
+    const numbers = (selection ?? rows.map((_row, index) => index + 1)).filter(
+      (number) => rows[number - 1] !== undefined,
+    );
+    const payload = numbers.map((number) => rows[number - 1] as ImportRow);
 
     if (!isConnected) {
       const presentFields = new Set(
         Object.values(mapping).filter((field): field is EmployeeField => field !== ""),
       );
-      const local = checkMappedRows(rows, { presentFields });
+      const local = checkMappedRows(payload, { presentFields });
       setCheck({
         filename: file.name,
-        totalRows: local.totalRows,
+        totalRows: rows.length,
+        rowsChecked: payload.length,
         toCreate: local.toImport,
         toUpdate: 0,
         toSkip: local.toSkip,
         problems: local.rows
-          .filter((row) => row.errors.length > 0 || row.warnings.length > 0)
-          .map((row) => translate(row, 0, columns)),
+          .filter(
+            (row) =>
+              row.errors.length > 0 ||
+              row.warnings.length > 0 ||
+              row.missing.length > 0,
+          )
+          .map((row) => translate(row, numbers, columns)),
         notes: [...file.csv.notes, ...local.notes],
         missing: { departments: [], salaryGrades: [] },
         parts: [],
+        /* Offline nothing can be matched against the directory, so there is
+           nothing to decide. Said on screen rather than shown as a zero. */
+        duplicates: { undecided: 0, skipping: 0, updating: 0 },
+        flagged: local.flagged,
+        fixCount,
         authoritative: false,
       });
       return true;
     }
 
-    const planned = planParts(rows);
+    const planned = planParts(payload);
     const parts: CheckedPart[] = [];
     const problems: RowLine[] = [];
     const notes = new Set<string>(file.csv.notes);
@@ -484,41 +659,57 @@ export function useEmployeeImport() {
     let toCreate = 0;
     let toUpdate = 0;
     let toSkip = 0;
+    let flagged = 0;
+    const duplicates: ApiDuplicateCounts = {
+      undecided: 0,
+      skipping: 0,
+      updating: 0,
+    };
     let checked = 0;
 
     /** One span, splitting on a 413 rather than giving up on the file. */
     const checkSpan = async (start: number, end: number): Promise<void> => {
-      const slice = rows.slice(start, end);
+      const slice = payload.slice(start, end);
+      const rowNumbers = numbers.slice(start, end);
       setProgress({
         label:
           planned.length > 1
-            ? `Checking rows ${start + 1} to ${end} of ${rows.length}`
-            : `Checking ${rows.length} rows`,
+            ? `Checking rows ${rowNumbers[0]} to ${rowNumbers[rowNumbers.length - 1]} of ${payload.length}`
+            : `Checking ${payload.length} rows`,
         done: checked,
-        total: rows.length,
+        total: payload.length,
       });
 
       try {
         const answer = await api.validateEmployees({
           filename: file.name,
           rows: slice,
+          decisions: decisionsFor(rowNumbers, decisions),
         });
 
-        parts.push({
-          index: parts.length + 1,
-          batchId: answer.batchId,
-          from: start + 1,
-          to: end,
-          rows: slice.length,
-        });
+        parts.push({ index: parts.length + 1, batchId: answer.batchId, rowNumbers });
         toCreate += answer.toCreate;
         toUpdate += answer.toUpdate;
         toSkip += answer.toSkip;
+        flagged += answer.flagged;
+        duplicates.undecided += answer.duplicates.undecided;
+        duplicates.skipping += answer.duplicates.skipping;
+        duplicates.updating += answer.duplicates.updating;
         checked += slice.length;
 
         for (const report of answer.rows) {
-          if (report.errors.length === 0 && report.warnings.length === 0) continue;
-          problems.push(translate(report, start, columns));
+          /* A row with a duplicate or a missing detail has something to say even
+             when nothing is wrong with it — those are the two lists this screen
+             exists to show. */
+          if (
+            report.errors.length === 0 &&
+            report.warnings.length === 0 &&
+            report.duplicate === null &&
+            report.missing.length === 0
+          ) {
+            continue;
+          }
+          problems.push(translate(report, rowNumbers, columns));
         }
         answer.notes.forEach((note) => notes.add(note));
         answer.missing.departments.forEach((name) => missingDepartments.add(name));
@@ -549,7 +740,7 @@ export function useEmployeeImport() {
 
     setProgress(null);
     problems.sort((a, b) => a.row - b.row);
-    parts.sort((a, b) => a.from - b.from);
+    parts.sort((a, b) => (a.rowNumbers[0] ?? 0) - (b.rowNumbers[0] ?? 0));
     parts.forEach((part, index) => {
       part.index = index + 1;
     });
@@ -560,10 +751,16 @@ export function useEmployeeImport() {
         `You left ${ignored.length} ${ignored.length === 1 ? "column" : "columns"} out: ${ignored.join(", ")}.`,
       );
     }
+    if (payload.length < rows.length) {
+      notes.add(
+        `This check covered ${payload.length} of the ${rows.length} rows in the file — the ones that did not import last time. The rest are already in.`,
+      );
+    }
 
     setCheck({
       filename: file.name,
       totalRows: rows.length,
+      rowsChecked: payload.length,
       toCreate,
       toUpdate,
       toSkip,
@@ -574,10 +771,13 @@ export function useEmployeeImport() {
         salaryGrades: [...missingGrades],
       },
       parts,
+      duplicates,
+      flagged,
+      fixCount,
       authoritative: true,
     });
     return true;
-  }, [file, mapping, isConnected, fixes]);
+  }, [file, mapping, isConnected, fixes, decisions, selection]);
 
   /* -------------------------------------------------------------- step four */
 
@@ -592,6 +792,10 @@ export function useEmployeeImport() {
    */
   const runImport = useCallback(async (): Promise<boolean> => {
     if (!check || !check.authoritative || check.parts.length === 0) return false;
+    /* A correction typed after the check is a correction the API has not seen.
+       Applying now would import the unmended row while the screen showed it as
+       mended — so this refuses, and the screen offers the re-check instead. */
+    if (Object.keys(fixes).length !== check.fixCount) return false;
     setError(null);
 
     const rows = mapped.current;
@@ -606,29 +810,36 @@ export function useEmployeeImport() {
     let applied = 0;
     let failure: ApplyOutcome["failure"] = null;
 
+    let sent = 0;
     for (const part of check.parts) {
+      const first = part.rowNumbers[0] ?? 0;
+      const last = part.rowNumbers[part.rowNumbers.length - 1] ?? 0;
       setProgress({
         label:
           check.parts.length > 1
-            ? `Importing rows ${part.from} to ${part.to} of ${check.totalRows}`
-            : `Importing ${check.totalRows} rows`,
-        done: part.from - 1,
-        total: check.totalRows,
+            ? `Importing rows ${first} to ${last} of ${check.rowsChecked}`
+            : `Importing ${check.rowsChecked} rows`,
+        /* Rows finished, counted rather than estimated from the part index —
+           parts are not all the same size once a 413 has halved one. */
+        done: sent,
+        total: check.rowsChecked,
       });
 
       try {
         const answer = await api.applyEmployees(part.batchId, {
           confirm: true,
-          rows: rows.slice(part.from - 1, part.to),
+          rows: part.rowNumbers.map((number) => rows[number - 1] as ImportRow),
+          decisions: decisionsFor(part.rowNumbers, decisions),
         });
         applied += 1;
+        sent += part.rowNumbers.length;
         created += answer.created;
         updated += answer.updated;
         skipped += answer.skipped;
         managersLinked += answer.managersLinked;
         answer.notes.forEach((note) => notes.add(note));
         for (const report of answer.skippedRows) {
-          const line = translate(report, part.from - 1, columns);
+          const line = translate(report, part.rowNumbers, columns);
           problems.push(line);
           notImported.push(line.row);
         }
@@ -637,7 +848,7 @@ export function useEmployeeImport() {
         /* This part and everything after it. Said as row numbers, because that
            is what somebody has to go and re-import. */
         for (const rest of check.parts.slice(part.index - 1)) {
-          for (let row = rest.from; row <= rest.to; row += 1) notImported.push(row);
+          notImported.push(...rest.rowNumbers);
         }
         break;
       }
@@ -654,29 +865,67 @@ export function useEmployeeImport() {
       managersLinked,
       notes: [...notes],
       problems,
-      notImported,
+      notImported: [...new Set(notImported)],
       partsApplied: applied,
       partsTotal: check.parts.length,
       failure,
     });
     return failure === null;
-  }, [check, mapping]);
+  }, [check, mapping, fixes, decisions]);
+
+  /**
+   * Try again with only the rows that did not land.
+   *
+   * The loop this closes: 47 of 50 imported, three did not, and until now the
+   * only way back was to download the rejects, open them in Excel and start
+   * over. The rows keep their own numbers, the 47 that landed are not sent again
+   * — a second attempt at them would be a harmless update, but "harmless" is a
+   * claim about somebody's salary that nobody needs to test.
+   */
+  const retryNotImported = useCallback((): boolean => {
+    if (!result || result.notImported.length === 0) return false;
+    setSelection([...result.notImported]);
+    setResult(null);
+    setCheck(null);
+    setAcknowledged(false);
+    setError(null);
+    return true;
+  }, [result]);
 
   /* ------------------------------------------------------------- downloads */
 
-  /** The blank template, from the API when it answers and compiled in when not. */
-  const downloadTemplate = useCallback(() => {
-    if (template) {
-      /* The API sends header and example row without a BOM; Excel wants one. */
-      downloadCsv(template.filename, `\uFEFF${template.csv}\r\n`);
-      return;
-    }
-    const headers = EMPLOYEE_COLUMNS.map((spec) => spec.column);
-    const example: CsvRow = Object.fromEntries(
-      EMPLOYEE_COLUMNS.map((spec) => [spec.column, spec.example]),
-    );
-    downloadCsv("approvehr-employees-template.csv", toCsv(headers, [example]));
+  /**
+   * The blank template, in either format.
+   *
+   * Built here rather than taken from the API's `csv` field, even when the API
+   * answers. The API sends the *dictionary* and this builds the file from it, so
+   * the CSV and the workbook are one code path with one set of headings, one
+   * legend and one example row. Two builders would drift, and the file a
+   * customer fills in is the last place that can afford to.
+   */
+  const templateColumns = useCallback((): TemplateColumn[] => {
+    if (!template) return columnsFromSpecs();
+    return template.columns.map((column) => ({
+      column: column.column,
+      required: column.required,
+      recommended: column.recommended,
+      example: column.example,
+      note: column.note,
+      alsoAccepted: column.alsoAccepted,
+    }));
   }, [template]);
+
+  const downloadTemplate = useCallback(
+    (format: "csv" | "xlsx" = "xlsx") => {
+      const files = buildTemplateFiles(templateColumns(), {
+        ...(template?.legend ? { legend: template.legend } : {}),
+        ...(template?.matching ? { matching: template.matching } : {}),
+      });
+      if (format === "csv") downloadCsv(files.csvFilename, files.csv);
+      else downloadXlsx(files.xlsxFilename, files.xlsx);
+    },
+    [template, templateColumns],
+  );
 
   /**
    * The rows that need fixing, as their own CSV.
@@ -707,11 +956,20 @@ export function useEmployeeImport() {
     [file],
   );
 
-  /** Rows that will be skipped, from the check. */
+  /**
+   * Rows that will be skipped, from the check.
+   *
+   * A duplicate somebody chose to leave alone is not in it. That row is not
+   * broken and there is nothing to mend in a spreadsheet — putting it in a file
+   * called "rows to fix" would send somebody looking for a problem that is
+   * actually a decision they already made.
+   */
   const downloadRowsToFix = useCallback(() => {
     if (!check) return;
     downloadRows(
-      check.problems.filter((line) => line.action === "skip"),
+      check.problems.filter(
+        (line) => line.action === "skip" && line.duplicate?.decision !== "skip",
+      ),
       `rows-to-fix-${check.filename}`,
     );
   }, [check, downloadRows]);
@@ -741,6 +999,9 @@ export function useEmployeeImport() {
               severity: "error" as const,
             },
           ],
+          duplicate: null,
+          missing: [],
+          employeeNoGenerated: false,
         },
     );
     downloadRows(lines, `not-imported-${file.name}`);
@@ -757,6 +1018,8 @@ export function useEmployeeImport() {
     template,
     isConnected,
     ready: file !== null && isMappingReady(mapping),
+    /* Rows left over from a partial import, when this is a second attempt. */
+    selection,
     /* actions */
     chooseFile,
     clear,
@@ -764,9 +1027,22 @@ export function useEmployeeImport() {
     resetMapping,
     runCheck,
     runImport,
+    retryNotImported,
     fixCell,
     fixes,
     fixCount: Object.keys(fixes).length,
+    /**
+     * True when a correction has been typed since the check ran.
+     *
+     * The screen uses it to make the re-check the primary action and to refuse
+     * the confirmation, because the report on display no longer describes the
+     * rows that would be sent.
+     */
+    unchecked: check !== null && Object.keys(fixes).length !== check.fixCount,
+    decisions,
+    decide,
+    acknowledged,
+    acknowledge,
     downloadTemplate,
     downloadRowsToFix,
     downloadNotImported,

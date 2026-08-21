@@ -63,6 +63,39 @@ export type ApiRowIssue = {
   problem: string;
 };
 
+/**
+ * Somebody this row looks like, found without a staff number.
+ *
+ * The API refuses to decide, which is the whole point of the type: creating a
+ * second record for one person and dropping a row on suspicion are both wrong,
+ * and only the customer knows which this is. `decision` is null until they say,
+ * and while it is null the row does not import and says so.
+ */
+export type ApiDuplicateMatch = {
+  on: "email" | "nameAndDateOfBirth";
+  /** The value in the file that matched. */
+  value: string;
+  employeeNo: string;
+  name: string;
+  archived: boolean;
+  decision: "skip" | "update" | null;
+};
+
+/**
+ * A recommended field the row left empty.
+ *
+ * Neither an error nor a warning: both of those describe something wrong with a
+ * cell, and this is a cell nobody wrote in. It never blocks — it is the list the
+ * user acknowledges before confirming.
+ */
+export type ApiMissingField = {
+  /** Our canonical field, so a fix can be typed into the right cell. */
+  field: string;
+  /** The heading it would have been under, in their words. */
+  column: string;
+  why: string;
+};
+
 export type ApiRowReport = {
   row: number;
   employeeNo: string | null;
@@ -72,6 +105,20 @@ export type ApiRowReport = {
   errors: ApiRowIssue[];
   /** Imported anyway, but somebody should look. */
   warnings: ApiRowIssue[];
+  duplicate: ApiDuplicateMatch | null;
+  missing: ApiMissingField[];
+  /** True when the API made the staff number up because the file had none. */
+  employeeNoGenerated: boolean;
+};
+
+/** One answer to one duplicate. `row` is 1-based within the part that was sent. */
+export type ApiDuplicateDecision = { row: number; action: "skip" | "update" };
+
+export type ApiDuplicateCounts = {
+  /** Asked and not answered. Every one of these rows is being skipped for it. */
+  undecided: number;
+  skipping: number;
+  updating: number;
 };
 
 export type ImportBatchStatus =
@@ -99,6 +146,9 @@ export type ApiValidateResult = {
   notes: string[];
   /** Every row, not only the failures. */
   rows: ApiRowReport[];
+  duplicates: ApiDuplicateCounts;
+  /** Rows that import with a recommended field empty. Never a blocker. */
+  flagged: number;
   fingerprint: string;
   maxRowsPerBatch: number;
 };
@@ -116,8 +166,16 @@ export type ApiApplyResult = {
   managersLinked: number;
   summary: string;
   notes: string[];
-  /** The rows that did not land, so they can be fixed and imported again. */
+  /**
+   * Every row that did not land, not only the ones with something wrong.
+   *
+   * A duplicate the caller chose to skip is also a person who is not in the
+   * directory. Which is which is readable from the row: `errors` for a problem,
+   * `duplicate` for a decision.
+   */
   skippedRows: ApiRowReport[];
+  duplicates: ApiDuplicateCounts;
+  flagged: number;
 };
 
 /** A row of `GET /imports`. */
@@ -146,6 +204,8 @@ export type ApiImportBatchDetail = ApiImportBatch & {
 export type ApiTemplateColumn = {
   column: string;
   required: boolean;
+  /** Optional, and its absence is reported rather than ignored. */
+  recommended: boolean;
   /** Headings that mean the same thing. What makes a real file work unedited. */
   alsoAccepted: readonly string[];
   example: string;
@@ -171,6 +231,8 @@ export type ApiImportTemplate = {
   };
   maxRowsPerBatch: number;
   matching: string;
+  /** The legend, as sentences. Printed on screen and into the file itself. */
+  legend: string[];
 };
 
 export type BatchListParams = {
@@ -189,7 +251,12 @@ export type BatchListParams = {
 export const imports = {
   /** Step one. Writes the batch record and nothing else. */
   validateEmployees: (
-    body: { filename: string; rows: ImportRow[] },
+    body: {
+      filename: string;
+      rows: ImportRow[];
+      /** Answers to duplicates found on a previous pass. Part of the fingerprint. */
+      decisions?: ApiDuplicateDecision[];
+    },
     signal?: AbortSignal,
   ) =>
     request<ApiValidateResult>("/imports/employees/validate", {
@@ -208,7 +275,12 @@ export const imports = {
    */
   applyEmployees: (
     batchId: string,
-    body: { confirm: true; rows: ImportRow[] },
+    body: {
+      confirm: true;
+      rows: ImportRow[];
+      /** The same answers the check was run with — the fingerprint covers them. */
+      decisions?: ApiDuplicateDecision[];
+    },
     signal?: AbortSignal,
   ) =>
     request<ApiApplyResult>(`/imports/employees/${batchId}/apply`, {

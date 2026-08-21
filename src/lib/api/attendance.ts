@@ -326,6 +326,32 @@ export const attendanceApi = {
       ...(signal ? { signal } : {}),
     }),
 
+  /**
+   * Add a place people clock in at.
+   *
+   * Only the name is required. A geofence is the exception rather than the rule,
+   * and the API refuses a partial one — latitude without a radius cannot decide
+   * anything, and a fence that silently never matches refuses clock-ins with no
+   * visible cause.
+   */
+  createLocation: (input: {
+    name: string;
+    addressLine?: string;
+    remoteAllowed?: boolean;
+    latitude?: number;
+    longitude?: number;
+    radiusMetres?: number;
+  }) =>
+    request<ApiWorkLocation>("/attendance/locations", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  archiveLocation: (id: string) =>
+    request<{ name: string; assigned?: number }>(`/attendance/locations/${id}`, {
+      method: "DELETE",
+    }),
+
   /** Defaults to the server's today, which is the date to display. */
   roster: (date?: string, signal?: AbortSignal) =>
     request<ApiRoster>("/attendance/roster", {

@@ -22,7 +22,7 @@ export default function PeoplePage() {
                 working exit flow that nothing in the product pointed at. */}
             <ButtonLink href="/people/offboarding" variant="secondary" size="sm">
               <DoorOpen aria-hidden="true" className="size-4" />
-              Leavers
+              Exit management
             </ButtonLink>
             <ButtonLink href="/people/new" variant="accent" size="sm">
               <Plus aria-hidden="true" className="size-4" />

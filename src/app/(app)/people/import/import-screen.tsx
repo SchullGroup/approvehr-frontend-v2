@@ -65,29 +65,46 @@ export function ImportScreen() {
   const imp = useEmployeeImport();
   const allowed = !isConnected || can("IMPORT_DATA");
 
+  /* A count on every step, so nobody is ever guessing what is about to happen
+     to their data. Each hint is the number that step is about, and before that
+     step has happened it says what it will be about instead. */
+  const rows = imp.file?.csv.rows.length ?? 0;
+  const matched = imp.file
+    ? imp.file.csv.headers.filter((heading) => imp.mapping[heading]).length
+    : 0;
   const steps: Step[] = [
     {
       id: "file",
-      label: "Choose a file",
-      hint: "A CSV saved from your spreadsheet",
+      label: "Download and fill in",
+      hint: imp.file
+        ? `${rows.toLocaleString("en-NG")} ${rows === 1 ? "row" : "rows"} in ${imp.file.name}`
+        : "Our template, or the file you already keep",
       isComplete: imp.file !== null,
     },
     {
       id: "columns",
       label: "Match the columns",
-      hint: "Your headings, whatever they are called",
+      hint: imp.file
+        ? `${matched} of ${imp.file.csv.headers.length} columns matched`
+        : "Your headings, whatever they are called",
       isComplete: imp.ready,
     },
     {
       id: "check",
-      label: "Check",
-      hint: "What this file will do",
+      label: "Fix what is flagged",
+      hint: imp.check
+        ? `${imp.check.toSkip.toLocaleString("en-NG")} to fix, ${imp.check.flagged.toLocaleString("en-NG")} flagged`
+        : "Before anything is saved",
       isComplete: imp.check !== null,
     },
     {
       id: "import",
-      label: "Import",
-      hint: "One confirmation",
+      label: "Confirm",
+      hint: imp.result
+        ? `${(imp.result.created + imp.result.updated).toLocaleString("en-NG")} in, ${imp.result.notImported.length.toLocaleString("en-NG")} not`
+        : imp.check
+          ? `${(imp.check.toCreate + imp.check.toUpdate).toLocaleString("en-NG")} people`
+          : "One confirmation",
       isComplete: imp.result !== null,
     },
   ];
@@ -131,12 +148,7 @@ export function ImportScreen() {
             </Badge>
           )
         }
-        action={
-          <Button variant="secondary" size="sm" onClick={imp.downloadTemplate}>
-            <Download aria-hidden="true" className="size-4" />
-            Download the template
-          </Button>
-        }
+        action={<TemplateButtons onDownload={imp.downloadTemplate} size="sm" />}
       />
 
       <PageBody className="flex flex-col gap-6">
@@ -197,6 +209,7 @@ export function ImportScreen() {
               stepper.goTo(0);
             }}
             busy={imp.progress !== null}
+            retrying={imp.selection?.length ?? 0}
             onContinue={async () => {
               const ok = await imp.runCheck();
               if (ok) stepper.goTo(2);
@@ -210,6 +223,16 @@ export function ImportScreen() {
             onBack={() => stepper.goTo(1)}
             onDownload={imp.downloadRowsToFix}
             onContinue={() => stepper.goTo(3)}
+            /* Answers to "is this the same person?", and the acknowledgement of
+               the people who import with a detail missing. Both gate the step:
+               see `blocker` in the report. */
+            unchecked={imp.unchecked}
+            decisions={imp.decisions}
+            onDecide={(row, action) => {
+              imp.decide(row, action);
+            }}
+            acknowledged={imp.acknowledged}
+            onAcknowledge={imp.acknowledge}
             /* Fixing a cell here and re-checking, rather than downloading the
                rejects and editing them in Excel. `runCheck` re-applies the
                corrections over freshly mapped rows, so pressing this repeatedly
@@ -234,6 +257,13 @@ export function ImportScreen() {
               imp.clear();
               stepper.goTo(0);
             }}
+            /* Straight back to the check with only the rows that did not land.
+               `retryNotImported` clears the check, so the rail has to move too —
+               and it moves to the matching step because the check has to be run
+               again before there is anything to confirm. */
+            onRetry={() => {
+              if (imp.retryNotImported()) stepper.goTo(1);
+            }}
           />
         )}
       </PageBody>
@@ -242,6 +272,36 @@ export function ImportScreen() {
 }
 
 /* -------------------------------------------------------------------------- */
+
+/**
+ * The template, in the two formats people actually have.
+ *
+ * Excel first and by default, because that is what a company keeps its staff
+ * list in and because the workbook carries the guide sheet the CSV cannot. CSV
+ * beside it rather than behind a menu: somebody exporting from an old system, or
+ * working in Google Sheets, wants the other one, and one extra button is cheaper
+ * than a dropdown they have to open to discover it exists.
+ */
+function TemplateButtons({
+  onDownload,
+  size = "md",
+}: {
+  onDownload: (format: "csv" | "xlsx") => void;
+  size?: "sm" | "md";
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Button variant="secondary" size={size} onClick={() => onDownload("xlsx")}>
+        <Download aria-hidden="true" className="size-4" />
+        Template for Excel
+      </Button>
+      <Button variant="ghost" size={size} onClick={() => onDownload("csv")}>
+        <Download aria-hidden="true" className="size-4" />
+        CSV
+      </Button>
+    </div>
+  );
+}
 
 /**
  * Step one.
@@ -261,12 +321,15 @@ function ChooseFile({
   rows: number;
   columns: number;
   onFile: (file: File) => void | Promise<void>;
-  onTemplate: () => void;
+  onTemplate: (format: "csv" | "xlsx") => void;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const history = useImportHistory();
   const required = EMPLOYEE_COLUMNS.filter((spec) => spec.required);
+  const recommended = EMPLOYEE_COLUMNS.filter(
+    (spec) => spec.recommended !== undefined,
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -275,7 +338,7 @@ function ChooseFile({
           <CardHeader
             level={2}
             title="Choose your file"
-            description="A CSV saved from Excel, Google Sheets or your old system."
+            description="An Excel workbook (.xlsx) or a CSV, from our template or from your old system."
           />
           <CardBody>
             <div
@@ -307,8 +370,8 @@ function ChooseFile({
                 Drag your file here
               </p>
               <p className="mt-1.5 max-w-sm text-[0.875rem] leading-relaxed text-muted">
-                Your headings can be called anything. You match them to ours on
-                the next step.
+                Excel or CSV. Your headings can be called anything — you match
+                them to ours on the next step.
               </p>
               <Button
                 variant="accent"
@@ -320,7 +383,7 @@ function ChooseFile({
               <input
                 ref={input}
                 type="file"
-                accept=".csv,text/csv,text/plain"
+                accept=".csv,.xlsx,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 className="hidden"
                 onChange={(event) => {
                   const chosen = event.currentTarget.files?.[0];
@@ -346,16 +409,13 @@ function ChooseFile({
           <CardHeader
             level={2}
             title="Starting from nothing?"
-            description="Our template has every column we can read, with an example filled in."
+            description="Every column we can read, an example row, and a sheet explaining each one."
           />
           <CardBody className="flex flex-col gap-4">
-            <Button variant="secondary" onClick={onTemplate}>
-              <Download aria-hidden="true" className="size-4" />
-              Download the template
-            </Button>
+            <TemplateButtons onDownload={onTemplate} />
             <div>
               <p className="text-[0.75rem] font-semibold uppercase tracking-wide text-faint">
-                Every person needs
+                Required — no row imports without {required.length === 1 ? "it" : "these"}
               </p>
               <ul className="mt-2 flex flex-wrap gap-1.5">
                 {required.map((spec) => (
@@ -366,12 +426,29 @@ function ChooseFile({
                   </li>
                 ))}
               </ul>
-              <p className="mt-3 text-[0.875rem] leading-relaxed text-muted">
-                The other {EMPLOYEE_COLUMNS.length - required.length} columns are
-                optional, and a column you do not have is simply left alone on
-                anyone we update.
-              </p>
             </div>
+            <div>
+              <p className="text-[0.75rem] font-semibold uppercase tracking-wide text-faint">
+                Recommended — imports, then appears under &ldquo;important&rdquo;
+              </p>
+              <ul className="mt-2 flex flex-wrap gap-1.5">
+                {recommended.map((spec) => (
+                  <li key={spec.field}>
+                    <code className="rounded bg-sunken px-1.5 py-0.5 text-[0.8125rem] text-body">
+                      {spec.column}
+                    </code>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <p className="text-[0.875rem] leading-relaxed text-muted">
+              The other{" "}
+              {EMPLOYEE_COLUMNS.length - required.length - recommended.length}{" "}
+              columns are optional. A column you do not have is left out, and
+              left alone on anybody we update — including{" "}
+              <code className="text-[0.8125rem]">employee_no</code>, where we
+              match on email, or on name and date of birth, instead.
+            </p>
           </CardBody>
         </Card>
       </div>

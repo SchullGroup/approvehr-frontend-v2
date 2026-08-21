@@ -1,9 +1,15 @@
-import type { ApiRowIssue, ApiRowReport, ImportRow } from "@/lib/api/imports";
+import type {
+  ApiMissingField,
+  ApiRowIssue,
+  ApiRowReport,
+  ImportRow,
+} from "@/lib/api/imports";
 import {
   EMPLOYMENT_STATUS_WORDS,
   EMPLOYMENT_TYPE_WORDS,
   GENDER_WORDS,
   HEADING,
+  RECOMMENDED_FIELDS,
   REQUIRED_FIELDS,
   normalizeKey,
   resolveTaxState,
@@ -126,7 +132,11 @@ function build(
  * string rather than by multiplying a parsed float by 100, which is where
  * `162632.29 * 100 = 16263228.999999998` comes from.
  */
-export function parseImportMoneyKobo(raw: string): Parsed<number> {
+export function parseImportMoneyKobo(
+  raw: string,
+  options: { zeroAllowed?: boolean; subject?: string } = {},
+): Parsed<number> {
+  const { zeroAllowed = false, subject = "Monthly pay" } = options;
   /* A non-breaking space is what a copy-paste from a web page leaves behind. */
   let text = raw.replace(/\u00a0/g, " ").trim();
 
@@ -157,10 +167,15 @@ export function parseImportMoneyKobo(raw: string): Parsed<number> {
       `"${raw}" has more than two decimal places. Naira goes to the kobo and no further.`,
     );
   }
-  if (negative) return bad(`"${raw}" is negative. Monthly pay cannot be.`);
+  if (negative) return bad(`"${raw}" is negative. ${subject} cannot be.`);
 
   const kobo = Number(whole) * 100 + Number(`${decimals}00`.slice(0, 2));
-  if (kobo <= 0) return bad("Monthly pay has to be more than zero.");
+  /* Zero is refused for a salary and allowed for a declared rent: "I pay no
+     rent" is something somebody said, while a salary of nothing is a cell
+     nobody filled in. Same rule as the API's parser. */
+  if (kobo < 0 || (kobo === 0 && !zeroAllowed)) {
+    return bad(`${subject} has to be more than zero.`);
+  }
   if (kobo > 90_000_000_000) {
     return bad(
       `${(kobo / 100).toLocaleString("en-NG")} naira a month is implausible. Check the amount.`,
@@ -183,6 +198,8 @@ export type LocalCheckResult = {
   toSkip: number;
   rows: ApiRowReport[];
   notes: string[];
+  /** Rows that would import with a recommended field empty. */
+  flagged: number;
 };
 
 /**
@@ -204,9 +221,15 @@ export function checkMappedRows(
   const { presentFields, firstRowNumber = 1 } = options;
   const reports: ApiRowReport[] = [];
   const seen = new Map<string, number>();
+  /* The other two ways one person appears twice in one file. The database half
+     of the same question — is this somebody you already have — needs the API,
+     and the screen says so rather than implying this covers it. */
+  const seenEmail = new Map<string, number>();
+  const seenNameDob = new Map<string, number>();
   let ambiguousDates = 0;
   let inactiveRows = 0;
   let typeDisagreements = 0;
+  let flagged = 0;
 
   rows.forEach((row, index) => {
     const rowNumber = firstRowNumber + index;
@@ -264,6 +287,18 @@ export function checkMappedRows(
     if (gross !== "") {
       const parsed = parseImportMoneyKobo(gross);
       if (!parsed.ok) errors.push(issue("grossMonthly", parsed.problem));
+    }
+
+    /* Declared annual rent. Empty means undeclared and is not turned into a
+       zero — that would be declaring on somebody's behalf, and it costs them
+       relief either way round. */
+    const rent = text("annualRent");
+    if (rent !== "") {
+      const parsed = parseImportMoneyKobo(rent, {
+        zeroAllowed: true,
+        subject: "Rent",
+      });
+      if (!parsed.ok) errors.push(issue("annualRent", parsed.problem));
     }
 
     const frequency = text("payFrequency");
@@ -330,6 +365,17 @@ export function checkMappedRows(
       errors.push(
         issue("email", `"${email}" cannot be an email address. Check for a typo.`),
       );
+    } else if (email !== "") {
+      const key = email.toLowerCase();
+      const first = seenEmail.get(key);
+      if (first !== undefined) {
+        errors.push(
+          issue(
+            "email",
+            `${email} is already on row ${first} of this file. Two people cannot share a work email — merge the rows, or correct one address.`,
+          ),
+        );
+      } else seenEmail.set(key, rowNumber);
     }
 
     const account = text("bankAccount");
@@ -366,15 +412,58 @@ export function checkMappedRows(
       );
     }
 
+    /* Name plus date of birth, inside the file. Both are needed: a name alone
+       matches cousins and a date of birth alone matches strangers. */
+    const dob = text("dateOfBirth");
+    const firstName = text("firstName");
+    const lastName = text("lastName");
+    if (firstName !== "" && lastName !== "" && dob !== "") {
+      const parsed = parseImportDate(dob);
+      if (parsed.ok) {
+        const key = `${normalizeKey(firstName + lastName)}|${parsed.value.iso}`;
+        const first = seenNameDob.get(key);
+        if (first !== undefined) {
+          errors.push(
+            issue(
+              "dateOfBirth",
+              `${firstName} ${lastName}, born ${parsed.value.iso}, is already on row ${first} of this file. If they are two different people, give them different staff numbers.`,
+            ),
+          );
+        } else seenNameDob.set(key, rowNumber);
+      }
+    }
+
+    /* Recommended fields nobody filled in, on rows that would go in. Offline
+       every group is flagged: which ones this company has switched off is a
+       database question, and the screen says the list may be longer than the
+       one the API would produce rather than quietly showing a shorter one. */
+    const missing: ApiMissingField[] = [];
+    if (errors.length === 0) {
+      for (const spec of RECOMMENDED_FIELDS) {
+        if (text(spec.field) !== "") continue;
+        missing.push({
+          field: spec.field,
+          column: HEADING[spec.field],
+          why: spec.recommended?.why ?? "",
+        });
+      }
+      if (missing.length > 0) flagged += 1;
+    }
+
     reports.push({
       row: rowNumber,
       employeeNo: employeeNo || null,
-      name: [text("firstName"), text("lastName")].filter(Boolean).join(" ") || null,
+      name: [firstName, lastName].filter(Boolean).join(" ") || null,
       /* No "update" here: whether this person is already on file is a database
          question, and this check does not have a database. */
       action: errors.length > 0 ? "skip" : "create",
       errors,
       warnings,
+      /* Nor can this find a duplicate against the directory. In-file repeats are
+         errors above; the rest needs the API. */
+      duplicate: null,
+      missing,
+      employeeNoGenerated: false,
     });
   });
 
@@ -402,5 +491,6 @@ export function checkMappedRows(
     toSkip,
     rows: reports,
     notes,
+    flagged,
   };
 }

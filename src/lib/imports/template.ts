@@ -60,6 +60,21 @@ export type ColumnSpec = {
   example: string;
   /** What has to be in it, in one line. */
   note: string;
+  /**
+   * Optional, but its absence is reported rather than ignored.
+   *
+   * The three kinds of column are what makes "is this import finished" a
+   * question with an answer: `required` refuses the row, `recommended` imports
+   * the person onto a list somebody has to come back to, and neither is what an
+   * ordinary optional column does. `feature` is the `OrgFeatures` flag that
+   * decides whether this company is asked for it at all — a company that turned
+   * pension setup off is not nagged for RSA PINs here, because the
+   * single-employee form has stopped asking too.
+   */
+  recommended?: {
+    feature?: "taxSetup" | "pensionSetup" | "bankDetails";
+    why: string;
+  };
 };
 
 export type EmployeeField =
@@ -91,6 +106,7 @@ export type EmployeeField =
   | "pensionProvider"
   | "taxState"
   | "tin"
+  | "annualRent"
   | "nhfNumber"
   | "nextOfKinName"
   | "nextOfKinRelationship"
@@ -109,9 +125,12 @@ export const EMPLOYEE_COLUMNS: readonly ColumnSpec[] = [
       "emp_no",
       "employee_code",
     ],
-    required: true,
+    /* Not required, and it used to be. The single-employee form generates one
+       when nobody supplies it, so refusing the row here made the product
+       disagree with itself about the same person. See the API's dictionary. */
+    required: false,
     example: "EMP-1000",
-    note: "Your own staff number. This is what we match on, so a second import of the same number updates that person instead of creating a duplicate.",
+    note: "Your own staff number. This is what we match on, so a second import of the same number updates that person instead of creating a duplicate. Leave it out and we match on email, or on name and date of birth, and generate a number for anybody new.",
   },
   {
     field: "firstName",
@@ -143,7 +162,10 @@ export const EMPLOYEE_COLUMNS: readonly ColumnSpec[] = [
     aliases: ["email_address", "work_email", "company_email", "official_email"],
     required: false,
     example: "ngozi.williams@company.com",
-    note: "Their work address. We check the shape and flag anything that cannot be an email.",
+    note: "Their work address. It is also how we tell whether a row is somebody you already have, so a file without it cannot be safely imported twice.",
+    recommended: {
+      why: "no work email — payslips cannot be sent to them, and a re-import cannot tell they are already on file",
+    },
   },
   {
     field: "phone",
@@ -159,7 +181,7 @@ export const EMPLOYEE_COLUMNS: readonly ColumnSpec[] = [
     aliases: ["dob", "birth_date", "birthday"],
     required: false,
     example: "14/03/1991",
-    note: "DD/MM/YYYY or YYYY-MM-DD. Both are accepted and neither is guessed at.",
+    note: "DD/MM/YYYY or YYYY-MM-DD. Both are accepted and neither is guessed at. With a name, this is the second way we recognise somebody you already have.",
   },
   {
     field: "gender",
@@ -313,6 +335,10 @@ export const EMPLOYEE_COLUMNS: readonly ColumnSpec[] = [
     required: false,
     example: "9477600630",
     note: "10 digits. Anything else is flagged — payroll cannot pay into it.",
+    recommended: {
+      feature: "bankDetails",
+      why: "no account number — they will be on the payroll run and cannot be paid from it",
+    },
   },
   {
     field: "pensionPin",
@@ -321,6 +347,10 @@ export const EMPLOYEE_COLUMNS: readonly ColumnSpec[] = [
     required: false,
     example: "PEN100234567",
     note: "PEN then 9 to 12 digits. Flagged if it is not, because PenCom will refuse the schedule.",
+    recommended: {
+      feature: "pensionSetup",
+      why: "no RSA PIN — their pension is deducted but the PenCom schedule cannot name them",
+    },
   },
   {
     field: "pensionProvider",
@@ -345,6 +375,22 @@ export const EMPLOYEE_COLUMNS: readonly ColumnSpec[] = [
     required: false,
     example: "1234567890",
     note: "10 digits, FIRS format. Flagged if it is not.",
+    recommended: {
+      feature: "taxSetup",
+      why: "no TIN — PAYE is still deducted and remitted, but the FIRS filing cannot name them",
+    },
+  },
+  {
+    field: "annualRent",
+    column: "annual_rent",
+    aliases: ["rent", "annual_rent_paid", "yearly_rent", "rent_paid", "rent_declared"],
+    required: false,
+    example: "1,800,000.00",
+    note: "Annual rent they have declared, in naira. 20% of it is relieved against PAYE, up to ₦500,000. Leave it empty for anybody who has not declared — empty is not the same as 0, and 0 is a declaration.",
+    recommended: {
+      feature: "taxSetup",
+      why: "no rent declared — they get no rent relief and pay more PAYE until they declare",
+    },
   },
   {
     field: "nhfNumber",
@@ -526,6 +572,17 @@ export const SPEC_BY_FIELD: ReadonlyMap<EmployeeField, ColumnSpec> = new Map(
 export const REQUIRED_FIELDS: readonly EmployeeField[] = EMPLOYEE_COLUMNS.filter(
   (spec) => spec.required,
 ).map((spec) => spec.field);
+
+/**
+ * The fields whose absence is flagged rather than refused.
+ *
+ * Used by the offline check to produce the same "details missing" list the API
+ * produces, minus the part only the API knows: which field groups this company
+ * has switched off. Offline it flags all of them and says so.
+ */
+export const RECOMMENDED_FIELDS: readonly ColumnSpec[] = EMPLOYEE_COLUMNS.filter(
+  (spec) => spec.recommended !== undefined,
+);
 
 /** The heading we send for a field, for a message that names a column. */
 export const HEADING: Readonly<Record<EmployeeField, string>> = Object.fromEntries(

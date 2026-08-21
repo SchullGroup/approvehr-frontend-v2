@@ -45,7 +45,7 @@ import { useExitTemplates } from "@/lib/store/offboarding";
  * processing their first leaver. A five-person business should get through an
  * entire exit without ever arriving here.
  *
- * So it lives one click off the Leavers list, phrased as "what everyone works
+ * So it lives one click off the exit list, phrased as "what everyone works
  * through" rather than as configuration, and it opens with the list already
  * populated rather than with an empty state and an invitation.
  *
@@ -96,7 +96,7 @@ export function ChecklistSettingsScreen() {
     <>
       <PageHeader
         title="Exit checklist"
-        breadcrumb={[{ href: "/people/offboarding", label: "Leavers" }]}
+        breadcrumb={[{ href: "/people/offboarding", label: "Exit management" }]}
         description="What everyone leaving works through. You only need to change this if your list is different from ours."
         meta={
           templates.source === "demo" ? (

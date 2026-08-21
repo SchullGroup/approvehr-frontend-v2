@@ -1408,3 +1408,165 @@ flaky", and that entry says it is worth chasing rather than retrying past,
 because one instance of it turned out to be a genuine cross-tenant bug. It is
 left alone here because it is not this change's, and because the port-8000
 process was started outside the session that found it.
+
+---
+
+# The import can be finished now
+
+The bulk import had the hard half already: a column matcher that reads anybody's
+headings, a two-step validate/apply with a fingerprint, per-row errors, and a
+partial-success report that names its shortfall. What it did not have was a way
+to *finish* — every problem was reported and nothing could be resolved without
+leaving the screen. This section is what closed that, and four of the decisions
+are ones a reasonable person would make differently, so they say why.
+
+## `employee_no` is no longer required, and that was a real disagreement
+
+The importer refused every row without a staff number. `/people/new` generates
+one when nobody supplies it. Both were defensible alone and together they were
+the product disagreeing with itself about the same person: a twelve-person shop
+whose spreadsheet has no staff numbers could add all twelve through the form and
+none of them through the importer.
+
+So the required set is now **exactly the five the single-employee form refuses
+without** — first name, last name, job title, start date, monthly gross — plus a
+PAYE state that may come from the company rather than the row.
+`tests/imports.test.ts` asserts the list and says in a comment that a column
+added here has to be added to `createEmployeeSchema` in the same change. If you
+find yourself adding a sixth, that is the check.
+
+What a missing staff number costs is said rather than hidden: it is the key a
+re-import matches on, so the API generates `AHR-0001` and up (the same rule as
+`nextEmployeeNo`), reports `employeeNoGenerated` per row, and raises a note
+saying that importing the same file twice would add those people twice unless it
+carries their email or their date of birth.
+
+## Three kinds of unfinished business, because they end differently
+
+This is the shape of the whole feature and it is worth not collapsing:
+
+| | What it is | What happens |
+|---|---|---|
+| **Problem** | a cell that cannot be read, or a required one that is empty | the row does not import; fixable in place |
+| **Duplicate** | this row looks like somebody already on file | the row waits for a human answer |
+| **Missing detail** | a recommended field nobody filled in | the row imports; the person is named on a list |
+
+The third one is the user's own words — *it shows under important that this
+user's detail is missing* — and the reason it does not block is that refusing the
+record does not produce the bank account. It is acknowledged with a real
+checkbox, and the acknowledgement **resets on every re-check**, because a new
+check produces a new list and a tick against the old one describes nothing on
+screen.
+
+`recommended` on a `ColumnSpec` carries the `OrgFeatures` flag that decides
+whether the company is asked for that field at all, so a company that turned
+pension setup off is not nagged for RSA PINs by the importer while the form
+beside it has stopped asking. Offline every group is flagged and the screen says
+the list is longer than the live one would be.
+
+## Duplicates: reported, never decided
+
+By work email, and by name **plus** date of birth — both, because a name alone
+matches cousins and a date of birth alone matches strangers. A staff-number match
+is not one of these: that match *is* the update key and there is nothing to
+decide.
+
+The API refuses to choose. An undecided duplicate is an error on the row, so it
+does not import and says why; `decisions: [{ row, action }]` answers it, and the
+decisions are **folded into the fingerprint** — a batch checked with "skip Ada"
+and applied with "update Ada" is two different imports wearing one confirmation,
+and it is refused with the same 409 a tampered row gets. An update keeps the
+staff number already on the record, which is stated as a warning before it
+happens rather than discovered afterwards.
+
+In-file repeats of an email, or of a name and date of birth, are errors naming
+the earlier row. Two people on file with one name and one birthday is refused
+with "add a staff number to this row" rather than guessed at.
+
+## The template is generated, in both formats, and there is no xlsx dependency
+
+`lib/imports/template-file.ts` builds the CSV and the workbook from **the same
+column dictionary the importer validates against** — the API's copy when it
+answers, the compiled-in one when it does not. There are no column names in that
+file at all. `scripts/verify-template.ts` (in `npm run check`, 26 assertions)
+proves the loop rather than an expected list: build the file, read it back the
+way the upload does, and assert the values land on the fields the dictionary
+names. Add a column and it is covered without editing the script.
+
+Required headings are marked `first_name *`. That is safe rather than cute —
+heading matching normalises punctuation away on both sides — and it is asserted
+for all five rather than assumed.
+
+**`lib/xlsx.ts` is a hand-written reader and writer**, same reasoning as
+`lib/csv.ts` beside it: the job is a ZIP container and two XML parts, and this
+file records five CI failures from invented dependency ranges. The writer stores
+entries uncompressed (method 0, legal and universally read) so it needs no
+compressor and produces byte-identical output every time. Verified against
+**openpyxl**, an independent implementation, which reads the sheet names, the
+frozen header, the bold row, the text number format and every value including a
+leading zero.
+
+Three things in the reader that were got wrong first, all commented at the top of
+it: cells are **sparse** (a missing C4 shifts every later column if you read
+positionally — in a payroll import that puts an account number in a TIN); dates
+are **numbers** with only the cell's number format to say so; and numeric cells
+have already lost a leading zero before we see them, which is why the template
+formats every column as text.
+
+Offering an .xlsx template and then refusing .xlsx uploads would have been a trap
+of our own making, so the upload reads both. It picks the first sheet with rows
+in it — a cover-note tab is common, and so is our own guide tab — and says which
+one it read.
+
+## Parts carry row numbers now, not a span
+
+`CheckedPart.rowNumbers` replaced `from`/`to`. The rows a part carries are not
+always contiguous: after a partial import, "try those 3 again" sends rows 12, 47
+and 300 in one request, and every number the report prints has to stay the number
+Excel shows. `translate` maps the API's per-part numbering back through that
+list, and `decisionsFor` renumbers the decisions the same way — getting either
+wrong would apply one person's answer to somebody else, which is why both are
+named functions with the arithmetic in one place.
+
+## Small things worth not undoing
+
+- **A fix typed after a check refuses to apply.** `CheckOutcome.fixCount` is a
+  snapshot; the screen compares it with the live count and makes the re-check the
+  primary action. Without that, confirming after a correction imports the
+  unmended row while the screen shows it as mended.
+- **`apply`'s `skippedRows` is every row that did not land**, not only the ones
+  with errors. A duplicate somebody chose to skip is also a person who is not in
+  the directory.
+- **The confirm button names what it will not do**: "Add 47 people, leave 3 out".
+- **The rows-to-fix download excludes duplicates you chose to skip.** Those rows
+  are not broken, and sending somebody to Excel to look for a problem that is
+  actually their own decision is worse than not offering the file.
+
+## Verified
+
+Backend: `npx vitest run tests/imports.test.ts` — 28 passing, including the
+generated staff number, all four duplicate paths, the decision fingerprint
+refusal, the feature-flag effect on the flagged list, the rent declaration's
+three states, and a case proving a matching email in **another organisation** is
+invisible. `tests/employees.test.ts tests/setup.test.ts
+tests/tenant-isolation.test.ts` — 49 passing, unchanged.
+
+Frontend: `npm run check` green (typecheck, lint, titles, contrast, payroll, CSV
+101 assertions, template 26 assertions, loans).
+
+In the browser, **demo mode**: an .xlsx with a cover-note tab uploading and
+landing on the right sheet, a real date cell read as its date, 13 of 14 columns
+matched with `Religion` left out, five row problems each naming their own column
+(`Surname`, `Date of Employment`, `Email Address`, `Monthly Salary`, `State`),
+the in-file duplicate email caught on row 4 naming row 1, a row with no staff
+number *not* refused for it, the "Important: 2 people are missing a detail"
+list with its per-person reasons, the acknowledgement flipping the button from
+"Tick the box above to carry on" to "Continue", a correction typed in place
+flipping it to "Check the correction" and then clearing that row's error on the
+re-check, the same file as CSV behaving identically, and step four's honest
+demo-mode refusal. Both template downloads run without error.
+
+**Not exercised in a browser:** the duplicates card, the result screen and the
+"try those again" loop. All three need the directory, and signing in needs a
+password this session could not enter — they are covered by the backend tests
+above instead. Somebody with credentials should walk them once.

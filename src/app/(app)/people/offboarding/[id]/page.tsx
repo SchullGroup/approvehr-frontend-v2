@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { ExitDetailScreen } from "./exit-detail-screen";
 
 export const metadata: Metadata = {
-  title: "Leaver",
+  title: "Exit",
   description:
     "One exit: the checklist, who owns each item, who confirmed it, and whether the record can be closed.",
 };

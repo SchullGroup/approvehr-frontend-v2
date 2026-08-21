@@ -25,7 +25,7 @@ import { statusTone } from "./status-tone";
 import { StartExitDialog } from "./start-exit";
 
 /**
- * Leavers.
+ * Exit management.
  *
  * One list and one detail page, where the incumbent has
  * `/exit/resignation-requests`, `/exit/clearance-checklist`, `/exit/interviews`
@@ -55,7 +55,7 @@ export function OffboardingScreen() {
   return (
     <>
       <PageHeader
-        title="Leavers"
+        title="Exit management"
         description="Everyone on their way out, and what is left to do before they go."
         meta={
           exits.source === "demo" ? (
