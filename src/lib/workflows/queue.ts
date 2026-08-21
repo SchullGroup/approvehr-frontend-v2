@@ -1,11 +1,18 @@
 import { employeeById } from "@/lib/mock/people";
 import {
+  APPROVAL_LABEL,
   APPROVALS,
   type ApprovalItem,
+  type ApprovalKind,
   type LeaveRequest,
 } from "@/lib/mock/workflows";
 import { fullName } from "@/lib/types";
 import { TODAY, daysSince, shortDate } from "@/lib/today";
+import {
+  deadlineLabel,
+  isPastDeadline,
+  type ApprovalRow,
+} from "@/lib/api/approvals";
 import type { DecisionRecord } from "@/lib/store/approvals";
 import { clashesWith } from "./leave";
 
@@ -60,7 +67,9 @@ function leaveApproval(request: LeaveRequest, all: LeaveRequest[]): ApprovalItem
     requestedById: request.employeeId,
     requestedAt: raised ? shortDate(raised) : "—",
     waitingDays: raised ? Math.max(0, daysSince(raised)) : 0,
-    href: "/people/leave",
+    /* Deep-linked to the request itself, so "decide this" and "look at it
+       properly" are one click apart. The leave screen reads `?request=`. */
+    href: `/people/leave?request=${request.id}`,
     ref: { store: "leave", id: request.id },
   };
 }
@@ -126,4 +135,120 @@ export function decidedItems({
   }));
 
   return [...fromLeave, ...fromSeed];
+}
+
+/* ============================================================ one row shape */
+
+/**
+ * Where a decision has to be written.
+ *
+ * `leave` writes through to the leave request in the local store; `approval`
+ * posts to `/approvals/:id/decide`, which routes into the owning module on the
+ * server and writes the same subject. Two paths, one rule: the decision lands on
+ * the record, never on a copy of it.
+ */
+export type QueueRef =
+  | { store: "leave"; id: string }
+  | { store: "approval"; id: string };
+
+/**
+ * A row in the inbox, from either source.
+ *
+ * `ApprovalItem` is the seed's shape and could not grow the two fields the API
+ * has and the seed does not — a real `deadlineAt`, and a requester it may not be
+ * able to name. So this is the shape the screen renders, and both sources map
+ * into it: `toQueueItem` for a seed or derived row, `queueItemFromApproval` for
+ * an API row.
+ */
+export type QueueItem = {
+  id: string;
+  kind: ApprovalKind;
+  /** The API's own word when we have no better one. Always safe to render. */
+  kindLabel: string;
+  title: string;
+  summary: string;
+  /** Set only when the requester is somebody this app can name. */
+  requestedById?: string;
+  /** Display, e.g. `12 Aug`. */
+  requestedAt: string;
+  waitingDays: number;
+  /** Naira, where the decision moves money. */
+  amount?: number;
+  href: string;
+  /** Display label for a deadline: `Due 26 Aug`, `Due today`. */
+  deadline?: string;
+  /** True once that deadline has gone past. */
+  pastDeadline?: boolean;
+  ref?: QueueRef;
+};
+
+/**
+ * Where the record behind a row lives.
+ *
+ * Every one of these routes exists. A queue that links at a 404 is worse than a
+ * queue that does not link, and this list is the thing to check when a module
+ * moves.
+ */
+const HREF: Record<ApprovalKind, string> = {
+  leave: "/people/leave",
+  payroll_run: "/payroll",
+  offer: "/hiring/offers",
+  requisition: "/hiring",
+  expense: "/payroll/expenses",
+  record_change: "/people",
+  loan: "/payroll/loans",
+};
+
+/** A seed or derived row, in the shape the screen renders. */
+export function toQueueItem(item: ApprovalItem): QueueItem {
+  return {
+    id: item.id,
+    kind: item.kind,
+    kindLabel: APPROVAL_LABEL[item.kind],
+    title: item.title,
+    summary: item.summary,
+    requestedById: item.requestedById,
+    requestedAt: item.requestedAt,
+    waitingDays: item.waitingDays,
+    ...(item.amount === undefined ? {} : { amount: item.amount }),
+    href: item.href,
+    ...(item.deadline ? { deadline: item.deadline } : {}),
+    ...(item.ref ? { ref: item.ref } : {}),
+  };
+}
+
+/**
+ * An API approval row, in the same shape.
+ *
+ * Two differences from a seed row, both deliberate:
+ *
+ * - **No requester.** The API's approval row does not serialise who raised it,
+ *   so the avatar line is left off rather than filled with a guess. The title
+ *   already names the person the request is about, which is the thing an
+ *   approver is looking for.
+ * - **A leave row deep-links to its request.** `/people/leave?request=<id>`
+ *   opens that request on the leave screen, so "decide this" and "look at this
+ *   properly" are one click apart rather than a search.
+ */
+export function queueItemFromApproval(row: ApprovalRow): QueueItem {
+  const label = deadlineLabel(row.deadlineAt);
+  const href =
+    row.subjectType === "leave_requests"
+      ? `/people/leave?request=${row.subjectId}`
+      : HREF[row.kind];
+
+  return {
+    id: row.id,
+    kind: row.kind,
+    kindLabel: row.kindLabel,
+    title: row.title,
+    summary: row.summary ?? "",
+    requestedAt: shortDate(row.requestedAt),
+    waitingDays: row.waitingDays,
+    ...(row.amount === null ? {} : { amount: row.amount }),
+    href,
+    ...(label ? { deadline: label } : {}),
+    ...(isPastDeadline(row.deadlineAt) ? { pastDeadline: true } : {}),
+    ref: { store: "approval", id: row.id },
+  };
 }

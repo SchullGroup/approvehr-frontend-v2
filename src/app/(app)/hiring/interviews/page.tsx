@@ -11,6 +11,7 @@ import {
   EmptyState,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { SourceBadge } from "@/components/hiring/source-badge";
 import { INTERVIEWS, cardById } from "@/lib/mock/hiring";
 import { employeeById } from "@/lib/mock/people";
 import { fullName } from "@/lib/types";
@@ -19,6 +20,18 @@ export const metadata: Metadata = {
   title: "Interviews",
   description: "Everything scheduled, and every scorecard still owed.",
 };
+
+/**
+ * `/hiring/interviews`
+ *
+ * Seeded in both modes, and the badge says so.
+ *
+ * `Interview` and `Scorecard` are real Prisma models and neither has a route in
+ * `approvehr-api` — `/api/v1/careers` covers adverts and the applications they
+ * bring in, and stops there. So this screen has no live source to switch to, and
+ * the honest thing on a connected laptop is to keep saying it is demo data
+ * rather than inherit the page-level "connected" badge from its neighbours.
+ */
 
 const KIND_LABEL: Record<string, string> = {
   recruiter_screen: "Recruiter screen",
@@ -47,12 +60,7 @@ export default function InterviewsPage() {
       <PageHeader
         title="Interviews"
         description="Everything scheduled, and every scorecard still owed."
-        action={
-          <Button variant="accent" size="sm">
-            <CalendarClock aria-hidden="true" className="size-4" />
-            Schedule interview
-          </Button>
-        }
+        meta={<SourceBadge live={false} />}
       />
 
       <PageBody className="flex flex-col gap-5">

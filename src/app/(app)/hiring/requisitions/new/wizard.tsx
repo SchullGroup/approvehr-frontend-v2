@@ -22,6 +22,9 @@ import {
   useStepper,
   useToast,
 } from "@/components/ui";
+import { SourceBadge } from "@/components/hiring/source-badge";
+import { ApiError } from "@/lib/api/client";
+import { useAdvertCreation } from "@/lib/store/hiring";
 import { EMPLOYEES } from "@/lib/mock/people";
 import { STAGES, fullName, type StageId } from "@/lib/types";
 
@@ -71,15 +74,64 @@ const EMPTY: Draft = {
   activeStages: ["sourced", "shortlisted", "prescreen", "interview", "selection"],
   screeningQuestions: [],
   hiringManagerId: "",
-  recruiterId: "emp-06",
+  recruiterId: "p-06",
   notes: "",
 };
 
 const LOCKED_STAGES: StageId[] = ["sourced", "selection"];
 
+/** The wizard's own words for an employment type, and the API's. */
+const ADVERT_TYPE = {
+  full_time: "FULL_TIME",
+  contract: "CONTRACT",
+  internship: "INTERN",
+} as const;
+
+/**
+ * The advert this draft can actually become.
+ *
+ * `Requisition` has no route in this API, so the parts of a role that belong to
+ * it — the pipeline stages, the screening questions, the hiring manager, the
+ * note for approvers — are not sent anywhere. What an advert *can* carry is the
+ * job itself, so that is what gets written, as a draft. Publishing is a separate
+ * press on the adverts screen, because that is the moment the words go public.
+ *
+ * Composing the description here rather than in `lib/api/hiring.ts` is
+ * deliberate: this is presentation — the shape of a job advert — and the next
+ * person to rewrite the house style should find it beside the form that collects
+ * it, not behind the money boundary.
+ */
+function advertText(draft: Draft): { summary: string; description: string } {
+  const musts = draft.mustHaves.filter((line) => line.trim() !== "");
+  const nices = draft.niceToHaves.filter((line) => line.trim() !== "");
+  const where = draft.location.trim();
+
+  const summary = [
+    draft.title,
+    draft.department ? `in ${draft.department}` : "",
+    where ? `· ${where}` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const description = [
+    `We are hiring ${draft.openings === 1 ? "one" : draft.openings} for this role${draft.department ? ` in ${draft.department}` : ""}.`,
+    ...(musts.length > 0
+      ? ["", "What you need:", ...musts.map((line) => `- ${line}`)]
+      : []),
+    ...(nices.length > 0
+      ? ["", "Nice to have:", ...nices.map((line) => `- ${line}`)]
+      : []),
+    ...(draft.targetStartDate ? ["", `We would like you to start around ${draft.targetStartDate}.`] : []),
+  ].join("\n");
+
+  return { summary: summary || draft.title, description };
+}
+
 export function RequisitionWizard() {
   const router = useRouter();
   const toast = useToast();
+  const adverts = useAdvertCreation();
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [busy, setBusy] = useState(false);
 
@@ -123,17 +175,48 @@ export function RequisitionWizard() {
     true,
   ][stepper.index];
 
-  function submit() {
+  /**
+   * Save the advert.
+   *
+   * This used to be a `setTimeout` and a success toast saying the role had been
+   * "sent for approval". Nothing was sent and nothing was stored — the screen
+   * looked connected while doing nothing at all, which is the one thing the two
+   * modes exist to prevent. It now writes a real draft advert through the API,
+   * and in demo mode the careers store refuses and says why, which is shown as
+   * it arrives rather than swallowed.
+   */
+  async function submit() {
     setBusy(true);
-    setTimeout(() => {
-      setBusy(false);
-      toast.push({
-        title: `${draft.title} sent for approval`,
-        tone: "success",
-        detail: "You will be notified when the hiring manager approves it.",
+    const { summary, description } = advertText(draft);
+    try {
+      const created = await adverts.create({
+        title: draft.title,
+        summary,
+        description,
+        employmentType: ADVERT_TYPE[draft.employmentType],
+        showSalary: true,
+        ...(draft.location.trim() ? { location: draft.location.trim() } : {}),
+        ...(min > 0 ? { salaryMin: min } : {}),
+        ...(max > 0 ? { salaryMax: max } : {}),
       });
-      router.push("/hiring");
-    }, 900);
+      toast.push({
+        title: `${created.title} saved as a draft advert`,
+        tone: "success",
+        detail: "Publish it when you are ready and candidates can apply.",
+      });
+      router.push("/hiring/postings");
+    } catch (error) {
+      toast.push({
+        title: "Not saved",
+        tone: "danger",
+        detail:
+          error instanceof ApiError
+            ? error.message
+            : "Something went wrong. Try again.",
+      });
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -467,10 +550,16 @@ export function RequisitionWizard() {
 
             {stepper.index === 4 && (
               <div className="flex flex-col gap-5">
-                <Callout tone="accent" title="This goes to the hiring manager for approval">
-                  Nothing is published until they approve. You can keep editing
-                  while it is pending.
-                </Callout>
+                <div className="flex flex-col gap-2">
+                  <SourceBadge live={adverts.editable} />
+                  <p className="text-[0.875rem] text-body">
+                    This saves the job — title, location, type, pay range and
+                    the text below — as a <strong>draft advert</strong>. Nothing
+                    is public until you publish it. Stages, screening questions
+                    and the hiring team stay on this screen; there is no endpoint
+                    for them yet.
+                  </p>
+                </div>
 
                 <ReviewBlock
                   title="Role"
@@ -493,7 +582,8 @@ export function RequisitionWizard() {
                       "Band",
                       min && max ? (
                         <>
-                          <Money amount={min} /> – <Money amount={max} />
+                          <Money amount={min} decimals /> –{" "}
+                          <Money amount={max} decimals />
                         </>
                       ) : (
                         "—"
@@ -563,7 +653,8 @@ export function RequisitionWizard() {
 
               {min > 0 && max > 0 && !bandInvalid && (
                 <p className="tabular text-[0.875rem] font-medium text-ink">
-                  <Money amount={min} compact /> – <Money amount={max} compact />
+                  <Money amount={min} decimals /> –{" "}
+                  <Money amount={max} decimals />
                   <span className="font-normal text-muted"> gross monthly</span>
                 </p>
               )}
@@ -595,8 +686,9 @@ export function RequisitionWizard() {
 
       {/* Actions never scroll out of reach. */}
       <div className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-line bg-surface px-1 py-3">
+        {/* It said "Save & exit" and saved nothing. */}
         <Button variant="ghost" onClick={() => router.push("/hiring")}>
-          Save &amp; exit
+          Cancel
         </Button>
         <div className="flex items-center gap-2">
           {!stepper.isFirst && (
@@ -606,9 +698,13 @@ export function RequisitionWizard() {
             </Button>
           )}
           {stepper.isLast ? (
-            <Button variant="approve" onClick={submit} loading={busy}>
+            <Button
+              variant="approve"
+              onClick={() => void submit()}
+              loading={busy}
+            >
               {!busy && <Check aria-hidden="true" className="size-4" />}
-              Send for approval
+              Save as draft advert
             </Button>
           ) : (
             <Button

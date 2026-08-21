@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Employee } from "@/lib/types";
+import { missingForPayroll, type Employee } from "@/lib/types";
+import { isUuid } from "@/lib/api/audit";
 import { ApiError } from "@/lib/api/client";
 import {
   employees as api,
   toEmployee,
   toKobo,
+  type ApiEmployee,
   type EmployeeListParams,
 } from "@/lib/api/endpoints";
 import { useEmployeeStore } from "./employees";
@@ -127,6 +129,15 @@ export function useEmployeeDirectory(params: EmployeeListParams = {}) {
     if (parsed.payrollBlocked) {
       rows = rows.filter((e) => !e.bankAccount || !e.pensionPin || !e.tin);
     }
+    /* The API's statuses are `ONBOARDING`; the local ones are `onboarding`,
+       because `toEmployee` lower-cases on the way in. Compared case-insensitively
+       so a screen can pass one value and get the same answer from either source
+       — the onboarding screen passes `status: "ONBOARDING"` and does not know
+       which mode it is in. */
+    if (parsed.status) {
+      const wanted = parsed.status.toLowerCase();
+      rows = rows.filter((e) => e.status.toLowerCase() === wanted);
+    }
     return {
       employees: rows,
       total: rows.length,
@@ -140,6 +151,185 @@ export function useEmployeeDirectory(params: EmployeeListParams = {}) {
 
   return { ...state, reload: load };
 }
+
+/* ------------------------------------------------------- one whole record */
+
+export type EmployeeRecordState = {
+  employee: Employee | null;
+  /**
+   * What payroll cannot file without.
+   *
+   * Taken from the API's own `missingForPayroll` when connected rather than
+   * recomputed here. The server derives it from the row it just read, so if the
+   * two ever disagree the server is right — and a second implementation of
+   * "is this record ready" is exactly how a screen ends up clearing a blocker
+   * the run still refuses.
+   */
+  missing: string[];
+  archived: boolean;
+  /** The manager's name, which the detail response carries without a lookup. */
+  managerName: string | null;
+  loading: boolean;
+  error: ApiError | null;
+  connected: boolean;
+  /** No such record — or none this organisation can see. */
+  notFound: boolean;
+  /**
+   * The id is a demo id (`p-08`) and this session is connected.
+   *
+   * Its own flag because it is not a missing record, it is a link from the other
+   * mode — a bookmark, or a URL pasted out of a demo — and the sentence for it
+   * is different.
+   */
+  demoId: boolean;
+  /** The record exists; this account may not read it. */
+  forbidden: boolean;
+  reload: () => void;
+};
+
+/**
+ * One employee, in full.
+ *
+ * `GET /employees/:id` and the directory list are **not** the same read. The
+ * list needs no permission — knowing who your colleagues are is not privileged
+ * — but the detail endpoint carries pay, bank details and a pension PIN, so it
+ * needs `VIEW_SALARIES` or for the record to be your own. That asymmetry is why
+ * the record page cannot just pick its person out of the directory: the
+ * directory would answer, and the answer would be missing the half of the
+ * record this screen exists to show.
+ *
+ * `forbidden` is separated from a general error for that reason. "You cannot
+ * see this" and "something went wrong" need different sentences.
+ *
+ * State is kept as `{ id, nonce, row }` rather than a bare row, the same shape
+ * as `useDepartment`: the result carries the request it belongs to, so `loading`
+ * is derived rather than tracked and a slow answer for the record you have just
+ * navigated away from cannot be rendered against this one. Nothing needs
+ * clearing when `id` changes — the stale value simply stops matching.
+ */
+export function useEmployee(id: string): EmployeeRecordState {
+  const { isConnected, isLoading } = useSession();
+  const local = useEmployeeStore();
+
+  const [nonce, setNonce] = useState(0);
+  const [fetched, setFetched] = useState<{
+    id: string;
+    nonce: number;
+    row: ApiEmployee | null;
+    error: ApiError | null;
+  } | null>(null);
+
+  /* `isLoading` matters here: the session restores asynchronously, and firing
+     this read before it resolves would send an unauthenticated request that
+     comes back 401 and looks like a permission problem. */
+  const active = isConnected && !isLoading;
+
+  /**
+   * An id the API would refuse is not a request worth making.
+   *
+   * Every route param is validated as a uuid, so `GET /employees/p-08` comes
+   * back 422 "Some fields are not valid" — which renders as a broken record
+   * page when the truth is that the link was made in demo mode. Found by
+   * clicking a demo bookmark while signed in. The same guard is in
+   * `lib/store/audit.ts` for the same reason.
+   */
+  const askable = active && isUuid(id);
+
+  useEffect(() => {
+    if (!askable) return;
+    const controller = new AbortController();
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const row = await api.get(id, controller.signal);
+        if (!cancelled) setFetched({ id, nonce, row, error: null });
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (!cancelled) {
+          setFetched({
+            id,
+            nonce,
+            row: null,
+            error: error instanceof ApiError ? error : null,
+          });
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [id, nonce, askable]);
+
+  const reload = useCallback(() => setNonce((n) => n + 1), []);
+
+  if (active && !askable) {
+    return {
+      employee: null,
+      missing: [],
+      archived: false,
+      managerName: null,
+      loading: false,
+      error: null,
+      connected: true,
+      notFound: true,
+      demoId: true,
+      forbidden: false,
+      reload,
+    };
+  }
+
+  if (!active) {
+    const employee = local.get(id) ?? null;
+    const manager = employee?.managerId ? local.get(employee.managerId) : undefined;
+    return {
+      employee,
+      missing: employee ? missingForPayroll(employee) : [],
+      archived: local.isArchived(id),
+      managerName: manager ? `${manager.firstName} ${manager.lastName}` : null,
+      loading: false,
+      error: null,
+      connected: false,
+      notFound: employee === null,
+      demoId: false,
+      forbidden: false,
+      reload,
+    };
+  }
+
+  const matched =
+    fetched !== null && fetched.id === id && fetched.nonce === nonce;
+  const row = matched ? fetched.row : null;
+  const error = matched ? fetched.error : null;
+
+  return {
+    employee: row ? toEmployee(row) : null,
+    missing: row?.missingForPayroll ?? [],
+    archived: row?.archived ?? false,
+    managerName: row?.managerName ?? null,
+    loading: !matched,
+    error,
+    connected: true,
+    notFound: error?.status === 404,
+    demoId: false,
+    forbidden: error?.status === 403,
+    reload,
+  };
+}
+
+/**
+ * What a screen may change about somebody.
+ *
+ * `Employee` plus the two ids the record has but the display type does not.
+ * `Employee.department` is a name because that is what a table cell shows;
+ * assigning somebody to a department is a different act and needs the id.
+ */
+export type EmployeePatch = Partial<Employee> & {
+  departmentId?: string;
+  workLocationId?: string;
+};
 
 /**
  * Mutations, routed to whichever source is live.
@@ -180,14 +370,43 @@ export function useEmployeeMutations() {
   );
 
   const update = useCallback(
-    async (id: string, patch: Partial<Employee>) => {
+    async (id: string, patch: EmployeePatch) => {
+      const { departmentId, workLocationId, ...fields } = patch;
+
       if (!isConnected) {
-        local.update(id, patch);
+        /* An id means nothing to the local store, which holds display names. */
+        local.update(id, fields);
         return undefined;
       }
-      const { grossMonthly, nextOfKin, ...rest } = patch;
+
+      const {
+        grossMonthly,
+        nextOfKin,
+        status,
+        employmentType,
+        department,
+        location,
+        ...rest
+      } = fields;
+
+      /* `department` and `location` are display names. The API takes ids, and a
+         name sent to it is stripped by zod rather than refused — which would
+         make an edit look saved and change nothing. So they are dropped here on
+         purpose, and a screen that wants to reassign somebody sends
+         `departmentId` from a real picker instead. */
+      void department;
+      void location;
+
       const updated = await api.update(id, {
         ...rest,
+        ...(departmentId === undefined ? {} : { departmentId }),
+        ...(workLocationId === undefined ? {} : { workLocationId }),
+        /* The enums are upper case on the wire and lower case in `Employee` —
+           `toEmployee` lower-cases on the way in, so this is the way back. */
+        ...(status ? { status: status.toUpperCase() } : {}),
+        ...(employmentType
+          ? { employmentType: employmentType.toUpperCase() }
+          : {}),
         ...(grossMonthly === undefined
           ? {}
           : { grossMonthlyKobo: toKobo(grossMonthly) }),

@@ -2,15 +2,21 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { CalendarDays, Check, Plus, Undo2, X } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { CalendarDays, Check, ChevronRight, Plus, Undo2, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
   Badge,
   Button,
+  ButtonLink,
   Callout,
   Card,
   CardBody,
   CardHeader,
+  DescriptionList,
+  Drawer,
+  EmptyState,
+  IconButton,
   ProgressMeter,
   Stat,
   TBody,
@@ -23,284 +29,402 @@ import {
   useToast,
   type BadgeTone,
 } from "@/components/ui";
+import { DeclineDialog } from "@/components/portal/decline-dialog";
 import { PageBody, PageHeader } from "@/components/portal/shell";
-import { EMPLOYEES, employeeById } from "@/lib/mock/people";
+import { ApiError } from "@/lib/api/client";
+import { daysLabel, type LeaveRow, type LeaveRowStatus } from "@/lib/api/leave";
+import { PUBLIC_HOLIDAYS } from "@/lib/mock/workflows";
+import { useCan } from "@/lib/permissions";
 import {
-  PUBLIC_HOLIDAYS,
-  leaveEmployee,
-  type LeaveRequest,
-  type LeaveStatus,
-} from "@/lib/mock/workflows";
-import { useLeaveStore } from "@/lib/store/leave";
-import { useLeaveBalances } from "@/lib/store/leave-balances";
-import { remainingDays } from "@/lib/workflows/leave";
-import { fullName } from "@/lib/types";
+  useLeaveBalancesFor,
+  useLeaveMutations,
+  useLeaveRequestDetail,
+  useLeaveRequests,
+} from "@/lib/store/leave-api";
 import { TODAY, shortDate } from "@/lib/today";
 import { BookLeaveDialog } from "./book-leave";
 
-const STATUS: Record<LeaveStatus, { tone: BadgeTone; label: string }> = {
-  pending: { tone: "warning", label: "Pending" },
+const STATUS: Record<LeaveRowStatus, { tone: BadgeTone; label: string }> = {
+  pending: { tone: "warning", label: "Waiting" },
   approved: { tone: "success", label: "Approved" },
-  declined: { tone: "danger", label: "Declined" },
-  cancelled: { tone: "neutral", label: "Cancelled" },
+  declined: { tone: "danger", label: "Sent back" },
+  cancelled: { tone: "neutral", label: "Withdrawn" },
 };
+
+/** How many balances the side card asks for. Connected, each one is a request. */
+const BALANCES_SHOWN = 8;
 
 /**
  * Time off.
  *
- * Every number on this screen is derived from the one leave store, including the
- * balances — `taken` and `pending` are computed from the requests rather than
- * stored, so approving a row here moves the bar beside it and the same figure on
- * the employee's own record. The approval inbox reads the same store, so a
- * decision made there has already happened by the time you arrive here.
+ * Reads whichever source is live — `/api/v1/leave` when the API answers, this
+ * browser's store when it does not — through `lib/store/leave-api.ts`. The badge
+ * beside the title says which, because a demo that looks connected is worse than
+ * one that says it is a demo.
+ *
+ * ## Approving here and approving in the inbox are one action
+ *
+ * Not two writes that have to agree. Connected, `/approvals` posts its decision
+ * to an endpoint that routes into the same leave service this screen calls; in
+ * demo mode the inbox's leave rows are derived from these requests. So a
+ * decision made on either screen has already happened by the time you look at
+ * the other one, and the balance has already moved with it.
+ *
+ * ## Why every row opens
+ *
+ * The list cannot answer the question that actually decides leave: **who else is
+ * off those days.** That comes from `GET /leave/requests/:id`, one request at a
+ * time, so it lives in the panel rather than in a column — along with the
+ * balance the request draws down, which the API computes from the requests
+ * themselves and never stores.
  */
 export function LeaveScreen() {
-  const leave = useLeaveStore();
-  const balances = useLeaveBalances();
+  const search = useSearchParams();
   const toast = useToast();
-  const [booking, setBooking] = useState(false);
+  const canDecide = useCan("APPROVE_LEAVE_ALL");
 
-  const requests = leave.requests;
-  const pending = requests.filter((r) => r.status === "pending");
-  const approvedUpcoming = requests.filter(
-    (r) => r.status === "approved" && r.from >= TODAY,
+  const { requests, loading, error, connected, reload } = useLeaveRequests({
+    pageSize: 200,
+  });
+  const mutations = useLeaveMutations();
+
+  /* Opened from the approvals inbox as `?request=<id>`, so "decide this" and
+     "look at it properly" are one click apart. Read once, as the initial value:
+     a click after that is the user's, and an effect syncing the two would fight
+     them for control of the panel. */
+  const [openId, setOpenId] = useState<string | null>(() =>
+    search.get("request"),
   );
+  const [booking, setBooking] = useState(false);
+  const [declining, setDeclining] = useState<LeaveRow | null>(null);
+
+  const detail = useLeaveRequestDetail(openId);
+
+  /* Connected, the data is real and so is the date. In demo mode the seed is a
+     fixed snapshot and `TODAY` is its "now" — using the real clock there would
+     age the whole dataset until it stopped making sense. */
+  const today = connected ? new Date().toISOString().slice(0, 10) : TODAY;
+
+  const pending = requests.filter((r) => r.status === "pending");
+
+  const monthAhead = useMemo(() => {
+    const edge = new Date(`${today}T00:00:00.000Z`);
+    edge.setUTCDate(edge.getUTCDate() + 31);
+    const limit = edge.toISOString().slice(0, 10);
+    return requests.filter(
+      (r) => r.status === "approved" && r.from >= today && r.from <= limit,
+    );
+  }, [requests, today]);
+
   const daysBooked = requests
     .filter((r) => r.status === "approved")
-    .reduce((s, r) => s + r.days, 0);
-
-  /* Company-wide annual leave utilisation. A low number this late in the year is
-     a liability, not a saving — untaken leave still has to be paid out. */
-  const utilisation = useMemo(() => {
-    const annual = EMPLOYEES.map((e) =>
-      balances.forEmployee(e.id).find((b) => b.type === "Annual"),
-    ).filter((b): b is NonNullable<typeof b> => b !== undefined);
-    const entitled = annual.reduce((s, b) => s + b.entitled, 0);
-    const taken = annual.reduce((s, b) => s + b.taken, 0);
-    return entitled === 0 ? 0 : Math.round((taken / entitled) * 100);
-  }, [balances]);
+    .reduce((sum, r) => sum + r.days, 0);
 
   const oldestPending = pending.reduce<number | null>((oldest, r) => {
     if (!r.requestedAt) return oldest;
     const days = Math.max(
       0,
       Math.round(
-        (new Date(TODAY).getTime() - new Date(r.requestedAt).getTime()) /
+        (new Date(today).getTime() - new Date(r.requestedAt).getTime()) /
           86_400_000,
       ),
     );
     return oldest === null || days > oldest ? days : oldest;
   }, null);
 
-  function decide(request: LeaveRequest, decision: "approved" | "declined") {
-    leave.decide(
-      request.id,
-      decision,
-      decision === "declined" ? "Sent back from the time-off screen." : undefined,
+  /* The people this screen is actually showing, so the balances card is about
+     them rather than about whoever happens to be first in the directory. */
+  const shown = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const request of requests) {
+      if (!seen.has(request.employeeId)) {
+        seen.set(request.employeeId, request.employeeName);
+      }
+      if (seen.size >= BALANCES_SHOWN) break;
+    }
+    return [...seen].map(([id, name]) => ({ id, name }));
+  }, [requests]);
+
+  const balances = useLeaveBalancesFor(
+    shown.map((person) => person.id),
+    "Annual",
+  );
+
+  /* Annual leave taken against annual leave granted, for the people on screen.
+     A low figure late in the year is a liability, not a saving: untaken leave
+     still has to be paid out. */
+  const utilisation = useMemo(() => {
+    let entitled = 0;
+    let taken = 0;
+    for (const person of shown) {
+      const balance = balances.of(person.id);
+      if (!balance) continue;
+      entitled += balance.entitled;
+      taken += balance.taken;
+    }
+    return entitled === 0 ? null : Math.round((taken / entitled) * 100);
+  }, [shown, balances]);
+
+  /** Every write reports its own failure. The API's message is the useful part. */
+  const run = async (action: () => Promise<unknown>, success: string) => {
+    try {
+      await action();
+      reload();
+      toast.push({ title: success, tone: "success" });
+    } catch (failure) {
+      toast.push({
+        title: "That did not work",
+        tone: "danger",
+        detail:
+          failure instanceof ApiError
+            ? failure.message
+            : "Something went wrong. Try again.",
+      });
+    }
+  };
+
+  const approve = (request: LeaveRow) =>
+    run(
+      () => mutations.decide(request.id, "approved"),
+      `${request.employeeName}'s leave approved`,
     );
-    toast.push({
-      title:
-        decision === "approved"
-          ? `${leaveEmployee(request)}'s leave approved`
-          : `${leaveEmployee(request)}'s request sent back`,
-      tone: decision === "approved" ? "success" : "info",
-      detail:
-        decision === "approved"
-          ? `${request.days} ${
-              request.days === 1 ? "day" : "days"
-            } moved from pending to taken. It has cleared your approval inbox.`
-          : "It has cleared your approval inbox and is back with them.",
-    });
-  }
+
+  const sendBack = (request: LeaveRow, note: string) =>
+    run(
+      () => mutations.decide(request.id, "declined", note),
+      `${request.employeeName}'s request went back to them`,
+    );
+
+  const undo = (request: LeaveRow) =>
+    run(
+      () => mutations.reopen(request.id),
+      `${request.employeeName}'s request is waiting again`,
+    );
 
   return (
     <>
       <PageHeader
         title="Time off"
         description="Requests, balances, and who is away when."
+        meta={
+          <Badge tone={connected ? "success" : "warning"} size="sm" dot>
+            {connected ? "Live from the API" : "Demo data, this browser only"}
+          </Badge>
+        }
         action={
-          <Button variant="accent" size="sm" onClick={() => setBooking(true)}>
-            <Plus aria-hidden="true" className="size-4" />
-            Book leave
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <ButtonLink href="/approvals" variant="secondary" size="sm">
+              Approvals inbox
+            </ButtonLink>
+            <Button variant="accent" size="sm" onClick={() => setBooking(true)}>
+              <Plus aria-hidden="true" className="size-4" />
+              Book leave
+            </Button>
+          </div>
         }
       />
 
       <PageBody className="flex flex-col gap-6">
+        {error && (
+          <Callout tone="danger" title="Could not read the requests">
+            {error.message}
+          </Callout>
+        )}
+
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <Stat
-            label="Awaiting approval"
+            label="Waiting on a decision"
             value={String(pending.length)}
             hint={
               oldestPending !== null
-                ? `oldest ${oldestPending} ${oldestPending === 1 ? "day" : "days"}`
+                ? `oldest ${daysLabel(oldestPending)}`
                 : undefined
             }
           />
           <Stat
             label="Away in the next month"
-            value={String(approvedUpcoming.length)}
+            value={String(monthAhead.length)}
+            hint="approved, starting within 31 days"
           />
-          <Stat label="Days booked this year" value={String(daysBooked)} />
+          <Stat label="Days approved this year" value={String(daysBooked)} />
           <Stat
             label="Annual leave used"
-            value={`${utilisation}%`}
+            value={utilisation === null ? "—" : `${utilisation}%`}
             trend={
-              utilisation < 50
+              utilisation !== null && utilisation < 50
                 ? { direction: "down", label: "Accruing liability" }
                 : undefined
             }
-            hint="of entitlement"
+            hint="of entitlement, people shown below"
           />
         </div>
-
-        {pending.length > 0 && (
-          <Callout tone="info" title="These are the same rows as your approvals inbox">
-            Deciding here and deciding there are the same action on the same
-            record — the balance below moves either way, and the row leaves both
-            screens at once.
-          </Callout>
-        )}
 
         <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
           <Card>
             <CardHeader
               title="Requests"
-              description="Pending first, then most recent."
+              description="Waiting first, then by start date."
+              action={
+                loading ? (
+                  <span className="text-[0.75rem] text-muted">Loading…</span>
+                ) : undefined
+              }
             />
-            <TableWrap className="rounded-none border-0">
-              <THead>
-                <TH>Employee</TH>
-                <TH>Type</TH>
-                <TH>Dates</TH>
-                <TH align="right">Days</TH>
-                <TH>Approver</TH>
-                <TH>Status</TH>
-                <TH align="right">Decision</TH>
-              </THead>
-              <TBody>
-                {[...requests]
-                  .sort((a, b) =>
-                    a.status === "pending" && b.status !== "pending"
-                      ? -1
-                      : b.status === "pending" && a.status !== "pending"
-                        ? 1
-                        : b.from.localeCompare(a.from),
-                  )
-                  .map((r) => {
-                    const approver = r.approverId
-                      ? employeeById(r.approverId)
-                      : null;
-                    const balance = balances.forType(r.employeeId, r.type);
-                    return (
-                      <TR key={r.id} interactive>
-                        <TDPrimary
-                          title={
-                            <Link
-                              href={`/people/${r.employeeId}`}
-                              className="hover:text-accent-text hover:underline underline-offset-4"
-                            >
-                              {leaveEmployee(r)}
-                            </Link>
-                          }
-                          subtitle={r.reason ?? r.decisionNote}
-                        />
-                        <TD>{r.type}</TD>
-                        <TD className="tabular whitespace-nowrap">
-                          {r.from} → {r.to}
-                        </TD>
-                        <TD align="right" className="tabular font-medium text-ink">
-                          {r.days}
-                        </TD>
-                        <TD>{approver ? fullName(approver) : "—"}</TD>
-                        <TD>
-                          <Badge tone={STATUS[r.status].tone} size="sm" dot>
-                            {STATUS[r.status].label}
-                          </Badge>
-                          {r.decidedAt && r.status !== "pending" && (
-                            <span className="mt-0.5 block text-[0.75rem] text-faint">
-                              {shortDate(r.decidedAt)}
-                            </span>
-                          )}
-                        </TD>
-                        <TD align="right">
-                          {r.status === "pending" ? (
-                            <div className="flex justify-end gap-1.5">
-                              <Button
-                                variant="approve"
-                                size="sm"
-                                onClick={() => decide(r, "approved")}
-                                aria-label={`Approve ${leaveEmployee(r)}'s leave`}
-                              >
-                                <Check aria-hidden="true" className="size-3.5" />
-                                Approve
-                              </Button>
-                              <Button
-                                variant="secondary"
-                                size="sm"
-                                onClick={() => decide(r, "declined")}
-                                aria-label={`Send back ${leaveEmployee(r)}'s request`}
-                              >
-                                <X aria-hidden="true" className="size-3.5" />
-                              </Button>
-                            </div>
-                          ) : r.decidedAt === TODAY ? (
+            {requests.length === 0 && !loading ? (
+              <EmptyState
+                icon={<CalendarDays aria-hidden="true" />}
+                title="No leave booked yet"
+                description="Book leave for somebody and it appears here, and in your approvals inbox, straight away."
+                action={
+                  <Button
+                    variant="accent"
+                    size="sm"
+                    onClick={() => setBooking(true)}
+                  >
+                    <Plus aria-hidden="true" className="size-4" />
+                    Book leave
+                  </Button>
+                }
+              />
+            ) : (
+              <TableWrap className="rounded-none border-0">
+                <THead>
+                  <TH>Employee</TH>
+                  <TH>Type</TH>
+                  <TH>Dates</TH>
+                  <TH align="right">Days</TH>
+                  <TH>Approver</TH>
+                  <TH>Status</TH>
+                  <TH align="right">Decision</TH>
+                  <TH align="right">
+                    <span className="sr-only">Open</span>
+                  </TH>
+                </THead>
+                <TBody>
+                  {requests.map((r) => (
+                    <TR key={r.id}>
+                      <TDPrimary
+                        title={
+                          <Link
+                            href={`/people/${r.employeeId}`}
+                            className="hover:text-accent-text hover:underline underline-offset-4"
+                          >
+                            {r.employeeName}
+                          </Link>
+                        }
+                        subtitle={r.reason ?? r.decisionNote ?? undefined}
+                      />
+                      <TD>{r.leaveType}</TD>
+                      <TD className="tabular whitespace-nowrap">
+                        {r.from} → {r.to}
+                      </TD>
+                      <TD align="right" className="tabular font-medium text-ink">
+                        {r.days}
+                      </TD>
+                      <TD>{r.approverName ?? "—"}</TD>
+                      <TD>
+                        <Badge tone={STATUS[r.status].tone} size="sm" dot>
+                          {STATUS[r.status].label}
+                        </Badge>
+                        {r.decidedAt && r.status !== "pending" && (
+                          <span className="mt-0.5 block text-[0.75rem] text-faint">
+                            {shortDate(r.decidedAt)}
+                          </span>
+                        )}
+                      </TD>
+                      <TD align="right">
+                        {!canDecide ? (
+                          <span className="text-[0.75rem] text-faint">—</span>
+                        ) : r.status === "pending" ? (
+                          <div className="flex justify-end gap-1.5">
                             <Button
-                              variant="ghost"
+                              variant="approve"
                               size="sm"
-                              onClick={() => leave.reopen(r.id)}
-                              aria-label={`Undo the decision on ${leaveEmployee(r)}'s request`}
+                              onClick={() => void approve(r)}
+                              aria-label={`Approve ${r.employeeName}'s leave`}
                             >
-                              <Undo2 aria-hidden="true" className="size-3.5" />
-                              Undo
+                              <Check aria-hidden="true" className="size-3.5" />
+                              Approve
                             </Button>
-                          ) : (
-                            <span className="text-[0.75rem] text-faint">
-                              {balance && r.status === "approved"
-                                ? `${remainingDays(balance)} left`
-                                : "—"}
-                            </span>
-                          )}
-                        </TD>
-                      </TR>
-                    );
-                  })}
-              </TBody>
-            </TableWrap>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => setDeclining(r)}
+                              aria-label={`Send back ${r.employeeName}'s request`}
+                            >
+                              <X aria-hidden="true" className="size-3.5" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => void undo(r)}
+                            aria-label={`Undo the decision on ${r.employeeName}'s request`}
+                          >
+                            <Undo2 aria-hidden="true" className="size-3.5" />
+                            Undo
+                          </Button>
+                        )}
+                      </TD>
+                      <TD align="right">
+                        <IconButton
+                          label={`Open ${r.employeeName}'s ${r.leaveType} request`}
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setOpenId(r.id)}
+                        >
+                          <ChevronRight aria-hidden="true" className="size-4" />
+                        </IconButton>
+                      </TD>
+                    </TR>
+                  ))}
+                </TBody>
+              </TableWrap>
+            )}
           </Card>
 
           <div className="flex flex-col gap-5">
             <Card>
               <CardHeader
-                title="Balances"
-                description="Annual leave, including anything pending."
+                title="Annual leave left"
+                description="Pending days are already held back."
               />
               <CardBody className="flex flex-col gap-3.5">
-                {EMPLOYEES.slice(0, 6).map((e) => {
-                  const b = balances.forType(e.id, "Annual");
-                  if (!b) return null;
-                  const remaining = remainingDays(b);
+                {balances.loading && (
+                  <p className="text-[0.875rem] text-muted">Loading balances…</p>
+                )}
+                {shown.length === 0 && !balances.loading && (
+                  <p className="text-[0.875rem] text-muted">
+                    Nobody has booked leave yet.
+                  </p>
+                )}
+                {shown.map((person) => {
+                  const balance = balances.of(person.id);
+                  if (!balance) return null;
                   return (
-                    <div key={e.id}>
+                    <div key={person.id}>
                       <div className="mb-1 flex items-baseline justify-between gap-2">
                         <span className="truncate text-[0.875rem] text-body">
-                          {fullName(e)}
+                          {person.name}
                         </span>
                         <span
                           className={cn(
                             "tabular shrink-0 text-[0.75rem]",
-                            remaining <= 3 ? "text-warning-text" : "text-muted",
+                            balance.remaining <= 3
+                              ? "text-warning-text"
+                              : "text-muted",
                           )}
                         >
-                          {remaining} left
-                          {b.pending > 0 && ` · ${b.pending} pending`}
+                          {balance.remaining} left
+                          {balance.pending > 0 && ` · ${balance.pending} pending`}
                         </span>
                       </div>
                       <ProgressMeter
-                        value={b.taken}
-                        max={b.entitled}
+                        value={balance.taken}
+                        max={balance.entitled}
                         size="sm"
-                        tone={remaining <= 3 ? "warning" : "accent"}
+                        tone={balance.remaining <= 3 ? "warning" : "accent"}
                       />
                     </div>
                   );
@@ -341,7 +465,204 @@ export function LeaveScreen() {
         </div>
       </PageBody>
 
-      <BookLeaveDialog open={booking} onClose={() => setBooking(false)} />
+      <RequestPanel
+        open={openId !== null}
+        onClose={() => setOpenId(null)}
+        loading={detail.loading}
+        detail={detail.detail}
+        canDecide={canDecide}
+        onApprove={approve}
+        onSendBack={setDeclining}
+        onUndo={undo}
+      />
+
+      <DeclineDialog
+        open={declining !== null}
+        what={
+          declining ? `${declining.employeeName}'s ${declining.leaveType} leave` : ""
+        }
+        onClose={() => setDeclining(null)}
+        onConfirm={async (note) => {
+          if (declining) await sendBack(declining, note);
+        }}
+      />
+
+      <BookLeaveDialog
+        open={booking}
+        onClose={() => setBooking(false)}
+        onCreated={reload}
+        requests={requests}
+      />
     </>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * One request, with the two things a decision actually turns on.
+ *
+ * The balance, and who else is off. Connected they come from the API, which can
+ * see the whole company; in demo mode they are derived from this browser's
+ * requests, which can only see what it holds. Neither is presented as the other.
+ */
+function RequestPanel({
+  open,
+  onClose,
+  loading,
+  detail,
+  canDecide,
+  onApprove,
+  onSendBack,
+  onUndo,
+}: {
+  open: boolean;
+  onClose: () => void;
+  loading: boolean;
+  detail: ReturnType<typeof useLeaveRequestDetail>["detail"];
+  canDecide: boolean;
+  onApprove: (request: LeaveRow) => void;
+  onSendBack: (request: LeaveRow) => void;
+  onUndo: (request: LeaveRow) => void;
+}) {
+  const request = detail?.request;
+
+  return (
+    <Drawer
+      open={open}
+      onClose={onClose}
+      title={
+        request ? `${request.leaveType} leave — ${request.employeeName}` : "Request"
+      }
+      description={
+        request
+          ? `${request.from} to ${request.to} · ${daysLabel(request.days)}`
+          : undefined
+      }
+      footer={
+        request && canDecide ? (
+          <div className="flex flex-wrap justify-end gap-2">
+            {request.status === "pending" ? (
+              <>
+                <Button variant="secondary" onClick={() => onSendBack(request)}>
+                  <X aria-hidden="true" className="size-3.5" />
+                  Send back
+                </Button>
+                <Button
+                  variant="approve"
+                  onClick={() => {
+                    onApprove(request);
+                    onClose();
+                  }}
+                >
+                  <Check aria-hidden="true" className="size-3.5" />
+                  Approve
+                </Button>
+              </>
+            ) : (
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  onUndo(request);
+                  onClose();
+                }}
+              >
+                <Undo2 aria-hidden="true" className="size-3.5" />
+                Undo the decision
+              </Button>
+            )}
+          </div>
+        ) : undefined
+      }
+    >
+      {loading && <p className="text-[0.875rem] text-muted">Loading…</p>}
+
+      {!loading && !request && (
+        <p className="text-[0.875rem] text-muted">
+          That request is no longer here. It may have been withdrawn.
+        </p>
+      )}
+
+      {request && (
+        <div className="flex flex-col gap-6">
+          <DescriptionList
+            items={[
+              { term: "Status", value: STATUS[request.status].label },
+              { term: "Job title", value: request.employeeJobTitle ?? "—" },
+              {
+                term: "Raised",
+                value: request.requestedAt ? shortDate(request.requestedAt) : "—",
+              },
+              { term: "Approver", value: request.approverName ?? "Not routed" },
+              { term: "Reason given", value: request.reason ?? "None given" },
+              {
+                term: "Decision note",
+                value: request.decisionNote ?? "—",
+              },
+            ]}
+          />
+
+          {detail?.balance && (
+            <div>
+              <p className="text-[0.75rem] font-semibold tracking-wide text-muted">
+                {detail.balance.leaveType} balance
+              </p>
+              <p className="mt-1 text-[0.875rem] text-body">
+                {detail.balance.remaining} of {detail.balance.entitled} days left
+                {detail.balance.pending > 0 &&
+                  `, with ${detail.balance.pending} still waiting on a decision`}
+                .
+              </p>
+              <ProgressMeter
+                className="mt-2"
+                value={detail.balance.taken}
+                max={detail.balance.entitled}
+                size="sm"
+                tone={detail.balance.remaining <= 3 ? "warning" : "accent"}
+              />
+              {detail.balance.remaining < 0 && (
+                <p className="mt-2 text-[0.875rem] text-warning-text">
+                  Approving this takes them past their entitlement. The days over
+                  are unpaid unless you say otherwise.
+                </p>
+              )}
+            </div>
+          )}
+
+          <div>
+            <p className="text-[0.75rem] font-semibold tracking-wide text-muted">
+              Who else is off those days
+            </p>
+            {detail && detail.clashes.length === 0 ? (
+              <p className="mt-1 text-[0.875rem] text-body">
+                Nobody else. Cover is not a problem here.
+              </p>
+            ) : (
+              <ul className="mt-2 flex flex-col gap-2">
+                {detail?.clashes.map((clash) => (
+                  <li
+                    key={clash.id}
+                    className="flex flex-wrap items-center gap-2 rounded-md border border-line p-2.5 text-[0.875rem]"
+                  >
+                    <Link
+                      href={`/people/${clash.employeeId}`}
+                      className="min-w-0 flex-1 truncate text-ink hover:text-accent-text hover:underline underline-offset-4"
+                    >
+                      {clash.employeeName}
+                    </Link>
+                    <span className="tabular text-[0.75rem] text-muted">
+                      {clash.from} → {clash.to}
+                    </span>
+                    <Badge tone={STATUS[clash.status].tone} size="sm">
+                      {STATUS[clash.status].label}
+                    </Badge>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+    </Drawer>
   );
 }

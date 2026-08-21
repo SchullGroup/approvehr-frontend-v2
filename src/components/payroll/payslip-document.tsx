@@ -1,15 +1,5 @@
 import { cn } from "@/lib/cn";
-import { Money } from "@/components/ui";
-import { LogoMark } from "@/components/brand/logo";
-import type {
-  PayrollEmployee,
-  Payslip,
-  YearToDate,
-} from "@/lib/payroll/engine";
-import {
-  DEFAULT_SETTINGS,
-  type PayrollSettings,
-} from "@/lib/payroll/settings";
+import { formatKobo, type Payslip } from "@/lib/api/payroll";
 
 /*
  * The payslip document.
@@ -18,15 +8,88 @@ import {
  * or a tax office, so it is built to print: A4-ish proportions, no colour that
  * fails in greyscale, and every figure itemised rather than netted off.
  *
+ * ## What changed when payroll moved onto the API
+ *
+ * It used to take the frontend engine's `Payslip` — floating-point naira, one
+ * scalar "post-tax deductions" figure, and a list of extra deductions passed in
+ * beside it. It now takes the API's payslip, in **integer kobo**, with its
+ * `lines`, and itemises them:
+ *
+ * | Line | Where it appears |
+ * |---|---|
+ * | `EARNING` | Earnings, under the salary components |
+ * | `DEDUCTION` with `taxable` | Deductions, above PAYE — it reduced the tax |
+ * | `DEDUCTION` without | Deductions, below PAYE — it did not |
+ * | `EMPLOYER_CONTRIBUTION` | Its own section, outside the deduction column |
+ *
+ * The pre-tax/post-tax placement is not decoration. Where a deduction sits
+ * relative to PAYE is the difference between it reducing somebody's tax and not,
+ * and an employee querying their payslip is entitled to see which happened.
+ *
  * The one thing it works hardest to make unambiguous is that employer pension
- * is NOT a deduction. Showing it inside the deductions column — which plenty
+ * is **not** a deduction. Showing it inside the deductions column — which plenty
  * of Nigerian payslips do — makes staff believe their pay was cut by 18%.
+ *
+ * ## Rates are optional, and that is deliberate
+ *
+ * The old version read the live company settings so the percentages it quoted
+ * could never drift from what computed the figures. That still holds where the
+ * caller knows the rates. Against the API it does not: a stored payslip does not
+ * carry the rates that made it, and only an *approved* run has the frozen
+ * settings snapshot. Deriving a percentage back out of the figures would print a
+ * confident wrong number, so an unknown rate is simply not printed. Surfacing
+ * `settingsSnapshot` on an approved run is the way to get them back.
  */
+
+/** Who the payslip is for. Everything past the name may be unknown. */
+export type PayslipIdentity = {
+  name: string;
+  employeeNo: string;
+  jobTitle?: string | null;
+  department?: string | null;
+  taxState?: string | null;
+  pensionPin?: string | null;
+  bankAccount?: string | null;
+};
+
+/** Year-to-date totals, in kobo. Omitted when they cannot be known. */
+export type YearToDateKobo = {
+  monthsElapsed: number;
+  grossKobo: number;
+  payeKobo: number;
+  pensionEmployeeKobo: number;
+  nhfKobo: number;
+  netKobo: number;
+  /** True when these are projected from this month rather than summed. */
+  projected: boolean;
+};
+
+export type PayslipRates = {
+  pensionEmployee: number;
+  pensionEmployer: number;
+  nhf: number;
+  nhfBasis: "basic" | "gross";
+};
+
+/**
+ * A deduction that would not fit in net pay.
+ *
+ * Derived from the payslip rather than passed in: the deduction lines carry what
+ * was *asked for*, and `otherDeductions` carries what was actually taken, so the
+ * gap between them is the amount carried forward. `reconcile.ts` allows that gap
+ * to exist for exactly this reason — the alternative is a line quietly shrinking
+ * on the payslip with nothing to say why.
+ */
+export function carriedForwardKobo(slip: Payslip): number {
+  const asked = slip.lines
+    .filter((line) => line.kind === "DEDUCTION")
+    .reduce((total, line) => total + line.amountKobo, 0);
+  return Math.max(0, asked - slip.otherDeductionsKobo);
+}
 
 export function PayslipDocument({
   employee,
   slip,
-  ytd,
   period,
   payDate,
   company = {
@@ -34,44 +97,79 @@ export function PayslipDocument({
     rc: "RC 1482930",
     address: "12 Adeola Odeku Street, Victoria Island, Lagos",
   },
-  extraDeductions = [],
-  settings = DEFAULT_SETTINGS,
+  rates,
+  ytd,
   className,
 }: {
-  employee: PayrollEmployee;
+  employee: PayslipIdentity;
   slip: Payslip;
-  ytd: YearToDate;
+  /** Human form, e.g. "August 2026". */
   period: string;
+  /** Human form, e.g. "28 August 2026". */
   payDate: string;
   company?: { name: string; rc: string; address: string };
-  /** Named post-tax items so the employee sees what was taken, not a lump. */
-  extraDeductions?: { label: string; amount: number }[];
-  /** Rates are quoted on the slip, so they must come from the same source
-      that computed it — never from a constant in this file. */
-  settings?: PayrollSettings;
+  rates?: PayslipRates;
+  ytd?: YearToDateKobo;
   className?: string;
 }) {
-  const pct = (n: number) => `${+(n * 100).toFixed(2)}%`;
+  const pct = (value: number) => `${+(value * 100).toFixed(2)}%`;
+  const allowances = slip.lines.filter((line) => line.kind === "EARNING");
+  const preTax = slip.lines.filter(
+    (line) => line.kind === "DEDUCTION" && line.taxable,
+  );
+  const postTax = slip.lines.filter(
+    (line) => line.kind === "DEDUCTION" && !line.taxable,
+  );
+  const employerLines = slip.lines.filter(
+    (line) => line.kind === "EMPLOYER_CONTRIBUTION",
+  );
+  const carried = carriedForwardKobo(slip);
+
   const earnings = [
-    { label: "Basic salary", amount: slip.basic },
-    { label: "Housing allowance", amount: slip.housing },
-    { label: "Transport allowance", amount: slip.transport },
+    { label: "Basic salary", kobo: slip.basicKobo },
+    { label: "Housing allowance", kobo: slip.housingKobo },
+    { label: "Transport allowance", kobo: slip.transportKobo },
+    ...allowances.map((line) => ({ label: line.label, kobo: line.amountKobo })),
   ];
 
-  const statutory = [
-    {
-      label: `Pension contribution (${pct(settings.pension.employeeRate)})`,
-      amount: slip.pensionEmployee,
-    },
-    {
-      label: `National Housing Fund (${pct(settings.nhf.rate)} of ${settings.nhf.basis})`,
-      amount: slip.nhf,
-    },
-    { label: "PAYE income tax", amount: slip.payeMonthly },
-  ].filter((line) => line.amount > 0 || line.label.startsWith("PAYE"));
+  /* Pension and NHF come off before PAYE, so they are printed before it. The
+     order of this column is the order of the calculation. */
+  const deductions = [
+    ...(slip.pensionEmployeeKobo > 0
+      ? [
+          {
+            label: rates
+              ? `Pension contribution (${pct(rates.pensionEmployee)})`
+              : "Pension contribution",
+            kobo: slip.pensionEmployeeKobo,
+          },
+        ]
+      : []),
+    ...(slip.nhfKobo > 0
+      ? [
+          {
+            label: rates
+              ? `National Housing Fund (${pct(rates.nhf)} of ${rates.nhfBasis})`
+              : "National Housing Fund",
+            kobo: slip.nhfKobo,
+          },
+        ]
+      : []),
+    ...preTax.map((line) => ({ label: line.label, kobo: line.amountKobo })),
+    { label: "PAYE income tax", kobo: slip.payeKobo },
+    ...postTax.map((line) => ({
+      /* The full instalment is what the employee agreed to; what fitted this
+         month is shown under the total, not by silently shrinking the line. */
+      label: line.label,
+      kobo: line.amountKobo,
+    })),
+  ];
 
-  const totalDeductions =
-    slip.pensionEmployee + slip.nhf + slip.payeMonthly + slip.postTaxDeductions;
+  const takenKobo =
+    slip.pensionEmployeeKobo +
+    slip.nhfKobo +
+    slip.payeKobo +
+    slip.otherDeductionsKobo;
 
   return (
     <article
@@ -82,16 +180,13 @@ export function PayslipDocument({
       )}
     >
       {/* Masthead */}
-      <header className="flex items-start justify-between gap-6 border-b border-line pb-6">
-        <div className="flex items-start gap-3">
-          <LogoMark size={28} className="mt-0.5 text-ink" />
-          <div>
-            <p className="text-h4 text-ink">{company.name}</p>
-            <p className="mt-0.5 text-[0.75rem] text-muted">{company.rc}</p>
-            <p className="mt-1 max-w-[16rem] text-[0.75rem] leading-snug text-muted">
-              {company.address}
-            </p>
-          </div>
+      <header className="flex flex-wrap items-start justify-between gap-6 border-b border-line pb-6">
+        <div>
+          <p className="text-h4 text-ink">{company.name}</p>
+          <p className="mt-0.5 text-[0.75rem] text-muted">{company.rc}</p>
+          <p className="mt-1 max-w-[18rem] text-[0.75rem] leading-snug text-muted">
+            {company.address}
+          </p>
         </div>
         <div className="text-right">
           <p className="text-[0.75rem] font-semibold uppercase tracking-[0.1em] text-muted">
@@ -105,110 +200,158 @@ export function PayslipDocument({
       {/* Employee */}
       <section className="grid gap-x-8 gap-y-3 border-b border-line py-5 sm:grid-cols-2">
         <Detail label="Employee" value={employee.name} strong />
-        <Detail label="Employee ID" value={employee.id.toUpperCase()} />
+        <Detail label="Employee ID" value={employee.employeeNo} />
         <Detail label="Job title" value={employee.jobTitle} />
         <Detail label="Department" value={employee.department} />
         <Detail label="Tax state" value={employee.taxState} />
-        <Detail label="Pension PIN" value={employee.pensionPin ?? "—"} />
-        <Detail label="Paid to" value={employee.bankAccount ?? "—"} />
+        <Detail label="Pension PIN" value={employee.pensionPin} />
+        <Detail label="Paid to" value={employee.bankAccount} />
         <Detail label="Payment date" value={payDate} />
       </section>
+
+      {/* Unpaid days, when there are any. This is the figure an employee
+          queries first, so it is stated before the columns rather than left to
+          be inferred from a gross that looks wrong. */}
+      {slip.unpaidDays > 0 && (
+        <section className="mt-5 rounded-md border border-warning-line bg-warning-soft p-4">
+          <p className="text-[0.875rem] font-medium text-ink">
+            {slip.unpaidDays} unpaid {slip.unpaidDays === 1 ? "day" : "days"} this
+            month
+          </p>
+          <p className="mt-1 text-[0.75rem] leading-relaxed text-body">
+            {formatKobo(slip.proratedDeductionKobo)} was taken off the
+            contractual salary before anything below was worked out.
+          </p>
+        </section>
+      )}
 
       {/* Earnings and deductions */}
       <section className="grid gap-8 py-6 sm:grid-cols-2">
         <div>
           <ColumnHead>Earnings</ColumnHead>
           <dl className="mt-3 flex flex-col">
-            {earnings.map((e) => (
-              <LineItem key={e.label} label={e.label} amount={e.amount} />
+            {earnings.map((line) => (
+              <LineItem key={line.label} label={line.label} kobo={line.kobo} />
             ))}
-            <LineItem label="Gross pay" amount={slip.grossMonthly} total />
+            <LineItem label="Gross pay" kobo={slip.grossKobo} total />
           </dl>
         </div>
 
         <div>
           <ColumnHead>Deductions</ColumnHead>
           <dl className="mt-3 flex flex-col">
-            {statutory.map((d) => (
-              <LineItem key={d.label} label={d.label} amount={d.amount} />
+            {deductions.map((line, i) => (
+              <LineItem
+                key={`${line.label}-${i}`}
+                label={line.label}
+                kobo={line.kobo}
+              />
             ))}
-            {extraDeductions.map((d) => (
-              <LineItem key={d.label} label={d.label} amount={d.amount} />
-            ))}
-            <LineItem
-              label="Total deductions"
-              amount={totalDeductions}
-              total
-            />
+            <LineItem label="Total deductions" kobo={takenKobo} total />
           </dl>
+          {carried > 0 && (
+            <p className="mt-2 text-[0.75rem] leading-relaxed text-body">
+              {formatKobo(carried)} of the above could not be taken this month —
+              there was not enough pay left after tax. It carries over to next
+              month rather than being written off.
+            </p>
+          )}
         </div>
       </section>
 
       {/* Net */}
       <section className="flex items-baseline justify-between gap-4 border-y-2 border-ink py-4">
         <p className="text-h4 text-ink">Net pay</p>
-        <p className="tabular text-h2 text-ink">
-          <Money amount={Math.round(slip.netPay)} decimals />
-        </p>
+        <p className="tabular text-h2 text-ink">{formatKobo(slip.netKobo)}</p>
       </section>
 
       {/* Employer contributions — deliberately outside the deductions column */}
-      <section className="mt-6 rounded-md border border-line bg-canvas p-4">
-        <ColumnHead>Employer contributions</ColumnHead>
-        <p className="mt-1.5 text-[0.75rem] leading-relaxed text-muted">
-          Paid by {company.name} on your behalf. These are not deducted from
-          your pay and do not reduce the net figure above.
-        </p>
+      {employerLines.length > 0 && (
+        <section className="mt-6 rounded-md border border-line bg-canvas p-4">
+          <ColumnHead>Paid by your employer</ColumnHead>
+          <p className="mt-1.5 text-[0.75rem] leading-relaxed text-muted">
+            Paid by {company.name} on your behalf. These are not deducted from
+            your pay and do not reduce the net figure above.
+          </p>
+          <dl className="mt-3 flex flex-col">
+            {employerLines.map((line) => (
+              <LineItem
+                key={line.id}
+                label={
+                  line.label === "Employer pension" && rates
+                    ? `Employer pension (${pct(rates.pensionEmployer)})`
+                    : line.label
+                }
+                kobo={line.amountKobo}
+              />
+            ))}
+          </dl>
+        </section>
+      )}
+
+      {/* How the tax was worked out */}
+      <section className="mt-6 rounded-md border border-line p-4">
+        <ColumnHead>How the tax was worked out</ColumnHead>
         <dl className="mt-3 flex flex-col">
           <LineItem
-            label={`Pension contribution (${pct(settings.pension.employerRate)})`}
-            amount={slip.pensionEmployer}
+            label="Consolidated relief allowance (per month)"
+            kobo={slip.consolidatedReliefKobo}
           />
+          <LineItem label="Taxable pay (per month)" kobo={slip.taxableIncomeKobo} />
+          <LineItem label="PAYE" kobo={slip.payeKobo} total />
         </dl>
       </section>
 
       {/* Year to date */}
-      <section className="mt-6">
-        <ColumnHead>Year to date · {ytd.monthsElapsed} months</ColumnHead>
-        <div className="scroll-x mt-3">
-          <table className="w-full min-w-lg border-collapse text-left">
-            <thead>
-              <tr className="border-b border-line">
-                {["Gross", "PAYE", "Pension", "NHF", "Net"].map((h) => (
-                  <th
-                    key={h}
-                    scope="col"
-                    className="pb-2 text-[0.75rem] font-semibold uppercase tracking-wide text-muted last:text-right"
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                {[
-                  ytd.gross,
-                  ytd.paye,
-                  ytd.pensionEmployee,
-                  ytd.nhf,
-                  ytd.net,
-                ].map((v, i) => (
-                  <td
-                    key={i}
-                    className={cn(
-                      "tabular pt-2.5 text-[0.875rem] text-body",
-                      i === 4 && "text-right font-medium text-ink",
-                    )}
-                  >
-                    <Money amount={Math.round(v)} />
-                  </td>
-                ))}
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
+      {ytd && (
+        <section className="mt-6">
+          <ColumnHead>Year to date · {ytd.monthsElapsed} months</ColumnHead>
+          <div className="scroll-x mt-3">
+            <table className="w-full min-w-lg border-collapse text-left">
+              <thead>
+                <tr className="border-b border-line">
+                  {["Gross", "PAYE", "Pension", "Housing fund", "Net"].map((head) => (
+                    <th
+                      key={head}
+                      scope="col"
+                      className="pb-2 text-[0.75rem] font-semibold uppercase tracking-wide text-muted last:text-right"
+                    >
+                      {head}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  {[
+                    ytd.grossKobo,
+                    ytd.payeKobo,
+                    ytd.pensionEmployeeKobo,
+                    ytd.nhfKobo,
+                    ytd.netKobo,
+                  ].map((value, i) => (
+                    <td
+                      key={i}
+                      className={cn(
+                        "tabular pt-2.5 text-[0.875rem] text-body",
+                        i === 4 && "text-right font-medium text-ink",
+                      )}
+                    >
+                      {formatKobo(value)}
+                    </td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          {ytd.projected && (
+            <p className="mt-2 text-[0.75rem] leading-relaxed text-muted">
+              Projected from this month, not summed from the runs — this browser
+              only has the one run.
+            </p>
+          )}
+        </section>
+      )}
 
       <footer className="mt-8 border-t border-line pt-4">
         <p className="text-[0.75rem] leading-relaxed text-muted">
@@ -241,7 +384,7 @@ function Detail({
   strong = false,
 }: {
   label: string;
-  value: string;
+  value?: string | null;
   strong?: boolean;
 }) {
   return (
@@ -253,7 +396,7 @@ function Detail({
           strong ? "font-medium text-ink" : "text-body",
         )}
       >
-        {value}
+        {value || "—"}
       </dd>
     </div>
   );
@@ -261,11 +404,11 @@ function Detail({
 
 function LineItem({
   label,
-  amount,
+  kobo,
   total = false,
 }: {
   label: string;
-  amount: number;
+  kobo: number;
   total?: boolean;
 }) {
   return (
@@ -289,7 +432,7 @@ function LineItem({
           total ? "font-semibold text-ink" : "text-body",
         )}
       >
-        <Money amount={Math.round(amount)} decimals />
+        {formatKobo(kobo)}
       </dd>
     </div>
   );

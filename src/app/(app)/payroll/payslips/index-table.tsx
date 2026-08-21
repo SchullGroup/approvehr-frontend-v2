@@ -1,21 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, Download, Mail, RefreshCw, Send } from "lucide-react";
-import { cn } from "@/lib/cn";
+import { CalendarClock, Mail } from "lucide-react";
 import {
   Badge,
-  Button,
   ButtonLink,
   Callout,
   Card,
   CardBody,
   CardHeader,
-  Checkbox,
   EmptyState,
-  Money,
+  Field,
   SegmentedControl,
+  Select,
   Stat,
   TBody,
   TD,
@@ -24,317 +22,247 @@ import {
   THead,
   TR,
   TableWrap,
-  useToast,
   type BadgeTone,
 } from "@/components/ui";
-import { calculatePayslip } from "@/lib/payroll/engine";
-import { usePayrollSettings } from "@/lib/payroll/use-settings";
-import { useEmployeeStore } from "@/lib/store/employees";
 import {
-  DISTRIBUTION,
-  runPeopleFrom,
-  SCHEDULED_DEDUCTIONS,
-  type DeliveryState,
-  type Distribution,
-} from "@/lib/mock/payroll";
+  RunStatusBadge,
+  SourceBadge,
+  TotalRow,
+} from "@/components/payroll/run-panels";
+import {
+  STATUS_LABEL,
+  formatKobo,
+  periodLabel,
+  type Payslip,
+} from "@/lib/api/payroll";
+import { usePayrollRun, usePayrollRuns } from "@/lib/store/payroll";
 
-const STATE: Record<
+/**
+ * Payslips for one run, and whether each one reached the person.
+ *
+ * ## Delivery has three states, not six
+ *
+ * This screen used to show `bounced` and `no email address` alongside sent and
+ * opened, driven by a hand-written fixture. The product does not track either:
+ * `Payslip` carries `publishedAt`, `emailedAt` and `viewedAt` and nothing else.
+ * Showing a bounce reason the database has no column for taught the demo
+ * audience something untrue about what they were buying, so the states are now
+ * the three the schema actually supports.
+ *
+ * ## And there is no send button
+ *
+ * Emailing a payslip needs a mail transport, and nothing has one — the backend
+ * is explicit that a capability with no credential **refuses** rather than
+ * returning something that looks like success. A green "Sent" that emailed
+ * nobody is the worst thing this screen could do, so the action is absent and
+ * the reason is one line rather than a paragraph.
+ *
+ * Opening a payslip and printing it does work, in both modes, and that is the
+ * route out today.
+ */
+
+type DeliveryState = "not_sent" | "sent" | "opened";
+
+const DELIVERY: Record<
   DeliveryState,
   { tone: BadgeTone; label: string; rank: number }
 > = {
-  /* rank orders the table so what needs a human sits at the top. */
-  bounced: { tone: "danger", label: "Bounced", rank: 0 },
-  no_email: { tone: "danger", label: "No email", rank: 1 },
-  ready: { tone: "warning", label: "Not sent", rank: 2 },
-  sent: { tone: "info", label: "Sent", rank: 3 },
-  delivered: { tone: "info", label: "Delivered", rank: 4 },
-  viewed: { tone: "success", label: "Viewed", rank: 5 },
+  /* Rank puts what needs a human at the top. */
+  not_sent: { tone: "warning", label: "Not sent", rank: 0 },
+  sent: { tone: "info", label: "Sent", rank: 1 },
+  opened: { tone: "success", label: "Opened", rank: 2 },
 };
 
-type Filter = "all" | "attention" | "unsent" | "viewed";
+const deliveryOf = (slip: Payslip): DeliveryState =>
+  slip.viewedAt ? "opened" : slip.emailedAt ? "sent" : "not_sent";
+
+const stamp = (value: string | null) => (value ? value.slice(0, 10) : "—");
+
+type Filter = "all" | "not_sent" | "opened";
 
 export function PayslipIndex() {
-  const { settings } = usePayrollSettings();
-  /* Same live directory the run uses, so a payslip reflects an edited record. */
-  const { directory } = useEmployeeStore();
-  const people = useMemo(() => runPeopleFrom(directory), [directory]);
-  const [dist, setDist] = useState<Distribution[]>(DISTRIBUTION);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const { runs, loading, error, connected } = usePayrollRuns();
+  const [chosen, setChosen] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
-  const [busy, setBusy] = useState(false);
-  const toast = useToast();
 
-  const rows = useMemo(() => {
-    return dist
-      .map((d) => {
-        const person = people.find((p) => p.id === d.employeeId)!;
-        const scheduled = SCHEDULED_DEDUCTIONS.get(person.id);
-        const slip = calculatePayslip(
-          person.id,
-          person.grossMonthly,
-          {
-            additions: 0,
-            postTaxDeductions: scheduled?.amount ?? 0,
-            unpaidDays: 0,
-          },
-          settings,
-        );
-        return { person, dist: d, slip };
-      })
-      .sort((a, b) => STATE[a.dist.state].rank - STATE[b.dist.state].rank);
-  }, [dist, settings, people]);
+  /* Derived rather than stored: the newest run until somebody picks another,
+     which needs no effect and cannot go stale when the list reloads. */
+  const runId = chosen ?? runs[0]?.id ?? null;
+  const detail = usePayrollRun(runId);
+  const run = detail.run;
 
-  const counts = useMemo(() => {
-    const c = { total: dist.length, needsAttention: 0, unsent: 0, viewed: 0 };
-    for (const d of dist) {
-      if (d.state === "bounced" || d.state === "no_email") c.needsAttention += 1;
-      if (d.state === "ready") c.unsent += 1;
-      if (d.state === "viewed") c.viewed += 1;
-    }
-    return c;
-  }, [dist]);
-
-  const filtered = rows.filter(({ dist: d }) => {
-    if (filter === "attention")
-      return d.state === "bounced" || d.state === "no_email";
-    if (filter === "unsent") return d.state === "ready";
-    if (filter === "viewed") return d.state === "viewed";
-    return true;
-  });
-
-  /* Only rows that could actually be sent are selectable — selecting someone
-     with no email address just to have the send fail is a trap. */
-  const sendable = filtered.filter(
-    ({ dist: d }) => d.state !== "no_email" && d.email,
+  const payslips = [...(run?.payslips ?? [])].sort(
+    (a, b) =>
+      DELIVERY[deliveryOf(a)].rank - DELIVERY[deliveryOf(b)].rank ||
+      a.name.localeCompare(b.name),
   );
-  const allSelected =
-    sendable.length > 0 && sendable.every(({ person }) => selected.has(person.id));
 
-  function toggleAll() {
-    setSelected(
-      allSelected ? new Set() : new Set(sendable.map(({ person }) => person.id)),
+  const counts = {
+    total: payslips.length,
+    notSent: payslips.filter((s) => deliveryOf(s) === "not_sent").length,
+    opened: payslips.filter((s) => deliveryOf(s) === "opened").length,
+  };
+
+  const visible = payslips.filter((slip) =>
+    filter === "all" ? true : deliveryOf(slip) === filter,
+  );
+
+  if (!loading && runs.length === 0) {
+    return (
+      <div className="flex flex-col gap-6">
+        <SourceBadge connected={connected} loading={loading} error={error} />
+        <EmptyState
+          icon={<CalendarClock aria-hidden="true" />}
+          title="No payslips yet"
+          description="Payslips are written when a period is prepared. Prepare one and they will appear here."
+          action={
+            <ButtonLink href="/payroll/runs/new" variant="accent">
+              Prepare a run
+            </ButtonLink>
+          }
+        />
+      </div>
     );
-  }
-
-  function send(ids: string[]) {
-    if (ids.length === 0) return;
-    setBusy(true);
-    setTimeout(() => {
-      setDist((list) =>
-        list.map((d) =>
-          ids.includes(d.employeeId) && d.email
-            ? { ...d, state: "sent", sentAt: "Just now", failureReason: undefined }
-            : d,
-        ),
-      );
-      setSelected(new Set());
-      setBusy(false);
-      toast.push({
-        title: `${ids.length} payslip${ids.length > 1 ? "s" : ""} sent`,
-        tone: "success",
-        detail: "Delivery status updates as the mail server responds.",
-      });
-    }, 800);
   }
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat label="Payslips" value={String(counts.total)} hint="August 2026" />
-        <Stat
-          label="Needs attention"
-          value={String(counts.needsAttention)}
-          icon={<AlertTriangle aria-hidden="true" />}
-          trend={
-            counts.needsAttention > 0
-              ? { direction: "down", label: "Undelivered" }
-              : undefined
-          }
-        />
-        <Stat label="Not yet sent" value={String(counts.unsent)} />
-        <Stat
-          label="Opened"
-          value={`${counts.viewed} of ${counts.total}`}
-          hint={`${Math.round((counts.viewed / counts.total) * 100)}% of the team`}
-        />
-      </div>
+      <SourceBadge
+        connected={connected}
+        loading={loading || detail.loading}
+        error={error ?? detail.error}
+      />
 
-      {counts.needsAttention > 0 && (
-        <Callout
-          tone="danger"
-          title={`${counts.needsAttention} employees have not received their payslip`}
-        >
-          A payslip is an itemised statement each employee is entitled to. These
-          did not arrive — fix the address or hand the slip over another way.
+      {error && (
+        <Callout tone="danger" title="Could not load payslips">
+          {error.message}
         </Callout>
       )}
+
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)]">
+        <div className="flex flex-col gap-4">
+          <Field label="Which run" className="max-w-sm">
+            <Select
+              value={runId ?? ""}
+              onChange={(e) => setChosen(e.target.value)}
+            >
+              {runs.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {periodLabel(option.period)} — {STATUS_LABEL[option.status]}
+                </option>
+              ))}
+            </Select>
+          </Field>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Stat label="Payslips" value={String(counts.total)} />
+            <Stat
+              label="Not sent"
+              value={String(counts.notSent)}
+              hint={counts.notSent === 0 ? "All sent" : "Nobody has these yet"}
+            />
+            <Stat
+              label="Opened"
+              value={`${counts.opened} of ${counts.total}`}
+              icon={<Mail aria-hidden="true" />}
+            />
+          </div>
+        </div>
+
+        {run && (
+          <Card>
+            <CardHeader
+              title={periodLabel(run.period)}
+              action={<RunStatusBadge status={run.status} />}
+            />
+            <CardBody className="flex flex-col gap-3">
+              <TotalRow label="Net paid out" kobo={run.netKobo} strong />
+              <TotalRow label="Gross" kobo={run.grossKobo} />
+              <div className="flex items-center justify-between gap-3 border-t border-line pt-3 text-[0.875rem]">
+                <span className="text-muted">Pays on</span>
+                <span className="font-medium text-ink">{run.payDate}</span>
+              </div>
+            </CardBody>
+          </Card>
+        )}
+      </div>
 
       <Card>
         <CardHeader
           title="Distribution"
-          description="August 2026 · paid 28 August"
+          description={
+            run
+              ? `${periodLabel(run.period)} · pays ${run.payDate}`
+              : "Pick a run above."
+          }
           action={
-            <div className="flex flex-wrap items-center gap-2">
-              <SegmentedControl
-                label="Filter"
-                value={filter}
-                onChange={setFilter}
-                options={[
-                  { value: "all", label: "All" },
-                  { value: "attention", label: "Attention" },
-                  { value: "unsent", label: "Unsent" },
-                  { value: "viewed", label: "Opened" },
-                ]}
-              />
-              <Button variant="secondary" size="sm">
-                <Download aria-hidden="true" className="size-3.5" />
-                Download all
-              </Button>
-            </div>
+            <SegmentedControl
+              label="Filter"
+              value={filter}
+              onChange={setFilter}
+              options={[
+                { value: "all", label: "All" },
+                { value: "not_sent", label: "Not sent" },
+                { value: "opened", label: "Opened" },
+              ]}
+            />
           }
         />
 
-        {selected.size > 0 && (
-          <CardBody className="flex flex-wrap items-center gap-3 border-b border-line bg-accent-soft">
-            <p className="text-[0.875rem] text-accent-text">
-              {selected.size} selected
-            </p>
-            <Button
-              variant="accent"
-              size="sm"
-              loading={busy}
-              onClick={() => send([...selected])}
-            >
-              <Send aria-hidden="true" className="size-3.5" />
-              Send selected
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSelected(new Set())}
-            >
-              Clear
-            </Button>
-          </CardBody>
-        )}
-
-        {filtered.length === 0 ? (
+        {visible.length === 0 ? (
           <EmptyState
             compact
             icon={<Mail aria-hidden="true" />}
             title="Nothing in this view"
-            description="Change the filter to see other payslips."
+            description="Change the filter to see the other payslips."
           />
         ) : (
           <TableWrap className="rounded-none border-0">
             <THead>
-              <TH>
-                <Checkbox
-                  checked={allSelected}
-                  onChange={toggleAll}
-                  label=""
-                  disabled={sendable.length === 0}
-                />
-              </TH>
               <TH>Employee</TH>
+              <TH align="right">Gross</TH>
               <TH align="right">Net pay</TH>
-              <TH>Status</TH>
+              <TH>Delivery</TH>
               <TH>Sent</TH>
               <TH>Opened</TH>
               <TH align="right">Actions</TH>
             </THead>
             <TBody>
-              {filtered.map(({ person, dist: d, slip }) => {
-                const canSend = Boolean(d.email);
-                const state = STATE[d.state];
-                const problem = d.state === "bounced" || d.state === "no_email";
-
+              {visible.map((slip) => {
+                const state = DELIVERY[deliveryOf(slip)];
+                const href = `/payroll/payslips/${slip.id}${
+                  run ? `?run=${run.id}` : ""
+                }`;
                 return (
-                  <TR
-                    key={person.id}
-                    className={problem ? "bg-danger-soft" : undefined}
-                  >
-                    <TD>
-                      <Checkbox
-                        checked={selected.has(person.id)}
-                        disabled={!canSend}
-                        label=""
-                        onChange={(e) => {
-                          const on = e.target.checked;
-                          setSelected((prev) => {
-                            const next = new Set(prev);
-                            if (on) next.add(person.id);
-                            else next.delete(person.id);
-                            return next;
-                          });
-                        }}
-                      />
-                    </TD>
+                  <TR key={slip.id}>
                     <TDPrimary
                       title={
                         <Link
-                          href={`/payroll/payslips/${person.id}`}
+                          href={href}
                           className="hover:text-accent-text hover:underline underline-offset-4"
                         >
-                          {person.name}
+                          {slip.name}
                         </Link>
                       }
-                      subtitle={d.email ?? "No email address on record"}
+                      subtitle={slip.employeeNo}
                     />
+                    <TD align="right" className="tabular text-body">
+                      {formatKobo(slip.grossKobo)}
+                    </TD>
                     <TD align="right" className="tabular font-medium text-ink">
-                      <Money amount={Math.round(slip.netPay)} />
+                      {formatKobo(slip.netKobo)}
                     </TD>
                     <TD>
                       <Badge tone={state.tone} size="sm" dot>
                         {state.label}
                       </Badge>
-                      {d.failureReason && (
-                        <p className="mt-1 max-w-[15rem] text-[0.75rem] leading-snug text-danger-text">
-                          {d.failureReason}
-                        </p>
-                      )}
                     </TD>
-                    <TD className="tabular text-muted">{d.sentAt ?? "—"}</TD>
-                    <TD className="tabular text-muted">{d.viewedAt ?? "—"}</TD>
+                    <TD className="tabular text-muted">{stamp(slip.emailedAt)}</TD>
+                    <TD className="tabular text-muted">{stamp(slip.viewedAt)}</TD>
                     <TD align="right">
-                      <div className="flex justify-end gap-1.5">
-                        {d.state === "bounced" && (
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => send([person.id])}
-                          >
-                            <RefreshCw aria-hidden="true" className="size-3.5" />
-                            Retry
-                          </Button>
-                        )}
-                        {d.state === "no_email" && (
-                          <ButtonLink
-                            href={`/people/${person.id}`}
-                            size="sm"
-                            variant="secondary"
-                          >
-                            Add email
-                          </ButtonLink>
-                        )}
-                        {d.state === "ready" && (
-                          <Button
-                            size="sm"
-                            variant="accent"
-                            onClick={() => send([person.id])}
-                          >
-                            <Send aria-hidden="true" className="size-3.5" />
-                            Send
-                          </Button>
-                        )}
-                        <ButtonLink
-                          href={`/payroll/payslips/${person.id}`}
-                          size="sm"
-                          variant="ghost"
-                        >
-                          View
-                        </ButtonLink>
-                      </div>
+                      <ButtonLink href={href} size="sm" variant="secondary">
+                        Open
+                      </ButtonLink>
                     </TD>
                   </TR>
                 );
@@ -344,10 +272,10 @@ export function PayslipIndex() {
         )}
       </Card>
 
-      <p className={cn("text-[0.75rem] leading-relaxed text-muted")}>
-        Opened is tracked by a pixel in the email and is indicative only — some
-        mail clients block it, so a payslip can be read without registering
-        here. Delivery is the figure to rely on.
+      <p className="text-[0.75rem] leading-relaxed text-muted">
+        Payslips are not emailed from here yet — nothing is connected to a mail
+        server, and a &ldquo;Sent&rdquo; that emailed nobody would be worse than
+        no button. Open a payslip and print it in the meantime.
       </p>
     </div>
   );

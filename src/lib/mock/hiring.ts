@@ -1,3 +1,14 @@
+/*
+ * The demo seed for the hiring module. Still the demo source — see
+ * `lib/store/hiring.ts` for what is live and what is not.
+ *
+ * Employee ids here are `p-NN`, matching `lib/mock/people.ts`. They were
+ * `emp-NN` for most of this build, which no record in `people.ts` has, so every
+ * `employeeById()` lookup in the hiring screens silently returned undefined and
+ * the hiring manager, the recruiter, every interviewer and every scorecard
+ * author rendered as "—" or "Unknown". Nothing typed it: `employeeById` returns
+ * `Employee | undefined` and every call site handled the undefined properly.
+ */
 import type {
   Application,
   Candidate,
@@ -22,8 +33,8 @@ export const REQUISITIONS: Requisition[] = [
     workMode: "hybrid",
     openings: 2,
     status: "open",
-    hiringManagerId: "emp-01",
-    recruiterId: "emp-06",
+    hiringManagerId: "p-01",
+    recruiterId: "p-06",
     salaryMin: 1_200_000,
     salaryMax: 1_800_000,
     openedAt: "2026-07-02",
@@ -51,8 +62,8 @@ export const REQUISITIONS: Requisition[] = [
     workMode: "onsite",
     openings: 1,
     status: "open",
-    hiringManagerId: "emp-02",
-    recruiterId: "emp-06",
+    hiringManagerId: "p-02",
+    recruiterId: "p-06",
     salaryMin: 650_000,
     salaryMax: 900_000,
     openedAt: "2026-07-21",
@@ -78,8 +89,8 @@ export const REQUISITIONS: Requisition[] = [
     workMode: "remote",
     openings: 1,
     status: "open",
-    hiringManagerId: "emp-04",
-    recruiterId: "emp-06",
+    hiringManagerId: "p-04",
+    recruiterId: "p-06",
     salaryMin: 900_000,
     salaryMax: 1_300_000,
     openedAt: "2026-08-04",
@@ -101,8 +112,8 @@ export const REQUISITIONS: Requisition[] = [
     workMode: "onsite",
     openings: 3,
     status: "pending_approval",
-    hiringManagerId: "emp-02",
-    recruiterId: "emp-06",
+    hiringManagerId: "p-02",
+    recruiterId: "p-06",
     salaryMin: 400_000,
     salaryMax: 550_000,
     openedAt: "2026-08-16",
@@ -157,12 +168,12 @@ export const APPLICATIONS: Application[] = [
 /* -------------------------------------------------------------- Interviews */
 
 export const INTERVIEWS: Interview[] = [
-  { id: "int-01", applicationId: "app-01", kind: "recruiter_screen", scheduledFor: "2026-08-12T10:00:00+01:00", durationMins: 30, interviewerIds: ["emp-06"], status: "completed" },
-  { id: "int-02", applicationId: "app-01", kind: "technical", scheduledFor: "2026-08-20T14:00:00+01:00", durationMins: 90, interviewerIds: ["emp-05", "emp-01"], status: "scheduled" },
-  { id: "int-03", applicationId: "app-02", kind: "technical", scheduledFor: "2026-08-13T11:00:00+01:00", durationMins: 90, interviewerIds: ["emp-05"], status: "completed" },
-  { id: "int-04", applicationId: "app-02", kind: "final", scheduledFor: "2026-08-15T15:00:00+01:00", durationMins: 45, interviewerIds: ["emp-01"], status: "completed" },
-  { id: "int-05", applicationId: "app-07", kind: "panel", scheduledFor: "2026-08-19T09:30:00+01:00", durationMins: 60, interviewerIds: ["emp-02", "emp-03"], status: "scheduled" },
-  { id: "int-06", applicationId: "app-11", kind: "technical", scheduledFor: "2026-08-21T13:00:00+01:00", durationMins: 60, interviewerIds: ["emp-04"], status: "scheduled" },
+  { id: "int-01", applicationId: "app-01", kind: "recruiter_screen", scheduledFor: "2026-08-12T10:00:00+01:00", durationMins: 30, interviewerIds: ["p-06"], status: "completed" },
+  { id: "int-02", applicationId: "app-01", kind: "technical", scheduledFor: "2026-08-20T14:00:00+01:00", durationMins: 90, interviewerIds: ["p-05", "p-01"], status: "scheduled" },
+  { id: "int-03", applicationId: "app-02", kind: "technical", scheduledFor: "2026-08-13T11:00:00+01:00", durationMins: 90, interviewerIds: ["p-05"], status: "completed" },
+  { id: "int-04", applicationId: "app-02", kind: "final", scheduledFor: "2026-08-15T15:00:00+01:00", durationMins: 45, interviewerIds: ["p-01"], status: "completed" },
+  { id: "int-05", applicationId: "app-07", kind: "panel", scheduledFor: "2026-08-19T09:30:00+01:00", durationMins: 60, interviewerIds: ["p-02", "p-03"], status: "scheduled" },
+  { id: "int-06", applicationId: "app-11", kind: "technical", scheduledFor: "2026-08-21T13:00:00+01:00", durationMins: 60, interviewerIds: ["p-04"], status: "scheduled" },
 ];
 
 /* -------------------------------------------------------------- Scorecards */
@@ -171,7 +182,7 @@ export const SCORECARDS: Scorecard[] = [
   {
     id: "sc-01",
     applicationId: "app-01",
-    interviewerId: "emp-06",
+    interviewerId: "p-06",
     submittedAt: "2026-08-12T10:45:00+01:00",
     ratings: [
       { competency: "Communication", score: 4 },
@@ -184,7 +195,7 @@ export const SCORECARDS: Scorecard[] = [
   {
     id: "sc-02",
     applicationId: "app-02",
-    interviewerId: "emp-05",
+    interviewerId: "p-05",
     submittedAt: "2026-08-13T12:30:00+01:00",
     ratings: [
       { competency: "System design", score: 5 },
@@ -197,7 +208,7 @@ export const SCORECARDS: Scorecard[] = [
   {
     id: "sc-03",
     applicationId: "app-02",
-    interviewerId: "emp-01",
+    interviewerId: "p-01",
     submittedAt: "2026-08-15T15:50:00+01:00",
     ratings: [
       { competency: "Leadership", score: 4 },
@@ -209,7 +220,7 @@ export const SCORECARDS: Scorecard[] = [
   {
     id: "sc-04",
     applicationId: "app-01",
-    interviewerId: "emp-05",
+    interviewerId: "p-05",
     submittedAt: null,
     ratings: [],
     recommendation: null,

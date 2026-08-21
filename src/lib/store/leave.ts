@@ -5,6 +5,7 @@ import { LEAVE_REQUESTS, type LeaveRequest, type LeaveType } from "@/lib/mock/wo
 import { useSession } from "./session";
 import { TODAY } from "@/lib/today";
 import { createPersistedState, patched } from "./persisted";
+import type { LeaveWindow } from "@/lib/workflows/leave";
 
 /**
  * Leave requests, and the decisions on them.
@@ -173,10 +174,20 @@ export type LeaveError = { field: keyof NewLeaveRequest; message: string };
  * Validated against the requests that already exist, not just the form — an
  * overlapping request is the error people actually make, and catching it here
  * is the difference between a booking screen and a form.
+ *
+ * ## Why the parameters are structural
+ *
+ * `input.type` is a plain string and `existing` is the minimum a clash check
+ * reads, rather than `NewLeaveRequest` and `LeaveRequest[]`. Connected to the
+ * API a leave type is a record with an id, not one of five hard-coded names, so
+ * the booking dialog cannot produce a `LeaveRequest` — and it still has to run
+ * the same checks before it spends a round trip finding out. The API repeats
+ * every one of them and its answer wins; this exists so the common mistakes are
+ * caught in the form, where the fix is in front of you.
  */
 export function validateLeave(
-  input: Partial<NewLeaveRequest>,
-  existing: LeaveRequest[],
+  input: { employeeId?: string; type?: string; from?: string; to?: string },
+  existing: readonly LeaveWindow[],
   remainingDays: number | undefined,
 ): LeaveError[] {
   const errors: LeaveError[] = [];

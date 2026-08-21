@@ -12,11 +12,9 @@ import {
   Select,
   useToast,
 } from "@/components/ui";
-import {
-  useEmployeeStore,
-  validateEmployee,
-  type FieldError,
-} from "@/lib/store/employees";
+import { ApiError } from "@/lib/api/client";
+import { validateEmployee } from "@/lib/store/employees";
+import type { EmployeePatch } from "@/lib/store/employees-api";
 import type { Employee } from "@/lib/types";
 
 /*
@@ -29,10 +27,26 @@ import type { Employee } from "@/lib/types";
  *
  * Cancel restores the values the section opened with, not the defaults — an
  * edit abandoned halfway should leave nothing behind.
+ *
+ * ## Saving is the caller's job
+ *
+ * `onSave` is required rather than defaulted to the local store. Whether an edit
+ * goes to the API or to localStorage is a decision the *page* holds — it knows
+ * which mode it is in — and a default here would silently write to the browser
+ * on a screen that believed it was connected. It returns a promise, and a
+ * rejection is expected: field errors from the API land on the right inputs.
  */
 
+/**
+ * A message against one field.
+ *
+ * Wider than `FieldError` from the employee store by exactly the id fields, so
+ * a department picker's error has somewhere to land.
+ */
+type SectionError = { field: keyof EmployeePatch; message: string };
+
 export type EditableField = {
-  key: keyof Employee;
+  key: keyof EmployeePatch;
   label: string;
   type?: "text" | "email" | "tel" | "date" | "number" | "select";
   options?: { value: string; label: string }[];
@@ -42,6 +56,13 @@ export type EditableField = {
   emptyLabel?: string;
   /** Formats the stored value for display. */
   format?: (v: unknown) => React.ReactNode;
+  /**
+   * The current value, when it is not simply `employee[key]`.
+   *
+   * `departmentId` is the case this exists for: the select's options are ids,
+   * and the id is not on `Employee` — only the department's name is.
+   */
+  value?: unknown;
 };
 
 export function EditableSection({
@@ -50,28 +71,34 @@ export function EditableSection({
   employee,
   fields,
   columns = 2,
+  onSave,
 }: {
   title: string;
   description?: string;
   employee: Employee;
   fields: EditableField[];
   columns?: 1 | 2;
+  /** Commits the changed fields. Rejecting with an `ApiError` is expected. */
+  onSave: (patch: EmployeePatch) => Promise<unknown>;
 }) {
-  const { update } = useEmployeeStore();
   const toast = useToast();
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState<Partial<Employee>>({});
-  const [errors, setErrors] = useState<FieldError[]>([]);
+  const [draft, setDraft] = useState<EmployeePatch>({});
+  const [errors, setErrors] = useState<SectionError[]>([]);
   const [busy, setBusy] = useState(false);
 
-  const errorFor = (k: keyof Employee) =>
+  const errorFor = (k: keyof EmployeePatch) =>
     errors.find((e) => e.field === k)?.message;
+
+  /** The value a field shows: the record's, or whatever the caller supplied. */
+  const valueOf = (f: EditableField): unknown =>
+    f.value !== undefined ? f.value : (employee as Record<string, unknown>)[f.key];
 
   function open() {
     /* Seed the draft from the record so Cancel is a true revert. */
-    const seed: Partial<Employee> = {};
+    const seed: EmployeePatch = {};
     for (const f of fields) {
-      seed[f.key] = employee[f.key] as never;
+      seed[f.key] = valueOf(f) as never;
     }
     setDraft(seed);
     setErrors([]);
@@ -84,12 +111,12 @@ export function EditableSection({
     setEditing(false);
   }
 
-  function save() {
+  async function save() {
     /* Only send what actually changed. */
-    const patch: Partial<Employee> = {};
+    const patch: EmployeePatch = {};
     for (const f of fields) {
       const next = draft[f.key];
-      if (next !== employee[f.key]) patch[f.key] = next as never;
+      if (next !== valueOf(f)) patch[f.key] = next as never;
     }
 
     if (Object.keys(patch).length === 0) {
@@ -111,18 +138,43 @@ export function EditableSection({
       return;
     }
 
+    const count = Object.keys(patch).length;
     setBusy(true);
-    setTimeout(() => {
-      update(employee.id, patch);
-      setBusy(false);
+    try {
+      await onSave(patch);
       setEditing(false);
-      const count = Object.keys(patch).length;
       toast.push({
         title: `${title} updated`,
         tone: "success",
         detail: `${count} field${count > 1 ? "s" : ""} changed.`,
       });
-    }, 350);
+    } catch (error) {
+      /* The API answers with the field and the sentence. Put both where the
+         person is looking rather than in a toast they have to translate. */
+      const fieldErrors =
+        error instanceof ApiError
+          ? error.fieldErrors
+              .filter((d) => fields.some((f) => f.key === d.field))
+              .map((d) => ({
+                field: d.field as keyof EmployeePatch,
+                message: d.message,
+              }))
+          : [];
+
+      if (fieldErrors.length > 0) setErrors(fieldErrors);
+      else {
+        toast.push({
+          title: "That did not save",
+          tone: "danger",
+          detail:
+            error instanceof ApiError
+              ? error.message
+              : "Something went wrong. Try again.",
+        });
+      }
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -140,7 +192,7 @@ export function EditableSection({
               <Button
                 variant="approve"
                 size="sm"
-                onClick={save}
+                onClick={() => void save()}
                 loading={busy}
               >
                 Save
@@ -163,7 +215,7 @@ export function EditableSection({
           }
         >
           {fields.map((f) => {
-            const value = employee[f.key];
+            const value = valueOf(f);
 
             if (!editing) {
               return (

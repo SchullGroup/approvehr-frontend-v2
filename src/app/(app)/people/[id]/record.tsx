@@ -24,6 +24,7 @@ import {
   DescriptionList,
   Money,
   ProgressMeter,
+  Skeleton,
   Tabs,
   TBody,
   TD,
@@ -34,34 +35,127 @@ import {
   TableWrap,
   type BadgeTone,
 } from "@/components/ui";
+import { EmployeeFileDrawer } from "@/app/(app)/people/documents";
+import { PayComponentsPanel } from "@/app/(app)/payroll/pay-setup/pay-components-panel";
+import { RecordHistory } from "@/app/(app)/settings/audit/record-history";
+import { naira } from "@/lib/api/pay-components";
 import { calculatePayslip } from "@/lib/payroll/engine";
 import { usePayrollSettings } from "@/lib/payroll/use-settings";
-import {
-  fullName,
-  missingForPayroll,
-  type Employee,
-  type EmploymentStatus,
-} from "@/lib/types";
-import type { EmployeeDocument, LeaveBalance } from "@/lib/mock/people";
+import { useDepartments } from "@/lib/store/departments";
+import type { EmployeePatch } from "@/lib/store/employees-api";
+import { usePayPreview } from "@/lib/store/pay-components";
+import { fullName, type Employee } from "@/lib/types";
+import type { LeaveBalance } from "@/lib/mock/people";
 import type { LeaveRequest } from "@/lib/mock/workflows";
 import { shortDate } from "@/lib/today";
-import { useEmployeeStore } from "@/lib/store/employees";
 import { EditableSection } from "@/components/people/editable-section";
 
-const STATUS: Record<EmploymentStatus, { tone: BadgeTone; label: string }> = {
+/**
+ * Employment status, as a chip.
+ *
+ * Keyed by string rather than by `EmploymentStatus`, and read through
+ * `statusOf`, because the two sources do not offer the same set. The frontend
+ * union has six; the database enum has five, and two of them — `SUSPENDED` and
+ * `EXITED` — are not in the union at all. A `Record<EmploymentStatus, …>` lookup
+ * on a connected record therefore returns `undefined` and the page crashes on
+ * `.tone`. TypeScript cannot see it: `toEmployee` casts the lower-cased string
+ * into the union on the way in.
+ */
+const STATUS: Record<string, { tone: BadgeTone; label: string }> = {
   active: { tone: "success", label: "Active" },
   onboarding: { tone: "info", label: "Onboarding" },
   probation: { tone: "warning", label: "Probation" },
   on_leave: { tone: "info", label: "On leave" },
   offboarding: { tone: "warning", label: "Offboarding" },
+  suspended: { tone: "danger", label: "Suspended" },
   inactive: { tone: "neutral", label: "Inactive" },
+  exited: { tone: "neutral", label: "Left the company" },
 };
 
-const TYPE_LABEL = {
-  full_time: "Full time",
-  contract: "Contract",
-  internship: "Internship",
-};
+/** Anything unrecognised still reads as a sentence rather than as a key. */
+function statusOf(status: string): { tone: BadgeTone; label: string } {
+  return (
+    STATUS[status.toLowerCase()] ?? {
+      tone: "neutral",
+      label: status.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase()),
+    }
+  );
+}
+
+/**
+ * Which statuses and employment types may be *set*.
+ *
+ * Connected, the answer is the database's enum — offering "Probation" would
+ * send a value `PATCH /employees/:id` refuses, and the person would get a 422
+ * for picking something the interface offered them. Offline the local set is
+ * the honest one, because localStorage will hold whatever it is given.
+ */
+const API_STATUSES = [
+  { value: "active", label: "Active" },
+  { value: "onboarding", label: "Onboarding" },
+  { value: "on_leave", label: "On leave" },
+  { value: "suspended", label: "Suspended" },
+  { value: "exited", label: "Left the company" },
+];
+
+const LOCAL_STATUSES = [
+  { value: "active", label: "Active" },
+  { value: "onboarding", label: "Onboarding" },
+  { value: "probation", label: "Probation" },
+  { value: "on_leave", label: "On leave" },
+  { value: "offboarding", label: "Offboarding" },
+  { value: "inactive", label: "Inactive" },
+];
+
+const API_TYPES = [
+  { value: "full_time", label: "Full time" },
+  { value: "part_time", label: "Part time" },
+  { value: "contract", label: "Contract" },
+  { value: "intern", label: "Internship" },
+  { value: "nysc", label: "NYSC" },
+];
+
+const LOCAL_TYPES = [
+  { value: "full_time", label: "Full time" },
+  { value: "contract", label: "Contract" },
+  { value: "internship", label: "Internship" },
+];
+
+const TYPE_LABELS: Record<string, string> = Object.fromEntries(
+  [...API_TYPES, ...LOCAL_TYPES].map((t) => [t.value, t.label]),
+);
+
+/**
+ * The two enums arrive in different cases and only one is normalised.
+ *
+ * `toEmployee` lower-cases `status` on the way in and leaves `employmentType`
+ * alone, so a connected record carries `active` beside `FULL_TIME`. Found on
+ * screen: the type read as "FULL_TIME" and the picker preselected the wrong
+ * option because none of its values matched. Everything on this page goes
+ * through here rather than trusting either case.
+ */
+const enumKey = (value: string) => value.toLowerCase();
+
+const BANKS = [
+  "",
+  "GTBank",
+  "Zenith Bank",
+  "Access Bank",
+  "UBA",
+  "First Bank",
+  "Stanbic IBTC",
+  "Kuda",
+];
+
+const PFAS = [
+  "",
+  "Stanbic IBTC Pensions",
+  "ARM Pensions",
+  "Leadway Pensure",
+  "Premium Pensions",
+];
+
+const TAX_STATES = ["Lagos", "Abuja", "Ogun", "Rivers", "Kano"];
 
 /**
  * The employee record.
@@ -70,39 +164,47 @@ const TYPE_LABEL = {
  * you should never lose track of whose record you are editing. Everything the
  * payroll run blocks on is surfaced at the top rather than buried in a tab,
  * because this page is where those blockers get resolved.
+ *
+ * Nothing here fetches. The page above it owns the read and passes both the
+ * record and the mode down, so this component renders the same way whether the
+ * data came from Postgres or from this browser.
  */
 export function EmployeeRecord({
-  employee: seed,
+  employee,
+  missing,
+  connected,
   manager,
+  managerName,
   reports,
   balances,
   leaveRequests,
-  documents,
+  onSave,
 }: {
   employee: Employee;
+  /** Fields payroll cannot file without. The API's own answer when connected. */
+  missing: string[];
+  connected: boolean;
   manager: Employee | null;
+  /** The manager's name even when their record is outside the page's slice. */
+  managerName: string | null;
   reports: Employee[];
   balances: LeaveBalance[];
   /** This employee's own requests, newest first. Live, not seed. */
   leaveRequests: LeaveRequest[];
-  documents: EmployeeDocument[];
+  onSave: (patch: EmployeePatch) => Promise<unknown>;
 }) {
   const [tab, setTab] = useState("personal");
-  const { settings } = usePayrollSettings();
-  const { get } = useEmployeeStore();
-
-  /* Read through the store so an edit made here immediately changes the
-     completeness meter, the payroll blockers and the compensation split —
-     the whole reason for editing in the first place. */
-  const employee = get(seed.id) ?? seed;
+  const [fileOpen, setFileOpen] = useState(false);
+  const departments = useDepartments();
 
   const name = fullName(employee);
-  const missing = missingForPayroll(employee);
-  const slip = calculatePayslip(
-    employee.id,
-    employee.grossMonthly,
-    undefined,
-    settings,
+  const status = statusOf(employee.status);
+
+  /* The department picker sends an id, and the id it should show as selected is
+     the one whose name matches the record — `Employee` carries the name only.
+     Works in both modes: offline `flat` is derived from the seed. */
+  const currentDepartment = departments.flat.find(
+    (d) => d.name === employee.department,
   );
 
   /* Completeness counts the fields payroll and compliance actually need —
@@ -133,8 +235,8 @@ export function EmployeeRecord({
                 {employee.jobTitle}
               </p>
             </div>
-            <Badge tone={STATUS[employee.status].tone} dot>
-              {STATUS[employee.status].label}
+            <Badge tone={status.tone} dot>
+              {status.label}
             </Badge>
           </CardBody>
 
@@ -171,8 +273,13 @@ export function EmployeeRecord({
               <FileText aria-hidden="true" className="size-3.5" />
               View latest payslip
             </ButtonLink>
-            <Button variant="secondary" size="sm" block>
-              Generate letter
+            <Button
+              variant="secondary"
+              size="sm"
+              block
+              onClick={() => setFileOpen(true)}
+            >
+              Their documents
             </Button>
           </CardBody>
         </Card>
@@ -186,12 +293,12 @@ export function EmployeeRecord({
             icon={<ShieldAlert aria-hidden="true" />}
             title={`${missing.length} field${missing.length > 1 ? "s" : ""} missing before payroll can run`}
           >
-            {missing.join(", ")}. The August run is blocked for this employee
-            until {missing.length > 1 ? "these are" : "this is"} added.
+            {missing.join(", ")}. They will be left out of the next run until{" "}
+            {missing.length > 1 ? "these are" : "this is"} added.
           </Callout>
         )}
 
-        {employee.status === "offboarding" && employee.endDate && (
+        {employee.endDate && (
           <Callout tone="warning" title="Leaving the company">
             Last day is {employee.endDate}. Check final settlement, outstanding
             loan balance and unused leave before the final run.
@@ -206,7 +313,6 @@ export function EmployeeRecord({
             { id: "employment", label: "Employment" },
             { id: "pay", label: "Pay & statutory" },
             { id: "leave", label: "Leave" },
-            { id: "documents", label: "Documents", count: documents.length },
           ]}
         />
 
@@ -215,6 +321,7 @@ export function EmployeeRecord({
             <EditableSection
               title="Personal details"
               employee={employee}
+              onSave={onSave}
               fields={[
                 { key: "firstName", label: "First name", required: true },
                 { key: "lastName", label: "Last name", required: true },
@@ -237,18 +344,6 @@ export function EmployeeRecord({
                     { value: "male", label: "Male" },
                     { value: "other", label: "Other" },
                   ],
-                },
-                {
-                  key: "location",
-                  label: "Location",
-                  type: "select",
-                  options: [
-                    "Lagos, NG",
-                    "Abuja, NG",
-                    "Abeokuta, NG",
-                    "Port Harcourt, NG",
-                    "Remote, NG",
-                  ].map((l) => ({ value: l, label: l })),
                 },
               ]}
             />
@@ -281,40 +376,40 @@ export function EmployeeRecord({
             <EditableSection
               title="Role"
               employee={employee}
+              onSave={onSave}
               fields={[
                 { key: "jobTitle", label: "Job title", required: true },
                 {
-                  key: "department",
+                  key: "departmentId",
                   label: "Department",
                   type: "select",
+                  value: currentDepartment?.id ?? "",
+                  format: () => employee.department,
                   options: [
-                    "Engineering",
-                    "Finance",
-                    "Product",
-                    "Operations",
-                    "People",
-                    "Sales",
-                  ].map((d) => ({ value: d, label: d })),
+                    { value: "", label: "Not assigned" },
+                    ...departments.flat.map((d) => ({
+                      value: d.id,
+                      label: d.name,
+                    })),
+                  ],
                 },
                 {
                   key: "employmentType",
                   label: "Employment type",
                   type: "select",
                   help: "Contract staff are taxed under withholding tax, not PAYE.",
-                  options: Object.entries(TYPE_LABEL).map(([value, label]) => ({
-                    value,
-                    label,
-                  })),
+                  value: enumKey(employee.employmentType),
+                  format: (v) => TYPE_LABELS[enumKey(String(v))] ?? String(v),
+                  options: connected ? API_TYPES : LOCAL_TYPES,
                 },
                 { key: "startDate", label: "Start date", type: "date" },
                 {
                   key: "status",
                   label: "Status",
                   type: "select",
-                  options: Object.entries(STATUS).map(([value, v]) => ({
-                    value,
-                    label: v.label,
-                  })),
+                  value: enumKey(employee.status),
+                  format: (v) => statusOf(String(v)).label,
+                  options: connected ? API_STATUSES : LOCAL_STATUSES,
                 },
                 {
                   key: "grossMonthly",
@@ -322,7 +417,9 @@ export function EmployeeRecord({
                   type: "number",
                   required: true,
                   help: "Changing this changes their next payslip.",
-                  format: (v) => <Money amount={Number(v)} />,
+                  /* Two decimals, never abbreviated: this is a figure somebody
+                     reconciles against a bank statement. */
+                  format: (v) => <Money amount={Number(v)} decimals />,
                 },
               ]}
             />
@@ -336,6 +433,8 @@ export function EmployeeRecord({
                   </p>
                   {manager ? (
                     <PersonLink employee={manager} />
+                  ) : managerName ? (
+                    <p className="text-[0.875rem] text-body">{managerName}</p>
                   ) : (
                     <p className="text-[0.875rem] text-muted">
                       No manager — reports to the board.
@@ -360,101 +459,82 @@ export function EmployeeRecord({
                 </div>
               </CardBody>
             </Card>
+
+            {/* Renders nothing at all without VIEW_AUDIT — by design. */}
+            <RecordHistory
+              entityType="employees"
+              entityId={employee.id}
+              title="Changes to this record"
+            />
           </div>
         )}
 
         {tab === "pay" && (
           <div className="flex flex-col gap-5">
-            <Card>
-              <CardHeader
-                title="Compensation"
-                description="Split according to your company salary structure."
-                action={
-                  <ButtonLink href="/settings/payroll" variant="ghost" size="sm">
-                    Structure settings
-                  </ButtonLink>
-                }
-              />
-              <CardBody className="flex flex-col gap-3">
-                <Line label="Gross monthly" value={slip.grossMonthly} strong />
-                <div className="h-px bg-line" />
-                <Line label="Basic" value={slip.basic} muted />
-                <Line label="Housing" value={slip.housing} muted />
-                <Line label="Transport" value={slip.transport} muted />
-                <div className="h-px bg-line" />
-                <Line label="Pension (employee)" value={-slip.pensionEmployee} />
-                <Line label="NHF" value={-slip.nhf} />
-                <Line label="PAYE" value={-slip.payeMonthly} />
-                <div className="h-px bg-line" />
-                <Line label="Net monthly" value={slip.netPay} strong />
-                <p className="mt-1 rounded-md bg-canvas p-2.5 text-[0.75rem] leading-relaxed text-muted">
-                  Employer pension of{" "}
-                  <Money amount={Math.round(slip.pensionEmployer)} /> is paid on
-                  top and is not deducted.
-                </p>
-              </CardBody>
-            </Card>
+            <Compensation employee={employee} connected={connected} />
+
+            {/* What they get on top of salary belongs on their record, not on a
+                separate setup screen. The panel owns its own loading, errors
+                and demo-mode caveats. */}
+            <PayComponentsPanel employeeId={employee.id} />
 
             <EditableSection
               title="Payment and statutory"
               description="What payroll needs to pay and remit. Missing values block the run."
               employee={employee}
+              onSave={onSave}
               fields={[
                 {
                   key: "bankName",
                   label: "Bank",
                   type: "select",
-                  options: [
-                    "",
-                    "GTBank",
-                    "Zenith Bank",
-                    "Access Bank",
-                    "UBA",
-                    "First Bank",
-                    "Stanbic IBTC",
-                    "Kuda",
-                  ].map((b) => ({ value: b, label: b || "Select a bank" })),
+                  options: BANKS.map((b) => ({
+                    value: b,
+                    label: b || "Select a bank",
+                  })),
                 },
                 {
                   key: "bankAccount",
                   label: "Account",
                   emptyLabel: "No bank account — payroll blocked",
-                  help: "Payroll cannot pay without this.",
+                  help: "Ten digits. Payroll cannot pay without this.",
+                  format: (v) => <Guarded value={String(v)} />,
                 },
                 {
                   key: "pensionPin",
                   label: "Pension PIN",
                   emptyLabel: "No pension PIN — payroll blocked",
                   help: "PEN followed by 9 to 12 digits.",
+                  format: (v) => <Guarded value={String(v)} />,
                 },
                 {
                   key: "pensionProvider",
                   label: "Pension provider",
                   type: "select",
-                  options: [
-                    "",
-                    "Stanbic IBTC Pensions",
-                    "ARM Pensions",
-                    "Leadway Pensure",
-                    "Premium Pensions",
-                  ].map((p) => ({ value: p, label: p || "Select a PFA" })),
+                  options: PFAS.map((p) => ({
+                    value: p,
+                    label: p || "Select a PFA",
+                  })),
                 },
                 {
                   key: "taxState",
                   label: "Tax state",
                   type: "select",
                   help: "Sets which state IRS receives their PAYE.",
-                  options: ["Lagos", "Abuja", "Ogun", "Rivers", "Kano"].map(
-                    (s) => ({ value: s, label: s }),
-                  ),
+                  options: TAX_STATES.map((s) => ({ value: s, label: s })),
                 },
                 {
                   key: "tin",
                   label: "TIN",
                   emptyLabel: "No TIN — payroll blocked",
                   help: "Ten digits.",
+                  format: (v) => <Guarded value={String(v)} />,
                 },
-                { key: "nhfNumber", label: "NHF number" },
+                {
+                  key: "nhfNumber",
+                  label: "NHF number",
+                  format: (v) => <Guarded value={String(v)} />,
+                },
               ]}
             />
           </div>
@@ -462,154 +542,267 @@ export function EmployeeRecord({
 
         {tab === "leave" && (
           <div className="flex flex-col gap-5">
-          <Card>
-            <CardHeader
-              title="Leave balances"
-              description="Taken and pending are counted from their actual requests, so a decision made in the approvals inbox shows here immediately."
-            />
-            <TableWrap className="rounded-none border-0">
-              <THead>
-                <TH>Type</TH>
-                <TH align="right">Entitled</TH>
-                <TH align="right">Taken</TH>
-                <TH align="right">Pending</TH>
-                <TH align="right">Remaining</TH>
-              </THead>
-              <TBody>
-                {balances.map((b) => {
-                  const remaining = b.entitled - b.taken - b.pending;
-                  return (
-                    <TR key={b.type}>
-                      <TDPrimary title={b.type} />
-                      <TD align="right" className="tabular">{b.entitled}</TD>
-                      <TD align="right" className="tabular text-muted">{b.taken}</TD>
-                      <TD align="right" className="tabular text-muted">
-                        {b.pending || "—"}
-                      </TD>
-                      <TD
-                        align="right"
-                        className={cn(
-                          "tabular font-medium",
-                          remaining <= 2 ? "text-warning-text" : "text-ink",
-                        )}
-                      >
-                        {remaining}
-                      </TD>
-                    </TR>
-                  );
-                })}
-              </TBody>
-            </TableWrap>
-          </Card>
-
-          <Card>
-            <CardHeader
-              title="Requests"
-              description="Every request they have raised, and what happened to it."
-              level={3}
-            />
-            {leaveRequests.length === 0 ? (
-              <CardBody>
-                <p className="text-[0.875rem] text-muted">
-                  No leave requested yet.
-                </p>
-              </CardBody>
-            ) : (
+            {connected && (
+              <Badge tone="warning" size="sm" dot>
+                Leave is still demo data, this browser only
+              </Badge>
+            )}
+            <Card>
+              <CardHeader
+                title="Leave balances"
+                description="Taken and pending are counted from their actual requests, so a decision made in the approvals inbox shows here immediately."
+              />
               <TableWrap className="rounded-none border-0">
                 <THead>
                   <TH>Type</TH>
-                  <TH>Dates</TH>
-                  <TH align="right">Days</TH>
-                  <TH>Status</TH>
-                  <TH>Decided</TH>
+                  <TH align="right">Entitled</TH>
+                  <TH align="right">Taken</TH>
+                  <TH align="right">Pending</TH>
+                  <TH align="right">Remaining</TH>
                 </THead>
                 <TBody>
-                  {[...leaveRequests]
-                    .sort((a, b) => b.from.localeCompare(a.from))
-                    .map((r) => (
-                      <TR key={r.id}>
-                        <TDPrimary
-                          title={r.type}
-                          subtitle={r.reason ?? r.decisionNote}
-                        />
-                        <TD className="tabular whitespace-nowrap">
-                          {r.from} → {r.to}
+                  {balances.map((b) => {
+                    const remaining = b.entitled - b.taken - b.pending;
+                    return (
+                      <TR key={b.type}>
+                        <TDPrimary title={b.type} />
+                        <TD align="right" className="tabular">{b.entitled}</TD>
+                        <TD align="right" className="tabular text-muted">{b.taken}</TD>
+                        <TD align="right" className="tabular text-muted">
+                          {b.pending || "—"}
                         </TD>
-                        <TD align="right" className="tabular">
-                          {r.days}
-                        </TD>
-                        <TD>
-                          <Badge
-                            tone={
-                              r.status === "approved"
-                                ? "success"
-                                : r.status === "pending"
-                                  ? "warning"
-                                  : r.status === "declined"
-                                    ? "danger"
-                                    : "neutral"
-                            }
-                            size="sm"
-                            dot
-                          >
-                            {r.status[0].toUpperCase() + r.status.slice(1)}
-                          </Badge>
-                        </TD>
-                        <TD className="text-muted">
-                          {r.decidedAt ? shortDate(r.decidedAt) : "—"}
+                        <TD
+                          align="right"
+                          className={cn(
+                            "tabular font-medium",
+                            remaining <= 2 ? "text-warning-text" : "text-ink",
+                          )}
+                        >
+                          {remaining}
                         </TD>
                       </TR>
-                    ))}
+                    );
+                  })}
                 </TBody>
               </TableWrap>
-            )}
-          </Card>
+            </Card>
+
+            <Card>
+              <CardHeader
+                title="Requests"
+                description="Every request they have raised, and what happened to it."
+                level={3}
+              />
+              {leaveRequests.length === 0 ? (
+                <CardBody>
+                  <p className="text-[0.875rem] text-muted">
+                    No leave requested yet.
+                  </p>
+                </CardBody>
+              ) : (
+                <TableWrap className="rounded-none border-0">
+                  <THead>
+                    <TH>Type</TH>
+                    <TH>Dates</TH>
+                    <TH align="right">Days</TH>
+                    <TH>Status</TH>
+                    <TH>Decided</TH>
+                  </THead>
+                  <TBody>
+                    {[...leaveRequests]
+                      .sort((a, b) => b.from.localeCompare(a.from))
+                      .map((r) => (
+                        <TR key={r.id}>
+                          <TDPrimary
+                            title={r.type}
+                            subtitle={r.reason ?? r.decisionNote}
+                          />
+                          <TD className="tabular whitespace-nowrap">
+                            {r.from} → {r.to}
+                          </TD>
+                          <TD align="right" className="tabular">
+                            {r.days}
+                          </TD>
+                          <TD>
+                            <Badge
+                              tone={
+                                r.status === "approved"
+                                  ? "success"
+                                  : r.status === "pending"
+                                    ? "warning"
+                                    : r.status === "declined"
+                                      ? "danger"
+                                      : "neutral"
+                              }
+                              size="sm"
+                              dot
+                            >
+                              {r.status[0].toUpperCase() + r.status.slice(1)}
+                            </Badge>
+                          </TD>
+                          <TD className="text-muted">
+                            {r.decidedAt ? shortDate(r.decidedAt) : "—"}
+                          </TD>
+                        </TR>
+                      ))}
+                  </TBody>
+                </TableWrap>
+              )}
+            </Card>
           </div>
         )}
-
-        {tab === "documents" && (
-          <Card>
-            <CardHeader
-              title="Documents"
-              action={
-                <Button variant="secondary" size="sm">
-                  Upload
-                </Button>
-              }
-            />
-            <CardBody className="flex flex-col gap-2.5">
-              {documents.map((d) => (
-                <div
-                  key={d.id}
-                  className="flex items-center gap-3 rounded-md border border-line p-3"
-                >
-                  <FileText aria-hidden="true" className="size-4 shrink-0 text-faint" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[0.875rem] font-medium text-ink">
-                      {d.name}
-                    </p>
-                    <p className="text-[0.75rem] text-muted">
-                      {d.category} · uploaded {d.uploadedAt}
-                    </p>
-                  </div>
-                  <Badge tone={d.verified ? "success" : "warning"} size="sm" dot>
-                    {d.verified ? "Verified" : "Unverified"}
-                  </Badge>
-                  <Button variant="ghost" size="sm">
-                    Open
-                  </Button>
-                </div>
-              ))}
-            </CardBody>
-          </Card>
-        )}
       </div>
+
+      {/* The same file, and the same upload and request flow, as the documents
+          register — rather than a second list that drifts from it. */}
+      <EmployeeFileDrawer
+        employeeId={fileOpen ? employee.id : null}
+        onClose={() => setFileOpen(false)}
+        onChanged={() => {}}
+      />
     </div>
   );
 }
 
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Where the salary goes, and what comes off it.
+ *
+ * Connected, every figure is the server's — the same engine the payroll run
+ * uses, read from `GET /pay-components/preview/:employeeId`. That matters more
+ * than saving a request: the allowances panel directly below this card gets its
+ * take-home figure from that endpoint, and two nets on one screen that disagree
+ * because one was computed in the browser is exactly the defect this product is
+ * sold against.
+ *
+ * Offline it falls back to the frontend engine, which is the only arithmetic
+ * available with no server, and says so.
+ */
+function Compensation({
+  employee,
+  connected,
+}: {
+  employee: Employee;
+  connected: boolean;
+}) {
+  const preview = usePayPreview(employee.id);
+  const { settings } = usePayrollSettings();
+
+  const live = preview.data?.payslip ?? null;
+  const local = calculatePayslip(
+    employee.id,
+    employee.grossMonthly,
+    undefined,
+    settings,
+  );
+
+  const figures = live
+    ? {
+        gross: naira(live.grossKobo),
+        basic: naira(live.basicKobo),
+        housing: naira(live.housingKobo),
+        transport: naira(live.transportKobo),
+        pensionEmployee: naira(live.pensionEmployeeKobo),
+        nhf: naira(live.nhfKobo),
+        paye: naira(live.payeKobo),
+        net: naira(live.netKobo),
+        pensionEmployer: naira(live.pensionEmployerKobo),
+      }
+    : {
+        gross: local.grossMonthly,
+        basic: local.basic,
+        housing: local.housing,
+        transport: local.transport,
+        pensionEmployee: local.pensionEmployee,
+        nhf: local.nhf,
+        paye: local.payeMonthly,
+        net: local.netPay,
+        pensionEmployer: local.pensionEmployer,
+      };
+
+  return (
+    <Card>
+      <CardHeader
+        title="Compensation"
+        description="Split according to your company salary structure."
+        action={
+          <ButtonLink href="/settings/payroll" variant="ghost" size="sm">
+            Structure settings
+          </ButtonLink>
+        }
+      />
+      <CardBody className="flex flex-col gap-3">
+        {connected && preview.loading && !live ? (
+          <>
+            <Skeleton className="h-5 w-full" />
+            <Skeleton className="h-5 w-full" />
+            <Skeleton className="h-5 w-2/3" />
+            <span className="sr-only">Working out this month’s figures</span>
+          </>
+        ) : (
+          <>
+            {connected && preview.error && (
+              <p className="text-[0.875rem] text-danger-text">
+                {preview.error.message} The figures below were worked out in this
+                browser instead.
+              </p>
+            )}
+            <Line label="Gross monthly" value={figures.gross} strong />
+            <div className="h-px bg-line" />
+            <Line label="Basic" value={figures.basic} muted />
+            <Line label="Housing" value={figures.housing} muted />
+            <Line label="Transport" value={figures.transport} muted />
+            <div className="h-px bg-line" />
+            <Line label="Pension (employee)" value={-figures.pensionEmployee} />
+            <Line label="NHF" value={-figures.nhf} />
+            <Line label="PAYE" value={-figures.paye} />
+            <div className="h-px bg-line" />
+            <Line label="Net monthly" value={figures.net} strong />
+            <p className="mt-1 rounded-md bg-canvas p-2.5 text-[0.75rem] leading-relaxed text-muted">
+              Employer pension of{" "}
+              <Money amount={figures.pensionEmployer} decimals /> is paid on top
+              and is not deducted.
+              {live ? "" : " Worked out in this browser — start the API for the figures a real run would use."}
+            </p>
+          </>
+        )}
+      </CardBody>
+    </Card>
+  );
+}
+
+/**
+ * A bank account, a pension PIN, a TIN, an NHF number.
+ *
+ * Masked until somebody asks for it. The API redacts exactly these four fields
+ * by name in the audit trail — `SENSITIVE_EMPLOYEE_FIELDS` in
+ * `approvehr-api/src/lib/audit.ts` records that an account number *changed* and
+ * never what it changed to, so the log does not become a second copy of the
+ * data. A record page that prints them permanently on a monitor in an open
+ * office undoes that at the one place it matters.
+ *
+ * The last four digits are enough to confirm you have the right account. The
+ * rest is one click away for whoever has to read it out to a bank.
+ */
+function Guarded({ value }: { value: string }) {
+  const [shown, setShown] = useState(false);
+  const masked =
+    value.length > 4 ? `•••• ${value.slice(-4)}` : "•".repeat(value.length);
+
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span className="tabular">{shown ? value : masked}</span>
+      <button
+        type="button"
+        onClick={() => setShown((s) => !s)}
+        className="rounded-xs text-[0.75rem] font-medium text-accent-text hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+      >
+        {shown ? "Hide" : "Show"}
+      </button>
+    </span>
+  );
+}
 
 function Contact({
   icon,
@@ -685,7 +878,7 @@ function Line({
             : "tabular text-[0.875rem] text-body"
         }
       >
-        <Money amount={Math.round(value)} />
+        <Money amount={value} decimals />
       </span>
     </div>
   );

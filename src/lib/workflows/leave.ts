@@ -2,7 +2,7 @@ import {
   entitlementsFor,
   type LeaveBalance,
 } from "@/lib/mock/people";
-import type { LeaveRequest } from "@/lib/mock/workflows";
+import type { LeaveRequest, LeaveStatus } from "@/lib/mock/workflows";
 import type { LeaveTypePolicy } from "@/lib/store/company";
 
 /**
@@ -70,17 +70,40 @@ export function balanceForRequest(
 }
 
 /**
+ * The minimum a row needs for the cover question to be answerable.
+ *
+ * Deliberately not `LeaveRequest`. The API's rows carry a leave *type record*
+ * rather than one of five hard-coded names, so they are not `LeaveRequest`s and
+ * never will be — but the overlap arithmetic is identical, and the demo and the
+ * connected screen must not each get their own copy of it. Widening the input to
+ * what the calculation actually reads is what lets one function serve both.
+ */
+export type LeaveWindow = {
+  id: string;
+  employeeId: string;
+  status: LeaveStatus;
+  from: string;
+  to: string;
+};
+
+/**
  * Who else is off across the same dates, excluding the request itself.
  *
  * This is the question an approver actually has and the reason leave gets
  * declined: not "does this person have days left" but "will anyone be left to
  * cover". Surfacing it on the request is the difference between an inbox and a
  * rubber stamp.
+ *
+ * Connected, the API answers this itself on `GET /leave/requests/:id` and that
+ * answer wins — it can see the whole company, where this can only see the rows
+ * a screen happens to be holding. This is the demo's implementation of the same
+ * rule, and it is also what `lib/workflows/queue.ts` uses to write the cover
+ * line on a queued row without a request per row.
  */
-export function clashesWith(
-  request: LeaveRequest,
-  requests: LeaveRequest[],
-): LeaveRequest[] {
+export function clashesWith<T extends LeaveWindow>(
+  request: LeaveWindow,
+  requests: readonly T[],
+): T[] {
   return requests.filter(
     (r) =>
       r.id !== request.id &&

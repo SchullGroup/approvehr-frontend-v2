@@ -1,0 +1,939 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { ApiError } from "@/lib/api/client";
+import {
+  payrollApi,
+  type ApprovedRun,
+  type Discrepancy,
+  type PayrollRun,
+  type PayrollRunDetail,
+  type PayrollRunStatus,
+  type Payslip,
+  type PayslipLine,
+  type PreparedRun,
+  type RunException,
+} from "@/lib/api/payroll";
+import {
+  calculatePayslip,
+  consolidatedRelief,
+  type PayrollEmployee,
+} from "@/lib/payroll/engine";
+import type { PayrollSettings } from "@/lib/payroll/settings";
+import { usePayrollSettings } from "@/lib/payroll/use-settings";
+import {
+  PREVIOUS_NET,
+  SCHEDULED_DEDUCTIONS,
+  runPeopleFrom,
+} from "@/lib/mock/payroll";
+import { TODAY } from "@/lib/today";
+import { createPersistedState } from "./persisted";
+import { useEmployeeStore } from "./employees";
+import { useSession } from "./session";
+
+/**
+ * Payroll runs, from whichever source is available.
+ *
+ * Connected → `/api/v1/payroll`. Demo → a run computed here, in this browser.
+ * Every screen calls these hooks and does not care which it got; `connected`
+ * comes back on every result so the screen can say which one it is showing.
+ *
+ * ## The demo run is computed, not written down
+ *
+ * A draft run's figures are **recomputed from the live employee directory on
+ * every render**. That is not laziness — it is the property the product is
+ * selling. Fix a missing account number on somebody's record and the blocker
+ * clears here without a reload, exactly as it does against the API, because in
+ * both modes the run is a function of the directory rather than a copy of it.
+ *
+ * Approval is where that stops. An approved run carries a **frozen** snapshot,
+ * and from then on the figures come out of the snapshot no matter what the
+ * directory says afterwards. That is the same one-way door the API implements,
+ * for the same reason: a payslip from 2026 has to explain itself in 2029, and
+ * re-deriving it from tomorrow's records would silently rewrite it.
+ *
+ * ## What the demo deliberately does not do
+ *
+ * - **No allowances.** `lib/payroll/engine.ts` folds an addition into gross
+ *   *before* the basic/housing/transport split, which charges pension and NHF
+ *   on a bonus. The backend engine fixed exactly that bug (see the parity
+ *   notes); this one has not been fixed because it is due for deletion. So the
+ *   demo shows post-tax deductions and employer pension as itemised lines and
+ *   says plainly that allowances need the API, rather than demonstrating an
+ *   arithmetic the product no longer believes in.
+ * - **No proration.** Unpaid days come from the attendance roster, which the
+ *   demo run does not read. Every demo payslip is a full month.
+ */
+
+/* ------------------------------------------------------------ demo storage */
+
+type DemoRunRecord = {
+  /** `YYYY-MM`. One run per period, same as the API's unique constraint. */
+  period: string;
+  payDate: string;
+  label: string | null;
+  status: PayrollRunStatus;
+  preparedAt: string;
+  approvedAt: string | null;
+  /** Written at approval. Null while the run is still a draft. */
+  frozen: PayrollRunDetail | null;
+};
+
+type DemoState = { runs: DemoRunRecord[] };
+
+const CURRENT_PERIOD = TODAY.slice(0, 7);
+
+/**
+ * The demo starts with the current period already prepared and awaiting
+ * approval, because that is the state a payroll demo is worth opening on.
+ *
+ * Only one run, and no invented history: prior periods appear as somebody
+ * prepares them. Four rows of plausible-looking past totals would be four
+ * figures nobody could reconcile against the payslips underneath them, which is
+ * the failure this product exists to refuse.
+ */
+const DEMO_EMPTY: DemoState = {
+  runs: [
+    {
+      period: CURRENT_PERIOD,
+      payDate: `${CURRENT_PERIOD}-28`,
+      label: null,
+      status: "IN_REVIEW",
+      preparedAt: `${TODAY}T08:30:00.000Z`,
+      approvedAt: null,
+      frozen: null,
+    },
+  ],
+};
+
+const demoStore = createPersistedState<DemoState>({
+  key: "approvehr.payroll.runs",
+  empty: DEMO_EMPTY,
+  version: 1,
+});
+
+const useDemoRuns = (): DemoState =>
+  useSyncExternalStore(
+    demoStore.subscribe,
+    demoStore.read,
+    demoStore.getServerSnapshot,
+  );
+
+/* ------------------------------------------------------- demo computation */
+
+const demoRunId = (period: string) => `demo-${period}`;
+const demoPayslipId = (period: string, employeeId: string) =>
+  `demo-${period}-${employeeId}`;
+
+/** Naira float → whole kobo. The demo's own rounding boundary. */
+const kobo = (naira: number) => Math.round(naira * 100);
+
+/**
+ * One demo payslip, in whole kobo.
+ *
+ * The engine works in floating-point naira, so every figure is rounded to kobo
+ * **first** and net is then derived from the rounded parts. Rounding each part
+ * and re-adding is what makes the reconciliation identities hold exactly rather
+ * than nearly — and "nearly" is not a thing a payment file can be.
+ *
+ * Post-tax deductions are capped at what is left after tax, with the shortfall
+ * reported separately. The backend engine does this because a loan instalment
+ * cannot be recovered from somebody who earned less than it; the frontend engine
+ * does not, so the cap is applied here rather than producing a negative payslip.
+ */
+function demoPayslip(
+  period: string,
+  person: PayrollEmployee,
+  settings: PayrollSettings,
+): { slip: Payslip; unrecoveredKobo: number } {
+  const scheduled = SCHEDULED_DEDUCTIONS.get(person.id);
+  const computed = calculatePayslip(
+    person.id,
+    person.grossMonthly,
+    { additions: 0, postTaxDeductions: 0, unpaidDays: 0 },
+    settings,
+  );
+
+  const grossKobo = kobo(computed.grossMonthly);
+  const basicKobo = kobo(computed.basic);
+  const housingKobo = kobo(computed.housing);
+  /* Transport takes the remainder so the three components sum to gross exactly,
+     which is the identity `reconcile.ts` checks. */
+  const transportKobo = grossKobo - basicKobo - housingKobo;
+  const pensionEmployeeKobo = kobo(computed.pensionEmployee);
+  const pensionEmployerKobo = kobo(computed.pensionEmployer);
+  const nhfKobo = kobo(computed.nhf);
+  const payeKobo = kobo(computed.payeMonthly);
+
+  /* The engine returns neither figure, so both are re-derived from its own
+     published formula rather than approximated. A payslip that quotes a relief
+     it cannot show the working for is a payslip nobody can check. */
+  const grossAnnual = computed.grossMonthly * 12;
+  const reliefAnnual = consolidatedRelief(grossAnnual);
+  const taxableAnnual = Math.max(
+    0,
+    grossAnnual - (computed.pensionEmployee + computed.nhf) * 12 - reliefAnnual,
+  );
+
+  const availableKobo = Math.max(
+    0,
+    grossKobo - pensionEmployeeKobo - nhfKobo - payeKobo,
+  );
+  const requestedKobo = kobo(scheduled?.amount ?? 0);
+  const takenKobo = Math.min(requestedKobo, availableKobo);
+  const unrecoveredKobo = requestedKobo - takenKobo;
+
+  const lines: PayslipLine[] = [];
+  if (requestedKobo > 0 && scheduled) {
+    lines.push({
+      id: `${person.id}-deduction`,
+      kind: "DEDUCTION",
+      label: scheduled.label,
+      /* The full instalment, not what fitted. `reconcile.ts` allows the line to
+         exceed what was taken precisely so the carried remainder stays visible
+         instead of quietly vanishing off the slip. */
+      amountKobo: requestedKobo,
+      taxable: false,
+    });
+  }
+  lines.push({
+    id: `${person.id}-employer-pension`,
+    kind: "EMPLOYER_CONTRIBUTION",
+    label: "Employer pension",
+    amountKobo: pensionEmployerKobo,
+    taxable: false,
+  });
+
+  return {
+    unrecoveredKobo,
+    slip: {
+      id: demoPayslipId(period, person.id),
+      employeeId: person.id,
+      employeeNo: person.id.toUpperCase(),
+      name: person.name,
+      grossKobo,
+      basicKobo,
+      housingKobo,
+      transportKobo,
+      pensionEmployeeKobo,
+      pensionEmployerKobo,
+      nhfKobo,
+      taxableIncomeKobo: kobo(taxableAnnual / 12),
+      consolidatedReliefKobo: kobo(reliefAnnual / 12),
+      payeKobo,
+      otherDeductionsKobo: takenKobo,
+      netKobo: availableKobo - takenKobo,
+      unpaidDays: 0,
+      proratedDeductionKobo: 0,
+      publishedAt: null,
+      emailedAt: null,
+      viewedAt: null,
+      lines,
+    },
+  };
+}
+
+/**
+ * The invariant check, in demo mode.
+ *
+ * The same identities `approvehr-api/src/modules/payroll/reconcile.ts` asserts,
+ * because the gate has to be real in both modes. A demo that renders whatever
+ * the arithmetic produced would be demonstrating the incumbent's bug — an
+ * audit of the live competitor found a run paying out ₦1.47m more than it cost,
+ * displayed without complaint, and the failure was not the arithmetic but that
+ * nothing between it and the screen ever asked whether it added up.
+ *
+ * Exact integer equality, no tolerance. A tolerance is a decision that being
+ * slightly wrong is acceptable, and on a payment file it is not.
+ */
+function reconcileDemo(slips: Payslip[], totals: RunTotalsKobo): Discrepancy[] {
+  const found: Discrepancy[] = [];
+  const money = (k: number) =>
+    (k / 100).toLocaleString("en-NG", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
+  for (const slip of slips) {
+    const taken =
+      slip.pensionEmployeeKobo +
+      slip.nhfKobo +
+      slip.payeKobo +
+      slip.otherDeductionsKobo;
+    if (slip.netKobo + taken !== slip.grossKobo) {
+      found.push({
+        code: "net_does_not_reconcile",
+        employeeId: slip.employeeId,
+        message:
+          `Net pay plus deductions comes to ₦${money(slip.netKobo + taken)}, ` +
+          `but gross is ₦${money(slip.grossKobo)}.`,
+        expectedKobo: slip.grossKobo,
+        actualKobo: slip.netKobo + taken,
+      });
+    }
+    if (slip.netKobo > slip.grossKobo) {
+      found.push({
+        code: "net_exceeds_gross",
+        employeeId: slip.employeeId,
+        message:
+          `Net pay ₦${money(slip.netKobo)} is more than gross ` +
+          `₦${money(slip.grossKobo)}. This cannot be right.`,
+        expectedKobo: slip.grossKobo,
+        actualKobo: slip.netKobo,
+      });
+    }
+    const split = slip.basicKobo + slip.housingKobo + slip.transportKobo;
+    if (split !== slip.grossKobo) {
+      found.push({
+        code: "split_does_not_sum",
+        employeeId: slip.employeeId,
+        message:
+          `Basic plus housing plus transport is ₦${money(split)}, ` +
+          `contractual pay is ₦${money(slip.grossKobo)}.`,
+        expectedKobo: slip.grossKobo,
+        actualKobo: split,
+      });
+    }
+  }
+
+  const fields: [string, number, number][] = [
+    ["gross", slips.reduce((t, s) => t + s.grossKobo, 0), totals.grossKobo],
+    ["net", slips.reduce((t, s) => t + s.netKobo, 0), totals.netKobo],
+    ["PAYE", slips.reduce((t, s) => t + s.payeKobo, 0), totals.payeKobo],
+  ];
+  for (const [label, expected, actual] of fields) {
+    if (expected !== actual) {
+      found.push({
+        code: "total_does_not_match_payslips",
+        message:
+          `Total ${label} is ₦${money(actual)} but the payslips add to ` +
+          `₦${money(expected)}.`,
+        expectedKobo: expected,
+        actualKobo: actual,
+      });
+    }
+  }
+
+  return found;
+}
+
+type RunTotalsKobo = {
+  grossKobo: number;
+  netKobo: number;
+  payeKobo: number;
+  pensionEmployeeKobo: number;
+  pensionEmployerKobo: number;
+  nhfKobo: number;
+};
+
+function totalsOf(slips: Payslip[]): RunTotalsKobo {
+  return slips.reduce<RunTotalsKobo>(
+    (t, s) => ({
+      grossKobo: t.grossKobo + s.grossKobo,
+      netKobo: t.netKobo + s.netKobo,
+      payeKobo: t.payeKobo + s.payeKobo,
+      pensionEmployeeKobo: t.pensionEmployeeKobo + s.pensionEmployeeKobo,
+      pensionEmployerKobo: t.pensionEmployerKobo + s.pensionEmployerKobo,
+      nhfKobo: t.nhfKobo + s.nhfKobo,
+    }),
+    {
+      grossKobo: 0,
+      netKobo: 0,
+      payeKobo: 0,
+      pensionEmployeeKobo: 0,
+      pensionEmployerKobo: 0,
+      nhfKobo: 0,
+    },
+  );
+}
+
+/**
+ * Demo exceptions, using the API's own codes and severities.
+ *
+ * Deliberately not `findExceptions` from the frontend engine: that marks a
+ * missing pension PIN as *blocking*, and the API treats it as a warning. The
+ * demo has to teach what the product actually does, so where the two disagree
+ * the API wins and the codes match so a fix link resolves the same way.
+ */
+function demoExceptions(
+  people: PayrollEmployee[],
+  slips: Map<string, { slip: Payslip; unrecoveredKobo: number }>,
+  settings: PayrollSettings,
+): RunException[] {
+  const out: RunException[] = [];
+  const push = (
+    severity: RunException["severity"],
+    code: string,
+    employeeId: string | null,
+    message: string,
+  ) => out.push({ id: `${code}-${employeeId ?? "run"}`, employeeId, severity, code, message });
+
+  /* The frontend engine's PAYE bands are the 2011 schedule with no effective
+     date on them, and the period is 2026. The backend raises this as a warning
+     rather than refusing to pay anybody over a stale lookup table, and so does
+     this. */
+  push(
+    "WARNING",
+    "tax_schedule_unconfirmed",
+    null,
+    "The PAYE bands in the demo have not been confirmed for 2026. Check them before approving.",
+  );
+
+  for (const person of people) {
+    const entry = slips.get(person.id);
+    if (!entry) continue;
+
+    if (settings.exceptions.requireBankAccount && !person.bankAccount) {
+      push(
+        "BLOCKER",
+        "missing_bank_account",
+        person.id,
+        `${person.name} has no account number. They cannot be paid.`,
+      );
+    }
+    if (
+      settings.exceptions.requirePensionPin &&
+      settings.pension.enabled &&
+      !person.pensionPin
+    ) {
+      push(
+        "WARNING",
+        "missing_pension_pin",
+        person.id,
+        `${person.name} has no pension PIN. The pension schedule will be incomplete.`,
+      );
+    }
+    if (settings.exceptions.blockNegativeNet && entry.slip.netKobo <= 0) {
+      push(
+        "BLOCKER",
+        "negative_net",
+        person.id,
+        `${person.name} would be paid nothing this month. Check their deductions.`,
+      );
+    }
+    if (entry.unrecoveredKobo > 0) {
+      push(
+        "WARNING",
+        "deduction_carried",
+        person.id,
+        `${person.name} earned less than their deductions this month. ` +
+          `₦${(entry.unrecoveredKobo / 100).toLocaleString("en-NG", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })} carries forward.`,
+      );
+    }
+
+    const before = PREVIOUS_NET.get(person.id);
+    if (before && before > 0 && !person.joinedThisPeriod) {
+      const change = (entry.slip.netKobo / 100 - before) / before;
+      if (Math.abs(change) >= settings.exceptions.netSwingThreshold) {
+        push(
+          "WARNING",
+          "net_swing",
+          person.id,
+          `${person.name}'s net pay is ${change > 0 ? "up" : "down"} ` +
+            `${Math.abs(Math.round(change * 100))}% on last month. Confirm that is intended.`,
+        );
+      }
+    }
+    if (person.leftThisPeriod) {
+      push(
+        "WARNING",
+        "leaver",
+        person.id,
+        `${person.name} leaves this period. Check final settlement and any loan balance.`,
+      );
+    }
+  }
+
+  return out;
+}
+
+/** Builds a whole demo run from the live directory. */
+function buildDemoRun(
+  record: DemoRunRecord,
+  people: PayrollEmployee[],
+  settings: PayrollSettings,
+): PayrollRunDetail {
+  const computed = new Map(
+    people.map((p) => [p.id, demoPayslip(record.period, p, settings)]),
+  );
+  const slips = [...computed.values()].map((c) => c.slip);
+  const totals = totalsOf(slips);
+
+  return {
+    id: demoRunId(record.period),
+    period: record.period,
+    payDate: record.payDate,
+    status: record.status,
+    label: record.label,
+    employeeCount: slips.length,
+    grossKobo: totals.grossKobo,
+    netKobo: totals.netKobo,
+    payeKobo: totals.payeKobo,
+    pensionEmployeeKobo: totals.pensionEmployeeKobo,
+    pensionEmployerKobo: totals.pensionEmployerKobo,
+    nhfKobo: totals.nhfKobo,
+    totalCostKobo: totals.grossKobo + totals.pensionEmployerKobo,
+    preparedAt: record.preparedAt,
+    approvedAt: record.approvedAt,
+    paidAt: null,
+    settingsFrozen: false,
+    payslips: slips,
+    exceptions: demoExceptions(people, computed, settings),
+  };
+}
+
+/** The frozen snapshot wins whenever there is one. That is the one-way door. */
+const resolveDemoRun = (
+  record: DemoRunRecord,
+  people: PayrollEmployee[],
+  settings: PayrollSettings,
+): PayrollRunDetail =>
+  record.frozen ?? buildDemoRun(record, people, settings);
+
+const summarise = (detail: PayrollRunDetail): PayrollRun => {
+  const { payslips, exceptions, ...run } = detail;
+  void payslips;
+  void exceptions;
+  return run;
+};
+
+/* ------------------------------------------------------------------- hooks */
+
+/**
+ * Everything a screen needs about who is being read from.
+ *
+ * Bundled rather than each hook re-deriving it, because the demo run depends on
+ * three live sources — the directory, the settings, and the persisted run list
+ * — and reading them in one place keeps every hook's demo answer identical.
+ */
+function useDemoContext() {
+  const { directory } = useEmployeeStore();
+  const { settings } = usePayrollSettings();
+  const state = useDemoRuns();
+  const people = useMemo(() => runPeopleFrom(directory), [directory]);
+  const details = useMemo(
+    () =>
+      [...state.runs]
+        .sort((a, b) => b.period.localeCompare(a.period))
+        .map((record) => resolveDemoRun(record, people, settings)),
+    [state.runs, people, settings],
+  );
+  return { details, records: state.runs };
+}
+
+export type RunsState = {
+  runs: PayrollRun[];
+  total: number;
+  loading: boolean;
+  error: ApiError | null;
+  connected: boolean;
+  reload: () => void;
+};
+
+/** Every run, newest period first. */
+export function usePayrollRuns(): RunsState {
+  const { isConnected } = useSession();
+  const demo = useDemoContext();
+
+  const [state, setState] = useState<{
+    runs: PayrollRun[];
+    total: number;
+    loading: boolean;
+    error: ApiError | null;
+  }>({ runs: [], total: 0, loading: isConnected, error: null });
+
+  const load = useCallback(async () => {
+    if (!isConnected) return;
+    setState((s) => ({ ...s, loading: true, error: null }));
+    try {
+      const result = await payrollApi.runs();
+      setState({
+        runs: result.runs,
+        total: result.total,
+        loading: false,
+        error: null,
+      });
+    } catch (error) {
+      setState((s) => ({
+        ...s,
+        loading: false,
+        error: error instanceof ApiError ? error : null,
+      }));
+    }
+  }, [isConnected]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  if (!isConnected) {
+    const runs = demo.details.map(summarise);
+    return {
+      runs,
+      total: runs.length,
+      loading: false,
+      error: null,
+      connected: false,
+      reload: () => {},
+    };
+  }
+
+  return { ...state, connected: true, reload: load };
+}
+
+export type RunState = {
+  run: PayrollRunDetail | null;
+  loading: boolean;
+  error: ApiError | null;
+  connected: boolean;
+  /** No such run. Distinct from an error: there is nothing to retry. */
+  notFound: boolean;
+  reload: () => void;
+};
+
+/**
+ * One run in full, with its payslips and open exceptions.
+ *
+ * Kept as `{ id, nonce, detail }` rather than a bare detail so the result
+ * carries the request it belongs to. `loading` is then derived during render
+ * instead of tracked, which means there is nothing to clear when `id` changes
+ * and no window where the previous run's figures are shown as though they were
+ * this one's. Clearing it in an effect would be a setState in an effect body.
+ */
+export function usePayrollRun(id: string | null): RunState {
+  const { isConnected } = useSession();
+  const demo = useDemoContext();
+  const [nonce, setNonce] = useState(0);
+  const [fetched, setFetched] = useState<{
+    id: string;
+    nonce: number;
+    detail: PayrollRunDetail | null;
+    error: ApiError | null;
+  } | null>(null);
+
+  const active = isConnected && Boolean(id);
+
+  useEffect(() => {
+    if (!active || !id) return;
+    let cancelled = false;
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const detail = await payrollApi.run(id, controller.signal);
+        if (!cancelled) setFetched({ id, nonce, detail, error: null });
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (!cancelled) {
+          setFetched({
+            id,
+            nonce,
+            detail: null,
+            error: error instanceof ApiError ? error : null,
+          });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [active, id, nonce]);
+
+  const reload = useCallback(() => setNonce((n) => n + 1), []);
+
+  if (!isConnected) {
+    const run = id ? (demo.details.find((d) => d.id === id) ?? null) : null;
+    return {
+      run,
+      loading: false,
+      error: null,
+      connected: false,
+      notFound: Boolean(id) && run === null,
+      reload: () => {},
+    };
+  }
+
+  const matched =
+    active && fetched !== null && fetched.id === id && fetched.nonce === nonce;
+  return {
+    run: matched ? fetched.detail : null,
+    loading: active && !matched,
+    error: matched ? fetched.error : null,
+    connected: true,
+    notFound: matched && fetched.error?.status === 404,
+    reload,
+  };
+}
+
+/**
+ * Prepare, approve, cancel.
+ *
+ * Each one refuses in demo mode only where the demo genuinely cannot do it,
+ * and all three do work locally — preparing a period and approving it is the
+ * sequence the demo most needs to be able to show.
+ */
+export function usePayrollActions() {
+  const { isConnected } = useSession();
+  const { directory } = useEmployeeStore();
+  const { settings } = usePayrollSettings();
+  const people = useMemo(() => runPeopleFrom(directory), [directory]);
+
+  const prepare = useCallback(
+    async (input: {
+      period: string;
+      payDate: string;
+      label?: string;
+    }): Promise<PreparedRun> => {
+      if (isConnected) return payrollApi.prepare(input);
+
+      const state = demoStore.read();
+      const existing = state.runs.find((r) => r.period === input.period);
+      if (existing && (existing.status === "APPROVED" || existing.status === "PAID")) {
+        throw new ApiError(
+          409,
+          "conflict",
+          `The ${input.period} run is already approved. Cancel it before preparing that period again.`,
+        );
+      }
+      if (people.length === 0) {
+        throw new ApiError(
+          422,
+          "unprocessable",
+          "Nobody is on the payroll for this period. Add employees first.",
+        );
+      }
+
+      const record: DemoRunRecord = {
+        period: input.period,
+        payDate: input.payDate,
+        label: input.label ?? null,
+        status: "IN_REVIEW",
+        preparedAt: new Date().toISOString(),
+        approvedAt: null,
+        frozen: null,
+      };
+      demoStore.commit({
+        runs: [
+          ...state.runs.filter((r) => r.period !== input.period),
+          record,
+        ],
+      });
+
+      const detail = buildDemoRun(record, people, settings);
+      return {
+        runId: detail.id,
+        headcount: detail.employeeCount,
+        discrepancies: reconcileDemo(detail.payslips, totalsOf(detail.payslips)),
+        blockers: detail.exceptions.filter((e) => e.severity === "BLOCKER").length,
+        warnings: detail.exceptions.filter((e) => e.severity === "WARNING").length,
+      };
+    },
+    [isConnected, people, settings],
+  );
+
+  const approve = useCallback(
+    async (runId: string): Promise<ApprovedRun> => {
+      if (isConnected) return payrollApi.approve(runId);
+
+      const state = demoStore.read();
+      const record = state.runs.find((r) => demoRunId(r.period) === runId);
+      if (!record) throw new ApiError(404, "not_found", "No such payroll run.");
+      if (record.status === "APPROVED" || record.status === "PAID") {
+        throw new ApiError(409, "conflict", "That run is already approved.");
+      }
+
+      const detail = buildDemoRun(record, people, settings);
+      const blockers = detail.exceptions.filter((e) => e.severity === "BLOCKER");
+      if (blockers.length > 0) {
+        throw new ApiError(
+          422,
+          "unprocessable",
+          `This run cannot be approved yet. ${blockers.map((b) => b.message).join(" ")}`,
+        );
+      }
+
+      const approvedAt = new Date().toISOString();
+      /* Frozen here and nowhere else. After this the figures no longer move
+         when the directory does — which is the whole point of approving. */
+      const frozen: PayrollRunDetail = {
+        ...detail,
+        status: "APPROVED",
+        approvedAt,
+        settingsFrozen: true,
+        exceptions: detail.exceptions.filter((e) => e.severity === "WARNING"),
+      };
+      demoStore.commit({
+        runs: state.runs.map((r) =>
+          r.period === record.period
+            ? { ...r, status: "APPROVED" as const, approvedAt, frozen }
+            : r,
+        ),
+      });
+
+      const settledLoans = detail.payslips.filter((p) =>
+        p.lines.some((l) => l.kind === "DEDUCTION" && !l.taxable),
+      ).length;
+      return { id: runId, settled: { loans: settledLoans, claims: 0, overtime: 0 } };
+    },
+    [isConnected, people, settings],
+  );
+
+  const cancel = useCallback(
+    async (runId: string): Promise<{ id: string }> => {
+      if (isConnected) return payrollApi.cancel(runId);
+
+      const state = demoStore.read();
+      const record = state.runs.find((r) => demoRunId(r.period) === runId);
+      if (!record) throw new ApiError(404, "not_found", "No such payroll run.");
+      if (record.status === "PAID") {
+        throw new ApiError(
+          409,
+          "conflict",
+          "That run has been paid. A paid run is a record of money that moved and cannot be cancelled.",
+        );
+      }
+      demoStore.commit({
+        runs: state.runs.map((r) =>
+          r.period === record.period
+            ? { ...r, status: "CANCELLED" as const, frozen: null }
+            : r,
+        ),
+      });
+      return { id: runId };
+    },
+    [isConnected],
+  );
+
+  return { prepare, approve, cancel, connected: isConnected };
+}
+
+/* --------------------------------------------------------------- payslips */
+
+export type PayslipRecord = {
+  payslip: Payslip | null;
+  run: PayrollRun | null;
+  loading: boolean;
+  connected: boolean;
+  notFound: boolean;
+  /**
+   * Year-to-date is not available for a single payslip.
+   *
+   * There is no endpoint for it and summing it would mean fetching every
+   * approved run for the year. The demo projects from this month, which it says
+   * on screen; connected mode shows nothing rather than a figure somebody might
+   * file.
+   */
+  projectYearToDate: boolean;
+};
+
+/**
+ * One payslip, resolved from an id that may be either its own or its employee's.
+ *
+ * Matching on both is deliberate. The payslip index links by payslip id, but the
+ * demo's URLs — and every prerendered page — are keyed by employee id, and a
+ * link somebody bookmarked should not break because the app changed source.
+ *
+ * `runId` is a hint, not a requirement. With it this is one request. Without
+ * it — a bookmarked link, a payslip mailed out — the run list is read and the
+ * newest runs are tried in turn, capped, because there is no
+ * `GET /payslips/:id` endpoint to ask directly.
+ */
+export function usePayslipRecord(
+  id: string,
+  runId: string | null,
+): PayslipRecord {
+  const { isConnected } = useSession();
+  const demo = useDemoContext();
+  const [found, setFound] = useState<{
+    id: string;
+    payslip: Payslip | null;
+    run: PayrollRun | null;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!isConnected) return;
+    let cancelled = false;
+    const controller = new AbortController();
+
+    void (async () => {
+      const matches = (slip: Payslip) => slip.id === id || slip.employeeId === id;
+      try {
+        if (runId) {
+          const detail = await payrollApi.run(runId, controller.signal);
+          const slip = detail.payslips.find(matches) ?? null;
+          if (!cancelled) setFound({ id, payslip: slip, run: summarise(detail) });
+          return;
+        }
+        /* No hint. Newest first, and capped at six periods — long enough to
+           cover a bookmarked link from earlier in the year without turning one
+           page load into a dozen requests. */
+        const { runs } = await payrollApi.runs({ take: 6 });
+        for (const run of runs) {
+          if (cancelled) return;
+          const detail = await payrollApi.run(run.id, controller.signal);
+          const slip = detail.payslips.find(matches);
+          if (slip) {
+            if (!cancelled) setFound({ id, payslip: slip, run: summarise(detail) });
+            return;
+          }
+        }
+        if (!cancelled) setFound({ id, payslip: null, run: null });
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (!cancelled) setFound({ id, payslip: null, run: null });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [isConnected, id, runId]);
+
+  if (!isConnected) {
+    const detail =
+      demo.details.find((d) => d.id === runId) ??
+      demo.details.find((d) =>
+        d.payslips.some((s) => s.id === id || s.employeeId === id),
+      ) ??
+      null;
+    const payslip =
+      detail?.payslips.find((s) => s.id === id || s.employeeId === id) ?? null;
+    return {
+      payslip,
+      run: detail ? summarise(detail) : null,
+      loading: false,
+      connected: false,
+      notFound: payslip === null,
+      projectYearToDate: true,
+    };
+  }
+
+  const matched = found !== null && found.id === id;
+  return {
+    payslip: matched ? found.payslip : null,
+    run: matched ? found.run : null,
+    loading: !matched,
+    connected: true,
+    notFound: matched && found.payslip === null,
+    projectYearToDate: false,
+  };
+}
+
+/* --------------------------------------------------------------- utilities */
+
+/** Blockers first, then warnings, then by employee — the order to work through. */
+export function orderExceptions(exceptions: RunException[]): RunException[] {
+  return [...exceptions].sort((a, b) => {
+    if (a.severity !== b.severity) return a.severity === "BLOCKER" ? -1 : 1;
+    return a.code.localeCompare(b.code);
+  });
+}
+
+export const countBySeverity = (exceptions: RunException[]) => ({
+  blockers: exceptions.filter((e) => e.severity === "BLOCKER").length,
+  warnings: exceptions.filter((e) => e.severity === "WARNING").length,
+});

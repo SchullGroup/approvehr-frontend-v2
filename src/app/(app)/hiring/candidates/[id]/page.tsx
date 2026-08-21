@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
   Briefcase,
@@ -21,12 +20,14 @@ import {
   CardBody,
   CardHeader,
   DescriptionList,
+  EmptyState,
   Money,
   ProgressMeter,
   Timeline,
   type TimelineEntry,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { SourceBadge } from "@/components/hiring/source-badge";
 import { StagePill, stageLabel } from "@/components/hiring/stage-pill";
 import { APPLICATIONS, cardById, daysInStage } from "@/lib/mock/hiring";
 import { employeeById } from "@/lib/mock/people";
@@ -73,6 +74,19 @@ const RECOMMENDATION = {
  * left carrying everything that never changes, and the working detail on the
  * right. The drawer on the board is for a glance; this is where someone reads
  * before a decision.
+ *
+ * ## Seeded in both modes, and an unknown id is not a 404
+ *
+ * `Candidate`, the pipeline `Application`, `Interview` and `Scorecard` are all
+ * real Prisma models with no route in `approvehr-api`. So everything on this page
+ * comes from the seed whichever mode the app is in, and the badge says so.
+ *
+ * The route takes a pipeline **application** id, which is what the board links
+ * with. Screening somebody in through `/hiring/postings/applications` produces a
+ * **candidate** id, and that screen links here with it — a real database id this
+ * browser's seed has never seen. `notFound()` there is a dead end reached by
+ * following a link the product itself drew, so an unrecognised id says what
+ * happened and offers the way back instead.
  */
 export default async function CandidatePage({
   params,
@@ -81,7 +95,7 @@ export default async function CandidatePage({
 }) {
   const { id } = await params;
   const card = cardById(id);
-  if (!card) notFound();
+  if (!card) return <NotInThisBrowser id={id} />;
 
   const name = fullName(card.candidate);
   const submitted = card.scorecards.filter((s) => s.submittedAt);
@@ -111,7 +125,12 @@ export default async function CandidatePage({
           { href: `/hiring/candidates/${card.id}`, label: name },
         ]}
         title={name}
-        meta={<StagePill stage={card.stage} outcome={card.outcome} />}
+        meta={
+          <>
+            <StagePill stage={card.stage} outcome={card.outcome} />
+            <SourceBadge live={false} />
+          </>
+        }
         description={`${card.candidate.currentTitle} at ${card.candidate.currentCompany} · applied ${card.appliedAt}`}
         action={
           <>
@@ -188,8 +207,8 @@ export default async function CandidatePage({
                       term: "Band",
                       value: (
                         <>
-                          <Money amount={card.requisition.salaryMin} compact /> –{" "}
-                          <Money amount={card.requisition.salaryMax} compact />
+                          <Money amount={card.requisition.salaryMin} decimals />{" "}
+                          – <Money amount={card.requisition.salaryMax} decimals />
                         </>
                       ),
                     },
@@ -244,7 +263,7 @@ export default async function CandidatePage({
                     items={[
                       {
                         term: "Gross monthly",
-                        value: <Money amount={card.offer.grossMonthly} />,
+                        value: <Money amount={card.offer.grossMonthly} decimals />,
                       },
                       { term: "Start date", value: card.offer.startDate },
                     ]}
@@ -485,7 +504,7 @@ function activityFor(card: PipelineCard): TimelineEntry[] {
     entries.push({
       id: "offer",
       title: `Offer ${card.offer.status.replace("_", " ")}`,
-      detail: <Money amount={card.offer.grossMonthly} />,
+      detail: <Money amount={card.offer.grossMonthly} decimals />,
       timestamp: card.stageEnteredAt,
       tone: card.offer.status === "accepted" ? "success" : "accent",
     });
@@ -517,4 +536,44 @@ function activityFor(card: PipelineCard): TimelineEntry[] {
   });
 
   return entries;
+}
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A candidate this browser has never heard of.
+ *
+ * Reached by screening somebody in while connected: the API creates the
+ * `Candidate` and returns its id, and there is no route to read it back with.
+ * Saying that, and pointing at the queue the person came from, beats a bare 404.
+ */
+function NotInThisBrowser({ id }: { id: string }) {
+  return (
+    <>
+      <PageHeader
+        breadcrumb={[{ href: "/hiring", label: "Hiring" }]}
+        title="Candidate record"
+        meta={<SourceBadge live={false} />}
+      />
+      <PageBody>
+        <Card>
+          <EmptyState
+            icon={<FileText aria-hidden="true" />}
+            title="This record is in the database, not in this browser"
+            description="They were screened in through the careers page, so their candidate record was created by the API. Nothing reads it back yet — the pipeline has no endpoint."
+            action={
+              <ButtonLink
+                href="/hiring/postings/applications"
+                variant="accent"
+                size="sm"
+              >
+                Back to applications
+              </ButtonLink>
+            }
+          />
+          <span className="sr-only">Candidate id {id}</span>
+        </Card>
+      </PageBody>
+    </>
+  );
 }

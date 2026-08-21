@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import {
   BadgeCheck,
@@ -30,15 +30,16 @@ import {
   useToast,
   type BadgeTone,
 } from "@/components/ui";
+import { DeclineDialog } from "@/components/portal/decline-dialog";
+import { ApiError } from "@/lib/api/client";
+import { employeeById } from "@/lib/mock/people";
+import type { ApprovalKind } from "@/lib/mock/workflows";
+import { fullName } from "@/lib/types";
 import {
-  APPROVAL_LABEL,
-  approvalRequester,
-  type ApprovalItem,
-  type ApprovalKind,
-} from "@/lib/mock/workflows";
-import { useApprovalStore } from "@/lib/store/approvals";
-import { useLeaveStore } from "@/lib/store/leave";
-import { buildApprovalQueue, decidedItems } from "@/lib/workflows/queue";
+  useApprovalQueue,
+  type QueueFilter,
+} from "@/lib/store/approvals-api";
+import type { QueueItem } from "@/lib/workflows/queue";
 
 const ICON: Record<ApprovalKind, React.ReactNode> = {
   leave: <CalendarDays aria-hidden="true" />,
@@ -60,156 +61,168 @@ const TONE: Record<ApprovalKind, BadgeTone> = {
   loan: "warning",
 };
 
-type Filter = "all" | "money" | "people" | "overdue";
-
 /**
  * The approval inbox.
  *
  * Ranking is the whole design. Anything with a stated deadline floats to the
- * top, then everything else by how long it has been waiting — not by module,
- * and not newest-first. An approver's real question is "what breaks if I do
- * nothing today", so the queue answers that before it answers anything else.
+ * top, then everything else by how long it has been waiting — not by module and
+ * not newest-first. An approver's real question is "what breaks if I do nothing
+ * today", so the queue answers that before it answers anything else. Connected,
+ * that order is the API's; the rows are rendered in the order they arrive rather
+ * than re-sorted here, so both modes rank the same way.
+ *
+ * ## Nothing about the queue lives on this screen
+ *
+ * Leave rows are the leave requests themselves — derived from them in demo mode,
+ * and posted back into the leave service by the API when connected. Deciding here
+ * is therefore the same write as deciding on `/people/leave`, not a second one
+ * that has to agree with it. `lib/store/approvals-api.ts` holds that choice; this
+ * file only renders it.
+ *
+ * A decision that moved nothing downstream says so, in both modes. Only leave has
+ * a module behind it today.
  */
 export function ApprovalInbox() {
-  const leave = useLeaveStore();
-  const approvals = useApprovalStore();
-  const [filter, setFilter] = useState<Filter>("all");
+  const [filter, setFilter] = useState<QueueFilter>("all");
+  const [declining, setDeclining] = useState<QueueItem | null>(null);
+  const queue = useApprovalQueue(filter);
   const toast = useToast();
 
-  /* Nothing about the queue is held here. Leave rows are derived from the leave
-     requests themselves and every other row's decision lives in the approvals
-     store, so this screen has no state of its own to fall out of step with
-     /people/leave — which is exactly what used to happen. */
-  const ranked = useMemo(
-    () =>
-      buildApprovalQueue({
-        leaveRequests: leave.requests,
-        decisions: approvals.decisions,
-      }),
-    [leave.requests, approvals.decisions],
-  );
-
-  const decided = useMemo(
-    () =>
-      decidedItems({
-        leaveRequests: leave.requests,
-        decisions: approvals.decisions,
-      }),
-    [leave.requests, approvals.decisions],
-  );
-
-  const pending = ranked;
-
-  const filtered = ranked.filter((i) => {
-    if (filter === "money") return i.amount !== undefined;
-    if (filter === "people")
-      return ["leave", "offer", "requisition", "record_change"].includes(i.kind);
-    if (filter === "overdue") return i.waitingDays >= 5 || Boolean(i.deadline);
-    return true;
-  });
-
-  const atStake = pending.reduce((sum, i) => sum + (i.amount ?? 0), 0);
-  const overdue = pending.filter((i) => i.waitingDays >= 5).length;
-  const withDeadline = pending.filter((i) => i.deadline).length;
-
-  /**
-   * One entry point for both kinds of row. A derived row writes through to the
-   * record it represents; a seed row records its decision in the approvals
-   * store. The caller does not need to know which it is holding.
-   */
-  function decide(item: ApprovalItem, decision: "approved" | "declined") {
-    if (item.ref?.store === "leave") {
-      leave.decide(
-        item.ref.id,
-        decision,
-        decision === "declined" ? "Sent back from the approval inbox." : undefined,
-      );
-    } else {
-      approvals.decide(item.id, decision);
-    }
-    toast.push({
-      title:
-        decision === "approved"
-          ? `${item.title} approved`
-          : `${item.title} sent back`,
-      tone: decision === "approved" ? "success" : "info",
-      detail:
-        item.ref?.store === "leave"
+  const decide = async (
+    item: QueueItem,
+    decision: "approved" | "declined",
+    note?: string,
+  ) => {
+    try {
+      const outcome = await queue.decide(item, decision, note);
+      toast.push({
+        title:
+          decision === "approved"
+            ? `${item.title} approved`
+            : `${item.title} went back`,
+        tone: outcome.subjectMoved
           ? decision === "approved"
-            ? "The leave request and their balance are updated."
-            : "The request is back with them to revise."
-          : decision === "approved"
-            ? "The requester has been notified."
-            : "The requester can revise and resubmit.",
-    });
-  }
-
-  function reopen(item: ApprovalItem) {
-    if (item.ref?.store === "leave") leave.reopen(item.ref.id);
-    else approvals.reopen(item.id);
-  }
-
-  function reopenAll() {
-    for (const { item } of decided) reopen(item);
-    toast.push({
-      title: "Decisions undone",
-      tone: "info",
-      detail: "Everything is back in the queue, and the records with it.",
-    });
-  }
-
-  function approveAll() {
-    const routine = filtered.filter((i) => !i.deadline && i.waitingDays < 5);
-    if (routine.length === 0) return;
-
-    /* Split by destination rather than looping one at a time, so the store
-       commits once and the list does not re-rank between decisions. */
-    for (const item of routine.filter((i) => i.ref?.store === "leave")) {
-      leave.decide(item.ref!.id, "approved");
+            ? "success"
+            : "info"
+          : "warning",
+        detail:
+          outcome.note ??
+          (decision === "approved"
+            ? "The request and the balance behind it are updated."
+            : "It is back with them to revise."),
+      });
+    } catch (failure) {
+      toast.push({
+        title: "That did not work",
+        tone: "danger",
+        detail:
+          failure instanceof ApiError
+            ? failure.message
+            : "Something went wrong. Try again.",
+      });
     }
-    approvals.decideMany(
-      routine.filter((i) => !i.ref).map((i) => i.id),
-      "approved",
-    );
+  };
 
-    toast.push({
-      title: `${routine.length} routine ${
-        routine.length === 1 ? "request" : "requests"
-      } approved`,
-      tone: "success",
-      detail: "Items with a deadline were left for you to review individually.",
-    });
-  }
+  const undo = async (item: QueueItem) => {
+    try {
+      await queue.reopen(item);
+      toast.push({
+        title: "Back in the queue",
+        tone: "info",
+        detail: `${item.title} is waiting on a decision again.`,
+      });
+    } catch (failure) {
+      toast.push({
+        title: "Could not undo that",
+        tone: "danger",
+        detail:
+          failure instanceof ApiError
+            ? failure.message
+            : "Something went wrong. Try again.",
+      });
+    }
+  };
+
+  const approveRoutine = async () => {
+    try {
+      const result = await queue.approveRoutine();
+      if (result.decided === 0) {
+        toast.push({
+          title: "Nothing routine to approve",
+          tone: "info",
+          detail:
+            "Everything waiting either has a deadline or has been sitting for five days. Those need you to look.",
+        });
+        return;
+      }
+      toast.push({
+        title: `${result.decided} ${
+          result.decided === 1 ? "request" : "requests"
+        } approved`,
+        tone: "success",
+        detail:
+          result.skipped > 0
+            ? `${result.skipped} could not be approved and are still waiting.`
+            : "Anything with a deadline was left for you to look at individually.",
+      });
+    } catch (failure) {
+      toast.push({
+        title: "That did not work",
+        tone: "danger",
+        detail:
+          failure instanceof ApiError
+            ? failure.message
+            : "Something went wrong. Try again.",
+      });
+    }
+  };
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Which source these decisions are being written to, stated rather than
+          implied. Connected, approving here writes to the database. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge tone={queue.connected ? "success" : "warning"} size="sm" dot>
+          {queue.connected ? "Live from the API" : "Demo data, this browser only"}
+        </Badge>
+        {queue.loading && (
+          <span className="text-[0.75rem] text-muted">Loading…</span>
+        )}
+      </div>
+
+      {queue.error && (
+        <Callout tone="danger" title="Could not read your approvals">
+          {queue.error.message}
+        </Callout>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat label="Waiting on you" value={String(pending.length)} />
+        <Stat label="Waiting on you" value={String(queue.counts.pending)} />
         <Stat
           label="Value at stake"
-          value={<Money amount={atStake} compact />}
-          hint="across all decisions"
+          value={<Money amount={queue.counts.atStake} decimals />}
+          hint="across every decision waiting"
         />
         <Stat
           label="Has a deadline"
-          value={String(withDeadline)}
+          value={String(queue.counts.withDeadline)}
           icon={<Clock aria-hidden="true" />}
-          trend={withDeadline > 0 ? { direction: "down", label: "Time-bound" } : undefined}
+          trend={
+            queue.counts.withDeadline > 0
+              ? { direction: "down", label: "Time-bound" }
+              : undefined
+          }
         />
         <Stat
           label="Waiting 5+ days"
-          value={String(overdue)}
-          trend={overdue > 0 ? { direction: "down", label: "Ageing" } : undefined}
+          value={String(queue.counts.ageing)}
+          trend={
+            queue.counts.ageing > 0
+              ? { direction: "down", label: "Ageing" }
+              : undefined
+          }
         />
       </div>
-
-      {withDeadline > 0 && (
-        <Callout tone="warning" title="Some of these expire">
-          Requests with a deadline are shown first. The August payroll run has
-          to be approved before the bank cut-off on 26 August or staff are paid
-          late.
-        </Callout>
-      )}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SegmentedControl
@@ -223,13 +236,22 @@ export function ApprovalInbox() {
             { value: "overdue", label: "Needs attention" },
           ]}
         />
-        <Button variant="secondary" size="sm" onClick={approveAll}>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => void approveRoutine()}
+          disabled={queue.routineCount === 0}
+        >
           <Check aria-hidden="true" className="size-3.5" />
-          Approve routine items
+          {queue.routineCount === 0
+            ? "Nothing routine to approve"
+            : `Approve ${queue.routineCount} routine ${
+                queue.routineCount === 1 ? "item" : "items"
+              }`}
         </Button>
       </div>
 
-      {filtered.length === 0 ? (
+      {queue.items.length === 0 ? (
         <Card>
           <EmptyState
             icon={<Check aria-hidden="true" />}
@@ -239,31 +261,26 @@ export function ApprovalInbox() {
         </Card>
       ) : (
         <ul className="flex flex-col gap-3">
-          {filtered.map((item) => (
+          {queue.items.map((item) => (
             <li key={item.id}>
-              <ApprovalRow item={item} onDecide={decide} />
+              <ApprovalRow
+                item={item}
+                onApprove={() => void decide(item, "approved")}
+                onSendBack={() => setDeclining(item)}
+              />
             </li>
           ))}
         </ul>
       )}
 
-      {decided.length > 0 && (
+      {queue.decided.length > 0 && (
         <Card>
           <CardBody>
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <p className="text-[0.75rem] font-semibold tracking-wide text-muted">
-                Decided today
-              </p>
-              {/* Undo matters here. These decisions now persist and propagate to
-                  the underlying record, so a mis-click is no longer something a
-                  page refresh fixes. */}
-              <Button variant="ghost" size="sm" onClick={reopenAll}>
-                <Undo2 aria-hidden="true" className="size-3.5" />
-                Undo all
-              </Button>
-            </div>
+            <p className="text-[0.75rem] font-semibold tracking-wide text-muted">
+              Just decided
+            </p>
             <ul className="mt-3 flex flex-col gap-2">
-              {decided.map(({ item, decision }) => (
+              {queue.decided.map(({ item, decision }) => (
                 <li
                   key={item.id}
                   className="flex items-center gap-3 text-[0.875rem]"
@@ -278,12 +295,15 @@ export function ApprovalInbox() {
                   <span className="min-w-0 flex-1 truncate text-body">
                     {item.title}
                   </span>
+                  {/* Undo matters here: these decisions reach the record, so a
+                      mis-click is not something a refresh fixes. */}
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => reopen(item)}
+                    onClick={() => void undo(item)}
                     aria-label={`Undo the decision on ${item.title}`}
                   >
+                    <Undo2 aria-hidden="true" className="size-3.5" />
                     Undo
                   </Button>
                 </li>
@@ -292,6 +312,15 @@ export function ApprovalInbox() {
           </CardBody>
         </Card>
       )}
+
+      <DeclineDialog
+        open={declining !== null}
+        what={declining ? declining.title : ""}
+        onClose={() => setDeclining(null)}
+        onConfirm={async (note) => {
+          if (declining) await decide(declining, "declined", note);
+        }}
+      />
     </div>
   );
 }
@@ -300,18 +329,28 @@ export function ApprovalInbox() {
 
 function ApprovalRow({
   item,
-  onDecide,
+  onApprove,
+  onSendBack,
 }: {
-  item: ApprovalItem;
-  onDecide: (i: ApprovalItem, d: "approved" | "declined") => void;
+  item: QueueItem;
+  onApprove: () => void;
+  onSendBack: () => void;
 }) {
   const ageing = item.waitingDays >= 5;
+  /* Only a seed row knows who raised it. The API's approval row does not carry
+     a requester, and its title already names the person it is about, so the
+     line is left off rather than filled with a guess. */
+  const raisedBy = item.requestedById
+    ? employeeById(item.requestedById)
+    : undefined;
+  const requester = raisedBy ? fullName(raisedBy) : null;
 
   return (
     <Card
       className={cn(
         "group transition-shadow duration-200 hover:shadow-md",
         item.deadline && "border-warning-line",
+        item.pastDeadline && "border-danger-line",
       )}
     >
       <CardBody className="flex flex-wrap items-start gap-4">
@@ -325,10 +364,10 @@ function ApprovalRow({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <Badge tone={TONE[item.kind]} size="sm">
-              {APPROVAL_LABEL[item.kind]}
+              {item.kindLabel}
             </Badge>
             {item.deadline && (
-              <Badge tone="warning" size="sm" dot>
+              <Badge tone={item.pastDeadline ? "danger" : "warning"} size="sm" dot>
                 {item.deadline}
               </Badge>
             )}
@@ -352,10 +391,12 @@ function ApprovalRow({
           </p>
 
           <div className="mt-2.5 flex flex-wrap items-center gap-3 text-[0.75rem] text-muted">
-            <span className="flex items-center gap-1.5">
-              <Avatar name={approvalRequester(item)} size="xs" />
-              {approvalRequester(item)}
-            </span>
+            {requester && (
+              <span className="flex items-center gap-1.5">
+                <Avatar name={requester} size="xs" />
+                {requester}
+              </span>
+            )}
             <span>Raised {item.requestedAt}</span>
           </div>
         </div>
@@ -365,8 +406,10 @@ function ApprovalRow({
             <p className="text-[0.75rem] uppercase tracking-wide text-faint">
               Value
             </p>
-            <p className="tabular text-h4 text-ink">
-              <Money amount={item.amount} compact />
+            {/* Never abbreviated. This is a figure somebody reconciles against a
+                bank statement, and ₦93.0m is not that figure. */}
+            <p className="tabular text-[0.9375rem] font-semibold text-ink">
+              <Money amount={item.amount} decimals />
             </p>
           </div>
         )}
@@ -375,17 +418,13 @@ function ApprovalRow({
           <Button
             variant="approve"
             size="sm"
-            onClick={() => onDecide(item, "approved")}
+            onClick={onApprove}
             className="flex-1 sm:flex-none"
           >
             <Check aria-hidden="true" className="size-3.5" />
             Approve
           </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => onDecide(item, "declined")}
-          >
+          <Button variant="secondary" size="sm" onClick={onSendBack}>
             <X aria-hidden="true" className="size-3.5" />
             Send back
           </Button>

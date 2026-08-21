@@ -28,6 +28,14 @@ type Decision = "approved" | "declined";
  * Offer approval. The approver's real question is "is this in band, and what
  * does it do to the team's spread" — so both are computed and stated here
  * rather than left for them to work out from a number.
+ *
+ * ## The decision is not recorded anywhere, and the toast says so
+ *
+ * `Offer` is a Prisma model with `status`, `approvedById`, `approvedAt` and an
+ * `outsideBand` flag that routes it to the budget holder — and no module in
+ * `approvehr-api` exposes it. So pressing Approve moves a chip on this screen
+ * and nothing else. The toast used to read "The recruiter can now send it to the
+ * candidate", which was a claim about a system that never heard about it.
  */
 export function OfferApprovals({ initial }: { initial: PipelineCard[] }) {
   const [decisions, setDecisions] = useState<Record<string, Decision>>({});
@@ -49,10 +57,7 @@ export function OfferApprovals({ initial }: { initial: PipelineCard[] }) {
           ? `Offer approved for ${fullName(card.candidate)}`
           : `Offer declined for ${fullName(card.candidate)}`,
       tone: decision === "approved" ? "success" : "info",
-      detail:
-        decision === "approved"
-          ? "The recruiter can now send it to the candidate."
-          : undefined,
+      detail: "Shown on this screen only — offers have no endpoint yet.",
     });
   }
 
@@ -70,13 +75,6 @@ export function OfferApprovals({ initial }: { initial: PipelineCard[] }) {
 
   return (
     <div className="flex flex-col gap-5">
-      {pending.length === 0 && (
-        <Callout tone="success" title="Everything actioned">
-          You have cleared the queue. Decisions below can still be revisited by
-          an admin.
-        </Callout>
-      )}
-
       {pending.map((card) => (
         <OfferCard
           key={card.id}
@@ -134,9 +132,8 @@ export function OfferApprovals({ initial }: { initial: PipelineCard[] }) {
         tone="danger"
         body={
           <div className="flex flex-col gap-4">
-            <p className="text-sm text-body">
-              The recruiter is notified with your reason and can revise the
-              offer. The candidate is not contacted.
+            <p className="text-[0.875rem] text-body">
+              Your reason stays on this screen. The candidate is not contacted.
             </p>
             <Field
               label="Reason"

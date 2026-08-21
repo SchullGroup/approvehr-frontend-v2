@@ -1,19 +1,17 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
-  AlertTriangle,
   ArrowLeft,
   ArrowRight,
   Check,
-  Info,
-  Search,
-  ShieldAlert,
+  RefreshCw,
+  ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
-  Avatar,
   Badge,
   Button,
   ButtonLink,
@@ -22,11 +20,10 @@ import {
   CardBody,
   CardHeader,
   Checkbox,
-  DonutChart,
+  ConfirmDialog,
+  EmptyState,
   Field,
   Input,
-  Money,
-  Select,
   StepIndicator,
   TBody,
   TD,
@@ -39,144 +36,209 @@ import {
   useToast,
 } from "@/components/ui";
 import {
-  NO_VARIATION,
-  calculatePayslip,
-  findExceptions,
-  totalsFor,
-  type Payslip,
-  type Variation,
-} from "@/lib/payroll/engine";
+  ApprovalConsequences,
+  DiscrepancyPanel,
+  ExceptionList,
+  RunStatusBadge,
+  SourceBadge,
+  TotalsPanel,
+} from "@/components/payroll/run-panels";
+import { ApiError } from "@/lib/api/client";
 import {
-  PREVIOUS_NET,
-  SCHEDULED_DEDUCTIONS,
-  runPeopleFrom,
-} from "@/lib/mock/payroll";
-import { usePayrollSettings } from "@/lib/payroll/use-settings";
-import { useEmployeeStore } from "@/lib/store/employees";
+  formatKobo,
+  periodLabel,
+  type PreparedRun,
+  type Payslip,
+} from "@/lib/api/payroll";
+import { useCan } from "@/lib/permissions";
+import {
+  countBySeverity,
+  usePayrollActions,
+  usePayrollRun,
+  usePayrollRuns,
+} from "@/lib/store/payroll";
+import { TODAY } from "@/lib/today";
 
-/*
- * A payroll run is the highest-consequence thing anyone does in this product,
- * so the wizard is built around one idea: nothing surprising should be
- * possible at the point of approval.
+/**
+ * Running a payroll period.
+ *
+ * ## What this screen used to be, and why it changed
+ *
+ * It used to be five steps — period, pick the people, type in bonuses and
+ * deductions, review, send for approval — and the middle two were the reason it
+ * had to be rebuilt. Allowances, loan instalments and expense claims are now
+ * *data*: they live in pay components, the loans module and the expenses module,
+ * and the run assembles them. A screen that let somebody type a bonus into a box
+ * would be collecting a figure the run then ignored, which is worse than not
+ * offering the box.
+ *
+ * So the four steps are what actually happens:
  *
  *   1 Period    what is being paid, and when it lands
- *   2 People    who is in, with joiners and leavers called out
- *   3 Inputs    bonuses, unpaid leave, and the deductions already scheduled
- *   4 Review    every figure, with exceptions ranked above the table
- *   5 Approve   totals, routing, and a final confirmation
+ *   2 Check     prepare it, then work through what came back
+ *   3 Review    every payslip, itemised
+ *   4 Approve   the one-way door, with what it will settle spelled out
  *
- * Blocking exceptions cannot be stepped past. Warnings can, but only after
- * they have been displayed — never silently.
+ * ## Preparing versus approving
+ *
+ * **Preparing settles nothing.** It works out everybody's pay and writes the
+ * payslips, and it can be done as many times as you like — the normal loop is
+ * prepare, read the list, fix a bank account, prepare again. If preparing
+ * consumed a loan instalment, running it twice would take two months of
+ * somebody's repayment, so it does not.
+ *
+ * **Approving is the one-way door.** It freezes the settings onto the run and
+ * settles what the run consumed. The confirmation says so, in those terms,
+ * because "are you sure?" tells the reader nothing they did not already know.
+ *
+ * A blocker refuses approval. A warning does not, and approving with one open
+ * records that somebody looked at it.
  */
 
 const STEPS = [
   { id: "period", label: "Period", hint: "Month and pay date" },
-  { id: "people", label: "People", hint: "Who is included" },
-  { id: "inputs", label: "Inputs", hint: "Bonuses and deductions" },
-  { id: "review", label: "Review", hint: "Every figure" },
-  { id: "approve", label: "Approve", hint: "Send for sign-off" },
+  { id: "check", label: "Check", hint: "Prepare and fix" },
+  { id: "review", label: "Review", hint: "Every payslip" },
+  { id: "approve", label: "Approve", hint: "Settle and freeze" },
 ];
+
+const currentPeriod = TODAY.slice(0, 7);
 
 export function PayrollRunWizard() {
   const router = useRouter();
   const toast = useToast();
-  const stepper = useStepper(STEPS);
-  /* Company settings, not constants — a shift company's working month and a
-     stricter swing threshold both change what this run produces. */
-  const { settings } = usePayrollSettings();
-  /* Derived from the live directory, so a record corrected on the employee
-     page clears its blocker here without a reload. */
-  const { directory } = useEmployeeStore();
-  const runPeople = useMemo(() => runPeopleFrom(directory), [directory]);
+  const params = useSearchParams();
 
-  const [period, setPeriod] = useState("2026-08");
-  const [payDate, setPayDate] = useState("2026-08-28");
-  const [entity, setEntity] = useState("schull-ng");
-  const [excluded, setExcluded] = useState<Set<string>>(new Set());
-  const [variations, setVariations] = useState<Record<string, Variation>>({});
-  const [query, setQuery] = useState("");
+  /* A period in the URL means somebody came from the dashboard to look at a run
+     that already exists, so the rail opens on the checks rather than on a form
+     they have already filled in. Read at first render, not in an effect. */
+  const periodParam = params.get("period");
+  const stepper = useStepper(STEPS, periodParam ? 1 : 0);
+
+  const canPrepare = useCan("RUN_PAYROLL");
+  const canApprove = useCan("APPROVE_PAYROLL");
+
+  const { runs, connected, loading, error, reload: reloadRuns } = usePayrollRuns();
+  const actions = usePayrollActions();
+
+  const [draft, setDraft] = useState<{
+    period: string;
+    payDate: string;
+    label: string;
+  } | null>(null);
+  const period = draft?.period ?? periodParam ?? currentPeriod;
+  const payDate = draft?.payDate ?? `${period}-28`;
+  const label = draft?.label ?? "";
+
+  const patch = (next: Partial<{ period: string; payDate: string; label: string }>) =>
+    setDraft({ period, payDate, label, ...next });
+
+  const [prepared, setPrepared] = useState<PreparedRun | null>(null);
+  const [busy, setBusy] = useState<"prepare" | "approve" | null>(null);
   const [ackWarnings, setAckWarnings] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
-  const included = useMemo(
-    () => runPeople.filter((p) => !excluded.has(p.id)),
-    [excluded, runPeople],
-  );
+  /* The run for the chosen period, whether this session prepared it or a
+     previous one did. Derived, so changing the period switches runs with no
+     effect and no stale detail. */
+  const existing = runs.find((run) => run.period === period) ?? null;
+  const runId = existing?.id ?? null;
+  const detail = usePayrollRun(runId);
+  const run = detail.run;
 
-  /* Scheduled loan repayments are folded in automatically — a recruiter should
-     not have to remember them, and forgetting is how people get overpaid. */
-  const effectiveVariation = (id: string): Variation => {
-    const manual = variations[id] ?? NO_VARIATION;
-    const scheduled = SCHEDULED_DEDUCTIONS.get(id);
-    return {
-      ...manual,
-      postTaxDeductions: manual.postTaxDeductions + (scheduled?.amount ?? 0),
-    };
-  };
+  const exceptions = useMemo(() => run?.exceptions ?? [], [run]);
+  const counts = countBySeverity(exceptions);
+  const discrepancies = prepared?.discrepancies ?? [];
+  const settled = run?.status === "APPROVED" || run?.status === "PAID";
 
-  const slips = useMemo(() => {
-    const map = new Map<string, Payslip>();
-    for (const p of included) {
-      map.set(
-        p.id,
-        calculatePayslip(p.id, p.grossMonthly, effectiveVariation(p.id), settings),
-      );
-    }
-    return map;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [included, variations, settings]);
-
-  const exceptions = useMemo(
-    () => findExceptions(included, slips, PREVIOUS_NET, settings),
-    [included, slips, settings],
-  );
-  const blocking = exceptions.filter((e) => e.severity === "blocking");
-  const warnings = exceptions.filter((e) => e.severity === "warning");
-
-  const totals = useMemo(
-    () => totalsFor([...slips.values()]),
-    [slips],
-  );
-
+  const blocked = counts.blockers > 0 || discrepancies.length > 0;
   const canContinue = [
-    Boolean(period && payDate && entity),
-    included.length > 0,
-    true,
-    blocking.length === 0,
-    blocking.length === 0 && (warnings.length === 0 || ackWarnings),
+    Boolean(period && payDate),
+    Boolean(run) && !blocked,
+    Boolean(run) && !blocked,
+    false,
   ][stepper.index];
 
   const doneFlags = [
     Boolean(period && payDate),
-    included.length > 0,
-    true,
-    blocking.length === 0,
-    false,
+    Boolean(run) && !blocked,
+    Boolean(run) && !blocked,
+    settled,
   ];
-  const displaySteps = stepper.steps.map((s, i) => ({
-    ...s,
-    isComplete: i <= stepper.furthest && doneFlags[i],
+  const displaySteps = stepper.steps.map((step, i) => ({
+    ...step,
+    isComplete: i <= stepper.furthest && Boolean(doneFlags[i]),
   }));
 
-  function submit() {
-    setBusy(true);
-    setTimeout(() => {
-      setBusy(false);
-      toast.push({
-        title: "Run sent for approval",
-        tone: "success",
-        detail: `${totals.headcount} employees · ₦${Math.round(totals.net).toLocaleString("en-NG")} net · pays ${payDate}`,
+  async function prepare() {
+    setBusy("prepare");
+    try {
+      const result = await actions.prepare({
+        period,
+        payDate,
+        ...(label.trim() ? { label: label.trim() } : {}),
       });
-      router.push("/payroll");
-    }, 900);
+      setPrepared(result);
+      setAckWarnings(false);
+      reloadRuns();
+      detail.reload();
+      toast.push({
+        title:
+          result.discrepancies.length > 0
+            ? "Prepared, but the figures do not add up"
+            : `Prepared ${periodLabel(period)}`,
+        tone: result.discrepancies.length > 0 ? "danger" : "success",
+        detail: `${result.headcount} ${result.headcount === 1 ? "person" : "people"} · ${result.blockers} to fix · ${result.warnings} to look at`,
+      });
+      if (stepper.index === 0) stepper.goTo(1);
+    } catch (caught) {
+      toast.push({
+        title: "Could not prepare this run",
+        tone: "danger",
+        detail:
+          caught instanceof ApiError
+            ? caught.message
+            : "Something went wrong. Try again.",
+      });
+    } finally {
+      setBusy(null);
+    }
   }
 
-  const filtered = included.filter((p) =>
-    p.name.toLowerCase().includes(query.toLowerCase()),
-  );
+  async function approve() {
+    if (!runId) return;
+    setBusy("approve");
+    try {
+      const result = await actions.approve(runId);
+      setConfirming(false);
+      toast.push({
+        title: `${periodLabel(period)} approved`,
+        tone: "success",
+        detail:
+          result.settled.loans + result.settled.claims + result.settled.overtime > 0
+            ? `${result.settled.loans} loan instalment${result.settled.loans === 1 ? "" : "s"} and ${result.settled.claims} expense claim${result.settled.claims === 1 ? "" : "s"} settled.`
+            : "Nothing else needed settling.",
+      });
+      router.push("/payroll");
+    } catch (caught) {
+      setConfirming(false);
+      toast.push({
+        title: "Could not approve this run",
+        tone: "danger",
+        detail:
+          caught instanceof ApiError
+            ? caught.message
+            : "Something went wrong. Try again.",
+      });
+    } finally {
+      setBusy(null);
+    }
+  }
 
   return (
     <div className="flex flex-col gap-6">
+      <SourceBadge connected={connected} loading={loading} error={error} />
+
       <StepIndicator
         steps={displaySteps}
         index={stepper.index}
@@ -184,410 +246,227 @@ export function PayrollRunWizard() {
         onStepSelect={stepper.goTo}
       />
 
-      {/* ------------------------------------------------------- 1 Period */}
+      {/* --------------------------------------------------------- 1 Period */}
       {stepper.index === 0 && (
         <Card>
           <CardHeader
             title="What are you paying?"
-            description="The period sets which contracts, joiners and leavers are picked up."
+            description="The period decides which contracts, joiners and leavers are picked up."
           />
           <CardBody className="grid max-w-2xl gap-5 sm:grid-cols-2">
             <Field label="Pay period" required>
-              <Select
+              <Input
+                type="month"
                 value={period}
-                onChange={(e) => setPeriod(e.currentTarget.value)}
-              >
-                <option value="2026-08">August 2026</option>
-                <option value="2026-09">September 2026</option>
-              </Select>
+                onChange={(e) => patch({ period: e.target.value })}
+              />
             </Field>
             <Field
               label="Payment date"
               required
-              help="Bank cut-off is two working days before."
+              help="Most employers pay a few days before month end."
             >
               <Input
                 type="date"
                 value={payDate}
-                onChange={(e) => setPayDate(e.currentTarget.value)}
+                onChange={(e) => patch({ payDate: e.target.value })}
               />
             </Field>
-            <Field label="Entity" required className="sm:col-span-2">
-              <Select
-                value={entity}
-                onChange={(e) => setEntity(e.currentTarget.value)}
-              >
-                <option value="schull-ng">Schull Technologies Ltd — RC 1482930</option>
-                <option value="schull-svc">Schull Services Ltd — RC 1729044</option>
-              </Select>
+            <Field
+              label="Name this run"
+              help="Optional. Useful when a month has more than one."
+              className="sm:col-span-2"
+            >
+              <Input
+                value={label}
+                placeholder={`${periodLabel(period)} salaries`}
+                onChange={(e) => patch({ label: e.target.value })}
+              />
             </Field>
+
             <div className="sm:col-span-2">
-              <Callout tone="info" icon={<Info aria-hidden="true" />}>
-                PAYE will be split across{" "}
-                {new Set(runPeople.map((p) => p.taxState)).size} state revenue
-                services, and pension across each employee&apos;s PFA. You do
-                not choose these — they come from the records.
-              </Callout>
+              {existing ? (
+                <Callout
+                  tone="info"
+                  title={`${periodLabel(period)} is already prepared`}
+                >
+                  It has {existing.employeeCount}{" "}
+                  {existing.employeeCount === 1 ? "payslip" : "payslips"} and is{" "}
+                  {existing.status === "APPROVED" || existing.status === "PAID"
+                    ? "approved, so its figures are frozen."
+                    : "still a draft. You can prepare it again from the next step."}
+                </Callout>
+              ) : (
+                <Callout tone="accent" title="Preparing pays nobody">
+                  It works out everybody&apos;s pay, writes the payslips, and lists
+                  anything wrong with the records behind them. No money moves, no
+                  loan instalment is taken, and you can do it as many times as you
+                  like.
+                </Callout>
+              )}
             </div>
           </CardBody>
         </Card>
       )}
 
-      {/* ------------------------------------------------------- 2 People */}
+      {/* ---------------------------------------------------------- 2 Check */}
       {stepper.index === 1 && (
-        <Card>
-          <CardHeader
-            title={`${included.length} people in this run`}
-            description="Uncheck anyone who should not be paid this period."
-            action={
-              <Input
-                value={query}
-                onChange={(e) => setQuery(e.currentTarget.value)}
-                placeholder="Search"
-                className="w-48"
-              />
-            }
-          />
-          <TableWrap className="rounded-none border-0">
-            <THead>
-              <TH>Include</TH>
-              <TH>Employee</TH>
-              <TH>Department</TH>
-              <TH>Tax state</TH>
-              <TH align="right">Contract gross</TH>
-              <TH>Note</TH>
-            </THead>
-            <TBody>
-              {filtered.map((p) => (
-                <TR key={p.id}>
-                  <TD>
-                    <Checkbox
-                      checked={!excluded.has(p.id)}
-                      onChange={(e) => {
-                        const next = new Set(excluded);
-                        if (e.currentTarget.checked) next.delete(p.id);
-                        else next.add(p.id);
-                        setExcluded(next);
-                      }}
-                      label=""
-                    />
-                  </TD>
-                  <TDPrimary title={p.name} subtitle={p.jobTitle} />
-                  <TD>{p.department}</TD>
-                  <TD>{p.taxState}</TD>
-                  <TD align="right" className="tabular font-medium text-ink">
-                    <Money amount={p.grossMonthly} />
-                  </TD>
-                  <TD>
-                    {p.joinedThisPeriod && (
-                      <Badge tone="info" size="sm">
-                        Joined
-                      </Badge>
-                    )}
-                    {p.leftThisPeriod && (
-                      <Badge tone="warning" size="sm">
-                        Leaving
-                      </Badge>
-                    )}
-                  </TD>
-                </TR>
-              ))}
-            </TBody>
-          </TableWrap>
-          {excluded.size > 0 && (
-            <CardBody className="border-t border-line">
-              <Callout tone="warning">
-                {excluded.size} {excluded.size === 1 ? "person is" : "people are"}{" "}
-                excluded and will not be paid this period.
-              </Callout>
-            </CardBody>
+        <div className="flex flex-col gap-5">
+          {!canPrepare && (
+            <Callout tone="warning" title="You cannot prepare a run">
+              Preparing payroll needs the &ldquo;Run payroll&rdquo; permission.
+              Somebody who has it can prepare this period, and you will still be
+              able to review and approve it.
+            </Callout>
           )}
-        </Card>
+
+          <Card>
+            <CardHeader
+              title={`${periodLabel(period)}, paying ${payDate}`}
+              description={
+                run
+                  ? `Prepared${run.preparedAt ? ` ${run.preparedAt.slice(0, 10)}` : ""}. Preparing again replaces the payslips and settles nothing.`
+                  : "Nothing has been worked out for this period yet."
+              }
+              action={run ? <RunStatusBadge status={run.status} /> : undefined}
+            />
+            <CardBody className="flex flex-wrap items-center gap-3">
+              <Button
+                variant={run ? "secondary" : "accent"}
+                onClick={() => void prepare()}
+                loading={busy === "prepare"}
+                disabled={!canPrepare || settled || busy !== null}
+              >
+                {busy !== "prepare" && (
+                  <RefreshCw aria-hidden="true" className="size-4" />
+                )}
+                {run ? "Prepare again" : `Prepare ${periodLabel(period)}`}
+              </Button>
+              {run && (
+                <p className="text-[0.75rem] leading-relaxed text-muted">
+                  {run.employeeCount}{" "}
+                  {run.employeeCount === 1 ? "payslip" : "payslips"} ·{" "}
+                  {formatKobo(run.grossKobo)} gross
+                </p>
+              )}
+              {settled && (
+                <p className="text-[0.75rem] leading-relaxed text-muted">
+                  This run is approved. Its figures are frozen and cannot be
+                  prepared again.
+                </p>
+              )}
+            </CardBody>
+          </Card>
+
+          <DiscrepancyPanel discrepancies={discrepancies} />
+
+          {detail.loading ? (
+            <Card>
+              <CardBody>
+                <p className="text-[0.875rem] text-muted">Loading the run…</p>
+              </CardBody>
+            </Card>
+          ) : run ? (
+            <ExceptionList exceptions={exceptions} />
+          ) : (
+            <EmptyState
+              compact
+              icon={<ShieldCheck aria-hidden="true" />}
+              title="Nothing prepared yet"
+              description="Prepare the period and anything wrong with the records will be listed here, with the screen that fixes it."
+            />
+          )}
+        </div>
       )}
 
-      {/* ------------------------------------------------------- 3 Inputs */}
+      {/* --------------------------------------------------------- 3 Review */}
       {stepper.index === 2 && (
         <div className="flex flex-col gap-5">
-          <Callout tone="info" title="Scheduled deductions are already applied">
-            Loan and advance repayments come from the employee record and are
-            included below. You are adding one-off items on top.
-          </Callout>
-
-          <Card>
-            <CardHeader
-              title="One-off inputs"
-              description={`Additions are taxable. Deductions come off after tax. Unpaid leave prorates against a ${settings.workingDaysPerMonth}-day month.`}
-              action={
-                <ButtonLink href="/settings/payroll" variant="ghost" size="sm">
-                  Payroll settings
-                </ButtonLink>
-              }
+          <DiscrepancyPanel discrepancies={discrepancies} />
+          {run ? (
+            <PayslipTable payslips={run.payslips} />
+          ) : (
+            <EmptyState
+              compact
+              icon={<ShieldCheck aria-hidden="true" />}
+              title="Nothing to review"
+              description="Go back a step and prepare the period first."
             />
-            <TableWrap className="rounded-none border-0">
-              <THead>
-                <TH>Employee</TH>
-                <TH align="right">Bonus / overtime</TH>
-                <TH align="right">Unpaid days</TH>
-                <TH align="right">Other deduction</TH>
-                <TH align="right">Scheduled</TH>
-              </THead>
-              <TBody>
-                {included.map((p) => {
-                  const v = variations[p.id] ?? NO_VARIATION;
-                  const scheduled = SCHEDULED_DEDUCTIONS.get(p.id);
-                  const update = (patch: Partial<Variation>) =>
-                    setVariations((prev) => ({
-                      ...prev,
-                      [p.id]: { ...NO_VARIATION, ...prev[p.id], ...patch },
-                    }));
-
-                  return (
-                    <TR key={p.id}>
-                      <TDPrimary title={p.name} subtitle={p.department} />
-                      <TD align="right">
-                        <Input
-                          type="number"
-                          min={0}
-                          value={v.additions || ""}
-                          placeholder="0"
-                          onChange={(e) =>
-                            update({ additions: Number(e.currentTarget.value) || 0 })
-                          }
-                          className="ml-auto w-32 text-right"
-                        />
-                      </TD>
-                      <TD align="right">
-                        <Input
-                          type="number"
-                          min={0}
-                          max={settings.workingDaysPerMonth}
-                          value={v.unpaidDays || ""}
-                          placeholder="0"
-                          onChange={(e) =>
-                            update({
-                              unpaidDays: Math.min(
-                                settings.workingDaysPerMonth,
-                                Math.max(0, Number(e.currentTarget.value) || 0),
-                              ),
-                            })
-                          }
-                          className="ml-auto w-20 text-right"
-                        />
-                      </TD>
-                      <TD align="right">
-                        <Input
-                          type="number"
-                          min={0}
-                          value={v.postTaxDeductions || ""}
-                          placeholder="0"
-                          onChange={(e) =>
-                            update({
-                              postTaxDeductions: Number(e.currentTarget.value) || 0,
-                            })
-                          }
-                          className="ml-auto w-32 text-right"
-                        />
-                      </TD>
-                      <TD align="right" className="tabular text-muted">
-                        {scheduled ? (
-                          <span title={scheduled.label}>
-                            <Money amount={scheduled.amount} />
-                          </span>
-                        ) : (
-                          "—"
-                        )}
-                      </TD>
-                    </TR>
-                  );
-                })}
-              </TBody>
-            </TableWrap>
-          </Card>
+          )}
         </div>
       )}
 
-      {/* ------------------------------------------------------- 4 Review */}
-      {stepper.index === 3 && (
-        <div className="flex flex-col gap-5">
-          <ExceptionPanel blocking={blocking} warnings={warnings} />
-
-          <Card>
-            <CardHeader
-              title="Calculated payroll"
-              description="PAYE is computed on annualised income against the current bands, after pension and NHF relief."
-            />
-            <TableWrap className="rounded-none border-0">
-              <THead>
-                <TH>Employee</TH>
-                <TH align="right">Gross</TH>
-                <TH align="right">Pension</TH>
-                <TH align="right">NHF</TH>
-                <TH align="right">PAYE</TH>
-                <TH align="right">Deductions</TH>
-                <TH align="right">Net</TH>
-              </THead>
-              <TBody>
-                {included.map((p) => {
-                  const s = slips.get(p.id)!;
-                  const bad = blocking.some((e) => e.employeeId === p.id);
-                  return (
-                    <TR key={p.id} className={bad ? "bg-danger-soft" : undefined}>
-                      <TDPrimary title={p.name} subtitle={p.taxState} />
-                      <TD align="right" className="tabular">
-                        <Money amount={Math.round(s.grossMonthly)} />
-                      </TD>
-                      <TD align="right" className="tabular text-muted">
-                        <Money amount={Math.round(s.pensionEmployee)} />
-                      </TD>
-                      <TD align="right" className="tabular text-muted">
-                        <Money amount={Math.round(s.nhf)} />
-                      </TD>
-                      <TD align="right" className="tabular text-muted">
-                        <Money amount={Math.round(s.payeMonthly)} />
-                      </TD>
-                      <TD align="right" className="tabular text-muted">
-                        {s.postTaxDeductions > 0 ? (
-                          <Money amount={Math.round(s.postTaxDeductions)} />
-                        ) : (
-                          "—"
-                        )}
-                      </TD>
-                      <TD align="right" className="tabular font-medium text-ink">
-                        <Money amount={Math.round(s.netPay)} />
-                      </TD>
-                    </TR>
-                  );
-                })}
-              </TBody>
-            </TableWrap>
-          </Card>
-        </div>
-      )}
-
-      {/* ------------------------------------------------------ 5 Approve */}
-      {stepper.index === 4 && (
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+      {/* -------------------------------------------------------- 4 Approve */}
+      {stepper.index === 3 && run && (
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)]">
           <div className="flex flex-col gap-5">
+            <TotalsPanel run={run} />
+
             <Card>
               <CardHeader
-                title="What leaves the account"
-                description="Net pay reaches employees. Everything else is remitted on their behalf."
+                title="What approving does"
+                description="Preparing was free. This is not."
               />
-              <CardBody className="flex flex-col gap-3">
-                <TotalRow label="Net to employees" value={totals.net} strong />
-                <TotalRow label="PAYE to state revenue services" value={totals.paye} />
-                <TotalRow
-                  label="Pension — employee 8%"
-                  value={totals.pensionEmployee}
-                />
-                <TotalRow
-                  label="Pension — employer 10%"
-                  value={totals.pensionEmployer}
-                  note="Employer cost, on top of gross"
-                />
-                <TotalRow label="NHF" value={totals.nhf} />
-                <div className="mt-2 border-t border-line pt-3">
-                  <TotalRow
-                    label="Total employer cost"
-                    value={totals.totalCost}
-                    strong
-                  />
-                </div>
+              <CardBody>
+                <ApprovalConsequences run={run} />
               </CardBody>
             </Card>
 
-            {warnings.length > 0 && (
+            {counts.warnings > 0 && (
               <Card>
                 <CardBody>
                   <Checkbox
                     checked={ackWarnings}
-                    onChange={(e) => setAckWarnings(e.currentTarget.checked)}
-                    label={`I have reviewed ${warnings.length} warning${warnings.length > 1 ? "s" : ""}`}
-                    description="Warnings do not block the run, but must be acknowledged before it is sent."
+                    onChange={(e) => setAckWarnings(e.target.checked)}
+                    label={`I have read ${counts.warnings} thing${counts.warnings === 1 ? "" : "s"} worth a look`}
+                    description="None of them stops the run. Approving records that they were seen."
                   />
                 </CardBody>
               </Card>
             )}
-
-            <Card>
-              <CardHeader title="Approval routing" />
-              <CardBody className="flex flex-col gap-3">
-                {[
-                  { name: "Amara Nwachukwu", role: "Prepared this run", done: true },
-                  { name: "Fatima Bello", role: "Reviews", done: false },
-                  { name: "Tunde Bakare", role: "Approves and releases", done: false },
-                ].map((s, i) => (
-                  <div key={s.name} className="flex items-center gap-3">
-                    <Avatar name={s.name} size="sm" tone={i === 0 ? "accent" : "neutral"} />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[0.875rem] font-medium text-ink">
-                        {s.name}
-                      </p>
-                      <p className="text-[0.75rem] text-muted">{s.role}</p>
-                    </div>
-                    <Badge tone={s.done ? "success" : "neutral"} size="sm" dot>
-                      {s.done ? "Done" : "Waiting"}
-                    </Badge>
-                  </div>
-                ))}
-                <Callout tone="accent" className="mt-1">
-                  The payment file is only generated after the final approval.
-                </Callout>
-              </CardBody>
-            </Card>
           </div>
 
-          <aside className="lg:sticky lg:top-20 lg:h-fit">
+          <aside className="flex flex-col gap-5 lg:sticky lg:top-20 lg:h-fit">
             <Card>
-              <CardHeader title="Summary" />
-              <CardBody className="flex flex-col gap-4">
-                <DonutChart
-                  caption="Where the total employer cost goes"
-                  centreLabel={`Total ₦${(totals.totalCost / 1_000_000).toFixed(1)}m`}
-                  format={(n) => `₦${(n / 1_000_000).toFixed(2)}m`}
-                  points={[
-                    { label: "Net pay", value: Math.round(totals.net) },
-                    { label: "PAYE", value: Math.round(totals.paye) },
-                    {
-                      label: "Pension",
-                      value: Math.round(
-                        totals.pensionEmployee + totals.pensionEmployer,
-                      ),
-                    },
-                    { label: "NHF", value: Math.round(totals.nhf) },
-                  ]}
-                />
-                <dl className="flex flex-col gap-2 border-t border-line pt-3 text-[0.875rem]">
-                  <div className="flex justify-between">
-                    <dt className="text-muted">Employees</dt>
-                    <dd className="tabular font-medium text-ink">
-                      {totals.headcount}
-                    </dd>
-                  </div>
-                  <div className="flex justify-between">
-                    <dt className="text-muted">Pays on</dt>
-                    <dd className="font-medium text-ink">{payDate}</dd>
-                  </div>
-                  <div className="flex justify-between">
-                    <dt className="text-muted">Blocking issues</dt>
-                    <dd
-                      className={cn(
-                        "tabular font-medium",
-                        blocking.length ? "text-danger-text" : "text-success-text",
-                      )}
-                    >
-                      {blocking.length}
-                    </dd>
-                  </div>
+              <CardHeader title={periodLabel(run.period)} />
+              <CardBody>
+                <dl className="flex flex-col gap-2.5 text-[0.875rem]">
+                  <SummaryRow label="Status" value={<RunStatusBadge status={run.status} />} />
+                  <SummaryRow label="People" value={String(run.employeeCount)} />
+                  <SummaryRow label="Pays on" value={run.payDate} />
+                  <SummaryRow
+                    label="Stops the run"
+                    value={
+                      <span
+                        className={cn(
+                          "tabular font-medium",
+                          counts.blockers
+                            ? "text-danger-text"
+                            : "text-success-text",
+                        )}
+                      >
+                        {counts.blockers}
+                      </span>
+                    }
+                  />
+                  <SummaryRow label="Worth a look" value={String(counts.warnings)} />
                 </dl>
               </CardBody>
             </Card>
+
+            {!canApprove && (
+              <Callout tone="warning" title="Somebody else approves this">
+                Approving payroll is a separate permission from preparing it, on
+                purpose — the person who works out the pay is not the person who
+                releases it.
+              </Callout>
+            )}
           </aside>
         </div>
       )}
 
       {/* Footer */}
-      <div className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-line bg-surface px-1 py-3">
+      <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 border-t border-line bg-surface px-1 py-3">
         <Button variant="ghost" onClick={() => router.push("/payroll")}>
           Save &amp; exit
         </Button>
@@ -601,12 +480,18 @@ export function PayrollRunWizard() {
           {stepper.isLast ? (
             <Button
               variant="approve"
-              onClick={submit}
-              loading={busy}
-              disabled={!canContinue}
+              onClick={() => setConfirming(true)}
+              loading={busy === "approve"}
+              disabled={
+                !run ||
+                settled ||
+                blocked ||
+                !canApprove ||
+                (counts.warnings > 0 && !ackWarnings)
+              }
             >
-              {!busy && <Check aria-hidden="true" className="size-4" />}
-              Send for approval
+              {busy !== "approve" && <Check aria-hidden="true" className="size-4" />}
+              {settled ? "Already approved" : "Approve this run"}
             </Button>
           ) : (
             <Button
@@ -620,121 +505,160 @@ export function PayrollRunWizard() {
           )}
         </div>
       </div>
+
+      {run && (
+        <ConfirmDialog
+          open={confirming}
+          onClose={() => setConfirming(false)}
+          onConfirm={() => void approve()}
+          tone="primary"
+          confirmLabel={`Approve ${formatKobo(run.netKobo)}`}
+          loading={busy === "approve"}
+          title={`Approve ${periodLabel(run.period)}?`}
+          body={
+            <div className="flex flex-col gap-3">
+              <p>
+                This is the one step that cannot be undone from here. It will:
+              </p>
+              <ApprovalConsequences run={run} />
+              {counts.warnings > 0 && (
+                <p>
+                  {counts.warnings} warning{counts.warnings === 1 ? "" : "s"} will
+                  be recorded against the run as seen and accepted.
+                </p>
+              )}
+            </div>
+          }
+        />
+      )}
     </div>
   );
 }
 
 /* -------------------------------------------------------------------------- */
 
-function ExceptionPanel({
-  blocking,
-  warnings,
-}: {
-  blocking: ReturnType<typeof findExceptions>;
-  warnings: ReturnType<typeof findExceptions>;
-}) {
-  if (blocking.length === 0 && warnings.length === 0) {
-    return (
-      <Callout tone="success" title="Nothing to fix">
-        Every record passes the checks configured for this company, and no net
-        pay moved by more than the threshold you set.
-      </Callout>
-    );
-  }
-
-  return (
-    <Card>
-      <CardHeader
-        title="Before this can be approved"
-        description={
-          blocking.length > 0
-            ? `${blocking.length} blocking, ${warnings.length} to review`
-            : `${warnings.length} to review`
-        }
-        action={
-          blocking.length > 0 ? (
-            <Badge tone="danger" dot>
-              Blocked
-            </Badge>
-          ) : (
-            <Badge tone="warning" dot>
-              Review
-            </Badge>
-          )
-        }
-      />
-      <CardBody className="flex flex-col gap-2.5">
-        {[...blocking, ...warnings].map((e, i) => (
-          <div
-            key={`${e.employeeId}-${e.code}-${i}`}
-            className={cn(
-              "flex items-start gap-3 rounded-md border p-3",
-              e.severity === "blocking"
-                ? "border-danger-line bg-danger-soft"
-                : "border-warning-line bg-warning-soft",
-            )}
-          >
-            <span
-              aria-hidden="true"
-              className={cn(
-                "mt-0.5 shrink-0 [&>svg]:size-4",
-                e.severity === "blocking" ? "text-danger-text" : "text-warning-text",
-              )}
-            >
-              {e.severity === "blocking" ? <ShieldAlert /> : <AlertTriangle />}
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-[0.875rem] font-medium text-ink">
-                {e.employeeName} — {e.message}
-              </p>
-              <p className="mt-0.5 text-[0.75rem] leading-relaxed text-body">
-                {e.fix}
-              </p>
-            </div>
-            <Button size="sm" variant="secondary">
-              Open record
-            </Button>
-          </div>
-        ))}
-      </CardBody>
-    </Card>
-  );
-}
-
-function TotalRow({
+function SummaryRow({
   label,
   value,
-  note,
-  strong = false,
 }: {
   label: string;
-  value: number;
-  note?: string;
-  strong?: boolean;
+  value: React.ReactNode;
 }) {
   return (
-    <div className="flex items-baseline justify-between gap-4">
-      <div className="min-w-0">
-        <p
-          className={cn(
-            "text-[0.875rem]",
-            strong ? "font-medium text-ink" : "text-body",
-          )}
-        >
-          {label}
-        </p>
-        {note && <p className="text-[0.75rem] text-muted">{note}</p>}
-      </div>
-      <p
-        className={cn(
-          "tabular shrink-0",
-          strong ? "text-h4 text-ink" : "text-[0.9375rem] text-body",
-        )}
-      >
-        <Money amount={Math.round(value)} />
-      </p>
+    <div className="flex items-center justify-between gap-3">
+      <dt className="text-muted">{label}</dt>
+      <dd className="font-medium text-ink">{value}</dd>
     </div>
   );
 }
 
-export { Search };
+/**
+ * Every payslip in the run.
+ *
+ * Deductions are shown with their labels underneath rather than as one "other
+ * deductions" figure, because the figure on its own raises the question it
+ * should have answered. The unpaid-days column appears only when somebody has
+ * some — a column of zeroes is noise, and a column of twenty-ones is the single
+ * most important thing on the screen.
+ */
+function PayslipTable({ payslips }: { payslips: Payslip[] }) {
+  const anyUnpaid = payslips.some((slip) => slip.unpaidDays > 0);
+
+  return (
+    <Card>
+      <CardHeader
+        title="Every payslip"
+        description="PAYE is worked out on annual income against the bands in force for the period, after pension and housing-fund relief."
+        action={
+          <Badge tone="neutral" size="sm">
+            {payslips.length} {payslips.length === 1 ? "payslip" : "payslips"}
+          </Badge>
+        }
+      />
+      <TableWrap className="rounded-none border-0">
+        <THead>
+          <TH>Employee</TH>
+          {anyUnpaid && <TH align="right">Unpaid days</TH>}
+          <TH align="right">Gross</TH>
+          <TH align="right">Pension</TH>
+          <TH align="right">Housing fund</TH>
+          <TH align="right">PAYE</TH>
+          <TH align="right">Other</TH>
+          <TH align="right">Net</TH>
+        </THead>
+        <TBody>
+          {payslips.map((slip) => {
+            const deductionLines = slip.lines.filter((l) => l.kind === "DEDUCTION");
+            return (
+              <TR key={slip.id}>
+                <TDPrimary
+                  title={
+                    <Link
+                      href={`/payroll/payslips/${slip.id}`}
+                      className="hover:text-accent-text hover:underline underline-offset-4"
+                    >
+                      {slip.name}
+                    </Link>
+                  }
+                  subtitle={slip.employeeNo}
+                />
+                {anyUnpaid && (
+                  <TD align="right" className="tabular">
+                    {slip.unpaidDays > 0 ? (
+                      <span className="text-warning-text">
+                        {slip.unpaidDays}
+                      </span>
+                    ) : (
+                      "—"
+                    )}
+                  </TD>
+                )}
+                <TD align="right" className="tabular text-body">
+                  {formatKobo(slip.grossKobo)}
+                </TD>
+                <TD align="right" className="tabular text-muted">
+                  {formatKobo(slip.pensionEmployeeKobo)}
+                </TD>
+                <TD align="right" className="tabular text-muted">
+                  {formatKobo(slip.nhfKobo)}
+                </TD>
+                <TD align="right" className="tabular text-muted">
+                  {formatKobo(slip.payeKobo)}
+                </TD>
+                <TD align="right" className="tabular text-muted">
+                  {slip.otherDeductionsKobo > 0 ? (
+                    <>
+                      {formatKobo(slip.otherDeductionsKobo)}
+                      {deductionLines.length > 0 && (
+                        <span className="mt-0.5 block text-[0.75rem] font-normal text-faint">
+                          {deductionLines.map((l) => l.label).join(", ")}
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    "—"
+                  )}
+                </TD>
+                <TD align="right" className="tabular font-medium text-ink">
+                  {formatKobo(slip.netKobo)}
+                </TD>
+              </TR>
+            );
+          })}
+        </TBody>
+      </TableWrap>
+      <CardBody className="border-t border-line">
+        <p className="text-[0.75rem] leading-relaxed text-muted">
+          Employer pension is not in any column here. It is a company cost on top
+          of gross and does not reduce anybody&apos;s pay — the totals on the next
+          step show it separately.
+        </p>
+      </CardBody>
+      <CardBody className="border-t border-line">
+        <ButtonLink href="/payroll/payslips" variant="secondary" size="sm">
+          Open the payslips
+        </ButtonLink>
+      </CardBody>
+    </Card>
+  );
+}

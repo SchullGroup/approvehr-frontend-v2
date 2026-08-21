@@ -11,32 +11,28 @@ import {
   Textarea,
   useToast,
 } from "@/components/ui";
+import { ApiError } from "@/lib/api/client";
+import { daysLabel, type LeaveRow } from "@/lib/api/leave";
 import { CURRENT_USER } from "@/lib/mock/people";
-import { useSession } from "@/lib/store/session";
-import type { LeaveType } from "@/lib/mock/workflows";
-import { useEmployeeStore } from "@/lib/store/employees";
+import { useEmployeeDirectory } from "@/lib/store/employees-api";
+import {
+  useLeaveBalancesFor,
+  useLeaveMutations,
+  useLeaveTypes,
+} from "@/lib/store/leave-api";
 import {
   daysBetween,
-  useLeaveStore,
   validateLeave,
   type LeaveError,
   type NewLeaveRequest,
 } from "@/lib/store/leave";
-import { useLeaveBalances } from "@/lib/store/leave-balances";
-import { remainingDays } from "@/lib/workflows/leave";
+import { useSession } from "@/lib/store/session";
 import { fullName } from "@/lib/types";
-
-const TYPES: LeaveType[] = [
-  "Annual",
-  "Sick",
-  "Compassionate",
-  "Maternity",
-  "Paternity",
-];
 
 type Draft = {
   employeeId: string;
-  type: LeaveType;
+  /** The type's name. Its id is looked up when connected, where one exists. */
+  type: string;
   from: string;
   to: string;
   reason: string;
@@ -51,45 +47,69 @@ const BLANK: Draft = {
 };
 
 /**
- * Book leave on someone's behalf.
+ * Book leave on somebody's behalf.
  *
- * The employee list comes from the live employee store rather than the seed
- * array, so a starter created on `/people/new` can be booked off in the same
- * session — the same reason payroll reads `runPeopleFrom(store)`.
+ * The employee list, the leave types and the balance all come from whichever
+ * source is live — so connected this posts real uuids to `POST /leave/requests`,
+ * and in demo mode it writes to this browser's store. The dialog does not know
+ * which, and neither does the screen behind it.
  *
- * The dialog shows the remaining balance and the day count as you type, because
- * the two questions a booking form has to answer are "how many days is this" and
- * "do they have them" — leaving both to a validation error after submit is what
- * makes leave forms annoying.
+ * ## Checked twice, on purpose
+ *
+ * `validateLeave` runs before the request goes anywhere, because the two
+ * mistakes people make — booking over leave they already have, and booking days
+ * they do not have — are worth catching while the dates are still in front of
+ * them. The API checks both again and its answer wins: an overlap comes back as
+ * a 409 naming the request it clashes with, and that message is shown verbatim
+ * because it names the fix.
+ *
+ * Going over an entitlement is **not** refused by either side. A company may
+ * allow unpaid overdraw and maternity leave is statutory, so the API returns a
+ * warning with the created request and the warning is what the approver sees.
  */
 export function BookLeaveDialog({
   open,
   onClose,
+  onCreated,
+  requests,
 }: {
   open: boolean;
   onClose: () => void;
+  /** Reload the screen behind, so a new request appears without a refresh. */
+  onCreated: () => void;
+  /** What already exists, for the overlap check before submitting. */
+  requests: readonly LeaveRow[];
 }) {
-  const leave = useLeaveStore();
-  const { directory } = useEmployeeStore();
   const session = useSession();
-  const balances = useLeaveBalances();
+  const { employees } = useEmployeeDirectory({ pageSize: 200 });
+  const { types } = useLeaveTypes();
+  const mutations = useLeaveMutations();
   const toast = useToast();
+
   const [draft, setDraft] = useState<Draft>(BLANK);
   const [errors, setErrors] = useState<LeaveError[]>([]);
+  const [saving, setSaving] = useState(false);
 
   const days = draft.from && draft.to ? daysBetween(draft.from, draft.to) : 0;
 
-  const balance = useMemo(
-    () =>
-      draft.employeeId
-        ? balances.forType(draft.employeeId, draft.type)
-        : undefined,
-    [draft.employeeId, draft.type, balances],
+  const chosenType = types.find((type) => type.name === draft.type);
+  const balances = useLeaveBalancesFor(
+    draft.employeeId ? [draft.employeeId] : [],
+    draft.type,
   );
+  const balance = draft.employeeId ? balances.of(draft.employeeId) : undefined;
+  const remaining = balance?.remaining;
 
-  const remaining = balance ? remainingDays(balance) : undefined;
   const errorFor = (field: keyof NewLeaveRequest) =>
     errors.find((e) => e.field === field)?.message;
+
+  const employeeOptions = useMemo(
+    () =>
+      [...employees].sort((a, b) =>
+        `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`),
+      ),
+    [employees],
+  );
 
   function close() {
     setDraft(BLANK);
@@ -97,34 +117,65 @@ export function BookLeaveDialog({
     onClose();
   }
 
-  function submit() {
-    const input: NewLeaveRequest = {
-      employeeId: draft.employeeId,
-      type: draft.type,
-      from: draft.from,
-      to: draft.to,
-      reason: draft.reason.trim() || undefined,
-      /* Routed to whoever is signed in — they are the one looking at the inbox,
-         so a request they raise lands back with them. `employeeId`, not
-         `user.id`: an approver is an employee, and the account id would point
-         at nothing. */
-      approverId: session.employeeId ?? CURRENT_USER.id,
-    };
-
-    const found = validateLeave(input, leave.requests, remaining);
+  async function submit() {
+    const found = validateLeave(
+      {
+        employeeId: draft.employeeId,
+        type: draft.type,
+        from: draft.from,
+        to: draft.to,
+      },
+      requests,
+      remaining,
+    );
     setErrors(found);
     if (found.length > 0) return;
 
-    const created = leave.create(input);
-    const employee = directory.find((e) => e.id === created.employeeId);
-    toast.push({
-      title: "Leave request raised",
-      tone: "success",
-      detail: `${created.days} ${created.days === 1 ? "day" : "days"} for ${
-        employee ? fullName(employee) : "them"
-      }. It is now waiting in your approvals inbox.`,
-    });
-    close();
+    setSaving(true);
+    try {
+      const result = await mutations.create({
+        employeeId: draft.employeeId,
+        leaveTypeId: chosenType?.id ?? null,
+        leaveType: draft.type,
+        from: draft.from,
+        to: draft.to,
+        ...(draft.reason.trim() ? { reason: draft.reason.trim() } : {}),
+        /* Routed to whoever is signed in — they are the one looking at the
+           inbox, so a request they raise lands back with them. `employeeId`,
+           not the account id: an approver is an employee, and a user id would
+           point at nothing. */
+        ...(session.employeeId
+          ? { approverId: session.employeeId }
+          : mutations.connected
+            ? {}
+            : { approverId: CURRENT_USER.id }),
+      });
+
+      toast.push({
+        title: "Leave request raised",
+        tone: result.warnings.length > 0 ? "warning" : "success",
+        detail:
+          result.warnings.length > 0
+            ? result.warnings.join(" ")
+            : `${daysLabel(result.request.days)} for ${result.request.employeeName}. It is waiting in your approvals inbox.`,
+      });
+      onCreated();
+      close();
+    } catch (failure) {
+      /* The API's own words. An overlap names the request it clashes with and
+         the dates, which is exactly what the person needs to change. */
+      setErrors([
+        {
+          field: "from",
+          message:
+            failure instanceof ApiError
+              ? failure.message
+              : "That did not save. Try again.",
+        },
+      ]);
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -132,13 +183,13 @@ export function BookLeaveDialog({
       open={open}
       onClose={close}
       title="Book leave"
-      description="Raised as pending. It appears in the approvals inbox immediately."
+      description="Raised as waiting. It appears in the approvals inbox immediately."
       footer={
         <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={close}>
+          <Button variant="secondary" onClick={close} disabled={saving}>
             Cancel
           </Button>
-          <Button variant="accent" onClick={submit}>
+          <Button variant="accent" onClick={() => void submit()} loading={saving}>
             Raise request
           </Button>
         </div>
@@ -154,7 +205,7 @@ export function BookLeaveDialog({
             }}
           >
             <option value="">Choose someone…</option>
-            {directory.map((employee) => (
+            {employeeOptions.map((employee) => (
               <option key={employee.id} value={employee.id}>
                 {fullName(employee)} · {employee.jobTitle}
               </option>
@@ -167,9 +218,11 @@ export function BookLeaveDialog({
           help={
             balance
               ? `${balance.taken} of ${balance.entitled} days used${
-                  balance.pending > 0 ? `, ${balance.pending} pending` : ""
+                  balance.pending > 0 ? `, ${balance.pending} waiting` : ""
                 }.`
-              : undefined
+              : chosenType
+                ? `${chosenType.entitledDays} days a year.`
+                : undefined
           }
         >
           <Select
@@ -177,13 +230,13 @@ export function BookLeaveDialog({
             onChange={(e) => {
               /* Read the value before the updater runs — React nulls out
                  currentTarget once the synthetic event finishes dispatching. */
-              const type = e.target.value as LeaveType;
+              const type = e.target.value;
               setDraft((d) => ({ ...d, type }));
             }}
           >
-            {TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t}
+            {types.map((type) => (
+              <option key={type.name} value={type.name}>
+                {type.name}
               </option>
             ))}
           </Select>
@@ -204,7 +257,7 @@ export function BookLeaveDialog({
             label="To"
             required
             error={errorFor("to")}
-            help={days > 0 ? `${days} ${days === 1 ? "day" : "days"}` : undefined}
+            help={days > 0 ? daysLabel(days) : undefined}
           >
             <Input
               type="date"
@@ -229,10 +282,17 @@ export function BookLeaveDialog({
           />
         </Field>
 
+        {chosenType?.requiresEvidence && (
+          <Callout tone="info" title={`${chosenType.name} leave needs evidence`}>
+            Attach the note or certificate to their record after raising this.
+            Documents are not part of a leave request yet.
+          </Callout>
+        )}
+
         {remaining !== undefined && days > 0 && days <= remaining && (
           <Callout tone="info" title={`${remaining - days} days left afterwards`}>
-            Pending days are already held back from that figure, so approving
-            this will not take them over their entitlement.
+            Days already waiting on a decision are held back from that figure, so
+            approving this will not take them over their entitlement.
           </Callout>
         )}
       </div>
