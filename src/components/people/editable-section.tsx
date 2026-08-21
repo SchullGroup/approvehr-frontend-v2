@@ -63,6 +63,8 @@ export type EditableField = {
   type?: "text" | "email" | "tel" | "date" | "number" | "select" | "money";
   options?: { value: string; label: string }[];
   help?: string;
+  /** Exactly this many digits. Caps the input and shows a counter. */
+  digits?: number;
   required?: boolean;
   /** Rendered when the value is absent and the section is not being edited. */
   emptyLabel?: string;
@@ -265,7 +267,11 @@ export function EditableSection({
                 Cancel
               </Button>
               <Button
-                variant="approve"
+                /* Blue: Save is the primary action of this section. It read
+                   as pale green while `approve` was the green secondary,
+                   which made the most-used button on the record the hardest
+                   one to see. `approve` is for approving, not for saving. */
+                variant="accent"
                 size="sm"
                 onClick={() => void save()}
                 loading={busy}
@@ -324,6 +330,7 @@ export function EditableSection({
                 {f.type === "money" ? (
                   <Input
                     data-section-field={String(f.key)}
+                    {...(f.digits === undefined ? {} : { digits: f.digits })}
                     inputMode="numeric"
                     value={text[String(f.key)] ?? ""}
                     onChange={(e) => {
@@ -350,6 +357,7 @@ export function EditableSection({
                 ) : (
                   <Input
                     data-section-field={String(f.key)}
+                    {...(f.digits === undefined ? {} : { digits: f.digits })}
                     type={f.type ?? "text"}
                     value={String(draft[f.key] ?? "")}
                     onChange={(e) => {

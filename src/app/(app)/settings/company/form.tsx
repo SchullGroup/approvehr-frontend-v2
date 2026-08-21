@@ -146,6 +146,7 @@ export function CompanyProfileForm() {
                     help="Ten digits."
                   >
                     <Input
+                      digits={10}
                       value={value("tin")}
                       onChange={(e) => set("tin", e.target.value)}
                     />

@@ -554,6 +554,7 @@ export function EmployeeRecord({
                   label: "Account",
                   emptyLabel: "No bank account — payroll blocked",
                   help: "Ten digits. Payroll cannot pay without this.",
+                  digits: 10,
                   format: (v) => <Guarded value={String(v)} canReveal={canReveal} />,
                 },
                 {
@@ -584,6 +585,7 @@ export function EmployeeRecord({
                   label: "TIN",
                   emptyLabel: "No TIN — payroll blocked",
                   help: "Ten digits.",
+                  digits: 10,
                   format: (v) => <Guarded value={String(v)} canReveal={canReveal} />,
                 },
                 {

@@ -405,7 +405,7 @@ export function PayrollRunWizard() {
             <Card>
               <CardHeader
                 title="What approving does"
-                description="Preparing was free. This is not."
+                description="Calculating can be repeated. Approving cannot be undone."
               />
               <CardBody>
                 <ApprovalConsequences run={run} />

@@ -24,13 +24,51 @@ export type InputProps = React.InputHTMLAttributes<HTMLInputElement> & {
   icon?: React.ReactNode;
   /** Short unit or currency shown on the trailing edge, for example USD. */
   suffix?: string;
+  /**
+   * Exactly this many digits, and nothing else.
+   *
+   * A NUBAN account number is ten digits and a TIN is ten digits. Both fields
+   * said so in their help text while accepting twelve — which is how an account
+   * number that cannot be paid into gets saved, with the field that would have
+   * caught it sitting right there reading "Ten digits."
+   *
+   * Set this and the input cannot hold a wrong-shaped value: non-digits are
+   * dropped on the way in, the length is capped, and a counter sits on the
+   * trailing edge so somebody pasting a number can see where they are without
+   * counting characters on a screen.
+   *
+   * Capped in `onChange` rather than by `maxLength` alone. `maxLength` governs
+   * typing but not every paste path, and a silently truncated paste is worse
+   * than a visible refusal — so the value is filtered here and the counter is
+   * what explains it.
+   */
+  digits?: number;
 };
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
-  { className, icon, suffix, ...props },
+  { className, icon, suffix, digits, onChange, ...props },
   ref,
 ) {
   const field = useFieldControl();
+
+  /* The counter reuses the suffix slot rather than inventing a second one. An
+     explicit `suffix` still wins: a currency matters more than a count. */
+  const shownSuffix =
+    suffix ??
+    (digits === undefined
+      ? undefined
+      : `${String(props.value ?? "").length}/${digits}`);
+
+  const handleChange =
+    digits === undefined
+      ? onChange
+      : (event: React.ChangeEvent<HTMLInputElement>) => {
+          const cleaned = event.target.value.replace(/\D/g, "").slice(0, digits);
+          /* Rewritten before the caller sees it, so a controlled parent never
+             holds a value this field would refuse to render. */
+          if (cleaned !== event.target.value) event.target.value = cleaned;
+          onChange?.(event);
+        };
   const control = (
     <input
       ref={ref}
@@ -38,15 +76,19 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         CONTROL,
         "h-10 px-3 text-body-sm tabular",
         icon && "pl-9",
-        suffix && "pr-14",
+        shownSuffix && "pr-16",
         className,
       )}
       {...field}
+      {...(digits === undefined
+        ? {}
+        : { inputMode: "numeric" as const, maxLength: digits })}
       {...props}
+      onChange={handleChange}
     />
   );
 
-  if (!icon && !suffix) return control;
+  if (!icon && !shownSuffix) return control;
 
   return (
     <div className="relative">
@@ -59,12 +101,12 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         </span>
       )}
       {control}
-      {suffix && (
+      {shownSuffix && (
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-body-sm font-medium text-muted"
+          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-body-sm font-medium text-muted tabular"
         >
-          {suffix}
+          {shownSuffix}
         </span>
       )}
     </div>
