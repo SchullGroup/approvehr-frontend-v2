@@ -579,10 +579,19 @@ export function fixFor(
 ): { href: string; label: string } | null {
   if (!employeeId) return null;
   switch (code) {
+    /* `tab` and `field` are read by the record screen. Without them the link
+       landed on the Personal tab and the person had to go looking for the thing
+       the button had just named. */
     case "missing_bank_account":
-      return { href: `/people/${employeeId}`, label: "Add account number" };
+      return {
+        href: `/people/${employeeId}?tab=pay&field=bankAccount`,
+        label: "Add account number",
+      };
     case "missing_pension_pin":
-      return { href: `/people/${employeeId}`, label: "Add pension PIN" };
+      return {
+        href: `/people/${employeeId}?tab=pay&field=pensionPin`,
+        label: "Add pension PIN",
+      };
     case "deduction_carried":
       return { href: `/payroll/loans`, label: "Open loans" };
     default:

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   CalendarDays,
@@ -201,7 +202,25 @@ export function EmployeeRecord({
   leaveLoading?: boolean;
   onSave: (patch: EmployeePatch) => Promise<unknown>;
 }) {
-  const [tab, setTab] = useState("personal");
+  /**
+   * The tab, and a field to open editing on, both from the URL.
+   *
+   * So a payroll exception's "Add account number" can land on Pay & statutory
+   * with the account field already focused, instead of on Personal with nothing
+   * in edit mode. Read as initial state rather than in an effect: the right tab
+   * has to be the first paint, not a correction after it.
+   *
+   * The tab is validated against the ids below — an unknown `?tab=` falls back
+   * to Personal rather than rendering a blank body.
+   */
+  const params = useSearchParams();
+  const wanted = params.get("tab");
+  const [tab, setTab] = useState(
+    wanted && TAB_IDS.includes(wanted) ? wanted : "personal",
+  );
+  /* Only honoured on the tab that owns the field, so a stale link cannot open an
+     editor on a section the field does not belong to. */
+  const focusField = params.get("field") ?? undefined;
   const [fileOpen, setFileOpen] = useState(false);
   const departments = useDepartments();
   const { employeeId: me } = useSession();
@@ -510,6 +529,12 @@ export function EmployeeRecord({
             <PayComponentsPanel employeeId={employee.id} />
 
             <EditableSection
+              /* Arrive editing when a payroll exception sent us here naming the
+                 field. Gated on the tab so a stale `?field=` cannot open this
+                 editor from another tab. */
+              {...(tab === "pay" && focusField
+                ? { openOnField: focusField }
+                : {})}
               title="Payment and statutory"
               description="What payroll needs to pay and remit. Missing values block the run."
               employee={employee}
@@ -751,6 +776,9 @@ export function EmployeeRecord({
     </div>
   );
 }
+
+/** The record's tabs. One list, so URL validation and the tab strip agree. */
+const TAB_IDS = ["personal", "employment", "pay", "leave", "conduct"];
 
 /* -------------------------------------------------------------------------- */
 

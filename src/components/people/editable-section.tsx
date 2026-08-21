@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pencil, X } from "lucide-react";
 import {
   Button,
@@ -84,6 +84,7 @@ export function EditableSection({
   fields,
   columns = 2,
   onSave,
+  openOnField,
 }: {
   title: string;
   description?: string;
@@ -92,15 +93,39 @@ export function EditableSection({
   columns?: 1 | 2;
   /** Commits the changed fields. Rejecting with an `ApiError` is expected. */
   onSave: (patch: EmployeePatch) => Promise<unknown>;
+  /**
+   * Open in edit mode with this field focused.
+   *
+   * For arriving from somewhere that already knows what is wrong. A payroll
+   * exception saying "Grace Effiong has no account number" offers **Add account
+   * number**, and that link used to land on the record's first tab with nothing
+   * in edit mode — so the fix was: find the right tab, find the section, press
+   * Edit, find the field. Four steps after a button that named the field.
+   */
+  openOnField?: string | undefined;
 }) {
   const toast = useToast();
   const canEdit = useCan("EDIT_RECORDS");
-  const [editing, setEditing] = useState(false);
+  /* Initial state rather than an effect: the section must render editable on
+     its first paint, and setting it from an effect would flash the read-only
+     view and trip `no-setState-in-effect`. */
+  const [editing, setEditing] = useState(openOnField !== undefined);
   const [draft, setDraft] = useState<EmployeePatch>({});
   /* Money fields only: the naira text being typed, before it becomes kobo. */
   const [text, setText] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<SectionError[]>([]);
   const [busy, setBusy] = useState(false);
+
+  /* A DOM side effect, not state: put the caret where the caller pointed. The
+     empty dependency list is deliberate — this fires on arrival and never
+     again, so it cannot steal focus from somebody already typing. */
+  useEffect(() => {
+    if (openOnField === undefined) return;
+    document
+      .querySelector<HTMLElement>(`[data-section-field="${openOnField}"]`)
+      ?.focus();
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, []);
 
   const errorFor = (k: keyof EmployeePatch) =>
     errors.find((e) => e.field === k)?.message;
@@ -298,6 +323,7 @@ export function EditableSection({
               >
                 {f.type === "money" ? (
                   <Input
+                    data-section-field={String(f.key)}
                     inputMode="numeric"
                     value={text[String(f.key)] ?? ""}
                     onChange={(e) => {
@@ -323,6 +349,7 @@ export function EditableSection({
                   </Select>
                 ) : (
                   <Input
+                    data-section-field={String(f.key)}
                     type={f.type ?? "text"}
                     value={String(draft[f.key] ?? "")}
                     onChange={(e) => {
