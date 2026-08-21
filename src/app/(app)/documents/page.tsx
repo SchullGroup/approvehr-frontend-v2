@@ -3,7 +3,7 @@ import { MyDocuments } from "@/app/(app)/people/documents";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 
 export const metadata: Metadata = {
-  title: "My documents · ApproveHR",
+  title: "My documents",
   description:
     "What the company holds about you, and what it is asking you for.",
 };

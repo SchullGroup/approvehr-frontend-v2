@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { BatchDetailScreen } from "./batch-detail-screen";
 
 export const metadata: Metadata = {
-  title: "Payment batch · ApproveHR",
+  title: "Payment batch",
   description:
     "Who is being paid, how much, from which account — and the payment file to take to your bank.",
 };
