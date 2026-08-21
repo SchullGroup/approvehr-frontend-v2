@@ -62,6 +62,11 @@ export const MODULES: ModuleDef[] = [
     wash: "indigo",
     capabilities: [
       {
+        title: "Every branch in one view",
+        detail:
+          "Locations, entities and departments in one structure, so an administrator sees the whole company at once and a branch manager sees their own. Headcount and payroll cost roll up through it.",
+      },
+      {
         title: "Employee records",
         detail:
           "Personal details, pay history, bank and pension identifiers, next of kin, and every document — attached to the person, not a folder.",
@@ -124,9 +129,19 @@ export const MODULES: ModuleDef[] = [
     label: "Recruitment",
     headline: "From requisition to signed offer",
     blurb:
-      "Post a role, track every applicant through a pipeline you configure, and collect structured scorecards. An accepted offer becomes an employee record without retyping anything.",
+      "A full applicant tracking system. Post a role, track every applicant through a pipeline you configure, and collect structured scorecards. An accepted offer becomes an employee record without retyping anything.",
     wash: "amber",
     capabilities: [
+      {
+        title: "A real applicant tracking system",
+        detail:
+          "Every applicant is a record that moves through defined stages, with the decision, the date and the person who made it attached. Screening and interviews are the ATS, not a spreadsheet beside one.",
+      },
+      {
+        title: "A careers page candidates apply through",
+        detail:
+          "Published roles get their own public page on your own address. Applications arrive in the pipeline already, with the advert and the source they came from recorded.",
+      },
       {
         title: "Requisitions with approval",
         detail:
@@ -159,7 +174,7 @@ export const MODULES: ModuleDef[] = [
     label: "Time & Leave",
     headline: "Attendance that agrees with payroll",
     blurb:
-      "Clock in from the web or a phone. Leave accrues on your own policy, and what attendance records is what payroll pays.",
+      "Clock in from the web or a phone. Leave accrues on your own policy, overtime is priced from the clock, and what attendance records is what payroll pays.",
     wash: "blue",
     statutory: "Nigerian public holidays maintained",
     capabilities: [
@@ -179,9 +194,14 @@ export const MODULES: ModuleDef[] = [
           "Requests route to the line manager, then HR where policy requires it. Approvers see the team calendar first.",
       },
       {
+        title: "Overtime, priced and paid",
+        detail:
+          "Hours past a shift are worked out from the clock, not claimed on a form. Separate weekday, weekend and public-holiday rates, approval before anything is paid, and it lands on the payslip as its own line.",
+      },
+      {
         title: "Timesheets payroll can use",
         detail:
-          "Unpaid absence prorates against your working month, not a 22-day assumption borrowed from somewhere else.",
+          "Unpaid absence prorates against your working month \u2014 and against a shift worker\u2019s own roster, not a 22-day assumption borrowed from an office.",
       },
       {
         title: "Public holidays",
@@ -193,15 +213,30 @@ export const MODULES: ModuleDef[] = [
   {
     id: "performance",
     label: "Performance",
-    headline: "Reviews you can defend",
+    headline: "KPIs, appraisals and reviews you can defend",
     blurb:
-      "Set objectives that ladder up to company goals and run review cycles on a schedule. Every rating carries the evidence behind it.",
+      "Set KPIs that ladder up to company goals and run appraisals on a schedule. Every rating carries the evidence behind it.",
     wash: "violet",
     capabilities: [
       {
+        title: "KPI management",
+        detail:
+          "Every objective carries measurable key performance indicators with a target, a unit and a direction \u2014 including targets where success means the number going down.",
+      },
+      {
         title: "Goals that cascade",
         detail:
-          "Company goals flow down to teams and individuals, so any objective traces back to what it serves.",
+          "Company goals flow down to teams and individuals, so any KPI traces back to what it serves.",
+      },
+      {
+        title: "What an appraisal is made of",
+        detail:
+          "Four parts, ready to use on day one: core competencies, behavioural competencies, key result areas, and leadership for anyone who manages people. Rename or reweight any of them.",
+      },
+      {
+        title: "Appraisal questions you set",
+        detail:
+          "Build the form per cycle. Each question asks self, manager, peer or direct report \u2014 or all four \u2014 and peer answers are anonymous in the data, not just on the screen.",
       },
       {
         title: "Review cycles",
