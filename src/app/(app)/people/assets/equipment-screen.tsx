@@ -6,8 +6,6 @@ import {
   Badge,
   Button,
   ButtonLink,
-  Card,
-  CardBody,
   ConfirmDialog,
   Field,
   FilterBar,
@@ -381,29 +379,12 @@ function Register() {
           />
         </div>
 
-        {summary.counts.lost > 0 && (
-          <Card>
-            <CardBody className="flex flex-wrap items-center justify-between gap-4">
-              <p className="text-body text-ink">
-                {summary.counts.lost}{" "}
-                {summary.counts.lost === 1 ? "thing is" : "things are"} marked
-                lost. Whoever had it still owes it.
-              </p>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => {
-                  /* `setFilter` returns to page one, which matters here: the
-                     callout can be clicked from page 4 of the register. */
-                  list.setFilter("filter", "LOST");
-                  setTab("register");
-                }}
-              >
-                Show them
-              </Button>
-            </CardBody>
-          </Card>
-        )}
+        {/*
+          A callout naming lost items used to sit here, full width, on every
+          tab. It cost more space than it earned: the register's own "Lost"
+          filter (below, in the tab bar) already reaches the same list in one
+          click, so the banner was a second route to something one tab away.
+        */}
 
         <Tabs items={tabs} value={tab} onChange={(next) => setTab(next as typeof tab)}>
           {tab === "register" && (

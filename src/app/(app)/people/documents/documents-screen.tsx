@@ -170,7 +170,7 @@ export function DocumentsScreen() {
         {/* The part worth the whole screen. */}
         <Card>
           <CardHeader
-            title="Needs chasing"
+            title="Not yet received"
             description={expiring.note ?? undefined}
             action={
               <SegmentedControl
