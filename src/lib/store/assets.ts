@@ -245,7 +245,7 @@ export type EquipmentSummary = {
 export const STATUS_LABEL: Record<AssetStatus, string> = {
   AVAILABLE: "In the store",
   ASSIGNED: "With somebody",
-  IN_REPAIR: "Being fixed",
+  IN_REPAIR: "Repairing",
   RETIRED: "Written off",
   LOST: "Lost",
 };
