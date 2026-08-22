@@ -99,6 +99,10 @@ const BASE_FLAGS: FeatureFlags = {
   expenses: false,
   appraisals: false,
   hiring: true,
+  /* On, like hiring: the schema default matches, and a company that has
+     answered nothing still sees the everyday clock-in button rather than
+     losing it until the wizard says otherwise. */
+  attendance: true,
   /* The three field groups start **on**, unlike every module above, and the
      schema default matches. Every company that existed before these columns did
      was shown the tax, pension and bank fields, and a flag that arrived
@@ -172,6 +176,10 @@ export const FEATURE_COPY: Record<
   hiring: {
     label: "Hiring",
     line: "Post a role, track candidates, send an offer.",
+  },
+  attendance: {
+    label: "Attendance",
+    line: "A clock-in button, today's roster, and a calendar of who came in.",
   },
   /* The three below hide fields on an employee record rather than screens, and
      their lines say what you lose rather than what they are — because that is
@@ -356,6 +364,25 @@ const DEMO_QUESTIONS: ApiWizardQuestion[] = DEMO_ENABLED ? [
       },
     ],
   },
+  {
+    id: "attendance",
+    step: 8,
+    question: "Do you want staff to check in and out on ApproveHR?",
+    help: "A clock-in button, today's roster, and a calendar of who came in.",
+    options: [
+      { value: "yes", label: "Yes", sets: { attendance: true } },
+      {
+        value: "no",
+        label: "No — we do not track attendance",
+        sets: { attendance: false },
+        consequence:
+          "Nobody sees a check-in button, and there is no roster or attendance " +
+          "calendar. Payroll already does not deduct for unattended days at a " +
+          "company that has never used this, so switching it off changes what " +
+          "staff see, not what they are paid. You can switch this on later.",
+      },
+    ],
+  },
 ] : [];
 
 const DEMO_KEY = "approvehr.features.demo";
@@ -516,6 +543,7 @@ function fromApi(features: ApiFeatures): State {
       expenses: features.expenses,
       appraisals: features.appraisals,
       hiring: features.hiring,
+      attendance: features.attendance,
       taxSetup: features.taxSetup,
       pensionSetup: features.pensionSetup,
       bankDetails: features.bankDetails,
@@ -690,6 +718,7 @@ export function useFeatureSettings() {
           expenses: features.expenses,
           appraisals: features.appraisals,
           hiring: features.hiring,
+          attendance: features.attendance,
           taxSetup: features.taxSetup,
           pensionSetup: features.pensionSetup,
           bankDetails: features.bankDetails,

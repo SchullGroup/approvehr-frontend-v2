@@ -42,6 +42,7 @@ export const MODULE_FEATURE_KEYS = [
   "expenses",
   "appraisals",
   "hiring",
+  "attendance",
 ] as const;
 
 /**
@@ -105,6 +106,8 @@ export type ApiFeatures = {
   departments: boolean;
   hiring: boolean;
   grades: boolean;
+  /** A clock-in button, today's roster, and a calendar of who came in. */
+  attendance: boolean;
   /** PAYE state, TIN and the annual rent declaration. */
   taxSetup: boolean;
   /** RSA PIN, pension fund administrator, NHF number. */
