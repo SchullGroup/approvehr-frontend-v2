@@ -140,7 +140,8 @@ export type ApiPayPerson = {
   id: string;
   employeeNo: string;
   name: string;
-  grossMonthlyKobo: number;
+  /** Null where no pay is agreed. A preview cannot be computed without one. */
+  grossMonthlyKobo: number | null;
 };
 
 export type ApiPeriod = { start: string; end: string };

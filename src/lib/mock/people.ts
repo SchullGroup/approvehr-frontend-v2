@@ -23,7 +23,49 @@ import type { Employee } from "@/lib/types";
  * Each one ends in the four digits the old masked string showed, so anything
  * that quoted a last-four still reads the same.
  */
-export const EMPLOYEES: Employee[] = DEMO_ENABLED ? [
+type SeedRecord = Omit<
+  Employee,
+  "addressLine" | "nin" | "stateOfOrigin" | "lgaOfOrigin" | "religion"
+>;
+
+/**
+ * The five fields the record gained, filled in by mapping rather than by hand.
+ *
+ * Fifty more literals across ten records is fifty more chances for one of them
+ * to disagree with the row it sits in. Derived instead, from what the record
+ * already says — and deliberately sparse: two of the ten have no NIN and none
+ * has an LGA, because "everybody's paperwork is complete" is not what a real
+ * directory looks like and the importer's missing-detail list needs something
+ * to find.
+ */
+const ORIGINS: readonly (readonly [string, string])[] = [
+  ["Imo", "Ikeduru"],
+  ["Lagos", "Ikeja"],
+  ["Anambra", "Onitsha North"],
+  ["Enugu", "Nsukka"],
+  ["Kano", "Nassarawa"],
+  ["Rivers", "Obio-Akpor"],
+  ["Oyo", "Ibadan North"],
+  ["Kaduna", "Zaria"],
+  ["Delta", "Warri South"],
+  ["FCT", "Abuja Municipal"],
+];
+
+function withRecordFields(row: SeedRecord, index: number): Employee {
+  const origin = ORIGINS[index % ORIGINS.length]!;
+  return {
+    ...row,
+    addressLine: `${12 + index * 7} Awolowo Road, ${origin[1]}`,
+    /* Two without one, so the flagged list has something real in it. */
+    nin: index % 5 === 3 ? null : `${22_100_000_000 + index * 137}`,
+    stateOfOrigin: origin[0],
+    /* Half of them: an LGA is the field people leave until later. */
+    lgaOfOrigin: index % 2 === 0 ? origin[1] : null,
+    religion: index % 3 === 0 ? "Islam" : "Christianity",
+  };
+}
+
+const SEED: SeedRecord[] = DEMO_ENABLED ? [
   {
     id: "p-01", employeeNo: "AHR-0142",
     firstName: "Adaeze", lastName: "Okonkwo",
@@ -156,6 +198,8 @@ export const EMPLOYEES: Employee[] = DEMO_ENABLED ? [
     nextOfKin: { name: "Sani Abdullahi", relationship: "Father", phone: "+234 818 553 9910" },
   },
 ] : [];
+
+export const EMPLOYEES: Employee[] = SEED.map(withRecordFields);
 
 export const employeeById = (id: string) => EMPLOYEES.find((e) => e.id === id);
 

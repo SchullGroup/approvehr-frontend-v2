@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Upload } from "lucide-react";
 import {
   Badge,
   Button,
+  ButtonLink,
   Card,
   CardBody,
   ConfirmDialog,
@@ -17,9 +18,9 @@ import {
   Switch,
   Tabs,
   formatMoney,
-  useToast,
   type AppliedFilter,
   type TabItem,
+  useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -307,10 +308,25 @@ function Register() {
         title="Equipment"
         description="Every laptop, phone and SIM card the company owns, and who has each one."
         action={
-          <Button variant="accent" size="sm" onClick={() => setAdding(true)}>
-            <Plus aria-hidden="true" className="size-4" />
-            Add equipment
-          </Button>
+          /*
+            Two ways in, because there are two situations.
+            `/people/assets/import` has existed since the import framework
+            landed and **nothing linked to it** — the sixth feature in this
+            product to be built and then left unreachable. A register is the
+            screen somebody arrives at with a spreadsheet of forty items, so
+            the bulk path belongs here and not only in a nav somebody has to
+            already know about.
+          */
+          <div className="flex flex-wrap items-center gap-2">
+            <ButtonLink href="/people/assets/import" variant="secondary" size="sm">
+              <Upload aria-hidden="true" className="size-4" />
+              Import from a spreadsheet
+            </ButtonLink>
+            <Button variant="accent" size="sm" onClick={() => setAdding(true)}>
+              <Plus aria-hidden="true" className="size-4" />
+              Add equipment
+            </Button>
+          </div>
         }
       />
 
@@ -395,16 +411,11 @@ function Register() {
               description="Sorted by tag. Click any row for its history."
               items={register.items}
               loading={register.loading}
-              canEdit
+              /* Hand over, take back and bring back are on the item's own
+                 panel, which the row opens. They were here too, which put four
+                 buttons on every row of a list somebody scans to find one
+                 thing — and the panel already had all three. */
               onOpen={(item) => setPanelId(item.id)}
-              onHandOver={setHandingOver}
-              onTakeBack={setTakingBack}
-              onRestore={(item) =>
-                void run(
-                  () => register.restoreItem(item.id),
-                  `${item.name} is back on the register`,
-                )
-              }
               emptyAction={
                 <Button variant="accent" size="sm" onClick={() => setAdding(true)}>
                   Add equipment

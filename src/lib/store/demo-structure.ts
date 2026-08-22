@@ -307,7 +307,8 @@ export type StructurePerson = {
   jobTitle: string;
   /** The department **name**, which is the whole of membership in this mode. */
   department: string;
-  grossMonthlyKobo: number;
+  /** Null where nobody has agreed a figure. Left out of totals, not zeroed. */
+  grossMonthlyKobo: number | null;
 };
 
 /**
@@ -373,7 +374,8 @@ export function structurePeople(
     /* Kobo through the decimal seam rather than `* 100`: `grossMonthly` is a
        naira number and a float multiply is how a rounding error gets into a
        total that a department payroll report then shows. */
-    grossMonthlyKobo: koboFromDecimal(person.grossMonthly),
+    grossMonthlyKobo:
+      person.grossMonthly === null ? null : koboFromDecimal(person.grossMonthly),
   }));
 }
 
@@ -427,8 +429,10 @@ export function demoTree(
         .length,
       depth: 0,
       archived: row.archived,
+      /* Over the people who have a figure. A zero could not be told apart from
+         a real ₦0 and would make the department's monthly spend wrong. */
       payrollKobo: direct.reduce(
-        (sum, person) => sum + person.grossMonthlyKobo,
+        (sum, person) => sum + (person.grossMonthlyKobo ?? 0),
         0,
       ),
       children: [],
@@ -645,8 +649,10 @@ export function demoTeamDetail(
   return {
     ...team,
     members,
+    /* Over the members who have a figure; a zero would be indistinguishable
+       from a real ₦0 and make the team's monthly cost wrong. */
     payrollKobo: members.reduce(
-      (sum, member) => sum + member.grossMonthlyKobo,
+      (sum, member) => sum + (member.grossMonthlyKobo ?? 0),
       0,
     ),
   };

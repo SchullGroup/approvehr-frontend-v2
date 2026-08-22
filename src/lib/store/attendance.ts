@@ -544,11 +544,16 @@ export function useAttendanceTimesheet(days = 15): TimesheetState {
       proration: {
         unpaidDays: row.daysAbsent,
         workingDaysPerMonth: settings.workingDaysPerMonth,
-        amount: prorationFor({
-          grossMonthly: row.employee.grossMonthly,
-          unpaidDays: row.daysAbsent,
-          workingDaysPerMonth: settings.workingDaysPerMonth,
-        }).amount,
+        /* Null rather than zero: "payroll would withhold ₦0.00" is a claim
+           about a salary, and this person has none set. */
+        amount:
+          row.employee.grossMonthly === null
+            ? null
+            : prorationFor({
+                grossMonthly: row.employee.grossMonthly,
+                unpaidDays: row.daysAbsent,
+                workingDaysPerMonth: settings.workingDaysPerMonth,
+              }).amount,
       },
     }));
 

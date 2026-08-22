@@ -227,7 +227,9 @@ function sortLocally(rows: Employee[], params: EmployeeListParams): Employee[] {
       case "startDate":
         return employee.startDate;
       case "grossMonthly":
-        return employee.grossMonthly;
+        /* -1 so somebody with no agreed figure sorts below every real salary
+           rather than in among the lowest-paid. A sort key, never displayed. */
+        return employee.grossMonthly ?? -1;
       default:
         return employee.firstName.toLowerCase();
     }
@@ -344,7 +346,13 @@ export function useDirectorySummary(
          shed. Converted **per row** and then added as integers, never summed as
          naira and converted once: floats do not add exactly, and a payroll total
          that is a kobo out is a payroll total nobody can reconcile. */
-      grossMonthlyKobo: rows.reduce((sum, e) => sum + toKobo(e.grossMonthly), 0),
+      /* Over the rows that have a figure. Somebody whose pay is not agreed
+         adds nothing rather than a zero — a zero cannot be told apart from a
+         real ₦0 and would make the total quietly wrong. */
+      grossMonthlyKobo: rows.reduce(
+        (sum, e) => sum + (e.grossMonthly === null ? 0 : toKobo(e.grossMonthly)),
+        0,
+      ),
       incomplete: rows.filter((e) => missingForPayroll(e).length > 0).length,
       archived: archivedIds.size,
       blockedEverywhere: local.directory.filter(
@@ -598,7 +606,12 @@ export function useEmployeeMutations() {
         lastName: draft.lastName,
         jobTitle: draft.jobTitle ?? "Not set",
         startDate: draft.startDate ?? new Date().toISOString().slice(0, 10),
-        grossMonthlyKobo: toKobo(draft.grossMonthly ?? 0),
+        /* Omitted when nobody has agreed a figure. It used to be
+           `toKobo(draft.grossMonthly ?? 0)`, which created the person on ₦0 a
+           month — a figure the payroll run would then have prorated. */
+        ...(draft.grossMonthly == null
+          ? {}
+          : { grossMonthlyKobo: toKobo(draft.grossMonthly) }),
         /* Omitted rather than defaulted to Lagos. `POST /employees` now falls
            back to the *company's* own PAYE state, which is the honest answer
            for a company in Kano — and "Lagos" here was a guess that looked like
@@ -616,6 +629,11 @@ export function useEmployeeMutations() {
           : {}),
         ...(draft.tin ? { tin: draft.tin } : {}),
         ...(draft.nhfNumber ? { nhfNumber: draft.nhfNumber } : {}),
+        ...(draft.addressLine ? { addressLine: draft.addressLine } : {}),
+        ...(draft.nin ? { nin: draft.nin } : {}),
+        ...(draft.stateOfOrigin ? { stateOfOrigin: draft.stateOfOrigin } : {}),
+        ...(draft.lgaOfOrigin ? { lgaOfOrigin: draft.lgaOfOrigin } : {}),
+        ...(draft.religion ? { religion: draft.religion } : {}),
         /* `!= null` rather than truthiness: zero declared rent is a declaration
            — "I pay none" — and dropping it would leave the person looking
            undeclared to the payroll run that warns about exactly that. */
@@ -688,9 +706,15 @@ export function useEmployeeMutations() {
         ...(employmentType
           ? { employmentType: employmentType.toUpperCase() }
           : {}),
+        /* Three states, not interchangeable: absent from the patch leaves the
+           figure alone, `null` withdraws it, a number sets it. Same shape as
+           the rent declaration. */
         ...(grossMonthly === undefined
           ? {}
-          : { grossMonthlyKobo: toKobo(grossMonthly) }),
+          : {
+              grossMonthlyKobo:
+                grossMonthly === null ? null : toKobo(grossMonthly),
+            }),
         ...(nextOfKin
           ? {
               nextOfKinName: nextOfKin.name,

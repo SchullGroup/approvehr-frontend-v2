@@ -132,9 +132,14 @@ type DemoPerson = {
 };
 
 function demoPeople(): DemoPerson[] {
-  return EMPLOYEES.map((employee) => {
-    const rung = demoGradeFor(employee.grossMonthly);
-    const grossMonthlyKobo = Math.round(employee.grossMonthly * NAIRA);
+  /* Only people with an agreed figure. A grade is a pay range, so somebody whose
+     pay is not set is not on a rung — and a nullable rung would mean every
+     reader of this store had to answer "which grade is nobody in". They are
+     absent from the register, which is the honest answer, and payroll is where
+     their missing pay is named. */
+  return EMPLOYEES.filter((e) => e.grossMonthly !== null).map((employee) => {
+    const rung = demoGradeFor(employee.grossMonthly!);
+    const grossMonthlyKobo = Math.round(employee.grossMonthly! * NAIRA);
     return {
       gradeCode: rung.code,
       employeeId: employee.id,
@@ -475,8 +480,12 @@ export function useBandPosition(employeeId: string | null) {
     if (isConnected || !employeeId) return null;
     const employee = EMPLOYEES.find((e) => e.id === employeeId);
     if (!employee) return null;
+    /* No agreed pay, no position in a band: "below the floor" would be a claim
+       about a figure nobody has set. The API refuses this with a message; the
+       demo has no panel to put one in, so it shows nothing. */
+    if (employee.grossMonthly === null) return null;
     const rung = demoGradeFor(employee.grossMonthly);
-    const grossMonthlyKobo = Math.round(employee.grossMonthly * NAIRA);
+    const grossMonthlyKobo = Math.round(employee.grossMonthly! * NAIRA);
     return {
       employee: {
         id: employee.id,

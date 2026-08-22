@@ -653,11 +653,11 @@ function TimesheetView({ sheet }: { sheet: TimesheetState }) {
                       >
                         From their rota
                       </Link>
-                    ) : row.proration.amount > 0 ? (
+                    ) : (row.proration.amount ?? 0) > 0 ? (
                       <span className="inline-flex flex-col items-end">
                         <span className="inline-flex items-center gap-1.5 font-medium text-danger-text">
                           <TriangleAlert aria-hidden="true" className="size-3.5" />
-                          {`−${formatMoney(row.proration.amount, "NGN", {
+                          {`−${formatMoney(row.proration.amount ?? 0, "NGN", {
                             decimals: true,
                           })}`}
                         </span>

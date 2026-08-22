@@ -52,7 +52,8 @@ export type ApiTeamMember = {
   joinedAt: string;
   departmentId: string | null;
   departmentName: string | null;
-  grossMonthlyKobo: number;
+  /** Null where no pay is agreed; left out of totals, never zeroed. */
+    grossMonthlyKobo: number | null;
   /**
    * Their department disagrees with the team's.
    *

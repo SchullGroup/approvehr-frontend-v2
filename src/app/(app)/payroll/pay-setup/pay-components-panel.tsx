@@ -167,7 +167,11 @@ export function PayComponentsPanel({
         <div className="grid gap-4 rounded-lg border border-line bg-canvas p-4 sm:grid-cols-2 lg:grid-cols-4">
           <Figure
             label="Salary a month"
-            value={data ? money(data.employee.grossMonthlyKobo) : "—"}
+            value={
+              data?.employee.grossMonthlyKobo == null
+                ? "Not set yet"
+                : money(data.employee.grossMonthlyKobo)
+            }
             hint="before anything below"
           />
           <Figure

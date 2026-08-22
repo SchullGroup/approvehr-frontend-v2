@@ -135,9 +135,12 @@ for (const row of DEMO_PAYSLIPS) {
 
 /* --- Every demo salary has figures -------------------------------------- */
 
-const salaries = [...new Set(EMPLOYEES.map((e) => e.grossMonthly))].sort(
-  (a, b) => b - a,
-);
+/* Only the seeded figures. `grossMonthly` is nullable now — somebody can be on
+   the staff list before their pay is agreed — and there is no illustrative
+   payslip to demand for a salary that does not exist. */
+const salaries = [
+  ...new Set(EMPLOYEES.map((e) => e.grossMonthly).filter((v) => v !== null)),
+].sort((a, b) => b - a);
 const uncovered = salaries.filter(
   (value) => payslipFiguresFor(Math.round(value * 100)) === null,
 );

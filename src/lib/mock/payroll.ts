@@ -17,7 +17,11 @@ export type PayrollEmployee = {
   name: string;
   jobTitle: string;
   department: string;
-  grossMonthly: number;
+  /**
+   * Null where no pay is agreed. A run raises `missing_pay` naming them and
+   * writes no payslip — it never prorates an absent figure to zero.
+   */
+  grossMonthly: number | null;
   bankAccount: string | null;
   pensionPin: string | null;
   taxState: string;

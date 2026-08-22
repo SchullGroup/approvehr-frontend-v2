@@ -372,7 +372,8 @@ export type ApiTimesheetRow = Omit<WireTimesheetRow, "proration"> & {
     unpaidDays: number;
     workingDaysPerMonth: number;
     /** **Naira.** Converted once, here. */
-    amount: number;
+    /** Null where no pay is set: there is no figure to withhold a share of. */
+    amount: number | null;
   };
 };
 

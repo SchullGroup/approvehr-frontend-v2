@@ -692,7 +692,13 @@ function buildDemoRun(
 
   const computed = new Map(
     payable.flatMap((person) => {
-      const figures = usable ? payslipFiguresFor(kobo(person.grossMonthly)) : null;
+      /* No agreed pay, no payslip — the same rule the API's `prepare` follows,
+         where it raises `missing_pay` naming them. This map already omits
+         anybody it has no figures for, so the person simply is not on the run. */
+      const figures =
+        usable && person.grossMonthly !== null
+          ? payslipFiguresFor(kobo(person.grossMonthly))
+          : null;
       return figures
         ? [[person.id, demoPayslip(record.period, person, figures)] as const]
         : [];

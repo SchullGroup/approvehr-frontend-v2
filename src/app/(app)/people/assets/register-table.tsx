@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArchiveRestore, Laptop, Undo2, UserPlus } from "lucide-react";
+import { Laptop } from "lucide-react";
 import {
   Badge,
   Button,
@@ -9,7 +9,6 @@ import {
   CardBody,
   CardHeader,
   EmptyState,
-  Money,
   Pagination,
   SortableTH,
   TBody,
@@ -53,20 +52,15 @@ export function RegisterTable({
   description,
   items,
   loading,
-  canEdit,
   filters,
   paging,
   onOpen,
-  onHandOver,
-  onTakeBack,
-  onRestore,
   emptyAction,
 }: {
   title: string;
   description?: string;
   items: EquipmentItem[];
   loading: boolean;
-  canEdit: boolean;
   filters?: React.ReactNode;
   /**
    * Sorting and paging, from the caller's `useListQuery`.
@@ -87,9 +81,6 @@ export function RegisterTable({
     onPageSizeChange: (size: number) => void;
   };
   onOpen: (item: EquipmentItem) => void;
-  onHandOver: (item: EquipmentItem) => void;
-  onTakeBack: (item: EquipmentItem) => void;
-  onRestore: (item: EquipmentItem) => void;
   emptyAction?: React.ReactNode;
 }) {
   /** A sortable header when the caller passes a query, a plain one otherwise. */
@@ -144,12 +135,16 @@ export function RegisterTable({
             <TH>Who has it</TH>
             {column("status", "State")}
             <TH>Given out</TH>
-            {column("purchaseCost", "What it cost", {
-              align: "right",
-              startDescending: true,
-            })}
+            {/*
+              What it cost and the hand-over actions used to be here.
+              Both moved to the item's own panel: a register is a list you scan
+              to find something, and eight buttons across ten rows is eighty
+              controls for a reader who wants one. Purchase cost is also the one
+              column on this table nobody needs to see over somebody's shoulder.
+              The row itself opens the panel, and every action lives there.
+            */}
             <TH align="right">
-              <span className="sr-only">Actions</span>
+              <span className="sr-only">Open</span>
             </TH>
           </THead>
           <TBody>
@@ -222,49 +217,9 @@ export function RegisterTable({
                 </TD>
 
                 <TD align="right">
-                  {item.cost === null ? (
-                    <span className="text-body-sm text-faint">—</span>
-                  ) : (
-                    <Money amount={item.cost} size="sm" />
-                  )}
-                </TD>
-
-                <TD align="right">
-                  <div className="flex justify-end gap-1.5">
-                    {canEdit && item.archived && (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => onRestore(item)}
-                      >
-                        <ArchiveRestore aria-hidden="true" className="size-3.5" />
-                        Bring it back
-                      </Button>
-                    )}
-                    {canEdit && !item.archived && item.handOutable && (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => onHandOver(item)}
-                      >
-                        <UserPlus aria-hidden="true" className="size-3.5" />
-                        Hand it over
-                      </Button>
-                    )}
-                    {canEdit && !item.archived && item.holder && (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => onTakeBack(item)}
-                      >
-                        <Undo2 aria-hidden="true" className="size-3.5" />
-                        Take it back
-                      </Button>
-                    )}
-                    <Button variant="ghost" size="sm" onClick={() => onOpen(item)}>
-                      Details
-                    </Button>
-                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => onOpen(item)}>
+                    Details
+                  </Button>
                 </TD>
               </TR>
             ))}

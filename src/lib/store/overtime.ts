@@ -286,10 +286,12 @@ function useDemoInputs() {
   const grossMonthlyKobo = useMemo(
     () =>
       new Map(
-        employees.all.map((employee) => [
-          employee.id,
-          Math.round(employee.grossMonthly * 100),
-        ]),
+        /* Only people with an agreed figure. An hourly rate is a division of a
+           monthly one, so somebody with no pay set has no rate — and no entry,
+           which readers already handle, rather than a rate of zero. */
+        employees.all
+          .filter((employee) => employee.grossMonthly !== null)
+          .map((employee) => [employee.id, Math.round(employee.grossMonthly! * 100)]),
       ),
     [employees.all],
   );

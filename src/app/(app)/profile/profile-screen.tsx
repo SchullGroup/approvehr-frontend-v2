@@ -498,7 +498,7 @@ function BankPanel({ employeeId }: { employeeId: string }) {
 
 /* -------------------------------------------------------------------------- */
 
-function PayCard({ grossMonthly }: { grossMonthly: number }) {
+function PayCard({ grossMonthly }: { grossMonthly: number | null }) {
   return (
     <Card>
       <CardHeader title="Your pay" level={3} />

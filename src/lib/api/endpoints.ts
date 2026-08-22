@@ -120,9 +120,15 @@ export type ApiEmployee = {
   status: string;
   startDate: string;
   endDate: string | null;
-  grossMonthlyKobo: number;
+  /** Null where nobody has agreed a figure. Never rendered as ₦0.00. */
+  grossMonthlyKobo: number | null;
   bankName: string | null;
   bankAccount: string | null;
+  addressLine: string | null;
+  nin: string | null;
+  stateOfOrigin: string | null;
+  lgaOfOrigin: string | null;
+  religion: string | null;
   pensionPin: string | null;
   pensionProvider: string | null;
   taxState: string;
@@ -534,7 +540,7 @@ export type ApiDepartmentDetail = Omit<ApiDepartment, "children"> & {
     id: string;
     name: string;
     jobTitle: string;
-    grossMonthlyKobo: number;
+    grossMonthlyKobo: number | null;
   }[];
 };
 
@@ -728,7 +734,8 @@ export function toEmployee(api: ApiEmployee): Employee {
     startDate: api.startDate,
     endDate: api.endDate,
     status: api.status.toLowerCase() as Employee["status"],
-    grossMonthly: toNaira(api.grossMonthlyKobo),
+    grossMonthly:
+      api.grossMonthlyKobo === null ? null : toNaira(api.grossMonthlyKobo),
     bankName: api.bankName,
     bankAccount: api.bankAccount,
     pensionPin: api.pensionPin,
@@ -736,6 +743,11 @@ export function toEmployee(api: ApiEmployee): Employee {
     taxState: api.taxState,
     tin: api.tin,
     nhfNumber: api.nhfNumber,
+    addressLine: api.addressLine,
+    nin: api.nin,
+    stateOfOrigin: api.stateOfOrigin,
+    lgaOfOrigin: api.lgaOfOrigin,
+    religion: api.religion,
     /* Already kobo on both sides. Nothing to convert, which is the direction
        the rest of this function is meant to move in. */
     annualRentKobo: api.annualRentKobo,

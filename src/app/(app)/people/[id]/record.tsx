@@ -63,6 +63,7 @@ import { useSession } from "@/lib/store/session";
 import { fullName, type Employee } from "@/lib/types";
 import { shortDate } from "@/lib/today";
 import { EditableSection } from "@/components/people/editable-section";
+import { NIGERIAN_STATES } from "@/lib/reference/lists";
 import { ConductPanel } from "./conduct";
 
 /**
@@ -453,7 +454,7 @@ export function EmployeeRecord({
                 { key: "dateOfBirth", label: "Date of birth", type: "date" },
                 {
                   key: "gender",
-                  label: "Gender",
+                  label: "Gender (optional)",
                   type: "select",
                   options: [
                     { value: "", label: "Prefer not to say" },
@@ -461,6 +462,48 @@ export function EmployeeRecord({
                     { value: "male", label: "Male" },
                     { value: "other", label: "Other" },
                   ],
+                },
+                {
+                  key: "addressLine",
+                  label: "Home address (optional)",
+                  emptyLabel: "No address recorded",
+                  help: "Where they live. Not the office they work at.",
+                },
+                {
+                  key: "nin",
+                  label: "NIN (optional)",
+                  digits: 11,
+                  emptyLabel: "No NIN recorded",
+                  help: "National Identification Number, 11 digits.",
+                },
+                {
+                  key: "stateOfOrigin",
+                  label: "State of origin (optional)",
+                  type: "select",
+                  emptyLabel: "Not recorded",
+                  /* Not the tax state. Origin is where somebody is from; the
+                     tax state on Pay & statutory is which revenue service
+                     their PAYE goes to, and they are frequently different. */
+                  help: "Where they are from — not where their PAYE is filed.",
+                  options: [
+                    { value: "", label: "Not recorded" },
+                    ...NIGERIAN_STATES.map((state) => ({
+                      value: state,
+                      label: state,
+                    })),
+                  ],
+                },
+                {
+                  key: "lgaOfOrigin",
+                  label: "Local government area (optional)",
+                  emptyLabel: "Not recorded",
+                  help: "Free text — there are 774, and we will not refuse a real one.",
+                },
+                {
+                  key: "religion",
+                  label: "Religion (optional)",
+                  emptyLabel: "Not recorded",
+                  help: "Recorded because holidays and dietary arrangements depend on it.",
                 },
               ]}
             />
@@ -936,9 +979,10 @@ function Compensation({
 
   const live = preview.data?.payslip ?? null;
   /* Only offline, and only for a salary the fixture actually covers. */
-  const illustrative = connected
-    ? null
-    : payslipFiguresFor(koboFromDecimal(employee.grossMonthly));
+  const illustrative =
+    connected || employee.grossMonthly === null
+      ? null
+      : payslipFiguresFor(koboFromDecimal(employee.grossMonthly));
 
   const source = live ?? illustrative;
   const figures = source

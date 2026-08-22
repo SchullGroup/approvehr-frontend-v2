@@ -612,7 +612,10 @@ export function useEmployeePayComponents(
                 id: employee.id,
                 employeeNo: employee.employeeNo,
                 name: `${employee.firstName} ${employee.lastName}`,
-                grossMonthlyKobo: Math.round(employee.grossMonthly * 100),
+                grossMonthlyKobo:
+                  employee.grossMonthly === null
+                    ? null
+                    : Math.round(employee.grossMonthly * 100),
               },
               period: { start: periodStart(), end: TODAY },
               assignments,

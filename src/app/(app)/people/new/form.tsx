@@ -203,6 +203,11 @@ const OWNER: Record<string, string> = {
   email: "who",
   phone: "who",
   dateOfBirth: "who",
+  addressLine: "who",
+  nin: "who",
+  stateOfOrigin: "who",
+  lgaOfOrigin: "who",
+  religion: "who",
   jobTitle: "job",
   startDate: "job",
   grossMonthly: "job",
@@ -342,7 +347,16 @@ export function NewEmployeeForm() {
   const stepId = stepper.current?.id ?? "who";
   const finished = stepId === "done";
 
-  const gross = Number(money(draft.grossMonthly)) || 0;
+  /**
+   * The typed figure, or **null** when nothing was typed.
+   *
+   * Not `|| 0`, which is what it used to be: zero would be sent as a salary and
+   * the person would be created on ₦0 a month. Null means nobody has agreed
+   * one, the column stays empty, and payroll raises `missing_pay` naming them.
+   */
+  const gross = draft.grossMonthly.trim()
+    ? Number(money(draft.grossMonthly)) || null
+    : null;
 
   /* Whole kobo, from the string the user typed rather than from `gross`. A float
      multiply is how a figure ends up a kobo out; `koboFromDecimal` splits on the
@@ -442,10 +456,14 @@ export function NewEmployeeForm() {
         found.push({ field: "jobTitle", message: "Job title is required." });
       if (!draft.startDate)
         found.push({ field: "startDate", message: "Start date is required." });
-      if (gross <= 0)
+      /* Pay is not required to add somebody — an offer is frequently still
+         being signed when HR puts them on the list. What is refused is a figure
+         that was typed and is not a figure: zero or negative. Payroll names
+         anybody with none set rather than paying them a zero. */
+      if (draft.grossMonthly.trim() && (gross === null || gross <= 0))
         found.push({
           field: "grossMonthly",
-          message: "Enter their gross monthly salary.",
+          message: "That is not an amount. Leave it blank if it is not agreed yet.",
         });
     };
     const optional = () => {
@@ -479,7 +497,10 @@ export function NewEmployeeForm() {
   /** Whether a step is answered, for the tick on the rail. */
   const satisfied: Record<string, boolean> = {
     who: Boolean(draft.firstName.trim() && draft.lastName.trim()),
-    job: Boolean(draft.jobTitle.trim() && draft.startDate && gross > 0),
+    /* Pay is no longer part of "answered": the step is complete with a title
+       and a start date, because somebody can be added before their pay is
+       agreed. */
+    job: Boolean(draft.jobTitle.trim() && draft.startDate),
     /* Extras is optional, so "done" means "you looked at it and nothing you
        typed is malformed" rather than "you filled it in". */
     extras: problemsWith("extras").length === 0,
@@ -624,7 +645,8 @@ export function NewEmployeeForm() {
       lastName: draft.lastName.trim(),
       jobTitle: draft.jobTitle.trim(),
       startDate: draft.startDate,
-      grossMonthly: gross,
+      /* Omitted, not zeroed, when nobody has agreed a figure. */
+      ...(gross === null ? {} : { grossMonthly: gross }),
       status: draft.status,
       employmentType: draft.employmentType,
       /* Omitted rather than defaulted: the API falls back to the company's own
@@ -646,6 +668,13 @@ export function NewEmployeeForm() {
         : {}),
       ...(draft.tin.trim() ? { tin: draft.tin.trim() } : {}),
       ...(draft.nhfNumber.trim() ? { nhfNumber: draft.nhfNumber.trim() } : {}),
+      /* Omitted rather than sent empty: the API's schemas treat an absent field
+         as "leave it alone" and an empty string as a value. */
+      ...(draft.addressLine.trim() ? { addressLine: draft.addressLine.trim() } : {}),
+      ...(draft.nin.trim() ? { nin: draft.nin.trim() } : {}),
+      ...(draft.stateOfOrigin ? { stateOfOrigin: draft.stateOfOrigin } : {}),
+      ...(draft.lgaOfOrigin.trim() ? { lgaOfOrigin: draft.lgaOfOrigin.trim() } : {}),
+      ...(draft.religion.trim() ? { religion: draft.religion.trim() } : {}),
       ...(annualRentKobo === null ? {} : { annualRentKobo }),
     });
     return created.id;
@@ -685,6 +714,11 @@ export function NewEmployeeForm() {
       taxState: draft.taxState || "Lagos",
       tin: draft.tin.trim() || null,
       nhfNumber: draft.nhfNumber.trim() || null,
+      addressLine: draft.addressLine.trim() || null,
+      nin: draft.nin.trim() || null,
+      stateOfOrigin: draft.stateOfOrigin || null,
+      lgaOfOrigin: draft.lgaOfOrigin.trim() || null,
+      religion: draft.religion.trim() || null,
       annualRentKobo,
       rentDeclaredAt: annualRentKobo === null ? null : new Date().toISOString(),
       nextOfKin: null,
@@ -878,12 +912,78 @@ export function NewEmployeeForm() {
                       placeholder="+234 803 000 0000"
                     />
                   </Field>
-                  <Field label="Date of birth" error={errorFor("dateOfBirth")}>
+                  <Field label="Date of birth (optional)" error={errorFor("dateOfBirth")}>
                     <Input
                       data-employee-field="dateOfBirth"
                       type="date"
                       value={draft.dateOfBirth}
                       onChange={(e) => set("dateOfBirth", e.target.value)}
+                    />
+                  </Field>
+                  <Field
+                    label="Home address (optional)"
+                    error={errorFor("addressLine")}
+                    help="Where they live. Not the office they work at."
+                  >
+                    <Input
+                      data-employee-field="addressLine"
+                      value={draft.addressLine}
+                      onChange={(e) => set("addressLine", e.target.value)}
+                      placeholder="14 Bishop Oluwole Street, Victoria Island, Lagos"
+                    />
+                  </Field>
+                  <Field
+                    label="NIN (optional)"
+                    error={errorFor("nin")}
+                    help="National Identification Number."
+                  >
+                    <Input
+                      data-employee-field="nin"
+                      inputMode="numeric"
+                      digits={11}
+                      value={draft.nin}
+                      onChange={(e) => set("nin", e.target.value)}
+                      placeholder="12345678901"
+                    />
+                  </Field>
+                  <Field
+                    label="State of origin (optional)"
+                    error={errorFor("stateOfOrigin")}
+                    help="Where they are from — not where their PAYE is filed."
+                  >
+                    <Picker
+                      data-employee-field="stateOfOrigin"
+                      value={draft.stateOfOrigin}
+                      onChange={(value) => set("stateOfOrigin", value)}
+                      placeholder="Not recorded"
+                      options={NIGERIAN_STATES.map((state) => ({
+                        value: state,
+                        label: state,
+                      }))}
+                    />
+                  </Field>
+                  <Field
+                    label="Local government area (optional)"
+                    error={errorFor("lgaOfOrigin")}
+                    help="Free text — there are 774, so we do not check it against a list."
+                  >
+                    <Input
+                      data-employee-field="lgaOfOrigin"
+                      value={draft.lgaOfOrigin}
+                      onChange={(e) => set("lgaOfOrigin", e.target.value)}
+                      placeholder="Ikeduru"
+                    />
+                  </Field>
+                  <Field
+                    label="Religion (optional)"
+                    error={errorFor("religion")}
+                    help="Recorded because holidays and dietary arrangements depend on it."
+                  >
+                    <Input
+                      data-employee-field="religion"
+                      value={draft.religion}
+                      onChange={(e) => set("religion", e.target.value)}
+                      placeholder="Christianity"
                     />
                   </Field>
                   <Field
@@ -946,10 +1046,9 @@ export function NewEmployeeForm() {
                     />
                   </Field>
                   <Field
-                    label="Gross monthly"
-                    required
+                    label="Gross monthly (optional)"
                     error={errorFor("grossMonthly")}
-                    help="Before PAYE, pension and NHF."
+                    help="Before PAYE, pension and NHF. Leave it blank until it is agreed — payroll will name them until it is set."
                   >
                     <Input
                       data-employee-field="grossMonthly"
@@ -1256,7 +1355,11 @@ export function NewEmployeeForm() {
                       ["Start date", draft.startDate || "—"],
                       [
                         "Gross monthly",
-                        gross > 0 ? <Money amount={gross} /> : "—",
+                        /* `Money` renders the absence itself, so the review
+                           line reads "Not set yet" rather than an em dash that
+                           says nothing about whether anybody looked. Keyed
+                           because this sits inside an array of rows. */
+                        <Money key="gross" amount={gross} />,
                       ],
                       ["Department", departmentName ?? "Not assigned"],
                     ]}
@@ -1431,7 +1534,7 @@ export function NewEmployeeForm() {
           </CardBody>
         </Card>
 
-        {gross > 0 && (
+        {gross !== null && gross > 0 && (
           <FirstPayslip grossKobo={grossKobo} annualRentKobo={annualRentKobo} />
         )}
 

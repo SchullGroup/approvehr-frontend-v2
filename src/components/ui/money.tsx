@@ -52,14 +52,33 @@ export function Money({
   per,
   className,
   size = "md",
+  absent = "Not set yet",
 }: {
-  amount: number;
+  /**
+   * The figure, or **null** where there is not one.
+   *
+   * Null is not zero. `Employee.grossMonthly` is nullable — somebody can be on
+   * the staff list before their pay is agreed — and "₦0" for that person is a
+   * wrong claim about what they earn, not a formatting detail. Rendering the
+   * absence here rather than at each call site is what makes it consistent
+   * across the forty-odd screens that show a salary.
+   */
+  amount: number | null;
   currency?: Currency;
   ngnRate?: number;
   compact?: boolean;
   decimals?: boolean;
   /** Rate basis, for example day or month. */
   per?: string;
+  /**
+   * What to say when `amount` is null. "Not set yet" by default.
+   *
+   * Overridden where the reason for the absence is specific and worth naming —
+   * "No pay agreed" on a payroll exception list reads better than the generic
+   * form. Never override it with a zero or a dash: a dash tells the reader
+   * nothing about whether somebody looked.
+   */
+  absent?: string;
   className?: string;
   size?: "sm" | "md" | "lg" | "xl";
 }) {
@@ -76,6 +95,15 @@ export function Money({
     lg: "text-h4",
     xl: "text-h3",
   } as const;
+
+  /* Deliberately not `!amount`: zero is a real figure and formats normally. */
+  if (amount === null) {
+    return (
+      <span className={cn("inline-flex flex-col", className)}>
+        <span className={cn("text-muted", sizes[size])}>{absent}</span>
+      </span>
+    );
+  }
 
   return (
     <span className={cn("inline-flex flex-col", className)}>

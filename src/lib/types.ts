@@ -44,7 +44,18 @@ export type Employee = {
   endDate?: string | null;
   status: EmploymentStatus;
 
-  grossMonthly: number;
+  /**
+   * Contractual monthly gross in naira, or **null** where nobody has set one.
+   *
+   * Nullable because the API's column is: somebody can be on the staff list
+   * before their pay is agreed, which is the ordinary state of a new hire.
+   *
+   * Nothing may render this as ₦0.00. "We pay them nothing" and "nobody has
+   * said yet" are different facts, and a payroll run raises a `missing_pay`
+   * BLOCKER naming anybody in the second state rather than paying them a zero.
+   * Screens say "Not set yet"; totals leave them out and say how many.
+   */
+  grossMonthly: number | null;
   /** Nullable: payroll blocks on these, so their absence is meaningful. */
   bankName: string | null;
   bankAccount: string | null;
@@ -53,6 +64,24 @@ export type Employee = {
   taxState: string;
   tin: string | null;
   nhfNumber: string | null;
+  /**
+   * Where they live, on one line, and their NIN.
+   *
+   * `addressLine` is not `location` (the office they clock in at) and not
+   * `taxState` (which revenue service their PAYE goes to). `nin` is eleven
+   * digits and is an identifier, so it stays a string — a leading zero matters.
+   */
+  addressLine: string | null;
+  nin: string | null;
+  /**
+   * State of origin and the LGA inside it. **Not** the tax state: origin is
+   * where somebody is from, tax state is where their PAYE is filed, and reading
+   * either as the other files a Lagos employee's tax in Imo.
+   */
+  stateOfOrigin: string | null;
+  lgaOfOrigin: string | null;
+  /** Free text. Recorded because holidays and dietary needs depend on it. */
+  religion: string | null;
 
   /**
    * Declared annual rent, in **integer kobo**, and when it was declared.

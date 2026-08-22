@@ -55,6 +55,15 @@ export type EmployeeDraft = {
   email: string;
   phone: string;
   dateOfBirth: string;
+  /** Where they live, one line. Not the office, and not the tax state. */
+  addressLine: string;
+  /** National Identification Number, 11 digits as typed. */
+  nin: string;
+  /** State of origin — not `taxState`, which is where PAYE is filed. */
+  stateOfOrigin: string;
+  /** Local government area inside that state. Free text: there are 774. */
+  lgaOfOrigin: string;
+  religion: string;
   /** An id from the live source, never a name. The API takes ids. */
   workLocationId: string;
 
@@ -123,6 +132,11 @@ export const BLANK_DRAFT: EmployeeDraft = {
   pensionPin: "",
   pensionProvider: "",
   nhfNumber: "",
+  addressLine: "",
+  nin: "",
+  stateOfOrigin: "",
+  lgaOfOrigin: "",
+  religion: "",
   bankName: "",
   bankAccount: "",
 };
