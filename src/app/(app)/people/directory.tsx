@@ -316,16 +316,11 @@ export function Directory() {
           </Select>
         </Field>
 
-        <Field
-          label="Location"
-          {...(connected
-            ? {}
-            : {
-                help:
-                  "Not available offline — a demo record holds a city, not an " +
-                  "office, so nothing would match.",
-              })}
-        >
+        {/* The offline case used to carry a sentence explaining that a demo
+            record holds a city rather than an office. The select is already
+            disabled, which says "not now" without explaining the demo's
+            internals to somebody who did not ask. */}
+        <Field label="Location">
           <Select
             value={list.filters.workLocationId}
             disabled={!connected}

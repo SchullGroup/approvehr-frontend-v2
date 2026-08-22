@@ -426,8 +426,8 @@ function ChooseFile({
         <Card>
           <CardHeader
             level={2}
-            title="Starting from nothing?"
-            description="Every column we can read, an example row, and a sheet explaining each one."
+            title="Start with our template"
+            description="Every column, with an example row."
           />
           <CardBody className="flex flex-col gap-4">
             <TemplateButtons onDownload={onTemplate} />
@@ -459,11 +459,15 @@ function ChooseFile({
                 ))}
               </ul>
             </div>
-            <p className="text-meta leading-relaxed text-muted">
+            {/* Was three sentences plus a per-entity `keyNote` explaining why
+                the match key is refused rather than generated. Copy that has to
+                explain the design is a sign the design needs no explaining: the
+                two chip lists above already say which columns matter, and a row
+                that is refused says why on the row. */}
+            <p className="text-meta text-muted">
               The other{" "}
               {dictionary.columns.length - required.length - recommended.length}{" "}
-              columns are optional. A column you do not have is left out, and
-              left alone on anything we update. {surface.keyNote}
+              columns are optional.
             </p>
           </CardBody>
         </Card>

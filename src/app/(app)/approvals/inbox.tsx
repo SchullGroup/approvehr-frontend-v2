@@ -201,7 +201,7 @@ export function ApprovalInbox() {
         <Stat label="Waiting on you" value={String(queue.counts.pending)} />
         <Stat
           label="Value at stake"
-          value={<Money amount={queue.counts.atStake} decimals />}
+          value={<Money amount={queue.counts.atStake} decimals size="xl" />}
           hint="across every decision waiting"
         />
         <Stat

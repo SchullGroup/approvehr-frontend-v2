@@ -99,7 +99,7 @@ export function ReportsScreen() {
           {payrollByDepartment && (
             <Stat
               label="Gross this period"
-              value={<Money amount={naira(totalGross)} decimals />}
+              value={<Money amount={naira(totalGross)} decimals size="xl" />}
             />
           )}
           <Stat

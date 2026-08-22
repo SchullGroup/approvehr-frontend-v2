@@ -219,14 +219,14 @@ export function LoansScreen() {
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <Stat
               label="Still owed to the company"
-              value={<Money amount={naira(summary.outstandingKobo)} decimals />}
+              value={<Money amount={naira(summary.outstandingKobo)} decimals size="xl" />}
               hint={`across ${summary.activeCount} ${
                 summary.activeCount === 1 ? "loan" : "loans"
               } being repaid`}
             />
             <Stat
               label="Coming out of this month's payroll"
-              value={<Money amount={naira(summary.thisMonth.deductionKobo)} decimals />}
+              value={<Money amount={naira(summary.thisMonth.deductionKobo)} decimals size="xl" />}
               hint={
                 summary.thisMonth.arrearsKobo > 0
                   ? `${summary.thisMonth.instalmentCount} instalments, including ${formatMoney(

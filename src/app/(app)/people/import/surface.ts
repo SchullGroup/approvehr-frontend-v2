@@ -32,8 +32,6 @@ export const EMPLOYEE_IMPORT_SURFACE: ImportSurface = {
       action: { href: "/payroll/pay-setup", label: "Add the grades" },
     },
   },
-  keyNote:
-    "That includes the staff number, where we match on email, or on name and date of birth, instead.",
   refusalWithoutApi: DEMO_ENABLED
     ? "This is demo mode. The file has been read and checked as far as a browser can, and that is where it stops: writing five hundred salaries into this browser would put a staff list in one laptop that no payroll run will ever see."
     : "",

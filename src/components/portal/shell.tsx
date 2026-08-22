@@ -3,7 +3,14 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, ChevronDown, Menu, Search, X } from "lucide-react";
+import {
+  Bell,
+  ChevronDown,
+  ChevronLeft,
+  Menu,
+  Search,
+  X,
+} from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Logo } from "@/components/brand/logo";
 import {
@@ -509,18 +516,49 @@ export function PageHeader({
     <div className="grid-fade border-b border-line">
       <div className="px-5 pt-6 sm:px-7">
         {breadcrumb && breadcrumb.length > 0 && (
-          <nav aria-label="Breadcrumb" className="mb-2.5">
-            <ol className="flex flex-wrap items-center gap-1.5 text-meta text-muted">
-              {breadcrumb.map((crumb, i) => (
-                <li key={crumb.href} className="flex items-center gap-1.5">
-                  {i > 0 && <span aria-hidden="true" className="text-line-strong">/</span>}
-                  <Link href={crumb.href} className="hover:text-ink">
-                    {crumb.label}
-                  </Link>
-                </li>
-              ))}
-            </ol>
-          </nav>
+          <div className="mb-2.5 flex flex-wrap items-center gap-2.5">
+            {/*
+             * An explicit way back, pointing at the **parent** rather than at
+             * browser history.
+             *
+             * The crumbs were already links, and that was not enough: they read
+             * as a location rather than as a control, so people used the
+             * browser's back button — which is not the same journey. Arriving
+             * here from a notification, from search, or from a deep link means
+             * back goes somewhere unrelated to the page you are on, and after a
+             * redirect it can go nowhere at all.
+             *
+             * The last crumb is the immediate parent, so this is deterministic:
+             * the same page every time, whatever route somebody took to get
+             * here. `router.back()` would have been one line and wrong.
+             */}
+            <Link
+              href={breadcrumb[breadcrumb.length - 1]!.href}
+              className="inline-flex items-center gap-1 rounded-md text-meta font-medium text-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            >
+              <ChevronLeft aria-hidden="true" className="size-3.5" />
+              Back to {breadcrumb[breadcrumb.length - 1]!.label}
+            </Link>
+
+            <span aria-hidden="true" className="text-line-strong">|</span>
+
+            <nav aria-label="Breadcrumb">
+              <ol className="flex flex-wrap items-center gap-1.5 text-meta text-muted">
+                {breadcrumb.map((crumb, i) => (
+                  <li key={crumb.href} className="flex items-center gap-1.5">
+                    {i > 0 && (
+                      <span aria-hidden="true" className="text-line-strong">
+                        /
+                      </span>
+                    )}
+                    <Link href={crumb.href} className="hover:text-ink">
+                      {crumb.label}
+                    </Link>
+                  </li>
+                ))}
+              </ol>
+            </nav>
+          </div>
         )}
 
         <div className="flex flex-wrap items-start justify-between gap-4 pb-5">

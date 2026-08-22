@@ -39,17 +39,6 @@ export type ImportSurface = {
   /** Where the records are once they are in. The link at the end of the flow. */
   home: { href: string; label: string };
   prerequisites: Readonly<Record<string, ImportPrerequisite>>;
-  /**
-   * One sentence about the match key, printed under the optional-column count.
-   *
-   * A whole sentence rather than a clause the screen composes, and that changed
-   * when the second entity arrived: a person's staff number is optional and
-   * falls back to an email, while an equipment tag is **required** and nothing is
-   * generated for a row without one. "A column you do not have is left out —
-   * including the tag" is true of one and false of the other, so the framework
-   * cannot write the lead-in and each surface writes the whole thing.
-   */
-  keyNote: string;
   /** The demo-mode refusal, which has to name what would not have happened. */
   refusalWithoutApi: string;
   /**

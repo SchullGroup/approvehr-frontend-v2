@@ -189,7 +189,24 @@ export function Stat({
           {trend.label}
         </p>
       )}
-      {hint && <p className="mt-1 text-body-sm text-muted">{hint}</p>}
+      {hint && (
+        /*
+         * Truncated, with the whole thing in the tooltip.
+         *
+         * The hint is usually four words. It is also where a **filename** goes —
+         * "ApproveHR_employees_reformatted.xlsx" — and a long one spilled past
+         * the card's edge and over the card beside it. `truncate` needs
+         * `min-w-0` on every flex ancestor to have anything to shrink against;
+         * the card root already carries it.
+         *
+         * `title` rather than a wrap, because the card's height is what keeps a
+         * row of four stats aligned. A hint that wraps to three lines makes one
+         * card taller than its neighbours, which reads as a layout bug.
+         */
+        <p className="mt-1 truncate text-body-sm text-muted" title={hint}>
+          {hint}
+        </p>
+      )}
     </div>
   );
 }

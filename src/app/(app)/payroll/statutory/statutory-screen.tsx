@@ -175,10 +175,10 @@ export function StatutoryScreen() {
         ) : (
           <>
             <div className="grid gap-4 sm:grid-cols-3">
-              <Stat label="Total remittance" value={<Money amount={total} compact />} />
+              <Stat label="Total remittance" value={<Money amount={total} compact size="xl" />} />
               <Stat
                 label="Outstanding"
-                value={<Money amount={outstanding} compact />}
+                value={<Money amount={outstanding} compact size="xl" />}
               />
               <Stat
                 label="Bodies"

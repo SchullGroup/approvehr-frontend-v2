@@ -249,7 +249,7 @@ export function DepartmentsScreen() {
                 />
                 <Stat
                   label="Monthly payroll"
-                  value={<Money amount={totalPayroll / 100} compact />}
+                  value={<Money amount={totalPayroll / 100} compact size="xl" />}
                   hint="across every unit"
                 />
                 <Stat

@@ -337,12 +337,12 @@ export function LoanDetailScreen({ id }: { id: string }) {
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <Stat
               label="Repaid so far"
-              value={<Money amount={naira(loan.progress.paidKobo)} decimals />}
+              value={<Money amount={naira(loan.progress.paidKobo)} decimals size="xl" />}
               hint={`${loan.progress.instalmentsSettled} of ${loan.progress.instalmentsTotal} instalments done`}
             />
             <Stat
               label="Left to pay"
-              value={<Money amount={naira(loan.progress.remainingKobo)} decimals />}
+              value={<Money amount={naira(loan.progress.remainingKobo)} decimals size="xl" />}
               hint={
                 loan.status === "SETTLED" ? "nothing outstanding" : "across the rest of the schedule"
               }
@@ -364,7 +364,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
             />
             <Stat
               label="Written off"
-              value={<Money amount={naira(loan.progress.waivedKobo)} decimals />}
+              value={<Money amount={naira(loan.progress.waivedKobo)} decimals size="xl" />}
               hint={
                 loan.progress.waivedKobo > 0
                   ? "given up, not recovered"

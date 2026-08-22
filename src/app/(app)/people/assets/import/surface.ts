@@ -42,8 +42,6 @@ export const EQUIPMENT_IMPORT_SURFACE: ImportSurface = {
       action: { href: "/people", label: "Add the people first" },
     },
   },
-  keyNote:
-    "The tag is not one of them: it is the label somebody reads off the case, so a row without one is refused rather than given a made-up tag.",
   refusalWithoutApi: DEMO_ENABLED
     ? "This is demo mode. The file has been read and checked as far as a browser can, and that is where it stops: an equipment register in one laptop is the opposite of the point, because the whole reason to keep one is that somebody's exit checklist can read it."
     : "",

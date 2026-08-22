@@ -187,15 +187,15 @@ export function CheckPanel({
         <dl className="divide-y divide-line rounded-md border border-line">
           <Figure
             term="The payroll run comes to"
-            value={<Money amount={naira(batch.expectedTotalKobo)} decimals />}
+            value={<Money amount={naira(batch.expectedTotalKobo)} decimals size="xl" />}
           />
           <Figure
             term="This batch says"
-            value={<Money amount={naira(batch.computedTotalKobo)} decimals />}
+            value={<Money amount={naira(batch.computedTotalKobo)} decimals size="xl" />}
           />
           <Figure
             term={`The ${batch.instructions.length} payments add up to`}
-            value={<Money amount={naira(batch.check.instructionTotalKobo)} decimals />}
+            value={<Money amount={naira(batch.check.instructionTotalKobo)} decimals size="xl" />}
           />
           <Verified
             term="All three figures agree"

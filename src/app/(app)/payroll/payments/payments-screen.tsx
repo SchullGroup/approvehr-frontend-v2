@@ -197,14 +197,14 @@ export function PaymentsScreen() {
           />
           <Stat
             label={thisMonth ? `Built in ${thisMonth.period}` : "Built this month"}
-            value={<Money amount={naira(thisMonth?.totalKobo ?? 0)} decimals />}
+            value={<Money amount={naira(thisMonth?.totalKobo ?? 0)} decimals size="xl" />}
             hint={`${thisMonth?.payments ?? 0} ${
               (thisMonth?.payments ?? 0) === 1 ? "payment" : "payments"
             }`}
           />
           <Stat
             label="Left the account"
-            value={<Money amount={naira(thisMonth?.settledKobo ?? 0)} decimals />}
+            value={<Money amount={naira(thisMonth?.settledKobo ?? 0)} decimals size="xl" />}
             hint="what the ledger says settled"
           />
           <Stat

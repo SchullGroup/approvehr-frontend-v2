@@ -418,7 +418,7 @@ export function StatsDemo() {
       />
       <Stat
         label="August payroll"
-        value={<Money amount={93_000_000} compact />}
+        value={<Money amount={93_000_000} compact size="xl" />}
         icon={<FileText aria-hidden="true" />}
         trend={{ direction: "up", label: "+4.1%" }}
         hint="vs July"

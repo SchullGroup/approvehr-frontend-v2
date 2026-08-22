@@ -156,7 +156,7 @@ export function GradesPanel() {
         />
         <Stat
           label="Monthly cost"
-          value={<Money amount={naira(totals.monthlyPayrollKobo)} decimals />}
+          value={<Money amount={naira(totals.monthlyPayrollKobo)} decimals size="xl" />}
           hint="gross, before employer pension"
         />
         <Stat
