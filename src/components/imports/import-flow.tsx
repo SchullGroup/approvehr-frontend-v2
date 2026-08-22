@@ -433,7 +433,7 @@ function ChooseFile({
             <TemplateButtons onDownload={onTemplate} />
             <div>
               <p className="text-meta font-semibold uppercase tracking-wide text-faint">
-                Required — no row imports without {required.length === 1 ? "it" : "these"}
+                Required
               </p>
               <ul className="mt-2 flex flex-wrap gap-1.5">
                 {required.map((spec) => (
@@ -447,7 +447,7 @@ function ChooseFile({
             </div>
             <div>
               <p className="text-meta font-semibold uppercase tracking-wide text-faint">
-                Recommended — imports, then appears under &ldquo;important&rdquo;
+                Recommended
               </p>
               <ul className="mt-2 flex flex-wrap gap-1.5">
                 {recommended.map((spec) => (
