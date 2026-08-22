@@ -12,6 +12,9 @@
  * Run by `npm run check`. Add a case for anything you change.
  */
 
+/* `DEMO_ENABLED` before anything from `src/`: the app modules below reference
+   it and the bundler that normally substitutes it is not here. */
+import "./demo-global";
 import {
   csvCell,
   detectDelimiter,

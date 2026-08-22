@@ -165,7 +165,7 @@ type SeedLoan = {
  * - One is **settled** and one is **declined with a reason**, so those states
  *   have something real behind them.
  */
-const SEED: SeedLoan[] = [
+const SEED: SeedLoan[] = DEMO_ENABLED ? [
   {
     id: "loan-0001",
     employeeId: "p-03",
@@ -231,7 +231,7 @@ const SEED: SeedLoan[] = [
     decidedById: "p-02",
     decidedAt: "2026-08-07T09:10:00.000Z",
   },
-];
+] : [];
 
 /** Who a demo loan belongs to. The seed directory is the only name source here. */
 function personOf(employeeId: string): {

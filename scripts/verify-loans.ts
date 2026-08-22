@@ -19,6 +19,9 @@
  * commit and put the new assertion in both suites.
  */
 
+/* `DEMO_ENABLED` before anything from `src/`: the app modules below reference
+   it and the bundler that normally substitutes it is not here. */
+import "./demo-global";
 import {
   addMonths,
   buildSchedule,

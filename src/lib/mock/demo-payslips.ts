@@ -1,3 +1,4 @@
+
 /**
  * Illustrative payslip figures for demo mode. **Generated — do not edit.**
  *
@@ -79,6 +80,7 @@ export const DEMO_PAYSLIP_BASIS = {
       housing: 0.25,
       transport: 0.15,
     },
+    paye: { enabled: true },
     pension: {
       enabled: true,
       employeeRate: 0.08,
@@ -93,7 +95,7 @@ export const DEMO_PAYSLIP_BASIS = {
   },
 } as const;
 
-export const DEMO_PAYSLIPS: readonly DemoPayslipFigures[] = [
+export const DEMO_PAYSLIPS: readonly DemoPayslipFigures[] = DEMO_ENABLED ? [
   {
     grossKobo: 210000000,
     basicKobo: 126000000,
@@ -224,7 +226,7 @@ export const DEMO_PAYSLIPS: readonly DemoPayslipFigures[] = [
     payeKobo: 9653000,
     netKobo: 53697000,
   },
-];
+] : [];
 
 /**
  * The illustrative figures for a monthly gross, or null.

@@ -191,7 +191,7 @@ export function HolidaysPanel({ defaultYear }: { defaultYear: number }) {
               wondering why a timesheet disagreed with a calendar they just
               edited. `lib/workflows/attendance.ts` reads the seed array, not this
               store. */}
-          {calendar.source === "demo" && (
+          {DEMO_ENABLED && calendar.source === "demo" && (
             <Callout tone="warning" title="Demo calendar, this browser only">
               These are Nigeria&rsquo;s 2026 dates, seeded so the product can be
               shown without a database. Edits stay in this browser, and the demo

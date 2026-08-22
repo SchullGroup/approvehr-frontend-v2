@@ -218,7 +218,7 @@ type DemoPolicy = {
  * of conduct is reference-only, so the screen has to render both the chase case
  * and the "nothing to chase" case without being told.
  */
-const DEMO_POLICIES: DemoPolicy[] = [
+const DEMO_POLICIES: DemoPolicy[] = DEMO_ENABLED ? [
   {
     id: "pol-01",
     title: "Staff handbook",
@@ -283,7 +283,7 @@ const DEMO_POLICIES: DemoPolicy[] = [
       "manager.\n\n" +
       "This section is here to read. There is nothing to accept.",
   },
-];
+] : [];
 
 /**
  * Demo disciplinary history.
@@ -309,7 +309,7 @@ type DemoAction = {
   disputeNote: string | null;
 };
 
-const DEMO_ACTIONS: DemoAction[] = [
+const DEMO_ACTIONS: DemoAction[] = DEMO_ENABLED ? [
   {
     id: "da-01",
     employeeId: "p-03",
@@ -359,7 +359,7 @@ const DEMO_ACTIONS: DemoAction[] = [
     disputedAt: null,
     disputeNote: null,
   },
-];
+] : [];
 
 const nameOf = (id: string): { name: string; employeeNo: string; jobTitle: string } => {
   const employee = EMPLOYEES.find((e) => e.id === id);

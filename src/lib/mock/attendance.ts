@@ -55,7 +55,7 @@ export type WorkLocation = {
   radiusMetres?: number;
 };
 
-export const WORK_LOCATIONS: WorkLocation[] = [
+export const WORK_LOCATIONS: WorkLocation[] = DEMO_ENABLED ? [
   {
     id: "loc-hq",
     name: "Lagos HQ",
@@ -86,7 +86,7 @@ export const WORK_LOCATIONS: WorkLocation[] = [
     address: "Anywhere",
     remoteAllowed: true,
   },
-];
+] : [];
 
 export const locationById = (id?: string) =>
   WORK_LOCATIONS.find((l) => l.id === id);

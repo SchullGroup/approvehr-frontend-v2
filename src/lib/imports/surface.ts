@@ -51,7 +51,7 @@ export type ImportSurface = {
    */
   keyNote: string;
   /** The demo-mode refusal, which has to name what would not have happened. */
-  demoRefusal: string;
+  refusalWithoutApi: string;
   /**
    * What a check with no API cannot settle about *this* entity, in one clause.
    *
@@ -62,7 +62,7 @@ export type ImportSurface = {
    * A generic sentence would name the wrong ones, which is worse than naming
    * none — it would imply the file is cleaner than the check can tell.
    */
-  demoLimits: string;
+  unknownWithoutApi: string;
   /**
    * Counts only this entity's writer can report, for the result screen.
    *

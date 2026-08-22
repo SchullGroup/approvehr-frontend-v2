@@ -56,7 +56,7 @@ const NAIRA = 100;
  * would teach the demo's audience the wrong thing about which direction the
  * causation runs. What *is* derived is who sits on which rung, below.
  */
-const DEMO_LADDER: { code: string; name: string; level: number; band: Band }[] = [
+const DEMO_LADDER: { code: string; name: string; level: number; band: Band }[] = DEMO_ENABLED ? [
   {
     code: "G1",
     name: "Associate",
@@ -97,7 +97,7 @@ const DEMO_LADDER: { code: string; name: string; level: number; band: Band }[] =
       maxGrossKobo: 2_700_000 * NAIRA,
     },
   },
-];
+] : [];
 
 const demoId = (code: string) => `demo-grade-${code.toLowerCase()}`;
 

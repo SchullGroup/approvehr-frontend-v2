@@ -12,6 +12,7 @@ import {
   type FeatureKey,
   type FeaturePatch,
   type HeadcountBand,
+  type PayrollDeductions,
 } from "@/lib/api/setup";
 import { EMPLOYEES } from "@/lib/mock/people";
 import { useSession } from "./session";
@@ -20,7 +21,7 @@ import { useSession } from "./session";
  * Which parts of the product this company sees.
  *
  * This is Rule 2 of `PARITY.md` on the frontend: a five-person business sees
- * six nav items instead of thirty, because it answered five questions once.
+ * six nav items instead of thirty, because it answered a few questions once.
  * Nothing is deleted when a flag is off — `/settings/features` turns it back on
  * and the data is still there.
  *
@@ -67,6 +68,21 @@ type State = {
   /** A message ready to show. `null` when the last load worked. */
   error: string | null;
   source: Source;
+  /**
+   * What the **demo** company deducts, from the two payroll setup questions.
+   *
+   * Null on the API path, and that is not a gap: connected, the authority is
+   * `GET /payroll/settings`, because those switches live on the payroll settings
+   * row and are what the engine reads. `GET /setup/features` does not carry
+   * them, so claiming a value here would be inventing one.
+   *
+   * It exists at all so the demo cannot contradict itself. The wizard's answer
+   * persists locally, and without this the settings screen and the demo payroll
+   * run would both keep saying PAYE was deducted after somebody answered that it
+   * is not — two screens disagreeing about a money fact, in the mode people open
+   * first.
+   */
+  deductions: PayrollDeductions | null;
 };
 
 /**
@@ -112,6 +128,8 @@ const LOADING: State = {
   loading: true,
   error: null,
   source: "loading",
+  /* Unknown until something says so, in both modes. */
+  deductions: null,
 };
 
 /* ------------------------------------------------------------------- labels */
@@ -149,7 +167,7 @@ export const FEATURE_COPY: Record<
   },
   appraisals: {
     label: "Appraisals",
-    line: "Scored reviews on a cycle, on top of shared goals.",
+    line: "Scored reviews inside an appraisal period, on top of shared goals.",
   },
   hiring: {
     label: "Hiring",
@@ -218,7 +236,7 @@ export const HEADCOUNT_LABELS: Record<HeadcountBand, string> = {
  * argument — can be shown on a laptop in a room with no backend. It is read
  * only when `useSession().isConnected` is false.
  */
-const DEMO_QUESTIONS: ApiWizardQuestion[] = [
+const DEMO_QUESTIONS: ApiWizardQuestion[] = DEMO_ENABLED ? [
   {
     id: "headcount",
     step: 1,
@@ -289,22 +307,77 @@ const DEMO_QUESTIONS: ApiWizardQuestion[] = [
     id: "appraisals",
     step: 5,
     question: "Do you run formal appraisals?",
-    help: "Scored reviews on a cycle, not just shared goals.",
+    help: "Scored reviews inside an appraisal period, not just shared goals.",
     options: [
       { value: "yes", label: "Yes", sets: { appraisals: true } },
       { value: "no", label: "No", sets: { appraisals: false } },
     ],
   },
-];
+  /* The last two write the payroll engine's settings rather than a feature flag,
+     so their options carry `payroll` and their "No" carries the consequence. See
+     `PayrollDeductions` in `lib/api/setup.ts` for why that is a second patch. */
+  {
+    id: "paye",
+    step: 6,
+    question: "Do you deduct PAYE from your staff\u2019s pay?",
+    help: "Income tax you take off salaries and pay to the state tax office.",
+    options: [
+      { value: "yes", label: "Yes", sets: {}, payroll: { payeEnabled: true } },
+      {
+        value: "no",
+        label: "No \u2014 staff handle their own tax",
+        sets: {},
+        payroll: { payeEnabled: false },
+        consequence:
+          "No tax comes off anybody\u2019s pay, payslips show no PAYE at all and " +
+          "there is no monthly schedule to file. Under the Personal Income Tax " +
+          "Act it is the employer who has to deduct and remit, so keep your " +
+          "staff\u2019s own evidence of filing. You can switch this on later.",
+      },
+    ],
+  },
+  {
+    id: "pension",
+    step: 7,
+    question: "Do you run a pension scheme for your staff?",
+    help: "Contributions to a PFA \u2014 8% from them, 10% from you, or more.",
+    options: [
+      { value: "yes", label: "Yes", sets: {}, payroll: { pensionEnabled: true } },
+      {
+        value: "no",
+        label: "No \u2014 we have no scheme",
+        sets: {},
+        payroll: { pensionEnabled: false },
+        consequence:
+          "Nothing is deducted for pension, nothing is added on top, and there " +
+          "is no schedule for a fund administrator. The Pension Reform Act 2014 " +
+          "requires a scheme once you employ 15 or more people. You can switch " +
+          "this on later.",
+      },
+    ],
+  },
+] : [];
 
 const DEMO_KEY = "approvehr.features.demo";
-const DEMO_VERSION = 1;
+/* 2: `deductions` arrived with the two payroll questions. A version 1 payload is
+   dropped rather than left to render `undefined.payeEnabled`. */
+const DEMO_VERSION = 2;
 
 type DemoState = {
   flags: FeatureFlags;
   headcountBand: HeadcountBand;
   setupStep: number;
   setupCompletedAt: string | null;
+  /**
+   * What the demo company deducts.
+   *
+   * A demo answer to the two payroll questions has to persist, or the wizard
+   * cannot mark the option the company is already on and "Skip this one" stops
+   * being honest. It moves no figure anywhere else: the demo payslips are fixed
+   * illustrative rows generated by the API's engine, so a local switch does not
+   * and must not change them — `/settings/payroll` says so in those words.
+   */
+  deductions: PayrollDeductions;
 };
 
 /** The band the seed company is actually in. Ten people is ten people. */
@@ -372,6 +445,9 @@ function demoDefaults(): DemoState {
     headcountBand: "UNDER_10",
     setupStep: 0,
     setupCompletedAt: null,
+    /* All three on, the same default the API ships, for the same reason: a
+       company that has answered nothing deducts what the law expects. */
+    deductions: { payeEnabled: true, pensionEnabled: true, nhfEnabled: true },
   };
   return demoApply(base, { headcountBand: seedBand() });
 }
@@ -387,6 +463,7 @@ function readDemo(): DemoState {
       ...defaults,
       ...parsed.data,
       flags: { ...defaults.flags, ...parsed.data.flags },
+      deductions: { ...defaults.deductions, ...parsed.data.deductions },
     };
   } catch {
     return defaults;
@@ -429,6 +506,8 @@ function subscribe(listener: () => void) {
 
 function fromApi(features: ApiFeatures): State {
   return {
+    /* The payroll settings row is the authority connected — see the field. */
+    deductions: null,
     flags: {
       departments: features.departments,
       grades: features.grades,
@@ -455,6 +534,7 @@ function fromApi(features: ApiFeatures): State {
 
 function fromDemo(demo: DemoState): State {
   return {
+    deductions: demo.deductions,
     flags: demo.flags,
     headcountBand: demo.headcountBand,
     setupStep: demo.setupStep,
@@ -655,9 +735,30 @@ type WizardState = {
   /** Answered up to here. `0` means nothing answered. */
   step: number;
   setupCompletedAt: string | null;
+  /**
+   * What this company deducts, so an option can be marked "Now".
+   *
+   * **Null means unknown, not "everything on".** A company with no settings row
+   * has not answered, and marking "Yes" from a default would tell somebody they
+   * had answered a question nobody asked them.
+   */
+  deductions: PayrollDeductions | null;
   loading: boolean;
   error: string | null;
 };
+
+/**
+ * What the demo company deducts, or null.
+ *
+ * Null connected — `useDeductionSwitches` reads the real thing from
+ * `GET /payroll/settings` there — and null while the store is still loading.
+ * Every caller has to treat null as "no local answer applies", never as "all
+ * three off": an absence and a zero are different claims, and on this one they
+ * are the difference between a payslip with tax on it and one without.
+ */
+export function useDemoDeductions(): PayrollDeductions | null {
+  return useLoadedState().deductions;
+}
 
 /**
  * The wizard, fetched.
@@ -673,6 +774,7 @@ export function useWizard() {
     questions: [],
     step: 0,
     setupCompletedAt: null,
+    deductions: null,
     loading: true,
     error: null,
   });
@@ -689,6 +791,7 @@ export function useWizard() {
           questions: DEMO_QUESTIONS,
           step: demo.setupStep,
           setupCompletedAt: demo.setupCompletedAt,
+          deductions: demo.deductions,
           loading: false,
           error: null,
         });
@@ -701,6 +804,7 @@ export function useWizard() {
           questions: wizard.questions,
           step: wizard.step,
           setupCompletedAt: wizard.setupCompletedAt,
+          deductions: wizard.payroll,
           loading: false,
           error: null,
         });
@@ -731,15 +835,23 @@ export function useWizard() {
         const current = readDemo();
         const next = writeDemo({
           ...demoApply(current, option.sets),
+          /* The two payroll questions write here rather than into `flags`. Same
+             split as the API, so the demo cannot answer a question the connected
+             product answers differently. */
+          deductions: { ...current.deductions, ...option.payroll },
           setupStep: Math.max(current.setupStep, question.step),
         });
         set(fromDemo(next));
-        setState((s) => ({ ...s, step: next.setupStep }));
+        setState((s) => ({ ...s, step: next.setupStep, deductions: next.deductions }));
         return;
       }
       const result = await setup.answer(questionId, value);
       commit(result);
-      setState((s) => ({ ...s, step: result.setupStep }));
+      setState((s) => ({
+        ...s,
+        step: result.setupStep,
+        deductions: result.payroll,
+      }));
     },
     [isConnected],
   );

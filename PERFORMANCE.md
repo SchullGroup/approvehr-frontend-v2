@@ -542,3 +542,102 @@ not scored**, as `appraiserMark`, weighted across assigned appraisers by their
 If a company wants the manager's overall mark scored, it becomes a component with
 a weight like any other — deliberately, visibly, and summing to 100 with the
 rest.
+
+---
+
+## 7. The interface was sound and unusable, and both halves of that are true
+
+The product owner read the finished module and could not work out how to create
+an appraisal or where the periods were. Nothing underneath was wrong; the
+naming, the structure and the paths were. This section is what changed, because
+three of the changes reverse a sentence written above.
+
+### 7.1 "Cycle" was the engine's word, for the third time
+
+`ReviewCycle` is the model's name. An **appraisal period** is what it is called
+to a person, and the owner searched for "appraisal" and "period" and found
+neither. This is the same defect as "prepare a run" and "leaver", both of which
+were caught and fixed, so it is now three.
+
+Every user-facing string says period. The model, the endpoint (`/performance/
+cycles/...`), the store's hook names and `ApiCycle` still say cycle, deliberately
+— renaming the API to match the interface would be a migration to fix a reading
+problem. **The app route changed**: `/performance/cycles/[id]` is
+`/performance/periods/[id]`, because the address bar is user-facing and "find the
+periods" should be answerable by looking at it.
+
+The one place the word survives correctly is shifts, where a rota cycle is
+genuinely a cycle.
+
+### 7.2 Four tabs were four nouns, and a person arrives with a verb
+
+§4.8's "Simple path" is right and the tabs did not implement it. They were
+*KPIs · Appraisals · Skills · Who appraises whom* — every one a noun, so somebody
+with a job to do had to know which noun it was filed under.
+
+| Tab | The question it answers |
+|---|---|
+| **What needs you** (default) | what is open, what is waiting on you, what is waiting on somebody else |
+| **KPIs** | what people are aiming at, and how far along |
+| **Appraisal periods** | which periods exist, and what each needs next |
+| *Who appraises whom* | only under `multiAppraiser`, as before |
+
+**Skills left the tab strip.** Levels against a target the company set are
+configuration-shaped and a five-person business should never meet them. There is
+no `skills` flag to hang that on, so the mechanism is a Rule 5 disclosure — and
+because `Disclosure` unmounts what it holds, the three requests behind it do not
+happen until somebody opens it. Same for the framework and the record of what was
+said about you. The two things that must never go behind a click still do not:
+the no-appraiser exception and an unanswered final rating render above
+everything.
+
+**The periods list stopped being a control panel.** Writing the questions,
+starting it, chasing the late ones and publishing the results were six controls
+on a row inside a card at the bottom of a tab, while the screen *named* after the
+period could only read it. They are on `/performance/periods/[id]` now, each
+appearing only in the state where it applies, and the list is a list. That also
+gives the draft state a home it never had: a period could be created and then
+only started from the list it was buried in.
+
+### 7.3 Redundant entry points are a feature, in the owner's own words
+
+> "there should always be multiple buttons leading to the same action to ensure
+> users aren't looking for stuff."
+
+`StartPeriodButton` is one component and one dialog with five doors: the
+dashboard greeting, `/approvals`, `/performance` (any tab but the periods one,
+which has its own), `/performance/approvals`, and an employee's record. It renders
+**nothing** when the company has appraisals off or the reader cannot run one,
+which is what makes it safe on screens with no performance content — and it costs
+no request, because the features and permissions stores are already loaded by the
+shell.
+
+It creates the period and goes to it; it does **not** start it in the same click.
+That is the honest order rather than a missing step: the API refuses a period with
+no questions and refuses a new question once one has started, so a
+create-and-start dialog would lock every company to whatever single question the
+dialog had room for.
+
+### 7.4 The product explains itself once, and reads its own figures
+
+"How an appraisal works here" is a closed disclosure on the landing. It is the
+exception Rule 4 implies rather than forbids: it explains what an appraisal *is*,
+not why the software is behaving oddly, and it is behind a click so nobody who
+already knows has to read it.
+
+Its weights come from `GET /performance/scoring-weights` and its four groups from
+the seeded framework — **nothing on the panel paraphrases `scoring.ts`**, because a
+paraphrase is how a help page ends up describing arithmetic the code stopped doing
+two releases ago. The sentences that are not figures are that file's own rules in
+the order it enforces them: only `AGREED` objectives score, leadership only for
+people who manage somebody, shares frozen at activation, self-assessment collected
+and weighted at zero, and a part with nothing behind it excluded rather than
+scored nought.
+
+### 7.5 One defect found while doing it
+
+`skills.tsx` wrapped its table headings in a `TR` inside a `THead` that already
+writes the `<tr>` — nested `<tr>`, invalid HTML, a hydration error and nothing
+visible. It had been there since the screen was written and only showed up in a
+browser console. `tsc` and lint cannot see this class of bug; the entry in
+`HANDOVER.md` about nested anchors is the same lesson.

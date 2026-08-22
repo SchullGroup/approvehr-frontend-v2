@@ -1,5 +1,6 @@
 "use client";
 
+import { sourceNote } from "@/lib/demo";
 import { useState } from "react";
 import Link from "next/link";
 import {
@@ -157,7 +158,7 @@ export function FeaturesScreen() {
   const REQUIRES: Partial<Record<FeatureKey, { key: FeatureKey; why: string }>> = {
     multiAppraiser: {
       key: "appraisals",
-      why: "Turn appraisals on first — this changes how a review cycle works, and there are no review cycles without them.",
+      why: "Turn appraisals on first — this changes how an appraisal period works, and there are no appraisal periods without them.",
     },
   };
 
@@ -192,7 +193,7 @@ export function FeaturesScreen() {
         breadcrumb={[{ href: "/settings", label: "Settings" }]}
         meta={
           <Badge tone={connected ? "success" : "warning"} size="sm" dot>
-            {connected ? "Live from the API" : "Demo data, this browser only"}
+            {sourceNote(connected)}
           </Badge>
         }
       />

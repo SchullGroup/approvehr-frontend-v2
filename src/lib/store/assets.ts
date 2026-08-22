@@ -417,14 +417,14 @@ type DemoState = {
  * T-shirt, and an exit checklist that insists on one is an exit checklist
  * people learn to tick without reading.
  */
-const SEED_KINDS: ApiAssetCategory[] = [
+const SEED_KINDS: ApiAssetCategory[] = DEMO_ENABLED ? [
   { id: "demo-kind-laptop", name: "Laptop", returnRequired: true, active: true, assetCount: 5 },
   { id: "demo-kind-phone", name: "Phone", returnRequired: true, active: true, assetCount: 2 },
   { id: "demo-kind-sim", name: "SIM card", returnRequired: true, active: true, assetCount: 1 },
   { id: "demo-kind-modem", name: "MiFi and modem", returnRequired: true, active: true, assetCount: 1 },
   { id: "demo-kind-power", name: "Generator and inverter", returnRequired: true, active: true, assetCount: 1 },
   { id: "demo-kind-branded", name: "Branded items", returnRequired: false, active: true, assetCount: 1 },
-];
+] : [];
 
 function seedAsset(input: {
   id: string;
@@ -477,7 +477,7 @@ function seedAsset(input: {
  * - **Amara — the demo account — holds two things and has handed one back.**
  *   `MyAssets` on `/profile` is otherwise a page about nothing.
  */
-const SEED_ASSETS: DemoAsset[] = [
+const SEED_ASSETS: DemoAsset[] = DEMO_ENABLED ? [
   seedAsset({
     id: "demo-item-lt1",
     tag: "AHR-LT-01",
@@ -607,9 +607,9 @@ const SEED_ASSETS: DemoAsset[] = [
     status: "ASSIGNED",
     condition: "GOOD",
   }),
-];
+] : [];
 
-const SEED_ASSIGNMENTS: DemoAssignment[] = [
+const SEED_ASSIGNMENTS: DemoAssignment[] = DEMO_ENABLED ? [
   {
     id: "demo-hand-01",
     assetId: "demo-item-lt1",
@@ -691,9 +691,9 @@ const SEED_ASSIGNMENTS: DemoAssignment[] = [
     conditionBack: "DAMAGED",
     note: "On return: screen cracked in the car.",
   },
-];
+] : [];
 
-const SEED_REPAIRS: ApiRepair[] = [
+const SEED_REPAIRS: ApiRepair[] = DEMO_ENABLED ? [
   {
     id: "demo-repair-01",
     assetId: "demo-item-lt3",
@@ -730,7 +730,7 @@ const SEED_REPAIRS: ApiRepair[] = [
     vendor: "Computer Village, Ikeja",
     open: false,
   },
-];
+] : [];
 
 const demo = createPersistedState<DemoState>({
   key: "approvehr.equipment.store",
@@ -1168,7 +1168,7 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
         return true;
       })
       .map((asset) => toItem(withHolder(demoState, asset)))
-      .sort((a, b) => a.tag.localeCompare(b.tag));
+      .sort(compareItems(params.sort, params.order));
   }, [
     demoState,
     params.heldBy,
@@ -1178,7 +1178,17 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
     params.condition,
     params.categoryId,
     params.q,
+    params.sort,
+    params.order,
   ]);
+
+  /* The page, cut *after* the count. Same order as the API does it, and the
+     reason is the same: a count taken from the page is the page. */
+  const demoPage = useMemo(() => {
+    const size = params.pageSize ?? 25;
+    const start = ((params.page ?? 1) - 1) * size;
+    return demoItems.slice(start, start + size);
+  }, [demoItems, params.page, params.pageSize]);
 
   const contradiction =
     params.heldBy && params.unassigned
@@ -1193,7 +1203,7 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
     ? EMPTY_ITEMS
     : isConnected
       ? (remote?.items ?? EMPTY_ITEMS)
-      : demoItems;
+      : demoPage;
 
   /* --------------------------------------------------------- mutations */
 
@@ -1662,7 +1672,15 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
 
   return {
     items,
-    total: !enabled ? 0 : isConnected ? (remote?.total ?? 0) : demoItems.length,
+    /**
+     * How many match, from the server. **`undefined` until it answers.**
+     *
+     * Not `?? 0`. A zero here renders as "No equipment" over a table that is
+     * still loading, and a reader has no way to tell that from a register with
+     * nothing in it. `Pagination` and `FilterBar` both take `number | undefined`
+     * for exactly this.
+     */
+    total: !enabled ? 0 : isConnected ? remote?.total : demoItems.length,
     loading: enabled && isConnected && !answered,
     error:
       contradiction ??
@@ -1676,6 +1694,41 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
     handOver,
     takeBack,
     logRepair,
+  };
+}
+
+/**
+ * The demo's copy of the register's order — **with a tiebreaker**.
+ *
+ * `tag` is unique per organisation, so it is the tiebreaker rather than `id`:
+ * it is what the table shows, so a reader can see the order is total. Sorting by
+ * `status` without one puts the same laptop on two pages of a long register,
+ * because `Array.prototype.sort` is only stable with respect to the array it was
+ * given and that array is the store's insertion order.
+ */
+function compareItems(
+  sort: AssetListParams["sort"],
+  order: AssetListParams["order"],
+): (a: EquipmentItem, b: EquipmentItem) => number {
+  const dir = order === "desc" ? -1 : 1;
+  const value = (item: EquipmentItem): string | number =>
+    sort === "name"
+      ? item.name.toLowerCase()
+      : sort === "status"
+        ? item.status
+        : sort === "purchasedOn"
+          ? (item.purchasedOn ?? "")
+          : sort === "purchaseCost"
+            ? /* Absent is not zero. A cost nobody recorded sorts to the end in
+                 either direction rather than pretending the thing was free. */
+              (item.cost ?? -1)
+            : item.tag.toLowerCase();
+
+  return (a, b) => {
+    const left = value(a);
+    const right = value(b);
+    if (left !== right) return left < right ? -dir : dir;
+    return a.tag.localeCompare(b.tag) * dir;
   };
 }
 
@@ -2180,6 +2233,9 @@ export function useMyEquipment(employeeId: string | null) {
   const demoKit = useMemo<MyEquipment | null>(() => {
     if (!employeeId) return null;
     const person = employeeById(employeeId) ?? CURRENT_USER;
+    /* No seeded person, no demo kit. `CURRENT_USER` is undefined in a
+       production build, where this whole branch is unreachable anyway. */
+    if (!person) return null;
     const assetOf = (assetId: string) =>
       demoState.assets.find((row) => row.id === assetId);
 

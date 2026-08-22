@@ -180,7 +180,7 @@ type SeedRequest = {
  * the thirty-day window, one further out, one answered and one dropped. Dates
  * are relative to `TODAY` (19 Aug 2026), so the demo does not decay.
  */
-const SEED_REQUESTS: SeedRequest[] = [
+const SEED_REQUESTS: SeedRequest[] = DEMO_ENABLED ? [
   {
     id: "dr-01",
     employeeId: "p-01",
@@ -251,7 +251,7 @@ const SEED_REQUESTS: SeedRequest[] = [
     waivedAt: "2026-08-06T09:15:00.000Z",
     waivedReason: "He no longer drives the company vehicle.",
   },
-];
+] : [];
 
 function demoRequest(seed: SeedRequest): ApiDocumentRequest {
   const employee = seedEmployee(seed.employeeId);
@@ -295,7 +295,7 @@ type SeedDocument = {
   sizeBytes?: number;
 };
 
-const SEED_DOCUMENTS: SeedDocument[] = [
+const SEED_DOCUMENTS: SeedDocument[] = DEMO_ENABLED ? [
   { id: "dd-01", employeeId: "p-01", name: "Employment contract", category: "CONTRACT", uploadedAt: "2022-03-14T10:00:00.000Z", verified: true, sizeBytes: 412_880 },
   { id: "dd-02", employeeId: "p-01", name: "International passport", category: "IDENTIFICATION", uploadedAt: "2024-02-02T14:20:00.000Z", verified: true, sizeBytes: 1_204_112 },
   { id: "dd-03", employeeId: "p-01", name: "Employment contract (2021)", category: "CONTRACT", uploadedAt: "2021-08-01T10:00:00.000Z", verified: true, archived: true, sizeBytes: 388_210 },
@@ -303,7 +303,7 @@ const SEED_DOCUMENTS: SeedDocument[] = [
   { id: "dd-05", employeeId: "p-04", name: "Medical report", category: "MEDICAL", uploadedAt: "2026-08-08T13:30:00.000Z", verified: true, fulfilsRequestId: "dr-05", sizeBytes: 902_144 },
   { id: "dd-06", employeeId: "p-06", name: "Employment contract", category: "CONTRACT", uploadedAt: "2023-11-06T11:00:00.000Z", verified: true, sizeBytes: 396_204 },
   { id: "dd-07", employeeId: "p-06", name: "NIN slip", category: "IDENTIFICATION", uploadedAt: "2023-11-06T11:04:00.000Z", verified: false, sizeBytes: 210_880 },
-];
+] : [];
 
 function demoDocument(seed: SeedDocument): ApiDocument {
   return {

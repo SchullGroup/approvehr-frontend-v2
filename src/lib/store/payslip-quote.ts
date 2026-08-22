@@ -80,6 +80,7 @@ export function quoteSettingsFrom(settings: PayrollSettings): QuoteSettings {
     basicPercent: settings.salarySplit.basic,
     housingPercent: settings.salarySplit.housing,
     transportPercent: settings.salarySplit.transport,
+    payeEnabled: settings.paye.enabled,
     pensionEnabled: settings.pension.enabled,
     pensionEmployeeRate: settings.pension.employeeRate,
     pensionEmployerRate: settings.pension.employerRate,

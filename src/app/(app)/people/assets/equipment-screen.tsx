@@ -1,21 +1,24 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Plus, Search } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Plus } from "lucide-react";
 import {
   Badge,
   Button,
   Card,
   CardBody,
   ConfirmDialog,
-  Input,
+  Field,
+  FilterBar,
   SegmentedControl,
   Select,
   Spinner,
   Stat,
+  Switch,
   Tabs,
   formatMoney,
   useToast,
+  type AppliedFilter,
   type TabItem,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
@@ -39,6 +42,7 @@ import { ItemForm } from "./item-form";
 import { ItemPanel } from "./item-panel";
 import { KindsPanel } from "./kinds-panel";
 import { MyAssets } from "./my-equipment";
+import { useListQuery } from "@/lib/use-list-query";
 import { RegisterTable } from "./register-table";
 import { RepairDialog } from "./repair-dialog";
 import { RepairsPanel, type RepairFilter } from "./repairs-panel";
@@ -71,6 +75,15 @@ import { TakeBackDialog } from "./take-back-dialog";
 
 /** The filter row. `FREE` is the API's `unassigned`, not `status=AVAILABLE`. */
 type Filter = "ALL" | "FREE" | "ASSIGNED" | "IN_REPAIR" | "LOST";
+
+/** The chip's wording, in the same words the control uses. */
+const FILTER_LABEL: Record<Filter, string> = {
+  ALL: "All",
+  FREE: "Nobody has it",
+  ASSIGNED: "With somebody",
+  IN_REPAIR: "Being fixed",
+  LOST: "Lost",
+};
 
 const money = (amount: number) => formatMoney(amount, "NGN", { decimals: true });
 
@@ -124,13 +137,24 @@ function Register() {
   const toast = useToast();
 
   const [tab, setTab] = useState<"register" | "repairs" | "kinds">("register");
-  const [filter, setFilter] = useState<Filter>("ALL");
-  const [kindId, setKindId] = useState("");
-  const [search, setSearch] = useState("");
-  const [q, setQ] = useState("");
-  const [includeArchived, setIncludeArchived] = useState(false);
   const [includeInactiveKinds, setIncludeInactiveKinds] = useState(false);
   const [repairFilter, setRepairFilter] = useState<RepairFilter>("open");
+
+  /**
+   * The register's query — filter, sort and page, all sent to the API.
+   *
+   * The filters were already server-side; what was missing was the other two.
+   * `useEquipment` sent no page at all, so the wrapper's `pageSize: 100` decided
+   * how much of the register anybody could ever see: a company with 300 laptops
+   * had 200 of them unreachable, with no control on screen to say so and a table
+   * that looked complete. Sorting was a `localeCompare` on whatever arrived.
+   */
+  const list = useListQuery<{ filter: Filter; kindId: string; archived: boolean }>({
+    filters: { filter: "ALL", kindId: "", archived: false },
+    sort: "tag",
+    pageSize: 25,
+  });
+  const { filter, kindId, archived: includeArchived } = list.filters;
 
   const [panelId, setPanelId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -140,22 +164,34 @@ function Register() {
   const [repairing, setRepairing] = useState<EquipmentItem | null>(null);
   const [archiving, setArchiving] = useState<EquipmentItem | null>(null);
 
-  /* Typing is not a query. Without this every keystroke is a request and the
-     answers arrive out of order. */
-  useEffect(() => {
-    const timer = setTimeout(() => setQ(search.trim()), 300);
-    return () => clearTimeout(timer);
-  }, [search]);
-
-  const params: AssetListParams = {
-    ...(filter === "FREE" ? { unassigned: true } : {}),
-    ...(filter === "ASSIGNED" ? { status: "ASSIGNED" as const } : {}),
-    ...(filter === "IN_REPAIR" ? { status: "IN_REPAIR" as const } : {}),
-    ...(filter === "LOST" ? { status: "LOST" as const } : {}),
-    ...(kindId ? { categoryId: kindId } : {}),
-    ...(q ? { q } : {}),
-    ...(includeArchived ? { includeArchived: true } : {}),
-  };
+  /* Debouncing lives in `useListQuery` now — typing is one request per pause,
+     not one per keystroke, and the answers cannot arrive out of order because
+     the store keys its state on the query it asked. */
+  const params: AssetListParams = useMemo(
+    () => ({
+      page: list.page,
+      pageSize: list.pageSize,
+      ...(filter === "FREE" ? { unassigned: true } : {}),
+      ...(filter === "ASSIGNED" ? { status: "ASSIGNED" as const } : {}),
+      ...(filter === "IN_REPAIR" ? { status: "IN_REPAIR" as const } : {}),
+      ...(filter === "LOST" ? { status: "LOST" as const } : {}),
+      ...(kindId ? { categoryId: kindId } : {}),
+      ...(list.params.q ? { q: list.params.q } : {}),
+      ...(includeArchived ? { includeArchived: true } : {}),
+      ...(list.sort ? { sort: list.sort as AssetListParams["sort"] } : {}),
+      order: list.order,
+    }),
+    [
+      list.page,
+      list.pageSize,
+      list.params.q,
+      list.sort,
+      list.order,
+      filter,
+      kindId,
+      includeArchived,
+    ],
+  );
 
   const kinds = useEquipmentKinds(includeInactiveKinds);
   const register = useEquipment(params);
@@ -183,6 +219,53 @@ function Register() {
       return false;
     }
   }
+
+  /**
+   * The filters currently narrowing the register, as removable chips.
+   *
+   * Rendered outside the reveal by `FilterBar`, deliberately: a register showing
+   * 12 laptops because somebody left "Being fixed" selected last week, with the
+   * count above it agreeing, is the Rule 5 failure mode. The chips are how a
+   * reader sees why the number is what it is.
+   */
+  const appliedFilters: AppliedFilter[] = [
+    ...(filter !== "ALL"
+      ? [
+          {
+            label: "Who has it",
+            value: FILTER_LABEL[filter],
+            onClear: () => list.setFilter("filter", "ALL" as Filter),
+          },
+        ]
+      : []),
+    ...(kindId
+      ? [
+          {
+            label: "Kind",
+            value: kinds.kinds.find((k) => k.id === kindId)?.name ?? "Selected",
+            onClear: () => list.setFilter("kindId", ""),
+          },
+        ]
+      : []),
+    ...(includeArchived
+      ? [
+          {
+            label: "Archived",
+            value: "Included",
+            onClear: () => list.setFilter("archived", false),
+          },
+        ]
+      : []),
+    ...(list.params.q
+      ? [
+          {
+            label: "Search",
+            value: list.params.q,
+            onClear: () => list.setSearch(""),
+          },
+        ]
+      : []),
+  ];
 
   const tabs = useMemo<TabItem[]>(
     () => [
@@ -232,7 +315,7 @@ function Register() {
       />
 
       <PageBody className="flex flex-col gap-6">
-        {mode === "offline" && (
+        {DEMO_ENABLED && mode === "offline" && (
           <p className="flex flex-wrap items-center gap-2 text-body-sm text-muted">
             <Badge tone="warning" size="sm">
               Demo
@@ -293,7 +376,9 @@ function Register() {
                 variant="secondary"
                 size="sm"
                 onClick={() => {
-                  setFilter("LOST");
+                  /* `setFilter` returns to page one, which matters here: the
+                     callout can be clicked from page 4 of the register. */
+                  list.setFilter("filter", "LOST");
                   setTab("register");
                 }}
               >
@@ -325,56 +410,69 @@ function Register() {
                   Add equipment
                 </Button>
               }
+              paging={{
+                sort: list.sort,
+                order: list.order,
+                onSort: list.toggleSort,
+                page: list.page,
+                pageSize: list.pageSize,
+                total: register.total,
+                onPageChange: list.setPage,
+                onPageSizeChange: list.setPageSize,
+              }}
               filters={
-                <>
-                  <SegmentedControl<Filter>
-                    label="Filter equipment"
-                    value={filter}
-                    onChange={setFilter}
-                    options={[
-                      { value: "ALL", label: "All" },
-                      { value: "FREE", label: "Nobody has it" },
-                      { value: "ASSIGNED", label: "With somebody" },
-                      { value: "IN_REPAIR", label: "Being fixed" },
-                      { value: "LOST", label: "Lost" },
-                    ]}
-                  />
-                  <Select
-                    className="w-44"
-                    aria-label="Filter by kind of equipment"
-                    value={kindId}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setKindId(value);
-                    }}
+                <FilterBar
+                  search={list.search}
+                  onSearchChange={list.setSearch}
+                  searchPlaceholder="Tag, name or serial"
+                  searchLabel="Search by tag, name, serial number, make or model"
+                  applied={appliedFilters}
+                  onClearAll={list.clearFilters}
+                  count={register.total}
+                  noun={["thing", "things"]}
+                  actions={
+                    <SegmentedControl<Filter>
+                      label="Who has it"
+                      value={filter}
+                      onChange={(value) => list.setFilter("filter", value)}
+                      options={[
+                        { value: "ALL", label: "All" },
+                        { value: "FREE", label: "Nobody has it" },
+                        { value: "ASSIGNED", label: "With somebody" },
+                        { value: "IN_REPAIR", label: "Being fixed" },
+                        { value: "LOST", label: "Lost" },
+                      ]}
+                    />
+                  }
+                >
+                  <Field label="Kind of equipment">
+                    <Select
+                      value={kindId}
+                      onChange={(event) =>
+                        list.setFilter("kindId", event.target.value)
+                      }
+                    >
+                      <option value="">Every kind</option>
+                      {kinds.kinds.map((kind) => (
+                        <option key={kind.id} value={kind.id}>
+                          {kind.name}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                  <Field
+                    label="Archived equipment"
+                    help="Written off or retired. Hidden unless you ask."
                   >
-                    <option value="">Every kind</option>
-                    {kinds.kinds.map((kind) => (
-                      <option key={kind.id} value={kind.id}>
-                        {kind.name}
-                      </option>
-                    ))}
-                  </Select>
-                  <Input
-                    className="w-52"
-                    icon={<Search aria-hidden="true" />}
-                    placeholder="Tag, name or serial"
-                    aria-label="Search by tag, name, serial number, make or model"
-                    value={search}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setSearch(value);
-                    }}
-                  />
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    aria-pressed={includeArchived}
-                    onClick={() => setIncludeArchived((value) => !value)}
-                  >
-                    {includeArchived ? "Hide archived" : "Show archived"}
-                  </Button>
-                </>
+                    <Switch
+                      label="Show archived too"
+                      checked={includeArchived}
+                      onChange={(event) =>
+                        list.setFilter("archived", event.target.checked)
+                      }
+                    />
+                  </Field>
+                </FilterBar>
               }
             />
           )}

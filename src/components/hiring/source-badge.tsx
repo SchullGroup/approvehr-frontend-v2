@@ -1,3 +1,4 @@
+import { sourceNote } from "@/lib/demo";
 import { Badge } from "@/components/ui";
 
 /**
@@ -28,7 +29,7 @@ export function SourceBadge({
   return (
     <span className="inline-flex flex-wrap items-center gap-2">
       <Badge tone={live ? "success" : "warning"} size="sm" dot>
-        {live ? "Live from the API" : "Demo data, this browser only"}
+        {sourceNote(live)}
       </Badge>
       {note && <span className="text-meta text-muted">{note}</span>}
     </span>

@@ -140,7 +140,7 @@ export function PayComponentsPanel({
       />
 
       <CardBody className="flex flex-col gap-5">
-        {!lines.connected && !lines.loading && (
+        {DEMO_ENABLED && !lines.connected && !lines.loading && (
           <Callout tone="warning" title="Demo data, this browser only">
             The take-home figure runs the real payroll engine, which lives on the
             server — offline this panel shows the lines and totals only.
@@ -580,7 +580,7 @@ function AddLineDialog({
       }
     >
       <div className="flex flex-col gap-5">
-        {!library.connected && !library.loading && (
+        {DEMO_ENABLED && !library.connected && !library.loading && (
           <Callout tone="warning" title="Demo data, this browser only">
             Adding a line needs the API — pay set in a browser would never reach
             a payroll run.

@@ -10,20 +10,30 @@ import { auth, type ApiUser } from "@/lib/api/endpoints";
 /**
  * Who is signed in.
  *
- * ## Two modes, on purpose
+ * ## Two modes in a development build. One in production.
  *
  * **Connected** — the API is reachable and the user signed in with a password.
  * `signIn` calls `/auth/sign-in`, tokens are stored by the client, and
- * permissions come from the server.
+ * permissions come from the server. **This is the only mode a production build
+ * has.**
  *
  * **Offline demo** — the API is not running. The store falls back to picking a
  * seeded employee with no password, exactly as it did before the backend
- * existed. That is not laziness: this prototype is demonstrated on laptops and
+ * existed. That is not laziness: this product is demonstrated on laptops and
  * in meeting rooms without a database, and a product that cannot be shown
  * without infrastructure will not get shown.
  *
  * The mode is *detected*, never guessed, and the UI says which one it is. A demo
  * silently pretending to be connected would be the worst of both.
+ *
+ * ## This file is the root of the gate
+ *
+ * Every store in `lib/store/` decides what to serve from `isConnected`, so this
+ * is the one place the demo can be switched off for everything at once. Behind
+ * `DEMO_ENABLED` — a build-time constant, see `lib/demo.ts` — there is no
+ * offline restore, no persona list and no `signInOffline` in a production build,
+ * so `mode` can only ever be `"api"` and no store's demo branch is reachable.
+ * The badges those branches used to need are gone with them.
  *
  * ## The hydration rule still applies
  *
@@ -91,15 +101,20 @@ async function restore() {
     }
   }
 
-  const offline = safeGet(OFFLINE_KEY);
-  if (offline && employeeById(offline)) {
-    set({
-      status: "signed_in",
-      mode: "offline",
-      user: null,
-      employeeId: offline,
-    });
-    return;
+  /* A demo session is only restorable in a build that has a demo. In production
+     the whole block folds away, so a stored key from a development build on the
+     same origin cannot resurrect one. */
+  if (DEMO_ENABLED) {
+    const offline = safeGet(OFFLINE_KEY);
+    if (offline && employeeById(offline)) {
+      set({
+        status: "signed_in",
+        mode: "offline",
+        user: null,
+        employeeId: offline,
+      });
+      return;
+    }
   }
 
   set({ status: "signed_out", mode: "api", user: null, employeeId: null });
@@ -161,12 +176,18 @@ export type SignInOption = {
   roles: { id: string; name: string }[];
 };
 
-/** Accounts offered on the offline sign-in screen, the seed user first. */
+/**
+ * Accounts offered on the offline sign-in screen, the seed user first.
+ *
+ * Empty in a production build, where `EMPLOYEES` is empty and nothing calls
+ * this: the sign-in screen's demo branch does not exist there.
+ */
 export function signInOptions(): SignInOption[] {
+  if (!DEMO_ENABLED) return [];
   return [...EMPLOYEES]
     .sort((a, b) => {
-      if (a.id === CURRENT_USER.id) return -1;
-      if (b.id === CURRENT_USER.id) return 1;
+      if (a.id === CURRENT_USER?.id) return -1;
+      if (b.id === CURRENT_USER?.id) return 1;
       return a.firstName.localeCompare(b.firstName);
     })
     .map((employee) => ({ employee, roles: seedRolesFor(employee.id) }));
@@ -190,8 +211,15 @@ export function useSession() {
     [],
   );
 
-  /** The offline path. No password, and the UI says so. */
+  /**
+   * The offline path. No password, and the UI says so.
+   *
+   * A no-op in a production build. Not merely unused — unreachable: the branch
+   * folds away, so nothing that gets shipped can open a session with no
+   * authentication behind it, whatever calls this.
+   */
   const signInOffline = useCallback((employeeId: string): void => {
+    if (!DEMO_ENABLED) return;
     safeSet(OFFLINE_KEY, employeeId);
     set({
       status: "signed_in",
@@ -257,11 +285,25 @@ export function useSession() {
     employee,
     displayName,
     employeeId: state.employeeId,
-    /** Who to attribute an action to. Falls back to the seed user. */
-    actingId: state.employeeId ?? CURRENT_USER.id,
+    /**
+     * Who to attribute an action to.
+     *
+     * Falls back to the seed persona in a demo build. In production there is no
+     * seed, and the fallback is the empty string — which matches nobody, so a
+     * "mine" filter returns nothing rather than somebody else's rows. That is
+     * the honest answer: `employeeId` is only null for an account with no staff
+     * record behind it, and such an account genuinely owns nothing.
+     */
+    actingId: state.employeeId ?? (DEMO_ENABLED ? (CURRENT_USER?.id ?? "") : ""),
     permissions: state.user?.permissions ?? [],
+    /**
+     * A demo session holds everything, because there is no account behind it to
+     * hold a narrower set. In production the first clause folds to `false` and
+     * the answer is the server's permission list and nothing else.
+     */
     can: (permission: string) =>
-      state.mode === "offline" || (state.user?.permissions ?? []).includes(permission),
+      (DEMO_ENABLED && state.mode === "offline") ||
+      (state.user?.permissions ?? []).includes(permission),
     signIn,
     signInOffline,
     signOut,

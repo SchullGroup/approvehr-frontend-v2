@@ -1,5 +1,6 @@
 "use client";
 
+import { sourceNote } from "@/lib/demo";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Archive, RotateCcw } from "lucide-react";
@@ -145,7 +146,7 @@ export function EmployeeRecordPage({ id }: { id: string }) {
             }
           : {
               title: "No such employee",
-              detail: record.connected
+              detail: record.connected || !DEMO_ENABLED
                 ? "This record does not exist, or it belongs to another company."
                 : "This record does not exist, or it was created in another browser — demo data is not shared between devices.",
             };
@@ -234,9 +235,7 @@ export function EmployeeRecordPage({ id }: { id: string }) {
             </Badge>
             {/* Which source this record came from, stated rather than implied. */}
             <Badge tone={record.connected ? "success" : "warning"} size="sm" dot>
-              {record.connected
-                ? "Live from the API"
-                : "Demo data, this browser only"}
+              {sourceNote(record.connected)}
             </Badge>
             {archived && (
               <Badge tone="danger" size="sm" dot>

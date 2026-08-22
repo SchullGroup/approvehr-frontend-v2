@@ -6,11 +6,30 @@
  * `"use client"` file inside a server component throws at request time while
  * passing `tsc` and `lint` cleanly. `people/shifts/tabs.ts` exists for the same
  * reason and says so.
+ *
+ * ## The ids are jobs now, not nouns
+ *
+ * They were `kpis · appraisals · skills · appraisers` — four nouns, so a person
+ * arriving with something to do had to guess which noun their job was filed
+ * under. `now` answers "what do I do", and the two after it are the only nouns
+ * anybody needs to reach directly.
+ *
+ * A stale link (`?tab=appraisals`, `?tab=skills`) fails `isPerformanceTab` and
+ * lands on `now`, which is where both of those things now live. That is the
+ * whole migration and it needs no alias table.
  */
 export const PERFORMANCE_TABS = [
+  /** What is open, what is waiting on you, what is waiting on somebody else. */
+  "now",
   "kpis",
-  "appraisals",
-  "skills",
+  /**
+   * The appraisal periods.
+   *
+   * "Period" is the user's word; `ReviewCycle` is the model's. Only people who
+   * can run or read a period across the company see this — staff learn which
+   * period is open from `now`, which is the only fact about it that is theirs.
+   */
+  "periods",
   /**
    * Who appraises whom. Last, and usually absent.
    *

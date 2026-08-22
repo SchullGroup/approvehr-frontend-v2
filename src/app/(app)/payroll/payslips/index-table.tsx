@@ -11,8 +11,11 @@ import {
   CardHeader,
   EmptyState,
   Field,
+  FilterBar,
+  Pagination,
   SegmentedControl,
   Select,
+  SortableTH,
   Stat,
   TBody,
   TD,
@@ -21,6 +24,7 @@ import {
   THead,
   TR,
   TableWrap,
+  type AppliedFilter,
   type BadgeTone,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
@@ -35,9 +39,14 @@ import {
   formatKobo,
   headcountLabel,
   periodLabel,
-  type Payslip,
+  type PayslipDelivery,
 } from "@/lib/api/payroll";
-import { usePayrollRun, usePayrollRuns } from "@/lib/store/payroll";
+import {
+  deliveryOf,
+  usePayrollRuns,
+  useRunPayslips,
+} from "@/lib/store/payroll";
+import { useListQuery } from "@/lib/use-list-query";
 
 /**
  * Payslips for one run, and whether each one reached the person.
@@ -63,51 +72,100 @@ import { usePayrollRun, usePayrollRuns } from "@/lib/store/payroll";
  * route out today.
  */
 
-type DeliveryState = "not_sent" | "sent" | "opened";
-
-const DELIVERY: Record<
-  DeliveryState,
-  { tone: BadgeTone; label: string; rank: number }
-> = {
-  /* Rank puts what needs a human at the top. */
-  not_sent: { tone: "warning", label: "Not sent", rank: 0 },
-  sent: { tone: "info", label: "Sent", rank: 1 },
-  opened: { tone: "success", label: "Opened", rank: 2 },
+const DELIVERY: Record<PayslipDelivery, { tone: BadgeTone; label: string }> = {
+  not_sent: { tone: "warning", label: "Not sent" },
+  sent: { tone: "info", label: "Sent" },
+  opened: { tone: "success", label: "Opened" },
 };
-
-const deliveryOf = (slip: Payslip): DeliveryState =>
-  slip.viewedAt ? "opened" : slip.emailedAt ? "sent" : "not_sent";
 
 const stamp = (value: string | null) => (value ? value.slice(0, 10) : "—");
 
-type Filter = "all" | "not_sent" | "opened";
+/** What the delivery filter offers. `""` is "do not filter on it". */
+const DELIVERY_FILTERS = [
+  ["", "Everyone"],
+  ["not_sent", "Not sent"],
+  ["sent", "Sent, not opened"],
+  ["opened", "Opened"],
+] as const;
 
+type Filters = { delivery: string };
+
+/**
+ * ## What this screen stopped doing
+ *
+ * It read the whole run — `usePayrollRun`, which nests every payslip with every
+ * itemised line — then sorted that array, filtered it, and put three counts
+ * above it. Two consequences, both invisible on a company of ten:
+ *
+ * - **The response.** Two thousand payslips with their lines is megabytes, on a
+ *   screen that shows twenty-five rows.
+ * - **The counts.** `payslips.filter(…).length` is the array in hand. On one page
+ *   of a large run, "Not sent: 0" meant "none of these twenty-five", and the
+ *   figure sat in a `Stat` card labelled *Not sent* with nothing to say otherwise.
+ *
+ * `useRunPayslips` pages it, and the API returns the three delivery counts in the
+ * envelope so each one is a `count` query over the whole run. The run's own
+ * totals come from the **list** response, which already carries every headline
+ * figure this screen renders — so the nested read is not made at all.
+ */
 export function PayslipIndex() {
   const { runs, loading, error, connected } = usePayrollRuns();
   const [chosen, setChosen] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Filter>("all");
+
+  const list = useListQuery<Filters>({ filters: { delivery: "" }, pageSize: 25 });
 
   /* Derived rather than stored: the newest run until somebody picks another,
      which needs no effect and cannot go stale when the list reloads. */
   const runId = chosen ?? runs[0]?.id ?? null;
-  const detail = usePayrollRun(runId);
-  const run = detail.run;
+  /* The run's headline figures come from the list, not from a second request.
+     `PayrollRun` already carries the status, the totals, the pay date and the
+     excluded count — everything the panel on the right renders. */
+  const run = runs.find((option) => option.id === runId) ?? null;
 
-  const payslips = [...(run?.payslips ?? [])].sort(
-    (a, b) =>
-      DELIVERY[deliveryOf(a)].rank - DELIVERY[deliveryOf(b)].rank ||
-      a.name.localeCompare(b.name),
-  );
+  const page = useRunPayslips(runId, {
+    page: list.page,
+    pageSize: list.pageSize,
+    ...(list.params.q ? { q: list.params.q } : {}),
+    ...(list.filters.delivery
+      ? { delivery: list.filters.delivery as PayslipDelivery }
+      : {}),
+    ...(list.sort
+      ? { sort: list.sort as NonNullable<Parameters<typeof useRunPayslips>[1]>["sort"] }
+      : {}),
+    order: list.order,
+  });
 
-  const counts = {
-    total: payslips.length,
-    notSent: payslips.filter((s) => deliveryOf(s) === "not_sent").length,
-    opened: payslips.filter((s) => deliveryOf(s) === "opened").length,
-  };
+  const counts = page.counts;
+  /* Every payslip on the run under the current search — the denominator the
+     "Opened" card needs. Absent until the server has answered, because a
+     confident "0 of 0" beside a request in flight is a claim. */
+  const inRun =
+    counts === undefined
+      ? undefined
+      : counts.notSent + counts.sent + counts.opened;
 
-  const visible = payslips.filter((slip) =>
-    filter === "all" ? true : deliveryOf(slip) === filter,
-  );
+  const applied: AppliedFilter[] = [
+    ...(list.filters.delivery
+      ? [
+          {
+            label: "Delivery",
+            value:
+              DELIVERY_FILTERS.find(([value]) => value === list.filters.delivery)?.[1] ??
+              list.filters.delivery,
+            onClear: () => list.setFilter("delivery", ""),
+          },
+        ]
+      : []),
+    ...(list.params.q
+      ? [
+          {
+            label: "Search",
+            value: list.params.q,
+            onClear: () => list.setSearch(""),
+          },
+        ]
+      : []),
+  ];
 
   if (!loading && runs.length === 0) {
     return (
@@ -142,12 +200,12 @@ export function PayslipIndex() {
     <div className="flex flex-col gap-6">
       <SourceBadge
         connected={connected}
-        loading={loading || detail.loading}
-        error={error ?? detail.error}
+        loading={loading || page.loading}
+        error={error ?? page.error}
       />
 
-      {error && (
-        <LoadFailure subject="payslips" error={error} />
+      {(error ?? page.error) && (
+        <LoadFailure subject="payslips" error={(error ?? page.error)!} />
       )}
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)]">
@@ -155,7 +213,12 @@ export function PayslipIndex() {
           <Field label="Which month" className="max-w-sm">
             <Select
               value={runId ?? ""}
-              onChange={(e) => setChosen(e.target.value)}
+              onChange={(event) => {
+                setChosen(event.target.value);
+                /* A different month is a different list. Page 4 of August is
+                   not page 4 of September. */
+                list.setPage(1);
+              }}
             >
               {runs.map((option) => (
                 <option key={option.id} value={option.id}>
@@ -176,21 +239,29 @@ export function PayslipIndex() {
                * stops. Nine rows for a company of ten is not an error to find
                * later — it is the answer to a different question.
                */
-              value={run ? headcountLabel(run) : String(counts.total)}
-              hint={
-                run && run.excludedCount > 0
-                  ? `${run.excludedCount} excluded from this payroll`
-                  : undefined
-              }
+              value={run ? headcountLabel(run) : "—"}
+              {...(run && run.excludedCount > 0
+                ? { hint: `${run.excludedCount} excluded from this payroll` }
+                : {})}
             />
             <Stat
               label="Not sent"
-              value={String(counts.notSent)}
-              hint={counts.notSent === 0 ? "All sent" : "Nobody has these yet"}
+              /* The server's count across the whole run, not this page's. */
+              value={counts === undefined ? "—" : String(counts.notSent)}
+              {...(counts === undefined
+                ? {}
+                : {
+                    hint:
+                      counts.notSent === 0 ? "All sent" : "Nobody has these yet",
+                  })}
             />
             <Stat
               label="Opened"
-              value={`${counts.opened} of ${counts.total}`}
+              value={
+                counts === undefined || inRun === undefined
+                  ? "—"
+                  : `${counts.opened} of ${inRun}`
+              }
               icon={<Mail aria-hidden="true" />}
             />
           </div>
@@ -227,80 +298,150 @@ export function PayslipIndex() {
               ? `${periodLabel(run.period)} · pays ${run.payDate}`
               : "Pick a month above."
           }
-          action={
-            <SegmentedControl
-              label="Filter"
-              value={filter}
-              onChange={setFilter}
-              options={[
-                { value: "all", label: "All" },
-                { value: "not_sent", label: "Not sent" },
-                { value: "opened", label: "Opened" },
-              ]}
-            />
-          }
         />
 
-        {visible.length === 0 ? (
+        <CardBody>
+          <FilterBar
+            search={list.search}
+            onSearchChange={list.setSearch}
+            searchPlaceholder="Search a name or staff number"
+            searchLabel="Search this month's payslips"
+            applied={applied}
+            onClearAll={list.clearFilters}
+            count={page.total}
+            noun={["payslip", "payslips"]}
+            sort={
+              <SegmentedControl
+                label="Delivery"
+                value={list.filters.delivery}
+                onChange={(value) => list.setFilter("delivery", value)}
+                options={DELIVERY_FILTERS.map(([value, text]) => ({
+                  value,
+                  label:
+                    counts === undefined || value === ""
+                      ? text
+                      : `${text} (${counts[deliveryKey(value)]})`,
+                }))}
+              />
+            }
+          />
+        </CardBody>
+
+        {page.payslips.length === 0 && !page.loading ? (
           <EmptyState
             compact
             icon={<Mail aria-hidden="true" />}
-            title="Nothing in this view"
-            description="Change the filter to see the other payslips."
+            title={applied.length > 0 ? "Nothing matches" : "Nothing here"}
+            description={
+              applied.length > 0
+                ? "Clear a filter to see the other payslips."
+                : "This month has no payslips on it."
+            }
           />
         ) : (
-          <TableWrap className="rounded-none border-0">
-            <THead>
-              <TH>Employee</TH>
-              <TH align="right">Gross</TH>
-              <TH align="right">Net pay</TH>
-              <TH>Delivery</TH>
-              <TH>Sent</TH>
-              <TH>Opened</TH>
-              <TH align="right">Actions</TH>
-            </THead>
-            <TBody>
-              {visible.map((slip) => {
-                const state = DELIVERY[deliveryOf(slip)];
-                const href = `/payroll/payslips/${slip.id}${
-                  run ? `?run=${run.id}` : ""
-                }`;
-                return (
-                  <TR key={slip.id}>
-                    <TDPrimary
-                      title={
-                        <Link
-                          href={href}
-                          className="hover:text-accent-text hover:underline underline-offset-4"
-                        >
-                          {slip.name}
-                        </Link>
-                      }
-                      subtitle={slip.employeeNo}
-                    />
-                    <TD align="right" className="tabular text-body">
-                      {formatKobo(slip.grossKobo)}
-                    </TD>
-                    <TD align="right" className="tabular font-medium text-ink">
-                      {formatKobo(slip.netKobo)}
-                    </TD>
-                    <TD>
-                      <Badge tone={state.tone} size="sm" dot>
-                        {state.label}
-                      </Badge>
-                    </TD>
-                    <TD className="tabular text-muted">{stamp(slip.emailedAt)}</TD>
-                    <TD className="tabular text-muted">{stamp(slip.viewedAt)}</TD>
-                    <TD align="right">
-                      <ButtonLink href={href} size="sm" variant="secondary">
-                        Open
-                      </ButtonLink>
-                    </TD>
-                  </TR>
-                );
-              })}
-            </TBody>
-          </TableWrap>
+          <>
+            <TableWrap className="rounded-none border-x-0 border-b-0">
+              <THead>
+                <SortableTH
+                  column="name"
+                  active={list.sort}
+                  order={list.order}
+                  onSort={list.toggleSort}
+                >
+                  Employee
+                </SortableTH>
+                <SortableTH
+                  column="gross"
+                  active={list.sort}
+                  order={list.order}
+                  onSort={list.toggleSort}
+                  align="right"
+                  startDescending
+                >
+                  Gross
+                </SortableTH>
+                <SortableTH
+                  column="net"
+                  active={list.sort}
+                  order={list.order}
+                  onSort={list.toggleSort}
+                  align="right"
+                  startDescending
+                >
+                  Net pay
+                </SortableTH>
+                <TH>Delivery</TH>
+                <SortableTH
+                  column="emailedAt"
+                  active={list.sort}
+                  order={list.order}
+                  onSort={list.toggleSort}
+                >
+                  Sent
+                </SortableTH>
+                <SortableTH
+                  column="viewedAt"
+                  active={list.sort}
+                  order={list.order}
+                  onSort={list.toggleSort}
+                >
+                  Opened
+                </SortableTH>
+                <TH align="right">Actions</TH>
+              </THead>
+              <TBody>
+                {page.payslips.map((slip) => {
+                  const state = DELIVERY[deliveryOf(slip)];
+                  const href = `/payroll/payslips/${slip.id}${
+                    run ? `?run=${run.id}` : ""
+                  }`;
+                  return (
+                    <TR key={slip.id}>
+                      <TDPrimary
+                        title={
+                          <Link
+                            href={href}
+                            className="hover:text-accent-text hover:underline underline-offset-4"
+                          >
+                            {slip.name}
+                          </Link>
+                        }
+                        subtitle={slip.employeeNo}
+                      />
+                      <TD align="right" className="tabular text-body">
+                        {formatKobo(slip.grossKobo)}
+                      </TD>
+                      <TD align="right" className="tabular font-medium text-ink">
+                        {formatKobo(slip.netKobo)}
+                      </TD>
+                      <TD>
+                        <Badge tone={state.tone} size="sm" dot>
+                          {state.label}
+                        </Badge>
+                      </TD>
+                      <TD className="tabular text-muted">{stamp(slip.emailedAt)}</TD>
+                      <TD className="tabular text-muted">{stamp(slip.viewedAt)}</TD>
+                      <TD align="right">
+                        <ButtonLink href={href} size="sm" variant="secondary">
+                          Open
+                        </ButtonLink>
+                      </TD>
+                    </TR>
+                  );
+                })}
+              </TBody>
+            </TableWrap>
+
+            <Pagination
+              page={list.page}
+              pageSize={list.pageSize}
+              total={page.total}
+              onPageChange={list.setPage}
+              onPageSizeChange={list.setPageSize}
+              noun={["payslip", "payslips"]}
+              loading={page.loading}
+            />
+          </>
         )}
       </Card>
 
@@ -312,3 +453,7 @@ export function PayslipIndex() {
     </div>
   );
 }
+
+/** The filter value, as the key its count lives under. */
+const deliveryKey = (value: string): "notSent" | "sent" | "opened" =>
+  value === "not_sent" ? "notSent" : value === "sent" ? "sent" : "opened";

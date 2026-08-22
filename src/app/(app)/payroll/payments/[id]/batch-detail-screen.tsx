@@ -1,5 +1,6 @@
 "use client";
 
+import { sourceNote } from "@/lib/demo";
 import { useState } from "react";
 import Link from "next/link";
 import { Banknote, Landmark, TriangleAlert } from "lucide-react";
@@ -115,7 +116,7 @@ export function BatchDetailScreen({ id }: { id: string }) {
               description={
                 error
                   ? error.message
-                  : live
+                  : live || !DEMO_ENABLED
                     ? "It may have been cancelled, or it belongs to another company."
                     : "Batches created in another browser are not in this one — demo data is per-browser."
               }
@@ -202,7 +203,7 @@ export function BatchDetailScreen({ id }: { id: string }) {
               {status.label}
             </Badge>
             <Badge tone={live ? "success" : "warning"} size="sm" dot>
-              {live ? "Live from the API" : "Demo data, this browser only"}
+              {sourceNote(live)}
             </Badge>
           </span>
         }

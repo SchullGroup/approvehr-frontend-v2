@@ -19,8 +19,13 @@ import type {
   ApiWizardOption,
   ApiWizardQuestion,
   FeatureKey,
+  PayrollDeductions,
 } from "@/lib/api/setup";
-import { FEATURE_KEYS, MODULE_FEATURE_KEYS } from "@/lib/api/setup";
+import {
+  FEATURE_KEYS,
+  MODULE_FEATURE_KEYS,
+  PAYROLL_DEDUCTION_KEYS,
+} from "@/lib/api/setup";
 import {
   FEATURE_COPY,
   useFeatures,
@@ -31,10 +36,18 @@ import {
  * Setup.
  *
  * The second thing a customer sees, and the screen that decides how big the
- * rest of the product looks. Five questions, one per screen, each answerable
+ * rest of the product looks. Seven questions, one per screen, each answerable
  * from memory by somebody who has never used HR software: how many people you
  * pay, whether anyone works nights, whether you lend money, whether staff claim
- * expenses, whether you run appraisals.
+ * expenses, whether you run appraisals, whether you deduct PAYE, and whether you
+ * run a pension scheme.
+ *
+ * The last two are different in kind and worth knowing about. Five decide which
+ * **modules** exist and cost nothing to get wrong, because Settings turns them
+ * back on. Two decide what the **payroll engine computes**, and getting those
+ * wrong is a wrong payslip — a company with no pension scheme, asked nothing,
+ * has 8% taken off every salary it runs. So their "No" carries the API's own
+ * sentence about what it means, on screen, before the click.
  *
  * ## Three rules it follows
  *
@@ -91,7 +104,8 @@ export function SetupWizard() {
 
   const total = wizard.questions.length;
   /* `step` counts answers and is 1-based, so it is already the index of the
-     first unanswered question. Clamped, because a completed wizard reports 5. */
+     first unanswered question. Clamped, because a completed wizard reports the
+     total. */
   const resumeAt = total === 0 ? 0 : Math.min(wizard.step, total - 1);
   const index = movedTo ?? resumeAt;
   const done = phase === "done" || (!wizard.loading && wizard.setupCompletedAt !== null);
@@ -270,14 +284,19 @@ export function SetupWizard() {
       <div
         className={cn(
           "mt-9 grid gap-3",
-          question.options.length > 1 && "sm:grid-cols-2",
+          /* An option carrying a consequence is a paragraph, not a chip, and two
+             paragraphs side by side in a 36rem column read as a wall. One
+             column whenever any option has one. */
+          question.options.length > 1 &&
+            !question.options.some((option) => option.consequence) &&
+            "sm:grid-cols-2",
         )}
       >
         {question.options.map((option) => (
           <OptionButton
             key={option.value}
             option={option}
-            current={isCurrent(option, features)}
+            current={isCurrent(option, features, wizard.deductions)}
             busy={busy === option.value}
             disabled={busy !== null || finishing}
             onSelect={() => void choose(question, option)}
@@ -332,24 +351,52 @@ function Frame({ children }: { children: React.ReactNode }) {
 /**
  * Whether this option describes the state the company is in right now.
  *
- * Computed from the option's own served `sets` rather than from a table of
- * question ids, so it keeps working when the API adds a sixth question. Marking
- * it is what makes "Skip this one" honest: the consequence of skipping is on
- * screen, next to the thing that would have changed it.
+ * Computed from the option's own served `sets` and `payroll` rather than from a
+ * table of question ids, so it keeps working when the API adds a question.
+ * Marking it is what makes "Skip this one" honest: the consequence of skipping
+ * is on screen, next to the thing that would have changed it.
+ *
+ * `deductions` is **null until the company has payroll settings**, and a null
+ * answers "unknown" rather than "everything on" — an option that writes a
+ * payroll switch is then marked on nothing. Defaulting it to the schema's
+ * defaults would put "Now" against an answer nobody gave.
  */
 function isCurrent(
   option: ApiWizardOption,
   features: ReturnType<typeof useFeatures>,
+  deductions: PayrollDeductions | null,
 ): boolean {
   const flagKeys = FEATURE_KEYS.filter((key) => option.sets[key] !== undefined);
+  const payrollKeys = PAYROLL_DEDUCTION_KEYS.filter(
+    (key) => option.payroll?.[key] !== undefined,
+  );
   const bandMatches =
     option.sets.headcountBand === undefined ||
     option.sets.headcountBand === features.headcountBand;
   if (!bandMatches) return false;
-  if (flagKeys.length === 0) return bandMatches;
+
+  if (payrollKeys.length > 0) {
+    if (deductions === null) return false;
+    if (!payrollKeys.every((key) => option.payroll?.[key] === deductions[key])) {
+      return false;
+    }
+  }
+
+  if (flagKeys.length === 0) return payrollKeys.length > 0 ? true : bandMatches;
   return flagKeys.every((key) => option.sets[key] === features[key]);
 }
 
+/**
+ * One answer.
+ *
+ * `option.consequence` is the API's own sentence about what switching a
+ * statutory deduction off means, rendered **verbatim and before the click**.
+ * PAYE deduction is an employer obligation under the Personal Income Tax Act and
+ * a pension scheme is compulsory at fifteen employees, so "No" here is a real
+ * choice with a real consequence — a configurable product is fine, one that
+ * quietly helps somebody be non-compliant is not. It is not paraphrased locally:
+ * two wordings for one legal fact is how they stop agreeing.
+ */
 function OptionButton({
   option,
   current,
@@ -370,29 +417,37 @@ function OptionButton({
       disabled={disabled}
       aria-busy={busy || undefined}
       className={cn(
-        "flex min-h-16 items-center justify-between gap-3 rounded-lg border px-5 py-4 text-left",
+        "flex min-h-16 flex-col gap-1.5 rounded-lg border px-5 py-4 text-left",
         "transition-[border-color,background-color,box-shadow] duration-150",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text",
         "disabled:cursor-not-allowed disabled:opacity-60",
         current
           ? "border-accent-line bg-accent-soft"
           : "border-line bg-surface hover:border-control-line hover:bg-canvas",
+        !option.consequence && "justify-center",
       )}
     >
-      <span
-        className={cn(
-          "text-body-sm font-medium",
-          current ? "text-accent-text" : "text-ink",
+      <span className="flex w-full items-center justify-between gap-3">
+        <span
+          className={cn(
+            "text-body-sm font-medium",
+            current ? "text-accent-text" : "text-ink",
+          )}
+        >
+          {option.label}
+        </span>
+        {current && (
+          <span className="shrink-0 text-meta font-medium text-accent-text">
+            Now
+          </span>
         )}
-      >
-        {option.label}
+        {busy && <span className="shrink-0 text-meta text-muted">Saving…</span>}
       </span>
-      {current && (
-        <span className="shrink-0 text-meta font-medium text-accent-text">
-          Now
+      {option.consequence && (
+        <span className="text-body-sm leading-relaxed text-body">
+          {option.consequence}
         </span>
       )}
-      {busy && <span className="shrink-0 text-meta text-muted">Saving…</span>}
     </button>
   );
 }

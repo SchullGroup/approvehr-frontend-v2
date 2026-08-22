@@ -94,7 +94,7 @@ const at = (minutesAgo: number): string =>
 const ahead = (minutes: number): string =>
   new Date(DEMO_NOW.getTime() + minutes * 60_000).toISOString();
 
-const DEMO_WEBHOOKS: ApiWebhook[] = [
+const DEMO_WEBHOOKS: ApiWebhook[] = DEMO_ENABLED ? [
   {
     id: "demo-live",
     url: "https://hooks.acme-foods.example/approvehr",
@@ -142,7 +142,7 @@ const DEMO_WEBHOOKS: ApiWebhook[] = [
     createdAt: at(60 * 24 * 51),
     updatedAt: at(60 * 20),
   },
-];
+] : [];
 
 const DEMO_DELIVERY_STATUS: DeliveryStatus = { mode: "inline", retriesRunning: false };
 

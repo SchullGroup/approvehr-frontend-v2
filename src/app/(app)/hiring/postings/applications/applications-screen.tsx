@@ -198,7 +198,7 @@ function Queue({ initialPostingId }: { initialPostingId: string }) {
       />
 
       <PageBody className="flex flex-col gap-6">
-        {!applications.editable && (
+        {DEMO_ENABLED && !applications.editable && (
           <Callout tone="warning" title="Read-only in demo mode">
             Screening somebody in creates a candidate in the hiring pipeline, so
             it needs the API. These applications come from the seed data.

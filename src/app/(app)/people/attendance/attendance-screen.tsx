@@ -244,7 +244,7 @@ export function AttendanceScreen() {
                       help={
                         !selected?.geofenceEnforced
                           ? undefined
-                          : session.isConnected
+                          : session.isConnected || !DEMO_ENABLED
                             ? `${selected.name} accepts clock-ins on site only, so your browser will ask for your location.`
                             : `${selected.name} has a geofence, and demo mode does not apply it — nothing here asks where you are.`
                       }

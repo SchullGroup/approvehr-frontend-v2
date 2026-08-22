@@ -1,5 +1,6 @@
 "use client";
 
+import { sourceNote } from "@/lib/demo";
 import { useState } from "react";
 import Link from "next/link";
 import { Check, Plus } from "lucide-react";
@@ -141,7 +142,7 @@ export function OnboardingScreen() {
       <PageBody className="flex flex-col gap-6">
         <div className="flex flex-wrap items-center gap-2">
           <Badge tone={connected ? "success" : "warning"} size="sm" dot>
-            {connected ? "Live from the API" : "Demo data, this browser only"}
+            {sourceNote(connected)}
           </Badge>
           <Badge tone="neutral" size="sm">
             Ticks you make here are saved in this browser

@@ -48,86 +48,24 @@ const KIND_LABEL: Record<ReviewQuestionKind, string> = {
   CHOICE: "Pick one",
 };
 
-/** New cycle. Two fields, because a cycle is a name and a date. */
-export function NewCycleDialog({
-  onClose,
-  onCreate,
-}: {
-  onClose: () => void;
-  onCreate: (name: string, dueDate?: string) => Promise<void>;
-}) {
-  const [name, setName] = useState("");
-  const [dueDate, setDueDate] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  const submit = async () => {
-    if (name.trim().length < 3) {
-      setError("Name it — people will see this in their inbox.");
-      return;
-    }
-    setError(null);
-    setSaving(true);
-    try {
-      await onCreate(name.trim(), dueDate || undefined);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      title="New review cycle"
-      size="sm"
-      footer={
-        <>
-          <Button onClick={onClose}>Cancel</Button>
-          <Button variant="accent" loading={saving} onClick={() => void submit()}>
-            Create it
-          </Button>
-        </>
-      }
-    >
-      <div className="flex flex-col gap-4">
-        <Field label="What to call it" required {...(error ? { error } : {})}>
-          <Input
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="H2 2026 review"
-          />
-        </Field>
-        <Field label="Answers due by" help="Optional.">
-          <Input
-            type="date"
-            value={dueDate}
-            onChange={(event) => setDueDate(event.target.value)}
-          />
-        </Field>
-      </div>
-    </Modal>
-  );
-}
-
 /**
- * The questions on one cycle.
+ * The questions on one appraisal period.
  *
  * Only the three question types that need no extra setup are offered here.
- * A multiple-choice question needs its choices, and a cycle that cannot be
+ * A multiple-choice question needs its choices, and a period that cannot be
  * started because a half-built question is sitting on it is worse than a
  * shorter form — so `CHOICE` is read (any that exist are listed) but not
  * written. It is named in `KIND_LABEL` for that reason.
  */
 export function QuestionsDialog({
   cycleId,
-  cycleName,
+  periodName,
   onClose,
   onAdd,
   onRemove,
 }: {
   cycleId: string;
-  cycleName: string;
+  periodName: string;
   onClose: () => void;
   onAdd: (body: CreateQuestionBody) => Promise<void>;
   onRemove: (id: string) => Promise<void>;
@@ -181,7 +119,7 @@ export function QuestionsDialog({
       open
       onClose={onClose}
       title="Questions"
-      description={cycleName}
+      description={periodName}
       size="lg"
       footer={<Button onClick={onClose}>Done</Button>}
     >

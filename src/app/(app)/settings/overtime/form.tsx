@@ -1,5 +1,6 @@
 "use client";
 
+import { sourceNote } from "@/lib/demo";
 import { useState } from "react";
 import {
   Badge,
@@ -157,7 +158,7 @@ export function OvertimePolicyForm() {
         breadcrumb={[{ href: "/settings", label: "Settings" }]}
         meta={
           <Badge tone={source === "api" ? "success" : "warning"} size="sm" dot>
-            {source === "api" ? "Live from the API" : "Demo data, this browser only"}
+            {sourceNote(source === "api")}
           </Badge>
         }
         action={

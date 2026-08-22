@@ -340,7 +340,7 @@ function UserMenu() {
      more useful than a blank line. */
   const subtitle =
     employee?.jobTitle ??
-    (mode === "offline" ? "Demo session" : "Signed in");
+    (DEMO_ENABLED && mode === "offline" ? "Demo session" : "Signed in");
   const email = user?.email ?? employee?.email ?? null;
   const recordId = user?.employeeId ?? employee?.id ?? null;
 
@@ -388,9 +388,11 @@ function UserMenu() {
                   above acceptable: the answer is always one tap away. */}
               <SessionRoleBadge className="mt-1.5" />
               {/* Which mode you are in, stated rather than implied. A demo that
-                  looks connected is the one thing worse than a demo. */}
+                  looks connected is the one thing worse than a demo — which is
+                  why the line only has a second half in a build that has a
+                  demo. In production `mode` is always "api". */}
               <p className="mt-1.5 text-meta text-faint">
-                {mode === "api"
+                {!DEMO_ENABLED || mode === "api"
                   ? "Connected to the API"
                   : "Demo session — data is local to this browser"}
               </p>

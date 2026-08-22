@@ -127,7 +127,7 @@ export function RolesScreen() {
         description="What each role can do, and who holds it."
         breadcrumb={[{ href: "/settings", label: "Settings" }]}
         meta={
-          roles.connected ? (
+          roles.connected || !DEMO_ENABLED ? (
             <Badge tone="success" size="sm" dot>
               Live from the API
             </Badge>
@@ -493,7 +493,7 @@ function YourAccess({
         {/* Suppressed while previewing: the list below is then one role's, not
             everything, and the sentence would contradict what is on screen. The
             banner at the top of the page carries the way out. */}
-        {!access.enforced && !access.previewingRole && (
+        {DEMO_ENABLED && !access.enforced && !access.previewingRole && (
           <p className="text-body-sm leading-relaxed text-body">
             A demo session holds everything, so this list is every permission
             there is. Use <strong>See it as somebody else</strong> to see a real

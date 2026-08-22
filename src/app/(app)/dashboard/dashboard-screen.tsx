@@ -22,6 +22,7 @@ import { PageBody } from "@/components/portal/shell";
 import { DashboardHeader } from "./header";
 import { AnnouncementsPanel } from "./announcements-panel";
 import { useDashboard } from "@/lib/store/insights";
+import { StartPeriodButton } from "@/app/(app)/performance";
 import { naira, runStatusLabel } from "@/lib/api/insights";
 
 /**
@@ -53,6 +54,16 @@ import { naira, runStatusLabel } from "@/lib/api/insights";
  * null on an empty board. The incumbent renders "Your Announcements Will Appear
  * Here" in that case, which spends the best space on the screen people open
  * first to say that a feature exists.
+ *
+ * ## Starting an appraisal period is reachable from here
+ *
+ * One of the doors onto `StartPeriodButton` — the product owner's rule is that
+ * the same action should be reachable from every screen somebody might be on
+ * when the thought occurs, and the dashboard is the first of them. It costs no
+ * request: the button reads the features and permissions stores the shell has
+ * already loaded, and it renders **nothing** when the company has appraisals
+ * switched off or the reader cannot run one. A dead control on the screen people
+ * open first would be worse than no control.
  *
  * ## What is deliberately not here
  *
@@ -120,7 +131,7 @@ export function DashboardScreen() {
 
   return (
     <>
-      <DashboardHeader />
+      <DashboardHeader action={<StartPeriodButton withIcon />} />
 
       <PageBody className="flex flex-col gap-6">
         {/* ---- The row that answers "is anything waiting for me" ---------- */}

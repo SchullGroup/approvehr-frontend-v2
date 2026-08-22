@@ -68,7 +68,7 @@ export function runPeopleFrom(employees: Employee[]): PayrollEmployee[] {
 export const RUN_PEOPLE: PayrollEmployee[] = runPeopleFrom(EMPLOYEES);
 
 /** Last month's net pay per person, used to catch large swings. */
-export const PREVIOUS_NET = new Map<string, number>([
+export const PREVIOUS_NET = new Map<string, number>(DEMO_ENABLED ? [
   ["p-01", 1_383_003],
   ["p-02", 1_552_120],
   ["p-03", 1_243_880],
@@ -77,7 +77,7 @@ export const PREVIOUS_NET = new Map<string, number>([
   ["p-06", 706_115],
   ["p-07", 566_940],
   ["p-10", 613_780],
-]);
+] : []);
 
 /* ------------------------------------------------------------ Distribution */
 
@@ -107,7 +107,7 @@ export type Distribution = {
   failureReason?: string;
 };
 
-export const DISTRIBUTION: Distribution[] = [
+export const DISTRIBUTION: Distribution[] = DEMO_ENABLED ? [
   { employeeId: "p-01", email: "adaeze.okonkwo@schulltech.com", state: "viewed", sentAt: "28 Aug 09:02", viewedAt: "28 Aug 09:14" },
   { employeeId: "p-02", email: "tunde.bakare@schulltech.com", state: "viewed", sentAt: "28 Aug 09:02", viewedAt: "28 Aug 10:41" },
   { employeeId: "p-03", email: "chidi.nwosu@schulltech.com", state: "delivered", sentAt: "28 Aug 09:02" },
@@ -124,14 +124,15 @@ export const DISTRIBUTION: Distribution[] = [
   { employeeId: "p-08", email: null, state: "no_email" },
   { employeeId: "p-09", email: "emeka.anyanwu@schulltech.com", state: "ready" },
   { employeeId: "p-10", email: "halima.sani@schulltech.com", state: "ready" },
-];
+] : [];
 
 export const distributionFor = (id: string) =>
   DISTRIBUTION.find((d) => d.employeeId === id);
 
 /** Loan repayments already scheduled against this period. */
-export const SCHEDULED_DEDUCTIONS = new Map<string, { label: string; amount: number }>([
+export const SCHEDULED_DEDUCTIONS = new Map<string, { label: string; amount: number }>(
+  DEMO_ENABLED ? [
   ["p-01", { label: "Staff loan", amount: 75_000 }],
   ["p-04", { label: "Salary advance", amount: 120_000 }],
   ["p-07", { label: "Equipment loan", amount: 35_000 }],
-]);
+] : []);

@@ -1,5 +1,6 @@
 "use client";
 
+import { sourceNote } from "@/lib/demo";
 import { useState } from "react";
 import Link from "next/link";
 import {
@@ -183,7 +184,7 @@ export function ApprovalInbox() {
           implied. Connected, approving here writes to the database. */}
       <div className="flex flex-wrap items-center gap-2">
         <Badge tone={queue.connected ? "success" : "warning"} size="sm" dot>
-          {queue.connected ? "Live from the API" : "Demo data, this browser only"}
+          {sourceNote(queue.connected)}
         </Badge>
         {queue.loading && (
           <span className="text-meta text-muted">Loading…</span>

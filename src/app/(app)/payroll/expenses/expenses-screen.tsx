@@ -1,17 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Plus, Search } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Plus } from "lucide-react";
 import {
   Badge,
   Button,
   Card,
   CardBody,
+  Field,
+  FilterBar,
   Input,
   SegmentedControl,
+  Select,
   Tabs,
   formatMoney,
   useToast,
+  type AppliedFilter,
   type TabItem,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
@@ -35,6 +39,7 @@ import {
 } from "@/lib/store/reimbursements";
 import { ApprovalQueue } from "./approval-queue";
 import { ClaimForm } from "./claim-form";
+import { useListQuery } from "@/lib/use-list-query";
 import { ClaimsRegister } from "./claims-register";
 import { ExpenseTypes } from "./expense-types";
 
@@ -63,6 +68,14 @@ import { ExpenseTypes } from "./expense-types";
 type Tab = "claims" | "queue" | "types";
 type StatusFilter = "ALL" | ClaimStatus;
 
+/** The chip's wording, in the same four words the badges use. */
+const STATE_LABEL: Record<ClaimStatus, string> = {
+  SUBMITTED: "Waiting",
+  APPROVED: "Owed",
+  PAID: "Paid",
+  DECLINED: "Declined",
+};
+
 const money = (amount: number) => formatMoney(amount, "NGN", { decimals: true });
 
 export function ExpensesScreen() {
@@ -80,24 +93,39 @@ export function ExpensesScreen() {
      register and then jump — and the queue is one labelled button away, which is
      the better answer anyway. */
   const [tab, setTab] = useState<Tab>("claims");
-  const [status, setStatus] = useState<StatusFilter>("ALL");
-  const [search, setSearch] = useState("");
-  const [q, setQ] = useState("");
   const [includeArchived, setIncludeArchived] = useState(false);
   const [claiming, setClaiming] = useState(false);
   const [editingClaim, setEditingClaim] = useState<Claim | null>(null);
 
-  /* Typing is not a query. Without this every keystroke is a request, and the
-     answers arrive out of order. */
-  useEffect(() => {
-    const timer = setTimeout(() => setQ(search.trim()), 300);
-    return () => clearTimeout(timer);
-  }, [search]);
+  /**
+   * The register's query.
+   *
+   * Four parameters chosen for what a claims register is *for*, not the same
+   * three every table gets: **state**, **what kind of expense**, and a **date
+   * range on when the money went out**. That last pair is the one a claims
+   * register cannot do without — the question is always "what did we spend in
+   * March", and `incurredOn` is the date that answers it. Not `submittedAt`: a
+   * receipt filed in April for a March taxi belongs to March.
+   */
+  const list = useListQuery<{ status: StatusFilter; typeId: string; from: string; to: string }>({
+    filters: { status: "ALL", typeId: "", from: "", to: "" },
+    sort: "incurredOn",
+    order: "desc",
+    pageSize: 25,
+  });
+  const { status, typeId, from, to } = list.filters;
 
   const types = useExpenseTypes(includeArchived);
   const register = useExpenseClaims("all", {
+    page: list.page,
+    pageSize: list.pageSize,
     ...(status === "ALL" ? {} : { status }),
-    ...(q ? { q } : {}),
+    ...(typeId ? { typeId } : {}),
+    ...(from ? { from } : {}),
+    ...(to ? { to } : {}),
+    ...(list.params.q ? { q: list.params.q } : {}),
+    ...(list.sort ? { sort: list.sort as "incurredOn" | "amount" | "createdAt" | "status" } : {}),
+    order: list.order,
   });
   const queue = useExpenseClaims("pending", {}, canApprove);
   const summary = useExpenseSummary(canApprove);
@@ -126,6 +154,55 @@ export function ExpensesScreen() {
       };
 
   const awaiting = canApprove ? summary.awaitingDecision : own.awaitingDecision;
+
+  /**
+   * What is narrowing the register, as removable chips.
+   *
+   * Rendered outside the reveal by `FilterBar`. A claims register showing
+   * ₦40,000 because a date range from last quarter is still applied — with the
+   * count above it agreeing — is precisely the failure Rule 5 names.
+   */
+  const appliedFilters: AppliedFilter[] = [
+    ...(status !== "ALL"
+      ? [
+          {
+            label: "State",
+            value: STATE_LABEL[status],
+            onClear: () => list.setFilter("status", "ALL" as StatusFilter),
+          },
+        ]
+      : []),
+    ...(typeId
+      ? [
+          {
+            label: "Kind",
+            value: types.types.find((t) => t.id === typeId)?.name ?? "Selected",
+            onClear: () => list.setFilter("typeId", ""),
+          },
+        ]
+      : []),
+    ...(from || to
+      ? [
+          {
+            label: "Money went out",
+            value: from && to ? `${from} to ${to}` : from ? `from ${from}` : `to ${to}`,
+            onClear: () => {
+              list.setFilter("from", "");
+              list.setFilter("to", "");
+            },
+          },
+        ]
+      : []),
+    ...(list.params.q
+      ? [
+          {
+            label: "Search",
+            value: list.params.q,
+            onClear: () => list.setSearch(""),
+          },
+        ]
+      : []),
+  ];
 
   /** Every mutation reports its own outcome. The API's messages are the useful part. */
   async function run(action: () => Promise<unknown>, success: string) {
@@ -182,7 +259,7 @@ export function ExpensesScreen() {
       />
 
       <PageBody className="flex flex-col gap-6">
-        {mode === "offline" && (
+        {DEMO_ENABLED && mode === "offline" && (
           <p className="flex flex-wrap items-center gap-2 text-body-sm text-muted">
             <Badge tone="warning" size="sm">
               Demo
@@ -241,8 +318,12 @@ export function ExpensesScreen() {
                   variant="secondary"
                   size="sm"
                   onClick={() => {
-                    setStatus("APPROVED");
-                    setSearch("");
+                    /* Both go through `setFilter`/`setSearch`, which return to
+                       page one — this can be pressed from page 4 of the
+                       register, and "show what is owed" landing on an empty
+                       page 4 would read as nothing being owed. */
+                    list.clearFilters();
+                    list.setFilter("status", "APPROVED");
                     setTab("claims");
                   }}
                 >
@@ -311,29 +392,76 @@ export function ExpensesScreen() {
                   Claim an expense
                 </Button>
               }
+              paging={{
+                sort: list.sort,
+                order: list.order,
+                onSort: list.toggleSort,
+                page: list.page,
+                pageSize: list.pageSize,
+                total: register.total,
+                onPageChange: list.setPage,
+                onPageSizeChange: list.setPageSize,
+              }}
               filters={
-                <div className="flex flex-wrap items-center gap-3">
-                  <SegmentedControl<StatusFilter>
-                    label="Filter claims by state"
-                    value={status}
-                    onChange={setStatus}
-                    options={[
-                      { value: "ALL", label: "All" },
-                      { value: "SUBMITTED", label: "Waiting" },
-                      { value: "APPROVED", label: "Owed" },
-                      { value: "PAID", label: "Paid" },
-                      { value: "DECLINED", label: "Declined" },
-                    ]}
-                  />
-                  <Input
-                    className="w-52"
-                    icon={<Search aria-hidden="true" />}
-                    placeholder="Search what it was for"
-                    aria-label="Search claims by what the money went on"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                  />
-                </div>
+                <FilterBar
+                  search={list.search}
+                  onSearchChange={list.setSearch}
+                  searchPlaceholder="Search what it was for"
+                  searchLabel="Search claims by what the money went on"
+                  applied={appliedFilters}
+                  onClearAll={list.clearFilters}
+                  count={register.total}
+                  noun={["claim", "claims"]}
+                  actions={
+                    <SegmentedControl<StatusFilter>
+                      label="Filter claims by state"
+                      value={status}
+                      onChange={(value) => list.setFilter("status", value)}
+                      options={[
+                        { value: "ALL", label: "All" },
+                        { value: "SUBMITTED", label: "Waiting" },
+                        { value: "APPROVED", label: "Owed" },
+                        { value: "PAID", label: "Paid" },
+                        { value: "DECLINED", label: "Declined" },
+                      ]}
+                    />
+                  }
+                >
+                  <Field label="Kind of expense">
+                    <Select
+                      value={typeId}
+                      onChange={(event) =>
+                        list.setFilter("typeId", event.target.value)
+                      }
+                    >
+                      <option value="">Every kind</option>
+                      {types.types.map((type) => (
+                        <option key={type.id} value={type.id}>
+                          {type.name}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                  <Field label="Money went out from">
+                    <Input
+                      type="date"
+                      value={from}
+                      /* Bounded by each other and not by today: reading the
+                         clock in render is the hydration trap HANDOVER
+                         documents, and a future date simply matches nothing. */
+                      max={to || undefined}
+                      onChange={(event) => list.setFilter("from", event.target.value)}
+                    />
+                  </Field>
+                  <Field label="…to">
+                    <Input
+                      type="date"
+                      value={to}
+                      min={from || undefined}
+                      onChange={(event) => list.setFilter("to", event.target.value)}
+                    />
+                  </Field>
+                </FilterBar>
               }
             />
           )}

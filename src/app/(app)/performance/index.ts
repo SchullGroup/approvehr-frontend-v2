@@ -7,7 +7,7 @@
  * path into a route directory:
  *
  * ```tsx
- * import { AppraisalsTab } from "@/app/(app)/performance";
+ * import { StartPeriodButton } from "@/app/(app)/performance";
  * ```
  *
  * `ReviewFormModal` is exported because "fill in the review that is waiting on
@@ -15,11 +15,24 @@
  * inbox, a notification — and it should open the same form rather than a second
  * one that drifts from it.
  */
-export { AppraisalsTab } from "./appraisals";
 export { AppraiserMapTab } from "./appraiser-map";
 export { KpisTab } from "./kpis";
+export { WhatNeedsYouTab } from "./now";
+export { PeriodsTab } from "./periods";
 export { ReviewFormModal } from "./review-form";
 export { SkillsTab } from "./skills";
+
+/**
+ * Starting an appraisal period, and the dialog behind it.
+ *
+ * The single most exported thing here, on purpose. The product owner's rule:
+ * "there should always be multiple buttons leading to the same action to ensure
+ * users aren't looking for stuff." So the dashboard, the approvals inbox, the
+ * objectives queue and one person's record all render **this** button — one
+ * dialog, several doors. Three implementations would drift in three directions
+ * and the one somebody found would be the one nobody had fixed.
+ */
+export { StartPeriodButton, StartPeriodDialog } from "./start-period";
 
 /**
  * The reason dialog is exported for the same reason `ReviewFormModal` is:

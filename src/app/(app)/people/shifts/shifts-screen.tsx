@@ -184,7 +184,7 @@ export function ShiftsScreen({ initialTab }: { initialTab: ShiftTab }) {
         title="Shifts"
         description="Who works when. Nights, earlies, weekend cover."
         meta={
-          grid.source === "demo" ? (
+          DEMO_ENABLED && grid.source === "demo" ? (
             <Badge tone="warning" size="sm">
               Demo · this browser only
             </Badge>

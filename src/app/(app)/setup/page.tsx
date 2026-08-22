@@ -4,7 +4,8 @@ import { SetupWizard } from "./wizard";
 export const metadata: Metadata = {
   title: "Set up your company",
   description:
-    "Five questions, so you only see the parts of the product you actually use.",
+    "Seven questions, so you only see the parts of the product you use and " +
+    "payroll deducts what you actually deduct.",
 };
 
 export default function SetupPage() {

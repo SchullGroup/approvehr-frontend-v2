@@ -4,7 +4,7 @@ import { ScoreHistoryScreen } from "./history-screen";
 export const metadata: Metadata = {
   title: "Appraisal history",
   description:
-    "One person's mark cycle by cycle: the trend, what each mark was made of, and the periods with no mark at all.",
+    "One person's mark period by period: the trend, what each mark was made of, and the periods with no mark at all.",
 };
 
 /**

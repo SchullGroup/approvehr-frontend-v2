@@ -241,7 +241,7 @@ function Adverts() {
       />
 
       <PageBody className="flex flex-col gap-6">
-        {!postings.editable && (
+        {DEMO_ENABLED && !postings.editable && (
           <Callout tone="warning" title="Read-only in demo mode">
             These adverts come from the seeded roles. Writing one needs the API,
             because publishing puts a statement out in the company&rsquo;s name.

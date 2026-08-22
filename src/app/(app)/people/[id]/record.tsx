@@ -12,6 +12,7 @@ import {
   MapPin,
   Phone,
   ShieldAlert,
+  TrendingUp,
   UserMinus,
   Users,
 } from "lucide-react";
@@ -43,6 +44,7 @@ import { EmployeeFileDrawer } from "@/app/(app)/people/documents";
 import { StartExitDialog } from "@/app/(app)/people/offboarding";
 import { PayComponentsPanel } from "@/app/(app)/payroll/pay-setup/pay-components-panel";
 import { RecordHistory } from "@/app/(app)/settings/audit/record-history";
+import { StartPeriodButton } from "@/app/(app)/performance";
 import { naira } from "@/lib/api/pay-components";
 import { koboFromDecimal } from "@/lib/api/payroll";
 import { payslipFiguresFor } from "@/lib/mock/demo-payslips";
@@ -362,6 +364,24 @@ export function EmployeeRecord({
             >
               Their documents
             </Button>
+            {/* Their appraisals, from their record. The trend across periods was
+                only reachable from a period's own register before this, which
+                meant the one screen that answers "has this person improved" was
+                unreachable from the screen where somebody asks it. */}
+            <ButtonLink
+              href={`/performance/history/${employee.id}`}
+              variant="secondary"
+              size="sm"
+              block
+            >
+              <TrendingUp aria-hidden="true" className="size-3.5" />
+              Their appraisal history
+            </ButtonLink>
+            {/* The third door on one dialog. Starting a period covers the whole
+                company rather than this person — the dialog says so — and it is
+                here because looking at somebody's record is one of the moments
+                the thought arrives. Secondary, like its neighbours. */}
+            <StartPeriodButton block />
             {/* Secondary, like its neighbours. Recording an exit is
                 consequential rather than the thing you came here to do, and a
                 blue primary button on every employee record would read as the

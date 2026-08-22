@@ -6,9 +6,12 @@ import {
   Badge,
   Button,
   Card,
+  CardBody,
   CardHeader,
   EmptyState,
   Money,
+  Pagination,
+  SortableTH,
   TBody,
   TD,
   TDPrimary,
@@ -17,6 +20,7 @@ import {
   TR,
   TableWrap,
 } from "@/components/ui";
+import type { SortOrder } from "@/lib/use-list-query";
 import {
   CONDITION_LABEL,
   STATUS_LABEL,
@@ -51,6 +55,7 @@ export function RegisterTable({
   loading,
   canEdit,
   filters,
+  paging,
   onOpen,
   onHandOver,
   onTakeBack,
@@ -63,12 +68,51 @@ export function RegisterTable({
   loading: boolean;
   canEdit: boolean;
   filters?: React.ReactNode;
+  /**
+   * Sorting and paging, from the caller's `useListQuery`.
+   *
+   * Passed in rather than held here because the *query* belongs to the screen —
+   * the register is one table on a tabbed page, and the sort has to travel with
+   * the request the screen makes. `total` is the server's count under the
+   * filter, and `undefined` while it is unknown.
+   */
+  paging?: {
+    sort: string | undefined;
+    order: SortOrder;
+    onSort: (column: string, startDescending?: boolean) => void;
+    page: number;
+    pageSize: number;
+    total: number | undefined;
+    onPageChange: (page: number) => void;
+    onPageSizeChange: (size: number) => void;
+  };
   onOpen: (item: EquipmentItem) => void;
   onHandOver: (item: EquipmentItem) => void;
   onTakeBack: (item: EquipmentItem) => void;
   onRestore: (item: EquipmentItem) => void;
   emptyAction?: React.ReactNode;
 }) {
+  /** A sortable header when the caller passes a query, a plain one otherwise. */
+  const column = (
+    key: string,
+    text: string,
+    options: { align?: "left" | "right"; startDescending?: boolean } = {},
+  ) =>
+    paging ? (
+      <SortableTH
+        column={key}
+        active={paging.sort}
+        order={paging.order}
+        onSort={paging.onSort}
+        {...(options.align ? { align: options.align } : {})}
+        {...(options.startDescending ? { startDescending: true } : {})}
+      >
+        {text}
+      </SortableTH>
+    ) : (
+      <TH {...(options.align ? { align: options.align } : {})}>{text}</TH>
+    );
+
   return (
     <Card>
       <CardHeader title={title} {...(description ? { description } : {})} />
@@ -78,9 +122,7 @@ export function RegisterTable({
           one character per line below about 900px — which is most laptops with
           the sidebar open. Their own full-width row wraps instead. */}
       {filters && (
-        <div className="flex flex-wrap items-center gap-3 border-b border-line px-5 py-3">
-          {filters}
-        </div>
+        <CardBody className="border-b border-line">{filters}</CardBody>
       )}
 
       {items.length === 0 ? (
@@ -97,12 +139,15 @@ export function RegisterTable({
       ) : (
         <TableWrap className="rounded-none border-0" caption={title}>
           <THead>
-            <TH>What it is</TH>
-            <TH>Tag</TH>
+            {column("name", "What it is")}
+            {column("tag", "Tag")}
             <TH>Who has it</TH>
-            <TH>State</TH>
+            {column("status", "State")}
             <TH>Given out</TH>
-            <TH align="right">What it cost</TH>
+            {column("purchaseCost", "What it cost", {
+              align: "right",
+              startDescending: true,
+            })}
             <TH align="right">
               <span className="sr-only">Actions</span>
             </TH>
@@ -225,6 +270,18 @@ export function RegisterTable({
             ))}
           </TBody>
         </TableWrap>
+      )}
+
+      {paging && items.length > 0 && (
+        <Pagination
+          page={paging.page}
+          pageSize={paging.pageSize}
+          total={paging.total}
+          onPageChange={paging.onPageChange}
+          onPageSizeChange={paging.onPageSizeChange}
+          noun={["thing", "things"]}
+          loading={loading}
+        />
       )}
     </Card>
   );

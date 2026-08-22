@@ -100,7 +100,7 @@ export function ChecklistSettingsScreen() {
         breadcrumb={[{ href: "/people/offboarding", label: "Exit management" }]}
         description="What everyone leaving works through. You only need to change this if your list is different from ours."
         meta={
-          templates.source === "demo" ? (
+          DEMO_ENABLED && templates.source === "demo" ? (
             <Badge tone="warning" size="sm">
               Demo · this browser only
             </Badge>

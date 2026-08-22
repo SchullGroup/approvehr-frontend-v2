@@ -185,7 +185,7 @@ export function ExitDetailScreen({ id }: { id: string }) {
             <Badge tone={statusTone(exit.status)} size="sm">
               {exit.statusLabel}
             </Badge>
-            {exitState.source === "demo" && (
+            {DEMO_ENABLED && exitState.source === "demo" && (
               <Badge tone="warning" size="sm">
                 Demo · this browser only
               </Badge>

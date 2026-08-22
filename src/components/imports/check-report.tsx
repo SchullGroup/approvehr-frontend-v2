@@ -70,9 +70,9 @@ type Props = {
    * What this entity's browser-only check cannot settle, in one clause.
    *
    * From the surface, because the limits are the entity's own. See
-   * `ImportSurface.demoLimits`.
+   * `ImportSurface.unknownWithoutApi`.
    */
-  demoLimits: string;
+  unknownWithoutApi: string;
   check: CheckOutcome;
   onBack: () => void;
   onDownload: () => void;
@@ -101,7 +101,7 @@ type Props = {
 export function CheckReport({
   dictionary,
   prerequisites,
-  demoLimits,
+  unknownWithoutApi,
   check,
   onBack,
   onDownload,
@@ -231,11 +231,11 @@ export function CheckReport({
         />
       </div>
 
-      {!check.authoritative && (
+      {DEMO_ENABLED && !check.authoritative && (
         <Callout tone="warning" title="This is a check of the file, not of your company">
           We read every row and found what the file itself gets wrong — dates,
           amounts, the same {dictionary.keyLabel} on two rows, words we do not
-          know. We cannot tell you {demoLimits} That needs the API, and so does
+          know. We cannot tell you {unknownWithoutApi} That needs the API, and so does
           the import itself. The list of missing details is longer here than it
           would be live, too: which details your company asks for is a setting we
           cannot read from this browser.

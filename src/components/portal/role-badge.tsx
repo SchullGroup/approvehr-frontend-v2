@@ -142,9 +142,11 @@ export function SessionRoleBadge({
 
   if (loading || roles.length === 0) return null;
 
+  /* `enforced` is false only in a demo session, which a production build cannot
+     open — so the third arm is gated and folds away with its sentence. */
   const note = previewing
     ? "You are previewing the app as this role. Settings → Roles turns it off."
-    : enforced
+    : enforced || !DEMO_ENABLED
       ? undefined
       : "Demo session. The role is the one the seed puts this person in; a demo holds every permission regardless.";
 

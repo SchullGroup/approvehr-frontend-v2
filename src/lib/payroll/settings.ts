@@ -21,6 +21,21 @@ export type PayrollSettings = {
   /** Must sum to 1. How gross is split into taxable components. */
   salarySplit: Record<PensionComponent, number>;
 
+  /**
+   * Whether this employer deducts PAYE at all.
+   *
+   * Smaller Nigerian companies often have staff file their own returns. Off, the
+   * engine computes no tax and the payslip shows **no PAYE line** — not a
+   * ₦0.00 one. Those are different claims: a zero says tax was worked out and
+   * came to nothing, which is true for anybody under the ₦800,000 annual
+   * exemption; absent says this employer does not deduct it.
+   *
+   * On by default, and the only thing that reaches the engine is the API's
+   * `PayrollSettings.payeEnabled` — this object is a draft for the settings
+   * form's preview. See `useDeductionSwitches`.
+   */
+  paye: { enabled: boolean };
+
   pension: {
     enabled: boolean;
     employeeRate: number;
@@ -60,6 +75,7 @@ export const STATUTORY = {
 export const DEFAULT_SETTINGS: PayrollSettings = {
   workingDaysPerMonth: 22,
   salarySplit: { basic: 0.6, housing: 0.25, transport: 0.15 },
+  paye: { enabled: true },
   pension: {
     enabled: true,
     employeeRate: 0.08,

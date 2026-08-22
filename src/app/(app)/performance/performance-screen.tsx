@@ -14,10 +14,11 @@ import { PageBody, PageHeader } from "@/components/portal/shell";
 import { useCan, useIsManager } from "@/lib/permissions";
 import { useFeatures } from "@/lib/store/features";
 import { SCOPE_LABEL, type KpiScope } from "@/lib/store/performance";
-import { AppraisalsTab } from "./appraisals";
 import { AppraiserMapTab } from "./appraiser-map";
 import { KpisTab } from "./kpis";
-import { SkillsTab } from "./skills";
+import { WhatNeedsYouTab } from "./now";
+import { PeriodsTab } from "./periods";
+import { StartPeriodButton } from "./start-period";
 import {
   PERFORMANCE_TABS,
   isPerformanceTab,
@@ -25,7 +26,30 @@ import {
 } from "./tabs";
 
 /**
- * Performance: KPIs, appraisals and skills, on one route.
+ * Performance, on one route.
+ *
+ * ## Three tabs, and the first one is a job
+ *
+ * There were four: *KPIs · Appraisals · Skills · Who appraises whom*. Four nouns
+ * and no path, which is exactly what a product owner hit — he read the module and
+ * could not work out how to create an appraisal or where the periods were.
+ *
+ * | Tab | The question it answers |
+ * |---|---|
+ * | **What needs you** | what is open, what is waiting on you, what is waiting on somebody else |
+ * | **KPIs** | what people are aiming at, and how far along it is |
+ * | **Appraisal periods** | what periods there are, and which needs something |
+ * | *Who appraises whom* | only under `multiAppraiser` |
+ *
+ * Skills left the tab strip entirely and is a closed disclosure on the first
+ * tab. It is configuration-shaped — levels against a target the company set —
+ * and a five-person business should never meet it. There is no `skills` flag to
+ * hang that on, so the reveal is the mechanism, and because `Disclosure`
+ * unmounts what it holds, nobody pays for it until they open it.
+ *
+ * **Appraisal periods** is itself gated: somebody who can neither run a period
+ * nor read across the company has no use for a list of them, and the one fact
+ * about the open period that *is* theirs is on the first tab.
  *
  * ## Who sees what, and where that is decided
  *
@@ -58,6 +82,7 @@ import {
 export function PerformanceScreen({ initialTab }: { initialTab: PerformanceTab }) {
   const features = useFeatures();
   const canSeeCompany = useCan("EDIT_RECORDS");
+  const canManage = useCan("MANAGE_SETTINGS");
   const isManager = useIsManager();
 
   const [tab, setTab] = useState<PerformanceTab>(initialTab);
@@ -81,35 +106,36 @@ export function PerformanceScreen({ initialTab }: { initialTab: PerformanceTab }
   /**
    * Which tabs exist at all.
    *
-   * KPIs always. Appraisals and Skills with the `appraisals` flag. **Who
-   * appraises whom only with `multiAppraiser` and `EDIT_RECORDS`** — the mapping
-   * is an aggregate over everybody, and a company that has not asked for several
-   * appraisers per person must never see a weighting table it did not ask for.
-   * That is the whole progressive-disclosure argument, applied one level deeper
-   * than a module.
+   * What-needs-you and KPIs always. **Appraisal periods** with the `appraisals`
+   * flag, and only for somebody who can run one or read across the company.
+   * **Who appraises whom only with `multiAppraiser` and `EDIT_RECORDS`** — the
+   * mapping is an aggregate over everybody, and a company that has not asked for
+   * several appraisers per person must never see a weighting table it did not ask
+   * for. That is the whole progressive-disclosure argument, applied one level
+   * deeper than a module.
    */
   const available = PERFORMANCE_TABS.filter((id) => {
-    if (id === "kpis") return true;
+    if (id === "now" || id === "kpis") return true;
     if (!features.appraisals) return false;
-    if (id === "appraisers") return features.multiAppraiser && canSeeCompany;
-    return true;
+    if (id === "periods") return canManage || canSeeCompany;
+    return features.multiAppraiser && canSeeCompany;
   });
-  const activeTab = available.includes(tab) ? tab : "kpis";
+  const activeTab = available.includes(tab) ? tab : "now";
 
   const items: TabItem[] = available.map((id) => ({
     id,
     label:
-      id === "kpis"
-        ? "KPIs"
-        : id === "appraisals"
-          ? "Appraisals"
-          : id === "skills"
-            ? "Skills"
+      id === "now"
+        ? "What needs you"
+        : id === "kpis"
+          ? "KPIs"
+          : id === "periods"
+            ? "Appraisal periods"
             : "Who appraises whom",
   }));
 
   /**
-   * The tab is in the query string, so a link to Skills opens on it.
+   * The tab is in the query string, so a link to the periods opens on them.
    *
    * `replaceState` rather than a router push: switching tab is not a navigation
    * and should not add a back-button step.
@@ -131,9 +157,12 @@ export function PerformanceScreen({ initialTab }: { initialTab: PerformanceTab }
     );
   }
 
-  /* A link straight to Appraisals or Skills with the flag off gets a button
-     that turns them on, not a silent redirect to the KPI tab. */
-  if (tab !== "kpis" && !features.appraisals) {
+  /* A link straight to the periods with the flag off gets a button that turns
+     them on, not a silent redirect. KPIs and what-needs-you work without it. */
+  if (
+    (tab === "periods" || tab === "appraisers") &&
+    !features.appraisals
+  ) {
     return (
       <>
         <PageHeader title="Performance" />
@@ -141,7 +170,7 @@ export function PerformanceScreen({ initialTab }: { initialTab: PerformanceTab }
           <EmptyState
             icon={<ToggleRight aria-hidden="true" />}
             title="Appraisals are switched off"
-            description="Scored reviews on a cycle, and skills against their targets, on top of shared KPIs."
+            description="Scored reviews inside an appraisal period, and skills against their targets, on top of shared KPIs."
             action={
               <ButtonLink variant="accent" href="/settings/features">
                 Turn appraisals on
@@ -158,23 +187,38 @@ export function PerformanceScreen({ initialTab }: { initialTab: PerformanceTab }
       <PageHeader
         title="Performance"
         description={
-          activeTab === "kpis"
-            ? "What people are aiming at, and how far along it is."
-            : activeTab === "appraisals"
-              ? "Reviews on a cycle: what you owe, and what was said about you."
-              : activeTab === "skills"
-                ? "Levels against the targets the company set."
-                : "Who marks whom in a cycle, and how much each opinion counts."
+          activeTab === "now"
+            ? "What is open, what is waiting on you, and what is waiting on somebody else."
+            : activeTab === "kpis"
+              ? "What people are aiming at, and how far along it is."
+              : activeTab === "periods"
+                ? "The stretches of time an appraisal covers, and what each one needs next."
+                : "Who marks whom in a period, and how much each opinion counts."
         }
         meta={
-          <Badge tone={scope === "mine" ? "neutral" : "accent"} size="sm">
-            {SCOPE_LABEL[scope]}
-          </Badge>
+          activeTab === "kpis" ? (
+            <Badge tone={scope === "mine" ? "neutral" : "accent"} size="sm">
+              {SCOPE_LABEL[scope]}
+            </Badge>
+          ) : undefined
+        }
+        /* The redundant entry point, on the module's own front page. Absent for
+           anybody who cannot run a period — see `StartPeriodButton`. */
+        action={
+          activeTab === "periods" ? undefined : (
+            <StartPeriodButton withIcon />
+          )
         }
       />
 
       <PageBody>
         <Tabs items={items} value={activeTab} onChange={changeTab}>
+          {activeTab === "now" && (
+            <WhatNeedsYouTab
+              canSeeCompany={canSeeCompany}
+              isManager={isManager}
+            />
+          )}
           {activeTab === "kpis" && (
             <KpisTab
               scope={scope}
@@ -182,10 +226,7 @@ export function PerformanceScreen({ initialTab }: { initialTab: PerformanceTab }
               onScopeChange={setChosenScope}
             />
           )}
-          {activeTab === "appraisals" && <AppraisalsTab />}
-          {activeTab === "skills" && (
-            <SkillsTab canSeeCompany={canSeeCompany} isManager={isManager} />
-          )}
+          {activeTab === "periods" && <PeriodsTab />}
           {activeTab === "appraisers" && <AppraiserMapTab />}
         </Tabs>
       </PageBody>

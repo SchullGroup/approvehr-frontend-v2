@@ -23,7 +23,7 @@ import type { Employee } from "@/lib/types";
  * Each one ends in the four digits the old masked string showed, so anything
  * that quoted a last-four still reads the same.
  */
-export const EMPLOYEES: Employee[] = [
+export const EMPLOYEES: Employee[] = DEMO_ENABLED ? [
   {
     id: "p-01", employeeNo: "AHR-0142",
     firstName: "Adaeze", lastName: "Okonkwo",
@@ -155,15 +155,23 @@ export const EMPLOYEES: Employee[] = [
     taxState: "Ogun", tin: "9384756102", nhfNumber: "NHF0044331",
     nextOfKin: { name: "Sani Abdullahi", relationship: "Father", phone: "+234 818 553 9910" },
   },
-];
+] : [];
 
 export const employeeById = (id: string) => EMPLOYEES.find((e) => e.id === id);
 
 export const directReports = (id: string) =>
   EMPLOYEES.filter((e) => e.managerId === id);
 
-/** The signed-in user for this prototype. */
-export const CURRENT_USER = EMPLOYEES[5];
+/**
+ * The seeded persona a demo session opens as.
+ *
+ * **`undefined` in a production build**, where `EMPLOYEES` is empty — see
+ * `lib/demo.ts`. Every caller is a demo code path that cannot run there, and the
+ * type says so rather than a comment: a non-null `Employee` here would have been
+ * a lie the compiler helped keep, and `CURRENT_USER.id` would have thrown on the
+ * first read.
+ */
+export const CURRENT_USER: Employee | undefined = EMPLOYEES[5];
 
 /* --------------------------------------------------------------- Balances */
 

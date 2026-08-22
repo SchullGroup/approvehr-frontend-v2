@@ -64,7 +64,7 @@ import { BAND_TONE, useCycleReport } from "@/lib/store/performance";
  * sentence about a company. "Leadership: 0%" is not. Every exclusion is rendered
  * with the register's own note and its own headcount.
  */
-export function CycleReportScreen({ cycleId }: { cycleId: string }) {
+export function PeriodReportScreen({ cycleId }: { cycleId: string }) {
   const canSeeCompany = useCan("EDIT_RECORDS");
   const detail = useCycleReport(cycleId, canSeeCompany);
   const cycle = detail.cycle;
@@ -75,9 +75,12 @@ export function CycleReportScreen({ cycleId }: { cycleId: string }) {
       <PageHeader
         breadcrumb={[
           { href: "/performance", label: "Performance" },
-          { href: `/performance/cycles/${cycleId}`, label: cycle?.name ?? "Cycle" },
+          {
+            href: `/performance/periods/${cycleId}`,
+            label: cycle?.name ?? "Appraisal period",
+          },
         ]}
-        title="Cycle report"
+        title="Period report"
         description="The spread of marks, what came in, and who is left out — by name."
         meta={
           cycle ? (
@@ -98,11 +101,11 @@ export function CycleReportScreen({ cycleId }: { cycleId: string }) {
           ) : undefined
         }
         action={
-          /* The cycle screen's own action reads "See the report", so this is
-             its mirror. Not "Run the cycle": nothing is run from there — it is
+          /* The period screen's own action reads "See the report", so this is
+             its mirror. Not "Run the period": nothing is run from there — it is
              the register of who still owes a form — and "run" is the product's
              word for nothing at all. */
-          <ButtonLink size="sm" href={`/performance/cycles/${cycleId}`}>
+          <ButtonLink size="sm" href={`/performance/periods/${cycleId}`}>
             See the register
           </ButtonLink>
         }
@@ -123,7 +126,7 @@ export function CycleReportScreen({ cycleId }: { cycleId: string }) {
               .
             </p>
           </Callout>
-        ) : !detail.available ? (
+        ) : DEMO_ENABLED && !detail.available ? (
           <Callout tone="warning" title="Demo data, this browser only">
             <p>{detail.refusal}</p>
           </Callout>
@@ -153,8 +156,8 @@ export function CycleReportScreen({ cycleId }: { cycleId: string }) {
             <EmptyState
               compact
               icon={<UserX aria-hidden="true" />}
-              title="Nobody is in this cycle"
-              description="Starting a cycle creates a form for every employee who is not archived or exited."
+              title="Nobody is in this period"
+              description="Starting a period creates a form for every employee who is not archived or exited."
             />
           </Card>
         )}
@@ -167,8 +170,8 @@ export function CycleReportScreen({ cycleId }: { cycleId: string }) {
             <Parts report={report} />
             <NamedList
               title="Nobody marked them"
-              description="They finish this cycle with no mark. Not a mark of nought — nothing was recorded that counts."
-              empty="Everybody in this cycle has a mark."
+              description="They finish this period with no mark. Not a mark of nought — nothing was recorded that counts."
+              empty="Everybody in this period has a mark."
               rows={report.unscored}
               tone="danger"
             />
@@ -210,7 +213,7 @@ function Headline({ report }: { report: ApiCycleReport }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <Stat
-        label="People in this cycle"
+        label="People in this period"
         value={String(marks.people)}
         hint="Everybody not archived or exited"
       />
@@ -241,8 +244,8 @@ function Headline({ report }: { report: ApiCycleReport }) {
         value={report.weightsFrom === "snapshot" ? "Frozen" : "Company's current"}
         hint={
           report.weightsFrom === "snapshot"
-            ? `Copied onto this cycle when it started, totalling ${weightLabel(report.weightsTotalBp)}`
-            : `This cycle has no frozen set, so a change to the company's weights would move these marks`
+            ? `Copied onto this period when it started, totalling ${weightLabel(report.weightsTotalBp)}`
+            : `This period has no frozen set, so a change to the company's weights would move these marks`
         }
       />
     </div>
@@ -271,7 +274,7 @@ function Distribution({ report }: { report: ApiCycleReport }) {
       <CardBody className="flex flex-col gap-4">
         {distribution.scored === 0 ? (
           <p className="text-body-sm text-muted">
-            No mark has been recorded in this cycle, so there is no distribution.
+            No mark has been recorded in this period, so there is no distribution.
             An empty distribution is stated rather than drawn as five zeroes.
           </p>
         ) : (
@@ -457,7 +460,7 @@ function Parts({ report }: { report: ApiCycleReport }) {
         }
       />
       <CardBody className="p-0">
-        <TableWrap caption="Each scoring component across this cycle">
+        <TableWrap caption="Each scoring component across this period">
           <THead>
             <TH>Part</TH>
             <TH align="right">Weight</TH>

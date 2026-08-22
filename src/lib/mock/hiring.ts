@@ -22,7 +22,7 @@ import { STAGE_IDS } from "@/lib/types";
 
 /* ------------------------------------------------------------ Requisitions */
 
-export const REQUISITIONS: Requisition[] = [
+export const REQUISITIONS: Requisition[] = DEMO_ENABLED ? [
   {
     id: "req-01",
     reference: "ENG-114",
@@ -123,14 +123,14 @@ export const REQUISITIONS: Requisition[] = [
     screeningQuestions: [],
     activeStages: ["sourced", "shortlisted", "interview", "selection"],
   },
-];
+] : [];
 
 export const requisitionById = (id: string) =>
   REQUISITIONS.find((r) => r.id === id);
 
 /* --------------------------------------------------------------- Candidates */
 
-export const CANDIDATES: Candidate[] = [
+export const CANDIDATES: Candidate[] = DEMO_ENABLED ? [
   { id: "c-01", firstName: "Ifeanyi", lastName: "Obi", email: "ifeanyi.obi@mail.com", phone: "+234 803 111 0011", location: "Lagos, NG", currentTitle: "Backend Engineer", currentCompany: "Paystack", yearsExperience: 6, source: "linkedin", expectedSalary: 1_600_000, noticePeriodWeeks: 4, cvFileName: "ifeanyi-obi-cv.pdf", linkedinUrl: "#" },
   { id: "c-02", firstName: "Zainab", lastName: "Yusuf", email: "zainab.yusuf@mail.com", phone: "+234 806 222 0022", location: "Abuja, NG", currentTitle: "Senior Engineer", currentCompany: "Flutterwave", yearsExperience: 7, source: "referral", referredBy: "Chidi Nwosu", expectedSalary: 1_750_000, noticePeriodWeeks: 8, cvFileName: "zainab-yusuf-cv.pdf" },
   { id: "c-03", firstName: "Emeka", lastName: "Anyanwu", email: "emeka.anyanwu@mail.com", phone: "+234 701 333 0033", location: "Lagos, NG", currentTitle: "Software Engineer", currentCompany: "Interswitch", yearsExperience: 4, source: "careers_page", expectedSalary: 1_300_000, noticePeriodWeeks: 4, cvFileName: "emeka-anyanwu-cv.pdf" },
@@ -143,14 +143,14 @@ export const CANDIDATES: Candidate[] = [
   { id: "c-10", firstName: "Temitope", lastName: "Ogundipe", email: "temi.ogundipe@mail.com", phone: "+234 814 121 0121", location: "Remote, NG", currentTitle: "Product Designer", currentCompany: "Cowrywise", yearsExperience: 5, source: "sourced", expectedSalary: 1_200_000, noticePeriodWeeks: 4, cvFileName: "temitope-ogundipe-cv.pdf" },
   { id: "c-11", firstName: "Aisha", lastName: "Mohammed", email: "aisha.mohammed@mail.com", phone: "+234 816 131 0131", location: "Lagos, NG", currentTitle: "Senior Designer", currentCompany: "Piggyvest", yearsExperience: 7, source: "referral", referredBy: "Ngozi Eze", expectedSalary: 1_350_000, noticePeriodWeeks: 8, cvFileName: "aisha-mohammed-cv.pdf" },
   { id: "c-12", firstName: "Daniel", lastName: "Okafor", email: "daniel.okafor@mail.com", phone: "+234 818 141 0141", location: "Lagos, NG", currentTitle: "UI Designer", currentCompany: "Freelance", yearsExperience: 3, source: "careers_page", expectedSalary: 850_000, noticePeriodWeeks: 1, cvFileName: "daniel-okafor-cv.pdf" },
-];
+] : [];
 
 export const candidateById = (id: string) =>
   CANDIDATES.find((c) => c.id === id);
 
 /* ------------------------------------------------------------- Applications */
 
-export const APPLICATIONS: Application[] = [
+export const APPLICATIONS: Application[] = DEMO_ENABLED ? [
   { id: "app-01", requisitionId: "req-01", candidateId: "c-01", stage: "interview", outcome: "in_progress", appliedAt: "2026-07-08", stageEnteredAt: "2026-08-11", rating: 4 },
   { id: "app-02", requisitionId: "req-01", candidateId: "c-02", stage: "selection", outcome: "in_progress", appliedAt: "2026-07-05", stageEnteredAt: "2026-08-15", rating: 5, offer: { grossMonthly: 1_750_000, startDate: "2026-09-15", status: "pending_approval" } },
   { id: "app-03", requisitionId: "req-01", candidateId: "c-03", stage: "prescreen", outcome: "in_progress", appliedAt: "2026-07-19", stageEnteredAt: "2026-08-14", rating: 3, screeningAnswers: { q1: "Yes", q2: "4 weeks", q3: "Built the settlement service at Interswitch, owned it for two years." } },
@@ -163,22 +163,22 @@ export const APPLICATIONS: Application[] = [
   { id: "app-10", requisitionId: "req-03", candidateId: "c-10", stage: "shortlisted", outcome: "in_progress", appliedAt: "2026-08-07", stageEnteredAt: "2026-08-10", rating: 4 },
   { id: "app-11", requisitionId: "req-03", candidateId: "c-11", stage: "interview", outcome: "in_progress", appliedAt: "2026-08-05", stageEnteredAt: "2026-08-14", rating: 5 },
   { id: "app-12", requisitionId: "req-03", candidateId: "c-12", stage: "sourced", outcome: "in_progress", appliedAt: "2026-08-18", stageEnteredAt: "2026-08-18", rating: null },
-];
+] : [];
 
 /* -------------------------------------------------------------- Interviews */
 
-export const INTERVIEWS: Interview[] = [
+export const INTERVIEWS: Interview[] = DEMO_ENABLED ? [
   { id: "int-01", applicationId: "app-01", kind: "recruiter_screen", scheduledFor: "2026-08-12T10:00:00+01:00", durationMins: 30, interviewerIds: ["p-06"], status: "completed" },
   { id: "int-02", applicationId: "app-01", kind: "technical", scheduledFor: "2026-08-20T14:00:00+01:00", durationMins: 90, interviewerIds: ["p-05", "p-01"], status: "scheduled" },
   { id: "int-03", applicationId: "app-02", kind: "technical", scheduledFor: "2026-08-13T11:00:00+01:00", durationMins: 90, interviewerIds: ["p-05"], status: "completed" },
   { id: "int-04", applicationId: "app-02", kind: "final", scheduledFor: "2026-08-15T15:00:00+01:00", durationMins: 45, interviewerIds: ["p-01"], status: "completed" },
   { id: "int-05", applicationId: "app-07", kind: "panel", scheduledFor: "2026-08-19T09:30:00+01:00", durationMins: 60, interviewerIds: ["p-02", "p-03"], status: "scheduled" },
   { id: "int-06", applicationId: "app-11", kind: "technical", scheduledFor: "2026-08-21T13:00:00+01:00", durationMins: 60, interviewerIds: ["p-04"], status: "scheduled" },
-];
+] : [];
 
 /* -------------------------------------------------------------- Scorecards */
 
-export const SCORECARDS: Scorecard[] = [
+export const SCORECARDS: Scorecard[] = DEMO_ENABLED ? [
   {
     id: "sc-01",
     applicationId: "app-01",
@@ -226,7 +226,7 @@ export const SCORECARDS: Scorecard[] = [
     recommendation: null,
     notes: "",
   },
-];
+] : [];
 
 /* ------------------------------------------------------------------ Joins  */
 

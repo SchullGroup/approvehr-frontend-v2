@@ -96,7 +96,7 @@ export function SkillsTab({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        {mine.source === "demo" && (
+        {DEMO_ENABLED && mine.source === "demo" && (
           <Badge tone="warning" size="sm">
             Demo · seeded assessments
           </Badge>
@@ -189,14 +189,16 @@ export function SkillsTab({
             />
           ) : (
             <TableWrap>
+              {/* `THead` writes the `<tr>` itself. A `TR` in here nests one
+                  inside another, which is invalid HTML and shows up as a
+                  hydration error rather than as anything visible — found in the
+                  browser console, not by `tsc`. */}
               <THead>
-                <TR>
-                  <TH>Person</TH>
-                  <TH>Skill</TH>
-                  <TH align="right">Level</TH>
-                  <TH align="right">Target</TH>
-                  <TH align="right">Gap</TH>
-                </TR>
+                <TH>Person</TH>
+                <TH>Skill</TH>
+                <TH align="right">Level</TH>
+                <TH align="right">Target</TH>
+                <TH align="right">Gap</TH>
               </THead>
               <TBody>
                 {gaps.gaps.map((gap) => (

@@ -120,11 +120,41 @@ export type ApiFeatures = {
   setupRequired: boolean;
 };
 
+/**
+ * The three statutory deductions a company can switch off.
+ *
+ * A different table from `FeaturePatch` and a different question. `taxSetup` and
+ * `pensionSetup` above decide whether the employee form **asks for** a TIN or an
+ * RSA PIN; these decide whether the payroll engine **computes** the deduction.
+ * A company whose staff file their own returns still has staff with TINs, so the
+ * two are never one answer.
+ */
+export const PAYROLL_DEDUCTION_KEYS = [
+  "payeEnabled",
+  "pensionEnabled",
+  "nhfEnabled",
+] as const;
+
+export type PayrollDeductions = Record<
+  (typeof PAYROLL_DEDUCTION_KEYS)[number],
+  boolean
+>;
+
 export type ApiWizardOption = {
   value: string;
   label: string;
   /** Exactly what choosing this writes. Rendered, never recomputed. */
   sets: FeaturePatch;
+  /** Payroll deduction switches this answer writes. See `PayrollDeductions`. */
+  payroll?: Partial<PayrollDeductions>;
+  /**
+   * What choosing this actually means, in plain words, from the API.
+   *
+   * Present only on answers that switch a statutory deduction off. Rendered
+   * verbatim and never paraphrased: it names the Act, and a locally reworded
+   * version of a legal consequence is how the two stop agreeing.
+   */
+  consequence?: string;
 };
 
 export type ApiWizardQuestion = {
@@ -142,6 +172,15 @@ export type ApiWizard = {
   step: number;
   setupCompletedAt: string | null;
   questions: ApiWizardQuestion[];
+  /**
+   * What this company deducts today, so an option can be marked "Now".
+   *
+   * **Null means it has no payroll settings row yet** — it has not finished
+   * setup, so it has not chosen. Absent is not "everything on": marking "Yes"
+   * from a default would tell somebody they had answered a question nobody
+   * asked them.
+   */
+  payroll: PayrollDeductions | null;
 };
 
 export type ApiSetupStatus = {
@@ -150,7 +189,11 @@ export type ApiSetupStatus = {
   totalSteps: number;
 };
 
-export type ApiAnswerResult = ApiFeatures & { nextQuestionId: string | null };
+export type ApiAnswerResult = ApiFeatures & {
+  nextQuestionId: string | null;
+  /** What the company deducts after this answer. Null before the row exists. */
+  payroll: PayrollDeductions | null;
+};
 
 /** What finishing seeded. Both counts are "created just now", so both can be 0. */
 export type ApiSeeded = { leaveTypes: number; payrollSettings: boolean };

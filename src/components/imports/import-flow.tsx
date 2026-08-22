@@ -149,7 +149,7 @@ export function ImportFlow({ surface }: { surface: ImportSurface }) {
         description={surface.description}
         breadcrumb={[...surface.breadcrumb]}
         meta={
-          imp.isConnected ? undefined : (
+          imp.isConnected || !DEMO_ENABLED ? undefined : (
             <Badge tone="warning" size="sm">
               Demo data, this browser only
             </Badge>
@@ -230,7 +230,7 @@ export function ImportFlow({ surface }: { surface: ImportSurface }) {
           <CheckReport
             dictionary={dictionary}
             prerequisites={surface.prerequisites}
-            demoLimits={surface.demoLimits}
+            unknownWithoutApi={surface.unknownWithoutApi}
             check={imp.check}
             onBack={() => stepper.goTo(1)}
             onDownload={imp.downloadRowsToFix}

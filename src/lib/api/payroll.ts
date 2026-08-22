@@ -1,6 +1,6 @@
 "use client";
 
-import { request } from "./client";
+import { request, requestPaged } from "./client";
 
 /**
  * The payroll endpoints, and the money boundary for them.
@@ -151,6 +151,39 @@ export type ReliefRegime =
   | { kind: "CONSOLIDATED_RELIEF" }
   | { kind: "RENT_RELIEF"; rateOfRent: number; capKobo: number };
 
+/**
+ * Whether a statutory deduction was worked out at all.
+ *
+ * `Operated` in `approvehr-api/src/modules/payroll/engine.ts` is the definition,
+ * and the distinction it carries is the project's rule 3 in a type:
+ *
+ * - **`DEDUCTED`, and an amount of ₦0.00** — it was computed and came to
+ *   nothing. Lawful and common: the first ₦800,000 a year is exempt from PAYE,
+ *   so somebody on ₦60,000 a month pays none. The figure is the answer.
+ * - **`NOT_OPERATED`** — there is no figure. This employer does not deduct it,
+ *   so there is nothing to print, nothing to remit and no schedule to file. The
+ *   amount is `0` only because net pay has to subtract something.
+ *
+ * Read this before rendering `payeKobo`, `pensionEmployeeKobo` or `nhfKobo`. A
+ * "PAYE ₦0.00" line under a payroll that deducts no PAYE is a wrong claim, and
+ * it is the same shape as the abolished-relief line that printed ₦0.00 under a
+ * statute that no longer existed.
+ */
+export type Operated = "DEDUCTED" | "NOT_OPERATED";
+
+/** Which of the three statutory deductions an employer operates. */
+export type StatutoryOperation = {
+  paye: Operated;
+  pension: Operated;
+  nhf: Operated;
+};
+
+/** True where the deduction was computed. Absent operation reads as computed. */
+export const wasDeducted = (
+  operates: StatutoryOperation | undefined,
+  which: keyof StatutoryOperation,
+): boolean => operates === undefined || operates[which] === "DEDUCTED";
+
 /** One run's headline figures. Every amount is kobo. */
 export type PayrollRun = {
   id: string;
@@ -184,6 +217,14 @@ export type PayrollRun = {
   paidAt: string | null;
   /** True once the settings that computed it were frozen onto the record. */
   settingsFrozen: boolean;
+  /**
+   * Which statutory deductions this run operated, recorded when it was prepared.
+   *
+   * Not read from today's settings: the switches can move, and an approved
+   * payslip has to keep saying what was true when it was computed. `totalPaye`
+   * of zero under `paye: "NOT_OPERATED"` is not a tax computation.
+   */
+  operates: StatutoryOperation;
 };
 
 /**
@@ -236,6 +277,16 @@ export type Payslip = {
    */
   relief?: ReliefRegime;
   payeKobo: number;
+  /**
+   * Which statutory deductions the run that produced this payslip operated.
+   *
+   * Attached by the API to every payslip, for the same reason `relief` is: a
+   * stored row cannot say on its own whether a zero is a computation or an
+   * absence, and a renderer must not have to guess. **Absent means unknown**,
+   * and `wasDeducted` reads an unknown as deducted — which is what every payslip
+   * written before the switches existed actually was.
+   */
+  operates?: StatutoryOperation;
   /** Pre-tax plus post-tax, as one figure. `lines` is the itemised form. */
   otherDeductionsKobo: number;
   netKobo: number;
@@ -339,6 +390,14 @@ export type ApprovedRun = {
 
 /** `GET /preview`. Already kobo throughout — this is the engine's own shape. */
 export type ComputedPayslip = {
+  /**
+   * Which statutory deductions the employer these settings belong to operates.
+   *
+   * Read before `payeKobo`, `pensionEmployeeKobo` or `nhfKobo`. Required here,
+   * unlike on a stored `Payslip`, because a quote is computed now by an API that
+   * always sends it.
+   */
+  operates: StatutoryOperation;
   contractualKobo: number;
   grossKobo: number;
   basicKobo: number;
@@ -384,6 +443,89 @@ export type PayslipPreview = {
   };
 };
 
+/* ------------------------------------------------------- company settings */
+
+/**
+ * What switching a statutory deduction off commits a company to.
+ *
+ * The API's own sentence, from `statutoryNotices` in
+ * `approvehr-api/src/modules/payroll/engine.ts`, rendered verbatim. PAYE
+ * deduction is an employer obligation under the Personal Income Tax Act and a
+ * pension scheme is compulsory at fifteen employees under the Pension Reform Act
+ * 2014, so the consequence is a legal statement and a locally reworded version
+ * of one is how the two stop agreeing.
+ *
+ * `field` says which switch it belongs beside, so a settings form can put it
+ * there without a lookup table of its own.
+ */
+export type StatutoryNotice = {
+  code: "paye_not_deducted" | "pension_not_operated" | "nhf_not_deducted";
+  field: "payeEnabled" | "pensionEnabled" | "nhfEnabled";
+  message: string;
+};
+
+/** The stored payroll settings row. Rates are decimal strings from Postgres. */
+export type PayrollSettingsRow = {
+  workingDaysPerMonth: number;
+  basicPercent: Decimalish;
+  housingPercent: Decimalish;
+  transportPercent: Decimalish;
+  payeEnabled: boolean;
+  pensionEnabled: boolean;
+  pensionEmployeeRate: Decimalish;
+  pensionEmployerRate: Decimalish;
+  pensionOnBasic: boolean;
+  pensionOnHousing: boolean;
+  pensionOnTransport: boolean;
+  nhfEnabled: boolean;
+  nhfRate: Decimalish;
+  nhfOnGross: boolean;
+  netSwingThreshold: Decimalish;
+  requireBankAccount: boolean;
+  requirePensionPin: boolean;
+  blockNegativeNet: boolean;
+};
+
+/**
+ * `GET /payroll/settings`.
+ *
+ * `settings` is **null** when this company has never saved a row — it has not
+ * finished setup, so it has not chosen anything, and `defaults: true` says the
+ * figures a screen shows come from the engine rather than from a decision
+ * somebody made. Absent is not the same as "the defaults were chosen".
+ */
+export type ApiPayrollSettings = {
+  settings: PayrollSettingsRow | null;
+  defaults: boolean;
+  /** People on the payroll. The pension notice names it against the threshold. */
+  headcount: number;
+  /** Non-empty means the stored settings could not produce a lawful payslip. */
+  issues: { field: string; message: string }[];
+  notices: StatutoryNotice[];
+};
+
+/** Every field optional; at least one required. Absent means "leave it alone". */
+export type PayrollSettingsPatch = Partial<{
+  workingDaysPerMonth: number;
+  basicPercent: number;
+  housingPercent: number;
+  transportPercent: number;
+  payeEnabled: boolean;
+  pensionEnabled: boolean;
+  pensionEmployeeRate: number;
+  pensionEmployerRate: number;
+  pensionOnBasic: boolean;
+  pensionOnHousing: boolean;
+  pensionOnTransport: boolean;
+  nhfEnabled: boolean;
+  nhfRate: number;
+  nhfOnGross: boolean;
+  netSwingThreshold: number;
+  requireBankAccount: boolean;
+  requirePensionPin: boolean;
+  blockNegativeNet: boolean;
+}>;
+
 /* ------------------------------------------------------------------- quotes */
 
 /**
@@ -412,6 +554,8 @@ export type QuoteSettings = {
   basicPercent: number;
   housingPercent: number;
   transportPercent: number;
+  /** Whether this employer deducts PAYE at all. Off, the quote has no tax on it. */
+  payeEnabled: boolean;
   pensionEnabled: boolean;
   pensionEmployeeRate: number;
   pensionEmployerRate: number;
@@ -476,6 +620,11 @@ type ApiRun = {
   totalPensionEmployee: Decimalish;
   totalPensionEmployer: Decimalish;
   totalNhf: Decimalish;
+  /* Written at prepare. Older runs answer without them, and true is what they
+     were — every run that existed before the switches deducted all three. */
+  deductsPaye?: boolean;
+  deductsPension?: boolean;
+  deductsNhf?: boolean;
   settingsSnapshot: unknown;
   preparedAt: string | null;
   approvedAt: string | null;
@@ -503,6 +652,8 @@ type ApiPayslip = {
    * `Payslip.relief`.
    */
   relief?: ReliefRegime;
+  /** Derived from the run, not stored on the payslip. See `Payslip.operates`. */
+  operates?: StatutoryOperation;
   paye: Decimalish;
   otherDeductions: Decimalish;
   net: Decimalish;
@@ -561,6 +712,15 @@ function toRun(row: ApiRun): PayrollRun {
     approvedAt: row.approvedAt,
     paidAt: row.paidAt,
     settingsFrozen: row.settingsSnapshot !== null && row.settingsSnapshot !== undefined,
+    /* Defaulted to deducted, which is what a run written before these columns
+       existed actually did. This is the one place a missing value is read as a
+       positive: the alternative is telling somebody a historical payroll
+       deducted no tax, which would be the wrong claim in every case. */
+    operates: {
+      paye: row.deductsPaye === false ? "NOT_OPERATED" : "DEDUCTED",
+      pension: row.deductsPension === false ? "NOT_OPERATED" : "DEDUCTED",
+      nhf: row.deductsNhf === false ? "NOT_OPERATED" : "DEDUCTED",
+    },
   };
 }
 
@@ -583,6 +743,10 @@ function toPayslip(row: ApiPayslip): Payslip {
        cannot say which relief it granted, and inventing one here would put the
        old label back on a 2026 figure. */
     ...(row.relief ? { relief: row.relief } : {}),
+    /* Same rule. An API that does not send it cannot say which deductions were
+       operated, and `wasDeducted` treats that silence as "computed" rather than
+       claiming an absence nobody reported. */
+    ...(row.operates ? { operates: row.operates } : {}),
     payeKobo: koboFromDecimal(row.paye),
     otherDeductionsKobo: koboFromDecimal(row.otherDeductions),
     netKobo: koboFromDecimal(row.net),
@@ -600,6 +764,47 @@ function toPayslip(row: ApiPayslip): Payslip {
     })),
   };
 }
+
+/* ------------------------------------------------------- paged payslip list */
+
+export type PayslipDelivery = "not_sent" | "sent" | "opened";
+
+/**
+ * What `GET /payroll/runs/:id/payslips` accepts.
+ *
+ * Two parameters, not a generic three, because a payslip list is asked two
+ * questions: **which month** — which is the run id in the path — and **who has
+ * not got theirs**. There is no status filter, because a payslip has no status of
+ * its own, and no date range, because the period *is* the run.
+ */
+export type PayslipListParams = {
+  page?: number;
+  pageSize?: number;
+  /** A name or a staff number. */
+  q?: string;
+  delivery?: PayslipDelivery;
+  sort?:
+    | "name"
+    | "employeeNo"
+    | "gross"
+    | "net"
+    | "paye"
+    | "emailedAt"
+    | "viewedAt";
+  order?: "asc" | "desc";
+};
+
+/** How many payslips are in each delivery state, across the whole run. */
+export type PayslipCounts = { notSent: number; sent: number; opened: number };
+
+type PayslipMetaExtra = { counts: PayslipCounts };
+
+export type PayslipPage = {
+  payslips: Payslip[];
+  /** The server's total under this filter. Never the length of `payslips`. */
+  total: number;
+  counts: PayslipCounts;
+};
 
 /* ---------------------------------------------------------------- endpoints */
 
@@ -637,6 +842,38 @@ export const payrollApi = {
           : null,
         excludedAt: row.excludedAt,
       })),
+    };
+  },
+
+  /**
+   * One run's payslips, filtered, sorted and paged **by the API**.
+   *
+   * Not the same read as `run(id)`, and the difference matters. `run` nests every
+   * payslip with every line — right for the wizard, which needs the whole period
+   * at once, and a multi-megabyte response for a company of two thousand. This is
+   * the read a *table* makes.
+   *
+   * `counts` rides on `meta` and is the server's count of each delivery state
+   * across the whole run under the current search. That is the only honest source
+   * for the three figures above the distribution table: counting the array in
+   * hand made "Not sent: 0" mean "none on this page".
+   */
+  payslips: async (
+    runId: string,
+    params: PayslipListParams = {},
+    signal?: AbortSignal,
+  ): Promise<PayslipPage> => {
+    const result = await requestPaged<ApiPayslip, PayslipMetaExtra>(
+      `/payroll/runs/${runId}/payslips`,
+      {
+        query: { ...params },
+        ...(signal ? { signal } : {}),
+      },
+    );
+    return {
+      payslips: result.data.map(toPayslip),
+      total: result.meta.total,
+      counts: result.meta.counts,
     };
   },
 
@@ -698,6 +935,16 @@ export const payrollApi = {
       body,
       ...(signal ? { signal } : {}),
     }),
+
+  /** The company's payroll policy, and what switching a deduction off means. */
+  settings: (signal?: AbortSignal) =>
+    request<ApiPayrollSettings>("/payroll/settings", {
+      ...(signal ? { signal } : {}),
+    }),
+
+  /** Changes policy for the next run. Nothing before it moves — see the type. */
+  updateSettings: (body: PayrollSettingsPatch) =>
+    request<ApiPayrollSettings>("/payroll/settings", { method: "PATCH", body }),
 };
 
 /* ----------------------------------------------------------------- helpers */

@@ -128,7 +128,7 @@ const DEMO_NET_KOBO: Record<string, number> = {
   "p-10": 56_691_329,
 };
 
-const DEMO_ACCOUNTS: ApiBankAccount[] = [
+const DEMO_ACCOUNTS: ApiBankAccount[] = DEMO_ENABLED ? [
   {
     id: "acct-gtb",
     bankName: "GTBank",
@@ -155,7 +155,7 @@ const DEMO_ACCOUNTS: ApiBankAccount[] = [
     archived: false,
     addedOn: "2026-02-18",
   },
-];
+] : [];
 
 /**
  * One payee row for the demo book.
@@ -206,7 +206,7 @@ function mask(accountNumber: string): string {
   return `${"*".repeat(digits.length - 4)}${digits.slice(-4)}`;
 }
 
-const AUGUST_PAYEES: [string, "no-account" | "short-account" | "shares-account-with-p-04" | undefined][] = [
+const AUGUST_PAYEES: [string, "no-account" | "short-account" | "shares-account-with-p-04" | undefined][] = DEMO_ENABLED ? [
   ["p-01", undefined],
   ["p-02", undefined],
   ["p-03", undefined],
@@ -217,7 +217,7 @@ const AUGUST_PAYEES: [string, "no-account" | "short-account" | "shares-account-w
   ["p-08", "no-account"],
   ["p-09", "short-account"],
   ["p-10", "shares-account-with-p-04"],
-];
+] : [];
 
 /** July, before Grace Effiong started. Everybody in it can be paid. */
 const JULY_PAYEES = ["p-01", "p-02", "p-03", "p-04", "p-05", "p-06", "p-07", "p-09", "p-10"];

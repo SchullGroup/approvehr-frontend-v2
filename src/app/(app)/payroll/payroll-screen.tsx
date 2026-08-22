@@ -26,7 +26,12 @@ import {
   SourceBadge,
   TotalsPanel,
 } from "@/components/payroll/run-panels";
-import { formatKobo, headcountLabel, periodLabel } from "@/lib/api/payroll";
+import {
+  formatKobo,
+  headcountLabel,
+  periodLabel,
+  wasDeducted,
+} from "@/lib/api/payroll";
 import { countBySeverity, usePayrollRun, usePayrollRuns } from "@/lib/store/payroll";
 import { TODAY } from "@/lib/today";
 
@@ -178,7 +183,21 @@ export function PayrollScreen() {
                       {
                         href: "/payroll/statutory",
                         label: "Statutory filings",
-                        meta: "PAYE, pension, NHF",
+                        /* Named from what this run actually deducted. A fixed
+                           "PAYE, pension, NHF" promises three schedules to a
+                           company that operates none of them, and the screen
+                           behind the link would then have to take two of them
+                           back. */
+                        meta: (
+                          [
+                            wasDeducted(current.operates, "paye") ? "PAYE" : null,
+                            wasDeducted(current.operates, "pension")
+                              ? "pension"
+                              : null,
+                            wasDeducted(current.operates, "nhf") ? "NHF" : null,
+                          ].filter((part): part is string => part !== null).join(", ") ||
+                          "Nothing deducted this period"
+                        ),
                       },
                       {
                         href: "/payroll/pay-setup",

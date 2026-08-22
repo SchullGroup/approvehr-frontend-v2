@@ -143,31 +143,90 @@ export type EmployeeListParams = {
   pageSize?: number;
   q?: string;
   departmentId?: string;
+  /** Which site or branch. */
+  workLocationId?: string;
   status?: string;
+  employmentType?: string;
+  /** Widens the set to include archived records. */
   includeArchived?: boolean;
+  /** Narrows it to *only* the archived ones. A different question. */
+  archivedOnly?: boolean;
+  /**
+   * Completeness. Three states, not two.
+   *
+   * `true` — only records payroll cannot file. `false` **with**
+   * `payrollReady: true` — only the ready ones. Omitted — do not filter on it.
+   * A bare `false` reads as omitted on the wire, which is why readiness needs
+   * its own flag rather than being the other half of this one.
+   */
   payrollBlocked?: boolean;
+  payrollReady?: boolean;
   sort?: string;
   order?: "asc" | "desc";
 };
 
+/**
+ * The directory's header counts, from the API, under the caller's own filter.
+ *
+ * `total`, `departments` and `grossMonthlyKobo` follow the filter;
+ * `archived` and `payrollBlocked` are whole-company counts, because they sit on
+ * the view switcher and have to say how many rows are behind the tab you are
+ * not looking at. `payrollBlockedInFilter` is the one for the stat card.
+ */
+export type EmployeeSummary = {
+  total: number;
+  archived: number;
+  payrollBlocked: number;
+  payrollBlockedInFilter: number;
+  departments: number;
+  /** Integer kobo, summed in the database. */
+  grossMonthlyKobo: number;
+  byStatus: Record<string, number>;
+};
+
+/**
+ * `EmployeeListParams` as a query string the API will accept.
+ *
+ * The booleans have to go over the wire as `"true"` / `"false"` strings because
+ * zod's `enum(["true","false"])` is what parses them — and `payrollBlocked`
+ * needs its `false` sent explicitly, since it is the half of a three-state
+ * filter that means "only the ready ones". Dropping a false here would silently
+ * turn "show me who is ready" into "show me everybody".
+ */
+function employeeQuery(params: EmployeeListParams) {
+  return {
+    ...params,
+    includeArchived: params.includeArchived ? "true" : undefined,
+    archivedOnly: params.archivedOnly ? "true" : undefined,
+    payrollBlocked:
+      params.payrollBlocked === undefined
+        ? undefined
+        : params.payrollBlocked
+          ? "true"
+          : "false",
+    payrollReady: params.payrollReady ? "true" : undefined,
+  };
+}
+
 export const employees = {
   list: (params: EmployeeListParams = {}, signal?: AbortSignal) =>
     requestPaged<ApiEmployee>("/employees", {
-      query: {
-        ...params,
-        includeArchived: params.includeArchived ? "true" : undefined,
-        payrollBlocked: params.payrollBlocked ? "true" : undefined,
-      },
+      query: employeeQuery(params),
       ...(signal ? { signal } : {}),
     }),
 
-  summary: (signal?: AbortSignal) =>
-    request<{
-      total: number;
-      archived: number;
-      payrollBlocked: number;
-      byStatus: Record<string, number>;
-    }>("/employees/summary", { ...(signal ? { signal } : {}) }),
+  /**
+   * The header counts, sent the **same** params as the list.
+   *
+   * Deliberately the same object: the numbers above a filtered table have to be
+   * numbers of that filter, and the only way to guarantee they agree is to ask
+   * one question twice rather than two questions once.
+   */
+  summary: (params: EmployeeListParams = {}, signal?: AbortSignal) =>
+    request<EmployeeSummary>("/employees/summary", {
+      query: employeeQuery(params),
+      ...(signal ? { signal } : {}),
+    }),
 
   get: (id: string, signal?: AbortSignal) =>
     request<ApiEmployee>(`/employees/${id}`, { ...(signal ? { signal } : {}) }),

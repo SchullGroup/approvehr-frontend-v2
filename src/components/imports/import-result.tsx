@@ -141,9 +141,9 @@ export function ImportResult({
             />
           </div>
 
-          {!check.authoritative ? (
+          {DEMO_ENABLED && !check.authoritative ? (
             <Callout tone="warning" title="Importing needs the API">
-              {surface.demoRefusal}
+              {surface.refusalWithoutApi}
             </Callout>
           ) : (
             check.toSkip > 0 && (

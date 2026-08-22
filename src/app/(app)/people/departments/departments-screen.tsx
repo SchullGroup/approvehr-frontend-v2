@@ -193,7 +193,7 @@ export function DepartmentsScreen() {
         title="Departments and teams"
         description="Your org structure, and what each unit costs a month."
         meta={
-          departments.source === "demo" ? (
+          DEMO_ENABLED && departments.source === "demo" ? (
             <Badge tone="warning" size="sm">
               Demo · this browser only
             </Badge>
@@ -218,7 +218,7 @@ export function DepartmentsScreen() {
             old callout: local structure is real and editable, and it does not
             reach a payroll run. Rendered on both tabs because both write to the
             same local data. */}
-        {departments.source === "demo" && (
+        {DEMO_ENABLED && departments.source === "demo" && (
           <Callout tone="warning" title="Demo structure, this browser only">
             {departments.demoNote}
           </Callout>

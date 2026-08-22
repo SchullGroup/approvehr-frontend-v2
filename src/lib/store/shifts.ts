@@ -204,7 +204,7 @@ function shiftShape(
   };
 }
 
-const DEMO_SHIFTS: ApiShift[] = [
+const DEMO_SHIFTS: ApiShift[] = DEMO_ENABLED ? [
   shiftShape({
     id: "ds-early",
     name: "Early",
@@ -229,9 +229,9 @@ const DEMO_SHIFTS: ApiShift[] = [
     endTime: "06:00",
     unpaidBreakMinutes: 45,
   }),
-];
+] : [];
 
-const DEMO_PATTERNS: DemoState["patterns"] = [
+const DEMO_PATTERNS: DemoState["patterns"] = DEMO_ENABLED ? [
   {
     id: "dp-nights",
     name: "Four on, four off (nights)",
@@ -270,7 +270,7 @@ const DEMO_PATTERNS: DemoState["patterns"] = [
     active: true,
     archived: false,
   },
-];
+] : [];
 
 /** Positive modulo. `-1 % 8` is `-1` in JavaScript, which wraps the wrong way. */
 const cycleIndex = (offset: number, length: number): number =>

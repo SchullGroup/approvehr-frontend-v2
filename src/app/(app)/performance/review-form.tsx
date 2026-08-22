@@ -269,7 +269,7 @@ export function ReviewFormModal({
 
         {review.questions.length === 0 ? (
           <p className="text-body-sm text-body">
-            This cycle has no questions for this form yet.
+            This appraisal period has no questions for this form yet.
           </p>
         ) : (
           review.questions.map((question) =>

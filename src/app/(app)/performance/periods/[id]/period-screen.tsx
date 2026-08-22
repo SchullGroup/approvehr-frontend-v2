@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { CheckCheck, Lock, UserX } from "lucide-react";
+import { CheckCheck, ListChecks, Lock, Play, UserX } from "lucide-react";
 import {
   Badge,
   Button,
@@ -11,6 +11,7 @@ import {
   CardBody,
   CardHeader,
   Callout,
+  ConfirmDialog,
   EmptyState,
   Spinner,
   Stat,
@@ -39,14 +40,27 @@ import {
   useCycleMutations,
   useCycleRegister,
 } from "@/lib/store/performance";
+import { QuestionsDialog } from "../../period-dialogs";
 
 /**
- * Running one cycle.
+ * Running one appraisal period.
+ *
+ * ## Everything that happens to a period happens here
+ *
+ * It used to be spread across a card at the bottom of a tab: write the questions
+ * there, start it there, chase people there, publish there — and then come *here*
+ * to find out who was outstanding. So the screen named after the period could not
+ * act on it and the screen that acted on it was a strip in a list. A product owner
+ * read the module and could not work out how to create an appraisal.
+ *
+ * The list is a list now, and this is the period. Setting it up, starting it,
+ * chasing the late ones and publishing the results are the four things a period
+ * ever needs, and each appears **only** in the state where it applies.
  *
  * ## The question this screen answers is "who is not finished"
  *
  * Not "how is the company doing" — that is a report, and it is a different
- * screen. A cycle owner has one job, which is to reach the end of the period with
+ * screen. A period's owner has one job, which is to reach the end of it with
  * nobody left out, and the two ways somebody gets left out are opposite:
  *
  * | | What it is | Where it comes from |
@@ -61,7 +75,7 @@ import {
  *
  * ## Nobody appraising somebody is not silence, ever
  *
- * An employee with no appraiser in an open cycle finishes it with no mark, and
+ * An employee with no appraiser in an open period finishes it with no mark, and
  * every screen looks finished. It is the performance module's missing bank
  * account. The mapping *interface* is behind the `multiAppraiser` flag, because a
  * company with one manager per person must never be shown a weighting table it
@@ -70,28 +84,106 @@ import {
  * company that will lose somebody. That is why this reads the map here rather
  * than only on the mapping tab, and why it renders whether the flag is on or off.
  *
+ * The same two exceptions come back from starting the period, by name, and they
+ * are rendered as callouts rather than a toast — a toast is gone in six seconds
+ * and somebody has to act on these.
+ *
  * ## Scores are integers and an absence is an absence
  *
  * The table's score column prints "No mark" where nothing counted, never 0%.
  * "Scored nought" and "nothing was recorded" are different claims about a person,
  * and only one of them is ever true here.
  */
-export function CycleScreen({ cycleId }: { cycleId: string }) {
+export function PeriodScreen({ cycleId }: { cycleId: string }) {
   const canSeeCompany = useCan("EDIT_RECORDS");
   const canManage = useCan("MANAGE_SETTINGS");
   const detail = useCycleRegister(cycleId, canSeeCompany);
-  const cycles = useCycleMutations();
+  const periods = useCycleMutations();
   const toast = useToast();
 
   const [chasing, setChasing] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const [questionsOpen, setQuestionsOpen] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  /* Named lists, not counts, and they survive the toast. Both are somebody who
+     finishes the period short, and the fixes are different. */
+  const [noAppraiser, setNoAppraiser] = useState<string[] | null>(null);
+  const [noObjectives, setNoObjectives] = useState<string[] | null>(null);
 
-  const cycle = detail.cycle;
+  const period = detail.cycle;
   const outstanding = outstandingIn(detail.participants);
+  const draft = period?.stage === "DRAFT";
+  const published = period?.stage === "PUBLISHED";
+  const running = period !== null && !draft && !published;
+
+  const failed = (error: unknown) => {
+    toast.push({
+      title: "That did not work",
+      tone: "danger",
+      detail:
+        error instanceof ApiError
+          ? error.message
+          : "Something went wrong. Try again.",
+    });
+  };
+
+  /**
+   * Starting it, kept apart from every other mutation because the result matters.
+   *
+   * `withoutAppraiser` is the list of people who would finish with no mark and
+   * `withoutAgreedObjectives` is the list with nothing to be judged on. A helper
+   * that threw the response away would throw away the only warning anybody gets.
+   */
+  const start = async () => {
+    if (!period) return;
+    setStarting(true);
+    try {
+      const result = await periods.activate(cycleId);
+      toast.push({
+        title: `${period.name} started`,
+        tone: "success",
+        detail: `${result.reviewsCreated} ${result.reviewsCreated === 1 ? "form" : "forms"} written · ${result.notified} told in the app. Nothing here sends email.`,
+      });
+      setNoAppraiser(
+        result.withoutAppraiser.length > 0 ? result.withoutAppraiser : null,
+      );
+      setNoObjectives(
+        result.withoutAgreedObjectives.length > 0
+          ? result.withoutAgreedObjectives
+          : null,
+      );
+      detail.reload();
+    } catch (error) {
+      failed(error);
+    } finally {
+      setStarting(false);
+    }
+  };
+
+  const publish = async () => {
+    if (!period) return;
+    try {
+      const result = await periods.publish(cycleId);
+      toast.push({
+        title: `${period.name} published`,
+        tone: "success",
+        detail:
+          result.unscored.length > 0
+            ? `${result.unscored.length} ${result.unscored.length === 1 ? "person finishes" : "people finish"} with no mark: ${result.unscored.join(", ")}.`
+            : "Every manager's review is now readable by the person it is about.",
+      });
+      detail.reload();
+    } catch (error) {
+      failed(error);
+    } finally {
+      setPublishing(false);
+    }
+  };
 
   const chase = async () => {
     setChasing(true);
     try {
-      const result = await cycles.remind(cycleId);
+      const result = await periods.remind(cycleId);
       toast.push({
         title:
           result.outstanding === 0
@@ -109,14 +201,7 @@ export function CycleScreen({ cycleId }: { cycleId: string }) {
       });
       detail.reload();
     } catch (error) {
-      toast.push({
-        title: "That did not work",
-        tone: "danger",
-        detail:
-          error instanceof ApiError
-            ? error.message
-            : "Something went wrong. Try again.",
-      });
+      failed(error);
     } finally {
       setChasing(false);
     }
@@ -127,21 +212,21 @@ export function CycleScreen({ cycleId }: { cycleId: string }) {
       <PageHeader
         breadcrumb={[
           { href: "/performance", label: "Performance" },
-          { href: "/performance?tab=appraisals", label: "Appraisals" },
+          { href: "/performance?tab=periods", label: "Appraisal periods" },
         ]}
-        title={cycle?.name ?? "Review cycle"}
-        description="Who owes a form, who has nobody appraising them, and where every mark stands."
+        title={period?.name ?? "Appraisal period"}
+        description="What this period still needs, who owes a form, who has nobody appraising them, and where every mark stands."
         meta={
-          cycle ? (
+          period ? (
             <>
               <Badge
-                tone={cycle.stage === "PUBLISHED" ? "neutral" : "info"}
+                tone={published ? "neutral" : "info"}
                 size="sm"
                 dot
               >
-                {cycle.stageLabel}
+                {period.stageLabel}
               </Badge>
-              {cycle.scoringFrozen && (
+              {period.scoringFrozen && (
                 <Badge tone="accent" size="sm" icon={<Lock aria-hidden="true" />}>
                   Weights frozen
                 </Badge>
@@ -154,26 +239,138 @@ export function CycleScreen({ cycleId }: { cycleId: string }) {
             {/* The outcome is a different question from "who is not finished",
                 and a different screen. Linked from here because this is where
                 somebody is when they decide they want it. */}
-            {canSeeCompany && (
-              <ButtonLink size="sm" href={`/performance/cycles/${cycleId}/report`}>
+            {canSeeCompany && !draft && (
+              <ButtonLink size="sm" href={`/performance/periods/${cycleId}/report`}>
                 See the report
               </ButtonLink>
             )}
-            {detail.available &&
-              canManage &&
-              cycle &&
-              cycle.stage !== "DRAFT" &&
-              cycle.stage !== "PUBLISHED" && (
-                <Button size="sm" loading={chasing} onClick={() => void chase()}>
-                  Nudge who is late
-                </Button>
-              )}
+            {canManage && running && (
+              <Button size="sm" loading={chasing} onClick={() => void chase()}>
+                Nudge who is late
+              </Button>
+            )}
+            {canManage && running && (
+              <Button size="sm" onClick={() => setPublishing(true)}>
+                Publish the results
+              </Button>
+            )}
           </>
         }
       />
 
       <PageBody>
         <div className="flex flex-col gap-6">
+          {/* Setting it up is the whole of this screen while it is a draft, so it
+              is first and it is the only accent control on the page. `canManage`
+              rather than `canSeeCompany`: starting a period and reading everybody's
+              marks are two different permissions, and somebody who holds only the
+              first still has to be able to start it. */}
+          {canManage && draft && period && (
+            <Card>
+              <CardHeader
+                title="Set it up, then start it"
+                description="Nobody has been asked anything yet. Starting it writes one form for every employee and tells them all in the app."
+                action={
+                  <Badge
+                    tone={period.questionCount > 0 ? "neutral" : "warning"}
+                    size="sm"
+                    icon={<ListChecks aria-hidden="true" />}
+                  >
+                    {period.questionCount === 1
+                      ? "1 question"
+                      : `${period.questionCount} questions`}
+                  </Badge>
+                }
+              />
+              <CardBody className="flex flex-col gap-3">
+                <p className="text-body-sm leading-relaxed text-body">
+                  The four groups of competencies are asked either way. These
+                  questions are what you want people to answer in their own
+                  words, or mark out of five, on top of them. Add them now —
+                  once the period has started the form is fixed, because
+                  changing a question people have already answered changes what
+                  they answered.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" onClick={() => setQuestionsOpen(true)}>
+                    Write the questions
+                  </Button>
+                  <Button
+                    variant="accent"
+                    size="sm"
+                    loading={starting}
+                    disabled={period.questionCount === 0}
+                    onClick={() => void start()}
+                  >
+                    <Play aria-hidden="true" className="size-3.5" />
+                    Start the period
+                  </Button>
+                </div>
+                {period.questionCount === 0 && (
+                  <p className="text-meta text-muted">
+                    A form with no questions asks nobody anything, so it cannot
+                    be started yet.
+                  </p>
+                )}
+              </CardBody>
+            </Card>
+          )}
+
+          {/* Not a toast. Somebody has to act on these, and a toast is gone in
+              six seconds. They stay until the page is left or somebody dismisses
+              them. */}
+          {noAppraiser && (
+            <Callout tone="danger" title="Some people have nobody appraising them">
+              <p>
+                {noAppraiser.join(", ")}{" "}
+                {noAppraiser.length === 1 ? "has" : "have"} no manager, so
+                starting this period gave them no appraiser. They will finish it
+                with no mark unless somebody is assigned.
+              </p>
+              <p className="mt-2 flex flex-wrap items-center gap-3">
+                <span>Set a manager on their record, or assign an appraiser.</span>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setNoAppraiser(null)}
+                >
+                  Dismiss
+                </Button>
+              </p>
+            </Callout>
+          )}
+
+          {noObjectives && (
+            <Callout
+              tone="warning"
+              title="Some people have nothing agreed to be judged on"
+            >
+              <p>
+                {noObjectives.join(", ")}{" "}
+                {noObjectives.length === 1 ? "has" : "have"} no agreed objective
+                in this period. Delivery against objectives is one of the four
+                parts an appraisal is made of, so that part of their mark cannot
+                be worked out — it is left out rather than scored zero, and the
+                rest of their score carries the difference.
+              </p>
+              <p className="mt-2 flex flex-wrap items-center gap-3">
+                <Link
+                  href="/performance/approvals"
+                  className="font-medium underline-offset-2 hover:underline"
+                >
+                  Agree what is waiting
+                </Link>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setNoObjectives(null)}
+                >
+                  Dismiss
+                </Button>
+              </p>
+            </Callout>
+          )}
+
           {/* Not a permission problem and not an outage. Two different sentences,
               because sending somebody to look for the wrong one wastes an
               afternoon. */}
@@ -192,7 +389,7 @@ export function CycleScreen({ cycleId }: { cycleId: string }) {
                 .
               </p>
             </Callout>
-          ) : !detail.available ? (
+          ) : DEMO_ENABLED && !detail.available ? (
             <Callout tone="warning" title="Demo data, this browser only">
               <p>{detail.refusal}</p>
             </Callout>
@@ -204,36 +401,36 @@ export function CycleScreen({ cycleId }: { cycleId: string }) {
             </p>
           )}
 
-          {cycle && (
+          {period && (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <Stat
                 label="Stage"
-                value={cycle.stageLabel}
-                {...(cycle.dueDate
-                  ? { hint: `Due ${dayLabel(cycle.dueDate)}` }
+                value={period.stageLabel}
+                {...(period.dueDate
+                  ? { hint: `Answers due ${dayLabel(period.dueDate)}` }
                   : {})}
               />
               <Stat
                 label="Questions"
-                value={String(cycle.questionCount)}
+                value={String(period.questionCount)}
                 hint={
-                  cycle.questionCount === 0
+                  period.questionCount === 0
                     ? "A form with no questions asks nobody anything"
                     : "Asked across the self and manager forms"
                 }
               />
               <Stat
-                label="Forms in this cycle"
-                value={String(cycle.reviewCount)}
+                label="Forms in this period"
+                value={String(period.reviewCount)}
                 hint="One self-review each, plus one per appraiser"
               />
               <Stat
                 label="Scoring weights"
-                value={cycle.scoringFrozen ? "Frozen" : "Live"}
+                value={period.scoringFrozen ? "Frozen" : "Live"}
                 hint={
-                  cycle.scoringFrozen
+                  period.scoringFrozen
                     ? "A later change to the company's weights cannot move these marks"
-                    : "This cycle started before weights were frozen onto a cycle"
+                    : "This period started before weights were frozen onto a period"
                 }
               />
             </div>
@@ -243,7 +440,7 @@ export function CycleScreen({ cycleId }: { cycleId: string }) {
             <Card>
               <CardBody className="flex items-center gap-2 text-body-sm text-muted">
                 <Spinner size="sm" />
-                Reading the cycle
+                Reading the period
               </CardBody>
             </Card>
           )}
@@ -260,9 +457,37 @@ export function CycleScreen({ cycleId }: { cycleId: string }) {
           )}
         </div>
       </PageBody>
+
+      {questionsOpen && period && (
+        <QuestionsDialog
+          cycleId={cycleId}
+          periodName={period.name}
+          onClose={() => {
+            setQuestionsOpen(false);
+            detail.reload();
+          }}
+          onAdd={(body) => periods.addQuestion(cycleId, body).then(() => {})}
+          onRemove={(id) => periods.removeQuestion(id).then(() => {})}
+        />
+      )}
+
+      {/* One-way, and the confirmation says which way. Every manager's review
+          becomes readable by the person it is about the moment this lands. */}
+      {publishing && period && (
+        <ConfirmDialog
+          open
+          onClose={() => setPublishing(false)}
+          onConfirm={() => void publish()}
+          title="Publish the results?"
+          confirmLabel="Publish it"
+          tone="primary"
+          body={`Everybody in ${period.name} will be able to read what their manager wrote about them. This cannot be undone, and anybody with no mark finishes with none.`}
+        />
+      )}
     </>
   );
 }
+
 
 /* -------------------------------------------------------------------------- */
 
@@ -319,7 +544,7 @@ function NobodyAppraising({
         title="Who is appraising whom"
         description={
           exceptions.counts.unassigned > 0
-            ? "Somebody with no appraiser finishes this cycle with no mark. Set a manager on their record, or assign an appraiser."
+            ? "Somebody with no appraiser finishes this period with no mark. Set a manager on their record, or assign an appraiser."
             : "What is wrong with the mapping, by name."
         }
         action={
@@ -437,8 +662,8 @@ function Register({ register }: { register: ApiScoreRegister | null }) {
         <EmptyState
           compact
           icon={<UserX aria-hidden="true" />}
-          title="Nobody is in this cycle"
-          description="Starting a cycle creates a form for every employee who is not archived or exited."
+          title="Nobody is in this period"
+          description="Starting a period creates a form for every employee who is not archived or exited."
         />
       </Card>
     );
@@ -450,8 +675,8 @@ function Register({ register }: { register: ApiScoreRegister | null }) {
         title="Where the marks stand"
         description={
           register.weightsFrom === "snapshot"
-            ? `Weighted with the set frozen onto this cycle, totalling ${weightLabel(register.weightsTotalBp)}.`
-            : `Weighted with the company's current set, totalling ${weightLabel(register.weightsTotalBp)}. This cycle has no frozen weights, so a change to them would move these marks.`
+            ? `Weighted with the set frozen onto this period, totalling ${weightLabel(register.weightsTotalBp)}.`
+            : `Weighted with the company's current set, totalling ${weightLabel(register.weightsTotalBp)}. This period has no frozen weights, so a change to them would move these marks.`
         }
         action={
           <span className="flex flex-wrap gap-2">
@@ -474,7 +699,7 @@ function Register({ register }: { register: ApiScoreRegister | null }) {
         }
       />
       <CardBody className="p-0">
-        <TableWrap caption="Everybody in this cycle, their score and their sign-off">
+        <TableWrap caption="Everybody in this period, their score and their sign-off">
           <THead>
             <TH>Person</TH>
             <TH>Objectives agreed</TH>
@@ -496,7 +721,7 @@ function RegisterRow({ row }: { row: ApiScoreRow }) {
   return (
     <TR>
       <TD>
-        {/* The name is the link to their trend across cycles. One mark is a
+        {/* The name is the link to their trend across periods. One mark is a
             snapshot; the argument about a rating is almost always about whether
             it moved. */}
         <Link

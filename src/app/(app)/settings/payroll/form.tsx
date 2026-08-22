@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { RotateCcw, Save } from "lucide-react";
 import {
   Badge,
@@ -20,7 +20,8 @@ import {
   Switch,
   useToast,
 } from "@/components/ui";
-import { naira } from "@/lib/api/payroll";
+import { ApiError } from "@/lib/api/client";
+import { naira, wasDeducted, type StatutoryOperation } from "@/lib/api/payroll";
 import {
   quoteSettingsFrom,
   usePayslipQuote,
@@ -32,9 +33,61 @@ import {
   type PensionComponent,
 } from "@/lib/payroll/settings";
 import { usePayrollSettings } from "@/lib/payroll/use-settings";
+import {
+  DEMO_REFUSAL,
+  useDeductionSwitches,
+} from "@/lib/store/payroll-deductions";
 
-/** The five sub-forms, each its own disclosure. */
-type Section = "working" | "split" | "pension" | "nhf" | "checks";
+/** The six sub-forms, each its own disclosure. */
+type Section = "deductions" | "working" | "split" | "pension" | "nhf" | "checks";
+
+/**
+ * The three statutory deductions, as questions.
+ *
+ * Phrased as questions with the answer stated, never as bare toggles: "Do you
+ * deduct PAYE for your staff?" is answerable by a shop owner from memory, and
+ * "PAYE" beside a switch is a setting they have to go and read about. `off` says
+ * what the answer means for the payslip; the legal consequence comes from the
+ * API's own `statutoryNotices` and is never written here — two wordings for one
+ * legal fact is how the two stop agreeing.
+ *
+ * `path` is where the switch lives on the local draft, so the preview and the
+ * badges read one shape whichever mode the screen is in.
+ */
+const DEDUCTION_COPY = {
+  payeEnabled: {
+    noun: "PAYE",
+    path: "paye",
+    question: "Do you deduct PAYE for your staff?",
+    on: "Income tax comes off every salary and is remitted to the state tax office each month.",
+    off: "Nobody's pay has tax taken off it, and payslips show no PAYE line at all.",
+  },
+  pensionEnabled: {
+    noun: "Pension",
+    path: "pension",
+    question: "Do you run a pension scheme?",
+    on: "Contributions come off pay and your own contribution is added on top.",
+    off: "Nothing is deducted, nothing is added on top, and there is no schedule for a fund administrator.",
+  },
+  nhfEnabled: {
+    noun: "National Housing Fund",
+    path: "nhf",
+    question: "Do you deduct the National Housing Fund contribution?",
+    on: "2.5% of basic salary comes off and is remitted to the Federal Mortgage Bank.",
+    off: "Nothing is deducted, and staff cannot draw on the fund for a mortgage.",
+  },
+} as const satisfies Record<
+  string,
+  { noun: string; path: "paye" | "pension" | "nhf"; question: string; on: string; off: string }
+>;
+
+type DeductionKey = keyof typeof DEDUCTION_COPY;
+
+const DEDUCTION_KEYS = [
+  "payeEnabled",
+  "pensionEnabled",
+  "nhfEnabled",
+] as const satisfies readonly DeductionKey[];
 
 /**
  * Company payroll settings.
@@ -52,18 +105,34 @@ type Section = "working" | "split" | "pension" | "nhf" | "checks";
  * ₦63,266.67 where the answer was ₦63,950. With no API there is no preview and
  * the panel says so, because the only other option is that copy coming back.
  *
- * ## The five sub-forms are closed — `PARITY.md` Rule 5
+ * ## The sub-forms are closed — `PARITY.md` Rule 5
  *
- * Working month, salary structure, pension, NHF and the pre-run checks each
- * answer a different question, and all five used to be open at once: five
- * expanded forms to scroll past to change one rate. Closed, each summary states
- * the setting it holds — "8% employee, 10% employer", "2.5% of basic salary",
- * "3 checks stop a run" — so the whole policy reads in five lines and the one
- * you came to change is one click away.
+ * What you deduct, the working month, the salary structure, pension, NHF and the
+ * pre-run checks each answer a different question, and they used to be open at
+ * once: six expanded forms to scroll past to change one rate. Closed, each
+ * summary states the setting it holds — "PAYE, pension and NHF", "8% employee,
+ * 10% employer", "2.5% of basic salary", "3 checks stop a run" — so the whole
+ * policy reads in six lines and the one you came to change is one click away.
  *
- * What must not be collapsed is the problem list. `validateSettings` renders
- * above all five, outside every reveal, and Save stays disabled while it has
- * anything in it. A section that will not validate also opens itself.
+ * What must not be collapsed is anything that costs money. `validateSettings`
+ * renders above all six, outside every reveal, and Save stays disabled while it
+ * has anything in it. **So do the statutory notices**: a company that deducts no
+ * PAYE has taken on something a reader must not have to open a section to find
+ * out about. A section that will not validate also opens itself.
+ *
+ * ## Only three of these settings actually reach the engine today
+ *
+ * "What you deduct" is API-backed, through `useDeductionSwitches`, and saves on
+ * the switch. Everything else on this screen is `usePayrollSettings`, which is
+ * **localStorage** — see its header. That split is deliberate rather than
+ * half-finished: whether a company deducts PAYE has to reach `PayrollSettings`
+ * on the server or the switch is decoration, and a switch that looks saved and
+ * moves no payslip is the same failure as a green "Paid" against money nobody
+ * transferred. A working month kept in one browser is merely local.
+ *
+ * The consequence, and it is on screen: the three switches take effect on the
+ * next payroll run; the rates below them move this preview and nothing else
+ * until the local store is converted.
  */
 export function PayrollSettingsForm() {
   const { settings, save, reset } = usePayrollSettings();
@@ -71,7 +140,38 @@ export function PayrollSettingsForm() {
   const [saved, setSaved] = useState(true);
   const toast = useToast();
 
-  const issues = validateSettings(draft);
+  const deductions = useDeductionSwitches();
+  const stored = deductions.settings?.settings ?? null;
+  /** The switch currently being saved, so only that row goes quiet. */
+  const [switching, setSwitching] = useState<DeductionKey | null>(null);
+
+  /**
+   * The draft, with the three switches taken from the API rather than from local
+   * storage.
+   *
+   * **Derived every render, never copied into state.** Synchronising the server's
+   * answer into `draft` would need a `setState` inside an effect — a cascading
+   * render, and the thing `react-hooks/set-state-in-effect` exists to stop. It
+   * also matters for correctness: the preview has to quote what a real run will
+   * do, and a real run reads these three from the API.
+   *
+   * Falls back to the local draft only while the read is in flight, so nothing
+   * here claims a company deducts something the server has not confirmed.
+   */
+  const effective: PayrollSettings = useMemo(
+    () => ({
+      ...draft,
+      paye: { enabled: stored?.payeEnabled ?? draft.paye.enabled },
+      pension: {
+        ...draft.pension,
+        enabled: stored?.pensionEnabled ?? draft.pension.enabled,
+      },
+      nhf: { ...draft.nhf, enabled: stored?.nhfEnabled ?? draft.nhf.enabled },
+    }),
+    [draft, stored],
+  );
+
+  const issues = validateSettings(effective);
   const issueFor = (field: string) =>
     issues.find((i) => i.field === field)?.message;
 
@@ -84,6 +184,44 @@ export function PayrollSettingsForm() {
     draft.salarySplit.basic +
     draft.salarySplit.housing +
     draft.salarySplit.transport;
+
+  /**
+   * Turns one deduction on or off, on the server, at once.
+   *
+   * Not part of the Save button below. Save writes the local rate settings; this
+   * writes the company's actual policy, and burying a statutory decision inside
+   * a form-wide save would let somebody press Reset to defaults and quietly put
+   * PAYE back on for a company that does not deduct it.
+   */
+  const setDeduction = async (key: DeductionKey, on: boolean) => {
+    setSwitching(key);
+    try {
+      await deductions.save({ [key]: on });
+      toast.push({
+        title: `${DEDUCTION_COPY[key].noun} ${on ? "will be deducted" : "is not deducted"}`,
+        tone: on ? "success" : "info",
+        detail: on
+          ? "It applies from the next payroll you prepare."
+          : "Payslips will show no line for it at all, and approved payrolls are unchanged.",
+      });
+    } catch (error) {
+      toast.push({
+        title: "That did not save",
+        tone: "danger",
+        detail:
+          error instanceof ApiError
+            ? error.message
+            : error instanceof Error
+              ? error.message
+              : "Something went wrong. Try again.",
+      });
+    } finally {
+      setSwitching(null);
+    }
+  };
+
+  /** Which of the three are deducted, for the closed summary. */
+  const deducted = DEDUCTION_KEYS.filter((key) => effective[DEDUCTION_COPY[key].path].enabled);
 
   /** How many of the three hard stops are armed. The closed summary's count. */
   const stops = [
@@ -141,6 +279,102 @@ export function PayrollSettingsForm() {
             </ul>
           </Callout>
         )}
+
+        {/*
+          Outside the reveal, deliberately — `PARITY.md` Rule 5. A company that
+          deducts no PAYE has taken on an employer obligation, and somebody who
+          never opens a section must not be able to be surprised by it. The
+          switches themselves are inside; what they commit you to is out here.
+
+          The wording is the API's, from `statutoryNotices` in the payroll
+          engine, rendered verbatim. It names an Act, and a locally reworded
+          version of a legal consequence is how the two stop agreeing.
+        */}
+        {deductions.notices.map((notice) => (
+          <Callout
+            key={notice.code}
+            tone="warning"
+            title={`${DEDUCTION_COPY[notice.field].noun} is not deducted on this payroll`}
+          >
+            {notice.message}
+          </Callout>
+        ))}
+
+        <Disclosure
+          className="bg-surface"
+          title="What you deduct"
+          meta={
+            deductions.loading ? (
+              <Badge tone="neutral" size="sm">
+                Reading
+              </Badge>
+            ) : (
+              <>
+                <Badge tone="neutral" size="sm">
+                  {deducted.length === 0
+                    ? "Nothing is deducted"
+                    : deducted
+                        .map((key) => DEDUCTION_COPY[key].noun)
+                        .join(", ")
+                        .replace(/, ([^,]*)$/, " and $1")}
+                </Badge>
+                {deducted.length < DEDUCTION_KEYS.length && (
+                  <Badge tone="warning" size="sm" dot>
+                    {DEDUCTION_KEYS.length - deducted.length} switched off
+                  </Badge>
+                )}
+              </>
+            )
+          }
+          hint="Three questions. Each answer changes what the payroll engine works out, from the next run onwards."
+          open={isOpen("deductions")}
+          onToggle={() => toggle("deductions")}
+          panelClassName="flex flex-col gap-5 p-5"
+        >
+          {deductions.error ? (
+            <Callout tone="danger" title="Could not read what you deduct">
+              {deductions.error}
+            </Callout>
+          ) : (
+            <>
+              {!deductions.available && (
+                <Callout tone="info" title="Reading only, in this demo">
+                  {DEMO_REFUSAL}
+                </Callout>
+              )}
+              {deductions.available && deductions.defaults && (
+                <Callout tone="info" title="Nothing has been chosen yet">
+                  These are the standard Nigerian settings. Answering a question
+                  below saves your own.
+                </Callout>
+              )}
+              {DEDUCTION_KEYS.map((key) => {
+                const copy = DEDUCTION_COPY[key];
+                const on = effective[copy.path].enabled;
+                return (
+                  <Switch
+                    key={key}
+                    label={copy.question}
+                    description={on ? copy.on : copy.off}
+                    checked={on}
+                    disabled={
+                      !deductions.available ||
+                      deductions.loading ||
+                      switching !== null
+                    }
+                    onChange={(e) => void setDeduction(key, e.target.checked)}
+                  />
+                );
+              })}
+              <p className="text-meta leading-relaxed text-muted">
+                These three save as you answer them and apply to the next payroll
+                you prepare. A payroll already approved keeps the settings it was
+                computed with, so switching one back on cannot change a payslip
+                anybody has been given.
+              </p>
+            </>
+          )}
+        </Disclosure>
 
         <Disclosure
           className="bg-surface"
@@ -237,7 +471,7 @@ export function PayrollSettingsForm() {
           title="Pension"
           meta={
             <Badge tone="neutral" size="sm">
-              {draft.pension.enabled
+              {effective.pension.enabled
                 ? `${+(draft.pension.employeeRate * 100).toFixed(2)}% employee, ${+(
                     draft.pension.employerRate * 100
                   ).toFixed(2)}% employer`
@@ -249,19 +483,18 @@ export function PayrollSettingsForm() {
           onToggle={() => toggle("pension")}
           panelClassName="flex flex-col gap-5 p-5"
         >
-          <Switch
-            label="Deduct pension"
-            description="Turn off only if every employee is exempt."
-            checked={draft.pension.enabled}
-            onChange={(e) =>
-              update((s) => ({
-                ...s,
-                pension: { ...s.pension, enabled: e.target.checked },
-              }))
-            }
-          />
+          {/* Whether pension is deducted at all is answered once, above, in
+              "What you deduct" — that switch reaches the payroll engine and
+              this section is the rates. Two switches for one decision is how a
+              screen ends up disagreeing with itself about what a company does. */}
+          {!effective.pension.enabled && (
+            <p className="text-body-sm leading-relaxed text-body">
+              This payroll operates no pension scheme, so none of these rates are
+              used. Turn it on under <strong>What you deduct</strong> above.
+            </p>
+          )}
 
-          {draft.pension.enabled && (
+          {effective.pension.enabled && (
             <>
               <div className="grid gap-5 sm:grid-cols-2">
                 <Field
@@ -352,7 +585,7 @@ export function PayrollSettingsForm() {
           title="National Housing Fund"
           meta={
             <Badge tone="neutral" size="sm">
-              {draft.nhf.enabled
+              {effective.nhf.enabled
                 ? `${+(draft.nhf.rate * 100).toFixed(2)}% of ${
                     draft.nhf.basis === "basic" ? "basic salary" : "gross pay"
                   }`
@@ -364,17 +597,14 @@ export function PayrollSettingsForm() {
           onToggle={() => toggle("nhf")}
           panelClassName="flex flex-col gap-5 p-5"
         >
-          <Switch
-            label="Deduct NHF"
-            checked={draft.nhf.enabled}
-            onChange={(e) =>
-              update((s) => ({
-                ...s,
-                nhf: { ...s.nhf, enabled: e.target.checked },
-              }))
-            }
-          />
-          {draft.nhf.enabled && (
+          {!effective.nhf.enabled && (
+            <p className="text-body-sm leading-relaxed text-body">
+              This payroll deducts no housing fund contribution, so neither of
+              these is used. Turn it on under <strong>What you deduct</strong>{" "}
+              above.
+            </p>
+          )}
+          {effective.nhf.enabled && (
             <div className="grid gap-5 sm:grid-cols-2">
               <Field label="Rate" required error={issueFor("nhf.rate")}>
                 <Input
@@ -542,7 +772,7 @@ export function PayrollSettingsForm() {
 
       {/* Live preview */}
       <aside className="lg:sticky lg:top-20">
-        <Preview draft={draft} blocked={issues.length > 0} />
+        <Preview draft={effective} blocked={issues.length > 0} />
       </aside>
     </div>
   );
@@ -550,6 +780,25 @@ export function PayrollSettingsForm() {
 
 /** ₦1,000,000 a month, in kobo. A round figure makes the rates readable. */
 const PREVIEW_GROSS_KOBO = 1_000_000_00;
+
+/**
+ * The deductions this employer does not operate, named.
+ *
+ * Absent from the column *and stated* — omitting them silently would leave a
+ * reader working out why a ₦1,000,000 salary takes home ₦1,000,000, and rule 3
+ * is that an absence renders as an absence, not that it disappears.
+ */
+function notDeducted(operates: StatutoryOperation | undefined): string[] {
+  return (
+    [
+      ["pension", "pension"],
+      ["nhf", "housing fund"],
+      ["paye", "PAYE"],
+    ] as const
+  )
+    .filter(([key]) => !wasDeducted(operates, key))
+    .map(([, label]) => label);
+}
 
 /**
  * What these settings pay, on one salary.
@@ -620,26 +869,52 @@ function Preview({
               muted
             />
             <div className="h-px bg-line" />
-            <PreviewRow label="Pension" value={-naira(slip.pensionEmployeeKobo)} />
-            <PreviewRow label="NHF" value={-naira(slip.nhfKobo)} />
-            <PreviewRow label="PAYE" value={-naira(slip.payeKobo)} />
+            {/*
+              A deduction this employer does not operate is ABSENT, not ₦0.00.
+              `slip.operates` is the API's own statement of which of the three
+              ran, and the two claims are genuinely different: ₦0.00 says tax was
+              computed and came to nothing — true for anybody under the ₦800,000
+              annual exemption — while absent says this employer does not deduct
+              it. This repo has already shipped that confusion twice.
+            */}
+            {wasDeducted(slip.operates, "pension") && (
+              <PreviewRow label="Pension" value={-naira(slip.pensionEmployeeKobo)} />
+            )}
+            {wasDeducted(slip.operates, "nhf") && (
+              <PreviewRow label="NHF" value={-naira(slip.nhfKobo)} />
+            )}
+            {wasDeducted(slip.operates, "paye") && (
+              <PreviewRow label="PAYE" value={-naira(slip.payeKobo)} />
+            )}
+            {notDeducted(slip.operates).length > 0 && (
+              <p className="text-meta leading-relaxed text-muted">
+                Not deducted: {notDeducted(slip.operates).join(", ")}. Nothing for
+                {notDeducted(slip.operates).length === 1 ? " it" : " them"} appears
+                on a payslip.
+              </p>
+            )}
             <div className="h-px bg-line" />
             <PreviewRow label="Net pay" value={naira(slip.netKobo)} strong />
             <div className="mt-1 flex flex-col gap-2 rounded-md bg-canvas p-2.5">
-              <p className="text-meta leading-relaxed text-muted">
-                Employer pension of{" "}
-                <Money amount={naira(slip.pensionEmployerKobo)} /> sits on top of
-                gross and is not deducted.
-              </p>
+              {wasDeducted(slip.operates, "pension") && (
+                <p className="text-meta leading-relaxed text-muted">
+                  Employer pension of{" "}
+                  <Money amount={naira(slip.pensionEmployerKobo)} /> sits on top
+                  of gross and is not deducted.
+                </p>
+              )}
               {/* Named rather than implied. The bands are statute and not a
                   setting on this screen, so the reader should be able to see
-                  which statute answered. */}
-              <p className="text-meta leading-relaxed text-muted">
-                PAYE on {quote?.taxSchedule.citation.split("(")[0]?.trim()}
-                {quote?.taxSchedule.stale
-                  ? " — nobody has confirmed these bands cover this period."
-                  : "."}
-              </p>
+                  which statute answered — and there is nothing to name when no
+                  tax was worked out. */}
+              {wasDeducted(slip.operates, "paye") && (
+                <p className="text-meta leading-relaxed text-muted">
+                  PAYE on {quote?.taxSchedule.citation.split("(")[0]?.trim()}
+                  {quote?.taxSchedule.stale
+                    ? " — nobody has confirmed these bands cover this period."
+                    : "."}
+                </p>
+              )}
             </div>
           </>
         )}

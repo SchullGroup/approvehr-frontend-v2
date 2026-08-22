@@ -734,7 +734,7 @@ export function NewEmployeeForm() {
             implied — the same badge the directory and the record page carry. */}
         <div className="flex flex-wrap items-center gap-2">
           <Badge tone={connected ? "success" : "warning"} size="sm" dot>
-            {connected
+            {connected || !DEMO_ENABLED
               ? "Saves to the API"
               : "Saves in this browser only — demo data"}
           </Badge>

@@ -1,5 +1,11 @@
 import { cn } from "@/lib/cn";
-import { formatKobo, naira, type Payslip } from "@/lib/api/payroll";
+import {
+  formatKobo,
+  naira,
+  wasDeducted,
+  type Payslip,
+  type StatutoryOperation,
+} from "@/lib/api/payroll";
 
 /*
  * The payslip document.
@@ -39,6 +45,31 @@ import { formatKobo, naira, type Payslip } from "@/lib/api/payroll";
  * settings snapshot. Deriving a percentage back out of the figures would print a
  * confident wrong number, so an unknown rate is simply not printed. Surfacing
  * `settingsSnapshot` on an approved run is the way to get them back.
+ *
+ * ## A deduction this employer does not operate is ABSENT, not ₦0.00
+ *
+ * `slip.operates` says which of PAYE, pension and NHF the run that produced this
+ * payslip actually worked out, and the two claims are genuinely different:
+ *
+ * - **₦0.00** says the deduction was computed and came to nothing. Lawful and
+ *   common — the first ₦800,000 a year is exempt from PAYE, so somebody on
+ *   ₦60,000 a month pays none, and that zero is the answer to a real question.
+ * - **Absent** says this employer does not deduct it. Smaller Nigerian companies
+ *   often operate no pension scheme, and some have staff file their own tax.
+ *
+ * So a deduction that was not operated gets **no line in the column** and is
+ * named in one sentence under it — absent from the arithmetic and stated in
+ * words, rather than either printed as a zero or dropped silently. Somebody
+ * whose ₦500,000 salary takes home ₦500,000 is owed the sentence explaining it.
+ *
+ * The pension line used to be suppressed on `amountKobo > 0`, which conflated
+ * the two: a person whose pay prorated to nothing had their pension line vanish
+ * as though the company had no scheme. It is suppressed on the operation now,
+ * and a genuine nil prints as a nil.
+ *
+ * `operates` is **optional**, and absent means unknown rather than "none" —
+ * every payslip written before the switches existed deducted all three, so
+ * `wasDeducted` reads a missing operation as deducted.
  *
  * ## The relief line names a statute, so it is told which one
  *
@@ -171,6 +202,37 @@ export function reliefLine(slip: Payslip): {
   };
 }
 
+/**
+ * The statutory deductions this employer does not operate, named for a reader.
+ *
+ * One list, exported, so the payslip, the run's review table and the statutory
+ * filings screen cannot describe the same absence three ways. The labels are the
+ * words an employee would use, not the engine's field names.
+ */
+export function notOperated(
+  operates: StatutoryOperation | undefined,
+): { key: keyof StatutoryOperation; label: string; because: string }[] {
+  return (
+    [
+      {
+        key: "pension" as const,
+        label: "Pension",
+        because: "this employer does not operate a pension scheme",
+      },
+      {
+        key: "nhf" as const,
+        label: "National Housing Fund",
+        because: "this employer does not deduct a housing fund contribution",
+      },
+      {
+        key: "paye" as const,
+        label: "PAYE income tax",
+        because: "this employer does not deduct PAYE",
+      },
+    ]
+  ).filter((row) => !wasDeducted(operates, row.key));
+}
+
 export function PayslipDocument({
   employee,
   slip,
@@ -204,8 +266,27 @@ export function PayslipDocument({
   const postTax = slip.lines.filter(
     (line) => line.kind === "DEDUCTION" && !line.taxable,
   );
+  /**
+   * What the employer paid on top — minus anything for a scheme it does not run.
+   *
+   * The API writes an "Employer pension" line on every payslip, at ₦0.00 where
+   * there is no scheme, exactly as it stores `pensionEmployeeKobo: 0` and
+   * `payeKobo: 0`. Storing the zero is right; **printing** it is not, and this
+   * filter is the same `wasDeducted` decision the deductions column makes one
+   * section up.
+   *
+   * Printing "Employer pension ₦0.00" is the worst of the three zeroes on this
+   * document. It is the figure an employee checks to see what went into their
+   * retirement savings, so a nil there reads as an employer that owed a
+   * contribution and paid nothing — an accusation — when the truth is that there
+   * is no scheme to contribute to. The employee column was gated when the
+   * switches went in and this column was missed.
+   */
   const employerLines = slip.lines.filter(
-    (line) => line.kind === "EMPLOYER_CONTRIBUTION",
+    (line) =>
+      line.kind === "EMPLOYER_CONTRIBUTION" &&
+      (line.label !== "Employer pension" ||
+        wasDeducted(slip.operates, "pension")),
   );
   const carried = carriedForwardKobo(slip);
   const relief = reliefLine(slip);
@@ -218,9 +299,14 @@ export function PayslipDocument({
   ];
 
   /* Pension and NHF come off before PAYE, so they are printed before it. The
-     order of this column is the order of the calculation. */
+     order of this column is the order of the calculation.
+
+     Each statutory line appears when the employer **operates** it, not when its
+     amount is non-zero. A nil pension on a month that prorated to nothing is a
+     real figure and prints; a company with no scheme has no line at all and is
+     named below the column instead. */
   const deductions = [
-    ...(slip.pensionEmployeeKobo > 0
+    ...(wasDeducted(slip.operates, "pension")
       ? [
           {
             label: rates
@@ -230,7 +316,7 @@ export function PayslipDocument({
           },
         ]
       : []),
-    ...(slip.nhfKobo > 0
+    ...(wasDeducted(slip.operates, "nhf")
       ? [
           {
             label: rates
@@ -241,7 +327,9 @@ export function PayslipDocument({
         ]
       : []),
     ...preTax.map((line) => ({ label: line.label, kobo: line.amountKobo })),
-    { label: "PAYE income tax", kobo: slip.payeKobo },
+    ...(wasDeducted(slip.operates, "paye")
+      ? [{ label: "PAYE income tax", kobo: slip.payeKobo }]
+      : []),
     ...postTax.map((line) => ({
       /* The full instalment is what the employee agreed to; what fitted this
          month is shown under the total, not by silently shrinking the line. */
@@ -250,10 +338,15 @@ export function PayslipDocument({
     })),
   ];
 
+  const absent = notOperated(slip.operates);
+
+  /* Only what was actually deducted. Adding a not-operated zero changes nothing
+     arithmetically and is written this way so the total and the column can never
+     be built from different sets of lines. */
   const takenKobo =
-    slip.pensionEmployeeKobo +
-    slip.nhfKobo +
-    slip.payeKobo +
+    (wasDeducted(slip.operates, "pension") ? slip.pensionEmployeeKobo : 0) +
+    (wasDeducted(slip.operates, "nhf") ? slip.nhfKobo : 0) +
+    (wasDeducted(slip.operates, "paye") ? slip.payeKobo : 0) +
     slip.otherDeductionsKobo;
 
   return (
@@ -334,6 +427,17 @@ export function PayslipDocument({
             ))}
             <LineItem label="Total deductions" kobo={takenKobo} total />
           </dl>
+          {/* Absent from the column and stated in words. A ₦500,000 salary
+              taking home ₦500,000 needs the sentence, and "PAYE ₦0.00" would be
+              the wrong one — it claims tax was worked out. */}
+          {absent.length > 0 && (
+            <p className="mt-2 text-meta leading-relaxed text-body">
+              {absent.map((row) => row.label).join(", ")}{" "}
+              {absent.length === 1 ? "does" : "do"} not appear above because{" "}
+              {absent.map((row) => row.because).join(", and ")}. Nothing was
+              deducted for {absent.length === 1 ? "it" : "them"}.
+            </p>
+          )}
           {carried > 0 && (
             <p className="mt-2 text-meta leading-relaxed text-body">
               {formatKobo(carried)} of the above could not be taken this month —
@@ -374,18 +478,38 @@ export function PayslipDocument({
         </section>
       )}
 
-      {/* How the tax was worked out */}
+      {/* How the tax was worked out.
+
+          Replaced wholesale where no tax was worked out. Printing a relief
+          figure and a taxable-pay figure under a heading that says "how the tax
+          was worked out", on a payslip with no tax on it, invites the reader to
+          reconstruct a deduction that never happened — which is exactly what the
+          abolished-relief line did when it printed ₦0.00 under a statute that no
+          longer existed. */}
       <section className="mt-6 rounded-md border border-line p-4">
-        <ColumnHead>How the tax was worked out</ColumnHead>
+        <ColumnHead>
+          {wasDeducted(slip.operates, "paye")
+            ? "How the tax was worked out"
+            : "Income tax"}
+        </ColumnHead>
+        {!wasDeducted(slip.operates, "paye") ? (
+          <p className="mt-2 text-meta leading-relaxed text-body">
+            No PAYE was deducted from this pay, so there is no tax working to
+            show. Your employer does not operate PAYE — you are responsible for
+            filing your own return with your state tax authority.
+          </p>
+        ) : (
         <dl className="mt-3 flex flex-col">
           <LineItem label={relief.label} kobo={slip.reliefKobo} />
           <LineItem label="Taxable pay (per month)" kobo={slip.taxableIncomeKobo} />
           <LineItem label="PAYE" kobo={slip.payeKobo} total />
         </dl>
+        )}
         {/* Prints. A relief nobody has claimed is the one thing on this document
             the employee themselves can do something about, so it is not hidden
-            behind `no-print` on the copy they are handed. */}
-        {relief.note && (
+            behind `no-print` on the copy they are handed. Suppressed where no
+            tax ran: there is nothing for a relief to reduce. */}
+        {wasDeducted(slip.operates, "paye") && relief.note && (
           <p className="mt-2 text-meta leading-relaxed text-body">
             {relief.note}
           </p>
@@ -434,7 +558,12 @@ export function PayslipDocument({
               </tbody>
             </table>
           </div>
-          {ytd.projected && (
+          {/* `projectYearToDate` is set in one place — the demo branch of
+              `store/payroll.ts` — because connected mode shows no year-to-date
+              at all rather than a figure somebody might file a return against.
+              So this paragraph is demo-only by construction, and the build flag
+              is what keeps its sentence out of a production bundle. */}
+          {DEMO_ENABLED && ytd.projected && (
             <p className="mt-2 text-meta leading-relaxed text-muted">
               Projected from this month, not summed from the runs — this browser
               only has the one run.
@@ -455,8 +584,15 @@ export function PayslipDocument({
         <p className="text-meta leading-relaxed text-muted">
           PAYE is calculated on annualised income under the Personal Income Tax
           Act as amended, after pension and National Housing Fund relief and any
-          personal relief you are entitled to. Pension is remitted to your PFA
-          under the Pension Reform Act 2014. Queries go to your HR help desk.
+          personal relief you are entitled to.{" "}
+          {/* Dropped where there is no scheme. A payslip with no pension on it
+              that closes by telling the reader their pension "is remitted to
+              your PFA" describes a remittance nobody made, and it is the
+              sentence an employee would quote back when asking where their
+              money went. */}
+          {wasDeducted(slip.operates, "pension") &&
+            "Pension is remitted to your PFA under the Pension Reform Act 2014. "}
+          Queries go to your HR help desk.
         </p>
         <p className="mt-2 text-meta text-muted">
           Generated by ApproveHR · This payslip does not require a signature.

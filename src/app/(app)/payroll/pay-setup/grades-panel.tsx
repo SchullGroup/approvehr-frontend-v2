@@ -135,7 +135,7 @@ export function GradesPanel() {
 
   return (
     <div className="flex flex-col gap-6">
-      {!grades.connected && !grades.loading && (
+      {DEMO_ENABLED && !grades.connected && !grades.loading && (
         <Callout tone="warning" title="Demo data, this browser only">
           You can price a rise here and see exactly what it would cost. Applying
           one, and adding or editing a grade, needs the API — pay set in a browser

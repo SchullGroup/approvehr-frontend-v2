@@ -458,13 +458,13 @@ export type NewLeave = {
  * exists because a request that cannot be filed at all is a worse outcome than
  * one filed against Annual, and because the balance follows the name either way.
  */
-const SEED_TYPES: LeaveType[] = [
+const SEED_TYPES: LeaveType[] = DEMO_ENABLED ? [
   "Annual",
   "Sick",
   "Compassionate",
   "Maternity",
   "Paternity",
-];
+] : [];
 
 const asSeedType = (name: string): LeaveType =>
   SEED_TYPES.find((type) => type === name) ?? "Annual";

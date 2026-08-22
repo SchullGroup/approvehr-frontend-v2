@@ -112,7 +112,7 @@ export function AppraiserMapTab() {
     return (
       <p className="flex items-center gap-2 text-body-sm text-muted">
         <Spinner size="sm" />
-        Reading the cycles
+        Reading the appraisal periods
       </p>
     );
   }
@@ -121,8 +121,8 @@ export function AppraiserMapTab() {
     return (
       <EmptyState
         icon={<Network aria-hidden="true" />}
-        title="No cycles yet"
-        description="A mapping belongs to a cycle: who was best placed to judge somebody last half is not who is best placed this half. Create a cycle on the Appraisals tab first."
+        title="No appraisal periods yet"
+        description="A mapping belongs to one appraisal period: who was best placed to judge somebody last half is not who is best placed this half. Start a period first."
       />
     );
   }
@@ -154,7 +154,7 @@ export function AppraiserMapTab() {
               : `${result.created} people given their line manager`,
         tone: "success",
         /* Named, not counted. These are the people who would otherwise finish
-           the cycle with no mark at all. */
+           the period with no mark at all. */
         ...(result.withoutManager.length > 0
           ? {
               detail: `Still nobody appraising: ${result.withoutManager.join(", ")}. They have no manager either — assign somebody by hand.`,
@@ -179,7 +179,7 @@ export function AppraiserMapTab() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <Field label="Cycle" className="min-w-[16rem]">
+        <Field label="Appraisal period" className="min-w-[16rem]">
           <Select
             value={cycleId ?? ""}
             onChange={(event) => {
@@ -222,7 +222,7 @@ export function AppraiserMapTab() {
 
       {map && (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Stat label="People in the cycle" value={String(map.counts.people)} />
+          <Stat label="People in the period" value={String(map.counts.people)} />
           <Stat
             label="One manager, 100%"
             value={String(map.counts.simple)}
@@ -259,7 +259,7 @@ export function AppraiserMapTab() {
             }
             description={
               map?.started
-                ? "This cycle is running, so these are live."
+                ? "This period is running, so these are live."
                 : "Nothing has started yet, so none of this is final."
             }
           />
@@ -309,11 +309,11 @@ export function AppraiserMapTab() {
           <EmptyState
             compact
             icon={<Network aria-hidden="true" />}
-            title={exceptionsOnly ? "Nothing is wrong" : "Nobody in this cycle"}
+            title={exceptionsOnly ? "Nothing is wrong" : "Nobody in this period"}
             description={
               exceptionsOnly
                 ? "Everybody has an appraiser and every set of weights makes 100%."
-                : "A cycle covers everybody who is still employed. Add people first."
+                : "A period covers everybody who is still employed. Add people first."
             }
           />
         ) : (
@@ -683,8 +683,8 @@ function AppraisersDialog({
         {rows.length === 0 && (
           <Callout tone="warning" title="Nobody would appraise them">
             Saving with an empty list is allowed and it is a real state — it is how
-            you undo a mapping. They will finish the cycle with no mark, and the
-            cycle will say so by name.
+            you undo a mapping. They will finish the period with no mark, and the
+            period will say so by name.
           </Callout>
         )}
 
@@ -799,7 +799,7 @@ function AppraisersDialog({
         <p className="text-body-sm text-muted">
           The mark is the weighted average of whoever has answered, so a share of
           0% is not a thing — remove the row instead. Everybody added is told, and
-          gets their own form straight away if the cycle is running.
+          gets their own form straight away if the period is running.
         </p>
       </div>
     </Modal>

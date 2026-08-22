@@ -122,7 +122,7 @@ function QueueView() {
         title="Help desk"
         description="Every request your staff have raised, soonest promise first."
         meta={
-          list.live ? undefined : (
+          list.live || !DEMO_ENABLED ? undefined : (
             <Badge tone="warning" size="sm" dot>
               Demo data
             </Badge>
@@ -305,7 +305,7 @@ function MyRequestsView() {
         title="Get help"
         description="Ask HR anything. Everything you have asked is here, with what came back."
         meta={
-          list.live ? undefined : (
+          list.live || !DEMO_ENABLED ? undefined : (
             <Badge tone="warning" size="sm" dot>
               Demo data
             </Badge>

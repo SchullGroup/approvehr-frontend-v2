@@ -1,5 +1,6 @@
 "use client";
 
+import { sourceNote } from "@/lib/demo";
 import { useState } from "react";
 import Link from "next/link";
 import { Info, Lock, RotateCcw } from "lucide-react";
@@ -184,12 +185,12 @@ export function ScoringWeightsForm() {
         tone: "success",
         title: "Weights saved",
         /* The API names the running cycles this cannot reach. Naming them beats
-           the general rule: "cycles keep their own weights" has to be taken on
+           the general rule: "periods keep their own weights" has to be taken on
            trust, and "H2 2026 appraisal keeps its own" can be checked. */
         detail:
           saved.frozenCycles.length === 0
-            ? "This applies to the next cycle you start."
-            : `${saved.frozenCycles.join(", ")} ${saved.frozenCycles.length === 1 ? "keeps the weights it" : "keep the weights they"} started with, so no mark already awarded moves. This applies to the next cycle you start.`,
+            ? "This applies to the next appraisal period you start."
+            : `${saved.frozenCycles.join(", ")} ${saved.frozenCycles.length === 1 ? "keeps the weights it" : "keep the weights they"} started with, so no mark already awarded moves. This applies to the next appraisal period you start.`,
       });
     } catch (caught) {
       toast.push({
@@ -214,9 +215,7 @@ export function ScoringWeightsForm() {
         meta={
           <>
             <Badge tone={source === "api" ? "success" : "warning"} size="sm" dot>
-              {source === "api"
-                ? "Live from the API"
-                : "Demo data, this browser only"}
+              {sourceNote(source === "api")}
             </Badge>
             {weights && (
               <Badge tone={weights.source === "saved" ? "accent" : "neutral"} size="sm">
@@ -342,12 +341,12 @@ export function ScoringWeightsForm() {
 
             <Card>
               <CardHeader
-                title="A change here does not move a running cycle"
+                title="A change here does not move a period that has started"
                 description="The same rule payroll uses for its settings snapshot."
               />
               <CardBody className="flex flex-col gap-3 text-body-sm text-body">
                 <p>
-                  When a cycle starts, the weights are copied onto it. Changing
+                  When a period starts, the weights are copied onto it. Changing
                   them afterwards cannot move a mark that has already been
                   awarded — a rating from this quarter has to keep explaining
                   itself against the weights that produced it, years later.
@@ -357,14 +356,14 @@ export function ScoringWeightsForm() {
                     aria-hidden="true"
                     className="mt-0.5 size-4 shrink-0 text-faint"
                   />
-                  A cycle screen says whether its weights are frozen, and{" "}
+                  A period screen says whether its weights are frozen, and{" "}
                   <Link
                     href="/performance"
                     className="font-medium text-accent-text underline-offset-2 hover:underline"
                   >
                     the appraisals tab
                   </Link>{" "}
-                  is where cycles are started.
+                  is where appraisal periods are started.
                 </p>
               </CardBody>
             </Card>
@@ -380,7 +379,7 @@ export function ScoringWeightsForm() {
                     </p>
                   ) : (
                     <p className="text-body-sm text-muted">
-                      Nothing changed. This is the set new cycles start with.
+                      Nothing changed. This is the set a new period starts with.
                     </p>
                   )}
                 </div>

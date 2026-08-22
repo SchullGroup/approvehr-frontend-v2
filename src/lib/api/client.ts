@@ -180,15 +180,28 @@ type RequestOptions = {
   anonymous?: boolean;
 };
 
-export type Paged<T> = {
+/** The paging half of a list envelope. Identical to the API's `PageMeta`. */
+export type PageMeta = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  hasMore: boolean;
+};
+
+/**
+ * `{ data, meta }` — what every list endpoint answers.
+ *
+ * `Extra` is for the counts an endpoint puts **in the envelope** rather than on a
+ * row: how many payslips are unsent, how many claims are still open. They belong
+ * there because they are facts about the query, and because that is the only
+ * place a screen can find a number to put beside a filter that is the server's
+ * count rather than `rows.length`. The API's `page()` helper merges them into
+ * `meta`; this type is the other end of that.
+ */
+export type Paged<T, Extra = unknown> = {
   data: T[];
-  meta: {
-    page: number;
-    pageSize: number;
-    total: number;
-    totalPages: number;
-    hasMore: boolean;
-  };
+  meta: PageMeta & Extra;
 };
 
 function buildUrl(path: string, query?: RequestOptions["query"]): string {
@@ -320,10 +333,10 @@ export async function request<T>(
 }
 
 /** For list endpoints, which return `{ data, meta }`. */
-export async function requestPaged<T>(
+export async function requestPaged<T, Extra = unknown>(
   path: string,
   options: RequestOptions = {},
-): Promise<Paged<T>> {
+): Promise<Paged<T, Extra>> {
   const { method = "GET", query, signal } = options;
 
   const send = async () => {
@@ -364,7 +377,7 @@ export async function requestPaged<T>(
   }
 
   if (!response.ok) throw await toApiError(response);
-  return (await response.json()) as Paged<T>;
+  return (await response.json()) as Paged<T, Extra>;
 }
 
 /** True when the API is reachable. Used by the connection banner. */

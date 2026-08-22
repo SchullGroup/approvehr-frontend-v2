@@ -48,10 +48,12 @@ export const EQUIPMENT_IMPORT_SURFACE: ImportSurface = {
      import cleanly. Both of this entity's unknowns are lookups against rows only
      the database holds: whether that tag or serial is already on the register,
      and whether the person named as holding it is on the staff list. */
-  demoLimits:
-    "whether that tag or serial is already on your register, or whether the people named as holding something are on your staff list.",
-  demoRefusal:
-    "This is demo mode. The file has been read and checked as far as a browser can, and that is where it stops: an equipment register in one laptop is the opposite of the point, because the whole reason to keep one is that somebody's exit checklist can read it.",
+  unknownWithoutApi: DEMO_ENABLED
+    ? "whether that tag or serial is already on your register, or whether the people named as holding something are on your staff list."
+    : "",
+  refusalWithoutApi: DEMO_ENABLED
+    ? "This is demo mode. The file has been read and checked as far as a browser can, and that is where it stops: an equipment register in one laptop is the opposite of the point, because the whole reason to keep one is that somebody's exit checklist can read it."
+    : "",
   linkedStats: [
     {
       key: "handedOver",

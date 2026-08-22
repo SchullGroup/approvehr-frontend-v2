@@ -135,7 +135,14 @@ export type DemoStructure = {
  * membership implies nothing about anybody's pay, and Chidi Nwosu is on both so
  * `peopleOnATeam` counts a person once rather than twice.
  */
-const DEMO_SEED: DemoStructure = {
+/* Gated at the build, not at the read: in a production build `DEMO_ENABLED`
+   folds to `false`, the whole literal below is unreachable and the seeded
+   departments, teams and memberships are dropped from the bundle. The store
+   still exists as a shape so nothing has to branch on its absence — it is
+   simply empty, and no screen can reach it because `mode` is never
+   "offline" there. */
+const DEMO_SEED: DemoStructure = DEMO_ENABLED
+  ? {
   departments: [
     {
       id: "dept-engineering",
@@ -247,7 +254,8 @@ const DEMO_SEED: DemoStructure = {
       joinedAt: "2026-06-15T09:00:00.000Z",
     },
   ],
-};
+    }
+  : { departments: [], teams: [], members: [] };
 
 export const demoStructure = createPersistedState<DemoStructure>({
   key: "approvehr.structure.store",

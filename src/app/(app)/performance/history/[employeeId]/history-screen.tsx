@@ -47,7 +47,7 @@ import { BAND_TONE, useScoreHistory } from "@/lib/store/performance";
  * ## Every point is the cycle screen's own figure
  *
  * The API assembles each point from the same `scoreRegister` that produces the
- * mark on `/performance/cycles/[id]`, against the weights that cycle was frozen
+ * mark on `/performance/periods/[id]`, against the weights that period was frozen
  * with. Nothing here recomputes a score, bands a score, or averages one — a
  * second implementation is how two screens end up disagreeing about the same
  * person, and this screen is the one somebody opens *in order to* compare.
@@ -76,13 +76,13 @@ export function ScoreHistoryScreen({ employeeId }: { employeeId: string }) {
       <PageHeader
         breadcrumb={[{ href: "/performance", label: "Performance" }]}
         title={history?.employeeName ?? "Appraisal history"}
-        description="How the mark has moved across cycles, and what each one was made of."
+        description="How the mark has moved across appraisal periods, and what each one was made of."
         meta={
           history ? (
             <>
               <Badge tone="neutral" size="sm">
                 {history.counts.cycles}{" "}
-                {history.counts.cycles === 1 ? "cycle" : "cycles"}
+                {history.counts.cycles === 1 ? "period" : "periods"}
               </Badge>
               {history.counts.unscored > 0 && (
                 <Badge tone="warning" size="sm" dot>
@@ -95,7 +95,7 @@ export function ScoreHistoryScreen({ employeeId }: { employeeId: string }) {
       />
 
       <PageBody className="flex flex-col gap-6">
-        {!detail.available && (
+        {DEMO_ENABLED && !detail.available && (
           <Callout tone="warning" title="Demo data, this browser only">
             <p>{detail.refusal}</p>
           </Callout>
@@ -105,7 +105,7 @@ export function ScoreHistoryScreen({ employeeId }: { employeeId: string }) {
           <Callout tone="danger" title="Could not read the history">
             {/* The server's own sentence, including the 403 that names the rule:
                 self, direct report, or the records permission. An appraiser
-                assigned to one cycle is refused here on purpose. */}
+                assigned to one period is refused here on purpose. */}
             {detail.error.message}
           </Callout>
         )}
@@ -114,7 +114,7 @@ export function ScoreHistoryScreen({ employeeId }: { employeeId: string }) {
           <Card>
             <CardBody className="flex items-center gap-2 text-body-sm text-muted">
               <Spinner size="sm" />
-              Reading every cycle
+              Reading every period
             </CardBody>
           </Card>
         )}
@@ -134,8 +134,8 @@ export function ScoreHistoryScreen({ employeeId }: { employeeId: string }) {
                 <EmptyState
                   compact
                   icon={<TriangleAlert aria-hidden="true" />}
-                  title="No cycle has covered them yet"
-                  description="A person appears here once a cycle they are in has started. A cycle still in draft has no marks to show."
+                  title="No appraisal period has covered them yet"
+                  description="A person appears here once an appraisal period they are in has started. A period that has not been started has no marks to show."
                 />
               </Card>
             ) : (
@@ -146,7 +146,7 @@ export function ScoreHistoryScreen({ employeeId }: { employeeId: string }) {
                 )}
                 {history.truncated && (
                   <p className="text-body-sm text-muted">
-                    The {history.limit} most recent cycles are shown. Older ones
+                    The {history.limit} most recent periods are shown. Older ones
                     exist and are not on this page.
                   </p>
                 )}
@@ -189,7 +189,7 @@ function Who({ history }: { history: ApiScoreHistory }) {
         hint={latest ? latest.cycleName : "No cycle has produced one"}
       />
       <Stat
-        label="Cycles with a mark"
+        label="Periods with a mark"
         value={`${history.counts.scored} of ${history.counts.cycles}`}
         hint={
           history.counts.unscored === 0
@@ -274,13 +274,13 @@ function Trend({ history }: { history: ApiScoreHistory }) {
               value: point.scoreBp / 100,
             }))}
             format={(value) => `${value}%`}
-            caption={`${history.employeeName}'s mark by cycle, as a percentage`}
+            caption={`${history.employeeName}'s mark by period, as a percentage`}
           />
         ) : (
           <p className="text-body-sm text-muted">
             {scored.length === 1
               ? `One mark so far: ${scoreLabel(scored[0]?.scoreBp ?? 0)} in ${scored[0]?.cycleName}.`
-              : "No mark has been recorded in any cycle, so there is nothing to plot."}
+              : "No mark has been recorded in any period, so there is nothing to plot."}
           </p>
         )}
       </CardBody>
@@ -303,7 +303,7 @@ function NoMark({ cycles }: { cycles: string[] }) {
 }
 
 /**
- * One cycle, in full.
+ * One period, in full.
  *
  * Newest first in the list, because the recent period is the one somebody is
  * looking for, and the chart above already carries the chronology.

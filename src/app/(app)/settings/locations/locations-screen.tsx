@@ -168,7 +168,7 @@ export function LocationsScreen() {
 
         {/* The one honest gap in demo mode, stated rather than left to be
             discovered by wondering why a fence let somebody in. */}
-        {list.source === "demo" && (
+        {DEMO_ENABLED && list.source === "demo" && (
           <Callout tone="warning" title="Demo locations, this browser only">
             Adding, editing and switching off all work, and persist in this
             browser. One thing does not:{" "}

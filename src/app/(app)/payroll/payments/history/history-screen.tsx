@@ -1,5 +1,6 @@
 "use client";
 
+import { sourceNote } from "@/lib/demo";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Banknote, History, Receipt } from "lucide-react";
@@ -184,7 +185,7 @@ export function PaymentHistoryScreen() {
         description="Who was paid, for which month, and whether the money moved."
         meta={
           <Badge tone={history.live ? "success" : "warning"} size="sm" dot>
-            {history.live ? "Live from the API" : "Demo data, this browser only"}
+            {sourceNote(history.live)}
           </Badge>
         }
       />

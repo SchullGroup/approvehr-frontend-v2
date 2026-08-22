@@ -157,7 +157,7 @@ export function KnowledgeScreen() {
       />
 
       <PageBody className="flex flex-col gap-6">
-        {!articles.editable && (
+        {DEMO_ENABLED && !articles.editable && (
           <Callout tone="warning" title="Read-only in demo mode">
             Publishing an article needs the API. Everything on this screen can be
             read; nothing can be saved.

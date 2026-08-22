@@ -246,7 +246,7 @@ export type AssetListParams = {
   includeArchived?: boolean;
   /** Covers tag, name, serial, make and model. */
   q?: string;
-  sort?: "tag" | "name" | "status" | "purchasedOn" | "createdAt";
+  sort?: "tag" | "name" | "status" | "purchasedOn" | "purchaseCost" | "createdAt";
   order?: "asc" | "desc";
 };
 

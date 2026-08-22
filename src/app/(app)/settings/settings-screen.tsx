@@ -139,7 +139,7 @@ const ONGOING = [
     href: "/settings/performance",
     title: "Appraisal scoring",
     description:
-      "How much each part of an appraisal counts. The weights must make 100% exactly, and they are frozen onto a cycle when it starts.",
+      "How much each part of an appraisal counts. The weights must make 100% exactly, and they are frozen onto an appraisal period when it starts.",
     icon: <Gauge aria-hidden="true" />,
   },
   {
@@ -326,7 +326,7 @@ export function SettingsScreen() {
           )}
         </Card>
 
-        {source === "demo" && (
+        {DEMO_ENABLED && source === "demo" && (
           <Callout tone="warning" title="Demo data, this browser only">
             This checklist is worked out from the seeded company in this browser.
             Two rows cannot be answered offline at all — whether a bank account is

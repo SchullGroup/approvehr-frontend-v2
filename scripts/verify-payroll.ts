@@ -48,6 +48,9 @@
  * hard failure there would be a false one.
  */
 
+/* `DEMO_ENABLED` before anything from `src/`: the app modules below reference
+   it and the bundler that normally substitutes it is not here. */
+import "./demo-global";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import {
@@ -169,6 +172,13 @@ same("fixture salary split matches the defaults", basis.salarySplit, {
   basic: DEFAULT_SETTINGS.salarySplit.basic,
   housing: DEFAULT_SETTINGS.salarySplit.housing,
   transport: DEFAULT_SETTINGS.salarySplit.transport,
+});
+/* The three deduction switches the fixture was generated on. A fixture built
+   with PAYE off would be a completely different set of numbers wearing the same
+   filename, so this is not cosmetic — it is the guard that catches a switch
+   changing under a fixture nobody regenerated. */
+same("fixture PAYE switch matches the defaults", basis.paye, {
+  enabled: DEFAULT_SETTINGS.paye.enabled,
 });
 same("fixture pension matches the defaults", basis.pension, {
   enabled: DEFAULT_SETTINGS.pension.enabled,

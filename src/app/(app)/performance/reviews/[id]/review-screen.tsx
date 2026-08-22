@@ -119,7 +119,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
         <PageBody>
           {/* The API answers 404 rather than 403 for a review somebody may not
               read, deliberately: a 403 confirms that a review of this person
-              exists in this cycle, which is most of what a curious colleague
+              exists in this period, which is most of what a curious colleague
               wanted to know. So this cannot say "you are not allowed". */}
           <EmptyState
             icon={<FileQuestion aria-hidden="true" />}
@@ -405,7 +405,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
               <EmptyState
                 compact
                 icon={<FileQuestion aria-hidden="true" />}
-                title="This cycle asks nothing on this form"
+                title="This period asks nothing on this form"
                 description="A form with no questions asks nobody anything. Add questions to the cycle."
               />
             ) : (
@@ -559,7 +559,7 @@ function ScorePanel({
               error. Rendering a blank panel here would look like a score of
               nothing. */}
           <p className="text-body-sm leading-relaxed text-body">
-            {message ?? "There is no score for this cycle yet."}
+            {message ?? "There is no score for this period yet."}
           </p>
         </CardBody>
       </Card>
@@ -572,8 +572,8 @@ function ScorePanel({
         title="What the mark is made of"
         description={
           score.weightsFrom === "snapshot"
-            ? "The weights frozen onto this cycle when it started. A later change to the company's weights does not move this mark."
-            : "The company's current weights. This cycle started before weights were frozen onto a cycle, so a change to them would move this mark."
+            ? "The weights frozen onto this period when it started. A later change to the company's weights does not move this mark."
+            : "The company's current weights. This period started before weights were frozen onto a period, so a change to them would move this mark."
         }
       />
       <CardBody className="flex flex-col gap-5">

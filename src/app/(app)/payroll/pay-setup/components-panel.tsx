@@ -164,7 +164,7 @@ export function ComponentsPanel({ kind }: { kind: PayComponentKind }) {
 
   return (
     <div className="flex flex-col gap-5">
-      {!components.connected && !components.loading && (
+      {DEMO_ENABLED && !components.connected && !components.loading && (
         <Callout tone="warning" title="Demo data, this browser only">
           These are the {copy.plural} ApproveHR sets up for a new company. Adding
           or changing one needs the API — a deduction kept in a browser would

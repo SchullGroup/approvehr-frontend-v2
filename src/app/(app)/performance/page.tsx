@@ -5,7 +5,7 @@ import { isPerformanceTab } from "./tabs";
 export const metadata: Metadata = {
   title: "Performance",
   description:
-    "KPIs with the measures behind them, appraisals on a cycle, and skills against their targets.",
+    "What is waiting on you, the KPIs behind it, and the appraisal periods a mark is given inside.",
 };
 
 /**
@@ -21,6 +21,9 @@ export const metadata: Metadata = {
  * The tab is read here, on the server, and handed down as a prop.
  * `useSearchParams` in the screen would force the whole page into a Suspense
  * boundary and a client-side read for one string.
+ *
+ * `now` is the default because the first question anybody arrives with is "what
+ * do I do", and the tab that used to be first was a list of KPIs.
  */
 export default async function PerformancePage({
   searchParams,
@@ -30,6 +33,6 @@ export default async function PerformancePage({
   const { tab } = await searchParams;
   const single = Array.isArray(tab) ? tab[0] : tab;
   return (
-    <PerformanceScreen initialTab={isPerformanceTab(single) ? single : "kpis"} />
+    <PerformanceScreen initialTab={isPerformanceTab(single) ? single : "now"} />
   );
 }

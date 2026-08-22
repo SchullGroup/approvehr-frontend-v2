@@ -39,12 +39,17 @@ export {
   TableWrap,
   THead,
   TH,
+  SortableTH,
   TBody,
   TR,
   TD,
   TDPrimary,
   rowClick,
 } from "./table";
+
+export { Pagination } from "./pagination";
+export { FilterBar } from "./filter-bar";
+export type { AppliedFilter } from "./filter-bar";
 
 export {
   EmptyState,

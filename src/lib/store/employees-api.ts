@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { missingForPayroll, type Employee } from "@/lib/types";
 import { isUuid } from "@/lib/api/audit";
 import { ApiError } from "@/lib/api/client";
@@ -10,6 +10,7 @@ import {
   toKobo,
   type ApiEmployee,
   type EmployeeListParams,
+  type EmployeeSummary,
 } from "@/lib/api/endpoints";
 import { demoDepartmentName } from "./demo-structure";
 import { useEmployeeStore } from "./employees";
@@ -115,33 +116,23 @@ export function useEmployeeDirectory(params: EmployeeListParams = {}) {
   }, [load]);
 
   if (!isConnected) {
-    /* Demo mode: filter and search the in-memory directory so the screen
-       behaves the same way, just without a server. */
+    /* Demo mode: filter, sort and page the in-memory directory so the screen
+       behaves the same way, just without a server. `total` is the count *before*
+       the page is cut, exactly as `meta.total` is connected — a demo that
+       reported the page length would teach the screen a habit that breaks the
+       moment a database arrives. */
     const parsed = JSON.parse(key) as EmployeeListParams;
-    let rows = parsed.includeArchived ? local.all : local.directory;
-    if (parsed.q) {
-      const needle = parsed.q.toLowerCase();
-      rows = rows.filter((e) =>
-        [e.firstName, e.lastName, e.email, e.employeeNo, e.jobTitle]
-          .filter(Boolean)
-          .some((field) => String(field).toLowerCase().includes(needle)),
-      );
-    }
-    if (parsed.payrollBlocked) {
-      rows = rows.filter((e) => !e.bankAccount || !e.pensionPin || !e.tin);
-    }
-    /* The API's statuses are `ONBOARDING`; the local ones are `onboarding`,
-       because `toEmployee` lower-cases on the way in. Compared case-insensitively
-       so a screen can pass one value and get the same answer from either source
-       — the onboarding screen passes `status: "ONBOARDING"` and does not know
-       which mode it is in. */
-    if (parsed.status) {
-      const wanted = parsed.status.toLowerCase();
-      rows = rows.filter((e) => e.status.toLowerCase() === wanted);
-    }
+    const rows = filterLocally(
+      parsed.archivedOnly || parsed.includeArchived ? local.all : local.directory,
+      parsed,
+      new Set(local.archived),
+    );
+    const sorted = sortLocally(rows, parsed);
+    const size = parsed.pageSize ?? 25;
+    const start = ((parsed.page ?? 1) - 1) * size;
     return {
-      employees: rows,
-      total: rows.length,
+      employees: sorted.slice(start, start + size),
+      total: sorted.length,
       loading: false,
       error: null,
       connected: false,
@@ -151,6 +142,235 @@ export function useEmployeeDirectory(params: EmployeeListParams = {}) {
   }
 
   return { ...state, reload: load };
+}
+
+/**
+ * The demo's copy of the API's `where`.
+ *
+ * A second implementation, and the header above already says why the demo store
+ * exists at all. The rule it has to keep is that the *shape* of the answer
+ * matches: filter first, then count, then cut the page. Filtering after the cut
+ * is the bug this whole change is about, and it would be just as wrong here.
+ */
+function filterLocally(
+  input: Employee[],
+  params: EmployeeListParams,
+  archived: Set<string>,
+): Employee[] {
+  let rows = input;
+
+  if (params.archivedOnly) rows = rows.filter((e) => archived.has(e.id));
+
+  if (params.q) {
+    const needle = params.q.toLowerCase();
+    rows = rows.filter((e) =>
+      [e.firstName, e.lastName, e.email, e.employeeNo, e.jobTitle]
+        .filter(Boolean)
+        .some((field) => String(field).toLowerCase().includes(needle)),
+    );
+  }
+
+  /* Three states, matching the API: blocked only, ready only, or no filter. */
+  if (params.payrollBlocked === true) {
+    rows = rows.filter((e) => missingForPayroll(e).length > 0);
+  } else if (params.payrollBlocked === false && params.payrollReady) {
+    rows = rows.filter((e) => missingForPayroll(e).length === 0);
+  }
+
+  /* The API's statuses are `ONBOARDING`; the local ones are `onboarding`,
+     because `toEmployee` lower-cases on the way in. Compared case-insensitively
+     so a screen can pass one value and get the same answer from either source
+     — the onboarding screen passes `status: "ONBOARDING"` and does not know
+     which mode it is in. */
+  if (params.status) {
+    const wanted = params.status.toLowerCase();
+    rows = rows.filter((e) => e.status.toLowerCase() === wanted);
+  }
+  if (params.employmentType) {
+    const wanted = params.employmentType.toLowerCase();
+    rows = rows.filter((e) => e.employmentType?.toLowerCase() === wanted);
+  }
+
+  /* Offline, a department is a **name** on the person and a location is a city
+     string — there is no id to compare against. `demoDepartmentName` resolves
+     the id the picker sent; a location id resolves to nothing, so that filter
+     is honestly unavailable rather than silently matching everybody. */
+  if (params.departmentId) {
+    const name = demoDepartmentName(params.departmentId);
+    rows = name ? rows.filter((e) => e.department === name) : [];
+  }
+
+  return rows;
+}
+
+/**
+ * The demo's copy of the API's `orderBy` — **including the tiebreaker**.
+ *
+ * `id` last, for the same reason the API does it: `Array.prototype.sort` is
+ * stable in every engine that matters, but the array it is stabilising is the
+ * store's insertion order, which changes whenever somebody edits a record. So
+ * paging a demo directory of two hundred could show the same person twice
+ * across two pages. Cheaper to fix than to explain.
+ */
+function sortLocally(rows: Employee[], params: EmployeeListParams): Employee[] {
+  const dir = params.order === "desc" ? -1 : 1;
+  const key = params.sort ?? "firstName";
+
+  const value = (employee: Employee): string | number => {
+    switch (key) {
+      case "lastName":
+        return employee.lastName.toLowerCase();
+      case "employeeNo":
+        return employee.employeeNo.toLowerCase();
+      case "jobTitle":
+        return employee.jobTitle.toLowerCase();
+      case "startDate":
+        return employee.startDate;
+      case "grossMonthly":
+        return employee.grossMonthly;
+      default:
+        return employee.firstName.toLowerCase();
+    }
+  };
+
+  return [...rows].sort((a, b) => {
+    const left = value(a);
+    const right = value(b);
+    if (left < right) return -dir;
+    if (left > right) return dir;
+    /* The tiebreaker. Without it the order between equal rows is the store's,
+       which is not stable across edits. */
+    return a.id < b.id ? -dir : a.id > b.id ? dir : 0;
+  });
+}
+
+/**
+ * The directory's header counts, from the server, under the same filter.
+ *
+ * Separate from `useEmployeeDirectory` because it is a separate request and its
+ * numbers have to survive a page change without a flicker: paging from 1 to 2
+ * does not change how many people are in a filter, so re-fetching the counts
+ * with every page would make four stat cards blink for nothing. The page is
+ * therefore stripped from the key before the request goes out.
+ *
+ * Offline every figure is derived from the same filtered array the table shows,
+ * which is the one place a local total and a local count cannot disagree.
+ */
+export type DirectorySummary = {
+  /** People matching the filter. Absent — not zero — until the server answers. */
+  total: number | undefined;
+  departments: number | undefined;
+  /** Integer kobo. Summed by the database, or over the demo's own array. */
+  grossMonthlyKobo: number | undefined;
+  /** Incomplete records **within the filter**. */
+  incomplete: number | undefined;
+  /** Every archived record, whatever the filter. For the view switcher. */
+  archived: number | undefined;
+  /** Every incomplete record, whatever the filter. For the view switcher. */
+  blockedEverywhere: number | undefined;
+  loading: boolean;
+  error: ApiError | null;
+};
+
+export function useDirectorySummary(
+  params: EmployeeListParams = {},
+): DirectorySummary {
+  const { isConnected } = useSession();
+  const local = useEmployeeStore();
+
+  /* Paging and sorting do not change a count, so neither is part of the key.
+     Re-fetching six aggregates every time somebody turns a page would make four
+     stat cards blink for figures that had not moved. */
+  const key = useMemo(() => {
+    const filters: Record<string, unknown> = { ...params };
+    delete filters["page"];
+    delete filters["pageSize"];
+    delete filters["sort"];
+    delete filters["order"];
+    return JSON.stringify(filters);
+  }, [params]);
+
+  const [state, setState] = useState<{
+    key: string;
+    row: EmployeeSummary | null;
+    error: ApiError | null;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!isConnected) return;
+    let cancelled = false;
+    const controller = new AbortController();
+
+    void (async () => {
+      try {
+        const row = await api.summary(
+          JSON.parse(key) as EmployeeListParams,
+          controller.signal,
+        );
+        if (!cancelled) setState({ key, row, error: null });
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (!cancelled) {
+          setState({
+            key,
+            row: null,
+            error: error instanceof ApiError ? error : null,
+          });
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [isConnected, key]);
+
+  const demo = useMemo(() => {
+    if (isConnected) return null;
+    const parsed = JSON.parse(key) as EmployeeListParams;
+    const archivedIds = new Set(local.archived);
+    const rows = filterLocally(
+      parsed.archivedOnly || parsed.includeArchived ? local.all : local.directory,
+      parsed,
+      archivedIds,
+    );
+    return {
+      total: rows.length,
+      departments: new Set(
+        rows.map((e) => e.department).filter((name) => Boolean(name)),
+      ).size,
+      /* `grossMonthly` is naira on `Employee` — a legacy the type is waiting to
+         shed. Converted **per row** and then added as integers, never summed as
+         naira and converted once: floats do not add exactly, and a payroll total
+         that is a kobo out is a payroll total nobody can reconcile. */
+      grossMonthlyKobo: rows.reduce((sum, e) => sum + toKobo(e.grossMonthly), 0),
+      incomplete: rows.filter((e) => missingForPayroll(e).length > 0).length,
+      archived: archivedIds.size,
+      blockedEverywhere: local.directory.filter(
+        (e) => missingForPayroll(e).length > 0,
+      ).length,
+    };
+  }, [isConnected, key, local]);
+
+  if (demo) return { ...demo, loading: false, error: null };
+
+  const matched = state !== null && state.key === key;
+  const row = matched ? state.row : null;
+
+  /* Every figure is `undefined` until the server has answered for *this* filter.
+     A zero here would be a claim — "no employees match" — and the reader has no
+     way to tell it from a request in flight. */
+  return {
+    total: row?.total,
+    departments: row?.departments,
+    grossMonthlyKobo: row?.grossMonthlyKobo,
+    incomplete: row?.payrollBlockedInFilter,
+    archived: row?.archived,
+    blockedEverywhere: row?.payrollBlocked,
+    loading: !matched,
+    error: matched ? state.error : null,
+  };
 }
 
 /* ------------------------------------------------------- one whole record */

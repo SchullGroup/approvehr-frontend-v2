@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { sourceNote } from "@/lib/demo";
 import {
   Banknote,
   Building2,
@@ -20,9 +21,13 @@ import {
   Card,
   CardBody,
   EmptyState,
-  Input,
+  Field,
+  FilterBar,
   Money,
+  Pagination,
+  Select,
   SegmentedControl,
+  SortableTH,
   Stat,
   TBody,
   TD,
@@ -32,10 +37,19 @@ import {
   TR,
   TableWrap,
   useToast,
+  type AppliedFilter,
   type BadgeTone,
   rowClick,
 } from "@/components/ui";
-import { useEmployeeDirectory, useEmployeeMutations } from "@/lib/store/employees-api";
+import {
+  useDirectorySummary,
+  useEmployeeDirectory,
+  useEmployeeMutations,
+} from "@/lib/store/employees-api";
+import { naira } from "@/lib/api/payroll";
+import { useDepartments } from "@/lib/store/departments";
+import { useWorkLocations } from "@/lib/store/work-locations";
+import { useListQuery } from "@/lib/use-list-query";
 import {
   fullName,
   missingForPayroll,
@@ -51,78 +65,187 @@ const STATUS: Record<EmploymentStatus, { tone: BadgeTone; label: string }> = {
   inactive: { tone: "neutral", label: "Inactive" },
 };
 
+/** The API's `EmploymentStatus`, upper case, as the query expects it. */
+const STATUS_OPTIONS = [
+  ["ACTIVE", "Active"],
+  ["ONBOARDING", "Onboarding"],
+  ["PROBATION", "Probation"],
+  ["ON_LEAVE", "On leave"],
+  ["OFFBOARDING", "Offboarding"],
+  ["INACTIVE", "Inactive"],
+] as const;
+
 type View = "active" | "incomplete" | "archived";
 
+type Filters = {
+  departmentId: string;
+  workLocationId: string;
+  status: string;
+};
+
 /**
- * The directory reads through the store rather than the seed, so a starter
- * added a moment ago is here without a reload — and so is the payroll run,
- * which derives from the same list.
+ * The staff directory.
+ *
+ * ## Every number on this screen is the server's, under this filter
+ *
+ * This is the screen the whole filtering change was for, so it is worth being
+ * blunt about what it used to do. It fetched `pageSize: 200`, rendered all of
+ * them, and computed its four header figures from the array it held:
+ * `visible.reduce(...)` for monthly gross, `visible.filter(...).length` for
+ * incomplete records, `new Set(visible.map(...)).size` for departments. For a
+ * company of thirty that is correct by accident. For a company of two thousand
+ * it is a **board-pack figure describing the first two hundred people
+ * alphabetically** — and there was nothing on screen to say so.
+ *
+ * `useDirectorySummary` asks the API the same question the table asks, so the
+ * counts and the rows cannot disagree. Where the answer has not arrived the card
+ * shows nothing rather than a zero: "0 employees" and "we have not been told
+ * yet" are different claims, and a reader has no way to tell them apart.
+ *
+ * ## Four filters, chosen for this table
+ *
+ * Department, location, employment status, and **completeness** — the last being
+ * the one a payroll clerk actually needs, because "the eleven people who cannot
+ * be paid" is not a stored column, it is the absence of three. Completeness sits
+ * on the view switcher rather than in the panel because it is a *mode* of
+ * reading the directory rather than a narrowing of it, and it carries a count.
+ *
+ * Location filtering is unavailable offline and says so: a demo `Employee` holds
+ * a city string, not a work-location id, so a filter on it would silently match
+ * nobody. Naming that is better than a select that returns an empty table.
  */
 export function Directory() {
   const router = useRouter();
-  const [query, setQuery] = useState("");
-  const [debounced, setDebounced] = useState("");
-  const [view, setView] = useState<View>("active");
   const toast = useToast();
   const mutations = useEmployeeMutations();
 
-  /* Debounced so a search is one request per pause, not one per keystroke.
-     Only matters when connected; in demo mode the filter is local and free. */
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(query.trim()), 250);
-    return () => clearTimeout(timer);
-  }, [query]);
+  const list = useListQuery<Filters>({
+    filters: { departmentId: "", workLocationId: "", status: "" },
+    /* `lastName`, matching the column header that offers the sort — not the
+       API's own default of `firstName`. A header whose arrow says "unsorted"
+       over a list that is sorted by it is a small lie that costs a click to
+       discover. */
+    sort: "lastName",
+    pageSize: 25,
+  });
 
-  /* One hook, either source. Server-side search and filtering when connected;
-     the same behaviour against localStorage when not. */
-  const { employees: rows, total, loading, connected, error, archivedIds, reload } =
-    useEmployeeDirectory({
-      pageSize: 200,
-      ...(debounced ? { q: debounced } : {}),
-      ...(view === "archived" ? { includeArchived: true } : {}),
+  /* The view switcher is separate from `list.filters` because it maps onto three
+     different query parameters rather than one, and because it must not be a
+     removable chip — "All" is not a filter somebody clears.
+
+     It still has to return to page one. Somebody on page 7 of two thousand who
+     switches to "Archived" is asking for a list of four, and `page=7` of that is
+     an empty table under a count of four. Same rule as every filter in
+     `useListQuery`; this one just lives outside it. */
+  const [view, setViewRaw] = useState<View>("active");
+  const setView = (next: View) => {
+    setViewRaw(next);
+    list.setPage(1);
+  };
+
+  const scope = useMemo(
+    () => ({
+      ...(view === "archived" ? { archivedOnly: true, includeArchived: true } : {}),
       ...(view === "incomplete" ? { payrollBlocked: true } : {}),
-    });
-
-  /* `includeArchived` widens the set rather than replacing it, so the
-     archived-only view filters down here. */
-  const visible = useMemo(
-    () => (view === "archived" ? rows.filter((e) => archivedIds.has(e.id)) : rows),
-    [rows, view, archivedIds],
+    }),
+    [view],
   );
 
-  const payrollTotal = visible.reduce((s, e) => s + e.grossMonthly, 0);
-  const incomplete = visible.filter(
-    (e) => missingForPayroll(e).length > 0,
-  ).length;
-  const departments = new Set(visible.map((e) => e.department)).size;
+  const params = useMemo(
+    () => ({
+      ...list.params,
+      ...scope,
+      /* Empty strings are "no filter". Dropped rather than sent, because the API
+         validates a uuid and would refuse `departmentId=`. */
+      ...(list.filters.departmentId
+        ? { departmentId: list.filters.departmentId }
+        : { departmentId: undefined }),
+      ...(list.filters.workLocationId
+        ? { workLocationId: list.filters.workLocationId }
+        : { workLocationId: undefined }),
+      ...(list.filters.status ? { status: list.filters.status } : { status: undefined }),
+    }),
+    [list.params, list.filters, scope],
+  );
+
+  const { employees: rows, loading, connected, error, reload } =
+    useEmployeeDirectory(params);
+  const summary = useDirectorySummary(params);
+
+  const departments = useDepartments();
+  const locations = useWorkLocations();
+
+  const nameOf = (
+    options: { id: string; name: string }[],
+    id: string,
+  ): string => options.find((o) => o.id === id)?.name ?? "Selected";
+
+  const applied: AppliedFilter[] = [
+    ...(list.filters.departmentId
+      ? [
+          {
+            label: "Department",
+            value: nameOf(departments.flat, list.filters.departmentId),
+            onClear: () => list.setFilter("departmentId", ""),
+          },
+        ]
+      : []),
+    ...(list.filters.workLocationId
+      ? [
+          {
+            label: "Location",
+            value: nameOf(locations.locations, list.filters.workLocationId),
+            onClear: () => list.setFilter("workLocationId", ""),
+          },
+        ]
+      : []),
+    ...(list.filters.status
+      ? [
+          {
+            label: "Status",
+            value:
+              STATUS_OPTIONS.find(([value]) => value === list.filters.status)?.[1] ??
+              list.filters.status,
+            onClear: () => list.setFilter("status", ""),
+          },
+        ]
+      : []),
+    ...(list.params.q
+      ? [
+          {
+            label: "Search",
+            value: list.params.q,
+            onClear: () => list.setSearch(""),
+          },
+        ]
+      : []),
+  ];
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Which source the numbers came from, stated rather than implied. In demo
-          mode they are this browser's copy; connected, they are the database. */}
+      {/* Which source the numbers came from, stated rather than implied. */}
       <div className="flex flex-wrap items-center gap-2">
         <Badge tone={connected ? "success" : "warning"} size="sm" dot>
-          {connected ? "Live from the API" : "Demo data, this browser only"}
+          {sourceNote(connected)}
         </Badge>
-        {loading && (
-          <span className="text-meta text-muted">Loading…</span>
-        )}
+        {loading && <span className="text-meta text-muted">Loading…</span>}
         {error && (
-          <span className="text-meta text-danger-text">
-            {error.message}
-          </span>
+          <span className="text-meta text-danger-text">{error.message}</span>
         )}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat
           label="Employees"
-          value={String(total)}
+          value={count(summary.total)}
           icon={<Users aria-hidden="true" />}
+          {...(applied.length > 0 || view !== "active"
+            ? { hint: "matching what is filtered below" }
+            : {})}
         />
         <Stat
           label="Departments"
-          value={String(departments)}
+          value={count(summary.departments)}
           icon={<Building2 aria-hidden="true" />}
         />
         <Stat
@@ -130,65 +253,127 @@ export function Directory() {
           /* `size="xl"` (text-h3), matching the plain strings the three cards
              beside it pass, which inherit Stat's own text-h3. `className` cannot
              do this — Money puts it on the outer span while the size class sits
-             on the inner one, so the inner wins. That was the first attempt and
-             it changed nothing on screen. */
-          value={<Money amount={payrollTotal} compact size="xl" />}
+             on the inner one, so the inner wins. */
+          /* The API sums this in the database, in integer kobo. `naira` is the
+             one conversion on the way to a screen — never a float multiply, and
+             never a sum of naira. */
+          value={
+            summary.grossMonthlyKobo === undefined ? (
+              "—"
+            ) : (
+              <Money amount={naira(summary.grossMonthlyKobo)} compact size="xl" />
+            )
+          }
           icon={<Banknote aria-hidden="true" />}
         />
         <Stat
           label="Records incomplete"
-          value={String(incomplete)}
+          value={count(summary.incomplete)}
           icon={<ShieldAlert aria-hidden="true" />}
-          trend={
-            incomplete > 0
-              ? { direction: "down", label: "Blocks payroll" }
-              : undefined
-          }
+          {...(summary.incomplete !== undefined && summary.incomplete > 0
+            ? { trend: { direction: "down" as const, label: "Blocks payroll" } }
+            : {})}
           hint="missing bank, PIN or TIN"
         />
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="relative w-full sm:w-80">
-          <Search
-            aria-hidden="true"
-            className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-faint"
+      <FilterBar
+        search={list.search}
+        onSearchChange={list.setSearch}
+        searchPlaceholder="Search name, role or staff number"
+        searchLabel="Search the directory"
+        applied={applied}
+        onClearAll={list.clearFilters}
+        count={summary.total}
+        noun={["employee", "employees"]}
+        actions={
+          <SegmentedControl
+            label="Which records"
+            value={view}
+            onChange={setView}
+            options={[
+              { value: "active", label: "All" },
+              {
+                value: "incomplete",
+                label: label("Incomplete", summary.blockedEverywhere),
+              },
+              { value: "archived", label: label("Archived", summary.archived) },
+            ]}
           />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search name, role, department or ID"
-            aria-label="Search the directory"
-            className="pl-9"
-          />
-        </div>
-        <SegmentedControl
-          label="Filter directory"
-          value={view}
-          onChange={setView}
-          options={[
-            { value: "active", label: "All" },
-            { value: "incomplete", label: "Incomplete" },
-            { value: "archived", label: `Archived${archivedIds.size ? ` (${archivedIds.size})` : ""}` },
-          ]}
-        />
-      </div>
+        }
+      >
+        <Field label="Department">
+          <Select
+            value={list.filters.departmentId}
+            onChange={(event) => list.setFilter("departmentId", event.target.value)}
+          >
+            <option value="">Every department</option>
+            {departments.flat.map((department) => (
+              <option key={department.id} value={department.id}>
+                {department.name}
+              </option>
+            ))}
+          </Select>
+        </Field>
 
-      {visible.length === 0 ? (
+        <Field
+          label="Location"
+          {...(connected
+            ? {}
+            : {
+                help:
+                  "Not available offline — a demo record holds a city, not an " +
+                  "office, so nothing would match.",
+              })}
+        >
+          <Select
+            value={list.filters.workLocationId}
+            disabled={!connected}
+            onChange={(event) =>
+              list.setFilter("workLocationId", event.target.value)
+            }
+          >
+            <option value="">Every location</option>
+            {locations.locations.map((location) => (
+              <option key={location.id} value={location.id}>
+                {location.name}
+              </option>
+            ))}
+          </Select>
+        </Field>
+
+        <Field label="Employment status">
+          <Select
+            value={list.filters.status}
+            onChange={(event) => list.setFilter("status", event.target.value)}
+          >
+            <option value="">Any status</option>
+            {STATUS_OPTIONS.map(([value, text]) => (
+              <option key={value} value={value}>
+                {text}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      </FilterBar>
+
+      {rows.length === 0 && !loading ? (
         <Card>
           <EmptyState
             icon={<Search aria-hidden="true" />}
             title={
               view === "archived"
                 ? "Nobody archived"
-                : query
+                : applied.length > 0
                   ? "No matches"
                   : "Nothing here"
             }
             description={
               view === "archived"
                 ? "Archived records stay resolvable so payroll history keeps working."
-                : "Try a different search, or add someone."
+                : applied.length > 0
+                  ? "Clear a filter, or search for something else."
+                  : "Add somebody to get started."
             }
             action={
               view !== "archived" ? (
@@ -201,91 +386,132 @@ export function Directory() {
           />
         </Card>
       ) : (
-        <TableWrap caption="Employee directory with role, department, salary and status">
-          <THead>
-            <TH>Employee</TH>
-            <TH>Department</TH>
-            <TH>Location</TH>
-            <TH align="right">Gross monthly</TH>
-            <TH>Status</TH>
-            {view === "archived" && <TH align="right">Actions</TH>}
-          </THead>
-          <TBody>
-            {visible.map((e) => {
-              const gaps = missingForPayroll(e);
-              return (
-                <TR
-                  key={e.id}
-                  interactive
-                  onClick={rowClick(() => router.push(`/people/${e.id}`))}
-                >
-                  <TDPrimary
-                    title={
-                      <Link
-                        href={`/people/${e.id}`}
-                        className="hover:text-accent-text hover:underline underline-offset-4"
-                      >
-                        {fullName(e)}
-                      </Link>
-                    }
-                    subtitle={`${e.jobTitle} · ${e.employeeNo}`}
-                  />
-                  <TD>{e.department}</TD>
-                  <TD>{e.location}</TD>
-                  <TD align="right" className="tabular font-medium text-ink">
-                    <Money amount={e.grossMonthly} />
-                  </TD>
-                  <TD>
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <Badge tone={STATUS[e.status].tone} size="sm" dot>
-                        {STATUS[e.status].label}
-                      </Badge>
-                      {gaps.length > 0 && (
-                        <span title={gaps.join(", ")}>
-                          <Badge tone="danger" size="sm">
-                            {gaps.length} missing
-                          </Badge>
-                        </span>
-                      )}
-                    </div>
-                  </TD>
-                  {view === "archived" && (
-                    <TD align="right">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => {
-                          void (async () => {
-                            try {
-                              await mutations.restore(e.id);
-                              reload();
-                              toast.push({
-                                title: `${fullName(e)} restored`,
-                                tone: "success",
-                              });
-                            } catch (error) {
-                              toast.push({
-                                title: "Could not restore that record",
-                                tone: "danger",
-                                detail:
-                                  error instanceof Error
-                                    ? error.message
-                                    : undefined,
-                              });
-                            }
-                          })();
-                        }}
-                      >
-                        <RotateCcw aria-hidden="true" className="size-3.5" />
-                        Restore
-                      </Button>
+        <div className="rounded-lg border border-line bg-surface">
+          <TableWrap
+            className="rounded-b-none border-0"
+            caption="Employee directory with role, department, salary and status"
+          >
+            <THead>
+              <SortableTH
+                column="lastName"
+                active={list.sort}
+                order={list.order}
+                onSort={list.toggleSort}
+              >
+                Employee
+              </SortableTH>
+              <TH>Department</TH>
+              <TH>Location</TH>
+              <SortableTH
+                column="grossMonthly"
+                active={list.sort}
+                order={list.order}
+                onSort={list.toggleSort}
+                align="right"
+                startDescending
+              >
+                Gross monthly
+              </SortableTH>
+              <SortableTH
+                column="startDate"
+                active={list.sort}
+                order={list.order}
+                onSort={list.toggleSort}
+                startDescending
+              >
+                Started
+              </SortableTH>
+              <TH>Status</TH>
+              {view === "archived" && <TH align="right">Actions</TH>}
+            </THead>
+            <TBody>
+              {rows.map((e) => {
+                const gaps = missingForPayroll(e);
+                return (
+                  <TR
+                    key={e.id}
+                    interactive
+                    onClick={rowClick(() => router.push(`/people/${e.id}`))}
+                  >
+                    <TDPrimary
+                      title={
+                        <Link
+                          href={`/people/${e.id}`}
+                          className="hover:text-accent-text hover:underline underline-offset-4"
+                        >
+                          {fullName(e)}
+                        </Link>
+                      }
+                      subtitle={`${e.jobTitle} · ${e.employeeNo}`}
+                    />
+                    <TD>{e.department}</TD>
+                    <TD>{e.location}</TD>
+                    <TD align="right" className="tabular font-medium text-ink">
+                      <Money amount={e.grossMonthly} />
                     </TD>
-                  )}
-                </TR>
-              );
-            })}
-          </TBody>
-        </TableWrap>
+                    <TD className="tabular text-muted">{e.startDate}</TD>
+                    <TD>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <Badge tone={STATUS[e.status].tone} size="sm" dot>
+                          {STATUS[e.status].label}
+                        </Badge>
+                        {gaps.length > 0 && (
+                          <span title={gaps.join(", ")}>
+                            <Badge tone="danger" size="sm">
+                              {gaps.length} missing
+                            </Badge>
+                          </span>
+                        )}
+                      </div>
+                    </TD>
+                    {view === "archived" && (
+                      <TD align="right">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => {
+                            void (async () => {
+                              try {
+                                await mutations.restore(e.id);
+                                reload();
+                                toast.push({
+                                  title: `${fullName(e)} restored`,
+                                  tone: "success",
+                                });
+                              } catch (error) {
+                                toast.push({
+                                  title: "Could not restore that record",
+                                  tone: "danger",
+                                  detail:
+                                    error instanceof Error
+                                      ? error.message
+                                      : undefined,
+                                });
+                              }
+                            })();
+                          }}
+                        >
+                          <RotateCcw aria-hidden="true" className="size-3.5" />
+                          Restore
+                        </Button>
+                      </TD>
+                    )}
+                  </TR>
+                );
+              })}
+            </TBody>
+          </TableWrap>
+
+          <Pagination
+            page={list.page}
+            pageSize={list.pageSize}
+            total={summary.total}
+            onPageChange={list.setPage}
+            onPageSizeChange={list.setPageSize}
+            noun={["employee", "employees"]}
+            loading={loading}
+          />
+        </div>
       )}
 
       <Card>
@@ -303,3 +529,19 @@ export function Directory() {
     </div>
   );
 }
+
+/**
+ * A count, or a dash while it is unknown.
+ *
+ * The dash is the whole point. Every one of these four figures used to be
+ * computed from the rows in hand, so it was always *a* number — and a number
+ * that says "0 employees" while a request is in flight is a claim the reader has
+ * no reason to doubt. Absent renders as absent.
+ */
+const count = (value: number | undefined): string =>
+  value === undefined ? "—" : value.toLocaleString("en-NG");
+
+/** A switcher option, with its count only once the count is known. */
+const label = (text: string, value: number | undefined): string =>
+  value === undefined || value === 0 ? text : `${text} (${value})`;
+

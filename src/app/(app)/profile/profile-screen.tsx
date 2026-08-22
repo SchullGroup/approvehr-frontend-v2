@@ -128,7 +128,7 @@ export function ProfileScreen() {
                   explains why this screen looks the way it does. */}
               <SessionRoleBadge size="md" className="mt-2.5" />
             </div>
-            {mode === "offline" && (
+            {DEMO_ENABLED && mode === "offline" && (
               <Badge tone="warning" size="sm">
                 Demo · this browser only
               </Badge>

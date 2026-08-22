@@ -1,5 +1,6 @@
 "use client";
 
+import { sourceNote } from "@/lib/demo";
 import { Fragment, useMemo, useState } from "react";
 import { AlarmClock, Clock, TriangleAlert } from "lucide-react";
 import {
@@ -222,9 +223,7 @@ function AllOvertime() {
         description="Worked out from the clock, never claimed on a form."
         meta={
           <Badge tone={overtime.connected ? "success" : "warning"} size="sm" dot>
-            {overtime.connected
-              ? "Live from the API"
-              : "Demo data, this browser only"}
+            {sourceNote(overtime.connected)}
           </Badge>
         }
         action={

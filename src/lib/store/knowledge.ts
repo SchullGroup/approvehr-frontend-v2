@@ -114,11 +114,11 @@ const voteKey = (who: string, articleId: string) => `${who}|${articleId}`;
 
 type DemoSection = { id: string; name: string; slug: string };
 
-const DEMO_SECTIONS: DemoSection[] = [
+const DEMO_SECTIONS: DemoSection[] = DEMO_ENABLED ? [
   { id: "kbc-pay", name: "Getting paid", slug: "getting-paid" },
   { id: "kbc-time", name: "Time off", slug: "time-off" },
   { id: "kbc-record", name: "Your record", slug: "your-record" },
-];
+] : [];
 
 type DemoArticle = {
   id: string;
@@ -140,7 +140,7 @@ type DemoArticle = {
  * rows are what the editor screen exists to surface — a seed where everything
  * is fine shows an editor nothing to do.
  */
-const DEMO_ARTICLES: DemoArticle[] = [
+const DEMO_ARTICLES: DemoArticle[] = DEMO_ENABLED ? [
   {
     id: "kba-payslip",
     slug: "how-to-read-your-payslip",
@@ -247,7 +247,7 @@ const DEMO_ARTICLES: DemoArticle[] = [
     body:
       "Draft. The 2027 dates are not gazetted yet — this goes live when they are.",
   },
-];
+] : [];
 
 /**
  * Four questions the demo knowledge base cannot answer.

@@ -58,7 +58,7 @@ export function OffboardingScreen() {
         title="Exit management"
         description="Everyone on their way out, and what is left to do before they go."
         meta={
-          exits.source === "demo" ? (
+          DEMO_ENABLED && exits.source === "demo" ? (
             <Badge tone="warning" size="sm">
               Demo · this browser only
             </Badge>

@@ -164,7 +164,7 @@ export function NotificationsInbox() {
                 {notifications.unread} unread
               </Badge>
             )}
-            {!notifications.live && (
+            {DEMO_ENABLED && !notifications.live && (
               <Badge tone="neutral" size="sm">
                 Demo data, this browser only
               </Badge>

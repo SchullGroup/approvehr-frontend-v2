@@ -105,7 +105,7 @@ const person = (id: string, label: string) => ({
  * mode never calls the API with them: they are not uuids and the API is right
  * to refuse them.
  */
-const SEED: Seed[] = [
+const SEED: Seed[] = DEMO_ENABLED ? [
   {
     id: "ae-01",
     action: "employee.updated",
@@ -348,7 +348,7 @@ const SEED: Seed[] = [
     },
     changes: [{ field: "loans", label: "Loans", from: false, to: true }],
   },
-];
+] : [];
 
 const DEMO_IP = "102.89.34.17";
 const DEMO_AGENT =

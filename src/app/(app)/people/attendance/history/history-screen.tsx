@@ -297,14 +297,14 @@ function DayTable({
                 <span>
                   The earliest day with a clock-in on it is{" "}
                   {shortDate(firstRecordedDate)}
-                  {source === "demo"
+                  {DEMO_ENABLED && source === "demo"
                     ? ", which is as far back as the demo dataset goes."
                     : ". Days before that predate clock-in being used here."}
                 </span>
               ) : (
                 <span>
                   Nobody has ever clocked in
-                  {source === "demo" ? " in this browser" : " here"}, so every day
+                  {DEMO_ENABLED && source === "demo" ? " in this browser" : " here"}, so every day
                   reads this way. Payroll withholds nothing for absence at a
                   company that does not record attendance.
                 </span>

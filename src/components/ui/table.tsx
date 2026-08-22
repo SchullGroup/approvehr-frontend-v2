@@ -1,4 +1,6 @@
+import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/cn";
+import type { SortOrder } from "@/lib/use-list-query";
 
 /*
  * Tables scroll inside their own box so the page body never scrolls
@@ -61,6 +63,85 @@ export function TH({
       )}
     >
       {children}
+    </th>
+  );
+}
+
+/**
+ * A column header that sorts, server-side.
+ *
+ * `aria-sort` on the `<th>` and a real button inside it, so a screen reader
+ * announces both the column's current direction and that pressing it changes
+ * one. The arrow is `aria-hidden`; `aria-sort` carries the meaning.
+ *
+ * ## What this does not do
+ *
+ * It does not sort anything itself. `onSort` goes to `useListQuery`, which puts
+ * `sort` and `order` in the request, and the API's `orderBy` helper turns them
+ * into a Prisma clause that always ends on a unique tiebreaker. Sorting an
+ * already-fetched page in the browser is the bug this component exists to
+ * replace: it reorders 25 rows out of 2,000 and presents the result as the
+ * order of the list.
+ *
+ * `column` must be a name the endpoint's own allow-list accepts. It is not
+ * checked here — the API refuses anything it does not recognise and falls back
+ * to its default sort, so a typo is a header that appears to do nothing.
+ */
+export function SortableTH({
+  column,
+  active,
+  order,
+  onSort,
+  align = "left",
+  startDescending = false,
+  className,
+  children,
+}: {
+  /** The `sort` value the API expects for this column. */
+  column: string;
+  /** The column currently sorted on, from `useListQuery`. */
+  active: string | undefined;
+  order: SortOrder;
+  onSort: (column: string, startDescending?: boolean) => void;
+  align?: "left" | "right" | "center";
+  /** For a date or an amount, where the interesting end is the top. */
+  startDescending?: boolean;
+  className?: string;
+  children?: React.ReactNode;
+}) {
+  const sorted = active === column;
+  const Arrow = !sorted ? ChevronsUpDown : order === "asc" ? ArrowUp : ArrowDown;
+
+  return (
+    <th
+      scope="col"
+      aria-sort={sorted ? (order === "asc" ? "ascending" : "descending") : "none"}
+      className={cn(
+        "px-4 py-3 text-meta font-semibold tracking-wide text-muted whitespace-nowrap",
+        align === "right" && "text-right",
+        align === "center" && "text-center",
+        align === "left" && "text-left",
+        className,
+      )}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(column, startDescending)}
+        className={cn(
+          "group inline-flex items-center gap-1.5 rounded-sm transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text",
+          align === "right" && "flex-row-reverse",
+          sorted && "text-ink",
+        )}
+      >
+        {children}
+        <Arrow
+          aria-hidden="true"
+          className={cn(
+            "size-3.5 shrink-0 transition-opacity",
+            sorted ? "opacity-100" : "opacity-40 group-hover:opacity-100",
+          )}
+        />
+      </button>
     </th>
   );
 }

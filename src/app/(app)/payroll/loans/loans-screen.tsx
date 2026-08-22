@@ -1,11 +1,13 @@
 "use client";
 
+import { sourceNote } from "@/lib/demo";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { CreditCard, Plus, Wallet } from "lucide-react";
 import {
   Badge,
   Button,
+  Pagination,
   EmptyState,
   Money,
   Spinner,
@@ -84,7 +86,6 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: "DECLINED", label: "Declined" },
 ];
 
-const PAGE_SIZE = 25;
 
 export function LoansScreen() {
   const { can, loading: permissionsLoading } = usePermissions();
@@ -97,6 +98,8 @@ export function LoansScreen() {
 
   const [filter, setFilter] = useState<Filter>("ALL");
   const [page, setPage] = useState(1);
+  /* The starting page size. The control below can change it. */
+  const [pageSize, setPageSize] = useState(25);
   const [applying, setApplying] = useState(false);
   const [declining, setDeclining] = useState<ApiLoan | null>(null);
   const [deciding, setDeciding] = useState<string | null>(null);
@@ -116,7 +119,7 @@ export function LoansScreen() {
   const list = useLoans({
     scope,
     page,
-    pageSize: PAGE_SIZE,
+    pageSize,
     ...(scope === "pending"
       ? {}
       : { sort: "createdAt", order: "desc", ...(filter === "ALL" ? {} : { status: filter }) }),
@@ -173,10 +176,6 @@ export function LoansScreen() {
     );
   }
 
-  const showing = list.loans.length;
-  const from = showing === 0 ? 0 : (list.page - 1) * list.pageSize + 1;
-  const to = (list.page - 1) * list.pageSize + showing;
-
   return (
     <>
       <PageHeader
@@ -188,7 +187,7 @@ export function LoansScreen() {
         }
         meta={
           <Badge tone={isConnected ? "success" : "warning"} size="sm" dot>
-            {isConnected ? "Live from the API" : "Demo data, this browser only"}
+            {sourceNote(isConnected)}
           </Badge>
         }
         action={
@@ -394,29 +393,26 @@ export function LoansScreen() {
               </TBody>
             </TableWrap>
 
-            {list.total > list.pageSize && (
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-body-sm text-muted">
-                  Showing {from}–{to} of {list.total}
-                </p>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    disabled={list.page <= 1}
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  >
-                    Previous
-                  </Button>
-                  <Button
-                    size="sm"
-                    disabled={list.page >= list.totalPages}
-                    onClick={() => setPage((p) => p + 1)}
-                  >
-                    Next
-                  </Button>
-                </div>
-              </div>
-            )}
+            {/* The shared control, replacing a hand-rolled Showing-x–y-of-z and
+                two default-variant buttons. Two reasons beyond consistency: the
+                old buttons were `variant` default, so Previous and Next were the
+                loudest blue on a screen whose real primary action is applying
+                for a loan; and rows-per-page did not exist, so somebody with
+                four hundred loans on file paged through sixteen screens of
+                twenty-five. */}
+            <Pagination
+              className="rounded-lg border border-line border-t bg-surface"
+              page={list.page}
+              pageSize={list.pageSize}
+              total={list.total}
+              onPageChange={setPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+              noun={["loan", "loans"]}
+              loading={list.loading}
+            />
           </>
         )}
 

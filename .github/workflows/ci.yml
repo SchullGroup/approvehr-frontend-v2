@@ -17,8 +17,9 @@ jobs:
     # No database and no services. Everything this repo verifies is local: the
     # types, the lint rules, WCAG contrast across every text-token/background
     # pair, the payroll arithmetic, a CSV parser, and 600 loan schedules. The
-    # API is optional at runtime — the app falls back to a local demo — so it is
-    # optional here too.
+    # API is optional at runtime in a *development* build, which falls back to a
+    # local demo — so it is optional here too. A production build has no such
+    # fallback; see the demo step after the build.
     steps:
       - uses: actions/checkout@v4
 
@@ -47,6 +48,16 @@ jobs:
       # prerenders 90-odd pages, which catches a good share of that class.
       - name: Build
         run: npm run build
+
+      # The one check that cannot run before the build. `npm run check` proves
+      # every demo string is at least *capable* of being folded away; this greps
+      # the built chunks and proves it happened. It is here because the first
+      # version of the gate was an exported `const`, which folded nothing: the
+      # guards read correctly and every seeded salary, fabricated bank account
+      # and "Demo data, this browser only" string shipped anyway. Nothing but
+      # reading the output catches that.
+      - name: No demo artifact in the production bundle
+        run: npm run verify-demo
 
       # A dropped route is a silent regression: a page deleted or a dynamic
       # segment broken shows up as a smaller number and nothing else. Fail if

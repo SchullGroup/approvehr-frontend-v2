@@ -6,12 +6,15 @@ import {
   Badge,
   Button,
   Card,
+  CardBody,
   CardHeader,
   EmptyState,
   Field,
   Input,
   Modal,
   Money,
+  Pagination,
+  SortableTH,
   TBody,
   TD,
   TH,
@@ -20,6 +23,7 @@ import {
   TableWrap,
   type BadgeTone,
 } from "@/components/ui";
+import type { SortOrder } from "@/lib/use-list-query";
 import { today, type Claim, type ExpenseType } from "@/lib/store/reimbursements";
 import { ReceiptCell } from "./approval-queue";
 
@@ -68,6 +72,7 @@ export function ClaimsRegister({
   canSettle,
   myEmployeeId,
   filters,
+  paging,
   onEdit,
   onMarkPaid,
   emptyAction,
@@ -83,20 +88,55 @@ export function ClaimsRegister({
   canSettle: boolean;
   myEmployeeId: string | null;
   filters?: React.ReactNode;
+  /** Sorting and paging, from the caller's `useListQuery`. */
+  paging?: {
+    sort: string | undefined;
+    order: SortOrder;
+    onSort: (column: string, startDescending?: boolean) => void;
+    page: number;
+    pageSize: number;
+    /** The server's count under the filter. `undefined` while unknown. */
+    total: number | undefined;
+    onPageChange: (page: number) => void;
+    onPageSizeChange: (size: number) => void;
+  };
   onEdit?: (claim: Claim) => void;
   onMarkPaid?: (claim: Claim, paidOn: string) => Promise<boolean>;
   emptyAction?: React.ReactNode;
 }) {
   const [settling, setSettling] = useState<Claim | null>(null);
 
+  /** A sortable header when the caller passes a query, a plain one otherwise. */
+  const column = (
+    key: string,
+    text: string,
+    options: { align?: "left" | "right"; startDescending?: boolean } = {},
+  ) =>
+    paging ? (
+      <SortableTH
+        column={key}
+        active={paging.sort}
+        order={paging.order}
+        onSort={paging.onSort}
+        {...(options.align ? { align: options.align } : {})}
+        {...(options.startDescending ? { startDescending: true } : {})}
+      >
+        {text}
+      </SortableTH>
+    ) : (
+      <TH {...(options.align ? { align: options.align } : {})}>{text}</TH>
+    );
+
   return (
     <>
       <Card>
-        <CardHeader
-          title={title}
-          {...(description ? { description } : {})}
-          {...(filters ? { action: filters } : {})}
-        />
+        <CardHeader title={title} {...(description ? { description } : {})} />
+
+        {/* The filter bar gets its own full-width row rather than
+            `CardHeader`'s action slot: that slot is `shrink-0`, so a search box
+            and a five-way control in it squeeze the heading to one character per
+            line below about 900px. */}
+        {filters && <CardBody className="border-b border-line">{filters}</CardBody>}
 
         {claims.length === 0 ? (
           <EmptyState
@@ -114,10 +154,13 @@ export function ClaimsRegister({
             <THead>
               {showWho && <TH>Who</TH>}
               <TH>What for</TH>
-              <TH>Spent on</TH>
-              <TH align="right">Amount</TH>
+              {column("incurredOn", "Spent on", { startDescending: true })}
+              {column("amount", "Amount", {
+                align: "right",
+                startDescending: true,
+              })}
               <TH>Receipt</TH>
-              <TH>State</TH>
+              {column("status", "State")}
               <TH align="right">
                 <span className="sr-only">Actions</span>
               </TH>
@@ -194,6 +237,18 @@ export function ClaimsRegister({
               })}
             </TBody>
           </TableWrap>
+        )}
+
+        {paging && claims.length > 0 && (
+          <Pagination
+            page={paging.page}
+            pageSize={paging.pageSize}
+            total={paging.total}
+            onPageChange={paging.onPageChange}
+            onPageSizeChange={paging.onPageSizeChange}
+            noun={["claim", "claims"]}
+            loading={loading}
+          />
         )}
       </Card>
 

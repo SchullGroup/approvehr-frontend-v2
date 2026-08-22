@@ -173,7 +173,7 @@ export function KpisTab({
         )}
 
         <div className="flex flex-wrap items-center gap-2">
-          {kpis.source === "demo" && (
+          {DEMO_ENABLED && kpis.source === "demo" && (
             <Badge tone="warning" size="sm">
               Demo · numbers stay in this browser
             </Badge>
@@ -511,8 +511,9 @@ function GoalCard({
               ) : (
                 <span>No owner</span>
               )}
-              {/* The cycle is what makes this scoreable; a bare quarter is what
-                  companies typed before cycles existed and is still allowed. */}
+              {/* The appraisal period is what makes this scoreable; a bare
+                  quarter is what companies typed before periods existed and is
+                  still allowed. */}
               <span>{goal.reviewCycleName ?? quarterLabel(goal.dueQuarter)}</span>
               {goal.revisionCount > 0 && (
                 <span>

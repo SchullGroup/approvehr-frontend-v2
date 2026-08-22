@@ -214,7 +214,7 @@ function Trail({ initialEntityType = "", initialEntityId = "" }: ScreenProps) {
         description="Everything anyone has done, in plain English."
         breadcrumb={[{ href: "/settings", label: "Settings" }]}
         meta={
-          trail.live ? (
+          trail.live || !DEMO_ENABLED ? (
             <Badge tone="success" size="sm" dot>
               Live from the API
             </Badge>

@@ -23,6 +23,18 @@
         "3100"
       ],
       "port": 3100
+    },
+    {
+      "name": "approvehr-web-production",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "start",
+        "--",
+        "--port",
+        "3200"
+      ],
+      "port": 3200
     }
   ]
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { sourceNote } from "@/lib/demo";
 import { AlertTriangle, Check, Scale, ShieldAlert, UserMinus } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
@@ -18,12 +19,14 @@ import {
   fixFor,
   formatKobo,
   headcountLabel,
+  wasDeducted,
   type Discrepancy,
   type PayrollRun,
   type PayrollRunStatus,
   type RunException,
   type RunExclusion,
 } from "@/lib/api/payroll";
+import { notOperated } from "@/components/payroll/payslip-document";
 
 /**
  * The panels three payroll screens share.
@@ -48,7 +51,7 @@ export function SourceBadge({
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Badge tone={connected ? "success" : "warning"} size="sm" dot>
-        {connected ? "Live from the API" : "Demo data, this browser only"}
+        {sourceNote(connected)}
       </Badge>
       {loading && <span className="text-meta text-muted">Loading…</span>}
       {error && (
@@ -390,16 +393,42 @@ export function TotalsPanel({ run }: { run: PayrollRun }) {
           <p className="text-meta leading-relaxed text-warning-text">{note}</p>
         )}
         <TotalRow label="Net to employees" kobo={run.netKobo} strong />
-        <TotalRow label="PAYE to state revenue services" kobo={run.payeKobo} />
-        <TotalRow label="Pension — employee share" kobo={run.pensionEmployeeKobo} />
-        <TotalRow label="National Housing Fund" kobo={run.nhfKobo} />
-        <div className="mt-1 border-t border-line pt-3">
-          <TotalRow
-            label="Pension — employer share"
-            kobo={run.pensionEmployerKobo}
-            note="A company cost on top of gross. It does not reduce anyone's pay."
-          />
-        </div>
+        {/* A deduction this employer does not operate is ABSENT from the list of
+            what leaves the account, because nothing leaves the account for it.
+            "PAYE ₦0.00 to state revenue services" on a payroll that deducts no
+            PAYE is a remittance line for a remittance that does not exist, and
+            it is one of the two ways the abolished-relief bug read. `notOperated`
+            names them under the totals instead. */}
+        {wasDeducted(run.operates, "paye") && (
+          <TotalRow label="PAYE to state revenue services" kobo={run.payeKobo} />
+        )}
+        {wasDeducted(run.operates, "pension") && (
+          <TotalRow label="Pension — employee share" kobo={run.pensionEmployeeKobo} />
+        )}
+        {wasDeducted(run.operates, "nhf") && (
+          <TotalRow label="National Housing Fund" kobo={run.nhfKobo} />
+        )}
+        {wasDeducted(run.operates, "pension") && (
+          <div className="mt-1 border-t border-line pt-3">
+            <TotalRow
+              label="Pension — employer share"
+              kobo={run.pensionEmployerKobo}
+              note="A company cost on top of gross. It does not reduce anyone's pay."
+            />
+          </div>
+        )}
+        {notOperated(run.operates).length > 0 && (
+          <p className="text-meta leading-relaxed text-body">
+            Nothing is remitted for{" "}
+            {notOperated(run.operates)
+              .map((row) => row.label)
+              .join(", ")
+              .replace(/, ([^,]*)$/, " or $1")}
+            . This payroll did not deduct{" "}
+            {notOperated(run.operates).length === 1 ? "it" : "them"}, so there is
+            no schedule to file.
+          </p>
+        )}
         <div className="mt-1 border-t border-line pt-3">
           <TotalRow label="Total cost to the company" kobo={run.totalCostKobo} strong />
         </div>

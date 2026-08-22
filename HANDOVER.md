@@ -3566,3 +3566,296 @@ in `annual_rent` still counts as a declaration rather than a missing detail.
   one too many and still deliberate: the first two steps of an import must work
   with no database. What changed is that the drift is now gated instead of
   described.
+
+---
+
+# Demo mode cannot exist in a production build
+
+The owner's instruction was: *"Remove 'Demo data, this browser only' or anything
+that signifies this is demo, I don't want these artifacts anywhere when we go
+live."*
+
+Read literally that is the most dangerous change in this file's history. Those
+badges label **invented local data**. Demo mode serves seeded salaries,
+fabricated NUBAN account numbers and a persona list out of `localStorage`, and
+the badge is the only thing on the screen saying whose numbers those are.
+Deleting the label and leaving the mode running would have the product present
+made-up figures as the company's own — which is the exact defect the audit in
+`PARITY.md` catches the incumbent doing, and worse than any badge.
+
+So the badges are not what was removed. **The mode was.** In a production build
+there is no demo store, no seeded personas, no fallback — and therefore nothing
+left for a badge to label.
+
+## The mechanism, and the version of it that silently did nothing
+
+`DEMO_ENABLED` is a **compile-time literal with no import**: an ambient global
+declared in `src/lib/demo.ts` and substituted by `compiler.define` in
+`next.config.ts`. Every `if (DEMO_ENABLED)`, `DEMO_ENABLED ? SEED : []` and
+`{DEMO_ENABLED && <Callout …/>}` becomes `false && …` in the source the minifier
+sees, and the branch — strings, seed arrays and all — is dropped.
+
+**The first attempt exported it as a `const` from `src/lib/demo.ts`, and that
+folded nothing.** Every guard was correct, every screen behaved correctly, and
+the production bundle came back with `a.DEMO_ENABLED&&"demo"===e.source&&…` still
+in it — carrying every seeded salary, every fabricated bank account and every
+"Demo data, this browser only" string. Turbopack keeps the module boundary and
+will not propagate a constant across it. If you find yourself tidying this into
+a normal export, that is the bug you are re-creating, and `verify-demo` is what
+will tell you.
+
+`NEXT_PUBLIC_DEMO=off` makes a development build render exactly what production
+will. It can only ever *remove* the demo, never add one.
+
+## `npm run verify-demo` — two halves, and only one of them proves anything
+
+`scripts/verify-demo.ts`, wired into `npm run check` **and** into CI after the
+build step:
+
+1. **Source check** (always) — every banned phrase in `src/` sits in a file that
+   mentions `DEMO_ENABLED`, so a new unguarded badge fails here rather than in
+   production. This half only proves a string is *capable* of being folded.
+2. **Bundle check** (when `.next` holds a production build) — greps the built
+   client and server chunks for the phrases themselves. **This is the half that
+   is worth anything**, and it is the half that caught the `const`. It skips with
+   a message on a dev-only `.next` rather than passing quietly, because a pass
+   there would mean the opposite of what it says.
+
+`TRUE_IN_PRODUCTION` in that script is a short allowlist of sentences that carry
+a banned phrase and are *true in a production build* — the employee draft's "In
+this browser only. It will not be here on another device." Local drafts are a
+real production feature and that sentence is the whole justification for not
+building a server-side one. Banning it would delete a true warning to satisfy a
+grep, which is the same mistake as deleting the badges and keeping the demo.
+
+## What a production build now does with no API
+
+`components/portal/auth-gate.tsx` shows **`Unreachable`**: "Cannot reach the
+server", what to check, and a Try again button. Not a blank screen, and not a
+demo. The persona picker, the "Development seed accounts" card and the "Demo
+mode" badge are all behind the flag.
+
+`lib/store/session.ts` is the root of it: the offline restore, `signInOptions()`
+and `signInOffline` are gated, so `mode` can only ever be `"api"` and **no
+store's demo branch is reachable** — which is what makes the other forty-odd
+stores safe without each having been rewritten. `can()` no longer answers true
+for everything, because there is no demo session to answer for.
+
+## What is empty in production, and what that means
+
+Gated seed payloads: `lib/mock/*` (personas, attendance, hiring, payroll
+distribution, roles, workflows, announcements, demo payslips) and the
+module-scope seeds in `store/{assets,audit,conduct,documents,features,grades,
+helpdesk,knowledge,leave-api,loans,notifications,payments,performance,
+reimbursements,shifts,webhooks}.ts` plus `store/demo-structure.ts`. Derived
+exports (`LEAVE_ENTITLEMENTS`, `DOCUMENTS`, `RUN_PEOPLE`, `ATTENDANCE`) empty
+themselves.
+
+`CURRENT_USER` is now typed **`Employee | undefined`** rather than `Employee`.
+It was `EMPLOYEES[5]`, which with an empty seed is `undefined` while the type
+said otherwise — a lie the compiler would have helped keep, and `CURRENT_USER.id`
+would have thrown on the first read. Its four callers are all demo store paths
+and each now says what it does without one.
+
+`session.actingId` falls back to `""` rather than the seed persona. It matches
+nobody, so a "mine" filter returns nothing instead of somebody else's rows —
+which is the honest answer, since `employeeId` is only null for an account with
+no staff record behind it.
+
+## The real finding: the internal ATS has no API at all
+
+This is the thing to act on rather than the thing that was fixed.
+`/hiring`, `/hiring/interviews`, `/hiring/offers`, `/hiring/requisitions/[id]`
+and `/hiring/candidates/[id]` render the pipeline board, interviews, scorecards
+and offers from `lib/mock/hiring.ts`. There are **no endpoints** for any of it —
+`/careers` covers public adverts and applications and nothing else. Those panels
+pass `live={false}` outright, which is why an earlier entry in this file records
+them showing "Demo data, this browser only" *while connected*, correctly.
+
+With the seed gated they are now **empty in production**, and the honest label is
+the only thing standing between that and a screen that looks broken:
+`sourceNote(false)` returns **"Not available yet"** in a production build.
+"Live from the API" there would have been a wrong claim about rows that do not
+exist. Every other `SourceBadge` in the app is `live={true}` in production, so
+this reads correctly everywhere it appears.
+
+**That is a label on a gap, not a fix for it.** The ATS is the next substantial
+piece of work, and until it exists those five routes show empty panels saying so.
+The alternative — shipping fabricated candidates with real-looking phone numbers
+— is what the owner just told us not to do.
+
+## Also worth a look, and out of scope here
+
+- **`/design-system` ships to production.** It is an internal token showcase and
+  it carries example personas and a fabricated pension PIN (`PEN100482913`). Not
+  demo *mode*, so `verify-demo` says nothing about it, but it is an internal
+  artifact on a public build.
+- **`store/webhooks.ts` sample payloads** and the import template's example row
+  use seeded persona names. Both are real production features (an example
+  payload, a template's "delete this row"), so both were left alone.
+- **Doc comments explaining a demo branch were kept.** The branch still exists in
+  a development build; deleting its explanation would make the code worse rather
+  than cleaner, and comments do not survive minification anyway.
+
+---
+
+# A company can switch PAYE, pension and NHF off, and the payslip says so
+
+`OrgFeatures.taxSetup` and `pensionSetup` already existed and only ever decided
+whether the **employee form asks for** a TIN or an RSA PIN. The engine computed
+PAYE, pension and NHF regardless — so a Nigerian SME with no pension scheme, or
+one whose staff file their own returns, got a payroll that was wrong in a way
+that looked perfectly plausible: 8% off every salary, remitted to nobody.
+
+## The switches live on `PayrollSettings`, not on `OrgFeatures`
+
+`payeEnabled` is new; `pensionEnabled` and `nhfEnabled` already existed there and
+already reached the engine. That table is the right home for all three because it
+is what `engineSettingsFrom` reads and what the approval snapshot freezes. Putting
+PAYE-off on `OrgFeatures` while pension-off sat on `PayrollSettings` would have
+been incoherent.
+
+They are **not** coupled to the field-group flags, and the asymmetry is the
+interesting part: somebody who files their own return still has a TIN — that is
+how they file — so switching PAYE off must not stop the form asking for one.
+`GET/PATCH /payroll/settings` is new (`MANAGE_PAY_STRUCTURE` to write,
+`VIEW_SALARIES` to read); there was no endpoint for payroll settings at all
+before, which is why the settings screen could not reach the engine.
+
+## Absent is not zero, and this is the third time
+
+`ComputedPayslip.operates` is a required `{ paye, pension, nhf }` of
+`"DEDUCTED" | "NOT_OPERATED"`, and every renderer reads it before an amount:
+
+- **`DEDUCTED`, ₦0.00** — computed and came to nothing. Lawful and common: the
+  first ₦800,000 a year is exempt, so ₦60,000 a month pays no tax.
+- **`NOT_OPERATED`** — there is no figure. Nothing to print, nothing to remit,
+  no schedule to file.
+
+`PayrollRun` records the three as columns **at prepare**, not at approval, so a
+stored `paye = 0.00` is readable years later and switching PAYE back on in
+September cannot put tax on an August payslip. The approval snapshot carries
+`deductions` taken from the **run**, not from the live settings row — flip a
+switch between prepare and approve and a snapshot built from settings would
+claim the run deducted nothing while every payslip on it has tax on it.
+
+The payslip document suppressed the pension line on `amountKobo > 0`, which
+conflated the two: a person whose pay prorated to nothing had their pension line
+vanish as though the company had no scheme. It gates on the operation now, a
+genuine nil prints as a nil, and a not-operated deduction is **named in a
+sentence under the column** — absent from the arithmetic, stated in words,
+because a ₦500,000 salary taking home ₦500,000 needs the explanation.
+
+## Nothing is refused, and nothing is silent
+
+PAYE deduction is an employer obligation under the Personal Income Tax Act and a
+pension scheme is compulsory at fifteen employees under the Pension Reform Act
+2014. Refusing the configuration would push a customer we intend to serve back to
+a spreadsheet, so `statutoryNotices(settings, headcount)` in the engine is the
+**one copy** of what switching one off means, and three callers render it
+verbatim: the settings form beside the switch, the setup wizard under the answer,
+and every payroll run as a WARNING on the list somebody reads before releasing
+money. A switch is decided once; a payroll is decided every month.
+
+`STATUTORY.pensionHeadcountThreshold` is 15, and the notice names the company's
+real headcount against it — or states the rule without a figure when it has none,
+because a confident "0 people" is the same mistake one level down.
+
+`missing_pension_pin` is now gated on pension being operated. "The pension
+schedule will be incomplete" is a false claim on a payroll with no schedule, and
+a warning about a remittance that does not exist teaches people to ignore the
+list.
+
+## Two more wizard questions, appended and never inserted
+
+`TOTAL_STEPS` is 7. `setupStep` is a forward-only number meaning "answered up to
+here", so renumbering an existing question would claim a company had answered one
+it never saw — new questions go on the end whatever the tidier reading order
+would be. Five decide which modules exist and cost nothing to get wrong; two
+decide what the engine computes, and their "No" carries the API's own consequence
+sentence on screen **before** the click.
+
+`GET /setup/wizard` now returns `payroll` — what the company deducts today, or
+**null** where it has no settings row — so the wizard can mark the option it is
+already on. Null is unknown, not "everything on": marking "Yes" from a default
+would tell somebody they had answered a question nobody asked.
+
+## `/payroll/statutory` no longer offers to file what was never deducted
+
+Each group is gated on what the company deducts, and a group that is off is
+replaced by a sentence naming the body and why there is nothing for it — never an
+empty schedule with a Download button. A nil return you had no obligation to make
+is worse than no return. NSITF is deliberately not gated: the Employees'
+Compensation Act is an employer contribution and has nothing to do with the three
+payslip deductions.
+
+## Only three settings on `/settings/payroll` reach the engine, and it says so
+
+"What you deduct" is API-backed through `lib/store/payroll-deductions.ts` and
+saves on the switch. Everything else on that screen is still
+`usePayrollSettings`, which is localStorage. That split is deliberate rather than
+half-finished — a switch that looks saved and moves no payslip is the same failure
+as a green "Paid" against money nobody transferred, while a working month kept in
+one browser is merely local. The pension and NHF sections lost their own
+`enabled` switches: two switches for one decision is how a screen starts
+disagreeing with itself.
+
+The effective settings are **derived every render** from the local draft plus the
+API's three switches, never synchronised into state — that would be a `setState`
+in an effect, and the preview has to quote what a real run will do.
+
+## Demo mode
+
+The wizard's two answers persist to `DemoState.deductions` (payload **version 2**),
+`/settings/payroll` reads them so the two screens cannot disagree, and the write
+is refused there with the reason. `settingsMatchFixture` now compares all three
+switches, so switching one off in demo mode makes the run raise its existing
+`demo_settings_changed` BLOCKER instead of printing figures that contradict the
+settings screen. `demo-payslips.ts` gained `paye: { enabled: true }` — the
+emitter writes it and `verify-payroll` asserts it, because a fixture generated
+with PAYE off would be a completely different set of numbers wearing the same
+filename.
+
+## Verified
+
+Backend `npm run check` exit **0** — 50 files, **1330 tests**, including
+`tests/payroll-deduction-switches.test.ts` (22: pension off raising PAYE because
+the relief went with it, PAYE off with relief and taxable pay absent rather than
+zeroed, all three off with net equal to gross, a computed nil kept apart from an
+absent one, the notices' wording and headcount handling, the run's operated
+columns, the pension-PIN warning disappearing, the frozen snapshot, and the same
+switch not reaching another organisation) and four updated cases in
+`tests/setup.test.ts`.
+
+Frontend `npm run check` exit **0** (typecheck, lint, 88 titles, type scale,
+contrast, payroll **52**, CSV 101, template 34, loans 28) and `npm run build` exit
+**0** at 88 routes.
+
+In the browser, **demo mode**: the wizard at "Question 6 of 7" and "7 of 7" with
+both consequence paragraphs rendered, the "Now" marker moving onto "No — staff
+handle their own tax" after answering and `payeEnabled: false` in storage with
+`taxSetup` untouched; `/settings/payroll` reading "Pension and National Housing
+Fund · 1 switched off"; `/payroll` refusing the whole run with
+`demo_settings_changed` while PAYE was off and coming back to 10 payslips when it
+was restored; `/payroll/statutory` dropping the two PAYE rows and three pension
+rows, stating why for each, and recomputing the total to ₦3.3m over what is
+actually filed.
+
+**Not exercised: connected mode.** No API was running on this machine. The wire
+shapes are covered by the 22 backend assertions above. Two console errors seen
+during the walk (`DEMO_ENABLED is not defined` and a parse error in
+`people/import/surface.ts`) were another agent's in-flight edits, not this change.
+
+## Deliberately not done
+
+- **A row on the `/settings` checklist hub.** `GET /setup/checklist` returns
+  facts and would need a new field plus a judgement about whether "we do not
+  deduct PAYE" is something to nag about — it is a decision, not an omission, so
+  it is not a to-do. The hub already links to `/settings/payroll`.
+- **Converting `usePayrollSettings` to the API.** It is read synchronously from
+  inside four other stores, so doing it here would put loading states into the
+  attendance and overtime screens. The three switches that had to reach the
+  engine do; the rates still do not.
+- **Generating real `StatutorySchedule` rows.** Nothing writes that model yet.
+  What this change fixes is which bodies appear, which is the half that was
+  making a wrong claim.

@@ -100,7 +100,7 @@ type Seed = {
  * rows are the two the settings page refuses to let a company silence quietly:
  * a bank account change and a filing deadline.
  */
-const SEED: Seed[] = [
+const SEED: Seed[] = DEMO_ENABLED ? [
   {
     id: "nt-01",
     ruleId: "n-record-change",
@@ -215,7 +215,7 @@ const SEED: Seed[] = [
     minutesAgo: 4_320,
     readMinutesAgo: 4_100,
   },
-];
+] : [];
 
 const iso = (minutesAgo: number): string =>
   new Date(DEMO_NOW.getTime() - minutesAgo * 60_000).toISOString();

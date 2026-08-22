@@ -154,7 +154,7 @@ const person = (id: string): ApiPerson | null => {
  * targets is a normal state, and the raise form has to say "no target set"
  * honestly rather than inventing one — so the demo has to be able to reach it.
  */
-const DEMO_CATEGORIES: ApiTicketCategory[] = [
+const DEMO_CATEGORIES: ApiTicketCategory[] = DEMO_ENABLED ? [
   {
     id: "cat-payroll",
     name: "Pay and payslips",
@@ -233,7 +233,7 @@ const DEMO_CATEGORIES: ApiTicketCategory[] = [
     tickets: 0,
     openTickets: 0,
   },
-];
+] : [];
 
 const comment = (
   id: string,
@@ -1083,7 +1083,9 @@ export function useRaiseTicket() {
             categoryName: category?.name ?? null,
             status: "OPEN",
             priority: body.priority ?? "NORMAL",
-            requester: person(actingId) ?? person(CURRENT_USER.id),
+            requester:
+              person(actingId) ??
+              (CURRENT_USER ? person(CURRENT_USER.id) : null),
             assignee: category?.defaultAssignee ?? null,
             raisedAt: stamped,
             updatedAt: stamped,

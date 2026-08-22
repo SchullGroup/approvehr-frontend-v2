@@ -266,7 +266,7 @@ const NAIRA = 100;
  * do not, because a keke fare and a recharge card do not produce one and
  * pretending otherwise means every claim arrives with a made-up reference.
  */
-const SEED_TYPES: ApiExpenseType[] = [
+const SEED_TYPES: ApiExpenseType[] = DEMO_ENABLED ? [
   {
     id: "demo-type-transport",
     name: "Transport",
@@ -327,7 +327,7 @@ const SEED_TYPES: ApiExpenseType[] = [
     archived: false,
     claimCount: 0,
   },
-];
+] : [];
 
 /** A demo claim, written as the wire shape so it goes through `toClaim`. */
 function seedClaim(input: {
@@ -345,6 +345,11 @@ function seedClaim(input: {
   paidDaysAgo?: number;
 }): ApiClaim {
   const employee = employeeById(input.employeeId) ?? CURRENT_USER;
+  /* Only ever called from inside a `DEMO_ENABLED` branch, so the seed is
+     there. Throwing rather than inventing a person: reaching this in a
+     production build would mean a fabricated claim was about to be
+     presented as a real one, and that should fail loudly. */
+  if (!employee) throw new Error("No demo employee behind a demo claim.");
   const decided = input.status !== "SUBMITTED";
   return {
     id: input.id,
@@ -379,7 +384,7 @@ function seedClaim(input: {
  * to show that the product refuses self-approval is to put a claim of their own
  * in the queue.
  */
-const SEED_CLAIMS: ApiClaim[] = [
+const SEED_CLAIMS: ApiClaim[] = DEMO_ENABLED ? [
   seedClaim({
     id: "demo-claim-01",
     employeeId: "p-07",
@@ -456,7 +461,7 @@ const SEED_CLAIMS: ApiClaim[] = [
     declinedReason:
       "This one goes on the client's invoice, not ours. Send it to me and I will bill it.",
   }),
-];
+] : [];
 
 type DemoState = { types: ApiExpenseType[]; claims: ApiClaim[] };
 
@@ -893,11 +898,31 @@ export function useExpenseClaims(
         }
         return true;
       })
-      .sort(
-        (a, b) =>
-          order[a.status] - order[b.status] ||
-          a.incurredOn.localeCompare(b.incurredOn),
-      )
+      .sort((a, b) => {
+        /* Undecided first whatever the sort, because a queue is a queue —
+           exactly what the API does with `[{ status: "asc" }, ...orderBy(…)]`. */
+        const queue = order[a.status] - order[b.status];
+        if (queue !== 0) return queue;
+
+        const dir = params.order === "desc" ? -1 : 1;
+        /* `createdAt` on the wire is `submittedAt` on the row — the serializer
+           renames it, and sorting on a field that does not exist would silently
+           fall through to `incurredOn` and look like a header that does
+           nothing. */
+        const of = (claim: ApiClaim): string | number =>
+          params.sort === "amount"
+            ? claim.amountKobo
+            : params.sort === "createdAt"
+              ? claim.submittedAt
+              : claim.incurredOn;
+        const left = of(a);
+        const right = of(b);
+        if (left !== right) return left < right ? -dir : dir;
+        /* The tiebreaker. Claims tie on `incurredOn` constantly — a team on the
+           same trip files the same date — so without this, paging a long
+           register shows some of them twice and misses others. */
+        return a.id.localeCompare(b.id) * dir;
+      })
       .map(toClaim);
   }, [
     demoState.claims,
@@ -910,13 +935,22 @@ export function useExpenseClaims(
     params.from,
     params.to,
     params.q,
+    params.sort,
+    params.order,
   ]);
+
+  /* The page, cut after the count. */
+  const demoPage = useMemo(() => {
+    const size = params.pageSize ?? 25;
+    const start = ((params.page ?? 1) - 1) * size;
+    return demoClaims.slice(start, start + size);
+  }, [demoClaims, params.page, params.pageSize]);
 
   const claims = !enabled
     ? EMPTY_CLAIMS
     : isConnected
       ? (remote?.claims ?? EMPTY_CLAIMS)
-      : demoClaims;
+      : demoPage;
 
   /**
    * What this view is worth while it waits for a decision.
@@ -1109,6 +1143,13 @@ export function useExpenseClaims(
       }
 
       const decider = employeeById(employeeId ?? actingId) ?? CURRENT_USER;
+      if (!decider) {
+        throw new ApiError(
+          403,
+          "forbidden",
+          "We cannot tell who is deciding this. Sign in again.",
+        );
+      }
 
       if (decision === "approve" && decider.id === claim.employeeId) {
         throw new ApiError(
@@ -1200,7 +1241,17 @@ export function useExpenseClaims(
 
   return {
     claims,
-    total: !enabled ? 0 : isConnected ? (remote?.total ?? 0) : demoClaims.length,
+    /**
+     * How many match, from the server. **`undefined` until it answers.**
+     *
+     * Not `?? 0`: a zero renders as "No claims" over a table that is loading,
+     * and the reader cannot tell that from an empty register.
+     */
+    total: !enabled
+      ? 0
+      : isConnected
+        ? remote?.total
+        : demoClaims.length,
     awaitingDecision,
     outstanding,
     loading: enabled && isConnected && !answered,

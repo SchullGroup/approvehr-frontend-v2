@@ -1,5 +1,6 @@
 "use client";
 
+import { sourceNote } from "@/lib/demo";
 import { useState } from "react";
 import Link from "next/link";
 import { Archive, Landmark, Plus, RotateCcw, Star } from "lucide-react";
@@ -125,7 +126,7 @@ export function BankAccountsScreen() {
         breadcrumb={[{ href: "/settings", label: "Settings" }]}
         meta={
           <Badge tone={accounts.live ? "success" : "warning"} size="sm" dot>
-            {accounts.live ? "Live from the API" : "Demo data, this browser only"}
+            {sourceNote(accounts.live)}
           </Badge>
         }
         action={

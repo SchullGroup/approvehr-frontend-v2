@@ -1,5 +1,6 @@
 "use client";
 
+import { sourceNote } from "@/lib/demo";
 import { useState } from "react";
 import Link from "next/link";
 import {
@@ -149,7 +150,7 @@ export function PaymentsScreen() {
         description="What is waiting to go out, and what has left the account."
         meta={
           <Badge tone={list.live ? "success" : "warning"} size="sm" dot>
-            {list.live ? "Live from the API" : "Demo data, this browser only"}
+            {sourceNote(list.live)}
           </Badge>
         }
         action={

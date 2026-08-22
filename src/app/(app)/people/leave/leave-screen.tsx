@@ -1,5 +1,6 @@
 "use client";
 
+import { sourceNote } from "@/lib/demo";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -270,7 +271,7 @@ export function LeaveScreen() {
         }
         meta={
           <Badge tone={connected ? "success" : "warning"} size="sm" dot>
-            {connected ? "Live from the API" : "Demo data, this browser only"}
+            {sourceNote(connected)}
           </Badge>
         }
         action={

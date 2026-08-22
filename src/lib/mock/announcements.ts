@@ -43,7 +43,7 @@ const shiftDate = (days: number): string => shift(days).slice(0, 10);
 /** The demo company's departments, matching `lib/mock/people.ts`. */
 const ENGINEERING = "demo-engineering";
 
-export const DEMO_ANNOUNCEMENTS: ApiAnnouncement[] = [
+export const DEMO_ANNOUNCEMENTS: ApiAnnouncement[] = DEMO_ENABLED ? [
   {
     id: "an-fire-drill",
     title: "Fire drill on Friday at 11am",
@@ -137,4 +137,4 @@ export const DEMO_ANNOUNCEMENTS: ApiAnnouncement[] = [
     createdAt: shift(-4),
     updatedAt: shift(-4),
   },
-];
+] : [];

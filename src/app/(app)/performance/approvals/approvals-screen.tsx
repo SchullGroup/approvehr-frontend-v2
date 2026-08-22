@@ -30,6 +30,7 @@ import {
   useObjectiveMutations,
 } from "@/lib/store/performance";
 import { ApprovalReasonDialog, type ApprovalAct } from "../approval-dialogs";
+import { StartPeriodButton } from "../start-period";
 
 /**
  * Objectives waiting to be agreed.
@@ -137,8 +138,13 @@ export function ApprovalsScreen() {
         breadcrumb={[{ href: "/performance", label: "Performance" }]}
         title="Objectives to agree"
         description="Read the target, then agree it, send it back, or refuse it. An objective has to be agreed before the period it covers."
+        /* One of the three doors on the same dialog. Agreeing the objectives is
+           the step immediately before starting the period they belong to, so
+           this is one of the places somebody has the thought — and looking for
+           the button is what the product owner could not do. */
+        action={<StartPeriodButton withIcon />}
         meta={
-          approvals.source === "demo" ? (
+          DEMO_ENABLED && approvals.source === "demo" ? (
             <Badge tone="warning" size="sm">
               Demo · decisions stay in this browser
             </Badge>
@@ -305,9 +311,10 @@ function ObjectiveCard({
             ) : (
               <span>No owner</span>
             )}
-            {/* The period, and which of the two kinds it is. A cycle is what
-                makes the objective scoreable; a bare quarter is what companies
-                typed before cycles existed and is still allowed. */}
+            {/* The period, and which of the two kinds it is. An appraisal
+                period is what makes the objective scoreable; a bare quarter is
+                what companies typed before periods existed and is still
+                allowed. */}
             <span>
               {goal.reviewCycleName ?? quarterLabel(goal.dueQuarter)}
             </span>

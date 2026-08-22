@@ -339,7 +339,7 @@ type SeedGoal = {
 const DEMO_CYCLE_OPEN = "demo-cycle-h2";
 const DEMO_CYCLE_PUBLISHED = "demo-cycle-h1";
 
-const SEED_GOALS: readonly SeedGoal[] = [
+const SEED_GOALS: readonly SeedGoal[] = DEMO_ENABLED ? [
   {
     id: "demo-goal-company",
     title: "Process ₦2bn in client payroll by year end",
@@ -504,7 +504,7 @@ const SEED_GOALS: readonly SeedGoal[] = [
       },
     ],
   },
-];
+] : [];
 
 /**
  * The framework, mirrored for demonstrations with no database.
@@ -701,7 +701,7 @@ type SeedQuestion = {
   options?: string[];
 };
 
-const SEED_QUESTIONS: readonly SeedQuestion[] = [
+const SEED_QUESTIONS: readonly SeedQuestion[] = DEMO_ENABLED ? [
   {
     id: "demo-q-self-well",
     prompt: "What went well for you this period?",
@@ -751,7 +751,7 @@ const SEED_QUESTIONS: readonly SeedQuestion[] = [
     required: false,
     audience: "PEER",
   },
-];
+] : [];
 
 /* ----------------------------------------------------- the demo's local edits */
 
@@ -2260,7 +2260,7 @@ export function useCycleMutations() {
 
     createCycle: useCallback(
       async (name: string, dueDate?: string) => {
-        guard("Creating a cycle needs the API.");
+        guard("Creating an appraisal period needs the API.");
         return performanceApi.createCycle(
           dueDate === undefined ? { name } : { name, dueDate },
         );
@@ -2287,7 +2287,7 @@ export function useCycleMutations() {
     activate: useCallback(
       async (id: string) => {
         guard(
-          "Starting a cycle writes a form for every employee and tells them all, " +
+          "Starting a period writes a form for every employee and tells them all, " +
             "so it needs the API.",
         );
         return performanceApi.activateCycle(id);
@@ -2350,7 +2350,7 @@ export function useRating() {
 const APPRAISER_OFFLINE =
   "Who appraises whom needs the API. A mapping is what a mark is defended " +
   "with months later, and one kept in this browser would never reach the " +
-  "cycle it belongs to.";
+  "appraisal period it belongs to.";
 
 export type AppraiserMapState = {
   map: ApiAppraiserMap | null;
@@ -2468,9 +2468,9 @@ export function useAppraiserMutations() {
  * ======================================================================== */
 
 const REGISTER_OFFLINE =
-  "A cycle's register needs the API. It is an aggregate over everybody — who " +
+  "A period's register needs the API. It is an aggregate over everybody — who " +
   "owes a form, who has nobody appraising them, and what each person's mark is " +
-  "made of — and one assembled in this browser would describe a cycle nothing " +
+  "made of — and one assembled in this browser would describe a period nothing " +
   "else here is running.";
 
 export type CycleRegister = {
@@ -2667,8 +2667,8 @@ export function useMyAppraisers(
               severity: (started ? "BLOCKER" : "WARNING") as "BLOCKER" | "WARNING",
               code: "NO_APPRAISER" as const,
               message: started
-                ? `Nobody is appraising ${name}. They will finish this cycle with no mark.`
-                : `${name} has no appraiser yet. Starting the cycle will use their line manager, and they have none.`,
+                ? `Nobody is appraising ${name}. They will finish this period with no mark.`
+                : `${name} has no appraiser yet. Starting the period will use their line manager, and they have none.`,
             },
           ],
     };
@@ -2926,13 +2926,13 @@ export function useScoringWeights(): {
  * ======================================================================== */
 
 const REPORT_OFFLINE =
-  "A cycle report needs the API. A distribution is an aggregate over " +
-  "everybody's mark, and one assembled in this browser would describe a cycle " +
+  "A period report needs the API. A distribution is an aggregate over " +
+  "everybody's mark, and one assembled in this browser would describe a period " +
   "nothing else here is running.";
 
 const HISTORY_OFFLINE =
-  "A trend across cycles needs the API. Every point on it is the same score " +
-  "the cycle screen shows, read from the weights that cycle was frozen " +
+  "A trend across periods needs the API. Every point on it is the same score " +
+  "the period screen shows, read from the weights that period was frozen " +
   "against — there is nothing in this browser to read it from.";
 
 /**

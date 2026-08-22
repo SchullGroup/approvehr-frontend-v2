@@ -35,7 +35,7 @@ export type SeedRole = {
   members: string[];
 };
 
-export const SEED_ROLES: SeedRole[] = [
+export const SEED_ROLES: SeedRole[] = DEMO_ENABLED ? [
   {
     id: "role-owner",
     name: "Owner",
@@ -79,7 +79,7 @@ export const SEED_ROLES: SeedRole[] = [
     permissions: [],
     members: ["p-01", "p-03", "p-04", "p-07", "p-09", "p-10"],
   },
-];
+] : [];
 
 /**
  * The roles a demo persona holds, straight from the seed.

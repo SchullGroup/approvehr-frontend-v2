@@ -26,9 +26,15 @@ import { fullName } from "@/lib/types";
  *
  * Offers whichever sign-in the environment actually supports, and says which one
  * it is offering. When the API answers, that is a real password sign-in against
- * a real session. When it does not, the demo path picks a seeded employee — the
- * same behaviour this screen had before the backend existed, because this
- * prototype gets shown on laptops in rooms with no database.
+ * a real session. When it does not, a **development** build offers the demo path
+ * — a seeded employee, no password — because this product gets shown on laptops
+ * in rooms with no database.
+ *
+ * A production build has no such path. With no API there is nothing to sign in
+ * to, and that is what the screen says: `Unreachable`, below, with a retry. The
+ * alternative would be opening a session against invented local data and
+ * labelling it, which is what the demo badges used to do — and the owner's call
+ * was that no such artifact ships. So the mode went, and the badges with it.
  *
  * The one thing this screen must never do is look connected when it is not.
  */
@@ -182,7 +188,9 @@ function SignIn() {
 
             {/* The seeded credentials, shown because this is a development
                 build talking to a development database. It would be
-                indefensible in production and the wording says which. */}
+                indefensible in production, which is why it is behind the build
+                flag rather than behind a sentence saying so. */}
+            {DEMO_ENABLED && (
             <Card className="mt-8">
               <CardBody className="flex gap-3">
                 <Info
@@ -202,10 +210,11 @@ function SignIn() {
                 </div>
               </CardBody>
             </Card>
+            )}
           </>
         )}
 
-        {reachable === false && (
+        {reachable === false && DEMO_ENABLED && (
           <>
             <p className="mt-2 text-body leading-relaxed text-body">
               The API is not running, so this is the demo. Choose whose account
@@ -278,6 +287,8 @@ function SignIn() {
             </div>
           </>
         )}
+
+        {reachable === false && !DEMO_ENABLED && <Unreachable />}
       </main>
     </div>
   );
@@ -285,15 +296,54 @@ function SignIn() {
 
 function ConnectionBadge({ reachable }: { reachable: boolean | null }) {
   if (reachable === null) return null;
-  return reachable ? (
-    <Badge tone="success" size="sm">
-      <Wifi aria-hidden="true" className="size-3" />
-      API connected
-    </Badge>
-  ) : (
+  if (reachable) {
+    return (
+      <Badge tone="success" size="sm">
+        <Wifi aria-hidden="true" className="size-3" />
+        API connected
+      </Badge>
+    );
+  }
+  /* The unreachable badge says which build this is, because the consequence
+     differs: in development there is somewhere else to go, and in production
+     there is not. */
+  return (
     <Badge tone="warning" size="sm">
       <WifiOff aria-hidden="true" className="size-3" />
-      Demo mode
+      {DEMO_ENABLED ? "Demo mode" : "Cannot reach the server"}
     </Badge>
+  );
+}
+
+/**
+ * What a production build shows when the API does not answer.
+ *
+ * Not a blank screen and not a demo. There is nothing to sign in to, so the
+ * screen says that, says whose problem it probably is, and offers the one
+ * action that can change the answer. `useApiReachable` checks once per mount,
+ * so reloading is the retry.
+ */
+function Unreachable() {
+  return (
+    <>
+      <p className="mt-2 text-body leading-relaxed text-body">
+        Signing in needs the ApproveHR service, and it is not answering right
+        now. Nothing you have entered has been lost, and nothing has been signed
+        in.
+      </p>
+
+      <Callout tone="warning" title="What usually fixes this" className="mt-5">
+        This is usually a connection on this device or a service that is
+        restarting. Check your internet connection and try again in a moment; if
+        it keeps happening, tell whoever administers ApproveHR for your company.
+      </Callout>
+
+      <div className="mt-7">
+        <Button variant="accent" onClick={() => window.location.reload()}>
+          Try again
+          <ArrowRight aria-hidden="true" className="size-4" />
+        </Button>
+      </div>
+    </>
   );
 }
