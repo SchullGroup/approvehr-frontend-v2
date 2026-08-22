@@ -616,7 +616,20 @@ function RequestPanel({
         request && canDecide ? (
           request.status === "pending" ? (
             <>
-              <Button variant="secondary" onClick={() => onSendBack(request)}>
+              {/*
+               * `ghost`, not `secondary`.
+               *
+               * Measured on this panel: "Send back" as `secondary` is ink at
+               * 17.1:1 inside a 4.3:1 border, while "Approve" as `approve` is
+               * success-text at 5.4:1 on a soft tint. The rejecting option was
+               * more prominent than the approving one, and the two read as equal
+               * weight — on a decision with no confirmation step behind it.
+               *
+               * Green stays on Approve, which is the product owner's decision.
+               * This demotes the partner instead, which restores the hierarchy
+               * without touching the palette or the contrast budget.
+               */}
+              <Button variant="ghost" onClick={() => onSendBack(request)}>
                 <X aria-hidden="true" className="size-3.5" />
                 Send back
               </Button>

@@ -1078,7 +1078,11 @@ export function NewEmployeeForm() {
                               ...BANKS.map((b) => ({
                                 value: b.label,
                                 label: b.label,
-                                hint: `Code ${b.code}`,
+                                /* No code shown: `Employee` has no bankCode
+                                   column, so it was never going to be stored —
+                                   see TODO(employee-bank-code) in the API's
+                                   payments/file.ts. A number on screen that
+                                   nothing keeps is noise. */
                               })),
                             ]}
                           />
@@ -1341,7 +1345,7 @@ export function NewEmployeeForm() {
               </div>
 
               {stepId === "review" ? (
-                <Button type="submit" variant="approve" loading={busy}>
+                <Button type="submit" variant="accent" loading={busy}>
                   {!busy && <Check aria-hidden="true" className="size-4" />}
                   Add employee
                 </Button>

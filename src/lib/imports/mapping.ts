@@ -1,23 +1,19 @@
 import type { CsvRow } from "@/lib/csv";
 import type { ImportRow } from "@/lib/api/imports";
-import {
-  COLUMN_LOOKUP,
-  EMPLOYEE_COLUMNS,
-  HEADING,
-  REQUIRED_FIELDS,
-  SPEC_BY_FIELD,
-  normalizeKey,
-  type EmployeeField,
-} from "./template";
+import { normalizeKey, type Dictionary } from "./spec";
 
 /**
- * Matching the file's columns to the ones we need.
+ * Matching the file's columns to the ones we need. Entity-agnostic.
  *
  * This is the step every other product gets wrong by demanding exact headings,
  * so it is worth saying what "getting it right" means here: the file is never
  * edited and the guess is never final. Each column in *their* file gets a
  * dropdown, pre-selected with our best guess, and the person can overrule any of
  * it — including telling us to leave a column out.
+ *
+ * Every function here takes a `Dictionary`, so a new importable entity gets the
+ * matcher for nothing. The dictionary supplies the aliases and the priority; the
+ * rules below are the same whatever is being imported.
  *
  * ## Why we rename rather than send their headings
  *
@@ -34,28 +30,28 @@ import {
  */
 
 /** File heading to the field it fills. `""` means "do not import this column". */
-export type Mapping = Record<string, EmployeeField | "">;
+export type Mapping = Record<string, string>;
 
 /**
  * The best guess for every heading in the file.
  *
- * Same rule as the API: normalise the heading (lowercase, drop everything that
- * is not a letter or digit) and look it up against the ordered alias list, where
+ * Same rule as the API: normalise the heading (lowercase, drop everything that is
+ * not a letter or digit) and look it up against the ordered alias list, where
  * position is priority. When two headings claim one field — a file with both
  * `job_title` and `position` — the earlier alias wins and the loser is left
  * unmapped rather than quietly overwriting. Nothing is invented: a heading that
  * matches nothing comes back as "do not import", visibly.
  */
-export function guessMapping(headers: readonly string[]): Mapping {
-  const claims = new Map<
-    EmployeeField,
-    { heading: string; priority: number; index: number }
-  >();
+export function guessMapping(
+  dictionary: Dictionary<string>,
+  headers: readonly string[],
+): Mapping {
+  const claims = new Map<string, { heading: string; priority: number; index: number }>();
   const mapping: Mapping = {};
 
   headers.forEach((heading, index) => {
     mapping[heading] = "";
-    const match = COLUMN_LOOKUP.get(normalizeKey(heading));
+    const match = dictionary.lookup.get(normalizeKey(heading));
     if (!match) return;
     const held = claims.get(match.field);
     if (
@@ -73,28 +69,34 @@ export function guessMapping(headers: readonly string[]): Mapping {
 
 export type MappingProblems = {
   /** Required columns nothing is mapped to. Blocks the check step. */
-  missingRequired: EmployeeField[];
+  missingRequired: string[];
   /** One field claimed by two headings. Also blocks: we can only send one. */
-  duplicates: { field: EmployeeField; headings: string[] }[];
+  duplicates: { field: string; headings: string[] }[];
 };
 
-export function mappingProblems(mapping: Mapping): MappingProblems {
-  const byField = new Map<EmployeeField, string[]>();
+export function mappingProblems(
+  dictionary: Dictionary<string>,
+  mapping: Mapping,
+): MappingProblems {
+  const byField = new Map<string, string[]>();
   for (const [heading, field] of Object.entries(mapping)) {
     if (!field) continue;
     byField.set(field, [...(byField.get(field) ?? []), heading]);
   }
 
   return {
-    missingRequired: REQUIRED_FIELDS.filter((field) => !byField.has(field)),
+    missingRequired: dictionary.requiredFields.filter((field) => !byField.has(field)),
     duplicates: [...byField.entries()]
       .filter(([, headings]) => headings.length > 1)
       .map(([field, headings]) => ({ field, headings })),
   };
 }
 
-export const isMappingReady = (mapping: Mapping): boolean => {
-  const problems = mappingProblems(mapping);
+export const isMappingReady = (
+  dictionary: Dictionary<string>,
+  mapping: Mapping,
+): boolean => {
+  const problems = mappingProblems(dictionary, mapping);
   return problems.missingRequired.length === 0 && problems.duplicates.length === 0;
 };
 
@@ -111,10 +113,14 @@ export const ignoredHeadings = (mapping: Mapping): string[] =>
  * one we sent. This turns `gross_monthly` back into `salary` — the word actually
  * at the top of their spreadsheet, which is the only version they can act on.
  */
-export function reverseHeadings(mapping: Mapping): Record<string, string> {
+export function reverseHeadings(
+  dictionary: Dictionary<string>,
+  mapping: Mapping,
+): Record<string, string> {
   const reverse: Record<string, string> = {};
   for (const [heading, field] of Object.entries(mapping)) {
-    if (field) reverse[HEADING[field]] = heading;
+    const column = field ? dictionary.heading[field] : undefined;
+    if (column) reverse[column] = heading;
   }
   return reverse;
 }
@@ -129,36 +135,42 @@ export function reverseHeadings(mapping: Mapping): Record<string, string> {
  * request body is capped at 100kb, so 40 empty columns per row is the difference
  * between three requests and eight.
  */
-export function mapRow(row: CsvRow, mapping: Mapping): ImportRow {
+export function mapRow(
+  dictionary: Dictionary<string>,
+  row: CsvRow,
+  mapping: Mapping,
+): ImportRow {
   const mapped: ImportRow = {};
   for (const [heading, field] of Object.entries(mapping)) {
     if (!field) continue;
+    const column = dictionary.heading[field];
+    if (!column) continue;
     const value = (row[heading] ?? "").trim();
     if (value === "") continue;
-    mapped[HEADING[field]] = value;
+    mapped[column] = value;
   }
   return mapped;
 }
 
 export const mapRows = (
+  dictionary: Dictionary<string>,
   rows: readonly CsvRow[],
   mapping: Mapping,
-): ImportRow[] => rows.map((row) => mapRow(row, mapping));
+): ImportRow[] => rows.map((row) => mapRow(dictionary, row, mapping));
 
 /** Options for one column's dropdown, in the order the template lists them. */
-export const FIELD_OPTIONS: readonly {
-  field: EmployeeField;
-  label: string;
-  required: boolean;
-}[] = EMPLOYEE_COLUMNS.map((spec) => ({
-  field: spec.field,
-  label: spec.column,
-  required: spec.required,
-}));
+export const fieldOptions = (
+  dictionary: Dictionary<string>,
+): readonly { field: string; label: string; required: boolean }[] =>
+  dictionary.columns.map((spec) => ({
+    field: spec.field,
+    label: spec.column,
+    required: spec.required,
+  }));
 
 /** The one-line note for a field, for the column being matched. */
-export const noteFor = (field: EmployeeField): string =>
-  SPEC_BY_FIELD.get(field)?.note ?? "";
+export const noteFor = (dictionary: Dictionary<string>, field: string): string =>
+  dictionary.byField.get(field)?.note ?? "";
 
-export const exampleFor = (field: EmployeeField): string =>
-  SPEC_BY_FIELD.get(field)?.example ?? "";
+export const exampleFor = (dictionary: Dictionary<string>, field: string): string =>
+  dictionary.byField.get(field)?.example ?? "";

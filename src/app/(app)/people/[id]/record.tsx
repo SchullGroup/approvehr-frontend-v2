@@ -607,7 +607,10 @@ export function EmployeeRecord({
                       /* No code means this name is not in the NIBSS register, and
                          that is worth saying rather than leaving blank: it is the
                          column a payment file cannot fill. */
-                      hint: b.code === null ? "No code on file" : `Code ${b.code}`,
+                      /* "No code on file" stays — a bank we do not have a
+                         code for is a real gap somebody may need to close. The
+                         code itself goes: it is not stored on the employee. */
+                      ...(b.code === null ? { hint: "No code on file" } : {}),
                     })),
                   ],
                 },

@@ -149,7 +149,10 @@ export function AccountForm({
             options={NIGERIAN_BANKS.map((b) => ({
               value: b.label,
               label: b.label,
-              hint: `Code ${b.code}`,
+              /* No code in the hint: it has its own field below, which
+                 choosing a bank fills in, so showing it here was the same fact
+                 twice — and 255 rows each carrying a second line made the list
+                 harder to scan than the names alone. */
             }))}
           />
         </Field>

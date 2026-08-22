@@ -61,12 +61,20 @@ export function Money({
   /** Rate basis, for example day or month. */
   per?: string;
   className?: string;
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl";
 }) {
+  /*
+   * The size lands on the inner span, not the outer one `className` reaches —
+   * so passing `className="text-h3"` from a caller does nothing: the inner
+   * element's own size class wins over anything inherited. `xl` exists because
+   * of that: a `Stat` card's value slot is `text-h3`, and a Money passed into it
+   * rendered 9px smaller than the plain strings in the cards beside it.
+   */
   const sizes = {
     sm: "text-body-sm",
     md: "text-body-sm",
     lg: "text-h4",
+    xl: "text-h3",
   } as const;
 
   return (

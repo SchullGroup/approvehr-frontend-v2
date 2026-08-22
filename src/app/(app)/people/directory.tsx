@@ -127,11 +127,12 @@ export function Directory() {
         />
         <Stat
           label="Monthly gross"
-          /* `text-h3` because Money defaults to `text-body-sm`, and the sibling
-             cards pass plain strings that inherit Stat's own `text-h3`. Without
-             it this card's figure rendered 9px smaller than the three beside it
-             — the same value slot, two sizes. */
-          value={<Money amount={payrollTotal} compact className="text-h3" />}
+          /* `size="xl"` (text-h3), matching the plain strings the three cards
+             beside it pass, which inherit Stat's own text-h3. `className` cannot
+             do this — Money puts it on the outer span while the size class sits
+             on the inner one, so the inner wins. That was the first attempt and
+             it changed nothing on screen. */
+          value={<Money amount={payrollTotal} compact size="xl" />}
           icon={<Banknote aria-hidden="true" />}
         />
         <Stat

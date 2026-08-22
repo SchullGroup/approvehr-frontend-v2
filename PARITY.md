@@ -188,7 +188,7 @@ Worth stating so the roadmap does not accidentally trade it away:
 
 ## The structure for adding it
 
-Five rules first, because they are what stop us rebuilding the old system's
+Six rules first, because they are what stop us rebuilding the old system's
 usability problem. The user's brief was explicit: **non-technical people, not
 HR professionals, who nonetheless want to run their own payroll.** Every item
 below is judged against that person.
@@ -278,6 +278,101 @@ the user everything at once.**
   `Accordion` in `tabs.tsx` is single-open and shaped for a FAQ; it is not this
   one with a flag. Six screens had already hand-rolled `aria-expanded` before
   this existed. Do not make it seven.
+
+### Rule 6 — anywhere you can add several, there is a template to download
+
+Rules 2, 3 and 5 are about not drowning one person in one screen. This is the
+other shape of the same problem: a form that is fine for the second thing and
+insulting by the fortieth. **A Nigerian SME does not arrive with nothing.** It
+arrives with a spreadsheet — of staff, of laptops, of branches, of opening leave
+balances — and the first hour it spends in this product is either an import or it
+is typing. `people/assets/item-form.tsx` already says the quiet part in its own
+header: "the alternative is an owner with thirty laptops abandoning the form on
+the first one." So: **anywhere a person can add several of something, there is a
+bulk upload.**
+
+- **A template they download, never a paste box.** A textarea asking for
+  comma-separated values makes the customer guess our schema, and the first
+  sentence they ever hear the product say is a complaint about their guess. The
+  template *is* the schema, in the format they already hold it in — CSV **and**
+  .xlsx, both, because offering one and refusing the other is a trap of our own
+  making, and Excel is what the file on their disk is.
+
+- **Generated from the same declaration the importer validates against.** Never
+  kept by hand beside it. A hand-kept template drifts inside one release —
+  somebody adds a required column to the checker and not to the sheet — and then
+  **every customer's first import fails on a file we gave them**, which is the
+  worst first minute this product can have. `lib/imports/template-file.ts`
+  contains no column name and no entity: it reads the dictionary.
+  `scripts/verify-template.ts` gates the loop rather than an expected list —
+  build the file, read it back the way the upload does, assert every value lands
+  on the field the dictionary names. Add a column and it is covered without
+  editing the script. Where the dictionary exists twice because the first two
+  steps must work with no database, the drift is **gated, not described**: that
+  script parses the API's copy as text, the same trick `verify-payroll.ts` uses
+  for the tax schedules.
+
+- **Required columns lead, so the sheet is not bloated.** `buildDictionary`
+  orders every dictionary required, then recommended, then the rest — and it is
+  the only way to make one, so the template writer, the matching dropdowns, the
+  checker and the API's own response cannot be handed an order that has not been
+  through it. Derived, not written down: a dictionary that grows a required
+  column gets it in the right place without anybody remembering to move it. The
+  declaration keeps its readable grouping by subject; the emitted order is
+  computed. Five unmissable columns scattered across thirty-three reads as
+  bloat, and the customer deletes the wrong ones.
+
+- **The same four steps, always: download and fill in → match the columns → fix
+  what is flagged → confirm.** Somebody who has imported employees must not have
+  to learn a second flow to import equipment. That is what makes
+  `components/imports/*` parameterised and `app/(app)/people/import/page.tsx`
+  six lines: **an importer costs a dictionary, a surface, and a validate/apply
+  pair.** A fifth step, or these four in another order, is a second product to
+  learn for no gain.
+
+- **Never a success without the count of what did not land.** A success modal
+  only on a clean import. A partial result is not a success wearing a smaller
+  number — it names the rows, and the confirm button says what it will not do
+  *before* it does it: "Add 47 people, leave 3 out". `skippedRows` is **every**
+  row that did not land, including a duplicate somebody chose to skip, because a
+  row left out on purpose is still a person not in the directory. "Imported 47"
+  beside a silent 3 is the same wrong claim as a payslip reading ₦0 because no
+  attendance row existed.
+
+- **Missing-but-required is fixable in place. Missing-but-recommended is flagged
+  and acknowledged, never blocking.** Three kinds of unfinished business, and
+  they end differently: a cell that cannot be read does not import and is
+  corrected in the table without leaving the screen; a row that looks like
+  somebody already on file **waits for a human answer**, because only the
+  customer knows whether that is a duplicate or a cousin; a recommended field
+  nobody filled in *imports*, and the person is named on a list somebody ticks —
+  refusing the record does not produce the bank account. The acknowledgement
+  resets on every re-check, because a new check is a new list. And a correction
+  typed after a check refuses to apply until it is re-checked: confirming
+  against a stale snapshot imports the unmended row while the screen shows it
+  mended.
+
+- **The importer is never the only consumer of its validation, and they are
+  tested together.** This is a rule because of an incident, not a principle.
+  Relaxing `employee_no` from required to generated was right for a shop owner
+  whose spreadsheet has no such column — and it silently broke the legacy ETL,
+  which reuses `checkRows` rather than writing a second validator, and whose
+  idempotency key **is** `(organizationId, employeeNo)`. A generated `AHR-0001`
+  exists in no legacy database, so a second migration run cannot match it and
+  the person lands as a directory row with no payslips, no leave and no history
+  behind it. Four assertions in `tests/etl.test.ts` were the only thing that
+  caught it; `tests/imports.test.ts` went green. Two consequences that hold for
+  every entity added after this: strictness is a **function argument, never a
+  request field** — `CheckOptions.requireEmployeeNo` — because a client must not
+  choose how strict its own import is; and relaxing a rule in
+  `src/modules/imports/` is not a local change. Run both suites, and if only the
+  sibling's assertions move, ask which caller the rule was really for before
+  editing the expectation.
+
+Employees is the only entity built on this. Every other list a customer can add
+several of is a dictionary and a surface away, and the ones worth doing first are
+ranked by how many rows a thirty-person Lagos company has on the day it signs
+up — not by how easy the screen looks.
 
 ## Where the build actually got to
 

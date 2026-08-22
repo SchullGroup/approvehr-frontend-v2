@@ -31,18 +31,24 @@ import {
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { useSession } from "@/lib/store/session";
-import { useEmployeeImport, useImportHistory } from "@/lib/store/imports";
-import { EMPLOYEE_COLUMNS } from "@/lib/imports/template";
+import { useImport, useImportHistory } from "@/lib/store/imports";
+import type { Dictionary } from "@/lib/imports/spec";
+import type { ImportSurface } from "@/lib/imports/surface";
 import { CheckReport } from "./check-report";
 import { ImportResult } from "./import-result";
 import { MatchColumns } from "./match-columns";
 
 /**
- * Bring a spreadsheet of staff in.
+ * Bring a spreadsheet in. Any spreadsheet, of anything.
  *
  * Onboarding a company means importing their file. The old system has a
  * one-at-a-time form and so did we, which is a week of typing for a company of
- * three hundred — and the reason a migration stalls.
+ * three hundred — and the reason a migration stalls. The product owner's rule
+ * follows from that: **anywhere a user can add several of something, there is a
+ * bulk upload with an Excel template.** Which is why this screen takes an
+ * `ImportSurface` and knows nothing about employees — a second importable entity
+ * is a dictionary, a surface and a validate/apply pair, not a fourth copy of
+ * this file.
  *
  * ## Four steps, and the third is the product
  *
@@ -60,9 +66,13 @@ import { MatchColumns } from "./match-columns";
  * - Never report a success without the count of what did not land.
  * - Offer the failures as a file, because they will be fixed in Excel.
  */
-export function ImportScreen() {
+export function ImportFlow({ surface }: { surface: ImportSurface }) {
   const { can, isConnected } = useSession();
-  const imp = useEmployeeImport();
+  const imp = useImport(surface.dictionary);
+  const dictionary = surface.dictionary;
+  /* One permission for every import, deliberately: `IMPORT_DATA` exists because
+     one careless upload creates or overwrites hundreds of records, and blast
+     radius is what a permission is for. It is not per-entity. */
   const allowed = !isConnected || can("IMPORT_DATA");
 
   /* A count on every step, so nobody is ever guessing what is about to happen
@@ -103,7 +113,7 @@ export function ImportScreen() {
       hint: imp.result
         ? `${(imp.result.created + imp.result.updated).toLocaleString("en-NG")} in, ${imp.result.notImported.length.toLocaleString("en-NG")} not`
         : imp.check
-          ? `${(imp.check.toCreate + imp.check.toUpdate).toLocaleString("en-NG")} people`
+          ? `${(imp.check.toCreate + imp.check.toUpdate).toLocaleString("en-NG")} ${dictionary.noun.many}`
           : "One confirmation",
       isComplete: imp.result !== null,
     },
@@ -118,15 +128,12 @@ export function ImportScreen() {
   if (!allowed) {
     return (
       <>
-        <PageHeader
-          title="Import your staff list"
-          breadcrumb={[{ href: "/people", label: "People" }]}
-        />
+        <PageHeader title={surface.title} breadcrumb={[...surface.breadcrumb]} />
         <PageBody>
           <Card>
             <EmptyState
               icon={<Lock aria-hidden="true" />}
-              title="You do not have permission to import staff"
+              title={`You do not have permission to import ${dictionary.noun.many}`}
               description="An import can create or overwrite hundreds of pay records, so it is kept to specific people. Ask whoever set up your account to add the import permission to your role."
             />
           </Card>
@@ -138,9 +145,9 @@ export function ImportScreen() {
   return (
     <>
       <PageHeader
-        title="Import your staff list"
-        description="Upload the spreadsheet you already keep. You will see exactly what it will do before anything is saved."
-        breadcrumb={[{ href: "/people", label: "People" }]}
+        title={surface.title}
+        description={surface.description}
+        breadcrumb={[...surface.breadcrumb]}
         meta={
           imp.isConnected ? undefined : (
             <Badge tone="warning" size="sm">
@@ -187,6 +194,7 @@ export function ImportScreen() {
 
         {stepper.index === 0 && (
           <ChooseFile
+            surface={surface}
             filename={imp.file?.name ?? null}
             rows={imp.file?.csv.rows.length ?? 0}
             columns={imp.file?.csv.headers.length ?? 0}
@@ -200,6 +208,7 @@ export function ImportScreen() {
 
         {stepper.index === 1 && imp.file && (
           <MatchColumns
+            dictionary={dictionary}
             csv={imp.file.csv}
             mapping={imp.mapping}
             onChange={imp.setColumn}
@@ -219,6 +228,9 @@ export function ImportScreen() {
 
         {stepper.index === 2 && imp.check && (
           <CheckReport
+            dictionary={dictionary}
+            prerequisites={surface.prerequisites}
+            demoLimits={surface.demoLimits}
             check={imp.check}
             onBack={() => stepper.goTo(1)}
             onDownload={imp.downloadRowsToFix}
@@ -247,6 +259,7 @@ export function ImportScreen() {
 
         {stepper.index === 3 && imp.check && (
           <ImportResult
+            surface={surface}
             check={imp.check}
             result={imp.result}
             busy={imp.progress !== null}
@@ -311,12 +324,14 @@ function TemplateButtons({
  * needs the bytes.
  */
 function ChooseFile({
+  surface,
   filename,
   rows,
   columns,
   onFile,
   onTemplate,
 }: {
+  surface: ImportSurface;
   filename: string | null;
   rows: number;
   columns: number;
@@ -325,9 +340,13 @@ function ChooseFile({
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
-  const history = useImportHistory();
-  const required = EMPLOYEE_COLUMNS.filter((spec) => spec.required);
-  const recommended = EMPLOYEE_COLUMNS.filter(
+  const history = useImportHistory(surface.dictionary.kind);
+  const dictionary: Dictionary<string> = surface.dictionary;
+  /* Read off the built dictionary, which is already ordered required, then
+     recommended, then the rest — so these two lists and the template's own
+     column order cannot disagree about which is which. */
+  const required = dictionary.columns.filter((spec) => spec.required);
+  const recommended = dictionary.columns.filter(
     (spec) => spec.recommended !== undefined,
   );
 
@@ -443,11 +462,9 @@ function ChooseFile({
             </div>
             <p className="text-meta leading-relaxed text-muted">
               The other{" "}
-              {EMPLOYEE_COLUMNS.length - required.length - recommended.length}{" "}
+              {dictionary.columns.length - required.length - recommended.length}{" "}
               columns are optional. A column you do not have is left out, and
-              left alone on anybody we update — including{" "}
-              <code className="text-meta">employee_no</code>, where we
-              match on email, or on name and date of birth, instead.
+              left alone on anything we update. {surface.keyNote}
             </p>
           </CardBody>
         </Card>

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import {
   imports as api,
+  type ApiApplyExtras,
   type ApiDuplicateCounts,
   type ApiDuplicateDecision,
   type ApiDuplicateMatch,
@@ -22,6 +23,7 @@ import {
   type CsvRow,
 } from "@/lib/csv";
 import { checkMappedRows } from "@/lib/imports/check";
+import { EMPLOYEES, MAX_ROWS_PER_BATCH } from "@/lib/imports/employees";
 import {
   guessMapping,
   ignoredHeadings,
@@ -30,12 +32,13 @@ import {
   reverseHeadings,
   type Mapping,
 } from "@/lib/imports/mapping";
+import type { Dictionary } from "@/lib/imports/spec";
 import {
   buildTemplateFiles,
-  columnsFromSpecs,
+  columnsFromApi,
+  columnsFromDictionary,
   type TemplateColumn,
 } from "@/lib/imports/template-file";
-import { MAX_ROWS_PER_BATCH, type EmployeeField } from "@/lib/imports/template";
 import { downloadXlsx, isXlsxName, readXlsx } from "@/lib/xlsx";
 import { useSession } from "./session";
 
@@ -80,6 +83,14 @@ import { useSession } from "./session";
  * the browser can settle from the file alone (`lib/imports/check.ts`) and the
  * import refuses. Writing 500 employees into localStorage would demo a product
  * we are not selling.
+ *
+ * ## One hook, many entities
+ *
+ * `useImport(dictionary)` is the whole flow and knows nothing about employees.
+ * Everything entity-specific — the columns, which of them are dates, the words
+ * for one row, the URL segment — comes off the dictionary, so a second
+ * importable entity is `useImport(THAT_DICTIONARY)` and no new store.
+ * `useEmployeeImport()` is the binding for the one that exists.
  */
 
 /* --------------------------------------------------------------- the pieces */
@@ -93,6 +104,22 @@ const MAX_PART_ROWS = MAX_ROWS_PER_BATCH;
 
 /** Below this a part is not worth splitting further; something else is wrong. */
 const MIN_PART_ROWS = 5;
+
+/**
+ * The entity-specific counts an apply response may carry.
+ *
+ * Derived from `ApiApplyExtras` by the compiler rather than written twice, so a
+ * fourth entity adding a count to that type gets summed here without anybody
+ * remembering to. The list is what the loop reads; which of them a screen shows
+ * is `ImportSurface.linkedStats`.
+ */
+const EXTRA_KEYS = [
+  "managersLinked",
+  "handedOver",
+  "kindsAdded",
+  "parentsLinked",
+  "headsSet",
+] as const satisfies readonly (keyof ApiApplyExtras)[];
 
 export type LoadedFile = {
   name: string;
@@ -166,7 +193,14 @@ export type CheckOutcome = {
   /** Only the rows with something to say. The clean ones are the file. */
   problems: RowLine[];
   notes: string[];
-  missing: { departments: string[]; salaryGrades: string[] };
+  /**
+   * Named things the file refers to that do not exist yet, by kind.
+   *
+   * `{ departments: [...], salaryGrades: [...] }` for employees. A map rather
+   * than named fields because what a row can refer to is the entity's business;
+   * the screen renders one callout per key from its own surface descriptor.
+   */
+  missing: Record<string, string[]>;
   parts: CheckedPart[];
   /** Rows that look like somebody on file, split by what has been decided. */
   duplicates: ApiDuplicateCounts;
@@ -195,7 +229,17 @@ export type ApplyOutcome = {
   created: number;
   updated: number;
   skipped: number;
-  managersLinked: number;
+  /**
+   * Counts only this entity's writer could report, summed over the parts.
+   *
+   * `managersLinked` for people; `handedOver` and `kindsAdded` for equipment. A
+   * map because the driver spreads an entity's own counts flat onto the response
+   * and the screen renders whichever ones its surface names — and a key that no
+   * part reported stays **absent** rather than summing to zero, because zero
+   * handovers on an employee import is not a fact, it is a question nobody
+   * asked.
+   */
+  extras: Record<string, number>;
   notes: string[];
   /** The rows that did not land, with the reason. */
   problems: RowLine[];
@@ -349,7 +393,7 @@ const messageOf = (error: unknown): string =>
 
 /* --------------------------------------------------------------------- hook */
 
-export function useEmployeeImport() {
+export function useImport(dictionary: Dictionary<string>) {
   const { isConnected } = useSession();
 
   const [file, setFile] = useState<LoadedFile | null>(null);
@@ -453,13 +497,13 @@ export function useEmployeeImport() {
     if (!isConnected) return;
     const controller = new AbortController();
     void api
-      .template(controller.signal)
+      .template(dictionary.slug, controller.signal)
       .then(setTemplate)
       .catch(() => {
         /* The compiled-in copy covers it. Not worth a message. */
       });
     return () => controller.abort();
-  }, [isConnected]);
+  }, [dictionary.slug, isConnected]);
 
   /**
    * Reads and parses the file. Everything downstream resets.
@@ -549,9 +593,9 @@ export function useEmployeeImport() {
     }
 
     setFile({ name: chosen.name, size: chosen.size, csv });
-    setMapping(guessMapping(csv.headers));
+    setMapping(guessMapping(dictionary, csv.headers));
     return true;
-  }, []);
+  }, [dictionary]);
 
   const clear = useCallback(() => {
     setFile(null);
@@ -568,7 +612,7 @@ export function useEmployeeImport() {
   }, []);
 
   /** One column's target. Changing anything invalidates the check. */
-  const setColumn = useCallback((heading: string, field: EmployeeField | "") => {
+  const setColumn = useCallback((heading: string, field: string) => {
     setMapping((current) => ({ ...current, [heading]: field }));
     setCheck(null);
     setResult(null);
@@ -576,10 +620,10 @@ export function useEmployeeImport() {
 
   const resetMapping = useCallback(() => {
     if (!file) return;
-    setMapping(guessMapping(file.csv.headers));
+    setMapping(guessMapping(dictionary, file.csv.headers));
     setCheck(null);
     setResult(null);
-  }, [file]);
+  }, [dictionary, file]);
 
   /* ------------------------------------------------------------- step three */
 
@@ -592,7 +636,7 @@ export function useEmployeeImport() {
    * work that gains nothing from being asked to do five at once.
    */
   const runCheck = useCallback(async (): Promise<boolean> => {
-    if (!file || !isMappingReady(mapping)) return false;
+    if (!file || !isMappingReady(dictionary, mapping)) return false;
     setError(null);
     setResult(null);
     /* A new check produces a new flagged list, so an acknowledgement of the old
@@ -603,9 +647,9 @@ export function useEmployeeImport() {
     /* Mapped from the raw file, then the person's corrections laid back over
        the top. Order matters: mapping first so a re-mapped column is honoured,
        fixes second so they survive the re-map. See `fixes`. */
-    const rows = applyFixes(mapRows(file.csv.rows, mapping), fixes);
+    const rows = applyFixes(mapRows(dictionary, file.csv.rows, mapping), fixes);
     mapped.current = rows;
-    const columns = reverseHeadings(mapping);
+    const columns = reverseHeadings(dictionary, mapping);
     const fixCount = Object.keys(fixes).length;
 
     /* The row numbers to send, and the payload built from them. After a partial
@@ -619,9 +663,9 @@ export function useEmployeeImport() {
 
     if (!isConnected) {
       const presentFields = new Set(
-        Object.values(mapping).filter((field): field is EmployeeField => field !== ""),
+        Object.values(mapping).filter((field) => field !== ""),
       );
-      const local = checkMappedRows(payload, { presentFields });
+      const local = checkMappedRows(dictionary, payload, { presentFields });
       setCheck({
         filename: file.name,
         totalRows: rows.length,
@@ -638,7 +682,9 @@ export function useEmployeeImport() {
           )
           .map((row) => translate(row, numbers, columns)),
         notes: [...file.csv.notes, ...local.notes],
-        missing: { departments: [], salaryGrades: [] },
+        /* Nothing offline can say which departments exist, so there is no key
+           here rather than two empty lists. Absent, not zero. */
+        missing: {},
         parts: [],
         /* Offline nothing can be matched against the directory, so there is
            nothing to decide. Said on screen rather than shown as a zero. */
@@ -654,8 +700,9 @@ export function useEmployeeImport() {
     const parts: CheckedPart[] = [];
     const problems: RowLine[] = [];
     const notes = new Set<string>(file.csv.notes);
-    const missingDepartments = new Set<string>();
-    const missingGrades = new Set<string>();
+    /* One set per kind of thing the file named that does not exist yet, keyed
+       exactly as the API keyed it. The screen turns a key into a callout. */
+    const missing = new Map<string, Set<string>>();
     let toCreate = 0;
     let toUpdate = 0;
     let toSkip = 0;
@@ -681,7 +728,7 @@ export function useEmployeeImport() {
       });
 
       try {
-        const answer = await api.validateEmployees({
+        const answer = await api.validate(dictionary.slug, {
           filename: file.name,
           rows: slice,
           decisions: decisionsFor(rowNumbers, decisions),
@@ -712,8 +759,11 @@ export function useEmployeeImport() {
           problems.push(translate(report, rowNumbers, columns));
         }
         answer.notes.forEach((note) => notes.add(note));
-        answer.missing.departments.forEach((name) => missingDepartments.add(name));
-        answer.missing.salaryGrades.forEach((name) => missingGrades.add(name));
+        for (const [kind, names] of Object.entries(answer.missing)) {
+          const set = missing.get(kind) ?? new Set<string>();
+          missing.set(kind, set);
+          names.forEach((name) => set.add(name));
+        }
         if (answer.unmappedColumns.length > 0) {
           notes.add(
             `These columns were not imported: ${answer.unmappedColumns.join(", ")}.`,
@@ -766,10 +816,9 @@ export function useEmployeeImport() {
       toSkip,
       problems,
       notes: [...notes],
-      missing: {
-        departments: [...missingDepartments],
-        salaryGrades: [...missingGrades],
-      },
+      missing: Object.fromEntries(
+        [...missing.entries()].map(([kind, names]) => [kind, [...names]]),
+      ),
       parts,
       duplicates,
       flagged,
@@ -777,7 +826,7 @@ export function useEmployeeImport() {
       authoritative: true,
     });
     return true;
-  }, [file, mapping, isConnected, fixes, decisions, selection]);
+  }, [dictionary, file, mapping, isConnected, fixes, decisions, selection]);
 
   /* -------------------------------------------------------------- step four */
 
@@ -799,14 +848,14 @@ export function useEmployeeImport() {
     setError(null);
 
     const rows = mapped.current;
-    const columns = reverseHeadings(mapping);
+    const columns = reverseHeadings(dictionary, mapping);
     const problems: RowLine[] = [];
     const notes = new Set<string>();
     const notImported: number[] = [];
     let created = 0;
     let updated = 0;
     let skipped = 0;
-    let managersLinked = 0;
+    const extras: Record<string, number> = {};
     let applied = 0;
     let failure: ApplyOutcome["failure"] = null;
 
@@ -826,7 +875,7 @@ export function useEmployeeImport() {
       });
 
       try {
-        const answer = await api.applyEmployees(part.batchId, {
+        const answer = await api.apply(dictionary.slug, part.batchId, {
           confirm: true,
           rows: part.rowNumbers.map((number) => rows[number - 1] as ImportRow),
           decisions: decisionsFor(part.rowNumbers, decisions),
@@ -836,7 +885,12 @@ export function useEmployeeImport() {
         created += answer.created;
         updated += answer.updated;
         skipped += answer.skipped;
-        managersLinked += answer.managersLinked;
+        /* Only the keys this answer actually carried. Seeding them at zero would
+           turn "not applicable to this entity" into a reported count of none. */
+        for (const key of EXTRA_KEYS) {
+          const value = answer[key];
+          if (typeof value === "number") extras[key] = (extras[key] ?? 0) + value;
+        }
         answer.notes.forEach((note) => notes.add(note));
         for (const report of answer.skippedRows) {
           const line = translate(report, part.rowNumbers, columns);
@@ -862,7 +916,7 @@ export function useEmployeeImport() {
       created,
       updated,
       skipped,
-      managersLinked,
+      extras,
       notes: [...notes],
       problems,
       notImported: [...new Set(notImported)],
@@ -871,7 +925,7 @@ export function useEmployeeImport() {
       failure,
     });
     return failure === null;
-  }, [check, mapping, fixes, decisions]);
+  }, [check, dictionary, mapping, fixes, decisions]);
 
   /**
    * Try again with only the rows that did not land.
@@ -904,27 +958,22 @@ export function useEmployeeImport() {
    * customer fills in is the last place that can afford to.
    */
   const templateColumns = useCallback((): TemplateColumn[] => {
-    if (!template) return columnsFromSpecs();
-    return template.columns.map((column) => ({
-      column: column.column,
-      required: column.required,
-      recommended: column.recommended,
-      example: column.example,
-      note: column.note,
-      alsoAccepted: column.alsoAccepted,
-    }));
-  }, [template]);
+    if (!template) return columnsFromDictionary(dictionary);
+    return columnsFromApi(template.columns, dictionary);
+  }, [dictionary, template]);
 
   const downloadTemplate = useCallback(
     (format: "csv" | "xlsx" = "xlsx") => {
       const files = buildTemplateFiles(templateColumns(), {
+        basename: dictionary.templateFile.basename,
+        sheetName: dictionary.templateFile.sheetName,
         ...(template?.legend ? { legend: template.legend } : {}),
         ...(template?.matching ? { matching: template.matching } : {}),
       });
       if (format === "csv") downloadCsv(files.csvFilename, files.csv);
       else downloadXlsx(files.xlsxFilename, files.xlsx);
     },
-    [template, templateColumns],
+    [dictionary, template, templateColumns],
   );
 
   /**
@@ -1009,6 +1058,7 @@ export function useEmployeeImport() {
 
   return {
     /* state */
+    dictionary,
     file,
     mapping,
     check,
@@ -1017,7 +1067,7 @@ export function useEmployeeImport() {
     error,
     template,
     isConnected,
-    ready: file !== null && isMappingReady(mapping),
+    ready: file !== null && isMappingReady(dictionary, mapping),
     /* Rows left over from a partial import, when this is a second attempt. */
     selection,
     /* actions */
@@ -1060,7 +1110,7 @@ export function useEmployeeImport() {
  * `lib/store/departments.ts` for the same shape. Nothing sets a loading flag,
  * because the panel this feeds does not exist until there is something in it.
  */
-export function useImportHistory(limit = 5) {
+export function useImportHistory(kind: string, limit = 5) {
   const { isConnected } = useSession();
   const [rows, setRows] = useState<ApiImportBatch[]>([]);
 
@@ -1069,7 +1119,7 @@ export function useImportHistory(limit = 5) {
     let cancelled = false;
     void (async () => {
       try {
-        const answer = await api.list({ pageSize: limit, kind: "EMPLOYEES" });
+        const answer = await api.list({ pageSize: limit, kind });
         if (!cancelled) setRows(answer.data);
       } catch {
         /* A history panel is not worth an error banner over. */
@@ -1078,9 +1128,17 @@ export function useImportHistory(limit = 5) {
     return () => {
       cancelled = true;
     };
-  }, [isConnected, limit]);
+  }, [isConnected, kind, limit]);
 
   /* Derived rather than cleared, so signing out of a connected session cannot
      leave somebody else's import history on the screen. */
   return { rows: isConnected ? rows : [] };
 }
+
+/**
+ * The employee import.
+ *
+ * The one binding that exists today. A second entity is one more line like it,
+ * pointed at its own dictionary — no second store and no second screen.
+ */
+export const useEmployeeImport = () => useImport(EMPLOYEES);

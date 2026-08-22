@@ -1,21 +1,33 @@
+import {
+  buildDictionary,
+  normalizeKey,
+  parseImportDate,
+  type ColumnSpec,
+  type Dictionary,
+  type RowContext,
+} from "./spec";
+
 /**
- * The column dictionary, mirrored.
+ * The employee dictionary, and the rules only an employee import has.
  *
- * The API owns this list — `src/modules/imports/schemas.ts`, `EMPLOYEE_COLUMNS`
- * — and when the API answers, **its copy wins**: `GET /imports/template/employees`
- * is what the screen renders and what pre-selects the column matches. This file
- * is the same data compiled in, for the one case where that call cannot be made.
+ * This is the whole of what "an importable entity" is on this side. Everything
+ * generic — matching a heading, reading a date or an amount, building the
+ * template file, the four-step screen — is in `spec.ts`, `mapping.ts`,
+ * `check.ts`, `template-file.ts` and `components/imports/`. What is *employee*
+ * about an employee import is only what is below.
  *
- * ## Why a copy exists at all
+ * A second importable entity is a second file shaped like this one plus a
+ * validate/apply pair on the API. It is not a second screen.
  *
- * Choosing a file and matching its columns is pure client-side work — reading a
- * CSV and lining its headings up against a list. It would be perverse for those
- * two steps to require a database, and this prototype is demonstrated on laptops
- * with no API running (see HANDOVER.md). So the first two steps of the import
- * work offline, and the two that genuinely need the database — checking against
- * the staff you already have, and writing — say so and stop.
+ * ## This is a mirror, and the API's copy wins
  *
- * ## The drift, named
+ * The API owns this list — `approvehr-api/src/modules/imports/employees.ts`,
+ * `EMPLOYEE_COLUMNS` — and when the API answers, **its copy wins**:
+ * `GET /imports/template/employees` is what the screen renders, what pre-selects
+ * the column matches and what the downloaded file is built from. The copy here is
+ * the same data compiled in, for the one case where that call cannot be made.
+ *
+ * ### The drift, named
  *
  * Two copies of a list is one too many and this one is deliberate. It is data
  * rather than logic, it is only reached when the API is unreachable, and the
@@ -24,6 +36,7 @@
  * mismatched, and the API re-matches every heading it is sent regardless of what
  * this file guessed. If you change the API's dictionary, re-copy it here.
  */
+
 
 /** The employment types the API accepts, as it writes them. */
 export type EmploymentTypeCode =
@@ -49,33 +62,6 @@ export type EmploymentStatusCode =
  * below this. See `CHUNK_ROWS` in `lib/store/imports.ts`.
  */
 export const MAX_ROWS_PER_BATCH = 500;
-
-export type ColumnSpec = {
-  field: EmployeeField;
-  /** The heading the template prints, and the name we send the API. */
-  column: string;
-  /** Other headings that mean the same thing, in priority order. */
-  aliases: readonly string[];
-  required: boolean;
-  example: string;
-  /** What has to be in it, in one line. */
-  note: string;
-  /**
-   * Optional, but its absence is reported rather than ignored.
-   *
-   * The three kinds of column are what makes "is this import finished" a
-   * question with an answer: `required` refuses the row, `recommended` imports
-   * the person onto a list somebody has to come back to, and neither is what an
-   * ordinary optional column does. `feature` is the `OrgFeatures` flag that
-   * decides whether this company is asked for it at all — a company that turned
-   * pension setup off is not nagged for RSA PINs here, because the
-   * single-employee form has stopped asking too.
-   */
-  recommended?: {
-    feature?: "taxSetup" | "pensionSetup" | "bankDetails";
-    why: string;
-  };
-};
 
 export type EmployeeField =
   | "employeeNo"
@@ -112,9 +98,10 @@ export type EmployeeField =
   | "nextOfKinRelationship"
   | "nextOfKinPhone";
 
-export const EMPLOYEE_COLUMNS: readonly ColumnSpec[] = [
+const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
   {
     field: "employeeNo",
+    templateExample: "EXAMPLE-001",
     column: "employee_no",
     aliases: [
       "employee_id",
@@ -134,6 +121,7 @@ export const EMPLOYEE_COLUMNS: readonly ColumnSpec[] = [
   },
   {
     field: "firstName",
+    templateExample: "DELETE",
     column: "first_name",
     aliases: ["given_name", "first"],
     required: true,
@@ -142,6 +130,7 @@ export const EMPLOYEE_COLUMNS: readonly ColumnSpec[] = [
   },
   {
     field: "lastName",
+    templateExample: "THIS ROW",
     column: "last_name",
     aliases: ["surname", "family_name", "last"],
     required: true,
@@ -158,6 +147,7 @@ export const EMPLOYEE_COLUMNS: readonly ColumnSpec[] = [
   },
   {
     field: "email",
+    templateExample: "example@yourcompany.com",
     column: "email",
     aliases: ["email_address", "work_email", "company_email", "official_email"],
     required: false,
@@ -177,6 +167,7 @@ export const EMPLOYEE_COLUMNS: readonly ColumnSpec[] = [
   },
   {
     field: "dateOfBirth",
+    cell: { kind: "date" },
     column: "date_of_birth",
     aliases: ["dob", "birth_date", "birthday"],
     required: false,
@@ -273,6 +264,7 @@ export const EMPLOYEE_COLUMNS: readonly ColumnSpec[] = [
   },
   {
     field: "startDate",
+    cell: { kind: "date" },
     column: "start_date",
     aliases: [
       "hire_date",
@@ -289,6 +281,7 @@ export const EMPLOYEE_COLUMNS: readonly ColumnSpec[] = [
   },
   {
     field: "endDate",
+    cell: { kind: "date" },
     column: "end_date",
     aliases: ["termination_date", "exit_date", "date_of_exit", "last_working_day"],
     required: false,
@@ -297,6 +290,7 @@ export const EMPLOYEE_COLUMNS: readonly ColumnSpec[] = [
   },
   {
     field: "grossMonthly",
+    cell: { kind: "money", subject: "Monthly pay" },
     column: "gross_monthly",
     aliases: [
       "gross_monthly_pay",
@@ -382,6 +376,7 @@ export const EMPLOYEE_COLUMNS: readonly ColumnSpec[] = [
   },
   {
     field: "annualRent",
+    cell: { kind: "money", zeroAllowed: true, subject: "Rent" },
     column: "annual_rent",
     aliases: ["rent", "annual_rent_paid", "yearly_rent", "rent_paid", "rent_declared"],
     required: false,
@@ -538,57 +533,6 @@ export const GENDER_WORDS: Readonly<Record<string, string>> = {
   nonbinary: "other",
 };
 
-/** Lowercase, letters and digits only. `Employee ID` and `employee_id` agree. */
-export const normalizeKey = (key: string): string =>
-  key.toLowerCase().replace(/[^a-z0-9]/g, "");
-
-/**
- * Normalised heading to field, with the alias's position kept.
- *
- * `priority` is how far down a column's alias list the match was found, and it
- * is what settles a file carrying both `job_title` and `position`: the earlier
- * alias wins the pre-selected match and the other is left unmapped for the
- * person to decide. The API resolves conflicts by the same rule, so what the
- * screen guesses and what the API would have guessed agree.
- */
-export const COLUMN_LOOKUP: ReadonlyMap<
-  string,
-  { field: EmployeeField; priority: number }
-> = (() => {
-  const map = new Map<string, { field: EmployeeField; priority: number }>();
-  for (const spec of EMPLOYEE_COLUMNS) {
-    [spec.column, ...spec.aliases].forEach((key, priority) => {
-      const normalized = normalizeKey(key);
-      if (!map.has(normalized)) map.set(normalized, { field: spec.field, priority });
-    });
-  }
-  return map;
-})();
-
-export const SPEC_BY_FIELD: ReadonlyMap<EmployeeField, ColumnSpec> = new Map(
-  EMPLOYEE_COLUMNS.map((spec) => [spec.field, spec]),
-);
-
-export const REQUIRED_FIELDS: readonly EmployeeField[] = EMPLOYEE_COLUMNS.filter(
-  (spec) => spec.required,
-).map((spec) => spec.field);
-
-/**
- * The fields whose absence is flagged rather than refused.
- *
- * Used by the offline check to produce the same "details missing" list the API
- * produces, minus the part only the API knows: which field groups this company
- * has switched off. Offline it flags all of them and says so.
- */
-export const RECOMMENDED_FIELDS: readonly ColumnSpec[] = EMPLOYEE_COLUMNS.filter(
-  (spec) => spec.recommended !== undefined,
-);
-
-/** The heading we send for a field, for a message that names a column. */
-export const HEADING: Readonly<Record<EmployeeField, string>> = Object.fromEntries(
-  EMPLOYEE_COLUMNS.map((spec) => [spec.field, spec.column]),
-) as Record<EmployeeField, string>;
-
 const STATES_BY_KEY: ReadonlyMap<string, string> = new Map(
   NIGERIAN_TAX_STATES.map((state) => [normalizeKey(state), state]),
 );
@@ -603,3 +547,215 @@ export function resolveTaxState(value: string): string | null {
   const key = normalizeKey(value).replace(/state$/, "");
   return STATES_BY_KEY.get(key) ?? STATE_ALIASES[key] ?? null;
 }
+
+/* -------------------------------------------------------------------- rules */
+
+const EMAIL = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i;
+
+/** Case- and space-insensitive, the way the API matches a staff number. */
+const noKey = (value: string): string =>
+  value.trim().toLowerCase().replace(/\s+/g, "");
+
+/**
+ * Everything the file alone can settle that is not a property of one cell.
+ *
+ * The dates and the amounts are declared on their columns and checked by the
+ * generic engine. What is left is a word list, two columns that disagree, and
+ * the three ways one person appears twice in one file — each of which needs a
+ * different message and a different severity, which is why it is prose here
+ * rather than more declaration.
+ *
+ * It never guesses at the ones that need the database: whether a staff number is
+ * already yours, whether that department exists, whether the pay sits inside its
+ * grade's band. The screen says so out loud rather than implying a clean file
+ * will import cleanly.
+ */
+function employeeRowRules(ctx: RowContext<EmployeeField>): void {
+  const { text, error, warn, tally, seen } = ctx;
+
+  const employeeNo = text("employeeNo");
+  if (employeeNo !== "") {
+    const first = seen("employeeNo", noKey(employeeNo));
+    if (first !== undefined) {
+      error(
+        "employeeNo",
+        `${employeeNo} is already used on row ${first}. Two people cannot share a staff number — change one of them.`,
+      );
+    }
+  }
+
+  const frequency = text("payFrequency");
+  if (
+    frequency !== "" &&
+    !/^(monthly|month|permonth|monthlypay)$/.test(normalizeKey(frequency))
+  ) {
+    error(
+      "payFrequency",
+      `This says "${frequency}". The pay column has to be a monthly figure — we will not divide a yearly one by twelve and guess.`,
+    );
+  }
+
+  const type = text("employmentType");
+  const resolvedType = type === "" ? null : EMPLOYMENT_TYPE_WORDS[normalizeKey(type)];
+  if (type !== "" && !resolvedType) {
+    error(
+      "employmentType",
+      `We do not know what "${type}" means. Use full_time, part_time, contract, intern or nysc.`,
+    );
+  }
+
+  const workType = text("workType");
+  const resolvedWorkType =
+    workType === "" ? null : EMPLOYMENT_TYPE_WORDS[normalizeKey(workType)];
+  if (resolvedType && resolvedWorkType && resolvedType !== resolvedWorkType) {
+    tally("typeDisagreements");
+    warn(
+      "workType",
+      `This says "${workType}" and employment_type says "${type}". We use employment_type.`,
+    );
+  }
+
+  const status = text("status");
+  if (status !== "") {
+    const resolved = EMPLOYMENT_STATUS_WORDS[normalizeKey(status)];
+    if (!resolved) {
+      error(
+        "status",
+        `We do not know what "${status}" means. Use active, on_leave, suspended, onboarding or exited.`,
+      );
+    } else if (normalizeKey(status) === "inactive") {
+      tally("inactiveRows");
+    }
+  }
+
+  const taxState = text("taxState");
+  if (taxState !== "" && !resolveTaxState(taxState)) {
+    error(
+      "taxState",
+      `"${taxState}" is not one of the 36 states or FCT. This is where their PAYE is filed, not where they are from.`,
+    );
+  }
+
+  const email = text("email");
+  if (email !== "" && !EMAIL.test(email)) {
+    error("email", `"${email}" cannot be an email address. Check for a typo.`);
+  } else if (email !== "") {
+    const first = seen("email", email.toLowerCase());
+    if (first !== undefined) {
+      error(
+        "email",
+        `${email} is already on row ${first} of this file. Two people cannot share a work email — merge the rows, or correct one address.`,
+      );
+    }
+  }
+
+  const account = text("bankAccount");
+  if (account !== "" && !/^\d{10}$/.test(account.replace(/[\s-]/g, ""))) {
+    warn(
+      "bankAccount",
+      `"${account}" is not a 10-digit account number. They will import, but payroll cannot pay into it.`,
+    );
+  }
+
+  const pin = text("pensionPin");
+  if (pin !== "" && !/^pen\d{9,12}$/i.test(pin.replace(/[\s-]/g, ""))) {
+    warn(
+      "pensionPin",
+      `"${pin}" is not in PenCom's format — PEN then 9 to 12 digits. They will import, but the pension schedule will be refused.`,
+    );
+  }
+
+  const tin = text("tin");
+  if (tin !== "" && !/^\d{10}$/.test(tin.replace(/[\s-]/g, ""))) {
+    warn("tin", `"${tin}" is not a 10-digit FIRS number. They will import.`);
+  }
+
+  const gender = text("gender");
+  if (gender !== "" && !GENDER_WORDS[normalizeKey(gender)]) {
+    warn("gender", `We do not recognise "${gender}", so we left it blank.`);
+  }
+
+  /* Name plus date of birth, inside the file. Both are needed: a name alone
+     matches cousins and a date of birth alone matches strangers. */
+  const dob = text("dateOfBirth");
+  const firstName = text("firstName");
+  const lastName = text("lastName");
+  if (firstName !== "" && lastName !== "" && dob !== "") {
+    const parsed = parseImportDate(dob);
+    if (parsed.ok) {
+      const key = `${normalizeKey(firstName + lastName)}|${parsed.value.iso}`;
+      const first = seen("nameAndDob", key);
+      if (first !== undefined) {
+        error(
+          "dateOfBirth",
+          `${firstName} ${lastName}, born ${parsed.value.iso}, is already on row ${first} of this file. If they are two different people, give them different staff numbers.`,
+        );
+      }
+    }
+  }
+}
+
+/** The batch-level sentences, from what the rules and the cell checks counted. */
+function employeeFileNotes(counts: Readonly<Record<string, number>>): string[] {
+  const notes: string[] = [];
+  const ambiguousDates = counts["ambiguousDates"] ?? 0;
+  const inactiveRows = counts["inactiveRows"] ?? 0;
+  const typeDisagreements = counts["typeDisagreements"] ?? 0;
+
+  if (ambiguousDates > 0) {
+    notes.push(
+      `${ambiguousDates} ${ambiguousDates === 1 ? "date could" : "dates could"} be read two ways — 03/04/2021 is either 3 April or 4 March. We read the day first.`,
+    );
+  }
+  if (inactiveRows > 0) {
+    notes.push(
+      `${inactiveRows} ${inactiveRows === 1 ? "person is" : "people are"} marked "inactive". We record that as suspended, not as having left — nobody gave a leaving date.`,
+    );
+  }
+  if (typeDisagreements > 0) {
+    notes.push(
+      `${typeDisagreements} ${typeDisagreements === 1 ? "row has" : "rows have"} employment_type and work_type saying different things. We use employment_type.`,
+    );
+  }
+  return notes;
+}
+
+/* --------------------------------------------------------------- dictionary */
+
+/**
+ * The employee dictionary, built.
+ *
+ * `buildDictionary` is the only way to make one, and it is what puts the
+ * required columns first — see `Dictionary.columns`. So the template, the
+ * dropdowns on the matching step, the browser check and the API's own response
+ * all read one ordered list.
+ */
+export const EMPLOYEES: Dictionary<EmployeeField> = buildDictionary(
+  {
+    slug: "employees",
+    kind: "EMPLOYEES",
+    templateFile: {
+      basename: "approvehr-employees-template",
+      sheetName: "Staff list",
+    },
+    noun: { one: "person", many: "people" },
+    keyLabel: "staff number",
+    rowRules: employeeRowRules,
+    fileNotes: employeeFileNotes,
+    identify: (text) => ({
+      key: text("employeeNo") || null,
+      name: [text("firstName"), text("lastName")].filter(Boolean).join(" ") || null,
+    }),
+  },
+  COLUMNS,
+);
+
+/**
+ * The dictionary's own list, in template order, for a screen that needs it.
+ *
+ * Exported from the built dictionary rather than as the raw declaration, so
+ * nothing can render an order the template does not use.
+ */
+export const EMPLOYEE_COLUMNS = EMPLOYEES.columns;
+
+export const HEADING = EMPLOYEES.heading;

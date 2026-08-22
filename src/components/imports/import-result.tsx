@@ -19,10 +19,15 @@ import {
   TR,
   TableWrap,
 } from "@/components/ui";
+import type { Dictionary } from "@/lib/imports/spec";
+import type { ImportSurface } from "@/lib/imports/surface";
 import type { ApplyOutcome, CheckOutcome } from "@/lib/store/imports";
 
 const count = (value: number): string => value.toLocaleString("en-NG");
-const people = (value: number): string => (value === 1 ? "person" : "people");
+
+/** "person" → "People". The noun starts a stat label often enough to earn this. */
+const capitalise = (word: string): string =>
+  word.charAt(0).toUpperCase() + word.slice(1);
 
 /**
  * The confirmation after a clean import.
@@ -46,17 +51,19 @@ const people = (value: number): string => (value === 1 ? "person" : "people");
  * they would have written themselves.
  */
 export function confirmLabel(
+  noun: { one: string; many: string },
   toCreate: number,
   toUpdate: number,
   toSkip = 0,
 ): string {
+  const word = (value: number): string => (value === 1 ? noun.one : noun.many);
   const doing =
     toCreate > 0 && toUpdate > 0
-      ? `Add ${count(toCreate)} ${people(toCreate)} and update ${count(toUpdate)}`
+      ? `Add ${count(toCreate)} ${word(toCreate)} and update ${count(toUpdate)}`
       : toCreate > 0
-        ? `Add ${count(toCreate)} ${people(toCreate)}`
+        ? `Add ${count(toCreate)} ${word(toCreate)}`
         : toUpdate > 0
-          ? `Update ${count(toUpdate)} ${people(toUpdate)}`
+          ? `Update ${count(toUpdate)} ${word(toUpdate)}`
           : "Nothing to import";
   /* And what it will not do. A button that says "Add 47 people" over a file of
      50 is true and incomplete, and the three it is silent about are exactly the
@@ -82,6 +89,7 @@ export function confirmLabel(
  * Pretending the whole thing failed would be as wrong as pretending it worked.
  */
 export function ImportResult({
+  surface,
   check,
   result,
   busy,
@@ -108,8 +116,12 @@ export function ImportResult({
    * that nobody needs to test.
    */
   onRetry: () => void;
+  surface: ImportSurface;
 }) {
   const [acknowledged, setAcknowledged] = useState(false);
+  const dictionary: Dictionary<string> = surface.dictionary;
+  const noun = dictionary.noun;
+  const people = (value: number): string => (value === 1 ? noun.one : noun.many);
   if (!result) {
     return (
       <Card>
@@ -131,10 +143,7 @@ export function ImportResult({
 
           {!check.authoritative ? (
             <Callout tone="warning" title="Importing needs the API">
-              This is demo mode. The file has been read and checked as far as a
-              browser can, and that is where it stops: writing five hundred
-              salaries into this browser would put a staff list in one laptop
-              that no payroll run will ever see.
+              {surface.demoRefusal}
             </Callout>
           ) : (
             check.toSkip > 0 && (
@@ -159,7 +168,7 @@ export function ImportResult({
               disabled={check.toCreate + check.toUpdate === 0}
             >
               <CheckCircle2 aria-hidden="true" className="size-4" />
-              {confirmLabel(check.toCreate, check.toUpdate, check.toSkip)}
+              {confirmLabel(noun, check.toCreate, check.toUpdate, check.toSkip)}
             </Button>
           )}
         </CardFooter>
@@ -177,8 +186,8 @@ export function ImportResult({
   return (
     <div className="flex flex-col gap-5">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat label="People added" value={count(result.created)} />
-        <Stat label="People updated" value={count(result.updated)} />
+        <Stat label={`${capitalise(noun.many)} added`} value={count(result.created)} />
+        <Stat label={`${capitalise(noun.many)} updated`} value={count(result.updated)} />
         <Stat
           label="Rows not imported"
           value={count(missed)}
@@ -188,11 +197,19 @@ export function ImportResult({
               : { direction: "up", label: "All of them landed" }
           }
         />
-        <Stat
-          label="Reporting lines set"
-          value={count(result.managersLinked)}
-          hint="managers matched by staff number or name"
-        />
+        {/* Counts only this entity's writer can report. A stat appears only when
+            the writer actually reported that key: absent is absent, and a fourth
+            tile reading zero would be a claim about work nobody asked for. */}
+        {(surface.linkedStats ?? [])
+          .filter((stat) => result.extras[stat.key] !== undefined)
+          .map((stat) => (
+            <Stat
+              key={stat.key}
+              label={stat.label}
+              value={count(result.extras[stat.key] as number)}
+              hint={stat.hint}
+            />
+          ))}
       </div>
 
       {result.failure ? (
@@ -317,9 +334,9 @@ export function ImportResult({
 
       <Card>
         <CardBody className="flex flex-wrap items-center gap-3">
-          <ButtonLink href="/people" variant="accent">
+          <ButtonLink href={surface.home.href} variant="accent">
             <Users aria-hidden="true" className="size-4" />
-            See your people
+            {surface.home.label}
           </ButtonLink>
           <Button variant="secondary" onClick={onAnother}>
             <Upload aria-hidden="true" className="size-4" />
@@ -345,8 +362,8 @@ export function ImportResult({
                 <Button variant="secondary" onClick={onAnother}>
                   Import another file
                 </Button>
-                <ButtonLink href="/people" variant="accent">
-                  View the directory
+                <ButtonLink href={surface.home.href} variant="accent">
+                  {surface.home.label}
                 </ButtonLink>
               </div>
             }

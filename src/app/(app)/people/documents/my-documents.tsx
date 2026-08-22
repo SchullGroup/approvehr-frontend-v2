@@ -112,7 +112,7 @@ export function MyDocuments({
                       actions={
                         mine.editable ? (
                           <Button
-                            variant="approve"
+                            variant="accent"
                             size="sm"
                             onClick={() => setAttaching(request)}
                           >

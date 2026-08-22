@@ -21,10 +21,17 @@ import {
   TR,
   TableWrap,
 } from "@/components/ui";
+import type { Dictionary } from "@/lib/imports/spec";
+import type { ImportPrerequisite } from "@/lib/imports/surface";
 import { needsDecision, type CheckOutcome, type RowLine } from "@/lib/store/imports";
 
+/** "person" → "People". The noun starts a stat label often enough to earn this. */
+const capitalise = (word: string): string =>
+  word.charAt(0).toUpperCase() + word.slice(1);
+
 /**
- * Step three: what this file will do, before it does it.
+ * Step three: what this file will do, before it does it. Entity-agnostic — the
+ * words for one row and the things a row can refer to both come off its inputs.
  *
  * The screen the whole flow exists for. Four rules hold it together, and the
  * fourth is the one that was missing:
@@ -51,6 +58,21 @@ import { needsDecision, type CheckOutcome, type RowLine } from "@/lib/store/impo
 const SHOWN = 60;
 
 type Props = {
+  dictionary: Dictionary<string>;
+  /**
+   * One entry per key `check.missing` can carry.
+   *
+   * A key with no entry still renders its names, with no link — naming what is
+   * missing matters more than knowing where to fix it.
+   */
+  prerequisites: Readonly<Record<string, ImportPrerequisite>>;
+  /**
+   * What this entity's browser-only check cannot settle, in one clause.
+   *
+   * From the surface, because the limits are the entity's own. See
+   * `ImportSurface.demoLimits`.
+   */
+  demoLimits: string;
   check: CheckOutcome;
   onBack: () => void;
   onDownload: () => void;
@@ -77,6 +99,9 @@ type Props = {
 };
 
 export function CheckReport({
+  dictionary,
+  prerequisites,
+  demoLimits,
   check,
   onBack,
   onDownload,
@@ -176,14 +201,18 @@ export function CheckReport({
           }
         />
         <Stat
-          label={check.authoritative ? "People to add" : "Rows that look right"}
+          label={
+            check.authoritative
+              ? `${capitalise(dictionary.noun.many)} to add`
+              : "Rows that look right"
+          }
           value={check.toCreate.toLocaleString("en-NG")}
           hint={
             check.authoritative ? "not on your list yet" : "nothing wrong in the file"
           }
         />
         <Stat
-          label="People to update"
+          label={`${capitalise(dictionary.noun.many)} to update`}
           value={check.authoritative ? check.toUpdate.toLocaleString("en-NG") : "—"}
           hint={
             check.authoritative
@@ -205,41 +234,40 @@ export function CheckReport({
       {!check.authoritative && (
         <Callout tone="warning" title="This is a check of the file, not of your company">
           We read every row and found what the file itself gets wrong — dates,
-          amounts, a staff number or an email used twice, words we do not know. We
-          cannot tell you who is already on your list, whether those departments
-          exist, or whether the pay fits its grade. That needs the API, and so
-          does the import itself. The list of missing details is longer here than
-          it would be live, too: which details your company asks for is a setting
-          we cannot read from this browser.
+          amounts, the same {dictionary.keyLabel} on two rows, words we do not
+          know. We cannot tell you {demoLimits} That needs the API, and so does
+          the import itself. The list of missing details is longer here than it
+          would be live, too: which details your company asks for is a setting we
+          cannot read from this browser.
         </Callout>
       )}
 
-      {check.missing.departments.length > 0 && (
-        <Callout tone="warning" title="Some departments do not exist yet">
-          <p className="mb-3">
-            {check.missing.departments.join(", ")}. Rows naming{" "}
-            {check.missing.departments.length === 1 ? "it" : "them"} will be
-            skipped until{" "}
-            {check.missing.departments.length === 1 ? "it exists" : "they exist"}.
-          </p>
-          <ButtonLink href="/people/departments" size="sm" variant="secondary">
-            Add the departments
-          </ButtonLink>
-        </Callout>
-      )}
-
-      {check.missing.salaryGrades.length > 0 && (
-        <Callout tone="warning" title="Some salary grades do not exist yet">
-          <p className="mb-3">
-            {check.missing.salaryGrades.join(", ")}. Rows naming{" "}
-            {check.missing.salaryGrades.length === 1 ? "it" : "them"} will be
-            skipped.
-          </p>
-          <ButtonLink href="/payroll/pay-setup" size="sm" variant="secondary">
-            Add the grades
-          </ButtonLink>
-        </Callout>
-      )}
+      {/* One callout per kind of thing the file named that does not exist yet.
+          Driven by what the check returned rather than by a fixed pair, so an
+          entity with three such lists gets three without editing this file. */}
+      {Object.entries(check.missing)
+        .filter(([, names]) => names.length > 0)
+        .map(([kind, names]) => {
+          const detail = prerequisites[kind];
+          return (
+            <Callout
+              key={kind}
+              tone="warning"
+              title={detail?.title ?? `Some ${kind} do not exist yet`}
+            >
+              <p className={detail?.action ? "mb-3" : undefined}>
+                {names.join(", ")}. Rows naming{" "}
+                {names.length === 1 ? "it" : "them"}{" "}
+                {detail?.consequence ?? "will be skipped."}
+              </p>
+              {detail?.action && (
+                <ButtonLink href={detail.action.href} size="sm" variant="secondary">
+                  {detail.action.label}
+                </ButtonLink>
+              )}
+            </Callout>
+          );
+        })}
 
       {check.notes.length > 0 && (
         <Callout tone="info" title="Worth knowing about this file" icon={<Info />}>
@@ -256,6 +284,7 @@ export function CheckReport({
 
       {duplicates.length > 0 && (
         <Duplicates
+          dictionary={dictionary}
           rows={duplicates}
           decisions={decisions}
           onDecide={onDecide}
@@ -426,6 +455,7 @@ export function CheckReport({
 
         {flaggedRows.length > 0 && (
           <Flagged
+            dictionary={dictionary}
             rows={flaggedRows}
             acknowledged={acknowledged}
             onAcknowledge={onAcknowledge}
@@ -475,11 +505,13 @@ export function CheckReport({
  * "same work email: ada@company.com" is a fact they can.
  */
 function Duplicates({
+  dictionary,
   rows,
   decisions,
   onDecide,
   undecided,
 }: {
+  dictionary: Dictionary<string>;
   rows: readonly RowLine[];
   decisions: Record<number, "skip" | "update">;
   onDecide: (row: number, action: "skip" | "update") => void;
@@ -565,7 +597,7 @@ function Duplicates({
                   </div>
                   <p className="mt-1.5 text-meta leading-relaxed text-muted">
                     {chosen === "update"
-                      ? `This row goes onto ${match.name}'s record. They keep the staff number they already have, ${match.employeeNo}.`
+                      ? `This row goes onto ${match.name}'s record. They keep the ${dictionary.keyLabel} they already have, ${match.employeeNo}.`
                       : chosen === "skip"
                         ? "This row is not imported, and nothing about them changes."
                         : "Updating writes this row onto their record. Leaving them alone imports nothing from this row."}
@@ -591,10 +623,12 @@ function Duplicates({
  * hundredth row of a five hundred row file is a warning nobody reads.
  */
 function Flagged({
+  dictionary,
   rows,
   acknowledged,
   onAcknowledge,
 }: {
+  dictionary: Dictionary<string>;
   rows: readonly RowLine[];
   acknowledged: boolean;
   onAcknowledge: (value: boolean) => void;
@@ -614,8 +648,10 @@ function Flagged({
         <div className="min-w-0">
           <h3 className="text-body-sm font-semibold text-ink">
             Important: {rows.length}{" "}
-            {rows.length === 1 ? "person is" : "people are"} missing a detail
-            payroll will ask for
+            {rows.length === 1
+              ? `${dictionary.noun.one} is`
+              : `${dictionary.noun.many} are`}{" "}
+            missing a detail payroll will ask for
           </h3>
           <p className="mt-1 max-w-2xl text-meta leading-relaxed text-muted">
             They will still be imported. None of this stops a record from being
@@ -627,7 +663,7 @@ function Flagged({
 
       <TableWrap
         className="mt-4 rounded-none border-0 border-t border-line"
-        caption="People who import with a detail missing"
+        caption={`Rows that import with a detail missing`}
       >
         <THead>
           <TH className="w-20">Row</TH>
@@ -674,7 +710,7 @@ function Flagged({
         )}
         <Checkbox
           label={`I have read this list of ${rows.length}`}
-          description="These can be filled in afterwards, on each person's record — or by importing the same file again with the columns added."
+          description={`These can be filled in afterwards, on each ${dictionary.noun.one}'s record — or by importing the same file again with the columns added.`}
           checked={acknowledged}
           onChange={(event) => onAcknowledge(event.currentTarget.checked)}
         />

@@ -20,6 +20,7 @@ import {
   toCsv,
 } from "../src/lib/csv";
 import { guessMapping, mapRow, reverseHeadings } from "../src/lib/imports/mapping";
+import { EMPLOYEES } from "../src/lib/imports/employees";
 import {
   checkMappedRows,
   parseImportDate,
@@ -273,7 +274,7 @@ eq(
 
 /* --- Column matching ---------------------------------------------------- */
 
-const guessed = guessMapping([
+const guessed = guessMapping(EMPLOYEES, [
   "employee_id",
   "First Name",
   "surname",
@@ -304,6 +305,7 @@ eq("a heading we do not know is left out", guessed["favourite_food"], "");
 eq(
   "mapped rows are keyed by the template's headings",
   mapRow(
+    EMPLOYEES,
     { employee_id: " EMP-1 ", salary: "162,632.00", favourite_food: "jollof" },
     guessed,
   ),
@@ -312,13 +314,13 @@ eq(
 
 eq(
   "an empty cell is left out of the payload entirely",
-  mapRow({ employee_id: "EMP-1", salary: "   " }, guessed),
+  mapRow(EMPLOYEES, { employee_id: "EMP-1", salary: "   " }, guessed),
   { employee_no: "EMP-1" },
 );
 
 eq(
   "and the file's own heading can be found again from ours",
-  reverseHeadings(guessed)["gross_monthly"],
+  reverseHeadings(EMPLOYEES, guessed)["gross_monthly"],
   "salary",
 );
 
@@ -407,6 +409,7 @@ const present = new Set([
 ] as const);
 
 const report = checkMappedRows(
+  EMPLOYEES,
   [
     {
       employee_no: "EMP-1",
@@ -471,7 +474,7 @@ eq(
   [1, 2, 3],
 );
 
-const noColumn = checkMappedRows([{ first_name: "Ngozi" }], {
+const noColumn = checkMappedRows(EMPLOYEES, [{ first_name: "Ngozi" }], {
   presentFields: new Set(["firstName"] as const),
 });
 eq(
@@ -486,6 +489,7 @@ eq(
    staff numbers say. The API asks the same question against the directory; this
    is the half of it the file alone can answer. */
 const sameEmail = checkMappedRows(
+  EMPLOYEES,
   [
     {
       employee_no: "EMP-1",

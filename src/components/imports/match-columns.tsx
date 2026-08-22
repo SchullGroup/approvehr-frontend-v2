@@ -20,16 +20,12 @@ import {
   TableWrap,
 } from "@/components/ui";
 import type { CsvFile } from "@/lib/csv";
-import {
-  FIELD_OPTIONS,
-  mappingProblems,
-  noteFor,
-  type Mapping,
-} from "@/lib/imports/mapping";
-import { HEADING, type EmployeeField } from "@/lib/imports/template";
+import { fieldOptions, mappingProblems, noteFor, type Mapping } from "@/lib/imports/mapping";
+import type { Dictionary } from "@/lib/imports/spec";
 
 /**
- * Step two: match the columns.
+ * Step two: match the columns. Entity-agnostic — every column, heading, note and
+ * required-set comes off the dictionary it is given.
  *
  * The step every other product gets wrong by demanding exact headings. The file
  * is never edited: each of *their* columns gets a dropdown, pre-selected with
@@ -50,6 +46,7 @@ import { HEADING, type EmployeeField } from "@/lib/imports/template";
  *   across before they wonder where the data went, not afterwards.
  */
 export function MatchColumns({
+  dictionary,
   csv,
   mapping,
   onChange,
@@ -59,9 +56,10 @@ export function MatchColumns({
   busy,
   retrying = 0,
 }: {
+  dictionary: Dictionary<string>;
   csv: CsvFile;
   mapping: Mapping;
-  onChange: (heading: string, field: EmployeeField | "") => void;
+  onChange: (heading: string, field: string) => void;
   onReset: () => void;
   onBack: () => void;
   onContinue: () => void;
@@ -77,7 +75,11 @@ export function MatchColumns({
 }) {
   const [filter, setFilter] = useState<"all" | "matched" | "ignored">("all");
 
-  const problems = useMemo(() => mappingProblems(mapping), [mapping]);
+  const problems = useMemo(
+    () => mappingProblems(dictionary, mapping),
+    [dictionary, mapping],
+  );
+  const options = useMemo(() => fieldOptions(dictionary), [dictionary]);
   const matched = csv.headers.filter((heading) => mapping[heading]).length;
   const ignored = csv.headers.length - matched;
 
@@ -92,7 +94,7 @@ export function MatchColumns({
   };
 
   /** A field is takeable unless another column already claims it. */
-  const claimedBy = new Map<EmployeeField, string>();
+  const claimedBy = new Map<string, string>();
   for (const [heading, field] of Object.entries(mapping)) {
     if (field && !claimedBy.has(field)) claimedBy.set(field, heading);
   }
@@ -127,7 +129,7 @@ export function MatchColumns({
               <span key={field}>
                 {index > 0 && ", "}
                 <code className="rounded bg-ink/5 px-1 py-0.5 text-meta">
-                  {HEADING[field]}
+                  {dictionary.heading[field]}
                 </code>
               </span>
             ))}
@@ -143,11 +145,11 @@ export function MatchColumns({
         <Callout
           key={duplicate.field}
           tone="warning"
-          title={`Two columns are both going into ${HEADING[duplicate.field]}`}
+          title={`Two columns are both going into ${dictionary.heading[duplicate.field]}`}
         >
           {duplicate.headings.join(" and ")} cannot both be{" "}
-          {HEADING[duplicate.field]}. Pick one and set the other to &ldquo;Do not
-          import&rdquo;.
+          {dictionary.heading[duplicate.field]}. Pick one and set the other to
+          &ldquo;Do not import&rdquo;.
         </Callout>
       ))}
 
@@ -228,14 +230,11 @@ export function MatchColumns({
                         value={field}
                         className="min-w-52"
                         onChange={(event) =>
-                          onChange(
-                            heading,
-                            event.currentTarget.value as EmployeeField | "",
-                          )
+                          onChange(heading, event.currentTarget.value)
                         }
                       >
                         <option value="">Do not import</option>
-                        {FIELD_OPTIONS.map((option) => {
+                        {options.map((option) => {
                           const holder = claimedBy.get(option.field);
                           const taken = holder !== undefined && holder !== heading;
                           return (
@@ -254,7 +253,9 @@ export function MatchColumns({
                     </TD>
                     <TD className="align-top">
                       <span className="text-meta text-muted">
-                        {field ? noteFor(field) : "This column stays in your file."}
+                        {field
+                          ? noteFor(dictionary, field)
+                          : "This column stays in your file."}
                       </span>
                     </TD>
                   </TR>

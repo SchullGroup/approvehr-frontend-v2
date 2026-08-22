@@ -3340,3 +3340,229 @@ with an argon2 hash and their role, and the screen's copy matches
 The one thing worth doing first: `/payroll` has last month prepared and left in
 review, with its exceptions readable and an Approve button that has never been
 pressed against a real database.
+
+---
+
+# The importer is a framework now, and required columns lead
+
+The product owner's rule is that **anywhere a user can add several of something,
+there is a bulk upload with an Excel template.** `ImportKind` already has four
+members and one implementation, so the next three were going to be three more
+copies of a 700-line checker, a 1,400-line four-step screen and a router. This
+change extracts the machine from the employee importer without changing what the
+employee importer does: **one machine, many column dictionaries.**
+
+## What a new importable entity is now
+
+On the API — `src/modules/imports/`:
+
+| File | What it holds |
+|---|---|
+| `columns.ts` | `ColumnSpec`, `Dictionary`, `buildDictionary`, the heading matcher, `parseDate`, `parseMoneyKobo`, `templateOf`. **No entity in it, and no column name in it.** |
+| `entity.ts` | The `ImportEntity` contract, the per-row report types, `CheckOptions`, `fingerprintOf`, `MAX_ROWS_PER_BATCH`. |
+| `service.ts` | The generic driver: `validate`, `apply`, `list`, `get`, the batch record, the fingerprint refusal, the count sentence, the registry. Employee-named wrappers at the bottom for the ETL and the tests. |
+| `router.ts` | **One route trio per registered entity**, mounted from `ENTITIES` in a loop. There is no employee-specific line in the file. |
+| `employees.ts` | The employee dictionary, `checkEmployees`, `writeEmployees`, and the `ImportEntity` that binds them. |
+| `schemas.ts` | The zod request shapes, which are the same for every entity, plus the re-exports the ETL imports by name. |
+
+On the frontend:
+
+| File | What it holds |
+|---|---|
+| `lib/imports/spec.ts` | The same `ColumnSpec` / `Dictionary` / `buildDictionary`, the two parsers, `orderColumns`. |
+| `lib/imports/mapping.ts` | The matcher, every function taking a dictionary. |
+| `lib/imports/check.ts` | The browser check as a **generic engine**: required-presence, the declared date and money cells, then the entity's own `rowRules`. |
+| `lib/imports/template-file.ts` | The CSV and workbook writer. Already had no column names; now has no entity either. |
+| `lib/imports/surface.ts` | `ImportSurface` — the screen's description of an entity: title, breadcrumb, where the records live, where its prerequisites are created. |
+| `lib/imports/employees.ts` | The employee dictionary and its row rules. Replaces `lib/imports/template.ts`, **which is deleted**. |
+| `components/imports/*` | The four steps, moved out of the route and parameterised. `ImportFlow`, `MatchColumns`, `CheckReport`, `ImportResult`. |
+| `lib/store/imports.ts` | `useImport(dictionary)`. `useEmployeeImport()` is one line at the bottom. |
+
+`app/(app)/people/import/` is now `page.tsx`, a six-line client boundary, and
+`surface.ts`. **That is the whole cost of an importer**: a dictionary, a surface,
+and a validate/apply pair.
+
+## Required columns lead, and the order is derived rather than written down
+
+The dictionary declared its four — five, in fact — required columns scattered
+through thirty-three, so the sheet a customer downloads opened on
+`employee_no, first_name, last_name, middle_name, email, phone, date_of_birth…`
+and the fields they cannot leave out were spread across the width of Excel.
+
+`buildDictionary` now orders every dictionary **required, then recommended, then
+the rest**, stable inside each tier, and it is the only way to make a
+dictionary — so the template writer, the matching dropdowns, the checker and the
+API's own response all read one ordered list and none of them can be handed a
+list that has not been through it. The declaration keeps its readable grouping by
+subject; the emitted order is computed. A dictionary that grows a required column
+gets it in the right place without anybody remembering to move it.
+
+Done in both copies **by construction**, which is what makes it true of the one
+that answers: the API's `GET /imports/template/employees` now returns
+`first_name, last_name, job_title, start_date, gross_monthly` first, then the
+five recommended, then everything else.
+
+**`employee_no` therefore no longer leads the sheet** — it leads the optional
+block, and the comment on the spec that said "the template asks for it first"
+now says why it does not. It is still the match key and the screen still says
+what you lose without it.
+
+`scripts/verify-template.ts` gates the derivation rather than a list — every
+required column before every recommended one, the header opening on
+`REQUIRED_FIELDS` in order, and `employee_no` still first inside its tier. 26
+assertions became **34**.
+
+## Two copies of the dictionary, and now a check instead of a sentence
+
+`lib/imports/employees.ts` mirrors the API's dictionary, and its header has
+always said "if you change the API's dictionary, re-copy it here". A sentence is
+not a gate, and the API's copy is the one that answers — so drift shows up as a
+column the offline screen offers as "do not import".
+
+`verify-template.ts` now parses `EMPLOYEE_COLUMNS` out of
+`approvehr-api/src/modules/imports/employees.ts` **as text** — the same trick
+`verify-payroll.ts` uses for the tax schedules, because this package cannot
+resolve that tree — and asserts the same columns, the same required set, the same
+recommended set and the same date/money declarations. It skips when the sibling
+repo is not checked out. Tamper-tested: flipping one `required: false` to `true`
+in the API fails it, and restoring passes.
+
+## `ColumnSpec.cell` — a declared cell type, not a validation language
+
+`{ kind: "date" }` and `{ kind: "money", zeroAllowed, subject }`, declared on the
+column. Three things read it:
+
+- `dateOf` / `moneyOf` on the API **throw** when a checker reads a column the
+  dictionary has not declared that way. So the template's `accepts.dates`, the
+  column's note and the parser cannot drift apart, and `annual_rent`'s
+  "zero is a declaration" rule lives on the column instead of at a call site.
+- The browser's generic engine drives its whole date-and-money pass off it.
+- It **travels in the template payload**, so the browser and the API cannot hold
+  two opinions about which columns are dates.
+
+Deliberately *not* a general validation language. Word lists — employment type,
+status, gender — need a different message and a different severity per field, and
+encoding that would be a template nobody can read. They stay in the entity's
+`rowRules`, which is allowed to be prose. `ColumnSpec.templateExample` travels
+the same way, which is what moved "DELETE THIS ROW" out of a hardcoded map in the
+file writer and into the declaration.
+
+## Things that changed shape on the wire, and one that did not
+
+- **`missing` is a map now**, not two named fields: `{ departments: [...],
+  salaryGrades: [...] }` is the same JSON it always was, and the check report
+  renders one callout per key from the surface's `prerequisites`. An entity with
+  three such lists gets three callouts without editing the screen.
+- **`accepts` is a loose record**, because what vocabularies an entity has is its
+  own business. Nothing branches on it; the screen prints it.
+- **The apply response is unchanged**, `managersLinked` included. An entity's
+  writer returns `extra`, the driver spreads it flat, and `ImportEntity`'s third
+  type parameter is what keeps `scripts/etl/migrate.ts` reading it typed.
+
+`GET /imports/template/employees`, `POST /imports/employees/validate` and
+`POST /imports/employees/:batchId/apply` are all still exactly those paths — the
+router builds them from the entity's slug, and the templates are registered in
+their own loop first so `/template/employees` can never be read as a batch id.
+
+## `buildDictionary` refuses an ambiguous dictionary
+
+Two specs claiming one heading used to be settled by declaration order — "first
+spec to claim a key keeps it". That made the *order of the list* part of the
+matching rules, so reordering it for the template could silently move a column's
+meaning. Since the order is now derived, the ambiguity has to be refused instead:
+a duplicate alias across two specs **throws at module load**. Checked first that
+the employee dictionary has none, so this is a guard rather than a migration.
+Within one spec, alias order is still priority — `job_title` still beats
+`position`.
+
+## What deliberately did not change
+
+- **Every message, every refusal and every count sentence.** The checker was
+  *moved*, not rewritten: `employees.ts` was assembled from the existing sources
+  by a script whose every edit is an asserted string replacement, so the prose a
+  customer reads is byte-identical. The employee legend is supplied by the entity
+  rather than taken from the generic one for the same reason.
+- **`CheckOptions.requireEmployeeNo` is still a function argument**, threaded
+  through the entity's `check` and never a request field. The standing rule holds:
+  `src/modules/imports/` has two callers with different contracts, and relaxing a
+  rule there means running `tests/etl.test.ts` as well.
+- **The order of errors within one row** moved slightly on the frontend, because
+  the generic engine runs the declared cells in dictionary order and then the
+  entity's rules, where the old hand-written pass interleaved them. Which errors
+  a row gets is identical; the sequence they are listed in is not. Cosmetic, and
+  the API is the authority in connected mode anyway.
+
+## Verified
+
+Backend `npm run check` — the gate CI runs, exit code read from `$?` on its own
+line: **0. 46 files, 1233 tests**, `tests/imports.test.ts` 28/28 and
+`tests/etl.test.ts` unchanged. (HANDOVER's earlier entry says 28 for the import
+suite; the brief for this change said 29. 28 is the real number, before and
+after.)
+
+One run of it came back 1 with three failures in `tests/careers.test.ts`, a file
+this change does not touch: a 5000ms **timeout** on the first, and two 400s
+cascading from the record it never created. That is the flake this file's own rule
+names — a timeout is contention, a failed assertion is a defect — and the rule
+held: `npx vitest run tests/careers.test.ts` alone is 33/33, and the next full run
+is 1233/1233 at exit 0. Three API dev servers and a browser session were on the
+same machine at the time.
+
+Frontend `npm run check` exit 0 — typecheck, lint, 87 titles, type scale,
+contrast, payroll 51, CSV 101, **template 34**, loans 28. `npm run build` exit 0
+at 87 routes.
+
+Over `curl` against the live API: the reordered template payload, the `cell` and
+`templateExample` declarations arriving on their columns, and a three-row
+validate returning row-keyed errors, the `departments` prerequisite, the unmapped
+`religion` column, a generated `AHR-0011`, the flagged list, and every note.
+
+**In the browser, connected**, on `/people/import` with a five-row CSV whose
+headings are `Employee ID / Surname / Date of Employment / Monthly Salary / State`
+and a `Religion` column we do not import:
+
+- step one showing the five required and five recommended columns as chips, "The
+  other 23 columns are optional", and the past-imports table
+- step two matching 10 of 11 with `Religion` left out, and the dropdowns listing
+  the fields in the new order
+- step three: 2 to add, 3 not importing, six errors each naming *their own*
+  heading, the in-file duplicate email caught on row 4 naming row 1, the
+  10-digit-NUBAN warning that imports anyway, the "Important: 2 people are
+  missing a detail" list with `AHR-0011 · number generated`, and the button
+  reading "Tick the box above to carry on"
+- a correction typed in place → "1 correction not checked yet", the row badge
+  flipping to "Fixed — check again", the primary action becoming "Check the
+  correction", and the re-check clearing that row's error
+- step four reading **"Add 2 people, leave 3 out"**
+
+And then the three things HANDOVER has recorded as never exercised in a browser,
+walked for the first time: the **apply** (2 added, 0 updated, "Reporting lines
+set 0", the three rows named with their reasons), and the **retry loop** ("Fix
+those 3 now" → step two with "This will check 3 rows, not the whole file").
+Console clean apart from Next's HMR socket.
+
+The two employees that import created — `EMP-7001` and the generated `AHR-0011` —
+and the three test import batches were deleted from the demo database afterwards.
+
+**Not exercised:** demo mode in a browser, because the API was up and
+`useApiReachable` correctly reports connected. The offline engine is covered by
+`verify-csv.ts`'s 101 assertions plus an ad-hoc run proving its three notes
+(ambiguous date, "inactive" read as suspended, employment_type versus work_type)
+still come out of the new `rowRules` / `fileNotes` hooks, and that a written `0`
+in `annual_rent` still counts as a declaration rather than a missing detail.
+
+## Deliberately not done
+
+- **A second entity.** Pay components, attendance and leave balances are the
+  three `ImportKind` members with no importer, and building one now would be
+  guessing at columns nobody has specified. The framework is the deliverable; the
+  next dictionary is a separate piece of work with a product conversation in it.
+- **Rewriting the API's checker into declarative rules.** Its interesting half is
+  a question about the database — does that department exist, is this person
+  already on file, does the pay fit its grade — and no declaration answers that.
+  `check` is a function on the entity for that reason, and the parts that *are*
+  declarable moved to the dictionary.
+- **Folding `lib/imports/employees.ts` into the API's copy.** Two copies is still
+  one too many and still deliberate: the first two steps of an import must work
+  with no database. What changed is that the drift is now gated instead of
+  described.
