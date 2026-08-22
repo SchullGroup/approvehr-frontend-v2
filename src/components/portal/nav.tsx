@@ -123,33 +123,18 @@ const PERSONAL: NavItem[] = [
     badgeSource: "approvals",
     always: true,
   },
-  {
-    href: "/notifications",
-    label: "Notifications",
-    icon: <Bell aria-hidden="true" />,
-    badgeSource: "unreadNotifications",
-    always: true,
-  },
-  {
-    /* Everybody's own record. The one screen a staff member with no
-       permissions at all still needs, which is why it has no gate. */
-    href: "/profile",
-    label: "My profile",
-    icon: <UserRound aria-hidden="true" />,
-    always: true,
-  },
-  {
-    /* The other side of the Core HR "Documents" register below, and the only
-       documents screen everybody can open — `DocumentsScreen` says so itself
-       and sends anybody without EDIT_RECORDS here. It sits beside "My profile"
-       rather than under Core HR because two items reading "Documents" and "My
-       documents" in one group is a riddle, and because this is where the
-       "send us your work permit" notification lands (`HREF.mine`). */
-    href: "/documents",
-    label: "My documents",
-    icon: <FileBadge aria-hidden="true" />,
-    always: true,
-  },
+  /*
+   * Notifications, My profile and My documents used to sit here, above the
+   * modules, and they were the three most prominent things in the sidebar
+   * while being the three a person opens least.
+   *
+   * They live in the account menu now. Nothing is lost: the notification
+   * count still shows on the bell in the header, `/documents` is still where
+   * the "send us your work permit" notification lands, and every one of the
+   * three routes still exists and is still reachable — see `shell.tsx`.
+   *
+   * PARITY.md Rule 2. The sidebar is for the work, not for the account.
+   */
 ];
 
 /**

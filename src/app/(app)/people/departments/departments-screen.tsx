@@ -479,9 +479,9 @@ function withoutArchived(nodes: DepartmentNode[]): DepartmentNode[] {
  * An archived unit, in its own card.
  *
  * Deliberately not the full row: an archived department has nobody in it —
- * archiving refuses otherwise — so Direct, Rolled up and Monthly would all read
- * zero, and three zeroes beside a name look like a figure that failed to load
- * rather than a unit that is empty by definition.
+ * archiving refuses otherwise — so People and Monthly would both read zero, and
+ * zeroes beside a name look like a figure that failed to load rather than a unit
+ * that is empty by definition.
  */
 function ArchivedRow({
   unit,
@@ -633,19 +633,31 @@ function DepartmentRow({
           </p>
         </div>
 
-        {/* Both numbers, always. They answer different questions. */}
-        <div className="flex shrink-0 items-center gap-5 text-right">
+{/*
+         * Two numbers, not four.
+         *
+         * `Direct` and `Rolled up` answered different questions and were shown
+         * side by side to make the difference legible. In practice they are equal
+         * on every row until somebody nests a sub-department, so the row carried
+         * two identical figures under two headings nobody had asked about.
+         *
+         * `totalEmployees` is the one kept: "how many people are in this
+         * department" includes the people in its sub-departments, which is what
+         * the word means to whoever is reading. `directEmployees` is still on the
+         * node and still what the sub-unit rows below express by being nested.
+         *
+         * **The cost of the choice, stated:** a rolled-up figure counts a person
+         * once per ancestor, so once nesting exists these rows no longer sum to
+         * the company total — the "Monthly payroll across every unit" stat above
+         * is computed separately and remains the honest total. Showing both
+         * columns is what used to make that visible. If a nested structure ever
+         * makes the discrepancy confusing, the fix is a sub-unit's figure shown
+         * as a share of its parent, not the second column back.
+         */}
+        <div className="flex shrink-0 items-center gap-6 text-right">
           <div>
             <p className="text-meta uppercase tracking-wide text-faint">
-              Direct
-            </p>
-            <p className="tabular text-body font-medium text-ink">
-              {node.directEmployees}
-            </p>
-          </div>
-          <div>
-            <p className="text-meta uppercase tracking-wide text-faint">
-              Rolled up
+              People
             </p>
             <p className="tabular text-body font-medium text-ink">
               {node.totalEmployees}

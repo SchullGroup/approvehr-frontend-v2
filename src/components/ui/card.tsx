@@ -176,14 +176,20 @@ export function Stat({
         )}
       </div>
       <p className="mt-2 text-h3 text-ink tabular truncate">{value}</p>
-      {(hint || trend) && (
-        <p className="mt-1.5 flex items-center gap-2 text-body-sm">
-          {trend && (
-            <span className={cn("font-medium", trendTone)}>{trend.label}</span>
-          )}
-          {hint && <span className="text-muted">{hint}</span>}
+      {/*
+       * Two lines when there are two things to say.
+       *
+       * `trend` and `hint` shared one flex row, so "Blocks payroll" and
+       * "missing bank, PIN or TIN" sat side by side and wrapped into two ragged
+       * columns inside the card. They are a verdict and its reason — the verdict
+       * belongs on its own line above the reason it rests on.
+       */}
+      {trend && (
+        <p className={cn("mt-1.5 text-body-sm font-medium", trendTone)}>
+          {trend.label}
         </p>
       )}
+      {hint && <p className="mt-1 text-body-sm text-muted">{hint}</p>}
     </div>
   );
 }

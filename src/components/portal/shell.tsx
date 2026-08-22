@@ -405,6 +405,32 @@ function UserMenu() {
                 My record
               </Link>
             )}
+            {/*
+             * The two that came out of the sidebar.
+             *
+             * They were the most prominent items in the nav and among the least
+             * opened, so they moved here — but moving them out without putting
+             * them anywhere would have orphaned both routes, which is the
+             * failure this codebase keeps rediscovering (Leavers, departments,
+             * the importer, all built and all unreachable). The bell in the
+             * header already covers /notifications; these two had nothing.
+             */}
+            <Link
+              href="/profile"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className="block rounded-md px-2.5 py-2 text-body-sm text-body hover:bg-canvas hover:text-ink"
+            >
+              My profile
+            </Link>
+            <Link
+              href="/documents"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className="block rounded-md px-2.5 py-2 text-body-sm text-body hover:bg-canvas hover:text-ink"
+            >
+              My documents
+            </Link>
             <Link
               href="/settings"
               role="menuitem"

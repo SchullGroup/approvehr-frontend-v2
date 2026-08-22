@@ -3,7 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Download, Plus, RotateCcw, Search } from "lucide-react";
+import {
+  Banknote,
+  Building2,
+  Download,
+  Plus,
+  RotateCcw,
+  Search,
+  ShieldAlert,
+  Users,
+} from "lucide-react";
 import {
   Badge,
   ButtonLink,
@@ -106,15 +115,29 @@ export function Directory() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat label="Employees" value={String(total)} />
-        <Stat label="Departments" value={String(departments)} />
+        <Stat
+          label="Employees"
+          value={String(total)}
+          icon={<Users aria-hidden="true" />}
+        />
+        <Stat
+          label="Departments"
+          value={String(departments)}
+          icon={<Building2 aria-hidden="true" />}
+        />
         <Stat
           label="Monthly gross"
-          value={<Money amount={payrollTotal} compact />}
+          /* `text-h3` because Money defaults to `text-body-sm`, and the sibling
+             cards pass plain strings that inherit Stat's own `text-h3`. Without
+             it this card's figure rendered 9px smaller than the three beside it
+             — the same value slot, two sizes. */
+          value={<Money amount={payrollTotal} compact className="text-h3" />}
+          icon={<Banknote aria-hidden="true" />}
         />
         <Stat
           label="Records incomplete"
           value={String(incomplete)}
+          icon={<ShieldAlert aria-hidden="true" />}
           trend={
             incomplete > 0
               ? { direction: "down", label: "Blocks payroll" }
