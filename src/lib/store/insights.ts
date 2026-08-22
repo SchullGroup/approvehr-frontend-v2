@@ -8,6 +8,7 @@ import {
 } from "@/lib/api/insights";
 import { useSession } from "@/lib/store/session";
 import { useEmployeeStore } from "@/lib/store/employees";
+import { DEMO_ANNOUNCEMENTS } from "@/lib/mock/announcements";
 
 /**
  * The dashboard and reports: the API when there is one, local figures when
@@ -102,6 +103,37 @@ export function useDashboard(): DashboardState & { reload: () => void } {
          the frontend engine over local data and presenting it as though a run
          had happened. */
       payroll: null,
+      /* The seeded noticeboard, filtered the way the API filters it: published,
+         in date, pinned first. Drafts and expired notices are excluded here for
+         the same reason they are excluded there — a draft on somebody's
+         dashboard is a half-written sentence about when the office shuts.
+
+         Seeded rather than empty because this is the one feature the incumbent's
+         dashboard has that we had nothing for, and the product gets shown on
+         laptops with no database. Writing is still refused — see
+         `lib/store/announcements.ts`. */
+      announcements: {
+        notices: DEMO_ANNOUNCEMENTS.filter(
+          (notice) => notice.published && !notice.expired,
+        )
+          .sort(
+            (a, b) =>
+              Number(b.pinned) - Number(a.pinned) ||
+              (b.publishedAt ?? "").localeCompare(a.publishedAt ?? ""),
+          )
+          .map((notice) => ({
+            id: notice.id,
+            title: notice.title,
+            body: notice.body,
+            pinned: notice.pinned,
+            publishedAt: notice.publishedAt ?? notice.createdAt,
+            departmentNames: notice.departmentNames,
+            postedByName: notice.postedByName,
+          })),
+        total: DEMO_ANNOUNCEMENTS.filter(
+          (notice) => notice.published && !notice.expired,
+        ).length,
+      },
     };
   }, [directory]);
 

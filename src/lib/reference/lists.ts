@@ -240,19 +240,62 @@ export function bankNames(): readonly string[] {
 }
 
 /**
+ * A list with a stored value guaranteed present.
+ *
+ * The rule every one of these accessors needs, in one place. A record holds
+ * whatever it holds — an older spelling, a name a company typed before any of
+ * this was centralised, a provider that has since been renamed — and a list that
+ * silently omits it makes an editor show "not set" over a value that *is* set.
+ * The user then either believes the field is empty or, worse, saves and finds
+ * the browser has substituted whichever option happened to be first.
+ *
+ * Appended rather than merged in place: seeing the odd one out at the end is
+ * itself information, and a company can correct it deliberately.
+ */
+function withCurrent(
+  values: readonly string[],
+  current?: string | null,
+): readonly string[] {
+  const trimmed = current?.trim();
+  if (!trimmed) return values;
+  const known = values.some((v) => v.toLowerCase() === trimmed.toLowerCase());
+  return known ? values : [...values, trimmed];
+}
+
+/**
  * The list of tax states to show, with a stored value guaranteed present.
  *
  * Pass what the record currently holds. If it is a value the list does not carry
  * — an old spelling, or a state a company added before this was centralised — it
  * is included rather than dropped, so opening a record never silently clears a
  * field the user did not touch.
+ *
+ * Read through `canonicalTaxState` first, so a record holding `Abuja` matches the
+ * list's `FCT` and is *not* appended as a thirty-eighth state.
  */
 export function taxStateOptions(current?: string | null): readonly string[] {
   if (!current) return NIGERIAN_STATES;
 
   const canonical = canonicalTaxState(current);
-  if (canonical === "" || NIGERIAN_STATES.includes(canonical)) {
-    return NIGERIAN_STATES;
-  }
-  return [...NIGERIAN_STATES, canonical].sort((a, b) => a.localeCompare(b));
+  const withIt = withCurrent(NIGERIAN_STATES, canonical);
+  return withIt === NIGERIAN_STATES
+    ? NIGERIAN_STATES
+    : [...withIt].sort((a, b) => a.localeCompare(b));
+}
+
+/**
+ * The pension providers to show, with a stored value guaranteed present.
+ *
+ * This one is not hypothetical. The seed directory records Adaeze Okonkwo's PFA
+ * as "Stanbic IBTC Pensions" and `PENSION_PROVIDERS` calls the same company
+ * "Stanbic IBTC Pension Managers" — so the record page's select had nothing to
+ * match and read "Not known yet" over a PFA that was on file. The sector has
+ * renamed and merged repeatedly; there will be more of these, and a remittance
+ * sent nowhere because a dropdown quietly dropped a name is the failure this
+ * prevents.
+ */
+export function pensionProviderOptions(
+  current?: string | null,
+): readonly string[] {
+  return withCurrent(PENSION_PROVIDERS, current);
 }

@@ -38,6 +38,14 @@
 
 export type Bank = { label: string; code: string };
 
+/**
+ * A bank a picker may offer: one from the register, or one only a record holds.
+ *
+ * `code: null` is the second case and the whole reason this type is separate
+ * from `Bank`. See `banksIncluding`.
+ */
+export type BankChoice = { label: string; code: string | null };
+
 export const NIGERIAN_BANKS: readonly Bank[] = [
   { label: "5TT MFB", code: "51455" },
   { label: "78 Finance Company Ltd", code: "40195" },
@@ -302,4 +310,24 @@ export function bankCodeFor(name: string): string | null {
   return (
     NIGERIAN_BANKS.find((b) => b.label.toLowerCase() === needle)?.code ?? null
   );
+}
+
+/**
+ * The register, plus whatever a record already holds.
+ *
+ * A stored bank name that is not in this list is the case that matters: an
+ * imported record, a name typed before the register was checked in, or an
+ * institution that has since been renamed. A picker that simply omits it shows
+ * "not known yet" over an account that is being paid every month, and the next
+ * person to open that record has been told something false.
+ *
+ * The appended entry carries **`code: null`, never a guess.** `payments/file.ts`
+ * in the API is blunt about why: a wrong bank code routes money to the wrong
+ * institution. A missing code is a gap somebody can close; an invented one is a
+ * payment nobody can recall.
+ */
+export function banksIncluding(current?: string | null): readonly BankChoice[] {
+  const trimmed = current?.trim();
+  if (!trimmed || bankCodeFor(trimmed) !== null) return NIGERIAN_BANKS;
+  return [...NIGERIAN_BANKS, { label: trimmed, code: null }];
 }

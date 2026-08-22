@@ -253,12 +253,12 @@ export function ImportResult({
                   <TR key={row}>
                     <TD className="tabular align-top font-medium text-ink">{row}</TD>
                     <TD className="align-top">
-                      <span className="text-[0.875rem] text-ink">
+                      <span className="text-meta text-ink">
                         {line?.name ?? line?.employeeNo ?? "—"}
                       </span>
                     </TD>
                     <TD className="align-top">
-                      <span className="text-[0.875rem] text-body">
+                      <span className="text-meta text-body">
                         {line?.duplicate?.decision === "skip"
                           ? `You chose to leave ${line.duplicate.name} alone.`
                           : (line?.problems.find(
@@ -273,7 +273,7 @@ export function ImportResult({
             </TBody>
           </TableWrap>
           {missed > 60 && (
-            <CardBody className="py-3.5 text-[0.875rem] text-muted">
+            <CardBody className="py-3.5 text-meta text-muted">
               The first 60 are listed. Download the file above for all{" "}
               {count(missed)}.
             </CardBody>
@@ -285,7 +285,7 @@ export function ImportResult({
         <Card>
           <CardHeader level={2} title="What we did with the awkward parts" />
           <CardBody>
-            <ul className="flex flex-col gap-2 text-[0.875rem] text-body">
+            <ul className="flex flex-col gap-2 text-meta text-body">
               {result.notes.map((note) => (
                 <li key={note} className="flex gap-2">
                   <span aria-hidden="true" className="text-faint">

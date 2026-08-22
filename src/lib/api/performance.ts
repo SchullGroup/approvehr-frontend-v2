@@ -57,12 +57,48 @@ import { request, requestPaged, type Paged } from "@/lib/api/client";
  * and the aggregate in `ApiMyReviews.peerFeedback` has no author field to be
  * null. Nothing here filters a name out — the API never sends one. A screen must
  * not add a "who wrote this" column and hope.
+ *
+ * ## Scores are integers in basis points, and an absence is `null`
+ *
+ * There is no money here and there is arithmetic all the same, so the same rule
+ * applies for the same reason: `scoreBp` and every `weightBp` are **integers**,
+ * 10000 is the whole mark, and nothing on this side divides one. A score
+ * assembled from floats does not reproduce, and a score that does not reproduce
+ * cannot be defended when somebody disputes it.
+ *
+ * A component with nothing recorded against it arrives with `scoreBp: null`,
+ * `included: false` and a reason in `excludedBecause`. **Render the absence as an
+ * absence.** "Rated 0 on leadership" and "manages nobody, so not rated on
+ * leadership" are different claims about a person, and a screen that prints 0 for
+ * the second one is making the first. `scoreLabel` refuses `null` in its
+ * signature so the compiler asks every caller what it wants to say instead.
+ *
+ * ## Sign-off is three facts, not one
+ *
+ * `finalised`, `acknowledged` and `disputed` are separate booleans and they are
+ * not each other's opposites. Not acknowledged usually means nobody has asked
+ * yet. Check the one you mean.
  */
 
 /* ------------------------------------------------------------------- shapes */
 
 /** Mirrors `GoalStatus`. There is no draft and no cancelled — see the notes. */
 export type GoalStatus = "ON_TRACK" | "AT_RISK" | "OFF_TRACK" | "DONE";
+
+/**
+ * Mirrors `ObjectiveApproval`. **A separate axis from `GoalStatus`.**
+ *
+ * An objective can be agreed and off track at the same time, which is why these
+ * are two columns and not one: a single field carrying both "nobody has agreed
+ * this" and "this is going badly" makes the two facts indistinguishable, and
+ * they call for opposite actions.
+ */
+export type ObjectiveApproval =
+  | "DRAFT"
+  | "AWAITING_APPROVAL"
+  | "AGREED"
+  | "NEEDS_REVISION"
+  | "REJECTED";
 
 /** Mirrors `ReviewCycleStage`. Forward only, and `PUBLISHED` is one-way. */
 export type ReviewCycleStage =
@@ -118,10 +154,64 @@ export type ApiGoal = {
   /** From the measures. Null when the goal has none and progress is by hand. */
   measuredProgress: number | null;
   dueQuarter: string | null;
+  /**
+   * The review period this objective will be scored in.
+   *
+   * Null for a standing operational goal, which belongs to no cycle and is
+   * never scored. Anything that *will* be scored needs one — the API refuses to
+   * send an objective for agreement with neither a cycle nor a quarter, because
+   * an objective that belongs to no period cannot be agreed before it.
+   */
+  reviewCycleId: string | null;
+  reviewCycleName: string | null;
+  approval: ObjectiveApproval;
+  /** The API's own wording. Do not keep a second copy of these five strings. */
+  approvalLabel: string;
+  /**
+   * Whether the target is frozen. Derived by the API from `approval`, never
+   * stored twice — a second field saying the same thing can disagree with it.
+   */
+  targetFrozen: boolean;
+  submittedAt: string | null;
+  agreedAt: string | null;
+  /**
+   * Why it was sent back, refused, or reopened. **The reason is the record.**
+   *
+   * Cleared when the objective is sent again, because it described a version
+   * that no longer exists.
+   */
+  approvalNote: string | null;
+  /** How often an agreed target has been reopened. Zero is the ordinary case. */
+  revisionCount: number;
+  revisedAt: string | null;
   keyResults: ApiKeyResult[];
   childCount: number;
   createdAt: string;
   updatedAt: string;
+};
+
+/* -------------------------------------------------- the approval lifecycle */
+
+/**
+ * `POST /goals/:id/submit`.
+ *
+ * `sentTo` is **null when the owner has no manager** — somebody had to be told
+ * and nobody was, which is a fact the screen has to say rather than swallow.
+ */
+export type ApiObjectiveSubmitted = ApiGoal & { sentTo: string | null };
+
+/** `POST /goals/:id/agree`. `note` is the API's one sentence about the freeze. */
+export type ApiObjectiveAgreed = ApiGoal & { agreed: true; note: string };
+
+export type ApiObjectiveSentBack = ApiGoal & { sentBack: true; reason: string };
+
+export type ApiObjectiveRejected = ApiGoal & { rejected: true; reason: string };
+
+/** `POST /goals/:id/revise`. The only way through the one-way door. */
+export type ApiObjectiveReopened = ApiGoal & {
+  reopened: true;
+  reason: string;
+  revisionCount: number;
 };
 
 /** `POST /goals/:id/publish`. `shared` is how many people were told. */
@@ -260,6 +350,14 @@ export type ApiCycle = {
   dueDate: string | null;
   questionCount: number;
   reviewCount: number;
+  /**
+   * Whether the scoring weights are frozen onto this cycle.
+   *
+   * False on a cycle that started before the snapshot existed, and the score
+   * then says `weightsFrom: "current"`. A reader who cannot tell a frozen set
+   * from a live one cannot tell whether the mark on screen is the one awarded.
+   */
+  scoringFrozen: boolean;
   createdAt: string;
 };
 
@@ -277,6 +375,17 @@ export type ApiCycleActivated = ApiCycle & {
    * not a count.
    */
   withoutAppraiser: string[];
+  /**
+   * Anybody with nothing agreed to be scored against, by name.
+   *
+   * Named for the same reason. Delivery against objectives is one of the four
+   * parts the framework seeds, and an employee with no agreed objective has
+   * nothing under that heading — a cycle that starts silently is how half a
+   * company reaches the end of a period unscored.
+   */
+  withoutAgreedObjectives: string[];
+  /** The weights this cycle is now frozen against, in basis points. */
+  scoringWeights: Record<ScoreComponent, number>;
 };
 
 export type ApiCyclePublished = ApiCycle & {
@@ -285,6 +394,10 @@ export type ApiCyclePublished = ApiCycle & {
   /** Reported, never refused: people leave mid-cycle. */
   unsubmitted: number;
   notified: number;
+  /** Who finishes with no mark, by name. A count is not something to act on. */
+  unscored: string[];
+  /** Written but not finalised, so these people have not been told their mark. */
+  notFinalised: string[];
 };
 
 export type ApiRemindResult = {
@@ -358,7 +471,49 @@ export type ApiReview = {
   submitted: boolean;
   submittedAt: string | null;
   answerCount: number;
+  /**
+   * Sign-off. **Presence, never a falsy stand-in.**
+   *
+   * `finalised` is a one-way door: after it the rating is what the employee was
+   * told, and it cannot be re-marked. Then they either acknowledge or formally
+   * dispute — one or the other, and never neither by omission, which is why the
+   * cycle register names whoever has not answered rather than counting silence
+   * as agreement.
+   *
+   * `acknowledged` and `disputed` are mutually exclusive and both start false.
+   * A screen must not read `!acknowledged` as "they disagreed": the third state
+   * is that nobody has asked them yet, and that is the common one.
+   */
+  finalised: boolean;
+  finalisedAt: string | null;
+  acknowledged: boolean;
+  acknowledgedAt: string | null;
+  disputed: boolean;
+  disputedAt: string | null;
+  /**
+   * What the employee said. Optional on an acknowledgement, required on a
+   * dispute — so a non-null value here does not tell you which act it was.
+   */
+  employeeComment: string | null;
 };
+
+/**
+ * `POST /reviews/:id/finalise`.
+ *
+ * `subjectNotified` is false for somebody with no sign-in — a cleaner on the
+ * payroll who does not use the product. The acknowledgement still has to be
+ * recorded, on paper if necessary, and reporting this is what stops "we told
+ * them" from being assumed.
+ */
+export type ApiReviewFinalised = ApiReview & {
+  finalised: true;
+  subjectNotified: boolean;
+};
+
+export type ApiReviewAcknowledged = ApiReview & { acknowledged: true };
+
+/** The rating does not move. `note` is the API's sentence saying so. */
+export type ApiReviewDisputed = ApiReview & { disputed: true; note: string };
 
 export type ApiFormQuestion = {
   id: string;
@@ -504,6 +659,163 @@ export type ApiAutoAssigned = {
   withoutManager: string[];
 };
 
+/* -------------------------------------------------------- the composite score
+ *
+ * Every figure here is an **integer in basis points** — 10000 is the whole mark,
+ * 5833 is 58.33%. Same reason money is integer kobo: a score assembled from
+ * floats does not reproduce, and a score that does not reproduce cannot be
+ * defended when somebody disputes it. `scorePercent` is the same integer read as
+ * a percentage for display, sent by the API rather than derived here so the two
+ * can never disagree.
+ *
+ * **`null` is the load-bearing value in this block.** A component with nothing
+ * recorded against it comes back with `scoreBp: null` and `included: false`, and
+ * the reason is in `excludedBecause`. Rendering a 0 there would be a wrong claim
+ * about a person: "rated 0 on leadership" and "manages nobody, so not rated on
+ * leadership" are different statements and only one of them is true.
+ */
+
+/** Mirrors `ScoreComponent`. Self-assessment ships weighted at zero. */
+export type ScoreComponent =
+  | "OBJECTIVES"
+  | "CORE_COMPETENCY"
+  | "BEHAVIOURAL_COMPETENCY"
+  | "LEADERSHIP"
+  | "SELF_ASSESSMENT";
+
+/** Why a component did not enter the arithmetic. Null means it did. */
+export type ScoreExclusionReason = "NOT_WEIGHTED" | "NO_DATA" | "NOT_A_MANAGER";
+
+export type ApiComponentScore = {
+  component: ScoreComponent;
+  /** The API's wording. Do not keep a second copy of these five labels. */
+  label: string;
+  /** 0–10000, or **null** when nothing was recorded. Never 0 for an absence. */
+  scoreBp: number | null;
+  /** The weight the company set. */
+  weightBp: number;
+  /** The weight it actually carried, after excluded components were dropped. */
+  effectiveWeightBp: number;
+  included: boolean;
+  excludedBecause: ScoreExclusionReason | null;
+  /** The API's sentence for the exclusion. Render this, not your own. */
+  excludedNote: string | null;
+  /** How many things were averaged. Zero is why `scoreBp` is null. */
+  evidenceCount: number;
+};
+
+/** Exceptions, in the same shape and severities the payroll run uses. */
+export type ApiScoreException = {
+  severity: "BLOCKER" | "WARNING";
+  code:
+    | "NO_AGREED_OBJECTIVES"
+    | "NO_SCORE"
+    | "NOT_FINALISED"
+    | "AWAITING_ACKNOWLEDGEMENT"
+    | "DISPUTED";
+  message: string;
+};
+
+export type ApiScoreRow = {
+  employeeId: string;
+  employeeName: string;
+  jobTitle: string;
+  departmentId: string | null;
+  departmentName: string | null;
+  /** Derived from the reporting line, not stored. Decides leadership. */
+  managesOthers: boolean;
+  /** 0–10000. **Null** when no weighted component carried any data. */
+  scoreBp: number | null;
+  /** The same integer as a percentage. Null for the same reason. */
+  scorePercent: number | null;
+  components: ApiComponentScore[];
+  objectives: {
+    agreed: number;
+    awaitingApproval: number;
+    draft: number;
+    needsRevision: number;
+    /** Agreed objectives whose progress comes from measures, not a typed figure. */
+    measured: number;
+  };
+  /**
+   * The appraisers' own overall mark, weighted across them by `weightBp` over
+   * the weight that has actually come in. **Not a scored component** — it is the
+   * same judgement the competency ratings already express, and weighting one
+   * judgement twice is the defect in the incumbent's formula, not a feature.
+   */
+  appraiserMark: {
+    ratingBp: number | null;
+    submittedWeightBp: number;
+    totalWeightBp: number;
+    appraisers: number;
+  };
+  signOff: {
+    /** Null when there is no manager review at all, which is its own fact. */
+    reviewId: string | null;
+    submitted: boolean;
+    finalised: boolean;
+    finalisedAt: string | null;
+    acknowledged: boolean;
+    acknowledgedAt: string | null;
+    disputed: boolean;
+    disputedAt: string | null;
+    employeeComment: string | null;
+  };
+  /** Ratings filed under a category no component reads. Counted, never dropped. */
+  unmappedRatings: number;
+  exceptions: ApiScoreException[];
+};
+
+export type ApiScoreRegister = {
+  cycleId: string;
+  cycleName: string;
+  stage: ReviewCycleStage;
+  started: boolean;
+  /** `"snapshot"` for a frozen set, `"current"` for the company's live one. */
+  weightsFrom: "snapshot" | "current";
+  weights: { component: ScoreComponent; label: string; weightBp: number }[];
+  /** Published rather than left to be added up. 10000 for anything saved here. */
+  weightsTotalBp: number;
+  rows: ApiScoreRow[];
+  counts: {
+    people: number;
+    scored: number;
+    unscored: number;
+    withoutAgreedObjectives: number;
+    awaitingAcknowledgement: number;
+    disputed: number;
+    blockers: number;
+    warnings: number;
+  };
+};
+
+/** One person's score. The register's head fields, plus their one row. */
+export type ApiEmployeeScore = ApiScoreRow & {
+  cycleId: string;
+  cycleName: string;
+  stage: ReviewCycleStage;
+  weightsFrom: "snapshot" | "current";
+};
+
+export type ApiScoringWeights = {
+  /** Whether the company chose these or is on the shipped defaults. */
+  source: "saved" | "default";
+  rows: { component: ScoreComponent; label: string; weightBp: number }[];
+  totalBp: number;
+  /**
+   * What turning self-assessment on does to somebody's official mark, in the
+   * API's own words. It is the one weight a company should not be able to move
+   * without reading a sentence about it, so the sentence travels with the data.
+   */
+  selfAssessmentNote: string;
+};
+
+export type ApiScoringWeightsSaved = ApiScoringWeights & {
+  saved: true;
+  /** Running cycles these weights will not touch, because theirs are frozen. */
+  frozenCycles: string[];
+};
+
 /**
  * Everything peers said, with nobody's name on it.
  *
@@ -546,8 +858,12 @@ export type GoalListParams = {
   sort?: "title" | "progress" | "status" | "dueQuarter" | "createdAt" | "updatedAt";
   order?: "asc" | "desc";
   status?: GoalStatus;
+  /** Where an objective is in the agreement lifecycle. */
+  approval?: ObjectiveApproval;
+  ownerId?: string;
   parentId?: string;
   dueQuarter?: string;
+  reviewCycleId?: string;
   /** Only goals with no owner — the company-level ladder. */
   companyOnly?: boolean;
 };
@@ -563,7 +879,15 @@ export type CreateGoalBody = {
   parentId?: string;
   /** `2026-Q1`. A quarter, not a date. */
   dueQuarter?: string;
+  /** The period it will be scored in. Needed for anything that gets a mark. */
+  reviewCycleId?: string;
   status?: GoalStatus;
+  /**
+   * No `approval` field, deliberately. A client does not get to declare its own
+   * objective agreed — every one starts as a draft and moves through the
+   * lifecycle endpoints, which is the whole of what makes the trail worth
+   * anything.
+   */
 };
 
 export type UpdateGoalBody = {
@@ -572,6 +896,8 @@ export type UpdateGoalBody = {
   ownerId?: string | null;
   parentId?: string | null;
   dueQuarter?: string | null;
+  /** Refused on an agreed objective, like every other part of the target. */
+  reviewCycleId?: string | null;
   status?: GoalStatus;
   /** Only honoured while the goal has no key results. */
   progress?: number;
@@ -697,6 +1023,20 @@ export const performanceApi = {
       ...signalOf(signal),
     }),
 
+  /**
+   * The objective approval queue: what is waiting for **this** caller to agree.
+   *
+   * Narrowed by who asks — a manager's queue is their reports', `EDIT_RECORDS`
+   * widens it to the company. **Nobody's own objectives appear in their own
+   * queue**, because nobody may agree their own, so an empty queue for somebody
+   * who manages nobody is the right answer rather than a permission problem.
+   */
+  objectiveApprovals: (params: GoalListParams = {}, signal?: AbortSignal) =>
+    requestPaged<ApiGoal>("/performance/goals/approvals", {
+      query: listQuery(params),
+      ...signalOf(signal),
+    }),
+
   goal: (id: string, signal?: AbortSignal) =>
     request<ApiGoal>(`/performance/goals/${id}`, signalOf(signal)),
 
@@ -730,6 +1070,66 @@ export const performanceApi = {
   /** The reason is required: it is the only record that this was stopped. */
   cancelGoal: (id: string, reason: string) =>
     request<ApiGoalCancelled>(`/performance/goals/${id}/cancel`, {
+      method: "POST",
+      body: { reason },
+    }),
+
+  /* ---------------------------------------------- the approval lifecycle
+   *
+   * Five calls rather than one `PATCH { approval }`, matching the API. Three of
+   * them require a reason and a single state-setting endpoint cannot make a
+   * field required for three of five values without the requirement becoming
+   * advice. None of them needs a permission: the API checks the reporting line,
+   * because being somebody's manager is a fact about the org chart.
+   */
+
+  /** Send it to be agreed. Refused when it belongs to no period. */
+  submitObjective: (id: string) =>
+    request<ApiObjectiveSubmitted>(`/performance/goals/${id}/submit`, {
+      method: "POST",
+    }),
+
+  /**
+   * Agree it. **The one-way door**, the same shape as approving a payroll run.
+   *
+   * Refused for the owner, whatever permissions they hold: a self-agreed target
+   * carries no more evidence than one somebody simply wrote down. After this the
+   * target is frozen and progress still moves.
+   */
+  agreeObjective: (id: string) =>
+    request<ApiObjectiveAgreed>(`/performance/goals/${id}/agree`, {
+      method: "POST",
+    }),
+
+  /** Back for another go, with a reason. A refusal with no reason is not feedback. */
+  sendBackObjective: (id: string, reason: string) =>
+    request<ApiObjectiveSentBack>(`/performance/goals/${id}/send-back`, {
+      method: "POST",
+      body: { reason },
+    }),
+
+  /**
+   * Refuse it outright. **Terminal** — there is no route out of refused.
+   *
+   * The answer to a refused objective is a different objective, not the same one
+   * re-sent with the refusal quietly attached.
+   */
+  rejectObjective: (id: string, reason: string) =>
+    request<ApiObjectiveRejected>(`/performance/goals/${id}/reject`, {
+      method: "POST",
+      body: { reason },
+    }),
+
+  /**
+   * Reopen an agreed target so it can change, with a reason.
+   *
+   * The only way through the one-way door, and the audit entry is the point of
+   * the endpoint: who moved a target that had been agreed, when, and why. A
+   * silent post-hoc target edit is the single most common way an appraisal
+   * becomes indefensible.
+   */
+  reviseObjective: (id: string, reason: string) =>
+    request<ApiObjectiveReopened>(`/performance/goals/${id}/revise`, {
       method: "POST",
       body: { reason },
     }),
@@ -871,6 +1271,54 @@ export const performanceApi = {
       method: "POST",
     }),
 
+  /* ---------------------------------------------------------------- scoring */
+
+  /** Open to everybody: a scale you are measured against but cannot read is absurd. */
+  scoringWeights: (signal?: AbortSignal) =>
+    request<ApiScoringWeights>("/performance/scoring-weights", signalOf(signal)),
+
+  /**
+   * The **whole** set, replaced, and refused unless it makes exactly 100%.
+   *
+   * There is no endpoint that saves one weight, deliberately: it could not check
+   * a total, so the check would end up in a form and be a suggestion. That is
+   * why the incumbent needs a "Resolve Weights" button and this does not — there
+   * is never an unbalanced state to resolve.
+   */
+  setScoringWeights: (weights: Record<ScoreComponent, number>) =>
+    request<ApiScoringWeightsSaved>("/performance/scoring-weights", {
+      method: "PUT",
+      body: weights,
+    }),
+
+  /** Everybody's composite score in one cycle. `EDIT_RECORDS`, as an aggregate is. */
+  cycleScores: (
+    cycleId: string,
+    params: { departmentId?: string; exceptionsOnly?: boolean } = {},
+    signal?: AbortSignal,
+  ) =>
+    request<ApiScoreRegister>(`/performance/cycles/${cycleId}/scores`, {
+      query: {
+        departmentId: params.departmentId,
+        exceptionsOnly: params.exceptionsOnly ? "true" : undefined,
+      },
+      ...signalOf(signal),
+    }),
+
+  /**
+   * One person's, component by component, with every exclusion and its reason.
+   *
+   * The subject may read their own **once it is finalised** and not before — a
+   * working figure moves every time somebody records a rating, and showing an
+   * employee a provisional mark starts a conversation about a number nobody
+   * meant to publish. Before that the API answers 422 with that sentence.
+   */
+  employeeScore: (cycleId: string, employeeId: string, signal?: AbortSignal) =>
+    request<ApiEmployeeScore>(
+      `/performance/cycles/${cycleId}/scores/${employeeId}`,
+      signalOf(signal),
+    ),
+
   /** A manager or `EDIT_RECORDS`: nobody else knows who a person's peers are. */
   askPeers: (cycleId: string, subjectId: string, peerIds: string[]) =>
     request<{ subjectId: string; asked: number; notified: number }>(
@@ -912,6 +1360,9 @@ export const performanceApi = {
       kind?: ReviewKind;
       subjectId?: string;
       submitted?: boolean;
+      finalised?: boolean;
+      /** `true` is the HR queue: ratings somebody has to answer. */
+      disputed?: boolean;
     } = {},
     signal?: AbortSignal,
   ) =>
@@ -936,6 +1387,55 @@ export const performanceApi = {
     request<ApiReview & { submitted: true }>(`/performance/reviews/${id}/submit`, {
       method: "POST",
       body,
+    }),
+
+  /* --------------------------------------------------------------- sign-off
+   *
+   * Three writes, in order, each refusing what would leave the trail
+   * incomplete: finalise, then acknowledge **or** dispute. Without a stored
+   * acknowledgement there is no evidence the employee was ever shown their
+   * rating, and a rating nobody can prove was communicated is a liability
+   * rather than a record. Nobody else in this market has it.
+   */
+
+  /**
+   * Make a manager review the rating of record. **One-way.**
+   *
+   * Only a submitted manager review: a self-review is not a mark anybody is
+   * told, and peer feedback reaches its subject as an aggregate nobody signs.
+   * The author, the subject's manager, or `EDIT_RECORDS`.
+   */
+  finaliseReview: (id: string) =>
+    request<ApiReviewFinalised>(`/performance/reviews/${id}/finalise`, {
+      method: "POST",
+    }),
+
+  /**
+   * "I have seen this." **Not "I agree with it"** — every screen has to keep
+   * those apart, because an acknowledgement that reads as consent is worth less
+   * than nothing to a company defending a decision.
+   *
+   * The comment is optional here: somebody with nothing to add should not have
+   * to invent something. Only the person the rating is about may send it.
+   */
+  acknowledgeReview: (id: string, comment?: string) =>
+    request<ApiReviewAcknowledged>(`/performance/reviews/${id}/acknowledge`, {
+      method: "POST",
+      body: comment === undefined ? {} : { comment },
+    }),
+
+  /**
+   * A formal dispute. **The rating stands and the dispute is recorded beside
+   * it** — rewriting the mark would leave no evidence of what was decided.
+   *
+   * The comment is required, at ten characters: HR cannot answer "I disagree"
+   * with no grounds, and a dispute nobody can act on helps the employee least of
+   * all.
+   */
+  disputeReview: (id: string, comment: string) =>
+    request<ApiReviewDisputed>(`/performance/reviews/${id}/dispute`, {
+      method: "POST",
+      body: { comment },
     }),
 };
 
@@ -1013,6 +1513,20 @@ export function dayLabel(iso: string): string {
   return `${Number(day)} ${name} ${year}`;
 }
 
+/**
+ * The calendar day of a timestamp: `2026-07-02T09:15:00.000Z` as `2 Jul 2026`.
+ *
+ * The day, and deliberately no time. `dayLabel` above never puts a bare date
+ * through `new Date()`; a timestamp has the opposite problem — it is a real
+ * instant, so rendering it in the viewer's zone shows a Lagos finalisation as the
+ * previous day for anybody west of Greenwich. What a record needs is "finalised
+ * on 2 July"; the minute it happened is not a fact anybody reads off a screen, so
+ * this drops it rather than claiming a precision it is not handling.
+ */
+export function dayOf(timestamp: string): string {
+  return dayLabel(timestamp.slice(0, 10));
+}
+
 /** "2026-Q1" as "Q1 2026", which is how people say it out loud. */
 export function quarterLabel(quarter: string | null): string {
   if (!quarter) return "No quarter set";
@@ -1040,8 +1554,26 @@ export const FULL_WEIGHT_BP = 10_000;
  * and a table cell reading "90%" agree.
  */
 export function weightLabel(bp: number): string {
+  return percentOfBp(bp);
+}
+
+/** `2500` as `"25%"`, `5833` as `"58.33%"`. The one place bp becomes a percent. */
+function percentOfBp(bp: number): string {
   const whole = bp / 100;
   return `${Number.isInteger(whole) ? whole : Number(whole.toFixed(2))}%`;
+}
+
+/**
+ * A score in basis points as a percentage: `5833` as `"58.33%"`.
+ *
+ * Takes a `number`, **never `number | null`**, and the signature is the point. A
+ * component with nothing recorded against it comes back `null`, and a formatter
+ * that accepted null would have to invent a string for an absence — which is how
+ * "not rated" becomes "0%" on a screen. Every caller handles the absence itself,
+ * in words that fit what is missing on its own screen.
+ */
+export function scoreLabel(bp: number): string {
+  return percentOfBp(bp);
 }
 
 /**

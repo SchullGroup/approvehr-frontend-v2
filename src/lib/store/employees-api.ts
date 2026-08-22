@@ -11,6 +11,7 @@ import {
   type ApiEmployee,
   type EmployeeListParams,
 } from "@/lib/api/endpoints";
+import { demoDepartmentName } from "./demo-structure";
 import { useEmployeeStore } from "./employees";
 import { useSession } from "./session";
 
@@ -423,8 +424,19 @@ export function useEmployeeMutations() {
       const { departmentId, workLocationId, ...fields } = patch;
 
       if (!isConnected) {
-        /* An id means nothing to the local store, which holds display names. */
-        local.update(id, fields);
+        /* The local store holds display names, so a `departmentId` has to be
+           resolved to one before it can be written. It used to be dropped here
+           with a comment saying an id means nothing to the local store — true,
+           and the consequence was that the record page's department picker
+           looked saved and moved nobody. `demoDepartmentName` is the seam;
+           `workLocationId` still has the bug, because locations live in
+           `store/attendance.ts` and that is a different fix. */
+        local.update(id, {
+          ...fields,
+          ...(departmentId === undefined
+            ? {}
+            : { department: demoDepartmentName(departmentId) }),
+        });
         return undefined;
       }
 

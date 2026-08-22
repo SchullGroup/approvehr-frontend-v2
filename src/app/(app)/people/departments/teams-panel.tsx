@@ -61,6 +61,16 @@ import { AssignPeopleDialog } from "./assign-people-dialog";
  * `membershipEffect` is the sentence shown *before* the write. It comes from the
  * API wrapper so the dialog and the toast cannot describe the same act
  * differently.
+ *
+ * ## Demo mode used to render a refusal where this list is
+ *
+ * It did — one callout saying the teams surface could only be demonstrated
+ * against a running API, because putting somebody on a departmental team moves
+ * their department and a cost centre built in a browser reaches no payroll run.
+ * `store/teams.ts` now implements the whole surface locally, including that move
+ * and the `moved` list it reports; read its header and `store/departments.ts`'s
+ * for why the argument was right and the conclusion was wrong. The warning that
+ * replaced the refusal is rendered once, above both tabs, by the screen.
  */
 export function TeamsPanel({
   departments,
@@ -124,14 +134,6 @@ export function TeamsPanel({
       return null;
     }
   };
-
-  if (!mutations.editable) {
-    return (
-      <Callout tone="warning" title="Teams need the API">
-        {mutations.refusal}
-      </Callout>
-    );
-  }
 
   return (
     <div className="flex flex-col gap-6">

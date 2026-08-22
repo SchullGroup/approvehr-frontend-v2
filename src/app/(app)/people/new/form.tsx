@@ -54,6 +54,7 @@ import {
   type OpenGroups,
 } from "@/lib/store/employee-draft";
 import { useWorkLocations } from "@/lib/store/attendance";
+import { NO_DEPARTMENT } from "@/lib/store/demo-structure";
 import { useDepartments } from "@/lib/store/departments";
 import { NIGERIAN_BANKS } from "@/lib/reference/banks";
 import { NIGERIAN_STATES, PENSION_PROVIDERS } from "@/lib/reference/lists";
@@ -664,7 +665,11 @@ export function NewEmployeeForm() {
       jobTitle: draft.jobTitle.trim(),
       /* The local store holds display names, so the id picked above is turned
          back into the name it belongs to. */
-      department: departmentName ?? "Unassigned",
+      /* The shared placeholder, not the literal "Unassigned" this used to write.
+         One string has to mean "nobody assigned one" or the departments screen
+         counts a person as being in a department called Unassigned — see
+         `isUnassigned` in `lib/store/demo-structure.ts`. */
+      department: departmentName ?? NO_DEPARTMENT,
       managerId: draft.managerId || null,
       location: locationName ?? "Not set",
       employmentType: draft.employmentType,

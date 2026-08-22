@@ -1,4 +1,5 @@
 import { request } from "@/lib/api/client";
+import type { ApiBoard } from "@/lib/api/announcements";
 
 /**
  * The dashboard and the reports, in one request each.
@@ -43,6 +44,16 @@ export type DashboardData = {
     onLeave: number;
     unaccountedFor: number;
   };
+  /**
+   * The noticeboard, as this person may read it. Drafts never appear.
+   *
+   * Present for everybody, unlike `hiring`, `payroll` and `money` — a
+   * noticeboard needs no permission, so there is nothing to withhold. That does
+   * not make an empty board a thing to draw: `notices: []` is a true statement
+   * about the company and the panel renders **nothing** for it, because "Your
+   * Announcements Will Appear Here" is furniture, not information.
+   */
+  announcements: ApiBoard;
   hiring?: {
     candidatesInPlay: number;
     stalledSevenDays: number;
@@ -53,7 +64,17 @@ export type DashboardData = {
   payroll?: {
     period: string;
     status: string;
+    /** People with a payslip on the run. Not the headcount. */
     employeeCount: number;
+    /**
+     * People in the period deliberately left off it, with a reason recorded.
+     *
+     * Sent so this card can say "9 of 10 — 1 excluded" rather than a bare 9. It
+     * is the same absent-versus-zero discipline as the blocks above, applied to
+     * a figure that is *present* and incomplete: `employeeCount` is payslips,
+     * which answers "how many were paid" and not "is everybody here".
+     */
+    excludedCount: number;
     grossKobo: number;
     netKobo: number;
     blockers: number;

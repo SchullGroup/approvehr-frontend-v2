@@ -178,7 +178,7 @@ export function ImportScreen() {
                 max={Math.max(1, imp.progress.total)}
                 tone="accent"
               />
-              <p className="mt-2 text-[0.875rem] text-muted">
+              <p className="mt-2 text-meta text-muted">
                 Large files go up in parts. Each part reports its own numbers.
               </p>
             </CardBody>
@@ -366,10 +366,10 @@ function ChooseFile({
               >
                 <UploadCloud aria-hidden="true" />
               </span>
-              <p className="text-[0.9375rem] font-semibold text-ink">
+              <p className="text-body-sm font-semibold text-ink">
                 Drag your file here
               </p>
-              <p className="mt-1.5 max-w-sm text-[0.875rem] leading-relaxed text-muted">
+              <p className="mt-1.5 max-w-sm text-meta leading-relaxed text-muted">
                 Excel or CSV. Your headings can be called anything — you match
                 them to ours on the next step.
               </p>
@@ -393,7 +393,7 @@ function ChooseFile({
                 }}
               />
               {filename && (
-                <p className="mt-4 flex flex-wrap items-center justify-center gap-2 text-[0.875rem] text-body">
+                <p className="mt-4 flex flex-wrap items-center justify-center gap-2 text-meta text-body">
                   <FileSpreadsheet aria-hidden="true" className="size-4 text-muted" />
                   <span className="font-medium text-ink">{filename}</span>
                   <span className="text-muted">
@@ -414,13 +414,13 @@ function ChooseFile({
           <CardBody className="flex flex-col gap-4">
             <TemplateButtons onDownload={onTemplate} />
             <div>
-              <p className="text-[0.75rem] font-semibold uppercase tracking-wide text-faint">
+              <p className="text-meta font-semibold uppercase tracking-wide text-faint">
                 Required — no row imports without {required.length === 1 ? "it" : "these"}
               </p>
               <ul className="mt-2 flex flex-wrap gap-1.5">
                 {required.map((spec) => (
                   <li key={spec.field}>
-                    <code className="rounded bg-sunken px-1.5 py-0.5 text-[0.8125rem] text-body">
+                    <code className="rounded bg-sunken px-1.5 py-0.5 text-meta text-body">
                       {spec.column}
                     </code>
                   </li>
@@ -428,25 +428,25 @@ function ChooseFile({
               </ul>
             </div>
             <div>
-              <p className="text-[0.75rem] font-semibold uppercase tracking-wide text-faint">
+              <p className="text-meta font-semibold uppercase tracking-wide text-faint">
                 Recommended — imports, then appears under &ldquo;important&rdquo;
               </p>
               <ul className="mt-2 flex flex-wrap gap-1.5">
                 {recommended.map((spec) => (
                   <li key={spec.field}>
-                    <code className="rounded bg-sunken px-1.5 py-0.5 text-[0.8125rem] text-body">
+                    <code className="rounded bg-sunken px-1.5 py-0.5 text-meta text-body">
                       {spec.column}
                     </code>
                   </li>
                 ))}
               </ul>
             </div>
-            <p className="text-[0.875rem] leading-relaxed text-muted">
+            <p className="text-meta leading-relaxed text-muted">
               The other{" "}
               {EMPLOYEE_COLUMNS.length - required.length - recommended.length}{" "}
               columns are optional. A column you do not have is left out, and
               left alone on anybody we update — including{" "}
-              <code className="text-[0.8125rem]">employee_no</code>, where we
+              <code className="text-meta">employee_no</code>, where we
               match on email, or on name and date of birth, instead.
             </p>
           </CardBody>
@@ -478,15 +478,15 @@ function ChooseFile({
                     subtitle={`${batch.totalRows.toLocaleString("en-NG")} rows`}
                   />
                   <TD>
-                    <span className="text-[0.875rem] text-body">
+                    <span className="text-meta text-body">
                       {batch.summary}
                     </span>
                   </TD>
                   <TD>
-                    <span className="text-[0.875rem] text-body">{batch.by}</span>
+                    <span className="text-meta text-body">{batch.by}</span>
                   </TD>
                   <TD>
-                    <span className="flex items-center gap-1.5 text-[0.875rem] text-muted">
+                    <span className="flex items-center gap-1.5 text-meta text-muted">
                       <Clock aria-hidden="true" className="size-3.5" />
                       {new Date(batch.createdAt).toLocaleDateString("en-NG", {
                         day: "numeric",

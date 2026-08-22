@@ -140,10 +140,28 @@ Genuinely done, and good:
   `(cycle, subject, author, kind)`, and question/response plumbing with an
   audience per question.
 
-**Verify before building:** `service.ts` references a `CALIBRATION` constant
-while `enum ReviewKind` in `schema.prisma:1291` declares only `SELF`, `MANAGER`,
-`PEER`. Either it belongs to `ReviewAudience` (`schema.prisma:3101`) or it is a
-dangling value. Establish which before touching the scoring code.
+**The `CALIBRATION` discrepancy is settled: neither of the two options above.**
+It is a member of `enum ReviewCycleStage`, and `service.ts` uses it correctly —
+`STAGE_ORDER` and `STAGE_LABELS` are the cycle's own progression (DRAFT · SELF ·
+MANAGER · CALIBRATION · PUBLISHED). It has nothing to do with `ReviewKind` and
+nothing to do with `ReviewAudience`.
+
+The paragraph above was comparing a stage constant against the wrong enum, and it
+is worth recording *why* that was easy to do, because it will recur: **three**
+enums in this module share member names.
+
+| Enum | Members | Means |
+|---|---|---|
+| `ReviewCycleStage` | DRAFT · SELF · MANAGER · **CALIBRATION** · PUBLISHED | where the whole cycle has got to |
+| `ReviewKind` | SELF · MANAGER · PEER | what one review *is* |
+| `ReviewAudience` | SELF · MANAGER · PEER · REPORT | who a question is asked of |
+
+`SELF` and `MANAGER` therefore appear in all three and mean something different
+in each. The failure mode is somebody "resolving" the discrepancy by adding
+`CALIBRATION` to `ReviewKind`, which typechecks cleanly and invents a fourth kind
+of review that nothing writes and nothing reads. All three memberships are now
+pinned at runtime in `tests/performance-defensibility.test.ts`, and the reasoning
+is in a comment above `STAGE_ORDER`.
 
 ---
 
@@ -384,10 +402,81 @@ Because each step is useless without the one above it:
 Steps 1–4 are the defensibility core. Nothing after step 4 matters if a rating
 cannot be explained.
 
-## 6. Sequencing note
+## 6. Sequencing note — resolved
 
-Steps 1–3 touch `src/modules/performance/` and `prisma/schema.prisma`, which the
-in-flight multi-appraiser work also touches — it is adding per-cycle appraiser
-assignment with roles and weights. Those weights are the *manager component* of
-§4.3, so they must land first and the composite must be built on top of them,
-not beside them. Do not start step 3 until that work is merged.
+The blocker recorded here is lifted: `AppraiserAssignment` and `AppraiserRole`
+are in the schema, so the multi-appraiser weights the composite had to be built
+on top of exist.
+
+**Steps 1–4 have landed in the backend** — `Goal.reviewCycleId`, the
+`ObjectiveApproval` lifecycle, `ScoringWeight` + `ReviewCycle.scoringSnapshot`
+with the composite in `modules/performance/scoring.ts`, and the four sign-off
+columns on `Review`. Migration
+`20260821221602_performance_defensibility_core`.
+
+**Step 8 has landed for the simple path.** Three routes —
+`/performance/approvals`, `/performance/cycles/[id]`,
+`/performance/reviews/[id]` — plus the lifecycle actions on the KPI cascade and
+the employee's answer on the appraisals tab. `HANDOVER.md`'s last section is the
+detail; four things about it belong here because they change what §4.8 and §4.9
+should be read to mean.
+
+- **The route list in §4.8 is right and the reason for it needed sharpening.**
+  Each of the three is a route rather than a tab because each is arrived *at*: a
+  queue from a notification, one cycle by id, one appraisal by id. They are still
+  one route per reader — `/performance/reviews/[id]` decides its projection from
+  `review.mine`, the subject id and one permission, and says on screen which
+  reading you are getting. That last line is worth keeping: it is the cheapest
+  possible answer to the four-routes-over-one-record shape the incumbent has.
+
+- **§4.2's last bullet — "an employee with no agreed objectives in an active
+  cycle is an exception" — needed a second exception beside it, not a bigger
+  one.** No appraiser and no agreed objective are two different silent failures
+  with two different fixes, and the interface shows them as two named lists. The
+  API already returned both; only one was being rendered.
+
+- **The no-appraiser exception reaches the employee, and that is new.** §6 has it
+  as a blocker on the cycle for HR. It is also on the person's own appraisals
+  tab, read from `GET /cycles/:id/appraisers/:employeeId` — the endpoint whose
+  openness to the subject was justified as "knowing who marks you is not
+  privileged", which turns out to be exactly what makes this possible. It cannot
+  be inferred from `reviews/mine` and the reason is written down in the store: a
+  manager review is absent from `aboutMe` until it is finalised or published, so
+  an absence there is the ordinary mid-cycle state.
+
+- **One backend defect surfaced while building the acknowledge step and is
+  fixed.** `myReviews.aboutMe` filtered manager reviews to published cycles,
+  while `mayReadReview` had always opened a *finalised* one to its subject. So
+  finalising told the employee their rating was final and the screen it pointed
+  at listed nothing — the last step of the simple path was unreachable from the
+  interface. The clause is finalised **or** published now, with assertions on both
+  halves.
+
+Still not started, and each for a stated reason in `HANDOVER.md`:
+`/performance/cycles/[id]/report`, `/performance/history/[employeeId]`,
+`/settings/performance` (the weights endpoint is wrapped and unrendered), the
+question publish gate and department scoping (§4.7 — no API for either), and
+batch approve (§3.2). Nothing on those screens says "calibration" or "matrix",
+which is §4.9's actual test.
+
+One deliberate deviation from §4.3 worth knowing about before building the
+screens. Rule 5 refers to "the manager component", and the component list above
+does not have one — it has objectives plus three competency categories. Both are
+right, and the resolution is that the appraisers' overall mark is **returned but
+not scored**, as `appraiserMark`, weighted across assigned appraisers by their
+`weightBp` over the weight that has actually come in:
+
+- Scoring it as a fifth component would count one judgement twice. The manager's
+  overall rating *is* their summary of the competencies they just rated, and
+  weighting the same fact twice is the specific defect §1.1 catalogues in the
+  incumbent's formula, not a feature to copy.
+- Competency ratings cannot disagree between appraisers by construction: the
+  unique constraint on `(competencyId, employeeId, reviewCycleId)` means one
+  assessment of record per competency per cycle, so a re-rate is a correction
+  rather than a second opinion. `appraiserMark` is therefore the only figure
+  several appraisers hold different views of, which makes it the only place their
+  weights have anything to resolve.
+
+If a company wants the manager's overall mark scored, it becomes a component with
+a weight like any other — deliberately, visibly, and summing to 100 with the
+rest.

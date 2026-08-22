@@ -17,6 +17,7 @@ import {
   FileText,
   FileUp,
   FolderOpen,
+  History,
   Landmark,
   Laptop,
   LayoutDashboard,
@@ -274,6 +275,16 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       href: "/payroll/payments",
       label: "Payments",
       icon: <Landmark aria-hidden="true" />,
+      permission: "RUN_PAYROLL",
+    },
+    {
+      /* Money, not paperwork — "Payslips" above is the other half and the two
+         answer different questions. Sits under Payments because it reads that
+         module's own rows; `resolveActiveHref` picks the longest match, so a
+         batch page still lights up Payments and this only lights itself. */
+      href: "/payroll/payments/history",
+      label: "Payment history",
+      icon: <History aria-hidden="true" />,
       permission: "RUN_PAYROLL",
     },
     {

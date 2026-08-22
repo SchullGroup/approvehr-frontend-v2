@@ -6,6 +6,7 @@ import {
   Building2,
   CalendarDays,
   Landmark,
+  Megaphone,
   Plug,
   ShieldCheck,
   Timer,
@@ -81,6 +82,29 @@ const GROUPS = [
     ],
   },
   {
+    /* What the company says, as against how it is configured. The noticeboard
+       and the knowledge base are the two screens where somebody writes prose
+       that every member of staff reads, and both are governed by
+       MANAGE_SETTINGS for that reason rather than because they are settings. */
+    heading: "What you tell people",
+    items: [
+      {
+        href: "/settings/announcements",
+        title: "Noticeboard",
+        description:
+          "Notices everybody sees on their dashboard. Publish is what makes one visible; a draft appears nowhere.",
+        icon: <Megaphone aria-hidden="true" />,
+      },
+      {
+        href: "/settings/knowledge",
+        title: "Knowledge base",
+        description:
+          "Write and publish help articles, and see the searches that found nothing.",
+        icon: <BookOpen aria-hidden="true" />,
+      },
+    ],
+  },
+  {
     heading: "Connections",
     items: [
       {
@@ -96,13 +120,6 @@ const GROUPS = [
         description:
           "Accounting, biometric devices and single sign-on.",
         icon: <Plug aria-hidden="true" />,
-      },
-      {
-        href: "/settings/knowledge",
-        title: "Knowledge base",
-        description:
-          "Write and publish help articles, and see the searches that found nothing.",
-        icon: <BookOpen aria-hidden="true" />,
       },
       {
         href: "/settings/webhooks",

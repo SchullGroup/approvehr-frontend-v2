@@ -1231,7 +1231,7 @@ everywhere the rule has run; a true one is a row from before the rule or a
 department changed on the person's own record afterwards. Quietly re-aligning it
 would be moving a cost centre without being asked.
 
-### Teams have no demo mode, on purpose
+### Teams have no demo mode, on purpose — REVERSED, see the last section
 
 `lib/store/teams.ts` refuses every write offline, in the same words
 `store/departments.ts` uses, and the reason is that one rule: on a departmental
@@ -1240,6 +1240,11 @@ browser storage would never reach a payroll run. `shifts.ts` argues the opposite
 for the rota and is right, because nothing else reads the rota. The honest
 consequence, stated on screen: **the teams surface can only be demonstrated
 against a running API.**
+
+**That is no longer true and the paragraph above is kept as history.** Both
+stores now have a full local implementation. The reasoning was sound and the
+conclusion was not, for one reason: it applies to every demo write in the
+product. See "Departments and teams work in demo mode" at the end of this file.
 
 ## Multi-appraiser: a table, not a second manager column
 
@@ -1645,3 +1650,962 @@ time: **stop every dev server, re-run the file alone.** An assertion that fails
 on exact values is a bug; a 5s timeout on an untouched file is the shared
 database. `pgrep -f "src/server.ts"` before running the suite is worth the two
 seconds.
+
+---
+
+# The backend suite has its own database, and takes one run at a time
+
+The entry above got the diagnosis right and stopped one step short of the fix.
+It ends with "`pgrep -f "src/server.ts"` before running the suite is worth the
+two seconds" — which is true, and is a habit rather than a guarantee. This is the
+guarantee.
+
+## The diagnosis, stated once
+
+`approvehr-api/tests/setup.ts` deliberately shared the **development** database,
+and `vitest.config.ts` leaned on `fileParallelism: false` for safety. That
+combination reads like isolation and is not:
+
+- `fileParallelism: false` serialises test files **within one process**. That is
+  the whole of what it does. Two concurrent `vitest run` invocations, a `tsx
+  watch src/server.ts`, Prisma Studio, or a seed all write to the same tables
+  with nothing between them.
+- The comment in `vitest.config.ts` said "Integration tests share one database,
+  so they must not race each other", and the one in `tests/setup.ts` called the
+  shared database "a deliberate trade for a small team". **Both sentences were
+  read as isolation for months**, which is why nobody went looking for the real
+  cause. Two stray `tsx watch src/server.ts` processes turned out to be it.
+
+That is the expensive part of this story. The failures were real, the arithmetic
+in them was real, and one of them was a genuine cross-tenant bug (the unscoped
+count in the insights module) hiding inside noise everybody had learned to
+re-run past.
+
+## Two mechanisms, because neither closes both halves
+
+| | Closes | Cannot close |
+|---|---|---|
+| A dedicated database (`TEST_DATABASE_URL`) | everything that is not a test writing to the tests' tables | two test runs, which would both use it |
+| A Postgres session advisory lock | two test runs interleaving | a dev server, which does not take one |
+
+Both are in now.
+
+- **`approvehr-api/tests/setup.ts`** runs per *file*. It loads `.env` and copies
+  `TEST_DATABASE_URL` over `DATABASE_URL` at the process boundary. One
+  assignment, so every reader agrees: `src/config/env.ts`, the `pg` pool built
+  from it, and `tests/etl.test.ts`, which reads `process.env["DATABASE_URL"]`
+  directly to build its synthetic legacy schema **in the same database it
+  migrates into**. Resolve the URL anywhere but there and that one file would
+  quietly build fixtures in the development database while the rest of the suite
+  ran elsewhere.
+- **`approvehr-api/tests/global-setup.ts`** is new and runs once per `vitest
+  run`, in vitest's own process. It takes `pg_try_advisory_lock(0x41485221, 1)`
+  on a dedicated `pg` session and holds it for the run. A second run **queues**,
+  says on the console that it is queueing and how long it has waited, and gives
+  up after ten minutes with the pid holding the lock.
+- **`src/config/env.ts`** declares `TEST_DATABASE_URL` and asserts the copy
+  happened: `NODE_ENV=test` with `TEST_DATABASE_URL` set and `DATABASE_URL` still
+  pointing elsewhere throws. The one silent failure this design has is an import
+  order that beats `setupFiles`, and that assertion is what turns it into a
+  refusal instead of a run writing to the wrong database while every message on
+  screen says otherwise.
+- **`prisma.config.ts`** honours `PRISMA_DB=test`, which only `npm run
+  db:test:deploy` and `npm run db:test:reset` set, and **refuses** when
+  `TEST_DATABASE_URL` is unset instead of falling back. Without that refusal,
+  `db:test:reset` on a machine that had not been set up would drop every table in
+  the database somebody develops in.
+- **`.github/workflows/ci.yml`** creates `approvehr_ci_test` and migrates *that*,
+  leaving `DATABASE_URL` unmigrated. So CI exercises the dedicated-database path
+  on every run. If CI had left `TEST_DATABASE_URL` unset, the only path ever
+  proved would be the fallback — the arrangement this whole entry is about.
+
+### Why an advisory lock and not a lock file
+
+It lives in the database the runs contend over and is held exactly as long as
+the session holding it. Ctrl-C, a crash, a closed laptop: the connection drops
+and Postgres releases the lock with it. There is no stale lock file to explain to
+somebody at nine in the morning, and no cleanup that has to run on the unhappy
+exit.
+
+It polls `pg_try_advisory_lock` rather than blocking on `pg_advisory_lock`,
+deliberately. A blocking wait is indistinguishable from a hang, and misreading a
+hang is the entire history of this suite.
+
+### The lock does nothing on `prisma dev`, and every run proves it
+
+`prisma dev` — the local database this repo reaches for first — is Postgres
+compiled to wasm behind a proxy that hands **every client connection the same
+backend session**. Two connections to it both report `pg_backend_pid() = 42`.
+Advisory locks are re-entrant within a session, so a second run takes the lock
+this run is holding and walks straight through.
+
+Found by holding the lock in one process for thirty seconds and watching a
+`vitest run` sail past it. That is the same shape of mistake as
+`fileParallelism` — a mechanism that reads like isolation and is not — so it is
+**measured on every run** rather than assumed. `assertLockIsEnforceable` opens a
+second connection, tries to take the lock, and prints a warning naming the cause
+if it succeeds. On a real Postgres the probe is excluded and the check says
+nothing.
+
+So on this machine as it stands: the dedicated-database half works, the queueing
+half does not. Point `TEST_DATABASE_URL` at a real Postgres and both work. CI
+already does.
+
+### Three things found while verifying, so nobody spends the hour again
+
+- **A second `prisma dev` server does not start.** `npx prisma dev --name
+  approvehr-test --detach` writes a state file with `port`, `databasePort` and
+  `shadowDatabasePort` all 8000, binds 8000, and never publishes a database
+  port. Tried twice, with and without explicit `--db-port`. It also quietly
+  occupies port 8000, which is the API's. Use Docker; the recipe is in
+  `.env.example`.
+- **A separate *schema* is not a substitute for a separate database.** With
+  `TEST_DATABASE_URL=...?schema=approvehr_test`, `npm run db:test:deploy`
+  applies every migration and 150 tests pass — and then four files fail with
+  "The table `public.announcements` does not exist", because the generated
+  client resolves at least one model against `public` whatever the connection's
+  search path says. CI uses a separate database with `?schema=public`, and that
+  is the shape to copy.
+- **`npm run db:test:reset` needs a human.** Prisma 7 refuses `migrate reset`
+  when it detects an agent driving it and asks for consent in the user's own
+  words. That is correct behaviour and not something to route around — run it
+  yourself.
+
+## Setting it up, once
+
+```bash
+cd /Users/mac/Documents/Schulltech/approvehr-api
+npx prisma dev --name approvehr-test --detach   # any Postgres will do
+# paste the printed TCP url into .env as TEST_DATABASE_URL
+npm run db:test:deploy                          # applies the migrations
+npm test
+```
+
+Skip it and the suite still runs, against `DATABASE_URL`, behind a warning
+banner that names the consequence. A suite that refuses to run on a machine
+nobody has set up teaches people to skip the suite.
+
+## How to read a failure — the rule that saves the most time
+
+**A TIMEOUT is a flake. A failed ASSERTION is not.**
+
+- A test that times out at 5000ms, especially in a file the change never
+  touched, is contention: something else is holding rows or connections.
+  `tests/webhooks.test.ts` is the standing example — it times out at 5000ms in a
+  contended run and passes 3/3 alone.
+- A test that fails on an exact value or an exact count is a defect, and this
+  repo has already paid for treating one as noise. Chase it.
+
+First move either way is unchanged and cheap: stop every dev server, re-run the
+file alone.
+
+```bash
+pgrep -fl "src/server.ts"      # should print nothing
+npx vitest run tests/webhooks.test.ts
+```
+
+## What this does not fix
+
+- **Files inside a run still share one database.** `fileParallelism: false`
+  stays on for that reason, and its comment now says exactly that and nothing
+  more. Genuine per-file isolation would need a schema per file, which is a
+  bigger change than the flakiness currently justifies.
+- **Nothing stops a dev server pointed at `TEST_DATABASE_URL`.** Don't do that.
+- The `GET /performance/reviews/mine` intermittent 500 recorded earlier is a
+  connection-lifetime problem in a long-running dev API, not this. It should be
+  looked at on its own.
+
+## Verified
+
+- `npx tsc --noEmit` clean. ESLint clean on every file this change touches.
+  `npm run format:check` lists 16 files and none of them are from this change —
+  they are other in-flight work, including a `.claude/worktrees/` copy. Four
+  pre-existing lint errors in `src/modules/payments/service.ts` and
+  `tests/employees.test.ts` are likewise not from here.
+- **The fallback path**: with `TEST_DATABASE_URL` unset, the banner prints, the
+  lock is taken and released, and the run completes.
+- **The dedicated path**: `npm run db:test:deploy` created a virgin target and
+  applied all 15 migrations to it; `employees`, `payroll-no-attendance`, `etl`,
+  `webhooks` and `imports` came to 112 passing against it, `etl` alone 38.
+- **The override reaches the workers, which is the whole point.** Both databases
+  were watched at 150ms intervals during `tests/etl.test.ts`: its synthetic
+  `legacy_etl_*` schema appeared in the **test** database and never in the
+  development one. The development database entered and left the run with the
+  same 17 organisations and no `legacy_etl_*` schemas. Observed, not reasoned
+  about — that file reads `process.env["DATABASE_URL"]` directly and is the one
+  the single override exists for.
+- **`prisma.config.ts`**: `PRISMA_DB=test` with no `TEST_DATABASE_URL` refuses;
+  with one, `prisma validate` loads and reports the test datasource.
+- **`src/config/env.ts`**: `NODE_ENV=test` with a mismatched pair throws; a
+  matching pair loads; no `TEST_DATABASE_URL` at all loads.
+- Frontend `npm run check` green.
+
+**Not verified, and honestly cannot be here:** the queueing itself, the
+ten-minute give-up path and the holder lookup all need a Postgres that gives each
+connection its own session. There is no real Postgres and no Docker on this
+machine. CI exercises the dedicated-database path on every run; somebody with
+Docker should watch two runs queue once.
+
+---
+
+# Everybody was paid ₦0, and the arithmetic reconciled at every step
+
+This is the worst defect the codebase has carried, it is fixed, and it is the
+reason for a rule that appears in half a dozen places in this file. Recorded here
+because the rule is much easier to follow once you have read what it cost.
+
+## What happened
+
+`unpaidDaysFor` in `approvehr-api/src/modules/payroll/assemble.ts` adds an unpaid
+day whenever no `AttendanceEntry` covers a working day. Nothing asked whether the
+company records attendance **at all** — `OrgFeatures` has flags for shifts,
+loans, expenses, appraisals, departments, hiring and grades, and had none for
+attendance, so the deduction was unconditional.
+
+So for any company that had not adopted clock-in — the default state, and the
+likely state of most of the small businesses this product is aimed at — every
+working day in the period counted as unpaid. `engine.ts` computes
+`paidDays = workingDays - unpaidDays`, which came to zero, and prorated the
+contract to nothing. Measured on the fixture: 21 unpaid days out of 21 working
+days for August 2026.
+
+**Every employee of every company not using clock-in was paid ₦0.**
+
+## Why nothing caught it
+
+Because every figure was internally consistent. Gross prorated to zero, PAYE on
+zero was zero, pension on zero was zero, net was zero, and the run's totals
+matched the sum of the payslips exactly. `reconcile.ts` — the gate written
+precisely to refuse impossible arithmetic — had nothing to object to. Zero is a
+number, and a wrong number that reconciles is invisible to every check that only
+asks whether the sums agree.
+
+## The fix
+
+`organizationUsesAttendance(db, periodStart, periodEnd)` asks the **organisation
+-level** question once per run, threaded through `assembleFor` from `prepare` so
+a 200-person run asks once rather than 200 times. `unpaidDaysFor` returns 0 when
+attendance is not in use, and works the answer out itself when the caller omits
+the flag.
+
+The narrow case the guard deliberately leaves alone: a company that *does* clock
+in, where one person has nothing against their name. A director exempt from
+clocking and somebody who never came in are indistinguishable there, so `prepare`
+raises a WARNING (`no_attendance_all_period`) naming the person instead of
+guessing.
+
+`tests/payroll-no-attendance.test.ts` is six assertions shaped as claim, cause
+and boundary — including one that **bypasses the guard and reproduces the bug**,
+so the first assertion cannot silently stop proving anything.
+
+## The rule this is the reason for
+
+> **Permission-gated and feature-gated data arrives ABSENT, not zeroed. Check
+> presence, never falsiness.**
+
+"No attendance rows" and "attendance rows showing nobody came in" are opposite
+facts. Reading the first as the second moved money. Every instance of the rule
+elsewhere in this file — the frontend's `weightedRating` being `null` rather than 0
+while appraisers have not answered, `ApiReviewDetail.appraiser` being **absent**
+rather than "line manager, 0%", `Employee.annualRent` distinguishing `null` from
+`0` — is the same rule, applied where it costs nothing, by people who had seen
+what it cost here.
+
+Rendering 0 where nothing belongs is not a cosmetic slip. It is a wrong claim,
+and on a payslip it is a wrong claim somebody is owed money over.
+
+---
+
+# Departments and teams work in demo mode
+
+Two decisions recorded above are reversed here, deliberately, and this section is
+the "why" the last one asked for.
+
+## What was refused, and the argument for refusing it
+
+`lib/store/departments.ts` refused every write with no API. `lib/store/teams.ts`
+refused outright and `/people/departments` rendered "Read-only in demo mode" with
+no buttons on one tab and "Teams need the API" where the list should be on the
+other. The argument, in both files:
+
+> A department is a payroll reporting boundary — a cost centre, a roll-up, the
+> unit a head is responsible for. A tree built in browser storage would never
+> reach a real payroll run, so building one teaches the wrong model.
+
+Every clause of that is true.
+
+## Why it was still the wrong conclusion
+
+**It applies to every demo write there is.** A demo leave approval never moves a
+real balance. A demo employee never appears on a real payslip. A demo rota never
+prorates a real run. Employees, leave, attendance, shifts, holidays, overtime and
+the rest all write locally, say so on screen, and are the product being
+demonstrated. Departments was the outlier — and demo mode is the mode everybody
+opens first, so the feature did not read as deliberately withheld. It read as
+missing.
+
+So the warning stays and the refusal goes. `DEMO_STRUCTURE_NOTE` in
+`lib/store/demo-structure.ts` is the warning, written once and rendered above
+both tabs, and it says the one thing that is actually true: local structure never
+reaches a payroll run.
+
+**Other store headers cite `store/departments.ts` as the precedent for refusing a
+demo write** — `grades`, `assets`, `conduct`, `loans`, `reimbursements`,
+`careers`, `documents`, `helpdesk`, `knowledge`, `offboarding`, `performance`,
+`permissions`. Those citations are now stale in their *conclusion* and still
+sound in their *reasoning*: each is a separate judgement about whether local data
+would contradict something else the demo shows. **None of them was revisited.**
+
+## Membership is `Employee.department`, not a second table
+
+The one design decision worth not re-deciding. Connected, a person's department
+is `Employee.departmentId` — one column, and every payroll report reads it.
+Offline, `Employee` carries the department **name** and nothing else, and that
+name is what the directory, the record page, the payslip header and `/reports`
+all render.
+
+So `lib/store/demo-structure.ts` holds only the *structure* — nodes, nesting,
+heads, cost centres, teams, memberships — and **who is in a department is the
+name on the person**. Headcount and payroll are derived from the live employee
+store on every read, never stored. A second copy of "who is in Engineering" is a
+second answer, and the demo would then disagree with its own directory about a
+cost centre. That is the `runPeopleFrom` lesson from earlier in this file, one
+module along.
+
+Two consequences that follow and are commented where they happen:
+
+- **Renaming a department rewrites the name on everybody in it.** It has to: in
+  this mode the name is the pointer. Connected a rename moves nobody, because the
+  id does not change. Not rewriting would empty the department and show the
+  rename as a mass unassign.
+- **Duplicate names are refused case-insensitively.** The API compares exactly
+  (Postgres default collation); here the name is the identity, so "engineering"
+  and "Engineering" would split one department into two.
+
+## The one rule still holds, and demo enforces it the same way
+
+A team that belongs to a department implies its members are in that department,
+enforced by **moving people** rather than refusing them, and reported as a list
+of names. `pendingAlignment` is the pure half — it computes who would move — and
+the writes in `store/teams.ts` perform it against the employee store and return
+`moved`, so the toast names the people whose department changed exactly as it does
+connected. `departmentMismatch` is surfaced, never repaired. Taking somebody off
+a team still leaves their department alone.
+
+Every refusal is the API's own, sentence for sentence, from
+`approvehr-api/src/modules/{departments,teams}/service.ts` — including the two
+that name the people blocking an archive. The only wording changed is the API's
+stale "team" for a nested department, which the demo calls a sub-department
+because that is what the screen has called it since the teams build. **The
+backend strings are still stale** and were left alone; see below.
+
+## Three fixes that came with it
+
+- **Archiving was one-way from the interface, in both modes.** The screen fetched
+  `useDepartments()` with `includeArchived` defaulting to false, so an archived
+  unit vanished the moment it was archived and the Restore button on its row could
+  never render. It is `useDepartments(true)` now, with archived units in their own
+  card — the shape the Teams tab already used. The row's `opacity-60` for an
+  archived node went with it: it had never rendered, and dimming 5.9:1 text to
+  about 3.5:1 would have broken the contrast promise the palette work made.
+- **The screen had no permission gate at all**, while the API needs
+  `MANAGE_SETTINGS` to change the structure and `EDIT_RECORDS` to move people into
+  it. It offered an office manager buttons the API would refuse. Same split as the
+  Teams tab now.
+- **The record page's department picker did nothing in demo mode.**
+  `useEmployeeMutations().update` destructured `departmentId` out and dropped it
+  with a comment saying an id means nothing to the local store — true, and the
+  consequence was an edit that looked saved and moved nobody. `demoDepartmentName`
+  is the seam. **`workLocationId` still has the identical bug**: locations live in
+  `store/attendance.ts`, which is a different store and a different fix.
+- **One placeholder, not three.** `/people/new` wrote the literal `"Unassigned"`
+  as the department of a person created without one, so the assign dialog said
+  "Now in Unassigned" and the count read them as assigned. It writes
+  `NO_DEPARTMENT` now, and `isUnassigned` accepts all three so an existing demo
+  browser still counts its own people correctly.
+
+## Verified
+
+`npx tsc --noEmit` and `eslint` clean over every file touched.
+
+In the browser, in demo mode, signed in as the seeded owner: the demo badge and
+the note; create refused on a duplicate name; create; a sub-department inside it;
+`Assign people` moving two people and the Unassigned stat falling to 0 with the
+monthly figure landing on ₦1m for two ₦500,000 salaries; a rename carrying both
+people with it and the head resolving to a name; archive refused naming the two
+people in it; archive refused on the parent of a live sub-department; archive of
+the empty leaf, its Archived card, and Restore putting it back under its parent.
+
+On the Teams tab: the seeded teams with the cross-functional badge, 6 distinct
+people on a team counted once across two teams, the drawer's members and monthly
+cost, `membershipEffect` shown before the write, adding two people from Finance
+and Operations and the toast naming both moves, a create refused on a duplicate
+name, a create into the new department, moving a team from cross-functional to
+Finance with the "This moves people" warning and a toast naming all three moves,
+`departmentMismatch` surfacing for the two people that left, "Take off" leaving a
+department alone, and archive refused naming three of five members.
+
+Then the record page's department picker saving in demo mode, which it did not
+before.
+
+**Not exercised:** connected mode. No API was running, and none of this changes
+the connected path beyond `useDepartments(true)` and the permission gates. The
+demo refusals were written against the service source rather than a live server.
+
+## Deliberately not done
+
+- **The backend's stale "team" wording.** `modules/departments/service.ts` still
+  says "inside one of its own teams" and "still has N teams inside it" for nested
+  departments. The demo says sub-department. Fixing the backend means touching
+  `tests/departments.test.ts` and was out of scope for a frontend change.
+- **`workLocationId` in the demo employee update.** See above.
+- **The other twelve stores that cite the old refusal.** Each needs its own
+  judgement, not a find-and-replace.
+
+---
+
+# A payroll can go out with somebody left off it
+
+`missing_bank_account` was a BLOCKER, and it should be — you cannot pay somebody
+without somewhere to pay them. What was wrong is what that blocker held: **one
+incomplete record stopped every other salary in the company.** Three hundred
+people wait because Grace has not sent her account number in.
+
+## The fix is a table, not a filter
+
+`PayrollExclusion` — run, employee, reason, who decided, when. Migration
+`20260821225244_payroll_exclusions`, plus `excludedCount` on `PayrollRun`.
+
+A client-side filter would have let the run go out just as well and left nothing
+behind, and the question a year later is not "who was on the August run" — it is
+**"why was Grace not paid in August?"**. The only acceptable answer is a row with
+a name, a reason, a person and a date on it. That is the whole feature; the rest
+is plumbing.
+
+Three properties, each a rule rather than an accident, each with its own test:
+
+1. **The default is safe.** Nothing infers an exclusion from an incomplete
+   record. Doing nothing leaves the blocker exactly where it was and approval
+   stays refused, naming the person.
+2. **Only an explicit decision downgrades it**, and it becomes an
+   `excluded_from_payroll` WARNING carrying the reason, the decider and the date
+   — never a silent omission.
+3. **It expires with the period.** Exclusions hang off the run, so preparing the
+   next month starts with none and the blocker returns by itself. An exclusion
+   that outlived its period would be a person quietly unpaid for months, which is
+   the failure this table exists to prevent, not to automate.
+
+`prepare` deletes payslips and exceptions wholesale and **does not touch
+exclusions** — if it did, excluding somebody and pressing Calculate again would
+resurrect the blocker and the loop would never terminate. That is the case worth
+keeping if you ever refactor `prepare`.
+
+## Excluding rebuilds the period, and that is not laziness
+
+`POST /payroll/runs/:id/exclusions` writes the row and then calls `prepare`.
+A run is a function of the directory *and* this run's exclusions, so recording
+the exclusion and leaving the payslips alone would produce a screen showing a
+payslip for somebody the same screen says is not being paid. Rebuilding is free:
+preparing settles nothing, by design, and that is exactly what makes it safe to
+call from here. `DELETE …/exclusions/:employeeId` is the way back, and whatever
+blocked the person returns with them if it was never fixed.
+
+`RUN_PAYROLL`, not `APPROVE_PAYROLL`: excluding somebody is part of working a
+period up rather than releasing it, and the clerk who reads the exceptions is the
+person who knows Grace resigned on the 12th. Asserted over HTTP rather than
+assumed.
+
+## Honest counts, in one helper instead of five sentences
+
+`employeeCount` is **payslips**. It is the right answer to "how many were paid"
+and a wrong claim under a label like *People*, and a bare 9 where ten people work
+is the same class of statement as a zero standing in for an absent figure.
+
+`headcountLabel` / `payslipCountLabel` / `excludedNote` in `lib/api/payroll.ts`
+are the only places that sentence is written. `headcountLabel` is for a `Stat` or
+a `Badge` where the label carries the noun; `payslipCountLabel` puts the noun
+next to its number, because appending one to the other helper produces "9 of 10 —
+1 excluded payslips", which reads as though one payslip was excluded. That was a
+real bug, caught in the browser and not by `tsc`.
+
+Applied to the run wizard (all four steps), the payroll home stat and the runs
+table, the payslip index, the totals panel, the approval consequences, and the
+dashboard card.
+
+## Demo mode does the whole loop, on purpose
+
+`store/departments.ts` refuses every write offline; `store/shifts.ts` allows
+them. An exclusion is the shifts case: it is one run's decision about one person,
+it lives in the same persisted record as the run, and nothing outside
+`store/payroll.ts` reads it. So the demo shows blocker → exclude with a reason →
+recalculate → approve, which is the loop the feature exists for and the thing a
+buyer needs to watch happen. The persisted payload is at version 2.
+
+## Two bugs found on the way, both fixed, neither mine
+
+- **`prepare` could not finish.** It awaited `exitExceptionsFor(db, …)` and
+  `pendingIn(db, …)` from inside its `$transaction` — on the outer client, so
+  they never saw the transaction's writes and gained nothing from being in there.
+  What they did do is hold an interactive transaction open across two more round
+  trips against Prisma's **5 second** default, in a body that already writes two
+  rows per employee. It failed on a company of *three* on this machine, on the
+  last statement, after every payslip had been written and rolled back. Hoisted,
+  and the transaction now carries an explicit `timeout`. Preparing a three-person
+  payroll went from a timeout to 400ms.
+
+- **`insights` read two unscoped models by period alone.** `Payslip` and
+  `PayrollException` carry no `organizationId` — they hang off `PayrollRun`, which
+  is scoped — so `where: { payrollRun: { period: start } }` filtered on the period
+  and nothing else. `GET /insights/reports` returned **every ApproveHR customer's
+  payslips for the month**, and reported their gross and net by department to
+  anybody here holding `VIEW_SALARIES`; the dashboard's blocker and warning counts
+  had the same hole. Both now start at a scoped `payrollRun.findFirst` and read by
+  `run.id`. `tests/insights.test.ts` had a case failing on exactly this and it read
+  like flakiness — it is in `tests/tenant-isolation.test.ts` now, with the hole
+  asserted beside the door so nobody closes the wrong one.
+
+## Verified
+
+Backend: `npx vitest run` over the fourteen payroll-, insights-, tenancy- and
+audit-adjacent files — **410 passing**, including `tests/payroll-exclusions.test.ts`
+(26: the blocker holding the run, the reason being required, the downgrade to a
+recorded warning, no payslip rather than a zero one, the counts adding up, the
+exclusion surviving a rebuild, September starting clean, an approved run refusing
+to change who was on it, putting somebody back, and six cases over HTTP) and four
+new tenant-isolation cases.
+
+Frontend: `npm run check` green, `npm run build` green at 79 routes and 112
+prerendered pages.
+
+In the browser, **demo mode**: the blocker naming Grace Effiong and offering both
+"Add account number" and "Exclude from this payroll"; the dialog refusing an empty
+reason; the exclusion dropping gross from ₦12,500,000 to ₦11,650,000 and the
+header to "9 of 10 payslips — 1 excluded"; the blocker becoming a warning quoting
+the reason, the decider and the date; "Not on this payroll" under the payslip
+table; the approve step and its confirm dialog both naming the excluded person;
+the payroll home, the runs table and the payslip index all reading "9 of 10 — 1
+excluded"; **Calculate again keeping the exclusion**; September coming back with
+ten payslips and Grace's blocker; and "Put back on this payroll" restoring both
+the payslip and the blocker.
+
+**Not exercised:** connected mode. No API was running on this machine — the wire
+shapes are covered by the six HTTP cases in `tests/payroll-exclusions.test.ts`
+instead. The dashboard card's excluded line was not seen rendered, because the
+demo dashboard sends `payroll: null` by design; its type and copy are in place.
+
+## Deliberately not done
+
+- **`exit_final_pay` still says "this is their last payslip"** for a leaver who
+  has been excluded, where there is no payslip. Both rows appear together and the
+  exclusion row says plainly that there is none, so a reader is not misled — and
+  filtering another module's exceptions from here would widen the blast radius of
+  a payroll change for a sentence. Worth a look next time `offboarding` is open.
+- **No "put back" from the payroll home.** That screen renders the exception list
+  read-only and does not pass `actionFor`, on purpose: it is a place you look at a
+  run, and the write belongs where the run is being worked on.
+- **Exclusions are not carried into `/payroll/payments`.** A batch is built from
+  payslips, and somebody with no payslip cannot be in one, so nothing there needs
+  to know. If a future screen totals a batch against a headcount, it will.
+
+---
+
+# The performance screens, and where an employee finds out nobody is marking them
+
+`PERFORMANCE.md` §5 step 8. Steps 1–4 — the defensibility core — landed in the
+backend last session with no interface on them at all: the objective approval
+lifecycle, the composite score, and the four sign-off columns on `Review` existed
+and nothing in the product could reach any of them. This is that interface, plus
+one backend fix the interface could not be built honestly without.
+
+## Three routes, and why each is a route rather than a tab
+
+| Route | Why not a tab |
+|---|---|
+| `/performance/approvals` | it is a **queue**: somebody arrives from a notification with one job and leaves. A tab puts it behind a screen about something else, and a notification link lands on KPIs |
+| `/performance/cycles/[id]` | one cycle at a time, and the id is the thing being looked at |
+| `/performance/reviews/[id]` | one appraisal, and the record has to be linkable — from a notification, from the cycle register, from a task list |
+
+All three are **one route per reader**, narrowed by the API rather than the URL.
+The incumbent ships `self-appraisal`, `manager-appraisal`, `manager-view` and
+`hr-view` over the same record; `reviews/[id]` decides from `review.mine`, the
+subject id and one permission, and says on screen which reading you are getting.
+Four endpoints differing only in a `where` clause are four places for a
+permission bug to hide — PARITY.md Rule 1, one level below a module.
+
+## The backend bug the acknowledge step could not be built on
+
+`myReviews.aboutMe` filtered manager reviews to **published cycles only**.
+`mayReadReview` has always opened a *finalised* manager review to its subject
+whether or not the cycle is published, because asking somebody to acknowledge a
+rating they are not allowed to read would be absurd — and the list did not match
+the guard. So `finaliseReview` sent the employee a notification saying their
+rating was final, and the screen it pointed at listed nothing. The rating was
+reachable by id and invisible in the list.
+
+The clause is finalised **or** published now, matching `mayReadReview` clause for
+clause, with two assertions in `tests/performance-defensibility.test.ts`: the
+finalised rating appears, and an unfinalised one in the same unpublished cycle
+still does not. If that guard changes, change the list with it.
+
+This is the same shape of defect as the payroll figures and the zero-pay bug: not
+wrong arithmetic, but a screen that could not show the fact somebody had to act
+on. Nothing in `tsc`, lint or the existing 70 assertions could see it, because
+each half was correct on its own.
+
+## An employee with no appraiser finds out from their own screen
+
+The requirement is that this surfaces as an exception rather than as silence, and
+it now does in three places, each reading a different door:
+
+1. **At activation** — `withoutAppraiser` and `withoutAgreedObjectives`, by name,
+   as two separate dismissible callouts on the appraisals tab. Two, not one,
+   because the fixes are different: one needs an appraiser, the other needs an
+   objective agreed. Both were already returned by the API and only the first was
+   being rendered.
+2. **On the cycle screen, persistently** — the appraiser map read with
+   `exceptionsOnly`, above the table, in the payroll run's blocker shape. Not
+   only at activation: a mapping can be emptied afterwards, and an exception that
+   only appears once is an exception nobody catches the second time.
+3. **On the employee's own appraisals tab** — `useMyAppraisers`, which asks
+   `GET /cycles/:id/appraisers/:employeeId`. That endpoint is deliberately open
+   to the subject ("knowing who marks you is not privileged"), and it is the only
+   honest source for this on that screen.
+
+**Do not try to infer it from `myReviews`.** A manager review is absent from
+`aboutMe` until it is finalised or the cycle is published, so an absence there is
+the ordinary mid-cycle state for almost everybody. Reading it as "nobody is
+appraising you" would be a wrong claim in the common case — the same class of
+error as reading "no attendance rows" as "nobody came in".
+
+The mapping *interface* stays behind `multiAppraiser`, off by default and never
+asked about by the wizard. **The exception is behind no flag**, and must not be:
+the company that never opens the mapping screen is exactly the company that will
+finish a period with somebody unmarked.
+
+## Absent is absent, in five specific places
+
+The rule costs nothing to state and everything to get wrong, so here is where it
+lands in this change:
+
+- A **component with no data** renders "Nothing recorded" and the API's own
+  reason, never 0%. `scoreLabel(bp: number)` takes a non-null number *in its
+  signature*, so the compiler asks every caller what it wants to say about an
+  absence instead of letting one fall through as zero.
+- A **person with no mark** renders "No mark" in the register, never 0%.
+- **`rating: null`** renders "None given" — a form the author chose not to put a
+  number on is not a form scored nought.
+- **`review.appraiser` absent** still renders no strip at all, which was already
+  true and is now true in two surfaces instead of one.
+- **`acknowledged: false`** is not "they disagreed". Three separate booleans,
+  three separate badges, and the third state — nobody has asked them yet — is the
+  common one.
+
+## The two axes on a KPI card
+
+`status` is how it is going. `approval` is whether anybody agreed to it. A KPI
+can be **agreed and off track at once**, which is ordinary rather than an edge
+case, so both badges are on the card and neither is derived from the other.
+
+An agreed target is frozen: the title, the period, every measure's target, and no
+new measure — because adding one changes what delivering the objective means. The
+API refuses all four; the screen stops offering them and says why in a sentence
+above the buttons, because a button that returns "that is refused" was a design
+failure two clicks earlier. Reopening is the one way through and it takes a
+reason.
+
+## What demo mode does now, and the reversal in it
+
+The approval loop and the employee's answer are **demo writes**. That reverses
+the store's own rule that a write about somebody else is refused offline, and
+agreeing another person's objective is plainly one of those.
+
+It is allowed anyway for one reason: the approval loop **is** the product. Three
+goals, one manager agrees, rate once, the employee acknowledges. A demo that can
+show every screen of that path and not the click in the middle of it demonstrates
+a form rather than a workflow — the same argument that put the payroll exclusion
+loop into demo mode. Every refusal the API makes, the demo makes too, in the
+API's own words: nobody agrees their own, a send-back and a refusal carry a
+reason, a refusal is terminal, and reopening counts the revision.
+
+Two things stay refused, and the reasons are different:
+
+- **Finalising somebody's rating** is the one-way door that decides what a person
+  is told their mark is. It belongs with their record.
+- **A cycle's register** is an aggregate over everybody, the read
+  `useAppraiserMap` already refuses offline, and one assembled in a browser would
+  describe a cycle nothing else in the demo is running. The cycle screen renders
+  the cycle's own head and that refusal, rather than a register it would have to
+  invent.
+
+The persisted payload is at **version 2** — `approvals` and `signOff` arrived
+with this change, and a version 1 payload is dropped rather than left to render
+`undefined.approval`.
+
+### One demo-data fix that came out of it
+
+`demoMyReviews` fabricated a manager review for **anybody**, including somebody
+with nobody above them. `Review.authorId` is not nullable, so that state cannot
+exist connected — and it made the demo contradict the rule this whole change is
+about: a person with no appraiser has no manager review, which is an exception to
+surface rather than a form to invent. It now returns none for them, and
+`demoReviewDetail` refuses the same id so a link cannot reach a form the list
+says does not exist. Signed in as Tunde (`p-02`, who has no manager) the demo now
+shows the no-appraiser callout instead of a review from nobody.
+
+## `review-parts.tsx` exists so two surfaces cannot drift
+
+The modal answers a form; the page is the record of a rating. Both need to render
+a question and a read-back answer, and a second copy of that drifts until one of
+them renders a question the form has stopped asking, or renders an unanswered one
+as blank rather than as unanswered. So the question, the 1–5 scale in words, the
+appraiser strip and the draft helpers live in one module that neither surface
+owns. The page reads the form and **opens the modal** to answer it rather than
+growing its own answering path.
+
+## Verified
+
+Frontend: `npm run check` green (typecheck, lint, titles, contrast, payroll, CSV,
+template, loans). `npm run build` green at **82 routes**, up from 79 — the three
+new ones, with `/performance/approvals` prerendered and both `[id]` routes on
+demand.
+
+Backend: `npx tsc --noEmit` clean. `npx vitest run
+tests/performance-defensibility.test.ts tests/performance.test.ts
+tests/appraiser-mapping.test.ts` — **151 passing**, including the two new
+`reviews/mine` assertions. `tests/tenant-isolation.test.ts tests/setup.test.ts` —
+45 passing. One run of the defensibility file timed out at 5000ms on
+`the approval queue…never shows somebody their own` and passed on a clean re-run:
+a timeout, which this file's own rule says is contention rather than a defect.
+
+In the browser, **demo mode**, signed in as the seeded owner and then as Amara:
+
+- the KPI cascade with both badges on every card, the sent-back objective showing
+  its reason, the freeze sentence on the agreed ones, and "Not everything here
+  can be scored yet" counting 2 waiting and 1 unsent
+- the approval queue with the caller's **own** waiting objective absent from it,
+  and the agree confirmation naming the person and the period
+- agree → the queue empties to "Nothing waiting", and the KPI callout drops from
+  2 waiting to 1. Propagation proved across two screens
+- send back with a reason → the queue drops to one row, and the KPI card shows
+  "Sent back" with the reason on it and a "Send it again" button
+- send it again → back to waiting, and back in somebody else's queue
+- the dispute dialog refusing nine characters with the API's floor, then
+  recording the dispute: the mark stays at 4 out of 5, the badge and the card
+  appear, and the appraisals tab drops "Ratings needing your answer" to 0
+- acknowledge with no comment → "They added nothing, which they were not obliged
+  to"
+- the review record's projection line, the score panel rendering the demo
+  refusal rather than a blank or a zero, and "Not answered" on both unanswered
+  questions
+- the cycle screen rendering the cycle head from the demo and the register
+  refusal
+- the no-appraiser callout for `p-02` and **no false positive** for `p-06`, who
+  has a manager
+
+**Not exercised: connected mode.** No API was running on this machine. Every wire
+shape is covered by the backend tests above, and the two new assertions were
+written against the endpoint the acknowledge step reads. Somebody with a running
+API should walk the finalise button once — it is the one control in this change
+that demo mode refuses outright, so it has never rendered against a real 200.
+
+## Deliberately not done
+
+- **`/performance/cycles/[id]/report` and `/performance/history/[employeeId]`.**
+  §4.8 lists both; they are §5 steps 6 and 9, not step 8. The register on the
+  cycle screen is the read a cycle owner needs to *finish* a cycle; a distribution
+  and a trend across cycles are a different question and a different screen, and
+  building a thin version of each now would be two screens to replace.
+- **`/settings/performance`.** The weights endpoint is wrapped
+  (`scoringWeights` / `setScoringWeights`) and nothing renders it. Weighted
+  components are one of the §4.8 toggles and the five-person company must never
+  see them; the panel belongs with the other feature-gated settings, and it needs
+  the whole-set-at-once form the API's refusal implies rather than five inputs.
+- **A `weightedScoring` / `calibration` / `perDepartmentQuestions` flag.**
+  `OrgFeatures` has `appraisals` and `multiAppraiser` and no others for this, and
+  adding three columns is a migration plus a setup-wizard decision, not a
+  frontend change. The word "calibration" appears nowhere in these screens, which
+  is what §4.9 actually asks for.
+- **Per-department questions and the question publish gate** (§4.7). No API for
+  either yet — `addQuestion` has no `departmentId` and `ReviewQuestion` has no
+  `publishedAt`. Building the interface first would be a form that cannot save.
+- **Batch approve on the queue.** §3.2 wants it at 200 reviews and the endpoint
+  does not exist. Worth noting that a batch *agree* is in tension with the whole
+  point of the queue: the guard on agreeing a target is reading the target, which
+  is why the measures are on the card rather than behind it.
+- **Wording the no-appraiser message in the second person** on the employee's own
+  screen. It arrives as "Nobody is appraising Tunde Bakare", which is the API's
+  own sentence; the callout title supplies the "you". Paraphrasing a server
+  message so it reads better locally is how the two stop agreeing.
+
+---
+
+# The verification pass over eight agents, and four things it found
+
+Eight agents built in parallel — announcements, exclusions, the performance
+defensibility screens, the test-isolation work, departments in demo mode, the
+importer/ETL split, payment history, the wizard. This section is what verifying
+all of it together turned up. Nothing here is a disagreement with those
+decisions; each one is something that only shows up when you look across all of
+them at once, or that no gate was watching.
+
+## The type scale had already regressed, and nothing was watching
+
+`globals.css` states the rule plainly: `--text-meta` (14px) is the floor, and
+"Nothing in the app renders smaller than 14px." That sentence had stopped being
+true. The four `people/import/*` screens carried **sixteen** sizes below it —
+seven at 12px, eight at 13px, one `text-sm` — all written as arbitrary values
+(`text-[0.75rem]`), which is the form that survives review because no reviewer
+reading a class list recognises `0.8125rem` as a number.
+
+The importer is the wrong screen to lose this on. It is a dense table of things
+wrong with a spreadsheet, read by the owner-manager of a Nigerian SME doing their
+own payroll — a reader who is frequently over fifty, where presbyopia is
+near-universal. Small *and* consequential is the combination the scale exists to
+prevent.
+
+Fixed to the tokens, and **`npm run verify-typescale` now gates it**
+(`scripts/verify-typescale.ts`, wired into `npm run check`). It bans arbitrary
+font sizes below 14px in any unit, plus `text-xs`. Arbitrary sizes *above* the
+floor are left alone: the marketing site uses a few display sizes deliberately,
+and this check is about the floor rather than about tokenising the repo. Tamper-
+tested both ways — reintroducing `text-[0.75rem]` and `text-xs` each fail it, and
+removing them passes.
+
+### `text-body` is a COLOUR, not a size — this is a trap
+
+Worth knowing before you write `text-body` expecting 16px. `globals.css` defines
+both `--color-body: #4a5a68` and `--text-body: 1rem`, they collide on the same
+utility name, and **Tailwind v4 resolves it in favour of the colour**. Confirmed
+against the built CSS:
+
+```
+.text-body     { color: var(--color-body) }          ← what you get
+.text-body-sm  { font-size: var(--text-body-sm) }    ← the others are sizes
+.text-meta     { font-size: var(--text-meta) }
+```
+
+So `--text-body` generates no utility at all. Nothing is visibly broken, because
+all 416 uses are as a colour and `body` already inherits 16px from the browser —
+but the 16px baseline token is unreachable by name, and a future author writing
+`text-body` for a size will silently get no size. Left as-is deliberately:
+churning 416 call sites in a verification pass is the wrong trade. The
+`verify-typescale` failure message says this, which is where somebody will
+actually read it.
+
+## The demo emitted a payroll exception code the API has never sent
+
+`store/payroll.ts` raised `"leaver"` for somebody whose end date falls in the
+period. Wrong twice over:
+
+1. It is a word this product does not use. The vocabulary is **exit**.
+2. **No API code has ever been called that.** `exitExceptionsFor` emits
+   `exit_final_pay` for exactly this case (`lastWorkingDay >= periodStart`, which
+   is what `leftThisPeriod` means). The function's own header promises "the codes
+   match so a fix link resolves the same way", and this one did not.
+
+It survived because `fixFor` has a `default` arm returning "Open record", so the
+button looked right while switching on a string the connected product never
+sends — the failure mode a `default` arm is for and also hides. Now
+`exit_final_pay`, with the API's own sentence about there being no next month to
+correct the figure in.
+
+## Two honesty gaps in places a headcount appears
+
+The exclusion work applied `headcountLabel` thoroughly, and two spots were
+outside its sweep:
+
+- **The payment batch modal** rendered a bare `employeeCount` under a label
+  reading **People** — the exact "9 where ten people work" claim the helper
+  exists to stop. `ApiPayableRun` now carries `excludedCount` (already on the
+  wire; `payroll.list` returns whole rows) and the modal uses `headcountLabel` +
+  `excludedNote`. Nothing about what gets paid changes — a batch cannot contain
+  somebody with no payslip — only whether the sentence beside it is true.
+- **The run wizard's "already prepared" callout** read *"It has 9 of 10 payslips
+  — 1 excluded and is approved."* The em-dash clause captures the trailing verb,
+  so it parses as though the *exclusion* had been approved. Two sentences now.
+
+## The backend gate was red on committed code
+
+`npx tsc --noEmit && npx vitest run` was green, which is what the previous
+sessions checked. `npm run check` — which is what **CI** runs, as four separate
+steps — was not:
+
+- **4 lint errors**, all in already-committed code: an unnecessary `month!` in
+  `payments/service.ts` (`Date.UTC` declares `monthIndex` optional, so it already
+  accepts `number | undefined`), and three `async` test callbacks with no `await`
+  in `employees.test.ts`.
+- **`format:check` failed on 15 files**, four of which were committed unformatted.
+
+Three of those fifteen belonged to **a linked git worktree** at
+`.claude/worktrees/sharp-leavitt-a4221a`, parked on `1504fe4`. `.git/info/exclude`
+keeps it out of git's view, but that file is local and uncommitted, so every other
+tool in the repo walks straight into it. `.claude` is in `.prettierignore` now.
+The worktree itself is left alone — it may hold somebody's work — but it is worth
+removing with `git worktree remove` once you know it does not.
+
+**Run `npm run check` in the API repo, not `tsc && vitest`.** That is the gate CI
+enforces.
+
+## Migrations: replay verified, and `migrate diff` cannot tell you
+
+All 14 migrations apply cleanly in sequence onto an empty schema, and there is no
+drift. Getting a trustworthy answer took a detour worth recording.
+
+`prisma migrate diff --from-migrations … --to-schema` **is useless on this
+machine**. Against `prisma dev` — Postgres compiled to wasm — introspection of
+the replayed shadow loses every enum, index and foreign key, so it reports all 38
+enums and 359 indexes as "added" while showing **zero** column or table
+differences. That is a false positive that looks like catastrophic drift.
+
+What actually answers it, and what was run:
+
+1. Empty the shadow. Note its default schema is **`approvehr_test`**, not
+   `public` — `DROP SCHEMA public` there succeeds and clears nothing, which is
+   why the first three attempts kept hitting `type "Permission" already exists`.
+2. `DATABASE_URL=$SHADOW_DATABASE_URL SHADOW_DATABASE_URL= npx prisma migrate
+   deploy` — replays all 14 from empty. Exit 0.
+3. Compare the two databases' **catalogs** directly (`information_schema.columns`,
+   `pg_enum`, `pg_indexes`, `pg_constraint`), normalising the schema name out of
+   `indexdef`. Result: **1116 columns, 58 enums, 270 indexes, 282 constraints,
+   identical on both sides. No drift.**
+
+Also note `${PIPESTATUS[0]}` is empty in this shell — it is **zsh**, so it is
+`$pipestatus`. Two exit codes were silently blank before this was noticed; redirect
+to a file and read `$?` instead of piping to `tail`.
+
+## Reconciled, and found consistent
+
+- **`OrgFeatures`: no collisions.** Eleven flags, identical names and defaults in
+  `prisma/schema.prisma`, `modules/setup/schemas.ts` and
+  `lib/store/features.ts`/`lib/api/setup.ts`. One dependency rule (appraisals off
+  takes `multiAppraiser` with it), enforced server-side and mirrored in demo.
+- **Migrations do not collide.** Three new ones, distinct timestamps, disjoint
+  tables.
+- **The wizard and the importer still agree**: `first_name, last_name, job_title,
+  start_date, gross_monthly` required in both, and in the API's zod schema.
+  `employee_no` optional in all three. Confirmed rendered in the browser.
+- **No hardcoded money, headcount or tax figures.** Every `₦` literal in the diff
+  is a comment or the statutory ₦500,000 rent-relief cap, which traces to
+  `engine.ts`'s `capKobo: 500_000_00`. The scoring basis points sum to exactly
+  10000 and are validated at the write.
+- **No green primary buttons possible.** `Button` maps `primary`/`accent` to one
+  blue fill and `approve`/`success` to one tinted green secondary; no hand-rolled
+  solid-green button exists outside `button.tsx`.
+- **Payment history never claims "Paid" for money nobody moved.** `paymentOutcome`
+  returns "Paid" only on `SETTLED`. Verified arithmetically in the browser: the
+  "Net paid" total of ₦8,277,067.11 is *exactly* the nine settled-elsewhere rows,
+  excluding ten unapproved and nine cancelled, with the hint naming the
+  exclusion.
+
+## "run" as a noun: reported, not changed
+
+The vocabulary rule is "payroll" not "run", and ~30 user-facing strings say "the
+run" / "this run" / "Every run" — most of them predating this session, in
+`run-panels.tsx` and `payroll-screen.tsx`. They read as the *entity* ("This run
+is approved"), which is defensible, and "payroll run" — the compound — is used
+correctly throughout.
+
+Not rewritten, deliberately. Thirty copy strings the user has already reviewed and
+iterated on is not a change to make unilaterally inside a verification pass, and
+"Approve this payroll" for "Approve this run" is a decision about product voice
+rather than a defect. Worth one deliberate pass if the rule is meant strictly.

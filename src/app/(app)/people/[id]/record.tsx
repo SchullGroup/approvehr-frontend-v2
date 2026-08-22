@@ -44,6 +44,12 @@ import { RecordHistory } from "@/app/(app)/settings/audit/record-history";
 import { naira } from "@/lib/api/pay-components";
 import { koboFromDecimal } from "@/lib/api/payroll";
 import { payslipFiguresFor } from "@/lib/mock/demo-payslips";
+import { banksIncluding } from "@/lib/reference/banks";
+import {
+  canonicalTaxState,
+  pensionProviderOptions,
+  taxStateOptions,
+} from "@/lib/reference/lists";
 import type { LeaveBalanceRow, LeaveRow } from "@/lib/api/leave";
 import { useCan } from "@/lib/permissions";
 import { useDepartments } from "@/lib/store/departments";
@@ -141,26 +147,29 @@ const TYPE_LABELS: Record<string, string> = Object.fromEntries(
  */
 const enumKey = (value: string) => value.toLowerCase();
 
-const BANKS = [
-  "",
-  "GTBank",
-  "Zenith Bank",
-  "Access Bank",
-  "UBA",
-  "First Bank",
-  "Stanbic IBTC",
-  "Kuda",
-];
-
-const PFAS = [
-  "",
-  "Stanbic IBTC Pensions",
-  "ARM Pensions",
-  "Leadway Pensure",
-  "Premium Pensions",
-];
-
-const TAX_STATES = ["Lagos", "Abuja", "Ogun", "Rivers", "Kano"];
+/*
+ * All three used to be declared here, and all three were wrong in the same way
+ * the wizard's copies were before `lib/reference/` existed.
+ *
+ * `BANKS` offered seven institutions with no codes, so anybody banking anywhere
+ * else could not be recorded and the Bank Code column of every payment file
+ * shipped empty. `PFAS` offered four of the eighteen licensed administrators.
+ * `TAX_STATES` offered five of the thirty-seven and called the capital "Abuja",
+ * where `/settings/company` called the same place "FCT" — PAYE is remitted to a
+ * state revenue service, so a company filed under one and staff taxed under the
+ * other never joined up.
+ *
+ * One source each now, shared with `/people/new`. The bank list is 255
+ * institutions with their real NIBSS/CBN codes; read the header of
+ * `lib/reference/banks.ts` for why those codes are fetched rather than typed.
+ *
+ * All three are read through an accessor that takes the record's **current**
+ * value, because a shared list is longer than the old one and still not a
+ * superset of it. The seed's "Stanbic IBTC Pensions" is not in
+ * `PENSION_PROVIDERS`, which calls the same company "Stanbic IBTC Pension
+ * Managers" — so before this the select showed "Not known yet" over a PFA that
+ * was on file. Same rule for the bank, and `canonicalTaxState` for the state.
+ */
 
 /**
  * The employee record.
@@ -540,14 +549,29 @@ export function EmployeeRecord({
               employee={employee}
               onSave={onSave}
               fields={[
+                /*
+                 * A Picker rather than a `<select>`, for the same reason the
+                 * wizard uses one: 255 options is a wheel to scroll, and the
+                 * Picker turns on its filter past eight. The code is the hint
+                 * because that is what a bank's own portal asks for, and
+                 * somebody checking this against a statement needs both.
+                 */
                 {
                   key: "bankName",
                   label: "Bank",
-                  type: "select",
-                  options: BANKS.map((b) => ({
-                    value: b,
-                    label: b || "Select a bank",
-                  })),
+                  type: "picker",
+                  placeholder: "Not known yet",
+                  options: [
+                    { value: "", label: "Not known yet" },
+                    ...banksIncluding(employee.bankName).map((b) => ({
+                      value: b.label,
+                      label: b.label,
+                      /* No code means this name is not in the NIBSS register, and
+                         that is worth saying rather than leaving blank: it is the
+                         column a payment file cannot fill. */
+                      hint: b.code === null ? "No code on file" : `Code ${b.code}`,
+                    })),
+                  ],
                 },
                 {
                   key: "bankAccount",
@@ -568,17 +592,37 @@ export function EmployeeRecord({
                   key: "pensionProvider",
                   label: "Pension provider",
                   type: "select",
-                  options: PFAS.map((p) => ({
-                    value: p,
-                    label: p || "Select a PFA",
-                  })),
+                  options: [
+                    { value: "", label: "Not known yet" },
+                    ...pensionProviderOptions(employee.pensionProvider).map(
+                      (p) => ({ value: p, label: p }),
+                    ),
+                  ],
                 },
+                /*
+                 * `canonicalTaxState` on the way in, so a record holding the old
+                 * "Abuja" is preselected as "FCT" — the same place, under the
+                 * name the FCT-IRS files under. Without it the select matches no
+                 * option, shows blank, and the next save writes whichever state
+                 * happens to be first in the list.
+                 *
+                 * No blank option, deliberately: `updateEmployeeSchema` refuses
+                 * an empty `taxState`, and offering a choice the API answers 422
+                 * to is a control that cannot work. Their state is inherited from
+                 * the company at creation and can be changed here, not cleared.
+                 */
                 {
                   key: "taxState",
                   label: "Tax state",
                   type: "select",
                   help: "Sets which state IRS receives their PAYE.",
-                  options: TAX_STATES.map((s) => ({ value: s, label: s })),
+                  value: employee.taxState
+                    ? canonicalTaxState(employee.taxState)
+                    : "",
+                  options: taxStateOptions(employee.taxState).map((s) => ({
+                    value: s,
+                    label: s,
+                  })),
                 },
                 {
                   key: "tin",

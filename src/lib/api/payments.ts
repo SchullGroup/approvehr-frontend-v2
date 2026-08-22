@@ -296,6 +296,184 @@ export type ApiBatchSubmitted = {
   rejected: number;
 };
 
+/* ---------------------------------------------------------------- history */
+
+/**
+ * One payment to one person, in one month.
+ *
+ * `GET /history` is `PaymentInstruction` queried on its own terms rather than a
+ * page of batches opened one at a time — see the doc comment on `paymentHistory`
+ * in `approvehr-api/src/modules/payments/service.ts` for why that N+1 is not
+ * merely slow but unfilterable.
+ *
+ * `employeeId` is **nullable** on the wire: an instruction can be raised for a
+ * payee who is not on the payroll. `ApiPaymentInstruction` above types it
+ * `string`, which is optimistic and predates this endpoint; this row states the
+ * schema's own answer so nothing links at `/people/null`.
+ *
+ * `period` is `YYYY-MM` — the month somebody was paid **for**, taken from the
+ * payroll run behind the batch, not the day the transfer went out. It is null on
+ * a batch raised by hand, which has no run and therefore no pay month, and that
+ * is a real state rather than a gap to fill in.
+ */
+export type ApiPaymentHistoryRow = Omit<ApiPaymentInstruction, "employeeId"> & {
+  employeeId: string | null;
+  batchId: string;
+  batchReference: string;
+  /**
+   * The batch's status, beside the instruction's own.
+   *
+   * Both, always, and never one without the other — `paymentOutcome()` below is
+   * the only thing that should read them, and it exists because neither field
+   * alone can answer "did this person get their money".
+   */
+  batchStatus: PaymentBatchStatus;
+  /** `YYYY-MM`, or null on a batch with no payroll run behind it. */
+  period: string | null;
+  /** `YYYY-MM-DD`, or null for the same reason. */
+  payDate: string | null;
+  /** When the batch was built. Always present, so a row always has a date. */
+  raisedAt: string;
+};
+
+export type ApiPaymentHistoryPage = {
+  rows: ApiPaymentHistoryRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+export type PaymentHistoryParams = {
+  page?: number;
+  pageSize?: number;
+  /** One person. A UUID connected; any id in demo mode. */
+  employeeId?: string;
+  /** `YYYY-MM`. The API refuses anything else with a 400. */
+  period?: string;
+};
+
+/**
+ * What happened to one person's money, read from **both** statuses.
+ *
+ * ## The one thing this function exists to prevent
+ *
+ * There is no payment provider (`provider.ts` on the API). So the ordinary,
+ * everyday state of a paid salary in this product is: the instruction still says
+ * `PENDING`, and the batch it sits in says `APPROVED` — approved, and downloaded
+ * as a bank file, and paid by hand at the bank. **The money moved and this API
+ * cannot know it.**
+ *
+ * Rendering that row as "Paid" is a claim the server cannot support. Rendering
+ * it as "Pending" or "Not sent" tells somebody their salary is outstanding when
+ * it is in their account. Both are wrong, which is why this returns a third
+ * answer — "Downloaded — paid at your bank" — and why `moved` is a tri-state
+ * rather than a boolean:
+ *
+ * | `moved` | Means |
+ * |---|---|
+ * | `"yes"` | this product moved it and something confirmed it settled |
+ * | `"elsewhere"` | the file was produced; the bank statement is the record |
+ * | `"no"` | nothing has gone out |
+ *
+ * A screen may only render a green tick for `"yes"`. `payments/provider.ts` on
+ * the API calls a green "Paid" over money nobody moved the one thing a payroll
+ * product must never do, and the audit of the incumbent on 20 August 2026 found
+ * a version of exactly that.
+ *
+ * ## Instruction status wins wherever it says something
+ *
+ * `SETTLED`, `FAILED`, `SUBMITTED` and `REVERSED` are facts about this one
+ * payment and they outrank whatever the batch says — a batch reading SUBMITTED
+ * while one person's transfer failed on a wrong account number is the case the
+ * per-row status exists for. Only `PENDING` has to ask the batch, because
+ * "nothing has happened to this instruction" is exactly the state the bank-file
+ * route leaves every row in.
+ */
+export function paymentOutcome(row: {
+  status: PaymentInstructionStatus;
+  batchStatus: PaymentBatchStatus;
+  failureReason?: string | null;
+}): {
+  label: string;
+  tone: "neutral" | "accent" | "warning" | "success" | "danger" | "info";
+  /** One line under the label. Says what a reader should do or believe. */
+  hint: string;
+  moved: "yes" | "no" | "elsewhere";
+} {
+  switch (row.status) {
+    case "SETTLED":
+      return {
+        label: "Paid",
+        tone: "success",
+        hint: "This payment settled.",
+        moved: "yes",
+      };
+    case "SUBMITTED":
+      return {
+        label: "Sent, outcome unknown",
+        tone: "warning",
+        hint: "Sent to the bank and not yet confirmed. Do not send it again.",
+        moved: "no",
+      };
+    case "FAILED":
+      return {
+        label: "Failed",
+        tone: "danger",
+        hint: row.failureReason ?? "The transfer was attempted and did not work.",
+        moved: "no",
+      };
+    case "REVERSED":
+      return {
+        label: "Came back",
+        tone: "danger",
+        hint: "It settled and was then reversed, so this person is unpaid.",
+        moved: "no",
+      };
+    case "PENDING":
+      break;
+  }
+
+  /* PENDING. The instruction itself says nothing happened, so the batch is the
+     only thing that can distinguish "waiting to be approved" from "the file went
+     to the bank a fortnight ago". */
+  switch (row.batchStatus) {
+    case "APPROVED":
+    case "SUBMITTED":
+    case "COMPLETED":
+    case "PARTIALLY_SETTLED":
+      return {
+        label: "Downloaded — paid at your bank",
+        tone: "info",
+        hint:
+          "The batch was approved and the payment file produced. ApproveHR did " +
+          "not move this money, so your bank statement is the record of it.",
+        moved: "elsewhere",
+      };
+    case "FAILED":
+      return {
+        label: "Batch failed",
+        tone: "danger",
+        hint: "The batch failed before this payment was sent.",
+        moved: "no",
+      };
+    case "CANCELLED":
+      return {
+        label: "Cancelled",
+        tone: "neutral",
+        hint: "The batch was stopped before anything went out.",
+        moved: "no",
+      };
+    case "DRAFT":
+    case "AWAITING_APPROVAL":
+      return {
+        label: "Not approved yet",
+        tone: "warning",
+        hint: "Nothing leaves the account until somebody approves the batch.",
+        moved: "no",
+      };
+  }
+}
+
 /** One line of the company's account activity. */
 export type ApiLedgerEntry = {
   id: string;
@@ -371,6 +549,17 @@ export type ApiPayableRun = {
   period: string;
   payDate: string;
   employeeCount: number;
+  /**
+   * People in the period deliberately left off the run.
+   *
+   * Carried so the batch screen can say "9 of 10 — 1 excluded" rather than a
+   * bare 9 under a label reading **People**. A batch genuinely cannot contain
+   * somebody with no payslip, so this changes nothing about what gets paid — it
+   * changes only whether the figure beside it is a true sentence, and nine where
+   * ten people work is not one. `headcountLabel` in `lib/api/payroll.ts` writes
+   * it.
+   */
+  excludedCount: number;
   totalNetKobo: number;
 };
 
@@ -606,6 +795,30 @@ export const paymentsApi = {
     };
   },
 
+  /* -------------------------------------------------------------- history */
+
+  /**
+   * Who was paid, when, how much, and whether it landed.
+   *
+   * `RUN_PAYROLL`. A 403 here is the right answer for a staff member and the
+   * screen says so rather than rendering an empty table, which would read as
+   * "nobody has ever been paid".
+   *
+   * Not `requestPaged` — the endpoint answers with a plain `ok()` envelope
+   * carrying `rows`/`total`/`page`/`pageSize` rather than the pagination meta
+   * `page()` produces, exactly as `ledger` below does.
+   */
+  history: (params: PaymentHistoryParams = {}, signal?: AbortSignal) =>
+    request<ApiPaymentHistoryPage>("/payments/history", {
+      query: {
+        page: params.page,
+        pageSize: params.pageSize,
+        employeeId: params.employeeId,
+        period: params.period,
+      },
+      ...(signal ? { signal } : {}),
+    }),
+
   /* --------------------------------------------------------------- ledger */
 
   ledger: (params: LedgerListParams = {}, signal?: AbortSignal) =>
@@ -651,6 +864,11 @@ export const paymentsApi = {
         period: String(run.period).slice(0, 10),
         payDate: String(run.payDate).slice(0, 10),
         employeeCount: run.employeeCount,
+        /* Absent on a run prepared before the column existed, and absent is not
+           zero — but zero is the only honest reading here, because a run with no
+           exclusions and a run that could not record one both had nobody left
+           off. `headcountLabel` then renders a bare count, which is correct. */
+        excludedCount: run.excludedCount ?? 0,
         totalNetKobo: koboFromDecimalString(run.totalNet),
       }));
   },
@@ -663,6 +881,8 @@ type PayrollRunRow = {
   payDate: string;
   status: string;
   employeeCount: number;
+  /** Optional: a run prepared before the column existed does not carry it. */
+  excludedCount?: number;
   /** A `Decimal(16,2)` in naira, serialised as a string. */
   totalNet: string | number;
 };

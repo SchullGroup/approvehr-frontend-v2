@@ -1,9 +1,10 @@
 "use client";
 
-import { AlertTriangle, Check, Scale, ShieldAlert } from "lucide-react";
+import { AlertTriangle, Check, Scale, ShieldAlert, UserMinus } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
   Badge,
+  Button,
   ButtonLink,
   Callout,
   Card,
@@ -13,12 +14,15 @@ import {
 } from "@/components/ui";
 import {
   STATUS_LABEL,
+  excludedNote,
   fixFor,
   formatKobo,
+  headcountLabel,
   type Discrepancy,
   type PayrollRun,
   type PayrollRunStatus,
   type RunException,
+  type RunExclusion,
 } from "@/lib/api/payroll";
 
 /**
@@ -87,10 +91,25 @@ export function RunStatusBadge({ status }: { status: PayrollRunStatus }) {
 export function ExceptionList({
   exceptions,
   onRecheck,
+  actionFor,
 }: {
   exceptions: RunException[];
   /** Shown beside the heading when re-preparing is the way to clear these. */
   onRecheck?: React.ReactNode;
+  /**
+   * An extra control for a row, beside the link that fixes it.
+   *
+   * Some exceptions are cleared by editing a record and some by making a
+   * decision, and the two are different kinds of act: `fixFor` sends somebody to
+   * the field, and this renders the decision. A missing account number carries
+   * both — go and add one, **or** exclude this person from the payroll and say
+   * why — because refusing to pay ninety-nine people until one of them answers
+   * their phone is not an outcome anybody chose.
+   *
+   * Optional, so a read-only surface (the payroll home) shows the same list
+   * without offering writes it cannot audit.
+   */
+  actionFor?: (exception: RunException) => React.ReactNode;
 }) {
   const blockers = exceptions.filter((e) => e.severity === "BLOCKER");
   const warnings = exceptions.filter((e) => e.severity === "WARNING");
@@ -123,14 +142,24 @@ export function ExceptionList({
       />
       <CardBody className="flex flex-col gap-2.5">
         {[...blockers, ...warnings].map((exception) => (
-          <ExceptionRow key={exception.id} exception={exception} />
+          <ExceptionRow
+            key={exception.id}
+            exception={exception}
+            action={actionFor?.(exception)}
+          />
         ))}
       </CardBody>
     </Card>
   );
 }
 
-function ExceptionRow({ exception }: { exception: RunException }) {
+function ExceptionRow({
+  exception,
+  action,
+}: {
+  exception: RunException;
+  action?: React.ReactNode;
+}) {
   const blocking = exception.severity === "BLOCKER";
   const fix = fixFor(exception.code, exception.employeeId);
 
@@ -162,12 +191,97 @@ function ExceptionRow({ exception }: { exception: RunException }) {
             : "You can approve with this open. Approving records that you saw it."}
         </p>
       </div>
-      {fix && (
-        <ButtonLink href={fix.href} size="sm" variant="secondary">
-          {fix.label}
-        </ButtonLink>
-      )}
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
+        {fix && (
+          <ButtonLink href={fix.href} size="sm" variant="secondary">
+            {fix.label}
+          </ButtonLink>
+        )}
+        {action}
+      </div>
     </div>
+  );
+}
+
+/* --------------------------------------------------------- who was left off */
+
+/**
+ * Everybody deliberately left off this payroll.
+ *
+ * This sits under the payslip table rather than inside it, and that is the
+ * point: the table is nine rows and its badge says nine payslips, which is true
+ * and, on its own, a wrong answer to the question somebody is actually asking —
+ * *is everybody here?* A person left off has no payslip to put in a table, so
+ * the honest form is a second list that names them.
+ *
+ * Four facts per row, because they are the four the record exists to keep: who,
+ * why, who decided, when. A year from now this is the whole answer to "why was
+ * Grace not paid in August?", which is why an exclusion is a stored decision and
+ * not a filter somebody applied once.
+ */
+export function ExcludedList({
+  exclusions,
+  onPutBack,
+  busyFor,
+}: {
+  exclusions: RunExclusion[];
+  /** Omitted on a read-only surface, or once the run is approved. */
+  onPutBack?: (exclusion: RunExclusion) => void;
+  busyFor?: string | null;
+}) {
+  if (exclusions.length === 0) return null;
+
+  return (
+    <Card>
+      <CardHeader
+        title="Not on this payroll"
+        description="Left off deliberately, with the reason recorded. Everybody here is back on next period's payroll automatically — nothing has to remember to put them there."
+        action={
+          <Badge tone="warning" size="sm">
+            {exclusions.length}{" "}
+            {exclusions.length === 1 ? "person" : "people"}
+          </Badge>
+        }
+      />
+      <CardBody className="flex flex-col gap-2.5">
+        {exclusions.map((exclusion) => (
+          <div
+            key={exclusion.id}
+            className="flex flex-wrap items-start gap-3 rounded-md border border-line p-3"
+          >
+            <span
+              aria-hidden="true"
+              className="mt-0.5 shrink-0 text-muted [&>svg]:size-4"
+            >
+              <UserMinus />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-body-sm font-medium text-ink">{exclusion.name}</p>
+              <p className="mt-0.5 text-body-sm leading-relaxed text-body">
+                {exclusion.reason}
+              </p>
+              <p className="mt-1 text-meta leading-relaxed text-muted">
+                {exclusion.decidedBy
+                  ? `Decided by ${exclusion.decidedBy}`
+                  : "Decided by somebody with no employee record"}{" "}
+                on {exclusion.excludedAt.slice(0, 10)}
+              </p>
+            </div>
+            {onPutBack && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => onPutBack(exclusion)}
+                loading={busyFor === exclusion.employeeId}
+                disabled={busyFor !== null && busyFor !== undefined}
+              >
+                Put back on this payroll
+              </Button>
+            )}
+          </div>
+        ))}
+      </CardBody>
+    </Card>
   );
 }
 
@@ -256,13 +370,25 @@ export function DiscrepancyPanel({
  * believe their pay was cut by eighteen per cent.
  */
 export function TotalsPanel({ run }: { run: PayrollRun }) {
+  const note = excludedNote(run);
   return (
     <Card>
       <CardHeader
         title="What leaves the account"
         description="Net pay reaches employees. Everything else is remitted on their behalf."
+        action={
+          <Badge tone="neutral" size="sm">
+            {headcountLabel(run)}
+          </Badge>
+        }
       />
       <CardBody className="flex flex-col gap-3">
+        {/* Beside the totals, because these are the figures somebody reconciles
+            against a bank statement — and a total that silently covers nine of
+            ten people is the one thing a reconciliation cannot detect. */}
+        {note && (
+          <p className="text-meta leading-relaxed text-warning-text">{note}</p>
+        )}
         <TotalRow label="Net to employees" kobo={run.netKobo} strong />
         <TotalRow label="PAYE to state revenue services" kobo={run.payeKobo} />
         <TotalRow label="Pension — employee share" kobo={run.pensionEmployeeKobo} />
@@ -337,6 +463,17 @@ export function ApprovalConsequences({ run }: { run: PayrollRun }) {
         `${formatKobo(run.netKobo)} becomes payable to ${run.employeeCount} ${
           run.employeeCount === 1 ? "person" : "people"
         } on ${run.payDate}.`,
+        /* Named here rather than only in the exception list, because this is the
+           list somebody reads immediately before the one-way door. "Nobody
+           mentioned it" is not a defence available to a screen that had the
+           figure. */
+        ...(run.excludedCount > 0
+          ? [
+              run.excludedCount === 1
+                ? "1 person on the payroll for this period is deliberately not on this run and is paid nothing by it. The reason is recorded against them."
+                : `${run.excludedCount} people on the payroll for this period are deliberately not on this run and are paid nothing by it. The reason is recorded against each of them.`,
+            ]
+          : []),
         "Any loan instalment in this run is taken and the schedule moves to the next month.",
         "Any expense claim in this run is marked paid.",
         "The payroll settings used are frozen onto the run, so these payslips still explain themselves years from now.",

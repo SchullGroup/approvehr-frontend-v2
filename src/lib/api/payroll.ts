@@ -132,6 +132,25 @@ export type ExceptionSeverity = "BLOCKER" | "WARNING";
 
 export type PayslipLineKind = "EARNING" | "DEDUCTION" | "EMPLOYER_CONTRIBUTION";
 
+/**
+ * How a period's tax schedule granted personal relief.
+ *
+ * Statute, keyed by date, and therefore **not** something this repo decides.
+ * `ReliefRegime` in `approvehr-api/src/modules/payroll/engine.ts` is the
+ * definition; the API resolves it from the run's period and sends it with each
+ * payslip so a renderer never has to guess from a date. A guess here would be a
+ * second copy of the 2026 cutover living in the browser, which is the shape of
+ * mistake that once had four screens quoting last year's tax.
+ *
+ * The Consolidated Relief Allowance was a function of income and was abolished
+ * on 1 January 2026. Rent relief is a function of *rent*, which somebody has to
+ * declare — so it can lawfully be nil, and nil is worth saying out loud rather
+ * than printing as a zero under the old regime's name.
+ */
+export type ReliefRegime =
+  | { kind: "CONSOLIDATED_RELIEF" }
+  | { kind: "RENT_RELIEF"; rateOfRent: number; capKobo: number };
+
 /** One run's headline figures. Every amount is kobo. */
 export type PayrollRun = {
   id: string;
@@ -141,7 +160,17 @@ export type PayrollRun = {
   payDate: string;
   status: PayrollRunStatus;
   label: string | null;
+  /** People with a payslip. Not the headcount — see `excludedCount`. */
   employeeCount: number;
+  /**
+   * People in the period deliberately left off it, with a reason recorded.
+   *
+   * Never folded into `employeeCount`, so a screen can say "9 of 10 — 1
+   * excluded" rather than a bare 9. Use `headcountLabel` below rather than
+   * writing that sentence again; a figure that quietly omits somebody is the
+   * class of wrong claim this product exists to refuse.
+   */
+  excludedCount: number;
   grossKobo: number;
   netKobo: number;
   payeKobo: number;
@@ -187,7 +216,25 @@ export type Payslip = {
   pensionEmployerKobo: number;
   nhfKobo: number;
   taxableIncomeKobo: number;
-  consolidatedReliefKobo: number;
+  /**
+   * The personal relief applied, monthly.
+   *
+   * Named for what it is rather than for the CRA, because from January 2026 it
+   * is rent relief. The database column is still `consolidatedRelief` — renaming
+   * a column on a legal record is a migration for cosmetics — but nothing above
+   * this line has to inherit that name, and a field called
+   * `consolidatedReliefKobo` holding rent relief is how a payslip ends up
+   * labelled with an allowance that no longer exists.
+   */
+  reliefKobo: number;
+  /**
+   * Which regime produced `reliefKobo`.
+   *
+   * **Absent means unknown, not "the old one".** A caller that cannot say which
+   * regime ran must not have its silence read as the CRA — the label is the
+   * whole point of the field.
+   */
+  relief?: ReliefRegime;
   payeKobo: number;
   /** Pre-tax plus post-tax, as one figure. `lines` is the itemised form. */
   otherDeductionsKobo: number;
@@ -215,9 +262,31 @@ export type RunException = {
   message: string;
 };
 
+/**
+ * Somebody deliberately left off this payroll.
+ *
+ * The run carries these as records as well as raising a WARNING for each, so a
+ * screen can render who, why, who decided and when without parsing a sentence —
+ * and can offer to put them back. A year from now this row is the whole answer
+ * to "why was Grace not paid in August?", which is why the reason is required
+ * and why an exclusion is never a client-side filter.
+ */
+export type RunExclusion = {
+  id: string;
+  employeeId: string;
+  employeeNo: string;
+  name: string;
+  reason: string;
+  /** Who decided. Null only where the deciding user has no employee record. */
+  decidedBy: string | null;
+  /** ISO instant. */
+  excludedAt: string;
+};
+
 export type PayrollRunDetail = PayrollRun & {
   payslips: Payslip[];
   exceptions: RunException[];
+  exclusions: RunExclusion[];
 };
 
 /**
@@ -236,11 +305,30 @@ export type Discrepancy = {
 
 export type PreparedRun = {
   runId: string;
+  /** People with a payslip on the run. */
   headcount: number;
+  /** People in the period left off it. `headcount + excluded` is everybody. */
+  excluded: number;
   /** Non-empty means the run does not reconcile and cannot be shown as fine. */
   discrepancies: Discrepancy[];
   blockers: number;
   warnings: number;
+};
+
+/**
+ * What an exclusion (or a withdrawal) changed.
+ *
+ * `run` is the period rebuilt, because a run is a function of the directory and
+ * this run's exclusions — the totals and both counts move the moment somebody is
+ * left off, and a screen that kept the old ones would show a payslip for
+ * somebody it says is not being paid.
+ */
+export type ExclusionChange = {
+  employeeId: string;
+  name: string;
+  reason?: string;
+  excludedAt?: string;
+  run: PreparedRun;
 };
 
 /** What approving settled. Loan instalments move on; claims are marked paid. */
@@ -381,6 +469,7 @@ type ApiRun = {
   status: PayrollRunStatus;
   label: string | null;
   employeeCount: number;
+  excludedCount: number;
   totalGross: Decimalish;
   totalNet: Decimalish;
   totalPaye: Decimalish;
@@ -406,6 +495,14 @@ type ApiPayslip = {
   nhf: Decimalish;
   taxableIncome: Decimalish;
   consolidatedRelief: Decimalish;
+  /**
+   * Which relief regime the run's period granted.
+   *
+   * Optional on the wire because it is derived rather than stored, so an older
+   * API answers without it. That absence has to survive as an absence — see
+   * `Payslip.relief`.
+   */
+  relief?: ReliefRegime;
   paye: Decimalish;
   otherDeductions: Decimalish;
   net: Decimalish;
@@ -432,6 +529,14 @@ type ApiRunDetail = ApiRun & {
     code: string;
     message: string;
   }[];
+  exclusions: {
+    id: string;
+    employeeId: string;
+    reason: string;
+    excludedAt: string;
+    employee: { employeeNo: string; firstName: string; lastName: string };
+    excludedBy: { firstName: string; lastName: string } | null;
+  }[];
 };
 
 function toRun(row: ApiRun): PayrollRun {
@@ -444,6 +549,7 @@ function toRun(row: ApiRun): PayrollRun {
     status: row.status,
     label: row.label,
     employeeCount: row.employeeCount,
+    excludedCount: row.excludedCount,
     grossKobo,
     netKobo: koboFromDecimal(row.totalNet),
     payeKobo: koboFromDecimal(row.totalPaye),
@@ -472,7 +578,11 @@ function toPayslip(row: ApiPayslip): Payslip {
     pensionEmployerKobo: koboFromDecimal(row.pensionEmployer),
     nhfKobo: koboFromDecimal(row.nhf),
     taxableIncomeKobo: koboFromDecimal(row.taxableIncome),
-    consolidatedReliefKobo: koboFromDecimal(row.consolidatedRelief),
+    reliefKobo: koboFromDecimal(row.consolidatedRelief),
+    /* Spread rather than defaulted: no regime on the wire means the payslip
+       cannot say which relief it granted, and inventing one here would put the
+       old label back on a 2026 figure. */
+    ...(row.relief ? { relief: row.relief } : {}),
     payeKobo: koboFromDecimal(row.paye),
     otherDeductionsKobo: koboFromDecimal(row.otherDeductions),
     netKobo: koboFromDecimal(row.net),
@@ -516,6 +626,17 @@ export const payrollApi = {
       ...toRun(row),
       payslips: row.payslips.map(toPayslip),
       exceptions: row.exceptions,
+      exclusions: row.exclusions.map((row) => ({
+        id: row.id,
+        employeeId: row.employeeId,
+        employeeNo: row.employee.employeeNo,
+        name: `${row.employee.firstName} ${row.employee.lastName}`,
+        reason: row.reason,
+        decidedBy: row.excludedBy
+          ? `${row.excludedBy.firstName} ${row.excludedBy.lastName}`
+          : null,
+        excludedAt: row.excludedAt,
+      })),
     };
   },
 
@@ -536,6 +657,29 @@ export const payrollApi = {
 
   cancel: (id: string) =>
     request<{ id: string }>(`/payroll/runs/${id}/cancel`, { method: "POST" }),
+
+  /**
+   * Leaves somebody off this payroll, with the reason on the record.
+   *
+   * `RUN_PAYROLL`, same as preparing, because it is part of working a period up
+   * rather than releasing it. It **rebuilds the period** — the response carries
+   * the new `PreparedRun`, so a screen reloads from that rather than guessing
+   * what the totals became.
+   */
+  exclude: (
+    id: string,
+    body: { employeeId: string; reason: string },
+  ) =>
+    request<ExclusionChange>(`/payroll/runs/${id}/exclusions`, {
+      method: "POST",
+      body,
+    }),
+
+  /** Puts them back. Whatever blocked them returns with them. */
+  putBack: (id: string, employeeId: string) =>
+    request<ExclusionChange>(`/payroll/runs/${id}/exclusions/${employeeId}`, {
+      method: "DELETE",
+    }),
 
   preview: (employeeId: string, period: string, signal?: AbortSignal) =>
     request<PayslipPreview>("/payroll/preview", {
@@ -566,6 +710,68 @@ export const STATUS_LABEL: Record<PayrollRunStatus, string> = {
   CANCELLED: "Cancelled",
 };
 
+/* ----------------------------------------------------------- honest counts */
+
+/**
+ * The headcount on a run, said once so three screens cannot say it differently.
+ *
+ * `employeeCount` is payslips. It is the right figure for "how many people were
+ * paid" and the wrong figure for "how many people work here", and rendering it
+ * under a label like **People** is a wrong claim the moment anybody has been
+ * excluded: nine, where ten people work and one was deliberately left off, is
+ * the same class of statement as a zero standing in for an absent figure.
+ *
+ * So: `"9 of 10 — 1 excluded"` when somebody was, and a bare `"9"` when nobody
+ * was. Never a bare 9 in the first case, and never the noise of "9 of 9 — 0
+ * excluded" in the second.
+ */
+export function headcountLabel(run: {
+  employeeCount: number;
+  excludedCount: number;
+}): string {
+  if (run.excludedCount === 0) return String(run.employeeCount);
+  return (
+    `${run.employeeCount} of ${run.employeeCount + run.excludedCount}` +
+    ` — ${run.excludedCount} excluded`
+  );
+}
+
+/**
+ * The same fact with the noun in it, for prose rather than a labelled figure.
+ *
+ * `headcountLabel` is for a `Stat` or a `Badge`, where the label already says
+ * what is being counted. In a sentence the noun has to sit next to its number —
+ * "9 of 10 payslips — 1 excluded", never "9 of 10 — 1 excluded payslips", which
+ * is what appending a noun to the other helper produces and which reads as
+ * though one payslip was excluded.
+ */
+export function payslipCountLabel(run: {
+  employeeCount: number;
+  excludedCount: number;
+}): string {
+  const noun = run.employeeCount === 1 ? "payslip" : "payslips";
+  if (run.excludedCount === 0) return `${run.employeeCount} ${noun}`;
+  return (
+    `${run.employeeCount} of ${run.employeeCount + run.excludedCount} ${noun}` +
+    ` — ${run.excludedCount} excluded`
+  );
+}
+
+/**
+ * The same fact as a sentence, for beside a figure rather than under a label.
+ *
+ * Null when nobody was excluded, so a caller renders nothing at all rather than
+ * "0 people excluded" — which is a line that makes a reader look for a list.
+ */
+export function excludedNote(run: {
+  excludedCount: number;
+}): string | null {
+  if (run.excludedCount === 0) return null;
+  return run.excludedCount === 1
+    ? "1 person is on the payroll for this period and was deliberately left off it, with a reason recorded."
+    : `${run.excludedCount} people are on the payroll for this period and were deliberately left off it, each with a reason recorded.`;
+}
+
 /**
  * Which exceptions have a screen that fixes them.
  *
@@ -594,6 +800,11 @@ export function fixFor(
       };
     case "deduction_carried":
       return { href: `/payroll/loans`, label: "Open loans" };
+    /* Deliberately the record and not a fix. The fix for an exclusion is
+       putting the person back on the run, which is a write rather than a screen
+       — the wizard offers it inline beside the row. */
+    case "excluded_from_payroll":
+      return { href: `/people/${employeeId}`, label: "Open record" };
     default:
       return { href: `/people/${employeeId}`, label: "Open record" };
   }

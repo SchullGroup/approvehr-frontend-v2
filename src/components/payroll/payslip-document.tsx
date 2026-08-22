@@ -1,5 +1,5 @@
 import { cn } from "@/lib/cn";
-import { formatKobo, type Payslip } from "@/lib/api/payroll";
+import { formatKobo, naira, type Payslip } from "@/lib/api/payroll";
 
 /*
  * The payslip document.
@@ -39,6 +39,13 @@ import { formatKobo, type Payslip } from "@/lib/api/payroll";
  * settings snapshot. Deriving a percentage back out of the figures would print a
  * confident wrong number, so an unknown rate is simply not printed. Surfacing
  * `settingsSnapshot` on an approved run is the way to get them back.
+ *
+ * ## The relief line names a statute, so it is told which one
+ *
+ * `slip.relief` carries the regime the period's tax schedule granted, sent by
+ * the API rather than guessed from the date here. See `reliefLine` below — it is
+ * the one label on this document that was factually wrong rather than merely
+ * unknown, and the fix is not a rewording.
  */
 
 /** Who the payslip is for. Everything past the name may be unknown. */
@@ -87,6 +94,83 @@ export function carriedForwardKobo(slip: Payslip): number {
   return Math.max(0, asked - slip.otherDeductionsKobo);
 }
 
+/**
+ * How to name the relief on the line, and what else has to be said about it.
+ *
+ * This line used to read "Consolidated relief allowance (per month)" always. The
+ * Consolidated Relief Allowance was **abolished on 1 January 2026** by the
+ * Nigeria Tax Act 2025 and replaced by relief on rent, so on an August 2026
+ * payslip that label sat over a `0.00` that was arithmetically perfect and
+ * named something that does not exist in law. Read plainly it says "your relief
+ * is zero"; the truth is "nothing has been declared, so declare it" — and on
+ * ₦500,000 a month the difference is ₦5,400 of PAYE every month.
+ *
+ * Four outcomes, and the third is the one this function exists for:
+ *
+ * | Regime | Relief | Line reads |
+ * |---|---|---|
+ * | `CONSOLIDATED_RELIEF` | a figure | Consolidated relief allowance |
+ * | `RENT_RELIEF` | a figure | Rent relief, plus how to keep it current |
+ * | `RENT_RELIEF` | nil | Rent relief, plus how to claim it |
+ * | absent | either | Personal relief, and no statute named |
+ *
+ * **Absent is not the CRA.** A payslip whose source could not say which regime
+ * ran gets the neutral name: the figure is still true, and putting a statute's
+ * name on it would be a claim nobody made.
+ *
+ * The nil case is split on the **amount**, not on the regime being missing. Nil
+ * relief under this regime is a real, common and legally correct outcome — a
+ * homeowner gets none — so it is a fact to explain, not a value to treat as
+ * absent.
+ */
+export function reliefLine(slip: Payslip): {
+  label: string;
+  note: string | null;
+} {
+  const regime = slip.relief;
+
+  if (regime === undefined) {
+    return { label: "Personal relief (per month)", note: null };
+  }
+
+  if (regime.kind === "CONSOLIDATED_RELIEF") {
+    return { label: "Consolidated relief allowance (per month)", note: null };
+  }
+
+  const rate = `${+(regime.rateOfRent * 100).toFixed(2)}%`;
+  /* Not `formatKobo`: that always prints two decimals, which is right for a
+     figure somebody reconciles against a bank statement and wrong inside a
+     sentence — "up to ₦500,000.00 a year" is a statutory cap wearing an
+     accountant's clothes. Kobo still print if the cap ever has any. */
+  const cap = `₦${naira(regime.capKobo).toLocaleString("en-NG")}`;
+
+  if (slip.reliefKobo > 0) {
+    return {
+      label: "Rent relief (per month)",
+      /* Stated even when it was granted, because somebody who moved house or
+         pays more than they declared has no other way to know the figure is a
+         function of a declaration they can update. */
+      note:
+        `Rent relief is ${rate} of the yearly rent on your record, capped at ` +
+        `${cap} a year. Tell your HR team if the rent they hold has changed.`,
+    };
+  }
+
+  return {
+    label: "Rent relief (per month)",
+    /* What it is worth is deliberately not stated. That depends on the band the
+       relief comes off, which a stored payslip cannot tell us, and working it
+       out here would mean running tax in the browser — the thing this repo has
+       already deleted once. The relief itself is concrete enough to act on. */
+    note:
+      `No rent relief is included, because no rent is recorded against you. ` +
+      `Since 1 January 2026 the consolidated relief allowance no longer exists, ` +
+      `and personal relief is ${rate} of the yearly rent you pay, up to ` +
+      `${cap} a year. Ask your HR team to put your yearly rent on your ` +
+      `employee record, under Pay and statutory.`,
+  };
+}
+
 export function PayslipDocument({
   employee,
   slip,
@@ -124,6 +208,7 @@ export function PayslipDocument({
     (line) => line.kind === "EMPLOYER_CONTRIBUTION",
   );
   const carried = carriedForwardKobo(slip);
+  const relief = reliefLine(slip);
 
   const earnings = [
     { label: "Basic salary", kobo: slip.basicKobo },
@@ -293,13 +378,18 @@ export function PayslipDocument({
       <section className="mt-6 rounded-md border border-line p-4">
         <ColumnHead>How the tax was worked out</ColumnHead>
         <dl className="mt-3 flex flex-col">
-          <LineItem
-            label="Consolidated relief allowance (per month)"
-            kobo={slip.consolidatedReliefKobo}
-          />
+          <LineItem label={relief.label} kobo={slip.reliefKobo} />
           <LineItem label="Taxable pay (per month)" kobo={slip.taxableIncomeKobo} />
           <LineItem label="PAYE" kobo={slip.payeKobo} total />
         </dl>
+        {/* Prints. A relief nobody has claimed is the one thing on this document
+            the employee themselves can do something about, so it is not hidden
+            behind `no-print` on the copy they are handed. */}
+        {relief.note && (
+          <p className="mt-2 text-meta leading-relaxed text-body">
+            {relief.note}
+          </p>
+        )}
       </section>
 
       {/* Year to date */}
@@ -359,7 +449,9 @@ export function PayslipDocument({
             on 1 January 2026 and replaced by relief on rent — 20% of annual rent
             declared, capped at ₦500,000 — so a 2026 payslip that says "after the
             consolidated relief allowance" is describing a relief nobody
-            received. `reliefKind` on the payslip says which regime ran. */}
+            received. `slip.relief` says which regime ran; `reliefLine` above
+            turns it into the label and, where nothing has been declared, into
+            the sentence that says so. */}
         <p className="text-meta leading-relaxed text-muted">
           PAYE is calculated on annualised income under the Personal Income Tax
           Act as amended, after pension and National Housing Fund relief and any

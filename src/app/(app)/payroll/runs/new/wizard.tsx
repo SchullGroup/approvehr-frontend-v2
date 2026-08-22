@@ -39,16 +39,23 @@ import {
   ApprovalConsequences,
   DiscrepancyPanel,
   ExceptionList,
+  ExcludedList,
   RunStatusBadge,
   SourceBadge,
   TotalsPanel,
 } from "@/components/payroll/run-panels";
+import { ExcludeFromPayrollDialog } from "@/components/payroll/exclude-dialog";
 import { ApiError } from "@/lib/api/client";
 import {
+  excludedNote,
   formatKobo,
+  headcountLabel,
+  payslipCountLabel,
   periodLabel,
   type PreparedRun,
   type Payslip,
+  type RunException,
+  type RunExclusion,
 } from "@/lib/api/payroll";
 import { useCan } from "@/lib/permissions";
 import {
@@ -138,6 +145,21 @@ export function PayrollRunWizard() {
   const [ackWarnings, setAckWarnings] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
+  /**
+   * Who is being excluded, and any refusal from the last attempt.
+   *
+   * The exception rows carry an `employeeId` and a message, not a name, so the
+   * person being excluded is looked up on the run's own payslips — which is the
+   * only place a name and an id sit together on this screen.
+   */
+  const [excluding, setExcluding] = useState<{
+    employeeId: string;
+    name: string;
+  } | null>(null);
+  const [excludeError, setExcludeError] = useState<string | null>(null);
+  const [excludeBusy, setExcludeBusy] = useState(false);
+  const [puttingBack, setPuttingBack] = useState<string | null>(null);
+
   /* The run for the chosen period, whether this session prepared it or a
      previous one did. Derived, so changing the period switches runs with no
      effect and no stale detail. */
@@ -188,7 +210,10 @@ export function PayrollRunWizard() {
             ? "Calculated, but the figures do not add up"
             : `Prepared ${periodLabel(period)}`,
         tone: result.discrepancies.length > 0 ? "danger" : "success",
-        detail: `${result.headcount} ${result.headcount === 1 ? "person" : "people"} · ${result.blockers} to fix · ${result.warnings} to look at`,
+        detail:
+          `${result.headcount} ${result.headcount === 1 ? "person" : "people"}` +
+          (result.excluded > 0 ? ` · ${result.excluded} excluded` : "") +
+          ` · ${result.blockers} to fix · ${result.warnings} to look at`,
       });
       if (stepper.index === 0) stepper.goTo(1);
     } catch (caught) {
@@ -203,6 +228,136 @@ export function PayrollRunWizard() {
     } finally {
       setBusy(null);
     }
+  }
+
+  /**
+   * A name for an employee id, from the run's own rows.
+   *
+   * The blocker knows the id; the payslip knows the name. Somebody who has
+   * already been excluded has no payslip, so their name comes off the exclusion
+   * instead — which is the reason those records are on the run rather than only
+   * being sentences in the exception list.
+   */
+  function nameOf(employeeId: string): string {
+    return (
+      run?.payslips.find((slip) => slip.employeeId === employeeId)?.name ??
+      run?.exclusions.find((row) => row.employeeId === employeeId)?.name ??
+      "this person"
+    );
+  }
+
+  async function exclude(reason: string) {
+    if (!runId || !excluding) return;
+    setExcludeBusy(true);
+    setExcludeError(null);
+    try {
+      const result = await actions.exclude(runId, {
+        employeeId: excluding.employeeId,
+        reason,
+      });
+      setPrepared(result.run);
+      setAckWarnings(false);
+      setExcluding(null);
+      reloadRuns();
+      detail.reload();
+      toast.push({
+        title: `${result.name} is not on ${periodLabel(period)} payroll`,
+        tone: "success",
+        detail:
+          `${result.run.headcount} ${result.run.headcount === 1 ? "person" : "people"} ` +
+          `still to be paid · ${result.run.blockers} to fix · back next period automatically`,
+      });
+    } catch (caught) {
+      /* On the field rather than in a toast: the refusal is almost always about
+         the reason, and a toast disappears while the form is still open. */
+      setExcludeError(
+        caught instanceof ApiError
+          ? caught.message
+          : "Something went wrong. Try again.",
+      );
+    } finally {
+      setExcludeBusy(false);
+    }
+  }
+
+  async function putBack(exclusion: RunExclusion) {
+    if (!runId) return;
+    setPuttingBack(exclusion.employeeId);
+    try {
+      const result = await actions.putBack(runId, exclusion.employeeId);
+      setPrepared(result.run);
+      setAckWarnings(false);
+      reloadRuns();
+      detail.reload();
+      toast.push({
+        title: `${result.name} is back on ${periodLabel(period)} payroll`,
+        tone: "success",
+        detail:
+          result.run.blockers > 0
+            ? `${result.run.blockers} to fix before this can be approved — whatever stopped them is still there.`
+            : `${result.run.headcount} ${result.run.headcount === 1 ? "person" : "people"} to be paid.`,
+      });
+    } catch (caught) {
+      toast.push({
+        title: "Could not put them back on this payroll",
+        tone: "danger",
+        detail:
+          caught instanceof ApiError
+            ? caught.message
+            : "Something went wrong. Try again.",
+      });
+    } finally {
+      setPuttingBack(null);
+    }
+  }
+
+  /**
+   * The decision beside the problem.
+   *
+   * Only where a decision is what clears the row. A missing account number gets
+   * both: the link that goes and adds one, and this — because ninety-nine
+   * salaries should not wait on one person answering their phone. An exclusion
+   * gets the way back out of it. Everything else gets nothing, because there is
+   * no decision to offer and a button that only navigates is already `fixFor`'s
+   * job.
+   */
+  function actionFor(exception: RunException): React.ReactNode {
+    if (!exception.employeeId || !canPrepare || settled) return null;
+    const employeeId = exception.employeeId;
+
+    if (exception.code === "missing_bank_account") {
+      return (
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={busy !== null || excludeBusy}
+          onClick={() => {
+            setExcludeError(null);
+            setExcluding({ employeeId, name: nameOf(employeeId) });
+          }}
+        >
+          Exclude from this payroll
+        </Button>
+      );
+    }
+
+    if (exception.code === "excluded_from_payroll") {
+      const exclusion = run?.exclusions.find((row) => row.employeeId === employeeId);
+      if (!exclusion) return null;
+      return (
+        <Button
+          variant="secondary"
+          size="sm"
+          loading={puttingBack === employeeId}
+          disabled={puttingBack !== null || busy !== null}
+          onClick={() => void putBack(exclusion)}
+        >
+          Put back on this payroll
+        </Button>
+      );
+    }
+
+    return null;
   }
 
   async function approve() {
@@ -290,11 +445,15 @@ export function PayrollRunWizard() {
                   tone="info"
                   title={`${periodLabel(period)} is already prepared`}
                 >
-                  It has {existing.employeeCount}{" "}
-                  {existing.employeeCount === 1 ? "payslip" : "payslips"} and is{" "}
+                  {/* Two sentences, because one was ambiguous. `and is approved`
+                      appended to `payslipCountLabel` produced "9 of 10 payslips
+                      — 1 excluded and is approved", where the trailing clause
+                      reads as though the *exclusion* had been approved rather
+                      than the payroll. The count gets its own full stop. */}
+                  It has {payslipCountLabel(existing)}.{" "}
                   {existing.status === "APPROVED" || existing.status === "PAID"
-                    ? "approved, so its figures are frozen."
-                    : "still a draft. You can prepare it again from the next step."}
+                    ? "It is approved, so its figures are frozen."
+                    : "It is still a draft — you can prepare it again from the next step."}
                 </Callout>
               ) : (
                 <Callout tone="accent" title="Preparing pays nobody">
@@ -344,9 +503,7 @@ export function PayrollRunWizard() {
               </Button>
               {run && (
                 <p className="text-meta leading-relaxed text-muted">
-                  {run.employeeCount}{" "}
-                  {run.employeeCount === 1 ? "payslip" : "payslips"} ·{" "}
-                  {formatKobo(run.grossKobo)} gross
+                  {payslipCountLabel(run)} · {formatKobo(run.grossKobo)} gross
                 </p>
               )}
               {settled && (
@@ -367,7 +524,17 @@ export function PayrollRunWizard() {
               </CardBody>
             </Card>
           ) : run ? (
-            <ExceptionList exceptions={exceptions} />
+            <>
+              <ExceptionList exceptions={exceptions} actionFor={actionFor} />
+              {/* Under the list rather than inside it. The exception rows say
+                  what happened; this says who is not on the payroll, in four
+                  facts a person can act on a year from now. */}
+              <ExcludedList
+                exclusions={run.exclusions}
+                {...(canPrepare && !settled ? { onPutBack: putBack } : {})}
+                busyFor={puttingBack}
+              />
+            </>
           ) : (
             <EmptyState
               compact
@@ -384,7 +551,14 @@ export function PayrollRunWizard() {
         <div className="flex flex-col gap-5">
           <DiscrepancyPanel discrepancies={discrepancies} />
           {run ? (
-            <PayslipTable payslips={run.payslips} />
+            <>
+              <PayslipTable payslips={run.payslips} run={run} />
+              <ExcludedList
+                exclusions={run.exclusions}
+                {...(canPrepare && !settled ? { onPutBack: putBack } : {})}
+                busyFor={puttingBack}
+              />
+            </>
           ) : (
             <EmptyState
               compact
@@ -432,7 +606,7 @@ export function PayrollRunWizard() {
               <CardBody>
                 <dl className="flex flex-col gap-2.5 text-body-sm">
                   <SummaryRow label="Status" value={<RunStatusBadge status={run.status} />} />
-                  <SummaryRow label="People" value={String(run.employeeCount)} />
+                  <SummaryRow label="People paid" value={headcountLabel(run)} />
                   <SummaryRow label="Pays on" value={run.payDate} />
                   <SummaryRow
                     label="Stops payroll"
@@ -506,6 +680,21 @@ export function PayrollRunWizard() {
         </div>
       </div>
 
+      {excluding && (
+        <ExcludeFromPayrollDialog
+          open
+          name={excluding.name}
+          periodLabel={periodLabel(period)}
+          onClose={() => {
+            setExcluding(null);
+            setExcludeError(null);
+          }}
+          onConfirm={(reason) => void exclude(reason)}
+          loading={excludeBusy}
+          error={excludeError}
+        />
+      )}
+
       {run && (
         <ConfirmDialog
           open={confirming}
@@ -561,8 +750,17 @@ function SummaryRow({
  * some — a column of zeroes is noise, and a column of twenty-ones is the single
  * most important thing on the screen.
  */
-function PayslipTable({ payslips }: { payslips: Payslip[] }) {
+function PayslipTable({
+  payslips,
+  run,
+}: {
+  payslips: Payslip[];
+  /** For the count. A badge saying "9 payslips" beside a company of ten is
+      true and, on its own, the wrong answer to "is everybody here?". */
+  run: { employeeCount: number; excludedCount: number };
+}) {
   const anyUnpaid = payslips.some((slip) => slip.unpaidDays > 0);
+  const note = excludedNote(run);
 
   return (
     <Card>
@@ -570,11 +768,16 @@ function PayslipTable({ payslips }: { payslips: Payslip[] }) {
         title="Every payslip"
         description="PAYE is worked out on annual income against the bands in force for the period, after pension and housing-fund relief."
         action={
-          <Badge tone="neutral" size="sm">
-            {payslips.length} {payslips.length === 1 ? "payslip" : "payslips"}
+          <Badge tone={run.excludedCount > 0 ? "warning" : "neutral"} size="sm">
+            {payslipCountLabel(run)}
           </Badge>
         }
       />
+      {note && (
+        <CardBody className="border-b border-line">
+          <p className="text-body-sm leading-relaxed text-warning-text">{note}</p>
+        </CardBody>
+      )}
       <TableWrap className="rounded-none border-0">
         <THead>
           <TH>Employee</TH>

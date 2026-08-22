@@ -126,7 +126,7 @@ export function MatchColumns({
             {problems.missingRequired.map((field, index) => (
               <span key={field}>
                 {index > 0 && ", "}
-                <code className="rounded bg-ink/5 px-1 py-0.5 text-[0.8125rem]">
+                <code className="rounded bg-ink/5 px-1 py-0.5 text-meta">
                   {HEADING[field]}
                 </code>
               </span>
@@ -160,7 +160,7 @@ export function MatchColumns({
 
         <CardBody className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-[0.875rem] text-body">
+            <p className="text-meta text-body">
               <span className="font-medium text-ink">{csv.headers.length}</span>{" "}
               columns in your file.{" "}
               <span className="font-medium text-ink">{matched}</span> matched,{" "}
@@ -202,7 +202,7 @@ export function MatchColumns({
                 return (
                   <TR key={heading}>
                     <TD className="align-top">
-                      <span className="block text-sm font-medium text-ink break-words">
+                      <span className="block text-meta font-medium text-ink break-words">
                         {heading}
                       </span>
                       {!field && (
@@ -213,11 +213,11 @@ export function MatchColumns({
                     </TD>
                     <TD className="align-top">
                       {sample ? (
-                        <span className="text-[0.875rem] text-body break-words">
+                        <span className="text-meta text-body break-words">
                           {sample}
                         </span>
                       ) : (
-                        <span className="text-[0.875rem] text-faint">
+                        <span className="text-meta text-faint">
                           Empty in the first rows
                         </span>
                       )}
@@ -253,7 +253,7 @@ export function MatchColumns({
                       </Select>
                     </TD>
                     <TD className="align-top">
-                      <span className="text-[0.875rem] text-muted">
+                      <span className="text-meta text-muted">
                         {field ? noteFor(field) : "This column stays in your file."}
                       </span>
                     </TD>
@@ -264,7 +264,7 @@ export function MatchColumns({
           </TableWrap>
 
           {shown.length === 0 && (
-            <p className="py-6 text-center text-[0.875rem] text-muted">
+            <p className="py-6 text-center text-meta text-muted">
               Nothing in this view.
             </p>
           )}

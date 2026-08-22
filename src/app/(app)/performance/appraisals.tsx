@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { ClipboardList, Layers, MessagesSquare } from "lucide-react";
+import Link from "next/link";
+import { ClipboardList, Layers, MessagesSquare, ShieldCheck } from "lucide-react";
 import {
   Badge,
   Button,
+  ButtonLink,
   Callout,
   Card,
   CardBody,
@@ -17,16 +19,19 @@ import {
 import { ApiError } from "@/lib/api/client";
 import {
   dayLabel,
+  dayOf,
   type ApiCycle,
   type ApiPeerFeedback,
   type ApiReview,
 } from "@/lib/api/performance";
 import { useCan } from "@/lib/permissions";
 import { useFeatures } from "@/lib/store/features";
+import { useSession } from "@/lib/store/session";
 import {
   useAppraisals,
   useCycleMutations,
   useFramework,
+  useMyAppraisers,
 } from "@/lib/store/performance";
 import { NewCycleDialog, QuestionsDialog } from "./cycle-dialogs";
 import { ReviewFormModal } from "./review-form";
@@ -73,12 +78,17 @@ export function AppraisalsTab() {
   const cycles = useCycleMutations();
   const features = useFeatures();
   const canManage = useCan("MANAGE_SETTINGS");
+  const { actingId } = useSession();
   const toast = useToast();
 
   const [opened, setOpened] = useState<string | null>(null);
   const [questionsFor, setQuestionsFor] = useState<ApiCycle | null>(null);
   const [creatingCycle, setCreatingCycle] = useState(false);
   const [unappraised, setUnappraised] = useState<{
+    cycleName: string;
+    names: string[];
+  } | null>(null);
+  const [unscoreable, setUnscoreable] = useState<{
     cycleName: string;
     names: string[];
   } | null>(null);
@@ -119,6 +129,15 @@ export function AppraisalsTab() {
           ? { cycleName: cycle.name, names: result.withoutAppraiser }
           : null,
       );
+      /* The second silent failure, and it is a different one: somebody with an
+         appraiser and nothing agreed to be judged on still finishes the period
+         with a hole in their mark, because delivery against objectives is one of
+         the four parts the framework seeds. Named, not counted. */
+      setUnscoreable(
+        result.withoutAgreedObjectives.length > 0
+          ? { cycleName: cycle.name, names: result.withoutAgreedObjectives }
+          : null,
+      );
       appraisals.reload();
     } catch (error) {
       toast.push({
@@ -134,9 +153,43 @@ export function AppraisalsTab() {
 
   const owed = appraisals.mine.toComplete;
   const record = appraisals.mine.aboutMe.filter((review) => review.submitted);
+  /**
+   * Ratings this person has been told and has not answered.
+   *
+   * The last step of the simple path, and the one nobody else in this market
+   * records at all. It is checked on all three flags rather than on
+   * `!acknowledged`, because not acknowledged usually means nobody has been asked
+   * yet — a third state, and the common one.
+   */
+  const owesAnswer = appraisals.mine.aboutMe.filter(
+    (review) =>
+      review.finalised && !review.acknowledged && !review.disputed,
+  );
+  const answered = appraisals.mine.aboutMe.filter(
+    (review) => review.acknowledged || review.disputed,
+  );
   const openCycle =
     appraisals.cycles.find((cycle) => cycle.stage !== "PUBLISHED" && cycle.stage !== "DRAFT") ??
     appraisals.cycles[0];
+
+  /**
+   * Whether anybody is appraising this person in the cycle that is running.
+   *
+   * Asked directly rather than inferred from the lists above, and the difference
+   * matters: a manager review stays out of "what was said about you" until it is
+   * finalised or the cycle is published, so its absence is the ordinary mid-cycle
+   * state. Reading that absence as "nobody is appraising you" would be wrong for
+   * almost everybody. `useMyAppraisers` asks the endpoint whose whole purpose is
+   * this question, and an empty answer is the answer.
+   */
+  const mine = useMyAppraisers(
+    openCycle && openCycle.stage !== "PUBLISHED" ? openCycle.id : null,
+    actingId,
+  );
+  const noAppraiser =
+    mine.row !== null && mine.row.appraisers.length === 0
+      ? mine.row.exceptions.find((issue) => issue.code === "NO_APPRAISER")
+      : undefined;
 
   return (
     <div className="flex flex-col gap-6">
@@ -146,11 +199,22 @@ export function AppraisalsTab() {
             Demo · answers stay in this browser
           </Badge>
         )}
-        {canManage && cycles.editable && (
-          <Button variant="accent" size="sm" onClick={() => setCreatingCycle(true)}>
-            New cycle
-          </Button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Agreeing objectives is the step before rating anybody, so the link
+              to it belongs beside the reviews rather than only on the KPI tab. */}
+          <ButtonLink size="sm" href="/performance/approvals">
+            Objectives to agree
+          </ButtonLink>
+          {canManage && cycles.editable && (
+            <Button
+              variant="accent"
+              size="sm"
+              onClick={() => setCreatingCycle(true)}
+            >
+              New cycle
+            </Button>
+          )}
+        </div>
       </div>
 
       {appraisals.error && (
@@ -189,8 +253,62 @@ export function AppraisalsTab() {
         </Callout>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Stat label="Waiting on you" value={String(owed.length)} />
+      {/* The other way somebody finishes a cycle short. Separate from the one
+          above because the fix is different: that one needs an appraiser, this
+          one needs an objective agreed. */}
+      {unscoreable && (
+        <Callout tone="warning" title="Some people have nothing agreed to be judged on">
+          <p>
+            {unscoreable.names.join(", ")}{" "}
+            {unscoreable.names.length === 1 ? "has" : "have"} no agreed objective
+            in {unscoreable.cycleName}. Delivery against objectives is one of the
+            four parts an appraisal is made of, so that part of their mark cannot
+            be worked out — it is left out rather than scored zero, and the rest of
+            their score carries the difference.
+          </p>
+          <p className="mt-2 flex flex-wrap items-center gap-3">
+            <Link
+              href="/performance/approvals"
+              className="font-medium underline-offset-2 hover:underline"
+            >
+              Agree what is waiting
+            </Link>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setUnscoreable(null)}
+            >
+              Dismiss
+            </Button>
+          </p>
+        </Callout>
+      )}
+
+      {/* The employee's own half of the exception the cycle screen shows HR. A
+          person nobody is appraising finishes the period with no mark, and being
+          the last to hear about your own missing appraiser is the worst possible
+          order to find out in. */}
+      {noAppraiser && (
+        <Callout tone="warning" title="Nobody is appraising you in this cycle">
+          <p>{noAppraiser.message}</p>
+          <p className="mt-2">
+            Your self-review still counts and still goes in. What is missing is
+            somebody to write the manager review, which is the rating of record —
+            ask whoever runs the cycle to set a manager on your record or assign
+            an appraiser.
+          </p>
+        </Callout>
+      )}
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Stat label="Forms waiting on you" value={String(owed.length)} />
+        <Stat
+          label="Ratings needing your answer"
+          value={String(owesAnswer.length)}
+          {...(owesAnswer.length > 0
+            ? { hint: "Acknowledge it or say you disagree" }
+            : {})}
+        />
         <Stat label="Reviews about you" value={String(record.length)} />
         <Stat
           label="Current cycle"
@@ -198,6 +316,57 @@ export function AppraisalsTab() {
           {...(openCycle ? { hint: `At ${openCycle.stageLabel}` } : {})}
         />
       </div>
+
+      {/* The last step of the simple path: set goals, one manager agrees, rate
+          once, the employee acknowledges. Its own card and above the work list,
+          because a rating nobody has answered is the exposure this whole feature
+          exists to close — and because silence is not acceptance, so it cannot be
+          left to be noticed. */}
+      {owesAnswer.length > 0 && (
+        <Card>
+          <CardHeader
+            title="Your rating is final"
+            description="Read it, then acknowledge that you have seen it or say formally that you do not accept it. Acknowledging is not agreeing."
+            action={
+              <Badge tone="accent" size="sm" icon={<ShieldCheck aria-hidden="true" />}>
+                {owesAnswer.length === 1
+                  ? "1 to answer"
+                  : `${owesAnswer.length} to answer`}
+              </Badge>
+            }
+          />
+          <CardBody className="flex flex-col gap-2">
+            {owesAnswer.map((review) => (
+              <div
+                key={review.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-accent-line bg-accent-soft p-3"
+              >
+                <div className="min-w-0">
+                  <p className="text-body-sm font-medium text-ink">
+                    {review.cycleName}
+                    {review.rating !== null
+                      ? ` · ${review.rating} out of 5`
+                      : " · no overall mark"}
+                  </p>
+                  <p className="mt-1 text-meta text-muted">
+                    {review.finalisedAt
+                      ? `Final on ${dayOf(review.finalisedAt)}`
+                      : "Final"}
+                    {review.authorName ? ` · from ${review.authorName}` : ""}
+                  </p>
+                </div>
+                <ButtonLink
+                  variant="accent"
+                  size="sm"
+                  href={`/performance/reviews/${review.id}`}
+                >
+                  Read it and answer
+                </ButtonLink>
+              </div>
+            ))}
+          </CardBody>
+        </Card>
+      )}
 
       <Card>
         <CardHeader
@@ -240,7 +409,18 @@ export function AppraisalsTab() {
       <Card>
         <CardHeader
           title="What was said about you"
-          description="Yours to read once the cycle is published."
+          description="Yours to read once your rating is final, or once the cycle is published — whichever comes first."
+          {...(answered.length > 0
+            ? {
+                action: (
+                  <Badge tone="neutral" size="sm">
+                    {answered.length === 1
+                      ? "1 answered"
+                      : `${answered.length} answered`}
+                  </Badge>
+                ),
+              }
+            : {})}
         />
         {record.length === 0 ? (
           <EmptyState
@@ -382,6 +562,21 @@ export function AppraisalsTab() {
                     </p>
                   </div>
 
+                  <div className="flex flex-wrap gap-2">
+                    {/* The cycle screen is the read: who is outstanding, who has
+                        nobody appraising them, where every mark stands. It works
+                        for anybody holding the records permission, which is not
+                        the same set as the people who can start a cycle. */}
+                    {cycle.stage !== "DRAFT" && (
+                      <ButtonLink
+                        size="sm"
+                        href={`/performance/cycles/${cycle.id}`}
+                      >
+                        Who is outstanding
+                      </ButtonLink>
+                    )}
+                  </div>
+
                   {cycles.editable && (
                     <div className="flex flex-wrap gap-2">
                       {cycle.stage === "DRAFT" && (
@@ -517,19 +712,44 @@ function ReviewRow({
         <p className="mt-1 flex flex-wrap items-center gap-2 text-meta text-muted">
           <span>{review.cycleName}</span>
           {review.dueDate && <span>Due {dayLabel(review.dueDate)}</span>}
+          {/* Absent, not zero: a form the author put no number on is not a form
+              marked nought. */}
           {review.rating !== null && <span>Mark {review.rating} out of 5</span>}
           <Badge tone={review.submitted ? "neutral" : "warning"} size="sm" dot>
             {review.submitted ? "Sent" : "Not sent"}
           </Badge>
+          {/* Three separate facts, and each is its own badge. A rating can be
+              final and unanswered, which is neither agreement nor a dispute. */}
+          {review.disputed ? (
+            <Badge tone="danger" size="sm">
+              Disputed {review.disputedAt ? dayOf(review.disputedAt) : ""}
+            </Badge>
+          ) : review.acknowledged ? (
+            <Badge tone="success" size="sm">
+              Acknowledged{" "}
+              {review.acknowledgedAt ? dayOf(review.acknowledgedAt) : ""}
+            </Badge>
+          ) : review.finalised ? (
+            <Badge tone="accent" size="sm">
+              Final, not answered
+            </Badge>
+          ) : null}
         </p>
       </div>
-      <Button
-        variant={review.submitted ? "secondary" : "accent"}
-        size="sm"
-        onClick={onOpen}
-      >
-        {actionLabel}
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant={review.submitted ? "secondary" : "accent"}
+          size="sm"
+          onClick={onOpen}
+        >
+          {actionLabel}
+        </Button>
+        {/* Everything a rating has to be able to explain — the components behind
+            it, who else appraised, the acknowledgement — is on the record. */}
+        <ButtonLink size="sm" href={`/performance/reviews/${review.id}`}>
+          The record
+        </ButtonLink>
+      </div>
     </div>
   );
 }

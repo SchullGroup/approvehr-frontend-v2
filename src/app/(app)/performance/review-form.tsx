@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import {
   Badge,
   Button,
@@ -13,12 +14,20 @@ import {
 import { ApiError } from "@/lib/api/client";
 import {
   dayLabel,
-  weightLabel,
   type AnswerBody,
-  type ApiAppraiserContext,
   type ApiFormQuestion,
 } from "@/lib/api/performance";
 import { useReview, useReviewMutations } from "@/lib/store/performance";
+import {
+  AnswerField,
+  AppraiserStrip,
+  RATING_LABELS,
+  RATING_OPTIONS,
+  ReadAnswer,
+  draftFrom,
+  filled,
+  type Draft,
+} from "./review-parts";
 
 /**
  * One review, opened.
@@ -55,18 +64,15 @@ import { useReview, useReviewMutations } from "@/lib/store/performance";
  * marking a third of a mark should know that is what they are doing: a 2 written
  * as the whole judgement and a 2 written as one of three opinions are different
  * acts, and only one of them ends a career.
+ *
+ * ## The question, the scale and the strip live in `review-parts.tsx`
+ *
+ * `/performance/reviews/[id]` opens the same review as the record of a rating,
+ * with the sign-off step on it. A second copy of "what a question looks like"
+ * would eventually render one this form had stopped asking, so both surfaces
+ * import the same pieces. This file owns the *modal* and the draft; it does not
+ * own a question.
  */
-
-/** 1–5, in words. A bare number is not a scale anybody agrees on. */
-const RATING_LABELS: Record<string, string> = {
-  "1": "1 — Well below what was needed",
-  "2": "2 — Below what was needed",
-  "3": "3 — Did what was needed",
-  "4": "4 — Above what was needed",
-  "5": "5 — Far above what was needed",
-};
-
-type Draft = { text?: string; rating?: string; choice?: string; bool?: string };
 
 export function ReviewFormModal({
   reviewId,
@@ -113,36 +119,11 @@ export function ReviewFormModal({
   const editable = review.mine && !review.submitted;
 
   /** What is in the box right now: the local draft, else what is stored. */
-  const value = (question: ApiFormQuestion): Draft => {
-    const local = draft[question.id];
-    if (local) return local;
-    const answer = question.answer;
-    if (!answer) return {};
-    return {
-      text: answer.textValue ?? undefined,
-      rating: answer.ratingValue === null ? undefined : String(answer.ratingValue),
-      choice: answer.choiceValue ?? undefined,
-      bool:
-        answer.boolValue === null ? undefined : answer.boolValue ? "yes" : "no",
-    };
-  };
-
-  const filled = (question: ApiFormQuestion): boolean => {
-    const held = value(question);
-    switch (question.kind) {
-      case "RATING":
-        return Boolean(held.rating);
-      case "CHOICE":
-        return Boolean(held.choice);
-      case "BOOLEAN":
-        return Boolean(held.bool);
-      default:
-        return Boolean(held.text && held.text.trim());
-    }
-  };
+  const value = (question: ApiFormQuestion): Draft =>
+    draft[question.id] ?? draftFrom(question);
 
   const outstanding = review.questions
-    .filter((question) => question.required && !filled(question))
+    .filter((question) => question.required && !filled(question, value(question)))
     .map((question) => question.prompt);
 
   /** Only what has actually been typed. Re-answering replaces on the API side. */
@@ -221,11 +202,41 @@ export function ReviewFormModal({
         )
       }
     >
+      {/* The modal is for answering. Everything a rating has to be able to
+          explain — the components behind the mark, who else appraised, the
+          acknowledgement — is on the record, and this is the way to it. */}
+      <p className="mb-4 text-body-sm text-muted">
+        <Link
+          href={`/performance/reviews/${review.id}`}
+          className="font-medium text-accent-text underline-offset-2 hover:underline"
+        >
+          Open the full record
+        </Link>{" "}
+        for the mark, its components and the sign-off.
+      </p>
       <div className="flex flex-col gap-5">
         <div className="flex flex-wrap items-center gap-2">
           <Badge tone={review.submitted ? "neutral" : "warning"} size="sm" dot>
             {review.submitted ? "Sent" : "Not sent yet"}
           </Badge>
+          {/* The sign-off state belongs here too, or the modal reads as the whole
+              story about a rating that has since become the one of record. Each
+              is its own fact: not finalised does not mean disputed. */}
+          {review.finalised && (
+            <Badge tone="accent" size="sm">
+              Final
+            </Badge>
+          )}
+          {review.acknowledged && (
+            <Badge tone="success" size="sm">
+              Acknowledged
+            </Badge>
+          )}
+          {review.disputed && (
+            <Badge tone="danger" size="sm">
+              Disputed
+            </Badge>
+          )}
           {review.dueDate && (
             <span className="text-body-sm text-muted">
               Due {dayLabel(review.dueDate)}
@@ -290,7 +301,7 @@ export function ReviewFormModal({
                 placeholder="No overall mark"
                 onChange={(event) => setMark(event.target.value)}
               >
-                {["1", "2", "3", "4", "5"].map((option) => (
+                {RATING_OPTIONS.map((option) => (
                   <option key={option} value={option}>
                     {RATING_LABELS[option]}
                   </option>
@@ -325,156 +336,5 @@ export function ReviewFormModal({
         )}
       </div>
     </Modal>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-
-/**
- * What this author is to this subject, and how much of the mark it is.
- *
- * Only rendered when the API returned an assignment. `appraiserCount` is what
- * turns "40%" from a fraction into a sentence — a share is meaningless without
- * knowing what it is a share of, and one appraiser at 100% needs no sentence at
- * all, so it does not get one.
- */
-function AppraiserStrip({
-  appraiser,
-  subjectName,
-  mine,
-}: {
-  appraiser: ApiAppraiserContext;
-  subjectName: string;
-  mine: boolean;
-}) {
-  const shared = appraiser.appraiserCount > 1;
-
-  return (
-    <div className="rounded-md border border-line bg-canvas px-3.5 py-3">
-      <p className="flex flex-wrap items-center gap-2 text-body-sm text-ink">
-        <Badge tone="accent" size="sm">
-          {appraiser.roleLabel}
-        </Badge>
-        <span>
-          {mine ? "You are appraising" : "Appraising"} {subjectName} as their{" "}
-          {appraiser.roleLabel.toLowerCase()}
-          {shared
-            ? `, for ${weightLabel(appraiser.weightBp)} of the mark — one of ${appraiser.appraiserCount} appraisers.`
-            : ", and yours is the whole mark."}
-        </span>
-      </p>
-      {appraiser.note && (
-        <p className="mt-1.5 text-body-sm text-body">{appraiser.note}</p>
-      )}
-      {shared && (
-        <p className="mt-1.5 text-body-sm text-muted">
-          The final mark is the weighted average of everybody who answers. Answer
-          for the part of the work you actually saw.
-        </p>
-      )}
-    </div>
-  );
-}
-
-function AnswerField({
-  question,
-  held,
-  onChange,
-}: {
-  question: ApiFormQuestion;
-  held: Draft;
-  onChange: (next: Draft) => void;
-}) {
-  if (question.kind === "RATING") {
-    return (
-      <Field label={question.prompt} required={question.required}>
-        <Select
-          value={held.rating ?? ""}
-          placeholder="Pick a mark"
-          onChange={(event) => onChange({ rating: event.target.value })}
-        >
-          {["1", "2", "3", "4", "5"].map((option) => (
-            <option key={option} value={option}>
-              {RATING_LABELS[option]}
-            </option>
-          ))}
-        </Select>
-      </Field>
-    );
-  }
-
-  if (question.kind === "CHOICE") {
-    return (
-      <Field label={question.prompt} required={question.required}>
-        <Select
-          value={held.choice ?? ""}
-          placeholder="Pick one"
-          onChange={(event) => onChange({ choice: event.target.value })}
-        >
-          {question.options.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </Select>
-      </Field>
-    );
-  }
-
-  if (question.kind === "BOOLEAN") {
-    return (
-      <Field label={question.prompt} required={question.required}>
-        <Select
-          value={held.bool ?? ""}
-          placeholder="Yes or no"
-          onChange={(event) => onChange({ bool: event.target.value })}
-        >
-          <option value="yes">Yes</option>
-          <option value="no">No</option>
-        </Select>
-      </Field>
-    );
-  }
-
-  return (
-    <Field label={question.prompt} required={question.required}>
-      <Textarea
-        rows={4}
-        value={held.text ?? ""}
-        onChange={(event) => onChange({ text: event.target.value })}
-      />
-    </Field>
-  );
-}
-
-function ReadAnswer({
-  question,
-  held,
-}: {
-  question: ApiFormQuestion;
-  held: Draft;
-}) {
-  const answer =
-    question.kind === "RATING"
-      ? held.rating
-        ? `${held.rating} out of 5`
-        : null
-      : question.kind === "BOOLEAN"
-        ? held.bool
-          ? held.bool === "yes"
-            ? "Yes"
-            : "No"
-          : null
-        : question.kind === "CHOICE"
-          ? (held.choice ?? null)
-          : (held.text ?? null);
-
-  return (
-    <div>
-      <p className="text-meta font-medium text-muted">{question.prompt}</p>
-      <p className="mt-1 text-body-sm leading-relaxed text-ink">
-        {answer ?? "Not answered"}
-      </p>
-    </div>
   );
 }

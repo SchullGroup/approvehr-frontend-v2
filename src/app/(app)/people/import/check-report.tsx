@@ -290,7 +290,7 @@ export function CheckReport({
           <>
             {fixCount > 0 && (
               <div className="flex flex-wrap items-center gap-3 border-b border-line bg-sunken px-4 py-3">
-                <span className="flex-1 text-[0.875rem] text-body">
+                <span className="flex-1 text-meta text-body">
                   {unchecked ? (
                     <>
                       {fixCount === 1
@@ -341,29 +341,29 @@ export function CheckReport({
                         {line.row}
                       </TD>
                       <TD className="align-top">
-                        <span className="block text-[0.875rem] text-ink">
+                        <span className="block text-meta text-ink">
                           {line.who}
                         </span>
                         {line.employeeNo && (
-                          <span className="tabular block text-[0.75rem] text-muted">
+                          <span className="tabular block text-meta text-muted">
                             {line.employeeNo}
                           </span>
                         )}
                       </TD>
                       <TD className="align-top">
-                        <code className="rounded bg-sunken px-1.5 py-0.5 text-[0.8125rem] text-body">
+                        <code className="rounded bg-sunken px-1.5 py-0.5 text-meta text-body">
                           {line.column || "—"}
                         </code>
                       </TD>
                       <TD className="align-top">
-                        <span className="text-[0.875rem] text-body break-words">
+                        <span className="text-meta text-body break-words">
                           {line.value === null || line.value === ""
                             ? "(empty)"
                             : line.value}
                         </span>
                       </TD>
                       <TD className="align-top">
-                        <span className="text-[0.875rem] text-body">
+                        <span className="text-meta text-body">
                           {line.problem}
                         </span>
                       </TD>
@@ -383,7 +383,7 @@ export function CheckReport({
                           />
                         ) : (
                           /* Nothing to mend: this row was never sent. */
-                          <span className="text-[0.8125rem] text-muted">—</span>
+                          <span className="text-meta text-muted">—</span>
                         )}
                       </TD>
                       <TD className="align-top">
@@ -520,29 +520,29 @@ function Duplicates({
               <TR key={row.row}>
                 <TD className="tabular align-top font-medium text-ink">{row.row}</TD>
                 <TD className="align-top">
-                  <span className="block text-[0.875rem] text-ink">
+                  <span className="block text-meta text-ink">
                     {row.name ?? "No name in this row"}
                   </span>
                   {row.employeeNo && (
-                    <span className="tabular block text-[0.75rem] text-muted">
+                    <span className="tabular block text-meta text-muted">
                       {row.employeeNo}
                     </span>
                   )}
                 </TD>
                 <TD className="align-top">
-                  <span className="block text-[0.875rem] text-ink">{match.name}</span>
-                  <span className="tabular block text-[0.75rem] text-muted">
+                  <span className="block text-meta text-ink">{match.name}</span>
+                  <span className="tabular block text-meta text-muted">
                     {match.employeeNo}
                     {match.archived ? " · archived" : ""}
                   </span>
                 </TD>
                 <TD className="align-top">
-                  <span className="block text-[0.8125rem] text-muted">
+                  <span className="block text-meta text-muted">
                     {match.on === "email"
                       ? "Same work email"
                       : "Same name and date of birth"}
                   </span>
-                  <span className="block text-[0.875rem] text-body break-words">
+                  <span className="block text-meta text-body break-words">
                     {match.value}
                   </span>
                 </TD>
@@ -563,7 +563,7 @@ function Duplicates({
                       Leave them alone
                     </Button>
                   </div>
-                  <p className="mt-1.5 text-[0.75rem] leading-relaxed text-muted">
+                  <p className="mt-1.5 text-meta leading-relaxed text-muted">
                     {chosen === "update"
                       ? `This row goes onto ${match.name}'s record. They keep the staff number they already have, ${match.employeeNo}.`
                       : chosen === "skip"
@@ -612,12 +612,12 @@ function Flagged({
           <AlertTriangle />
         </span>
         <div className="min-w-0">
-          <h3 className="text-[0.9375rem] font-semibold text-ink">
+          <h3 className="text-body-sm font-semibold text-ink">
             Important: {rows.length}{" "}
             {rows.length === 1 ? "person is" : "people are"} missing a detail
             payroll will ask for
           </h3>
-          <p className="mt-1 max-w-2xl text-[0.875rem] leading-relaxed text-muted">
+          <p className="mt-1 max-w-2xl text-meta leading-relaxed text-muted">
             They will still be imported. None of this stops a record from being
             created and nothing is invented to fill the gap — but each one comes
             back at a payroll run, so it is worth knowing now rather than then.
@@ -639,11 +639,11 @@ function Flagged({
             <TR key={row.row}>
               <TD className="tabular align-top font-medium text-ink">{row.row}</TD>
               <TD className="align-top">
-                <span className="block text-[0.875rem] text-ink">
+                <span className="block text-meta text-ink">
                   {row.name ?? "No name in this row"}
                 </span>
                 {row.employeeNo && (
-                  <span className="tabular block text-[0.75rem] text-muted">
+                  <span className="tabular block text-meta text-muted">
                     {row.employeeNo}
                     {row.employeeNoGenerated ? " · number generated" : ""}
                   </span>
@@ -652,8 +652,8 @@ function Flagged({
               <TD className="align-top">
                 <ul className="flex flex-col gap-1">
                   {row.missing.map((item) => (
-                    <li key={item.field} className="text-[0.875rem] text-body">
-                      <code className="rounded bg-sunken px-1.5 py-0.5 text-[0.8125rem]">
+                    <li key={item.field} className="text-meta text-body">
+                      <code className="rounded bg-sunken px-1.5 py-0.5 text-meta">
                         {item.column}
                       </code>{" "}
                       {item.why}

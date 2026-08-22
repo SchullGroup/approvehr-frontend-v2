@@ -20,3 +20,25 @@ export { AppraiserMapTab } from "./appraiser-map";
 export { KpisTab } from "./kpis";
 export { ReviewFormModal } from "./review-form";
 export { SkillsTab } from "./skills";
+
+/**
+ * The reason dialog is exported for the same reason `ReviewFormModal` is:
+ * sending an objective back, refusing it and reopening an agreed target all
+ * happen in more than one place — the approval queue and the KPI cascade — and
+ * both must ask for the reason in the same words, because the wording is what
+ * tells somebody what they are about to do.
+ */
+export { ApprovalReasonDialog, type ApprovalAct } from "./approval-dialogs";
+
+/**
+ * The pieces a review is made of, so a third surface that opens one does not
+ * write its own copy of what a question looks like.
+ */
+export {
+  AnswerField,
+  AppraiserStrip,
+  ReadAnswer,
+  draftFrom,
+  filled,
+  type Draft,
+} from "./review-parts";

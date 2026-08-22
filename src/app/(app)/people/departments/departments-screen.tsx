@@ -34,6 +34,8 @@ import {
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
+import { useCan } from "@/lib/permissions";
+import { isUnassigned } from "@/lib/store/demo-structure";
 import { useDepartments, type DepartmentNode } from "@/lib/store/departments";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { AssignPeopleDialog } from "./assign-people-dialog";
@@ -66,11 +68,34 @@ import { TeamsPanel } from "./teams-panel";
  * answer different questions: payroll reports by direct assignment, a head is
  * responsible for the roll-up. Showing one and labelling it "employees" is how
  * the two get confused, and the confusion is expensive when it is a cost centre.
+ *
+ * ## Demo mode edits now, and says what it cannot do
+ *
+ * This screen used to render a "Read-only in demo mode" callout and no buttons,
+ * because `store/departments.ts` refused every write without an API. It does
+ * not any more — read that file's header for why the argument was right and the
+ * conclusion was wrong. The warning it replaced the refusal with is
+ * `departments.demoNote`, rendered on both tabs.
+ *
+ * ## Archived units are fetched, and that is what makes Restore reachable
+ *
+ * `useDepartments(true)`. With the default `false` an archived unit vanished
+ * from the tree the moment it was archived, so the Restore button on the row
+ * could never render and archiving was one-way from the interface. Archived
+ * units are listed in their own card instead of dimmed inside the tree — the
+ * same shape the Teams tab uses, and it keeps a live parent's children list to
+ * live children.
  */
 export function DepartmentsScreen() {
-  const departments = useDepartments();
+  const departments = useDepartments(true);
   const { employees } = useEmployeeDirectory({ pageSize: 200 });
   const toast = useToast();
+  /* The same split the API enforces and the Teams tab already renders:
+     `MANAGE_SETTINGS` changes the structure, `EDIT_RECORDS` moves people into
+     it — because that write moves a cost centre. This screen had no gate at all
+     before, so it offered an office manager buttons the API would refuse. */
+  const canManage = useCan("MANAGE_SETTINGS");
+  const canAssign = useCan("EDIT_RECORDS");
 
   const [tab, setTab] = useState<"structure" | "teams">("structure");
   const [creating, setCreating] = useState<{ parentId?: string } | null>(null);
@@ -88,7 +113,9 @@ export function DepartmentsScreen() {
    * em-dash placeholder `"—"` rather than null, because most screens print the
    * field straight into a table cell. Here it has to be **absent**, so the
    * dialog can say "No department" instead of "Now in —", which reads as a
-   * department somebody named after a punctuation mark.
+   * department somebody named after a punctuation mark. `isUnassigned` is that
+   * test, shared with the store, because the placeholder has been three
+   * different strings and a hand-written `!== "—"` here caught one of them.
    */
   const people = useMemo(
     () =>
@@ -96,15 +123,35 @@ export function DepartmentsScreen() {
         id: person.id,
         name: `${person.firstName} ${person.lastName}`,
         jobTitle: person.jobTitle,
-        departmentName:
-          person.department && person.department !== "—" ? person.department : null,
+        departmentName: isUnassigned(person.department) ? null : person.department,
       })),
     [employees],
   );
 
+  /**
+   * The live tree, the archived list, and the two counts, all derived.
+   *
+   * `counts` from the endpoint is computed over the rows it returned, and this
+   * screen asks for the archived ones — so `counts.departments` would include
+   * an archived department and the stat would read one higher than the tree
+   * shows. `unassignedEmployees` is taken from `counts` because it is a fact
+   * about people rather than about the rows returned.
+   */
+  const liveTree = useMemo(() => withoutArchived(departments.tree), [departments.tree]);
+  const archivedUnits = useMemo(
+    () => departments.flat.filter((unit) => unit.archived),
+    [departments.flat],
+  );
+  const liveUnits = useMemo(
+    () => departments.flat.filter((unit) => !unit.archived),
+    [departments.flat],
+  );
+  const departmentCount = liveUnits.filter((unit) => unit.depth === 0).length;
+  const subDepartmentCount = liveUnits.length - departmentCount;
+
   const totalPayroll = useMemo(
-    () => departments.tree.reduce((sum, node) => sum + node.payrollKobo, 0),
-    [departments.tree],
+    () => liveTree.reduce((sum, node) => sum + node.payrollKobo, 0),
+    [liveTree],
   );
 
   const toggle = (id: string) =>
@@ -135,7 +182,7 @@ export function DepartmentsScreen() {
   };
 
   const tabs: TabItem[] = [
-    { id: "structure", label: "Structure", count: departments.counts.departments },
+    { id: "structure", label: "Structure", count: departmentCount },
     { id: "teams", label: "Teams" },
   ];
 
@@ -144,8 +191,15 @@ export function DepartmentsScreen() {
       <PageHeader
         title="Departments and teams"
         description="Your org structure, and what each unit costs a month."
+        meta={
+          departments.source === "demo" ? (
+            <Badge tone="warning" size="sm">
+              Demo · this browser only
+            </Badge>
+          ) : undefined
+        }
         action={
-          departments.editable && tab === "structure" ? (
+          canManage && tab === "structure" ? (
             <Button
               variant="accent"
               size="sm"
@@ -159,11 +213,13 @@ export function DepartmentsScreen() {
       />
 
       <PageBody className="flex flex-col gap-6">
-        {!departments.editable && (
-          <Callout tone="warning" title="Read-only in demo mode">
-            This tree is derived from the seed data. Changing the org structure
-            needs the API, because a department is a payroll reporting boundary —
-            a tree kept in this browser would never reach a real run.
+        {/* The warning that replaced the refusal. It is the honest half of the
+            old callout: local structure is real and editable, and it does not
+            reach a payroll run. Rendered on both tabs because both write to the
+            same local data. */}
+        {departments.source === "demo" && (
+          <Callout tone="warning" title="Demo structure, this browser only">
+            {departments.demoNote}
           </Callout>
         )}
 
@@ -181,16 +237,15 @@ export function DepartmentsScreen() {
           {tab === "structure" ? (
             <div className="flex flex-col gap-6">
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <Stat
-                  label="Departments"
-                  value={String(departments.counts.departments)}
-                />
-                {/* The API still calls a nested department a "team" in this
+                <Stat label="Departments" value={String(departmentCount)} />
+                {/* The API still calls a nested department a "team" in its own
                     count. The label does not, because the Teams tab owns that
-                    word now — see the header. */}
+                    word now — see the header. Counted here from the flat list
+                    rather than taken from `counts`, which includes the archived
+                    rows this screen asks for. */}
                 <Stat
                   label="Sub-departments"
-                  value={String(departments.counts.teams)}
+                  value={String(subDepartmentCount)}
                   hint="nested inside another"
                 />
                 <Stat
@@ -224,7 +279,7 @@ export function DepartmentsScreen() {
                   title="Structure"
                   description="Top level is a department. Anything nested inside one is a sub-department, and it rolls up into its parent."
                 />
-                {departments.tree.length === 0 ? (
+                {liveTree.length === 0 ? (
                   <EmptyState
                     icon={<Building2 aria-hidden="true" />}
                     title={departments.loading ? "Loading…" : "No departments yet"}
@@ -233,28 +288,57 @@ export function DepartmentsScreen() {
                         ? "Reading your structure."
                         : "Add your first department to start grouping people and reporting payroll by cost centre."
                     }
+                    action={
+                      canManage && !departments.loading ? (
+                        <Button variant="accent" onClick={() => setCreating({})}>
+                          Add the first department
+                        </Button>
+                      ) : undefined
+                    }
                   />
                 ) : (
                   <CardBody className="flex flex-col gap-1.5">
-                    {departments.tree.map((node) => (
+                    {liveTree.map((node) => (
                       <DepartmentRow
                         key={node.id}
                         node={node}
                         expanded={expanded}
                         onToggle={toggle}
-                        editable={departments.editable}
+                        canManage={canManage}
+                        canAssign={canAssign}
                         onAddChild={(parentId) => setCreating({ parentId })}
                         onEdit={setEditing}
                         onArchive={setArchiving}
                         onAssign={setAssigning}
-                        onRestore={(id) =>
-                          void run(() => departments.restore(id), "Restored")
-                        }
                       />
                     ))}
                   </CardBody>
                 )}
               </Card>
+
+              {archivedUnits.length > 0 && (
+                <Card>
+                  <CardHeader
+                    title="Archived"
+                    description="Hidden, not deleted. Past payslips still reference the department they were run against, so nothing is ever spliced out."
+                  />
+                  <CardBody className="flex flex-col gap-1.5">
+                    {archivedUnits.map((unit) => (
+                      <ArchivedRow
+                        key={unit.id}
+                        unit={unit}
+                        canManage={canManage}
+                        onRestore={() =>
+                          void run(
+                            () => departments.restore(unit.id),
+                            `${unit.name} restored`,
+                          )
+                        }
+                      />
+                    ))}
+                  </CardBody>
+                </Card>
+              )}
             </div>
           ) : (
             <TeamsPanel
@@ -329,7 +413,7 @@ export function DepartmentsScreen() {
           onCreate={async (body) => {
             const ok = await run(
               () => departments.create(body),
-              body.parentId ? "Team added" : "Department added",
+              body.parentId ? "Sub-department added" : "Department added",
             );
             if (ok) setCreating(null);
           }}
@@ -379,26 +463,102 @@ export function DepartmentsScreen() {
 
 /* -------------------------------------------------------------------------- */
 
+/**
+ * The tree with archived units taken out, at every level.
+ *
+ * `useDepartments(true)` is what makes Restore reachable, and the cost is that
+ * an archived unit would otherwise appear inside the tree. Archiving refuses
+ * while a unit has live children, so everything pruned here is a leaf.
+ */
+function withoutArchived(nodes: DepartmentNode[]): DepartmentNode[] {
+  return nodes
+    .filter((node) => !node.archived)
+    .map((node) => ({ ...node, children: withoutArchived(node.children) }));
+}
+
+/**
+ * An archived unit, in its own card.
+ *
+ * Deliberately not the full row: an archived department has nobody in it —
+ * archiving refuses otherwise — so Direct, Rolled up and Monthly would all read
+ * zero, and three zeroes beside a name look like a figure that failed to load
+ * rather than a unit that is empty by definition.
+ */
+function ArchivedRow({
+  unit,
+  canManage,
+  onRestore,
+}: {
+  unit: Omit<DepartmentNode, "children">;
+  canManage: boolean;
+  onRestore: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-md border border-line bg-canvas p-3">
+      <span
+        aria-hidden="true"
+        className="flex size-8 shrink-0 items-center justify-center rounded-md bg-sunken text-muted [&>svg]:size-4"
+      >
+        {unit.parentId ? (
+          <Users aria-hidden="true" />
+        ) : (
+          <Building2 aria-hidden="true" />
+        )}
+      </span>
+
+      <div className="min-w-0 flex-1">
+        <p className="flex flex-wrap items-center gap-2 text-body font-medium text-ink">
+          {unit.name}
+          <Badge tone="neutral" size="sm">
+            {unit.parentId ? "Sub-department" : "Department"}
+          </Badge>
+          <Badge tone="warning" size="sm">
+            Archived
+          </Badge>
+          {unit.costCentre && (
+            <span className="tabular text-meta text-muted">{unit.costCentre}</span>
+          )}
+        </p>
+        <p className="mt-0.5 text-body-sm text-muted">
+          Nobody is in it. Restoring puts it back where it was, or at the top if
+          its parent is archived too.
+        </p>
+      </div>
+
+      {canManage && (
+        <Button variant="secondary" size="sm" onClick={onRestore}>
+          <RotateCcw aria-hidden="true" className="size-3.5" />
+          Restore
+        </Button>
+      )}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
 function DepartmentRow({
   node,
   expanded,
   onToggle,
-  editable,
+  canManage,
+  canAssign,
   onAddChild,
   onEdit,
   onArchive,
   onAssign,
-  onRestore,
 }: {
   node: DepartmentNode;
   expanded: Set<string>;
   onToggle: (id: string) => void;
-  editable: boolean;
+  /** Changes the structure: add, rename, re-home, archive. */
+  canManage: boolean;
+  /** Moves people into it, which moves a cost centre. */
+  canAssign: boolean;
   onAddChild: (parentId: string) => void;
   onEdit: (node: DepartmentNode) => void;
   onArchive: (node: DepartmentNode) => void;
   onAssign: (node: DepartmentNode) => void;
-  onRestore: (id: string) => void;
 }) {
   const isOpen = expanded.has(node.id);
   const hasChildren = node.children.length > 0;
@@ -408,10 +568,7 @@ function DepartmentRow({
   return (
     <div>
       <div
-        className={cn(
-          "flex flex-wrap items-center gap-3 rounded-md border border-line p-3 transition-colors",
-          node.archived ? "opacity-60" : "hover:bg-canvas",
-        )}
+        className="flex flex-wrap items-center gap-3 rounded-md border border-line p-3 transition-colors hover:bg-canvas"
         style={{ marginLeft: node.depth * 20 }}
       >
         {hasChildren ? (
@@ -454,11 +611,6 @@ function DepartmentRow({
             <Badge tone={isNested ? "neutral" : "accent"} size="sm">
               {isNested ? "Sub-department" : "Department"}
             </Badge>
-            {node.archived && (
-              <Badge tone="neutral" size="sm">
-                Archived
-              </Badge>
-            )}
             {node.costCentre && (
               <span className="tabular text-meta text-muted">
                 {node.costCentre}
@@ -510,28 +662,21 @@ function DepartmentRow({
           </div>
         </div>
 
-        {editable && (
+        {(canAssign || canManage) && (
           <div className="flex shrink-0 gap-1.5">
-            {node.archived ? (
+            {canAssign && (
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => onRestore(node.id)}
+                onClick={() => onAssign(node)}
+                aria-label={`Assign people to ${node.name}`}
               >
-                <RotateCcw aria-hidden="true" className="size-3.5" />
-                Restore
+                <UserPlus aria-hidden="true" className="size-3.5" />
+                Assign people
               </Button>
-            ) : (
+            )}
+            {canManage && (
               <>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => onAssign(node)}
-                  aria-label={`Assign people to ${node.name}`}
-                >
-                  <UserPlus aria-hidden="true" className="size-3.5" />
-                  Assign people
-                </Button>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -565,12 +710,12 @@ function DepartmentRow({
               node={child}
               expanded={expanded}
               onToggle={onToggle}
-              editable={editable}
+              canManage={canManage}
+              canAssign={canAssign}
               onAddChild={onAddChild}
               onEdit={onEdit}
               onArchive={onArchive}
               onAssign={onAssign}
-              onRestore={onRestore}
             />
           </div>
         ))}

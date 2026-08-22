@@ -6,13 +6,16 @@ import {
   payrollApi,
   type ApprovedRun,
   type Discrepancy,
+  type ExclusionChange,
   type PayrollRun,
   type PayrollRunDetail,
   type PayrollRunStatus,
   type Payslip,
   type PayslipLine,
   type PreparedRun,
+  type ReliefRegime,
   type RunException,
+  type RunExclusion,
 } from "@/lib/api/payroll";
 import {
   DEMO_PAYSLIP_BASIS,
@@ -88,9 +91,35 @@ import { useSession } from "./session";
  *   fixture, which is exact integer arithmetic and needs no engine: an after-tax
  *   deduction takes exactly its own amount off take-home, capped at what is
  *   there.
+ *
+ * ## Exclusions work in demo mode, and that is a decision
+ *
+ * `store/departments.ts` refuses every write offline, because a department is a
+ * payroll reporting boundary and a tree built in one browser would never reach a
+ * run — building one would teach the opposite of how the product works.
+ * `store/shifts.ts` argues the other way for the rota, because nothing else in
+ * the frontend reads it. **An exclusion is the shifts case, not the departments
+ * case**: it is one run's decision about one person, it lives in the same
+ * persisted record as the run it belongs to, and nothing outside these hooks
+ * reads it. So the demo can show the whole loop — blocker, exclude with a reason,
+ * recalculate, approve — which is the loop the feature exists for and the thing a
+ * buyer needs to watch happen.
+ *
+ * It behaves like the API in the two ways that matter. The blocker **stays** a
+ * blocker until somebody excludes that person, so the safe outcome is the one you
+ * get by doing nothing. And the exclusion is keyed to the period, so preparing
+ * the next month brings them back with nothing to remember.
  */
 
 /* ------------------------------------------------------------ demo storage */
+
+type DemoExclusion = {
+  employeeId: string;
+  reason: string;
+  /** Who decided, as a name — the demo signs in as a person, not an id. */
+  decidedBy: string | null;
+  excludedAt: string;
+};
 
 type DemoRunRecord = {
   /** `YYYY-MM`. One run per period, same as the API's unique constraint. */
@@ -100,9 +129,22 @@ type DemoRunRecord = {
   status: PayrollRunStatus;
   preparedAt: string;
   approvedAt: string | null;
+  /**
+   * People deliberately left off **this** period, with the reason.
+   *
+   * On the run rather than on the employee, exactly as `PayrollExclusion` hangs
+   * off `PayrollRun`: a new period starts with none, so anybody left off comes
+   * back by themselves and nothing has to remember to put them there. Optional,
+   * because a payload persisted before this field existed has none — read it
+   * through `exclusionsOf` and never directly.
+   */
+  exclusions?: DemoExclusion[];
   /** Written at approval. Null while the run is still a draft. */
   frozen: PayrollRunDetail | null;
 };
+
+const exclusionsOf = (record: DemoRunRecord): DemoExclusion[] =>
+  record.exclusions ?? [];
 
 type DemoState = { runs: DemoRunRecord[] };
 
@@ -126,6 +168,7 @@ const DEMO_EMPTY: DemoState = {
       status: "IN_REVIEW",
       preparedAt: `${TODAY}T08:30:00.000Z`,
       approvedAt: null,
+      exclusions: [],
       frozen: null,
     },
   ],
@@ -134,7 +177,10 @@ const DEMO_EMPTY: DemoState = {
 const demoStore = createPersistedState<DemoState>({
   key: "approvehr.payroll.runs",
   empty: DEMO_EMPTY,
-  version: 1,
+  /* 2: a run carries its own exclusions. `exclusionsOf` reads a version 1
+     payload as having none rather than stranding it, so the bump is belt and
+     braces rather than the thing keeping old data working. */
+  version: 2,
 });
 
 const useDemoRuns = (): DemoState =>
@@ -152,6 +198,21 @@ const demoPayslipId = (period: string, employeeId: string) =>
 
 /** Naira float → whole kobo. The demo's own rounding boundary. */
 const kobo = (naira: number) => Math.round(naira * 100);
+
+/**
+ * Which relief regime the fixture's figures were computed under.
+ *
+ * Read off `DEMO_PAYSLIP_BASIS` rather than assumed, because that block records
+ * the schedule the API's engine actually used — currently rent relief, with
+ * nothing declared, so every `reliefMonthlyKobo` in the fixture is zero. A
+ * payslip that showed that zero under "consolidated relief allowance" would be
+ * naming a relief the Nigeria Tax Act 2025 abolished, in the one mode that gets
+ * shown to people in rooms with no database.
+ *
+ * Annotated rather than inferred so a regenerated fixture on the other regime
+ * still compiles and still labels itself correctly.
+ */
+const DEMO_RELIEF: ReliefRegime = DEMO_PAYSLIP_BASIS.schedule.relief;
 
 /**
  * Whether the illustrative figures still describe this company.
@@ -250,7 +311,8 @@ function demoPayslip(
       pensionEmployerKobo: figures.pensionEmployerKobo,
       nhfKobo: figures.nhfKobo,
       taxableIncomeKobo: figures.taxableMonthlyKobo,
-      consolidatedReliefKobo: figures.reliefMonthlyKobo,
+      reliefKobo: figures.reliefMonthlyKobo,
+      relief: DEMO_RELIEF,
       payeKobo: figures.payeKobo,
       otherDeductionsKobo: takenKobo,
       netKobo: figures.netKobo - takenKobo,
@@ -390,6 +452,7 @@ function demoExceptions(
   people: PayrollEmployee[],
   slips: Map<string, { slip: Payslip; unrecoveredKobo: number }>,
   settings: PayrollSettings,
+  excluded: Map<string, DemoExclusion>,
 ): RunException[] {
   const out: RunException[] = [];
   const push = (
@@ -428,6 +491,32 @@ function demoExceptions(
   }
 
   for (const person of people) {
+    /**
+     * Deliberately left off, so nothing else about them is raised.
+     *
+     * A WARNING carrying the reason, the decider and the date — the same code
+     * and severity the API uses, so a screen written against one works against
+     * the other. Not a silent omission: the run has to be able to answer "why
+     * was Grace not paid in August?" from its own list of exceptions.
+     */
+    const left = excluded.get(person.id);
+    if (left) {
+      const decidedBy = left.decidedBy ? ` by ${left.decidedBy}` : "";
+      push(
+        "WARNING",
+        "excluded_from_payroll",
+        person.id,
+        /* The trailing full stop is stripped inside the quotes: it would
+           double up with the one closing this sentence. Same as the API. */
+        `${person.name} is not being paid this period — ` +
+          `"${left.reason.replace(/\.$/, "")}". ` +
+          `Excluded${decidedBy} on ${left.excludedAt.slice(0, 10)}. They have no ` +
+          `payslip on this run and nothing is owed to them by it. They are back ` +
+          `on the next period's payroll automatically.`,
+      );
+      continue;
+    }
+
     const entry = slips.get(person.id);
     if (!entry) {
       /* No illustrative figures for this salary. A blocker rather than a
@@ -450,7 +539,8 @@ function demoExceptions(
         "BLOCKER",
         "missing_bank_account",
         person.id,
-        `${person.name} has no account number. They cannot be paid.`,
+        `${person.name} has no account number. They cannot be paid. ` +
+          `Add one, or exclude them from this payroll with a reason.`,
       );
     }
     if (
@@ -500,11 +590,24 @@ function demoExceptions(
       }
     }
     if (person.leftThisPeriod) {
+      /* `exit_final_pay`, which is the code the API emits for this exact case —
+         `leftThisPeriod` is an end date inside the period, and that is
+         `exitExceptionsFor`'s `finalMonth` branch in
+         `approvehr-api/src/modules/offboarding/service.ts`.
+
+         It used to be `"leaver"`, which was wrong twice over. It is a word this
+         product does not use — the vocabulary is "exit" — and no API code has
+         ever been called that, so `fixFor()` in `lib/api/payroll.ts` switches on
+         a string the connected product never sends. A demo teaching a code that
+         does not exist is the one thing this function's header says it must not
+         do. */
       push(
         "WARNING",
-        "leaver",
+        "exit_final_pay",
         person.id,
-        `${person.name} leaves this period. Check final settlement and any loan balance.`,
+        `${person.name} leaves this period. This is their last payslip — check ` +
+          `the final figure and any loan balance before you approve, because ` +
+          `there is no next month to correct it in.`,
       );
     }
   }
@@ -527,8 +630,28 @@ function buildDemoRun(
   settings: PayrollSettings,
 ): PayrollRunDetail {
   const usable = settingsMatchFixture(settings);
+
+  /**
+   * The population, split, exactly as `prepare` splits it on the API.
+   *
+   * `people` is everybody the period covers. Only the ones nobody has excluded
+   * get a payslip — and only they raise an exception about their own record,
+   * because a blocker about the account number of somebody who is not being paid
+   * is a blocker nobody can act on and it would hold every other salary.
+   *
+   * Intersected with the period's population, so an exclusion recorded for
+   * somebody the period no longer covers counts for nothing. The record survives;
+   * it just does not claim this run left somebody off who was never on it.
+   */
+  const excluded = new Map(
+    exclusionsOf(record)
+      .filter((row) => people.some((person) => person.id === row.employeeId))
+      .map((row) => [row.employeeId, row] as const),
+  );
+  const payable = people.filter((person) => !excluded.has(person.id));
+
   const computed = new Map(
-    people.flatMap((person) => {
+    payable.flatMap((person) => {
       const figures = usable ? payslipFiguresFor(kobo(person.grossMonthly)) : null;
       return figures
         ? [[person.id, demoPayslip(record.period, person, figures)] as const]
@@ -538,6 +661,23 @@ function buildDemoRun(
   const slips = [...computed.values()].map((c) => c.slip);
   const totals = totalsOf(slips);
 
+  const exclusions: RunExclusion[] = [...excluded.values()].flatMap((row) => {
+    const person = people.find((p) => p.id === row.employeeId);
+    return person
+      ? [
+          {
+            id: `${record.period}-${row.employeeId}`,
+            employeeId: row.employeeId,
+            employeeNo: row.employeeId.toUpperCase(),
+            name: person.name,
+            reason: row.reason,
+            decidedBy: row.decidedBy,
+            excludedAt: row.excludedAt,
+          },
+        ]
+      : [];
+  });
+
   return {
     id: demoRunId(record.period),
     period: record.period,
@@ -545,6 +685,7 @@ function buildDemoRun(
     status: record.status,
     label: record.label,
     employeeCount: slips.length,
+    excludedCount: excluded.size,
     grossKobo: totals.grossKobo,
     netKobo: totals.netKobo,
     payeKobo: totals.payeKobo,
@@ -557,9 +698,27 @@ function buildDemoRun(
     paidAt: null,
     settingsFrozen: false,
     payslips: slips,
-    exceptions: demoExceptions(people, computed, settings),
+    exceptions: demoExceptions(people, computed, settings, excluded),
+    exclusions,
   };
 }
+
+/**
+ * The `PreparedRun` shape, from a demo run that has just been built.
+ *
+ * One place, because three demo actions answer with it — prepare, exclude and
+ * put back — and each one has to report the same figures the screen will read
+ * back out of the run itself. `excluded` is beside `headcount` rather than
+ * inside it: a caller has to be able to say "9 of 10 — 1 excluded".
+ */
+const preparedFrom = (detail: PayrollRunDetail): PreparedRun => ({
+  runId: detail.id,
+  headcount: detail.employeeCount,
+  excluded: detail.excludedCount,
+  discrepancies: reconcileDemo(detail.payslips, totalsOf(detail.payslips)),
+  blockers: detail.exceptions.filter((e) => e.severity === "BLOCKER").length,
+  warnings: detail.exceptions.filter((e) => e.severity === "WARNING").length,
+});
 
 /** The frozen snapshot wins whenever there is one. That is the one-way door. */
 const resolveDemoRun = (
@@ -570,9 +729,10 @@ const resolveDemoRun = (
   record.frozen ?? buildDemoRun(record, people, settings);
 
 const summarise = (detail: PayrollRunDetail): PayrollRun => {
-  const { payslips, exceptions, ...run } = detail;
+  const { payslips, exceptions, exclusions, ...run } = detail;
   void payslips;
   void exceptions;
+  void exclusions;
   return run;
 };
 
@@ -745,14 +905,15 @@ export function usePayrollRun(id: string | null): RunState {
 }
 
 /**
- * Prepare, approve, cancel.
+ * Prepare, approve, cancel, exclude, put back.
  *
  * Each one refuses in demo mode only where the demo genuinely cannot do it,
- * and all three do work locally — preparing a period and approving it is the
- * sequence the demo most needs to be able to show.
+ * and all of them do work locally — preparing a period, excluding the one person
+ * whose record is incomplete, and approving it is the sequence the demo most
+ * needs to be able to show.
  */
 export function usePayrollActions() {
-  const { isConnected } = useSession();
+  const { isConnected, displayName } = useSession();
   const { directory } = useEmployeeStore();
   const { settings } = usePayrollSettings();
   const people = useMemo(() => runPeopleFrom(directory), [directory]);
@@ -789,23 +950,22 @@ export function usePayrollActions() {
         status: "IN_REVIEW",
         preparedAt: new Date().toISOString(),
         approvedAt: null,
+        /**
+         * Carried over, never rebuilt.
+         *
+         * Preparing replaces the payslips and the exception list wholesale — on
+         * the API and here. If it took the exclusions with them, excluding
+         * somebody and pressing Calculate again would resurrect the blocker they
+         * were excluded for and the loop would never end.
+         */
+        exclusions: existing ? exclusionsOf(existing) : [],
         frozen: null,
       };
       demoStore.commit({
-        runs: [
-          ...state.runs.filter((r) => r.period !== input.period),
-          record,
-        ],
+        runs: [...state.runs.filter((r) => r.period !== input.period), record],
       });
 
-      const detail = buildDemoRun(record, people, settings);
-      return {
-        runId: detail.id,
-        headcount: detail.employeeCount,
-        discrepancies: reconcileDemo(detail.payslips, totalsOf(detail.payslips)),
-        blockers: detail.exceptions.filter((e) => e.severity === "BLOCKER").length,
-        warnings: detail.exceptions.filter((e) => e.severity === "WARNING").length,
-      };
+      return preparedFrom(buildDemoRun(record, people, settings));
     },
     [isConnected, people, settings],
   );
@@ -883,7 +1043,128 @@ export function usePayrollActions() {
     [isConnected],
   );
 
-  return { prepare, approve, cancel, connected: isConnected };
+  /**
+   * Leaves somebody off this payroll, with the reason on the record.
+   *
+   * Rebuilds the period in both modes, and answers with the rebuilt figures —
+   * because a run is a function of the directory and this run's exclusions, so
+   * every total and both counts move the moment somebody is left off. A screen
+   * that kept the old ones would show a payslip for somebody it says is not
+   * being paid.
+   */
+  const exclude = useCallback(
+    async (
+      runId: string,
+      input: { employeeId: string; reason: string },
+    ): Promise<ExclusionChange> => {
+      if (isConnected) return payrollApi.exclude(runId, input);
+
+      const reason = input.reason.trim();
+      if (reason.length < 4) {
+        throw new ApiError(
+          422,
+          "unprocessable",
+          "Say why they are not being paid this period. This is the only answer " +
+            "anybody will have in a year's time.",
+        );
+      }
+
+      const state = demoStore.read();
+      const record = state.runs.find((r) => demoRunId(r.period) === runId);
+      if (!record) throw new ApiError(404, "not_found", "No such payroll run.");
+      if (record.status !== "DRAFT" && record.status !== "IN_REVIEW") {
+        throw new ApiError(
+          409,
+          "conflict",
+          `The ${record.period} payroll is ${record.status.toLowerCase()}. ` +
+            "Who was on it is part of the record now and cannot be changed.",
+        );
+      }
+
+      const person = people.find((p) => p.id === input.employeeId);
+      if (!person) throw new ApiError(404, "not_found", "No such employee.");
+      if (exclusionsOf(record).some((row) => row.employeeId === person.id)) {
+        throw new ApiError(
+          409,
+          "conflict",
+          `${person.name} is already excluded from the ${record.period} payroll. ` +
+            "Put them back on it first if the reason has changed.",
+        );
+      }
+
+      const excludedAt = new Date().toISOString();
+      const next: DemoRunRecord = {
+        ...record,
+        exclusions: [
+          ...exclusionsOf(record),
+          { employeeId: person.id, reason, decidedBy: displayName, excludedAt },
+        ],
+      };
+      demoStore.commit({
+        runs: state.runs.map((r) => (r.period === record.period ? next : r)),
+      });
+
+      return {
+        employeeId: person.id,
+        name: person.name,
+        reason,
+        excludedAt,
+        run: preparedFrom(buildDemoRun(next, people, settings)),
+      };
+    },
+    [isConnected, people, settings, displayName],
+  );
+
+  /**
+   * Puts somebody back on this payroll.
+   *
+   * The record is removed rather than marked withdrawn: it described this run and
+   * this run alone, and the run now carries the truth — they have a payslip
+   * again. Whatever originally blocked them comes back with them if it was never
+   * fixed, which is the point. This does not pay anybody; it stops them being
+   * skipped.
+   */
+  const putBack = useCallback(
+    async (runId: string, employeeId: string): Promise<ExclusionChange> => {
+      if (isConnected) return payrollApi.putBack(runId, employeeId);
+
+      const state = demoStore.read();
+      const record = state.runs.find((r) => demoRunId(r.period) === runId);
+      if (!record) throw new ApiError(404, "not_found", "No such payroll run.");
+      if (record.status !== "DRAFT" && record.status !== "IN_REVIEW") {
+        throw new ApiError(
+          409,
+          "conflict",
+          `The ${record.period} payroll is ${record.status.toLowerCase()}. ` +
+            "Who was on it is part of the record now and cannot be changed.",
+        );
+      }
+
+      const kept = exclusionsOf(record).filter((row) => row.employeeId !== employeeId);
+      if (kept.length === exclusionsOf(record).length) {
+        throw new ApiError(
+          404,
+          "not_found",
+          "That person is not excluded from this payroll.",
+        );
+      }
+
+      const next: DemoRunRecord = { ...record, exclusions: kept };
+      demoStore.commit({
+        runs: state.runs.map((r) => (r.period === record.period ? next : r)),
+      });
+
+      const person = people.find((p) => p.id === employeeId);
+      return {
+        employeeId,
+        name: person?.name ?? "That person",
+        run: preparedFrom(buildDemoRun(next, people, settings)),
+      };
+    },
+    [isConnected, people, settings],
+  );
+
+  return { prepare, approve, cancel, exclude, putBack, connected: isConnected };
 }
 
 /* --------------------------------------------------------------- payslips */

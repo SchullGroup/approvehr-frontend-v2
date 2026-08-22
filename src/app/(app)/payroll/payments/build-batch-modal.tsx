@@ -12,6 +12,7 @@ import {
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { naira, type ApiPayableRun } from "@/lib/api/payments";
+import { excludedNote, headcountLabel } from "@/lib/api/payroll";
 import { useBankAccounts, usePaymentActions } from "@/lib/store/payments";
 import { longDate, monthLabel, people } from "./format";
 
@@ -117,6 +118,9 @@ export function BuildBatchModal({
             {runs.map((candidate) => (
               <option key={candidate.id} value={candidate.id}>
                 {monthLabel(candidate.period)} — {people(candidate.employeeCount)}
+                {candidate.excludedCount > 0
+                  ? ` of ${candidate.employeeCount + candidate.excludedCount}`
+                  : ""}
               </option>
             ))}
           </Select>
@@ -130,9 +134,18 @@ export function BuildBatchModal({
             </div>
             <div>
               <dt className="text-meta font-medium text-muted">People</dt>
+              {/* Not a bare `employeeCount`. That figure is payslips, and this
+                  label says People — nine under it, where ten people work and
+                  one was deliberately left off the run, is a wrong claim rather
+                  than a rounded one. The batch itself cannot contain somebody
+                  with no payslip, so nothing about the payment changes; only
+                  the sentence does. */}
               <dd className="tabular mt-1 text-body-sm text-ink">
-                {run.employeeCount}
+                {headcountLabel(run)}
               </dd>
+              {excludedNote(run) && (
+                <p className="mt-1 text-meta text-warning-text">{excludedNote(run)}</p>
+              )}
             </div>
             <div className="col-span-2">
               <dt className="text-meta font-medium text-muted">

@@ -26,7 +26,7 @@ import {
   SourceBadge,
   TotalsPanel,
 } from "@/components/payroll/run-panels";
-import { formatKobo, periodLabel } from "@/lib/api/payroll";
+import { formatKobo, headcountLabel, periodLabel } from "@/lib/api/payroll";
 import { countBySeverity, usePayrollRun, usePayrollRuns } from "@/lib/store/payroll";
 import { TODAY } from "@/lib/today";
 
@@ -117,7 +117,17 @@ export function PayrollScreen() {
                 <CardBody className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                   <Stat
                     label="People paid"
-                    value={String(current.employeeCount)}
+                    /* Not `employeeCount` on its own. That figure is payslips,
+                       which is the right answer to "how many were paid" and a
+                       wrong claim under this label the moment somebody has been
+                       left off — nine, where ten people work, is the same class
+                       of statement as a zero standing in for an absent figure. */
+                    value={headcountLabel(current)}
+                    hint={
+                      current.excludedCount > 0
+                        ? `${current.excludedCount} left off with a reason recorded`
+                        : undefined
+                    }
                   />
                   <Stat
                     label="Stops payroll"
@@ -162,6 +172,9 @@ export function PayrollScreen() {
                       {
                         href: "/payroll/payslips",
                         label: "Payslips",
+                        /* Payslips, and this row links at the payslip index,
+                           so `employeeCount` is exactly right here — unlike the
+                           stat above it, which is labelled "People paid". */
                         meta: `${current.employeeCount} for ${periodLabel(current.period)}`,
                       },
                       {
@@ -232,7 +245,20 @@ export function PayrollScreen() {
                       subtitle={run.label ?? undefined}
                     />
                     <TD align="right" className="tabular">
-                      {run.employeeCount}
+                      {/* Two lines rather than one long string: a numeric column
+                          has to stay scannable, and "9" alone beside a company
+                          of ten is the claim this whole field exists to stop. */}
+                      {run.excludedCount > 0 ? (
+                        <>
+                          {run.employeeCount} of{" "}
+                          {run.employeeCount + run.excludedCount}
+                          <span className="mt-0.5 block text-meta font-normal text-warning-text">
+                            {run.excludedCount} excluded
+                          </span>
+                        </>
+                      ) : (
+                        run.employeeCount
+                      )}
                     </TD>
                     <TD align="right" className="tabular text-body">
                       {formatKobo(run.grossKobo)}

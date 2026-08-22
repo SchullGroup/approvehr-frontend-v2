@@ -7,6 +7,7 @@ import {
   BANK_FILE_COLUMNS,
   nairaCell,
   naira,
+  paymentOutcome,
   paymentsApi,
   type ApiBankAccount,
   type ApiBatchDetail,
@@ -14,6 +15,8 @@ import {
   type ApiLedgerPage,
   type ApiPayableRun,
   type ApiPaymentBatch,
+  type ApiPaymentHistoryPage,
+  type ApiPaymentHistoryRow,
   type ApiPaymentInstruction,
   type ApiPaymentsSummary,
   type BankFileDownload,
@@ -24,6 +27,7 @@ import {
   type LedgerListParams,
   type PaymentBatchStatus,
   type PaymentDiscrepancy,
+  type PaymentHistoryParams,
   type UpdateAccountBody,
 } from "@/lib/api/payments";
 import { EMPLOYEES } from "@/lib/mock/people";
@@ -1004,6 +1008,293 @@ export function useLedger(params: LedgerListParams = {}): LedgerState {
     error: matched ? fetched.error : null,
     live: true,
     reload: bumpRevision,
+  };
+}
+
+/* ------------------------------------------------------------ payment history */
+
+/**
+ * Every payment, flattened out of the demo book.
+ *
+ * The demo has no `PaymentInstruction.createdAt`, so rows are ordered by the
+ * batch's own timestamp and then by name. Connected, the API orders by the
+ * instruction's `createdAt` descending, which within one batch is insertion
+ * order — so the two modes can disagree about the order of rows *inside* a
+ * month. Nothing reads meaning from that order, and alphabetical is the more
+ * useful of the two for somebody scanning a month.
+ */
+function demoHistoryRows(book: DemoBook): ApiPaymentHistoryRow[] {
+  return book.batches
+    .flatMap((batch) =>
+      batch.instructions.map(
+        (row): ApiPaymentHistoryRow => ({
+          ...strip(row),
+          batchId: batch.id,
+          batchReference: batch.reference,
+          batchStatus: batch.status,
+          /* The batch carries `YYYY-MM-DD`; a history row carries the month.
+             Sending the full date would be a shape the API never returns. */
+          period: batch.period ? batch.period.slice(0, 7) : null,
+          payDate: batch.payDate,
+          raisedAt: batch.createdAt,
+        }),
+      ),
+    )
+    .sort(
+      (a, b) =>
+        b.raisedAt.localeCompare(a.raisedAt) ||
+        a.payeeName.localeCompare(b.payeeName),
+    );
+}
+
+const matchesFilter = (
+  row: ApiPaymentHistoryRow,
+  employeeId: string | undefined,
+  period: string | undefined,
+): boolean => {
+  if (employeeId && row.employeeId !== employeeId) return false;
+  /* A batch raised by hand has no pay month, so a month filter cannot match it.
+     The API says the same thing in `paymentHistory`: those rows appear only when
+     no period is asked for, rather than being silently folded into whichever
+     month happens to be selected. */
+  if (period && row.period !== period) return false;
+  return true;
+};
+
+export type PaymentHistoryState = {
+  rows: ApiPaymentHistoryRow[];
+  /** Every payment matching the filter, not only the ones on this page. */
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  /**
+   * The money on **this page** that moved, in kobo.
+   *
+   * Rows whose outcome is `moved: "no"` are excluded: a batch nobody approved
+   * and a transfer that failed are not money anybody received, and adding them
+   * into a figure labelled "net paid" is the same class of wrong claim as a
+   * green tick over a payment nobody made.
+   */
+  pageNetKobo: number;
+  /** How many rows on this page did not move. Never folded into the total. */
+  pageUnpaidCount: number;
+  /**
+   * True when every row matching the filter is on this page.
+   *
+   * `pageNetKobo` may only be described as the whole answer when this is true.
+   * The endpoint returns no money aggregate, so a sum across pages is not
+   * available without asking for every page — and a page total wearing the label
+   * of a filter total is a wrong figure, not a rounded one.
+   */
+  complete: boolean;
+  loading: boolean;
+  error: ApiError | null;
+  live: boolean;
+  reload: () => void;
+};
+
+/**
+ * Who was paid, when, how much, and whether it landed.
+ *
+ * Shaped on `lib/store/shifts.ts`: the demo value is computed during render, the
+ * fetch is an async IIFE inside the effect behind a `cancelled` guard, and
+ * staleness is derived by comparing the answer's key with the live one rather
+ * than by setting state in an effect.
+ *
+ * ## This is not the payslip register
+ *
+ * A payslip is paperwork — what somebody earned and what was deducted. This is
+ * money — what left the account, when, and whether it arrived. They are two
+ * different questions with two different failure modes, and `/payroll/payslips`
+ * answers the other one.
+ */
+export function usePaymentHistory(
+  params: PaymentHistoryParams = {},
+): PaymentHistoryState {
+  const { isConnected } = useSession();
+  const book = useDemoBook();
+  const rev = useRevision();
+
+  const { page = 1, pageSize = 50, employeeId, period } = params;
+
+  const query = useMemo<PaymentHistoryParams>(
+    () => ({
+      page,
+      pageSize,
+      ...(employeeId ? { employeeId } : {}),
+      ...(period ? { period } : {}),
+    }),
+    [page, pageSize, employeeId, period],
+  );
+
+  const key = useMemo(() => JSON.stringify({ query, rev }), [query, rev]);
+
+  const [fetched, setFetched] = useState<{
+    key: string;
+    result: ApiPaymentHistoryPage | null;
+    error: ApiError | null;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!isConnected) return;
+    let cancelled = false;
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const result = await paymentsApi.history(query, controller.signal);
+        if (!cancelled) setFetched({ key, result, error: null });
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (!cancelled) {
+          setFetched({
+            key,
+            result: null,
+            error: error instanceof ApiError ? error : null,
+          });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [isConnected, query, key]);
+
+  const offline = useMemo(() => {
+    if (isConnected) return null;
+    const all = demoHistoryRows(book).filter((row) =>
+      matchesFilter(row, employeeId, period),
+    );
+    const start = (page - 1) * pageSize;
+    return { rows: all.slice(start, start + pageSize), total: all.length };
+  }, [isConnected, book, employeeId, period, page, pageSize]);
+
+  const matched = fetched !== null && fetched.key === key;
+  const answer = isConnected ? (matched ? fetched.result : null) : offline;
+  const rows = answer?.rows ?? [];
+  const total = answer?.total ?? 0;
+
+  return {
+    rows,
+    total,
+    page,
+    pageSize,
+    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    pageNetKobo: rows.reduce(
+      (sum, row) => (paymentOutcome(row).moved === "no" ? sum : sum + row.amountKobo),
+      0,
+    ),
+    pageUnpaidCount: rows.filter((row) => paymentOutcome(row).moved === "no").length,
+    /* `answer === null` means nothing has arrived yet, and "complete" would then
+       be vacuously true over an empty list. */
+    complete: answer !== null && rows.length === total,
+    loading: isConnected && !matched,
+    error: matched ? fetched.error : null,
+    live: isConnected,
+    reload: bumpRevision,
+  };
+}
+
+/**
+ * The people who appear in payment history, for the person filter.
+ *
+ * ## Why not the employee directory
+ *
+ * `GET /employees` needs `EDIT_RECORDS`, and this screen needs `RUN_PAYROLL`.
+ * Building the filter from the directory would leave somebody who may read
+ * payment history but not employee records looking at a permanently empty
+ * dropdown — a control that is present and cannot work. Reading the payees out
+ * of the history itself needs no second permission.
+ *
+ * It is also the better list: it holds exactly the people who have been paid,
+ * including those who have since left, whose history is most of what anybody
+ * comes here to look up. Offering somebody who has never been paid is offering a
+ * filter that returns nothing.
+ *
+ * ## What it can miss, and why the screen says so
+ *
+ * One request, capped at the API's own maximum page size. `truncated` is true
+ * when there were more payments than that under the current month, which means
+ * the list names the people in the most recent 200 payments rather than
+ * everybody. The screen states that rather than presenting a short list as the
+ * whole roll.
+ */
+export type PaidPeopleState = {
+  people: { id: string; name: string }[];
+  truncated: boolean;
+  loading: boolean;
+  live: boolean;
+};
+
+/** The API's `listQuery` caps `pageSize` at 200, so asking for more is refused. */
+const PAYEE_SCAN_SIZE = 200;
+
+export function usePaidPeople(period?: string): PaidPeopleState {
+  const { isConnected } = useSession();
+  const book = useDemoBook();
+  const rev = useRevision();
+
+  const key = useMemo(() => JSON.stringify({ period, rev }), [period, rev]);
+
+  const [fetched, setFetched] = useState<{
+    key: string;
+    result: ApiPaymentHistoryPage | null;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!isConnected) return;
+    let cancelled = false;
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const result = await paymentsApi.history(
+          { pageSize: PAYEE_SCAN_SIZE, ...(period ? { period } : {}) },
+          controller.signal,
+        );
+        if (!cancelled) setFetched({ key, result });
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        /* A refusal here costs the filter, not the table. The screen renders no
+           dropdown rather than an error beside a working list. */
+        if (!cancelled) setFetched({ key, result: null });
+      }
+    })();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [isConnected, period, key]);
+
+  const offline = useMemo(() => {
+    if (isConnected) return null;
+    const rows = demoHistoryRows(book).filter((row) =>
+      matchesFilter(row, undefined, period),
+    );
+    return { rows: rows.slice(0, PAYEE_SCAN_SIZE), total: rows.length, page: 1, pageSize: PAYEE_SCAN_SIZE };
+  }, [isConnected, book, period]);
+
+  const matched = fetched !== null && fetched.key === key;
+  const answer = isConnected ? (matched ? fetched.result : null) : offline;
+
+  const people = useMemo(() => {
+    const byId = new Map<string, string>();
+    for (const row of answer?.rows ?? []) {
+      /* A payee with no employee record cannot be filtered on — the API takes an
+         employee id — so they are left out of the dropdown and stay visible in
+         the unfiltered table. */
+      if (row.employeeId) byId.set(row.employeeId, row.payeeName);
+    }
+    return [...byId.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [answer]);
+
+  return {
+    people,
+    truncated: answer !== null && answer.total > answer.rows.length,
+    loading: isConnected && !matched,
+    live: isConnected,
   };
 }
 

@@ -31,7 +31,9 @@ import {
 } from "@/components/payroll/run-panels";
 import {
   STATUS_LABEL,
+  excludedNote,
   formatKobo,
+  headcountLabel,
   periodLabel,
   type Payslip,
 } from "@/lib/api/payroll";
@@ -166,7 +168,23 @@ export function PayslipIndex() {
           </Field>
 
           <div className="grid gap-4 sm:grid-cols-3">
-            <Stat label="Payslips" value={String(counts.total)} />
+            <Stat
+              label="Payslips"
+              /**
+               * The count of payslips, and the headcount they cover.
+               *
+               * This is the screen where a bare figure misleads most: somebody
+               * checking that everybody got their payslip counts the rows and
+               * stops. Nine rows for a company of ten is not an error to find
+               * later — it is the answer to a different question.
+               */
+              value={run ? headcountLabel(run) : String(counts.total)}
+              hint={
+                run && run.excludedCount > 0
+                  ? `${run.excludedCount} excluded from this payroll`
+                  : undefined
+              }
+            />
             <Stat
               label="Not sent"
               value={String(counts.notSent)}
@@ -187,6 +205,11 @@ export function PayslipIndex() {
               action={<RunStatusBadge status={run.status} />}
             />
             <CardBody className="flex flex-col gap-3">
+              {excludedNote(run) && (
+                <p className="text-meta leading-relaxed text-warning-text">
+                  {excludedNote(run)}
+                </p>
+              )}
               <TotalRow label="Net paid out" kobo={run.netKobo} strong />
               <TotalRow label="Gross" kobo={run.grossKobo} />
               <div className="flex items-center justify-between gap-3 border-t border-line pt-3 text-body-sm">

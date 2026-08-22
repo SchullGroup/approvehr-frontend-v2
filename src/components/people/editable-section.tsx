@@ -10,8 +10,10 @@ import {
   Field,
   Input,
   Money,
+  Picker,
   Select,
   useToast,
+  type PickerOption,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { koboFromDecimal, naira } from "@/lib/api/payroll";
@@ -57,11 +59,61 @@ import type { Employee } from "@/lib/types";
  */
 type SectionError = { field: keyof EmployeePatch; message: string };
 
+/** The value a field shows: the record's, or whatever the caller supplied. */
+function currentValue(f: EditableField, employee: Employee): unknown {
+  return f.value !== undefined
+    ? f.value
+    : (employee as Record<string, unknown>)[f.key];
+}
+
+/**
+ * The draft a section opens with: the record's own values, so Cancel is a true
+ * revert and Save only ever sends what somebody actually changed.
+ *
+ * A free function rather than a method on the component because it is needed in
+ * two places that cannot share one — `open()`, and the `useState` initialiser
+ * for the case where the section arrives already open. Those two drifting apart
+ * is what caused the blank-editor bug documented on `draft` below.
+ */
+function seedFrom(
+  fields: EditableField[],
+  employee: Employee,
+): { draft: EmployeePatch; text: Record<string, string> } {
+  const draft: EmployeePatch = {};
+  const text: Record<string, string> = {};
+  for (const f of fields) {
+    const value = currentValue(f, employee);
+    draft[f.key] = value as never;
+    if (f.type === "money") {
+      text[String(f.key)] =
+        value === null || value === undefined ? "" : String(naira(Number(value)));
+    }
+  }
+  return { draft, text };
+}
+
 export type EditableField = {
   key: keyof EmployeePatch;
   label: string;
-  type?: "text" | "email" | "tel" | "date" | "number" | "select" | "money";
-  options?: { value: string; label: string }[];
+  type?:
+    | "text"
+    | "email"
+    | "tel"
+    | "date"
+    | "number"
+    | "select"
+    | "picker"
+    | "money";
+  /**
+   * The choices, for `select` and `picker`.
+   *
+   * `hint` is a second line and only a `picker` renders it. It exists for the
+   * bank list, where the NIBSS code is what the bank's own portal asks for: a
+   * name on its own is not enough to check a payment file against.
+   */
+  options?: PickerOption[];
+  /** `picker` only. What the trigger reads when nothing is chosen. */
+  placeholder?: string;
   help?: string;
   /** Exactly this many digits. Caps the input and shows a counter. */
   digits?: number;
@@ -112,9 +164,30 @@ export function EditableSection({
      its first paint, and setting it from an effect would flash the read-only
      view and trip `no-setState-in-effect`. */
   const [editing, setEditing] = useState(openOnField !== undefined);
-  const [draft, setDraft] = useState<EmployeePatch>({});
-  /* Money fields only: the naira text being typed, before it becomes kobo. */
-  const [text, setText] = useState<Record<string, string>>({});
+  /**
+   * Seeded on the first render when we arrive already editing.
+   *
+   * This used to start `{}` unconditionally, and `openOnField` set `editing`
+   * true without ever calling `open()` — so the single most-used way into this
+   * editor, the "Add account number" link a payroll exception offers, rendered
+   * **every field blank over a record that was full**. Saving from there wrote
+   * those blanks back: `draft[key]` was `undefined`, `undefined !== "0114204471"`,
+   * so the patch cleared the account number, pension PIN, TIN, NHF number and
+   * tax state of anybody whose blocker somebody went to fix.
+   *
+   * A lazy initialiser rather than an effect, for the reason above it: the first
+   * paint has to be right, not corrected afterwards.
+   */
+  const [draft, setDraft] = useState<EmployeePatch>(() =>
+    openOnField === undefined ? {} : seedFrom(fields, employee).draft,
+  );
+  /* Money fields only: the naira text being typed, before it becomes kobo.
+     Seeds from the same function as `draft` above — it runs twice on the one
+     render that needs it, over a handful of fields, which is cheaper than the
+     restructuring needed to share the result between two initialisers. */
+  const [text, setText] = useState<Record<string, string>>(() =>
+    openOnField === undefined ? {} : seedFrom(fields, employee).text,
+  );
   const [errors, setErrors] = useState<SectionError[]>([]);
   const [busy, setBusy] = useState(false);
 
@@ -132,26 +205,12 @@ export function EditableSection({
   const errorFor = (k: keyof EmployeePatch) =>
     errors.find((e) => e.field === k)?.message;
 
-  /** The value a field shows: the record's, or whatever the caller supplied. */
-  const valueOf = (f: EditableField): unknown =>
-    f.value !== undefined ? f.value : (employee as Record<string, unknown>)[f.key];
+  const valueOf = (f: EditableField): unknown => currentValue(f, employee);
 
   function open() {
-    /* Seed the draft from the record so Cancel is a true revert. */
-    const seed: EmployeePatch = {};
-    const seedText: Record<string, string> = {};
-    for (const f of fields) {
-      const value = valueOf(f);
-      seed[f.key] = value as never;
-      if (f.type === "money") {
-        seedText[String(f.key)] =
-          value === null || value === undefined
-            ? ""
-            : String(naira(Number(value)));
-      }
-    }
-    setDraft(seed);
-    setText(seedText);
+    const seed = seedFrom(fields, employee);
+    setDraft(seed.draft);
+    setText(seed.text);
     setErrors([]);
     setEditing(true);
   }
@@ -188,6 +247,12 @@ export function EditableSection({
         continue;
       }
       const next = draft[f.key];
+      /* `undefined` is not a change, it is a draft that was never seeded. It
+         cannot arrive from an input — clearing a field types `""` — so treating
+         it as "set this field to nothing" only ever destroyed data. Belt and
+         braces beside the seeding fix above, because this is the branch that
+         did the damage. */
+      if (next === undefined) continue;
       if (next !== valueOf(f)) patch[f.key] = next as never;
     }
 
@@ -338,6 +403,18 @@ export function EditableSection({
                       setText((t) => ({ ...t, [String(f.key)]: raw }));
                       setErrors((x) => x.filter((y) => y.field !== f.key));
                     }}
+                  />
+                ) : f.type === "picker" ? (
+                  <Picker
+                    value={String(draft[f.key] ?? "")}
+                    onChange={(v) => {
+                      setDraft((d) => ({ ...d, [f.key]: v }));
+                      setErrors((x) => x.filter((y) => y.field !== f.key));
+                    }}
+                    options={f.options ?? []}
+                    {...(f.placeholder === undefined
+                      ? {}
+                      : { placeholder: f.placeholder })}
                   />
                 ) : f.type === "select" ? (
                   <Select

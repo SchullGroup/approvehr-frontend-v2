@@ -20,6 +20,7 @@ import {
 } from "@/components/ui";
 import { PageBody } from "@/components/portal/shell";
 import { DashboardHeader } from "./header";
+import { AnnouncementsPanel } from "./announcements-panel";
 import { useDashboard } from "@/lib/store/insights";
 import { naira, runStatusLabel } from "@/lib/api/insights";
 
@@ -37,6 +38,21 @@ import { naira, runStatusLabel } from "@/lib/api/insights";
  * rather than a zero. `₦0.00` where a figure does not belong tells somebody
  * their company has no outstanding loans, which is a different and wrong claim
  * from "you cannot see this".
+ *
+ * ## The noticeboard is part of the one request
+ *
+ * Announcements ride in `/insights/dashboard` rather than in a second call to
+ * `/announcements/board`. Both come out of one function on the API (`boardFor`),
+ * so there is no second definition of "which notices may this person see" to
+ * drift — and the panel costs nothing on the screen that has to load fastest.
+ *
+ * `announcements` is the one block below that arrives for **everybody**: a
+ * noticeboard needs no permission, so there is nothing to withhold. That is not
+ * an exception to the presence rule, it is the rule read correctly — and it
+ * does not make an empty board something to draw. `AnnouncementsPanel` returns
+ * null on an empty board. The incumbent renders "Your Announcements Will Appear
+ * Here" in that case, which spends the best space on the screen people open
+ * first to say that a feature exists.
  *
  * ## What is deliberately not here
  *
@@ -88,7 +104,7 @@ export function DashboardScreen() {
     );
   }
 
-  const { headcount, approvals, today, hiring, payroll, money } = data;
+  const { headcount, approvals, today, announcements, hiring, payroll, money } = data;
 
   return (
     <>
@@ -189,6 +205,9 @@ export function DashboardScreen() {
           </Card>
         )}
 
+        {/* ---- The noticeboard. Renders nothing when nothing is up ------- */}
+        <AnnouncementsPanel board={announcements} />
+
         <div className="grid gap-6 lg:grid-cols-2">
           {/* ---- Payroll. Absent means no permission; null means no run --- */}
           {payroll !== undefined && (
@@ -217,10 +236,24 @@ export function DashboardScreen() {
                       </Badge>
                     </div>
                     <p className="text-body-sm text-muted">
+                      {/* `employeeCount` is payslips. Beside a net figure it
+                          reads as the headcount, and stating nine where ten
+                          people work is a wrong claim rather than a rounded
+                          one — so the excluded are named in the same breath. */}
                       Net pay for {payroll.employeeCount}{" "}
-                      {payroll.employeeCount === 1 ? "person" : "people"} · gross{" "}
-                      <Money amount={naira(payroll.grossKobo)} decimals />
+                      {payroll.employeeCount === 1 ? "person" : "people"}
+                      {payroll.excludedCount > 0
+                        ? ` of ${payroll.employeeCount + payroll.excludedCount}`
+                        : ""}{" "}
+                      · gross <Money amount={naira(payroll.grossKobo)} decimals />
                     </p>
+                    {payroll.excludedCount > 0 && (
+                      <p className="text-body-sm text-warning-text">
+                        {payroll.excludedCount}{" "}
+                        {payroll.excludedCount === 1 ? "person is" : "people are"}{" "}
+                        deliberately not on this payroll, with the reason recorded
+                      </p>
+                    )}
                     {payroll.warnings > 0 && (
                       <p className="text-body-sm text-warning-text">
                         {payroll.warnings}{" "}

@@ -11,11 +11,14 @@ import {
 import type { BadgeTone } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import {
+  FULL_WEIGHT_BP,
   parseMeasure,
   performanceApi,
   type ApiAnswer,
   type ApiCompetency,
   type ApiCycle,
+  type ApiCycleParticipants,
+  type ApiEmployeeScore,
   type ApiEmployeeCompetencies,
   type ApiFormQuestion,
   type ApiGap,
@@ -27,13 +30,16 @@ import {
   type ApiQuestion,
   type ApiAppraiserEntry,
   type ApiAppraiserMap,
+  type ApiAppraiserMapRow,
   type ApiReview,
   type ApiReviewDetail,
+  type ApiScoreRegister,
   type AnswerBody,
   type CreateGoalBody,
   type CreateKeyResultBody,
   type CreateQuestionBody,
   type GoalStatus,
+  type ObjectiveApproval,
   type RateBody,
   type ReviewQuestionKind,
   type SubmitReviewBody,
@@ -55,12 +61,16 @@ import { useSession } from "./session";
  * | Read the cascade, the framework, the heatmap, what was said about me | yes | yes, from the seed |
  * | **Update progress on one key result** | yes | **yes, to this browser** |
  * | Answer and send my own review | yes | yes, to this browser |
+ * | **Send an objective for approval, agree it, send it back, refuse it, reopen it** | yes | **yes, to this browser** |
+ * | **Acknowledge or dispute my own rating** | yes | **yes, to this browser** |
  * | Write a goal, rate somebody, start or publish a cycle, chase people | yes | **refused, with the reason** |
+ * | Finalise somebody's rating, or read a cycle's register | yes | **refused, with the reason** |
  *
- * The two demo writes are the two everyday acts, and both are somebody
- * recording something about *their own* work. Nothing else in the frontend reads
- * them, so a locally-kept number has nothing to contradict — and a KPI screen
- * where the number cannot move demonstrates a picture rather than a product.
+ * The demo writes are the everyday acts, and each one is somebody recording
+ * something about *their own* work or answering something addressed to them.
+ * Nothing else in the frontend reads them, so a locally-kept value has nothing
+ * to contradict — and a KPI screen where the number cannot move demonstrates a
+ * picture rather than a product.
  *
  * The refusals are the acts with a blast radius outside this browser. Setting
  * somebody's goal, rating them against a scale, and starting a cycle that
@@ -68,6 +78,39 @@ import { useSession } from "./session";
  * demo that pretends to make one teaches the audience something false about
  * where those records live. `store/departments.ts` refuses for the same reason
  * and says so at the same length.
+ *
+ * ## The approval loop is a demo write, and that is a deliberate reversal
+ *
+ * The list above used to refuse every write about somebody else, and agreeing
+ * another person's objective is plainly one. It is allowed anyway, because the
+ * approval loop **is the product**: three fields, one manager agrees, rate once,
+ * the employee acknowledges. A demo that can show every screen of that path and
+ * not the click in the middle of it demonstrates a form, not a workflow — the
+ * same argument that put the payroll exclusion loop into demo mode.
+ *
+ * Both halves of the local loop enforce what the API enforces, in the API's own
+ * words: nobody agrees their own objective, a send-back and a refusal carry a
+ * reason, a refusal is terminal, and reopening an agreed target counts the
+ * revision. A demo refusal that is laxer than the server teaches the wrong rule,
+ * which is worse than no demo at all.
+ *
+ * ## What stays refused, and why those two
+ *
+ * **Finalising somebody's rating** is the one-way door that decides what a
+ * person is told their mark is; it belongs where their record is, not in a
+ * browser. **A cycle's register** — participants, scores, who has nobody
+ * appraising them — is an aggregate over everybody, the same read
+ * `useAppraiserMap` already refuses offline and for the same written reason: a
+ * mark is defended with it months later, and a register assembled in one browser
+ * would describe a cycle nothing else in the demo is running.
+ *
+ * ## Acknowledging is not agreeing, and the copy has to keep them apart
+ *
+ * `acknowledge` records "I have seen this". It is not consent, and a screen that
+ * lets it read as consent is worth less than nothing to a company defending a
+ * decision. `dispute` records "I do not accept this" and **changes no mark** —
+ * the rating stands with the dispute beside it, because rewriting it would
+ * destroy the evidence of what was originally decided.
  *
  * ## `percent` is never computed on this side when connected
  *
@@ -101,6 +144,41 @@ export const GOAL_STATUS_TONE: Record<GoalStatus, BadgeTone> = {
      finished goal is not an approval. */
   DONE: "neutral",
 };
+
+/**
+ * The tone of each rung of the agreement lifecycle. **No label map beside it.**
+ *
+ * `ApiGoal.approvalLabel` carries the wording, so a second copy here would be a
+ * second answer to the same question. A tone is a design decision this side owns
+ * and the API has no business sending.
+ *
+ * `AGREED` is `success` — green, which this design system reserves for the
+ * approval act, and agreeing an objective is exactly that. Waiting is `warning`
+ * rather than `info`: somebody owes an answer, and it is the one state on this
+ * axis that is a job rather than a fact.
+ */
+export const APPROVAL_TONE: Record<ObjectiveApproval, BadgeTone> = {
+  DRAFT: "neutral",
+  AWAITING_APPROVAL: "warning",
+  AGREED: "success",
+  NEEDS_REVISION: "info",
+  REJECTED: "danger",
+};
+
+/**
+ * Whether this objective can be sent for agreement at all.
+ *
+ * Mirrors `submitObjective`: a draft or a sent-back objective may go, an agreed
+ * one needs a revision instead, a refused one is terminal, and one already
+ * waiting is already waiting. It also needs a period — the API refuses an
+ * objective with neither a cycle nor a quarter, because an objective agreed for
+ * no period cannot be agreed *before* it, which is the whole point of the
+ * lifecycle.
+ */
+export function mayBeSubmitted(goal: ApiGoal): boolean {
+  if (goal.approval !== "DRAFT" && goal.approval !== "NEEDS_REVISION") return false;
+  return goal.reviewCycleId !== null || goal.dueQuarter !== null;
+}
 
 /** What a measure is asking of you, in three words. Direction included. */
 export function measureDirection(measure: ApiKeyResult): string {
@@ -211,6 +289,21 @@ type SeedGoal = {
   parentId: string | null;
   status: GoalStatus;
   dueQuarter: string;
+  /**
+   * The period it is scored in. `null` is a standing operational objective that
+   * belongs to no cycle and is never scored — a real state, seeded so the
+   * interface has to render it.
+   */
+  reviewCycleId: string | null;
+  /**
+   * Where it starts on the agreement axis, before anything in this browser
+   * moves it. Separate from `status` on purpose: an objective can be agreed and
+   * off track at once, and one field carrying both would make the two facts
+   * indistinguishable.
+   */
+  approval: ObjectiveApproval;
+  /** The reason on a sent-back objective. Required by the API; seeded here too. */
+  approvalNote?: string;
   measures: SeedMeasure[];
 };
 
@@ -222,7 +315,24 @@ type SeedGoal = {
  * visible in a demo rather than only in a test, and the hosting-spend numbers
  * are deliberately the worked example from the service's own doc comment
  * (₦500k → ₦300k, now ₦400k, which is 50%).
+ *
+ * The **agreement states are chosen, not decoration.** The demo signs in as
+ * Amara (`p-06`), and in demo mode there is no account, so `session.can` answers
+ * yes to everything — which puts the whole company's waiting objectives in her
+ * approval queue, exactly as `EDIT_RECORDS` would connected. So the seed carries
+ * two objectives waiting to be agreed that are **not hers** (there is a row to
+ * act on), one of her own that was **sent back with a reason** (the reason is
+ * visible and she can send it again), and one **agreed** company objective with
+ * no cycle at all. Every rung of the lifecycle is on screen on first load, and
+ * her own waiting objective is deliberately absent from her own queue because
+ * nobody may agree their own.
  */
+/* Declared above `SEED_GOALS` because the objectives reference them. A `const`
+   is in its temporal dead zone until the line that initialises it, so the order
+   here is not style — the other way round throws on import. */
+const DEMO_CYCLE_OPEN = "demo-cycle-h2";
+const DEMO_CYCLE_PUBLISHED = "demo-cycle-h1";
+
 const SEED_GOALS: readonly SeedGoal[] = [
   {
     id: "demo-goal-company",
@@ -232,6 +342,10 @@ const SEED_GOALS: readonly SeedGoal[] = [
     parentId: null,
     status: "ON_TRACK",
     dueQuarter: "2026-Q4",
+    /* A standing company objective: no cycle, so it is never scored against
+       anybody. The nullable case, on screen rather than only in a type. */
+    reviewCycleId: null,
+    approval: "AGREED",
     measures: [
       {
         id: "demo-kr-payroll",
@@ -257,6 +371,8 @@ const SEED_GOALS: readonly SeedGoal[] = [
     parentId: "demo-goal-company",
     status: "ON_TRACK",
     dueQuarter: "2026-Q3",
+    reviewCycleId: DEMO_CYCLE_OPEN,
+    approval: "AWAITING_APPROVAL",
     measures: [
       {
         id: "demo-kr-entities",
@@ -274,6 +390,10 @@ const SEED_GOALS: readonly SeedGoal[] = [
     parentId: "demo-goal-company",
     status: "AT_RISK",
     dueQuarter: "2026-Q3",
+    reviewCycleId: DEMO_CYCLE_OPEN,
+    /* At risk *and* waiting to be agreed. The two axes disagreeing is the
+       ordinary case, not an edge one. */
+    approval: "AWAITING_APPROVAL",
     measures: [
       {
         id: "demo-kr-close",
@@ -302,6 +422,8 @@ const SEED_GOALS: readonly SeedGoal[] = [
     parentId: "demo-goal-company",
     status: "ON_TRACK",
     dueQuarter: "2026-Q3",
+    reviewCycleId: DEMO_CYCLE_OPEN,
+    approval: "AGREED",
     measures: [
       {
         id: "demo-kr-roles",
@@ -319,6 +441,8 @@ const SEED_GOALS: readonly SeedGoal[] = [
     parentId: "demo-goal-people",
     status: "ON_TRACK",
     dueQuarter: "2026-Q3",
+    reviewCycleId: DEMO_CYCLE_OPEN,
+    approval: "AGREED",
     measures: [
       {
         id: "demo-kr-offers",
@@ -336,6 +460,12 @@ const SEED_GOALS: readonly SeedGoal[] = [
     parentId: "demo-goal-people",
     status: "AT_RISK",
     dueQuarter: "2026-Q3",
+    reviewCycleId: DEMO_CYCLE_OPEN,
+    /* Sent back, with the reason on it. A refusal with no reason is not
+       feedback, so the seed cannot show one without a reason either. */
+    approval: "NEEDS_REVISION",
+    approvalNote:
+      "Five days is the right target, but say which stage you are measuring from. Screening or the recruiter call?",
     measures: [
       {
         id: "demo-kr-first-interview",
@@ -355,6 +485,9 @@ const SEED_GOALS: readonly SeedGoal[] = [
     parentId: "demo-goal-people",
     status: "DONE",
     dueQuarter: "2026-Q2",
+    /* Last half's, so it hangs off the published cycle rather than the open one. */
+    reviewCycleId: DEMO_CYCLE_PUBLISHED,
+    approval: "AGREED",
     measures: [
       {
         id: "demo-kr-handbook",
@@ -524,9 +657,6 @@ const SEED_RATINGS: readonly {
   { employeeId: "p-07", name: "Process and compliance", level: 2, target: 4 },
 ];
 
-const DEMO_CYCLE_OPEN = "demo-cycle-h2";
-const DEMO_CYCLE_PUBLISHED = "demo-cycle-h1";
-
 const demoCycles: ApiCycle[] = [
   {
     id: DEMO_CYCLE_OPEN,
@@ -536,6 +666,11 @@ const demoCycles: ApiCycle[] = [
     dueDate: "2026-08-31",
     questionCount: 5,
     reviewCount: 18,
+    /* Both demo cycles have started, and a cycle that has started has its
+       weights frozen onto it. Seeding this false would say the marks in it can
+       still be rewritten by a settings change, which is the property the
+       snapshot exists to remove. */
+    scoringFrozen: true,
     createdAt: "2026-07-01T09:00:00.000Z",
   },
   {
@@ -546,6 +681,7 @@ const demoCycles: ApiCycle[] = [
     dueDate: "2026-06-30",
     questionCount: 5,
     reviewCount: 18,
+    scoringFrozen: true,
     createdAt: "2026-01-08T09:00:00.000Z",
   },
 ];
@@ -615,6 +751,39 @@ const SEED_QUESTIONS: readonly SeedQuestion[] = [
 
 type DemoAnswers = Record<string, ApiAnswer>;
 
+/**
+ * Where an objective got to in this browser.
+ *
+ * A sparse patch over `SEED_GOALS`, not a copy of it — the same shape as the
+ * employee store's `overrides`, and for the same reason: it is what a `POST
+ * /goals/:id/agree` body looks like, and changing the seed does not strand an
+ * unrelated local decision.
+ *
+ * `note` holds the reason on a send-back, a refusal or a revision, because the
+ * reason is the record. `revisions` counts how often an agreed target was
+ * reopened, which is the figure that says a target has been moved a lot.
+ */
+type DemoApproval = {
+  approval: ObjectiveApproval;
+  note: string | null;
+  at: string;
+  revisions: number;
+};
+
+/**
+ * What the employee said about their own rating, in this browser.
+ *
+ * Acknowledged and disputed are **separate timestamps** rather than one field
+ * with a kind, because they are separate facts on the record and the API stores
+ * them that way. Exactly one is ever set: the API refuses a second answer, and so
+ * does the demo.
+ */
+type DemoSignOff = {
+  acknowledgedAt: string | null;
+  disputedAt: string | null;
+  comment: string | null;
+};
+
 type DemoState = {
   /** New readings on a key result, by measure id. The everyday demo write. */
   readings: Record<string, string>;
@@ -622,14 +791,27 @@ type DemoState = {
   answers: Record<string, DemoAnswers>;
   /** Reviews sent from this browser, with the overall mark. */
   sent: Record<string, { rating: number | null; summary: string | null; at: string }>;
+  /** Where the agreement lifecycle got to, by goal id. Sparse. */
+  approvals: Record<string, DemoApproval>;
+  /** Acknowledgements and disputes, by review id. Sparse. */
+  signOff: Record<string, DemoSignOff>;
 };
 
-const EMPTY_DEMO: DemoState = { readings: {}, answers: {}, sent: {} };
+const EMPTY_DEMO: DemoState = {
+  readings: {},
+  answers: {},
+  sent: {},
+  approvals: {},
+  signOff: {},
+};
 
 const demoStore = createPersistedState<DemoState>({
   key: "approvehr.performance.store",
   empty: EMPTY_DEMO,
-  version: 1,
+  /* Version 2: `approvals` and `signOff` arrived with the objective lifecycle
+     and sign-off. A version 1 payload has neither key, and the factory drops a
+     stale payload rather than leaving a screen reading `undefined.approval`. */
+  version: 2,
 });
 
 function useDemoState(): DemoState {
@@ -666,8 +848,30 @@ function demoKeyResult(
   };
 }
 
-function demoGoals(readings: Record<string, string>): ApiGoal[] {
+/**
+ * The API's own five words for each rung, so the demo and the server agree.
+ *
+ * The one place on this side that holds them, and it exists because
+ * `ApiGoal.approvalLabel` comes *from* the API — offline there is nobody to ask.
+ * Copied verbatim from `APPROVAL_LABELS` in `modules/performance/service.ts`; if
+ * the two ever disagree, the served one is right.
+ */
+const DEMO_APPROVAL_LABEL: Record<ObjectiveApproval, string> = {
+  DRAFT: "Draft",
+  AWAITING_APPROVAL: "Waiting to be agreed",
+  AGREED: "Agreed",
+  NEEDS_REVISION: "Sent back",
+  REJECTED: "Not agreed",
+};
+
+const SEEDED_AT = "2026-07-01T09:00:00.000Z";
+
+function demoGoals(
+  readings: Record<string, string>,
+  approvals: Record<string, DemoApproval>,
+): ApiGoal[] {
   const titles = new Map(SEED_GOALS.map((goal) => [goal.id, goal.title]));
+  const cycleNames = new Map(demoCycles.map((cycle) => [cycle.id, cycle.name]));
   const childCounts = new Map<string, number>();
   for (const goal of SEED_GOALS) {
     if (!goal.parentId) continue;
@@ -686,6 +890,12 @@ function demoGoals(readings: Record<string, string>): ApiGoal[] {
           );
     const owner = goal.ownerId ? employeeById(goal.ownerId) : undefined;
 
+    /* The local decision wins over the seed, and only over the seed. */
+    const local = approvals[goal.id];
+    const approval = local?.approval ?? goal.approval;
+    const note = local ? local.note : (goal.approvalNote ?? null);
+    const revisions = local?.revisions ?? 0;
+
     return {
       id: goal.id,
       title: goal.title,
@@ -699,10 +909,25 @@ function demoGoals(readings: Record<string, string>): ApiGoal[] {
       progress: measured ?? 0,
       measuredProgress: measured,
       dueQuarter: goal.dueQuarter,
+      reviewCycleId: goal.reviewCycleId,
+      reviewCycleName: goal.reviewCycleId
+        ? (cycleNames.get(goal.reviewCycleId) ?? null)
+        : null,
+      approval,
+      approvalLabel: DEMO_APPROVAL_LABEL[approval],
+      /* Derived from `approval`, exactly as the API derives it. A second stored
+         field saying the same thing is a second field that can disagree. */
+      targetFrozen: approval === "AGREED",
+      submittedAt:
+        approval === "AWAITING_APPROVAL" ? (local?.at ?? SEEDED_AT) : null,
+      agreedAt: approval === "AGREED" ? (local?.at ?? SEEDED_AT) : null,
+      approvalNote: note,
+      revisionCount: revisions,
+      revisedAt: revisions > 0 ? (local?.at ?? null) : null,
       keyResults,
       childCount: childCounts.get(goal.id) ?? 0,
-      createdAt: "2026-07-01T09:00:00.000Z",
-      updatedAt: "2026-08-18T10:00:00.000Z",
+      createdAt: SEEDED_AT,
+      updatedAt: local?.at ?? "2026-08-18T10:00:00.000Z",
     };
   });
 }
@@ -861,6 +1086,54 @@ function demoReview(
     submitted,
     submittedAt: submitted ? (sent?.at ?? "2026-06-29T16:20:00.000Z") : null,
     answerCount: Object.keys(state.answers[id] ?? {}).length,
+    ...demoSignOff(id, kind, submitted, seededSubmitted, state),
+  };
+}
+
+/**
+ * The three sign-off facts for one demo review.
+ *
+ * Only a **manager** review is ever finalised: a self-review is not a rating of
+ * record and peer feedback is an aggregate nobody signs, so finalising either
+ * would invent a rating out of something that never was one. The API refuses
+ * both, and so does this.
+ *
+ * The seeded manager review in the published cycle arrives **finalised and
+ * unanswered**, which is the state the acknowledge step exists for. That is not
+ * decoration: without it the demo would open on a rating nobody can act on, and
+ * the last click of the simple path — the employee's own answer — would be
+ * unreachable. Anything answered in this browser wins over the seed.
+ */
+function demoSignOff(
+  id: string,
+  kind: "SELF" | "MANAGER",
+  submitted: boolean,
+  seededSubmitted: boolean,
+  state: DemoState,
+): Pick<
+  ApiReview,
+  | "finalised"
+  | "finalisedAt"
+  | "acknowledged"
+  | "acknowledgedAt"
+  | "disputed"
+  | "disputedAt"
+  | "employeeComment"
+> {
+  const finalised = kind === "MANAGER" && submitted && seededSubmitted;
+  const answer = state.signOff[id];
+
+  return {
+    finalised,
+    finalisedAt: finalised ? "2026-07-02T09:15:00.000Z" : null,
+    /* Presence, never a falsy stand-in. All three start false and "not
+       acknowledged" here means nobody has been asked yet, which is a third state
+       and the common one — not a disagreement. */
+    acknowledged: answer?.acknowledgedAt != null,
+    acknowledgedAt: answer?.acknowledgedAt ?? null,
+    disputed: answer?.disputedAt != null,
+    disputedAt: answer?.disputedAt ?? null,
+    employeeComment: answer?.comment ?? null,
   };
 }
 
@@ -901,6 +1174,19 @@ function demoPeerFeedback(): ApiPeerFeedback {
   };
 }
 
+/**
+ * Whether this person could have a manager review at all.
+ *
+ * `Review.authorId` is not nullable, so a manager review always has somebody's
+ * name on it — and a person with nobody above them has nobody to write one.
+ * Fabricating one for them would have the demo contradict the rule this whole
+ * module is built around: an employee with no appraiser finishes a cycle with no
+ * mark, and that is an exception to surface rather than a form to invent.
+ */
+function demoHasAppraiser(employeeId: string): boolean {
+  return employeeById(employeeId)?.managerId != null;
+}
+
 function demoMyReviews(state: DemoState, me: string): ApiMyReviews {
   const open = demoCycles.find((c) => c.id === DEMO_CYCLE_OPEN);
   const published = demoCycles.find((c) => c.id === DEMO_CYCLE_PUBLISHED);
@@ -908,11 +1194,17 @@ function demoMyReviews(state: DemoState, me: string): ApiMyReviews {
 
   const openSelf = demoReview(open, "SELF", me, state);
   const publishedSelf = demoReview(published, "SELF", me, state);
-  const publishedManager = demoReview(published, "MANAGER", me, state);
+  const publishedManager = demoHasAppraiser(me)
+    ? demoReview(published, "MANAGER", me, state)
+    : null;
 
   return {
     toComplete: openSelf.submitted ? [] : [openSelf],
-    aboutMe: [publishedManager, publishedSelf, openSelf],
+    aboutMe: [
+      ...(publishedManager ? [publishedManager] : []),
+      publishedSelf,
+      openSelf,
+    ],
     peerFeedback: [demoPeerFeedback()],
   };
 }
@@ -925,6 +1217,10 @@ function demoReviewDetail(
   const cycle = demoCycles.find((c) => id.startsWith(c.id));
   if (!cycle) return null;
   const kind = id.endsWith("self") ? "SELF" : "MANAGER";
+  /* The same rule as `demoMyReviews`: no appraiser, no manager review. Returning
+     one here and not in the list would let a link reach a form the screen that
+     linked to it says does not exist. */
+  if (kind === "MANAGER" && !demoHasAppraiser(me)) return null;
   const base = demoReview(cycle, kind, me, state);
   const answers = state.answers[id] ?? {};
 
@@ -1089,7 +1385,7 @@ export function useKpis(scope: KpiScope): {
   const goals = useMemo(() => {
     if (isConnected) return fetched.data ?? [];
 
-    const all = demoGoals(demo.readings);
+    const all = demoGoals(demo.readings, demo.approvals);
     if (scope === "company") return all;
     /* The same narrowing the API does, so the demo cannot show a wider cascade
        than a real staff member would get. */
@@ -1103,7 +1399,7 @@ export function useKpis(scope: KpiScope): {
           ? goal.ownerId === actingId
           : goal.ownerId !== null && reports.has(goal.ownerId)),
     );
-  }, [isConnected, demo.readings, scope, actingId, fetched.data]);
+  }, [isConnected, demo.readings, demo.approvals, scope, actingId, fetched.data]);
 
   const cascade = useMemo(() => toCascade(goals), [goals]);
 
@@ -1209,6 +1505,273 @@ export function useKpiMutations() {
         return performanceApi.deleteGoal(id);
       },
       [guard],
+    ),
+  };
+}
+
+/* ==========================================================================
+ * The objective approval queue, and the five moves that feed it
+ * ======================================================================== */
+
+/**
+ * Objectives waiting for **this** caller to agree.
+ *
+ * Narrowed by who asks, exactly as `objectiveApprovalQueue` narrows it: somebody
+ * with `EDIT_RECORDS` sees the company's, everybody else sees their direct
+ * reports'. **Nobody sees their own**, because nobody may agree their own — a
+ * queue that showed them would carry a row that can never leave it.
+ *
+ * That last rule is why an empty queue is not an error. Somebody who manages
+ * nobody gets nothing here and is not being refused anything; the screen has to
+ * say which of the two it is.
+ */
+export function useObjectiveApprovals(): {
+  queue: ApiGoal[];
+  loading: boolean;
+  error: ApiError | null;
+  source: Source;
+  /** True when this caller could have something to agree at all. */
+  couldHaveQueue: boolean;
+  reload: () => void;
+} {
+  const { isConnected, actingId, can } = useSession();
+  const demo = useDemoState();
+  const wide = can("EDIT_RECORDS");
+
+  /* Reports are read from the seed rather than the API even when connected:
+     `couldHaveQueue` only decides which empty-state sentence to show, and the
+     API's own answer to "is this queue empty because you manage nobody" is the
+     empty queue itself. */
+  const managesSomebody = useMemo(
+    () => EMPLOYEES.some((person) => person.managerId === actingId),
+    [actingId],
+  );
+
+  const load = useCallback(
+    async (signal: AbortSignal) =>
+      (
+        await performanceApi.objectiveApprovals(
+          { pageSize: PAGE, sort: "createdAt", order: "asc" },
+          signal,
+        )
+      ).data,
+    [],
+  );
+
+  const fetched = useFetched<ApiGoal[]>("objective-approvals", isConnected, load);
+
+  const derived = useMemo(() => {
+    if (isConnected) return [];
+    const reports = new Set(
+      EMPLOYEES.filter((person) => person.managerId === actingId).map((p) => p.id),
+    );
+    return demoGoals(demo.readings, demo.approvals).filter((goal) => {
+      if (goal.approval !== "AWAITING_APPROVAL") return false;
+      /* Never your own, whatever you are allowed to do. */
+      if (goal.ownerId === actingId) return false;
+      if (wide) return true;
+      return goal.ownerId !== null && reports.has(goal.ownerId);
+    });
+  }, [isConnected, actingId, wide, demo.readings, demo.approvals]);
+
+  return {
+    queue: isConnected ? (fetched.data ?? []) : derived,
+    loading: isConnected ? fetched.loading : false,
+    error: isConnected ? fetched.error : null,
+    source: isConnected ? "api" : "demo",
+    couldHaveQueue: wide || managesSomebody,
+    reload: fetched.reload,
+  };
+}
+
+/**
+ * The five moves on the agreement axis, in both modes.
+ *
+ * Five functions rather than one `setApproval(state, reason?)`, matching the API
+ * for the same reason it is five endpoints: three of them **require** a reason,
+ * and one function cannot make an argument mandatory for three of five values
+ * without the requirement becoming a comment.
+ *
+ * The demo enforces every refusal the API enforces, in the API's own words. A
+ * demo that is laxer than the server teaches the audience a rule that does not
+ * exist, and the first time they hit the real one it looks like a bug.
+ */
+export function useObjectiveMutations() {
+  const { isConnected, actingId } = useSession();
+
+  /** Move one goal along the axis locally, and record why. */
+  const local = useCallback(
+    (id: string, next: DemoApproval) => {
+      const state = demoStore.read();
+      demoStore.commit({
+        ...state,
+        approvals: { ...state.approvals, [id]: next },
+      });
+    },
+    [],
+  );
+
+  const seed = useCallback((id: string): ApiGoal | undefined => {
+    const state = demoStore.read();
+    return demoGoals(state.readings, state.approvals).find((goal) => goal.id === id);
+  }, []);
+
+  const revisionsOf = useCallback((id: string): number => {
+    return demoStore.read().approvals[id]?.revisions ?? 0;
+  }, []);
+
+  /**
+   * Refuses the owner, in demo mode too.
+   *
+   * There is no carve-out for the person at the top of the org chart and there
+   * is none here either: a self-agreed target carries no more evidence than one
+   * somebody simply wrote down, which is the whole reason the lifecycle exists.
+   */
+  const assertNotOwn = useCallback(
+    (goal: ApiGoal) => {
+      if (goal.ownerId !== null && goal.ownerId === actingId) {
+        offline("Nobody agrees their own objective. Somebody else has to.");
+      }
+    },
+    [actingId],
+  );
+
+  return {
+    submit: useCallback(
+      async (id: string) => {
+        if (isConnected) return performanceApi.submitObjective(id);
+        const goal = seed(id);
+        if (!goal) offline("That objective is not in the demo book.");
+        if (goal.approval === "AGREED") {
+          offline(
+            `"${goal.title}" is already agreed. To change it, reopen it for revision.`,
+          );
+        }
+        if (goal.approval === "AWAITING_APPROVAL") {
+          offline(`"${goal.title}" is already waiting to be agreed.`);
+        }
+        if (goal.approval === "REJECTED") {
+          offline(
+            `"${goal.title}" was not agreed. Write the objective you can agree ` +
+              "on instead of re-sending this one — the refusal is part of the record.",
+          );
+        }
+        if (goal.reviewCycleId === null && goal.dueQuarter === null) {
+          offline(
+            "Say which period this objective covers before sending it to be " +
+              "agreed. An objective agreed for no period cannot be agreed before it.",
+          );
+        }
+        /* The old objection is cleared: it described a version of the objective
+           that no longer exists, and leaving it beside the new one reads as a
+           fresh objection nobody made. */
+        local(id, {
+          approval: "AWAITING_APPROVAL",
+          note: null,
+          at: new Date().toISOString(),
+          revisions: revisionsOf(id),
+        });
+      },
+      [isConnected, seed, local, revisionsOf],
+    ),
+
+    /** The one-way door. After this the target is frozen; progress still moves. */
+    agree: useCallback(
+      async (id: string) => {
+        if (isConnected) return performanceApi.agreeObjective(id);
+        const goal = seed(id);
+        if (!goal) offline("That objective is not in the demo book.");
+        assertNotOwn(goal);
+        if (goal.approval !== "AWAITING_APPROVAL") {
+          offline(
+            goal.approval === "AGREED"
+              ? `"${goal.title}" is already agreed.`
+              : `"${goal.title}" has not been sent for agreement yet — it is ` +
+                  `${goal.approvalLabel.toLowerCase()}.`,
+          );
+        }
+        local(id, {
+          approval: "AGREED",
+          note: null,
+          at: new Date().toISOString(),
+          revisions: revisionsOf(id),
+        });
+      },
+      [isConnected, seed, local, assertNotOwn, revisionsOf],
+    ),
+
+    sendBack: useCallback(
+      async (id: string, reason: string) => {
+        if (isConnected) return performanceApi.sendBackObjective(id, reason);
+        const goal = seed(id);
+        if (!goal) offline("That objective is not in the demo book.");
+        assertNotOwn(goal);
+        if (goal.approval !== "AWAITING_APPROVAL") {
+          offline(
+            `"${goal.title}" is not waiting to be agreed — it is ` +
+              `${goal.approvalLabel.toLowerCase()}.`,
+          );
+        }
+        local(id, {
+          approval: "NEEDS_REVISION",
+          note: reason,
+          at: new Date().toISOString(),
+          revisions: revisionsOf(id),
+        });
+      },
+      [isConnected, seed, local, assertNotOwn, revisionsOf],
+    ),
+
+    /** Terminal. There is no route out of refused, here or on the server. */
+    reject: useCallback(
+      async (id: string, reason: string) => {
+        if (isConnected) return performanceApi.rejectObjective(id, reason);
+        const goal = seed(id);
+        if (!goal) offline("That objective is not in the demo book.");
+        assertNotOwn(goal);
+        if (goal.approval === "REJECTED") {
+          offline(`"${goal.title}" has already been refused.`);
+        }
+        if (goal.approval === "AGREED") {
+          offline(
+            `"${goal.title}" was agreed. Stop it or reopen it for revision — ` +
+              "refusing it now would erase the fact that it was ever agreed.",
+          );
+        }
+        local(id, {
+          approval: "REJECTED",
+          note: reason,
+          at: new Date().toISOString(),
+          revisions: revisionsOf(id),
+        });
+      },
+      [isConnected, seed, local, assertNotOwn, revisionsOf],
+    ),
+
+    /**
+     * Reopen an agreed target. Either side may, and the re-agreement is where
+     * the other side gets its say — which is why this is not gated on being the
+     * approver the way `agree` is.
+     */
+    revise: useCallback(
+      async (id: string, reason: string) => {
+        if (isConnected) return performanceApi.reviseObjective(id, reason);
+        const goal = seed(id);
+        if (!goal) offline("That objective is not in the demo book.");
+        if (goal.approval !== "AGREED") {
+          offline(
+            `"${goal.title}" is not agreed, so there is nothing frozen to ` +
+              `reopen — it is ${goal.approvalLabel.toLowerCase()}.`,
+          );
+        }
+        local(id, {
+          approval: "AWAITING_APPROVAL",
+          note: reason,
+          at: new Date().toISOString(),
+          revisions: revisionsOf(id) + 1,
+        });
+      },
+      [isConnected, seed, local, revisionsOf],
     ),
   };
 }
@@ -1358,6 +1921,128 @@ export function useReviewMutations() {
         await performanceApi.submitReview(id, body);
       },
       [isConnected],
+    ),
+  };
+}
+
+/* ==========================================================================
+ * Sign-off: the record that the employee was told
+ * ======================================================================== */
+
+const FINALISE_OFFLINE =
+  "Finalising somebody's rating needs the API. It is the one-way door that " +
+  "decides what a person is told their mark is, and it belongs with their " +
+  "record rather than in a browser.";
+
+/**
+ * Finalise, then acknowledge **or** dispute. In that order, once each.
+ *
+ * Nobody in this market records the employee's answer, and the exposure is real:
+ * without a stored acknowledgement there is no evidence the employee was ever
+ * shown their rating, and a rating nobody can prove was communicated is a
+ * liability rather than a record.
+ *
+ * Three things this hook keeps straight, all of which a screen can get wrong:
+ *
+ * - **Finalising is somebody else's act.** The author, the person's manager, or
+ *   `EDIT_RECORDS`. It refuses offline, because a mark of record written in one
+ *   browser is not a mark of record.
+ * - **Acknowledging and disputing are the subject's own act**, so they work in
+ *   both modes — the same line `useReviewMutations` sits on. Only the person a
+ *   rating is about may send either, and the demo refuses anybody else in the
+ *   API's own words.
+ * - **One answer, not both.** Whichever arrives first is the record; the second
+ *   is refused rather than overwriting the first.
+ */
+export function useSignOff() {
+  const { isConnected, actingId } = useSession();
+
+  const answer = useCallback(
+    (id: string, next: DemoSignOff) => {
+      const state = demoStore.read();
+      demoStore.commit({
+        ...state,
+        signOff: { ...state.signOff, [id]: next },
+      });
+    },
+    [],
+  );
+
+  /** The guard both employee answers share, in the API's words. */
+  const assertMayAnswer = useCallback(
+    (review: ApiReview) => {
+      if (review.subjectId !== actingId) {
+        offline("Only the person a rating is about can acknowledge or dispute it.");
+      }
+      if (!review.finalised) {
+        offline(
+          "That rating is not final yet, so there is nothing to answer. You will " +
+            "be told when it is.",
+        );
+      }
+      if (review.acknowledged) {
+        offline("You have already acknowledged this rating.");
+      }
+      if (review.disputed) {
+        offline(
+          "You have already disputed this rating. It is on the record and " +
+            "somebody has to answer it.",
+        );
+      }
+    },
+    [actingId],
+  );
+
+  return {
+    /** False in demo mode. `finaliseRefusal` is the sentence to render. */
+    canFinalise: isConnected,
+    finaliseRefusal: FINALISE_OFFLINE,
+
+    finalise: useCallback(
+      async (id: string) => {
+        if (!isConnected) offline(FINALISE_OFFLINE);
+        return performanceApi.finaliseReview(id);
+      },
+      [isConnected],
+    ),
+
+    /**
+     * "I have seen this." **Not "I agree with it."**
+     *
+     * The comment is optional: somebody with nothing to add should not have to
+     * invent something to get past a form.
+     */
+    acknowledge: useCallback(
+      async (review: ApiReview, comment?: string) => {
+        if (isConnected) return performanceApi.acknowledgeReview(review.id, comment);
+        assertMayAnswer(review);
+        answer(review.id, {
+          acknowledgedAt: new Date().toISOString(),
+          disputedAt: null,
+          comment: comment ?? null,
+        });
+      },
+      [isConnected, assertMayAnswer, answer],
+    ),
+
+    /**
+     * "I do not accept this." The rating **does not move**.
+     *
+     * Rewriting the mark on a dispute would leave no evidence of what was
+     * originally decided, which makes the trail worse rather than better. The
+     * comment is required — HR cannot answer grounds nobody gave.
+     */
+    dispute: useCallback(
+      async (review: ApiReview, comment: string) => {
+        if (isConnected) return performanceApi.disputeReview(review.id, comment);
+        assertMayAnswer(review);
+        answer(review.id, {
+          acknowledgedAt: null,
+          disputedAt: new Date().toISOString(),
+          comment,
+        });
+      },
+      [isConnected, assertMayAnswer, answer],
     ),
   };
 }
@@ -1770,4 +2455,327 @@ export function useAppraiserMutations() {
       [isConnected],
     ),
   };
+}
+
+/* ==========================================================================
+ * Running one cycle: who is outstanding, and what is wrong with it
+ * ======================================================================== */
+
+const REGISTER_OFFLINE =
+  "A cycle's register needs the API. It is an aggregate over everybody — who " +
+  "owes a form, who has nobody appraising them, and what each person's mark is " +
+  "made of — and one assembled in this browser would describe a cycle nothing " +
+  "else here is running.";
+
+export type CycleRegister = {
+  /** Open to everybody, so this arrives even when the rest is refused. */
+  cycle: ApiCycle | null;
+  /** Who owes which form. Peer rows are counted, never named. */
+  participants: ApiCycleParticipants | null;
+  /** Everybody's composite score, component by component, with its exceptions. */
+  register: ApiScoreRegister | null;
+  /**
+   * The appraiser map, **narrowed to the rows something is wrong with**.
+   *
+   * This is where "nobody is appraising Grace" comes from, and it is the reason
+   * this read is here at all rather than only on the mapping tab. The mapping
+   * *interface* is gated on the `multiAppraiser` flag; the exception is not, and
+   * must not be — a company that never opens the mapping screen is exactly the
+   * company that will finish a cycle with somebody unmarked.
+   */
+  exceptions: ApiAppraiserMap | null;
+  loading: boolean;
+  error: ApiError | null;
+  /** False in demo mode, and false without `EDIT_RECORDS`. */
+  available: boolean;
+  refusal: string;
+  reload: () => void;
+};
+
+/**
+ * One cycle, from the point of view of whoever is running it.
+ *
+ * Four reads in one hook because they are one screen and they fail together:
+ * three of them need `EDIT_RECORDS`, so a caller without it gets three 403s and
+ * one useful sentence. `enabled` is that permission, asked by the screen — the
+ * store does not reach for `useCan` itself, which would make every consumer pay
+ * for the permissions fetch whether or not it renders this.
+ *
+ * Offline it refuses, for the reason `useAppraiserMap` already refuses: this is
+ * the record a mark is defended with months later.
+ */
+export function useCycleRegister(
+  cycleId: string | null,
+  enabled: boolean,
+): CycleRegister {
+  const { isConnected } = useSession();
+  const active = cycleId !== null && enabled && isConnected;
+
+  const load = useCallback(
+    async (signal: AbortSignal) => {
+      const id = cycleId ?? "";
+      const [cycle, participants, register, exceptions] = await Promise.all([
+        performanceApi.cycle(id, signal),
+        performanceApi.participants(id, signal),
+        performanceApi.cycleScores(id, {}, signal),
+        performanceApi.appraiserMap(id, { exceptionsOnly: true }, signal),
+      ]);
+      return { cycle, participants, register, exceptions };
+    },
+    [cycleId],
+  );
+
+  const fetched = useFetched<{
+    cycle: ApiCycle;
+    participants: ApiCycleParticipants;
+    register: ApiScoreRegister;
+    exceptions: ApiAppraiserMap;
+  }>(`cycle-register|${cycleId ?? "none"}`, active, load);
+
+  /* Nothing is derived offline — see the refusal above — so this is a stable
+     constant rather than a computed value, and it never touches state. */
+  const offlineValue = useMemo<CycleRegister>(
+    () => ({
+      cycle: demoCycles.find((cycle) => cycle.id === cycleId) ?? null,
+      participants: null,
+      register: null,
+      exceptions: null,
+      loading: false,
+      error: null,
+      available: false,
+      refusal: REGISTER_OFFLINE,
+      reload: fetched.reload,
+    }),
+    [cycleId, fetched.reload],
+  );
+
+  if (!isConnected) return offlineValue;
+
+  return {
+    cycle: fetched.data?.cycle ?? null,
+    participants: fetched.data?.participants ?? null,
+    register: fetched.data?.register ?? null,
+    exceptions: fetched.data?.exceptions ?? null,
+    loading: fetched.loading,
+    error: fetched.error,
+    available: enabled,
+    refusal: REGISTER_OFFLINE,
+    reload: fetched.reload,
+  };
+}
+
+/* ==========================================================================
+ * Who is appraising me
+ * ======================================================================== */
+
+/**
+ * Who marks this person in one cycle, asked by the person themselves.
+ *
+ * `GET /cycles/:id/appraisers/:employeeId` is open to the subject on purpose —
+ * knowing *who* judges you is not the same as reading what they wrote, and a
+ * company that will not tell you who judges you has a worse problem than a
+ * rounding one. That openness is what makes this hook possible, and it is the
+ * only honest way an employee's own screen can learn that **nobody** is
+ * appraising them.
+ *
+ * It cannot be inferred from `myReviews` and must not be tried: a manager review
+ * is absent from `aboutMe` until it is finalised or the cycle is published, so
+ * an absence there is the ordinary mid-cycle state. Reading it as "nobody is
+ * appraising you" would be a wrong claim in the common case, which is the exact
+ * failure this module keeps being written against.
+ *
+ * Offline the answer comes from the seed's own reporting line, because that is
+ * where a demo appraiser would come from: `activateCycle` fills the mapping in
+ * from `managerId`, so somebody with no manager has nobody, and the demo says so
+ * in the API's words rather than staying quiet about it.
+ */
+export function useMyAppraisers(
+  cycleId: string | null,
+  employeeId: string | null,
+): {
+  row: (ApiAppraiserMapRow & { cycleName: string }) | null;
+  loading: boolean;
+  error: ApiError | null;
+} {
+  const { isConnected } = useSession();
+  const active = cycleId !== null && employeeId !== null && isConnected;
+
+  const load = useCallback(
+    async (signal: AbortSignal) =>
+      performanceApi.appraisersOf(cycleId ?? "", employeeId ?? "", signal),
+    [cycleId, employeeId],
+  );
+
+  const fetched = useFetched<ApiAppraiserMapRow & { cycleName: string }>(
+    `appraisers-of|${cycleId ?? "none"}|${employeeId ?? "none"}`,
+    active,
+    load,
+  );
+
+  const derived = useMemo(() => {
+    if (isConnected || cycleId === null || employeeId === null) return null;
+    const cycle = demoCycles.find((one) => one.id === cycleId);
+    const person = employeeById(employeeId);
+    if (!cycle || !person) return null;
+
+    const manager = person.managerId ? employeeById(person.managerId) : undefined;
+    const started = cycle.stage !== "DRAFT";
+    const name = `${person.firstName} ${person.lastName}`;
+
+    return {
+      employeeId,
+      employeeName: name,
+      jobTitle: person.jobTitle,
+      departmentId: person.department,
+      departmentName: person.department,
+      lineManagerId: person.managerId,
+      lineManagerName: manager ? `${manager.firstName} ${manager.lastName}` : null,
+      cycleName: cycle.name,
+      appraisers: manager
+        ? [
+            {
+              assignmentId: `demo-assignment-${employeeId}`,
+              appraiserId: manager.id,
+              appraiserName: `${manager.firstName} ${manager.lastName}`,
+              jobTitle: manager.jobTitle,
+              role: "LINE_MANAGER" as const,
+              roleLabel: "Line manager",
+              weightBp: FULL_WEIGHT_BP,
+              note: null,
+              reviewId: null,
+              submitted: false,
+              rating: null,
+              unavailable: false,
+            },
+          ]
+        : [],
+      totalWeightBp: manager ? FULL_WEIGHT_BP : 0,
+      submittedWeightBp: 0,
+      weightedRating: null,
+      /* The API's own sentences, both halves. A demo refusal or warning that is
+         worded differently from the served one teaches the wrong rule. */
+      exceptions: manager
+        ? []
+        : [
+            {
+              severity: (started ? "BLOCKER" : "WARNING") as "BLOCKER" | "WARNING",
+              code: "NO_APPRAISER" as const,
+              message: started
+                ? `Nobody is appraising ${name}. They will finish this cycle with no mark.`
+                : `${name} has no appraiser yet. Starting the cycle will use their line manager, and they have none.`,
+            },
+          ],
+    };
+  }, [isConnected, cycleId, employeeId]);
+
+  return {
+    row: isConnected ? fetched.data : derived,
+    loading: isConnected ? fetched.loading : false,
+    error: isConnected ? fetched.error : null,
+  };
+}
+
+/**
+ * One person's composite score in one cycle.
+ *
+ * Two refusals a screen has to render rather than paper over:
+ *
+ * - **Before the rating is finalised the subject is refused**, with the API's own
+ *   sentence. A working figure moves every time somebody records a rating, and
+ *   showing an employee a provisional mark starts a conversation about a number
+ *   nobody meant to publish. Show the message; do not show a blank panel and do
+ *   not show a zero.
+ * - Offline there is no register at all, for the reason `useCycleRegister`
+ *   gives. `available` is false and `refusal` is the line.
+ *
+ * `enabled` lets a screen hold the request back until it knows there is a cycle
+ * and a person worth asking about.
+ */
+export function useEmployeeScore(
+  cycleId: string | null,
+  employeeId: string | null,
+  enabled: boolean,
+): {
+  score: ApiEmployeeScore | null;
+  loading: boolean;
+  error: ApiError | null;
+  available: boolean;
+  refusal: string;
+  reload: () => void;
+} {
+  const { isConnected } = useSession();
+  const active = cycleId !== null && employeeId !== null && enabled && isConnected;
+
+  const load = useCallback(
+    async (signal: AbortSignal) =>
+      performanceApi.employeeScore(cycleId ?? "", employeeId ?? "", signal),
+    [cycleId, employeeId],
+  );
+
+  const fetched = useFetched<ApiEmployeeScore>(
+    `score|${cycleId ?? "none"}|${employeeId ?? "none"}`,
+    active,
+    load,
+  );
+
+  return {
+    score: isConnected ? fetched.data : null,
+    loading: isConnected ? fetched.loading : false,
+    error: isConnected ? fetched.error : null,
+    available: isConnected,
+    refusal: REGISTER_OFFLINE,
+    reload: fetched.reload,
+  };
+}
+
+/**
+ * Who still owes a form in this cycle, as one list.
+ *
+ * `ApiCycleParticipants` answers it per person per form; this collapses it into
+ * the sentence a cycle owner actually needs — "Grace has not sent her
+ * self-review", "Tunde has not written Musa's". A row appears **only** when
+ * something is genuinely missing, so an empty list means everybody is in rather
+ * than that the read failed.
+ *
+ * An absent manager form is deliberately **not** reported here as outstanding. A
+ * missing form and a missing appraiser look the same on this data and are
+ * opposite problems: one is somebody who has not got round to it, the other is
+ * somebody nobody was ever asked to mark. The second is an exception on the
+ * appraiser map, with a name and a severity, and reporting it twice in different
+ * words would let a reader clear the wrong one.
+ */
+export type Outstanding = {
+  employeeId: string;
+  employeeName: string;
+  /** What is missing, in words. Already includes the name. */
+  what: string;
+  reviewId: string;
+};
+
+export function outstandingIn(
+  participants: ApiCycleParticipants | null,
+): Outstanding[] {
+  if (!participants) return [];
+  const rows: Outstanding[] = [];
+
+  for (const person of participants.rows) {
+    if (person.self && !person.self.submitted) {
+      rows.push({
+        employeeId: person.employeeId,
+        employeeName: person.employeeName,
+        what: `${person.employeeName} has not sent their self-review`,
+        reviewId: person.self.reviewId,
+      });
+    }
+    if (person.manager && !person.manager.submitted) {
+      rows.push({
+        employeeId: person.employeeId,
+        employeeName: person.employeeName,
+        what: `${person.manager.managerName} has not written ${person.employeeName}'s review`,
+        reviewId: person.manager.reviewId,
+      });
+    }
+  }
+
+  return rows;
 }
