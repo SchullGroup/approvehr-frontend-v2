@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { CheckCircle2, Download, RefreshCw, Upload, Users } from "lucide-react";
 import {
   Button,
@@ -9,6 +10,7 @@ import {
   CardBody,
   CardFooter,
   CardHeader,
+  Modal,
   Stat,
   TBody,
   TD,
@@ -21,6 +23,19 @@ import type { ApplyOutcome, CheckOutcome } from "@/lib/store/imports";
 
 const count = (value: number): string => value.toLocaleString("en-NG");
 const people = (value: number): string => (value === 1 ? "person" : "people");
+
+/**
+ * The confirmation after a clean import.
+ *
+ * Shown as a modal only when **every** row landed. A partial import keeps the
+ * inline treatment it already had — the warning plus the named list of rows that
+ * did not go in — because a modal headed "imported" over three failures is the
+ * dishonest version of this screen, and "never report a success without the
+ * count of what did not land" is one of the four rules this flow was built on.
+ *
+ * Dismissible, and dismissing leaves the full result on the page behind it. The
+ * modal is the acknowledgement, not the record.
+ */
 
 /**
  * What the button says it will do, in the numbers it will do it in.
@@ -94,6 +109,7 @@ export function ImportResult({
    */
   onRetry: () => void;
 }) {
+  const [acknowledged, setAcknowledged] = useState(false);
   if (!result) {
     return (
       <Card>
@@ -311,6 +327,47 @@ export function ImportResult({
           </Button>
         </CardBody>
       </Card>
+
+      {/* Clean import only — see the note above `ImportResult`. */}
+      {result !== null &&
+        result.failure === null &&
+        result.notImported.length === 0 &&
+        !acknowledged && (
+          <Modal
+            open
+            onClose={() => setAcknowledged(true)}
+            size="sm"
+            title={`${count(result.created + result.updated)} ${people(
+              result.created + result.updated,
+            )} imported`}
+            footer={
+              <div className="flex flex-wrap justify-end gap-2">
+                <Button variant="secondary" onClick={onAnother}>
+                  Import another file
+                </Button>
+                <ButtonLink href="/people" variant="accent">
+                  View the directory
+                </ButtonLink>
+              </div>
+            }
+          >
+            <div className="flex flex-col items-center gap-3 py-2 text-center">
+              <span className="flex size-12 items-center justify-center rounded-full bg-success-soft">
+                <CheckCircle2
+                  aria-hidden="true"
+                  className="size-6 text-success-text"
+                />
+              </span>
+              <p className="text-body text-ink">
+                {count(result.created)} added and {count(result.updated)} updated
+                from {check.filename}.
+              </p>
+              <p className="text-body-sm text-muted">
+                Every row in the file landed.
+              </p>
+            </div>
+          </Modal>
+        )}
     </div>
   );
 }
