@@ -728,6 +728,18 @@ export type ApiScoreRow = {
   scoreBp: number | null;
   /** The same integer as a percentage. Null for the same reason. */
   scorePercent: number | null;
+  /**
+   * Which band the mark falls in, decided by the API.
+   *
+   * **Null when there is no mark**, and a screen must render that as an absence
+   * rather than as the bottom band — putting an unscored person in *Below
+   * expectations* is the distribution's version of paying somebody ₦0 because no
+   * attendance row exists. Do not band a score locally: the thresholds are the
+   * midpoints of the 1–5 scale and they live once, in `scoring.ts`.
+   */
+  band: ScoreBand | null;
+  /** The API's wording for the band. Render this, not a local table. */
+  bandLabel: string | null;
   components: ApiComponentScore[];
   objectives: {
     agreed: number;
@@ -814,6 +826,198 @@ export type ApiScoringWeightsSaved = ApiScoringWeights & {
   saved: true;
   /** Running cycles these weights will not touch, because theirs are frozen. */
   frozenCycles: string[];
+};
+
+/* ---------------------------------------------------- bands and the report */
+
+/**
+ * The five bands a finished mark is reported in, highest first.
+ *
+ * Mirrors `SCORE_BAND_KEYS`. The thresholds are **not** here on purpose: the
+ * boundaries are the midpoints between the five points of a 1–5 rating and they
+ * live in `scoring.ts`, so the row carries its own `band` and nothing on this
+ * side compares a score against a number. Two screens each deciding where "meets
+ * expectations" starts is how the same person ends up in two different bands.
+ */
+export type ScoreBand =
+  | "OUTSTANDING"
+  | "EXCEEDS"
+  | "MEETS"
+  | "PARTIALLY_MEETS"
+  | "BELOW";
+
+/** One band, with the edges and the sentence the API sends for it. */
+export type ApiBandCount = {
+  band: ScoreBand;
+  label: string;
+  /** What the band claims about the person. The API's words. */
+  meaning: string;
+  fromBp: number;
+  toBp: number;
+  /** People with a mark in this band. **Never anybody unscored.** */
+  people: number;
+  /** Their names, because a count is not something anybody can act on. */
+  names: string[];
+};
+
+export type ApiScoreDistribution = {
+  bands: ApiBandCount[];
+  /** How many marks this is over. Deliberately not the headcount. */
+  scored: number;
+  /** People with no mark. Counted, never banded, never averaged. */
+  unscored: number;
+  /**
+   * The mean of the marks that exist, or **null** when there are none.
+   *
+   * Never divide this by anything, and never show it beside a headcount it did
+   * not come from. The audit of the incumbent found an organisation average of
+   * 3.9 rendered directly above "0 total criteria".
+   */
+  meanBp: number | null;
+};
+
+/** One person on a named list, with the API's own reason for being on it. */
+export type ApiNamedOnList = {
+  employeeId: string;
+  employeeName: string;
+  jobTitle: string;
+  departmentName: string | null;
+  /** Render this sentence. Do not write a second one for the same fact. */
+  note: string;
+};
+
+/** How one component came out across a whole cycle. */
+export type ApiReportComponent = {
+  component: ScoreComponent;
+  label: string;
+  weightBp: number;
+  /** People it actually counted for. */
+  includedPeople: number;
+  /** The mean over exactly those people. **Null** when it counted for nobody. */
+  meanBp: number | null;
+  /** Why it did not count, per reason, with the API's note and a headcount. */
+  excluded: {
+    reason: ScoreExclusionReason;
+    note: string;
+    people: number;
+  }[];
+};
+
+/**
+ * The outcome of one cycle.
+ *
+ * ## Two headcounts, and they are not interchangeable
+ *
+ * `forms.people` is everybody who has a form; `marks.people` is everybody the
+ * register covers. They are usually the same number and never the same fact, so
+ * each block carries its own, and **nothing on a screen may divide one by the
+ * other**. That rule is the whole reason this type has two nested objects
+ * instead of one flat `counts`.
+ */
+export type ApiCycleReport = {
+  cycleId: string;
+  cycleName: string;
+  stage: ReviewCycleStage;
+  started: boolean;
+  published: boolean;
+  /** `"snapshot"` for a frozen set, `"current"` for the company's live one. */
+  weightsFrom: "snapshot" | "current";
+  weights: { component: ScoreComponent; label: string; weightBp: number }[];
+  weightsTotalBp: number;
+  distribution: ApiScoreDistribution;
+  forms: {
+    people: number;
+    selfIn: number;
+    selfOutstanding: number;
+    managerIn: number;
+    managerOutstanding: number;
+  };
+  marks: {
+    people: number;
+    scored: number;
+    unscored: number;
+    written: number;
+    finalised: number;
+    acknowledged: number;
+    disputed: number;
+    awaitingAnswer: number;
+    /** No manager review row at all — a different fact from an unwritten one. */
+    noReview: number;
+  };
+  components: ApiReportComponent[];
+  /** Who finishes with no mark, by name. */
+  unscored: ApiNamedOnList[];
+  /** Written but not finalised, by name. They have not been told their rating. */
+  unfinalised: ApiNamedOnList[];
+  /** Told, and neither acknowledged nor disputed. Silence is not acceptance. */
+  awaitingAcknowledgement: ApiNamedOnList[];
+  disputed: (ApiNamedOnList & {
+    reviewId: string | null;
+    employeeComment: string | null;
+  })[];
+};
+
+/* --------------------------------------------------------------- the trend */
+
+/** One cycle on somebody's trend. Every field is a register row's field. */
+export type ApiHistoryPoint = {
+  cycleId: string;
+  cycleName: string;
+  stage: ReviewCycleStage;
+  dueDate: string | null;
+  weightsFrom: "snapshot" | "current";
+  scoreBp: number | null;
+  scorePercent: number | null;
+  band: ScoreBand | null;
+  bandLabel: string | null;
+  /**
+   * Against the previous cycle **that has a mark**.
+   *
+   * Null on the first mark and on any point without one. It deliberately skips
+   * over an unscored cycle rather than measuring against a zero, so a chart never
+   * shows a collapse and a recovery that never happened.
+   */
+  changeBp: number | null;
+  components: ApiComponentScore[];
+  objectives: ApiScoreRow["objectives"];
+  appraiserMark: ApiScoreRow["appraiserMark"];
+  signOff: ApiScoreRow["signOff"];
+  exceptions: ApiScoreException[];
+};
+
+export type ApiScoreHistory = {
+  employeeId: string;
+  employeeName: string;
+  jobTitle: string;
+  departmentId: string | null;
+  departmentName: string | null;
+  /** Oldest first. */
+  points: ApiHistoryPoint[];
+  counts: { cycles: number; scored: number; unscored: number };
+  /** Cycles the person was in and has no mark for, by name. */
+  unscoredCycles: string[];
+  /** First mark to last. **Null with fewer than two** — one point is not a trend. */
+  trend: {
+    fromCycle: string;
+    toCycle: string;
+    fromBp: number;
+    toBp: number;
+    changeBp: number;
+    direction: "UP" | "DOWN" | "FLAT";
+  } | null;
+  /** True when older cycles were left out of the response. */
+  truncated: boolean;
+  limit: number;
+  /**
+   * Cycles hidden from the subject because their rating is not final yet.
+   *
+   * Zero for anybody reading somebody else's history. When it is not zero,
+   * `withheldNote` is the only sentence worth showing for it — a person whose
+   * current period is missing needs to be told it is in progress rather than left
+   * to conclude they were not in it.
+   */
+  withheldCycles: number;
+  withheldNote: string | null;
 };
 
 /**
@@ -1319,6 +1523,36 @@ export const performanceApi = {
       signalOf(signal),
     ),
 
+  /**
+   * The outcome of one cycle: the distribution, what came in, who is left out.
+   *
+   * A separate request from the register rather than a flag on it, because the
+   * two answer different questions — the register is "who is not finished", this
+   * is "how did it come out". `EDIT_RECORDS`, as any aggregate over everybody is.
+   */
+  cycleReport: (cycleId: string, signal?: AbortSignal) =>
+    request<ApiCycleReport>(
+      `/performance/cycles/${cycleId}/report`,
+      signalOf(signal),
+    ),
+
+  /**
+   * One person's mark across cycles.
+   *
+   * Self, direct report, or `EDIT_RECORDS`. An appraiser assigned to one cycle is
+   * deliberately **refused**: that assignment is permission to judge one period,
+   * not to read every period, and they read theirs through `employeeScore`.
+   *
+   * The subject's own reading is narrowed to cycles whose rating is final, with
+   * `withheldCycles` and `withheldNote` saying so. Render the note; a period
+   * missing with no explanation reads as a period the person was not in.
+   */
+  scoreHistory: (employeeId: string, signal?: AbortSignal) =>
+    request<ApiScoreHistory>(
+      `/performance/employees/${employeeId}/score-history`,
+      signalOf(signal),
+    ),
+
   /** A manager or `EDIT_RECORDS`: nobody else knows who a person's peers are. */
   askPeers: (cycleId: string, subjectId: string, peerIds: string[]) =>
     request<{ subjectId: string; asked: number; notified: number }>(
@@ -1574,6 +1808,64 @@ function percentOfBp(bp: number): string {
  */
 export function scoreLabel(bp: number): string {
   return percentOfBp(bp);
+}
+
+/**
+ * A change in a mark, signed: `2264` as `"+22.64%"`, `-5000` as `"-50%"`.
+ *
+ * Signed on purpose. An unsigned delta beside two marks makes the reader do the
+ * subtraction, and the direction is the only thing a trend is for. Takes a
+ * `number` and never `null` — a point with nothing to compare against has no
+ * change, and every caller says so in its own words.
+ */
+export function changeLabel(bp: number): string {
+  if (bp === 0) return "No change";
+  return `${bp > 0 ? "+" : "-"}${percentOfBp(Math.abs(bp))}`;
+}
+
+/**
+ * `formatBp` from `modules/performance/scoring.ts`, character for character.
+ *
+ * `percentOfBp` above puts a fractional percentage through `Number()`, so 33.30%
+ * prints as `33.3%`. The server's own formatter keeps both decimals. That
+ * difference does not matter on a table cell and matters completely in
+ * `scoringWeightProblem`, whose entire job is to be the sentence the server would
+ * have sent. Two copies exist because they are two different requirements, and
+ * this one is the one that must not drift.
+ */
+function serverPercentOfBp(bp: number): string {
+  const whole = bp / 100;
+  return `${Number.isInteger(whole) ? whole : whole.toFixed(2)}%`;
+}
+
+/**
+ * What is wrong with a set of **scoring** weights, in the server's own words.
+ *
+ * Checked here **as well as** on the server, never instead of it. The API refuses
+ * anything that does not total exactly 10000, which is why the settings form is
+ * whole-set-at-once — a field-at-a-time form would be unsubmittable at every
+ * intermediate state and the rule would end up being a suggestion. This is what
+ * lets somebody see the refusal while they are still editing, and it is worded
+ * identically to `assertWeightsWhole` so nobody meets a different sentence on
+ * save.
+ *
+ * Separate from `weightProblem`, which is the appraiser-weights version: the
+ * two rules are the same arithmetic and the two refusals are different sentences,
+ * and quietly showing one where the server sends the other is how a screen starts
+ * lying about what the API said.
+ */
+export function scoringWeightProblem(
+  entries: readonly { weightBp: number }[],
+): string | null {
+  const total = entries.reduce((sum, entry) => sum + entry.weightBp, 0);
+  if (total === FULL_WEIGHT_BP) return null;
+  return (
+    `Those weights add up to ${serverPercentOfBp(total)}. They have to make ` +
+    `100% exactly, so a score can be explained. ` +
+    (total < FULL_WEIGHT_BP
+      ? `Add ${serverPercentOfBp(FULL_WEIGHT_BP - total)}.`
+      : `Take off ${serverPercentOfBp(total - FULL_WEIGHT_BP)}.`)
+  );
 }
 
 /**

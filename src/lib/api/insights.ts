@@ -54,6 +54,23 @@ export type DashboardData = {
    * Announcements Will Appear Here" is furniture, not information.
    */
   announcements: ApiBoard;
+  /**
+   * Exits on the way out, for whoever may see the exit register.
+   *
+   * Absent for anybody who may only see their own exit — the same rule as
+   * `hiring` and `money`, and for the sharper reason: `{ open: 0 }` would tell
+   * a manager that nobody in the company is leaving, which is a claim about the
+   * company rather than about their permissions.
+   *
+   * `withMandatoryOutstanding` counts **people**, not tasks. One person with
+   * six unticked lines is one person on their way out, and summing lines would
+   * put six on the dashboard.
+   */
+  exits?: {
+    open: number;
+    /** Of `open`, how many still have a mandatory checklist line unticked. */
+    withMandatoryOutstanding: number;
+  };
   hiring?: {
     candidatesInPlay: number;
     stalledSevenDays: number;

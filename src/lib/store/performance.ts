@@ -33,7 +33,13 @@ import {
   type ApiAppraiserMapRow,
   type ApiReview,
   type ApiReviewDetail,
+  type ApiCycleReport,
+  type ApiScoreHistory,
   type ApiScoreRegister,
+  type ApiScoringWeights,
+  type ApiScoringWeightsSaved,
+  type ScoreBand,
+  type ScoreComponent,
   type AnswerBody,
   type CreateGoalBody,
   type CreateKeyResultBody,
@@ -2778,4 +2784,270 @@ export function outstandingIn(
   }
 
   return rows;
+}
+
+/* ==========================================================================
+ * How much each part counts: the scoring weights
+ * ======================================================================== */
+
+/**
+ * Which tone a band carries. **A frontend-only mapping, on purpose.**
+ *
+ * The band itself, its label, its meaning and its edges all come from the API —
+ * a screen must never decide where "meets expectations" starts. What the API
+ * cannot send is a colour, so this is the one thing about a band that lives here,
+ * and it is keyed by the union so `tsc` refuses to build if a sixth band appears.
+ *
+ * Neutral for the middle band deliberately. Delivering what was agreed is the
+ * ordinary outcome and colouring most of a company amber or green teaches people
+ * to read the colour as the verdict rather than the words beside it.
+ */
+export const BAND_TONE: Record<ScoreBand, BadgeTone> = {
+  OUTSTANDING: "success",
+  EXCEEDS: "accent",
+  MEETS: "neutral",
+  PARTIALLY_MEETS: "warning",
+  BELOW: "danger",
+};
+
+const WEIGHTS_SAVE_OFFLINE =
+  "Saving the weights needs the API. They decide how everybody's mark is put " +
+  "together, and a set kept in this browser would change no score anywhere — a " +
+  "settings screen that looks saved and moves nothing is worse than one that " +
+  "says it cannot.";
+
+/**
+ * The shipped defaults, so the form has something honest to render offline.
+ *
+ * A copy of `DEFAULT_WEIGHTS` in `modules/performance/scoring.ts`, and the only
+ * duplicated figures in this file. It is here because the argument the settings
+ * screen exists to make — objectives lead, competencies are most of the rest,
+ * self-assessment is zero — is the argument, and a blank panel in demo mode makes
+ * it to nobody. `source: "default"` says they are ours rather than a decision the
+ * company made, and the write still refuses, so nothing can look saved.
+ *
+ * If the server's defaults move, this moves with them. Nothing computes from it.
+ */
+const DEMO_WEIGHTS: ApiScoringWeights = {
+  source: "default",
+  rows: [
+    { component: "OBJECTIVES", label: "Delivery against objectives", weightBp: 4_000 },
+    { component: "CORE_COMPETENCY", label: "Core competencies", weightBp: 2_500 },
+    {
+      component: "BEHAVIOURAL_COMPETENCY",
+      label: "Behavioural competencies",
+      weightBp: 2_000,
+    },
+    { component: "LEADERSHIP", label: "Leadership", weightBp: 1_500 },
+    { component: "SELF_ASSESSMENT", label: "Self-assessment", weightBp: 0 },
+  ],
+  totalBp: FULL_WEIGHT_BP,
+  selfAssessmentNote:
+    "Self-assessment is weighted at 0%. It is collected and shown beside the " +
+    "manager's rating, and it does not change the score.",
+};
+
+/**
+ * The company's scoring weights, and the one write that replaces the whole set.
+ *
+ * `save` takes every component because the API does, and the API does because
+ * that is the only shape in which "they sum to 100%" is a rule it can enforce.
+ * There is deliberately no `saveOne`.
+ *
+ * The read works offline against the shipped defaults; the write refuses. The
+ * split is not arbitrary: reading is how somebody learns what turning
+ * self-assessment on would do to a mark, which is the whole reason the screen
+ * exists, and it needs no server. Writing changes how everybody in a real company
+ * is scored, and a locally stored set would move no mark on any screen in this
+ * product — the same failure as a green "Paid" that transferred nothing.
+ */
+export function useScoringWeights(): {
+  weights: ApiScoringWeights | null;
+  loading: boolean;
+  error: ApiError | null;
+  source: Source;
+  /** False offline. The form renders read-only and says why. */
+  editable: boolean;
+  refusal: string;
+  /**
+   * Replaces the whole set and **returns what the API said about it**.
+   *
+   * The response names the running cycles the change will not touch, and naming
+   * them is the point — "cycles already running keep their own weights" is a rule
+   * somebody has to take on trust, while "H2 2026 appraisal keeps its own" is a
+   * fact they can check. Same discipline as the payroll run naming the person it
+   * excluded rather than counting them.
+   */
+  save: (
+    weights: Record<ScoreComponent, number>,
+  ) => Promise<ApiScoringWeightsSaved>;
+  reload: () => void;
+} {
+  const { isConnected } = useSession();
+
+  const load = useCallback(
+    async (signal: AbortSignal) => performanceApi.scoringWeights(signal),
+    [],
+  );
+  const fetched = useFetched<ApiScoringWeights>(
+    "scoring-weights",
+    isConnected,
+    load,
+  );
+
+  /* Demo value in a memo, never in state. The defaults are a constant, so this
+     is stable and there is nothing to synchronise. Named `demoValue` rather than
+     `offline`, which is the module's refusal helper — shadowing it here made the
+     save path uncallable, and `tsc` said only "not callable". */
+  const demoValue = useMemo(() => DEMO_WEIGHTS, []);
+
+  return {
+    weights: isConnected ? fetched.data : demoValue,
+    loading: isConnected ? fetched.loading : false,
+    error: isConnected ? fetched.error : null,
+    source: isConnected ? "api" : "demo",
+    editable: isConnected,
+    refusal: WEIGHTS_SAVE_OFFLINE,
+    save: useCallback(
+      async (weights: Record<ScoreComponent, number>) => {
+        if (!isConnected) offline(WEIGHTS_SAVE_OFFLINE);
+        const saved = await performanceApi.setScoringWeights(weights);
+        fetched.reload();
+        return saved;
+      },
+      [isConnected, fetched.reload],
+    ),
+    reload: fetched.reload,
+  };
+}
+
+/* ==========================================================================
+ * The outcome of a cycle, and the trend across cycles
+ * ======================================================================== */
+
+const REPORT_OFFLINE =
+  "A cycle report needs the API. A distribution is an aggregate over " +
+  "everybody's mark, and one assembled in this browser would describe a cycle " +
+  "nothing else here is running.";
+
+const HISTORY_OFFLINE =
+  "A trend across cycles needs the API. Every point on it is the same score " +
+  "the cycle screen shows, read from the weights that cycle was frozen " +
+  "against — there is nothing in this browser to read it from.";
+
+/**
+ * The outcome of one cycle: the distribution, what came in, and who is left out.
+ *
+ * A separate hook and a separate request from `useCycleRegister`, because they
+ * are separate screens answering separate questions. The register is "who is not
+ * finished" and belongs to whoever is running the cycle; this is "how did it come
+ * out" and belongs to whoever has to explain it afterwards.
+ *
+ * `enabled` is the `EDIT_RECORDS` permission, asked by the screen. The store does
+ * not reach for `useCan` itself — that would make every consumer pay for the
+ * permissions fetch whether or not it renders this.
+ */
+export function useCycleReport(
+  cycleId: string | null,
+  enabled: boolean,
+): {
+  report: ApiCycleReport | null;
+  cycle: ApiCycle | null;
+  loading: boolean;
+  error: ApiError | null;
+  available: boolean;
+  refusal: string;
+  reload: () => void;
+} {
+  const { isConnected } = useSession();
+  const active = cycleId !== null && enabled && isConnected;
+
+  const load = useCallback(
+    async (signal: AbortSignal) => {
+      const id = cycleId ?? "";
+      /* The cycle read is open to everybody, so a reader who is refused the
+         report still gets the cycle's name for the heading. */
+      const [cycle, report] = await Promise.all([
+        performanceApi.cycle(id, signal),
+        performanceApi.cycleReport(id, signal),
+      ]);
+      return { cycle, report };
+    },
+    [cycleId],
+  );
+
+  const fetched = useFetched<{ cycle: ApiCycle; report: ApiCycleReport }>(
+    `cycle-report|${cycleId ?? "none"}`,
+    active,
+    load,
+  );
+
+  /* Nothing is derived offline — see the refusal — so this is a stable value
+     computed in a memo and never written to state. */
+  const offlineValue = useMemo(
+    () => demoCycles.find((cycle) => cycle.id === cycleId) ?? null,
+    [cycleId],
+  );
+
+  return {
+    report: isConnected ? (fetched.data?.report ?? null) : null,
+    cycle: isConnected ? (fetched.data?.cycle ?? null) : offlineValue,
+    loading: isConnected ? fetched.loading : false,
+    error: isConnected ? fetched.error : null,
+    available: isConnected && enabled,
+    refusal: REPORT_OFFLINE,
+    reload: fetched.reload,
+  };
+}
+
+/**
+ * One person's mark across cycles.
+ *
+ * Three refusals a screen has to render rather than paper over:
+ *
+ * - **A colleague is refused outright**, and so is an appraiser assigned to one
+ *   cycle who is not the person's manager. `assertSeesEmployee` on the server is
+ *   self, direct report, or `EDIT_RECORDS`; the 403 message names the rule and is
+ *   worth showing verbatim.
+ * - **The subject's own reading is narrowed to final marks.** Cycles still in
+ *   progress arrive as `withheldCycles` with a sentence, and the sentence has to
+ *   be rendered — a period missing with no explanation reads as a period the
+ *   person was not in.
+ * - **Offline there is nothing**, for the reason `useCycleRegister` gives. Every
+ *   point is a register row.
+ */
+export function useScoreHistory(
+  employeeId: string | null,
+  enabled: boolean,
+): {
+  history: ApiScoreHistory | null;
+  loading: boolean;
+  error: ApiError | null;
+  available: boolean;
+  refusal: string;
+  reload: () => void;
+} {
+  const { isConnected } = useSession();
+  const active = employeeId !== null && enabled && isConnected;
+
+  const load = useCallback(
+    async (signal: AbortSignal) =>
+      performanceApi.scoreHistory(employeeId ?? "", signal),
+    [employeeId],
+  );
+
+  const fetched = useFetched<ApiScoreHistory>(
+    `score-history|${employeeId ?? "none"}`,
+    active,
+    load,
+  );
+
+  return {
+    history: isConnected ? fetched.data : null,
+    loading: isConnected ? fetched.loading : false,
+    error: isConnected ? fetched.error : null,
+    available: isConnected,
+    refusal: HISTORY_OFFLINE,
+    reload: fetched.reload,
+  };
 }

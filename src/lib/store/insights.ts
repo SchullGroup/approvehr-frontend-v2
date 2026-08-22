@@ -103,6 +103,21 @@ export function useDashboard(): DashboardState & { reload: () => void } {
          the frontend engine over local data and presenting it as though a run
          had happened. */
       payroll: null,
+      /* `exits` is deliberately **not set at all**, which is the same thing the
+         API does for somebody who may not see the register — and the dashboard
+         renders nothing either way, so no wrong claim reaches a screen.
+
+         The alternative was to count the demo offboarding store, and the reason
+         not to is at the top of this file: the first version of this hook
+         derived leave, approvals and attendance from three other screens'
+         stores, and the coupling was the thing a dashboard should least do.
+         Doing it reactively would mean subscribing to a fourth store from here;
+         doing it non-reactively would leave a stale count on screen after
+         somebody ticks a checklist line, which is worse than no count.
+
+         The consequence, stated so nobody looks for a bug: the exits row on
+         `/dashboard` cannot be seen in demo mode. `/people/offboarding` is
+         where the demo shows exits, and it shows all of them. */
       /* The seeded noticeboard, filtered the way the API filters it: published,
          in date, pinned first. Drafts and expired notices are excluded here for
          the same reason they are excluded there — a draft on somebody's

@@ -12,8 +12,10 @@
  *
  * `Resign` is what `/profile` needs: the employee's own door out. `StartExitDialog`
  * is exported beside it so that a dashboard tile or an employee's record page
- * offering "record a leaver" opens the same form rather than a second one that
- * drifts from it.
+ * offering "record their exit" opens the same form rather than a second one that
+ * drifts from it. `/people/[id]` is that second caller now, and it passes
+ * `employeeId` + `employeeName` so the dialog states who is leaving instead of
+ * asking. ("Exit", never "leaver" — the product's own vocabulary.)
  */
 export { Resign } from "./resign";
 export { StartExitDialog } from "./start-exit";

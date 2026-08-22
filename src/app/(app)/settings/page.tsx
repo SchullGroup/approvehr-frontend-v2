@@ -5,6 +5,7 @@ import {
   BookOpen,
   Building2,
   CalendarDays,
+  Gauge,
   Landmark,
   Megaphone,
   Plug,
@@ -60,6 +61,18 @@ const GROUPS = [
         description:
           "Whether overtime is paid, from how many minutes, and the weekday, weekend and public-holiday rates.",
         icon: <Timer aria-hidden="true" />,
+      },
+      {
+        /* Not gated on the appraisals flag, deliberately: nothing on this hub
+           is. The sidebar is filtered by feature and permission (`nav.tsx`) and
+           this page is the flat index of everything a company can configure —
+           filtering one card and not the other eleven would be the inconsistent
+           half of a change nobody has asked for. */
+        href: "/settings/performance",
+        title: "Appraisal scoring",
+        description:
+          "How much each part of an appraisal counts. The weights must make 100% exactly, and they are frozen onto a cycle when it starts.",
+        icon: <Gauge aria-hidden="true" />,
       },
     ],
   },

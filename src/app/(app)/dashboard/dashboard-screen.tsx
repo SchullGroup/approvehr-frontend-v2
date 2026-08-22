@@ -104,7 +104,18 @@ export function DashboardScreen() {
     );
   }
 
-  const { headcount, approvals, today, announcements, hiring, payroll, money } = data;
+  const { headcount, approvals, today, announcements, exits, hiring, payroll, money } =
+    data;
+
+  /* An exit with nothing outstanding needs nobody, so it earns no row — "Needs
+     you" says every line on it is one click from being dealt with, and a row
+     reporting that three exits are progressing normally is furniture. The open
+     total still travels, and is used below to give the figure its denominator.
+
+     Absent means the caller may not see the register; zero means nothing is
+     held up. Both render nothing, and the check is presence-then-value rather
+     than truthiness so the two stay distinguishable in the code. */
+  const exitsHeldUp = exits ? exits.withMandatoryOutstanding : 0;
 
   return (
     <>
@@ -161,6 +172,7 @@ export function DashboardScreen() {
         {/* ---- Things to do, each with the button that does it ------------ */}
         {(approvals.waiting > 0 ||
           headcount.incomplete > 0 ||
+          exitsHeldUp > 0 ||
           (payroll && payroll.blockers > 0)) && (
           <Card>
             <CardHeader
@@ -189,6 +201,25 @@ export function DashboardScreen() {
                   detail="No account number or no pension PIN on file"
                   action="Fix records"
                   urgent
+                />
+              )}
+
+              {/* Exits, for whoever may see the register. Placed after the
+                  records row and before payroll because it is the one item here
+                  whose cost grows the longer it is left: an account nobody
+                  disabled and a laptop nobody chased do not get easier in
+                  September. */}
+              {exits && exitsHeldUp > 0 && (
+                <Row
+                  href="/people/offboarding"
+                  label={`${exitsHeldUp} ${exitsHeldUp === 1 ? "person is" : "people are"} leaving with things still outstanding`}
+                  detail={
+                    /* The denominator matters: "1 of 1" and "1 of 9" are
+                       different situations, and the second one is the company
+                       working through exits properly with one held up. */
+                    `Equipment, access or final pay not signed off · ${exitsHeldUp} of ${exits.open} open ${exits.open === 1 ? "exit" : "exits"}`
+                  }
+                  action="Open exits"
                 />
               )}
 

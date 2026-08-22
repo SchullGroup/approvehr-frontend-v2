@@ -452,12 +452,74 @@ should be read to mean.
   interface. The clause is finalised **or** published now, with assertions on both
   halves.
 
-Still not started, and each for a stated reason in `HANDOVER.md`:
-`/performance/cycles/[id]/report`, `/performance/history/[employeeId]`,
-`/settings/performance` (the weights endpoint is wrapped and unrendered), the
-question publish gate and department scoping (§4.7 — no API for either), and
-batch approve (§3.2). Nothing on those screens says "calibration" or "matrix",
-which is §4.9's actual test.
+**Step 6 has landed, and with it the last of §4.8's list.**
+`/performance/cycles/[id]/report`, `/performance/history/[employeeId]` and
+`/settings/performance` are built. Two backend reads were added rather than
+computed in the browser — `GET /cycles/:id/report` and
+`GET /employees/:id/score-history` — and the reason is the same reason the score
+lives in one file: a second implementation of a mark is how two screens end up
+disagreeing about the same person, and the trend screen exists *in order to* be
+compared against the cycle screen. Every point on a trend is the same
+`scoreRegister` call that produced the mark on the cycle, against the weights
+that cycle was frozen with.
+
+Four things about it that change what the sections above should be read to mean.
+
+- **§4.3's absent-is-not-zero rule needed a sixth statement of itself: a band.**
+  A distribution is the one thing a cycle report is *for*, and the moment two
+  screens each decide where "meets expectations" starts, the same person is in two
+  bands. So `SCORE_BANDS` and `bandFor` are in `scoring.ts`, the band travels on
+  the row, and **`bandFor` takes a `number` and never `null`** — the same
+  signature discipline as `scoreLabel`, for the same reason. Putting an unscored
+  person in *Below expectations* is the distribution's version of paying somebody
+  ₦0 because no attendance row exists. The report has five bands and a sixth row
+  that is explicitly not a band.
+
+  The boundaries are the midpoints of the 1–5 scale through `levelToBp`, not
+  60/75/90. A straight "3 out of 5 on everything" is 5000 bp and has to read as
+  *meets expectations*; the thresholds most appraisal products ship would call it
+  *partially meets*, which is not what the manager who wrote three 3s said about
+  anybody. A mark landing exactly on a midpoint goes in the **lower** band, at all
+  four edges, because these bands decide confirmation, promotion and bonus and
+  nobody should be moved up by a rounding.
+
+- **§1.1's dashboard defect is now structurally refused, not just avoided.** The
+  audit found "Completed Criteria 0 — out of 0 total criteria" rendered above
+  "Performance Score 3.9 — Organization Avg". The report returns **two headcounts
+  in two nested blocks** — `forms.people` is everybody with a form,
+  `marks.people` is everybody the register covers — and nothing divides one by the
+  other. The average is over the marks that exist, `null` rather than 0 when there
+  are none, and its own hint says how many. `tests/performance-report.test.ts`
+  asserts the identities (`bands sum == scored`, `scored + unscored == people`)
+  the way `payroll/reconcile.ts` asserts its own.
+
+- **§4.3 rule 4 finally has a screen.** "A component with no data is excluded and
+  the score records that it was" was true in the API and invisible everywhere. The
+  report renders it per component with the register's own note and its own
+  headcount: *Leadership — counted for 2 of 12; 10 people manage nobody, so
+  leadership is not rated for them*. That sentence is true about a company.
+  "Leadership: 0%" is not.
+
+- **A trend must never turn an absence into a fall and a recovery.** `changeBp`
+  measures against the previous cycle **that has a mark**, skipping an unscored one
+  rather than treating it as zero, and the chart plots only the marks that exist
+  with the empty periods named beneath it. This is the same defect as the zero-pay
+  bug wearing a chart, and it is the one place on these screens where getting it
+  wrong would be invisible: two right-looking numbers and a plausible line.
+
+One deliberate narrowing of who may read a trend. `employeeScore` admits an
+appraiser assigned to the cycle; `employeeScoreHistory` does **not**, and answers
+`assertSeesEmployee`'s own sentence instead. `isAppraiserOf` is scoped to one
+`(cycle, subject)` pair on purpose — appraising Ada at mid-year is not permission
+to read her end-of-year form — and a trend is every form at once. They read the one
+period they were asked to judge through `GET /cycles/:id/scores/:employeeId`. The
+subject reads their own history narrowed to **finalised** marks, with the withheld
+count and the API's sentence for it, for the reason `employeeScore` already gives.
+
+Still not started, and each for a stated reason in `HANDOVER.md`: the question
+publish gate and department scoping (§4.7 — no API for either), and batch approve
+(§3.2). Nothing on any of these screens says "calibration" or "matrix", which is
+§4.9's actual test.
 
 One deliberate deviation from §4.3 worth knowing about before building the
 screens. Rule 5 refers to "the manager component", and the component list above

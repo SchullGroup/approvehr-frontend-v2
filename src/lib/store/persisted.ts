@@ -27,6 +27,30 @@
  * Do not reach for `useEffect` + `useState` instead. It has the same problem
  * one layer down, plus a render you cannot see.
  *
+ * ## `read` is for rendering. `current` is for writing. This is not a style
+ * ## preference — reading the wrong one destroys data.
+ *
+ * The rule above has a consequence that cost a real bug: until something
+ * subscribes, `read()` returns the **seed**, not what is in storage. A screen
+ * that only ever *writes* to a store therefore computes its write from the seed
+ * and `commit` persists that — silently discarding everything the store already
+ * held.
+ *
+ * Found on `/people/[id]`, which grew a "Record their exit" button. That page
+ * reads no exits, so nothing subscribed to the offboarding store: recording an
+ * exit there overwrote the previously recorded one and the duplicate refusal
+ * ("already has an exit in progress") never fired, because as far as the store
+ * knew there were no exits. Two clicks, two exits for one person, the first one
+ * gone.
+ *
+ * So: **`read()` from render, `current()` from anywhere that is about to
+ * write.** `current()` hydrates on first call, which is why it must never be
+ * reached during render — doing so would put the stored state into the client's
+ * first paint and bring back the mismatch this whole section exists to avoid.
+ * Every write path is an event handler or an async action, which is well after
+ * hydration, so there is no case where the right answer is `read()` followed by
+ * `commit()`.
+ *
  * ## Versioning
  *
  * Payloads are wrapped as `{ v, data }`. A stored payload whose version does
@@ -39,8 +63,20 @@
  */
 
 export type PersistedState<T> = {
-  /** Current value. Always safe to call, on server or client. */
+  /**
+   * The value to **render**. Safe on server and client, and deliberately the
+   * seed until something subscribes — see the hydration rule above.
+   */
   read: () => T;
+  /**
+   * The value to compute a **write** from. Loads storage on first call.
+   *
+   * Never call this during render: it is the one function here that can put
+   * stored state into the first client paint, which is the hydration mismatch
+   * the whole file is arranged to avoid. Anything that writes runs from a click
+   * or an async action, long after hydration, so this is always available there.
+   */
+  current: () => T;
   /** Replace the value, persist it, and notify subscribers. */
   commit: (next: T) => void;
   /** For `useSyncExternalStore`. */
@@ -82,8 +118,28 @@ export function createPersistedState<T extends object>({
     }
   }
 
+  /**
+   * Pull storage into the cache, once.
+   *
+   * Separate from `subscribe` because a write path needs it too and may run
+   * first — see the note at the top of this file about the exit that overwrote
+   * another exit.
+   */
+  function hydrate(): T {
+    /* The window check comes before the flag, so a server render that somehow
+       reaches this does not mark the module hydrated and stop the browser from
+       ever loading storage. */
+    if (hydrated || typeof window === "undefined") return cache;
+    hydrated = true;
+    const stored = load();
+    if (stored !== empty) cache = stored;
+    return cache;
+  }
+
   return {
     read: () => cache,
+
+    current: hydrate,
 
     commit(next: T) {
       cache = next;
@@ -102,13 +158,14 @@ export function createPersistedState<T extends object>({
       listeners.add(listener);
 
       if (!hydrated) {
-        hydrated = true;
+        /* Still deferred a turn, and still only from `subscribe` — React calls
+           it after hydration, and the microtask puts the storage read after
+           that. `hydrate` is idempotent, so a second subscriber in the same
+           tick queues a no-op rather than a second notify. */
         queueMicrotask(() => {
-          const stored = load();
-          if (stored !== empty) {
-            cache = stored;
-            notify();
-          }
+          const before = cache;
+          hydrate();
+          if (cache !== before) notify();
         });
       }
 

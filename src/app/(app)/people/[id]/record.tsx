@@ -12,6 +12,7 @@ import {
   MapPin,
   Phone,
   ShieldAlert,
+  UserMinus,
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -39,6 +40,7 @@ import {
   type BadgeTone,
 } from "@/components/ui";
 import { EmployeeFileDrawer } from "@/app/(app)/people/documents";
+import { StartExitDialog } from "@/app/(app)/people/offboarding";
 import { PayComponentsPanel } from "@/app/(app)/payroll/pay-setup/pay-components-panel";
 import { RecordHistory } from "@/app/(app)/settings/audit/record-history";
 import { naira } from "@/lib/api/pay-components";
@@ -231,12 +233,33 @@ export function EmployeeRecord({
      editor on a section the field does not belong to. */
   const focusField = params.get("field") ?? undefined;
   const [fileOpen, setFileOpen] = useState(false);
+  const [exitOpen, setExitOpen] = useState(false);
   const departments = useDepartments();
   const { employeeId: me } = useSession();
   const canSeeSalaries = useCan("VIEW_SALARIES");
+  /* The same permission `POST /offboarding` demands to record somebody else's
+     exit — `isHr` in `approvehr-api/src/modules/offboarding/service.ts`. Without
+     it there is no button rather than a disabled one, the choice `Guarded` and
+     `RecordHistory` already make on this page: a control that cannot work is
+     worse present than absent. */
+  const canRecordExit = useCan("EDIT_RECORDS");
 
   const name = fullName(employee);
   const status = statusOf(employee.status);
+  /*
+   * Somebody already gone has no exit to start, and the API agrees: `create`
+   * refuses an archived record with "has already left — their record is
+   * archived". `exited` is the union's own word for the same state and the one
+   * the status chip above renders, so the button goes rather than offering an
+   * act that comes back refused.
+   *
+   * `offboarding` is deliberately *not* excluded. That status is exactly the
+   * case this action exists for — a badge saying somebody is on their way out
+   * with no way to record it was the gap. If an exit is already open the API
+   * refuses by name and the dialog shows the refusal, which also tells the
+   * reader the checklist they are looking for already exists.
+   */
+  const hasLeft = enumKey(employee.status) === "exited";
 
   /**
    * Who may unmask a bank account, a pension PIN, a TIN or an NHF number.
@@ -339,6 +362,21 @@ export function EmployeeRecord({
             >
               Their documents
             </Button>
+            {/* Secondary, like its neighbours. Recording an exit is
+                consequential rather than the thing you came here to do, and a
+                blue primary button on every employee record would read as the
+                page's suggestion. */}
+            {canRecordExit && !hasLeft && (
+              <Button
+                variant="secondary"
+                size="sm"
+                block
+                onClick={() => setExitOpen(true)}
+              >
+                <UserMinus aria-hidden="true" className="size-3.5" />
+                Record their exit
+              </Button>
+            )}
           </CardBody>
         </Card>
       </aside>
@@ -819,6 +857,19 @@ export function EmployeeRecord({
         onClose={() => setFileOpen(false)}
         onChanged={() => {}}
       />
+
+      {/* The same dialog `/people/offboarding` opens, with the person already
+          named — nobody should have to pick out of two hundred the one whose
+          record they are standing on. It navigates to the new checklist itself,
+          so there is nothing to reload here. */}
+      {exitOpen && (
+        <StartExitDialog
+          employeeId={employee.id}
+          employeeName={name}
+          onClose={() => setExitOpen(false)}
+          onStarted={() => setExitOpen(false)}
+        />
+      )}
     </div>
   );
 }

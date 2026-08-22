@@ -6,6 +6,7 @@ import { CheckCheck, Lock, UserX } from "lucide-react";
 import {
   Badge,
   Button,
+  ButtonLink,
   Card,
   CardBody,
   CardHeader,
@@ -148,19 +149,27 @@ export function CycleScreen({ cycleId }: { cycleId: string }) {
             </>
           ) : undefined
         }
-        {...(detail.available &&
-        canManage &&
-        cycle &&
-        cycle.stage !== "DRAFT" &&
-        cycle.stage !== "PUBLISHED"
-          ? {
-              action: (
+        action={
+          <>
+            {/* The outcome is a different question from "who is not finished",
+                and a different screen. Linked from here because this is where
+                somebody is when they decide they want it. */}
+            {canSeeCompany && (
+              <ButtonLink size="sm" href={`/performance/cycles/${cycleId}/report`}>
+                See the report
+              </ButtonLink>
+            )}
+            {detail.available &&
+              canManage &&
+              cycle &&
+              cycle.stage !== "DRAFT" &&
+              cycle.stage !== "PUBLISHED" && (
                 <Button size="sm" loading={chasing} onClick={() => void chase()}>
                   Nudge who is late
                 </Button>
-              ),
-            }
-          : {})}
+              )}
+          </>
+        }
       />
 
       <PageBody>
@@ -487,7 +496,15 @@ function RegisterRow({ row }: { row: ApiScoreRow }) {
   return (
     <TR>
       <TD>
-        <span className="font-medium text-ink">{row.employeeName}</span>
+        {/* The name is the link to their trend across cycles. One mark is a
+            snapshot; the argument about a rating is almost always about whether
+            it moved. */}
+        <Link
+          href={`/performance/history/${row.employeeId}`}
+          className="font-medium text-ink underline-offset-2 hover:text-accent-text hover:underline"
+        >
+          {row.employeeName}
+        </Link>
         <span className="mt-0.5 block text-meta text-muted">
           {row.jobTitle}
           {row.departmentName ? ` · ${row.departmentName}` : ""}

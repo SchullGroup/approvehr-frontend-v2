@@ -2609,3 +2609,347 @@ Not rewritten, deliberately. Thirty copy strings the user has already reviewed a
 iterated on is not a change to make unilaterally inside a verification pass, and
 "Approve this payroll" for "Approve this run" is a decision about product voice
 rather than a defect. Worth one deliberate pass if the rule is meant strictly.
+
+---
+
+# A write from a screen that never reads destroys the store
+
+`/people/[id]` grew a "Record their exit" action — the last entry point the exit
+flow was missing, beside a badge that had been saying "Offboarding" with nothing
+to do about it. Wiring it up surfaced a bug in `lib/store/persisted.ts` that had
+been latent since that file was written, and it is worth reading before you add
+a write to any screen.
+
+## What happened
+
+The hydration rule in `persisted.ts` says `getSnapshot` must return the **seed**
+until after hydration, and storage is therefore only loaded from inside
+`subscribe()`. Correct, and it has a consequence nobody had hit: **until
+something subscribes, `read()` does not return what is in storage.**
+
+The record page reads no exits. So nothing subscribed to the offboarding store,
+`demoStart` computed its write from the seed, and `commit` persisted that:
+
+- the exit recorded a minute earlier was **gone**, replaced;
+- the duplicate refusal — "…already has an exit in progress. Open that one
+  instead of starting a second." — never fired, because as far as the store knew
+  the person had no exit.
+
+Two clicks, two exits for one person, the first one silently discarded. Nothing
+in `tsc`, lint or the build can see it: `read()` and `commit()` are both
+correctly typed and individually correct.
+
+## The rule
+
+> **`read()` is for rendering. `current()` is for writing.**
+
+`current()` is new on `PersistedState` and hydrates on first call. It must never
+be reached during render — that would put stored state into the client's first
+paint and bring back the mismatch the whole file is arranged to avoid — and it
+never needs to be, because every write path is a click or an async action, long
+after hydration. There is no case where the right answer is `read()` then
+`commit()`.
+
+`lib/store/offboarding.ts` is converted. **The other stores on
+`createPersistedState` are not**, deliberately: each is only wrong if some
+screen writes to it without reading it, which is a per-store question rather
+than a find-and-replace, and the twelve of them were not audited here. If you
+are adding a write to a screen, that is the moment to check.
+
+`lib/store/employees.ts` predates the factory and holds its own copy of the
+hydration logic, so it has the same latent trap with no `current()` to reach
+for. It has always been written from screens that also read it.
+
+## Two smaller things in the same change
+
+- **`StartExitDialog` takes an optional `employeeId` + `employeeName`.** When
+  they are supplied the person is *stated*, not offered in a picker, and
+  `<PersonPicker>` is a separate component so the directory fetch does not
+  happen at all — a record page should not pull two hundred employees to record
+  one exit, and a `<Select>` holding a preselected id whose option has not
+  arrived yet renders blank, which is a wrong name on a consequential form. The
+  props are a union, so an id without a name will not compile.
+
+- **`tests/insights.test.ts` had a hardcoded `subjectId: "x"`.**
+  `ApprovalRequest` is unique on `(subjectType, subjectId)` **globally**, not per
+  organisation, so one crashed run left a row behind that locked the whole file
+  out until somebody found it by hand. Suffixed now. Worth checking for the same
+  shape elsewhere.
+
+# The dashboard says when somebody is leaving and nothing has been handed back
+
+`GET /insights/dashboard` gained an `exits` block: open exits, and how many of
+them have a mandatory checklist line still unticked. It is a row inside the
+existing "Needs you" card rather than a card of its own — an account nobody
+disabled and a laptop nobody chased are the only things on that screen whose
+cost grows the longer they are left.
+
+Three decisions in it:
+
+- **Composed in the one request, not a second fetch.** `openExitLoad` in
+  `modules/offboarding/service.ts` is the seam, in the same batch as `boardFor`,
+  and it defines "open" and "outstanding" on the offboarding side so the count
+  and `/people/offboarding` cannot come to mean different things.
+- **Absent, not zeroed, for somebody who may not see the register.** The gate is
+  `EXIT_REGISTER_PERMISSIONS`, exported from the offboarding module and now the
+  single definition `seesEveryExit` reads too.
+- **A row only when something is outstanding.** "Needs you" promises every line
+  on it is one click from being dealt with, and three exits progressing normally
+  is not that. The open total still travels, and gives the figure its
+  denominator: "1 of 1" and "1 of 9" are different situations.
+
+**`exits` is deliberately absent in demo mode**, which is the one thing here that
+could look like an oversight. Deriving it would mean subscribing the dashboard to
+a fourth local store, and the header of `lib/store/insights.ts` records why the
+first version's coupling to three other screens' stores was removed. Absent and
+zero render identically — nothing — so no wrong claim reaches a screen; the cost
+is that the row cannot be seen offline. `/people/offboarding` is where the demo
+shows exits.
+
+---
+
+# The last three performance screens
+
+`PERFORMANCE.md` §5 step 6, plus the settings form the previous entry left with
+"the weights endpoint is wrapped and unrendered". Three routes:
+`/settings/performance`, `/performance/cycles/[id]/report`,
+`/performance/history/[employeeId]`. That closes §4.8's route list.
+
+## Two reads were added to the API rather than computed in the browser
+
+`GET /performance/cycles/:id/report` and
+`GET /performance/employees/:id/score-history`, both assembled from
+`scoreRegister` rather than from their own arithmetic. The rule this follows is
+worth stating as a rule, because the temptation was real and both screens could
+have been built without touching the backend:
+
+> **A second implementation of a score is how two screens end up disagreeing
+> about the same person.**
+
+A distribution is `bandFor` over marks. A trend is one register call per cycle.
+Both are cheap to write client-side and both would have drifted — and the trend
+screen exists *in order to* be compared against the cycle screen, so a
+disagreement there is not a cosmetic bug, it is the product contradicting itself
+about somebody's rating. The history endpoint calls `scoreRegister` once per
+cycle, sequentially, which is slower than a hand-written aggregate across cycles
+and is the whole point: every point on the chart is the same figure, from the same
+weights snapshot, with the same exclusions and the same rounding.
+
+`tests/performance-report.test.ts` is new — 28 assertions, one organisation, six
+people, three cycles, every figure hand-worked in a comment beside it.
+
+## Bands: the sixth place absent-is-not-zero lands
+
+`SCORE_BANDS`, `BAND_LABELS`, `BAND_MEANING` and `bandFor` are in
+`modules/performance/scoring.ts`, and `ScoreRow` now carries `band` and
+`bandLabel`. Three decisions in there not to re-make:
+
+- **`bandFor` takes a `number`, never `number | null`.** Same signature
+  discipline as `scoreLabel`, and the reason is sharper here: a formatter that
+  accepted null would have to pick a band for an absence, and the band it would
+  pick is *Below expectations*. That is the distribution's version of paying
+  somebody ₦0 because no attendance row exists. `band` is null on the row and the
+  report has a sixth row, outside the five bands, that says so in words.
+
+- **The boundaries are the midpoints of the 1–5 scale**, computed from
+  `FULL_SCORE_BP` and `BAND_COUNT` rather than written down: 1250 / 3750 / 6250 /
+  8750. Not 60/75/90, which is the shape most appraisal products ship and which
+  puts a straight "3 out of 5 on everything" — 5000 bp — in *partially meets*.
+  That is not what the manager who wrote three 3s said about anybody.
+
+- **A mark landing exactly on a midpoint goes in the lower band**, at all four
+  edges, by one rule. These bands decide confirmation, promotion and bonus, so
+  nobody is moved up by a rounding somebody would then have to justify. The test
+  asserts contiguity — no gap, no overlap, 0 to 10000 — because a gap is a mark in
+  no band and an overlap is a mark in two.
+
+`BAND_TONE` in `lib/store/performance.ts` is the only band fact on the frontend,
+because a colour is the one thing the API cannot send. The middle band is
+**neutral** deliberately: delivering what was agreed is the ordinary outcome, and
+colouring most of a company amber teaches people to read the colour rather than
+the words.
+
+## The report returns two headcounts and the screen never divides them
+
+This is the §1.1 defect refused structurally rather than avoided by care. The
+audit of the incumbent found *"Completed Criteria 0 — out of 0 total criteria"*
+rendered directly above *"Performance Score 3.9 — Organization Avg"*. So:
+
+- `forms.{people,selfIn,selfOutstanding,managerIn,managerOutstanding}` is over
+  everybody who **has a form**.
+- `marks.{people,scored,unscored,written,finalised,acknowledged,disputed,awaitingAnswer,noReview}`
+  is over everybody **the register covers**.
+- They are two nested objects for that reason, they are two cards on the screen
+  for that reason, and each states its own total in its own card description.
+- `distribution.meanBp` is over the marks that exist and is **null** when there
+  are none. The stat's hint says how many it is over.
+
+`tests/performance-report.test.ts` asserts the identities the way
+`payroll/reconcile.ts` does: bands sum to `scored`, and `scored + unscored` is
+`marks.people`. A report whose figures do not add up is the defect this whole
+product is sold against.
+
+`noReview` is its own count on purpose. "Nobody has written it" and "nobody was
+ever asked to" are different problems with different fixes, and the second is the
+appraiser map's to explain.
+
+## The trend never turns an absence into a fall and a recovery
+
+`changeBp` on a history point is measured against the previous cycle **that has a
+mark**, skipping an unscored one rather than treating it as zero. The chart plots
+only the marks that exist and names the empty periods beneath it in a callout.
+
+This is the zero-pay bug wearing a chart, and it is the one place on these screens
+where getting it wrong would be invisible: two right-looking numbers and a
+plausible line between them. `tests/performance-report.test.ts` has Emeka scored
+at 100%, then a cycle with nothing recorded, then 50% — and asserts the third
+point reads −50% against the first rather than +50% against a zero.
+
+## Who may read a trend is narrower than who may read one cycle's score
+
+`employeeScore` admits an assigned appraiser. `employeeScoreHistory` does **not**
+— it is `assertSeesEmployee`: self, direct report, or `EDIT_RECORDS`.
+`isAppraiserOf` is scoped to one `(cycle, subject)` pair on purpose, because
+appraising Ada at mid-year is not permission to read her end-of-year form, and a
+trend is every form at once. An appraiser reads the one period they were asked to
+judge through `GET /cycles/:id/scores/:employeeId`. Both halves are asserted: the
+403 on the history and the 200 on the cycle score, in the same test.
+
+The **subject** reads their own history narrowed to finalised marks, with
+`withheldCycles` and `withheldNote`. Same rule as `employeeScore` and for the same
+reason — a working figure moves every time somebody records a rating. The deltas
+are recomputed over the visible points, so nothing leaks a provisional figure by
+subtraction.
+
+## `ScoreRegisterQuery.includeInactive`, and why it is a function argument
+
+`scoreRegister` filters to `archivedAt: null, status != EXITED`, which is right
+for "who is in this cycle" and wrong for a history. A trend for somebody who has
+left is exactly the read a dispute needs, and an empty one for somebody who was
+scored for three years would be a silent wrong answer rather than a missing
+feature. So `scoreHistory` sets `includeInactive`, and it is a **function
+argument, never a query parameter** — same shape and same reasoning as
+`CheckOptions.requireEmployeeNo` in the importer: a client must not choose how
+wide its own read is. `tests/performance-report.test.ts` has Femi, EXITED, absent
+from the cycle report and present in his own history at 25%.
+
+## The settings form is whole-set-at-once because the endpoint is
+
+`PUT /performance/scoring-weights` refuses anything that does not total exactly
+10000 bp, so a field-at-a-time form would be unsubmittable at every intermediate
+state: move objectives from 40% to 30% and the set is at 90% until the second
+field saves, and there is no second save. The form is shaped by that rather than
+in spite of it, and there is **no Resolve Weights button** — the incumbent ships
+one only because their weights are allowed to drift.
+
+`scoringWeightProblem` in `lib/api/performance.ts` is the local refusal, and it is
+`assertWeightsWhole`'s sentence **character for character**. That needed a second
+percent formatter (`serverPercentOfBp`), because the existing `percentOfBp` puts a
+fractional percentage through `Number()` and prints 33.30% as `33.3%` while the
+server keeps both decimals. Two copies exist because they are two different
+requirements: one is for a table cell, and this one's entire job is to be the
+sentence the server would have sent. Verified against the running API: both say
+*"Those weights add up to 90%. They have to make 100% exactly, so a score can be
+explained. Add 10%."*
+
+Separate from `weightProblem`, which is the appraiser-weights version. Same
+arithmetic, different sentence, and showing one where the server sends the other is
+how a screen starts lying about what the API said.
+
+### The self-assessment argument is on the screen, with a live figure
+
+`PERFORMANCE.md` §4.3 says the reasoning belongs on the settings screen, and it
+does: the API's `selfAssessmentNote`, plus what turning it on costs, plus one
+number that moves with the draft — *"At 20%, somebody who rates themselves 5 out
+of 5 rather than 3 out of 5 moves their own final mark by 10% — more if any other
+part has nothing recorded against it."*
+
+That figure is half the component's weight, because 5-out-of-5 against
+3-out-of-5 is half the component's range (`levelToBp`). It is a multiplication
+over a hypothetical, deliberately **not** a composite score: computing anybody's
+mark on this side is the thing the whole first section of this entry is about.
+
+### One real defect, found in the browser and not by a type
+
+The badge read *"Counting for 20%"* directly above the API's sentence *"Self-
+assessment is weighted at 0% … it does not change the score."* Both correct — the
+badge described the draft, the sentence described what was saved — and together
+they were two mutually exclusive claims on one screen. Which is, exactly, the
+defect §1.1 catalogues on the incumbent's own weights page.
+
+Fixed by labelling them apart: *"Would count for 20%"*, *"Saved now, not yet
+changed: …"*, *"If you save this: at 20%, …"*. `tsc` and lint could not see it;
+nothing but reading the rendered page could.
+
+## Demo mode: the read works, the write refuses
+
+`useScoringWeights` reads from `DEMO_WEIGHTS` — a copy of the server's
+`DEFAULT_WEIGHTS`, the only duplicated figures in the store — and refuses to save.
+The split is not arbitrary. Reading is how somebody learns what turning
+self-assessment on would do to a mark, which is the argument the screen exists to
+make, and it needs no server. Writing changes how everybody in a real company is
+scored, and a locally stored set would move no mark on any screen in this product:
+the same failure as a green "Paid" that transferred nothing.
+
+The report and the history refuse offline outright, for the reason
+`useCycleRegister` already gives — every point is a register row.
+
+## One backend change to an existing function
+
+`cycleReport` composes `scoreRegister` and `cycleParticipants` **sequentially**
+rather than in `Promise.all`. `scoreRegister` already fans out to six queries, and
+adding the participant read beside it made this the heaviest request in the module;
+against the local `prisma dev` database it reliably came back `P1017 Server has
+closed the connection` while the same two reads in sequence never did. One extra
+round trip on a report nobody opens in a loop.
+
+## Verified
+
+Backend: `npx tsc --noEmit` clean, ESLint and Prettier clean on every file
+touched. `npx vitest run tests/performance-report.test.ts
+tests/performance-defensibility.test.ts tests/performance.test.ts
+tests/appraiser-mapping.test.ts tests/tenant-isolation.test.ts` — **210 passing**,
+with no dev server running. Three new tenant-isolation cases: a history for a
+foreign employee is refused, a bare `db.review.findMany({ where: { subjectId } })`
+is proved to still cross tenants, and the cycle-list query `scoreHistory` actually
+runs is proved to close it.
+
+Frontend: `npm run check` green (typecheck, lint, titles, typescale, contrast,
+payroll, CSV, template, loans). `npm run build` green at **86 routes** and 114
+prerendered pages — the two `[id]` routes on demand, `/settings/performance`
+prerendered.
+
+**Against the live API on port 8000**, over `curl`, signed as a seeded
+administrator: the report on a real cycle of twelve people, with both identities
+reconciling (6 banded == 6 scored; 6 + 6 == 12), the average 73.25% over the six
+marks that exist and not over twelve, `LEADERSHIP` counted for 2 with
+`NOT_A_MANAGER` naming the other 10, `SELF_ASSESSMENT` at `meanBp: null` with
+`NOT_WEIGHTED` for all 12, six people named as unscored and two as unfinalised;
+Chidi's history with its point ordered by due date and the component block
+matching the cycle's; Grace's history with two points and no mark on either; and
+the weights refusal quoted above.
+
+**In the browser, connected**, on `/settings/performance`: the form rendering the
+company's saved 45/25/15/15/0, the running total falling to 95% and the local
+refusal appearing in the server's words, the total reaching 120% and the refusal
+inverting to "Take off 20%", the self-assessment card at 20% with the draft and
+the saved value labelled apart, and a real `PUT` returning 200 — 44/26 saved,
+confirmed on the server, then restored to 45/25 so the seed is as it was.
+
+**In the browser, demo mode**: the settings form read-only from the shipped
+defaults with "Saving needs the API", both new routes rendering their refusals
+verbatim, and the new Appraisal scoring card on `/settings`.
+
+**Not exercised: the report and history screens rendered against the live API.**
+Not for want of trying. The local database is `prisma dev` — Postgres compiled to
+wasm behind a proxy — and it drops roughly half of any burst of concurrent
+connections with `P1017 Server has closed the connection`. With the browser's
+normal six-request page load, `/setup/features`,
+`/notifications/unread-count`, `/permissions/…`, `/employees` and
+`/performance/cycles/:id` were failing alongside the report, and the pre-existing
+cycle screen showed the same "Something went wrong on our side". This is the
+entry already recorded above under "One thing found and not fixed", now
+reproducible on every screen rather than intermittently on one. Serial `curl`
+against the same endpoints with the same token is 200 every time, which is what
+the connected verification above is. Somebody with a real Postgres in
+`DATABASE_URL` should load both screens once.

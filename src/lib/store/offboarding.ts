@@ -640,7 +640,11 @@ const refuse = (status: number, code: string, message: string, details?: Record<
   new ApiError(status, code, message, details);
 
 function replace(exit: DemoExit) {
-  const state = store.read();
+  /* `current()`, never `read()`: this page may never have rendered a list of
+     exits — `/people/[id]` records one without reading any — and `read()` is
+     the seed until something subscribes. See the note at the top of
+     `store/persisted.ts`; getting this wrong overwrote a recorded exit. */
+  const state = store.current();
   store.commit({
     ...state,
     exits: state.exits.map((row) => (row.id === exit.id ? exit : row)),
@@ -648,7 +652,7 @@ function replace(exit: DemoExit) {
 }
 
 function findExit(id: string): DemoExit {
-  const exit = store.read().exits.find((row) => row.id === id);
+  const exit = store.current().exits.find((row) => row.id === id);
   if (!exit) throw refuse(404, "not_found", "That exit could not be found.");
   return exit;
 }
@@ -674,8 +678,12 @@ function demoStart(body: StartExitBody, actingId: string | null): DemoExit {
     );
   }
 
+  /* `current()` is what makes this refusal real. With `read()` the check ran
+     against the seed whenever the caller's screen had never listed exits, so
+     recording a second exit from somebody's record was allowed and quietly
+     replaced the first. */
   const open = store
-    .read()
+    .current()
     .exits.find((row) => row.employeeId === targetId && OPEN_STATUSES.includes(row.status));
   if (open) {
     throw refuse(
@@ -712,11 +720,11 @@ function demoStart(body: StartExitBody, actingId: string | null): DemoExit {
     declinedReason: null,
     completedAt: null,
     createdAt: new Date().toISOString(),
-    tasks: generateTasks(body.kind, targetId, managerId, store.read().templates),
+    tasks: generateTasks(body.kind, targetId, managerId, store.current().templates),
     interview: null,
   };
 
-  const state = store.read();
+  const state = store.current();
   store.commit({ ...state, exits: [created, ...state.exits] });
   return created;
 }
@@ -1639,7 +1647,7 @@ function serializeTemplate(row: DemoTemplate): ApiExitTemplate {
 
 /** Refuses the same duplicate the API refuses, with the same wording. */
 function demoAddTemplate(body: TemplateBody) {
-  const state = store.read();
+  const state = store.current();
   const clash = state.templates.find(
     (row) => row.label.toLowerCase() === body.label.trim().toLowerCase(),
   );
@@ -1672,7 +1680,7 @@ function demoAddTemplate(body: TemplateBody) {
 }
 
 function demoEditTemplate(id: string, body: UpdateTemplateBody) {
-  const state = store.read();
+  const state = store.current();
   const existing = state.templates.find((row) => row.id === id);
   if (!existing) throw refuse(404, "not_found", "That checklist item.");
 
