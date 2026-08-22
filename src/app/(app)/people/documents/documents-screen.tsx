@@ -78,6 +78,7 @@ export function DocumentsScreen() {
     name?: string;
   } | null>(null);
   const [reminding, setReminding] = useState<{
+    id: string | null;
     employeeName: string;
     name: string;
     dueOn: string | null;
@@ -214,6 +215,7 @@ export function DocumentsScreen() {
                   editable={register.editable}
                   onRemind={() =>
                     setReminding({
+                      id: row.requestId,
                       employeeName: row.employeeName,
                       name: row.name,
                       dueOn: row.dueOn,
@@ -295,6 +297,7 @@ export function DocumentsScreen() {
                           size="sm"
                           onClick={() =>
                             setReminding({
+                              id: request.id,
                               employeeName: request.employeeName,
                               name: request.name,
                               dueOn: request.dueOn,
@@ -425,7 +428,11 @@ export function DocumentsScreen() {
       )}
 
       {reminding && (
-        <RemindModal request={reminding} onClose={() => setReminding(null)} />
+        <RemindModal
+          request={reminding}
+          onClose={() => setReminding(null)}
+          onRemind={register.remind}
+        />
       )}
 
       {waiving && (

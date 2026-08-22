@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Copy } from "lucide-react";
 import {
   Button,
@@ -440,67 +440,146 @@ export function AddDocumentModal({
 /* ----------------------------------------------------------------- the nudge */
 
 /**
- * Chase somebody.
+ * Chase somebody, through their own ApproveHR notifications.
  *
- * There is no remind route — see the TODO on `chaseMessage` in
- * `lib/store/documents.ts`. So this writes the message and hands it over
- * instead of claiming to send it: the text is here, selectable, with a copy
- * button. In a thirty-person company that is what happens anyway, and it works
- * with no server behind it.
+ * Used to be a text box and a Copy button — "copy this into WhatsApp", because
+ * there was no route to send anything. There is now: opening this fires the
+ * reminder straight into their inbox, the same one `createRequest` used the
+ * first time. Nothing to compose, nothing to paste anywhere.
+ *
+ * The copy-paste text still exists, but only for the one case that is still
+ * real: `notifiedEmployee: false` means the person has no sign-in, which is a
+ * fact about their account rather than a missing feature, and it is the same
+ * state `createRequest` can return. Showing it as the default for everybody
+ * would misdescribe the other 90% of reminders, which now genuinely send.
  */
 export function RemindModal({
   request,
   onClose,
+  onRemind,
 }: {
   /* Structural rather than `ApiDocumentRequest`: the compliance list opens this
-     too, and a `ComplianceRow` carries these four fields but is not a request. */
+     too, and a `ComplianceRow` carries these fields but is not a request.
+     `id` is nullable for the same reason — a future `kind: "DOCUMENT"` row
+     (a renewal date close on a document already on file) has no request
+     behind it to remind on, and never will; the copy-paste text is what that
+     case has always used and keeps using. */
   request: {
+    id: string | null;
     employeeName: string;
     name: string;
     dueOn: string | null;
     daysLeft: number | null;
   };
   onClose: () => void;
+  onRemind: (id: string) => Promise<{ notifiedEmployee: boolean }>;
 }) {
   const toast = useToast();
   const message = useMemo(() => chaseMessage(request), [request]);
+  /* No "idle" phase: a request with an id always has a reminder in flight by
+     the time anything paints, so there is nothing for an idle state to
+     describe. */
+  const [state, setState] = useState<
+    | { phase: "sending" }
+    | { phase: "sent" }
+    | { phase: "no-account" }
+    | { phase: "failed"; message: string }
+  >({ phase: request.id === null ? "no-account" : "sending" });
+
+  const firstName = firstNameOf(request.employeeName);
+  /* Bumped by "Try again" to run the effect below a second time against the
+     same request id, which does not otherwise change. */
+  const [attempt, setAttempt] = useState(0);
+
+  /* The inline-IIFE shape from `lib/store/shifts.ts`, not a named function
+     called from the effect: the lint rule that catches a synchronous
+     `setState` inside an effect cannot trace one reached through an external
+     function reference, only one whose `await` sits lexically between the
+     effect running and the state being set — which an inlined async body
+     gives it. Every `setState` below is already past that `await`. */
+  useEffect(() => {
+    if (request.id === null) return;
+    const id = request.id;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const result = await onRemind(id);
+        if (!cancelled) {
+          setState({ phase: result.notifiedEmployee ? "sent" : "no-account" });
+        }
+      } catch (error) {
+        if (!cancelled) setState({ phase: "failed", message: messageOf(error) });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [request.id, attempt]);
+
+  const showMessage = state.phase === "no-account" || state.phase === "failed";
 
   return (
     <Modal
       open
       onClose={onClose}
-      title={`Remind ${firstNameOf(request.employeeName)}`}
-      description="Copy this into WhatsApp or email — ApproveHR cannot send it yet."
+      title={`Remind ${firstName}`}
+      description={
+        state.phase === "sending"
+          ? "Sending…"
+          : state.phase === "sent"
+            ? `Sent to ${firstName}'s ApproveHR notifications.`
+            : state.phase === "no-account"
+              ? `${firstName} has no sign-in yet, so nothing could be sent there. Copy this into WhatsApp or email instead.`
+              : state.phase === "failed"
+                ? state.message
+                : undefined
+      }
       size="sm"
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={onClose}>
             Done
           </Button>
-          <Button
-            variant="accent"
-            onClick={() => {
-              void navigator.clipboard
-                .writeText(message)
-                .then(() => toast.push({ title: "Copied", tone: "success" }))
-                .catch(() =>
-                  toast.push({
-                    title: "Copy did not work",
-                    tone: "warning",
-                    detail: "Select the message and copy it.",
-                  }),
-                );
-            }}
-          >
-            <Copy aria-hidden="true" className="size-4" />
-            Copy
-          </Button>
+          {showMessage && (
+            <Button
+              variant="accent"
+              onClick={() => {
+                void navigator.clipboard
+                  .writeText(message)
+                  .then(() => toast.push({ title: "Copied", tone: "success" }))
+                  .catch(() =>
+                    toast.push({
+                      title: "Copy did not work",
+                      tone: "warning",
+                      detail: "Select the message and copy it.",
+                    }),
+                  );
+              }}
+            >
+              <Copy aria-hidden="true" className="size-4" />
+              Copy
+            </Button>
+          )}
+          {state.phase === "failed" && request.id !== null && (
+            <Button
+              variant="accent"
+              onClick={() => {
+                setState({ phase: "sending" });
+                setAttempt((n) => n + 1);
+              }}
+            >
+              Try again
+            </Button>
+          )}
         </div>
       }
     >
-      <Field label="Message" hideLabel>
-        <Textarea readOnly rows={4} value={message} />
-      </Field>
+      {showMessage && (
+        <Field label="Message" hideLabel>
+          <Textarea readOnly rows={4} value={message} />
+        </Field>
+      )}
     </Modal>
   );
 }

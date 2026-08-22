@@ -221,7 +221,11 @@ export function EmployeeFileDrawer({
       )}
 
       {reminding && (
-        <RemindModal request={reminding} onClose={() => setReminding(null)} />
+        <RemindModal
+          request={reminding}
+          onClose={() => setReminding(null)}
+          onRemind={file.remind}
+        />
       )}
 
       {waiving && (

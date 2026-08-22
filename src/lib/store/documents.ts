@@ -146,6 +146,8 @@ const OFFLINE = {
     "Attaching a document needs the API. A personnel file is evidence, and a reference held in this browser is on nobody’s record.",
   waive:
     "Waiving a request needs the API. The employee is told to stop looking for it, and that message has to come from the server.",
+  remind:
+    "Reminding needs the API — this browser has no inbox to put it in. Copy the message below instead.",
   remove: "Removing a document needs the API.",
 } as const;
 
@@ -494,6 +496,13 @@ export function useDocumentRegister(params: RequestListParams = {}) {
       },
       [isConnected, load],
     ),
+    remind: useCallback(
+      async (id: string) => {
+        if (!isConnected) refuse(OFFLINE.remind);
+        return documentsApi.remind(id);
+      },
+      [isConnected],
+    ),
     fulfil: useCallback(
       async (id: string, body: FulfilBody) => {
         if (!isConnected) refuse(OFFLINE.attach);
@@ -665,6 +674,13 @@ export function useEmployeeFile(
         return added;
       },
       [employeeId, isConnected, load],
+    ),
+    remind: useCallback(
+      async (id: string) => {
+        if (!isConnected) refuse(OFFLINE.remind);
+        return documentsApi.remind(id);
+      },
+      [isConnected],
     ),
     fulfil: useCallback(
       async (requestId: string, body: FulfilBody) => {

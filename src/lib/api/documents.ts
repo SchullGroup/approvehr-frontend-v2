@@ -35,11 +35,12 @@ import { request, requestPaged, type Paged } from "@/lib/api/client";
  *    the same list with the same shape and no screen changes. Both kinds are
  *    already handled here and in the register.
  *
- * 2. **There is no remind route.** Creating a request notifies the employee
- *    once (`document.requested`, into their ApproveHR inbox). Chasing them
- *    again has no endpoint, so nothing in this module claims to send one — the
- *    register writes the message for you to send. The seam is named at
- *    `chaseMessage()` below.
+ * 2. **Reminding sends a real notification.** `documentsApi.remind()` reaches
+ *    the same inbox `createRequest` does. `chaseMessage()` in
+ *    `lib/store/documents.ts` is not dead code even so — it is what the
+ *    reminder dialog falls back to when `notifiedEmployee` comes back false,
+ *    which is a staff record with no sign-in, a state this module has never
+ *    been able to paper over and still cannot.
  *
  * No money crosses this module, so there is no kobo boundary in this file.
  */
@@ -289,6 +290,19 @@ export const documentsApi = {
       method: "POST",
       body: { reason },
     });
+  },
+
+  /**
+   * Nudge them again, through the same inbox `createRequest` used the first
+   * time. `notifiedEmployee` is `false` for the same reason it can be on
+   * `createRequest` — a staff record with no sign-in has no inbox — and the
+   * caller shows the copy-paste fallback exactly then, never as the default.
+   */
+  remind(id: string): Promise<{ notifiedEmployee: boolean }> {
+    return request<{ notifiedEmployee: boolean }>(
+      `/documents/requests/${id}/remind`,
+      { method: "POST" },
+    );
   },
 
   file(
