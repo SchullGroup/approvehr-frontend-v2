@@ -295,11 +295,20 @@ eq("a heading's spaces and case do not matter", guessed["First Name"], "firstNam
 eq("surname is the last name", guessed["surname"], "lastName");
 eq("job_title beats position", guessed["job_title"], "jobTitle");
 eq("so position is left for the person to decide", guessed["position"], "");
-eq("state is the tax state", guessed["state"], "taxState");
+/* `state` used to be read as the tax state. `tax_state` is no longer a template
+   column — which revenue service somebody files to is a picker in the product,
+   not a heading anybody spells by hand — so a bare `state` now matches nothing
+   and is reported as unimported rather than guessed at. */
+eq("a bare state matches nothing now", guessed["state"], "");
+/* And `state_of_origin` is its own column, which is the pair this file was
+   already guarding: origin is where somebody is from, tax state is where their
+   PAYE goes, and reading either as the other files somebody's tax in the wrong
+   state. The assertion above is the other half: no state-ish heading resolves to
+   a tax state at all now. */
 eq(
-  "state_of_origin is deliberately not the tax state",
+  "state_of_origin is the state of origin",
   guessed["state_of_origin"],
-  "",
+  "stateOfOrigin",
 );
 eq("salary is the monthly gross", guessed["salary"], "grossMonthly");
 eq("hire_date is the start date", guessed["hire_date"], "startDate");
@@ -468,7 +477,17 @@ eq(
 eq(
   "a row with nothing optional filled in is flagged, not blocked",
   report.rows[2]?.missing.map((item) => item.field),
-  ["email", "bankAccount", "pensionPin", "tin", "annualRent"],
+  [
+    "email",
+    "bankAccount",
+    "pensionPin",
+    "tin",
+    "annualRent",
+    "addressLine",
+    "nin",
+    "stateOfOrigin",
+    "lgaOfOrigin",
+  ],
 );
 eq("and the flagged rows are counted", report.flagged, 2);
 eq(

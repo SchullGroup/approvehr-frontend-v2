@@ -233,11 +233,48 @@ export function fileFromRecords(
     (max, record) => Math.max(max, record.length),
     headerRecord.length,
   );
-  const headers = nameHeaders(
+  const unlabelled = new Set<number>();
+  const named = nameHeaders(
     headerRecord.map((h) => h.trim()),
     width,
     notes,
+    unlabelled,
   );
+
+  /**
+   * A blank heading over a column with nothing in it is a **separator**.
+   *
+   * The template prints one, to put the fields somebody cannot leave out beside
+   * each other and the rest after a gap. Read back naively it becomes
+   * `column_15`, and the match step then asks which of our fields it is —
+   * offering to import a column that exists to be empty.
+   *
+   * The rule is deliberately narrow: **no heading _and_ no value in any row.** A
+   * blank heading over a column full of salaries still has the salaries in it,
+   * which is the whole argument for naming rather than dropping — see
+   * `nameHeaders`. So a separator is dropped and an unlabelled column carrying
+   * data is kept and named, exactly as before.
+   */
+  const isSeparator = (index: number): boolean =>
+    unlabelled.has(index) && kept.every((record) => (record[index] ?? "").trim() === "");
+  const separators = [...unlabelled].filter(isSeparator);
+
+  /* Reported here rather than in `nameHeaders`, which cannot yet know which
+     unlabelled columns turned out to be separators. A dropped separator is not
+     worth a sentence; an unlabelled column carrying data very much is. */
+  const namedByPosition = unlabelled.size - separators.length;
+  if (namedByPosition > 0) {
+    notes.push(
+      `${namedByPosition} ${namedByPosition === 1 ? "column has" : "columns have"} no heading but ${namedByPosition === 1 ? "does" : "do"} have values. We named ${namedByPosition === 1 ? "it" : "them"} after ${namedByPosition === 1 ? "its" : "their"} position — column_3 is the third column.`,
+    );
+  }
+  if (separators.length > 0) {
+    notes.push(
+      `${separators.length} empty ${separators.length === 1 ? "column" : "columns"} with no heading ${separators.length === 1 ? "was" : "were"} skipped. The template prints one as a gap between the fields you cannot leave out and the rest.`,
+    );
+  }
+  const headers = named.filter((_, index) => !separators.includes(index));
+  const keptIndexes = named.map((_, index) => index).filter((i) => !separators.includes(i));
 
   const rows: CsvRow[] = [];
   const out: string[][] = [];
@@ -246,8 +283,8 @@ export function fileFromRecords(
   for (const record of kept) {
     if (record.length !== headerRecord.length) ragged += 1;
     const row: CsvRow = {};
-    headers.forEach((heading, index) => {
-      row[heading] = record[index] ?? "";
+    headers.forEach((heading, position) => {
+      row[heading] = record[keptIndexes[position] ?? position] ?? "";
     });
     rows.push(row);
     out.push(record);
@@ -272,17 +309,22 @@ export function fileFromRecords(
  * with two columns called `phone` and only one of them would survive a
  * last-wins object.
  */
-function nameHeaders(raw: string[], width: number, notes: string[]): string[] {
+function nameHeaders(
+  raw: string[],
+  width: number,
+  notes: string[],
+  /** Positions that had no heading at all, for the separator rule in `parse`. */
+  unlabelled: Set<number>,
+): string[] {
   const headers: string[] = [];
   const used = new Set<string>();
-  let unnamed = 0;
   let duplicated = 0;
 
   for (let index = 0; index < width; index += 1) {
     let name = (raw[index] ?? "").trim();
     if (name === "") {
       name = `column_${index + 1}`;
-      unnamed += 1;
+      unlabelled.add(index);
     }
     if (used.has(name)) {
       duplicated += 1;
@@ -294,11 +336,6 @@ function nameHeaders(raw: string[], width: number, notes: string[]): string[] {
     headers.push(name);
   }
 
-  if (unnamed > 0) {
-    notes.push(
-      `${unnamed} ${unnamed === 1 ? "column has" : "columns have"} no heading. We named ${unnamed === 1 ? "it" : "them"} after ${unnamed === 1 ? "its" : "their"} position — column_3 is the third column.`,
-    );
-  }
   if (duplicated > 0) {
     notes.push(
       `${duplicated} heading${duplicated === 1 ? "" : "s"} appear more than once. The repeats are numbered, so no column is lost.`,

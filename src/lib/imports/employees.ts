@@ -96,7 +96,12 @@ export type EmployeeField =
   | "nhfNumber"
   | "nextOfKinName"
   | "nextOfKinRelationship"
-  | "nextOfKinPhone";
+  | "nextOfKinPhone"
+  | "addressLine"
+  | "nin"
+  | "stateOfOrigin"
+  | "lgaOfOrigin"
+  | "religion";
 
 const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
   {
@@ -207,62 +212,6 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     note: "Their manager's full name. Matched against this file first, then your existing staff. Ambiguous names are left unset and reported.",
   },
   {
-    field: "managerEmployeeNo",
-    column: "manager_employee_no",
-    aliases: ["manager_employee_id", "manager_staff_no", "manager_no"],
-    required: false,
-    example: "EMP-1004",
-    note: "Their manager's staff number. Use this instead of a name when two people share one.",
-  },
-  {
-    field: "workLocation",
-    column: "work_location",
-    aliases: ["location", "office", "branch", "duty_station"],
-    required: false,
-    example: "Lagos Office",
-    note: "Matched by name against your locations. An unrecognised one is flagged, not invented.",
-  },
-  {
-    field: "legalEntity",
-    column: "legal_entity",
-    aliases: ["entity", "subsidiary"],
-    required: false,
-    example: "Schulltech Nigeria Ltd",
-    note: "Only if you file PAYE for more than one company.",
-  },
-  {
-    field: "salaryGrade",
-    column: "salary_grade",
-    aliases: ["grade", "grade_level", "grade_code", "pay_grade", "salary_band"],
-    required: false,
-    example: "G4",
-    note: "Must already exist, by code or name. We also flag pay that falls outside the grade's band.",
-  },
-  {
-    field: "employmentType",
-    column: "employment_type",
-    aliases: ["contract_type", "staff_category"],
-    required: false,
-    example: "full_time",
-    note: "full_time, part_time, contract, intern or nysc. Permanent counts as full time. Defaults to full time.",
-  },
-  {
-    field: "workType",
-    column: "work_type",
-    aliases: ["work_schedule"],
-    required: false,
-    example: "full_time",
-    note: "Read as employment type when employment_type is missing. If both are present and disagree, we use employment_type and say so.",
-  },
-  {
-    field: "status",
-    column: "employment_status",
-    aliases: ["status", "staff_status"],
-    required: false,
-    example: "active",
-    note: "active, on_leave, suspended, onboarding or exited. Defaults to active.",
-  },
-  {
     field: "startDate",
     cell: { kind: "date" },
     column: "start_date",
@@ -302,9 +251,12 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
       "salary",
       "gross",
     ],
-    required: true,
+    required: false,
     example: "162,632.00",
     note: "Monthly gross in naira. ₦, commas and spaces are fine. Must be a monthly figure — we will not divide an annual one.",
+    recommended: {
+      why: "Without it they are on the staff list and cannot be paid — every payroll will name them until it is set.",
+    },
   },
   {
     field: "payFrequency",
@@ -345,22 +297,6 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
       feature: "pensionSetup",
       why: "no RSA PIN — their pension is deducted but the PenCom schedule cannot name them",
     },
-  },
-  {
-    field: "pensionProvider",
-    column: "pension_provider",
-    aliases: ["pfa", "pension_administrator", "pension_fund_administrator"],
-    required: false,
-    example: "Stanbic IBTC Pension",
-    note: "Optional.",
-  },
-  {
-    field: "taxState",
-    column: "tax_state",
-    aliases: ["paye_state", "state_of_tax_residence", "tax_jurisdiction", "state"],
-    required: false,
-    example: "Lagos",
-    note: "The state their PAYE is filed to — not their state of origin. One of the 36 states or FCT. Falls back to the company's state when empty.",
   },
   {
     field: "tin",
@@ -418,6 +354,66 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     required: false,
     example: "+234 803 111 0022",
     note: "Optional.",
+  },
+  {
+    field: "addressLine",
+    column: "address_line",
+    aliases: [
+      "address",
+      "home_address",
+      "residential_address",
+      "street_address",
+      "house_address",
+    ],
+    required: false,
+    example: "14 Bishop Oluwole Street, Victoria Island, Lagos",
+    note: "Where they live, on one line. Not the office they work at, and not the state their PAYE is filed to.",
+    recommended: {
+      why: "Somebody has to be able to reach them off-site — a letter, a courier, an exit query.",
+    },
+  },
+  {
+    field: "nin",
+    column: "nin",
+    aliases: [
+      "national_id",
+      "national_identity_number",
+      "national_identification_number",
+      "nimc",
+      "nin_number",
+    ],
+    required: false,
+    example: "12345678901",
+    note: "National Identification Number, 11 digits. Spaces and dashes are fine, we strip them. Flagged if it is not 11 digits.",
+    recommended: {
+      why: "The statutory registrations a Nigerian employee needs are keyed to it.",
+    },
+  },
+  {
+    field: "stateOfOrigin",
+    column: "state_of_origin",
+    aliases: ["origin_state", "home_state", "state_of_birth"],
+    required: false,
+    example: "Imo",
+    note: "One of the 36 states or the FCT. IMO STATE and Imo both read as Imo. An unrecognised one is flagged, never guessed at.",
+    recommended: { why: "Reported in statutory and federal-character returns." },
+  },
+  {
+    field: "lgaOfOrigin",
+    column: "local_government_area",
+    aliases: ["lga", "lga_of_origin", "local_govt", "local_government"],
+    required: false,
+    example: "Ikeduru",
+    note: "Free text, deliberately not checked against a list: there are 774 and we will not reject a real one because ours is out of date.",
+    recommended: { why: "Reported alongside the state of origin." },
+  },
+  {
+    field: "religion",
+    column: "religion",
+    aliases: ["faith"],
+    required: false,
+    example: "Christianity",
+    note: "Free text, never a fixed list. Recorded because holidays and dietary arrangements depend on it.",
   },
 ];
 
