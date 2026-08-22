@@ -131,6 +131,48 @@ export function CandidatePanel({
         onClose={onClose}
         title={name}
         description={`${card.candidate.currentTitle} · ${card.candidate.currentCompany}`}
+        size="lg"
+        /*
+         * These used to be a `sticky bottom-0 -mx-5 sm:-mx-6` bar at the end of
+         * the panel body — a hand-built footer, bleeding back out through the
+         * body's own padding to reach the panel edges, with the negative margin
+         * guessing at a `sm:px-6` the body did not have. The panel has a footer
+         * slot; the buttons belong in it.
+         */
+        footer={
+          card.outcome === "in_progress" ? (
+            <div className="flex w-full items-center gap-2">
+              {target ? (
+                <Button
+                  variant="approve"
+                  onClick={() => onAdvance(card.id, target)}
+                  className="flex-1"
+                >
+                  <ArrowRight aria-hidden="true" className="size-4" />
+                  Advance to {stageLabel(target)}
+                </Button>
+              ) : (
+                <Button
+                  variant="approve"
+                  className="flex-1"
+                  onClick={() =>
+                    nothingHappened(
+                      "Nothing was recorded",
+                      "Hiring somebody creates an employee record, and the pipeline has no endpoint to do it from yet. Add them from the people directory.",
+                    )
+                  }
+                >
+                  <Check aria-hidden="true" className="size-4" />
+                  Mark as hired
+                </Button>
+              )}
+              <Button variant="secondary" onClick={() => setRejecting(true)}>
+                <ThumbsDown aria-hidden="true" className="size-4" />
+                Reject
+              </Button>
+            </div>
+          ) : undefined
+        }
       >
         <div className="flex flex-col gap-5">
           {/* Identity */}
@@ -408,39 +450,6 @@ export function CandidatePanel({
             </div>
           )}
 
-          {/* Stage actions. Always visible, never hidden behind a menu. */}
-          {card.outcome === "in_progress" && (
-            <div className="sticky bottom-0 -mx-5 mt-2 flex items-center gap-2 border-t border-line bg-surface px-5 py-3 sm:-mx-6 sm:px-6">
-              {target ? (
-                <Button
-                  variant="approve"
-                  onClick={() => onAdvance(card.id, target)}
-                  className="flex-1"
-                >
-                  <ArrowRight aria-hidden="true" className="size-4" />
-                  Advance to {stageLabel(target)}
-                </Button>
-              ) : (
-                <Button
-                  variant="approve"
-                  className="flex-1"
-                  onClick={() =>
-                    nothingHappened(
-                      "Nothing was recorded",
-                      "Hiring somebody creates an employee record, and the pipeline has no endpoint to do it from yet. Add them from the people directory.",
-                    )
-                  }
-                >
-                  <Check aria-hidden="true" className="size-4" />
-                  Mark as hired
-                </Button>
-              )}
-              <Button variant="secondary" onClick={() => setRejecting(true)}>
-                <ThumbsDown aria-hidden="true" className="size-4" />
-                Reject
-              </Button>
-            </div>
-          )}
         </div>
       </Drawer>
 

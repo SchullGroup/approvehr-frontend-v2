@@ -31,6 +31,7 @@ import {
   DescriptionList,
   DonutChart,
   Drawer,
+  DrawerSection,
   EmptyState,
   Field,
   FieldSet,
@@ -463,6 +464,7 @@ export function SparklineDemo() {
 export function FeedbackDemo() {
   const [modal, setModal] = useState(false);
   const [drawer, setDrawer] = useState(false);
+  const [longDrawer, setLongDrawer] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const toast = useToast();
 
@@ -490,8 +492,13 @@ export function FeedbackDemo() {
         <Button variant="secondary" onClick={() => setModal(true)}>
           Open modal
         </Button>
+        {/* Two of them, because the footer is the interesting part and it only
+            behaves differently once the content overflows. Open both. */}
         <Button variant="secondary" onClick={() => setDrawer(true)}>
-          Open drawer
+          Drawer, short
+        </Button>
+        <Button variant="secondary" onClick={() => setLongDrawer(true)}>
+          Drawer, scrolling
         </Button>
         <Button variant="secondary" onClick={() => setConfirm(true)}>
           Confirm dialog
@@ -577,14 +584,30 @@ export function FeedbackDemo() {
         </div>
       </Modal>
 
+      {/*
+       * Short content. The panel is only as tall as what is in it and the footer
+       * sits under the last fact, rather than being thrown to the bottom of the
+       * viewport with an inch of white above it.
+       */}
       <Drawer
         open={drawer}
         onClose={() => setDrawer(false)}
         title="Adaeze Okonkwo"
         description="Senior Engineer · Engineering"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setDrawer(false)}>
+              Close
+            </Button>
+            <Button variant="accent" onClick={() => setDrawer(false)}>
+              Open the record
+            </Button>
+          </>
+        }
       >
         <DescriptionList
-          columns={1}
+          layout="rows"
           items={[
             { term: "Employee ID", value: "AHR-0142" },
             { term: "Start date", value: "12 March 2024" },
@@ -594,6 +617,45 @@ export function FeedbackDemo() {
             { term: "Status", value: <Badge tone="success" dot>Active</Badge> },
           ]}
         />
+      </Drawer>
+
+      {/*
+       * The same panel with more in it than fits. The body becomes the scroller
+       * and the footer comes to rest on the bottom edge — same component, same
+       * markup, no branch.
+       */}
+      <Drawer
+        open={longDrawer}
+        onClose={() => setLongDrawer(false)}
+        title="Adaeze Okonkwo"
+        description="Everything on file"
+        size="lg"
+        footer={
+          <div className="flex w-full flex-wrap items-center justify-between gap-3">
+            <p className="text-body-sm text-muted">Last edited 2 days ago</p>
+            <Button variant="accent" onClick={() => setLongDrawer(false)}>
+              Save changes
+            </Button>
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-5">
+          {["Employment", "Pay", "Statutory", "Documents", "Equipment", "Leave"].map(
+            (section) => (
+              <DrawerSection key={section} title={section}>
+                <DescriptionList
+                  layout="rows"
+                  items={[
+                    { term: "Reference", value: "AHR-0142" },
+                    { term: "Recorded", value: "12 March 2024" },
+                    { term: "Recorded by", value: "Tunde Bakare" },
+                    { term: "Value", value: <Money amount={1_250_000} /> },
+                  ]}
+                />
+              </DrawerSection>
+            ),
+          )}
+        </div>
       </Drawer>
 
       <ConfirmDialog

@@ -213,6 +213,14 @@ export function SegmentedControl<T extends string>({
 
 /* -------------------------------------------------------------------------- */
 
+/**
+ * A single-open question-and-answer list. The marketing FAQ shape.
+ *
+ * **Not the general disclosure.** One section of a signed-in screen collapsed
+ * behind a summary with a count is `Disclosure` in `./disclosure.tsx` — this one
+ * closes its siblings when you open it, which is wrong the moment two of them
+ * can matter at once. Do not add a third.
+ */
 export function Accordion({
   items,
   className,

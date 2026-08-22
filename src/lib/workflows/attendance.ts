@@ -33,6 +33,42 @@ export const isWorkingDay = (date: string, policy: AttendancePolicy) =>
   policy.workingWeekdays.includes(new Date(date).getUTCDay()) &&
   !isHoliday(date);
 
+/**
+ * In post on a date. ISO strings, so a lexicographic compare is a date compare.
+ *
+ * Looking at **today** this is true of everybody and costs nothing. Looking at a
+ * day in March it is the difference between the people who were there and the
+ * people who were there plus everybody hired since, each badged a no-show — the
+ * same wrong claim as reading a missing attendance record as a record of
+ * absence. `employedOn` in `approvehr-api/src/modules/attendance/day-status.ts`
+ * is the same predicate as a Prisma `where`, and the two answer alike.
+ */
+export const employedOn = (employee: Employee, date: string): boolean =>
+  employee.startDate <= date &&
+  (employee.endDate === null ||
+    employee.endDate === undefined ||
+    employee.endDate >= date);
+
+/**
+ * The earliest day anybody clocked in, or null if nobody ever has.
+ *
+ * The demo's answer to the question `GET /attendance/summary` answers with
+ * `firstRecordedDate`, and the reason either exists: a day *before* a company
+ * started recording attendance looks exactly like a day nobody came in, and only
+ * one of those is a claim worth making. This is the time-axis version of
+ * `organizationUsesAttendance` in the API's `payroll/assemble.ts`, which asks the
+ * same thing of a payroll period and exists because reading the two the same way
+ * paid every employee of every company without clock-in ₦0.
+ */
+export const firstRecordedDate = (entries: AttendanceEntry[]): string | null =>
+  entries.reduce<string | null>(
+    (earliest, entry) =>
+      entry.clockIn && (earliest === null || entry.date < earliest)
+        ? entry.date
+        : earliest,
+    null,
+  );
+
 /** Approved leave covering a date. Pending leave is not absence yet. */
 export const onLeave = (
   employeeId: string,

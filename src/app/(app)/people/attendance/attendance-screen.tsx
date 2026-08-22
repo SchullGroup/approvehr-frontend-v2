@@ -9,7 +9,6 @@ import {
   Badge,
   Button,
   ButtonLink,
-  Callout,
   Card,
   CardBody,
   CardHeader,
@@ -30,10 +29,17 @@ import {
   formatMoney,
   useToast,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
-import type { ApiRosterRow, ApiWorkLocation } from "@/lib/api/attendance";
+import {
+  geofenceRefusal,
+  type ApiClockResult,
+  type ApiRosterRow,
+  type ApiWorkLocation,
+} from "@/lib/api/attendance";
 import { addDays, timesLabel } from "@/lib/api/shifts";
+import { PositionError } from "@/lib/geolocation";
 import {
   STATUS_LABEL,
   STATUS_TONE,
@@ -101,6 +107,9 @@ export function AttendanceScreen() {
      modes — uuids from the API, `loc-hq` from the seed — so nothing may
      hardcode one. */
   const locationId = picked ?? locations.locations[0]?.id ?? "";
+  /* The row, not the id: `clockIn` needs to know whether this location's fence
+     is enforced before it decides to ask the browser where the device is. */
+  const selected = locations.locations.find((l) => l.id === locationId) ?? null;
 
   const nothingToClock =
     myRow?.status === "ON_LEAVE" ||
@@ -112,25 +121,51 @@ export function AttendanceScreen() {
     sheet.reload();
   };
 
-  /** Both clock actions report the API's own refusal, which names the time. */
+  /**
+   * Both clock actions, and every way they can be turned down.
+   *
+   * Three sources of refusal reach here and they are not interchangeable:
+   *
+   * 1. **The browser** — a `PositionError`, when the device would not say where
+   *    it is. Permission denied, position unavailable and timeout are three
+   *    different problems with three different next steps, and it carries which
+   *    one along with the wording for it. No request was made, so there is no
+   *    API message to fall back on.
+   * 2. **The geofence** — a 422 carrying the distance, the location and the
+   *    radius. `summary` is the API's own one-line phrasing of the fact — "You
+   *    are 340m from Lagos HQ" — and it is the heading, with the full message
+   *    and its way forward underneath. This screen formats no distances: doing
+   *    so would be a second distance formatter drifting from the API's.
+   * 3. **Everything else** — an ordinary `ApiError`, whose message already names
+   *    the time and the fix ("Already clocked in at 08:12…").
+   *
+   * "Clock-in failed" is the one thing none of them is allowed to become.
+   */
   const run = async (
-    action: () => Promise<{ time: string }>,
+    action: () => Promise<ApiClockResult>,
     title: (time: string) => string,
-    detail: string,
+    detail: (result: ApiClockResult) => string,
   ) => {
     setBusy(true);
     try {
       const result = await action();
-      toast.push({ title: title(result.time), tone: "success", detail });
+      toast.push({
+        title: title(result.time),
+        tone: "success",
+        detail: detail(result),
+      });
       refresh();
     } catch (error) {
+      const position = error instanceof PositionError ? error : null;
+      const fence = geofenceRefusal(error);
       toast.push({
-        title: "That did not go through",
+        title: position?.title ?? fence?.summary ?? "That did not go through",
         tone: "danger",
         detail:
-          error instanceof ApiError
+          position?.message ??
+          (error instanceof ApiError
             ? error.message
-            : "Something went wrong. Try again.",
+            : "Something went wrong. Try again."),
       });
     } finally {
       setBusy(false);
@@ -161,9 +196,7 @@ export function AttendanceScreen() {
 
       <PageBody className="flex flex-col gap-6">
         {roster.error && (
-          <Callout tone="danger" title="Could not load today's roster">
-            {roster.error.message}
-          </Callout>
+          <LoadFailure subject="today's roster" error={roster.error} />
         )}
 
         {/* Own clock-in. Deliberately the first thing on the page: the person
@@ -194,7 +227,28 @@ export function AttendanceScreen() {
               !nothingToClock && (
                 <div className="flex flex-wrap items-end gap-2">
                   {!myRow?.clockIn && locations.locations.length > 0 && (
-                    <Field label="Where">
+                    <Field
+                      label="Where"
+                      /* Said before the click, not after it. Somebody about to
+                         see a browser permission prompt should know why it is
+                         coming — an unexplained prompt is the one people
+                         dismiss, and a dismissal is remembered for the origin.
+                         Nothing is said for a location with no enforced fence,
+                         because nothing will be asked.
+
+                         Demo mode gets the other half of the truth, not this
+                         one. It asks for no position and judges no fence, so
+                         promising a prompt here would be a promise this mode
+                         does not keep — the same gap `store/work-locations.ts`
+                         states on the settings screen. */
+                      help={
+                        !selected?.geofenceEnforced
+                          ? undefined
+                          : session.isConnected
+                            ? `${selected.name} accepts clock-ins on site only, so your browser will ask for your location.`
+                            : `${selected.name} has a geofence, and demo mode does not apply it — nothing here asks where you are.`
+                      }
+                    >
                       <Select
                         value={locationId}
                         onChange={(e) => {
@@ -216,12 +270,13 @@ export function AttendanceScreen() {
                       disabled={busy}
                       onClick={() =>
                         void run(
-                          () => clockIn(locationId || undefined),
+                          () => clockIn(selected),
                           (time) => `Clocked in at ${time}`,
-                          `${
-                            locations.locations.find((l) => l.id === locationId)?.name ??
-                            "Recorded"
-                          }. Have a good day.`,
+                          /* The API's resolved name when connected — it may
+                             have fallen back to the location on the employee's
+                             own record — and the picked one otherwise. */
+                          (result) =>
+                            `${result.workLocation?.name ?? selected?.name ?? "Recorded"}. Have a good day.`,
                         )
                       }
                     >
@@ -236,7 +291,7 @@ export function AttendanceScreen() {
                         void run(
                           () => clockOut(),
                           (time) => `Clocked out at ${time}`,
-                          "Your hours for today are on the timesheet.",
+                          () => "Your hours for today are on the timesheet.",
                         )
                       }
                     >
@@ -261,9 +316,7 @@ export function AttendanceScreen() {
             <LoadingPanel label="Loading today's roster" />
           )
         ) : sheet.error ? (
-          <Callout tone="danger" title="Could not load the timesheet">
-            {sheet.error.message}
-          </Callout>
+          <LoadFailure subject="the timesheet" error={sheet.error} />
         ) : sheet.from ? (
           <TimesheetView sheet={sheet} />
         ) : (

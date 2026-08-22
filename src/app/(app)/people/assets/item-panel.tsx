@@ -21,6 +21,7 @@ import {
   type BadgeTone,
   type TimelineEntry,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import {
   CONDITION_LABEL,
   STATUS_LABEL,
@@ -95,7 +96,7 @@ export function ItemPanel({
     <Drawer
       open
       onClose={onClose}
-      width="max-w-xl"
+      size="lg"
       title={detail?.name ?? "Equipment"}
       description={detail ? `Tag ${detail.tag}` : undefined}
       footer={
@@ -112,9 +113,7 @@ export function ItemPanel({
       )}
 
       {error && (
-        <Callout tone="danger" title="Could not load it">
-          {error.message}
-        </Callout>
+        <LoadFailure subject="this item" error={error} />
       )}
 
       {detail && (

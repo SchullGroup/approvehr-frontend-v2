@@ -32,17 +32,24 @@ export function ProgressMeter({
     ink: "bg-ink",
   } as const;
 
+  /*
+   * The reading rides with the label, and only with the label.
+   *
+   * It used to render whenever `showValue` was on, which defaults to true — so a
+   * meter given no label put a bare "30%" on a line of its own above the bar,
+   * left-aligned by a `justify-between` with nothing to be between. Three call
+   * sites did that, and all three had already written their own label row above
+   * the meter ("12 of 20 days left") and did not want a second, vaguer number
+   * under it. A percentage with nothing naming it is not information, so there
+   * is now nowhere for it to appear alone.
+   */
   return (
     <div className={cn("w-full", className)}>
-      {(label || showValue) && (
+      {label && (
         <div className="mb-1.5 flex items-baseline justify-between gap-3">
-          {label && (
-            <span className="text-body-sm font-medium text-body">
-              {label}
-            </span>
-          )}
+          <span className="text-body-sm font-medium text-body">{label}</span>
           {showValue && (
-            <span className="tabular text-body-sm text-muted">
+            <span className="tabular shrink-0 text-body-sm text-muted">
               {Math.round(pct)}%
             </span>
           )}

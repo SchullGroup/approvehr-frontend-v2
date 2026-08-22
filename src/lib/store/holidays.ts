@@ -215,6 +215,33 @@ export function usePublicHolidays(year: number): HolidayCalendarState {
   };
 }
 
+/**
+ * The demo calendar's counts for one year, without touching the network.
+ *
+ * For `lib/store/setup-checklist.ts`. `usePublicHolidays` fetches whenever a
+ * session is connected, and the checklist already carries the same two figures
+ * in its one response — so a summary calling it would send a second request for
+ * something it has. Demo mode has no such request to make, and this is how it
+ * answers the same question.
+ */
+export function useDemoHolidayCounts(year: number): {
+  holidays: number;
+  awaitingProclamation: number;
+} {
+  const demo = useSyncExternalStore(
+    demoStore.subscribe,
+    demoStore.read,
+    demoStore.getServerSnapshot,
+  );
+  return useMemo(() => {
+    const rows = demo.holidays.filter((holiday) => yearOf(holiday.date) === year);
+    return {
+      holidays: rows.length,
+      awaitingProclamation: rows.filter((holiday) => !holiday.confirmed).length,
+    };
+  }, [demo, year]);
+}
+
 /* -------------------------------------------------------------------- writing */
 
 export type HolidayMutations = {

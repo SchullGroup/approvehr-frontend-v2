@@ -7,7 +7,6 @@ import {
   Badge,
   Button,
   ButtonLink,
-  Callout,
   Card,
   CardBody,
   CardHeader,
@@ -25,6 +24,7 @@ import {
   TableWrap,
   useToast,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import type { ApiBankAccount } from "@/lib/api/payments";
@@ -138,9 +138,7 @@ export function BankAccountsScreen() {
 
       <PageBody className="flex flex-col gap-6">
         {accounts.error && (
-          <Callout tone="danger" title="Could not load the accounts">
-            {accounts.error.message}
-          </Callout>
+          <LoadFailure subject="the accounts" error={accounts.error} />
         )}
 
         <div className="grid gap-4 sm:grid-cols-3">

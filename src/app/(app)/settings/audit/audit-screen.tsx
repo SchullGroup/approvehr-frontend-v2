@@ -5,7 +5,6 @@ import { Lock, Search, ShieldCheck } from "lucide-react";
 import {
   Badge,
   Button,
-  Callout,
   Card,
   Checkbox,
   EmptyState,
@@ -15,6 +14,7 @@ import {
   Skeleton,
   Stat,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import type { AuditEntry, AuditListParams } from "@/lib/api/audit";
 import { dayHeading, dayKey, readableDate } from "@/lib/audit/language";
@@ -228,9 +228,7 @@ function Trail({ initialEntityType = "", initialEntityId = "" }: ScreenProps) {
 
       <PageBody className="flex flex-col gap-5">
         {trail.error && (
-          <Callout tone="danger" title="Could not load the audit log">
-            {trail.error.message}
-          </Callout>
+          <LoadFailure subject="the audit log" error={trail.error} />
         )}
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

@@ -7,7 +7,6 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
-  ChevronDown,
   Save,
   ShieldAlert,
   Trash2,
@@ -23,6 +22,7 @@ import {
   Card,
   CardBody,
   CardHeader,
+  Disclosure,
   Field,
   Input,
   Modal,
@@ -1570,12 +1570,16 @@ export function NewEmployeeForm() {
 /**
  * One collapsed, opt-in group of statutory fields.
  *
- * Closed shows the consequence of leaving it closed; open shows the fields. A
- * plain `<button aria-expanded aria-controls>` rather than `<details>`, because
- * the panel has to stay in the DOM to keep its values when the group is closed
- * and reopened — and because `Accordion` in the design system is single-open,
- * which is wrong here: somebody may have a bank account and a pension PIN to
- * hand at the same time.
+ * The mechanics moved to `Disclosure` in `components/ui/disclosure.tsx` when the
+ * leave screen needed the same thing for a twelve-month calendar. This is now
+ * only the copy: title, count, and the consequence of leaving the group shut.
+ *
+ * Two of the flags matter and are not defaults:
+ *
+ * - `keepMounted`, because closing a group must not throw away what somebody
+ *   typed into it.
+ * - `region={false}`, because three landmarks inside one wizard step is not what
+ *   a landmark is for. These are field groups, so `role="group"`.
  */
 function OptionalGroup({
   id,
@@ -1594,46 +1598,24 @@ function OptionalGroup({
   children: React.ReactNode;
 }) {
   const copy = GROUP_COPY[id];
-  const panelId = `group-${id}`;
 
   return (
-    <div className="rounded-lg border border-line">
-      <h3>
-        <button
-          type="button"
-          aria-expanded={open}
-          aria-controls={panelId}
-          onClick={onToggle}
-          className="flex w-full items-start justify-between gap-4 rounded-lg px-4 py-3.5 text-left transition-colors hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
-        >
-          <span className="min-w-0">
-            <span className="flex flex-wrap items-center gap-2">
-              <span className="text-body font-medium text-ink">
-                {copy.title}
-              </span>
-              <Badge tone={filled > 0 ? "success" : "neutral"} size="sm">
-                {filled > 0 ? `${filled} of ${total} filled` : "Optional"}
-              </Badge>
-            </span>
-            <span className="mt-1 block text-meta leading-relaxed text-muted">
-              {open ? copy.purpose : SKIP_CONSEQUENCE[id]}
-            </span>
-          </span>
-          <ChevronDown
-            aria-hidden="true"
-            className={cn(
-              "mt-1 size-4 shrink-0 text-muted transition-transform duration-200",
-              open && "rotate-180",
-            )}
-          />
-        </button>
-      </h3>
-      {/* `hidden` rather than unmounted: closing a group must not throw away
-          what somebody typed into it. */}
-      <div id={panelId} hidden={!open} className="border-t border-line px-4 py-4">
-        {children}
-      </div>
-    </div>
+    <Disclosure
+      open={open}
+      onToggle={onToggle}
+      keepMounted
+      region={false}
+      title={copy.title}
+      meta={
+        <Badge tone={filled > 0 ? "success" : "neutral"} size="sm">
+          {filled > 0 ? `${filled} of ${total} filled` : "Optional"}
+        </Badge>
+      }
+      hint={SKIP_CONSEQUENCE[id]}
+      openHint={copy.purpose}
+    >
+      {children}
+    </Disclosure>
   );
 }
 

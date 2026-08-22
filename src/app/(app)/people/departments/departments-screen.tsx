@@ -32,6 +32,7 @@ import {
   useToast,
   type TabItem,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import { useCan } from "@/lib/permissions";
@@ -224,9 +225,7 @@ export function DepartmentsScreen() {
         )}
 
         {departments.error && (
-          <Callout tone="danger" title="Could not load the structure">
-            {departments.error.message}
-          </Callout>
+          <LoadFailure subject="the company structure" error={departments.error} />
         )}
 
         <Tabs

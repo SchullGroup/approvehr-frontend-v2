@@ -7,6 +7,7 @@ import {
   CalendarClock,
   CalendarDays,
   CalendarRange,
+  CalendarSearch,
   ChartNoAxesColumn,
   ClipboardCheck,
   Clock,
@@ -338,6 +339,21 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       label: "Attendance",
       icon: <Clock aria-hidden="true" />,
       badgeSource: "notClockedIn",
+      always: true,
+    },
+    {
+      /* A month at a glance and any past day's roster. Its own route rather
+         than a third tab on Attendance: that screen opens with a clock-in
+         button, which is the wrong control to sit above a day in March, and a
+         day somebody wants to send a colleague has to be linkable.
+         `/payroll/payments/history` is the same split for the same reason.
+
+         `always`, matching Attendance above it: reading the roster needs no
+         permission on the API, and a staff member checking which day they were
+         marked late is exactly who this answers. */
+      href: "/people/attendance/history",
+      label: "Attendance history",
+      icon: <CalendarSearch aria-hidden="true" />,
       always: true,
     },
     {

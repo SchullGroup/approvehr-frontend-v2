@@ -127,7 +127,7 @@ export function TicketThread({
         onClose={onClose}
         title={detail ? detail.subject : "Request"}
         {...(detail ? { description: `${detail.reference} · ${detail.category}` } : {})}
-        width="max-w-2xl"
+        size="xl"
         footer={
           detail ? (
             <div className="flex w-full flex-wrap items-center justify-between gap-2">

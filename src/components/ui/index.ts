@@ -24,8 +24,8 @@ export type { Currency } from "./money";
 
 export { ProgressMeter, ScoreRing, FactorBars } from "./progress";
 
-export { Modal, Drawer, ConfirmDialog } from "./modal";
-export type { ModalSize } from "./modal";
+export { Modal, Drawer, DrawerSection, ConfirmDialog } from "./modal";
+export type { ModalSize, DrawerSize } from "./modal";
 
 export {
   useStepper,
@@ -56,6 +56,8 @@ export {
 
 export { Tabs, LinkTabs, SegmentedControl, Accordion } from "./tabs";
 export type { TabItem } from "./tabs";
+
+export { Disclosure } from "./disclosure";
 
 export {
   Avatar,

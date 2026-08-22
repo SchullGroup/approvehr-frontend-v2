@@ -10,6 +10,7 @@ import {
   CardBody,
   CardHeader,
   Checkbox,
+  Disclosure,
   Field,
   FieldSet,
   Input,
@@ -32,6 +33,9 @@ import {
 } from "@/lib/payroll/settings";
 import { usePayrollSettings } from "@/lib/payroll/use-settings";
 
+/** The five sub-forms, each its own disclosure. */
+type Section = "working" | "split" | "pension" | "nhf" | "checks";
+
 /**
  * Company payroll settings.
  *
@@ -47,6 +51,19 @@ import { usePayrollSettings } from "@/lib/payroll/use-settings";
  * bands after the Nigeria Tax Act 2025 went into the API — so this panel quoted
  * ₦63,266.67 where the answer was ₦63,950. With no API there is no preview and
  * the panel says so, because the only other option is that copy coming back.
+ *
+ * ## The five sub-forms are closed — `PARITY.md` Rule 5
+ *
+ * Working month, salary structure, pension, NHF and the pre-run checks each
+ * answer a different question, and all five used to be open at once: five
+ * expanded forms to scroll past to change one rate. Closed, each summary states
+ * the setting it holds — "8% employee, 10% employer", "2.5% of basic salary",
+ * "3 checks stop a run" — so the whole policy reads in five lines and the one
+ * you came to change is one click away.
+ *
+ * What must not be collapsed is the problem list. `validateSettings` renders
+ * above all five, outside every reveal, and Save stays disabled while it has
+ * anything in it. A section that will not validate also opens itself.
  */
 export function PayrollSettingsForm() {
   const { settings, save, reset } = usePayrollSettings();
@@ -68,6 +85,50 @@ export function PayrollSettingsForm() {
     draft.salarySplit.housing +
     draft.salarySplit.transport;
 
+  /** How many of the three hard stops are armed. The closed summary's count. */
+  const stops = [
+    draft.exceptions.requireBankAccount,
+    draft.exceptions.requirePensionPin,
+    draft.exceptions.blockNegativeNet,
+  ].filter(Boolean).length;
+
+  /*
+   * Which section a problem belongs to.
+   *
+   * `validateSettings` names its issues by field path, and the paths are already
+   * section-prefixed, so a section knows whether it is the one holding a problem
+   * without anybody maintaining a second list.
+   */
+  const sectionOf = (field: string): Section =>
+    field.startsWith("salarySplit")
+      ? "split"
+      : field.startsWith("pension.")
+        ? "pension"
+        : field.startsWith("nhf.")
+          ? "nhf"
+          : field.startsWith("exceptions.")
+            ? "checks"
+            : "working";
+
+  const broken = new Set(issues.map((issue) => sectionOf(issue.field)));
+
+  /*
+   * Closed by default — `PARITY.md` Rule 5 — except where a section will not
+   * validate.
+   *
+   * `undefined` means "follow the problem", so a section that develops one opens
+   * itself and a section that had one and was fixed closes again. An explicit
+   * entry is somebody's own click and wins, which is why this is not a forced
+   * `|| broken.has(id)`: a summary button that does nothing when pressed is a
+   * broken control. Closing a section never hides the problem — the callout above
+   * lists every issue by name and Save stays disabled until they are gone, which
+   * is the only reason any of this may be collapsed at all.
+   */
+  const [manual, setManual] = useState<Partial<Record<Section, boolean>>>({});
+  const isOpen = (id: Section): boolean => manual[id] ?? broken.has(id);
+  const toggle = (id: Section) =>
+    setManual((current) => ({ ...current, [id]: !isOpen(id) }));
+
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
       <div className="flex flex-col gap-5">
@@ -81,324 +142,371 @@ export function PayrollSettingsForm() {
           </Callout>
         )}
 
-        {/* Working month */}
-        <Card>
-          <CardHeader
-            title="Working month"
-            description="Used to prorate unpaid leave. An office month is 22 days; shift patterns differ."
-          />
-          <CardBody className="max-w-xs">
-            <Field
-              label="Working days per month"
-              required
-              error={issueFor("workingDaysPerMonth")}
-              help="One unpaid day removes this fraction of gross."
-            >
-              <Input
-                type="number"
-                min={1}
-                max={31}
-                value={draft.workingDaysPerMonth}
-                onChange={(e) =>
-                  update((s) => ({
-                    ...s,
-                    workingDaysPerMonth: Number(e.target.value) || 0,
-                  }))
-                }
-              />
-            </Field>
-          </CardBody>
-        </Card>
+        <Disclosure
+          className="bg-surface"
+          title="Working month"
+          meta={
+            <Badge tone="neutral" size="sm">
+              {draft.workingDaysPerMonth} days a month
+            </Badge>
+          }
+          hint="Used to prorate unpaid leave. An office month is 22 days; shift patterns differ."
+          open={isOpen("working")}
+          onToggle={() => toggle("working")}
+          panelClassName="max-w-xs p-5"
+        >
+          <Field
+            label="Working days per month"
+            required
+            error={issueFor("workingDaysPerMonth")}
+            help="One unpaid day removes this fraction of gross."
+          >
+            <Input
+              type="number"
+              min={1}
+              max={31}
+              value={draft.workingDaysPerMonth}
+              onChange={(e) =>
+                update((s) => ({
+                  ...s,
+                  workingDaysPerMonth: Number(e.target.value) || 0,
+                }))
+              }
+            />
+          </Field>
+        </Disclosure>
 
-        {/* Salary split */}
-        <Card>
-          <CardHeader
-            title="Salary structure"
-            description="How gross pay divides into components. Pension and NHF are charged on these."
-            action={
+
+        <Disclosure
+          className="bg-surface"
+          title="Salary structure"
+          meta={
+            <>
+              <Badge tone="neutral" size="sm">
+                {Math.round(draft.salarySplit.basic * 100)} /{" "}
+                {Math.round(draft.salarySplit.housing * 100)} /{" "}
+                {Math.round(draft.salarySplit.transport * 100)} basic, housing,
+                transport
+              </Badge>
               <Badge
                 tone={Math.abs(splitTotal - 1) < 0.0001 ? "success" : "danger"}
+                size="sm"
                 dot
               >
                 {(splitTotal * 100).toFixed(1)}%
               </Badge>
+            </>
+          }
+          hint="How gross pay divides into components. Pension and NHF are charged on these."
+          open={isOpen("split")}
+          onToggle={() => toggle("split")}
+          panelClassName="grid gap-5 p-5 sm:grid-cols-3"
+        >
+          {(["basic", "housing", "transport"] as PensionComponent[]).map(
+            (key) => (
+              <Field
+                key={key}
+                label={key[0].toUpperCase() + key.slice(1)}
+                required
+              >
+                <Input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={Math.round(draft.salarySplit[key] * 100)}
+                  onChange={(e) =>
+                    update((s) => ({
+                      ...s,
+                      salarySplit: {
+                        ...s.salarySplit,
+                        [key]: (Number(e.target.value) || 0) / 100,
+                      },
+                    }))
+                  }
+                  suffix="%"
+                />
+              </Field>
+            ),
+          )}
+        </Disclosure>
+
+
+        <Disclosure
+          className="bg-surface"
+          title="Pension"
+          meta={
+            <Badge tone="neutral" size="sm">
+              {draft.pension.enabled
+                ? `${+(draft.pension.employeeRate * 100).toFixed(2)}% employee, ${+(
+                    draft.pension.employerRate * 100
+                  ).toFixed(2)}% employer`
+                : "Not deducted"}
+            </Badge>
+          }
+          hint="Pension Reform Act 2014. You may pay above the statutory rates, not below."
+          open={isOpen("pension")}
+          onToggle={() => toggle("pension")}
+          panelClassName="flex flex-col gap-5 p-5"
+        >
+          <Switch
+            label="Deduct pension"
+            description="Turn off only if every employee is exempt."
+            checked={draft.pension.enabled}
+            onChange={(e) =>
+              update((s) => ({
+                ...s,
+                pension: { ...s.pension, enabled: e.target.checked },
+              }))
             }
           />
-          <CardBody className="grid gap-5 sm:grid-cols-3">
-            {(["basic", "housing", "transport"] as PensionComponent[]).map(
-              (key) => (
-                <Field
-                  key={key}
-                  label={key[0].toUpperCase() + key.slice(1)}
-                  required
-                >
-                  <Input
-                    type="number"
-                    min={0}
-                    max={100}
-                    step={1}
-                    value={Math.round(draft.salarySplit[key] * 100)}
-                    onChange={(e) =>
-                      update((s) => ({
-                        ...s,
-                        salarySplit: {
-                          ...s.salarySplit,
-                          [key]: (Number(e.target.value) || 0) / 100,
-                        },
-                      }))
-                    }
-                    suffix="%"
-                  />
-                </Field>
-              ),
-            )}
-          </CardBody>
-        </Card>
 
-        {/* Pension */}
-        <Card>
-          <CardHeader
-            title="Pension"
-            description="Pension Reform Act 2014. You may pay above the statutory rates, not below."
-          />
-          <CardBody className="flex flex-col gap-5">
-            <Switch
-              label="Deduct pension"
-              description="Turn off only if every employee is exempt."
-              checked={draft.pension.enabled}
-              onChange={(e) =>
-                update((s) => ({
-                  ...s,
-                  pension: { ...s.pension, enabled: e.target.checked },
-                }))
-              }
-            />
-
-            {draft.pension.enabled && (
-              <>
-                <div className="grid gap-5 sm:grid-cols-2">
-                  <Field
-                    label="Employee rate"
-                    required
-                    error={issueFor("pension.employeeRate")}
-                    help={`Statutory minimum ${STATUTORY.pensionEmployeeMin * 100}%`}
-                  >
-                    <Input
-                      type="number"
-                      min={0}
-                      step={0.5}
-                      value={+(draft.pension.employeeRate * 100).toFixed(2)}
-                      onChange={(e) =>
-                        update((s) => ({
-                          ...s,
-                          pension: {
-                            ...s.pension,
-                            employeeRate:
-                              (Number(e.target.value) || 0) / 100,
-                          },
-                        }))
-                      }
-                      suffix="%"
-                    />
-                  </Field>
-                  <Field
-                    label="Employer rate"
-                    required
-                    error={issueFor("pension.employerRate")}
-                    help={`Statutory minimum ${STATUTORY.pensionEmployerMin * 100}%`}
-                  >
-                    <Input
-                      type="number"
-                      min={0}
-                      step={0.5}
-                      value={+(draft.pension.employerRate * 100).toFixed(2)}
-                      onChange={(e) =>
-                        update((s) => ({
-                          ...s,
-                          pension: {
-                            ...s.pension,
-                            employerRate:
-                              (Number(e.target.value) || 0) / 100,
-                          },
-                        }))
-                      }
-                      suffix="%"
-                    />
-                  </Field>
-                </div>
-
-                <FieldSet
-                  legend="Charged on"
-                  help="What your employment contracts define as pensionable."
-                  error={issueFor("pension.basis")}
-                >
-                  <div className="flex flex-wrap gap-4">
-                    {(["basic", "housing", "transport"] as PensionComponent[]).map(
-                      (key) => (
-                        <Checkbox
-                          key={key}
-                          label={key[0].toUpperCase() + key.slice(1)}
-                          checked={draft.pension.basis.includes(key)}
-                          onChange={(e) =>
-                            update((s) => ({
-                              ...s,
-                              pension: {
-                                ...s.pension,
-                                basis: e.target.checked
-                                  ? [...s.pension.basis, key]
-                                  : s.pension.basis.filter((b) => b !== key),
-                              },
-                            }))
-                          }
-                        />
-                      ),
-                    )}
-                  </div>
-                </FieldSet>
-              </>
-            )}
-          </CardBody>
-        </Card>
-
-        {/* NHF */}
-        <Card>
-          <CardHeader
-            title="National Housing Fund"
-            description="NHF Act charges 2.5% of basic. Some contracts define it on gross."
-          />
-          <CardBody className="flex flex-col gap-5">
-            <Switch
-              label="Deduct NHF"
-              checked={draft.nhf.enabled}
-              onChange={(e) =>
-                update((s) => ({
-                  ...s,
-                  nhf: { ...s.nhf, enabled: e.target.checked },
-                }))
-              }
-            />
-            {draft.nhf.enabled && (
+          {draft.pension.enabled && (
+            <>
               <div className="grid gap-5 sm:grid-cols-2">
-                <Field label="Rate" required error={issueFor("nhf.rate")}>
+                <Field
+                  label="Employee rate"
+                  required
+                  error={issueFor("pension.employeeRate")}
+                  help={`Statutory minimum ${STATUTORY.pensionEmployeeMin * 100}%`}
+                >
                   <Input
                     type="number"
                     min={0}
-                    step={0.1}
-                    value={+(draft.nhf.rate * 100).toFixed(2)}
+                    step={0.5}
+                    value={+(draft.pension.employeeRate * 100).toFixed(2)}
                     onChange={(e) =>
                       update((s) => ({
                         ...s,
-                        nhf: {
-                          ...s.nhf,
-                          rate: (Number(e.target.value) || 0) / 100,
+                        pension: {
+                          ...s.pension,
+                          employeeRate:
+                            (Number(e.target.value) || 0) / 100,
                         },
                       }))
                     }
                     suffix="%"
                   />
                 </Field>
-                <Field label="Charged on" required>
-                  <Select
-                    value={draft.nhf.basis}
+                <Field
+                  label="Employer rate"
+                  required
+                  error={issueFor("pension.employerRate")}
+                  help={`Statutory minimum ${STATUTORY.pensionEmployerMin * 100}%`}
+                >
+                  <Input
+                    type="number"
+                    min={0}
+                    step={0.5}
+                    value={+(draft.pension.employerRate * 100).toFixed(2)}
                     onChange={(e) =>
                       update((s) => ({
                         ...s,
-                        nhf: {
-                          ...s.nhf,
-                          basis: e.target.value as "basic" | "gross",
+                        pension: {
+                          ...s.pension,
+                          employerRate:
+                            (Number(e.target.value) || 0) / 100,
                         },
                       }))
                     }
-                  >
-                    <option value="basic">Basic salary</option>
-                    <option value="gross">Gross pay</option>
-                  </Select>
+                    suffix="%"
+                  />
                 </Field>
               </div>
-            )}
-          </CardBody>
-        </Card>
 
-        {/* Exception rules */}
-        <Card>
-          <CardHeader
-            title="Checks before paying"
-            description="What stops a payroll, and what only warns."
+              <FieldSet
+                legend="Charged on"
+                help="What your employment contracts define as pensionable."
+                error={issueFor("pension.basis")}
+              >
+                <div className="flex flex-wrap gap-4">
+                  {(["basic", "housing", "transport"] as PensionComponent[]).map(
+                    (key) => (
+                      <Checkbox
+                        key={key}
+                        label={key[0].toUpperCase() + key.slice(1)}
+                        checked={draft.pension.basis.includes(key)}
+                        onChange={(e) =>
+                          update((s) => ({
+                            ...s,
+                            pension: {
+                              ...s.pension,
+                              basis: e.target.checked
+                                ? [...s.pension.basis, key]
+                                : s.pension.basis.filter((b) => b !== key),
+                            },
+                          }))
+                        }
+                      />
+                    ),
+                  )}
+                </div>
+              </FieldSet>
+            </>
+          )}
+        </Disclosure>
+
+
+        <Disclosure
+          className="bg-surface"
+          title="National Housing Fund"
+          meta={
+            <Badge tone="neutral" size="sm">
+              {draft.nhf.enabled
+                ? `${+(draft.nhf.rate * 100).toFixed(2)}% of ${
+                    draft.nhf.basis === "basic" ? "basic salary" : "gross pay"
+                  }`
+                : "Not deducted"}
+            </Badge>
+          }
+          hint="NHF Act charges 2.5% of basic. Some contracts define it on gross."
+          open={isOpen("nhf")}
+          onToggle={() => toggle("nhf")}
+          panelClassName="flex flex-col gap-5 p-5"
+        >
+          <Switch
+            label="Deduct NHF"
+            checked={draft.nhf.enabled}
+            onChange={(e) =>
+              update((s) => ({
+                ...s,
+                nhf: { ...s.nhf, enabled: e.target.checked },
+              }))
+            }
           />
-          <CardBody className="flex flex-col gap-5">
-            <Field
-              label="Flag net pay changes above"
-              error={issueFor("exceptions.netSwingThreshold")}
-              help="Month-on-month movement that raises a warning on the review step."
-              className="max-w-xs"
-            >
-              <Input
-                type="number"
-                min={1}
-                max={500}
-                value={Math.round(draft.exceptions.netSwingThreshold * 100)}
+          {draft.nhf.enabled && (
+            <div className="grid gap-5 sm:grid-cols-2">
+              <Field label="Rate" required error={issueFor("nhf.rate")}>
+                <Input
+                  type="number"
+                  min={0}
+                  step={0.1}
+                  value={+(draft.nhf.rate * 100).toFixed(2)}
+                  onChange={(e) =>
+                    update((s) => ({
+                      ...s,
+                      nhf: {
+                        ...s.nhf,
+                        rate: (Number(e.target.value) || 0) / 100,
+                      },
+                    }))
+                  }
+                  suffix="%"
+                />
+              </Field>
+              <Field label="Charged on" required>
+                <Select
+                  value={draft.nhf.basis}
+                  onChange={(e) =>
+                    update((s) => ({
+                      ...s,
+                      nhf: {
+                        ...s.nhf,
+                        basis: e.target.value as "basic" | "gross",
+                      },
+                    }))
+                  }
+                >
+                  <option value="basic">Basic salary</option>
+                  <option value="gross">Gross pay</option>
+                </Select>
+              </Field>
+            </div>
+          )}
+        </Disclosure>
+
+
+        <Disclosure
+          className="bg-surface"
+          title="Checks before paying"
+          meta={
+            <>
+              <Badge tone="neutral" size="sm">
+                {stops === 1 ? "1 check stops a run" : `${stops} checks stop a run`}
+              </Badge>
+              <Badge tone="neutral" size="sm">
+                flags net swings over{" "}
+                {Math.round(draft.exceptions.netSwingThreshold * 100)}%
+              </Badge>
+            </>
+          }
+          hint="What stops a payroll, and what only warns."
+          open={isOpen("checks")}
+          onToggle={() => toggle("checks")}
+          panelClassName="flex flex-col gap-5 p-5"
+        >
+          <Field
+            label="Flag net pay changes above"
+            error={issueFor("exceptions.netSwingThreshold")}
+            help="Month-on-month movement that raises a warning on the review step."
+            className="max-w-xs"
+          >
+            <Input
+              type="number"
+              min={1}
+              max={500}
+              value={Math.round(draft.exceptions.netSwingThreshold * 100)}
+              onChange={(e) =>
+                update((s) => ({
+                  ...s,
+                  exceptions: {
+                    ...s.exceptions,
+                    netSwingThreshold:
+                      (Number(e.target.value) || 0) / 100,
+                  },
+                }))
+              }
+              suffix="%"
+            />
+          </Field>
+
+          <FieldSet legend="Stop payroll when">
+            <div className="flex flex-col gap-3">
+              <Checkbox
+                label="An employee has no bank account"
+                description="They cannot be paid, so the file would be wrong."
+                checked={draft.exceptions.requireBankAccount}
                 onChange={(e) =>
                   update((s) => ({
                     ...s,
                     exceptions: {
                       ...s.exceptions,
-                      netSwingThreshold:
-                        (Number(e.target.value) || 0) / 100,
+                      requireBankAccount: e.target.checked,
                     },
                   }))
                 }
-                suffix="%"
               />
-            </Field>
-
-            <FieldSet legend="Stop payroll when">
-              <div className="flex flex-col gap-3">
-                <Checkbox
-                  label="An employee has no bank account"
-                  description="They cannot be paid, so the file would be wrong."
-                  checked={draft.exceptions.requireBankAccount}
-                  onChange={(e) =>
-                    update((s) => ({
-                      ...s,
-                      exceptions: {
-                        ...s.exceptions,
-                        requireBankAccount: e.target.checked,
-                      },
-                    }))
-                  }
-                />
-                <Checkbox
-                  label="An employee has no pension PIN"
-                  description="Pension cannot be remitted without one."
-                  checked={draft.exceptions.requirePensionPin}
-                  onChange={(e) =>
-                    update((s) => ({
-                      ...s,
-                      exceptions: {
-                        ...s.exceptions,
-                        requirePensionPin: e.target.checked,
-                      },
-                    }))
-                  }
-                />
-                <Checkbox
-                  label="Net pay is zero or negative"
-                  description="Deductions exceed pay."
-                  checked={draft.exceptions.blockNegativeNet}
-                  onChange={(e) =>
-                    update((s) => ({
-                      ...s,
-                      exceptions: {
-                        ...s.exceptions,
-                        blockNegativeNet: e.target.checked,
-                      },
-                    }))
-                  }
-                />
-              </div>
-            </FieldSet>
-          </CardBody>
-        </Card>
+              <Checkbox
+                label="An employee has no pension PIN"
+                description="Pension cannot be remitted without one."
+                checked={draft.exceptions.requirePensionPin}
+                onChange={(e) =>
+                  update((s) => ({
+                    ...s,
+                    exceptions: {
+                      ...s.exceptions,
+                      requirePensionPin: e.target.checked,
+                    },
+                  }))
+                }
+              />
+              <Checkbox
+                label="Net pay is zero or negative"
+                description="Deductions exceed pay."
+                checked={draft.exceptions.blockNegativeNet}
+                onChange={(e) =>
+                  update((s) => ({
+                    ...s,
+                    exceptions: {
+                      ...s.exceptions,
+                      blockNegativeNet: e.target.checked,
+                    },
+                  }))
+                }
+              />
+            </div>
+          </FieldSet>
+        </Disclosure>
 
         <div className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-line bg-surface px-1 py-3">
           <Button

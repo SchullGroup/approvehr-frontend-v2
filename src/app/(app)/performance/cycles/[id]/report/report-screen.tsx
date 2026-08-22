@@ -98,8 +98,12 @@ export function CycleReportScreen({ cycleId }: { cycleId: string }) {
           ) : undefined
         }
         action={
+          /* The cycle screen's own action reads "See the report", so this is
+             its mirror. Not "Run the cycle": nothing is run from there — it is
+             the register of who still owes a form — and "run" is the product's
+             word for nothing at all. */
           <ButtonLink size="sm" href={`/performance/cycles/${cycleId}`}>
-            Run the cycle
+            See the register
           </ButtonLink>
         }
       />

@@ -451,6 +451,35 @@
   }
 }
 
+/* Side panels. Drawer asked for `enrich-rise` — a name carried over from the
+   sibling project this system was adapted from, and a keyframe that has never
+   existed here. An unknown animation-name is not an error in CSS, it is simply
+   ignored, so the panel had no entrance at all and both sides shared the same
+   non-animation. The travel is short on purpose: the panel is already anchored
+   to the edge it comes from, so a full-width slide reads as a longer wait
+   rather than as more motion. */
+@keyframes ahr-slide-from-right {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ahr-slide-from-left {
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 @utility animate-rise {
   animation: ahr-rise 0.5s var(--ease-out-soft) both;
 }
@@ -466,6 +495,14 @@
 @utility animate-shimmer {
   background-size: 200% 100%;
   animation: ahr-shimmer 1.4s linear infinite;
+}
+
+@utility animate-slide-from-right {
+  animation: ahr-slide-from-right 0.24s var(--ease-out-soft) both;
+}
+
+@utility animate-slide-from-left {
+  animation: ahr-slide-from-left 0.24s var(--ease-out-soft) both;
 }
 
 /* --------------------------------------------------------------------------

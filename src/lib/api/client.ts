@@ -200,9 +200,44 @@ function buildUrl(path: string, query?: RequestOptions["query"]): string {
   return url.toString();
 }
 
+/**
+ * A sentence for a response that carried no sentence of its own.
+ *
+ * The API always sends `{ error: { code, message } }`, so this is only reached
+ * when something in front of it did not: a gateway page, a proxy timeout, an
+ * HTML error from a load balancer. The previous version returned
+ * `Request failed with 502.` and that string went straight onto the screen —
+ * a raw status code is not something a payroll clerk can act on, and it is the
+ * one class of message that reaches a user having been written for a developer.
+ *
+ * Keyed on the class rather than the code, because that is the granularity at
+ * which the *advice* differs: wait, sign in again, ask somebody with access.
+ * `ApiError.status` still carries the number for anything that needs to branch.
+ */
+function fallbackMessage(status: number): string {
+  if (status === 401) return "Your session has ended. Sign in again.";
+  if (status === 403) {
+    return "Your account does not have access to this. Ask an administrator if you need it.";
+  }
+  if (status === 404) return "That is not here — it may have been removed.";
+  if (status === 408 || status === 504) {
+    return "The server took too long to answer. Try again in a moment.";
+  }
+  if (status === 429) {
+    return "Too many requests at once. Wait a moment and try again.";
+  }
+  if (status >= 500) {
+    return (
+      "Something went wrong on our side, so this did not load. Try again in a " +
+      "moment; if it keeps happening, tell your administrator."
+    );
+  }
+  return "That request could not be completed. Try again.";
+}
+
 async function toApiError(response: Response): Promise<ApiError> {
   let code = "http_error";
-  let message = `Request failed with ${response.status}.`;
+  let message = fallbackMessage(response.status);
   let details: ApiError["details"];
 
   try {
@@ -211,11 +246,14 @@ async function toApiError(response: Response): Promise<ApiError> {
     };
     if (body.error) {
       code = body.error.code ?? code;
+      /* The API's own sentence wins wherever it sent one: it knows which
+         permission is missing or which field is wrong, and this function does
+         not. The fallback is for the case where nothing wrote one. */
       message = body.error.message ?? message;
       details = body.error.details;
     }
   } catch {
-    /* A non-JSON body — a gateway error page, most likely. Keep the default. */
+    /* A non-JSON body — a gateway error page, most likely. Keep the fallback. */
   }
 
   return new ApiError(response.status, code, message, details);
@@ -251,7 +289,8 @@ export async function request<T>(
     throw new ApiError(
       0,
       "network_error",
-      "Could not reach the server. Check your connection.",
+      "The app cannot reach the server. Check your internet connection, then " +
+        "try again.",
     );
   }
 
@@ -303,7 +342,12 @@ export async function requestPaged<T>(
     response = await send();
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") throw error;
-    throw new ApiError(0, "network_error", "Could not reach the server.");
+    throw new ApiError(
+      0,
+      "network_error",
+      "The app cannot reach the server. Check your internet connection, then " +
+        "try again.",
+    );
   }
 
   if (response.status === 401) {

@@ -61,7 +61,8 @@ export function ReportsScreen() {
           <Card>
             <CardBody className="flex flex-col items-start gap-3">
               <p className="text-body text-ink">
-                {error ?? "Could not load the reports."}
+                {error ??
+                  "The reports did not load. Try again in a moment."}
               </p>
               <button
                 type="button"

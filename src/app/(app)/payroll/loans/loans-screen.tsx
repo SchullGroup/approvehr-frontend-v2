@@ -6,7 +6,6 @@ import { CreditCard, Plus, Wallet } from "lucide-react";
 import {
   Badge,
   Button,
-  Callout,
   EmptyState,
   Money,
   Spinner,
@@ -22,6 +21,7 @@ import {
   formatMoney,
   useToast,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import { naira, type ApiLoan, type LoanStatus } from "@/lib/api/loans";
@@ -213,9 +213,7 @@ export function LoansScreen() {
 
       <PageBody className="flex flex-col gap-6">
         {list.error && (
-          <Callout tone="danger" title="Could not load the loans">
-            {list.error.message}
-          </Callout>
+          <LoadFailure subject="the loans" error={list.error} />
         )}
 
         {seeEverybody && summary && (

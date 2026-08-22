@@ -28,6 +28,7 @@ import {
   TableWrap,
   useToast,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
 import {
   kobo,
@@ -171,11 +172,7 @@ export function ComponentsPanel({ kind }: { kind: PayComponentKind }) {
         </Callout>
       )}
 
-      {components.error && (
-        <Callout tone="danger" title={`Could not load the ${copy.plural}`}>
-          {components.error.message}
-        </Callout>
-      )}
+      <LoadFailure subject={`the ${copy.plural}`} error={components.error} />
 
       <Card>
         <CardHeader
@@ -600,9 +597,7 @@ function AssigneesDrawer({
         )}
 
         {error && (
-          <Callout tone="danger" title="Could not load who is on it">
-            {error.message}
-          </Callout>
+          <LoadFailure subject="who is on it" error={error} />
         )}
 
         <div>

@@ -31,6 +31,38 @@ import { fullName } from "@/lib/types";
 import { EmployeeRecord } from "./record";
 
 /**
+ * What to tell somebody whose record did not load.
+ *
+ * The API's own sentence wherever it wrote one about this refusal — it names the
+ * permission or the field and nothing here can. Otherwise a sentence with an
+ * action in it, chosen by the class of failure. Never a status code: the
+ * previous version rendered `error.message`, which for anything that did not
+ * pass the API's error handler was `Request failed with 502.`
+ */
+function recordFailureDetail(error: unknown): string {
+  if (!(error instanceof ApiError)) {
+    return (
+      "Something went wrong while opening this record. Try again in a moment; " +
+      "if it keeps happening, tell your administrator."
+    );
+  }
+  if (error.status === 0) {
+    return (
+      "The app cannot reach the server. Check your internet connection, then " +
+      "try again."
+    );
+  }
+  if (error.status === 401) return "Your session has ended. Sign in again to carry on.";
+  if (error.status >= 500) {
+    return (
+      "Something went wrong on our side, so this record did not open. Try " +
+      "again in a moment; if it keeps happening, tell your administrator."
+    );
+  }
+  return error.message;
+}
+
+/**
  * One person's record, from whichever source is answering.
  *
  * ## Why the record is fetched on its own
@@ -102,7 +134,15 @@ export function EmployeeRecordPage({ id }: { id: string }) {
               "You are signed in to the real system, and this address belongs to a demo record. Find the person in the directory instead.",
           }
         : record.error && !record.notFound
-          ? { title: "Could not load this record", detail: record.error.message }
+          ? {
+              title: "This record did not load",
+              /* The API's own sentence where it wrote one about this refusal;
+                 otherwise a sentence saying what to do. Same rule as
+                 `components/portal/load-failure.tsx`, which cannot be used here
+                 because this screen renders an EmptyState rather than a
+                 Callout — there is no partial page to put a banner on. */
+              detail: recordFailureDetail(record.error),
+            }
           : {
               title: "No such employee",
               detail: record.connected

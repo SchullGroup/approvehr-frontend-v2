@@ -35,6 +35,7 @@ import {
   formatMoney,
   useToast,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -248,9 +249,7 @@ function Adverts() {
         )}
 
         {postings.error && (
-          <Callout tone="danger" title="Could not load your adverts">
-            {postings.error.message}
-          </Callout>
+          <LoadFailure subject="your adverts" error={postings.error} />
         )}
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

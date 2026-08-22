@@ -28,6 +28,7 @@ import {
   Textarea,
   useToast,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -430,9 +431,7 @@ function TicketTable({
   if (error) {
     return (
       <div className="p-5">
-        <Callout tone="danger" title="Could not load the requests">
-          {error.message}
-        </Callout>
+        <LoadFailure subject="the requests" error={error} />
       </div>
     );
   }

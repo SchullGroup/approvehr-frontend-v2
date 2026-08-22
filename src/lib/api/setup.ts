@@ -157,6 +157,71 @@ export type ApiSeeded = { leaveTypes: number; payrollSettings: boolean };
 
 export type ApiCompleteResult = ApiFeatures & { seeded: ApiSeeded };
 
+/**
+ * What is still not set up, as facts.
+ *
+ * One request rather than nine hooks, and **facts rather than prose** — the
+ * opposite choice from `GET /setup/wizard`, which sends its own wording. The
+ * reasoning is in the header of `approvehr-api/src/modules/setup/checklist.ts`
+ * and is worth knowing before adding a field: the API decides what is *true*
+ * about a company, and the Settings hub decides what is worth nagging somebody
+ * about. Copy lives beside the link it sits next to.
+ *
+ * Nothing here is a figure about a person. The closest is a headcount.
+ */
+export type ApiSetupChecklist = {
+  /** Null until the five setup questions have been finished. */
+  setupCompletedAt: string | null;
+  company: {
+    rcNumber: boolean;
+    tin: boolean;
+    addressLine: boolean;
+    /** The PAYE state an employee record inherits when it does not say. */
+    taxState: boolean;
+    entities: number;
+  };
+  locations: {
+    total: number;
+    withGeofence: number;
+    /** Fenced **and** not open to clocking in from anywhere. */
+    enforcing: number;
+  };
+  recordFields: { taxSetup: boolean; pensionSetup: boolean; bankDetails: boolean };
+  leave: {
+    types: number;
+    year: number;
+    holidays: number;
+    awaitingProclamation: number;
+  };
+  pay: {
+    settings: boolean;
+    components: number;
+    grades: number;
+    bankAccounts: number;
+    /** A payment batch cannot be built without one. */
+    hasPrimaryBankAccount: boolean;
+  };
+  access: {
+    roles: number;
+    users: number;
+    /** Accounts that can sign in and would see nothing. */
+    usersWithoutRole: number;
+    /** One is a single point of failure, which is why it is a number. */
+    canApprovePayroll: number;
+  };
+  /**
+   * What would stop a payroll today — the same two conditions the run raises as
+   * a BLOCKER and a WARNING, read against the same settings switches.
+   */
+  payrollChecks: {
+    employees: number;
+    requireBankAccount: boolean;
+    requirePensionPin: boolean;
+    missingBankAccount: number;
+    missingPensionPin: number;
+  };
+};
+
 /* ----------------------------------------------------------------- requests */
 
 export const setup = {
@@ -171,6 +236,19 @@ export const setup = {
    */
   status: (signal?: AbortSignal) =>
     request<ApiSetupStatus>("/setup/status", {
+      ...(signal ? { signal } : {}),
+    }),
+
+  /**
+   * The setup checklist. Any authenticated user may read it.
+   *
+   * `year` is what the holiday counts cover; the API defaults it to its own
+   * clock rather than trusting a browser's, so omit it unless a screen has a
+   * year control.
+   */
+  checklist: (year?: number, signal?: AbortSignal) =>
+    request<ApiSetupChecklist>("/setup/checklist", {
+      query: year === undefined ? {} : { year },
       ...(signal ? { signal } : {}),
     }),
 

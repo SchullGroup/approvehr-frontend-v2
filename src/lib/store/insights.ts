@@ -169,7 +169,10 @@ export function useDashboard(): DashboardState & { reload: () => void } {
           setFetched({
             data: null,
             loading: false,
-            error: message(caught, "Could not load the dashboard."),
+            error: message(
+              caught,
+              "The dashboard did not load. Try again in a moment.",
+            ),
           });
         }
       }
@@ -245,7 +248,10 @@ export function useReports(period?: string): ReportsState & { reload: () => void
           setFetched({
             data: null,
             loading: false,
-            error: message(caught, "Could not load the reports."),
+            error: message(
+              caught,
+              "The reports did not load. Try again in a moment.",
+            ),
           });
         }
       }

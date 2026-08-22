@@ -723,7 +723,7 @@ questions. A five-person business sees six nav items instead of thirty. The
 incumbent shows ~120 routes to that same business, and that is the single
 biggest thing we do better.
 
-Two rules that follow, both in `PARITY.md` and both load-bearing:
+Three rules that follow, all three in `PARITY.md` and all three load-bearing:
 
 1. **One route per concept, rendered by role.** Not `/performance/manager` and
    `/performance/my-objectives` and `/performance/executive`. One
@@ -731,6 +731,14 @@ Two rules that follow, both in `PARITY.md` and both load-bearing:
    ~120 routes largely because it did the opposite.
 2. **Turning a flag off never deletes data.** That is why the flags are a table
    and not a migration.
+3. **A screen answers one question, and the rest is behind a reveal** —
+   `PARITY.md` Rule 5, the same argument applied inside one page rather than
+   across the nav. Closed by default for a year of dates, an audit trail, a
+   settings sub-form; **open** for a blocker, an exception, an approval waiting
+   on the reader. A reveal that hides something costing money is the failure
+   mode, which is why the leave screen's ungazetted-holidays warning renders
+   *outside* the closed calendar. The primitive is `Disclosure` in
+   `components/ui/disclosure.tsx` — there is exactly one, on purpose.
 
 `src/lib/permissions.ts` (`usePermissions` / `useCan` / `<Can>` /
 `useIsManager`) and `src/lib/store/features.ts` (`useFeatures`) are the
@@ -2953,3 +2961,382 @@ reproducible on every screen rather than intermittently on one. Serial `curl`
 against the same endpoints with the same token is 200 every time, which is what
 the connected verification above is. Somebody with a real Postgres in
 `DATABASE_URL` should load both screens once.
+
+---
+
+# Setting the company up is one job now, and offices are a screen
+
+Two complaints, one change: the parameters of a company were scattered, and
+`WorkLocation` had a table, a `POST`, a `DELETE` and **nothing that rendered any
+of it**. A five-branch company had one place to be.
+
+## `/settings` answers a different question
+
+It was eight `LinkCard`s in four groups — "here are eight pages" — and the
+question people arrive with is "what do I still need to set up". The seven things
+that constitute setting a company up are now a checklist, each row carrying its
+own state, what it affects, and a link that goes somewhere real.
+
+| File | Role |
+|---|---|
+| `approvehr-api/src/modules/setup/checklist.ts` | `GET /setup/checklist`. Counts and booleans, **no prose** — the opposite choice from `GET /setup/wizard`, and the header says why. Fifteen reads, deliberately **sequential**: the same `P1017` that made `cycleReport` sequential. |
+| `web/src/lib/store/setup-checklist.ts` | One request connected; composed from six localStorage stores offline, which is the thing `store/insights.ts` warns against and is justified in the header — every demo read is synchronous, and a hub that cannot answer its own question on a laptop with no database is worse. |
+| `web/src/app/(app)/settings/checklist.ts` | The judgement: which facts add up to "done", and the sentence for each state. Apart from the JSX so a sentence is not written twice. |
+| `web/src/app/(app)/settings/settings-screen.tsx` | The rows, plus the ten ongoing surfaces as an index below them. |
+
+Three decisions in it worth not re-making:
+
+- **`optional` is what keeps the count honest.** "6 of 7" has to mean something,
+  so a row that *cannot* be incomplete is excluded from the denominator rather
+  than counted as done. Employee record fields are the only one: their columns
+  default to on, so there is no state where a company has failed to choose.
+- **`attention` is not a softer `todo`.** It means something is set up and is
+  wrong right now — nobody holding `APPROVE_PAYROLL`, an account with no role
+  that can sign in and see nothing, a calendar with no holidays so every one of
+  them prorates as an ordinary working day.
+- **The payroll-check counts are the run's own conditions**, read against the
+  same `requireBankAccount` / `requirePensionPin` switches. A hub counting
+  "missing bank account" its own way would nag about a payroll that would go
+  through, or stay quiet about one that would not.
+
+Demo mode reports `null` — not zero — for bank accounts, pay components and
+salary bands. All three are API-only surfaces and the screen says so.
+
+## Work locations: `/settings/locations`
+
+Add, edit, switch off, turn back on, with a geofence per office. No map: a tile
+provider is a credential nobody has wired, and the substitute that actually makes
+coordinates usable is a sentence saying what a radius *does* (`GEOFENCE_EXPLANATION`,
+written once in `lib/api/attendance.ts`). `remoteAllowed` is worded as **"Staff may
+clock in from anywhere"** on every surface.
+
+Three states are kept apart, because conflating them is a wrong claim:
+
+1. **No fence** — nothing is checked. Renders "Not checked", never `0 m`.
+2. **A fence that is applied** — radius and coordinates, `geofenceEnforced: true`.
+3. **A fence that is not applied** — coordinates *and* `remoteAllowed`, so the
+   radius sits on the record doing nothing. A real arrangement, and the row says
+   "Set, but not applied" rather than showing a radius that bites nothing.
+   `geofenceEnforced` is computed **on the API** so the screen and `clockIn`
+   cannot disagree about it.
+
+### The API had to grow, and `attendance/service.ts` was not touched
+
+`src/modules/attendance/locations.ts` is new: the read that carries the fence,
+`PATCH /attendance/locations/:id`, and `POST /attendance/locations/:id/restore`.
+`createLocation` and `archiveLocation` stay in `service.ts`, which is the clocking
+engine — the split is between drawing a fence and enforcing one.
+
+- **The old `GET` returned four fields and none of them was the fence.** A fence
+  you cannot read is a fence you cannot edit, so `POST` could set coordinates
+  nothing would ever show back.
+- **`restore` closes a sentence that named a route which did not exist.**
+  `createLocation` refuses an archived name with "Turn it back on rather than
+  making a second one" — and until now you could not.
+- **A PATCH validates the fence it would *end up with*.** Sending only
+  `latitude` slips past a schema-level check and leaves two thirds of a fence in
+  the table, which decides nothing and refuses nothing. `GEOFENCE_ALL_OR_NOTHING`
+  is one exported sentence so the create and the patch cannot drift, and the
+  frontend copies it character for character for its demo refusal.
+- **`null` clears, absent leaves alone.** That is the only way to remove a fence
+  drawn by mistake, and it is why `updateWorkLocationSchema` is not the create
+  schema with everything optional.
+
+### One frontend bug found on the way
+
+`attendanceApi.createLocation` passed `body: JSON.stringify(input)` to `request`,
+which stringifies its body itself. Every field reached the API as a quoted string
+where an object belonged, so the one write that existed had never worked. Nothing
+rendered it, which is how it survived.
+
+### A reversed decision: demo mode may now write locations
+
+`useWorkLocations` refused every write offline on the grounds that "a location is
+company configuration, and inventing one locally would have it vanish on the next
+machine". **The employees are in localStorage too** — a person created in demo
+mode vanishes the same way and the product creates them anyway — so that is an
+argument against demo mode, not against this screen. `lib/store/departments.ts`
+still refuses and still should: a demo department would contradict the demo's own
+payroll screens, and a location contradicts nothing.
+
+The honest cost, stated on the screen: **a demo fence is never applied**, because
+clocking in offline does not ask the device where it is. Connected, `clockIn` is
+the only thing that judges a fence and it judges every one.
+
+`assigned` is `number | null` for the same reason: `Employee.location` offline is
+a city ("Lagos, NG") and nothing joins it to a work location, so the count is
+absent rather than 0.
+
+## Verified
+
+`web`: `npm run check` and `npm run build` green — 87 routes, 116 prerendered,
+`/settings/locations` among them. `approvehr-api`: `npm run check` green (the gate
+CI runs, not `tsc && vitest`) — **46 files, 1233 tests**, including
+`tests/setup-checklist.test.ts` (7 assertions, one of them tenant isolation) and
+`tests/work-locations.test.ts` (16, up from 6, two of them tenant isolation on the
+new writes).
+
+In the browser, demo mode: five branches with two fences, the exact coordinates
+round-tripping (`6.601838` in and out), the partial-fence refusal in the API's
+own sentence with save disabled, the case-insensitive duplicate refusal, switch
+off → show switched-off → turn back on with the fence intact, `remoteAllowed`
+flipping a fence to "Set, but not applied", clearing a fence to "Not checked",
+and the propagation — adding a fifth office moved the hub's row from "4 offices.
+1 has a geofence" to "5 offices. 2 have a geofence, and each one is applied."
+
+**Connected mode was not exercised in the browser.** The local database is
+`prisma dev` and the wire shapes were checked against the two test files instead.
+
+---
+
+# Connected mode works now, and the errors were one environment problem
+
+The complaint was *"lets not have all these api error messages, I want this as
+close to the system we are launching"*. Almost none of those messages were bugs
+in the product. This section is what they actually were, because the diagnosis
+is the useful part and every previous session recorded a symptom of it without
+finding the cause.
+
+## `prisma dev` cannot serve a single-page app, and that is the whole story
+
+Six sections above end with **"connected mode was not exercised"** and a note
+about `P1017 Server has closed the connection`. Two of them blame concurrency
+and one calls it "the class of flakiness this file already records". All three
+were right about the shape and none of them measured it. Measured:
+
+| Pool size against `prisma dev` | Result over 60 queries, 12 at a time |
+|---|---|
+| 1, 2, 4, 5 | 60 succeed |
+| 6 | 50 succeed, 10 `ECONNRESET` |
+| 8 | 43 succeed |
+| **10 — what `src/db/client.ts` actually uses** | **35 succeed, 25 dropped** |
+
+`prisma dev` is Postgres compiled to wasm behind a proxy; the same property that
+makes the test suite's advisory lock useless there (every connection gets the
+same backend session — see the entry above) makes it drop the sixth concurrent
+connection. `GET /health/ready` — one `SELECT 1` — returned **503 on a third of
+requests** in a burst of eight. A browser opening one screen fires six.
+
+So: every "api error message" on every screen, every intermittent 500 on
+`/performance/reviews/mine`, and the "Something went wrong on our side" that made
+the report screens unverifiable, were the same connection being dropped.
+
+**The fix is a real Postgres, not a code change.** `brew install postgresql@17`,
+three databases, and `.env` pointed at them. After that, 36 out of 36 concurrent
+`/health/ready` requests answered 200, and **all 158 GET endpoints the API
+exposes answered 2xx** in one sweep with ids resolved from the seed.
+
+Do not "fix" the pool size for `prisma dev`. Ten per task is right for RDS, it is
+sized in a comment that explains itself, and shrinking it to suit a wasm
+development database would make production worse to make a laptop quieter.
+
+### Setting the database up, once
+
+```bash
+brew install postgresql@17 && brew services start postgresql@17
+psql -h 127.0.0.1 -d postgres -c "CREATE ROLE approvehr LOGIN PASSWORD 'approvehr' SUPERUSER"
+psql -h 127.0.0.1 -d postgres -c "CREATE DATABASE approvehr OWNER approvehr"
+psql -h 127.0.0.1 -d postgres -c "CREATE DATABASE approvehr_shadow OWNER approvehr"
+psql -h 127.0.0.1 -d postgres -c "CREATE DATABASE approvehr_test OWNER approvehr"
+```
+
+Then `DATABASE_URL`, `SHADOW_DATABASE_URL` and `TEST_DATABASE_URL` in `.env`, and
+`npm run demo`. The old `prisma dev` values are kept in `.env.prismadev.bak` on
+the machine this was done on; the daemon is still running and can be left alone.
+
+## The rate limit is the second thing that looks like a broken API
+
+`RATE_LIMIT_MAX` is 300 in fifteen minutes, per session. The comment in
+`src/app.ts` argues at length for keying on the token rather than the IP and is
+right, and it says in passing that "opening three screens spends that" — which is
+the ceiling, not the key, and nobody had drawn the conclusion. In development,
+where hot reload re-runs every fetch on a screen, walking twenty screens exhausts
+it and **every panel on the page says "Too many requests" at once**. That reads
+as the API being broken.
+
+`.env` is at 20000 locally with the reason in `.env.example`. The production
+default is untouched: 300 in fifteen minutes is right for somebody working.
+
+Worth knowing while debugging this: `pkill -f "tsx watch src/server.ts"` **does
+not match**, because the command line is `tsx watch --env-file=.env src/server.ts`.
+Four stale wrappers were running from earlier sessions, one of them still holding
+the old limit, which is why the first attempt at raising it appeared to do
+nothing. `pkill -f "src/server.ts"` is the pattern that works, and
+`pgrep -fl "src/server.ts"` is worth two seconds before any of this.
+
+## One command brings up a company with something on every screen
+
+`npm run demo` = `db:deploy` → `db:seed` → `demo:company` → `demo:performance`.
+Idempotent end to end; re-running changes nothing.
+
+### `prisma/seed.ts` grew the things a company *is*
+
+The seed created ten people and five departments and nothing else, so two thirds
+of the product had no data at all and the empty states were being read as broken
+screens. It now also writes: **the reporting line** (three levels), `OrgFeatures`
+with every flag on and the wizard recorded as finished, four offices with the
+**three distinct geofence states**, salary bands every seeded salary falls inside,
+pay components with one deliberately pensionable line, a bank account, expense
+types, asset categories, the exit checklist templates, SLA policies and ticket
+categories that point at them, six knowledge-base articles, three policies (one
+draft), shifts and rota patterns, notification rules, three teams (one
+cross-functional), and Nigeria's 2026 holiday calendar instead of four dates.
+
+Two of those are load-bearing rather than decorative:
+
+- **The reporting line had to exist for the performance demo to run at all.**
+  `assertMayApproveGoal` lets somebody agree an objective only for their own
+  reports or with `EDIT_RECORDS`. With `managerId` null on everybody,
+  `npm run demo:performance` stopped on a `ForbiddenError` at the first
+  objective. That is the guard working; the fix belonged in the seed.
+- **`Finance approver` gained `APPROVE_LOANS` and `APPROVE_EXPENSES`.** The role
+  held `APPROVE_PAYROLL` alone, so the persona named "Finance approver" could not
+  approve a staff loan — `/payroll/loans` offered a button the API refused. The
+  three are the same act (releasing money) and belong together; what the role
+  must never hold is `RUN_PAYROLL`, which is the half that *prepares*.
+
+### `scripts/demo-company.ts` writes what the company has *done*
+
+New, ~1,300 lines, shaped on `demo-performance-cycle.ts` and separate from the
+seed for one reason: reference data is fixed, an operating history is measured
+from today. It is anchored on the real clock, so "waiting 2 days" stays true —
+the drift `lib/today.ts` records for demo mode does not apply to a mode with a
+database in it.
+
+It drives the **services** wherever a guard exists — loans, expenses, assets, the
+exit, the payroll run, the payment batch — so every refusal a person would meet
+applies. It writes tables directly only where the table carries no rule beyond
+its own shape.
+
+Three decisions in it worth not undoing:
+
+- **Attendance covers every working day of every period a payroll is prepared
+  for.** `unpaidDaysFor` counts a working day with no clock-in as unpaid, so
+  partial coverage prorates every salary towards zero. That is the bug that paid
+  a whole company ₦0; the script's header says so and the coverage is not an
+  accident. The current month is deliberately left without a payroll run, because
+  preparing a month that is not over counts every remaining day as an absence.
+- **Nothing is marked paid.** `submitBatchToProvider` refuses with no provider
+  registered and that refusal is correct. The batch stops at APPROVED with its
+  instructions PENDING, which is exactly where a real company stands the moment
+  before somebody downloads the bank file. A green "Paid" against money nobody
+  moved is the failure this product is sold against.
+- **An absence is a missing row, not a row saying nothing happened.** A row with
+  a null clock-in would make the timesheet claim somebody was recorded as not
+  turning up, which is a different fact.
+
+What it produces: 589 timesheet rows, leave at four statuses, overtime at three,
+one loan being repaid and one waiting, expenses at all four, documents and three
+document requests, nine assets with one damaged return, a verbal warning, an
+onboarding checklist part done, two requisitions with somebody in every pipeline
+stage plus scorecards and an offer awaiting approval, a published advert with four
+public applications, five tickets against a live SLA clock, an exit `IN_PROGRESS`
+with the equipment line deliberately open, two payroll periods — one approved and
+batched, one left in review to be approved by hand — and three remittances at
+three states. Three of ten people declare rent, so the run's
+`rent_relief_unclaimed` warning names the other seven, which is the only way any
+of them find out.
+
+## "Could not load" is gone, and so is the status code behind it
+
+Thirty-two screens each carried their own version of this:
+
+```tsx
+<Callout tone="danger" title="Could not load the audit log">
+  {trail.error.message}
+</Callout>
+```
+
+Both halves were wrong in front of a real reader. *"Could not load the audit
+log"* is a **restatement of the blank space** — the reader can see nothing
+loaded; what they need is what to do. And `error.message` was whatever came
+back: `toApiError` in `lib/api/client.ts` defaulted to
+`` `Request failed with ${response.status}.` `` for any response that did not
+carry the API's own error envelope — a gateway page, a proxy timeout, an HTML
+error from a load balancer. **A status code, on screen, to a payroll clerk.**
+
+- `components/portal/load-failure.tsx` is new and is the one place that sentence
+  is written. The title says what is missing; the body says what to do, chosen by
+  the **class** of failure, because that is the granularity at which the advice
+  differs. `ApiError.status` still carries the number and it does not reach a
+  screen.
+- Where the API wrote a sentence about *this* refusal — 400, 403, 409, 422 — it
+  is shown verbatim. It knows which permission is missing or which field is
+  wrong; nothing on the client does. Paraphrasing a server message locally is how
+  the two stop agreeing, which is the rule the performance screens already
+  follow.
+- `fallbackMessage(status)` in `client.ts` replaced the status-code string, and
+  the two network-failure sentences now say what to check.
+- `/people/[id]` keeps its own copy (`recordFailureDetail`) because it renders an
+  `EmptyState` rather than a `Callout` — there is no partial page to put a banner
+  on.
+
+**An empty read is not a failure and must not render this.** "No timesheet rows
+yet" and "the timesheet did not load" are opposite facts, and showing the second
+for the first is the same class of mistake as rendering 0 for an absent figure.
+
+### What was deliberately left alone
+
+The ~40 write-path fallbacks reading `error instanceof ApiError ? error.message :
+"Something went wrong. Try again."`. The `ApiError` branch is the server's own
+sentence and the fallback only fires for a non-`ApiError` throw, where there is
+genuinely nothing to say beyond "try again" — and with the status-code string
+gone, neither branch can now put a number on screen. Rewriting forty confirmed
+strings inside a connect-and-verify pass is a copy decision, not a defect.
+
+## The frontend gate was red on committed code, again, and for the same reason
+
+`npm run lint` reported **977 errors** — 578 of them inside
+`.claude/worktrees/festive-snyder-3212ef`, a linked git worktree with its own
+`.next` build output. `.git/info/exclude` hides it from git and from nothing
+else, and that file is local and uncommitted, so it cannot be the fix. `.claude/**`
+is in `eslint.config.mjs`'s `globalIgnores` now — the committed counterpart, the
+same fix `.prettierignore` got in the API repo one session earlier for the same
+class of failure in the same directory.
+
+That is twice. **If a gate reports errors in files you did not write, check for a
+worktree before reading a single one of them.**
+
+## Verified
+
+Backend `npm run check` in parts, real exit codes read from `$?` on their own
+line: `tsc --noEmit` 0, `eslint src prisma scripts tests` 0, `format:check` 0
+(after formatting the two new files), `vitest run` **0 — 46 files, 1233 tests**.
+A second `vitest run` came back 1 on a **5000ms timeout** in
+`tests/imports.test.ts`, a file this change does not touch; `npx vitest run
+tests/imports.test.ts` alone is 28/28 in 1.46s. That is contention, by this
+file's own rule, and the rule earned its place — chasing it would be chasing the
+browser walk that was running at the time.
+
+Frontend: `npm run check` and `npm run build` green.
+
+Against the live API, signed in as the seeded administrator: every GET the API
+exposes (158 of them, ids resolved from the seed) answered 2xx, and every app
+route rendered with real data and no 4xx or 5xx in the network log.
+
+**One thing that is honestly labelled rather than fixed:** `/hiring`,
+`/hiring/interviews` and `/hiring/offers` show "Demo data, this browser only"
+**while connected**, and that is correct. There is no API for the internal ATS —
+`/careers` covers public adverts and applications, and there are no
+`requisitions`, `candidates`, `applications`, `interviews` or `offers` endpoints
+for the pipeline those three panels render. The badge is telling the truth. The
+module is the next substantial piece of work, and a screen that says which half of
+itself is real is better than one that does not.
+
+## How somebody sits down and tests this
+
+```bash
+brew services start postgresql@17                     # once per boot
+cd /Users/mac/Documents/Schulltech/approvehr-api && npm run demo && npm run dev
+npm run dev
+```
+
+Open `http://localhost:3000`, and the sign-in screen states the accounts:
+`amara.nwachukwu@schull.io` (Administrator) or `grace.effiong@schull.io` (Payroll
+analyst), password `approvehr-dev-2026`. Both verified present in the database
+with an argon2 hash and their role, and the screen's copy matches
+`SEED_PASSWORD` in `prisma/seed.ts`.
+
+The one thing worth doing first: `/payroll` has last month prepared and left in
+review, with its exceptions readable and an Approve button that has never been
+pressed against a real database.

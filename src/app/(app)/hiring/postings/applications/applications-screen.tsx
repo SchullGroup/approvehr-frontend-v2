@@ -30,6 +30,7 @@ import {
   Textarea,
   useToast,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -205,9 +206,7 @@ function Queue({ initialPostingId }: { initialPostingId: string }) {
         )}
 
         {applications.error && (
-          <Callout tone="danger" title="Could not load the queue">
-            {applications.error.message}
-          </Callout>
+          <LoadFailure subject="the queue" error={applications.error} />
         )}
 
         {cvNote && (

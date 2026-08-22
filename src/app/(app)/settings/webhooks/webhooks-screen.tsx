@@ -26,6 +26,7 @@ import {
   Tag,
   useToast,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import { hostOf, pathOf, type ApiWebhook } from "@/lib/api/webhooks";
@@ -174,9 +175,7 @@ function Endpoints() {
         )}
 
         {list.error && (
-          <Callout tone="danger" title="Could not load your endpoints">
-            {list.error}
-          </Callout>
+          <LoadFailure subject="your endpoints" error={list.error} />
         )}
 
         <div className="flex flex-wrap items-center gap-3">

@@ -13,7 +13,6 @@ import {
   Badge,
   Button,
   ButtonLink,
-  Callout,
   Card,
   CardBody,
   CardHeader,
@@ -30,6 +29,7 @@ import {
   TableWrap,
   useToast,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import { naira, type ApiPaymentBatch } from "@/lib/api/payments";
@@ -164,9 +164,7 @@ export function PaymentsScreen() {
 
       <PageBody className="flex flex-col gap-6">
         {list.error && (
-          <Callout tone="danger" title="Could not load the batches">
-            {list.error.message}
-          </Callout>
+          <LoadFailure subject="the payment batches" error={list.error} />
         )}
 
         {summary.summary && !primary && (

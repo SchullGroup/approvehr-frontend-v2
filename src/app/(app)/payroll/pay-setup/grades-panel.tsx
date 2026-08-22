@@ -38,6 +38,7 @@ import {
   formatMoney,
   useToast,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
 import { kobo, naira, type ApiGrade, type ApiIncreaseResult } from "@/lib/api/grades";
 import {
@@ -143,9 +144,7 @@ export function GradesPanel() {
       )}
 
       {grades.error && (
-        <Callout tone="danger" title="Could not load the grades">
-          {grades.error.message}
-        </Callout>
+        <LoadFailure subject="the salary bands" error={grades.error} />
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -1057,9 +1056,7 @@ function PeopleDrawer({
     >
       <div className="flex flex-col gap-5">
         {error && (
-          <Callout tone="danger" title="Could not load the list">
-            {error.message}
-          </Callout>
+          <LoadFailure subject="the list" error={error} />
         )}
 
         {loading && <p className="text-body-sm text-muted">Loading…</p>}

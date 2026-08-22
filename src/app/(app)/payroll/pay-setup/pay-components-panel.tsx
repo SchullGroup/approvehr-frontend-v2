@@ -26,6 +26,7 @@ import {
   TableWrap,
   useToast,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
 import {
   kobo,
@@ -147,9 +148,7 @@ export function PayComponentsPanel({
         )}
 
         {lines.error && (
-          <Callout tone="danger" title="Could not load this person's pay lines">
-            {lines.error.message}
-          </Callout>
+          <LoadFailure subject="this person's pay lines" error={lines.error} />
         )}
 
         {issues.length > 0 && (
@@ -592,9 +591,7 @@ function AddLineDialog({
             assign but not read the library gets the reason rather than an empty
             list with no explanation. */}
         {library.error && (
-          <Callout tone="danger" title="Could not load the list to choose from">
-            {library.error.message}
-          </Callout>
+          <LoadFailure subject="the list to choose from" error={library.error} />
         )}
 
         <Field label="What is it?" required>

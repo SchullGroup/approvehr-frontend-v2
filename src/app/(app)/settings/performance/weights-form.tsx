@@ -64,7 +64,15 @@ import { useScoringWeights } from "@/lib/store/performance";
  * mark.
  */
 
-/** Whole percent, so a set can always be made to reach exactly 100. */
+/**
+ * One basis point, which is the smallest weight the API can hold.
+ *
+ * Not `1`: a whole-percent step would make 33.33% untypeable with the arrows,
+ * and a three-way split has to be reachable or the rule that the set totals
+ * exactly 100% becomes a rule that only round numbers can satisfy. `toBp`
+ * rounds to the same resolution, so nothing a field can produce is a figure the
+ * payload has to lose.
+ */
 const STEP = "0.01";
 
 /**

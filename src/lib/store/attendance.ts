@@ -15,14 +15,13 @@ import {
   type ApiAttendancePolicy,
   type ApiRosterRow,
   type ApiTimesheetRow,
-  type ApiWorkLocation,
   type AttendanceStatus,
 } from "@/lib/api/attendance";
 import type { ApiRotaCell } from "@/lib/api/shifts";
+import { readPosition } from "@/lib/geolocation";
 import {
   ATTENDANCE,
   DEFAULT_POLICY,
-  WORK_LOCATIONS,
   recentWorkingDays,
   type AttendanceEntry,
   type AttendancePolicy,
@@ -32,6 +31,8 @@ import { usePayrollSettings } from "@/lib/payroll/use-settings";
 import { TODAY } from "@/lib/today";
 import { fullName } from "@/lib/types";
 import {
+  employedOn,
+  firstRecordedDate,
   isHoliday,
   prorationFor,
   rosterFor,
@@ -266,6 +267,24 @@ export type RosterState = {
   policy: ApiAttendancePolicy | null;
   /** Exceptions first. Never re-sort by status — that ordering is the point. */
   rows: ApiRosterRow[];
+  /**
+   * Clock-ins on file for the day. Zero is a presence check, not a count.
+   *
+   * With `tracked` below, this is how a screen showing a **past** day tells
+   * "nobody clocked in" from "we have no record for that day". Those are
+   * different claims, and rendering the first when the second is true is the
+   * mistake that prorated everybody to ₦0.
+   */
+  recorded: number;
+  /**
+   * Whether attendance was being recorded at all by this date.
+   *
+   * False before the company's first clock-in ever. The rows still carry their
+   * statuses — nothing suppresses one, because that would be a second opinion
+   * about the day in a second place — so it is the screen that has to decline to
+   * render a wall of absences it has been told not to believe.
+   */
+  tracked: boolean;
   loading: boolean;
   error: ApiError | null;
   source: AttendanceSource;
@@ -297,6 +316,8 @@ export function useAttendanceRoster(date?: string): RosterState {
     date: string;
     policy: ApiAttendancePolicy | null;
     rows: ApiRosterRow[];
+    recorded: number;
+    tracked: boolean;
     error: ApiError | null;
   } | null>(null);
 
@@ -322,6 +343,8 @@ export function useAttendanceRoster(date?: string): RosterState {
             date: roster.date,
             policy: roster.policy,
             rows: roster.rows,
+            recorded: roster.recorded,
+            tracked: roster.tracked,
             error: null,
           });
         }
@@ -333,6 +356,10 @@ export function useAttendanceRoster(date?: string): RosterState {
             date: date ?? "",
             policy: null,
             rows: [],
+            recorded: 0,
+            /* A failed read knows nothing, and "not tracked" is the reading that
+               claims nothing about anybody. The error is what gets rendered. */
+            tracked: false,
             error: error instanceof ApiError ? error : null,
           });
         }
@@ -354,7 +381,11 @@ export function useAttendanceRoster(date?: string): RosterState {
     const on = date ?? TODAY;
     const rows: ApiRosterRow[] = rosterFor({
       date: on,
-      employees: directory,
+      /* Employed on the day, not merely on the payroll now. Asked for TODAY this
+         is everybody; asked for a day in July it drops the two people the seed
+         has starting in August, who were not absent then — they were not there.
+         The API's `roster()` narrows the same way, in its `where`. */
+      employees: directory.filter((employee) => employedOn(employee, on)),
       entries: local.entries,
       leaveRequests: leave.requests,
       policy: local.policy,
@@ -374,10 +405,17 @@ export function useAttendanceRoster(date?: string): RosterState {
       correctionNote: row.entry?.note ?? null,
     }));
 
+    /* The demo's own boundary, from the seed rather than from a server: the
+       earliest day anybody clocked in. Before it the demo has no records, and a
+       screen must say that rather than badge ten people as no-shows. */
+    const firstRecorded = firstRecordedDate(local.entries);
+
     return {
       date: on,
       policy: toApiPolicy(local.policy),
       rows,
+      recorded: local.forDate(on).filter((entry) => entry.clockIn).length,
+      tracked: firstRecorded !== null && on >= firstRecorded,
       loading: false,
       error: null,
       source: "demo",
@@ -389,6 +427,8 @@ export function useAttendanceRoster(date?: string): RosterState {
     date: matched ? fetched.date : (date ?? ""),
     policy: matched ? fetched.policy : null,
     rows: matched ? fetched.rows : [],
+    recorded: matched ? fetched.recorded : 0,
+    tracked: matched ? fetched.tracked : false,
     loading: !matched,
     error: matched ? fetched.error : null,
     source: "api",
@@ -539,107 +579,34 @@ export function useAttendanceTimesheet(days = 15): TimesheetState {
 
 /* ---------------------------------------------------------------- locations */
 
-export type LocationsState = {
-  locations: ApiWorkLocation[];
-  loading: boolean;
-  error: ApiError | null;
-  source: AttendanceSource;
-  /**
-   * Adds one and returns it, so a caller can select what it just made.
-   *
-   * The point of returning the row rather than void: a picker that offers
-   * "create a new location" has to leave the new location *chosen*. Making
-   * somebody create a thing and then find it in the list they were already
-   * looking at is the kind of small insult that makes a form feel hostile.
-   *
-   * Refuses in demo mode rather than writing to this browser — a location is
-   * company configuration, and inventing one locally would have it vanish on the
-   * next machine while every employee assigned to it kept pointing at nothing.
-   */
-  create: (input: { name: string; addressLine?: string }) => Promise<ApiWorkLocation>;
-};
-
 /**
- * Where people clock in.
+ * Work locations moved to `lib/store/work-locations.ts`.
  *
- * A location is part of the record rather than an afterthought: a site team
- * clocking in "at the office" is the exact problem this solves. The ids differ
- * between the two modes — uuids from the API, `loc-hq` from the seed — which is
- * why nothing may hardcode one. Take the default from the list.
+ * Same reasoning as the holiday calendar leaving `leave-api.ts`: they shared an
+ * API module because they share a router, and they stopped sharing a screen the
+ * moment a location became a thing you edit rather than a name you pick. A
+ * management surface needs archived rows, a geofence and four writes; a picker
+ * needs a name and an id. One hook serving both refreshes two hundred clock-ins
+ * to redraw one radius.
+ *
+ * `useWorkLocations` is re-exported here so nothing that imported it from this
+ * module had to change.
  */
-export function useWorkLocations(): LocationsState {
-  const { isConnected } = useSession();
-  const [fetched, setFetched] = useState<{
-    locations: ApiWorkLocation[];
-    error: ApiError | null;
-  } | null>(null);
-
-  useEffect(() => {
-    if (!isConnected) return;
-    let cancelled = false;
-    const controller = new AbortController();
-    void (async () => {
-      try {
-        const locations = await attendanceApi.locations(controller.signal);
-        if (!cancelled) setFetched({ locations, error: null });
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        if (!cancelled) {
-          setFetched({
-            locations: [],
-            error: error instanceof ApiError ? error : null,
-          });
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [isConnected]);
-
-  if (!isConnected) {
-    return {
-      locations: WORK_LOCATIONS.map((location) => ({
-        id: location.id,
-        name: location.name,
-        addressLine: location.address,
-        remoteAllowed: location.remoteAllowed,
-      })),
-      loading: false,
-      error: null,
-      source: "demo",
-      create: () =>
-        Promise.reject(
-          new Error(
-            "Locations cannot be added in demo mode. Connect to the API first.",
-          ),
-        ),
-    };
-  }
-
-  return {
-    locations: fetched?.locations ?? [],
-    loading: fetched === null,
-    error: fetched?.error ?? null,
-    source: "api",
-    create: async (input) => {
-      const made = await attendanceApi.createLocation(input);
-      /* Folded into the list held here rather than refetching: the caller is
-         about to select it, and a round trip would leave the picker briefly
-         showing a list without the thing that was just created in it. */
-      setFetched((prior) => ({
-        locations: [...(prior?.locations ?? []), made].sort((a, b) =>
-          a.name.localeCompare(b.name),
-        ),
-        error: prior?.error ?? null,
-      }));
-      return made;
-    },
-  };
-}
+export { useWorkLocations, type LocationsState } from "./work-locations";
 
 /* ---------------------------------------------------------------- mutations */
+
+/**
+ * The two facts `clockIn` needs about where somebody is clocking in.
+ *
+ * A structural type rather than `ApiWorkLocation`, so the caller can pass a row
+ * from either mode's list without the hook depending on the rest of it.
+ */
+export type ClockInLocation = {
+  id: string;
+  /** True and the API will check a device position against this location. */
+  geofenceEnforced: boolean;
+};
 
 /**
  * Clocking in, clocking out, and correcting a record.
@@ -652,13 +619,26 @@ export function useWorkLocations(): LocationsState {
  *
  * Every refusal comes back as an `ApiError` with the API's own wording — "Already
  * clocked in at 08:12. Use a correction to change it." Show that, not "failed".
+ *
+ * ## `clockIn` takes the location, not its id, because of the geofence
+ *
+ * A location with `geofenceEnforced` is one the API checks a device position
+ * against, and it refuses a clock-in that arrives without one. So this hook has
+ * to know which kind of location it is being handed *before* the request, to
+ * decide whether to ask the browser where it is — and it asks **only** then. A
+ * permission prompt whose answer cannot change the outcome is how somebody
+ * learns to deny location access for good; see `lib/geolocation.ts`.
+ *
+ * The position request can fail three distinct ways and throws a `PositionError`
+ * carrying which one. That is not an `ApiError`, because no request was made —
+ * a screen has to handle both, and `attendance-screen.tsx` shows how.
  */
 export function useAttendanceMutations() {
   const { isConnected, actingId } = useSession();
   const local = useAttendanceStore();
 
   const clockIn = useCallback(
-    async (locationId?: string) => {
+    async (location?: ClockInLocation | null) => {
       if (!isConnected) {
         const entry = local.entryFor(actingId, TODAY);
         if (entry?.clockIn) {
@@ -669,12 +649,24 @@ export function useAttendanceMutations() {
           );
         }
         const at = nowTime();
-        local.clockIn(actingId, locationId ?? "", at);
+        local.clockIn(actingId, location?.id ?? "", at);
+        /* No position asked for, and none used. A demo fence is drawn and not
+           enforced — there is no server here to judge it — and `store/
+           work-locations.ts` says so on the settings screen rather than letting
+           somebody discover that a radius they configured did nothing. Asking
+           for a permission this mode cannot act on would be worse than the gap.
+           `workLocation` is absent rather than null: the demo genuinely does not
+           resolve a name here, and absent is not the same claim as "none". */
         return { employeeId: actingId, date: TODAY, time: at };
       }
-      return attendanceApi.clockIn(
-        locationId ? { workLocationId: locationId } : {},
-      );
+
+      /* On the click, not on page load, and only where the answer matters. */
+      const position = location?.geofenceEnforced ? await readPosition() : null;
+
+      return attendanceApi.clockIn({
+        ...(location ? { workLocationId: location.id } : {}),
+        ...(position ? { position } : {}),
+      });
     },
     [isConnected, actingId, local],
   );

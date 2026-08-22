@@ -43,6 +43,16 @@ export type WorkLocation = {
   address: string;
   /** Whether clock-ins from off-site are accepted for this location. */
   remoteAllowed: boolean;
+  /**
+   * The optional geofence. All three or none — a latitude with no radius
+   * decides nothing, which is why the API refuses two thirds of a fence.
+   *
+   * Absent on most of these on purpose: a fence is the exception rather than
+   * the rule, and a seed where every site has one would teach the opposite.
+   */
+  latitude?: number;
+  longitude?: number;
+  radiusMetres?: number;
 };
 
 export const WORK_LOCATIONS: WorkLocation[] = [
@@ -59,10 +69,16 @@ export const WORK_LOCATIONS: WorkLocation[] = [
     remoteAllowed: true,
   },
   {
+    /* The one fenced site, so the demo shows both states. Approximate district
+       coordinates, not a surveyed position — a demo fence is illustrative and
+       the settings screen says so. */
     id: "loc-site",
     name: "Abeokuta site",
     address: "Ogun State",
     remoteAllowed: false,
+    latitude: 7.1475,
+    longitude: 3.3619,
+    radiusMetres: 250,
   },
   {
     id: "loc-remote",

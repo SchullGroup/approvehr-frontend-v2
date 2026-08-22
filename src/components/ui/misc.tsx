@@ -261,14 +261,34 @@ export function FileDrop({
 
 /* -------------------------------------------------------------------------- */
 
-/** Key and value pairs. Used across contracts, profiles and invoices. */
+/**
+ * Key and value pairs. Used across contracts, profiles and invoices.
+ *
+ * ## Two layouts, and when the grid is the wrong one
+ *
+ * `stack` is the original: the term above its value, in one to three columns.
+ * It is right when the values are short and of similar length, and wrong in a
+ * narrow container — because a CSS grid gives every cell in a row the height of
+ * the tallest one. One value that wraps inflates the row beside it, so a list of
+ * six short facts in a side panel reads as loose and unevenly spaced when only
+ * one of the six is actually long. That is what it looked like in the leave
+ * approval panel.
+ *
+ * `rows` is the shape the rest of the app had already settled on by hand — see
+ * the summary lists in `people/new`, `hiring/requisitions/new` and the payment
+ * check panel: term left, value right, a hairline between, and each fact taking
+ * exactly the height it needs. Use it in drawers and anywhere else narrow.
+ * `columns` does not apply to it.
+ */
 export function DescriptionList({
   items,
   columns = 2,
+  layout = "stack",
   className,
 }: {
   items: { term: string; value: React.ReactNode }[];
   columns?: 1 | 2 | 3;
+  layout?: "stack" | "rows";
   className?: string;
 }) {
   const cols = {
@@ -276,6 +296,24 @@ export function DescriptionList({
     2: "sm:grid-cols-2",
     3: "sm:grid-cols-3",
   } as const;
+
+  if (layout === "rows") {
+    return (
+      <dl className={cn("divide-y divide-line", className)}>
+        {items.map((item) => (
+          <div
+            key={item.term}
+            className="flex items-baseline justify-between gap-4 py-2.5 first:pt-0 last:pb-0"
+          >
+            <dt className="shrink-0 text-meta text-muted">{item.term}</dt>
+            <dd className="min-w-0 text-right text-body-sm text-ink">
+              {item.value}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    );
+  }
 
   return (
     <dl className={cn("grid grid-cols-1 gap-x-6 gap-y-4", cols[columns], className)}>

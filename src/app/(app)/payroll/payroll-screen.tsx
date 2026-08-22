@@ -8,7 +8,6 @@ import {
   Card,
   CardBody,
   CardHeader,
-  Callout,
   EmptyState,
   Stat,
   TBody,
@@ -19,6 +18,7 @@ import {
   TR,
   TableWrap,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import {
   ExceptionList,
@@ -81,9 +81,7 @@ export function PayrollScreen() {
         <SourceBadge connected={connected} loading={loading} error={error} />
 
         {error && (
-          <Callout tone="danger" title="Could not load payroll">
-            {error.message}
-          </Callout>
+          <LoadFailure subject="payroll" error={error} />
         )}
 
         {/* An error is not an empty state. "No run yet" beside "you need

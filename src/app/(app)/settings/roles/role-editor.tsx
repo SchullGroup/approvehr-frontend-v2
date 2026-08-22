@@ -126,7 +126,7 @@ export function RoleEditor({
       open
       onClose={onClose}
       title={role.name}
-      width="max-w-2xl"
+      size="xl"
       {...(role.description ? { description: role.description } : {})}
       footer={
         tab === "permissions" ? (

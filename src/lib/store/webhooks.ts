@@ -417,7 +417,7 @@ export function useWebhookCatalogue() {
           error:
             error instanceof ApiError
               ? error.message
-              : "Could not load the event list.",
+              : "The event list did not load. Try again in a moment.",
         });
       }
     })();
@@ -500,7 +500,7 @@ export function useWebhooks(options: WebhookListOptions = {}) {
           error:
             error instanceof ApiError
               ? error.message
-              : "Could not load your endpoints.",
+              : "Your endpoints did not load. Try again in a moment.",
         });
       }
     })();
@@ -573,7 +573,7 @@ export function useWebhook(id: string) {
           error:
             error instanceof ApiError
               ? error.message
-              : "Could not load this endpoint.",
+              : "This endpoint did not load. Try again in a moment.",
         });
       }
     })();
@@ -675,7 +675,7 @@ export function useDeliveryLog(webhookId: string, options: DeliveryLogOptions = 
           error:
             error instanceof ApiError
               ? error.message
-              : "Could not load the delivery log.",
+              : "The delivery log did not load. Try again in a moment.",
         });
       }
     })();

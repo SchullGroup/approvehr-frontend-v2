@@ -29,6 +29,7 @@ import {
   Textarea,
   useToast,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import type { ApiPolicy } from "@/lib/api/conduct";
@@ -141,9 +142,7 @@ export function PoliciesScreen() {
         )}
 
         {policies.error && (
-          <Callout tone="danger" title="Could not load the handbook">
-            {policies.error.message}
-          </Callout>
+          <LoadFailure subject="the handbook" error={policies.error} />
         )}
 
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -863,7 +862,7 @@ function ChaseDrawer({
       onClose={onClose}
       title={policy.title}
       description={`Version ${policy.version} · ${acceptanceLabel(policy)}`}
-      width="max-w-xl"
+      size="lg"
       footer={
         <div className="flex w-full flex-wrap items-center justify-between gap-3">
           <p className="text-meta text-muted">
@@ -902,9 +901,7 @@ function ChaseDrawer({
             Loading
           </div>
         ) : list.error ? (
-          <Callout tone="danger" title="Could not load the list">
-            {list.error.message}
-          </Callout>
+          <LoadFailure subject="the list" error={list.error} />
         ) : list.rows.length === 0 ? (
           <p className="text-body-sm text-body">
             {state === "outstanding"

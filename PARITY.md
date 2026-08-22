@@ -188,7 +188,7 @@ Worth stating so the roadmap does not accidentally trade it away:
 
 ## The structure for adding it
 
-Four rules first, because they are what stop us rebuilding the old system's
+Five rules first, because they are what stop us rebuilding the old system's
 usability problem. The user's brief was explicit: **non-technical people, not
 HR professionals, who nonetheless want to run their own payroll.** Every item
 below is judged against that person.
@@ -239,6 +239,45 @@ sentence that explains *why* the product is doing something is a sentence that
 should have been a button doing it. "An absence with no approved leave behind it
 prorates against 22 working days" becomes **"Unpaid day — 1 day will be
 deducted"** with **Approve leave** and **Fix record** beside it.
+
+### Rule 5 — a screen answers one question; the rest is behind a reveal
+
+Rules 2 and 3 are one argument at two scales — do not show a five-person
+business 120 routes, and do the thing rather than configure the thing. This is
+that argument *inside* a single screen: **progressively disclose. Do not show
+the user everything at once.**
+
+- **A screen answers one question.** Anything answering a *different* question
+  goes behind a reveal, a tab or a link. `/people/leave` answers "whose leave do
+  I decide"; a year of public holidays answers "when is Eid", so it is a
+  disclosure, not a section stacked under the table.
+- **Default closed** for anything long, periodic or reference-shaped: a year of
+  holidays, an audit trail, a whole framework, a settings sub-form, a worked
+  example, a policy handbook.
+- **Default open** for anything that needs action now: a blocker, an exception,
+  a validation failure in the form you are about to save, an approval waiting on
+  the person reading. Conditional-on-a-real-problem *is* default-open — a
+  callout that only renders when `count > 0` already obeys this rule.
+- **The failure mode, named so it can be refused.** Progressive disclosure must
+  never hide something that stops a payroll or costs somebody money. Where a
+  section holds both reference material and a live warning, **the warning
+  renders outside the reveal and the reference goes inside it.** On the leave
+  screen the "3 dates are not gazetted yet" callout sits above the closed
+  calendar: payroll proration and overtime already charge those days while the
+  timesheet does not, and a click is not a place to keep that. The test — if
+  somebody who never opens it can still be surprised by money or a deadline, it
+  is open.
+- **A collapsed section says what is inside it and how much.** "Public holidays
+  2026 · 13 dates · 3 awaiting proclamation" beats "Public holidays". A count is
+  the whole value of a closed section; without one the reader has to open it to
+  learn whether it mattered, which is the cost the reveal existed to save. And
+  absent is not zero: no count until the count is known, never a confident "0".
+- **One primitive.** `Disclosure` in `components/ui/disclosure.tsx` —
+  `aria-expanded` / `aria-controls`, a named region, `keepMounted` when closing
+  must not discard typed input, `region={false}` for form-field groups.
+  `Accordion` in `tabs.tsx` is single-open and shaped for a FAQ; it is not this
+  one with a flag. Six screens had already hand-rolled `aria-expanded` before
+  this existed. Do not make it seven.
 
 ## Where the build actually got to
 

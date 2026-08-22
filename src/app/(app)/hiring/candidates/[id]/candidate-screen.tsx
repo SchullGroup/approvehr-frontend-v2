@@ -24,6 +24,7 @@ import {
   CardBody,
   CardHeader,
   DescriptionList,
+  Disclosure,
   EmptyState,
   Money,
   ProgressMeter,
@@ -685,6 +686,9 @@ function Pipeline({ card }: { card: PipelineCard }) {
   const submitted = card.scorecards.filter((s) => s.submittedAt);
   const pending = card.scorecards.filter((s) => !s.submittedAt);
   const stageDef = STAGES.find((s) => s.id === card.stage);
+  /* Once, because the collapsed summary counts it and the open panel renders
+     it. Two calls would be two arrays that can disagree. */
+  const activity = activityFor(card);
 
   const avg =
     submitted.length > 0
@@ -903,12 +907,26 @@ function Pipeline({ card }: { card: PipelineCard }) {
         </CardBody>
       </Card>
 
-      <Card>
-        <CardHeader title="Activity" action={<SourceBadge live={false} />} />
-        <CardBody>
-          <Timeline entries={activityFor(card)} />
-        </CardBody>
-      </Card>
+      {/* Closed by default — `PARITY.md` Rule 5. A trail of what already
+          happened answers a different question from "what do I do with this
+          candidate", and nothing in it needs action. The count is in the
+          summary, so most readers never open it. */}
+      <Disclosure
+        className="bg-surface"
+        title="Activity"
+        meta={
+          <>
+            <Badge tone="neutral" size="sm">
+              {activity.length === 1 ? "1 event" : `${activity.length} events`}
+            </Badge>
+            <SourceBadge live={false} />
+          </>
+        }
+        hint="What has happened to this application so far."
+        panelClassName="p-5"
+      >
+        <Timeline entries={activity} />
+      </Disclosure>
     </>
   );
 }

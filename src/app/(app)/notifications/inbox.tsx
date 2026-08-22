@@ -7,7 +7,6 @@ import {
   Badge,
   Button,
   ButtonLink,
-  Callout,
   EmptyState,
   IconButton,
   SegmentedControl,
@@ -15,6 +14,7 @@ import {
   useToast,
   type BadgeTone,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -175,9 +175,7 @@ export function NotificationsInbox() {
 
       <PageBody className="flex flex-col gap-5">
         {notifications.error && (
-          <Callout tone="danger" title="Could not load your notifications">
-            {notifications.error.message}
-          </Callout>
+          <LoadFailure subject="your notifications" error={notifications.error} />
         )}
 
         <div className="flex flex-wrap items-center justify-between gap-3">

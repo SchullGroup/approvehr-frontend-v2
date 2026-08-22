@@ -5,7 +5,6 @@ import { Plus, Search } from "lucide-react";
 import {
   Badge,
   Button,
-  Callout,
   Card,
   CardBody,
   ConfirmDialog,
@@ -19,6 +18,7 @@ import {
   useToast,
   type TabItem,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import { usePermissions } from "@/lib/permissions";
@@ -244,9 +244,7 @@ function Register() {
         )}
 
         {loadError && (
-          <Callout tone="danger" title="Could not load the register">
-            {loadError.message}
-          </Callout>
+          <LoadFailure subject="the equipment register" error={loadError} />
         )}
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

@@ -712,7 +712,7 @@ export function useWizard() {
           error:
             error instanceof ApiError
               ? error.message
-              : "Could not load the questions.",
+              : "The questions did not load. Try again in a moment.",
         }));
       }
     })();

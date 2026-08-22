@@ -5,7 +5,6 @@ import { Plus, Search } from "lucide-react";
 import {
   Badge,
   Button,
-  Callout,
   Card,
   CardBody,
   Input,
@@ -15,6 +14,7 @@ import {
   useToast,
   type TabItem,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import { usePermissions } from "@/lib/permissions";
@@ -193,9 +193,7 @@ export function ExpensesScreen() {
         )}
 
         {loadError && (
-          <Callout tone="danger" title="Could not load expenses">
-            {loadError.message}
-          </Callout>
+          <LoadFailure subject="expenses" error={loadError} />
         )}
 
         {/* The liability, first. */}

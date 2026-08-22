@@ -19,6 +19,7 @@ import {
   Switch,
   useToast,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -117,9 +118,7 @@ export function ChecklistSettingsScreen() {
 
       <PageBody className="flex flex-col gap-6">
         {templates.error && (
-          <Callout tone="danger" title="Could not load the checklist">
-            {templates.error.message}
-          </Callout>
+          <LoadFailure subject="the checklist" error={templates.error} />
         )}
 
         <Callout tone="info" title="These apply to the next exit, not to one already running">

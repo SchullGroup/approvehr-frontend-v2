@@ -35,7 +35,7 @@ export function PolicyDrawer({
       open
       onClose={onClose}
       title={title}
-      width="max-w-2xl"
+      size="xl"
       {...(subtitle ? { description: subtitle } : {})}
       {...(footer ? { footer } : {})}
     >

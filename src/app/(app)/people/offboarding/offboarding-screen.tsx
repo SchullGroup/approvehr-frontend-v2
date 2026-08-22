@@ -7,7 +7,6 @@ import {
   Badge,
   Button,
   ButtonLink,
-  Callout,
   Card,
   CardBody,
   EmptyState,
@@ -17,6 +16,7 @@ import {
   Skeleton,
   Stat,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { Can, useCan } from "@/lib/permissions";
 import { useExits } from "@/lib/store/offboarding";
@@ -91,9 +91,7 @@ export function OffboardingScreen() {
 
       <PageBody className="flex flex-col gap-6">
         {exits.error && (
-          <Callout tone="danger" title="Could not load the list">
-            {exits.error.message}
-          </Callout>
+          <LoadFailure subject="the list" error={exits.error} />
         )}
 
         {/* Two numbers, not three. "Working through a checklist" would be

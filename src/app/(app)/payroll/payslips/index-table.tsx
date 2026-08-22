@@ -6,7 +6,6 @@ import { CalendarClock, Mail } from "lucide-react";
 import {
   Badge,
   ButtonLink,
-  Callout,
   Card,
   CardBody,
   CardHeader,
@@ -24,6 +23,7 @@ import {
   TableWrap,
   type BadgeTone,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import {
   RunStatusBadge,
   SourceBadge,
@@ -147,9 +147,7 @@ export function PayslipIndex() {
       />
 
       {error && (
-        <Callout tone="danger" title="Could not load payslips">
-          {error.message}
-        </Callout>
+        <LoadFailure subject="payslips" error={error} />
       )}
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)]">

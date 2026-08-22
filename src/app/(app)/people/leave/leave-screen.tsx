@@ -15,6 +15,7 @@ import {
   CardHeader,
   DescriptionList,
   Drawer,
+  DrawerSection,
   EmptyState,
   IconButton,
   ProgressMeter,
@@ -518,9 +519,15 @@ export function LeaveScreen() {
           </div>
         </div>
 
-        {/* The calendar sits full width rather than in the 340px column it used
-            to hold a four-line list in: twelve months do not fit in a rail, and
-            the reason it was a list was that no endpoint served the dates. */}
+        {/* Full width rather than in the 340px column it used to hold a
+            four-line list in: twelve months do not fit in a rail, and the reason
+            it was a list was that no endpoint served the dates.
+
+            Closed by default — `PARITY.md` Rule 5. This screen answers "whose
+            leave do I decide"; a year of public holidays answers something else,
+            so it renders as a summary with its counts and opens on request. The
+            ungazetted-dates warning renders outside the reveal, because payroll
+            is already costing those days. */}
         <HolidayCalendarCard defaultYear={calendarYear} canManage={canManageSettings} />
       </PageBody>
 
@@ -598,39 +605,44 @@ function RequestPanel({
           ? `${request.from} to ${request.to} · ${daysLabel(request.days)}`
           : undefined
       }
+      /* Six short facts and two buttons. Anything wider is a decision panel
+         pretending to be a page. */
+      size="sm"
+      /* No wrapper of its own: the footer already lays its children out in a
+         wrapping row, right-aligned, at the system gap. The old
+         `flex flex-wrap justify-end gap-2` div restated all three and quietly
+         overrode the gap. */
       footer={
         request && canDecide ? (
-          <div className="flex flex-wrap justify-end gap-2">
-            {request.status === "pending" ? (
-              <>
-                <Button variant="secondary" onClick={() => onSendBack(request)}>
-                  <X aria-hidden="true" className="size-3.5" />
-                  Send back
-                </Button>
-                <Button
-                  variant="approve"
-                  onClick={() => {
-                    onApprove(request);
-                    onClose();
-                  }}
-                >
-                  <Check aria-hidden="true" className="size-3.5" />
-                  Approve
-                </Button>
-              </>
-            ) : (
+          request.status === "pending" ? (
+            <>
+              <Button variant="secondary" onClick={() => onSendBack(request)}>
+                <X aria-hidden="true" className="size-3.5" />
+                Send back
+              </Button>
               <Button
-                variant="ghost"
+                variant="approve"
                 onClick={() => {
-                  onUndo(request);
+                  onApprove(request);
                   onClose();
                 }}
               >
-                <Undo2 aria-hidden="true" className="size-3.5" />
-                Undo the decision
+                <Check aria-hidden="true" className="size-3.5" />
+                Approve
               </Button>
-            )}
-          </div>
+            </>
+          ) : (
+            <Button
+              variant="ghost"
+              onClick={() => {
+                onUndo(request);
+                onClose();
+              }}
+            >
+              <Undo2 aria-hidden="true" className="size-3.5" />
+              Undo the decision
+            </Button>
+          )
         ) : undefined
       }
     >
@@ -643,8 +655,9 @@ function RequestPanel({
       )}
 
       {request && (
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-5">
           <DescriptionList
+            layout="rows"
             items={[
               { term: "Status", value: STATUS[request.status].label },
               { term: "Job title", value: request.employeeJobTitle ?? "—" },
@@ -662,46 +675,49 @@ function RequestPanel({
           />
 
           {detail?.balance && (
-            <div>
-              <p className="text-meta font-semibold tracking-wide text-muted">
-                {detail.balance.leaveType} balance
-              </p>
-              <p className="mt-1 text-body-sm text-body">
-                {detail.balance.remaining} of {detail.balance.entitled} days left
-                {detail.balance.pending > 0 &&
-                  `, with ${detail.balance.pending} still waiting on a decision`}
-                .
-              </p>
+            <DrawerSection title={`${detail.balance.leaveType} balance`}>
+              {/*
+               * The bar and the sentence used to disagree. The meter was filled
+               * by days *taken* and given no label, so it emitted a bare "35%"
+               * on a line of its own directly above a sentence reading "8 of 20
+               * days left" — two numbers for one fact, neither explaining the
+               * other, and the percentage counting the opposite way from the
+               * words. It now fills by what is left, and the sentence is its
+               * label.
+               */}
               <ProgressMeter
-                className="mt-2"
-                value={detail.balance.taken}
+                label={`${detail.balance.remaining} of ${detail.balance.entitled} days left`}
+                value={detail.balance.remaining}
                 max={detail.balance.entitled}
                 size="sm"
+                showValue={false}
                 tone={detail.balance.remaining <= 3 ? "warning" : "accent"}
               />
+              {detail.balance.pending > 0 && (
+                <p className="mt-2 text-meta text-muted">
+                  {daysLabel(detail.balance.pending)} still waiting on a decision.
+                </p>
+              )}
               {detail.balance.remaining < 0 && (
                 <p className="mt-2 text-body-sm text-warning-text">
                   Approving this takes them past their entitlement. The days over
                   are unpaid unless you say otherwise.
                 </p>
               )}
-            </div>
+            </DrawerSection>
           )}
 
-          <div>
-            <p className="text-meta font-semibold tracking-wide text-muted">
-              Who else is off those days
-            </p>
+          <DrawerSection title="Who else is off those days">
             {detail && detail.clashes.length === 0 ? (
-              <p className="mt-1 text-body-sm text-body">
+              <p className="text-body-sm text-body">
                 Nobody else. Cover is not a problem here.
               </p>
             ) : (
-              <ul className="mt-2 flex flex-col gap-2">
+              <ul className="flex flex-col gap-2">
                 {detail?.clashes.map((clash) => (
                   <li
                     key={clash.id}
-                    className="flex flex-wrap items-center gap-2 rounded-md border border-line p-2.5 text-body-sm"
+                    className="flex flex-wrap items-center gap-2 rounded-md border border-line bg-canvas px-3 py-2.5 text-body-sm"
                   >
                     <Link
                       href={`/people/${clash.employeeId}`}
@@ -719,7 +735,7 @@ function RequestPanel({
                 ))}
               </ul>
             )}
-          </div>
+          </DrawerSection>
         </div>
       )}
     </Drawer>

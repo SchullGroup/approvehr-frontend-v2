@@ -1,6 +1,6 @@
 "use client";
 
-import { request } from "@/lib/api/client";
+import { ApiError, request } from "@/lib/api/client";
 
 /**
  * Attendance — `/api/v1/attendance`.
@@ -70,6 +70,7 @@ import { request } from "@/lib/api/client";
  * | Clocking somebody else in, or at a time you typed | `EDIT_RECORDS` |
  * | Correcting a record | `EDIT_RECORDS`, **and a note** |
  * | Changing the policy | `MANAGE_SETTINGS` |
+ * | Adding, changing or switching off a work location | `MANAGE_SETTINGS` |
  *
  * ## Refusals worth showing verbatim
  *
@@ -118,12 +119,93 @@ export type ApiAttendancePolicy = {
   selfServiceClockIn: boolean;
 };
 
+/**
+ * A place people clock in at, and the fence around it.
+ *
+ * ## The three geofence fields are set together or not at all
+ *
+ * A latitude with no radius decides nothing, so the API refuses two thirds of a
+ * fence in both directions — on a create and on a patch, where it validates the
+ * row it would *end up with* rather than the fields it was sent. `null` on all
+ * three is a location with no fence, which is the common case: most companies
+ * never draw one, and clocking in from anywhere stays accepted.
+ *
+ * **Absent is absent.** A missing radius is not a radius of zero — zero metres
+ * would be a fence nobody on earth could stand inside. Render these as blank.
+ */
 export type ApiWorkLocation = {
   id: string;
   name: string;
   addressLine: string | null;
   /** Whether a clock-in from off-site is accepted for this location. */
   remoteAllowed: boolean;
+  /** Decimal degrees, six places. Null when no fence is set. */
+  latitude: number | null;
+  longitude: number | null;
+  /** How far from that point a clock-in is accepted. Null when no fence is set. */
+  radiusMetres: number | null;
+  /**
+   * Whether a clock-in here is actually checked against the fence.
+   *
+   * A fence plus `remoteAllowed` is a fence nothing applies — a real
+   * arrangement, and one a screen must say out loud rather than showing a radius
+   * that does nothing. Computed by the API so this side never re-derives it.
+   */
+  geofenceEnforced: boolean;
+  /** Null while the location is on. An ISO timestamp once switched off. */
+  archivedAt: string | null;
+  /**
+   * Active people whose record names this location.
+   *
+   * **Nullable because demo mode cannot know it.** The API always sends a
+   * number; offline, `Employee.location` is a city string ("Lagos, NG") and
+   * nothing joins it to a work location, so any figure derived from it would be
+   * a guess. Absent data renders as absent — a headcount of 0 beside a branch
+   * that four people work at is the exact claim this product is sold against.
+   */
+  assigned: number | null;
+};
+
+/**
+ * The API's own words for a half-filled fence, character for character.
+ *
+ * Demo mode has to refuse the same thing the server refuses, in the same
+ * sentence — same reasoning as `scoringWeightProblem` in `lib/api/performance.ts`.
+ * A screen that only behaves correctly against the real thing is a screen nobody
+ * tested. The source is `GEOFENCE_ALL_OR_NOTHING` in
+ * `approvehr-api/src/modules/attendance/schemas.ts`.
+ */
+export const GEOFENCE_ALL_OR_NOTHING =
+  "A geofence needs latitude, longitude and a radius together, or none of them.";
+
+/** What a geofence is, in words somebody who has never met one can act on. */
+export const GEOFENCE_EXPLANATION =
+  "A radius is how far from that point a clock-in is accepted. Somebody standing further away is turned down and told how far off they are.";
+
+export type NewWorkLocationInput = {
+  name: string;
+  addressLine?: string;
+  remoteAllowed?: boolean;
+  latitude?: number;
+  longitude?: number;
+  radiusMetres?: number;
+};
+
+/**
+ * A change. Absent leaves a field alone; `null` clears it.
+ *
+ * The distinction is the whole reason this is not `Partial<ApiWorkLocation>`:
+ * sending all three fence parts as `null` is how a company removes a fence it
+ * drew by mistake, and omitting them keeps the fence that is there. A sentinel
+ * value would make those the same request.
+ */
+export type WorkLocationPatch = {
+  name?: string;
+  addressLine?: string | null;
+  remoteAllowed?: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
+  radiusMetres?: number | null;
 };
 
 /** One person, one day. */
@@ -159,6 +241,96 @@ export type ApiRoster = {
   policy: ApiAttendancePolicy;
   /** Exceptions first: absent, late, on leave, present, holiday, rest day. */
   rows: ApiRosterRow[];
+  /**
+   * Clock-ins on file for the day.
+   *
+   * Zero is a **presence check**, never a count of absences. Together with
+   * `tracked` below it is how a screen looking at a past day tells "nobody
+   * clocked in" from "we have no record for that day" — two different claims,
+   * and reading the second as the first is what paid everybody ₦0.
+   */
+  recorded: number;
+  /**
+   * Whether the organisation was recording attendance at all by this date.
+   *
+   * False for every day before its first clock-in ever, where the rows are all
+   * `ABSENT` and none of them means anything. The rows still carry their
+   * statuses — the server does not suppress one — so it is the screen's job to
+   * refuse to render a wall of absences it has been told not to believe.
+   */
+  tracked: boolean;
+};
+
+/**
+ * One day of a month, for a calendar cell. Every figure is the server's.
+ *
+ * `GET /attendance/summary?month=YYYY-MM` answers the whole month in one
+ * request. Reading `/roster` thirty times to draw a calendar is thirty round
+ * trips, a rate limit, and a grid slower to appear than the table under it.
+ *
+ * The counts come from the same resolver `/roster` uses
+ * (`attendance/day-status.ts` in the API), which is why a cell and the day table
+ * beneath it cannot disagree — and why nothing on this side re-derives a status.
+ */
+export type ApiAttendanceDay = {
+  /** `YYYY-MM-DD`. */
+  date: string;
+  /** Holiday, then rest day, then working — the roster's own first two steps. */
+  kind: "HOLIDAY" | "REST_DAY" | "WORKING";
+  /**
+   * The public holiday on this date, if any.
+   *
+   * Present for an ungazetted date too, where `kind` stays `WORKING`. See
+   * `UNCONFIRMED_HOLIDAY_EFFECT` in `lib/api/leave.ts`: attendance filters to
+   * confirmed dates while payroll proration and the overtime rate read every
+   * row, so an expected date already costs money and is still a working day
+   * here. Mark it differently rather than resolving the disagreement.
+   */
+  holiday: { name: string; confirmed: boolean } | null;
+  /** People on the payroll that day. Not the same figure all month. */
+  people: number;
+  /** Clock-ins on file. Zero is the presence check. */
+  recorded: number;
+  /** Whether the organisation was recording attendance by this date. */
+  tracked: boolean;
+  /**
+   * Later than the server's today.
+   *
+   * The server's answer, not the browser's, because the browser's clock is not
+   * the one the records were written against — and in demo mode it is not even
+   * the same year. A calendar must not offer a day that has not happened.
+   */
+  future: boolean;
+  present: number;
+  late: number;
+  /** Approved leave — a fact from the leave table, whoever clocked in. */
+  onLeave: number;
+  /**
+   * People the roster reports `ABSENT`.
+   *
+   * **Null on an untracked day, and on a day still ahead**, and `number | null`
+   * on purpose: a formatter that accepted a plain number here would have to print
+   * something for a day nothing is known about, and the number it would print is
+   * 0 out of N. That is the zero-pay bug wearing a calendar. Say "no attendance
+   * recorded" instead.
+   */
+  absent: number | null;
+};
+
+export type ApiAttendanceSummary = {
+  /** `YYYY-MM`, echoed back so a stale answer can be recognised. */
+  month: string;
+  from: string;
+  to: string;
+  policy: ApiAttendancePolicy;
+  /** The server's today, so a calendar marks it from the same clock. */
+  today: string;
+  /**
+   * The organisation's earliest clock-in ever, or null if it has never recorded
+   * one. The boundary every day's `tracked` is measured against.
+   */
+  firstRecordedDate: string | null;
+  days: ApiAttendanceDay[];
 };
 
 /** Kobo, as the wire has it. Deliberately not exported — see the money note. */
@@ -219,7 +391,73 @@ export type ApiClockResult = {
   date: string;
   /** `HH:MM`, the time actually recorded. Show it back rather than guessing. */
   time: string;
+  /**
+   * The location the clock-in was recorded against, where there is one.
+   *
+   * Resolved by the API from what was sent, else from the employee's own
+   * record — so it is the location a fence was judged against, and the name to
+   * show back. Null on a clock-out, and for anybody with no location assigned.
+   */
+  workLocation?: { id: string; name: string } | null;
+  /**
+   * Metres from that location when a position was sent, else null.
+   *
+   * **Absent is absent.** Null means no position was taken, not that somebody
+   * clocked in at the centre of the fence — so render it as nothing, never as
+   * "0m away".
+   */
+  distanceMetres?: number | null;
 };
+
+/* ----------------------------------------------------------------- geofence */
+
+/**
+ * A clock-in the API turned down on location grounds.
+ *
+ * Three reasons, and they are three different situations rather than three
+ * wordings of one:
+ *
+ * - `outside` — the device's whole accuracy circle is beyond the radius. They
+ *   are not there.
+ * - `unproven` — the circle straddles the boundary, so the fix is too coarse to
+ *   decide it. They may well be standing in reception; their phone cannot show
+ *   it. The API refuses rather than guessing, and says so.
+ * - `position_required` — the location has an enforced fence and no position
+ *   came with the request.
+ *
+ * `summary` is the API's own one-line phrasing of the fact — "You are 340m from
+ * Lagos HQ". Show it as the heading and `ApiError.message` underneath, which
+ * carries the way forward. **Do not reformat the distance here**: phrasing it in
+ * the browser means a second distance formatter that drifts from the API's, and
+ * the whole reason `summary` is on the wire is so this side formats nothing.
+ */
+export type GeofenceRefusal = {
+  reason: "outside" | "unproven" | "position_required";
+  summary: string;
+  locationName: string;
+  radiusMetres: number;
+  distanceMetres: number | null;
+  accuracyMetres: number | null;
+};
+
+const GEOFENCE_REASONS = ["outside", "unproven", "position_required"] as const;
+
+/**
+ * The geofence facts on an error, or null when it is some other refusal.
+ *
+ * Switches on `details.reason` rather than on the message, per the rule the API's
+ * `lib/errors.ts` states: codes and structured details are stable, wording is
+ * free to improve.
+ */
+export function geofenceRefusal(error: unknown): GeofenceRefusal | null {
+  if (!(error instanceof ApiError)) return null;
+  const details = error.details;
+  if (details === undefined || details === null || Array.isArray(details)) return null;
+  const reason = (details as Record<string, unknown>)["reason"];
+  if (typeof reason !== "string") return null;
+  if (!GEOFENCE_REASONS.some((known) => known === reason)) return null;
+  return details as unknown as GeofenceRefusal;
+}
 
 export type ApiCorrection = {
   id: string;
@@ -247,6 +485,20 @@ export type ClockInBody = {
   at?: string;
   /** `YYYY-MM-DD`. Omit for today. */
   date?: string;
+  /**
+   * Where the device says it is. Only worth sending for a location whose fence
+   * is enforced — `useAttendanceMutations` decides that and asks for it there.
+   *
+   * `accuracyMetres` is not decoration. The API accepts the fence only when the
+   * whole accuracy circle falls inside the radius, and refuses to judge one it
+   * cannot decide, so dropping it would turn "your device cannot tell" into a
+   * confident answer nobody could defend.
+   */
+  position?: {
+    latitude: number;
+    longitude: number;
+    accuracyMetres?: number;
+  };
 };
 
 export type ClockOutBody = {
@@ -321,41 +573,89 @@ export const attendanceApi = {
       body,
     }),
 
-  locations: (signal?: AbortSignal) =>
+  /**
+   * Every location, with its fence.
+   *
+   * `includeArchived` is for the settings screen, which has to be able to show a
+   * switched-off branch in order to offer turning it back on. A picker asking
+   * this question leaves it off and gets only the places somebody may clock in
+   * at today.
+   */
+  locations: (
+    params: { includeArchived?: boolean } = {},
+    signal?: AbortSignal,
+  ) =>
     request<ApiWorkLocation[]>("/attendance/locations", {
+      query: params.includeArchived ? { includeArchived: true } : {},
       ...(signal ? { signal } : {}),
     }),
 
   /**
-   * Add a place people clock in at.
+   * Add a place people clock in at. `MANAGE_SETTINGS`.
    *
    * Only the name is required. A geofence is the exception rather than the rule,
    * and the API refuses a partial one — latitude without a radius cannot decide
    * anything, and a fence that silently never matches refuses clock-ins with no
    * visible cause.
+   *
+   * **`body` takes the object, not a JSON string.** `request` stringifies it;
+   * this call used to hand it `JSON.stringify(input)`, which was stringified
+   * again and reached the API as a quoted string where an object belonged. Every
+   * field came back as a validation failure and none of them named the cause.
    */
-  createLocation: (input: {
-    name: string;
-    addressLine?: string;
-    remoteAllowed?: boolean;
-    latitude?: number;
-    longitude?: number;
-    radiusMetres?: number;
-  }) =>
+  createLocation: (input: NewWorkLocationInput) =>
     request<ApiWorkLocation>("/attendance/locations", {
       method: "POST",
-      body: JSON.stringify(input),
+      body: input,
     }),
 
+  /**
+   * Move a fence, widen it, rename a branch. `MANAGE_SETTINGS`.
+   *
+   * Sparse: what is absent is left alone. See `WorkLocationPatch` for why `null`
+   * is a different request from omission.
+   */
+  updateLocation: (id: string, patch: WorkLocationPatch) =>
+    request<ApiWorkLocation>(`/attendance/locations/${id}`, {
+      method: "PATCH",
+      body: patch,
+    }),
+
+  /** Off, not gone. Reports how many people are still assigned there. */
   archiveLocation: (id: string) =>
     request<{ name: string; assigned?: number }>(`/attendance/locations/${id}`, {
       method: "DELETE",
     }),
 
+  /**
+   * Back on. Idempotent, so a double click is not an error.
+   *
+   * The route the create refusal names: an archived location keeps its name, so
+   * "Head office exists but is switched off. Turn it back on rather than making
+   * a second one." is only actionable because this exists.
+   */
+  restoreLocation: (id: string) =>
+    request<{ id: string; name: string; alreadyOn: boolean }>(
+      `/attendance/locations/${id}/restore`,
+      { method: "POST" },
+    ),
+
   /** Defaults to the server's today, which is the date to display. */
   roster: (date?: string, signal?: AbortSignal) =>
     request<ApiRoster>("/attendance/roster", {
       query: { date },
+      ...(signal ? { signal } : {}),
+    }),
+
+  /**
+   * A month of per-day counts. `YYYY-MM`; omitted means the server's month.
+   *
+   * One request per month, deliberately. A calendar drawn from thirty rosters is
+   * thirty requests, and the rate limiter is the least of the problems with it.
+   */
+  summary: (month?: string, signal?: AbortSignal) =>
+    request<ApiAttendanceSummary>("/attendance/summary", {
+      query: { month },
       ...(signal ? { signal } : {}),
     }),
 
@@ -375,17 +675,28 @@ export const attendanceApi = {
     return { ...wire, rows: wire.rows.map(toTimesheetRow) };
   },
 
-  /** 409 when there is already a clock-in for that day. Show the message. */
+  /**
+   * 409 when there is already a clock-in for that day. Show the message.
+   *
+   * Also 422 when the location has an enforced geofence and the position sent
+   * does not satisfy it. That refusal carries structured details — read them
+   * with `geofenceRefusal` and show `summary` above `message`, rather than
+   * replacing either with "clock-in failed".
+   */
   clockIn: async (body: ClockInBody = {}): Promise<ApiClockResult> => {
     const result = await request<{
       employeeId: string;
       date: string;
       clockIn: string;
+      workLocation: { id: string; name: string } | null;
+      distanceMetres: number | null;
     }>("/attendance/clock-in", { method: "POST", body });
     return {
       employeeId: result.employeeId,
       date: result.date,
       time: result.clockIn,
+      workLocation: result.workLocation,
+      distanceMetres: result.distanceMetres,
     };
   },
 

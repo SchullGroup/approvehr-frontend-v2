@@ -25,6 +25,7 @@ import {
   Stat,
   useToast,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import type { Catalogue } from "@/lib/api/permissions";
@@ -169,9 +170,7 @@ export function RolesScreen() {
         )}
 
         {roles.error && (
-          <Callout tone="danger" title="Could not load your roles">
-            {roles.error.message}
-          </Callout>
+          <LoadFailure subject="your roles" error={roles.error} />
         )}
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">

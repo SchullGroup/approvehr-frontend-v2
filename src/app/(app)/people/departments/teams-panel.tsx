@@ -29,6 +29,7 @@ import {
   Stat,
   useToast,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
 import { membershipEffect, type ApiMoved, type ApiTeam } from "@/lib/api/teams";
 import { useCan } from "@/lib/permissions";
@@ -138,9 +139,7 @@ export function TeamsPanel({
   return (
     <div className="flex flex-col gap-6">
       {teams.error && (
-        <Callout tone="danger" title="Could not load the teams">
-          {teams.error.message}
-        </Callout>
+        <LoadFailure subject="the teams" error={teams.error} />
       )}
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -468,9 +467,9 @@ function TeamDrawer({
                 : `Part of ${team.departmentName}. Anybody on it is reported under that department.`,
             }
           : {})}
-        width="max-w-xl"
+        size="lg"
         footer={
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex w-full flex-wrap items-center justify-between gap-3">
             <p className="text-body-sm text-muted">
               {team
                 ? team.members.length === 1

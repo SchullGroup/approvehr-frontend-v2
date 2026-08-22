@@ -10,8 +10,10 @@ import {
   CardBody,
   CardHeader,
   DescriptionList,
+  Disclosure,
   Field,
   Money,
+  formatMoney,
   Select,
   Spinner,
   Switch,
@@ -321,20 +323,28 @@ export function OvertimePolicyForm() {
               </CardBody>
             </Card>
 
-            <Card>
-              <CardHeader
-                title="Worked example"
-                description={`On a ₦1,000,000 monthly salary, at ${settings.workingDaysPerMonth} working days a month.`}
-                action={
-                  <ButtonLink size="sm" href="/settings/payroll">
-                    Working days
-                  </ButtonLink>
-                }
-              />
-              <CardBody>
-                <ExampleFigures policy={value} hourly={hourly} />
-              </CardBody>
-            </Card>
+            {/* Closed by default — `PARITY.md` Rule 5. An illustration is
+                reference: it never needs action, it only needs to be findable,
+                and the figure it turns on is in the summary so most readers do
+                not have to open it. Everything above it is a live form and stays
+                open. */}
+            <Disclosure
+              className="bg-surface"
+              title="Worked example"
+              meta={
+                <Badge tone="neutral" size="sm">
+                  An ordinary hour is{" "}
+                  {formatMoney(naira(hourly), "NGN", { decimals: true })}
+                </Badge>
+              }
+              hint={`On a ₦1,000,000 monthly salary, at ${settings.workingDaysPerMonth} working days a month.`}
+              panelClassName="flex flex-col gap-4 p-5"
+            >
+              <ExampleFigures policy={value} hourly={hourly} />
+              <ButtonLink size="sm" href="/settings/payroll" className="self-start">
+                Working days
+              </ButtonLink>
+            </Disclosure>
 
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface p-4">
               <p className="text-body-sm text-muted">

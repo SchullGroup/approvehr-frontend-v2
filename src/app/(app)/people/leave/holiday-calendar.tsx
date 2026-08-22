@@ -7,9 +7,7 @@ import { cn } from "@/lib/cn";
 import {
   Badge,
   Callout,
-  Card,
-  CardBody,
-  CardHeader,
+  Disclosure,
   IconButton,
   Spinner,
 } from "@/components/ui";
@@ -36,13 +34,15 @@ import { shortDate } from "@/lib/today";
  *
  * ## `awaitingProclamation` earns its place
  *
- * It is in the legend, attached to the marker it counts, and in a callout that
- * says what an unproclaimed date already does and does not do. A number in a
- * corner with no consequence beside it is decoration; this one tells somebody
- * planning a roster that payroll is already treating an unannounced date as a
- * holiday while their timesheet is not. That asymmetry is real, lives in
- * `UNCONFIRMED_HOLIDAY_EFFECT`, and is the single most surprising thing about the
- * feature.
+ * It is in the legend, attached to the marker it counts; in a callout that says
+ * what an unproclaimed date already does and does not do; and in the collapsed
+ * summary, because a closed section is only worth closing if its label carries
+ * the count. A number in a corner with no consequence beside it is decoration;
+ * this one tells somebody planning a roster that payroll is already treating an
+ * unannounced date as a holiday while their timesheet is not. That asymmetry is
+ * real, lives in `UNCONFIRMED_HOLIDAY_EFFECT`, and is the single most surprising
+ * thing about the feature — which is why the callout carrying it renders outside
+ * the disclosure and not in it.
  */
 
 const MONTHS = [
@@ -188,11 +188,33 @@ function MiniMonth({
 }
 
 /**
- * The card.
+ * The year's calendar, closed.
  *
  * `defaultYear` comes from the screen rather than `new Date()`, because demo mode
  * runs on `TODAY` and the real clock would open the calendar on a year the seed
  * has nothing in.
+ *
+ * ## Closed by default — `PARITY.md` Rule 5
+ *
+ * Twelve mini-months and then the same year again as a list is a year of
+ * reference material, and it used to render unasked below the requests table,
+ * which is what the leave screen is actually for. It is a `Disclosure` now, and
+ * the summary carries both counts so somebody can decide *not* to open it.
+ *
+ * ## The warning is outside the disclosure, and that is the whole point
+ *
+ * Payroll proration and overtime rates already treat an unproclaimed date as a
+ * holiday while the timesheet and the help desk's SLA clock do not — a live
+ * inconsistency with money attached, which is precisely the thing a reveal must
+ * never swallow. So the `awaitingProclamation` callout and the read error sit
+ * above the closed strip, not inside it. Warning outside, calendar inside.
+ *
+ * ## The year control moved into the panel
+ *
+ * It used to be the `CardHeader` action. A summary button cannot contain
+ * buttons, and switching year on a section you cannot see answers nothing, so it
+ * is the first row of the panel instead — which also keeps the title's year and
+ * the summary's counts describing the same thing.
  */
 export function HolidayCalendarCard({
   defaultYear,
@@ -219,20 +241,69 @@ export function HolidayCalendarCard({
   const onDate = (date: string): PublicHolidayRow[] => byDate.get(date) ?? [];
 
   const awaiting = calendar.awaitingProclamation;
+  const total = calendar.holidays.length;
+
+  /*
+   * Whether there is a count to state.
+   *
+   * The store hands back an empty list while a request is in flight *and* when
+   * one fails, so `holidays.length === 0` on its own cannot tell "this year has
+   * no holidays" from "we have not read the year yet". Absent renders as absent:
+   * no badge until the answer is in, rather than a confident "None on file".
+   */
+  const counted = !calendar.loading && calendar.error === null;
 
   return (
-    <Card>
-      <CardHeader
-        /* See `settings/leave/holidays-panel.tsx`: `action` is `shrink-0`, so on a
-           narrow screen the header has to wrap or the description does. */
-        className="flex-wrap"
+    <div className="flex flex-col gap-4">
+      {calendar.error && (
+        <Callout tone="danger" title="Could not read the calendar">
+          {calendar.error.message}
+        </Callout>
+      )}
+
+      {/* Outside the disclosure. The count, with the consequence attached: both
+          halves are true and the second is the one nobody expects. */}
+      {awaiting !== null && awaiting > 0 && (
+        <Callout
+          tone="warning"
+          title={`${awaiting} ${awaiting === 1 ? "date is" : "dates are"} not gazetted yet`}
+        >
+          <span className="flex flex-col gap-1.5 text-body-sm leading-relaxed">
+            <span>{UNCONFIRMED_HOLIDAY_EFFECT.acts}</span>
+            <span>{UNCONFIRMED_HOLIDAY_EFFECT.waits}</span>
+          </span>
+        </Callout>
+      )}
+
+      <Disclosure
+        className="bg-surface"
         title={`Public holidays ${year}`}
-        description={
+        meta={
+          counted ? (
+            <>
+              <Badge tone="neutral" size="sm">
+                {total === 0
+                  ? "None on file"
+                  : total === 1
+                    ? "1 date"
+                    : `${total} dates`}
+              </Badge>
+              {awaiting !== null && awaiting > 0 && (
+                <Badge tone="warning" size="sm">
+                  {awaiting} awaiting proclamation
+                </Badge>
+              )}
+            </>
+          ) : null
+        }
+        hint={
           calendar.source === "demo"
             ? "Demo calendar — Nigeria's 2026 dates, seeded into this browser. Not a company calendar."
             : "Attendance, overtime, payroll proration and the help desk's response clock all read these dates."
         }
-        action={
+        panelClassName="flex flex-col gap-5 p-5"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-1">
             <IconButton
               label={`Show ${year - 1}`}
@@ -252,29 +323,15 @@ export function HolidayCalendarCard({
               <ChevronRight aria-hidden="true" className="size-4" />
             </IconButton>
           </div>
-        }
-      />
-
-      <CardBody className="flex flex-col gap-5">
-        {calendar.error && (
-          <Callout tone="danger" title="Could not read the calendar">
-            {calendar.error.message}
-          </Callout>
-        )}
-
-        {/* The count, with the consequence attached. Both halves are true and
-            the second is the one nobody expects. */}
-        {awaiting !== null && awaiting > 0 && (
-          <Callout
-            tone="warning"
-            title={`${awaiting} ${awaiting === 1 ? "date is" : "dates are"} not gazetted yet`}
-          >
-            <span className="flex flex-col gap-1.5 text-body-sm leading-relaxed">
-              <span>{UNCONFIRMED_HOLIDAY_EFFECT.acts}</span>
-              <span>{UNCONFIRMED_HOLIDAY_EFFECT.waits}</span>
-            </span>
-          </Callout>
-        )}
+          {canManage && (
+            <Link
+              href="/settings/leave"
+              className="text-meta text-accent-text underline-offset-4 hover:underline"
+            >
+              Manage the calendar
+            </Link>
+          )}
+        </div>
 
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
           <span className="flex items-center gap-2 text-meta text-body">
@@ -296,14 +353,6 @@ export function HolidayCalendarCard({
             Awaiting proclamation
             {awaiting !== null && awaiting > 0 && ` (${awaiting})`}
           </span>
-          {canManage && (
-            <Link
-              href="/settings/leave"
-              className="ml-auto text-meta text-accent-text underline-offset-4 hover:underline"
-            >
-              Manage the calendar
-            </Link>
-          )}
         </div>
 
         {calendar.loading ? (
@@ -325,7 +374,15 @@ export function HolidayCalendarCard({
                 Nothing on the calendar for {year}.
               </p>
             ) : (
-              <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              /* `grid-cols-[minmax(0,1fr)]` is the narrow case and it is load
+                 bearing. A grid with no explicit template gets one implicit
+                 `auto` column, which sizes to the widest row rather than to the
+                 container — at 375px the widest row is "Eid al-Fitr" plus a
+                 nowrap "Awaiting proclamation" badge, and 379px of it spilled 66px
+                 outside the card. `sm:grid-cols-2` and up were always fine:
+                 Tailwind writes those as `minmax(0, 1fr)` already. Pre-dates the
+                 disclosure; found measuring the collapsed version at 375. */
+              <ul className="grid grid-cols-[minmax(0,1fr)] gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {calendar.holidays.map((holiday) => (
                   <li
                     key={holiday.id}
@@ -352,7 +409,7 @@ export function HolidayCalendarCard({
             )}
           </>
         )}
-      </CardBody>
-    </Card>
+      </Disclosure>
+    </div>
   );
 }

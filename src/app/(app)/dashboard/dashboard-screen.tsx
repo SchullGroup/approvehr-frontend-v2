@@ -88,7 +88,8 @@ export function DashboardScreen() {
           <Card>
             <CardBody className="flex flex-col items-start gap-3">
               <p className="text-body text-ink">
-                {error ?? "Could not load your dashboard."}
+                {error ??
+                  "Your dashboard did not load. Try again in a moment."}
               </p>
               <button
                 type="button"

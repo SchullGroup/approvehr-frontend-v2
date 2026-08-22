@@ -74,7 +74,7 @@ export function EmployeeFileDrawer({
           ? { description: `Staff number ${file.file.employeeNo}` }
           : {})}
         footer={
-          <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex w-full flex-wrap items-center justify-between gap-2">
             {file.file ? (
               <Link
                 href={`/people/${file.file.employeeId}`}

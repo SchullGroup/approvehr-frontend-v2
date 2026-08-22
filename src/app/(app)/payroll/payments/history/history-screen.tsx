@@ -27,6 +27,7 @@ import {
   TableWrap,
   type PickerOption,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { naira, paymentOutcome } from "@/lib/api/payments";
 import { usePermissions } from "@/lib/permissions";
@@ -190,9 +191,7 @@ export function PaymentHistoryScreen() {
 
       <PageBody className="flex flex-col gap-6">
         {history.error && (
-          <Callout tone="danger" title="Could not load the payment history">
-            {history.error.message}
-          </Callout>
+          <LoadFailure subject="the payment history" error={history.error} />
         )}
 
         {/* Rendered whenever we know there is no provider, not only when a row
