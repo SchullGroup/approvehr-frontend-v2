@@ -721,7 +721,7 @@ function WithdrawDialog({
         </div>
       }
     >
-      <Field label="Anything you want to add" help="Optional.">
+      <Field optional label="Anything you want to add">
         <Textarea
           rows={3}
           value={reason}

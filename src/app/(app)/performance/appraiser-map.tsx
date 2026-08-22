@@ -749,10 +749,10 @@ function AppraisersDialog({
 
               <div className="flex flex-wrap items-end justify-between gap-3">
                 <Field
+                  optional
                   label="Why"
-                  help="Optional. For when the role alone does not say it."
-                  className="min-w-[16rem] flex-1"
-                >
+                  help="For when the role alone does not say it."
+                  className="min-w-[16rem] flex-1">
                   <Input
                     value={draft.note}
                     placeholder="Ran the Lagos migration all half"

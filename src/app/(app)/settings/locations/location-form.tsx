@@ -216,7 +216,7 @@ export function LocationForm({
           />
         </Field>
 
-        <Field label="Address" help="Optional. For the record, not for the fence.">
+        <Field optional label="Address" help="For the record, not for the fence.">
           <Input
             value={draft.addressLine}
             placeholder="12 Allen Avenue, Ikeja, Lagos"

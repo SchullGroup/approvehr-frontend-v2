@@ -895,7 +895,7 @@ function RaiseDialog({
             </Field>
           )}
 
-          <Field label="Note" help="Optional. Goes in the audit trail with the rise.">
+          <Field optional label="Note" help="Goes in the audit trail with the rise.">
             <Input
               value={draft.note}
               placeholder="2026 annual review"

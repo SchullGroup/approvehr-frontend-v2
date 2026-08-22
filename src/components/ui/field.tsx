@@ -43,6 +43,19 @@ export type FieldProps = {
   help?: string;
   error?: string;
   required?: boolean;
+  /**
+   * Says "(optional)" in the label.
+   *
+   * The house rule, replacing a hint sentence underneath. "Optional. Some bank
+   * portals need it in the upload file." puts the one word somebody scans for
+   * at the start of a paragraph they have to read to find it, and it reads as
+   * an instruction rather than as a property of the field.
+   *
+   * A prop rather than text appended to `label`, for the same reason `required`
+   * is one: one place decides how it renders, and a typo'd "(Optional)" cannot
+   * happen. Setting both is a contradiction and is refused below.
+   */
+  optional?: boolean;
   /** Hides the label visually but keeps it for assistive technology. */
   hideLabel?: boolean;
   className?: string;
@@ -54,6 +67,7 @@ export function Field({
   help,
   error,
   required = false,
+  optional = false,
   hideLabel = false,
   className,
   children,
@@ -63,6 +77,12 @@ export function Field({
   const helpId = `${base}-help`;
   const errorId = `${base}-error`;
   const hasError = Boolean(error);
+
+  if (required && optional) {
+    throw new Error(
+      `Field "${label}" is marked both required and optional. One of the two is wrong, and the reader would have been shown both.`,
+    );
+  }
 
   const describedBy =
     [help ? helpId : null, hasError ? errorId : null]
@@ -88,6 +108,10 @@ export function Field({
             </span>
           )}
           {required && <span className="sr-only-focusable"> required</span>}
+          {/* Part of the label, so a screen reader reads it with the field name
+              rather than announcing it separately as guidance. Muted and at the
+              same size: a qualifier, not a second heading. */}
+          {optional && <span className="font-normal text-muted"> (optional)</span>}
         </label>
 
         {children}

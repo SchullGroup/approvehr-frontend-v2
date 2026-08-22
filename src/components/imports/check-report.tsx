@@ -66,13 +66,6 @@ type Props = {
    * missing matters more than knowing where to fix it.
    */
   prerequisites: Readonly<Record<string, ImportPrerequisite>>;
-  /**
-   * What this entity's browser-only check cannot settle, in one clause.
-   *
-   * From the surface, because the limits are the entity's own. See
-   * `ImportSurface.unknownWithoutApi`.
-   */
-  unknownWithoutApi: string;
   check: CheckOutcome;
   onBack: () => void;
   onDownload: () => void;
@@ -101,7 +94,6 @@ type Props = {
 export function CheckReport({
   dictionary,
   prerequisites,
-  unknownWithoutApi,
   check,
   onBack,
   onDownload,
@@ -231,17 +223,16 @@ export function CheckReport({
         />
       </div>
 
-      {DEMO_ENABLED && !check.authoritative && (
-        <Callout tone="warning" title="This is a check of the file, not of your company">
-          We read every row and found what the file itself gets wrong — dates,
-          amounts, the same {dictionary.keyLabel} on two rows, words we do not
-          know. We cannot tell you {unknownWithoutApi} That needs the API, and so does
-          the import itself. The list of missing details is longer here than it
-          would be live, too: which details your company asks for is a setting we
-          cannot read from this browser.
-        </Callout>
-      )}
+      {/*
+        Was a warning headed "This is a check of the file, not of your company",
+        explaining at length what a browser-only check cannot know.
 
+        Removed at the product owner's request, and it costs nothing: it only
+        ever rendered in demo mode, which does not exist in a production build,
+        and step four already refuses the import outright with the same reason in
+        one sentence. Four paragraphs of caveat above the actual findings pushed
+        the thing somebody came to read below the fold.
+      */}
       {/* One callout per kind of thing the file named that does not exist yet.
           Driven by what the check returned rather than by a fixed pair, so an
           entity with three such lists gets three without editing this file. */}

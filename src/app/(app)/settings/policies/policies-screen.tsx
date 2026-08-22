@@ -530,7 +530,7 @@ function WriteSectionModal({
           />
         </Field>
 
-        <Field label="Group" help="Optional. Groups it in the handbook.">
+        <Field optional label="Group" help="Groups it in the handbook.">
           <Input
             value={category}
             placeholder="Company"

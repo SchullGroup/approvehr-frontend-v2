@@ -1,46 +1,11 @@
+"use client";
+
 import { cn } from "@/lib/cn";
+import { useMoneyHidden } from "@/lib/store/money-privacy";
+import { formatMoney, SYMBOLS, type Currency } from "./money-format";
 
-/*
- * Contracts are denominated in USD. Settlement can be USD or NGN at a rate
- * locked when the invoice is issued, so every figure that a Nigerian payee
- * sees can show both. The locked rate travels with the record rather than
- * being looked up at render time, which is why it is passed in.
- */
-
-export type Currency = "USD" | "NGN";
-
-export const SYMBOLS: Record<Currency, string> = {
-  USD: "$",
-  NGN: "₦",
-};
-
-export function formatMoney(
-  amount: number,
-  currency: Currency = "NGN",
-  options: { compact?: boolean; decimals?: boolean } = {},
-): string {
-  const { compact = false, decimals = false } = options;
-
-  if (compact && Math.abs(amount) >= 1000) {
-    const units = [
-      { limit: 1_000_000_000, suffix: "b" },
-      { limit: 1_000_000, suffix: "m" },
-      { limit: 1_000, suffix: "k" },
-    ];
-    for (const { limit, suffix } of units) {
-      if (Math.abs(amount) >= limit) {
-        const scaled = amount / limit;
-        const text = scaled >= 100 ? scaled.toFixed(0) : scaled.toFixed(1);
-        return `${SYMBOLS[currency]}${text.replace(/\.0$/, "")}${suffix}`;
-      }
-    }
-  }
-
-  return `${SYMBOLS[currency]}${amount.toLocaleString("en-NG", {
-    minimumFractionDigits: decimals ? 2 : 0,
-    maximumFractionDigits: decimals ? 2 : 0,
-  })}`;
-}
+export { formatMoney, SYMBOLS };
+export type { Currency };
 
 export function Money({
   amount,
@@ -53,6 +18,12 @@ export function Money({
   className,
   size = "md",
   absent = "Not set yet",
+  /**
+   * Ignore the hide-figures preference for this one. Use sparingly: the value
+   * of the control is that one click covers everything, and every exception is
+   * a figure somebody thought was hidden.
+   */
+  alwaysShow = false,
 }: {
   /**
    * The figure, or **null** where there is not one.
@@ -81,6 +52,8 @@ export function Money({
   absent?: string;
   className?: string;
   size?: "sm" | "md" | "lg" | "xl";
+  /** Exempt this figure from the hide-figures preference. See above. */
+  alwaysShow?: boolean;
 }) {
   /*
    * The size lands on the inner span, not the outer one `className` reaches —
@@ -96,11 +69,35 @@ export function Money({
     xl: "text-h3",
   } as const;
 
+  /* Before either early return: a hook cannot sit behind one. */
+  const hidden = useMoneyHidden() && !alwaysShow;
+
   /* Deliberately not `!amount`: zero is a real figure and formats normally. */
   if (amount === null) {
     return (
       <span className={cn("inline-flex flex-col", className)}>
         <span className={cn("text-muted", sizes[size])}>{absent}</span>
+      </span>
+    );
+  }
+
+  /*
+   * Masked with fixed-width dots rather than a blank or a dash.
+   *
+   * Six dots for every amount, so ₦18,000 and ₦1,450,000 are indistinguishable
+   * — a mask whose width followed the figure would leak its magnitude, which is
+   * most of what somebody reading over a shoulder wants. `tabular` keeps the
+   * column from reflowing when the preference changes.
+   */
+  if (hidden) {
+    return (
+      <span className={cn("inline-flex flex-col", className)}>
+        <span
+          aria-label="Hidden"
+          className={cn("tabular font-medium text-muted", sizes[size])}
+        >
+          {"\u2022".repeat(6)}
+        </span>
       </span>
     );
   }

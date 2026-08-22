@@ -230,7 +230,6 @@ export function ImportFlow({ surface }: { surface: ImportSurface }) {
           <CheckReport
             dictionary={dictionary}
             prerequisites={surface.prerequisites}
-            unknownWithoutApi={surface.unknownWithoutApi}
             check={imp.check}
             onBack={() => stepper.goTo(1)}
             onDownload={imp.downloadRowsToFix}

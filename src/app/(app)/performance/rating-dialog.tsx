@@ -148,7 +148,7 @@ export function RecordLevelDialog({
               ))}
             </Select>
           </Field>
-          <Field label="Where they should be" help="Optional. This is what makes a gap.">
+          <Field optional label="Where they should be" help="This is what makes a gap.">
             <Select
               value={target}
               placeholder="No target"
@@ -163,7 +163,7 @@ export function RecordLevelDialog({
           </Field>
         </div>
 
-        <Field label="Anything to add" help="Optional. They will see it.">
+        <Field optional label="Anything to add" help="They will see it.">
           <Textarea
             rows={3}
             value={note}

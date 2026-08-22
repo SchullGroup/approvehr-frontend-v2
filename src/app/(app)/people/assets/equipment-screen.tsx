@@ -41,7 +41,7 @@ import {
 import { HandOverDialog } from "./hand-over-dialog";
 import { ItemForm } from "./item-form";
 import { ItemPanel } from "./item-panel";
-import { KindsPanel } from "./kinds-panel";
+import { AddKindDialog, KindsPanel } from "./kinds-panel";
 import { MyAssets } from "./my-equipment";
 import { useListQuery } from "@/lib/use-list-query";
 import { RegisterTable } from "./register-table";
@@ -159,6 +159,7 @@ function Register() {
 
   const [panelId, setPanelId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [addingKind, setAddingKind] = useState(false);
   const [editing, setEditing] = useState<EquipmentItem | null>(null);
   const [handingOver, setHandingOver] = useState<EquipmentItem | null>(null);
   const [takingBack, setTakingBack] = useState<EquipmentItem | null>(null);
@@ -549,6 +550,7 @@ function Register() {
       {adding && (
         <ItemForm
           kinds={kinds.usable}
+          onCreateKind={() => setAddingKind(true)}
           onClose={() => setAdding(false)}
           onCreate={async (input) => {
             await register.addItem(input);
@@ -557,10 +559,21 @@ function Register() {
         />
       )}
 
+      {addingKind && (
+        /* Over the item form, which stays mounted behind it and keeps what was
+           typed. `addKind` refetches, so the new kind is in the picker as soon
+           as this closes. */
+        <AddKindDialog
+          onClose={() => setAddingKind(false)}
+          onAdd={(input) => run(() => kinds.addKind(input), `${input.name} added`)}
+        />
+      )}
+
       {editing && (
         <ItemForm
           item={editing}
           kinds={kinds.usable}
+          onCreateKind={() => setAddingKind(true)}
           onClose={() => setEditing(null)}
           onSave={async (patch) => {
             await register.editItem(editing.id, patch);

@@ -228,9 +228,9 @@ function ResignDialog({
         </Field>
 
         <Field
+          optional
           label="Anything you want to say"
-          help="Optional. Your manager and HR will read it."
-        >
+          help="Your manager and HR will read it.">
           <Textarea
             rows={4}
             value={note}

@@ -209,9 +209,9 @@ export function AccountForm({
         </Field>
 
         <Field
+          optional
           label="Bank code"
-          help="Optional. Some bank portals need it in the upload file."
-        >
+          help="Some bank portals need it in the upload file.">
           <Input
             value={bankCode}
             placeholder="058"

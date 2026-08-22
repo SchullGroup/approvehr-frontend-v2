@@ -428,10 +428,10 @@ export function PayrollRunWizard() {
               />
             </Field>
             <Field
+              optional
               label="Name this run"
-              help="Optional. Useful when a month has more than one."
-              className="sm:col-span-2"
-            >
+              help="Useful when a month has more than one."
+              className="sm:col-span-2">
               <Input
                 value={label}
                 placeholder={`${periodLabel(period)} salaries`}

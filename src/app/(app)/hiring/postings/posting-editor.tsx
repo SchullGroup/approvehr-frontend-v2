@@ -281,7 +281,7 @@ export function PostingEditor({
         </Field>
 
         <div className="grid gap-5 sm:grid-cols-2">
-          <Field label="Where" help="Leave blank if it does not matter.">
+          <Field optional label="Where">
             <Input
               value={draft.location}
               placeholder="Ikeja, Lagos"
@@ -336,9 +336,9 @@ export function PostingEditor({
 
         <div className="grid gap-5 sm:grid-cols-2">
           <Field
+            optional
             label="Last day to apply"
-            help="Leave blank to keep it open. It drops off the list the day after."
-          >
+            help="Leave blank to keep it open. It drops off the list the day after.">
             <Input
               type="date"
               value={draft.closesOn}
@@ -375,10 +375,10 @@ export function PostingEditor({
           </div>
         ) : (
           <Field
+            optional
             label="Link"
             help="Leave blank and we make one from the title. It is fixed once you publish."
-            error={problemFor("slug")}
-          >
+            error={problemFor("slug")}>
             <Input
               value={draft.slug}
               placeholder="payroll-officer"

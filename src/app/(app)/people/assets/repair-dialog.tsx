@@ -138,12 +138,12 @@ export function RepairDialog({
           </Field>
 
           <Field
+            optional
             label="Finished on"
             help="Leave blank while it is still being fixed."
             {...(datesWrong
               ? { error: "It cannot be finished before it went in." }
-              : {})}
-          >
+              : {})}>
             <Input
               type="date"
               value={completedOn}

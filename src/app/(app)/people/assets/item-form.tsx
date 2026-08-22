@@ -7,6 +7,7 @@ import {
   Field,
   Input,
   Modal,
+  Picker,
   Select,
   Textarea,
 } from "@/components/ui";
@@ -43,6 +44,7 @@ import {
 export function ItemForm({
   item,
   kinds,
+  onCreateKind,
   onClose,
   onCreate,
   onSave,
@@ -50,6 +52,13 @@ export function ItemForm({
   /** Absent means "add". Present means "edit this one". */
   item?: EquipmentItem;
   kinds: EquipmentKind[];
+  /**
+   * Opens the add-a-kind dialog over this form.
+   *
+   * Optional: where it is absent the picker has no create row, which is right
+   * for a reader who may not change the company's list.
+   */
+  onCreateKind?: () => void;
   onClose: () => void;
   onCreate?: (input: ItemInput) => Promise<void>;
   onSave?: (patch: ItemPatch) => Promise<void>;
@@ -186,21 +195,28 @@ export function ItemForm({
             label="Kind"
             help="Decides whether it must be handed back when somebody leaves."
           >
-            <Select
+            {/*
+              `Picker`, not a native `<Select>`. The native one rendered the
+              platform's own wheel on a phone and, more to the point, had
+              nowhere to put "add a new kind" — so somebody with a kind of kit
+              the list did not cover had to abandon a half-filled form, find the
+              Kinds tab, add it, and start again. The create row is last in the
+              list, which is where the rest of the app puts it.
+            */}
+            <Picker
               value={kindId}
-              onChange={(e) => {
-                const value = e.target.value;
-                setKindId(value);
-              }}
-            >
-              <option value="">Not sorted into a kind</option>
-              {kinds.map((kind) => (
-                <option key={kind.id} value={kind.id}>
-                  {kind.name}
-                  {kind.returnRequired ? "" : " — nobody has to hand it back"}
-                </option>
-              ))}
-            </Select>
+              onChange={setKindId}
+              placeholder="Not sorted into a kind"
+              options={kinds.map((kind) => ({
+                value: kind.id,
+                label: kind.returnRequired
+                  ? kind.name
+                  : `${kind.name} — nobody has to hand it back`,
+              }))}
+              {...(onCreateKind
+                ? { onCreate: { label: "Add a new kind", onSelect: onCreateKind } }
+                : {})}
+            />
           </Field>
 
           <Field label="What state it is in">
@@ -267,8 +283,8 @@ export function ItemForm({
           </Field>
 
           <Field
+            optional
             label="What it cost, in naira"
-            help="Leave it blank if nobody knows."
             {...(costInvalid ? { error: "Enter a figure like 780000." } : {})}
           >
             <Input

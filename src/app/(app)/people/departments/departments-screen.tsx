@@ -606,7 +606,16 @@ function DepartmentRow({
 
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-2 text-body font-medium text-ink">
-            {node.name}
+            {/* The name is the way in. The row's own controls are all things to
+                *do* to a unit — assign, add a sub-unit, edit — and none of them
+                answered "who is in Procurement and what does it cost", which is
+                what somebody clicking a row is asking. */}
+            <Link
+              href={`/people/departments/${node.id}`}
+              className="hover:underline"
+            >
+              {node.name}
+            </Link>
             <Badge tone={isNested ? "neutral" : "accent"} size="sm">
               {isNested ? "Sub-department" : "Department"}
             </Badge>
@@ -801,9 +810,9 @@ function CreateDialog({
           />
         </Field>
         <Field
+          optional
           label="Cost centre"
-          help="Optional. Used to group this unit in payroll reporting."
-        >
+          help="Used to group this unit in payroll reporting.">
           <Input
             value={costCentre}
             placeholder="CC-ENG-01"

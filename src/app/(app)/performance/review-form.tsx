@@ -293,9 +293,9 @@ export function ReviewFormModal({
         {editable && review.questions.length > 0 && (
           <div className="flex flex-col gap-4 border-t border-line pt-5">
             <Field
+              optional
               label="Overall mark"
-              help="Optional. Leave it blank if the answers say enough."
-            >
+              help="Leave it blank if the answers say enough.">
               <Select
                 value={mark}
                 placeholder="No overall mark"
@@ -308,7 +308,7 @@ export function ReviewFormModal({
                 ))}
               </Select>
             </Field>
-            <Field label="Anything to add" help="Optional.">
+            <Field optional label="Anything to add">
               <Textarea
                 rows={3}
                 value={summary}

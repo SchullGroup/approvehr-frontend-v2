@@ -843,10 +843,10 @@ function ComponentDialog({
 
         {fixed ? (
           <Field
+            optional
             label="Amount each month (₦)"
             help="Leave it blank if the figure differs by person — most do."
-            {...(amountError ? { error: amountError } : {})}
-          >
+            {...(amountError ? { error: amountError } : {})}>
             <Input
               type="number"
               inputMode="decimal"

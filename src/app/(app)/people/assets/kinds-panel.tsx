@@ -184,7 +184,15 @@ export function KindsPanel({
   );
 }
 
-function AddKindDialog({
+/**
+ * Exported so the add-an-item form's picker can open it.
+ *
+ * Somebody adding a laptop of a kind the list does not cover should not have to
+ * abandon a half-filled form, find the Kinds tab, and start again. The dialog
+ * stacks over the form, the form keeps what was typed, and the new kind is
+ * selectable the moment it saves.
+ */
+export function AddKindDialog({
   onClose,
   onAdd,
 }: {

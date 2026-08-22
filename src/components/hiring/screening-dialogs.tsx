@@ -120,7 +120,7 @@ export function ScreenInDialog({
               onChange={(event) => setNoticeDays(event.target.value)}
             />
           </Field>
-          <Field label="On now (₦ a month)" help="Optional.">
+          <Field optional label="On now (₦ a month)">
             <Input
               inputMode="decimal"
               value={current}
@@ -128,7 +128,7 @@ export function ScreenInDialog({
               onChange={(event) => setCurrent(event.target.value)}
             />
           </Field>
-          <Field label="Wants (₦ a month)" help="Optional.">
+          <Field optional label="Wants (₦ a month)">
             <Input
               inputMode="decimal"
               value={expected}

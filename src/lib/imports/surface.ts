@@ -53,17 +53,6 @@ export type ImportSurface = {
   /** The demo-mode refusal, which has to name what would not have happened. */
   refusalWithoutApi: string;
   /**
-   * What a check with no API cannot settle about *this* entity, in one clause.
-   *
-   * Printed after "We cannot tell you" in the demo-mode callout, and it has to
-   * be the entity's own because the limits are: an employee import cannot know
-   * who is already on the list or whether pay fits its grade, a department
-   * import cannot know whether a parent exists or whether a head is anybody.
-   * A generic sentence would name the wrong ones, which is worse than naming
-   * none — it would imply the file is cleaner than the check can tell.
-   */
-  unknownWithoutApi: string;
-  /**
    * Counts only this entity's writer can report, for the result screen.
    *
    * `managersLinked` for people; `handedOver` and `kindsAdded` for equipment.

@@ -765,7 +765,7 @@ function TeamDialog({
           </Select>
         </Field>
 
-        <Field label="What it is for" help="Optional. One line.">
+        <Field optional label="What it is for" help="One line.">
           <Input
             value={draft.purpose}
             placeholder="Keeps the deployment pipeline and the shared services"

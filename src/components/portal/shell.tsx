@@ -6,7 +6,11 @@ import { usePathname } from "next/navigation";
 import { Bell, ChevronDown, Menu, Search, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Logo } from "@/components/brand/logo";
-import { Avatar, Badge } from "@/components/ui";
+import {
+  Avatar,
+  Badge,
+  MoneyPrivacyToggle,
+} from "@/components/ui";
 import { NAV, visibleNav, type BadgeSource, type NavGroup } from "./nav";
 import { SessionRoleBadge } from "./role-badge";
 import { usePermissions } from "@/lib/permissions";
@@ -98,6 +102,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </button>
 
           <div className="ml-auto flex items-center gap-1.5 md:ml-0">
+            {/* Hides every money figure on every screen, in one click. Here
+                rather than on each table because the value of the control is
+                that nothing is left showing: a per-table icon would mean a
+                directory of two hundred salaries needed two hundred clicks, and
+                the row somebody forgot is the one that matters. It hides; what
+                decides who may *know* a salary is `VIEW_SALARIES` on the
+                server, which does not send the number at all. */}
+            <MoneyPrivacyToggle />
+
             {/* Was a button that did nothing, labelled "3 unread" whatever the
                 truth was. Now a link to the inbox with the real count — the
                 dot is absent when there is nothing to see, because a

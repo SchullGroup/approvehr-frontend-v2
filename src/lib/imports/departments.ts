@@ -33,7 +33,7 @@ import {
  * A department import's interesting questions are almost all questions about the
  * database — does that parent exist, is this name already yours, is that email
  * anybody — so this check is deliberately thin, and the screen says so through
- * `unknownWithoutApi` rather than implying a clean file will import cleanly.
+ * the step-four refusal rather than implying a clean file will import cleanly.
  *
  * One case is worth naming because it looks answerable and is not: **a loop.**
  * A row that names itself as its own parent is caught here, because that is one

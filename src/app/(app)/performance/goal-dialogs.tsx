@@ -165,7 +165,7 @@ export function NewKpiDialog({
           </Select>
         </Field>
 
-        <Field label="Any detail" help="Optional.">
+        <Field optional label="Any detail">
           <Textarea
             rows={3}
             value={description}

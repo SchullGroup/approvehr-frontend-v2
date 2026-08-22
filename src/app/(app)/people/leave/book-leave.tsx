@@ -333,7 +333,7 @@ export function BookLeaveDialog({
           </Field>
         </div>
 
-        <Field label="Reason" help="Optional. Shown to the approver.">
+        <Field optional label="Reason" help="Shown to the approver.">
           <Textarea
             rows={2}
             value={draft.reason}

@@ -116,7 +116,7 @@ export function StartPeriodDialog({
             placeholder="H2 2026 appraisal"
           />
         </Field>
-        <Field label="Answers due by" help="Optional.">
+        <Field optional label="Answers due by">
           <Input
             type="date"
             value={dueDate}

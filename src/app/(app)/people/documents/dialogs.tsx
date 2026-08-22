@@ -214,7 +214,7 @@ export function AskForDocumentModal({
           />
         </Field>
 
-        <Field label="Needed by" help="Leave it blank and nobody gets chased for it.">
+        <Field optional label="Needed by" help="Leave it blank and nobody gets chased for it.">
           <Input
             type="date"
             value={dueOn}

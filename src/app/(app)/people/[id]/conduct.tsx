@@ -516,7 +516,7 @@ function RecordWarningModal({
           </Field>
         </div>
 
-        <Field label="The detail" help="Optional. Dates, names, what was said.">
+        <Field optional label="The detail" help="Dates, names, what was said.">
           <Textarea
             rows={5}
             value={detail}
@@ -529,9 +529,9 @@ function RecordWarningModal({
         </Field>
 
         <Field
+          optional
           label="What was decided"
-          help="Optional. Often written up after the meeting."
-        >
+          help="Often written up after the meeting.">
           <Textarea
             rows={3}
             value={outcome}

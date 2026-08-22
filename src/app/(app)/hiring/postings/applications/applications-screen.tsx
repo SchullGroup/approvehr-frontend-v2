@@ -583,7 +583,7 @@ function AdvanceDialog({
         )}
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Notice period (days)" help="Optional.">
+          <Field optional label="Notice period (days)">
             <Input
               inputMode="numeric"
               value={noticeDays}
@@ -591,7 +591,7 @@ function AdvanceDialog({
               onChange={(event) => setNoticeDays(event.target.value)}
             />
           </Field>
-          <Field label="Salary they want (₦ a month)" help="Optional.">
+          <Field optional label="Salary they want (₦ a month)">
             <Input
               inputMode="decimal"
               value={expected}
