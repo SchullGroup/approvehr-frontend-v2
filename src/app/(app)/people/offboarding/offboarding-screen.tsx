@@ -56,7 +56,6 @@ export function OffboardingScreen() {
     <>
       <PageHeader
         title="Exit management"
-        description="Everyone on their way out, and what is left to do before they go."
         meta={
           DEMO_ENABLED && exits.source === "demo" ? (
             <Badge tone="warning" size="sm">

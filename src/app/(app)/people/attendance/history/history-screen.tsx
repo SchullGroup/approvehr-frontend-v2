@@ -117,7 +117,6 @@ export function HistoryScreen() {
           { href: "/people/attendance", label: "Attendance" },
           { href: "/people/attendance/history", label: "History" },
         ]}
-        description="Pick a day to see who was in, who was late, who was on approved leave and who was not accounted for."
       />
 
       <PageBody className="flex flex-col gap-6">

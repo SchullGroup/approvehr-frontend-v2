@@ -16,8 +16,6 @@ import type { ImportSurface } from "@/lib/imports/surface";
 export const EMPLOYEE_IMPORT_SURFACE: ImportSurface = {
   dictionary: EMPLOYEES,
   title: "Import your staff list",
-  description:
-    "Upload the spreadsheet you already keep. You will see exactly what it will do before anything is saved.",
   breadcrumb: [{ href: "/people", label: "Directory" }],
   home: { href: "/people", label: "See your people" },
   prerequisites: {

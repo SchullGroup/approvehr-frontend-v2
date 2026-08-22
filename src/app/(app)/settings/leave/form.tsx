@@ -78,7 +78,6 @@ export function LeavePolicyForm() {
     <>
       <PageHeader
         title="Leave policies"
-        description="Entitlements, accrual, carry-over and the notice each type requires."
         breadcrumb={[{ href: "/settings", label: "Settings" }]}
       />
 

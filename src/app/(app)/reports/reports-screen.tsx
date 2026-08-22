@@ -86,7 +86,6 @@ export function ReportsScreen() {
     <>
       <PageHeader
         title="Reports"
-        description={`Headcount, payroll cost and operational load for ${data.period}.`}
       />
 
       <PageBody className="flex flex-col gap-6">

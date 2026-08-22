@@ -120,7 +120,6 @@ function OwnKitOnly() {
     <>
       <PageHeader
         title="Equipment"
-        description="What the company has given you, and what you would hand back."
       />
       <PageBody>
         <MyAssets />
@@ -305,7 +304,6 @@ function Register() {
     <>
       <PageHeader
         title="Equipment"
-        description="Every laptop, phone and SIM card the company owns, and who has each one."
         action={
           /*
             Two ways in, because there are two situations.

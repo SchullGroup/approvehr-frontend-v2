@@ -92,7 +92,6 @@ export default async function RequisitionPage({
   const cards = pipelineCards(req.id);
   const manager = employeeById(req.hiringManagerId);
   const recruiter = employeeById(req.recruiterId);
-  const inProgress = cards.filter((c) => c.outcome === "in_progress").length;
 
   return (
     <>
@@ -112,7 +111,6 @@ export default async function RequisitionPage({
             </Badge>
           </>
         }
-        description={`${req.openings} opening${req.openings > 1 ? "s" : ""} · ${inProgress} candidates in play · target start ${req.targetStartDate}`}
         action={
           <ButtonLink href="/hiring/postings" variant="secondary" size="sm">
             <Megaphone aria-hidden="true" className="size-3.5" />

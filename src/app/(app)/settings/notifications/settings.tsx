@@ -50,7 +50,6 @@ export function NotificationSettings() {
     <>
       <PageHeader
         title="Notifications"
-        description="What triggers a message, and who receives it."
         breadcrumb={[{ href: "/settings", label: "Settings" }]}
       />
 

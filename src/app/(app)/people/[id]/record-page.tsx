@@ -244,7 +244,6 @@ export function EmployeeRecordPage({ id }: { id: string }) {
             )}
           </>
         }
-        description={`${employee.jobTitle} · ${employee.department} · ${employee.location}`}
         action={
           archived ? (
             <Button

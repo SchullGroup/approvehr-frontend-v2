@@ -107,7 +107,7 @@ export function ProfileScreen() {
 
   return (
     <>
-      <PageHeader title="My profile" description="Your details, pay and time off." />
+      <PageHeader title="My profile" />
 
       <PageBody className="flex flex-col gap-6">
         {/* Identity */}

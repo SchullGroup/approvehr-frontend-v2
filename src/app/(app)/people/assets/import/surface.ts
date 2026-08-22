@@ -21,8 +21,6 @@ import type { ImportSurface } from "@/lib/imports/surface";
 export const EQUIPMENT_IMPORT_SURFACE: ImportSurface = {
   dictionary: EQUIPMENT,
   title: "Import your equipment register",
-  description:
-    "Upload the spreadsheet you already keep. You will see exactly what it will do before anything is saved.",
   breadcrumb: [
     { href: "/people", label: "Directory" },
     { href: "/people/assets", label: "Equipment" },

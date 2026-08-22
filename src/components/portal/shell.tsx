@@ -498,14 +498,12 @@ function CompanySwitcher() {
 
 export function PageHeader({
   title,
-  description,
   breadcrumb,
   action,
   meta,
   tabs,
 }: {
   title: string;
-  description?: string;
   breadcrumb?: { href: string; label: string }[];
   action?: React.ReactNode;
   /** Small status chips shown beside the title. */
@@ -592,11 +590,6 @@ export function PageHeader({
               <h1 className="text-h3 text-ink">{title}</h1>
               {meta}
             </div>
-            {description && (
-              <p className="mt-1.5 max-w-2xl text-body-sm leading-relaxed text-body">
-                {description}
-              </p>
-            )}
           </div>
           {action && <div className="flex shrink-0 items-center gap-2">{action}</div>}
         </div>

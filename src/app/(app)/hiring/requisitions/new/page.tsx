@@ -16,7 +16,6 @@ export default function NewRequisitionPage() {
           { href: "/hiring/requisitions/new", label: "New requisition" },
         ]}
         title="Open a new role"
-        description="Five steps. The last one saves the job as a draft advert, and nothing is public until you publish it."
       />
       <PageBody>
         <RequisitionWizard />

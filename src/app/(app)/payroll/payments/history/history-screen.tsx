@@ -182,7 +182,6 @@ export function PaymentHistoryScreen() {
       <PageHeader
         breadcrumb={[{ href: "/payroll/payments", label: "Payments" }]}
         title="Payment history"
-        description="Who was paid, for which month, and whether the money moved."
         meta={
           <Badge tone={history.live ? "success" : "warning"} size="sm" dot>
             {sourceNote(history.live)}

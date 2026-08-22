@@ -176,11 +176,6 @@ export function AttendanceScreen() {
     <>
       <PageHeader
         title="Attendance"
-        description={
-          policy
-            ? `Work day ${policy.shiftStart}–${policy.shiftEnd}, ${policy.graceMinutes} minutes' grace. Showing ${shortDate(roster.date)}.`
-            : "Who is in, who is late, and who is on approved leave."
-        }
         action={
           <SegmentedControl
             label="View"

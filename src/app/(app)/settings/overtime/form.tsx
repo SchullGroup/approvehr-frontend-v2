@@ -154,7 +154,6 @@ export function OvertimePolicyForm() {
     <>
       <PageHeader
         title="Overtime"
-        description="When extra hours count, what they pay, and who signs them off."
         breadcrumb={[{ href: "/settings", label: "Settings" }]}
         meta={
           <Badge tone={source === "api" ? "success" : "warning"} size="sm" dot>

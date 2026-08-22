@@ -93,7 +93,6 @@ export function CompanyProfileForm() {
     <>
       <PageHeader
         title="Company profile"
-        description="Used on contracts, letters and every statutory filing the product generates."
         breadcrumb={[{ href: "/settings", label: "Settings" }]}
         action={
           dirty ? (

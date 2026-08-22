@@ -189,7 +189,6 @@ export function FeaturesScreen() {
     <>
       <PageHeader
         title="Turn on more features"
-        description="Switch on the parts of the product you use. Switching one off hides it and keeps the data."
         breadcrumb={[{ href: "/settings", label: "Settings" }]}
         meta={
           <Badge tone={connected ? "success" : "warning"} size="sm" dot>

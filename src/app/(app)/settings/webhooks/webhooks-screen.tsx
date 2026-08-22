@@ -97,7 +97,6 @@ function Header({ action }: { action?: React.ReactNode }) {
   return (
     <PageHeader
       title="Webhooks"
-      description="Tell your own server the moment something happens here."
       breadcrumb={[{ href: "/settings", label: "Settings" }]}
       action={action}
     />

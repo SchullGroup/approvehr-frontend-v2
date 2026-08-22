@@ -98,7 +98,6 @@ export function ChecklistSettingsScreen() {
       <PageHeader
         title="Exit checklist"
         breadcrumb={[{ href: "/people/offboarding", label: "Exit management" }]}
-        description="What everyone leaving works through. You only need to change this if your list is different from ours."
         meta={
           DEMO_ENABLED && templates.source === "demo" ? (
             <Badge tone="warning" size="sm">

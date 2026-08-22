@@ -38,7 +38,6 @@ export default async function PayslipPage({
             { href: "/payroll/payslips", label: "Payslips" },
           ]}
           title="Payslip"
-          description="Every figure itemised, including what your employer paid on top."
         />
       </div>
       <PageBody>

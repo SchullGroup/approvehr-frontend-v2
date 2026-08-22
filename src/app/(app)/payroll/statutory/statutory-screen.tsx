@@ -141,7 +141,6 @@ export function StatutoryScreen() {
           { href: "/payroll/statutory", label: "Statutory filings" },
         ]}
         title="Statutory filings"
-        description="August 2026. Every schedule is generated from the payroll itself, split by body."
         action={
           <Button variant="secondary" size="sm" disabled={shown.length === 0}>
             <Download aria-hidden="true" className="size-3.5" />

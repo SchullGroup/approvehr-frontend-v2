@@ -258,7 +258,6 @@ export function UnknownRequisition({ id }: { id: string }) {
             </Badge>
           ) : undefined
         }
-        description="The advert and its applications, from the database. The role's own details — stages, hiring team, must-haves — have no endpoint yet."
         action={
           <ButtonLink href="/hiring/postings" variant="secondary" size="sm">
             <Megaphone aria-hidden="true" className="size-4" />

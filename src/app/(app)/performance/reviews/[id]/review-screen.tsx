@@ -171,11 +171,6 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
       <PageHeader
         breadcrumb={[{ href: "/performance", label: "KPIs & appraisals" }]}
         title={review.kindLabel}
-        description={
-          review.kind === "SELF" && isSubject
-            ? "Your own words about your own work."
-            : `About ${review.subjectName}. ${review.cycleName}.`
-        }
         meta={
           <>
             <Badge tone={review.submitted ? "neutral" : "warning"} size="sm" dot>

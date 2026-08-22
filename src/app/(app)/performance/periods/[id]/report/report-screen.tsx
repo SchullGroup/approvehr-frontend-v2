@@ -81,7 +81,6 @@ export function PeriodReportScreen({ cycleId }: { cycleId: string }) {
           },
         ]}
         title="Period report"
-        description="The spread of marks, what came in, and who is left out — by name."
         meta={
           cycle ? (
             <>

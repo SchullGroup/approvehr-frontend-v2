@@ -59,7 +59,6 @@ export function PaySetupScreen({ initialTab }: { initialTab: PaySetupTab }) {
     <>
       <PageHeader
         title="Pay setup"
-        description="What pay is made of besides salary: what you add, what you take off, and the bands each job sits in."
       />
 
       <PageBody>

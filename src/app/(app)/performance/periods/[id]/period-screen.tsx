@@ -215,7 +215,6 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
           { href: "/performance?tab=periods", label: "Appraisal periods" },
         ]}
         title={period?.name ?? "Appraisal period"}
-        description="What this period still needs, who owes a form, who has nobody appraising them, and where every mark stands."
         meta={
           period ? (
             <>

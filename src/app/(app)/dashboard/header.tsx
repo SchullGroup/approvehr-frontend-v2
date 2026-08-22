@@ -28,10 +28,8 @@ function greeting(hour: number): string {
 }
 
 export function DashboardHeader({
-  description,
   action,
 }: {
-  description?: string;
   action?: React.ReactNode;
 }) {
   const { displayName } = useSession();
@@ -41,7 +39,6 @@ export function DashboardHeader({
   return (
     <PageHeader
       title={firstName ? `${hello}, ${firstName}` : hello}
-      description={description}
       action={action}
     />
   );

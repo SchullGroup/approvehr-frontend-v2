@@ -241,7 +241,6 @@ export function SettingsScreen() {
     <>
       <PageHeader
         title="Settings"
-        description="Everything that changes how the product behaves for your company, starting with what is not set up yet."
       />
 
       <PageBody className="flex flex-col gap-6">

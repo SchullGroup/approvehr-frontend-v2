@@ -14,7 +14,6 @@ export default function PeoplePage() {
     <>
       <PageHeader
         title="Directory"
-        description="Everyone on the payroll, and the state of their record."
         action={
           <div className="flex flex-wrap items-center gap-2">
             {/* People arrive and people leave, and until this link existed only

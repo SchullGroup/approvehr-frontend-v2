@@ -34,7 +34,7 @@ import {
   usePaymentsSummary,
 } from "@/lib/store/payments";
 import { downloadCsv } from "@/lib/csv";
-import { longDate, longDateTime, monthLabel, people } from "../format";
+import { longDate, longDateTime, people } from "../format";
 import { CheckPanel } from "./check-panel";
 import { ReleasePanel } from "./release-panel";
 
@@ -186,13 +186,6 @@ export function BatchDetailScreen({ id }: { id: string }) {
     <>
       <PageHeader
         title={batch.reference}
-        description={
-          batch.period
-            ? `${batch.narration ?? monthLabel(batch.period)} · pays ${
-                batch.payDate ? longDate(batch.payDate) : "when you send it"
-              }`
-            : (batch.narration ?? undefined)
-        }
         breadcrumb={[
           { href: "/payroll", label: "Monthly payroll" },
           { href: "/payroll/payments", label: "Payments" },

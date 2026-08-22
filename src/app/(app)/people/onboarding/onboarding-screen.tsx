@@ -130,7 +130,6 @@ export function OnboardingScreen() {
     <>
       <PageHeader
         title="Onboarding"
-        description="New starters and what is still outstanding for each."
         action={
           <ButtonLink href="/people/new" variant="accent" size="sm">
             <Plus aria-hidden="true" className="size-4" />

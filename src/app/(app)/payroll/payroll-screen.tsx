@@ -65,7 +65,6 @@ export function PayrollScreen() {
     <>
       <PageHeader
         title="Payroll"
-        description="Runs, what each one owes, and anything that would make it wrong."
         action={
           <ButtonLink
             href={

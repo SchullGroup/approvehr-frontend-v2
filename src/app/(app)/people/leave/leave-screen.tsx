@@ -264,11 +264,6 @@ export function LeaveScreen() {
     <>
       <PageHeader
         title="Time off"
-        description={
-          onlyMine
-            ? "Your requests, your balance, and what you have left."
-            : "Requests, balances, and who is away when."
-        }
         meta={
           <Badge tone={connected ? "success" : "warning"} size="sm" dot>
             {sourceNote(connected)}

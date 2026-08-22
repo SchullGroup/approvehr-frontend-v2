@@ -129,7 +129,6 @@ export function DocumentsScreen() {
     <>
       <PageHeader
         title="Documents"
-        description="What you hold on file, and what you are still waiting for."
         meta={
           register.editable || !DEMO_ENABLED ? undefined : (
             <Badge tone="warning" size="sm">

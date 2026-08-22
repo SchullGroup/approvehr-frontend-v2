@@ -48,7 +48,6 @@ export function IntegrationsList() {
     <>
       <PageHeader
         title="Integrations"
-        description="Accounting, attendance devices, single sign-on and payment execution."
         breadcrumb={[{ href: "/settings", label: "Settings" }]}
       />
 

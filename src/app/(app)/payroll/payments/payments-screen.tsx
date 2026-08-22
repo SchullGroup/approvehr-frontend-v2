@@ -147,7 +147,6 @@ export function PaymentsScreen() {
     <>
       <PageHeader
         title="Payments"
-        description="What is waiting to go out, and what has left the account."
         meta={
           <Badge tone={list.live ? "success" : "warning"} size="sm" dot>
             {sourceNote(list.live)}

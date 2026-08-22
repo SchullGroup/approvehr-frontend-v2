@@ -17,7 +17,6 @@ export default function NewPayrollRunPage() {
           { href: "/payroll/runs/new", label: "Run payroll" },
         ]}
         title="Run payroll"
-        description="Preparing works out everybody's pay and pays nobody. Approving is the step that cannot be undone."
       />
       <PageBody>
         {/* The wizard reads `?period=` to reopen a run somebody already prepared,

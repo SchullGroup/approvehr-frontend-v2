@@ -124,7 +124,6 @@ export function RolesScreen() {
     <>
       <PageHeader
         title="Roles and permissions"
-        description="What each role can do, and who holds it."
         breadcrumb={[{ href: "/settings", label: "Settings" }]}
         meta={
           roles.connected || !DEMO_ENABLED ? (

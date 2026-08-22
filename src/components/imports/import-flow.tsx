@@ -146,7 +146,6 @@ export function ImportFlow({ surface }: { surface: ImportSurface }) {
     <>
       <PageHeader
         title={surface.title}
-        description={surface.description}
         breadcrumb={[...surface.breadcrumb]}
         meta={
           imp.isConnected || !DEMO_ENABLED ? undefined : (

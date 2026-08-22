@@ -210,7 +210,6 @@ export function ScoringWeightsForm() {
     <>
       <PageHeader
         title="Appraisal scoring"
-        description="How much each part of an appraisal counts towards somebody's mark."
         breadcrumb={[{ href: "/settings", label: "Settings" }]}
         meta={
           <>
