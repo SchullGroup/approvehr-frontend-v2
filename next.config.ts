@@ -19,6 +19,17 @@ const nextConfig: NextConfig = {
     root: __dirname,
   },
 
+  /* Where the build lands. `.next` unless something asks otherwise.
+   *
+   * `scripts/verify-demo.ts` greps the *built* output, because that is the only
+   * half of it that proves anything — and proving it used to mean a production
+   * build over `.next`, which is what `next dev` serves from. So verifying the
+   * demo gate killed the dev server every time, and verifying got skipped, which
+   * is how seven fabricated values accumulated behind a passing check. Use
+   * `npm run verify-demo:build`, which sets this and puts the build somewhere
+   * harmless. */
+  distDir: process.env["NEXT_DIST_DIR"] ?? ".next",
+
   compiler: {
     /**
      * `DEMO_ENABLED` is a compile-time literal, not an import.

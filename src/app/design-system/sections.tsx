@@ -159,7 +159,7 @@ export function FormsDemo() {
     <div className="grid gap-6 lg:grid-cols-2">
       <div className="flex flex-col gap-5">
         <Field label="Full name" required help="As it appears on their ID.">
-          <Input placeholder="Adaeze Okonkwo" />
+          <Input placeholder="Example Alpha" />
         </Field>
 
         <Field
@@ -264,11 +264,11 @@ export function FormsDemo() {
 /* -------------------------------------------------------------------------- */
 
 const EMPLOYEES = [
-  { id: "1", name: "Adaeze Okonkwo", role: "Senior Engineer", dept: "Engineering", salary: 1_250_000, status: "active" as const },
-  { id: "2", name: "Tunde Bakare", role: "Finance Manager", dept: "Finance", salary: 980_000, status: "active" as const },
-  { id: "3", name: "Ngozi Eze", role: "Product Designer", dept: "Product", salary: 870_000, status: "leave" as const },
-  { id: "4", name: "Chidi Nwosu", role: "Operations Lead", dept: "Operations", salary: 760_000, status: "probation" as const },
-  { id: "5", name: "Fatima Bello", role: "People Partner", dept: "People", salary: 690_000, status: "offboarding" as const },
+  { id: "1", name: "Example Alpha", role: "Senior Engineer", dept: "Engineering", salary: 1_250_000, status: "active" as const },
+  { id: "2", name: "Example Bravo", role: "Finance Manager", dept: "Finance", salary: 980_000, status: "active" as const },
+  { id: "3", name: "Example Charlie", role: "Product Designer", dept: "Product", salary: 870_000, status: "leave" as const },
+  { id: "4", name: "Example Delta", role: "Operations Lead", dept: "Operations", salary: 760_000, status: "probation" as const },
+  { id: "5", name: "Example Echo", role: "People Partner", dept: "People", salary: 690_000, status: "offboarding" as const },
 ];
 
 const STATUS_MAP = {
@@ -476,7 +476,7 @@ export function FeedbackDemo() {
             Three leave requests need a decision before Friday.
           </Callout>
           <Callout tone="success" title="Payroll approved">
-            August payroll was approved by Tunde Bakare and is queued to pay on
+            August payroll was approved by Example Bravo and is queued to pay on
             28 Aug.
           </Callout>
           <Callout tone="warning" title="Pension remittance due">
@@ -592,7 +592,7 @@ export function FeedbackDemo() {
       <Drawer
         open={drawer}
         onClose={() => setDrawer(false)}
-        title="Adaeze Okonkwo"
+        title="Example Alpha"
         description="Senior Engineer · Engineering"
         size="sm"
         footer={
@@ -611,9 +611,9 @@ export function FeedbackDemo() {
           items={[
             { term: "Employee ID", value: "AHR-0142" },
             { term: "Start date", value: "12 March 2024" },
-            { term: "Manager", value: "Tunde Bakare" },
+            { term: "Manager", value: "Example Bravo" },
             { term: "Gross monthly", value: <Money amount={1_250_000} /> },
-            { term: "Pension PIN", value: "PEN100482913" },
+            { term: "Pension PIN", value: "PEN000000000" },
             { term: "Status", value: <Badge tone="success" dot>Active</Badge> },
           ]}
         />
@@ -627,7 +627,7 @@ export function FeedbackDemo() {
       <Drawer
         open={longDrawer}
         onClose={() => setLongDrawer(false)}
-        title="Adaeze Okonkwo"
+        title="Example Alpha"
         description="Everything on file"
         size="lg"
         footer={
@@ -648,7 +648,7 @@ export function FeedbackDemo() {
                   items={[
                     { term: "Reference", value: "AHR-0142" },
                     { term: "Recorded", value: "12 March 2024" },
-                    { term: "Recorded by", value: "Tunde Bakare" },
+                    { term: "Recorded by", value: "Example Bravo" },
                     { term: "Value", value: <Money amount={1_250_000} /> },
                   ]}
                 />
@@ -769,10 +769,10 @@ export function PeopleDemo() {
             Avatars
           </p>
           <div className="flex items-center gap-3">
-            <Avatar name="Adaeze Okonkwo" size="xs" />
-            <Avatar name="Tunde Bakare" size="sm" />
-            <Avatar name="Ngozi Eze" size="md" tone="accent" />
-            <Avatar name="Chidi Nwosu" size="lg" tone="ink" />
+            <Avatar name="Example Alpha" size="xs" />
+            <Avatar name="Example Bravo" size="sm" />
+            <Avatar name="Example Charlie" size="md" tone="accent" />
+            <Avatar name="Example Delta" size="lg" tone="ink" />
           </div>
         </div>
 
@@ -803,7 +803,7 @@ export function PeopleDemo() {
                   { term: "Employee ID", value: "AHR-0142" },
                   { term: "Department", value: "Engineering" },
                   { term: "Start date", value: "12 Mar 2024" },
-                  { term: "Manager", value: "Tunde Bakare" },
+                  { term: "Manager", value: "Example Bravo" },
                   { term: "Location", value: "Lagos, NG" },
                   { term: "Type", value: "Full time" },
                 ]}
@@ -826,7 +826,7 @@ export function PeopleDemo() {
                   title: "Offer accepted",
                   detail: "Signed via e-signature",
                   timestamp: "Today, 09:12",
-                  actor: "Adaeze Okonkwo",
+                  actor: "Example Alpha",
                   tone: "success",
                 },
                 {
@@ -834,7 +834,7 @@ export function PeopleDemo() {
                   title: "Offer sent",
                   detail: "₦1,250,000 gross monthly",
                   timestamp: "Yesterday, 16:40",
-                  actor: "Fatima Bello",
+                  actor: "Example Echo",
                   tone: "accent",
                 },
                 {
@@ -842,7 +842,7 @@ export function PeopleDemo() {
                   title: "Final interview completed",
                   detail: "Scorecard average 4.6 / 5",
                   timestamp: "22 Aug, 11:00",
-                  actor: "Tunde Bakare",
+                  actor: "Example Bravo",
                 },
                 {
                   id: "4",

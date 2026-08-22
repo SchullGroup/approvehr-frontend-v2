@@ -47,3 +47,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Production builds made only to verify the demo gate. See next.config.ts.
+.next-verify
+.tsconfig.verify.bak

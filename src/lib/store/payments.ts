@@ -264,7 +264,7 @@ function demoBatchSeed(
   };
 }
 
-const SEED_BOOK: DemoBook = {
+const SEED_BOOK: DemoBook = DEMO_ENABLED ? {
   accounts: DEMO_ACCOUNTS,
   batches: [
     demoBatchSeed(
@@ -353,7 +353,7 @@ const SEED_BOOK: DemoBook = {
       batchReference: null,
     },
   ],
-};
+} : { accounts: [], batches: [], ledger: [] };
 
 /* ------------------------------------------------------------ the demo store */
 

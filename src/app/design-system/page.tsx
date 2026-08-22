@@ -12,6 +12,7 @@ import {
   TYPE_SCALE,
   type Swatch,
 } from "./tokens";
+import { notFound } from "next/navigation";
 import {
   ButtonsDemo,
   CardsDemo,
@@ -24,6 +25,28 @@ import {
   StatsDemo,
   TableDemo,
 } from "./sections";
+
+/*
+ * Why this internal page is gated, and why its example values are synthetic.
+ *
+ * This is a style reference, not demo *mode* — so the compile-time
+ * `DEMO_ENABLED` gate that strips seeded personas from every other screen never
+ * applied to it, and it shipped to production carrying example records that read
+ * as real ones: staff names taken from the seed directory, salaries, a manager,
+ * and a fabricated pension PIN. `scripts/verify-demo.ts` could not see them,
+ * because it looks for demo-mode strings and these were ordinary component props.
+ *
+ * Two things fix it, and the order matters. Gating the route was tried first and
+ * is **not** sufficient on its own: `notFound()` stops the render, and putting
+ * the demos behind a lazily-imported module boundary still emitted their chunk,
+ * so every value stayed fetchable from `.next/static` regardless. What actually
+ * removes them is that the values are no longer persona-shaped — Example Alpha,
+ * and a PIN of all zeroes at a real PIN's length. Nothing here can be mistaken
+ * for somebody's record, in any build, however it is chunked.
+ *
+ * The gate stays as well, because an internal token showcase is not part of the
+ * product and has no business answering in production.
+ */
 
 export const metadata: Metadata = {
   title: "Design system",
@@ -68,6 +91,11 @@ const SECTIONS = [
 ];
 
 export default function DesignSystemPage() {
+  /* Not a customer-facing page. `DEMO_ENABLED` is substituted at compile time,
+     so in a production build this reads `if (true) notFound()` and every demo
+     below is unreachable. */
+  if (!DEMO_ENABLED) notFound();
+
   return (
     <div className="min-h-dvh bg-canvas">
       {/* Header */}

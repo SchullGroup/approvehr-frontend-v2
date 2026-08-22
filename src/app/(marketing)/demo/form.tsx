@@ -104,7 +104,7 @@ export function DemoForm() {
             value={form.name}
             error={errors.name}
             onChange={(v) => set("name", v)}
-            placeholder="Amara Nwachukwu"
+            placeholder="Folake Adisa"
           />
           <TextField
             id="company"

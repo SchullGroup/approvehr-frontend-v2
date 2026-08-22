@@ -3859,3 +3859,160 @@ during the walk (`DEMO_ENABLED is not defined` and a parse error in
 - **Generating real `StatutorySchedule` rows.** Nothing writes that model yet.
   What this change fixes is which bodies appear, which is the half that was
   making a wrong claim.
+
+---
+
+# The demo gate could not see a fabricated record, and that is what shipped
+
+The entry above closes with two items under "Also worth a look, and out of scope
+here": `/design-system` shipping a fabricated pension PIN, and `store/webhooks.ts`
+sample payloads using seeded persona names. Both are closed now, and finding out
+why they survived turned up five more of the same thing.
+
+## What was actually in the production bundle
+
+Built with `NEXT_PUBLIC_DEMO=off` and grepped, which is the only way any of this
+is knowable:
+
+| Value | Where it came from |
+|---|---|
+| `PEN100482913` | `/design-system`, as a definition-list value |
+| `PEN100234567` | the import template's example row, in **both** dictionaries |
+| `PEN100000000` | the add-employee wizard's pension-PIN placeholder |
+| five seed personas | `/design-system`, sixteen lines of it |
+| `Grace Effiong` + `grace.effiong@schulltech.com` | `store/audit.ts` |
+| a whole fabricated payment history | `store/payments.ts` — `SEED_BOOK` |
+| `Tunde Bakare` | `store/reimbursements.ts`, a default inside a helper |
+
+Three fabricated RSA PINs and a payment book with batches, instructions, a ledger
+and approver names, in a build with no demo mode in it.
+
+## Why `verify-demo` passed the whole time
+
+It looks for demo-mode **copy** — "Demo data, this browser only" and eleven
+similar phrases. Every value above is an ordinary component prop or an ordinary
+seed array. The check was not weak at what it did; it was answering a different
+question, and its own header says the bundle half is the only half that proves
+anything. It proved the badges were gone and nobody had asked it about the data.
+
+## Four things that each looked like the fix and were not
+
+Worth reading in order, because three of them are the kind of thing that gets
+committed with a confident message.
+
+1. **`notFound()` at the top of the page.** Stops the render. The chunk is still
+   written to `.next/static` and still fetchable, so every value is still
+   published — a gate on the *route* is not a gate on the *payload*.
+2. **`next/dynamic` around the demos.** Same outcome, measured rather than
+   reasoned about: the build emitted the chunk anyway. Lazy is not absent. This
+   was tried, built, grepped, and found to have changed nothing.
+3. **Gating the declaration's consumer.** `store/audit.ts` has a gated `SEED` and
+   two ungated `const`s holding the actors it attributes entries to. **A separate
+   `const` does not fold just because everything that reads it does.**
+4. **Asking whether the file mentions `DEMO_ENABLED`.** This is how the first
+   version of the new check let `store/payments.ts` through: two of its seeds are
+   gated, a third was not, and a file-level question answers "gated" for all
+   three. The unit that folds or does not is the **declaration**.
+
+## The fix, in two halves
+
+**Values that have no business being persona-shaped are not.** The design system
+shows Example Alpha through Example Echo and a PIN of `PEN000000000` — a real
+PIN's length, all zeroes, so the layout demo is still honest and nothing can be
+mistaken for a record. Same for the wizard placeholder and both copies of the
+import template's example row. This half needs no bundler cooperation, which is
+why it leads: it is true however the thing is chunked.
+
+**Values that are genuinely demo data are gated at the declaration.**
+`SEED_BOOK`, `DEMO_DELIVERIES`, `DEMO_CATALOGUE`, and the two actors in
+`store/audit.ts`. `DEMO_CATALOGUE` became `CatalogueView | null` rather than an
+invented empty catalogue: its one consumer already returns `CatalogueView | null`,
+and an empty events list would be a claim that the API publishes no events.
+
+## The marketing illustrations have their own roster now, and that is the load-bearing part
+
+This is the decision to read before undoing anything here.
+
+The marketing mockups are hand-drawn SVG illustrations of the product on the
+public site. They are not records, they claim nothing about any reader's data, and
+they were shipping the **same six personas as the seed directory**. That coincidence
+is what made the whole class unenforceable: a built chunk cannot tell you which
+file a name came from, so as long as one legitimate surface shipped the seed's
+names, a seed persona in a production bundle could always be explained away — and
+`verify-demo` would have needed an allowlist that exempted those names everywhere,
+which is no check at all.
+
+So they have their own six: Chioma Aduba, Segun Adeyemi, Obinna Ezeh, Kemi
+Balogun, Zainab Yusuf, Folake Adisa. Plausible Nigerian names, the same register
+the site argues in, **none of them on the seed roster**. Nothing about what those
+pages claim has changed. What changed is that a seed persona in the built output
+is now unambiguous, which is what lets the bundle check run with no allowlist.
+
+**Do not put a seed name back into a marketing file to save a rename.** That is
+the change that quietly turns the gate off.
+
+## `npm run verify-demo:build` — the reason nobody was verifying this
+
+Proving the bundle is clean means a production build, and a production build lands
+on `.next`, which is what `next dev` is serving from. So verifying the demo gate
+killed the dev server every time, and verifying got skipped. That is the whole
+reason seven fabricated values accumulated behind a passing check.
+
+`next.config.ts` takes its build directory from `NEXT_DIST_DIR`, and the script
+puts a production build in `.next-verify`, restores the `tsconfig.json` that Next
+rewrites on every build, and runs the check against it. One command, no
+interruption, `.next` untouched. Verified: dev server answering 200 throughout,
+`git diff tsconfig.json` empty afterwards.
+
+## What the check does now, and which half proves anything
+
+Three sections in `scripts/verify-demo.ts`:
+
+- **Demo copy in source** — unchanged. Says a phrase is *capable* of folding.
+- **Demo copy in the bundle** — unchanged, and skips loudly on a dev-only `.next`
+  rather than passing quietly.
+- **Fabricated records** — new. Seed personas, read out of `lib/mock/people.ts`
+  itself so the list cannot go stale, plus a credential-shape regex. Source side
+  is per **declaration**, with the seed as the only allowlisted file. Bundle side
+  has **no allowlist at all**, and covers names as well as credentials.
+
+Tamper-tested in all three directions, each restoring to exit 0: an ungated
+persona in `lib/cn.ts` (exit 1, named), a `PEN123456789` added to a file that is
+gated *elsewhere* (exit 1, named — the case the first version missed), and a
+persona appended to a built chunk (exit 1, named).
+
+The credential regex excludes an all-zero PIN by its digit class rather than by an
+allowlist. A placeholder that reads as a placeholder is the point.
+
+## Verified
+
+`npm run check` exit **0** — typecheck, lint, 88 titles, demo, contrast, type
+scale, payroll 52, CSV 101, template 34, loans 28. `npm run verify-demo:build`
+exit **0**.
+
+Independently grepped, not taken from the script: a production build with
+`NEXT_PUBLIC_DEMO=off` contains **zero** occurrences of all three PINs, all six
+formerly-leaked personas, `grace.effiong@schulltech.com`, and `PAY-202607-1`,
+across `.next-verify/static` and `.next-verify/server` with maps excluded — and
+does contain the marketing roster, which is the control proving the grep works.
+
+## One more gate that went red on files nobody wrote
+
+Third time in this file. `npm run check` reported **496 errors and 7592 warnings**
+— `require()` imports, `@ts-ignore`, `__turbopack_context__` — and 565 of the 567
+offending files were in `.next-verify`, because `eslint.config.mjs` ignored `.next`
+and not the new directory. It is `.next-*/**` now.
+
+The standing rule from the two earlier instances held exactly: **if a gate reports
+errors in files you did not write, find out which directory they are in before
+reading a single one of them.**
+
+## Deliberately not done
+
+- **The comments naming seed personas** in `performance/now.tsx`,
+  `lib/reference/lists.ts` and `globals.css`. Comments do not survive
+  minification — checked, including the CSS, where no built stylesheet carries
+  one — and each explains a real incident. Deleting the explanation to satisfy a
+  grep is the mistake `lib/demo.ts` warns about one level up.
+- **The seed's own personas and PINs.** They are gated, the bundle check proves
+  they are absent, and demo mode is what they exist for.

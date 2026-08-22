@@ -87,8 +87,13 @@ type Seed = {
   isRead?: boolean;
 };
 
-const GRACE = { id: "u-08", name: "Grace Effiong", email: "grace.effiong@schulltech.com" };
-const TUNDE = { id: "u-02", name: "Tunde Bakare", email: "tunde.bakare@schulltech.com" };
+/* The actors the gated seed below attributes its entries to. Gated in their
+   own right, not left to fold with their consumer: a separate `const` does
+   not fold just because everything that reads it does, and these two carry
+   real-looking email addresses. */
+const NOBODY = { id: "", name: "", email: "" };
+const GRACE = DEMO_ENABLED ? { id: "u-08", name: "Grace Effiong", email: "grace.effiong@schulltech.com" } : NOBODY;
+const TUNDE = DEMO_ENABLED ? { id: "u-02", name: "Tunde Bakare", email: "tunde.bakare@schulltech.com" } : NOBODY;
 const SYSTEM = { id: null, name: "System" };
 
 const person = (id: string, label: string) => ({

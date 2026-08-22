@@ -365,7 +365,7 @@ function seedClaim(input: {
     status: input.status,
     editable: input.status === "SUBMITTED",
     approvedById: decided ? "p-02" : null,
-    approvedByName: decided ? (input.approvedBy ?? "Tunde Bakare") : null,
+    approvedByName: decided ? (input.approvedBy ?? (DEMO_ENABLED ? "Tunde Bakare" : "")) : null,
     decidedAt: decided ? isoDaysAgo(Math.max(0, input.daysAgo - 2)) : null,
     declinedReason: input.declinedReason ?? null,
     paidAt:

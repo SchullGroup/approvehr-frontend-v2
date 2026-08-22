@@ -141,7 +141,7 @@ function EmployeeRecord() {
       <Head title="Employee record" chip="Active" chipTone="green" />
       <Person
         initials="AO"
-        name="Adaeze Okonkwo"
+        name="Chioma Aduba"
         meta="Engineering Manager · AHR-0142"
       />
       <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 border-t border-slate/8 pt-3">
@@ -184,7 +184,7 @@ function SelfServiceChange() {
         Bank account update
       </p>
       <p className="mt-0.5 text-meta text-slate/45">
-        Raised by Chidi Nwosu · today
+        Raised by Obinna Ezeh · today
       </p>
 
       <div className="mt-3 flex flex-col gap-2">
@@ -302,7 +302,7 @@ function LetterTemplate() {
 function DeductionBreakdown() {
   return (
     <DayFrame className={SHELL}>
-      <Head title="Adaeze Okonkwo · August" />
+      <Head title="Chioma Aduba · August" />
       {/* Figures come from the same engine the product runs — see
           scripts/verify-payroll.ts. Do not hand-edit them. */}
       <Row label="Gross" value="₦1,850,000" strong />
@@ -362,9 +362,9 @@ function ApprovalChain() {
       <Head title="Approval trail" chip="Awaiting CFO" chipTone="amber" />
       <div className="flex flex-col gap-2.5">
         {[
-          { n: "Amara Nwachukwu", r: "Prepared", done: true, tint: "bg-accent" },
-          { n: "Fatima Bello", r: "Reviewed", done: true, tint: "bg-success-strong" },
-          { n: "Tunde Bakare", r: "Approves", done: false, tint: "bg-slate/25" },
+          { n: "Folake Adisa", r: "Prepared", done: true, tint: "bg-accent" },
+          { n: "Zainab Yusuf", r: "Reviewed", done: true, tint: "bg-success-strong" },
+          { n: "Segun Adeyemi", r: "Approves", done: false, tint: "bg-slate/25" },
         ].map((s, i) => (
           <div key={s.n} className="relative flex items-center gap-2.5">
             {i < 2 && (
@@ -580,7 +580,7 @@ function Scorecard() {
       <Head title="Scorecard" chip="Strong yes" chipTone="green" />
       <Person
         initials="CN"
-        name="Chidi Nwosu"
+        name="Obinna Ezeh"
         meta="Technical · 90 mins"
         tint="bg-success-strong"
       />
@@ -711,14 +711,14 @@ function LeaveApproval() {
   return (
     <DayFrame className={SHELL}>
       <Head title="Leave request" chip="With manager" chipTone="amber" />
-      <Person initials="NE" name="Ngozi Eze" meta="12–16 Sep · 5 days" />
+      <Person initials="NE" name="Kemi Balogun" meta="12–16 Sep · 5 days" />
       <div className="mt-3 rounded-lg border border-slate/8 p-2">
         <p className="text-meta uppercase tracking-wide text-slate/35">
           Who else is off
         </p>
         <div className="mt-1.5 flex flex-col gap-1">
           {[
-            ["Chidi Nwosu", "14–15 Sep", "bg-warning"],
+            ["Obinna Ezeh", "14–15 Sep", "bg-warning"],
             ["No one else", "same team", "bg-success"],
           ].map(([n, d, t]) => (
             <div key={n} className="flex items-center gap-2">
@@ -956,7 +956,7 @@ function TicketThread() {
           ))}
         </span>
         <span className="text-meta text-slate/45">
-          Assigned to Fatima Bello
+          Assigned to Zainab Yusuf
         </span>
       </div>
     </DayFrame>

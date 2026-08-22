@@ -92,10 +92,10 @@ function DayFrame({
 /** The hero mockup. A payroll run mid-approval. */
 export function PayrollMockup({ className }: { className?: string }) {
   const rows = [
-    { name: "Adaeze Okonkwo", amount: "₦1,850,000", delta: true },
-    { name: "Chidi Nwosu", amount: "₦1,650,000", delta: false },
-    { name: "Ngozi Eze", amount: "₦1,420,000", delta: true },
-    { name: "Fatima Bello", amount: "₦980,000", delta: false },
+    { name: "Chioma Aduba", amount: "₦1,850,000", delta: true },
+    { name: "Obinna Ezeh", amount: "₦1,650,000", delta: false },
+    { name: "Kemi Balogun", amount: "₦1,420,000", delta: true },
+    { name: "Zainab Yusuf", amount: "₦980,000", delta: false },
   ];
 
   return (

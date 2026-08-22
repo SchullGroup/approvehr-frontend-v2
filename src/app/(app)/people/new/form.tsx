@@ -1191,7 +1191,7 @@ export function NewEmployeeForm() {
                             data-employee-field="pensionPin"
                             value={draft.pensionPin}
                             onChange={(e) => set("pensionPin", e.target.value)}
-                            placeholder="PEN100000000"
+                            placeholder="PEN000000000"
                           />
                         </Field>
                         <Field label="Pension provider">

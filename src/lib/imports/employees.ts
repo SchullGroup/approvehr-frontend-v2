@@ -339,7 +339,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     column: "pension_pin",
     aliases: ["rsa_pin", "pension_number", "rsa"],
     required: false,
-    example: "PEN100234567",
+    example: "PEN000000000",
     note: "PEN then 9 to 12 digits. Flagged if it is not, because PenCom will refuse the schedule.",
     recommended: {
       feature: "pensionSetup",

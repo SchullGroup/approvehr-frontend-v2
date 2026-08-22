@@ -150,7 +150,7 @@ const delivery = (
   row: Omit<ApiDelivery, "maxAttempts" | "webhookId"> & { webhookId: string },
 ): ApiDelivery => ({ maxAttempts: 6, ...row });
 
-const DEMO_DELIVERIES: Record<string, ApiDelivery[]> = {
+const DEMO_DELIVERIES: Record<string, ApiDelivery[]> = DEMO_ENABLED ? {
   "demo-live": [
     delivery({
       id: "demo-d1",
@@ -254,7 +254,7 @@ const DEMO_DELIVERIES: Record<string, ApiDelivery[]> = {
       },
     }),
   ],
-};
+} : {};
 
 /**
  * Four events, copied from the API's catalogue.
@@ -263,7 +263,10 @@ const DEMO_DELIVERIES: Record<string, ApiDelivery[]> = {
  * checkbox list and a real sample payload without a server. The connected path
  * never reads it.
  */
-const DEMO_CATALOGUE: CatalogueView = {
+/* Nullable rather than an invented empty catalogue: the one consumer already
+   returns `CatalogueView | null`, and an empty events list would be a claim
+   that the API publishes no events. */
+const DEMO_CATALOGUE: CatalogueView | null = DEMO_ENABLED ? {
   events: [
     {
       name: "webhook.test",
@@ -374,7 +377,7 @@ const DEMO_CATALOGUE: CatalogueView = {
   },
   delivery: DEMO_DELIVERY_STATUS,
   live: false,
-};
+} : null;
 
 /** What every mutation refuses with when there is no API behind the screen. */
 const DEMO_REFUSAL = new ApiError(
