@@ -74,7 +74,7 @@ export function PeriodReportScreen({ cycleId }: { cycleId: string }) {
     <>
       <PageHeader
         breadcrumb={[
-          { href: "/performance", label: "Performance" },
+          { href: "/performance", label: "KPIs & appraisals" },
           {
             href: `/performance/periods/${cycleId}`,
             label: cycle?.name ?? "Appraisal period",

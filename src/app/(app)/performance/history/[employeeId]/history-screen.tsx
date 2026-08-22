@@ -74,7 +74,7 @@ export function ScoreHistoryScreen({ employeeId }: { employeeId: string }) {
   return (
     <>
       <PageHeader
-        breadcrumb={[{ href: "/performance", label: "Performance" }]}
+        breadcrumb={[{ href: "/performance", label: "KPIs & appraisals" }]}
         title={history?.employeeName ?? "Appraisal history"}
         description="How the mark has moved across appraisal periods, and what each one was made of."
         meta={

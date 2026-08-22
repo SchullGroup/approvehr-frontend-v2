@@ -98,7 +98,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
     return (
       <>
         <PageHeader
-          breadcrumb={[{ href: "/performance", label: "Performance" }]}
+          breadcrumb={[{ href: "/performance", label: "KPIs & appraisals" }]}
           title="Appraisal"
         />
         <PageBody className="flex items-center gap-2 py-16 text-body-sm text-muted">
@@ -113,7 +113,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
     return (
       <>
         <PageHeader
-          breadcrumb={[{ href: "/performance", label: "Performance" }]}
+          breadcrumb={[{ href: "/performance", label: "KPIs & appraisals" }]}
           title="Appraisal"
         />
         <PageBody>
@@ -169,7 +169,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
   return (
     <>
       <PageHeader
-        breadcrumb={[{ href: "/performance", label: "Performance" }]}
+        breadcrumb={[{ href: "/performance", label: "KPIs & appraisals" }]}
         title={review.kindLabel}
         description={
           review.kind === "SELF" && isSubject

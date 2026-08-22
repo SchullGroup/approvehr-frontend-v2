@@ -162,7 +162,7 @@ function Record({ id }: { id: string }) {
     <>
       <PageHeader
         breadcrumb={[
-          { href: "/hiring", label: "Hiring" },
+          { href: "/hiring", label: "Pipeline" },
           ...(card
             ? [
                 {
@@ -1038,7 +1038,7 @@ function NotFoundHere({
   return (
     <>
       <PageHeader
-        breadcrumb={[{ href: "/hiring", label: "Hiring" }]}
+        breadcrumb={[{ href: "/hiring", label: "Pipeline" }]}
         title="Candidate record"
       />
       <PageBody>

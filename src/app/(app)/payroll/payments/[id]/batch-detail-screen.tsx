@@ -104,7 +104,7 @@ export function BatchDetailScreen({ id }: { id: string }) {
         <PageHeader
           title="Payment batch"
           breadcrumb={[
-            { href: "/payroll", label: "Payroll" },
+            { href: "/payroll", label: "Monthly payroll" },
             { href: "/payroll/payments", label: "Payments" },
           ]}
         />
@@ -194,7 +194,7 @@ export function BatchDetailScreen({ id }: { id: string }) {
             : (batch.narration ?? undefined)
         }
         breadcrumb={[
-          { href: "/payroll", label: "Payroll" },
+          { href: "/payroll", label: "Monthly payroll" },
           { href: "/payroll/payments", label: "Payments" },
         ]}
         meta={

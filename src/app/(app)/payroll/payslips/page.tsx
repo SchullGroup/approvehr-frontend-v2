@@ -12,7 +12,7 @@ export default function PayslipsPage() {
     <>
       <PageHeader
         breadcrumb={[
-          { href: "/payroll", label: "Payroll" },
+          { href: "/payroll", label: "Monthly payroll" },
           { href: "/payroll/payslips", label: "Payslips" },
         ]}
         title="Payslips"

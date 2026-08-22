@@ -98,7 +98,7 @@ export default async function RequisitionPage({
     <>
       <PageHeader
         breadcrumb={[
-          { href: "/hiring", label: "Hiring" },
+          { href: "/hiring", label: "Pipeline" },
           { href: `/hiring/requisitions/${req.id}`, label: req.reference },
         ]}
         title={req.title}

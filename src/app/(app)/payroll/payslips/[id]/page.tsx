@@ -34,7 +34,7 @@ export default async function PayslipPage({
       <div className="no-print">
         <PageHeader
           breadcrumb={[
-            { href: "/payroll", label: "Payroll" },
+            { href: "/payroll", label: "Monthly payroll" },
             { href: "/payroll/payslips", label: "Payslips" },
           ]}
           title="Payslip"

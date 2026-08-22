@@ -106,7 +106,7 @@ export function ApprovalsScreen() {
     return (
       <>
         <PageHeader
-          breadcrumb={[{ href: "/performance", label: "Performance" }]}
+          breadcrumb={[{ href: "/performance", label: "KPIs & appraisals" }]}
           title="Objectives to agree"
         />
         <PageBody>
@@ -135,7 +135,7 @@ export function ApprovalsScreen() {
   return (
     <>
       <PageHeader
-        breadcrumb={[{ href: "/performance", label: "Performance" }]}
+        breadcrumb={[{ href: "/performance", label: "KPIs & appraisals" }]}
         title="Objectives to agree"
         description="Read the target, then agree it, send it back, or refuse it. An objective has to be agreed before the period it covers."
         /* One of the three doors on the same dialog. Agreeing the objectives is

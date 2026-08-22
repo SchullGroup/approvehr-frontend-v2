@@ -13,7 +13,7 @@ export default function NewPayrollRunPage() {
     <>
       <PageHeader
         breadcrumb={[
-          { href: "/payroll", label: "Payroll" },
+          { href: "/payroll", label: "Monthly payroll" },
           { href: "/payroll/runs/new", label: "Run payroll" },
         ]}
         title="Run payroll"

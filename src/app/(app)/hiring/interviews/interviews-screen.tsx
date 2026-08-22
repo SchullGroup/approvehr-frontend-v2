@@ -123,7 +123,7 @@ function Diary() {
     <>
       <PageHeader
         breadcrumb={[
-          { href: "/hiring", label: "Hiring" },
+          { href: "/hiring", label: "Pipeline" },
           { href: "/hiring/interviews", label: "Interviews" },
         ]}
         title="Interviews"

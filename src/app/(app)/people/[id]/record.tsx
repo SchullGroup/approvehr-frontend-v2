@@ -573,13 +573,13 @@ export function EmployeeRecord({
                 },
                 {
                   key: "grossMonthly",
-                  label: "Gross monthly",
+                  label: "Gross monthly (optional)",
                   type: "number",
-                  required: true,
-                  help: "Changing this changes their next payslip.",
+                  help: "Changing this changes their next payslip. Clear it if pay is no longer agreed — payroll will name them until it is set again.",
                   /* Two decimals, never abbreviated: this is a figure somebody
-                     reconciles against a bank statement. */
-                  format: (v) => <Money amount={Number(v)} decimals />,
+                     reconciles against a bank statement. Absent, never zero:
+                     `Money` renders "Not set yet" rather than ₦0.00. */
+                  format: (v) => <Money amount={v === null ? null : Number(v)} decimals />,
                 },
               ]}
             />

@@ -14,7 +14,7 @@ export default function PayrollSettingsPage() {
       <PageHeader
         breadcrumb={[
           { href: "/settings", label: "Settings" },
-          { href: "/settings/payroll", label: "Payroll" },
+          { href: "/settings/payroll", label: "Pay setup" },
         ]}
         title="Payroll settings"
         description="These drive every calculation. Changing them affects the next payroll, not ones already approved."

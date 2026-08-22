@@ -22,7 +22,7 @@ export default function OffersPage() {
     <>
       <PageHeader
         breadcrumb={[
-          { href: "/hiring", label: "Hiring" },
+          { href: "/hiring", label: "Pipeline" },
           { href: "/hiring/offers", label: "Offers" },
         ]}
         title="Offer approvals"

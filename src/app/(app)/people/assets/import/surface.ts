@@ -24,7 +24,7 @@ export const EQUIPMENT_IMPORT_SURFACE: ImportSurface = {
   description:
     "Upload the spreadsheet you already keep. You will see exactly what it will do before anything is saved.",
   breadcrumb: [
-    { href: "/people", label: "People" },
+    { href: "/people", label: "Directory" },
     { href: "/people/assets", label: "Equipment" },
   ],
   home: { href: "/people/assets", label: "See your equipment" },

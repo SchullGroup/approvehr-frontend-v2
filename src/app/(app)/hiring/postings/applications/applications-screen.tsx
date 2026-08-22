@@ -86,7 +86,7 @@ export function ApplicationsScreen({
         <PageHeader
           title="Applications"
           breadcrumb={[
-            { href: "/hiring", label: "Hiring" },
+            { href: "/hiring", label: "Pipeline" },
             { href: "/hiring/postings", label: "Job adverts" },
           ]}
         />
@@ -103,7 +103,7 @@ export function ApplicationsScreen({
       <>
         <PageHeader
           title="Applications"
-          breadcrumb={[{ href: "/hiring", label: "Hiring" }]}
+          breadcrumb={[{ href: "/hiring", label: "Pipeline" }]}
         />
         <PageBody>
           <Card>
@@ -192,7 +192,7 @@ function Queue({ initialPostingId }: { initialPostingId: string }) {
         title="Applications"
         description="Everyone who applied through your careers page."
         breadcrumb={[
-          { href: "/hiring", label: "Hiring" },
+          { href: "/hiring", label: "Pipeline" },
           { href: "/hiring/postings", label: "Job adverts" },
         ]}
       />

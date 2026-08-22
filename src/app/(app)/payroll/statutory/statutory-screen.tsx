@@ -137,8 +137,8 @@ export function StatutoryScreen() {
     <>
       <PageHeader
         breadcrumb={[
-          { href: "/payroll", label: "Payroll" },
-          { href: "/payroll/statutory", label: "Statutory" },
+          { href: "/payroll", label: "Monthly payroll" },
+          { href: "/payroll/statutory", label: "Statutory filings" },
         ]}
         title="Statutory filings"
         description="August 2026. Every schedule is generated from the payroll itself, split by body."

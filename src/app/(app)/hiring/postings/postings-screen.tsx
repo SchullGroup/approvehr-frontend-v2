@@ -78,7 +78,7 @@ export function PostingsScreen() {
       <>
         <PageHeader
           title="Job adverts"
-          breadcrumb={[{ href: "/hiring", label: "Hiring" }]}
+          breadcrumb={[{ href: "/hiring", label: "Pipeline" }]}
         />
         <PageBody>
           <Skeleton className="h-40 w-full" />
@@ -93,7 +93,7 @@ export function PostingsScreen() {
       <>
         <PageHeader
           title="Job adverts"
-          breadcrumb={[{ href: "/hiring", label: "Hiring" }]}
+          breadcrumb={[{ href: "/hiring", label: "Pipeline" }]}
         />
         <PageBody>
           <Card>
@@ -223,7 +223,7 @@ function Adverts() {
       <PageHeader
         title="Job adverts"
         description="What is on your careers page, and the link to share."
-        breadcrumb={[{ href: "/hiring", label: "Hiring" }]}
+        breadcrumb={[{ href: "/hiring", label: "Pipeline" }]}
         action={
           <>
             <ButtonLink href="/hiring/postings/applications" variant="secondary" size="sm">

@@ -12,7 +12,7 @@ export default function NewRequisitionPage() {
     <>
       <PageHeader
         breadcrumb={[
-          { href: "/hiring", label: "Hiring" },
+          { href: "/hiring", label: "Pipeline" },
           { href: "/hiring/requisitions/new", label: "New requisition" },
         ]}
         title="Open a new role"

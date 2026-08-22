@@ -512,6 +512,29 @@ export function PageHeader({
   meta?: React.ReactNode;
   tabs?: React.ReactNode;
 }) {
+  const pathname = usePathname();
+
+  /*
+   * The parent to go "back" to, which is not always the last crumb.
+   *
+   * Two shapes exist in this codebase, both legitimate breadcrumb conventions:
+   * a trail that ends at the parent (`[Directory, Departments]` on a page
+   * `/people/departments/[id]` render error), and a trail that ends at the
+   * page itself (`[Directory, "Ada Okonkwo"]` on `/people/[id]`, so the crumb
+   * can show the record's name). The first render of this control used the
+   * last crumb unconditionally and produced "Back to Ada Okonkwo" while
+   * already on Ada Okonkwo's page — a link to where you are.
+   *
+   * Comparing the last crumb's href against the current path is what tells
+   * the two apart without asking every call site to say which shape it used.
+   */
+  const backCrumb =
+    breadcrumb && breadcrumb.length > 0
+      ? breadcrumb[breadcrumb.length - 1]!.href === pathname && breadcrumb.length > 1
+        ? breadcrumb[breadcrumb.length - 2]!
+        : breadcrumb[breadcrumb.length - 1]!
+      : null;
+
   return (
     <div className="grid-fade border-b border-line">
       <div className="px-5 pt-6 sm:px-7">
@@ -528,17 +551,19 @@ export function PageHeader({
              * back goes somewhere unrelated to the page you are on, and after a
              * redirect it can go nowhere at all.
              *
-             * The last crumb is the immediate parent, so this is deterministic:
-             * the same page every time, whatever route somebody took to get
-             * here. `router.back()` would have been one line and wrong.
+             * Deterministic — the same target every time, whatever route
+             * somebody took to get here. `router.back()` would have been one
+             * line and wrong for that reason.
              */}
-            <Link
-              href={breadcrumb[breadcrumb.length - 1]!.href}
-              className="inline-flex items-center gap-1 rounded-md text-meta font-medium text-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-            >
-              <ChevronLeft aria-hidden="true" className="size-3.5" />
-              Back to {breadcrumb[breadcrumb.length - 1]!.label}
-            </Link>
+            {backCrumb && (
+              <Link
+                href={backCrumb.href}
+                className="inline-flex items-center gap-1 rounded-md text-meta font-medium text-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              >
+                <ChevronLeft aria-hidden="true" className="size-3.5" />
+                Back to {backCrumb.label}
+              </Link>
+            )}
 
             <span aria-hidden="true" className="text-line-strong">|</span>
 

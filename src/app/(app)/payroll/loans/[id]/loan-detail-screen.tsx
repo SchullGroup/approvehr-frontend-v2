@@ -131,7 +131,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
         <PageHeader
           title="Loan"
           breadcrumb={[
-            { href: "/payroll", label: "Payroll" },
+            { href: "/payroll", label: "Monthly payroll" },
             { href: "/payroll/loans", label: "Loans" },
           ]}
         />
@@ -205,7 +205,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
     <>
       <PageHeader
         breadcrumb={[
-          { href: "/payroll", label: "Payroll" },
+          { href: "/payroll", label: "Monthly payroll" },
           { href: "/payroll/loans", label: "Loans" },
         ]}
         title={own ? "Your staff loan" : loan.employeeName}
