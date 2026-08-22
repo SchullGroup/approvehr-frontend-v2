@@ -289,6 +289,18 @@ function SignIn() {
         )}
 
         {reachable === false && !DEMO_ENABLED && <Unreachable />}
+
+        {reachable !== null && (reachable || DEMO_ENABLED) && (
+          <p className="mt-8 border-t border-line pt-6 text-body-sm text-muted">
+            New company?{" "}
+            <Link
+              href="/register"
+              className="font-medium text-accent-text hover:underline underline-offset-4"
+            >
+              Create an account
+            </Link>
+          </p>
+        )}
       </main>
     </div>
   );
