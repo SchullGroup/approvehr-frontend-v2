@@ -37,6 +37,7 @@ import { cn } from "@/lib/cn";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { SessionRoleBadge } from "@/components/portal/role-badge";
 import { useSession } from "@/lib/store/session";
+import { useEmployee } from "@/lib/store/employees-api";
 import { useEmployeeLeaveBalances } from "@/lib/store/leave-api";
 import { useFeatures } from "@/lib/store/features";
 import { MyLoans } from "@/app/(app)/payroll/loans";
@@ -117,8 +118,19 @@ import { PROFILE_TABS, isProfileTab, type ProfileTab } from "./tabs";
  * `Disclosure` at the foot of `details`, then the modal that was always there.
  */
 export function ProfileScreen({ initialTab }: { initialTab: ProfileTab }) {
-  const { isLoading, isSignedIn, employee, employeeId, mode, signOut } =
-    useSession();
+  const { isLoading, isSignedIn, employeeId, mode, signOut } = useSession();
+  /**
+   * The record itself, not `useSession().employee`.
+   *
+   * That field is documented as "for a name and a job title" — connected, it
+   * resolves the session's `employeeId` (a real database id) against the demo
+   * seed array, whose ids never match, so it was silently `undefined` for
+   * every connected user and this whole screen rendered "No employee record"
+   * for people who plainly have one. `useEmployee` is the same dual-mode,
+   * properly-fetched hook `/people/[id]` already uses.
+   */
+  const record = useEmployee(employeeId ?? "");
+  const employee = record.employee;
   /* A staff loan card only belongs here for a company that lends to staff, and
      a rota only for a company that runs one — the same flags that decide
      whether Loans and Shifts are in the nav at all. */
@@ -136,7 +148,7 @@ export function ProfileScreen({ initialTab }: { initialTab: ProfileTab }) {
     window.history.replaceState(null, "", url);
   };
 
-  if (isLoading) {
+  if (isLoading || record.loading) {
     return (
       <PageBody className="flex items-center justify-center py-24">
         <Spinner />
