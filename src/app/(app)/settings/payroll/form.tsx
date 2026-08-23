@@ -35,11 +35,11 @@ import {
   type PayrollSettings,
   type PensionComponent,
 } from "@/lib/payroll/settings";
-import { usePayrollSettings } from "@/lib/payroll/use-settings";
 import {
-  DEMO_REFUSAL,
-  useDeductionSwitches,
-} from "@/lib/store/payroll-deductions";
+  usePayrollSettings,
+  type DeductionKey,
+} from "@/lib/payroll/use-settings";
+import { DEMO_REFUSAL } from "@/lib/store/payroll-deductions";
 
 /** The six sub-forms, each its own disclosure. */
 type Section = "deductions" | "working" | "split" | "pension" | "nhf" | "checks";
@@ -83,8 +83,6 @@ const DEDUCTION_COPY = {
   string,
   { noun: string; path: "paye" | "pension" | "nhf"; question: string; on: string; off: string }
 >;
-
-type DeductionKey = keyof typeof DEDUCTION_COPY;
 
 const DEDUCTION_KEYS = [
   "payeEnabled",
@@ -157,41 +155,59 @@ const DEDUCTION_KEYS = [
  */
 export function PayrollSettingsForm() {
   const { can, loading: permissionsLoading } = usePermissions();
-  const { settings, save, reset } = usePayrollSettings();
-  const [draft, setDraft] = useState<PayrollSettings>(settings);
+  const {
+    settings,
+    save,
+    reset,
+    saveDeduction,
+    loading: settingsLoading,
+    error: settingsError,
+    available,
+    defaults,
+    notices,
+  } = usePayrollSettings();
+  /**
+   * Keyed by the `settings` it was started from, not copied into state once at
+   * mount — the same pattern `overtime/form.tsx` uses, and for the same
+   * reason: `settings` starts at `DEFAULT_SETTINGS` and is replaced once the
+   * connected fetch resolves, and a `useState(settings)` initializer only
+   * ever reads that first, pre-fetch value. Without this, editing the form
+   * connected would show 22 working days forever no matter what the company
+   * had actually saved, because nothing here would notice the real answer
+   * arriving underneath it.
+   */
+  const [edited, setEdited] = useState<{
+    from: PayrollSettings;
+    value: PayrollSettings;
+  } | null>(null);
+  const draft = edited && edited.from === settings ? edited.value : settings;
   const [saved, setSaved] = useState(true);
   const toast = useToast();
 
-  const deductions = useDeductionSwitches();
   const canManagePay = can("MANAGE_PAY_STRUCTURE");
-  const stored = deductions.settings?.settings ?? null;
   /** The switch currently being saved, so only that row goes quiet. */
   const [switching, setSwitching] = useState<DeductionKey | null>(null);
 
   /**
-   * The draft, with the three switches taken from the API rather than from local
-   * storage.
+   * The draft, with the three switches taken from the live settings rather
+   * than from whatever `draft` was initialised with.
    *
-   * **Derived every render, never copied into state.** Synchronising the server's
-   * answer into `draft` would need a `setState` inside an effect — a cascading
-   * render, and the thing `react-hooks/set-state-in-effect` exists to stop. It
-   * also matters for correctness: the preview has to quote what a real run will
-   * do, and a real run reads these three from the API.
-   *
-   * Falls back to the local draft only while the read is in flight, so nothing
-   * here claims a company deducts something the server has not confirmed.
+   * **Derived every render, never copied into state.** Synchronising the
+   * live answer into `draft` would need a `setState` inside an effect — a
+   * cascading render, and the thing `react-hooks/set-state-in-effect` exists
+   * to stop. It also matters for correctness: the preview has to quote what a
+   * real run will do, and a real run reads these three from wherever
+   * `saveDeduction` last wrote them — which may be after this component's
+   * `draft` was set.
    */
   const effective: PayrollSettings = useMemo(
     () => ({
       ...draft,
-      paye: { enabled: stored?.payeEnabled ?? draft.paye.enabled },
-      pension: {
-        ...draft.pension,
-        enabled: stored?.pensionEnabled ?? draft.pension.enabled,
-      },
-      nhf: { ...draft.nhf, enabled: stored?.nhfEnabled ?? draft.nhf.enabled },
+      paye: { enabled: settings.paye.enabled },
+      pension: { ...draft.pension, enabled: settings.pension.enabled },
+      nhf: { ...draft.nhf, enabled: settings.nhf.enabled },
     }),
-    [draft, stored],
+    [draft, settings.paye.enabled, settings.pension.enabled, settings.nhf.enabled],
   );
 
   const issues = validateSettings(effective);
@@ -199,7 +215,7 @@ export function PayrollSettingsForm() {
     issues.find((i) => i.field === field)?.message;
 
   function update(patch: (s: PayrollSettings) => PayrollSettings) {
-    setDraft((d) => patch(structuredClone(d)));
+    setEdited({ from: settings, value: patch(structuredClone(draft)) });
     setSaved(false);
   }
 
@@ -219,7 +235,7 @@ export function PayrollSettingsForm() {
   const setDeduction = async (key: DeductionKey, on: boolean) => {
     setSwitching(key);
     try {
-      await deductions.save({ [key]: on });
+      await saveDeduction(key, on);
       toast.push({
         title: `${DEDUCTION_COPY[key].noun} ${on ? "will be deducted" : "is not deducted"}`,
         tone: on ? "success" : "info",
@@ -240,6 +256,68 @@ export function PayrollSettingsForm() {
       });
     } finally {
       setSwitching(null);
+    }
+  };
+
+  /** Which batched action is in flight, so both buttons refuse a double-submit. */
+  const [busy, setBusy] = useState<"save" | "reset" | null>(null);
+
+  const doSave = async () => {
+    setBusy("save");
+    try {
+      await save(draft);
+      /* Same reasoning as `doReset`: `settings` is about to become exactly
+         what was just saved, so reading it live is one source of truth
+         instead of trusting this render's own copy of what "saved" means. */
+      setEdited(null);
+      setSaved(true);
+      toast.push({
+        title: "Payroll settings saved",
+        tone: "success",
+        detail: "The next payroll will use these.",
+      });
+    } catch (error) {
+      toast.push({
+        title: "That did not save",
+        tone: "danger",
+        detail:
+          error instanceof ApiError
+            ? error.message
+            : error instanceof Error
+              ? error.message
+              : "Something went wrong. Try again.",
+      });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const doReset = async () => {
+    setBusy("reset");
+    try {
+      await reset();
+      /* Clears the draft rather than setting it to `DEFAULT_SETTINGS`
+         directly: `draft` already falls back to reading `settings` live
+         whenever there is no in-progress edit, and `settings` is about to
+         become the reset values via the same `setFetched` `reset()` itself
+         triggers — one source of truth instead of two copies of "what reset
+         means" that could disagree. */
+      setEdited(null);
+      setSaved(true);
+      toast.push({ title: "Reset to defaults", tone: "info" });
+    } catch (error) {
+      toast.push({
+        title: "That did not reset",
+        tone: "danger",
+        detail:
+          error instanceof ApiError
+            ? error.message
+            : error instanceof Error
+              ? error.message
+              : "Something went wrong. Try again.",
+      });
+    } finally {
+      setBusy(null);
     }
   };
 
@@ -337,7 +415,7 @@ export function PayrollSettingsForm() {
           engine, rendered verbatim. It names an Act, and a locally reworded
           version of a legal consequence is how the two stop agreeing.
         */}
-        {deductions.notices.map((notice) => (
+        {notices.map((notice) => (
           <Callout
             key={notice.code}
             tone="warning"
@@ -351,7 +429,7 @@ export function PayrollSettingsForm() {
           className="bg-surface"
           title="What you deduct"
           meta={
-            deductions.loading ? (
+            settingsLoading ? (
               <Badge tone="neutral" size="sm">
                 Reading
               </Badge>
@@ -378,18 +456,18 @@ export function PayrollSettingsForm() {
           onToggle={() => toggle("deductions")}
           panelClassName="flex flex-col gap-5 p-5"
         >
-          {deductions.error ? (
+          {settingsError ? (
             <Callout tone="danger" title="Could not read what you deduct">
-              {deductions.error}
+              {settingsError.message}
             </Callout>
           ) : (
             <>
-              {!deductions.available && (
+              {!available && (
                 <Callout tone="info" title="Reading only, in this demo">
                   {DEMO_REFUSAL}
                 </Callout>
               )}
-              {deductions.available && deductions.defaults && (
+              {available && defaults && (
                 <Callout tone="info" title="Nothing has been chosen yet">
                   These are the standard Nigerian settings. Answering a question
                   below saves your own.
@@ -405,8 +483,8 @@ export function PayrollSettingsForm() {
                     description={on ? copy.on : copy.off}
                     checked={on}
                     disabled={
-                      !deductions.available ||
-                      deductions.loading ||
+                      !available ||
+                      settingsLoading ||
                       switching !== null ||
                       !canManagePay
                     }
@@ -789,29 +867,17 @@ export function PayrollSettingsForm() {
         <div className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-line bg-surface px-1 py-3">
           <Button
             variant="ghost"
-            disabled={!canManagePay}
-            onClick={() => {
-              reset();
-              setDraft(structuredClone(settings));
-              setSaved(true);
-              toast.push({ title: "Reset to defaults", tone: "info" });
-            }}
+            disabled={!canManagePay || busy !== null}
+            onClick={() => void doReset()}
           >
             <RotateCcw aria-hidden="true" className="size-4" />
             Reset to defaults
           </Button>
           <Button
             variant="approve"
-            disabled={issues.length > 0 || saved || !canManagePay}
-            onClick={() => {
-              save(draft);
-              setSaved(true);
-              toast.push({
-                title: "Payroll settings saved",
-                tone: "success",
-                detail: "The next payroll will use these.",
-              });
-            }}
+            loading={busy === "save"}
+            disabled={issues.length > 0 || saved || !canManagePay || busy !== null}
+            onClick={() => void doSave()}
           >
             <Save aria-hidden="true" className="size-4" />
             {saved ? "Saved" : "Save settings"}
