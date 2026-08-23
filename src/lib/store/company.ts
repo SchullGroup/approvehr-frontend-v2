@@ -371,19 +371,19 @@ export function useCompanySettings() {
   };
 
   const updateProfile = useCallback((patch: Partial<CompanyProfile>) => {
-    const s = store.read();
+    const s = store.current();
     store.commit({ ...s, profile: { ...s.profile, ...patch } });
   }, []);
 
   const updateLeave = useCallback((patch: Partial<LeavePolicy>) => {
-    const s = store.read();
+    const s = store.current();
     store.commit({ ...s, leave: { ...s.leave, ...patch } });
   }, []);
 
   /** Patch one leave type by name, leaving the others untouched. */
   const updateLeaveType = useCallback(
     (name: string, patch: Partial<LeaveTypePolicy>) => {
-      const s = store.read();
+      const s = store.current();
       const current = s.leave?.types ?? DEFAULT_COMPANY.leave.types;
       store.commit({
         ...s,
@@ -398,7 +398,7 @@ export function useCompanySettings() {
 
   const setRolePermission = useCallback(
     (roleId: string, permission: PermissionId, on: boolean) => {
-      const s = store.read();
+      const s = store.current();
       const roles = s.roles ?? DEFAULT_COMPANY.roles;
       store.commit({
         ...s,
@@ -419,7 +419,7 @@ export function useCompanySettings() {
 
   const setNotification = useCallback(
     (id: string, patch: Partial<Pick<NotificationRule, "email" | "inApp">>) => {
-      const s = store.read();
+      const s = store.current();
       const rules = s.notifications ?? DEFAULT_COMPANY.notifications;
       store.commit({
         ...s,
@@ -431,7 +431,7 @@ export function useCompanySettings() {
 
   const setIntegrationStatus = useCallback(
     (id: string, status: IntegrationStatus) => {
-      const s = store.read();
+      const s = store.current();
       const list = s.integrations ?? DEFAULT_COMPANY.integrations;
       store.commit({
         ...s,

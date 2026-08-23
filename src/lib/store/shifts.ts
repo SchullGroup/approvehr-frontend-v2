@@ -1201,7 +1201,7 @@ export function useShiftMutations() {
   const createShift = useCallback(
     async (body: CreateShiftBody): Promise<ApiShift> => {
       if (isConnected) return shiftsApi.create(body);
-      const state = demoStore.read();
+      const state = demoStore.current();
       if (
         state.shifts.some(
           (shift) => shift.name.toLowerCase() === body.name.trim().toLowerCase(),
@@ -1233,7 +1233,7 @@ export function useShiftMutations() {
   const updateShift = useCallback(
     async (id: string, body: UpdateShiftBody): Promise<ApiShift> => {
       if (isConnected) return shiftsApi.update(id, body);
-      const state = demoStore.read();
+      const state = demoStore.current();
       const existing = state.shifts.find((shift) => shift.id === id);
       if (!existing) refuse(404, "not_found", "That shift no longer exists.");
       const next = shiftShape({
@@ -1262,7 +1262,7 @@ export function useShiftMutations() {
         await shiftsApi.archive(id);
         return;
       }
-      const state = demoStore.read();
+      const state = demoStore.current();
       const shift = state.shifts.find((row) => row.id === id);
       if (!shift) refuse(404, "not_found", "That shift no longer exists.");
 
@@ -1299,7 +1299,7 @@ export function useShiftMutations() {
   const createPattern = useCallback(
     async (body: CreatePatternBody): Promise<ApiPattern> => {
       if (isConnected) return shiftsApi.createPattern(body);
-      const state = demoStore.read();
+      const state = demoStore.current();
       if (
         state.patterns.some(
           (p) => p.name.toLowerCase() === body.name.trim().toLowerCase(),
@@ -1328,7 +1328,7 @@ export function useShiftMutations() {
   const updatePattern = useCallback(
     async (id: string, body: UpdatePatternBody): Promise<ApiPatternUpdate> => {
       if (isConnected) return shiftsApi.updatePattern(id, body);
-      const state = demoStore.read();
+      const state = demoStore.current();
       const existing = state.patterns.find((row) => row.id === id);
       if (!existing) refuse(404, "not_found", "That pattern no longer exists.");
       const next: DemoState = {
@@ -1356,7 +1356,7 @@ export function useShiftMutations() {
   const assign = useCallback(
     async (body: CreateAssignmentBody): Promise<ApiAssignmentCreated> => {
       if (isConnected) return shiftsApi.assign(body);
-      const state = demoStore.read();
+      const state = demoStore.current();
       const shift = state.shifts.find((row) => row.id === body.shiftId);
       if (!shift || shift.archived) {
         refuse(422, "unknown_shift", "That shift does not exist.");
@@ -1400,7 +1400,7 @@ export function useShiftMutations() {
   const bulkAssign = useCallback(
     async (body: BulkAssignBody): Promise<ApiBulkResult> => {
       if (isConnected) return shiftsApi.bulkAssign(body);
-      const state = demoStore.read();
+      const state = demoStore.current();
       const days = eachDay(body.from, body.to);
       const placements: { employeeId: string; date: string; shiftId: string }[] =
         [];
@@ -1498,7 +1498,7 @@ export function useShiftMutations() {
   const removeAssignment = useCallback(
     async (id: string): Promise<ApiAssignmentRemoved> => {
       if (isConnected) return shiftsApi.removeAssignment(id);
-      const state = demoStore.read();
+      const state = demoStore.current();
       const row = state.assignments.find((entry) => entry.id === id);
       if (!row) refuse(404, "not_found", "That day is not on the rota.");
 
@@ -1540,7 +1540,7 @@ export function useShiftMutations() {
   const requestSwap = useCallback(
     async (body: SwapRequestBody): Promise<ApiSwap> => {
       if (isConnected) return shiftsApi.requestSwap(body);
-      const state = demoStore.read();
+      const state = demoStore.current();
       const mine = state.assignments.find(
         (row) => row.id === body.assignmentId,
       );
@@ -1573,7 +1573,7 @@ export function useShiftMutations() {
   const acceptSwap = useCallback(
     async (id: string): Promise<ApiSwap> => {
       if (isConnected) return shiftsApi.acceptSwap(id);
-      const state = demoStore.read();
+      const state = demoStore.current();
       const swap = state.swaps.find((row) => row.id === id);
       if (!swap) refuse(404, "not_found", "That swap no longer exists.");
       /* Not delegable, in either mode. A swap the colleague never agreed to is
@@ -1606,7 +1606,7 @@ export function useShiftMutations() {
   const approveSwap = useCallback(
     async (id: string): Promise<ApiSwap> => {
       if (isConnected) return shiftsApi.approveSwap(id);
-      const state = demoStore.read();
+      const state = demoStore.current();
       const swap = state.swaps.find((row) => row.id === id);
       if (!swap) refuse(404, "not_found", "That swap no longer exists.");
       if (swap.status === "PENDING") {
@@ -1681,7 +1681,7 @@ export function useShiftMutations() {
   const declineSwap = useCallback(
     async (id: string, reason: string): Promise<ApiSwap> => {
       if (isConnected) return shiftsApi.declineSwap(id, reason);
-      const state = demoStore.read();
+      const state = demoStore.current();
       const swap = state.swaps.find((row) => row.id === id);
       if (!swap) refuse(404, "not_found", "That swap no longer exists.");
       if (swap.status === "APPROVED" || swap.status === "CANCELLED") {
@@ -1705,7 +1705,7 @@ export function useShiftMutations() {
   const cancelSwap = useCallback(
     async (id: string): Promise<ApiSwap> => {
       if (isConnected) return shiftsApi.cancelSwap(id);
-      const state = demoStore.read();
+      const state = demoStore.current();
       const swap = state.swaps.find((row) => row.id === id);
       if (!swap) refuse(404, "not_found", "That swap no longer exists.");
       if (swap.status === "APPROVED") {

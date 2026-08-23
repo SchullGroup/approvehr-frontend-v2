@@ -346,7 +346,7 @@ function useDemoBook(): StoredLoan[] {
 }
 
 /** Reads outside a component, for the mutations. */
-const currentBook = (): StoredLoan[] => demo.read().book ?? SEED_BOOK;
+const currentBook = (): StoredLoan[] => demo.current().book ?? SEED_BOOK;
 
 const commitBook = (book: StoredLoan[]) => demo.commit({ book });
 

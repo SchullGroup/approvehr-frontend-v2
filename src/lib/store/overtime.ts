@@ -244,7 +244,7 @@ export function useOvertimePolicy(): PolicyState {
       setSaving(true);
       try {
         if (!isConnected) {
-          const current = store.read();
+          const current = store.current();
           const next = { ...current.policy, ...patch };
           store.commit({ ...current, policy: next });
           return { ...DEMO_POLICY, ...next };
@@ -472,7 +472,7 @@ export function useOvertime({
         workingDaysPerMonth: demo.workingDaysPerMonth,
       });
 
-      const current = store.read();
+      const current = store.current();
       const records = { ...current.records };
       let written = 0;
       let skippedPaid = 0;
@@ -538,7 +538,7 @@ export function useOvertime({
         return;
       }
 
-      const current = store.read();
+      const current = store.current();
       const entry = Object.entries(current.records).find(
         ([, record]) => record.id === id,
       );

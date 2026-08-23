@@ -832,8 +832,13 @@ function demoWithdraw(
 }
 
 function demoUpdateTask(taskId: string, body: UpdateTaskBody, actingId: string | null) {
+  /* These two lookups were the half of the exit fix that got missed: `replace`
+     was moved to `current()` and the *finds* that feed it were left on
+     `read()`, which is worse than either being wrong on its own. A task on a
+     stored exit came back "could not be found", and a task on a seed exit was
+     computed from the seed's ticks and then written over the stored ones. */
   const exit = store
-    .read()
+    .current()
     .exits.find((row) => row.tasks.some((task) => task.id === taskId));
   if (!exit) throw refuse(404, "not_found", "That task could not be found.");
   if (CLOSED_STATUSES.includes(exit.status)) {
@@ -901,7 +906,7 @@ function demoUpdateTask(taskId: string, body: UpdateTaskBody, actingId: string |
 
 function demoVerifyTask(taskId: string, actingId: string | null) {
   const exit = store
-    .read()
+    .current()
     .exits.find((row) => row.tasks.some((task) => task.id === taskId));
   if (!exit) throw refuse(404, "not_found", "That task could not be found.");
   const task = exit.tasks.find((row) => row.id === taskId);

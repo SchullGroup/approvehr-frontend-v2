@@ -375,7 +375,7 @@ export function useTeamMutations() {
    */
   const align = useCallback(
     (teamId: string): { toName: string | null; moved: ApiMoved[] } => {
-      const plan = pendingAlignment(demoStructure.read(), people, teamId);
+      const plan = pendingAlignment(demoStructure.current(), people, teamId);
       if (!plan) return { toName: null, moved: [] };
       for (const one of plan.moved) {
         patchEmployee(one.employeeId, { department: plan.toName });
@@ -393,7 +393,7 @@ export function useTeamMutations() {
       purpose?: string;
     }): Promise<ApiTeamDetail> => {
       if (isConnected) return teamsApi.create(body);
-      const state = demoStructure.read();
+      const state = demoStructure.current();
       const name = cleanName(body.name);
       const purpose = cleanPurpose(body.purpose);
       if (body.departmentId) assertLiveDepartment(state, body.departmentId);
@@ -427,7 +427,7 @@ export function useTeamMutations() {
       },
     ): Promise<ApiTeamUpdated> => {
       if (isConnected) return teamsApi.update(id, body);
-      const state = demoStructure.read();
+      const state = demoStructure.current();
       const row = requireTeamRow(state, id);
       const name = body.name === undefined ? row.name : cleanName(body.name);
       if (!sameName(name, row.name)) assertNameFree(state, name, id);
@@ -468,7 +468,7 @@ export function useTeamMutations() {
          against it would return a detail claiming `departmentMismatch` for
          exactly the people this call just aligned. */
       return {
-        ...readBack(demoStructure.read(), withMoves(people, plan), id),
+        ...readBack(demoStructure.current(), withMoves(people, plan), id),
         moved: plan.moved,
       };
     },
@@ -480,7 +480,7 @@ export function useTeamMutations() {
       id: string,
     ): Promise<{ id: string; archived: boolean; note: string }> => {
       if (isConnected) return teamsApi.archive(id);
-      const state = demoStructure.read();
+      const state = demoStructure.current();
       const row = requireTeamRow(state, id);
       if (row.archived) refuse(409, "conflict", "That is already archived.");
 
@@ -522,7 +522,7 @@ export function useTeamMutations() {
   const restore = useCallback(
     async (id: string): Promise<ApiTeamDetail> => {
       if (isConnected) return teamsApi.restore(id);
-      const state = demoStructure.read();
+      const state = demoStructure.current();
       const row = requireTeamRow(state, id);
       if (!row.archived) refuse(409, "conflict", "That is not archived.");
 
@@ -554,7 +554,7 @@ export function useTeamMutations() {
       roleLabel?: string,
     ): Promise<ApiMembersAdded> => {
       if (isConnected) return teamsApi.addMembers(id, employeeIds, roleLabel);
-      const state = demoStructure.read();
+      const state = demoStructure.current();
       const row = requireTeamRow(state, id);
       if (row.archived) {
         refuse(
@@ -613,7 +613,7 @@ export function useTeamMutations() {
   const removeMembers = useCallback(
     async (id: string, employeeIds: string[]): Promise<ApiMembersRemoved> => {
       if (isConnected) return teamsApi.removeMembers(id, employeeIds);
-      const state = demoStructure.read();
+      const state = demoStructure.current();
       requireTeamRow(state, id);
       const going = new Set(employeeIds);
       const kept = state.members.filter(

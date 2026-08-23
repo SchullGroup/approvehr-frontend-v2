@@ -935,7 +935,7 @@ export function useEquipmentKinds(includeInactive = false) {
         bumpRevision();
         return;
       }
-      const state = demo.read();
+      const state = demo.current();
       const clash = state.categories.find(
         (row) => row.name.toLowerCase() === input.name.toLowerCase(),
       );
@@ -973,7 +973,7 @@ export function useEquipmentKinds(includeInactive = false) {
         bumpRevision();
         return;
       }
-      const state = demo.read();
+      const state = demo.current();
       const existing = state.categories.find((row) => row.id === id);
       if (!existing) throw missing("That kind of equipment");
       if (input.name && input.name.toLowerCase() !== existing.name.toLowerCase()) {
@@ -1226,7 +1226,7 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
         return;
       }
 
-      const state = demo.read();
+      const state = demo.current();
       const clash = state.assets.find(
         (asset) => asset.tag.toLowerCase() === input.tag.toLowerCase(),
       );
@@ -1301,7 +1301,7 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
         return;
       }
 
-      const state = demo.read();
+      const state = demo.current();
       const existing = state.assets.find((asset) => asset.id === id);
       if (!existing) throw missing("That piece of equipment");
 
@@ -1405,7 +1405,7 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
         return result.note;
       }
 
-      const state = demo.read();
+      const state = demo.current();
       const asset = state.assets.find((row) => row.id === id);
       if (!asset) throw missing("That piece of equipment");
       if (asset.archived) throw conflict("That is already archived.");
@@ -1438,7 +1438,7 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
         bumpRevision();
         return;
       }
-      const state = demo.read();
+      const state = demo.current();
       const asset = state.assets.find((row) => row.id === id);
       if (!asset) throw missing("That piece of equipment");
       if (!asset.archived) throw conflict("That is not archived.");
@@ -1469,7 +1469,7 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
         return;
       }
 
-      const state = demo.read();
+      const state = demo.current();
       const asset = state.assets.find((row) => row.id === id);
       if (!asset) throw missing("That piece of equipment");
       if (asset.archived) {
@@ -1554,7 +1554,7 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
         return result.closedAssignmentId;
       }
 
-      const state = demo.read();
+      const state = demo.current();
       const asset = state.assets.find((row) => row.id === id);
       if (!asset) throw missing("That piece of equipment");
 
@@ -1631,7 +1631,7 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
         return;
       }
 
-      const state = demo.read();
+      const state = demo.current();
       const asset = state.assets.find((row) => row.id === id);
       if (!asset) throw missing("That piece of equipment");
 
@@ -1925,7 +1925,7 @@ export function useRepairs(params: RepairListParams = {}, enabled = true) {
         return;
       }
 
-      const state = demo.read();
+      const state = demo.current();
       const existing = state.repairs.find((row) => row.id === id);
       if (!existing) throw missing("That repair record");
 

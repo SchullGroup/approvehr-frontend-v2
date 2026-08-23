@@ -605,7 +605,7 @@ export function useExpenseTypes(includeArchived = false) {
         return;
       }
 
-      const state = demo.read();
+      const state = demo.current();
       const clash = state.types.find(
         (type) => type.name.toLowerCase() === input.name.toLowerCase(),
       );
@@ -656,7 +656,7 @@ export function useExpenseTypes(includeArchived = false) {
         return;
       }
 
-      const state = demo.read();
+      const state = demo.current();
       const existing = state.types.find((type) => type.id === id);
       if (!existing) throw new ApiError(404, "not_found", "That expense type is gone.");
       if (input.name && input.name.toLowerCase() !== existing.name.toLowerCase()) {
@@ -713,7 +713,7 @@ export function useExpenseTypes(includeArchived = false) {
         return result.note;
       }
 
-      const state = demo.read();
+      const state = demo.current();
       const type = state.types.find((row) => row.id === id);
       if (!type) throw new ApiError(404, "not_found", "That expense type is gone.");
       if (type.archived) throw conflict("That is already archived.");
@@ -995,7 +995,7 @@ export function useExpenseClaims(
         return;
       }
 
-      const state = demo.read();
+      const state = demo.current();
       const type = state.types.find((row) => row.id === input.typeId);
       if (!type) throw unprocessable("Pick an expense type from the list.");
       if (type.archived || !type.active) {
@@ -1072,7 +1072,7 @@ export function useExpenseClaims(
         return;
       }
 
-      const state = demo.read();
+      const state = demo.current();
       const existing = state.claims.find((claim) => claim.id === id);
       if (!existing) throw new ApiError(404, "not_found", "That claim is gone.");
       if (existing.status !== "SUBMITTED") throw conflict(alreadyDecided(existing));
@@ -1134,7 +1134,7 @@ export function useExpenseClaims(
         return;
       }
 
-      const state = demo.read();
+      const state = demo.current();
       const claim = state.claims.find((row) => row.id === id);
       if (!claim) throw new ApiError(404, "not_found", "That claim is gone.");
       if (claim.status === "PAID") throw conflict("That claim has already been paid.");
@@ -1202,7 +1202,7 @@ export function useExpenseClaims(
         return;
       }
 
-      const state = demo.read();
+      const state = demo.current();
       const claim = state.claims.find((row) => row.id === id);
       if (!claim) throw new ApiError(404, "not_found", "That claim is gone.");
       if (claim.status === "PAID") {
