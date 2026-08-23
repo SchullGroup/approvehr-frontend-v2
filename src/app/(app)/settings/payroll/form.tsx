@@ -1,16 +1,18 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { RotateCcw, Save } from "lucide-react";
+import { Lock, RotateCcw, Save } from "lucide-react";
 import {
   Badge,
   Button,
+  ButtonLink,
   Callout,
   Card,
   CardBody,
   CardHeader,
   Checkbox,
   Disclosure,
+  EmptyState,
   Field,
   FieldSet,
   Input,
@@ -22,6 +24,7 @@ import {
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { naira, wasDeducted, type StatutoryOperation } from "@/lib/api/payroll";
+import { usePermissions } from "@/lib/permissions";
 import {
   quoteSettingsFrom,
   usePayslipQuote,
@@ -133,14 +136,34 @@ const DEDUCTION_KEYS = [
  * The consequence, and it is on screen: the three switches take effect on the
  * next payroll run; the rates below them move this preview and nothing else
  * until the local store is converted.
+ *
+ * ## Gated on `VIEW_SALARIES`, like the endpoint it reads
+ *
+ * `GET /payroll/settings` needs `VIEW_SALARIES` — "the pension rate and the
+ * salary split *are* information about what people earn" — and until this
+ * change nothing on this screen agreed. Every sibling settings screen refuses
+ * with a `Lock` empty state; this one rendered the whole interactive form,
+ * Save button included, to anybody who could reach the URL, and only the API
+ * call inside "What you deduct" ever refused. Nothing sensitive actually
+ * leaked — the six-way rate form is local-only and the real switches 403
+ * correctly — but the picture on screen was a company's payroll policy, fully
+ * interactive, in front of somebody who cannot even read it.
+ *
+ * `MANAGE_PAY_STRUCTURE` is the separate write permission the PATCH route
+ * needs, and it is not implied by `VIEW_SALARIES` — a payroll analyst can
+ * hold one and not the other. So reading this form needs the first and every
+ * control on it needs the second, the same split `overtime/form.tsx` makes
+ * for the same reason.
  */
 export function PayrollSettingsForm() {
+  const { can, loading: permissionsLoading } = usePermissions();
   const { settings, save, reset } = usePayrollSettings();
   const [draft, setDraft] = useState<PayrollSettings>(settings);
   const [saved, setSaved] = useState(true);
   const toast = useToast();
 
   const deductions = useDeductionSwitches();
+  const canManagePay = can("MANAGE_PAY_STRUCTURE");
   const stored = deductions.settings?.settings ?? null;
   /** The switch currently being saved, so only that row goes quiet. */
   const [switching, setSwitching] = useState<DeductionKey | null>(null);
@@ -267,6 +290,23 @@ export function PayrollSettingsForm() {
   const toggle = (id: Section) =>
     setManual((current) => ({ ...current, [id]: !isOpen(id) }));
 
+  if (permissionsLoading) {
+    return <Skeleton className="h-96 w-full" />;
+  }
+
+  if (!can("VIEW_SALARIES")) {
+    return (
+      <Card>
+        <EmptyState
+          icon={<Lock aria-hidden="true" />}
+          title="Payroll settings are not part of your access"
+          description="The pension rate and the salary split are information about what people earn, so this is kept to whoever can see salaries. Ask whoever manages access to add that permission to your role."
+          action={<ButtonLink href="/settings">Back to settings</ButtonLink>}
+        />
+      </Card>
+    );
+  }
+
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
       <div className="flex flex-col gap-5">
@@ -277,6 +317,13 @@ export function PayrollSettingsForm() {
                 <li key={i.field}>{i.message}</li>
               ))}
             </ul>
+          </Callout>
+        )}
+
+        {!canManagePay && (
+          <Callout tone="info" title="You can see this, not change it">
+            Changing payroll settings needs pay-structure permission. Ask
+            whoever manages access if you need it.
           </Callout>
         )}
 
@@ -360,7 +407,8 @@ export function PayrollSettingsForm() {
                     disabled={
                       !deductions.available ||
                       deductions.loading ||
-                      switching !== null
+                      switching !== null ||
+                      !canManagePay
                     }
                     onChange={(e) => void setDeduction(key, e.target.checked)}
                   />
@@ -741,6 +789,7 @@ export function PayrollSettingsForm() {
         <div className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-line bg-surface px-1 py-3">
           <Button
             variant="ghost"
+            disabled={!canManagePay}
             onClick={() => {
               reset();
               setDraft(structuredClone(settings));
@@ -753,7 +802,7 @@ export function PayrollSettingsForm() {
           </Button>
           <Button
             variant="approve"
-            disabled={issues.length > 0 || saved}
+            disabled={issues.length > 0 || saved || !canManagePay}
             onClick={() => {
               save(draft);
               setSaved(true);
