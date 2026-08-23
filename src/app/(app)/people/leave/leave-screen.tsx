@@ -13,6 +13,7 @@ import {
   Callout,
   Card,
   CardBody,
+  CardFooter,
   CardHeader,
   DescriptionList,
   Drawer,
@@ -125,6 +126,7 @@ export function LeaveScreen() {
 
   const {
     requests: fetched,
+    total,
     loading,
     error,
     connected,
@@ -461,6 +463,19 @@ export function LeaveScreen() {
                   ))}
                 </TBody>
               </TableWrap>
+            )}
+            {/* The API caps a page at 200 requests. Saying so beats a total
+                that quietly disagrees with the rows above it. Skipped for a
+                signed-in account with no employee record: the callout above
+                already explains why the table is empty, and `total` there
+                describes everybody's requests, not this account's. */}
+            {!noRecord && total > requests.length && (
+              <CardFooter>
+                <p className="text-body-sm text-muted">
+                  The first {requests.length} of {total} requests are shown,
+                  and the figures above cover those.
+                </p>
+              </CardFooter>
             )}
           </Card>
 

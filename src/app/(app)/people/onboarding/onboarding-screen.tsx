@@ -33,7 +33,7 @@ import {
   type ResolvedStep,
 } from "@/lib/store/onboarding";
 import { shortDate } from "@/lib/today";
-import { fullName, missingForPayroll, type Employee } from "@/lib/types";
+import { fullName, payrollGapsFor, type Employee } from "@/lib/types";
 
 const OWNER: Record<string, { label: string; tone: string }> = {
   employee: { label: "Employee", tone: "bg-info-soft text-info-text" },
@@ -98,10 +98,9 @@ export function OnboardingScreen() {
       toast.push({
         title: `${name} is now active`,
         tone: "success",
-        detail:
-          missingForPayroll(employee).length > 0
-            ? "Their record is still missing what payroll needs, so the next run will leave them out."
-            : "They are off this list and in the next payroll run.",
+        detail: payrollGapsFor(employee).some((g) => g.blocking)
+          ? "Their record is still missing what payroll needs, so the next run will leave them out."
+          : "They are off this list and in the next payroll run.",
       });
     } catch (err) {
       toast.push({
@@ -122,9 +121,13 @@ export function OnboardingScreen() {
     (sum, e) => sum + checklist.stepsFor(e).filter((s) => s.done).length,
     0,
   );
-  /* A starter who is not payroll-ready is the one that actually costs money —
-     they miss the run and get paid late. */
-  const blocked = employees.filter((e) => missingForPayroll(e).length > 0);
+  /* A starter with no bank account is the one that actually costs money —
+     they miss the run and get paid late. A missing pension PIN or TIN is
+     worth completing too, but neither holds back a payslip — see
+     `payrollGapsFor` — so neither belongs in this count. */
+  const blocked = employees.filter((e) =>
+    payrollGapsFor(e).some((g) => g.blocking),
+  );
 
   return (
     <>
@@ -168,7 +171,7 @@ export function OnboardingScreen() {
           <Stat
             label="Cannot be paid yet"
             value={String(blocked.length)}
-            hint="missing bank, PIN or TIN"
+            hint="missing a bank account"
             {...(blocked.length > 0
               ? { trend: { direction: "down" as const, label: "Will miss this month's pay" } }
               : {})}
@@ -232,7 +235,8 @@ function StarterCard({
   onFinish: () => void;
 }) {
   const name = fullName(employee);
-  const gaps = missingForPayroll(employee);
+  const gaps = payrollGapsFor(employee);
+  const blocking = gaps.filter((g) => g.blocking);
   const complete = steps.filter((s) => s.done).length;
   const outstanding = steps.length - complete;
 
@@ -249,9 +253,16 @@ function StarterCard({
         }
         description={`${employee.jobTitle} · started ${employee.startDate}`}
         action={
-          gaps.length > 0 ? (
+          /* Only a missing bank account is actually "blocking" — a missing
+             pension PIN or TIN is recommended, not something the run refuses
+             over, so it gets a neutral badge rather than the same red one. */
+          blocking.length > 0 ? (
             <Badge tone="danger" size="sm" dot>
-              {gaps.length} blocking
+              {blocking.length} blocking
+            </Badge>
+          ) : gaps.length > 0 ? (
+            <Badge tone="warning" size="sm" dot>
+              {gaps.length} recommended
             </Badge>
           ) : (
             <Badge tone="success" size="sm" dot>

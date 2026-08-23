@@ -2,11 +2,12 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Check, Info, ThumbsDown } from "lucide-react";
+import { Check, Info, Lock, ThumbsDown } from "lucide-react";
 import {
   Avatar,
   Badge,
   Button,
+  ButtonLink,
   Callout,
   Card,
   CardBody,
@@ -16,15 +17,23 @@ import {
   EmptyState,
   Field,
   Money,
+  Skeleton,
   Textarea,
   useToast,
 } from "@/components/ui";
+import { PageBody, PageHeader } from "@/components/portal/shell";
 import { SourceBadge } from "@/components/hiring/source-badge";
 import { BandPosition } from "@/app/(app)/payroll/pay-setup/band-position";
 import { bandStanding } from "@/lib/grades/band";
 import type { OfferBand } from "@/lib/api/hiring";
+import { usePermissions } from "@/lib/permissions";
 import { pipelineSnapshot, useOfferBands, type OfferBands } from "@/lib/store/hiring";
 import { fullName, type PipelineCard } from "@/lib/types";
+
+const BREADCRUMB = [
+  { href: "/hiring", label: "Pipeline" },
+  { href: "/hiring/offers", label: "Offers" },
+];
 
 type Decision = "approved" | "declined";
 
@@ -54,8 +63,67 @@ type Decision = "approved" | "declined";
  * `approvehr-api` exposes it. So pressing Approve moves a chip on this screen
  * and nothing else, and both the badge and the toast say that plainly. The band
  * beside it is live; the decision is not. Two facts, two badges.
+ *
+ * ## Gated, like every sibling hiring screen
+ *
+ * A full name, an exact salary figure and a notice period sit on every card
+ * below, so this screen — header included — renders only once `MANAGE_HIRING`
+ * has been confirmed. See `candidate-screen.tsx` for the pattern this copies.
  */
 export function OfferApprovals() {
+  const { can, loading } = usePermissions();
+
+  if (loading) {
+    return (
+      <>
+        <PageHeader breadcrumb={BREADCRUMB} title="Offer approvals" />
+        <PageBody>
+          <Skeleton className="h-40 w-full" />
+          <span className="sr-only-focusable">Loading offers</span>
+        </PageBody>
+      </>
+    );
+  }
+
+  if (!can("MANAGE_HIRING")) {
+    return (
+      <>
+        <PageHeader breadcrumb={BREADCRUMB} title="Offer approvals" />
+        <PageBody>
+          <Card>
+            <EmptyState
+              icon={<Lock aria-hidden="true" />}
+              title="You cannot see offers"
+              description="An offer names the candidate and states their exact salary and notice period, so it is kept to whoever hires. Ask whoever manages access to add hiring to your role."
+              action={
+                <ButtonLink href="/hiring" variant="secondary" size="sm">
+                  Back to hiring
+                </ButtonLink>
+              }
+            />
+          </Card>
+        </PageBody>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <PageHeader
+        breadcrumb={BREADCRUMB}
+        title="Offer approvals"
+        meta={<SourceBadge live={false} note="The offers themselves." />}
+      />
+      <PageBody>
+        <Approvals />
+      </PageBody>
+    </>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+function Approvals() {
   const pipeline = pipelineSnapshot();
   const bands = useOfferBands();
   const [decisions, setDecisions] = useState<Record<string, Decision>>({});

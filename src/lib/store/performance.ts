@@ -2773,12 +2773,15 @@ export function outstandingIn(
         reviewId: person.self.reviewId,
       });
     }
-    if (person.manager && !person.manager.submitted) {
+    /* One row per appraiser who has not written, not one per person — a person
+       with two appraisers and one answer still owes the second one. */
+    for (const manager of person.managers) {
+      if (manager.submitted) continue;
       rows.push({
         employeeId: person.employeeId,
         employeeName: person.employeeName,
-        what: `${person.manager.managerName} has not written ${person.employeeName}'s review`,
-        reviewId: person.manager.reviewId,
+        what: `${manager.managerName} has not written ${person.employeeName}'s review`,
+        reviewId: manager.reviewId,
       });
     }
   }

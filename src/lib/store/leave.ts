@@ -207,7 +207,7 @@ export function validateLeave(
       errors.push({ field: "to", message: "The end date is before the start date." });
     } else {
       const days = daysBetween(input.from, input.to);
-      if (days > 60) {
+      if (input.type !== "Maternity" && input.type !== "Paternity" && days > 60) {
         errors.push({
           field: "to",
           message: "That is over 60 days. Split it or raise it as a sabbatical.",

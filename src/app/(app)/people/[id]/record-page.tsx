@@ -290,7 +290,6 @@ export function EmployeeRecordPage({ id }: { id: string }) {
 
         <EmployeeRecord
           employee={employee}
-          missing={record.missing}
           connected={record.connected}
           manager={manager}
           managerName={record.managerName}

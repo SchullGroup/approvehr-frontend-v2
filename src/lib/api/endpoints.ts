@@ -722,6 +722,7 @@ export function toEmployee(api: ApiEmployee): Employee {
     employeeNo: api.employeeNo,
     firstName: api.firstName,
     lastName: api.lastName,
+    middleName: api.middleName,
     email: api.email,
     phone: api.phone,
     dateOfBirth: api.dateOfBirth,

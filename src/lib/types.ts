@@ -30,6 +30,13 @@ export type Employee = {
   employeeNo: string;
   firstName: string;
   lastName: string;
+  /**
+   * Optional and nullable, the same shape as `annualRentKobo` below: `null` is
+   * "asked, and there isn't one", `undefined` is a source that does not carry
+   * the field at all (the demo seed, which predates it). Both render the same
+   * way — nothing to show — so nothing on screen needs to tell them apart.
+   */
+  middleName?: string | null;
   email: string | null;
   phone: string | null;
   dateOfBirth: string | null;
@@ -120,6 +127,77 @@ export function missingForPayroll(e: Employee): string[] {
     tin: "Tax identification number",
   };
   return REQUIRED_FOR_PAYROLL.filter((k) => !e[k]).map((k) => labels[k]);
+}
+
+/**
+ * What the payroll ENGINE actually does about one of the three fields above
+ * being absent — which is not the same thing for all three, even though
+ * `missingForPayroll` treats them as one list for the completeness meter
+ * above. That list answers "is this record complete"; this one answers "what
+ * happens to this month's payroll if it stays this way", and a screen making
+ * the second claim should read it from here rather than from the length of
+ * the first list.
+ *
+ * Ground truth is `approvehr-api/src/modules/payroll/service.ts`'s `prepare`:
+ *
+ * - a missing bank account is a **BLOCKER** — the run refuses to approve
+ *   until it is added or the person is excluded from the period;
+ * - a missing pension PIN is a **WARNING**, and the engine raises it at all
+ *   only when the company both operates a pension and requires the PIN — it
+ *   means the remittance schedule will be incomplete, never that the payslip
+ *   is withheld;
+ * - a missing TIN raises **nothing** on the run. It is recommended for filing
+ *   and does not affect this month's pay.
+ *
+ * `pensionOperated` defaults to `true` because that is also
+ * `PayrollSettings`'s own default (`pensionEnabled` and `requirePensionPin`
+ * both default `true`), so a screen with no settings loaded yet shows the
+ * common case rather than silently under-claiming. A caller that has the
+ * company's real settings should pass the real answer instead of leaving the
+ * default to speak for it.
+ */
+export type PayrollGap = {
+  field: "bankAccount" | "pensionPin" | "tin";
+  label: string;
+  /** True for the one field the engine actually refuses to pay somebody without. */
+  blocking: boolean;
+  /** What actually happens, worded the way the engine's own exception is. */
+  consequence: string;
+};
+
+export function payrollGapsFor(
+  e: { bankAccount: string | null; pensionPin: string | null; tin: string | null },
+  pensionOperated = true,
+): PayrollGap[] {
+  const gaps: PayrollGap[] = [];
+  if (!e.bankAccount) {
+    gaps.push({
+      field: "bankAccount",
+      label: "Bank account",
+      blocking: true,
+      consequence:
+        "They cannot be paid until this is added, or they are excluded from the run.",
+    });
+  }
+  if (!e.pensionPin && pensionOperated) {
+    gaps.push({
+      field: "pensionPin",
+      label: "Pension PIN",
+      blocking: false,
+      consequence:
+        "Their pension remittance schedule will be incomplete. It does not hold back their pay.",
+    });
+  }
+  if (!e.tin) {
+    gaps.push({
+      field: "tin",
+      label: "Tax identification number",
+      blocking: false,
+      consequence:
+        "Recommended for filing their tax return. It does not affect this month's pay.",
+    });
+  }
+  return gaps;
 }
 
 export const fullName = (p: { firstName: string; lastName: string }) =>

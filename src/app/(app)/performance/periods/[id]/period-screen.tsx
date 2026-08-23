@@ -452,6 +452,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 participants={detail.participants}
               />
               <Register register={detail.register} />
+              <MultiAppraiserReviews participants={detail.participants} />
             </>
           )}
         </div>
@@ -637,6 +638,77 @@ function Outstanding({
               </li>
             ))}
           </ul>
+        )}
+      </CardBody>
+    </Card>
+  );
+}
+
+/**
+ * Every manager review, for anybody more than one manager appraises.
+ *
+ * `Register` below is right to show one row per person — finalisation is what
+ * picks a single mark of record out of several manager reviews, and the sign-off
+ * column follows whichever review that pick lands on. But before anybody has
+ * finalised anything, that pick is provisional, and it is only ever one of the
+ * reviews: a second appraiser's already-written form has nowhere else in this
+ * screen to be opened, read or finalised from. This card is that place, for
+ * every person more than one manager review exists for — nothing here duplicates
+ * `Register`'s job of naming the mark of record; it exists so every appraiser's
+ * review, not just the one currently picked, has a link somewhere.
+ *
+ * Renders nothing for a company running one manager per person, which is the
+ * default and the common case: every `managers` array below is length 1 or 0,
+ * so the filter below empties the card away rather than showing a table that
+ * repeats `Register`.
+ */
+function MultiAppraiserReviews({
+  participants,
+}: {
+  participants: ApiCycleParticipants | null;
+}) {
+  if (!participants) return null;
+  const rows = participants.rows.filter((row) => row.managers.length > 1);
+  if (rows.length === 0) return null;
+
+  return (
+    <Card>
+      <CardHeader
+        title="Manager reviews, by appraiser"
+        description="More than one manager appraises some of these people. Every one of their reviews is listed here, not only the one picked as the mark of record."
+      />
+      <CardBody className="flex flex-col gap-2">
+        {rows.flatMap((row) =>
+          row.managers.map((manager) => (
+            <div
+              key={manager.reviewId}
+              className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3"
+            >
+              <div className="min-w-0">
+                <p className="text-body-sm font-medium text-ink">
+                  {manager.managerName} on {row.employeeName}
+                </p>
+                <p className="mt-1 text-meta text-muted">
+                  {manager.finalised
+                    ? "Final"
+                    : manager.submitted
+                      ? "Written, not final"
+                      : "Not written yet"}
+                  {manager.rating !== null ? ` · ${manager.rating} out of 5` : ""}
+                </p>
+              </div>
+              <Link
+                href={`/performance/reviews/${manager.reviewId}`}
+                className="text-body-sm font-medium text-accent-text underline-offset-2 hover:underline"
+              >
+                {manager.finalised
+                  ? "Open"
+                  : manager.submitted
+                    ? "Finalise"
+                    : "Open"}
+              </Link>
+            </div>
+          )),
         )}
       </CardBody>
     </Card>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Download } from "lucide-react";
+import { Download, ShieldAlert } from "lucide-react";
 import {
   Badge,
   Button,
@@ -8,6 +8,7 @@ import {
   Card,
   CardBody,
   CardHeader,
+  EmptyState,
   Money,
   Skeleton,
   Stat,
@@ -20,6 +21,8 @@ import {
   TableWrap,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { SourceBadge } from "@/components/payroll/run-panels";
+import { useCan } from "@/lib/permissions";
 import { useDeductionSwitches } from "@/lib/store/payroll-deductions";
 
 /**
@@ -47,10 +50,24 @@ import { useDeductionSwitches } from "@/lib/store/payroll-deductions";
  * ## The figures are illustrative and the screen says so
  *
  * `StatutorySchedule` exists in the schema and nothing writes it yet, so these
- * rows are an illustration of the shape rather than a read of a run. That is
- * stated in the callout — the standing rule is that a screen must never look
- * connected when it is not. What is real here is **which bodies appear**, which
- * is the part this change is about.
+ * rows are an illustration of the shape rather than a read of a run — in
+ * **either** mode, connected or not, because there is no endpoint on either
+ * side of this that would make them real. That is stated in a callout right
+ * under the header, not buried in a footnote, because the standing rule is
+ * that a screen must never look connected when it is not. What is real here is
+ * **which bodies appear**, which is the part this change is about, and the
+ * `SourceBadge` reports whether *that* half — what this company actually
+ * deducts — came from the API or from this browser's demo answers.
+ *
+ * ## Who may look
+ *
+ * Every figure on this page is money the company owes somebody else, so it is
+ * gated the same way `GET /payroll/settings` is on the API: `VIEW_SALARIES`.
+ * Connected, that is a second lock on a door already locked — the API would
+ * refuse the read and `useDeductionSwitches` would surface the error instead.
+ * It earns its place in demo mode, where every store answers regardless of
+ * role unless a screen asks — previewing "Employee" under `/settings/roles`
+ * must not still show the company's statutory schedule.
  */
 
 type Group = "paye" | "pension" | "nhf" | "other";
@@ -64,13 +81,69 @@ const FILINGS: {
   staff: number;
   status: "filed" | "due" | "scheduled";
 }[] = [
-  { body: "Lagos State IRS", kind: "PAYE", group: "paye", amount: 14_203_880, due: "10 Sep 2026", staff: 198, status: "filed" },
-  { body: "Ogun State IRS", kind: "PAYE", group: "paye", amount: 1_940_220, due: "10 Sep 2026", staff: 31, status: "filed" },
-  { body: "Stanbic IBTC Pensions", kind: "Pension", group: "pension", amount: 3_412_600, due: "07 Sep 2026", staff: 94, status: "filed" },
-  { body: "ARM Pensions", kind: "Pension", group: "pension", amount: 2_610_400, due: "07 Sep 2026", staff: 71, status: "filed" },
-  { body: "Leadway Pensure", kind: "Pension", group: "pension", amount: 2_117_200, due: "07 Sep 2026", staff: 58, status: "filed" },
-  { body: "FMBN", kind: "NHF", group: "nhf", amount: 2_325_110, due: "10 Sep 2026", staff: 264, status: "due" },
-  { body: "NSITF", kind: "ECS", group: "other", amount: 930_045, due: "15 Sep 2026", staff: 264, status: "scheduled" },
+  {
+    body: "Lagos State IRS",
+    kind: "PAYE",
+    group: "paye",
+    amount: 14_203_880,
+    due: "10 Sep 2026",
+    staff: 198,
+    status: "filed",
+  },
+  {
+    body: "Ogun State IRS",
+    kind: "PAYE",
+    group: "paye",
+    amount: 1_940_220,
+    due: "10 Sep 2026",
+    staff: 31,
+    status: "filed",
+  },
+  {
+    body: "Stanbic IBTC Pensions",
+    kind: "Pension",
+    group: "pension",
+    amount: 3_412_600,
+    due: "07 Sep 2026",
+    staff: 94,
+    status: "filed",
+  },
+  {
+    body: "ARM Pensions",
+    kind: "Pension",
+    group: "pension",
+    amount: 2_610_400,
+    due: "07 Sep 2026",
+    staff: 71,
+    status: "filed",
+  },
+  {
+    body: "Leadway Pensure",
+    kind: "Pension",
+    group: "pension",
+    amount: 2_117_200,
+    due: "07 Sep 2026",
+    staff: 58,
+    status: "filed",
+  },
+  {
+    body: "FMBN",
+    kind: "NHF",
+    group: "nhf",
+    amount: 2_325_110,
+    due: "10 Sep 2026",
+    staff: 264,
+    status: "due",
+  },
+  {
+    body: "NSITF",
+    kind: "ECS",
+    group: "other",
+    amount: 930_045,
+    due: "15 Sep 2026",
+    staff: 264,
+    status: "scheduled",
+  },
 ];
 
 const STATUS = {
@@ -89,7 +162,8 @@ const STATUS = {
  */
 const NOTHING_TO_FILE: Record<Exclude<Group, "other">, string> = {
   paye: "No PAYE schedule for any state tax authority, because no tax was deducted from anybody's pay this period. Nothing is filed and nothing is remitted.",
-  pension: "No schedule for any pension fund administrator, because no contribution was deducted and none was added on top.",
+  pension:
+    "No schedule for any pension fund administrator, because no contribution was deducted and none was added on top.",
   nhf: "No National Housing Fund schedule for the Federal Mortgage Bank, because no contribution was deducted.",
 };
 
@@ -100,8 +174,34 @@ const GROUP_LABEL: Record<Exclude<Group, "other">, string> = {
 };
 
 export function StatutoryScreen() {
+  const canView = useCan("VIEW_SALARIES");
   const deductions = useDeductionSwitches();
   const stored = deductions.settings?.settings ?? null;
+
+  if (!canView) {
+    return (
+      <>
+        <PageHeader
+          breadcrumb={[
+            { href: "/payroll", label: "Monthly payroll" },
+            { href: "/payroll/statutory", label: "Statutory filings" },
+          ]}
+          title="Statutory filings"
+        />
+        <PageBody>
+          <EmptyState
+            icon={<ShieldAlert aria-hidden="true" />}
+            title="You cannot view statutory filings"
+            description={
+              "Seeing what this company owes each tax authority, pension " +
+              "fund and the Federal Mortgage Bank needs the “View " +
+              "salaries” permission. Ask somebody who holds it."
+            }
+          />
+        </PageBody>
+      </>
+    );
+  }
 
   /**
    * Which groups this company operates.
@@ -120,9 +220,7 @@ export function StatutoryScreen() {
 
   const shown = FILINGS.filter(
     (filing) =>
-      filing.group === "other" ||
-      operates === null ||
-      operates[filing.group],
+      filing.group === "other" || operates === null || operates[filing.group],
   );
   const absent = (["paye", "pension", "nhf"] as const).filter(
     (group) => operates !== null && !operates[group],
@@ -150,6 +248,25 @@ export function StatutoryScreen() {
       />
 
       <PageBody className="flex flex-col gap-6">
+        {/* What "which bodies appear" is read from — the API's own settings
+            row when connected, this browser's demo answers when not. The
+            filing amounts below are a different question and are answered by
+            the callout right after this, in both modes. */}
+        <SourceBadge
+          connected={deductions.available}
+          loading={deductions.loading}
+          error={deductions.error ? { message: deductions.error } : null}
+        />
+
+        <Callout tone="info" title="These schedules are illustrative">
+          Nothing in this build writes a real statutory schedule from an
+          approved payroll run yet, so the amounts, due dates, employee counts
+          and status below are illustrative rather than a read of your own
+          payroll — whether or not this company is connected to the API. Which
+          bodies appear <strong className="font-medium">is</strong> real: it is
+          read from what this company actually deducts, below.
+        </Callout>
+
         {/*
           Outside everything, because it is the one thing on this screen that
           changes what somebody has to do next. The wording is the API's, from
@@ -174,7 +291,10 @@ export function StatutoryScreen() {
         ) : (
           <>
             <div className="grid gap-4 sm:grid-cols-3">
-              <Stat label="Total remittance" value={<Money amount={total} compact size="xl" />} />
+              <Stat
+                label="Total remittance"
+                value={<Money amount={total} compact size="xl" />}
+              />
               <Stat
                 label="Outstanding"
                 value={<Money amount={outstanding} compact size="xl" />}
@@ -236,7 +356,10 @@ export function StatutoryScreen() {
                       <TD align="right" className="tabular">
                         {filing.staff}
                       </TD>
-                      <TD align="right" className="tabular font-medium text-ink">
+                      <TD
+                        align="right"
+                        className="tabular font-medium text-ink"
+                      >
                         <Money amount={filing.amount} />
                       </TD>
                       <TD className="tabular">{filing.due}</TD>
@@ -262,19 +385,19 @@ export function StatutoryScreen() {
                 </p>
                 <p className="text-body-sm leading-relaxed text-body">
                   A deduction your company does not operate produces no schedule
-                  at all — not an empty one. A nil return you had no obligation to
-                  make is worse than no return, so the reason is stated instead.
-                  Change what you deduct under{" "}
+                  at all — not an empty one. A nil return you had no obligation
+                  to make is worse than no return, so the reason is stated
+                  instead. Change what you deduct under{" "}
                   <strong className="font-medium text-ink">
                     Settings → Payroll
                   </strong>
                   .
                 </p>
                 <p className="text-meta leading-relaxed text-muted">
-                  The amounts and bodies above are illustrative. Which
-                  {" "}deductions appear is read from this company&apos;s own
-                  payroll settings; generating real schedules from a run is not
-                  built yet.
+                  The amounts and bodies above are illustrative. Which{" "}
+                  deductions appear is read from this company&apos;s own payroll
+                  settings; generating real schedules from a run is not built
+                  yet.
                 </p>
               </CardBody>
             </Card>

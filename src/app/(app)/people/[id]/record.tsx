@@ -57,10 +57,11 @@ import {
 import type { LeaveBalanceRow, LeaveRow } from "@/lib/api/leave";
 import { useCan } from "@/lib/permissions";
 import { useDepartments } from "@/lib/store/departments";
+import { useWorkLocations } from "@/lib/store/work-locations";
 import type { EmployeePatch } from "@/lib/store/employees-api";
 import { usePayPreview } from "@/lib/store/pay-components";
 import { useSession } from "@/lib/store/session";
-import { fullName, type Employee } from "@/lib/types";
+import { fullName, payrollGapsFor, type Employee } from "@/lib/types";
 import { shortDate } from "@/lib/today";
 import { EditableSection } from "@/components/people/editable-section";
 import { NIGERIAN_STATES } from "@/lib/reference/lists";
@@ -190,7 +191,6 @@ const enumKey = (value: string) => value.toLowerCase();
  */
 export function EmployeeRecord({
   employee,
-  missing,
   connected,
   manager,
   managerName,
@@ -201,8 +201,6 @@ export function EmployeeRecord({
   onSave,
 }: {
   employee: Employee;
-  /** Fields payroll cannot file without. The API's own answer when connected. */
-  missing: string[];
   connected: boolean;
   manager: Employee | null;
   /** The manager's name even when their record is outside the page's slice. */
@@ -238,6 +236,7 @@ export function EmployeeRecord({
   const [fileOpen, setFileOpen] = useState(false);
   const [exitOpen, setExitOpen] = useState(false);
   const departments = useDepartments();
+  const locations = useWorkLocations();
   const { employeeId: me } = useSession();
   const canSeeSalaries = useCan("VIEW_SALARIES");
   /* The same permission `POST /offboarding` demands to record somebody else's
@@ -291,6 +290,13 @@ export function EmployeeRecord({
     (d) => d.name === employee.department,
   );
 
+  /* Same reasoning as `currentDepartment`, one field down: `Employee` carries
+     the work location's name (`location`), not its id, so the picker below has
+     to resolve the id itself before it can preselect anything. */
+  const currentLocation = locations.locations.find(
+    (l) => l.name === employee.location,
+  );
+
   /* Completeness counts the fields payroll and compliance actually need —
      not every field on the form, which would always read "incomplete". */
   const tracked = [
@@ -305,6 +311,14 @@ export function EmployeeRecord({
   ];
   const complete = tracked.filter(Boolean).length;
   const completeness = Math.round((complete / tracked.length) * 100);
+
+  /* What the run actually does versus what is merely unfilled — see
+     `payrollGapsFor`. Only a missing bank account can appear in `payrollBlocking`
+     today; kept as a filter rather than a single check so a future BLOCKER
+     needs no new branch here. */
+  const payrollGaps = payrollGapsFor(employee);
+  const payrollBlocking = payrollGaps.filter((g) => g.blocking);
+  const payrollAdvisory = payrollGaps.filter((g) => !g.blocking);
 
   return (
     <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)] lg:items-start">
@@ -404,14 +418,32 @@ export function EmployeeRecord({
 
       {/* Detail */}
       <div className="flex min-w-0 flex-col gap-5">
-        {missing.length > 0 && (
+        {/* Split by what the engine actually does, not just "is it filled in":
+            a missing bank account blocks approval, a missing pension PIN (when
+            the company operates one) only leaves the remittance schedule
+            incomplete, and a missing TIN does nothing to the run at all. Three
+            fields in one red callout claiming the same fate for all of them was
+            the bug — see `payrollGapsFor`. */}
+        {payrollBlocking.length > 0 && (
           <Callout
             tone="danger"
             icon={<ShieldAlert aria-hidden="true" />}
-            title={`${missing.length} field${missing.length > 1 ? "s" : ""} missing before payroll can run`}
+            title={`${payrollBlocking.length} field${payrollBlocking.length > 1 ? "s" : ""} missing before payroll can run`}
           >
-            {missing.join(", ")}. They will be left out of the next run until{" "}
-            {missing.length > 1 ? "these are" : "this is"} added.
+            {payrollBlocking.map((g) => g.label).join(", ")}.{" "}
+            {payrollBlocking[0]?.consequence}
+          </Callout>
+        )}
+
+        {payrollAdvisory.length > 0 && (
+          <Callout tone="warning" title="Recommended, but not pay-blocking">
+            <ul className="flex flex-col gap-1">
+              {payrollAdvisory.map((g) => (
+                <li key={g.field}>
+                  <span className="font-medium">{g.label}</span> — {g.consequence}
+                </li>
+              ))}
+            </ul>
           </Callout>
         )}
 
@@ -443,6 +475,11 @@ export function EmployeeRecord({
               fields={[
                 { key: "firstName", label: "First name", required: true },
                 { key: "lastName", label: "Last name", required: true },
+                {
+                  key: "middleName",
+                  label: "Middle name (optional)",
+                  emptyLabel: "Not recorded",
+                },
                 {
                   key: "email",
                   label: "Work email",
@@ -581,6 +618,41 @@ export function EmployeeRecord({
                      `Money` renders "Not set yet" rather than ₦0.00. */
                   format: (v) => <Money amount={v === null ? null : Number(v)} decimals />,
                 },
+                /*
+                 * Settable at creation (`/people/new`'s Picker) and, until now,
+                 * only ever read back here as plain text in the identity rail.
+                 * Same picker, same reason it beats a `<select>`: a company
+                 * with a dozen branches is a list worth filtering rather than
+                 * scrolling.
+                 *
+                 * Connected only. `useEmployeeMutations().update` still drops
+                 * `workLocationId` in demo mode — `Employee.location` there is
+                 * a display name with no id behind it, the same gap
+                 * `departmentId` had before `demoDepartmentName` closed it,
+                 * and closing this one is a separate fix. Offering the picker
+                 * offline would save silently onto nothing, so it stays
+                 * read-only text in the identity rail there instead.
+                 */
+                ...(connected
+                  ? [
+                      {
+                        key: "workLocationId" as const,
+                        label: "Work location",
+                        type: "picker" as const,
+                        placeholder: "Not set",
+                        value: currentLocation?.id ?? "",
+                        format: () => employee.location,
+                        options: [
+                          { value: "", label: "Not set" },
+                          ...locations.locations.map((l) => ({
+                            value: l.id,
+                            label: l.name,
+                            ...(l.addressLine ? { hint: l.addressLine } : {}),
+                          })),
+                        ],
+                      },
+                    ]
+                  : []),
               ]}
             />
 
@@ -696,6 +768,12 @@ export function EmployeeRecord({
                   key: "pensionProvider",
                   label: "Pension provider",
                   type: "select",
+                  /* A starting point a company edits, not the PenCom register
+                     — see `PENSION_PROVIDERS`'s own doc comment. "Other
+                     (specify)" is what actually lets them: a newly licensed
+                     PFA, or a merger this list has not caught up with, is no
+                     longer stuck without a way onto the record. */
+                  allowOther: true,
                   options: [
                     { value: "", label: "Not known yet" },
                     ...pensionProviderOptions(employee.pensionProvider).map(

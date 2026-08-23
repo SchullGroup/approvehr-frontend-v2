@@ -93,11 +93,15 @@ async function restore() {
       });
       return;
     } catch (error) {
-      if (!(error instanceof SessionExpiredError)) {
-        /* Network failure rather than a bad token: the API is down but the
-           token may be fine. Keep it and fall through to offline mode. */
+      if (error instanceof SessionExpiredError) {
+        /* The refresh itself failed (or was refused), so the token is
+           genuinely dead. `client.ts` has already cleared it; clearing again
+           here is just belt-and-suspenders. */
+        tokens.clear();
       }
-      tokens.clear();
+      /* Anything else — a plain `ApiError` from a network failure or a 5xx —
+         is the API being unreachable, not a bad token. Keep it and fall
+         through to offline mode. */
     }
   }
 

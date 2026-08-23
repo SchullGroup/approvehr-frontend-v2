@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   UserRound,
 } from "lucide-react";
+import { ApiError } from "@/lib/api/client";
 import {
   Avatar,
   Badge,
@@ -25,20 +26,21 @@ import {
   Input,
   Money,
   ProgressMeter,
+  Skeleton,
   Spinner,
   useToast,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { SessionRoleBadge } from "@/components/portal/role-badge";
 import { useSession } from "@/lib/store/session";
-import { useLeaveBalances } from "@/lib/store/leave-balances";
+import { useEmployeeLeaveBalances } from "@/lib/store/leave-api";
 import { useFeatures } from "@/lib/store/features";
 import { MyLoans } from "@/app/(app)/payroll/loans";
 import { MyRota } from "@/app/(app)/people/shifts";
 import { MyAssets } from "@/app/(app)/people/assets";
 import { Resign } from "@/app/(app)/people/offboarding";
 import { useEmployeeStore } from "@/lib/store/employees";
-import { fullName, missingForPayroll } from "@/lib/types";
+import { fullName, payrollGapsFor } from "@/lib/types";
 import { self } from "@/lib/api/self";
 
 /**
@@ -103,7 +105,24 @@ export function ProfileScreen() {
   }
 
   const name = fullName(employee);
-  const missing = missingForPayroll(employee);
+  /* Split by what payroll actually does, not just "is it filled in" — a
+     missing bank account stops your pay; a missing pension PIN or TIN does
+     not. See `payrollGapsFor`. */
+  const gaps = payrollGapsFor(employee);
+  const blockingGaps = gaps.filter((g) => g.blocking);
+  const advisoryGaps = gaps.filter((g) => !g.blocking);
+  const gapSentence = [
+    blockingGaps.length > 0
+      ? `${blockingGaps.map((g) => g.label).join(", ")} — you cannot be paid until ${
+          blockingGaps.length > 1 ? "these are" : "this is"
+        } added.`
+      : null,
+    advisoryGaps.length > 0
+      ? `${advisoryGaps.map((g) => g.label).join(", ")} recommended, but will not stop your pay.`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <>
@@ -139,22 +158,18 @@ export function ProfileScreen() {
         {/* The one thing on this page that might need doing. Shown only when
             it does, and as a list of fields plus a button — not a paragraph
             explaining what proration is. */}
-        {missing.length > 0 && (
+        {gaps.length > 0 && (
           <Card>
             <CardBody className="flex flex-wrap items-center gap-4">
               <div className="min-w-0 flex-1">
                 <p className="text-body font-semibold text-ink">
-                  {missing.length} {missing.length === 1 ? "detail" : "details"}{" "}
+                  {gaps.length} {gaps.length === 1 ? "detail" : "details"}{" "}
                   missing
                 </p>
-                <p className="mt-1 text-body-sm text-body">
-                  {missing.join(", ")}. Payroll needs these to pay you.
-                </p>
+                <p className="mt-1 text-body-sm text-body">{gapSentence}</p>
               </div>
               <ProgressMeter
-                value={Math.round(
-                  ((5 - Math.min(5, missing.length)) / 5) * 100,
-                )}
+                value={Math.round(((5 - Math.min(5, gaps.length)) / 5) * 100)}
                 label="Record complete"
                 className="w-40"
               />
@@ -518,26 +533,28 @@ function PayCard({ grossMonthly }: { grossMonthly: number | null }) {
   );
 }
 
+/**
+ * Through `useEmployeeLeaveBalances` — the same dual-mode hook `/people/leave`
+ * and `book-leave.tsx` read — rather than the localStorage-only
+ * `useLeaveBalances`. That one has no connected branch at all, so a signed-in
+ * employee on a real company used to see a balance computed from this
+ * browser's demo requests instead of their actual entitlement.
+ */
 function TimeOffCard({ employeeId }: { employeeId: string }) {
-  const balances = useLeaveBalances();
-  const mine = balances.forEmployee(employeeId);
-  const annual = mine.find((b) => b.type === "Annual") ?? mine[0];
-  /* `remaining` is not a stored field. Pending days are held back as well as
-     taken ones, because a request already in somebody's inbox is spent as far
-     as the person booking is concerned. */
-  const remaining = annual
-    ? annual.entitled - annual.taken - annual.pending
-    : 0;
+  const { balances, loading } = useEmployeeLeaveBalances(employeeId);
+  const annual = balances.find((b) => b.leaveType === "Annual") ?? balances[0];
 
   return (
     <Card>
       <CardHeader title="Time off" level={3} />
       <CardBody className="flex flex-col gap-3">
-        {annual ? (
+        {loading ? (
+          <Skeleton className="h-14 w-full" />
+        ) : annual ? (
           <div>
-            <p className="text-body-sm text-muted">{annual.type} days left</p>
+            <p className="text-body-sm text-muted">{annual.leaveType} days left</p>
             <p className="text-[1.25rem] font-semibold text-ink">
-              {remaining}
+              {annual.remaining}
               <span className="ml-1 text-body-sm font-normal text-muted">
                 of {annual.entitled}
               </span>
@@ -585,19 +602,33 @@ function SecurityCard({
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [busy, setBusy] = useState<"password" | "sessions" | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ApiError | null>(null);
 
   async function changePassword() {
     setBusy("password");
     setError(null);
     try {
       await self.changePassword(current, next);
-      toast.push({ title: "Password changed", tone: "success" });
+      toast.push({
+        title: "Password changed",
+        tone: "success",
+        detail: "You've been signed out everywhere, including here.",
+      });
       setCurrent("");
       setNext("");
       setChanging(false);
-    } catch {
-      setError("That current password is not right.");
+      /* `changePassword` on the backend revokes every session on success,
+         including this one, via the same `signOutEverywhere` the button below
+         calls. Signing out locally keeps this screen honest about that —
+         otherwise the token in memory stays syntactically valid for up to
+         fifteen minutes while every request behind it is already refused. */
+      await onSignOut();
+    } catch (caught) {
+      setError(
+        caught instanceof ApiError
+          ? caught
+          : new ApiError(0, "unknown", "Something went wrong. Try again."),
+      );
     } finally {
       setBusy(null);
     }
@@ -637,7 +668,7 @@ function SecurityCard({
       <CardBody className="flex flex-col gap-3">
         {changing ? (
           <>
-            <Field label="Current password" error={error ?? undefined}>
+            <Field label="Current password" error={error?.message}>
               <Input
                 type="password"
                 autoComplete="current-password"

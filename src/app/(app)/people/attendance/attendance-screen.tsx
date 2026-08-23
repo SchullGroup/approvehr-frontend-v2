@@ -40,6 +40,7 @@ import {
 } from "@/lib/api/attendance";
 import { addDays, timesLabel } from "@/lib/api/shifts";
 import { PositionError } from "@/lib/geolocation";
+import { useCan, useIsManager } from "@/lib/permissions";
 import {
   STATUS_LABEL,
   STATUS_TONE,
@@ -81,6 +82,20 @@ type View = "today" | "timesheet";
  * `/shifts/rota` for its own window and labels the rows, because a shift worker
  * shown as absent on their day off is the fastest way to lose their trust — and
  * a naira figure that the run will not use is worse than no figure at all.
+ *
+ * ## Who sees the roster
+ *
+ * The API answers `/attendance/roster` and `/attendance/timesheet` for anybody —
+ * "who was in" needs no permission on that side, deliberately. That is not the
+ * same question as whether *this page* should print everybody's row in front of
+ * a plain employee who opened it to clock in. It should not: a nav item is only
+ * ever a visibility hint, never enforcement, so the gate belongs here.
+ *
+ * `useIsManager()` (their own reports) or `EDIT_RECORDS` (the company's) decides
+ * it. Clocking in is unconditional — it is the one thing every employee does on
+ * this screen — and everything below it, the company roster and the 15-day
+ * timesheet alike, renders only for those two. Someone without either sees their
+ * own recent attendance instead of everyone's.
  */
 export function AttendanceScreen() {
   const roster = useAttendanceRoster();
@@ -89,6 +104,12 @@ export function AttendanceScreen() {
   const { clockIn, clockOut } = useAttendanceMutations();
   const session = useSession();
   const toast = useToast();
+  /* Two separate hook calls, never short-circuited into one expression — a
+     conditional `||` would skip `useCan` on whichever render `useIsManager`
+     answers true first, and the two must run every render in the same order. */
+  const isManager = useIsManager();
+  const canEditRecords = useCan("EDIT_RECORDS");
+  const canSeeRoster = isManager || canEditRecords;
 
   const [view, setView] = useState<View>("today");
   const [picked, setPicked] = useState<string | null>(null);
@@ -177,15 +198,19 @@ export function AttendanceScreen() {
       <PageHeader
         title="Attendance"
         action={
-          <SegmentedControl
-            label="View"
-            value={view}
-            onChange={setView}
-            options={[
-              { value: "today", label: "Today" },
-              { value: "timesheet", label: "Timesheet" },
-            ]}
-          />
+          /* The view toggle chooses between two company-wide reads, so it has
+             no reason to exist for somebody who cannot see either of them. */
+          canSeeRoster ? (
+            <SegmentedControl
+              label="View"
+              value={view}
+              onChange={setView}
+              options={[
+                { value: "today", label: "Today" },
+                { value: "timesheet", label: "Timesheet" },
+              ]}
+            />
+          ) : undefined
         }
       />
 
@@ -304,18 +329,26 @@ export function AttendanceScreen() {
           </CardBody>
         </Card>
 
-        {view === "today" ? (
-          roster.date ? (
-            <TodayView roster={roster} onCorrect={setCorrecting} />
+        {/* Everybody clocks in above. Everybody else's day is a different
+            question, and only a manager or `EDIT_RECORDS` gets to ask it —
+            see "Who sees the roster" on this component. A plain employee
+            gets their own recent attendance instead of the company's. */}
+        {canSeeRoster ? (
+          view === "today" ? (
+            roster.date ? (
+              <TodayView roster={roster} onCorrect={setCorrecting} />
+            ) : (
+              <LoadingPanel label="Loading today's roster" />
+            )
+          ) : sheet.error ? (
+            <LoadFailure subject="the timesheet" error={sheet.error} />
+          ) : sheet.from ? (
+            <TimesheetView sheet={sheet} />
           ) : (
-            <LoadingPanel label="Loading today's roster" />
+            <LoadingPanel label="Loading the timesheet" />
           )
-        ) : sheet.error ? (
-          <LoadFailure subject="the timesheet" error={sheet.error} />
-        ) : sheet.from ? (
-          <TimesheetView sheet={sheet} />
         ) : (
-          <LoadingPanel label="Loading the timesheet" />
+          <MyAttendanceSummary sheet={sheet} employeeId={session.employeeId} />
         )}
       </PageBody>
 
@@ -346,6 +379,73 @@ function LoadingPanel({ label }: { label: string }) {
         <Skeleton className="h-4 w-full" />
         <Skeleton className="h-4 w-full" />
         <Skeleton className="h-4 w-2/3" />
+      </CardBody>
+    </Card>
+  );
+}
+
+/**
+ * What a plain employee gets instead of the roster: their own days, not
+ * everybody's.
+ *
+ * Reads the same 15-day timesheet the manager's view already fetched — no
+ * second request, and no new endpoint — and picks out the one row that is
+ * theirs. `employeeId` can be null for an account with no staff record behind
+ * it, and a row can be absent even with one (nobody has clocked in for them
+ * yet in the window); both render the same quiet "nothing recorded" rather
+ * than a wall of zeroes standing in for data that was never fetched.
+ */
+function MyAttendanceSummary({
+  sheet,
+  employeeId,
+}: {
+  sheet: TimesheetState;
+  employeeId: string | null;
+}) {
+  if (sheet.error) {
+    return <LoadFailure subject="your attendance" error={sheet.error} />;
+  }
+  if (!sheet.from) {
+    return <LoadingPanel label="Loading your attendance" />;
+  }
+
+  const mine = employeeId
+    ? sheet.rows.find((row) => row.employeeId === employeeId)
+    : undefined;
+
+  return (
+    <Card>
+      <CardHeader
+        title={`Your attendance — ${shortDate(sheet.from)} to ${shortDate(sheet.to)}`}
+        description="Your own days over this window."
+        action={
+          <ButtonLink href="/people/overtime" variant="secondary" size="sm">
+            <Timer aria-hidden="true" className="size-4" />
+            Overtime
+          </ButtonLink>
+        }
+      />
+      <CardBody>
+        {mine ? (
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <Stat label="Present" value={String(mine.daysPresent)} />
+            <Stat
+              label="Late"
+              value={String(mine.daysLate)}
+              icon={<Clock aria-hidden="true" />}
+            />
+            <Stat label="On leave" value={String(mine.daysOnLeave)} />
+            <Stat
+              label="Unexplained"
+              value={String(mine.daysUnexplained)}
+              hint={`of ${mine.workingDays} working days`}
+            />
+          </div>
+        ) : (
+          <p className="text-body-sm text-muted">
+            Nothing recorded for you in this window yet.
+          </p>
+        )}
       </CardBody>
     </Card>
   );

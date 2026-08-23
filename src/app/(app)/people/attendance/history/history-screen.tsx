@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { CalendarOff, MapPin, Umbrella } from "lucide-react";
+import { CalendarOff, Lock, MapPin, Umbrella } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
   Badge,
@@ -26,6 +26,7 @@ import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import type { ApiAttendanceDay, ApiRosterRow } from "@/lib/api/attendance";
 import { addDays, timesLabel } from "@/lib/api/shifts";
+import { useCan, useIsManager } from "@/lib/permissions";
 import {
   STATUS_LABEL,
   STATUS_TONE,
@@ -78,9 +79,30 @@ import { CalendarLegend, MonthCalendar } from "./month-calendar";
  * rendered as an absence of information rather than as a wall of no-shows. That is
  * the calendar's version of the defect that prorated every employee of every
  * company without clock-in to ₦0 — see HANDOVER, "Everybody was paid ₦0".
+ *
+ * ## Who sees this screen
+ *
+ * Unlike `/people/attendance`, there is no personal reading of a who-came-in
+ * calendar — a plain employee has no "my own history" version of a roster for
+ * every day of the month. `GET /attendance/roster` and `/attendance/summary`
+ * need no permission on the API (the same "who was in" is unconditional as the
+ * screen this one splits off from), so the gate belongs here, not there: a nav
+ * item is only ever a visibility hint, never enforcement, and `nav.tsx`'s
+ * `permission` on this item is the same hint, nothing more.
+ *
+ * `useIsManager()` (their own reports) or `EDIT_RECORDS` (the company's)
+ * decides it, matching `attendance-screen.tsx`'s roster gate exactly, so a
+ * manager who can already see today's roster there can see it here too.
  */
 export function HistoryScreen() {
   const { isConnected } = useSession();
+  /* Two separate hook calls, never short-circuited into one expression — see
+     `attendance-screen.tsx`'s identical comment: a conditional `||` would skip
+     `useCan` on whichever render `useIsManager` answers true first, and the
+     two must run every render in the same order. */
+  const isManager = useIsManager();
+  const canEditRecords = useCan("EDIT_RECORDS");
+  const canSeeHistory = isManager || canEditRecords;
 
   /* Demo mode runs on `TODAY`; the seed is a fixed snapshot and the real clock
      would open the calendar on a month it has nothing in. Same line as
@@ -108,6 +130,37 @@ export function HistoryScreen() {
    * they come back, because it is a date rather than an index.
    */
   const goToMonth = (next: string) => setMonth(next);
+
+  /* Same gate as `attendance-screen.tsx`'s roster, and the same reason it
+     lives here rather than only in `nav.tsx`: the nav item's `permission` is
+     a visibility hint, not enforcement, and this screen has no personal
+     reading to fall back to the way the attendance screen falls back to
+     "just clock in" — so a refusal, not a narrower view, is the right shape. */
+  if (!canSeeHistory) {
+    return (
+      <>
+        <PageHeader
+          title="Attendance history"
+          breadcrumb={[
+            { href: "/people/attendance", label: "Attendance" },
+            { href: "/people/attendance/history", label: "History" },
+          ]}
+        />
+        <PageBody>
+          <Card>
+            <EmptyState
+              icon={<Lock aria-hidden="true" />}
+              title="Attendance history is not part of your access"
+              description="This is the company's who-came-in calendar, not your own. Only a manager or somebody who can edit records can open it."
+              action={
+                <ButtonLink href="/people/attendance">Go to attendance</ButtonLink>
+              }
+            />
+          </Card>
+        </PageBody>
+      </>
+    );
+  }
 
   return (
     <>

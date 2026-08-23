@@ -124,7 +124,7 @@ export function MatchColumns({
       {problems.missingRequired.length > 0 && (
         <Callout tone="warning" title="Some columns we have to have are missing">
           <p>
-            Every person needs{" "}
+            Every {dictionary.noun.one} needs{" "}
             {problems.missingRequired.map((field, index) => (
               <span key={field}>
                 {index > 0 && ", "}

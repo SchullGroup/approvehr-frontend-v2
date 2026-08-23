@@ -52,6 +52,8 @@ import { createPersistedState } from "./persisted";
 export type EmployeeDraft = {
   firstName: string;
   lastName: string;
+  /** Optional. Left out of a name entirely when empty, not sent as "". */
+  middleName: string;
   email: string;
   phone: string;
   dateOfBirth: string;
@@ -115,6 +117,7 @@ type Stored = {
 export const BLANK_DRAFT: EmployeeDraft = {
   firstName: "",
   lastName: "",
+  middleName: "",
   email: "",
   phone: "",
   dateOfBirth: "",
@@ -155,14 +158,18 @@ const EMPTY: Stored = {
 };
 
 /**
- * Version 1. Bump on any incompatible change to `EmployeeDraft` — a stale
+ * Version 2. Bump on any incompatible change to `EmployeeDraft` — a stale
  * payload is then dropped rather than half-restored, which for four minutes of
  * typing is the right trade and for a partially-migrated shape would not be.
+ *
+ * 2 adds `middleName`. A version-1 payload predates the field entirely rather
+ * than merely lacking a value for it, so `draft.middleName.trim()` would throw
+ * on `undefined` if it were half-restored instead of dropped.
  */
 const store = createPersistedState<Stored>({
   key: "approvehr.employee-draft.store",
   empty: EMPTY,
-  version: 1,
+  version: 2,
 });
 
 /* --------------------------------------------------------------------- hook */

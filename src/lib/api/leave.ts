@@ -234,11 +234,16 @@ export type LeaveDetail = {
   balance: LeaveBalanceRow | null;
 };
 
+/** The wire's own casing for accrual, matching `LeaveAccrual` in the schema. */
+export type LeaveAccrualWire = "ANNUAL_UPFRONT" | "MONTHLY" | "ON_COMPLETION";
+
 export type LeaveTypeRow = {
   id: string | null;
   name: string;
   entitledDays: number;
+  accrual: LeaveAccrualWire;
   carryOverMax: number;
+  carryOverExpiresMonths: number;
   requiresEvidence: boolean;
   minNoticeDays: number;
   isPaid: boolean;
@@ -254,13 +259,16 @@ export type LeaveTypeRow = {
 export type NewLeaveType = {
   name: string;
   entitledDays: number;
-  accrual?: "ANNUAL_UPFRONT" | "MONTHLY" | "ON_COMPLETION";
+  accrual?: LeaveAccrualWire;
   carryOverMax?: number;
   carryOverExpiresMonths?: number;
   requiresEvidence?: boolean;
   minNoticeDays?: number;
   isPaid?: boolean;
 };
+
+/** Every field optional — `PATCH /leave/types/:id` accepts any subset. */
+export type LeaveTypePatch = Partial<NewLeaveType>;
 
 /**
  * One public holiday.
@@ -399,7 +407,9 @@ const toType = (wire: WireType): LeaveTypeRow => ({
   id: wire.id,
   name: wire.name,
   entitledDays: wire.entitledDays,
+  accrual: wire.accrual as LeaveAccrualWire,
   carryOverMax: wire.carryOverMax,
+  carryOverExpiresMonths: wire.carryOverExpiresMonths,
   requiresEvidence: wire.requiresEvidence,
   minNoticeDays: wire.minNoticeDays,
   isPaid: wire.isPaid,
@@ -425,6 +435,21 @@ export const leaveApi = {
       await request<WireType>("/leave/types", {
         method: "POST",
         body: JSON.stringify(input),
+      }),
+    ),
+
+  /**
+   * Edit one of the company's own leave types.
+   *
+   * `entitled` here is the divisor every balance in the product is measured
+   * against, so a `PATCH` genuinely moves `/people/leave`, every employee
+   * record and the booking form — the same figure, not a copy of it.
+   */
+  updateType: async (id: string, patch: LeaveTypePatch): Promise<LeaveTypeRow> =>
+    toType(
+      await request<WireType>(`/leave/types/${id}`, {
+        method: "PATCH",
+        body: patch,
       }),
     ),
 

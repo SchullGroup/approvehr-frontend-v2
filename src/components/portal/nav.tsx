@@ -333,13 +333,18 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
          day somebody wants to send a colleague has to be linkable.
          `/payroll/payments/history` is the same split for the same reason.
 
-         `always`, matching Attendance above it: reading the roster needs no
-         permission on the API, and a staff member checking which day they were
-         marked late is exactly who this answers. */
+         Unlike Attendance above it, there is no personal reading of this
+         screen — it is a company-wide who-came-in calendar, never "my own
+         attendance", so it needs a gate `always` would skip. `EDIT_RECORDS`
+         is the nearest static permission to the page's own
+         `useIsManager() || useCan("EDIT_RECORDS")` check (see
+         `history-screen.tsx`); a manager with no `EDIT_RECORDS` still reaches
+         the screen by URL, because a nav item is a visibility hint only and
+         the page enforces the real rule. */
       href: "/people/attendance/history",
       label: "Attendance history",
       icon: <CalendarSearch aria-hidden="true" />,
-      always: true,
+      permission: "EDIT_RECORDS",
     },
     {
       /* Was reachable only from a link on the attendance screen. `shifts` is

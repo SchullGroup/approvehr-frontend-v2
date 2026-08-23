@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import { PageBody, PageHeader } from "@/components/portal/shell";
-import { SourceBadge } from "@/components/hiring/source-badge";
 import { OfferApprovals } from "./approvals";
 
 export const metadata: Metadata = {
@@ -11,26 +9,9 @@ export const metadata: Metadata = {
 /**
  * `/hiring/offers`
  *
- * A shell. The offers themselves are seeded in both modes — `Offer` exists in
- * Prisma with an `outsideBand` flag and an approval trail, and no module exposes
- * it — but the **band** each one is measured against is the live grade ladder.
- * Two sources on one card, so the badge belongs to the card and not to this
- * header; see `approvals.tsx`.
+ * A shell. `MANAGE_HIRING` is a client-side fact, so the gate, the header and
+ * everything else live in `approvals.tsx` — see its header for why.
  */
 export default function OffersPage() {
-  return (
-    <>
-      <PageHeader
-        breadcrumb={[
-          { href: "/hiring", label: "Pipeline" },
-          { href: "/hiring/offers", label: "Offers" },
-        ]}
-        title="Offer approvals"
-        meta={<SourceBadge live={false} note="The offers themselves." />}
-      />
-      <PageBody>
-        <OfferApprovals />
-      </PageBody>
-    </>
-  );
+  return <OfferApprovals />;
 }

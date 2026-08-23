@@ -56,6 +56,7 @@ import {
   type Payslip,
   type RunException,
   type RunExclusion,
+  wasDeducted,
 } from "@/lib/api/payroll";
 import { useCan } from "@/lib/permissions";
 import {
@@ -820,13 +821,25 @@ function PayslipTable({
                   {formatKobo(slip.grossKobo)}
                 </TD>
                 <TD align="right" className="tabular text-muted">
-                  {formatKobo(slip.pensionEmployeeKobo)}
+                  {wasDeducted(slip.operates, "pension") ? (
+                    formatKobo(slip.pensionEmployeeKobo)
+                  ) : (
+                    <span className="text-faint">Not operated</span>
+                  )}
                 </TD>
                 <TD align="right" className="tabular text-muted">
-                  {formatKobo(slip.nhfKobo)}
+                  {wasDeducted(slip.operates, "nhf") ? (
+                    formatKobo(slip.nhfKobo)
+                  ) : (
+                    <span className="text-faint">Not operated</span>
+                  )}
                 </TD>
                 <TD align="right" className="tabular text-muted">
-                  {formatKobo(slip.payeKobo)}
+                  {wasDeducted(slip.operates, "paye") ? (
+                    formatKobo(slip.payeKobo)
+                  ) : (
+                    <span className="text-faint">Not operated</span>
+                  )}
                 </TD>
                 <TD align="right" className="tabular text-muted">
                   {slip.otherDeductionsKobo > 0 ? (

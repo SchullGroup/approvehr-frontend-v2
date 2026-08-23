@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { sourceNote } from "@/lib/demo";
+import { downloadCsv, toCsv, type CsvRow } from "@/lib/csv";
 import {
   Banknote,
   Building2,
@@ -53,6 +54,7 @@ import { useListQuery } from "@/lib/use-list-query";
 import {
   fullName,
   missingForPayroll,
+  payrollGapsFor,
   type EmploymentStatus,
 } from "@/lib/types";
 
@@ -221,6 +223,52 @@ export function Directory() {
       : []),
   ];
 
+  /*
+   * A CSV of what is actually on screen — this page, under whatever filters
+   * and sort are applied above — not a second server request for the whole
+   * filtered set. That mirrors the rest of this screen's own argument: the
+   * four header figures come from the API under the caller's filter rather
+   * than from a large unbounded fetch, and an export button should not
+   * quietly reintroduce the thing that change was for. The button and the
+   * sentence beside it say "shown below" rather than "directory" for the
+   * same reason — the honest scope, stated rather than implied.
+   */
+  const exportRows = () => {
+    const headers = [
+      "Staff number",
+      "First name",
+      "Last name",
+      "Job title",
+      "Department",
+      "Location",
+      "Gross monthly (NGN)",
+      "Started",
+      "Status",
+      "Missing for payroll",
+    ];
+    const csvRows: CsvRow[] = rows.map((e) => ({
+      "Staff number": e.employeeNo,
+      "First name": e.firstName,
+      "Last name": e.lastName,
+      "Job title": e.jobTitle,
+      Department: e.department,
+      Location: e.location,
+      "Gross monthly (NGN)":
+        e.grossMonthly === null ? "" : e.grossMonthly.toFixed(2),
+      Started: e.startDate,
+      Status: STATUS[e.status].label,
+      "Missing for payroll": missingForPayroll(e).join("; "),
+    }));
+    downloadCsv(
+      `employee-directory-${new Date().toISOString().slice(0, 10)}.csv`,
+      toCsv(headers, csvRows),
+    );
+    toast.push({
+      title: `Exported ${rows.length} ${rows.length === 1 ? "row" : "rows"}`,
+      tone: "success",
+    });
+  };
+
   return (
     <div className="flex flex-col gap-6">
       {/* Which source the numbers came from, stated rather than implied. */}
@@ -271,9 +319,13 @@ export function Directory() {
           value={count(summary.incomplete)}
           icon={<ShieldAlert aria-hidden="true" />}
           {...(summary.incomplete !== undefined && summary.incomplete > 0
-            ? { trend: { direction: "down" as const, label: "Blocks payroll" } }
+            ? { trend: { direction: "down" as const, label: "Worth checking before payroll" } }
             : {})}
-          hint="missing bank, PIN or TIN"
+          /* Only a missing bank account actually blocks a payslip — a missing
+             PIN only leaves the remittance schedule incomplete, and a missing
+             TIN does not affect the run at all. This count is every field that
+             is unfilled, not every record that will miss pay. */
+          hint="missing bank, PIN or TIN — only a missing bank account blocks pay"
         />
       </div>
 
@@ -421,7 +473,8 @@ export function Directory() {
             </THead>
             <TBody>
               {rows.map((e) => {
-                const gaps = missingForPayroll(e);
+                const gaps = payrollGapsFor(e);
+                const blocking = gaps.filter((g) => g.blocking);
                 return (
                   <TR
                     key={e.id}
@@ -451,8 +504,16 @@ export function Directory() {
                           {STATUS[e.status].label}
                         </Badge>
                         {gaps.length > 0 && (
-                          <span title={gaps.join(", ")}>
-                            <Badge tone="danger" size="sm">
+                          /* Red only when something here actually blocks a
+                             payslip (a missing bank account). A pension PIN or
+                             TIN alone is worth fixing, not worth the same
+                             colour as "will not be paid". */
+                          <span
+                            title={gaps
+                              .map((g) => `${g.label}: ${g.consequence}`)
+                              .join(" ")}
+                          >
+                            <Badge tone={blocking.length > 0 ? "danger" : "warning"} size="sm">
                               {gaps.length} missing
                             </Badge>
                           </span>
@@ -511,13 +572,21 @@ export function Directory() {
 
       <Card>
         <CardBody className="flex flex-wrap items-center gap-3">
-          <Button variant="secondary" size="sm">
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={rows.length === 0}
+            onClick={exportRows}
+          >
             <Download aria-hidden="true" className="size-3.5" />
             Export directory
           </Button>
           <p className="text-meta text-muted">
-            Archived records are hidden from the directory and the payroll run,
-            but stay resolvable so past payslips keep working.
+            Exports the {rows.length} {rows.length === 1 ? "row" : "rows"}{" "}
+            shown below — this page, under whatever is filtered above, not the
+            whole company. Archived records are hidden from the directory and
+            the payroll run, but stay resolvable so past payslips keep
+            working.
           </p>
         </CardBody>
       </Card>

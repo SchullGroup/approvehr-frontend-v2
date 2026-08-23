@@ -51,6 +51,7 @@ export function EmployeeFileDrawer({
   const [waiving, setWaiving] = useState<ApiDocumentRequest | null>(null);
   const [removing, setRemoving] = useState<ApiDocument | null>(null);
   const [busy, setBusy] = useState(false);
+  const [verifyingId, setVerifyingId] = useState<string | null>(null);
 
   const documents = file.file?.documents ?? [];
   const outstanding = file.file?.outstandingRequests ?? [];
@@ -175,13 +176,38 @@ export function EmployeeFileDrawer({
                     document={document}
                     action={
                       file.editable && !document.archived ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setRemoving(document)}
-                        >
-                          Remove
-                        </Button>
+                        <>
+                          {!document.verified && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              disabled={verifyingId === document.id}
+                              onClick={() => {
+                                setVerifyingId(document.id);
+                                void file
+                                  .verify(document.id)
+                                  .then(() => {
+                                    onChanged();
+                                    toast.push({
+                                      title: "Marked as checked",
+                                      tone: "success",
+                                    });
+                                  })
+                                  .catch(report)
+                                  .finally(() => setVerifyingId(null));
+                              }}
+                            >
+                              Mark as checked
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setRemoving(document)}
+                          >
+                            Remove
+                          </Button>
+                        </>
                       ) : undefined
                     }
                   />

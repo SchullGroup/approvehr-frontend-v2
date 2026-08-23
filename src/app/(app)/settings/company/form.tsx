@@ -9,9 +9,11 @@ import {
   Card,
   CardBody,
   CardHeader,
+  EmptyState,
   Field,
   Input,
   Select,
+  Skeleton,
   TBody,
   TD,
   TDPrimary,
@@ -22,6 +24,7 @@ import {
   useToast,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { usePermissions } from "@/lib/permissions";
 import {
   useCompanySettings,
   validateProfile,
@@ -49,8 +52,58 @@ const STATES = NIGERIAN_STATES;
  * that — so this page shows how many people currently sit in each tax state,
  * read live from the employee store. An entity with nobody on it is either a
  * new company or a mistake, and it is worth being able to tell which.
+ *
+ * ## The permission gate sits above the hooks
+ *
+ * The same reason `AuditScreen` and `WebhooksScreen` split their check into a
+ * separate component: checking `MANAGE_SETTINGS` inside the form and returning
+ * early would still run every hook below it first.
  */
 export function CompanyProfileForm() {
+  const { can, loading } = usePermissions();
+
+  if (loading) {
+    return (
+      <>
+        <Header />
+        <PageBody>
+          <Skeleton className="h-40 w-full" />
+          <span className="sr-only">Loading the company profile</span>
+        </PageBody>
+      </>
+    );
+  }
+
+  if (!can("MANAGE_SETTINGS")) {
+    return (
+      <>
+        <Header />
+        <PageBody>
+          <Card>
+            <EmptyState
+              icon={<Building2 aria-hidden="true" />}
+              title="You cannot manage the company profile"
+              description="Registered details feed contracts, payslips and statutory filings, so changing them is kept to the people who manage company settings. Ask whoever handles access to add that permission to your role."
+            />
+          </Card>
+        </PageBody>
+      </>
+    );
+  }
+
+  return <Form />;
+}
+
+function Header() {
+  return (
+    <PageHeader
+      title="Company profile"
+      breadcrumb={[{ href: "/settings", label: "Settings" }]}
+    />
+  );
+}
+
+function Form() {
   const { settings, updateProfile } = useCompanySettings();
   const { directory } = useEmployeeStore();
   const toast = useToast();
