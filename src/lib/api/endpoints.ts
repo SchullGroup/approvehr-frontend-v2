@@ -122,6 +122,15 @@ export type ApiEmployee = {
   endDate: string | null;
   /** Null where nobody has agreed a figure. Never rendered as ₦0.00. */
   grossMonthlyKobo: number | null;
+  /**
+   * Present only from the directory list, where the real fields below are
+   * redacted (see `serializeDirectory` in the API). Whether each is on file,
+   * never what it is. Absent (not `false`) from a single-record read, where
+   * the real fields answer the same question directly.
+   */
+  hasBankAccount?: boolean;
+  hasPensionPin?: boolean;
+  hasTin?: boolean;
   bankName: string | null;
   bankAccount: string | null;
   addressLine: string | null;
@@ -737,6 +746,9 @@ export function toEmployee(api: ApiEmployee): Employee {
     status: api.status.toLowerCase() as Employee["status"],
     grossMonthly:
       api.grossMonthlyKobo === null ? null : toNaira(api.grossMonthlyKobo),
+    ...(api.hasBankAccount !== undefined ? { hasBankAccount: api.hasBankAccount } : {}),
+    ...(api.hasPensionPin !== undefined ? { hasPensionPin: api.hasPensionPin } : {}),
+    ...(api.hasTin !== undefined ? { hasTin: api.hasTin } : {}),
     bankName: api.bankName,
     bankAccount: api.bankAccount,
     pensionPin: api.pensionPin,

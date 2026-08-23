@@ -33,7 +33,12 @@ import {
   type ResolvedStep,
 } from "@/lib/store/onboarding";
 import { shortDate } from "@/lib/today";
-import { fullName, payrollGapsFor, type Employee } from "@/lib/types";
+import {
+  fullName,
+  payrollFieldsForDisplay,
+  payrollGapsFor,
+  type Employee,
+} from "@/lib/types";
 
 const OWNER: Record<string, { label: string; tone: string }> = {
   employee: { label: "Employee", tone: "bg-info-soft text-info-text" },
@@ -98,7 +103,9 @@ export function OnboardingScreen() {
       toast.push({
         title: `${name} is now active`,
         tone: "success",
-        detail: payrollGapsFor(employee).some((g) => g.blocking)
+        detail: payrollGapsFor(payrollFieldsForDisplay(employee)).some(
+          (g) => g.blocking,
+        )
           ? "Their record is still missing what payroll needs, so the next run will leave them out."
           : "They are off this list and in the next payroll run.",
       });
@@ -126,7 +133,7 @@ export function OnboardingScreen() {
      worth completing too, but neither holds back a payslip — see
      `payrollGapsFor` — so neither belongs in this count. */
   const blocked = employees.filter((e) =>
-    payrollGapsFor(e).some((g) => g.blocking),
+    payrollGapsFor(payrollFieldsForDisplay(e)).some((g) => g.blocking),
   );
 
   return (
@@ -235,7 +242,7 @@ function StarterCard({
   onFinish: () => void;
 }) {
   const name = fullName(employee);
-  const gaps = payrollGapsFor(employee);
+  const gaps = payrollGapsFor(payrollFieldsForDisplay(employee));
   const blocking = gaps.filter((g) => g.blocking);
   const complete = steps.filter((s) => s.done).length;
   const outstanding = steps.length - complete;

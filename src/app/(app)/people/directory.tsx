@@ -54,6 +54,7 @@ import { useListQuery } from "@/lib/use-list-query";
 import {
   fullName,
   missingForPayroll,
+  payrollFieldsForDisplay,
   payrollGapsFor,
   type EmploymentStatus,
 } from "@/lib/types";
@@ -257,7 +258,10 @@ export function Directory() {
         e.grossMonthly === null ? "" : e.grossMonthly.toFixed(2),
       Started: e.startDate,
       Status: STATUS[e.status].label,
-      "Missing for payroll": missingForPayroll(e).join("; "),
+      "Missing for payroll": missingForPayroll({
+        ...e,
+        ...payrollFieldsForDisplay(e),
+      }).join("; "),
     }));
     downloadCsv(
       `employee-directory-${new Date().toISOString().slice(0, 10)}.csv`,
@@ -473,7 +477,7 @@ export function Directory() {
             </THead>
             <TBody>
               {rows.map((e) => {
-                const gaps = payrollGapsFor(e);
+                const gaps = payrollGapsFor(payrollFieldsForDisplay(e));
                 const blocking = gaps.filter((g) => g.blocking);
                 return (
                   <TR

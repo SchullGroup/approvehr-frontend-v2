@@ -63,6 +63,17 @@ export type Employee = {
    * Screens say "Not set yet"; totals leave them out and say how many.
    */
   grossMonthly: number | null;
+  /**
+   * Set only on a directory row from the API, where `bankAccount` /
+   * `pensionPin` / `tin` below are redacted to `null` regardless of whether
+   * they are actually on file — see `serializeDirectory` in the API. Reading
+   * one of those three fields to ask "is this missing" on a directory row
+   * is therefore wrong; `payrollGapsForDirectoryRow` in this file is the
+   * presence-aware version to use there instead.
+   */
+  hasBankAccount?: boolean;
+  hasPensionPin?: boolean;
+  hasTin?: boolean;
   /** Nullable: payroll blocks on these, so their absence is meaningful. */
   bankName: string | null;
   bankAccount: string | null;
@@ -198,6 +209,37 @@ export function payrollGapsFor(
     });
   }
   return gaps;
+}
+
+/**
+ * The same three fields `payrollGapsFor` and `missingForPayroll` check,
+ * answered correctly for a directory row.
+ *
+ * A directory row from the API has `bankAccount` / `pensionPin` / `tin`
+ * redacted to `null` regardless of whether they are on file (see
+ * `serializeDirectory` in the API) — only `hasBankAccount` etc. say the
+ * truth there. A demo-mode or single-record-read employee has no `has*`
+ * fields at all and its raw fields are the real, ungutted values. Falling
+ * back to the raw field's own truthiness when `has*` is absent is what
+ * makes this one function correct for both.
+ *
+ * The `"•"` is never rendered — `payrollGapsFor` and `missingForPayroll`
+ * only ever test these three fields for truthiness, so any non-empty
+ * string stands in for "on file" without claiming to be a real value.
+ */
+export function payrollFieldsForDisplay(
+  e: Pick<
+    Employee,
+    "bankAccount" | "pensionPin" | "tin" | "hasBankAccount" | "hasPensionPin" | "hasTin"
+  >,
+): { bankAccount: string | null; pensionPin: string | null; tin: string | null } {
+  const has = (flag: boolean | undefined, real: string | null) =>
+    (flag ?? real !== null) ? "•" : null;
+  return {
+    bankAccount: has(e.hasBankAccount, e.bankAccount),
+    pensionPin: has(e.hasPensionPin, e.pensionPin),
+    tin: has(e.hasTin, e.tin),
+  };
 }
 
 export const fullName = (p: { firstName: string; lastName: string }) =>
