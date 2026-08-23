@@ -9,6 +9,7 @@ import {
   Card,
   CardBody,
   CardHeader,
+  Disclosure,
   Field,
   Input,
   Modal,
@@ -23,6 +24,18 @@ import { statusTone } from "./status-tone";
 
 /**
  * An employee starting their own exit, for `/profile`.
+ *
+ * ## Two states, and only one of them is behind a reveal
+ *
+ * An exit **already under way** renders as a card: last day, progress, a link
+ * to the checklist. It is open, because it carries a deadline and unfinished
+ * work, and `PARITY.md` Rule 5 refuses to hide either.
+ *
+ * The **door** that starts one renders inside a closed `Disclosure`. It is the
+ * one destructive act on `/profile` and it used to sit in the page's main
+ * scroll. Both states live in this component rather than two, because they
+ * share one `useMyExit()` — see the note on `ResignDialog` below for what two
+ * instances of that hook would do.
  *
  * ## Three fields
  *
@@ -102,20 +115,35 @@ export function Resign() {
     );
   }
 
+  /* Closed, and closed on purpose — `PARITY.md` Rule 5. Resigning is the one
+     destructive thing on `/profile`, and it used to sit inline in the page's
+     main scroll between the kit somebody holds and a read-only table, where a
+     reader on the way to something else met it. It is two deliberate steps now:
+     open this, then answer the modal.
+
+     The branch above is not behind a reveal, and must not be put behind one.
+     An exit already under way carries a last working day and a checklist with
+     items outstanding on it, which is Rule 5's default-open case: a reveal must
+     never hide a deadline. */
   return (
     <>
-      <Card>
-        <CardHeader
-          title="Leaving"
-          level={3}
-          action={
-            <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
-              <DoorOpen aria-hidden="true" className="size-3.5" />
-              Hand in my notice
-            </Button>
-          }
-        />
-      </Card>
+      <Disclosure
+        className="bg-surface"
+        title="Leaving"
+        hint="Hand in your notice. Nothing is sent until you fill in the form."
+        level={3}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <p className="min-w-0 flex-1 text-body-sm text-body">
+            Three questions — your last day, why, and anything you want to say.
+            Your manager and your people team are told when you send it.
+          </p>
+          <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
+            <DoorOpen aria-hidden="true" className="size-3.5" />
+            Hand in my notice
+          </Button>
+        </div>
+      </Disclosure>
 
       {open && (
         <ResignDialog
