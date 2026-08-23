@@ -328,8 +328,11 @@ export function LeaveScreen() {
           />
         </div>
 
-        <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
-          <Card>
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+          {/* min-w-0: a grid item's default min-width is auto, so without it
+              this card stretches to the table's max-content width and the
+              page scrolls sideways instead of the table scrolling inside it. */}
+          <Card className="min-w-0">
             <CardHeader
               title="Requests"
               description="Waiting first, then by start date."
