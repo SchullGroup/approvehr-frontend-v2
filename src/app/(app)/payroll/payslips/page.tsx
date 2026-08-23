@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { PageBody, PageHeader } from "@/components/portal/shell";
-import { PayslipIndex } from "./index-table";
+import { PayslipRoute } from "./index-table";
 
 export const metadata: Metadata = {
   title: "Payslips",
@@ -18,7 +18,7 @@ export default function PayslipsPage() {
         title="Payslips"
       />
       <PageBody>
-        <PayslipIndex />
+        <PayslipRoute />
       </PageBody>
     </>
   );

@@ -16,6 +16,8 @@ import {
   type PayslipLine,
   type PayslipListParams,
   type PayslipPage,
+  type OwnPayslip,
+  type PayslipRunSummary,
   type PreparedRun,
   type ReliefRegime,
   type RunException,
@@ -1152,6 +1154,94 @@ function sortPayslips(rows: Payslip[], params: PayslipListParams): Payslip[] {
   });
 }
 
+export type OwnPayslipsState = {
+  payslips: OwnPayslip[];
+  /** The server's count. `undefined` until it answers. Always `payslips.length` in demo mode — there is no larger set behind the fixture. */
+  total: number | undefined;
+  loading: boolean;
+  error: ApiError | null;
+  connected: boolean;
+};
+
+/**
+ * One employee's own payslip history, across every run — the self-service
+ * counterpart to `useRunPayslips`. `null` id means "not known yet" (a session
+ * still loading its own employee id), not "no payslips".
+ */
+export function useMyPayslips(employeeId: string | null): OwnPayslipsState {
+  const { isConnected } = useSession();
+  const demo = useDemoContext();
+
+  const active = isConnected && Boolean(employeeId);
+
+  const [fetched, setFetched] = useState<{
+    employeeId: string;
+    page: { payslips: OwnPayslip[]; total: number } | null;
+    error: ApiError | null;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!active || !employeeId) return;
+    let cancelled = false;
+    const controller = new AbortController();
+
+    void (async () => {
+      try {
+        const page = await payrollApi.employeePayslips(
+          employeeId,
+          { pageSize: 50 },
+          controller.signal,
+        );
+        if (!cancelled) setFetched({ employeeId, page, error: null });
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (!cancelled) {
+          setFetched({
+            employeeId,
+            page: null,
+            error: error instanceof ApiError ? error : null,
+          });
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [active, employeeId]);
+
+  /* Same shape as `useRunPayslips`'s demo branch: a `useMemo` touching no
+     state. Every demo run already carries its payslips, so this is a filter
+     across all of them rather than a second fixture to keep in step. */
+  const local = useMemo(() => {
+    if (isConnected || !employeeId) return null;
+    const mine = demo.details.flatMap((run) =>
+      run.payslips
+        .filter((slip) => slip.employeeId === employeeId)
+        .map((slip) => ({
+          ...slip,
+          run: { id: run.id, period: run.period, payDate: run.payDate, status: run.status },
+        })),
+    );
+    return { payslips: mine, total: mine.length };
+  }, [isConnected, employeeId, demo.details]);
+
+  if (local) {
+    return { ...local, loading: false, error: null, connected: false };
+  }
+
+  const matched = active && fetched !== null && fetched.employeeId === employeeId;
+
+  return {
+    payslips: matched ? (fetched.page?.payslips ?? []) : [],
+    total: matched ? fetched.page?.total : undefined,
+    loading: active && !matched,
+    error: matched ? fetched.error : null,
+    connected: true,
+  };
+}
+
 /** What needs a human, first. */
 const DELIVERY_RANK: Record<PayslipDelivery, number> = {
   not_sent: 0,
@@ -1426,7 +1516,13 @@ export function usePayrollActions() {
 
 export type PayslipRecord = {
   payslip: Payslip | null;
-  run: PayrollRun | null;
+  /**
+   * Just enough of the run to place the payslip in time. `PayrollRun` in demo
+   * mode (which already has the full run in hand) and `PayslipRunSummary`
+   * connected (which now asks for one payslip, not a run) both satisfy this —
+   * nothing here reads more than `id`/`period`/`payDate`/`status`.
+   */
+  run: PayslipRunSummary | null;
   loading: boolean;
   connected: boolean;
   notFound: boolean;
@@ -1442,16 +1538,24 @@ export type PayslipRecord = {
 };
 
 /**
- * One payslip, resolved from an id that may be either its own or its employee's.
+ * One payslip. `id` is its own id in every real link this app writes; `runId`
+ * is now unused for a connected fetch and kept only because demo mode's
+ * lookup still benefits from it and `view.tsx` already threads it through.
  *
- * Matching on both is deliberate. The payslip index links by payslip id, but the
- * demo's URLs — and every prerendered page — are keyed by employee id, and a
- * link somebody bookmarked should not break because the app changed source.
+ * ## Why this used to fetch up to seven runs, and no longer does
  *
- * `runId` is a hint, not a requirement. With it this is one request. Without
- * it — a bookmarked link, a payslip mailed out — the run list is read and the
- * newest runs are tried in turn, capped, because there is no
- * `GET /payslips/:id` endpoint to ask directly.
+ * There was no `GET /payslips/:id` to ask directly, so a connected read
+ * fetched the run (with the hint) or searched the newest six runs in turn (a
+ * bookmarked link, a payslip mailed out) matching each payslip's own id or its
+ * employee id — the latter because the demo's URLs, and every prerendered
+ * page, are keyed by employee id. That endpoint exists now, and it settles
+ * something the search never could: read as the payslip's own employee, no
+ * `VIEW_SALARIES` is required, because it is that employee's own pay. The
+ * old path always asked for the whole run and so always needed the
+ * permission, which meant an employee could not open their own payslip.
+ *
+ * Demo mode is unaffected below and keeps matching by either id, since its
+ * fixtures and prerendering still use the employee id.
  */
 export function usePayslipRecord(
   id: string,
@@ -1462,7 +1566,7 @@ export function usePayslipRecord(
   const [found, setFound] = useState<{
     id: string;
     payslip: Payslip | null;
-    run: PayrollRun | null;
+    run: PayslipRunSummary | null;
   } | null>(null);
 
   useEffect(() => {
@@ -1471,28 +1575,9 @@ export function usePayslipRecord(
     const controller = new AbortController();
 
     void (async () => {
-      const matches = (slip: Payslip) => slip.id === id || slip.employeeId === id;
       try {
-        if (runId) {
-          const detail = await payrollApi.run(runId, controller.signal);
-          const slip = detail.payslips.find(matches) ?? null;
-          if (!cancelled) setFound({ id, payslip: slip, run: summarise(detail) });
-          return;
-        }
-        /* No hint. Newest first, and capped at six periods — long enough to
-           cover a bookmarked link from earlier in the year without turning one
-           page load into a dozen requests. */
-        const { runs } = await payrollApi.runs({ take: 6 });
-        for (const run of runs) {
-          if (cancelled) return;
-          const detail = await payrollApi.run(run.id, controller.signal);
-          const slip = detail.payslips.find(matches);
-          if (slip) {
-            if (!cancelled) setFound({ id, payslip: slip, run: summarise(detail) });
-            return;
-          }
-        }
-        if (!cancelled) setFound({ id, payslip: null, run: null });
+        const { payslip, run } = await payrollApi.payslip(id, controller.signal);
+        if (!cancelled) setFound({ id, payslip, run });
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
         if (!cancelled) setFound({ id, payslip: null, run: null });
@@ -1503,7 +1588,7 @@ export function usePayslipRecord(
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, id, runId]);
+  }, [isConnected, id]);
 
   if (!isConnected) {
     const detail =

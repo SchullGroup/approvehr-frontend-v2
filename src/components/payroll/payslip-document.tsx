@@ -408,8 +408,8 @@ export function PayslipDocument({
         <div>
           <ColumnHead>Earnings</ColumnHead>
           <dl className="mt-3 flex flex-col">
-            {earnings.map((line) => (
-              <LineItem key={line.label} label={line.label} kobo={line.kobo} />
+            {earnings.map((line, i) => (
+              <LineItem key={`${line.label}-${i}`} label={line.label} kobo={line.kobo} />
             ))}
             <LineItem label="Gross pay" kobo={slip.grossKobo} total />
           </dl>

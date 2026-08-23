@@ -806,6 +806,24 @@ export type PayslipPage = {
   counts: PayslipCounts;
 };
 
+/**
+ * Just enough of a run to place a payslip in time — the period it paid, when,
+ * and whether it is still a draft. Not the full `PayrollRun`: a single payslip
+ * has no business computing the run's totals to answer "when was this paid".
+ */
+export type PayslipRunSummary = {
+  id: string;
+  period: string;
+  payDate: string;
+  status: PayrollRunStatus;
+};
+
+/** One of an employee's own payslips, with the run it belongs to attached —
+ *  their own history has no "which month" picker to hang the period on. */
+export type OwnPayslip = Payslip & { run: PayslipRunSummary };
+
+type ApiPayslipWithRun = ApiPayslip & { run: PayslipRunSummary };
+
 /* ---------------------------------------------------------------- endpoints */
 
 export const payrollApi = {
@@ -935,6 +953,44 @@ export const payrollApi = {
       body,
       ...(signal ? { signal } : {}),
     }),
+
+  /**
+   * One employee's own payslip history, across every run.
+   *
+   * The self-service read: the API accepts this without `VIEW_SALARIES` when
+   * the id is the caller's own. See `payslips` above for the company register.
+   */
+  employeePayslips: async (
+    employeeId: string,
+    params: { page?: number; pageSize?: number } = {},
+    signal?: AbortSignal,
+  ): Promise<{ payslips: OwnPayslip[]; total: number }> => {
+    const result = await requestPaged<ApiPayslipWithRun>(
+      `/payroll/employees/${employeeId}/payslips`,
+      { query: { ...params }, ...(signal ? { signal } : {}) },
+    );
+    return {
+      payslips: result.data.map((row) => ({ ...toPayslip(row), run: row.run })),
+      total: result.meta.total,
+    };
+  },
+
+  /**
+   * One payslip, by its own id.
+   *
+   * The owner reads this without `VIEW_SALARIES`; anybody else needs it. A 403
+   * here means it exists and is somebody else's; a 404 means it does not.
+   */
+  payslip: async (
+    id: string,
+    signal?: AbortSignal,
+  ): Promise<{ payslip: Payslip; run: PayslipRunSummary }> => {
+    const row = await request<ApiPayslipWithRun>(`/payroll/payslips/${id}`, {
+      ...(signal ? { signal } : {}),
+    });
+    const { run, ...slip } = row;
+    return { payslip: toPayslip(slip), run };
+  },
 
   /** The company's payroll policy, and what switching a deduction off means. */
   settings: (signal?: AbortSignal) =>
