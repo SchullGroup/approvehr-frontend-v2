@@ -926,7 +926,7 @@ export function usePayrollActions() {
     }): Promise<PreparedRun> => {
       if (isConnected) return payrollApi.prepare(input);
 
-      const state = demoStore.read();
+      const state = demoStore.current();
       const existing = state.runs.find((r) => r.period === input.period);
       if (existing && (existing.status === "APPROVED" || existing.status === "PAID")) {
         throw new ApiError(
@@ -974,7 +974,7 @@ export function usePayrollActions() {
     async (runId: string): Promise<ApprovedRun> => {
       if (isConnected) return payrollApi.approve(runId);
 
-      const state = demoStore.read();
+      const state = demoStore.current();
       const record = state.runs.find((r) => demoRunId(r.period) === runId);
       if (!record) throw new ApiError(404, "not_found", "No such payroll run.");
       if (record.status === "APPROVED" || record.status === "PAID") {
@@ -1021,7 +1021,7 @@ export function usePayrollActions() {
     async (runId: string): Promise<{ id: string }> => {
       if (isConnected) return payrollApi.cancel(runId);
 
-      const state = demoStore.read();
+      const state = demoStore.current();
       const record = state.runs.find((r) => demoRunId(r.period) === runId);
       if (!record) throw new ApiError(404, "not_found", "No such payroll run.");
       if (record.status === "PAID") {
@@ -1069,7 +1069,7 @@ export function usePayrollActions() {
         );
       }
 
-      const state = demoStore.read();
+      const state = demoStore.current();
       const record = state.runs.find((r) => demoRunId(r.period) === runId);
       if (!record) throw new ApiError(404, "not_found", "No such payroll run.");
       if (record.status !== "DRAFT" && record.status !== "IN_REVIEW") {
@@ -1128,7 +1128,7 @@ export function usePayrollActions() {
     async (runId: string, employeeId: string): Promise<ExclusionChange> => {
       if (isConnected) return payrollApi.putBack(runId, employeeId);
 
-      const state = demoStore.read();
+      const state = demoStore.current();
       const record = state.runs.find((r) => demoRunId(r.period) === runId);
       if (!record) throw new ApiError(404, "not_found", "No such payroll run.");
       if (record.status !== "DRAFT" && record.status !== "IN_REVIEW") {

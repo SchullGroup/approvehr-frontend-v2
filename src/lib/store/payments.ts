@@ -373,7 +373,7 @@ function useDemoBook(): DemoBook {
   return state.book ?? SEED_BOOK;
 }
 
-const currentBook = (): DemoBook => demo.read().book ?? SEED_BOOK;
+const currentBook = (): DemoBook => demo.current().book ?? SEED_BOOK;
 const commitBook = (book: DemoBook) => demo.commit({ book });
 
 /* -------------------------------------------------------------------- revision */

@@ -241,8 +241,12 @@ export function useDepartments(includeArchived = false) {
       };
 
   /* Every write commits and lets the caller reload, exactly as the connected
-     path does. `demoStructure.read()` rather than the render snapshot, because
-     two writes in one handler must see each other. */
+     path does. `demoStructure.current()` rather than the render snapshot, for
+     two reasons: two writes in one handler must see each other, and `read()`
+     is the seed until something subscribes — see the note at the top of
+     `store/persisted.ts`. This hook does subscribe, through
+     `useDemoStructure()`, so only the first reason bites here; `current()`
+     anyway, because the reader of this code should not have to check. */
   const create = useCallback(
     async (body: {
       name: string;
@@ -254,7 +258,7 @@ export function useDepartments(includeArchived = false) {
         reload();
         return created;
       }
-      const state = demoStructure.read();
+      const state = demoStructure.current();
       const name = cleanName(body.name);
       const costCentre = cleanCostCentre(body.costCentre);
       if (body.parentId) assertLiveParent(state.departments, body.parentId);
@@ -291,7 +295,7 @@ export function useDepartments(includeArchived = false) {
         reload();
         return updated;
       }
-      const state = demoStructure.read();
+      const state = demoStructure.current();
       const row = requireRow(state.departments, id);
       const name = body.name === undefined ? row.name : cleanName(body.name);
       if (!sameName(name, row.name)) {
@@ -343,7 +347,7 @@ export function useDepartments(includeArchived = false) {
         reload();
         return moved;
       }
-      const state = demoStructure.read();
+      const state = demoStructure.current();
       const row = requireRow(state.departments, id);
       if (parentId === id) {
         refuse(422, "unprocessable", "A department cannot be its own parent.");
@@ -395,7 +399,7 @@ export function useDepartments(includeArchived = false) {
         reload();
         return;
       }
-      const state = demoStructure.read();
+      const state = demoStructure.current();
       const row = requireRow(state.departments, id);
       if (row.archived) refuse(409, "conflict", "That is already archived.");
 
@@ -442,7 +446,7 @@ export function useDepartments(includeArchived = false) {
         reload();
         return;
       }
-      const state = demoStructure.read();
+      const state = demoStructure.current();
       const row = requireRow(state.departments, id);
       if (!row.archived) refuse(409, "conflict", "That is not archived.");
 
@@ -475,7 +479,7 @@ export function useDepartments(includeArchived = false) {
         reload();
         return result;
       }
-      const state = demoStructure.read();
+      const state = demoStructure.current();
       const row = requireRow(state.departments, id);
       if (row.archived) {
         refuse(422, "unprocessable", "That department does not exist.");

@@ -243,7 +243,7 @@ export function useHolidayMutations(): HolidayMutations {
     async (input: NewHolidayInput): Promise<{ id: string }> => {
       if (isConnected) return leaveApi.createHoliday(input);
 
-      const state = demoStore.read();
+      const state = demoStore.current();
       const name = input.name.trim();
       if (
         state.holidays.some(
@@ -271,7 +271,7 @@ export function useHolidayMutations(): HolidayMutations {
     async (id: string, patch: HolidayPatch): Promise<{ id: string }> => {
       if (isConnected) return leaveApi.updateHoliday(id, patch);
 
-      const state = demoStore.read();
+      const state = demoStore.current();
       const existing = state.holidays.find((holiday) => holiday.id === id);
       if (!existing) refuse(404, "not_found", "No such holiday.");
 
@@ -315,7 +315,7 @@ export function useHolidayMutations(): HolidayMutations {
     async (id: string): Promise<{ id: string }> => {
       if (isConnected) return leaveApi.deleteHoliday(id);
 
-      const state = demoStore.read();
+      const state = demoStore.current();
       if (!state.holidays.some((holiday) => holiday.id === id)) {
         refuse(404, "not_found", "No such holiday.");
       }

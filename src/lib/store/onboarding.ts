@@ -158,7 +158,7 @@ export function useOnboardingChecklist() {
   );
 
   const toggle = useCallback((employeeId: string, stepId: string) => {
-    const current = store.read();
+    const current = store.current();
     const ticked = current.done[employeeId] ?? [];
     store.commit({
       done: {

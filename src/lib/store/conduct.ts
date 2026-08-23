@@ -854,7 +854,7 @@ export function useMyPolicies() {
         }
         const row = DEMO_POLICIES.find((p) => p.id === policyId);
         if (!row) refuse("That section is not in the demo handbook.");
-        const current = store.read();
+        const current = store.current();
         store.commit({
           accepted: {
             ...current.accepted,

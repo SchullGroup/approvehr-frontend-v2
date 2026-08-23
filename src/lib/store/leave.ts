@@ -84,7 +84,7 @@ export function useLeaveStore() {
    */
   const decide = useCallback(
     (id: string, decision: LeaveDecision, note?: string) => {
-      const s = store.read();
+      const s = store.current();
       const patch: Partial<LeaveRequest> = {
         status: decision,
         decidedAt: TODAY,
@@ -102,7 +102,7 @@ export function useLeaveStore() {
   /** Undo a decision. The request goes back to pending and reappears in the
       inbox — an approver who mis-clicked should not need a support ticket. */
   const reopen = useCallback((id: string) => {
-    const s = store.read();
+    const s = store.current();
     store.commit({
       ...s,
       overrides: {
@@ -119,7 +119,7 @@ export function useLeaveStore() {
   }, []);
 
   const cancel = useCallback((id: string) => {
-    const s = store.read();
+    const s = store.current();
     store.commit({
       ...s,
       overrides: {
@@ -130,7 +130,7 @@ export function useLeaveStore() {
   }, []);
 
   const create = useCallback((input: NewLeaveRequest) => {
-    const s = store.read();
+    const s = store.current();
     const request: LeaveRequest = {
       id: nextLeaveId(),
       employeeId: input.employeeId,

@@ -805,7 +805,7 @@ export function useKbArticle(idOrSlug: string | null) {
          first would leave "you said yes" on screen after a refusal, which is the
          exact lie this module is careful about. */
       const remember = () => {
-        const current = local.read();
+        const current = local.current();
         local.commit({
           ...current,
           votes: { ...current.votes, [voteKey(who, resolvedId)]: answer },
@@ -946,7 +946,7 @@ export function useKbSearch({ pageSize = 8, minLength = 2 } = {}) {
              API would record it. Four characters is the API's own floor. */
           if (hits.length === 0 && term.length >= 4) {
             const flat = term.replace(/\s+/g, " ").toLowerCase();
-            const current = local.read();
+            const current = local.current();
             const seen = current.misses[flat];
             local.commit({
               ...current,

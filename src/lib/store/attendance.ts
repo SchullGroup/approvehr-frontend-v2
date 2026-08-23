@@ -113,7 +113,7 @@ export function useAttendanceStore() {
   /** Write a patch, creating the day's entry if it does not exist yet. */
   const upsert = useCallback(
     (employeeId: string, date: string, patch: Partial<AttendanceEntry>) => {
-      const s = store.read();
+      const s = store.current();
       const id = entryId(employeeId, date);
       const exists =
         ATTENDANCE.some((e) => e.id === id) ||
@@ -166,7 +166,7 @@ export function useAttendanceStore() {
   );
 
   const setPolicy = useCallback((patch: Partial<AttendancePolicy>) => {
-    const s = store.read();
+    const s = store.current();
     store.commit({ ...s, policy: { ...s.policy, ...patch } });
   }, []);
 

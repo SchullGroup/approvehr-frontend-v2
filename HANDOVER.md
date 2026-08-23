@@ -2660,6 +2660,13 @@ are adding a write to a screen, that is the moment to check.
 hydration logic, so it has the same latent trap with no `current()` to reach
 for. It has always been written from screens that also read it.
 
+> **Both paragraphs above are now out of date. The audit is done — every store,
+> every call site — and it found that this store was not fully converted either.
+> See "The audit is done" at the end of this file.** They are kept because the
+> per-store reasoning is what somebody should still apply when adding a store,
+> and because the second one turned out to be the wrong prediction in an
+> instructive way.
+
 ## Two smaller things in the same change
 
 - **`StartExitDialog` takes an optional `employeeId` + `employeeName`.** When
@@ -2953,3 +2960,231 @@ reproducible on every screen rather than intermittently on one. Serial `curl`
 against the same endpoints with the same token is 200 every time, which is what
 the connected verification above is. Somebody with a real Postgres in
 `DATABASE_URL` should load both screens once.
+
+---
+
+# The audit is done, and `read()` was never once the right answer
+
+The entry above ends by saying the other twelve stores "were not audited here"
+and that `employees.ts` "has always been written from screens that also read
+it." Both were reasonable and both are now closed — the first by doing the work,
+the second by being wrong in a way worth recording.
+
+## The headline: there were no render reads to preserve
+
+The expectation going in was a judgement call per call site — leave the reads,
+convert the writes. What the audit actually found is that **all 98 `.read()`
+calls in `src/lib/store/*.ts` were write paths. Not one was a render read.**
+
+The reason is structural rather than lucky, and it makes the rule mechanical:
+a render read never *calls* `read`. It hands the function to
+`useSyncExternalStore(store.subscribe, store.read, store.getServerSnapshot)` as
+a bare reference and React calls it. There are 44 of those and they were correct
+already. So:
+
+> `store.read` is render. `store.read()` is a bug. The parentheses are the whole
+> distinction.
+
+All 98 are `current()` now. There is no `.read()` call left in the directory and
+no judgement call left in the rule.
+
+## `scripts/verify-stores.ts`, because nothing else can see this
+
+Wired into `npm run check` as `verify-stores`. Every gate in this repo exists
+because something invisible to `tsc` went wrong, and this is the worst of that
+class so far: both functions are correctly typed, both are individually correct,
+lint has no opinion, the build is green, and the only witness is a browser with
+something already in `localStorage` — which is the state a developer's browser
+is *least* often in, because the fastest way to test a store is to clear it.
+
+Two rules:
+
+1. **`read` may be referenced, never called.** With a `read-for-render` escape
+   hatch on the line or the line above, so that adding a genuine render read is
+   a sentence somebody writes rather than a check somebody deletes. There are
+   none today.
+2. **`current()` never appears in render** — not inside a `useMemo`, and not in
+   the immediate body of an exported hook (depth 1 inside its opener, which is
+   render by definition).
+
+Tamper-tested four ways, each on a real file: reintroducing a `read()` call
+fails; the escape hatch excuses it; `current()` in a `useMemo` fails;
+`current()` in a hook body fails. Restored, and green.
+
+**What it cannot see, stated because a model that omits a case cannot catch a
+failure on it:** rule 2 covers the two constructs this codebase renders through.
+It will not catch `current()` inside a plain helper that a hook body then calls
+during render. That needs a call graph.
+
+One trap found while writing it, worth knowing if you edit the script: the
+*continuation* lines of a `/* … */` block start with neither `*` nor `/`, so a
+leading-marker test is not a comment test. The first draft reported the prose in
+`departments.ts` as a violation. It strips comments properly now.
+
+## Four real defects, not just a rule tidy-up
+
+### 1. The offboarding fix was half-applied — in the store the entry above is about
+
+`demoUpdateTask` and `demoVerifyTask` still found their exit through
+`store.read()` while the `replace()` they both call had been moved to
+`current()`. That combination is worse than either mistake alone:
+
+- a task on an exit that exists only in storage came back **"That task could not
+  be found"**, because the find ran against the seed;
+- a task on a *seed* exit was computed from the seed's ticks and then written
+  over the stored ones by a `replace()` that could see them — so previously
+  ticked tasks silently reverted.
+
+The store the previous session declared fixed was the one still carrying the
+bug. A find-and-replace would have caught it; a per-store judgement call did
+not, because the store had already been judged.
+
+### 2. `demoDepartmentName` refused departments that plainly existed
+
+`demo-structure.ts`'s seam for the record page's department picker. Its caller is
+`useEmployeeMutations`, which subscribes to the **employee** store and never to
+this one — so with `read()` the lookup ran against the seed and refused every
+department created in this browser with *"That department does not exist."*
+
+Latent in practice only because `/people/[id]` also happens to render
+`useDepartments()`. One screen that picks a department without listing them and
+it fires.
+
+### 3. `assertNameFree` checked the seed
+
+`permissions.ts`'s duplicate-role-name refusal, computed from `read()` inside the
+create path. Structurally identical to the duplicate-exit refusal that started
+all this: a guard that cannot see the rows it is guarding against is not a guard.
+
+### 4. `useKbSearch` destroyed article votes on `/help`
+
+The one place the bug **fires today**, and the one this was proved on. Recording
+a failed search joins the "backlog" — a write to `approvehr.knowledge.store` from
+a hook that never subscribes to it. `/help` mounts `KbSearch` and nothing that
+reads that store. So the write was computed from the seed and persisted, taking
+the `votes` key with it.
+
+Measured, before and after, in demo mode:
+
+| | `votes` | `misses` |
+|---|---|---|
+| voted on an article | `{"p-02\|kba-payslip":"helpful"}` | `{}` |
+| then searched on `/help`, with `read()` | **`{}`** | only the new one |
+| then searched on `/help`, with `current()` | preserved | both, accumulated |
+
+That is not a hypothetical about a future screen. It is a person telling the
+product an article helped them, and the next thing they typed erasing it.
+
+## `employees.ts` is on the factory now
+
+The entry above predicted this store was safe because it "has always been
+written from screens that also read it." That is still true of every current
+caller and it is not why the store is safe — it is why nobody had noticed. It
+had no `current()` to reach for and nowhere to put one, which is a store one
+screen away from the same bug with no fix available. So it moved rather than
+growing a second `hydrate()`.
+
+Two things the move fixed for free:
+
+- the old `subscribe` set `hydrated = true` **before** the microtask and with no
+  `typeof window` guard, so a server render reaching it would have marked the
+  module hydrated and stopped the browser from ever loading storage;
+- there was no version field, which is what stranded payloads when
+  `created`/`archived` arrived.
+
+`get()` stays a render read and now takes the subscribed snapshot instead of
+calling `read()` twice while memoising on `[overrides, created]` — the same
+answer with the `exhaustive-deps` suppression removed, which is what leaves this
+file with no `read()` call at all.
+
+### `createPersistedState` gained `legacy`, and it is deliberately narrow
+
+This store's payload was a bare `StoreState`; the factory expects `{ v, data }`.
+Every existing demo browser would have had its directory emptied on load —
+which, in a change whose entire subject is writes that silently discard stored
+data, would be its own joke.
+
+`legacy` is called **only when `v` is absent**, which means the payload predates
+the envelope and its *shape* is unchanged. A payload that has a `v` and does not
+match is still dropped, so the discard rule the factory documents is intact for
+actual version bumps. `employees.ts` recognises its own old payload by the three
+arrays rather than by "it parsed", so a key holding something else is dropped
+rather than spread over the state.
+
+## Two stores audited and found immune, for a reason worth reusing
+
+- **`lib/payroll/use-settings.ts`** — also predates the factory, also has its own
+  hydration copy, and has **no read-then-write path at all**: `save(next)` takes
+  a whole `PayrollSettings` and replaces. A write that does not merge cannot
+  merge stale data. Left alone.
+- **`lib/store/session.ts`** — `set()` is a whole-value replace, and the one place
+  it reads `cache` (`signOut` checking `mode` to pick a path) is reachable only
+  from a signed-in UI, which has subscribed by definition. Left alone, and its
+  documented reason for not being on the factory still stands.
+
+## Live versus latent, honestly
+
+Only `useKbSearch` could be *proved* to fire today. Everywhere else the screen
+happens to mount a reader alongside the mutation hook, so the bug is latent.
+
+That is not reassurance, it is the point. These fifteen hooks never subscribe to
+the store they write — `useKbSearch`, `useRaiseTicket`, `useHolidayMutations`,
+`useShiftMutations`, `usePayrollActions`, `useTeamMutations`,
+`useKpiMutations`, `useObjectiveMutations`, `useReviewMutations`, `useSignOff`,
+`useLoanActions`, `usePaymentActions`, plus `demoDepartmentName`,
+`demoUpdateTask` and `demoVerifyTask` — and each is safe purely because of what
+else the screen mounting it happens to render. That is exactly the state
+`offboarding.ts` was in for months before `/people/[id]` grew a button. Splitting
+a component, adding a route, or moving a dialog is enough.
+
+## Verified
+
+`npm run check` exit **0** (typecheck, lint, titles, contrast, typescale,
+**stores**, payroll, CSV 101, template 26, loans 28+600). `npm run build` exit
+**0**, **86 routes**, **114/114** prerendered — unchanged, nothing silently
+dropped.
+
+In the browser, in demo mode, signed in as Tunde Bakare. Each walk is: write on
+one page load, **full reload**, write again, and assert the first value survived
+— which is the only sequence that can tell these two functions apart.
+
+| Store | What was walked |
+|---|---|
+| `knowledge` | the before/after table above, both directions, including reverting the line to `read()` to reproduce the loss and restoring it |
+| `employees` | seeded the **pre-envelope** payload → "LEGACY PAYLOAD TITLE" rendered in the directory and on a record page; an unrelated edit then re-wrote the payload as `{v:1,data:…}` **keeping** the legacy override beside the new one |
+| `demo-structure` | created "Internal Audit" on `/people/departments`; on a fresh load of `/people/p-03` the picker offered `dept-mt42zdui-1` and saving resolved it to the name — the path that used to refuse |
+| `offboarding` | recorded an exit from the record page, then on a **fresh load** got the refusal verbatim — *"Chidi Nwosu already has an exit in progress (waiting for their manager). Open that one instead of starting a second."* — with the first exit intact and no second one written. Then `demoUpdateTask` and `demoVerifyTask` across three page loads: 5 tasks done, 2 confirmed, accumulating, with the other exit untouched |
+| `onboarding` | `p-08` `[o1,o2,o3,o4]` → `+o6` across a reload |
+| `approvals` | `ap-01` then `ap-05` across a reload |
+| `leave` | `lv-01` then `lv-02` across a reload |
+| `holidays` | "FIRST HOLIDAY" then "SECOND HOLIDAY", both present, 13 dates |
+| `company` | `rcNumber` then `tradingName` across a reload |
+
+**Not walked individually:** `assets`, `attendance`, `conduct`, `helpdesk`,
+`notifications`, `overtime`, `payments`, `payroll`, `performance`, `permissions`,
+`reimbursements`, `shifts`, `teams`, and the write paths in `departments`. Their
+edits are the same one-token substitution as the nine above, they are covered by
+`verify-stores` and by `tsc`, and the two mechanisms they rely on are the two the
+nine walks exercise. Somebody adding a write to one of those screens should still
+do the reload check.
+
+**Connected mode was not exercised.** No API was reachable — port 8000 answers on
+this machine but refuses CORS from the dev server's port. None of this touches
+the connected path: every changed call site is inside an `if (!isConnected)`
+branch or a demo-only helper.
+
+**One environment note, not a finding about the app:** the preview pane's
+screenshot coordinate frame drifts from the page on screens with an inner scroll
+container, so some clicks landed nowhere until they were dispatched on the
+elements directly. Same React handlers, same store code — but the visible-click
+verification of a few steps was done that way rather than through the pane.
+
+## Two things found and deliberately not changed
+
+- **`--check/` is a committed directory**, 59 tracked files, and it is a
+  generated marketing export — somebody ran `npx tsx scripts/export-marketing.ts
+  --check` and the script took the flag as its output path. It is not this
+  change's to delete, but nothing should be reading it.
+- **`.claude/launch.json` gained `"autoPort": true`** so a second session can run
+  the dev server while another holds 3000. Revert it if 3000 is ever required
+  for a callback.
