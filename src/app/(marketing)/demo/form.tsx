@@ -8,6 +8,13 @@ import { MODULES } from "@/lib/marketing/modules";
 
 type Errors = Partial<Record<"name" | "email" | "company" | "headcount", string>>;
 
+/**
+ * Google Calendar's booking page for the sales team. Opened after a valid
+ * submission so the visitor picks a slot themselves rather than waiting on
+ * an email that this prototype has no backend to send.
+ */
+const SCHEDULING_URL = "https://calendar.app.google/eXiGqm27KjSdJr9v9";
+
 const HEADCOUNTS = ["1–25", "26–100", "101–500", "501–2,000", "2,000+"];
 
 const PAYROLL_TODAY = [
@@ -63,6 +70,11 @@ export function DemoForm() {
       document.getElementById(Object.keys(found)[0])?.focus();
       return;
     }
+    /* Opened synchronously, in the same tick as the click, so the browser
+       treats it as a direct result of the user's gesture rather than a
+       popup — delaying this past the setTimeout below is what gets it
+       blocked. */
+    window.open(SCHEDULING_URL, "_blank", "noopener,noreferrer");
     setBusy(true);
     setTimeout(() => {
       setBusy(false);
@@ -76,14 +88,23 @@ export function DemoForm() {
         <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-success">
           <Check aria-hidden="true" className="size-6 text-slate" strokeWidth={3} />
         </span>
-        <h2 className="mt-6 text-h3 text-slate">Request received</h2>
+        <h2 className="mt-6 text-h3 text-slate">Pick a time</h2>
         <p className="mx-auto mt-3 max-w-sm text-body leading-relaxed text-slate-muted">
-          We will email {form.email} within one working day with two or three
-          times. If none suit, reply with what does.
+          We opened our scheduling page in a new tab — grab whichever slot
+          suits you.
         </p>
+        <a
+          href={SCHEDULING_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-6 inline-flex items-center justify-center rounded-full border border-sand-line bg-white px-5 py-2.5 text-body-sm font-medium text-slate transition-colors hover:border-slate/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate"
+        >
+          Didn&apos;t open? Open the scheduler
+        </a>
         <p className="mt-8 rounded-xl bg-wash-amber p-3.5 text-meta leading-relaxed text-slate-soft">
-          This is a prototype — the form is not yet wired to a backend, so
-          nothing was actually sent.
+          This is a prototype — the details above are not yet sent
+          anywhere, so bring them up on the call rather than assuming we
+          have them.
         </p>
       </div>
     );
