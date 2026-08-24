@@ -59,7 +59,7 @@ export default function DemoPage() {
                     />
                   </span>
                   <div>
-                    <h2 className="text-body font-medium text-slate">
+                    <h2 className="text-body font-medium">
                       {item.title}
                     </h2>
                     <p className="mt-1 text-body-sm leading-relaxed text-slate-muted">
