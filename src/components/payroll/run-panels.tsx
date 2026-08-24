@@ -48,11 +48,14 @@ export function SourceBadge({
   loading?: boolean;
   error?: { message: string } | null;
 }) {
+  const label = sourceNote(connected);
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Badge tone={connected ? "success" : "warning"} size="sm" dot>
-        {sourceNote(connected)}
-      </Badge>
+      {label && (
+        <Badge tone="warning" size="sm" dot>
+          {label}
+        </Badge>
+      )}
       {loading && <span className="text-meta text-muted">Loading…</span>}
       {error && (
         <span className="text-meta text-danger-text">{error.message}</span>
@@ -95,6 +98,7 @@ export function ExceptionList({
   exceptions,
   onRecheck,
   actionFor,
+  replaceFixFor,
 }: {
   exceptions: RunException[];
   /** Shown beside the heading when re-preparing is the way to clear these. */
@@ -113,6 +117,14 @@ export function ExceptionList({
    * without offering writes it cannot audit.
    */
   actionFor?: (exception: RunException) => React.ReactNode;
+  /**
+   * Codes whose `actionFor` result stands in for `fixFor`'s link rather than
+   * sitting beside it — the row can fill in the figure right here, so a
+   * button that would only navigate away and back is not a second option, it
+   * is a worse one. Absent means every row keeps its link, which is what a
+   * read-only surface with no `actionFor` at all needs regardless.
+   */
+  replaceFixFor?: ReadonlySet<string>;
 }) {
   const blockers = exceptions.filter((e) => e.severity === "BLOCKER");
   const warnings = exceptions.filter((e) => e.severity === "WARNING");
@@ -149,6 +161,7 @@ export function ExceptionList({
             key={exception.id}
             exception={exception}
             action={actionFor?.(exception)}
+            hideFix={replaceFixFor?.has(exception.code) ?? false}
           />
         ))}
       </CardBody>
@@ -159,12 +172,14 @@ export function ExceptionList({
 function ExceptionRow({
   exception,
   action,
+  hideFix = false,
 }: {
   exception: RunException;
   action?: React.ReactNode;
+  hideFix?: boolean;
 }) {
   const blocking = exception.severity === "BLOCKER";
-  const fix = fixFor(exception.code, exception.employeeId);
+  const fix = hideFix ? null : fixFor(exception.code, exception.employeeId);
 
   return (
     <div

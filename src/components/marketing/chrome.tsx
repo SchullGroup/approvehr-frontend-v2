@@ -2,13 +2,45 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, Menu, X } from "lucide-react";
+import { ArrowRight, ChevronDown, Menu, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Logo, LogoMark } from "@/components/brand/logo";
 import { MODULES } from "@/lib/marketing/modules";
 import { appNavLinks, internalNavLinks } from "@/lib/marketing/links";
 import { LEGAL_LINKS } from "@/lib/marketing/legal";
 import { Pill } from "./pill";
+
+/**
+ * Sitewide offer banner. Sits above the nav on every marketing page.
+ * Dismissible per session so it does not block repeat visitors.
+ */
+export function AnnouncementBar() {
+  const [visible, setVisible] = useState(true);
+
+  if (!visible) return null;
+
+  return (
+    <div className="relative bg-accent px-4 py-2.5 text-center text-white">
+      <p className="inline text-body-sm font-medium">
+        <span className="font-bold">First month free. Migration on us.</span>
+        {" "}Start with your full team, move your data, pay nothing until month two.
+      </p>
+      <Link
+        href="/demo"
+        className="ml-3 inline-flex items-center gap-1 text-body-sm font-semibold underline underline-offset-2 hover:no-underline"
+      >
+        Book a demo <ArrowRight className="size-3.5" aria-hidden />
+      </Link>
+      <button
+        onClick={() => setVisible(false)}
+        aria-label="Dismiss offer"
+        className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 opacity-60 hover:opacity-100"
+      >
+        <X className="size-4" aria-hidden />
+      </button>
+    </div>
+  );
+}
 
 /**
  * Floating nav. Sits on the sand ground as a rounded bar rather than a full

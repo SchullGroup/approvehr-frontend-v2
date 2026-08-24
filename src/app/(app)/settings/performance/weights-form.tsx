@@ -213,9 +213,11 @@ export function ScoringWeightsForm() {
         breadcrumb={[{ href: "/settings", label: "Settings" }]}
         meta={
           <>
-            <Badge tone={source === "api" ? "success" : "warning"} size="sm" dot>
-              {sourceNote(source === "api")}
-            </Badge>
+            {sourceNote(source === "api") && (
+              <Badge tone="warning" size="sm" dot>
+                {sourceNote(source === "api")}
+              </Badge>
+            )}
             {weights && (
               <Badge tone={weights.source === "saved" ? "accent" : "neutral"} size="sm">
                 {weights.source === "saved"

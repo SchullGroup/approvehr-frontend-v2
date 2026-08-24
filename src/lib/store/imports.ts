@@ -207,6 +207,14 @@ export type CheckOutcome = {
   /** People who would import with a recommended field empty. */
   flagged: number;
   /**
+   * A company-level fact: the organisation has no PAYE state of its own, and
+   * at least one row in this file had no `tax_state` cell to fall back from
+   * it either. Every such row fails identically, so the screen says so once,
+   * with a link to the one place it is fixed, instead of repeating the same
+   * sentence per row.
+   */
+  missingOrgTaxState: boolean;
+  /**
    * How many corrections had been made when this check ran.
    *
    * The comparison against the live count is what tells the screen whether the
@@ -597,6 +605,68 @@ export function useImport(dictionary: Dictionary<string>) {
     return true;
   }, [dictionary]);
 
+  /**
+   * Pick up a past import from the rows it was checked against.
+   *
+   * The same landing point as choosing a file — mapping guessed, step two —
+   * rather than jumping to the report, and that is deliberate: the rows are
+   * re-checked from scratch against today's data, so a department somebody
+   * created since, or a rule that has changed, applies. Resuming to a stored
+   * verdict would show a report that is no longer true.
+   *
+   * The records are rebuilt into a `CsvFile` so every later step — the
+   * mapping, the corrections, the rows-to-fix download — reads the same shape
+   * it does for an upload and none of them needs to know this file came from
+   * the API rather than a disk.
+   */
+  const resumeFrom = useCallback(
+    async (batchId: string): Promise<boolean> => {
+      setError(null);
+      setCheck(null);
+      setResult(null);
+      setFixes({});
+      setDecisions({});
+      setAcknowledged(false);
+      setSelection(null);
+      mapped.current = [];
+
+      let answer: Awaited<ReturnType<typeof api.rows>>;
+      try {
+        answer = await api.rows(batchId);
+      } catch (cause) {
+        setError(
+          cause instanceof ApiError
+            ? cause.message
+            : "That import could not be opened. Upload the file again.",
+        );
+        return false;
+      }
+
+      const headers = Object.keys(answer.rows[0] ?? {});
+      if (headers.length === 0) {
+        setError("That import kept no columns, so there is nothing to pick up.");
+        return false;
+      }
+
+      const csv = fileFromRecords([
+        headers,
+        ...answer.rows.map((row) =>
+          headers.map((header) => {
+            const value = row[header];
+            return value === null || value === undefined ? "" : String(value);
+          }),
+        ),
+      ]);
+      /* Size is the file's own byte count everywhere else and there is no file
+         here. Zero rather than a guess: nothing reads it except the 25MB
+         refusal, which this path has already passed by being stored. */
+      setFile({ name: answer.filename, size: 0, csv });
+      setMapping(guessMapping(dictionary, csv.headers));
+      return true;
+    },
+    [dictionary],
+  );
+
   const clear = useCallback(() => {
     setFile(null);
     setMapping({});
@@ -690,6 +760,8 @@ export function useImport(dictionary: Dictionary<string>) {
            nothing to decide. Said on screen rather than shown as a zero. */
         duplicates: { undecided: 0, skipping: 0, updating: 0 },
         flagged: local.flagged,
+        /* Nothing offline knows the organisation's own tax state either. */
+        missingOrgTaxState: false,
         fixCount,
         authoritative: false,
       });
@@ -707,6 +779,9 @@ export function useImport(dictionary: Dictionary<string>) {
     let toUpdate = 0;
     let toSkip = 0;
     let flagged = 0;
+    /* True the moment any part hits it — a company-level fact stays true once
+       any row in the file has actually needed the fallback and found none. */
+    let missingOrgTaxState = false;
     const duplicates: ApiDuplicateCounts = {
       undecided: 0,
       skipping: 0,
@@ -739,6 +814,7 @@ export function useImport(dictionary: Dictionary<string>) {
         toUpdate += answer.toUpdate;
         toSkip += answer.toSkip;
         flagged += answer.flagged;
+        if (answer.missingOrgTaxState) missingOrgTaxState = true;
         duplicates.undecided += answer.duplicates.undecided;
         duplicates.skipping += answer.duplicates.skipping;
         duplicates.updating += answer.duplicates.updating;
@@ -822,6 +898,7 @@ export function useImport(dictionary: Dictionary<string>) {
       parts,
       duplicates,
       flagged,
+      missingOrgTaxState,
       fixCount,
       authoritative: true,
     });
@@ -1072,6 +1149,7 @@ export function useImport(dictionary: Dictionary<string>) {
     selection,
     /* actions */
     chooseFile,
+    resumeFrom,
     clear,
     setColumn,
     resetMapping,
@@ -1119,7 +1197,16 @@ export function useImportHistory(kind: string, limit = 5) {
     let cancelled = false;
     void (async () => {
       try {
-        const answer = await api.list({ pageSize: limit, kind });
+        /* `order` defaults to ascending on the API — "imports before this one"
+           means the most recent ones, not the oldest batch this company ever
+           ran, so this has to ask for the sort it needs rather than take the
+           default. */
+        const answer = await api.list({
+          pageSize: limit,
+          kind,
+          sort: "createdAt",
+          order: "desc",
+        });
         if (!cancelled) setRows(answer.data);
       } catch {
         /* A history panel is not worth an error banner over. */
@@ -1130,9 +1217,23 @@ export function useImportHistory(kind: string, limit = 5) {
     };
   }, [isConnected, kind, limit]);
 
+  /**
+   * A past batch's own row report, fetched on demand rather than carried in
+   * the list — `GET /imports` is deliberately light (one row per batch), and
+   * a customer with hundreds of imports should not pay for every one of their
+   * row reports on a screen that shows five.
+   *
+   * What this cannot do: re-apply the rows. The batch stores the *report* —
+   * row, column, problem — not the original file, so there is nothing to
+   * resubmit from history alone. This is for reading what went wrong; fixing
+   * it still means re-uploading the file, which by now may check very
+   * differently than it did.
+   */
+  const getDetail = useCallback((batchId: string) => api.get(batchId), []);
+
   /* Derived rather than cleared, so signing out of a connected session cannot
      leave somebody else's import history on the screen. */
-  return { rows: isConnected ? rows : [] };
+  return { rows: isConnected ? rows : [], getDetail };
 }
 
 /**

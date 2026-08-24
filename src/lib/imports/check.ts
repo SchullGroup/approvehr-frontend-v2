@@ -187,6 +187,7 @@ export function checkMappedRows(
           field: spec.field,
           column: heading[spec.field] ?? spec.column,
           why: spec.recommended?.why ?? "",
+          important: spec.recommended?.important ?? false,
         });
       }
       if (missing.length > 0) {

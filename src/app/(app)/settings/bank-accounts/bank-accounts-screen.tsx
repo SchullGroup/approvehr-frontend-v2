@@ -124,9 +124,11 @@ export function BankAccountsScreen() {
         title="Bank accounts"
         breadcrumb={[{ href: "/settings", label: "Settings" }]}
         meta={
-          <Badge tone={accounts.live ? "success" : "warning"} size="sm" dot>
-            {sourceNote(accounts.live)}
-          </Badge>
+          sourceNote(accounts.live) && (
+            <Badge tone="warning" size="sm" dot>
+              {sourceNote(accounts.live)}
+            </Badge>
+          )
         }
         action={
           <Button variant="accent" size="sm" onClick={() => setAdding(true)}>

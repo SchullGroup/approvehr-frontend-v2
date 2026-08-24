@@ -4251,3 +4251,305 @@ verification of a few steps was done that way rather than through the pane.
 - **`.claude/launch.json` gained `"autoPort": true`** so a second session can run
   the dev server while another holds 3000. Revert it if 3000 is ever required
   for a callback.
+
+---
+
+# A PAYE state was still blocking an import, after the fix that was supposed to end it
+
+An earlier session made `taxState` optional on the single-employee create path
+and thought that closed it. It did not: `checkEmployees` still refused a row
+outright — `fail("taxState", "A PAYE state is required...")` — whenever the
+company had no default anywhere, which for the bulk importer is *every* row,
+because `taxState` was never a matchable spreadsheet column in the first place
+(see below). A company with no default PAYE state therefore could not import a
+single person, and the product owner's own words were exactly that: *"I still
+had errors when uploading the file and I cant move forward."*
+
+## The actual fix, end to end
+
+- **`Employee.taxState` is nullable now** (`prisma/schema.prisma`, migration
+  `20260824150000_employee_tax_state_optional`), on the same footing as
+  `grossMonthly`. The doc comment on the column explains why this is safe: PAYE
+  itself is one national schedule (`payroll/engine.ts`'s bands are selected by
+  date, never by state), so a person with no state anywhere is taxed exactly
+  correctly — only the *filing* is incomplete, and that is a `payroll/prepare`
+  question, not a create-time one.
+- **`employees/service.ts#create` no longer throws.** `taxState = input.taxState
+  ?? (await organizationTaxState(db)) ?? null` — was a 422 when neither existed,
+  is a plain `null` now. `tests/employees.test.ts`'s
+  "refuses when neither..." became "still creates when neither..." and asserts
+  `taxState: null` on a 201, not a 422.
+- **`payroll/service.ts#prepare` raises `missing_tax_state` as a WARNING**,
+  gated on `settings.payeEnabled`, in the employees `select` clause that was
+  missing the column entirely. Same severity and reasoning as
+  `missing_pension_pin` — unlike `missing_bank_account`, nothing about what the
+  person is paid or what is deducted changes.
+- **`imports/employees.ts#checkEmployees`'s `fail()` for the "no value, no org
+  default" case is gone.** The `fail()` for a *named but unresolvable* state
+  (a genuine typo) is untouched — that is still a real data error. `taxState`
+  moved into the `compact({...})` spread rather than being a required
+  top-level write field, and `ImportedEmployeeWrite.taxState` is `string?`.
+
+### The thing that made this confusing to verify: `taxState` was never a spreadsheet column
+
+`EMPLOYEE_COLUMNS` — the dictionary that answers `/imports/employees/validate`
+— has never declared a `tax_state` `ColumnSpec`. It only exists inside
+`MIGRATION_ONLY_COLUMNS`, which `ETL_EMPLOYEES` adds on top of `EMPLOYEES` and
+only `migrate.ts` reads (`CheckOptions.dictionary`, the same "two callers,
+different contracts" shape as `requireEmployeeNo`). So a bulk upload can never
+carry a PAYE state per row — it always falls back to the organisation's
+default, or nothing. That was true before this fix and is true after it; what
+changed is only what happens when the fallback is also nothing. Confirmed by
+diffing `EMPLOYEE_COLUMNS`' field list against the frontend's mirror in
+`web/src/lib/imports/employees.ts`: identical 29 fields, so there was no drift
+to reconcile — the frontend was never missing anything.
+
+The `missingOrgTaxState` callout in `check-report.tsx` still claimed rows "are
+being skipped" for it, which stopped being true the moment the `fail()` came
+out. Reworded, and the tone dropped from `danger` to `warning`:
+*"Rows below with no `tax_state` cell will still import — their tax is
+deducted correctly either way. Only the state filing for it is left
+incomplete..."*
+
+## Verified
+
+Backend `npm run check` exit **0** — 55 files, **1380 tests**.
+Frontend `npm run check` exit **0** (typecheck, lint, 89 titles, demo, contrast,
+type scale, stores, payroll, CSV 102, template 34, loans).
+
+Against the live API, with `schull`'s `taxState` cleared by hand: `POST
+/imports/employees/validate` on a row with none of the recommended columns
+came back `toCreate: 1`, `errors: []`, `missingOrgTaxState: true` — applied,
+and the created row's `taxState` was `NULL` in the database, not a fabricated
+default. Row and batch deleted afterwards, organisation restored to `Lagos`.
+
+# The missing-details list now opens on what actually stops a payday
+
+Closing the other half of the same complaint: *"any main required field should
+come first in a 2-step process where all the required come first and second
+step all the optional."* Scoped to the Fixes step's "Missing details"
+sub-step specifically (confirmed with the product owner rather than guessed —
+the Match-the-columns step was the other candidate and was not it).
+
+## `Recommendation.important`, declared once, read by both repos
+
+The ten-odd recommended employee fields are not one kind of gap. `grossMonthly`
+and `bankAccount` are the two `payroll/service.ts` raises as a **BLOCKER**
+(`missing_pay`, `missing_bank_account`) the moment a run actually reaches
+them — nobody gets a payslip without them. Everything else recommended
+(`pensionPin`, `tin`, `annualRent`, `email`, `addressLine`, `nin`,
+`stateOfOrigin`, `lgaOfOrigin`) is a **WARNING** at most, or never checked by
+payroll at all — a schedule or a filing is incomplete, the person is still
+paid the right amount.
+
+That distinction is now `Recommendation.important?: boolean`
+(`imports/columns.ts` and its frontend mirror `imports/spec.ts`), set `true`
+on exactly those two fields in both dictionaries, and carried per missing item
+on the wire as `MissingField.important` / `ApiMissingField.important` — the
+same channel `why` already travels on, not a client-side guess re-derived from
+field names. `lib/imports/check.ts`'s offline engine sets it from the same
+declaration, so demo mode and the API cannot disagree about which tier a field
+is in. `departments.ts` and `assets.ts`'s importers pass `important: false` for
+everything they recommend — neither pays anybody, so nothing in either
+qualifies.
+
+## `check-report.tsx`'s `Flagged` component splits by field, not by person
+
+A row can have both kinds of gap (missing an account number *and* an email),
+so the split is per missing item, not per row — the same person can appear in
+both tiers, each time showing only the items that belong there.
+
+- **"Needed to pay them"** is where the sub-step opens, when it has anything in
+  it — required leads, as asked. Its own line under the header says why:
+  *"A payroll run cannot pay these people at all without one of these — set it
+  now, or exclude them from a run until it is there."*
+- **"Add later"** is where the single acknowledgement checkbox and the
+  sub-step's Continue button live — unchanged wiring, `acknowledged` is still
+  one boolean, reset on every re-check exactly as before. If nobody has an
+  important gap, this is the only tier and it opens here directly; if nobody
+  has a later gap, the checkbox renders on the important tier instead of a
+  "Next" button.
+- A `SegmentedControl` between the two (Match-the-columns' own filter control,
+  reused) lets somebody jump straight to "Add later" — deliberately not
+  locked behind visiting "Needed to pay them" first, because nothing here is a
+  gate on anything else. "Required first" is the default landing, not an
+  enforced order.
+
+No new acknowledgement state, no change to `lib/store/imports.ts`'s five reset
+call sites — the split is presentational over the same `RowLine[]`, computed
+with two small `useMemo`s (`importantOnly` / `laterOnly`) in `check-report.tsx`
+alone.
+
+## Verified
+
+Backend `npm run check` exit **0**, unchanged counts (the `important` field is
+additive on the wire). Frontend `npm run check` exit **0**, including
+`verify-template`'s cross-repo column-set assertion.
+
+In the browser, connected, against `schull` with its PAYE state cleared: a
+two-row CSV of nothing but the four required columns, matched, checked,
+landing on "Missing details" already open to **"Needed to pay them (2)"**
+showing only `gross_monthly` and `account_number` per person; **"Next: what can
+wait (2)"** advancing to **"Add later (2)"** with the other eight fields per
+person and `gross_monthly`/`account_number` correctly absent from it; the
+checkbox appearing only there; ticking it enabling Continue. Confirmed over
+`curl` first, independent of the UI: the validate response's `missing[]`
+carries `important: true` on exactly `grossMonthly` and `bankAccount`, `false`
+on the rest. Test batches deleted and the organisation's PAYE state restored
+afterwards.
+
+---
+
+# Five smaller things, all fixed in one pass: dropdowns, a button, a
+paragraph, and where a payroll exception actually sends you
+
+## The template's dropdown-worthy columns are real Excel dropdowns now
+
+The product owner's rule that removed `employment_type`, `work_type`,
+`status`, `pension_provider` and the rest from the spreadsheet importer
+(`MIGRATION_ONLY_COLUMNS`'s own header) is **"remove any field that requires
+a dropdown and can introduce errors."** That rule is still right, and it does
+not cover the three fields that stayed: `gender`, `state_of_origin` and
+`pay_frequency` are each a **fixed, universal** vocabulary — nobody's own
+data, nothing to reconcile against a company list — which is exactly what
+the header says did *not* need removing. Give those three a real dropdown
+cell and the "less errors" the product owner actually asked for is closed
+for the columns that are still here, with nothing reopened that was
+deliberately taken away.
+
+`ColumnSpec.dropdown?: readonly string[]`, declared once per column in both
+dictionaries (`approvehr-api/src/modules/imports/employees.ts`,
+`web/src/lib/imports/employees.ts`), travels in the template payload the
+same way `cell` and `templateExample` already do, and reaches
+`buildTemplateFiles` through `TemplateColumn.dropdown`.
+
+**The Nigerian states alone rule out an inline list.** Excel caps
+`formula1="\"A,B,C\""` at 255 characters and the 37 states are past it, so
+every dropdown here is a **range reference** to a new hidden `Lists` sheet —
+one column per dropdown field, written at template-build time, never opened
+by a person. `xlsx.ts` gained `SheetSpec.hidden` and `SheetSpec.validations`
+on the writer side, and `XlsxSheet.hidden` / `XlsxSheet.dataValidations` on
+the reader side, so `verify-template.ts` can prove the round trip rather than
+assert that a column merely looks selectable. **Independently cross-checked
+with openpyxl** — a completely separate implementation — reading the built
+file back: `state_of_origin` → `Lists!$A$1:$A$37`, `gender` →
+`Lists!$B$1:$B$3`, `pay_frequency` → `Lists!$C$1:$C$1`, `Lists` sheet
+`hidden`, all 37 state names present and correctly ordered.
+
+`buildDictionary`'s vocabulary section (`NIGERIAN_TAX_STATES`,
+`GENDER_WORDS`, and friends) had to move **above** the column declarations in
+both dictionaries — it was defined after them, which only worked because
+nothing previously referenced it from inside a `ColumnSpec` literal at
+module-load time. `GENDER_OPTIONS` is `[...new Set(Object.values(GENDER_WORDS))]`
+rather than a second hand-typed list, so the dropdown's three options cannot
+drift from what the checker actually accepts.
+
+`verify-template.ts` grew from 34 to 42 assertions, including a new
+cross-repo one (`"and the same columns get a dropdown"`) parsed out of the
+API's source as text, the same trick the others already use.
+
+## "Open record" now opens the record at the field the exception named
+
+`fixFor` in `lib/api/payroll.ts` had two working cases
+(`missing_bank_account`, `missing_pension_pin`) and a `default` arm that
+sent everything else to a bare `/people/{id}` — the Personal tab, regardless
+of what was actually wrong. Two gaps closed:
+
+- **`missing_tax_state`** → `?tab=pay&field=taxState`. Was always answerable,
+  just never wired.
+- **`missing_pay`** → `?tab=employment&field=grossMonthly`. This one needed
+  more than a new `case`: `grossMonthly` lives on the **Employment** tab, not
+  Pay & statutory, and only the pay tab's `EditableSection` was passing
+  `openOnField` at all. `record.tsx`'s employment-tab section now does the
+  same `tab === "employment" && focusField` gating the pay tab already had.
+- **`overtime_awaiting_approval`** had no employee to link to at all — it is
+  a count across the whole run — and so had never had a fix link, not even a
+  wrong one. `fixFor` now answers this one *before* the `employeeId` gate,
+  pointing at `/people/overtime` rather than a person's record.
+
+`rent_relief_unclaimed`, `tax_schedule_unconfirmed` and
+`no_attendance_all_period` were looked at and left alone: the first two are
+run-level facts about several people or no person, and the third names a
+person but has no single field to send them to — a human has to look, not a
+form to fill in. Verified live: nulled a real employee's `grossMonthly`,
+recalculated, clicked "Set their pay," and landed on the Employment tab with
+Gross monthly focused rather than the Personal tab; cleared a pension PIN and
+confirmed the sidebar item, separately, below.
+
+## The Pension PIN/TIN callout moved from the page's headline to its sidebar
+
+`/people/[id]`'s `payrollAdvisory` Callout — "Recommended, but not
+pay-blocking" — used to be the first thing rendered in the main column,
+above the tabs, in the same size and weight as the genuine blocker beside
+it. The whole point of splitting `payrollGapsFor` into `payrollBlocking` /
+`payrollAdvisory` was that a missing TIN and a missing bank account are not
+the same kind of fact; rendering both as page-headline callouts undid that
+distinction visually even though the data already carried it.
+
+`payrollAdvisory` now renders inside the identity rail's first `Card`, under
+the completeness meter, as a compact icon-and-label list — no separate
+Callout, no paragraph of `consequence` text competing with the record itself
+for attention. `consequence` is not gone, just no longer forced onto the
+page: it is a `title` attribute, one hover away. `payrollBlocking` is
+untouched — a missing bank account still gets the loud red callout at the
+top, because it is still the one fact that actually stops a payslip.
+
+## A pre-payroll checklist, inline, never a redirect
+
+The run wizard's Period step reads `useSetupChecklist()` — the same hook
+`/settings` itself answers from — and renders "Before you run this": what
+you deduct decided, a default PAYE state set, everybody has a bank account,
+everybody has a pension PIN (only asked about when the company requires
+one), the company has a payout account on file. Every row states a fact and
+offers a link; nothing here navigates on its own, and declining every link
+changes nothing about what Calculate does next. `facts.pay.hasPrimaryBankAccount`
+is skipped entirely rather than shown as a false "no account" when it is
+`null` (offline) — absent, not a wrong claim, the same rule everywhere else
+in this file.
+
+Verified live: cleared the organisation's PAYE state, confirmed the row
+flipped from a green check to an amber warning with a "Set it" link and the
+description recomputed ("1 thing worth sorting first…"), restored it,
+confirmed all five rows read green again.
+
+## The `size="lg"` button contrast bug — found already fixed
+
+Investigated as a live bug and found the fix already on disk, uncommitted:
+`SIZES.lg` in `components/ui/button.tsx` used to include `text-body`, and
+`text-body` is the **colour** utility (`--color-body`, dark slate grey), not
+the size — the same Tailwind v4 name collision this file's accessibility
+section already documents. It was silently clobbering white text on every
+coloured `size="lg"` button. The setup wizard's "Go to the dashboard"
+button, on the completion screen, was the reported instance. Confirmed live:
+`getComputedStyle` on that exact button reads `color: rgb(255,255,255)` on
+`background: rgb(43,57,144)` — white on the ApproveHR blue, correctly.
+
+## Bank-account-name verification: not buildable, and said so rather than faked
+
+The product owner asked whether the API can show an account holder's name
+immediately after an account number is typed, the way a bank transfer
+confirmation screen does. It cannot, and nothing in this codebase pretends
+otherwise: there is no NUBAN-resolution integration anywhere, no provider
+credential scaffolded in `.env.example` or `src/config/env.ts`, and
+`Employee` has no `accountName` column to hold a resolved name even if there
+were. The bank **picker** already exists and is well-built
+(`lib/reference/banks.ts`, 255 NIBSS-capable banks from Paystack's public,
+credential-free bank list) — it is specifically the name-resolution call
+that is missing, and that half needs a signed-up provider before it can be
+code. The existing seam pattern (`payments/provider.ts`'s `useProvider()` /
+refuse-rather-than-fake shape, documented above under "Capabilities we
+cannot perform") is what a real integration should follow once one is
+credentialed. Nothing was built here, on purpose — inventing a fake account
+name would be exactly the kind of thing this file's own rules exist to
+prevent.
+
+## One thing found and deliberately not touched
+
+`record.tsx`'s Employment-tab `EditableSection` throws "Invalid UUID" on
+`departmentId` and `workLocationId` when either is saved while showing "Not
+assigned" / "Not set" — discovered while restoring test data after the
+`missing_pay` verification above, not caused by anything in this pass. Left
+alone: it is a pre-existing bug in a form this change only added one prop
+to, and chasing it here would have been solving a problem nobody asked
+about instead of the five they did.
+afterwards.

@@ -220,9 +220,11 @@ function AllOvertime() {
       <PageHeader
         title="Overtime"
         meta={
-          <Badge tone={overtime.connected ? "success" : "warning"} size="sm" dot>
-            {sourceNote(overtime.connected)}
-          </Badge>
+          sourceNote(overtime.connected) && (
+            <Badge tone="warning" size="sm" dot>
+              {sourceNote(overtime.connected)}
+            </Badge>
+          )
         }
         action={
           <div className="flex flex-wrap items-center gap-2">

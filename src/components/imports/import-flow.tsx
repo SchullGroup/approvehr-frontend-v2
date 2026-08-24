@@ -1,10 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import {
+  ArrowRight,
+  ChevronDown,
   Clock,
   Download,
   FileSpreadsheet,
+  Loader2,
   Lock,
   UploadCloud,
 } from "lucide-react";
@@ -32,6 +35,7 @@ import {
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { useSession } from "@/lib/store/session";
 import { useImport, useImportHistory } from "@/lib/store/imports";
+import type { ApiImportBatchDetail } from "@/lib/api/imports";
 import type { Dictionary } from "@/lib/imports/spec";
 import type { ImportSurface } from "@/lib/imports/surface";
 import { CheckReport } from "./check-report";
@@ -101,7 +105,7 @@ export function ImportFlow({ surface }: { surface: ImportSurface }) {
     },
     {
       id: "check",
-      label: "Fix what is flagged",
+      label: "Fixes",
       hint: imp.check
         ? `${imp.check.toSkip.toLocaleString("en-NG")} to fix, ${imp.check.flagged.toLocaleString("en-NG")} flagged`
         : "Before anything is saved",
@@ -202,6 +206,11 @@ export function ImportFlow({ surface }: { surface: ImportSurface }) {
               if (ok) stepper.goTo(1);
             }}
             onTemplate={imp.downloadTemplate}
+            onResume={async (batchId) => {
+              const ok = await imp.resumeFrom(batchId);
+              if (ok) stepper.goTo(1);
+              return ok;
+            }}
           />
         )}
 
@@ -328,6 +337,7 @@ function ChooseFile({
   columns,
   onFile,
   onTemplate,
+  onResume,
 }: {
   surface: ImportSurface;
   filename: string | null;
@@ -335,10 +345,37 @@ function ChooseFile({
   columns: number;
   onFile: (file: File) => void | Promise<void>;
   onTemplate: (format: "csv" | "xlsx") => void;
+  /** Pick a past batch up again. Resolves false when its rows are gone. */
+  onResume: (batchId: string) => Promise<boolean>;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
+  const [resuming, setResuming] = useState<string | null>(null);
   const history = useImportHistory(surface.dictionary.kind);
+  /* Which past batch is showing its row report, and what came back for it.
+     Fetched once per batch and kept — reopening the same one should not
+     re-fetch what is already on screen. */
+  const [openBatch, setOpenBatch] = useState<string | null>(null);
+  const [details, setDetails] = useState<Record<string, ApiImportBatchDetail>>(
+    {},
+  );
+  const [loadingBatch, setLoadingBatch] = useState<string | null>(null);
+  const toggleBatch = (batchId: string) => {
+    if (openBatch === batchId) {
+      setOpenBatch(null);
+      return;
+    }
+    setOpenBatch(batchId);
+    if (details[batchId]) return;
+    setLoadingBatch(batchId);
+    void history
+      .getDetail(batchId)
+      .then((detail) => setDetails((prev) => ({ ...prev, [batchId]: detail })))
+      .catch(() => {
+        /* Left absent — the render falls through to "Could not load". */
+      })
+      .finally(() => setLoadingBatch(null));
+  };
   const dictionary: Dictionary<string> = surface.dictionary;
   /* Read off the built dictionary, which is already ordered required, then
      recommended, then the rest — so these two lists and the template's own
@@ -481,7 +518,7 @@ function ChooseFile({
           />
           <TableWrap
             className="rounded-none border-0 border-t border-line"
-            caption="Past imports"
+            caption="Past imports — click a resumable one to carry on, or one with rows skipped to see what went wrong"
           >
             <THead>
               <TH>File</TH>
@@ -490,32 +527,153 @@ function ChooseFile({
               <TH>When</TH>
             </THead>
             <TBody>
-              {history.rows.map((batch) => (
-                <TR key={batch.id}>
-                  <TDPrimary
-                    title={batch.filename}
-                    subtitle={`${batch.totalRows.toLocaleString("en-NG")} rows`}
-                  />
-                  <TD>
-                    <span className="text-meta text-body">
-                      {batch.summary}
-                    </span>
-                  </TD>
-                  <TD>
-                    <span className="text-meta text-body">{batch.by}</span>
-                  </TD>
-                  <TD>
-                    <span className="flex items-center gap-1.5 text-meta text-muted">
-                      <Clock aria-hidden="true" className="size-3.5" />
-                      {new Date(batch.createdAt).toLocaleDateString("en-NG", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      })}
-                    </span>
-                  </TD>
-                </TR>
-              ))}
+              {history.rows.map((batch) => {
+                const hasReport = batch.failed > 0;
+                const open = openBatch === batch.id;
+                const detail = details[batch.id];
+                const isResuming = resuming === batch.id;
+                /* Resumable rows act immediately — the long row-by-row report
+                   is what the product owner's own words called out: nobody
+                   wants to read why 30 rows failed on the way to fixing it,
+                   they want the wizard. Everything else still expands, because
+                   there is nothing to jump into and reading why is the only
+                   thing left to offer. */
+                const rowClick = batch.resumable
+                  ? () => {
+                      setResuming(batch.id);
+                      void onResume(batch.id).finally(() => setResuming(null));
+                    }
+                  : hasReport
+                    ? () => toggleBatch(batch.id)
+                    : undefined;
+                return (
+                  <Fragment key={batch.id}>
+                    <TR
+                      interactive={Boolean(rowClick)}
+                      onClick={isResuming ? undefined : rowClick}
+                      aria-expanded={
+                        !batch.resumable && hasReport ? open : undefined
+                      }
+                    >
+                      <TDPrimary
+                        title={batch.filename}
+                        subtitle={`${batch.totalRows.toLocaleString("en-NG")} rows`}
+                      />
+                      <TD>
+                        <span className="flex items-center gap-1.5 text-meta text-body">
+                          {isResuming ? "Picking up where it stopped…" : batch.summary}
+                          {isResuming ? (
+                            <Loader2
+                              aria-hidden="true"
+                              className="size-3.5 animate-spin text-muted"
+                            />
+                          ) : batch.resumable ? (
+                            <ArrowRight
+                              aria-hidden="true"
+                              className="size-3.5 text-accent-text"
+                            />
+                          ) : (
+                            hasReport && (
+                              <ChevronDown
+                                aria-hidden="true"
+                                className={cn(
+                                  "size-3.5 text-muted transition-transform",
+                                  open && "rotate-180",
+                                )}
+                              />
+                            )
+                          )}
+                        </span>
+                      </TD>
+                      <TD>
+                        <span className="text-meta text-body">{batch.by}</span>
+                      </TD>
+                      <TD>
+                        <span className="flex items-center gap-1.5 text-meta text-muted">
+                          <Clock aria-hidden="true" className="size-3.5" />
+                          {new Date(batch.createdAt).toLocaleDateString("en-NG", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </span>
+                      </TD>
+                    </TR>
+                    {/* Never reached for a resumable batch — see `rowClick`. */}
+                    {open && !batch.resumable && (
+                      <TR className="bg-sunken/60">
+                        <TD colSpan={4} className="py-4">
+                          {loadingBatch === batch.id && !detail ? (
+                            <span className="flex items-center gap-2 text-meta text-muted">
+                              <Loader2
+                                aria-hidden="true"
+                                className="size-3.5 animate-spin"
+                              />
+                              Loading what went wrong…
+                            </span>
+                          ) : detail ? (
+                            <div className="flex flex-col gap-3">
+                              <ul className="flex flex-col gap-2">
+                                {detail.rows.map((row) => (
+                                  <li
+                                    key={row.row}
+                                    className="text-meta text-body"
+                                  >
+                                    <span className="tabular font-medium text-ink">
+                                      Row {row.row}
+                                    </span>{" "}
+                                    <span className="text-muted">
+                                      {row.name ?? row.employeeNo ?? "No name in this row"}
+                                    </span>
+                                    <ul className="ml-4 mt-1 flex flex-col gap-0.5">
+                                      {[...row.errors, ...row.warnings].map(
+                                        (issue, i) => (
+                                          <li
+                                            key={i}
+                                            className="text-muted"
+                                          >
+                                            <code className="rounded bg-sunken px-1 py-0.5 text-meta">
+                                              {issue.column}
+                                            </code>{" "}
+                                            {issue.problem}
+                                          </li>
+                                        ),
+                                      )}
+                                    </ul>
+                                  </li>
+                                ))}
+                              </ul>
+                              <div className="flex flex-wrap items-center gap-3 border-t border-line pt-3">
+                                <p className="flex-1 text-meta text-muted">
+                                  This one did not keep its rows — it ran
+                                  before we started keeping them, or
+                                  everything in it imported. Upload the file
+                                  again to carry on.
+                                </p>
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
+                                  onClick={() => input.current?.click()}
+                                >
+                                  <UploadCloud
+                                    aria-hidden="true"
+                                    className="size-3.5"
+                                  />
+                                  Choose a file
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-meta text-danger-text">
+                              Could not load this report. Try again.
+                            </span>
+                          )}
+                        </TD>
+                      </TR>
+                    )}
+                  </Fragment>
+                );
+              })}
             </TBody>
           </TableWrap>
         </Card>

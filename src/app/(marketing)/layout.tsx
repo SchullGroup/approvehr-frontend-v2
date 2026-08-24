@@ -1,4 +1,4 @@
-import { MarketingFooter, MarketingNav } from "@/components/marketing/chrome";
+import { AnnouncementBar, MarketingFooter, MarketingNav } from "@/components/marketing/chrome";
 
 export default function MarketingLayout({
   children,
@@ -7,6 +7,7 @@ export default function MarketingLayout({
 }) {
   return (
     <div className="min-h-dvh bg-sand text-slate-soft">
+      <AnnouncementBar />
       <MarketingNav />
       <main id="main">{children}</main>
       <MarketingFooter />

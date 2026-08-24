@@ -143,6 +143,8 @@ export type EditableField = {
   allowOther?: boolean;
   /** Label for the appended choice. Defaults to "Other (specify)". */
   otherLabel?: string;
+  /** Says "(optional)" in the label, styled lighter than the rest of it. */
+  optional?: boolean;
   help?: string;
   /** Exactly this many digits. Caps the input and shows a counter. */
   digits?: number;
@@ -217,6 +219,24 @@ export function EditableSection({
   const [text, setText] = useState<Record<string, string>>(() =>
     openOnField === undefined ? {} : seedFrom(fields, employee).text,
   );
+  /**
+   * `draft`'s starting point, frozen for the life of this edit — what "did
+   * this field change" is measured against in `save()`.
+   *
+   * Not the same thing as reading `employee`/`fields` live there. `currentDepartment`
+   * and `currentLocation` in `record.tsx` resolve from `useDepartments()` /
+   * `useWorkLocations()`, both of which start empty and fill in from the API a
+   * moment after the record itself has already rendered. Open this section
+   * before that fetch lands and `departmentId`'s seed is `""` — but if the API
+   * response arrives *while the section is still open*, the field's live value
+   * flips to the real id underneath an input the person never touched. Diffing
+   * against that live value made an untouched "Not assigned" look like a
+   * deliberate clear, and sent `""` where the API wanted a UUID or nothing.
+   * Diffing against this frozen snapshot instead means only an actual edit —
+   * one that lands in `draft` via an `onChange` — can produce a patch entry. */
+  const [baseline, setBaseline] = useState<EmployeePatch>(() =>
+    openOnField === undefined ? {} : seedFrom(fields, employee).draft,
+  );
   const [errors, setErrors] = useState<SectionError[]>([]);
   const [busy, setBusy] = useState(false);
   /* Which `allowOther` fields are explicitly showing their free-text input,
@@ -246,6 +266,7 @@ export function EditableSection({
     const seed = seedFrom(fields, employee);
     setDraft(seed.draft);
     setText(seed.text);
+    setBaseline(seed.draft);
     setErrors([]);
     /* Reset rather than seeded: a custom value already on the record shows
        its free-text input anyway, via `isCustomValue` below, with no explicit
@@ -257,6 +278,7 @@ export function EditableSection({
   function cancel() {
     setDraft({});
     setText({});
+    setBaseline({});
     setErrors([]);
     setOtherFields({});
     setEditing(false);
@@ -272,7 +294,7 @@ export function EditableSection({
         const typed = (text[String(f.key)] ?? "").replace(/[^\d.]/g, "").trim();
         /* Emptied means withdrawn, which is `null` rather than `0`. */
         if (typed === "") {
-          if (valueOf(f) !== null && valueOf(f) !== undefined) {
+          if (baseline[f.key] !== null && baseline[f.key] !== undefined) {
             patch[f.key] = null as never;
           }
           continue;
@@ -283,7 +305,7 @@ export function EditableSection({
         }
         /* Integer kobo, split on the point rather than multiplied. */
         const kobo = koboFromDecimal(typed);
-        if (kobo !== Number(valueOf(f) ?? NaN)) patch[f.key] = kobo as never;
+        if (kobo !== Number(baseline[f.key] ?? NaN)) patch[f.key] = kobo as never;
         continue;
       }
       const next = draft[f.key];
@@ -293,7 +315,11 @@ export function EditableSection({
          braces beside the seeding fix above, because this is the branch that
          did the damage. */
       if (next === undefined) continue;
-      if (next !== valueOf(f)) patch[f.key] = next as never;
+      /* Against `baseline`, not `valueOf(f)` — see the comment on `baseline`
+         above. `valueOf` still backs the read-only view below, where live is
+         correct; here it would compare a field the person may never have
+         touched against a value that moved out from under it. */
+      if (next !== baseline[f.key]) patch[f.key] = next as never;
     }
 
     if (bad.length > 0) {
@@ -429,6 +455,7 @@ export function EditableSection({
                 key={String(f.key)}
                 label={f.label}
                 required={f.required}
+                optional={f.optional}
                 help={f.help}
                 error={errorFor(f.key)}
               >

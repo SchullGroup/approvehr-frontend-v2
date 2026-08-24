@@ -165,7 +165,7 @@ export function DemoForm() {
         {/* How they run payroll now */}
         <fieldset>
           <legend className="text-body-sm font-medium text-slate">
-            How do you run payroll today?
+            How do you pay your staff today?
           </legend>
           <div className="mt-2.5 flex flex-wrap gap-2">
             {PAYROLL_TODAY.map((p) => (

@@ -411,17 +411,34 @@ export function PayrollSettingsForm() {
           never opens a section must not be able to be surprised by it. The
           switches themselves are inside; what they commit you to is out here.
 
-          The wording is the API's, from `statutoryNotices` in the payroll
-          engine, rendered verbatim. It names an Act, and a locally reworded
-          version of a legal consequence is how the two stop agreeing.
+          One line, not the statute. `notice.message` is the API's full
+          paragraph — the Act it names, what a scheme becoming compulsory at
+          fifteen people means for this company today — and it still fires in
+          full where it actually has to be read before money moves: as a
+          WARNING on the payroll run itself. Here it would only ever be read
+          past, so this names the fact and links straight to the switch
+          rather than restating the law beside it.
         */}
         {notices.map((notice) => (
-          <Callout
-            key={notice.code}
-            tone="warning"
-            title={`${DEDUCTION_COPY[notice.field].noun} is not deducted on this payroll`}
-          >
-            {notice.message}
+          <Callout key={notice.code} tone="warning">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span>
+                {DEDUCTION_COPY[notice.field].noun} is switched off for this
+                payroll.
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={!available || switching !== null || !canManagePay}
+                loading={switching === notice.field}
+                onClick={() => {
+                  if (!isOpen("deductions")) toggle("deductions");
+                  void setDeduction(notice.field, true);
+                }}
+              >
+                Turn it on
+              </Button>
+            </div>
           </Callout>
         ))}
 

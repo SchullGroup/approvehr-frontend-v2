@@ -277,9 +277,11 @@ export function Directory() {
     <div className="flex flex-col gap-6">
       {/* Which source the numbers came from, stated rather than implied. */}
       <div className="flex flex-wrap items-center gap-2">
-        <Badge tone={connected ? "success" : "warning"} size="sm" dot>
-          {sourceNote(connected)}
-        </Badge>
+        {sourceNote(connected) && (
+          <Badge tone="warning" size="sm" dot>
+            {sourceNote(connected)}
+          </Badge>
+        )}
         {loading && <span className="text-meta text-muted">Loading…</span>}
         {error && (
           <span className="text-meta text-danger-text">{error.message}</span>

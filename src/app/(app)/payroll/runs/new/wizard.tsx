@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
+  AlertTriangle,
   ArrowLeft,
   ArrowRight,
   Check,
@@ -59,13 +60,18 @@ import {
   wasDeducted,
 } from "@/lib/api/payroll";
 import { useCan } from "@/lib/permissions";
+import { useEmployeeMutations } from "@/lib/store/employees-api";
 import {
   countBySeverity,
   usePayrollActions,
   usePayrollRun,
   usePayrollRuns,
 } from "@/lib/store/payroll";
+import { useSetupChecklist } from "@/lib/store/setup-checklist";
 import { TODAY } from "@/lib/today";
+
+/** Exceptions the wizard answers inline rather than by sending somebody away. */
+const INLINE_FIX_CODES = new Set(["missing_pay"]);
 
 /**
  * Running a payroll period.
@@ -326,6 +332,21 @@ export function PayrollRunWizard() {
     if (!exception.employeeId || !canPrepare || settled) return null;
     const employeeId = exception.employeeId;
 
+    /* Set right here rather than sent to the record and back — this figure is
+       exactly what the exception is about, so a redirect for one number is a
+       detour, not a fix. Recalculates on save, the same as pressing
+       "Calculate again" — a stale figure sitting beside a payslip that has
+       already moved on is worse than the trip back through Calculate. */
+    if (exception.code === "missing_pay") {
+      return (
+        <SetPayInline
+          employeeId={employeeId}
+          disabled={busy !== null}
+          onSaved={() => void prepare()}
+        />
+      );
+    }
+
     if (exception.code === "missing_bank_account") {
       return (
         <Button
@@ -457,17 +478,17 @@ export function PayrollRunWizard() {
                     : "It is still a draft — you can prepare it again from the next step."}
                 </Callout>
               ) : (
-                <Callout tone="accent" title="Preparing pays nobody">
-                  It works out everybody&apos;s pay, writes the payslips, and lists
-                  anything wrong with the records behind them. No money moves, no
-                  loan instalment is taken, and you can do it as many times as you
-                  like.
+                <Callout tone="accent" title="This works out the payroll">
+                  Repeat it as often as you like — nothing is paid until you
+                  approve.
                 </Callout>
               )}
             </div>
           </CardBody>
         </Card>
       )}
+
+      {stepper.index === 0 && <PreflightChecklist />}
 
       {/* ---------------------------------------------------------- 2 Check */}
       {stepper.index === 1 && (
@@ -526,7 +547,11 @@ export function PayrollRunWizard() {
             </Card>
           ) : run ? (
             <>
-              <ExceptionList exceptions={exceptions} actionFor={actionFor} />
+              <ExceptionList
+                exceptions={exceptions}
+                actionFor={actionFor}
+                replaceFixFor={INLINE_FIX_CODES}
+              />
               {/* Under the list rather than inside it. The exception rows say
                   what happened; this says who is not on the payroll, in four
                   facts a person can act on a year from now. */}
@@ -726,6 +751,226 @@ export function PayrollRunWizard() {
 }
 
 /* -------------------------------------------------------------------------- */
+
+/**
+ * The one figure a `missing_pay` exception is actually about, typed in
+ * beside the row it names rather than on a different screen.
+ *
+ * Same act as `useEmployeeMutations().update`'s ordinary callers — this is
+ * not a special payroll-only write, it is the record's own `grossMonthly`,
+ * so a figure set here and one set from the record page cannot disagree.
+ * `onSaved` recalculates the run, matching what pressing "Calculate again"
+ * already does after any other fix — a payslip left showing the old figure
+ * would be a right number sitting under a stale one.
+ */
+function SetPayInline({
+  employeeId,
+  disabled,
+  onSaved,
+}: {
+  employeeId: string;
+  disabled?: boolean;
+  onSaved: () => void;
+}) {
+  const employees = useEmployeeMutations();
+  const [value, setValue] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit() {
+    const amount = Number(value);
+    if (!value.trim() || !Number.isFinite(amount) || amount <= 0) {
+      setError("Enter an amount above zero.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      await employees.update(employeeId, { grossMonthly: amount });
+      onSaved();
+    } catch (caught) {
+      setError(
+        caught instanceof ApiError
+          ? caught.message
+          : "Could not save. Try again.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center gap-1.5">
+        <Input
+          type="number"
+          inputMode="decimal"
+          min="0"
+          step="1000"
+          placeholder="Monthly gross, ₦"
+          aria-label="Monthly gross pay"
+          value={value}
+          disabled={disabled || saving}
+          className="w-36"
+          onChange={(event) => setValue(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              void submit();
+            }
+          }}
+        />
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={disabled}
+          loading={saving}
+          onClick={() => void submit()}
+        >
+          Set pay
+        </Button>
+      </div>
+      {error && <p className="text-meta text-danger-text">{error}</p>}
+    </div>
+  );
+}
+
+/**
+ * What the company itself has and has not decided, before anybody's own
+ * record even enters into it — inline, never a redirect.
+ *
+ * The complaint this answers was literal: getting sent away to Settings mid
+ * wizard, with no way back to where the thought started. Nothing here
+ * navigates on its own. Every row states a fact and offers a link a person
+ * can choose to follow; declining one changes nothing about what Calculate
+ * does next; `useSetupChecklist` is the same read `/settings` itself answers
+ * from, so this cannot tell a different story from the hub that owns it.
+ *
+ * Deliberately not a second copy of the exception list: nothing here repeats
+ * once Calculate has actually run — the run's own exceptions, one per
+ * person, are what step two shows from that point on. This is only for the
+ * question a person has before they have anybody to name yet.
+ */
+function PreflightChecklist() {
+  /* Nothing shown while loading or on a read failure — better than a
+     skeleton competing with the period form for attention, and there is
+     nothing to act on until it answers. */
+  const { facts } = useSetupChecklist();
+  if (!facts) return null;
+
+  type Row = {
+    label: string;
+    ok: boolean;
+    detail?: string;
+    href?: string;
+    linkLabel?: string;
+  };
+
+  const rows: Row[] = [
+    {
+      label: "What you deduct is decided",
+      ok: facts.pay.settings,
+      detail: "PAYE, pension and NHF — each a switch, in payroll settings.",
+      href: "/settings/payroll",
+      linkLabel: "Decide it",
+    },
+    {
+      label: "A default PAYE state is set",
+      ok: facts.company.taxState,
+      detail: "Falls back to this for anybody with no state of their own.",
+      href: "/settings/company",
+      linkLabel: "Set it",
+    },
+  ];
+
+  if (facts.payrollChecks.employees > 0) {
+    const { employees, missingBankAccount, missingPensionPin, requirePensionPin } =
+      facts.payrollChecks;
+    rows.push({
+      label:
+        missingBankAccount === 0
+          ? "Everybody has a bank account"
+          : `${missingBankAccount} of ${employees} have no bank account`,
+      ok: missingBankAccount === 0,
+      detail: "Payroll cannot pay somebody with no account on file.",
+      href: "/people",
+      linkLabel: "Open the directory",
+    });
+    if (requirePensionPin) {
+      rows.push({
+        label:
+          missingPensionPin === 0
+            ? "Everybody has a pension PIN"
+            : `${missingPensionPin} of ${employees} have no pension PIN`,
+        ok: missingPensionPin === 0,
+        detail: "Recorded, not pay-blocking — only the remittance schedule is incomplete without it.",
+        href: "/people",
+        linkLabel: "Open the directory",
+      });
+    }
+  }
+
+  /* Null rather than a row offline — the demo has no payment book, and a
+     false claim of "no payout account" beside a company that has one is
+     exactly the wrong figure this product is sold against. */
+  if (facts.pay.hasPrimaryBankAccount !== null) {
+    rows.push({
+      label: "Your company has a payout account on file",
+      ok: facts.pay.hasPrimaryBankAccount,
+      detail: "Needed to build a payment batch once this run is approved.",
+      href: "/settings/bank-accounts",
+      linkLabel: "Add one",
+    });
+  }
+
+  const outstanding = rows.filter((row) => !row.ok).length;
+
+  return (
+    <Card>
+      <CardHeader
+        title="Before you run this"
+        description={
+          outstanding === 0
+            ? "Nothing here would stop or surprise this payroll today."
+            : `${outstanding} ${outstanding === 1 ? "thing" : "things"} worth sorting first. None of this stops Calculate — whoever it is about is still named, on the next step, either way.`
+        }
+      />
+      <CardBody className="flex flex-col gap-2.5">
+        {rows.map((row) => (
+          <div
+            key={row.label}
+            className="flex flex-wrap items-start justify-between gap-3 rounded-md border border-line p-3"
+          >
+            <div className="flex min-w-0 items-start gap-2.5">
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "mt-0.5 shrink-0 [&>svg]:size-4",
+                  row.ok ? "text-success-text" : "text-warning-text",
+                )}
+              >
+                {row.ok ? <Check /> : <AlertTriangle />}
+              </span>
+              <div className="min-w-0">
+                <p className="text-body-sm text-ink">{row.label}</p>
+                {row.detail && (
+                  <p className="mt-0.5 text-meta leading-relaxed text-muted">
+                    {row.detail}
+                  </p>
+                )}
+              </div>
+            </div>
+            {!row.ok && row.href && (
+              <ButtonLink href={row.href} size="sm" variant="secondary">
+                {row.linkLabel}
+              </ButtonLink>
+            )}
+          </div>
+        ))}
+      </CardBody>
+    </Card>
+  );
+}
 
 function SummaryRow({
   label,

@@ -195,9 +195,11 @@ export function BatchDetailScreen({ id }: { id: string }) {
             <Badge tone={status.tone} size="sm" dot>
               {status.label}
             </Badge>
-            <Badge tone={live ? "success" : "warning"} size="sm" dot>
-              {sourceNote(live)}
-            </Badge>
+            {sourceNote(live) && (
+              <Badge tone="warning" size="sm" dot>
+                {sourceNote(live)}
+              </Badge>
+            )}
           </span>
         }
       />

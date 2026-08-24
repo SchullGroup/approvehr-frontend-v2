@@ -55,6 +55,143 @@ export type EmploymentStatusCode =
   | "EXITED";
 
 /**
+ * The 36 states and FCT. PAYE is filed to a state revenue service, so this is
+ * not a display list — a typo sends a remittance to the wrong agency.
+ */
+export const NIGERIAN_TAX_STATES = [
+  "Abia",
+  "Adamawa",
+  "Akwa Ibom",
+  "Anambra",
+  "Bauchi",
+  "Bayelsa",
+  "Benue",
+  "Borno",
+  "Cross River",
+  "Delta",
+  "Ebonyi",
+  "Edo",
+  "Ekiti",
+  "Enugu",
+  "FCT",
+  "Gombe",
+  "Imo",
+  "Jigawa",
+  "Kaduna",
+  "Kano",
+  "Katsina",
+  "Kebbi",
+  "Kogi",
+  "Kwara",
+  "Lagos",
+  "Nasarawa",
+  "Niger",
+  "Ogun",
+  "Ondo",
+  "Osun",
+  "Oyo",
+  "Plateau",
+  "Rivers",
+  "Sokoto",
+  "Taraba",
+  "Yobe",
+  "Zamfara",
+] as const;
+
+/** What people actually type. FCT has four common spellings and none is "FCT". */
+const STATE_ALIASES: Readonly<Record<string, string>> = {
+  abuja: "FCT",
+  fct: "FCT",
+  fctabuja: "FCT",
+  abujafct: "FCT",
+  federalcapitalterritory: "FCT",
+  nassarawa: "Nasarawa",
+  crossrivers: "Cross River",
+  akwaibom: "Akwa Ibom",
+};
+
+export const EMPLOYMENT_TYPE_WORDS: Readonly<Record<string, EmploymentTypeCode>> = {
+  fulltime: "FULL_TIME",
+  full: "FULL_TIME",
+  permanent: "FULL_TIME",
+  regular: "FULL_TIME",
+  staff: "FULL_TIME",
+  parttime: "PART_TIME",
+  part: "PART_TIME",
+  contract: "CONTRACT",
+  contractor: "CONTRACT",
+  temporary: "CONTRACT",
+  temp: "CONTRACT",
+  consultant: "CONTRACT",
+  locum: "CONTRACT",
+  intern: "INTERN",
+  internship: "INTERN",
+  siwes: "INTERN",
+  industrialtraining: "INTERN",
+  nysc: "NYSC",
+  corper: "NYSC",
+  youthservice: "NYSC",
+};
+
+export const EMPLOYMENT_STATUS_WORDS: Readonly<Record<string, EmploymentStatusCode>> = {
+  active: "ACTIVE",
+  current: "ACTIVE",
+  employed: "ACTIVE",
+  onleave: "ON_LEAVE",
+  leave: "ON_LEAVE",
+  maternityleave: "ON_LEAVE",
+  suspended: "SUSPENDED",
+  inactive: "SUSPENDED",
+  onhold: "SUSPENDED",
+  onboarding: "ONBOARDING",
+  probation: "ONBOARDING",
+  pending: "ONBOARDING",
+  exited: "EXITED",
+  terminated: "EXITED",
+  resigned: "EXITED",
+  left: "EXITED",
+  retired: "EXITED",
+  dismissed: "EXITED",
+};
+
+export const GENDER_WORDS: Readonly<Record<string, string>> = {
+  female: "female",
+  f: "female",
+  woman: "female",
+  male: "male",
+  m: "male",
+  man: "male",
+  other: "other",
+  o: "other",
+  nonbinary: "other",
+};
+
+const STATES_BY_KEY: ReadonlyMap<string, string> = new Map(
+  NIGERIAN_TAX_STATES.map((state) => [normalizeKey(state), state]),
+);
+
+/**
+ * A written state to its canonical name, or null.
+ *
+ * A trailing "State" is stripped first: "Kaduna State" is what a spreadsheet
+ * says, and refusing it would be pedantry rather than validation.
+ */
+export function resolveTaxState(value: string): string | null {
+  const key = normalizeKey(value).replace(/state$/, "");
+  return STATES_BY_KEY.get(key) ?? STATE_ALIASES[key] ?? null;
+}
+
+/**
+ * The three canonical answers, derived from `GENDER_WORDS` rather than typed
+ * a second time — its own values, deduplicated in the order they are
+ * declared, cannot drift from what the checker actually accepts.
+ */
+const GENDER_OPTIONS: readonly string[] = [...new Set(Object.values(GENDER_WORDS))];
+
+/** Every accepted spelling of "must say monthly", collapsed to the one word. */
+const PAY_FREQUENCY_OPTIONS: readonly string[] = ["monthly"];
+
+/**
  * Rows per request, as the API caps it.
  *
  * Not the number we actually send: `express.json` is capped at 100kb, which
@@ -186,6 +323,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     required: false,
     example: "female",
     note: "female, male or other.",
+    dropdown: GENDER_OPTIONS,
   },
   {
     field: "jobTitle",
@@ -256,6 +394,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     note: "Monthly gross in naira. ₦, commas and spaces are fine. Must be a monthly figure — we will not divide an annual one.",
     recommended: {
       why: "Without it they are on the staff list and cannot be paid — every payroll will name them until it is set.",
+      important: true,
     },
   },
   {
@@ -265,6 +404,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     required: false,
     example: "monthly",
     note: "Must say monthly if it is there at all. Anything else stops the row, because an annual figure imported as monthly overpays by twelve times.",
+    dropdown: PAY_FREQUENCY_OPTIONS,
   },
   {
     field: "bankName",
@@ -284,6 +424,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     recommended: {
       feature: "bankDetails",
       why: "no account number — they will be on the payroll run and cannot be paid from it",
+      important: true,
     },
   },
   {
@@ -397,6 +538,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     example: "Imo",
     note: "One of the 36 states or the FCT. IMO STATE and Imo both read as Imo. An unrecognised one is flagged, never guessed at.",
     recommended: { why: "Reported in statutory and federal-character returns." },
+    dropdown: NIGERIAN_TAX_STATES,
   },
   {
     field: "lgaOfOrigin",
@@ -417,132 +559,6 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
   },
 ];
 
-/**
- * The 36 states and FCT. PAYE is filed to a state revenue service, so this is
- * not a display list — a typo sends a remittance to the wrong agency.
- */
-export const NIGERIAN_TAX_STATES = [
-  "Abia",
-  "Adamawa",
-  "Akwa Ibom",
-  "Anambra",
-  "Bauchi",
-  "Bayelsa",
-  "Benue",
-  "Borno",
-  "Cross River",
-  "Delta",
-  "Ebonyi",
-  "Edo",
-  "Ekiti",
-  "Enugu",
-  "FCT",
-  "Gombe",
-  "Imo",
-  "Jigawa",
-  "Kaduna",
-  "Kano",
-  "Katsina",
-  "Kebbi",
-  "Kogi",
-  "Kwara",
-  "Lagos",
-  "Nasarawa",
-  "Niger",
-  "Ogun",
-  "Ondo",
-  "Osun",
-  "Oyo",
-  "Plateau",
-  "Rivers",
-  "Sokoto",
-  "Taraba",
-  "Yobe",
-  "Zamfara",
-] as const;
-
-/** What people actually type. FCT has four common spellings and none is "FCT". */
-const STATE_ALIASES: Readonly<Record<string, string>> = {
-  abuja: "FCT",
-  fct: "FCT",
-  fctabuja: "FCT",
-  abujafct: "FCT",
-  federalcapitalterritory: "FCT",
-  nassarawa: "Nasarawa",
-  crossrivers: "Cross River",
-  akwaibom: "Akwa Ibom",
-};
-
-export const EMPLOYMENT_TYPE_WORDS: Readonly<Record<string, EmploymentTypeCode>> = {
-  fulltime: "FULL_TIME",
-  full: "FULL_TIME",
-  permanent: "FULL_TIME",
-  regular: "FULL_TIME",
-  staff: "FULL_TIME",
-  parttime: "PART_TIME",
-  part: "PART_TIME",
-  contract: "CONTRACT",
-  contractor: "CONTRACT",
-  temporary: "CONTRACT",
-  temp: "CONTRACT",
-  consultant: "CONTRACT",
-  locum: "CONTRACT",
-  intern: "INTERN",
-  internship: "INTERN",
-  siwes: "INTERN",
-  industrialtraining: "INTERN",
-  nysc: "NYSC",
-  corper: "NYSC",
-  youthservice: "NYSC",
-};
-
-export const EMPLOYMENT_STATUS_WORDS: Readonly<Record<string, EmploymentStatusCode>> = {
-  active: "ACTIVE",
-  current: "ACTIVE",
-  employed: "ACTIVE",
-  onleave: "ON_LEAVE",
-  leave: "ON_LEAVE",
-  maternityleave: "ON_LEAVE",
-  suspended: "SUSPENDED",
-  inactive: "SUSPENDED",
-  onhold: "SUSPENDED",
-  onboarding: "ONBOARDING",
-  probation: "ONBOARDING",
-  pending: "ONBOARDING",
-  exited: "EXITED",
-  terminated: "EXITED",
-  resigned: "EXITED",
-  left: "EXITED",
-  retired: "EXITED",
-  dismissed: "EXITED",
-};
-
-export const GENDER_WORDS: Readonly<Record<string, string>> = {
-  female: "female",
-  f: "female",
-  woman: "female",
-  male: "male",
-  m: "male",
-  man: "male",
-  other: "other",
-  o: "other",
-  nonbinary: "other",
-};
-
-const STATES_BY_KEY: ReadonlyMap<string, string> = new Map(
-  NIGERIAN_TAX_STATES.map((state) => [normalizeKey(state), state]),
-);
-
-/**
- * A written state to its canonical name, or null.
- *
- * A trailing "State" is stripped first: "Kaduna State" is what a spreadsheet
- * says, and refusing it would be pedantry rather than validation.
- */
-export function resolveTaxState(value: string): string | null {
-  const key = normalizeKey(value).replace(/state$/, "");
-  return STATES_BY_KEY.get(key) ?? STATE_ALIASES[key] ?? null;
-}
 
 /* -------------------------------------------------------------------- rules */
 

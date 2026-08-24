@@ -181,9 +181,11 @@ export function LoansScreen() {
       <PageHeader
         title="Staff loans"
         meta={
-          <Badge tone={isConnected ? "success" : "warning"} size="sm" dot>
-            {sourceNote(isConnected)}
-          </Badge>
+          sourceNote(isConnected) && (
+            <Badge tone="warning" size="sm" dot>
+              {sourceNote(isConnected)}
+            </Badge>
+          )
         }
         action={
           <Button variant="accent" size="sm" onClick={() => setApplying(true)}>

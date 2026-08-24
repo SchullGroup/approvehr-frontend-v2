@@ -1081,16 +1081,27 @@ export function excludedNote(run: {
  * A list of problems with nowhere to go is a list somebody reads twice and
  * acts on once. Where the fix is a field on a record, the row links straight
  * at it; where it is a judgement call, it does not pretend otherwise.
+ *
+ * `tab` and `field` are read by the record screen and have to name a real
+ * one: `field` only opens its section pre-focused when `tab` is the section
+ * that field actually lives on — `grossMonthly` is on `employment`, not
+ * `pay`, and a mismatched pair silently opens nothing. A code with no field
+ * worth naming — a judgement call, or a fact about the whole run rather than
+ * one record — links at the record, or the screen the fact is actually
+ * about, and does not pretend otherwise.
  */
 export function fixFor(
   code: string,
   employeeId: string | null,
 ): { href: string; label: string } | null {
+  /* Not employee-scoped: a count of pending overtime across the run, not one
+     person's record. The only code here answered before the `employeeId`
+     gate, because it does not need one. */
+  if (code === "overtime_awaiting_approval") {
+    return { href: `/people/overtime`, label: "Review overtime" };
+  }
   if (!employeeId) return null;
   switch (code) {
-    /* `tab` and `field` are read by the record screen. Without them the link
-       landed on the Personal tab and the person had to go looking for the thing
-       the button had just named. */
     case "missing_bank_account":
       return {
         href: `/people/${employeeId}?tab=pay&field=bankAccount`,
@@ -1100,6 +1111,18 @@ export function fixFor(
       return {
         href: `/people/${employeeId}?tab=pay&field=pensionPin`,
         label: "Add pension PIN",
+      };
+    case "missing_tax_state":
+      return {
+        href: `/people/${employeeId}?tab=pay&field=taxState`,
+        label: "Add PAYE state",
+      };
+    /* `employment`, not `pay` — this is the tab `grossMonthly` actually
+       renders on, beside job title and department. */
+    case "missing_pay":
+      return {
+        href: `/people/${employeeId}?tab=employment&field=grossMonthly`,
+        label: "Set their pay",
       };
     case "deduction_carried":
       return { href: `/payroll/loans`, label: "Open loans" };
