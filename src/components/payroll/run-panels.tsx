@@ -19,6 +19,7 @@ import {
   fixFor,
   formatKobo,
   headcountLabel,
+  shortNoticeFor,
   wasDeducted,
   type Discrepancy,
   type PayrollRun,
@@ -201,7 +202,7 @@ function ExceptionRow({
       </span>
       <div className="min-w-0 flex-1">
         <p className="text-body-sm leading-relaxed text-ink">
-          {exception.message}
+          {shortNoticeFor(exception.code) ?? exception.message}
         </p>
         <p className="mt-0.5 text-meta text-body">
           {blocking

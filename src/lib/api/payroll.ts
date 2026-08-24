@@ -1090,6 +1090,28 @@ export function excludedNote(run: {
  * one record — links at the record, or the screen the fact is actually
  * about, and does not pretend otherwise.
  */
+/** The noun a statutory-switch WARNING is about, for `shortNoticeFor`. */
+const STATUTORY_NOTICE_NOUN: Readonly<Record<string, string>> = {
+  paye_not_deducted: "PAYE",
+  pension_not_operated: "Pension",
+  nhf_not_deducted: "National Housing Fund",
+};
+
+/**
+ * A short, factual stand-in for the three statutory-switch WARNINGs'
+ * `exception.message`, which is the engine's own multi-sentence paragraph —
+ * the Act it names, what a scheme becoming compulsory at fifteen people
+ * means today. That paragraph is right for a reader deciding whether to
+ * switch a deduction back on (`/settings/payroll` links to it rather than
+ * repeating it); it is not what somebody approving a period that already
+ * reflects the decision needs to read again. Null for every other code —
+ * their message is exactly what a reader needs, at whatever length.
+ */
+export function shortNoticeFor(code: string): string | null {
+  const noun = STATUTORY_NOTICE_NOUN[code];
+  return noun ? `${noun} is switched off for this payroll.` : null;
+}
+
 export function fixFor(
   code: string,
   employeeId: string | null,
