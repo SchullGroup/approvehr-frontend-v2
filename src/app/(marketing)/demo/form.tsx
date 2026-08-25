@@ -124,7 +124,7 @@ export function DemoForm() {
           <Check aria-hidden="true" className="size-6 text-slate" strokeWidth={3} />
         </span>
         <h2 className="mt-6 text-h3 text-slate">Pick a time</h2>
-        <p className="mx-auto mt-3 max-w-sm text-body leading-relaxed text-slate-muted">
+        <p className="mx-auto mt-3 max-w-sm text-body leading-relaxed">
           We opened our scheduling page in a new tab — grab whichever slot
           suits you.
         </p>
