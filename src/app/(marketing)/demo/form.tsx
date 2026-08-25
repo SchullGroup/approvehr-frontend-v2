@@ -5,13 +5,24 @@ import { Check } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { PillButton } from "@/components/marketing/pill";
 import { MODULES } from "@/lib/marketing/modules";
+import { submitDemoRequest, configured as isApiConfigured } from "@/lib/marketing/demo";
 
-type Errors = Partial<Record<"name" | "email" | "company" | "headcount", string>>;
+/**
+ * `phone` and `notes` are client-optional but not server-unlimited — the API
+ * caps both (40 and 2000 characters). Without a slot in this type, a server
+ * refusal on either lands in `errors` state and is never read by anything:
+ * `phone`'s field skips the border/message a `TextField` error usually
+ * gets, and `notes` has no error slot below it at all. Both fields now have
+ * one, so a length refusal is visible rather than just failing the generic
+ * banner's "some fields are not valid" with no field to point at.
+ */
+type Errors = Partial<
+  Record<"name" | "email" | "company" | "headcount" | "phone" | "notes", string>
+>;
 
 /**
  * Google Calendar's booking page for the sales team. Opened after a valid
- * submission so the visitor picks a slot themselves rather than waiting on
- * an email that this prototype has no backend to send.
+ * submission so the visitor picks a slot themselves.
  */
 const SCHEDULING_URL = "https://calendar.app.google/eXiGqm27KjSdJr9v9";
 
@@ -33,6 +44,8 @@ const PAYROLL_TODAY = [
 export function DemoForm() {
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
+  const [apiNote, setApiNote] = useState<string | null>(null);
   const [errors, setErrors] = useState<Errors>({});
   const [interests, setInterests] = useState<string[]>(["payroll"]);
   const [form, setForm] = useState({
@@ -48,6 +61,7 @@ export function DemoForm() {
   const set = (key: keyof typeof form, value: string) => {
     setForm((f) => ({ ...f, [key]: value }));
     setErrors((e) => ({ ...e, [key]: undefined }));
+    setServerError(null);
   };
 
   function validate(): Errors {
@@ -61,8 +75,9 @@ export function DemoForm() {
     return next;
   }
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
+    setServerError(null);
     const found = validate();
     setErrors(found);
     if (Object.keys(found).length > 0) {
@@ -72,14 +87,34 @@ export function DemoForm() {
     }
     /* Opened synchronously, in the same tick as the click, so the browser
        treats it as a direct result of the user's gesture rather than a
-       popup — delaying this past the setTimeout below is what gets it
+       popup — delaying this past the async fetch is what gets it
        blocked. */
     window.open(SCHEDULING_URL, "_blank", "noopener,noreferrer");
     setBusy(true);
-    setTimeout(() => {
-      setBusy(false);
+
+    const outcome = await submitDemoRequest({
+      name: form.name,
+      email: form.email,
+      company: form.company,
+      phone: form.phone,
+      headcount: form.headcount,
+      payrollToday: form.payrollToday,
+      interests,
+      notes: form.notes,
+    });
+
+    setBusy(false);
+
+    if (outcome.ok) {
+      setApiNote(outcome.value.note);
       setSent(true);
-    }, 700);
+    } else {
+      if (Object.keys(outcome.fields).length > 0) {
+        setErrors((prev) => ({ ...prev, ...outcome.fields }));
+        document.getElementById(Object.keys(outcome.fields)[0])?.focus();
+      }
+      setServerError(outcome.message);
+    }
   }
 
   if (sent) {
@@ -89,7 +124,7 @@ export function DemoForm() {
           <Check aria-hidden="true" className="size-6 text-slate" strokeWidth={3} />
         </span>
         <h2 className="mt-6 text-h3 text-slate">Pick a time</h2>
-        <p className="mx-auto mt-3 max-w-sm leading-relaxed text-slate-muted">
+        <p className="mx-auto mt-3 max-w-sm text-body leading-relaxed text-slate-muted">
           We opened our scheduling page in a new tab — grab whichever slot
           suits you.
         </p>
@@ -101,11 +136,15 @@ export function DemoForm() {
         >
           Didn&apos;t open? Open the scheduler
         </a>
-        <p className="mt-8 rounded-xl bg-wash-amber p-3.5 text-meta leading-relaxed text-slate-soft">
-          This is a prototype — the details above are not yet sent
-          anywhere, so bring them up on the call rather than assuming we
-          have them.
-        </p>
+        {isApiConfigured ? (
+          <p className="mt-8 rounded-xl bg-wash-green/40 p-3.5 text-meta leading-relaxed text-slate-soft">
+            {apiNote ?? "ApproveHR has your demo request."}
+          </p>
+        ) : (
+          <p className="mt-8 rounded-xl bg-wash-amber p-3.5 text-meta leading-relaxed text-slate-soft">
+            This is a prototype — no API is configured, so the details above were not sent to a server.
+          </p>
+        )}
       </div>
     );
   }
@@ -154,6 +193,7 @@ export function DemoForm() {
             label="Phone"
             optional
             value={form.phone}
+            error={errors.phone}
             onChange={(v) => set("phone", v)}
             placeholder="+234 800 000 0000"
           />
@@ -239,11 +279,24 @@ export function DemoForm() {
             id="notes"
             rows={3}
             value={form.notes}
+            aria-invalid={Boolean(errors.notes)}
+            aria-describedby={errors.notes ? "notes-error" : undefined}
             onChange={(e) => set("notes", e.currentTarget.value)}
             placeholder="We have staff across three states and file PAYE separately for each."
-            className="mt-2 w-full resize-y rounded-xl border border-sand-line bg-white px-4 py-3 text-body placeholder:text-slate-muted/60 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate"
+            className={cn(
+              "mt-2 w-full resize-y rounded-xl border bg-white px-4 py-3 text-body placeholder:text-slate-muted/60 focus:outline-none",
+              "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate",
+              errors.notes ? "border-danger" : "border-sand-line",
+            )}
           />
+          {errors.notes && <FieldError id="notes-error">{errors.notes}</FieldError>}
         </div>
+
+        {serverError && (
+          <div className="rounded-xl bg-danger/10 p-3.5 text-meta font-medium text-danger-text">
+            {serverError}
+          </div>
+        )}
 
         <PillButton
           type="submit"
