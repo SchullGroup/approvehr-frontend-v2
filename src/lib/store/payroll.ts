@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { ApiError } from "@/lib/api/client";
 import {
   payrollApi,
@@ -22,6 +28,7 @@ import {
   type ReliefRegime,
   type RunException,
   type RunExclusion,
+  type TaxOverrideChange,
 } from "@/lib/api/payroll";
 import {
   DEMO_PAYSLIP_BASIS,
@@ -326,6 +333,11 @@ function demoPayslip(
       reliefKobo: figures.reliefMonthlyKobo,
       relief: DEMO_RELIEF,
       payeKobo: figures.payeKobo,
+      /* Demo payroll is always the fixture's own figures — see the module
+         header on why an override cannot exist here without a second engine
+         in the browser. */
+      payeOverridden: false,
+      payeOverrideReason: null,
       otherDeductionsKobo: takenKobo,
       netKobo: figures.netKobo - takenKobo,
       unpaidDays: 0,
@@ -472,7 +484,14 @@ function demoExceptions(
     code: string,
     employeeId: string | null,
     message: string,
-  ) => out.push({ id: `${code}-${employeeId ?? "run"}`, employeeId, severity, code, message });
+  ) =>
+    out.push({
+      id: `${code}-${employeeId ?? "run"}`,
+      employeeId,
+      severity,
+      code,
+      message,
+    });
 
   /* Said once, at the top, and never implied away. Every figure on this run is
      output the API's engine produced for the demo salaries — not a live
@@ -753,6 +772,11 @@ function buildDemoRun(
     payslips: slips,
     exceptions: demoExceptions(people, computed, settings, excluded),
     exclusions,
+    /* Entering PAYE by hand needs the same engine the figures themselves
+       came from, so it is refused in demo mode outright — see
+       `usePayrollActions().setTaxOverride`. Nothing here can ever be
+       overridden, so the list is always empty. */
+    taxOverrides: [],
   };
 }
 
@@ -778,8 +802,7 @@ const resolveDemoRun = (
   record: DemoRunRecord,
   people: PayrollEmployee[],
   settings: PayrollSettings,
-): PayrollRunDetail =>
-  record.frozen ?? buildDemoRun(record, people, settings);
+): PayrollRunDetail => record.frozen ?? buildDemoRun(record, people, settings);
 
 const summarise = (detail: PayrollRunDetail): PayrollRun => {
   const { payslips, exceptions, exclusions, ...run } = detail;
@@ -914,7 +937,8 @@ export function usePayrollRun(id: string | null): RunState {
         const detail = await payrollApi.run(id, controller.signal);
         if (!cancelled) setFetched({ id, nonce, detail, error: null });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
           setFetched({
             id,
@@ -1025,7 +1049,8 @@ export function useRunPayslips(
         );
         if (!cancelled) setFetched({ runId, key, page, error: null });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
           setFetched({
             runId,
@@ -1047,7 +1072,9 @@ export function useRunPayslips(
      `lib/store/shifts.ts` establishes and every store in this app follows. */
   const local = useMemo(() => {
     if (isConnected) return null;
-    const run = runId ? demo.details.find((detail) => detail.id === runId) : null;
+    const run = runId
+      ? demo.details.find((detail) => detail.id === runId)
+      : null;
     if (!run) {
       return {
         payslips: [] as Payslip[],
@@ -1094,7 +1121,10 @@ export function useRunPayslips(
   }
 
   const matched =
-    active && fetched !== null && fetched.runId === runId && fetched.key === key;
+    active &&
+    fetched !== null &&
+    fetched.runId === runId &&
+    fetched.key === key;
 
   return {
     payslips: matched ? (fetched.page?.payslips ?? []) : [],
@@ -1194,7 +1224,8 @@ export function useMyPayslips(employeeId: string | null): OwnPayslipsState {
         );
         if (!cancelled) setFetched({ employeeId, page, error: null });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
           setFetched({
             employeeId,
@@ -1221,7 +1252,12 @@ export function useMyPayslips(employeeId: string | null): OwnPayslipsState {
         .filter((slip) => slip.employeeId === employeeId)
         .map((slip) => ({
           ...slip,
-          run: { id: run.id, period: run.period, payDate: run.payDate, status: run.status },
+          run: {
+            id: run.id,
+            period: run.period,
+            payDate: run.payDate,
+            status: run.status,
+          },
         })),
     );
     return { payslips: mine, total: mine.length };
@@ -1231,7 +1267,8 @@ export function useMyPayslips(employeeId: string | null): OwnPayslipsState {
     return { ...local, loading: false, error: null, connected: false };
   }
 
-  const matched = active && fetched !== null && fetched.employeeId === employeeId;
+  const matched =
+    active && fetched !== null && fetched.employeeId === employeeId;
 
   return {
     payslips: matched ? (fetched.page?.payslips ?? []) : [],
@@ -1273,7 +1310,10 @@ export function usePayrollActions() {
 
       const state = demoStore.current();
       const existing = state.runs.find((r) => r.period === input.period);
-      if (existing && (existing.status === "APPROVED" || existing.status === "PAID")) {
+      if (
+        existing &&
+        (existing.status === "APPROVED" || existing.status === "PAID")
+      ) {
         throw new ApiError(
           409,
           "conflict",
@@ -1327,7 +1367,9 @@ export function usePayrollActions() {
       }
 
       const detail = buildDemoRun(record, people, settings);
-      const blockers = detail.exceptions.filter((e) => e.severity === "BLOCKER");
+      const blockers = detail.exceptions.filter(
+        (e) => e.severity === "BLOCKER",
+      );
       if (blockers.length > 0) {
         throw new ApiError(
           422,
@@ -1357,7 +1399,10 @@ export function usePayrollActions() {
       const settledLoans = detail.payslips.filter((p) =>
         p.lines.some((l) => l.kind === "DEDUCTION" && !l.taxable),
       ).length;
-      return { id: runId, settled: { loans: settledLoans, claims: 0, overtime: 0 } };
+      return {
+        id: runId,
+        settled: { loans: settledLoans, claims: 0, overtime: 0 },
+      };
     },
     [isConnected, people, settings],
   );
@@ -1485,7 +1530,9 @@ export function usePayrollActions() {
         );
       }
 
-      const kept = exclusionsOf(record).filter((row) => row.employeeId !== employeeId);
+      const kept = exclusionsOf(record).filter(
+        (row) => row.employeeId !== employeeId,
+      );
       if (kept.length === exclusionsOf(record).length) {
         throw new ApiError(
           404,
@@ -1509,7 +1556,65 @@ export function usePayrollActions() {
     [isConnected, people, settings],
   );
 
-  return { prepare, approve, cancel, exclude, putBack, connected: isConnected };
+  /**
+   * Enters somebody's PAYE by hand for this one payroll, in place of the
+   * engine's own bands, and rebuilds the period.
+   *
+   * **Refuses outright in demo mode.** Every other write here can be
+   * reproduced locally because it only decides who is on the run — the figures
+   * themselves still come from the one real engine, generated once into the
+   * demo fixture. Recomputing a payslip's net pay around a hand-typed PAYE
+   * figure needs that same engine, and this repo has exactly one, in the API.
+   * Reimplementing tax-band arithmetic here to make this button work offline
+   * is the mistake `HANDOVER.md` spends a whole section warning against.
+   */
+  const setTaxOverride = useCallback(
+    async (
+      runId: string,
+      input: {
+        employeeId: string;
+        payeKobo: number;
+        reason: string;
+        alsoStanding?: boolean;
+      },
+    ): Promise<TaxOverrideChange> => {
+      if (isConnected) return payrollApi.setTaxOverride(runId, input);
+      throw new ApiError(
+        0,
+        "offline",
+        "Entering tax by hand needs the API. A figure typed here would recompute " +
+          "net pay with no engine to check it against, so the demo will not " +
+          "pretend it has.",
+      );
+    },
+    [isConnected],
+  );
+
+  /** Clears this period's hand-entered PAYE. Same reasoning as
+   *  `setTaxOverride` for why demo mode refuses. */
+  const clearTaxOverride = useCallback(
+    async (runId: string, employeeId: string): Promise<TaxOverrideChange> => {
+      if (isConnected) return payrollApi.clearTaxOverride(runId, employeeId);
+      throw new ApiError(
+        0,
+        "offline",
+        "Entering tax by hand needs the API, so there is nothing here for the " +
+          "demo to clear.",
+      );
+    },
+    [isConnected],
+  );
+
+  return {
+    prepare,
+    approve,
+    cancel,
+    exclude,
+    putBack,
+    setTaxOverride,
+    clearTaxOverride,
+    connected: isConnected,
+  };
 }
 
 /* --------------------------------------------------------------- payslips */
@@ -1576,10 +1681,14 @@ export function usePayslipRecord(
 
     void (async () => {
       try {
-        const { payslip, run } = await payrollApi.payslip(id, controller.signal);
+        const { payslip, run } = await payrollApi.payslip(
+          id,
+          controller.signal,
+        );
         if (!cancelled) setFound({ id, payslip, run });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) setFound({ id, payslip: null, run: null });
       }
     })();

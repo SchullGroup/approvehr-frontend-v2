@@ -60,6 +60,18 @@ export type Employee = {
   salaryGradeId?: Uuid | null;
 
   /**
+   * Whether a payroll run should open this person's PAYE editable by default,
+   * rather than a reviewer switching it to manual entry every period.
+   *
+   * A standing preference, never the tax figure itself — that lives on the
+   * run being reviewed (`RunTaxOverride` in `lib/api/payroll.ts`), because
+   * what somebody owes genuinely differs period to period even for somebody
+   * a company always enters by hand. `undefined` on a source that predates
+   * the field.
+   */
+  payeManualOverride?: boolean;
+
+  /**
    * Contractual monthly gross in naira, or **null** where nobody has set one.
    *
    * Nullable because the API's column is: somebody can be on the staff list
@@ -185,7 +197,11 @@ export type PayrollGap = {
 };
 
 export function payrollGapsFor(
-  e: { bankAccount: string | null; pensionPin: string | null; tin: string | null },
+  e: {
+    bankAccount: string | null;
+    pensionPin: string | null;
+    tin: string | null;
+  },
   pensionOperated = true,
 ): PayrollGap[] {
   const gaps: PayrollGap[] = [];
@@ -238,9 +254,18 @@ export function payrollGapsFor(
 export function payrollFieldsForDisplay(
   e: Pick<
     Employee,
-    "bankAccount" | "pensionPin" | "tin" | "hasBankAccount" | "hasPensionPin" | "hasTin"
+    | "bankAccount"
+    | "pensionPin"
+    | "tin"
+    | "hasBankAccount"
+    | "hasPensionPin"
+    | "hasTin"
   >,
-): { bankAccount: string | null; pensionPin: string | null; tin: string | null } {
+): {
+  bankAccount: string | null;
+  pensionPin: string | null;
+  tin: string | null;
+} {
   const has = (flag: boolean | undefined, real: string | null) =>
     (flag ?? real !== null) ? "•" : null;
   return {
@@ -306,7 +331,8 @@ export const nextStage = (id: StageId): StageId | null =>
 /** Terminal outcomes sit outside the pipeline rather than as a sixth stage. */
 export type Outcome = "in_progress" | "hired" | "rejected" | "withdrawn";
 
-export type RequisitionStatus = "draft" | "pending_approval" | "open" | "on_hold" | "closed";
+export type RequisitionStatus =
+  "draft" | "pending_approval" | "open" | "on_hold" | "closed";
 
 export type Requisition = {
   id: Uuid;
