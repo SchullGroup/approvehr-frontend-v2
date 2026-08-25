@@ -520,10 +520,7 @@ function TodayView({
       </div>
 
       <Card>
-        <CardHeader
-          title={`Roster — ${shortDate(roster.date)}`}
-          description="Exceptions first. Anyone on approved leave is shown as on leave, never as a no-show."
-        />
+        <CardHeader title={`Roster — ${shortDate(roster.date)}`} />
         <TableWrap className="rounded-none border-0">
           <THead>
             <TH>Employee</TH>
