@@ -149,6 +149,8 @@ const OFFLINE = {
   remind:
     "Reminding needs the API — this browser has no inbox to put it in. Copy the message below instead.",
   remove: "Removing a document needs the API.",
+  verify:
+    "Marking a document as checked needs the API — there is no verifier behind this browser to record who confirmed it.",
 } as const;
 
 /* ------------------------------------------------------------- demo dataset */
@@ -704,6 +706,16 @@ export function useEmployeeFile(
       async (documentId: string) => {
         if (!isConnected) refuse(OFFLINE.remove);
         const result = await documentsApi.archive(documentId);
+        if (employeeId !== null) await load(employeeId);
+        return result;
+      },
+      [employeeId, isConnected, load],
+    ),
+    /** HR confirms it is what it claims to be. Always HR's action, never the subject's own. */
+    verify: useCallback(
+      async (documentId: string) => {
+        if (!isConnected) refuse(OFFLINE.verify);
+        const result = await documentsApi.verify(documentId);
         if (employeeId !== null) await load(employeeId);
         return result;
       },

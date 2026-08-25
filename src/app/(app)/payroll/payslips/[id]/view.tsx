@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { FileQuestion, Printer } from "lucide-react";
 import {
@@ -14,11 +15,46 @@ import {
   type YearToDateKobo,
 } from "@/components/payroll/payslip-document";
 import { RunStatusBadge, SourceBadge } from "@/components/payroll/run-panels";
+import { company as companyApi, type ApiCompanyProfile } from "@/lib/api/endpoints";
 import { longDate, periodLabel } from "@/lib/api/payroll";
 import { usePayrollSettings } from "@/lib/payroll/use-settings";
 import { useCompanySettings } from "@/lib/store/company";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { usePayslipRecord } from "@/lib/store/payroll";
+
+/**
+ * The company identity block, live when connected.
+ *
+ * `useCompanySettings()` is a pure localStorage store with no idea whether the
+ * browser is talking to a real company — reading it unconditionally is what
+ * put a demo company's name and RC number on a real customer's printed
+ * payslip. `record.connected` is the same signal every other part of this
+ * page already reads (`SourceBadge`, the `rates` prop below); this hook just
+ * asks it too, for the one thing it did not yet gate.
+ */
+function useCompanyIdentity(connected: boolean) {
+  const [profile, setProfile] = useState<ApiCompanyProfile | null>(null);
+
+  useEffect(() => {
+    if (!connected) return;
+    let cancelled = false;
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const result = await companyApi.profile(controller.signal);
+        if (!cancelled) setProfile(result);
+      } catch {
+        if (!cancelled) setProfile(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [connected]);
+
+  return profile;
+}
 
 /**
  * One payslip.
@@ -38,6 +74,12 @@ import { usePayslipRecord } from "@/lib/store/payroll";
  * from whichever directory is live, so the block fills in the same way in both
  * modes — and anything genuinely unknown prints as a dash rather than being
  * guessed at.
+ *
+ * The company header follows the same rule and used not to: it read the
+ * localStorage-only demo settings unconditionally, so a real customer's
+ * printed payslip carried a fabricated legal name and RC number. `useCompanyIdentity`
+ * fetches the real `/company/profile` whenever `record.connected` is true;
+ * the demo store is now only reached in demo mode.
  */
 export function PayslipView({ id }: { id: string }) {
   const params = useSearchParams();
@@ -53,7 +95,8 @@ export function PayslipView({ id }: { id: string }) {
      it. Against the API the rates are unknown for a stored payslip and are left
      off rather than derived. */
   const { settings } = usePayrollSettings();
-  const { settings: company } = useCompanySettings();
+  const { settings: demoCompany } = useCompanySettings();
+  const liveCompany = useCompanyIdentity(record.connected);
 
   if (record.loading) {
     return (
@@ -127,11 +170,22 @@ export function PayslipView({ id }: { id: string }) {
         slip={slip}
         period={periodLabel(run.period)}
         payDate={longDate(run.payDate)}
-        company={{
-          name: company.profile.legalName,
-          rc: company.profile.rcNumber,
-          address: `${company.profile.address}, ${company.profile.city}`,
-        }}
+        company={
+          record.connected
+            ? {
+                name: liveCompany?.legalName ?? "—",
+                rc: liveCompany?.rcNumber ?? "—",
+                address: liveCompany
+                  ? [liveCompany.addressLine, liveCompany.city].filter(Boolean).join(", ") ||
+                    "—"
+                  : "—",
+              }
+            : {
+                name: demoCompany.profile.legalName,
+                rc: demoCompany.profile.rcNumber,
+                address: `${demoCompany.profile.address}, ${demoCompany.profile.city}`,
+              }
+        }
         {...(record.connected
           ? {}
           : {

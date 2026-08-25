@@ -127,7 +127,6 @@ function Diary() {
           { href: "/hiring/interviews", label: "Interviews" },
         ]}
         title="Interviews"
-        description="Everything scheduled, every scorecard still owed, and how many people are still waiting for a first look."
       />
 
       <PageBody className="flex flex-col gap-5">

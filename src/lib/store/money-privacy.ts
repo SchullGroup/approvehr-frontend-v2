@@ -41,6 +41,7 @@ const store = createPersistedState<{ hidden: boolean }>({
 export function useMoneyHidden(): boolean {
   return useSyncExternalStore(
     store.subscribe,
+    // read-for-render: getSnapshot must return `.hidden` itself, so `store.read` cannot be passed bare here.
     () => store.read().hidden,
     /* The server never knows the preference, so it renders visible and the
        client corrects on its first subscribe — the hydration rule the whole of

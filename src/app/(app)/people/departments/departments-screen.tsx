@@ -191,7 +191,6 @@ export function DepartmentsScreen() {
     <>
       <PageHeader
         title="Departments and teams"
-        description="Your org structure, and what each unit costs a month."
         meta={
           DEMO_ENABLED && departments.source === "demo" ? (
             <Badge tone="warning" size="sm">

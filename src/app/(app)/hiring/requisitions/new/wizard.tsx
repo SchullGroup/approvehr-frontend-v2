@@ -2,14 +2,16 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, Check, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Lock, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
   Button,
+  ButtonLink,
   Callout,
   Card,
   CardBody,
   Checkbox,
+  EmptyState,
   Field,
   FieldSet,
   IconButton,
@@ -17,16 +19,24 @@ import {
   Money,
   RadioCard,
   Select,
+  Skeleton,
   StepIndicator,
   Textarea,
   useStepper,
   useToast,
 } from "@/components/ui";
+import { PageBody, PageHeader } from "@/components/portal/shell";
 import { SourceBadge } from "@/components/hiring/source-badge";
 import { ApiError } from "@/lib/api/client";
+import { usePermissions } from "@/lib/permissions";
 import { useAdvertCreation } from "@/lib/store/hiring";
 import { EMPLOYEES } from "@/lib/mock/people";
 import { STAGES, fullName, type StageId } from "@/lib/types";
+
+const BREADCRUMB = [
+  { href: "/hiring", label: "Pipeline" },
+  { href: "/hiring/requisitions/new", label: "New requisition" },
+];
 
 /*
  * Creating a role is five decisions, not one long form:
@@ -128,7 +138,66 @@ function advertText(draft: Draft): { summary: string; description: string } {
   return { summary: summary || draft.title, description };
 }
 
+/**
+ * Gated, like every sibling hiring screen.
+ *
+ * Step four picks a hiring manager and a recruiter from the **full employee
+ * roster**, and the backend write this wizard eventually calls needs
+ * `MANAGE_HIRING` on its own — so letting the form itself render for anybody
+ * without it would make a five-step wizard discoverable and fillable by
+ * somebody who can only ever get a 403 at the end. See `candidate-screen.tsx`
+ * for the pattern this copies.
+ */
 export function RequisitionWizard() {
+  const { can, loading } = usePermissions();
+
+  if (loading) {
+    return (
+      <>
+        <PageHeader breadcrumb={BREADCRUMB} title="Open a new role" />
+        <PageBody>
+          <Skeleton className="h-40 w-full" />
+          <span className="sr-only-focusable">Loading this form</span>
+        </PageBody>
+      </>
+    );
+  }
+
+  if (!can("MANAGE_HIRING")) {
+    return (
+      <>
+        <PageHeader breadcrumb={BREADCRUMB} title="Open a new role" />
+        <PageBody>
+          <Card>
+            <EmptyState
+              icon={<Lock aria-hidden="true" />}
+              title="You cannot open a new role"
+              description="Opening a role sets its salary band and picks a hiring team from the full employee roster, so it is kept to whoever hires. Ask whoever manages access to add hiring to your role."
+              action={
+                <ButtonLink href="/hiring" variant="secondary" size="sm">
+                  Back to hiring
+                </ButtonLink>
+              }
+            />
+          </Card>
+        </PageBody>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <PageHeader breadcrumb={BREADCRUMB} title="Open a new role" />
+      <PageBody>
+        <Wizard />
+      </PageBody>
+    </>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+function Wizard() {
   const router = useRouter();
   const toast = useToast();
   const adverts = useAdvertCreation();

@@ -109,6 +109,13 @@ export type ApiMissingField = {
   /** The heading it would have been under, in their words. */
   column: string;
   why: string;
+  /**
+   * True when a payroll run cannot pay this person at all without it, as
+   * opposed to leaving only a schedule or a filing incomplete. Splits the
+   * Fixes step's missing-details list into "needed to pay them" and "add
+   * later".
+   */
+  important: boolean;
 };
 
 export type ApiRowReport = {
@@ -179,6 +186,12 @@ export type ApiValidateResult = {
   duplicates: ApiDuplicateCounts;
   /** Rows that import with a recommended field empty. Never a blocker. */
   flagged: number;
+  /**
+   * A company-level fact rather than a per-row one: the organisation has no
+   * PAYE state of its own, and at least one row here had none to fall back on
+   * either. Only ever set for the employees entity.
+   */
+  missingOrgTaxState: boolean;
   fingerprint: string;
   maxRowsPerBatch: number;
 };
@@ -250,12 +263,27 @@ export type ApiImportBatch = {
   createdAt: string;
   completedAt: string | null;
   summary: string;
+  /**
+   * Whether this batch still has rows outstanding *and* kept the file they
+   * came from, so `imports.rows` has something to hand back.
+   *
+   * On the list rather than only the detail, so the history can offer the
+   * button without fetching every batch to find out.
+   */
+  resumable: boolean;
 };
 
 /** `GET /imports/:batchId`. Rows with something to say; clean rows are the file. */
 export type ApiImportBatchDetail = ApiImportBatch & {
   confirmedAt: string | null;
   rows: ApiRowReport[];
+};
+
+/** `GET /imports/:batchId/rows` — the file a batch can be picked up from. */
+export type ApiImportBatchRows = {
+  filename: string;
+  kind: string;
+  rows: ImportRow[];
 };
 
 export type ApiTemplateColumn = {
@@ -283,6 +311,13 @@ export type ApiTemplateColumn = {
    * row is a record somebody imports by accident.
    */
   templateExample?: string;
+  /**
+   * The exact values this column accepts, when it is a fixed, universal
+   * vocabulary — the 37 tax states, `female`/`male`/`other`, `monthly`. Sent
+   * so the workbook writer can turn the column into a real Excel dropdown
+   * instead of a note somebody has to remember. Absent for most columns.
+   */
+  dropdown?: readonly string[];
 };
 
 /**
@@ -380,6 +415,19 @@ export const imports = {
 
   get: (batchId: string, signal?: AbortSignal) =>
     request<ApiImportBatchDetail>(`/imports/${batchId}`, {
+      ...(signal ? { signal } : {}),
+    }),
+
+  /**
+   * The rows a past batch was checked from, for picking it up again.
+   *
+   * Its own call rather than a field on `get`, because this is the whole
+   * spreadsheet and only the batch somebody chose to resume needs it. Refuses
+   * with 422 when the batch kept no rows — it ran before the column existed,
+   * or everything in it landed.
+   */
+  rows: (batchId: string, signal?: AbortSignal) =>
+    request<ApiImportBatchRows>(`/imports/${batchId}/rows`, {
       ...(signal ? { signal } : {}),
     }),
 

@@ -350,6 +350,12 @@ export function isUnassigned(department: string | null | undefined): boolean {
  *
  * Reads the store directly rather than taking state, because the caller is a
  * mutation and needs the value as it is now, not as it was at last render.
+ * `current()` and not `read()`, which matters more here than anywhere else in
+ * this file: the caller is `useEmployeeMutations`, which subscribes to the
+ * *employee* store and never to this one, so with `read()` the lookup ran
+ * against the seed and refused every department created in this browser —
+ * "That department does not exist" for one that plainly did.
+ *
  * Refuses an id no live department answers to, the same way the API does, rather
  * than falling back to "unassigned" — quietly clearing somebody's cost centre
  * because a picker sent something unexpected is the worse failure.
@@ -357,7 +363,7 @@ export function isUnassigned(department: string | null | undefined): boolean {
 export function demoDepartmentName(id: string): string {
   if (id.trim() === "") return NO_DEPARTMENT;
   const row = demoStructure
-    .read()
+    .current()
     .departments.find((one) => one.id === id && !one.archived);
   if (!row) refuse(422, "unprocessable", "That department does not exist.");
   return row.name;

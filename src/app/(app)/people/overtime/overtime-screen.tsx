@@ -101,7 +101,6 @@ function OwnOvertime() {
     <>
       <PageHeader
         title="Overtime"
-        description="Your extra hours, worked out from your clock-outs."
       />
       <PageBody>
         <MyOvertime
@@ -220,11 +219,12 @@ function AllOvertime() {
     <>
       <PageHeader
         title="Overtime"
-        description="Worked out from the clock, never claimed on a form."
         meta={
-          <Badge tone={overtime.connected ? "success" : "warning"} size="sm" dot>
-            {sourceNote(overtime.connected)}
-          </Badge>
+          sourceNote(overtime.connected) && (
+            <Badge tone="warning" size="sm" dot>
+              {sourceNote(overtime.connected)}
+            </Badge>
+          )
         }
         action={
           <div className="flex flex-wrap items-center gap-2">

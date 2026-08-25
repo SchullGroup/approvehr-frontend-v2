@@ -18,7 +18,6 @@ export default function NewEmployeePage() {
           { href: "/people/new", label: "Add employee" },
         ]}
         title="Add an employee"
-        description="Two steps get somebody onto payroll: their name, and their job and salary. Tax, pension and bank details are optional groups you open if you have them."
         /*
          * The way out, for somebody who arrived here with a list.
          *

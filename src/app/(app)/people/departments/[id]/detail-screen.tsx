@@ -97,11 +97,6 @@ export function DepartmentDetailScreen({ id }: { id: string }) {
     <>
       <PageHeader
         title={detail.name}
-        description={
-          isSub
-            ? "A sub-department. Its people and its cost roll up into its parent."
-            : "A department. Everything nested inside it rolls up into this figure."
-        }
         breadcrumb={[
           { href: "/people", label: "Directory" },
           { href: "/people/departments", label: "Departments" },

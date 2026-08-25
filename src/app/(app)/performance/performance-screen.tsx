@@ -186,15 +186,6 @@ export function PerformanceScreen({ initialTab }: { initialTab: PerformanceTab }
     <>
       <PageHeader
         title="Performance"
-        description={
-          activeTab === "now"
-            ? "What is open, what is waiting on you, and what is waiting on somebody else."
-            : activeTab === "kpis"
-              ? "What people are aiming at, and how far along it is."
-              : activeTab === "periods"
-                ? "The stretches of time an appraisal covers, and what each one needs next."
-                : "Who marks whom in a period, and how much each opinion counts."
-        }
         meta={
           activeTab === "kpis" ? (
             <Badge tone={scope === "mine" ? "neutral" : "accent"} size="sm">

@@ -14,6 +14,7 @@ import {
 } from "@/components/ui";
 import { account, passwordAccepted } from "@/lib/api/account";
 import { stashPendingVerification } from "@/lib/pending-email-verification";
+import { markSignedIn } from "@/lib/store/session";
 import { PasswordField } from "../password-field";
 
 /**
@@ -27,22 +28,21 @@ import { PasswordField } from "../password-field";
  * decides to keep using a spreadsheet, and the API's schema is nullable on every
  * one of them for exactly this reason.
  *
- * ## Nothing in this route group may read the session store
+ * ## Nothing in this route group may call `useSession()`
  *
  * `lib/store/session.ts` restores the session on its **first** subscriber and
- * latches a module-level `hydrated` flag. Its `onAuthChange` listener handles
- * tokens *disappearing* (a failed refresh, a sign-out in another tab) but not
- * tokens *appearing*, because until this screen existed nothing could make that
- * happen outside `signIn` itself.
+ * latches a module-level `hydrated` flag that never resets for the rest of the
+ * tab's life. By the time anybody reaches this screen they have almost always
+ * subscribed once already — the sign-in gate they came from *is* `AuthGate`'s
+ * first subscribe, hydrating the store to `signed_out`. Calling `useSession()`
+ * here too would read that same stale snapshot before this form ever submits.
  *
- * So the order here is load-bearing: `account.register` stores the tokens, and
- * the store is first subscribed to by `AuthGate` on `/dashboard`, which restores
- * from them and finds a signed-in user. Call `useSession()` anywhere in this
- * route group and that order inverts — the store caches "signed out" before the
- * tokens exist, and somebody who has just created an account is shown the
- * sign-in screen. No type can catch that, hence this paragraph. If a session
- * read genuinely becomes necessary here, teach the store to pick up tokens
- * appearing first.
+ * That is also why `account.register` storing tokens is not enough on its own:
+ * `onAuthChange` only reacts to tokens *disappearing*, and a tab that already
+ * hydrated will not restore from storage again on its own. `markSignedIn`
+ * below is the plain, non-hook escape hatch — it writes the resolved user
+ * straight into the store's cache so the next `AuthGate` mount (after
+ * `router.replace`) sees a signed-in session instead of the stale one.
  */
 
 /**
@@ -86,6 +86,9 @@ export function RegisterScreen() {
         email,
         password,
       });
+      /* See the note above — this is what makes the next mount of `AuthGate`
+         find a signed-in session instead of the one it hydrated earlier. */
+      markSignedIn(result.user);
       /* Carried across the redirect below so the setup wizard can nudge
          towards confirming it — see lib/pending-email-verification.ts. */
       stashPendingVerification({ email, hint: result.emailVerification });

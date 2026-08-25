@@ -209,9 +209,6 @@ export function LoanDetailScreen({ id }: { id: string }) {
           { href: "/payroll/loans", label: "Loans" },
         ]}
         title={own ? "Your staff loan" : loan.employeeName}
-        description={`${money(loan.principalKobo)} over ${loan.termMonths} ${
-          loan.termMonths === 1 ? "month" : "months"
-        } · ${money(loan.monthlyRepaymentKobo)} a month`}
         meta={
           <Badge tone={STATUS_TONE[loan.status]} size="sm" dot>
             {LOAN_STATUS_LABEL[loan.status]}

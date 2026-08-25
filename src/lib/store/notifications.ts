@@ -470,7 +470,7 @@ export function useNotifications(tab: InboxTab) {
   const markRead = useCallback(
     async (id: string) => {
       if (!isConnected) {
-        const current = demo.read();
+        const current = demo.current();
         if (current.read.includes(id)) return;
         demo.commit({ ...current, read: [...current.read, id] });
         return;
@@ -491,7 +491,7 @@ export function useNotifications(tab: InboxTab) {
 
   const markAllRead = useCallback(async () => {
     if (!isConnected) {
-      const current = demo.read();
+      const current = demo.current();
       const deleted = new Set(current.deleted);
       const ids = DEMO_ITEMS.filter(
         (item) => !item.read && !deleted.has(item.id),
@@ -510,7 +510,7 @@ export function useNotifications(tab: InboxTab) {
   const remove = useCallback(
     async (id: string) => {
       if (!isConnected) {
-        const current = demo.read();
+        const current = demo.current();
         if (current.deleted.includes(id)) return;
         demo.commit({ ...current, deleted: [...current.deleted, id] });
         return;

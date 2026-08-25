@@ -85,7 +85,11 @@ export const auth = {
   me: () =>
     request<
       ApiUser & {
-        organization: { id: string; legalName: string; tradingName: string | null };
+        organization: {
+          id: string;
+          legalName: string;
+          tradingName: string | null;
+        };
       }
     >("/auth/me"),
 
@@ -120,8 +124,27 @@ export type ApiEmployee = {
   status: string;
   startDate: string;
   endDate: string | null;
+  /**
+   * The pay band this role sits in, or null on nobody. Never used to derive
+   * `grossMonthlyKobo` — the two are independent figures, set independently,
+   * so two people on the same grade can be paid differently.
+   */
+  salaryGradeId: string | null;
+  salaryGrade: { id: string; code: string; name: string } | null;
+  /** Whether a payroll run should open this person's PAYE editable by
+   *  default. See `Employee.payeManualOverride`. */
+  payeManualOverride: boolean;
   /** Null where nobody has agreed a figure. Never rendered as ₦0.00. */
   grossMonthlyKobo: number | null;
+  /**
+   * Present only from the directory list, where the real fields below are
+   * redacted (see `serializeDirectory` in the API). Whether each is on file,
+   * never what it is. Absent (not `false`) from a single-record read, where
+   * the real fields answer the same question directly.
+   */
+  hasBankAccount?: boolean;
+  hasPensionPin?: boolean;
+  hasTin?: boolean;
   bankName: string | null;
   bankAccount: string | null;
   addressLine: string | null;
@@ -137,7 +160,11 @@ export type ApiEmployee = {
   /** Integer kobo, or null for undeclared. See `Employee.annualRentKobo`. */
   annualRentKobo: number | null;
   rentDeclaredAt: string | null;
-  nextOfKin: { name: string; relationship: string | null; phone: string | null } | null;
+  nextOfKin: {
+    name: string;
+    relationship: string | null;
+    phone: string | null;
+  } | null;
   avatarUrl: string | null;
   archived: boolean;
   missingForPayroll: string[];
@@ -328,10 +355,13 @@ export const leave = {
     endDate: string;
     reason?: string;
   }) =>
-    request<{ request: ApiLeaveRequest; warnings: string[] }>("/leave/requests", {
-      method: "POST",
-      body,
-    }),
+    request<{ request: ApiLeaveRequest; warnings: string[] }>(
+      "/leave/requests",
+      {
+        method: "POST",
+        body,
+      },
+    ),
 
   decide: (id: string, decision: "approve" | "decline", note?: string) =>
     request<ApiLeaveRequest>(`/leave/requests/${id}/decide`, {
@@ -340,10 +370,14 @@ export const leave = {
     }),
 
   reopen: (id: string) =>
-    request<ApiLeaveRequest>(`/leave/requests/${id}/reopen`, { method: "POST" }),
+    request<ApiLeaveRequest>(`/leave/requests/${id}/reopen`, {
+      method: "POST",
+    }),
 
   cancel: (id: string) =>
-    request<ApiLeaveRequest>(`/leave/requests/${id}/cancel`, { method: "POST" }),
+    request<ApiLeaveRequest>(`/leave/requests/${id}/cancel`, {
+      method: "POST",
+    }),
 
   balances: (employeeId: string, signal?: AbortSignal) =>
     request<ApiBalance[]>(`/leave/balances/${employeeId}`, {
@@ -450,10 +484,14 @@ export type ApiTimesheetRow = {
 
 export const attendance = {
   locations: (signal?: AbortSignal) =>
-    request<{ id: string; name: string; addressLine: string | null; remoteAllowed: boolean }[]>(
-      "/attendance/locations",
-      { ...(signal ? { signal } : {}) },
-    ),
+    request<
+      {
+        id: string;
+        name: string;
+        addressLine: string | null;
+        remoteAllowed: boolean;
+      }[]
+    >("/attendance/locations", { ...(signal ? { signal } : {}) }),
 
   policy: (signal?: AbortSignal) =>
     request<ApiAttendancePolicy>("/attendance/policy", {
@@ -461,13 +499,20 @@ export const attendance = {
     }),
 
   updatePolicy: (body: Record<string, unknown>) =>
-    request<ApiAttendancePolicy>("/attendance/policy", { method: "PATCH", body }),
+    request<ApiAttendancePolicy>("/attendance/policy", {
+      method: "PATCH",
+      body,
+    }),
 
   roster: (date?: string, signal?: AbortSignal) =>
-    request<{ date: string; policy: ApiAttendancePolicy; rows: ApiRosterRow[] }>(
-      "/attendance/roster",
-      { query: { date }, ...(signal ? { signal } : {}) },
-    ),
+    request<{
+      date: string;
+      policy: ApiAttendancePolicy;
+      rows: ApiRosterRow[];
+    }>("/attendance/roster", {
+      query: { date },
+      ...(signal ? { signal } : {}),
+    }),
 
   timesheet: (days = 15, signal?: AbortSignal) =>
     request<{
@@ -674,10 +719,19 @@ export const company = {
 
   notifications: (signal?: AbortSignal) =>
     request<
-      { id: string; event: string; email: boolean; inApp: boolean; recipients: string | null }[]
+      {
+        id: string;
+        event: string;
+        email: boolean;
+        inApp: boolean;
+        recipients: string | null;
+      }[]
     >("/company/notifications", { ...(signal ? { signal } : {}) }),
 
-  updateNotification: (id: string, body: { email?: boolean; inApp?: boolean }) =>
+  updateNotification: (
+    id: string,
+    body: { email?: boolean; inApp?: boolean },
+  ) =>
     request<{
       id: string;
       event: string;
@@ -722,6 +776,7 @@ export function toEmployee(api: ApiEmployee): Employee {
     employeeNo: api.employeeNo,
     firstName: api.firstName,
     lastName: api.lastName,
+    middleName: api.middleName,
     email: api.email,
     phone: api.phone,
     dateOfBirth: api.dateOfBirth,
@@ -734,8 +789,17 @@ export function toEmployee(api: ApiEmployee): Employee {
     startDate: api.startDate,
     endDate: api.endDate,
     status: api.status.toLowerCase() as Employee["status"],
+    salaryGradeId: api.salaryGradeId,
+    payeManualOverride: api.payeManualOverride,
     grossMonthly:
       api.grossMonthlyKobo === null ? null : toNaira(api.grossMonthlyKobo),
+    ...(api.hasBankAccount !== undefined
+      ? { hasBankAccount: api.hasBankAccount }
+      : {}),
+    ...(api.hasPensionPin !== undefined
+      ? { hasPensionPin: api.hasPensionPin }
+      : {}),
+    ...(api.hasTin !== undefined ? { hasTin: api.hasTin } : {}),
     bankName: api.bankName,
     bankAccount: api.bankAccount,
     pensionPin: api.pensionPin,

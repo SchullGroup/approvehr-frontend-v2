@@ -180,15 +180,12 @@ export function LoansScreen() {
     <>
       <PageHeader
         title="Staff loans"
-        description={
-          seeEverybody
-            ? "What the company has lent, what is left, and what comes out of this month's payroll."
-            : "What you have borrowed and what is left to repay."
-        }
         meta={
-          <Badge tone={isConnected ? "success" : "warning"} size="sm" dot>
-            {sourceNote(isConnected)}
-          </Badge>
+          sourceNote(isConnected) && (
+            <Badge tone="warning" size="sm" dot>
+              {sourceNote(isConnected)}
+            </Badge>
+          )
         }
         action={
           <Button variant="accent" size="sm" onClick={() => setApplying(true)}>

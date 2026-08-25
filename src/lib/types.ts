@@ -30,6 +30,13 @@ export type Employee = {
   employeeNo: string;
   firstName: string;
   lastName: string;
+  /**
+   * Optional and nullable, the same shape as `annualRentKobo` below: `null` is
+   * "asked, and there isn't one", `undefined` is a source that does not carry
+   * the field at all (the demo seed, which predates it). Both render the same
+   * way — nothing to show — so nothing on screen needs to tell them apart.
+   */
+  middleName?: string | null;
   email: string | null;
   phone: string | null;
   dateOfBirth: string | null;
@@ -43,6 +50,26 @@ export type Employee = {
   startDate: string;
   endDate?: string | null;
   status: EmploymentStatus;
+  /**
+   * The pay band this role sits in — a reference range, not a figure.
+   * `null` on nobody yet; `undefined` on a source that predates the field
+   * (the demo seed, which derives a grade instead — see `lib/store/grades.ts`).
+   * Never used to set `grossMonthly`: the two are independent, so two people
+   * on the same grade can be paid differently.
+   */
+  salaryGradeId?: Uuid | null;
+
+  /**
+   * Whether a payroll run should open this person's PAYE editable by default,
+   * rather than a reviewer switching it to manual entry every period.
+   *
+   * A standing preference, never the tax figure itself — that lives on the
+   * run being reviewed (`RunTaxOverride` in `lib/api/payroll.ts`), because
+   * what somebody owes genuinely differs period to period even for somebody
+   * a company always enters by hand. `undefined` on a source that predates
+   * the field.
+   */
+  payeManualOverride?: boolean;
 
   /**
    * Contractual monthly gross in naira, or **null** where nobody has set one.
@@ -56,6 +83,17 @@ export type Employee = {
    * Screens say "Not set yet"; totals leave them out and say how many.
    */
   grossMonthly: number | null;
+  /**
+   * Set only on a directory row from the API, where `bankAccount` /
+   * `pensionPin` / `tin` below are redacted to `null` regardless of whether
+   * they are actually on file — see `serializeDirectory` in the API. Reading
+   * one of those three fields to ask "is this missing" on a directory row
+   * is therefore wrong; `payrollGapsForDirectoryRow` in this file is the
+   * presence-aware version to use there instead.
+   */
+  hasBankAccount?: boolean;
+  hasPensionPin?: boolean;
+  hasTin?: boolean;
   /** Nullable: payroll blocks on these, so their absence is meaningful. */
   bankName: string | null;
   bankAccount: string | null;
@@ -122,6 +160,121 @@ export function missingForPayroll(e: Employee): string[] {
   return REQUIRED_FOR_PAYROLL.filter((k) => !e[k]).map((k) => labels[k]);
 }
 
+/**
+ * What the payroll ENGINE actually does about one of the three fields above
+ * being absent — which is not the same thing for all three, even though
+ * `missingForPayroll` treats them as one list for the completeness meter
+ * above. That list answers "is this record complete"; this one answers "what
+ * happens to this month's payroll if it stays this way", and a screen making
+ * the second claim should read it from here rather than from the length of
+ * the first list.
+ *
+ * Ground truth is `approvehr-api/src/modules/payroll/service.ts`'s `prepare`:
+ *
+ * - a missing bank account is a **BLOCKER** — the run refuses to approve
+ *   until it is added or the person is excluded from the period;
+ * - a missing pension PIN is a **WARNING**, and the engine raises it at all
+ *   only when the company both operates a pension and requires the PIN — it
+ *   means the remittance schedule will be incomplete, never that the payslip
+ *   is withheld;
+ * - a missing TIN raises **nothing** on the run. It is recommended for filing
+ *   and does not affect this month's pay.
+ *
+ * `pensionOperated` defaults to `true` because that is also
+ * `PayrollSettings`'s own default (`pensionEnabled` and `requirePensionPin`
+ * both default `true`), so a screen with no settings loaded yet shows the
+ * common case rather than silently under-claiming. A caller that has the
+ * company's real settings should pass the real answer instead of leaving the
+ * default to speak for it.
+ */
+export type PayrollGap = {
+  field: "bankAccount" | "pensionPin" | "tin";
+  label: string;
+  /** True for the one field the engine actually refuses to pay somebody without. */
+  blocking: boolean;
+  /** What actually happens, worded the way the engine's own exception is. */
+  consequence: string;
+};
+
+export function payrollGapsFor(
+  e: {
+    bankAccount: string | null;
+    pensionPin: string | null;
+    tin: string | null;
+  },
+  pensionOperated = true,
+): PayrollGap[] {
+  const gaps: PayrollGap[] = [];
+  if (!e.bankAccount) {
+    gaps.push({
+      field: "bankAccount",
+      label: "Bank account",
+      blocking: true,
+      consequence:
+        "They cannot be paid until this is added, or they are excluded from the run.",
+    });
+  }
+  if (!e.pensionPin && pensionOperated) {
+    gaps.push({
+      field: "pensionPin",
+      label: "Pension PIN",
+      blocking: false,
+      consequence:
+        "Their pension remittance schedule will be incomplete. It does not hold back their pay.",
+    });
+  }
+  if (!e.tin) {
+    gaps.push({
+      field: "tin",
+      label: "Tax identification number",
+      blocking: false,
+      consequence:
+        "Recommended for filing their tax return. It does not affect this month's pay.",
+    });
+  }
+  return gaps;
+}
+
+/**
+ * The same three fields `payrollGapsFor` and `missingForPayroll` check,
+ * answered correctly for a directory row.
+ *
+ * A directory row from the API has `bankAccount` / `pensionPin` / `tin`
+ * redacted to `null` regardless of whether they are on file (see
+ * `serializeDirectory` in the API) — only `hasBankAccount` etc. say the
+ * truth there. A demo-mode or single-record-read employee has no `has*`
+ * fields at all and its raw fields are the real, ungutted values. Falling
+ * back to the raw field's own truthiness when `has*` is absent is what
+ * makes this one function correct for both.
+ *
+ * The `"•"` is never rendered — `payrollGapsFor` and `missingForPayroll`
+ * only ever test these three fields for truthiness, so any non-empty
+ * string stands in for "on file" without claiming to be a real value.
+ */
+export function payrollFieldsForDisplay(
+  e: Pick<
+    Employee,
+    | "bankAccount"
+    | "pensionPin"
+    | "tin"
+    | "hasBankAccount"
+    | "hasPensionPin"
+    | "hasTin"
+  >,
+): {
+  bankAccount: string | null;
+  pensionPin: string | null;
+  tin: string | null;
+} {
+  const has = (flag: boolean | undefined, real: string | null) =>
+    (flag ?? real !== null) ? "•" : null;
+  return {
+    bankAccount: has(e.hasBankAccount, e.bankAccount),
+    pensionPin: has(e.hasPensionPin, e.pensionPin),
+    tin: has(e.hasTin, e.tin),
+  };
+}
+
 export const fullName = (p: { firstName: string; lastName: string }) =>
   `${p.firstName} ${p.lastName}`;
 
@@ -178,7 +331,8 @@ export const nextStage = (id: StageId): StageId | null =>
 /** Terminal outcomes sit outside the pipeline rather than as a sixth stage. */
 export type Outcome = "in_progress" | "hired" | "rejected" | "withdrawn";
 
-export type RequisitionStatus = "draft" | "pending_approval" | "open" | "on_hold" | "closed";
+export type RequisitionStatus =
+  "draft" | "pending_approval" | "open" | "on_hold" | "closed";
 
 export type Requisition = {
   id: Uuid;

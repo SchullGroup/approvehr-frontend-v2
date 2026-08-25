@@ -91,10 +91,17 @@ const VARIANTS: Record<ButtonVariant, string> = {
     "bg-danger-text text-white shadow-sm hover:brightness-110 active:brightness-95",
 };
 
+/**
+ * `text-body` is deliberately absent from `lg`. Tailwind resolves that utility
+ * name to the `--color-body` gray, not the `--text-body` size (see the trap
+ * documented in globals.css) — so it was silently clobbering every colored
+ * variant's text colour on `size="lg"` (white-on-accent came out gray). The
+ * 16px baseline it was reaching for is what a button inherits anyway.
+ */
 const SIZES: Record<ButtonSize, string> = {
   sm: "h-8 px-3 text-body-sm gap-1.5 rounded-sm",
   md: "h-10 px-4 text-body-sm gap-2 rounded-md",
-  lg: "h-12 px-6 text-body gap-2.5 rounded-md",
+  lg: "h-12 px-6 gap-2.5 rounded-md",
 };
 
 const BASE =

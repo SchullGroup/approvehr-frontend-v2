@@ -4,7 +4,6 @@ import Link from "next/link";
 import { Laptop } from "lucide-react";
 import {
   Badge,
-  Button,
   Card,
   CardBody,
   CardHeader,
@@ -18,10 +17,10 @@ import {
   THead,
   TR,
   TableWrap,
+  rowClick,
 } from "@/components/ui";
 import type { SortOrder } from "@/lib/use-list-query";
 import {
-  CONDITION_LABEL,
   STATUS_LABEL,
   dayLabel,
   daysSince,
@@ -36,10 +35,11 @@ import { STATUS_TONE } from "./item-panel";
  * ## Why "who has it" is a name and a link, not a tick
  *
  * The whole point of the table is the middle column. A boolean "assigned" is
- * useless: nobody chases "assigned", they chase Musa. The staff number is under
- * the name because two people share a first name in every company of thirty,
- * and the name links to their record because the next question is always "is he
- * still here".
+ * useless: nobody chases "assigned", they chase Musa. The name links to their
+ * record because the next question is always "is he still here". The staff
+ * number that used to sit under it moved to the item's own card — two people
+ * sharing a first name is rare enough that a name is the right density for a
+ * row you are scanning, and the card is one click away when it is not.
  *
  * ## One action per row, and it is the obvious one
  *
@@ -136,29 +136,27 @@ export function RegisterTable({
             {column("status", "State")}
             <TH>Given out</TH>
             {/*
-              What it cost and the hand-over actions used to be here.
-              Both moved to the item's own panel: a register is a list you scan
-              to find something, and eight buttons across ten rows is eighty
-              controls for a reader who wants one. Purchase cost is also the one
-              column on this table nobody needs to see over somebody's shoulder.
-              The row itself opens the panel, and every action lives there.
+              What it cost, the hand-over actions and a "Details" column used to
+              be here. All three moved to the item's own panel: a register is a
+              list you scan to find something, and eight buttons across ten rows
+              is eighty controls for a reader who wants one. The row itself opens
+              the panel now — see `rowClick` below — so there is nothing left for
+              a trailing column to do.
             */}
-            <TH align="right">
-              <span className="sr-only">Open</span>
-            </TH>
           </THead>
           <TBody>
             {items.map((item) => (
-              <TR key={item.id} className={item.archived ? "opacity-60" : undefined}>
+              <TR
+                key={item.id}
+                interactive
+                onClick={rowClick(() => onOpen(item))}
+                className={item.archived ? "opacity-60" : undefined}
+              >
                 <TDPrimary
                   title={
-                    <button
-                      type="button"
-                      onClick={() => onOpen(item)}
-                      className="text-left hover:text-accent-text hover:underline underline-offset-4"
-                    >
+                    <span className="hover:text-accent-text hover:underline underline-offset-4">
                       {item.name}
-                    </button>
+                    </span>
                   }
                   subtitle={
                     [item.kind, [item.make, item.model].filter(Boolean).join(" ")]
@@ -173,32 +171,24 @@ export function RegisterTable({
 
                 <TD>
                   {item.holder ? (
-                    <>
-                      <Link
-                        href={`/people/${item.holder.employeeId}`}
-                        className="block font-medium text-ink hover:text-accent-text hover:underline underline-offset-4"
-                      >
-                        {item.holder.name}
-                      </Link>
-                      <span className="tabular block text-meta text-muted">
-                        {item.holder.employeeNo}
-                      </span>
-                    </>
+                    <Link
+                      href={`/people/${item.holder.employeeId}`}
+                      className="font-medium text-ink hover:text-accent-text hover:underline underline-offset-4"
+                    >
+                      {item.holder.name}
+                    </Link>
                   ) : (
                     <span className="text-body-sm text-muted">Nobody</span>
                   )}
                 </TD>
 
                 <TD>
-                  <span className="flex flex-col items-start gap-1">
-                    <Badge tone={STATUS_TONE[item.status]} size="sm" dot>
-                      {STATUS_LABEL[item.status]}
-                    </Badge>
-                    <span className="text-meta text-muted">
-                      {CONDITION_LABEL[item.condition]}
-                      {item.archived ? " · archived" : ""}
-                    </span>
-                  </span>
+                  <Badge tone={STATUS_TONE[item.status]} size="sm" dot>
+                    {STATUS_LABEL[item.status]}
+                  </Badge>
+                  {item.archived && (
+                    <span className="ml-1.5 text-meta text-muted">archived</span>
+                  )}
                 </TD>
 
                 <TD className="whitespace-nowrap">
@@ -214,12 +204,6 @@ export function RegisterTable({
                   ) : (
                     <span className="text-body-sm text-faint">—</span>
                   )}
-                </TD>
-
-                <TD align="right">
-                  <Button variant="ghost" size="sm" onClick={() => onOpen(item)}>
-                    Details
-                  </Button>
                 </TD>
               </TR>
             ))}

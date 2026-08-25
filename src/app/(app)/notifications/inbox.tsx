@@ -156,7 +156,6 @@ export function NotificationsInbox() {
     <>
       <PageHeader
         title="Notifications"
-        description="What needs you, and what just happened."
         meta={
           <>
             {notifications.unread > 0 && (

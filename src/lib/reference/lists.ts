@@ -178,6 +178,30 @@ export const PENSION_PROVIDERS: readonly string[] = [
   "Veritas Glanvills Pensions",
 ];
 
+/**
+ * Sentinel for "not one of these" in a pension-provider picker.
+ *
+ * The doc comment above calls this list "a starting point a company edits" —
+ * and until this existed, nothing actually let a company do that. The sector
+ * consolidates; a newly licensed PFA, or a merger this list has not caught up
+ * with, had no way onto a record short of editing this file. Picking this
+ * value is what reveals the free-text fallback; it is never itself saved —
+ * the picker swaps it for whatever was typed before the value leaves it.
+ */
+export const PENSION_PROVIDER_OTHER = "__other__";
+
+/**
+ * Whether `value` would need the free-text fallback in a provider picker —
+ * present, and not one of the fixed choices. Case-insensitive, matching
+ * `withCurrent` below, so "stanbic ibtc pension managers" is not treated as a
+ * custom name just because of how it was typed.
+ */
+export function isOtherPensionProvider(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  return !PENSION_PROVIDERS.some((p) => p.toLowerCase() === trimmed.toLowerCase());
+}
+
 /* -------------------------------------------------------------------------- */
 /* Free-text taxonomies                                                       */
 /* -------------------------------------------------------------------------- */

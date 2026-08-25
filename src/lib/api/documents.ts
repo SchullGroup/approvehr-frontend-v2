@@ -330,4 +330,16 @@ export const documentsApi = {
       { method: "DELETE" },
     );
   },
+
+  /**
+   * HR confirms it is what it claims to be. Always HR's action, even on the
+   * subject's own file — the point of checking is that somebody other than
+   * whoever attached it looks it over.
+   */
+  verify(id: string): Promise<{ id: string; employeeId: string; verified: boolean }> {
+    return request<{ id: string; employeeId: string; verified: boolean }>(
+      `/documents/${id}/verify`,
+      { method: "POST" },
+    );
+  },
 };

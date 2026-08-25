@@ -106,7 +106,6 @@ function Overview() {
     <>
       <PageHeader
         title="Hiring"
-        description="Every advertised role and everybody waiting on a decision."
         action={
           <>
             <ButtonLink href="/hiring/postings" variant="secondary" size="sm">

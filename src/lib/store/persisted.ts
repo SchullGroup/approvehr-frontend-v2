@@ -60,6 +60,13 @@
  * incompatibly, and the next load drops the stale payload cleanly instead of
  * stranding it (which is exactly what happened when the employee store grew
  * its `created`/`archived` arrays).
+ *
+ * `legacy` is the one exception, and it is deliberately narrow: a payload with
+ * no `v` at all was written by a store that predates this envelope, and its
+ * *shape* is unchanged — only the wrapper is new. Discarding data because the
+ * wrapper changed, in a file whose subject is writes that silently discard
+ * data, would be absurd. It is not a general merge path: a payload that *has*
+ * a `v` and does not match is still dropped.
  */
 
 export type PersistedState<T> = {
@@ -91,12 +98,21 @@ export function createPersistedState<T extends object>({
   key,
   empty,
   version = 1,
+  legacy,
 }: {
   /** localStorage key. Namespace it: `approvehr.<thing>.store`. */
   key: string;
   /** The state before anything local has happened. Must be a stable object. */
   empty: T;
   version?: number;
+  /**
+   * Reads a payload that has no `{ v, data }` envelope, for a store that was
+   * hand-rolled before this factory existed and is being moved onto it. Return
+   * `null` for anything unrecognised. Only reached when `v` is absent, so it
+   * never competes with the version check, and once the store commits again the
+   * payload is enveloped and this is never called for that browser again.
+   */
+  legacy?: (raw: unknown) => T | null;
 }): PersistedState<T> {
   let cache: T = empty;
   let hydrated = false;
@@ -108,11 +124,16 @@ export function createPersistedState<T extends object>({
     try {
       const raw = window.localStorage.getItem(key);
       if (!raw) return empty;
-      const parsed = JSON.parse(raw) as { v?: number; data?: T };
-      if (parsed.v !== version || !parsed.data) return empty;
+      const parsed: unknown = JSON.parse(raw);
+      const wrapped = parsed as { v?: number; data?: T };
+      if (wrapped.v === undefined) {
+        const carried = legacy?.(parsed) ?? null;
+        return carried ? { ...empty, ...carried } : empty;
+      }
+      if (wrapped.v !== version || !wrapped.data) return empty;
       /* Spread over `empty` so a payload written before a *compatible* field
          was added still arrives with that field present. */
-      return { ...empty, ...parsed.data };
+      return { ...empty, ...wrapped.data };
     } catch {
       return empty;
     }

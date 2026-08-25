@@ -13,6 +13,7 @@ import {
   Callout,
   Card,
   CardBody,
+  CardFooter,
   CardHeader,
   DescriptionList,
   Drawer,
@@ -125,6 +126,7 @@ export function LeaveScreen() {
 
   const {
     requests: fetched,
+    total,
     loading,
     error,
     connected,
@@ -264,15 +266,12 @@ export function LeaveScreen() {
     <>
       <PageHeader
         title="Time off"
-        description={
-          onlyMine
-            ? "Your requests, your balance, and what you have left."
-            : "Requests, balances, and who is away when."
-        }
         meta={
-          <Badge tone={connected ? "success" : "warning"} size="sm" dot>
-            {sourceNote(connected)}
-          </Badge>
+          sourceNote(connected) && (
+            <Badge tone="warning" size="sm" dot>
+              {sourceNote(connected)}
+            </Badge>
+          )
         }
         action={
           <div className="flex flex-wrap items-center gap-2">
@@ -329,8 +328,11 @@ export function LeaveScreen() {
           />
         </div>
 
-        <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
-          <Card>
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+          {/* min-w-0: a grid item's default min-width is auto, so without it
+              this card stretches to the table's max-content width and the
+              page scrolls sideways instead of the table scrolling inside it. */}
+          <Card className="min-w-0">
             <CardHeader
               title="Requests"
               description="Waiting first, then by start date."
@@ -466,6 +468,19 @@ export function LeaveScreen() {
                   ))}
                 </TBody>
               </TableWrap>
+            )}
+            {/* The API caps a page at 200 requests. Saying so beats a total
+                that quietly disagrees with the rows above it. Skipped for a
+                signed-in account with no employee record: the callout above
+                already explains why the table is empty, and `total` there
+                describes everybody's requests, not this account's. */}
+            {!noRecord && total > requests.length && (
+              <CardFooter>
+                <p className="text-body-sm text-muted">
+                  The first {requests.length} of {total} requests are shown,
+                  and the figures above cover those.
+                </p>
+              </CardFooter>
             )}
           </Card>
 

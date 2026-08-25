@@ -177,9 +177,6 @@ export function ExitDetailScreen({ id }: { id: string }) {
       <PageHeader
         title={exit.employee.name}
         breadcrumb={[{ href: "/people/offboarding", label: "Exit management" }]}
-        description={`${exit.kindLabel} · last day ${shortDate(exit.lastWorkingDay)} · ${
-          exit.employee.jobTitle
-        }`}
         meta={
           <>
             <Badge tone={statusTone(exit.status)} size="sm">

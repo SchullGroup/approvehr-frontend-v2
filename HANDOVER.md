@@ -2668,6 +2668,13 @@ are adding a write to a screen, that is the moment to check.
 hydration logic, so it has the same latent trap with no `current()` to reach
 for. It has always been written from screens that also read it.
 
+> **Both paragraphs above are now out of date. The audit is done — every store,
+> every call site — and it found that this store was not fully converted either.
+> See "The audit is done" at the end of this file.** They are kept because the
+> per-store reasoning is what somebody should still apply when adding a store,
+> and because the second one turned out to be the wrong prediction in an
+> instructive way.
+
 ## Two smaller things in the same change
 
 - **`StartExitDialog` takes an optional `employeeId` + `employeeName`.** When
@@ -4016,3 +4023,533 @@ reading a single one of them.**
   grep is the mistake `lib/demo.ts` warns about one level up.
 - **The seed's own personas and PINs.** They are gated, the bundle check proves
   they are absent, and demo mode is what they exist for.
+
+---
+
+# The audit is done, and `read()` was never once the right answer
+
+The entry above ends by saying the other twelve stores "were not audited here"
+and that `employees.ts` "has always been written from screens that also read
+it." Both were reasonable and both are now closed — the first by doing the work,
+the second by being wrong in a way worth recording.
+
+## The headline: there were no render reads to preserve
+
+The expectation going in was a judgement call per call site — leave the reads,
+convert the writes. What the audit actually found is that **all 98 `.read()`
+calls in `src/lib/store/*.ts` were write paths. Not one was a render read.**
+
+The reason is structural rather than lucky, and it makes the rule mechanical:
+a render read never *calls* `read`. It hands the function to
+`useSyncExternalStore(store.subscribe, store.read, store.getServerSnapshot)` as
+a bare reference and React calls it. There are 44 of those and they were correct
+already. So:
+
+> `store.read` is render. `store.read()` is a bug. The parentheses are the whole
+> distinction.
+
+All 98 are `current()` now. There is no `.read()` call left in the directory and
+no judgement call left in the rule.
+
+## `scripts/verify-stores.ts`, because nothing else can see this
+
+Wired into `npm run check` as `verify-stores`. Every gate in this repo exists
+because something invisible to `tsc` went wrong, and this is the worst of that
+class so far: both functions are correctly typed, both are individually correct,
+lint has no opinion, the build is green, and the only witness is a browser with
+something already in `localStorage` — which is the state a developer's browser
+is *least* often in, because the fastest way to test a store is to clear it.
+
+Two rules:
+
+1. **`read` may be referenced, never called.** With a `read-for-render` escape
+   hatch on the line or the line above, so that adding a genuine render read is
+   a sentence somebody writes rather than a check somebody deletes. There are
+   none today.
+2. **`current()` never appears in render** — not inside a `useMemo`, and not in
+   the immediate body of an exported hook (depth 1 inside its opener, which is
+   render by definition).
+
+Tamper-tested four ways, each on a real file: reintroducing a `read()` call
+fails; the escape hatch excuses it; `current()` in a `useMemo` fails;
+`current()` in a hook body fails. Restored, and green.
+
+**What it cannot see, stated because a model that omits a case cannot catch a
+failure on it:** rule 2 covers the two constructs this codebase renders through.
+It will not catch `current()` inside a plain helper that a hook body then calls
+during render. That needs a call graph.
+
+One trap found while writing it, worth knowing if you edit the script: the
+*continuation* lines of a `/* … */` block start with neither `*` nor `/`, so a
+leading-marker test is not a comment test. The first draft reported the prose in
+`departments.ts` as a violation. It strips comments properly now.
+
+## Four real defects, not just a rule tidy-up
+
+### 1. The offboarding fix was half-applied — in the store the entry above is about
+
+`demoUpdateTask` and `demoVerifyTask` still found their exit through
+`store.read()` while the `replace()` they both call had been moved to
+`current()`. That combination is worse than either mistake alone:
+
+- a task on an exit that exists only in storage came back **"That task could not
+  be found"**, because the find ran against the seed;
+- a task on a *seed* exit was computed from the seed's ticks and then written
+  over the stored ones by a `replace()` that could see them — so previously
+  ticked tasks silently reverted.
+
+The store the previous session declared fixed was the one still carrying the
+bug. A find-and-replace would have caught it; a per-store judgement call did
+not, because the store had already been judged.
+
+### 2. `demoDepartmentName` refused departments that plainly existed
+
+`demo-structure.ts`'s seam for the record page's department picker. Its caller is
+`useEmployeeMutations`, which subscribes to the **employee** store and never to
+this one — so with `read()` the lookup ran against the seed and refused every
+department created in this browser with *"That department does not exist."*
+
+Latent in practice only because `/people/[id]` also happens to render
+`useDepartments()`. One screen that picks a department without listing them and
+it fires.
+
+### 3. `assertNameFree` checked the seed
+
+`permissions.ts`'s duplicate-role-name refusal, computed from `read()` inside the
+create path. Structurally identical to the duplicate-exit refusal that started
+all this: a guard that cannot see the rows it is guarding against is not a guard.
+
+### 4. `useKbSearch` destroyed article votes on `/help`
+
+The one place the bug **fires today**, and the one this was proved on. Recording
+a failed search joins the "backlog" — a write to `approvehr.knowledge.store` from
+a hook that never subscribes to it. `/help` mounts `KbSearch` and nothing that
+reads that store. So the write was computed from the seed and persisted, taking
+the `votes` key with it.
+
+Measured, before and after, in demo mode:
+
+| | `votes` | `misses` |
+|---|---|---|
+| voted on an article | `{"p-02\|kba-payslip":"helpful"}` | `{}` |
+| then searched on `/help`, with `read()` | **`{}`** | only the new one |
+| then searched on `/help`, with `current()` | preserved | both, accumulated |
+
+That is not a hypothetical about a future screen. It is a person telling the
+product an article helped them, and the next thing they typed erasing it.
+
+## `employees.ts` is on the factory now
+
+The entry above predicted this store was safe because it "has always been
+written from screens that also read it." That is still true of every current
+caller and it is not why the store is safe — it is why nobody had noticed. It
+had no `current()` to reach for and nowhere to put one, which is a store one
+screen away from the same bug with no fix available. So it moved rather than
+growing a second `hydrate()`.
+
+Two things the move fixed for free:
+
+- the old `subscribe` set `hydrated = true` **before** the microtask and with no
+  `typeof window` guard, so a server render reaching it would have marked the
+  module hydrated and stopped the browser from ever loading storage;
+- there was no version field, which is what stranded payloads when
+  `created`/`archived` arrived.
+
+`get()` stays a render read and now takes the subscribed snapshot instead of
+calling `read()` twice while memoising on `[overrides, created]` — the same
+answer with the `exhaustive-deps` suppression removed, which is what leaves this
+file with no `read()` call at all.
+
+### `createPersistedState` gained `legacy`, and it is deliberately narrow
+
+This store's payload was a bare `StoreState`; the factory expects `{ v, data }`.
+Every existing demo browser would have had its directory emptied on load —
+which, in a change whose entire subject is writes that silently discard stored
+data, would be its own joke.
+
+`legacy` is called **only when `v` is absent**, which means the payload predates
+the envelope and its *shape* is unchanged. A payload that has a `v` and does not
+match is still dropped, so the discard rule the factory documents is intact for
+actual version bumps. `employees.ts` recognises its own old payload by the three
+arrays rather than by "it parsed", so a key holding something else is dropped
+rather than spread over the state.
+
+## Two stores audited and found immune, for a reason worth reusing
+
+- **`lib/payroll/use-settings.ts`** — also predates the factory, also has its own
+  hydration copy, and has **no read-then-write path at all**: `save(next)` takes
+  a whole `PayrollSettings` and replaces. A write that does not merge cannot
+  merge stale data. Left alone.
+- **`lib/store/session.ts`** — `set()` is a whole-value replace, and the one place
+  it reads `cache` (`signOut` checking `mode` to pick a path) is reachable only
+  from a signed-in UI, which has subscribed by definition. Left alone, and its
+  documented reason for not being on the factory still stands.
+
+## Live versus latent, honestly
+
+Only `useKbSearch` could be *proved* to fire today. Everywhere else the screen
+happens to mount a reader alongside the mutation hook, so the bug is latent.
+
+That is not reassurance, it is the point. These fifteen hooks never subscribe to
+the store they write — `useKbSearch`, `useRaiseTicket`, `useHolidayMutations`,
+`useShiftMutations`, `usePayrollActions`, `useTeamMutations`,
+`useKpiMutations`, `useObjectiveMutations`, `useReviewMutations`, `useSignOff`,
+`useLoanActions`, `usePaymentActions`, plus `demoDepartmentName`,
+`demoUpdateTask` and `demoVerifyTask` — and each is safe purely because of what
+else the screen mounting it happens to render. That is exactly the state
+`offboarding.ts` was in for months before `/people/[id]` grew a button. Splitting
+a component, adding a route, or moving a dialog is enough.
+
+## Verified
+
+`npm run check` exit **0** (typecheck, lint, titles, contrast, typescale,
+**stores**, payroll, CSV 101, template 26, loans 28+600). `npm run build` exit
+**0**, **86 routes**, **114/114** prerendered — unchanged, nothing silently
+dropped.
+
+In the browser, in demo mode, signed in as Tunde Bakare. Each walk is: write on
+one page load, **full reload**, write again, and assert the first value survived
+— which is the only sequence that can tell these two functions apart.
+
+| Store | What was walked |
+|---|---|
+| `knowledge` | the before/after table above, both directions, including reverting the line to `read()` to reproduce the loss and restoring it |
+| `employees` | seeded the **pre-envelope** payload → "LEGACY PAYLOAD TITLE" rendered in the directory and on a record page; an unrelated edit then re-wrote the payload as `{v:1,data:…}` **keeping** the legacy override beside the new one |
+| `demo-structure` | created "Internal Audit" on `/people/departments`; on a fresh load of `/people/p-03` the picker offered `dept-mt42zdui-1` and saving resolved it to the name — the path that used to refuse |
+| `offboarding` | recorded an exit from the record page, then on a **fresh load** got the refusal verbatim — *"Chidi Nwosu already has an exit in progress (waiting for their manager). Open that one instead of starting a second."* — with the first exit intact and no second one written. Then `demoUpdateTask` and `demoVerifyTask` across three page loads: 5 tasks done, 2 confirmed, accumulating, with the other exit untouched |
+| `onboarding` | `p-08` `[o1,o2,o3,o4]` → `+o6` across a reload |
+| `approvals` | `ap-01` then `ap-05` across a reload |
+| `leave` | `lv-01` then `lv-02` across a reload |
+| `holidays` | "FIRST HOLIDAY" then "SECOND HOLIDAY", both present, 13 dates |
+| `company` | `rcNumber` then `tradingName` across a reload |
+
+**Not walked individually:** `assets`, `attendance`, `conduct`, `helpdesk`,
+`notifications`, `overtime`, `payments`, `payroll`, `performance`, `permissions`,
+`reimbursements`, `shifts`, `teams`, and the write paths in `departments`. Their
+edits are the same one-token substitution as the nine above, they are covered by
+`verify-stores` and by `tsc`, and the two mechanisms they rely on are the two the
+nine walks exercise. Somebody adding a write to one of those screens should still
+do the reload check.
+
+**Connected mode was not exercised.** No API was reachable — port 8000 answers on
+this machine but refuses CORS from the dev server's port. None of this touches
+the connected path: every changed call site is inside an `if (!isConnected)`
+branch or a demo-only helper.
+
+**One environment note, not a finding about the app:** the preview pane's
+screenshot coordinate frame drifts from the page on screens with an inner scroll
+container, so some clicks landed nowhere until they were dispatched on the
+elements directly. Same React handlers, same store code — but the visible-click
+verification of a few steps was done that way rather than through the pane.
+
+## Two things found and deliberately not changed
+
+- **`--check/` is a committed directory**, 59 tracked files, and it is a
+  generated marketing export — somebody ran `npx tsx scripts/export-marketing.ts
+  --check` and the script took the flag as its output path. It is not this
+  change's to delete, but nothing should be reading it.
+- **`.claude/launch.json` gained `"autoPort": true`** so a second session can run
+  the dev server while another holds 3000. Revert it if 3000 is ever required
+  for a callback.
+
+---
+
+# A PAYE state was still blocking an import, after the fix that was supposed to end it
+
+An earlier session made `taxState` optional on the single-employee create path
+and thought that closed it. It did not: `checkEmployees` still refused a row
+outright — `fail("taxState", "A PAYE state is required...")` — whenever the
+company had no default anywhere, which for the bulk importer is *every* row,
+because `taxState` was never a matchable spreadsheet column in the first place
+(see below). A company with no default PAYE state therefore could not import a
+single person, and the product owner's own words were exactly that: *"I still
+had errors when uploading the file and I cant move forward."*
+
+## The actual fix, end to end
+
+- **`Employee.taxState` is nullable now** (`prisma/schema.prisma`, migration
+  `20260824150000_employee_tax_state_optional`), on the same footing as
+  `grossMonthly`. The doc comment on the column explains why this is safe: PAYE
+  itself is one national schedule (`payroll/engine.ts`'s bands are selected by
+  date, never by state), so a person with no state anywhere is taxed exactly
+  correctly — only the *filing* is incomplete, and that is a `payroll/prepare`
+  question, not a create-time one.
+- **`employees/service.ts#create` no longer throws.** `taxState = input.taxState
+  ?? (await organizationTaxState(db)) ?? null` — was a 422 when neither existed,
+  is a plain `null` now. `tests/employees.test.ts`'s
+  "refuses when neither..." became "still creates when neither..." and asserts
+  `taxState: null` on a 201, not a 422.
+- **`payroll/service.ts#prepare` raises `missing_tax_state` as a WARNING**,
+  gated on `settings.payeEnabled`, in the employees `select` clause that was
+  missing the column entirely. Same severity and reasoning as
+  `missing_pension_pin` — unlike `missing_bank_account`, nothing about what the
+  person is paid or what is deducted changes.
+- **`imports/employees.ts#checkEmployees`'s `fail()` for the "no value, no org
+  default" case is gone.** The `fail()` for a *named but unresolvable* state
+  (a genuine typo) is untouched — that is still a real data error. `taxState`
+  moved into the `compact({...})` spread rather than being a required
+  top-level write field, and `ImportedEmployeeWrite.taxState` is `string?`.
+
+### The thing that made this confusing to verify: `taxState` was never a spreadsheet column
+
+`EMPLOYEE_COLUMNS` — the dictionary that answers `/imports/employees/validate`
+— has never declared a `tax_state` `ColumnSpec`. It only exists inside
+`MIGRATION_ONLY_COLUMNS`, which `ETL_EMPLOYEES` adds on top of `EMPLOYEES` and
+only `migrate.ts` reads (`CheckOptions.dictionary`, the same "two callers,
+different contracts" shape as `requireEmployeeNo`). So a bulk upload can never
+carry a PAYE state per row — it always falls back to the organisation's
+default, or nothing. That was true before this fix and is true after it; what
+changed is only what happens when the fallback is also nothing. Confirmed by
+diffing `EMPLOYEE_COLUMNS`' field list against the frontend's mirror in
+`web/src/lib/imports/employees.ts`: identical 29 fields, so there was no drift
+to reconcile — the frontend was never missing anything.
+
+The `missingOrgTaxState` callout in `check-report.tsx` still claimed rows "are
+being skipped" for it, which stopped being true the moment the `fail()` came
+out. Reworded, and the tone dropped from `danger` to `warning`:
+*"Rows below with no `tax_state` cell will still import — their tax is
+deducted correctly either way. Only the state filing for it is left
+incomplete..."*
+
+## Verified
+
+Backend `npm run check` exit **0** — 55 files, **1380 tests**.
+Frontend `npm run check` exit **0** (typecheck, lint, 89 titles, demo, contrast,
+type scale, stores, payroll, CSV 102, template 34, loans).
+
+Against the live API, with `schull`'s `taxState` cleared by hand: `POST
+/imports/employees/validate` on a row with none of the recommended columns
+came back `toCreate: 1`, `errors: []`, `missingOrgTaxState: true` — applied,
+and the created row's `taxState` was `NULL` in the database, not a fabricated
+default. Row and batch deleted afterwards, organisation restored to `Lagos`.
+
+# The missing-details list now opens on what actually stops a payday
+
+Closing the other half of the same complaint: *"any main required field should
+come first in a 2-step process where all the required come first and second
+step all the optional."* Scoped to the Fixes step's "Missing details"
+sub-step specifically (confirmed with the product owner rather than guessed —
+the Match-the-columns step was the other candidate and was not it).
+
+## `Recommendation.important`, declared once, read by both repos
+
+The ten-odd recommended employee fields are not one kind of gap. `grossMonthly`
+and `bankAccount` are the two `payroll/service.ts` raises as a **BLOCKER**
+(`missing_pay`, `missing_bank_account`) the moment a run actually reaches
+them — nobody gets a payslip without them. Everything else recommended
+(`pensionPin`, `tin`, `annualRent`, `email`, `addressLine`, `nin`,
+`stateOfOrigin`, `lgaOfOrigin`) is a **WARNING** at most, or never checked by
+payroll at all — a schedule or a filing is incomplete, the person is still
+paid the right amount.
+
+That distinction is now `Recommendation.important?: boolean`
+(`imports/columns.ts` and its frontend mirror `imports/spec.ts`), set `true`
+on exactly those two fields in both dictionaries, and carried per missing item
+on the wire as `MissingField.important` / `ApiMissingField.important` — the
+same channel `why` already travels on, not a client-side guess re-derived from
+field names. `lib/imports/check.ts`'s offline engine sets it from the same
+declaration, so demo mode and the API cannot disagree about which tier a field
+is in. `departments.ts` and `assets.ts`'s importers pass `important: false` for
+everything they recommend — neither pays anybody, so nothing in either
+qualifies.
+
+## `check-report.tsx`'s `Flagged` component splits by field, not by person
+
+A row can have both kinds of gap (missing an account number *and* an email),
+so the split is per missing item, not per row — the same person can appear in
+both tiers, each time showing only the items that belong there.
+
+- **"Needed to pay them"** is where the sub-step opens, when it has anything in
+  it — required leads, as asked. Its own line under the header says why:
+  *"A payroll run cannot pay these people at all without one of these — set it
+  now, or exclude them from a run until it is there."*
+- **"Add later"** is where the single acknowledgement checkbox and the
+  sub-step's Continue button live — unchanged wiring, `acknowledged` is still
+  one boolean, reset on every re-check exactly as before. If nobody has an
+  important gap, this is the only tier and it opens here directly; if nobody
+  has a later gap, the checkbox renders on the important tier instead of a
+  "Next" button.
+- A `SegmentedControl` between the two (Match-the-columns' own filter control,
+  reused) lets somebody jump straight to "Add later" — deliberately not
+  locked behind visiting "Needed to pay them" first, because nothing here is a
+  gate on anything else. "Required first" is the default landing, not an
+  enforced order.
+
+No new acknowledgement state, no change to `lib/store/imports.ts`'s five reset
+call sites — the split is presentational over the same `RowLine[]`, computed
+with two small `useMemo`s (`importantOnly` / `laterOnly`) in `check-report.tsx`
+alone.
+
+## Verified
+
+Backend `npm run check` exit **0**, unchanged counts (the `important` field is
+additive on the wire). Frontend `npm run check` exit **0**, including
+`verify-template`'s cross-repo column-set assertion.
+
+In the browser, connected, against `schull` with its PAYE state cleared: a
+two-row CSV of nothing but the four required columns, matched, checked,
+landing on "Missing details" already open to **"Needed to pay them (2)"**
+showing only `gross_monthly` and `account_number` per person; **"Next: what can
+wait (2)"** advancing to **"Add later (2)"** with the other eight fields per
+person and `gross_monthly`/`account_number` correctly absent from it; the
+checkbox appearing only there; ticking it enabling Continue. Confirmed over
+`curl` first, independent of the UI: the validate response's `missing[]`
+carries `important: true` on exactly `grossMonthly` and `bankAccount`, `false`
+on the rest. Test batches deleted and the organisation's PAYE state restored
+afterwards.
+
+---
+
+# Five smaller things, all fixed in one pass: dropdowns, a button, a
+paragraph, and where a payroll exception actually sends you
+
+## The template's dropdown-worthy columns are real Excel dropdowns now
+
+The product owner's rule that removed `employment_type`, `work_type`,
+`status`, `pension_provider` and the rest from the spreadsheet importer
+(`MIGRATION_ONLY_COLUMNS`'s own header) is **"remove any field that requires
+a dropdown and can introduce errors."** That rule is still right, and it does
+not cover the three fields that stayed: `gender`, `state_of_origin` and
+`pay_frequency` are each a **fixed, universal** vocabulary — nobody's own
+data, nothing to reconcile against a company list — which is exactly what
+the header says did *not* need removing. Give those three a real dropdown
+cell and the "less errors" the product owner actually asked for is closed
+for the columns that are still here, with nothing reopened that was
+deliberately taken away.
+
+`ColumnSpec.dropdown?: readonly string[]`, declared once per column in both
+dictionaries (`approvehr-api/src/modules/imports/employees.ts`,
+`web/src/lib/imports/employees.ts`), travels in the template payload the
+same way `cell` and `templateExample` already do, and reaches
+`buildTemplateFiles` through `TemplateColumn.dropdown`.
+
+**The Nigerian states alone rule out an inline list.** Excel caps
+`formula1="\"A,B,C\""` at 255 characters and the 37 states are past it, so
+every dropdown here is a **range reference** to a new hidden `Lists` sheet —
+one column per dropdown field, written at template-build time, never opened
+by a person. `xlsx.ts` gained `SheetSpec.hidden` and `SheetSpec.validations`
+on the writer side, and `XlsxSheet.hidden` / `XlsxSheet.dataValidations` on
+the reader side, so `verify-template.ts` can prove the round trip rather than
+assert that a column merely looks selectable. **Independently cross-checked
+with openpyxl** — a completely separate implementation — reading the built
+file back: `state_of_origin` → `Lists!$A$1:$A$37`, `gender` →
+`Lists!$B$1:$B$3`, `pay_frequency` → `Lists!$C$1:$C$1`, `Lists` sheet
+`hidden`, all 37 state names present and correctly ordered.
+
+`buildDictionary`'s vocabulary section (`NIGERIAN_TAX_STATES`,
+`GENDER_WORDS`, and friends) had to move **above** the column declarations in
+both dictionaries — it was defined after them, which only worked because
+nothing previously referenced it from inside a `ColumnSpec` literal at
+module-load time. `GENDER_OPTIONS` is `[...new Set(Object.values(GENDER_WORDS))]`
+rather than a second hand-typed list, so the dropdown's three options cannot
+drift from what the checker actually accepts.
+
+`verify-template.ts` grew from 34 to 42 assertions, including a new
+cross-repo one (`"and the same columns get a dropdown"`) parsed out of the
+API's source as text, the same trick the others already use.
+
+## "Open record" now opens the record at the field the exception named
+
+`fixFor` in `lib/api/payroll.ts` had two working cases
+(`missing_bank_account`, `missing_pension_pin`) and a `default` arm that
+sent everything else to a bare `/people/{id}` — the Personal tab, regardless
+of what was actually wrong. Two gaps closed:
+
+- **`missing_tax_state`** → `?tab=pay&field=taxState`. Was always answerable,
+  just never wired.
+- **`missing_pay`** → `?tab=employment&field=grossMonthly`. This one needed
+  more than a new `case`: `grossMonthly` lives on the **Employment** tab, not
+  Pay & statutory, and only the pay tab's `EditableSection` was passing
+  `openOnField` at all. `record.tsx`'s employment-tab section now does the
+  same `tab === "employment" && focusField` gating the pay tab already had.
+- **`overtime_awaiting_approval`** had no employee to link to at all — it is
+  a count across the whole run — and so had never had a fix link, not even a
+  wrong one. `fixFor` now answers this one *before* the `employeeId` gate,
+  pointing at `/people/overtime` rather than a person's record.
+
+`rent_relief_unclaimed`, `tax_schedule_unconfirmed` and
+`no_attendance_all_period` were looked at and left alone: the first two are
+run-level facts about several people or no person, and the third names a
+person but has no single field to send them to — a human has to look, not a
+form to fill in. Verified live: nulled a real employee's `grossMonthly`,
+recalculated, clicked "Set their pay," and landed on the Employment tab with
+Gross monthly focused rather than the Personal tab; cleared a pension PIN and
+confirmed the sidebar item, separately, below.
+
+## The Pension PIN/TIN callout moved from the page's headline to its sidebar
+
+`/people/[id]`'s `payrollAdvisory` Callout — "Recommended, but not
+pay-blocking" — used to be the first thing rendered in the main column,
+above the tabs, in the same size and weight as the genuine blocker beside
+it. The whole point of splitting `payrollGapsFor` into `payrollBlocking` /
+`payrollAdvisory` was that a missing TIN and a missing bank account are not
+the same kind of fact; rendering both as page-headline callouts undid that
+distinction visually even though the data already carried it.
+
+`payrollAdvisory` now renders inside the identity rail's first `Card`, under
+the completeness meter, as a compact icon-and-label list — no separate
+Callout, no paragraph of `consequence` text competing with the record itself
+for attention. `consequence` is not gone, just no longer forced onto the
+page: it is a `title` attribute, one hover away. `payrollBlocking` is
+untouched — a missing bank account still gets the loud red callout at the
+top, because it is still the one fact that actually stops a payslip.
+
+## A pre-payroll checklist, inline, never a redirect
+
+The run wizard's Period step reads `useSetupChecklist()` — the same hook
+`/settings` itself answers from — and renders "Before you run this": what
+you deduct decided, a default PAYE state set, everybody has a bank account,
+everybody has a pension PIN (only asked about when the company requires
+one), the company has a payout account on file. Every row states a fact and
+offers a link; nothing here navigates on its own, and declining every link
+changes nothing about what Calculate does next. `facts.pay.hasPrimaryBankAccount`
+is skipped entirely rather than shown as a false "no account" when it is
+`null` (offline) — absent, not a wrong claim, the same rule everywhere else
+in this file.
+
+Verified live: cleared the organisation's PAYE state, confirmed the row
+flipped from a green check to an amber warning with a "Set it" link and the
+description recomputed ("1 thing worth sorting first…"), restored it,
+confirmed all five rows read green again.
+
+## The `size="lg"` button contrast bug — found already fixed
+
+Investigated as a live bug and found the fix already on disk, uncommitted:
+`SIZES.lg` in `components/ui/button.tsx` used to include `text-body`, and
+`text-body` is the **colour** utility (`--color-body`, dark slate grey), not
+the size — the same Tailwind v4 name collision this file's accessibility
+section already documents. It was silently clobbering white text on every
+coloured `size="lg"` button. The setup wizard's "Go to the dashboard"
+button, on the completion screen, was the reported instance. Confirmed live:
+`getComputedStyle` on that exact button reads `color: rgb(255,255,255)` on
+`background: rgb(43,57,144)` — white on the ApproveHR blue, correctly.
+
+## Bank-account-name verification: not buildable, and said so rather than faked
+
+The product owner asked whether the API can show an account holder's name
+immediately after an account number is typed, the way a bank transfer
+confirmation screen does. It cannot, and nothing in this codebase pretends
+otherwise: there is no NUBAN-resolution integration anywhere, no provider
+credential scaffolded in `.env.example` or `src/config/env.ts`, and
+`Employee` has no `accountName` column to hold a resolved name even if there
+were. The bank **picker** already exists and is well-built
+(`lib/reference/banks.ts`, 255 NIBSS-capable banks from Paystack's public,
+credential-free bank list) — it is specifically the name-resolution call
+that is missing, and that half needs a signed-up provider before it can be
+code. The existing seam pattern (`payments/provider.ts`'s `useProvider()` /
+refuse-rather-than-fake shape, documented above under "Capabilities we
+cannot perform") is what a real integration should follow once one is
+credentialed. Nothing was built here, on purpose — inventing a fake account
+name would be exactly the kind of thing this file's own rules exist to
+prevent.
+
+## One thing found and deliberately not touched
+
+`record.tsx`'s Employment-tab `EditableSection` throws "Invalid UUID" on
+`departmentId` and `workLocationId` when either is saved while showing "Not
+assigned" / "Not set" — discovered while restoring test data after the
+`missing_pay` verification above, not caused by anything in this pass. Left
+alone: it is a pre-existing bug in a form this change only added one prop
+to, and chasing it here would have been solving a problem nobody asked
+about instead of the five they did.
+afterwards.

@@ -66,7 +66,6 @@ export function KbScreen() {
     <>
       <PageHeader
         title="Help articles"
-        description="Answers to the things people ask most. Search it before you raise a ticket."
         breadcrumb={[{ href: "/help", label: "Help desk" }]}
         action={
           <Can permission="MANAGE_SETTINGS">

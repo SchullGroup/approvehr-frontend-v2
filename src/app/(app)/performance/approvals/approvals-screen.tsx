@@ -137,7 +137,6 @@ export function ApprovalsScreen() {
       <PageHeader
         breadcrumb={[{ href: "/performance", label: "KPIs & appraisals" }]}
         title="Objectives to agree"
-        description="Read the target, then agree it, send it back, or refuse it. An objective has to be agreed before the period it covers."
         /* One of the three doors on the same dialog. Agreeing the objectives is
            the step immediately before starting the period they belong to, so
            this is one of the places somebody has the thought — and looking for

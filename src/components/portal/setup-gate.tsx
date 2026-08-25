@@ -8,19 +8,9 @@ import { useSession } from "@/lib/store/session";
 /**
  * Sends a company that has not finished setup into the wizard.
  *
- * ## Not wired yet — one line, and it is yours
- *
- * This component is finished and unused, because `app/(app)/layout.tsx` and the
- * shell belong to the orchestrator this run. To turn it on, wrap the children of
- * the app layout (inside `AuthGate`, outside `AppShell` or in it — either works):
- *
- * ```tsx
- * <AuthGate>
- *   <SetupGate>
- *     <AppShell>{children}</AppShell>
- *   </SetupGate>
- * </AuthGate>
- * ```
+ * Wired in `app/(app)/layout.tsx`, inside `AuthGate` and outside `AppShell` —
+ * it needs a resolved session to decide anything, and the redirect should fire
+ * before the sidebar paints rather than after.
  *
  * ## Why a redirect and not a banner
  *

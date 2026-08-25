@@ -47,6 +47,8 @@ import {
   useRunPayslips,
 } from "@/lib/store/payroll";
 import { useListQuery } from "@/lib/use-list-query";
+import { usePermissions } from "@/lib/permissions";
+import { MyPayslipIndex } from "./my-payslip-index";
 
 /**
  * Payslips for one run, and whether each one reached the person.
@@ -108,7 +110,28 @@ type Filters = { delivery: string };
  * totals come from the **list** response, which already carries every headline
  * figure this screen renders — so the nested read is not made at all.
  */
-export function PayslipIndex() {
+/**
+ * Routes to the company register or to "your payslips", by permission.
+ *
+ * `VIEW_SALARIES` is what the register's own endpoints require — see
+ * `PayslipIndex` below — so it is the same test here, rather than a second
+ * opinion the two could someday disagree with. Waits out `loading` first: a
+ * payroll officer's screen deciding "not privileged" before their permissions
+ * have arrived would flash the wrong page.
+ */
+export function PayslipRoute() {
+  const { permissions, loading } = usePermissions();
+
+  if (loading) {
+    return (
+      <p className="px-1 text-body-sm text-muted">Finding your payslips…</p>
+    );
+  }
+
+  return permissions.has("VIEW_SALARIES") ? <PayslipIndex /> : <MyPayslipIndex />;
+}
+
+function PayslipIndex() {
   const { runs, loading, error, connected } = usePayrollRuns();
   const [chosen, setChosen] = useState<string | null>(null);
 

@@ -24,7 +24,6 @@ export default function MyDocumentsPage() {
     <>
       <PageHeader
         title="My documents"
-        description="What the company holds about you, and what it is asking you for."
       />
       <PageBody>
         <MyDocuments heading={false} />

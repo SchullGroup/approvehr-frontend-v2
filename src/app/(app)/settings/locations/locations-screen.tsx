@@ -147,7 +147,6 @@ export function LocationsScreen() {
     <>
       <PageHeader
         title="Work locations"
-        description="Every place people clock in at. One row per office, branch or site."
         breadcrumb={[{ href: "/settings", label: "Settings" }]}
         action={
           canManage ? (

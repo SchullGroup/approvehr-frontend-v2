@@ -1,17 +1,21 @@
 "use client";
 
+import { Lock } from "lucide-react";
 import {
   BarChart,
   Card,
   CardBody,
   CardHeader,
   DonutChart,
+  EmptyState,
   Money,
+  Skeleton,
   Spinner,
   Stat,
 } from "@/components/ui";
 import { ButtonLink } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { usePermissions } from "@/lib/permissions";
 import { useReports } from "@/lib/store/insights";
 import { employmentTypeLabel, naira } from "@/lib/api/insights";
 
@@ -35,8 +39,61 @@ import { employmentTypeLabel, naira } from "@/lib/api/insights";
  * `payrollByDepartment` and `grossBreakdown` are null both when the caller may
  * not see salaries and when there is no run. The screen does not need to tell
  * those apart: in both cases there is nothing true to draw.
+ *
+ * ## The `EXPORT_DATA` gate is here because the API's isn't
+ *
+ * `nav.tsx` hides the `/reports` link behind `EXPORT_DATA`, but
+ * `GET /insights/reports` carries no `requirePermissions` — by design, per its
+ * own comment: it answers headcount and operational-load figures to every
+ * signed-in caller and only shapes the payroll block by `VIEW_SALARIES`, the
+ * same "answer something to everyone" idiom `/insights/dashboard` uses. That
+ * leaves the nav's stated gate enforced nowhere, so anybody who typed the URL
+ * saw company-wide headcount and operational load the nav pretended was
+ * hidden. This screen is the fix on this side of the wire; see the router's
+ * comment before assuming the backend also needs `requirePermissions` here —
+ * the payroll figures already have their own, narrower gate.
+ *
+ * The gate is a separate component from the one that reads `useReports`, for
+ * the same reason `AuditScreen` splits itself from `Trail`: hooks cannot be
+ * skipped, so checking the permission inside the reporting component would
+ * still fire the request before deciding whether to show what it returned.
  */
 export function ReportsScreen() {
+  const { can, loading } = usePermissions();
+
+  if (loading) {
+    return (
+      <>
+        <PageHeader title="Reports" />
+        <PageBody>
+          <Skeleton className="h-40 w-full" />
+          <span className="sr-only">Loading reports</span>
+        </PageBody>
+      </>
+    );
+  }
+
+  if (!can("EXPORT_DATA")) {
+    return (
+      <>
+        <PageHeader title="Reports" />
+        <PageBody>
+          <Card>
+            <EmptyState
+              icon={<Lock aria-hidden="true" />}
+              title="You cannot see reports"
+              description="Reports show company-wide headcount and operational figures, so it is kept to specific people. Ask whoever manages access to add the export permission to your role."
+            />
+          </Card>
+        </PageBody>
+      </>
+    );
+  }
+
+  return <Reports />;
+}
+
+function Reports() {
   const { data, loading, error, reload } = useReports();
 
   if (loading) {
@@ -46,7 +103,9 @@ export function ReportsScreen() {
         <PageBody>
           <div className="flex items-center gap-3 py-16">
             <Spinner />
-            <span className="text-body-sm text-muted">Working out the figures…</span>
+            <span className="text-body-sm text-muted">
+              Working out the figures…
+            </span>
           </div>
         </PageBody>
       </>
@@ -61,8 +120,7 @@ export function ReportsScreen() {
           <Card>
             <CardBody className="flex flex-col items-start gap-3">
               <p className="text-body text-ink">
-                {error ??
-                  "The reports did not load. Try again in a moment."}
+                {error ?? "The reports did not load. Try again in a moment."}
               </p>
               <button
                 type="button"
@@ -78,16 +136,15 @@ export function ReportsScreen() {
     );
   }
 
-  const { payrollByDepartment, grossBreakdown, headcount, operationalLoad } = data;
+  const { payrollByDepartment, grossBreakdown, headcount, operationalLoad } =
+    data;
   const totalPeople = headcount.byDepartment.reduce((s, d) => s + d.count, 0);
-  const totalGross = payrollByDepartment?.reduce((s, d) => s + d.grossKobo, 0) ?? 0;
+  const totalGross =
+    payrollByDepartment?.reduce((s, d) => s + d.grossKobo, 0) ?? 0;
 
   return (
     <>
-      <PageHeader
-        title="Reports"
-        description={`Headcount, payroll cost and operational load for ${data.period}.`}
-      />
+      <PageHeader title="Reports" />
 
       <PageBody className="flex flex-col gap-6">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -160,15 +217,30 @@ export function ReportsScreen() {
                       `₦${n.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                     }
                     points={[
-                      { label: "Basic", value: naira(grossBreakdown.basicKobo) },
-                      { label: "Housing", value: naira(grossBreakdown.housingKobo) },
-                      { label: "Transport", value: naira(grossBreakdown.transportKobo) },
-                      { label: "Allowances", value: naira(grossBreakdown.allowancesKobo) },
+                      {
+                        label: "Basic",
+                        value: naira(grossBreakdown.basicKobo),
+                      },
+                      {
+                        label: "Housing",
+                        value: naira(grossBreakdown.housingKobo),
+                      },
+                      {
+                        label: "Transport",
+                        value: naira(grossBreakdown.transportKobo),
+                      },
+                      {
+                        label: "Allowances",
+                        value: naira(grossBreakdown.allowancesKobo),
+                      },
                     ]}
                   />
                   <p className="text-body-sm text-muted">
                     Employer pension of{" "}
-                    <Money amount={naira(grossBreakdown.employerPensionKobo)} decimals />{" "}
+                    <Money
+                      amount={naira(grossBreakdown.employerPensionKobo)}
+                      decimals
+                    />{" "}
                     is a cost on top of this, not a slice of it.
                   </p>
                 </div>
@@ -206,8 +278,14 @@ export function ReportsScreen() {
               description="How much work the month put through the system."
             />
             <CardBody className="grid grid-cols-2 gap-5">
-              <Load label="Leave requests" value={operationalLoad.leaveRequests} />
-              <Load label="Open help requests" value={operationalLoad.ticketsOpen} />
+              <Load
+                label="Leave requests"
+                value={operationalLoad.leaveRequests}
+              />
+              <Load
+                label="Open help requests"
+                value={operationalLoad.ticketsOpen}
+              />
               <Load
                 label="Waiting for a decision"
                 value={operationalLoad.approvalsPending}
@@ -244,7 +322,8 @@ function NoRunYet() {
   return (
     <div className="flex flex-col items-start gap-3 py-2">
       <p className="text-body text-body">
-        No payroll has been run for this period, so there are no costs to report.
+        No payroll has been run for this period, so there are no costs to
+        report.
       </p>
       <ButtonLink href="/payroll/runs/new" variant="secondary" size="sm">
         Start a payroll run

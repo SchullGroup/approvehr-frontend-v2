@@ -361,11 +361,14 @@ eq(
   parseImportDate("31/02/2021").ok,
   false,
 );
-eq(
-  "a two-digit year is refused rather than guessed",
-  said(parseImportDate("28/04/21")).includes("two-digit year"),
-  true,
-);
+eq("a two-digit year is completed, not refused", parseImportDate("28/04/21"), {
+  ok: true,
+  value: { iso: "2021-04-28", ambiguous: false },
+});
+eq("the pivot reads 69-99 as 19XX", parseImportDate("14/06/71"), {
+  ok: true,
+  value: { iso: "1971-06-14", ambiguous: false },
+});
 eq(
   "a spreadsheet date serial is named for what it is",
   said(parseImportDate("44314")).includes("internal date number"),

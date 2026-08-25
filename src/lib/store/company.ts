@@ -1,7 +1,9 @@
 "use client";
 
-import { useCallback, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { company as api } from "@/lib/api/endpoints";
 import { createPersistedState } from "./persisted";
+import { useSession } from "./session";
 
 /**
  * Company settings: profile, leave policy, roles, notifications, integrations.
@@ -371,19 +373,19 @@ export function useCompanySettings() {
   };
 
   const updateProfile = useCallback((patch: Partial<CompanyProfile>) => {
-    const s = store.read();
+    const s = store.current();
     store.commit({ ...s, profile: { ...s.profile, ...patch } });
   }, []);
 
   const updateLeave = useCallback((patch: Partial<LeavePolicy>) => {
-    const s = store.read();
+    const s = store.current();
     store.commit({ ...s, leave: { ...s.leave, ...patch } });
   }, []);
 
   /** Patch one leave type by name, leaving the others untouched. */
   const updateLeaveType = useCallback(
     (name: string, patch: Partial<LeaveTypePolicy>) => {
-      const s = store.read();
+      const s = store.current();
       const current = s.leave?.types ?? DEFAULT_COMPANY.leave.types;
       store.commit({
         ...s,
@@ -398,7 +400,7 @@ export function useCompanySettings() {
 
   const setRolePermission = useCallback(
     (roleId: string, permission: PermissionId, on: boolean) => {
-      const s = store.read();
+      const s = store.current();
       const roles = s.roles ?? DEFAULT_COMPANY.roles;
       store.commit({
         ...s,
@@ -419,7 +421,7 @@ export function useCompanySettings() {
 
   const setNotification = useCallback(
     (id: string, patch: Partial<Pick<NotificationRule, "email" | "inApp">>) => {
-      const s = store.read();
+      const s = store.current();
       const rules = s.notifications ?? DEFAULT_COMPANY.notifications;
       store.commit({
         ...s,
@@ -431,7 +433,7 @@ export function useCompanySettings() {
 
   const setIntegrationStatus = useCallback(
     (id: string, status: IntegrationStatus) => {
-      const s = store.read();
+      const s = store.current();
       const list = s.integrations ?? DEFAULT_COMPANY.integrations;
       store.commit({
         ...s,
@@ -483,4 +485,90 @@ export function validateProfile(patch: Partial<CompanyProfile>): ProfileError[] 
     }
   }
   return errors;
+}
+
+/* -------------------------------------------------------------- Org tax state */
+
+/**
+ * The company's own default PAYE state — read and set directly, without the
+ * rest of the profile.
+ *
+ * `/settings/company` still reads and writes the demo store only; connecting
+ * that whole screen to the API is its own piece of work (HANDOVER's "still not
+ * done" list). This hook exists because one field on it — the org's default
+ * tax state — has a real consequence with no other way to fix it today: every
+ * employee create refuses outright when neither the row nor the organisation
+ * has a state to file to, and a company that has never opened Settings has
+ * nowhere connected to set one. Demo mode always has a default (see
+ * `DEFAULT_COMPANY.profile.state`), so this only has work to do connected.
+ */
+export function useOrgTaxState() {
+  const { isConnected } = useSession();
+  const demo = useCompanySettings();
+
+  /* `null` means "not fetched yet", which only happens connected — demo mode
+     never reads this and `taxState` below never depends on it disconnected,
+     so there is nothing to reset when `isConnected` flips and the effect can
+     skip doing anything at all rather than writing state back to empty. */
+  const [remote, setRemote] = useState<{ taxState: string | null } | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!isConnected) return;
+    let cancelled = false;
+
+    /* Retried rather than accepted on the first failure — measured live: this
+       screen's mount fires several concurrent `company/profile` requests (this
+       hook is one of a few readers), and one of them can lose a race with a
+       token refresh and come back 401 while its siblings come back 200 a beat
+       later. Reporting that as "confirmed unset" was a real bug: it told an
+       administrator whose company plainly had a tax state on file that it did
+       not, purely because this one request was the unlucky one. Three tries
+       covers a refresh; a company that has genuinely never answered this
+       question settles on `null` after them, same as before. */
+    async function load() {
+      for (let attempt = 0; attempt < 3 && !cancelled; attempt++) {
+        try {
+          const profile = await api.profile();
+          if (!cancelled) setRemote({ taxState: profile.taxState });
+          return;
+        } catch {
+          if (attempt < 2) await new Promise((r) => setTimeout(r, 400));
+        }
+      }
+      if (!cancelled) setRemote({ taxState: null });
+    }
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isConnected]);
+
+  const loading = isConnected && remote === null;
+  const taxState = isConnected
+    ? (remote?.taxState ?? null)
+    : (demo.settings.profile.state || null);
+
+  const setTaxState = useCallback(
+    async (state: string): Promise<boolean> => {
+      if (!isConnected) {
+        demo.updateProfile({ state });
+        return true;
+      }
+      setSaving(true);
+      try {
+        const profile = await api.updateProfile({ taxState: state });
+        setRemote({ taxState: profile.taxState });
+        return true;
+      } catch {
+        return false;
+      } finally {
+        setSaving(false);
+      }
+    },
+    [isConnected, demo],
+  );
+
+  return { taxState, loading, saving, setTaxState };
 }

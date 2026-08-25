@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
+  AlertTriangle,
   ArrowLeft,
   ArrowRight,
   Check,
@@ -21,9 +22,11 @@ import {
   CardHeader,
   Checkbox,
   ConfirmDialog,
+  Disclosure,
   EmptyState,
   Field,
   Input,
+  Select,
   StepIndicator,
   TBody,
   TD,
@@ -45,25 +48,36 @@ import {
   TotalsPanel,
 } from "@/components/payroll/run-panels";
 import { ExcludeFromPayrollDialog } from "@/components/payroll/exclude-dialog";
+import { TaxOverrideDialog } from "@/components/payroll/tax-override-dialog";
 import { ApiError } from "@/lib/api/client";
 import {
   excludedNote,
   formatKobo,
   headcountLabel,
+  naira,
   payslipCountLabel,
   periodLabel,
   type PreparedRun,
   type Payslip,
   type RunException,
   type RunExclusion,
+  wasDeducted,
 } from "@/lib/api/payroll";
 import { useCan } from "@/lib/permissions";
+import {
+  useEmployeeDirectory,
+  useEmployeeMutations,
+} from "@/lib/store/employees-api";
+import { useGrades } from "@/lib/store/grades";
+import { NIGERIAN_STATES } from "@/lib/reference/lists";
 import {
   countBySeverity,
   usePayrollActions,
   usePayrollRun,
   usePayrollRuns,
 } from "@/lib/store/payroll";
+import { useSetupChecklist } from "@/lib/store/setup-checklist";
+import { fullName } from "@/lib/types";
 import { TODAY } from "@/lib/today";
 
 /**
@@ -125,7 +139,13 @@ export function PayrollRunWizard() {
   const canPrepare = useCan("RUN_PAYROLL");
   const canApprove = useCan("APPROVE_PAYROLL");
 
-  const { runs, connected, loading, error, reload: reloadRuns } = usePayrollRuns();
+  const {
+    runs,
+    connected,
+    loading,
+    error,
+    reload: reloadRuns,
+  } = usePayrollRuns();
   const actions = usePayrollActions();
 
   const [draft, setDraft] = useState<{
@@ -137,12 +157,12 @@ export function PayrollRunWizard() {
   const payDate = draft?.payDate ?? `${period}-28`;
   const label = draft?.label ?? "";
 
-  const patch = (next: Partial<{ period: string; payDate: string; label: string }>) =>
-    setDraft({ period, payDate, label, ...next });
+  const patch = (
+    next: Partial<{ period: string; payDate: string; label: string }>,
+  ) => setDraft({ period, payDate, label, ...next });
 
   const [prepared, setPrepared] = useState<PreparedRun | null>(null);
   const [busy, setBusy] = useState<"prepare" | "approve" | null>(null);
-  const [ackWarnings, setAckWarnings] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
   /**
@@ -168,10 +188,76 @@ export function PayrollRunWizard() {
   const detail = usePayrollRun(runId);
   const run = detail.run;
 
-  const exceptions = useMemo(() => run?.exceptions ?? [], [run]);
-  const counts = countBySeverity(exceptions);
+  const allExceptions = useMemo(() => run?.exceptions ?? [], [run]);
+  /* `missing_pay` and `missing_tax_state` each get a section of their own
+     below, not a row per person in the generic list — see `MissingPayTable`
+     and `MissingTaxStateSection`. Filtered out here so nobody shows up twice.
+     `missing_tax_state` alone can be thirty-odd near-identical paragraphs on
+     an org with no PAYE state set anywhere — the same wall this replaces for
+     pay. */
+  const exceptions = useMemo(
+    () =>
+      allExceptions.filter(
+        (e) => e.code !== "missing_pay" && e.code !== "missing_tax_state",
+      ),
+    [allExceptions],
+  );
+  const missingPay = useMemo(
+    () => allExceptions.filter((e) => e.code === "missing_pay" && e.employeeId),
+    [allExceptions],
+  );
+  const missingTaxState = useMemo(
+    () =>
+      allExceptions.filter(
+        (e) => e.code === "missing_tax_state" && e.employeeId,
+      ),
+    [allExceptions],
+  );
+  const counts = countBySeverity(allExceptions);
   const discrepancies = prepared?.discrepancies ?? [];
   const settled = run?.status === "APPROVED" || run?.status === "PAID";
+  /* Names and departments for the missing-pay table — the exception itself
+     carries only an id. 200 is the API's own cap on a list request (see
+     `lib/http.ts`) — asking for more refuses the whole request with a 400
+     rather than quietly capping it, which silently emptied this table the
+     first time this was tried. `record-page.tsx` reaches for the same
+     number for the same reason. */
+  const directory = useEmployeeDirectory({ pageSize: 200 });
+  const missingPayRows = useMemo(
+    () =>
+      missingPay
+        .map((exception) => {
+          const person = directory.employees.find(
+            (e) => e.id === exception.employeeId,
+          );
+          if (!person) return null;
+          return {
+            employeeId: exception.employeeId as string,
+            name: fullName(person),
+            department: person.department,
+            salaryGradeId: person.salaryGradeId ?? null,
+          };
+        })
+        .filter((row): row is NonNullable<typeof row> => row !== null),
+    [missingPay, directory.employees],
+  );
+  const missingTaxStateRows = useMemo(
+    () =>
+      missingTaxState
+        .map((exception) => {
+          const person = directory.employees.find(
+            (e) => e.id === exception.employeeId,
+          );
+          if (!person) return null;
+          return {
+            employeeId: exception.employeeId as string,
+            name: fullName(person),
+            department: person.department,
+          };
+        })
+        .filter((row): row is NonNullable<typeof row> => row !== null),
+    [missingTaxState, directory.employees],
+  );
 
   const blocked = counts.blockers > 0 || discrepancies.length > 0;
   const canContinue = [
@@ -201,7 +287,6 @@ export function PayrollRunWizard() {
         ...(label.trim() ? { label: label.trim() } : {}),
       });
       setPrepared(result);
-      setAckWarnings(false);
       reloadRuns();
       detail.reload();
       toast.push({
@@ -256,7 +341,6 @@ export function PayrollRunWizard() {
         reason,
       });
       setPrepared(result.run);
-      setAckWarnings(false);
       setExcluding(null);
       reloadRuns();
       detail.reload();
@@ -286,7 +370,6 @@ export function PayrollRunWizard() {
     try {
       const result = await actions.putBack(runId, exclusion.employeeId);
       setPrepared(result.run);
-      setAckWarnings(false);
       reloadRuns();
       detail.reload();
       toast.push({
@@ -342,7 +425,9 @@ export function PayrollRunWizard() {
     }
 
     if (exception.code === "excluded_from_payroll") {
-      const exclusion = run?.exclusions.find((row) => row.employeeId === employeeId);
+      const exclusion = run?.exclusions.find(
+        (row) => row.employeeId === employeeId,
+      );
       if (!exclusion) return null;
       return (
         <Button
@@ -370,7 +455,10 @@ export function PayrollRunWizard() {
         title: `${periodLabel(period)} approved`,
         tone: "success",
         detail:
-          result.settled.loans + result.settled.claims + result.settled.overtime > 0
+          result.settled.loans +
+            result.settled.claims +
+            result.settled.overtime >
+          0
             ? `${result.settled.loans} loan instalment${result.settled.loans === 1 ? "" : "s"} and ${result.settled.claims} expense claim${result.settled.claims === 1 ? "" : "s"} settled.`
             : "Nothing else needed settling.",
       });
@@ -431,7 +519,8 @@ export function PayrollRunWizard() {
               optional
               label="Name this run"
               help="Useful when a month has more than one."
-              className="sm:col-span-2">
+              className="sm:col-span-2"
+            >
               <Input
                 value={label}
                 placeholder={`${periodLabel(period)} salaries`}
@@ -456,17 +545,17 @@ export function PayrollRunWizard() {
                     : "It is still a draft — you can prepare it again from the next step."}
                 </Callout>
               ) : (
-                <Callout tone="accent" title="Preparing pays nobody">
-                  It works out everybody&apos;s pay, writes the payslips, and lists
-                  anything wrong with the records behind them. No money moves, no
-                  loan instalment is taken, and you can do it as many times as you
-                  like.
+                <Callout tone="accent" title="This works out the payroll">
+                  Repeat it as often as you like — nothing is paid until you
+                  approve.
                 </Callout>
               )}
             </div>
           </CardBody>
         </Card>
       )}
+
+      {stepper.index === 0 && <PreflightChecklist />}
 
       {/* ---------------------------------------------------------- 2 Check */}
       {stepper.index === 1 && (
@@ -525,6 +614,21 @@ export function PayrollRunWizard() {
             </Card>
           ) : run ? (
             <>
+              {missingPayRows.length > 0 && (
+                <MissingPayTable
+                  runId={run.id}
+                  rows={missingPayRows}
+                  disabled={busy !== null}
+                  onSaved={() => void prepare()}
+                />
+              )}
+              {missingTaxStateRows.length > 0 && (
+                <MissingTaxStateSection
+                  rows={missingTaxStateRows}
+                  disabled={busy !== null}
+                  onSaved={() => void prepare()}
+                />
+              )}
               <ExceptionList exceptions={exceptions} actionFor={actionFor} />
               {/* Under the list rather than inside it. The exception rows say
                   what happened; this says who is not on the payroll, in four
@@ -552,7 +656,16 @@ export function PayrollRunWizard() {
           <DiscrepancyPanel discrepancies={discrepancies} />
           {run ? (
             <>
-              <PayslipTable payslips={run.payslips} run={run} />
+              <PayslipTable
+                payslips={run.payslips}
+                run={run}
+                runId={run.id}
+                periodLabel={periodLabel(period)}
+                employees={directory.employees}
+                editable={canPrepare && !settled}
+                onSaved={() => void prepare()}
+                onDirectoryReload={directory.reload}
+              />
               <ExcludedList
                 exclusions={run.exclusions}
                 {...(canPrepare && !settled ? { onPutBack: putBack } : {})}
@@ -585,19 +698,6 @@ export function PayrollRunWizard() {
                 <ApprovalConsequences run={run} />
               </CardBody>
             </Card>
-
-            {counts.warnings > 0 && (
-              <Card>
-                <CardBody>
-                  <Checkbox
-                    checked={ackWarnings}
-                    onChange={(e) => setAckWarnings(e.target.checked)}
-                    label={`I have read ${counts.warnings} thing${counts.warnings === 1 ? "" : "s"} worth a look`}
-                    description="None of them stops the run. Approving records that they were seen."
-                  />
-                </CardBody>
-              </Card>
-            )}
           </div>
 
           <aside className="flex flex-col gap-5 lg:sticky lg:top-20 lg:h-fit">
@@ -605,7 +705,10 @@ export function PayrollRunWizard() {
               <CardHeader title={periodLabel(run.period)} />
               <CardBody>
                 <dl className="flex flex-col gap-2.5 text-body-sm">
-                  <SummaryRow label="Status" value={<RunStatusBadge status={run.status} />} />
+                  <SummaryRow
+                    label="Status"
+                    value={<RunStatusBadge status={run.status} />}
+                  />
                   <SummaryRow label="People paid" value={headcountLabel(run)} />
                   <SummaryRow label="Pays on" value={run.payDate} />
                   <SummaryRow
@@ -623,7 +726,10 @@ export function PayrollRunWizard() {
                       </span>
                     }
                   />
-                  <SummaryRow label="Worth a look" value={String(counts.warnings)} />
+                  <SummaryRow
+                    label="Worth a look"
+                    value={String(counts.warnings)}
+                  />
                 </dl>
               </CardBody>
             </Card>
@@ -656,15 +762,11 @@ export function PayrollRunWizard() {
               variant="approve"
               onClick={() => setConfirming(true)}
               loading={busy === "approve"}
-              disabled={
-                !run ||
-                settled ||
-                blocked ||
-                !canApprove ||
-                (counts.warnings > 0 && !ackWarnings)
-              }
+              disabled={!run || settled || blocked || !canApprove}
             >
-              {busy !== "approve" && <Check aria-hidden="true" className="size-4" />}
+              {busy !== "approve" && (
+                <Check aria-hidden="true" className="size-4" />
+              )}
               {settled ? "Already approved" : "Approve this run"}
             </Button>
           ) : (
@@ -712,8 +814,8 @@ export function PayrollRunWizard() {
               <ApprovalConsequences run={run} />
               {counts.warnings > 0 && (
                 <p>
-                  {counts.warnings} warning{counts.warnings === 1 ? "" : "s"} will
-                  be recorded against the run as seen and accepted.
+                  {counts.warnings} warning{counts.warnings === 1 ? "" : "s"}{" "}
+                  will be recorded against the run as seen and accepted.
                 </p>
               )}
             </div>
@@ -725,6 +827,510 @@ export function PayrollRunWizard() {
 }
 
 /* -------------------------------------------------------------------------- */
+
+/** The one true sentence for every exclusion this table can create. */
+const MISSING_PAY_EXCLUSION_REASON =
+  "No monthly pay was on file when this payroll was checked.";
+
+/**
+ * Everybody `missing_pay` names, worked through as one list rather than one
+ * exception at a time.
+ *
+ * The old shape was a red-bordered warning card per person, each with its
+ * own "Set pay" button — the same figure, thirty times over, styled like
+ * thirty separate problems. This is one thing: a table of the people
+ * nobody has agreed a salary for yet.
+ *
+ * Everybody starts **included and ticked**, because the ordinary case is
+ * "these are new starters, go and get their numbers" — not "most of these
+ * people should not be paid". Unticking one is the other real case — pay
+ * genuinely is not agreed yet, or they should not be on this period at all
+ * — and it excludes them the same way `missing_bank_account`'s own button
+ * does, with a reason, because "why was Grace not paid in August" must
+ * always have an answer. The reason here is written once, for all of them,
+ * because it is the same true sentence for every row on this exact list:
+ * nobody had set their pay when this payroll was checked.
+ *
+ * One save for the page rather than one button per row — typing eight
+ * figures and pressing eight buttons is the thing this replaces. Pay is
+ * still exactly `useEmployeeMutations().update`'s ordinary write, so a
+ * figure set here and one set from the record page cannot disagree.
+ */
+function MissingPayTable({
+  runId,
+  rows,
+  disabled,
+  onSaved,
+}: {
+  runId: string;
+  rows: readonly {
+    employeeId: string;
+    name: string;
+    department: string;
+    salaryGradeId: string | null;
+  }[];
+  disabled?: boolean;
+  onSaved: () => void;
+}) {
+  const employees = useEmployeeMutations();
+  const actions = usePayrollActions();
+  const grades = useGrades({ pageSize: 100 });
+  const [pay, setPay] = useState<Record<string, string>>({});
+  /* Seeded from whatever grade each person is already on — picking up pay for
+     somebody already graded during hiring should not blank that back out. */
+  const [grade, setGrade] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      rows
+        .filter((row) => row.salaryGradeId)
+        .map((row) => [row.employeeId, row.salaryGradeId as string]),
+    ),
+  );
+  /* Which rows somebody has typed a pay figure into by hand — picking a grade
+     stops touching the field the moment it holds one, so a typed number is
+     never quietly overwritten by a later grade change. */
+  const [payTouched, setPayTouched] = useState<Set<string>>(new Set());
+  const [excluded, setExcluded] = useState<Set<string>>(new Set());
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const included = rows.filter((row) => !excluded.has(row.employeeId));
+  const allIncluded = excluded.size === 0;
+  const noneIncluded = included.length === 0;
+  const ready = included.every((row) => {
+    const amount = Number(pay[row.employeeId]);
+    return pay[row.employeeId]?.trim() && Number.isFinite(amount) && amount > 0;
+  });
+
+  function pickGrade(employeeId: string, gradeId: string) {
+    setGrade((prior) => ({ ...prior, [employeeId]: gradeId }));
+    if (payTouched.has(employeeId)) return;
+    const picked = grades.rows.find((g) => g.id === gradeId);
+    if (picked) {
+      setPay((prior) => ({
+        ...prior,
+        [employeeId]: String(naira(picked.midGrossKobo)),
+      }));
+    }
+  }
+
+  function editPay(employeeId: string, value: string) {
+    setPay((prior) => ({ ...prior, [employeeId]: value }));
+    setPayTouched((prior) =>
+      prior.has(employeeId) ? prior : new Set(prior).add(employeeId),
+    );
+  }
+
+  async function save() {
+    setSaving(true);
+    setError(null);
+    const failed: string[] = [];
+    for (const row of included) {
+      try {
+        await employees.update(row.employeeId, {
+          grossMonthly: Number(pay[row.employeeId]),
+          ...(grade[row.employeeId]
+            ? { salaryGradeId: grade[row.employeeId] }
+            : {}),
+        });
+      } catch {
+        failed.push(row.name);
+      }
+    }
+    for (const row of rows.filter((r) => excluded.has(r.employeeId))) {
+      try {
+        await actions.exclude(runId, {
+          employeeId: row.employeeId,
+          reason: MISSING_PAY_EXCLUSION_REASON,
+        });
+      } catch {
+        failed.push(row.name);
+      }
+    }
+    setSaving(false);
+    if (failed.length > 0) {
+      setError(
+        `Everybody else went through. This did not: ${failed.join(", ")}. Try them again.`,
+      );
+    }
+    onSaved();
+  }
+
+  return (
+    <Card>
+      <CardHeader
+        title={`${rows.length} ${rows.length === 1 ? "person has" : "people have"} no pay set`}
+        description="Ticked people are paid what you enter below. Untick anyone who should not be on this payroll — they come off with a reason recorded, same as excluding them anywhere else."
+      />
+      {!grades.loading && grades.rows.length === 0 && (
+        <p className="px-5 pb-3 text-meta text-muted">
+          No salary grades yet.{" "}
+          <Link
+            href="/payroll/pay-setup?tab=grades"
+            className="text-accent hover:underline"
+          >
+            Add one in Pay setup
+          </Link>{" "}
+          to pick a band per person and prefill pay from its mid-point.
+        </p>
+      )}
+      <TableWrap className="rounded-none border-0 border-t border-line">
+        <THead>
+          <TH className="w-56">
+            <Checkbox
+              label="Include"
+              checked={allIncluded}
+              indeterminate={!allIncluded && !noneIncluded}
+              onChange={() =>
+                setExcluded(
+                  allIncluded
+                    ? new Set(rows.map((r) => r.employeeId))
+                    : new Set(),
+                )
+              }
+            />
+          </TH>
+          <TH>Name</TH>
+          <TH>Department</TH>
+          <TH className="w-56">Salary grade</TH>
+          <TH className="w-48">Monthly gross</TH>
+        </THead>
+        <TBody>
+          {rows.map((row) => {
+            const isIncluded = !excluded.has(row.employeeId);
+            return (
+              <TR key={row.employeeId}>
+                <TD>
+                  <Checkbox
+                    label="Include them"
+                    checked={isIncluded}
+                    onChange={() =>
+                      setExcluded((prior) => {
+                        const next = new Set(prior);
+                        if (isIncluded) next.add(row.employeeId);
+                        else next.delete(row.employeeId);
+                        return next;
+                      })
+                    }
+                  />
+                </TD>
+                <TDPrimary title={row.name} />
+                <TD className="text-body">{row.department}</TD>
+                <TD>
+                  <Select
+                    aria-label={`Salary grade for ${row.name}`}
+                    value={grade[row.employeeId] ?? ""}
+                    disabled={disabled || saving || !isIncluded}
+                    onChange={(event) =>
+                      pickGrade(row.employeeId, event.target.value)
+                    }
+                  >
+                    <option value="">Not on a grade</option>
+                    {grades.rows.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.code} {g.name}
+                      </option>
+                    ))}
+                  </Select>
+                </TD>
+                <TD>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    step="1000"
+                    placeholder="₦ a month"
+                    aria-label={`Monthly gross for ${row.name}`}
+                    value={pay[row.employeeId] ?? ""}
+                    disabled={disabled || saving || !isIncluded}
+                    onChange={(event) =>
+                      editPay(row.employeeId, event.target.value)
+                    }
+                  />
+                </TD>
+              </TR>
+            );
+          })}
+        </TBody>
+      </TableWrap>
+      <CardBody className="flex flex-col gap-2 border-t border-line pt-4">
+        {error && <p className="text-meta text-danger-text">{error}</p>}
+        <div>
+          <Button
+            variant="accent"
+            disabled={disabled || !ready}
+            loading={saving}
+            onClick={() => void save()}
+          >
+            {noneIncluded
+              ? `Exclude ${rows.length} ${rows.length === 1 ? "person" : "people"}`
+              : `Set pay for ${included.length}${
+                  excluded.size > 0 ? `, exclude ${excluded.size}` : ""
+                }`}
+          </Button>
+        </div>
+      </CardBody>
+    </Card>
+  );
+}
+
+/**
+ * Everybody with no PAYE state set, collapsed to one line rather than one
+ * warning card each.
+ *
+ * `missing_tax_state` never blocks a payroll — the API's own message says so:
+ * tax is deducted correctly either way, only the state filing is left
+ * incomplete. That is exactly the case `Disclosure`'s own rule carves out for
+ * closed-by-default — nothing here needs acting on *now*, unlike a missing
+ * bank account — so this is the one exception in the list that goes behind a
+ * reveal rather than staying open on the page.
+ *
+ * The fix is genuinely per person: `prepare` reads `Employee.taxState`
+ * straight off the row, with no fallback to the organisation's own default, so
+ * setting one in Settings does nothing for somebody already on file with
+ * nothing set. A bulk editor is the only thing that actually closes this.
+ */
+function MissingTaxStateSection({
+  rows,
+  disabled,
+  onSaved,
+}: {
+  rows: readonly { employeeId: string; name: string; department: string }[];
+  disabled?: boolean;
+  onSaved: () => void;
+}) {
+  const employees = useEmployeeMutations();
+  const [state, setState] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const filled = rows.filter((row) => state[row.employeeId]);
+
+  async function save() {
+    setSaving(true);
+    setError(null);
+    const failed: string[] = [];
+    for (const row of filled) {
+      try {
+        await employees.update(row.employeeId, {
+          taxState: state[row.employeeId],
+        });
+      } catch {
+        failed.push(row.name);
+      }
+    }
+    setSaving(false);
+    if (failed.length > 0) {
+      setError(
+        `Everybody else went through. This did not: ${failed.join(", ")}. Try them again.`,
+      );
+    } else {
+      setState({});
+    }
+    onSaved();
+  }
+
+  return (
+    <Disclosure
+      title={`${rows.length} ${rows.length === 1 ? "person has" : "people have"} no PAYE state set`}
+      hint="Tax is deducted correctly either way — this is only the state filing."
+      level={4}
+      region={false}
+    >
+      <div className="flex flex-col gap-4">
+        <TableWrap className="rounded-none border-0">
+          <THead>
+            <TH>Name</TH>
+            <TH>Department</TH>
+            <TH className="w-56">PAYE state</TH>
+          </THead>
+          <TBody>
+            {rows.map((row) => (
+              <TR key={row.employeeId}>
+                <TDPrimary title={row.name} />
+                <TD className="text-body">{row.department}</TD>
+                <TD>
+                  <Select
+                    aria-label={`PAYE state for ${row.name}`}
+                    placeholder="Not set"
+                    value={state[row.employeeId] ?? ""}
+                    disabled={disabled || saving}
+                    onChange={(event) =>
+                      setState((prior) => ({
+                        ...prior,
+                        [row.employeeId]: event.target.value,
+                      }))
+                    }
+                  >
+                    {NIGERIAN_STATES.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </Select>
+                </TD>
+              </TR>
+            ))}
+          </TBody>
+        </TableWrap>
+        <div className="flex flex-col gap-2">
+          {error && <p className="text-meta text-danger-text">{error}</p>}
+          <div>
+            <Button
+              variant="secondary"
+              disabled={disabled || saving || filled.length === 0}
+              loading={saving}
+              onClick={() => void save()}
+            >
+              Save {filled.length > 0 ? filled.length : ""}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </Disclosure>
+  );
+}
+
+/**
+ * What the company itself has and has not decided, before anybody's own
+ * record even enters into it — inline, never a redirect.
+ *
+ * The complaint this answers was literal: getting sent away to Settings mid
+ * wizard, with no way back to where the thought started. Nothing here
+ * navigates on its own. Every row states a fact and offers a link a person
+ * can choose to follow; declining one changes nothing about what Calculate
+ * does next; `useSetupChecklist` is the same read `/settings` itself answers
+ * from, so this cannot tell a different story from the hub that owns it.
+ *
+ * Deliberately not a second copy of the exception list: nothing here repeats
+ * once Calculate has actually run — the run's own exceptions, one per
+ * person, are what step two shows from that point on. This is only for the
+ * question a person has before they have anybody to name yet.
+ */
+function PreflightChecklist() {
+  /* Nothing shown while loading or on a read failure — better than a
+     skeleton competing with the period form for attention, and there is
+     nothing to act on until it answers. */
+  const { facts } = useSetupChecklist();
+  if (!facts) return null;
+
+  type Row = {
+    label: string;
+    ok: boolean;
+    detail?: string;
+    href?: string;
+    linkLabel?: string;
+  };
+
+  const rows: Row[] = [
+    {
+      label: "What you deduct is decided",
+      ok: facts.pay.settings,
+      detail: "PAYE, pension and NHF — each a switch, in payroll settings.",
+      href: "/settings/payroll",
+      linkLabel: "Decide it",
+    },
+    {
+      label: "A default PAYE state is set",
+      ok: facts.company.taxState,
+      detail: "Falls back to this for anybody with no state of their own.",
+      href: "/settings/company",
+      linkLabel: "Set it",
+    },
+  ];
+
+  if (facts.payrollChecks.employees > 0) {
+    const {
+      employees,
+      missingBankAccount,
+      missingPensionPin,
+      requirePensionPin,
+    } = facts.payrollChecks;
+    rows.push({
+      label:
+        missingBankAccount === 0
+          ? "Everybody has a bank account"
+          : `${missingBankAccount} of ${employees} have no bank account`,
+      ok: missingBankAccount === 0,
+      detail: "Payroll cannot pay somebody with no account on file.",
+      href: "/people",
+      linkLabel: "Open the directory",
+    });
+    if (requirePensionPin) {
+      rows.push({
+        label:
+          missingPensionPin === 0
+            ? "Everybody has a pension PIN"
+            : `${missingPensionPin} of ${employees} have no pension PIN`,
+        ok: missingPensionPin === 0,
+        detail:
+          "Recorded, not pay-blocking — only the remittance schedule is incomplete without it.",
+        href: "/people",
+        linkLabel: "Open the directory",
+      });
+    }
+  }
+
+  /* Null rather than a row offline — the demo has no payment book, and a
+     false claim of "no payout account" beside a company that has one is
+     exactly the wrong figure this product is sold against. */
+  if (facts.pay.hasPrimaryBankAccount !== null) {
+    rows.push({
+      label: "Your company has a payout account on file",
+      ok: facts.pay.hasPrimaryBankAccount,
+      detail: "Needed to build a payment batch once this run is approved.",
+      href: "/settings/bank-accounts",
+      linkLabel: "Add one",
+    });
+  }
+
+  const outstanding = rows.filter((row) => !row.ok).length;
+
+  return (
+    <Card>
+      <CardHeader
+        title="Before you run this"
+        description={
+          outstanding === 0
+            ? "Nothing here would stop or surprise this payroll today."
+            : `${outstanding} ${outstanding === 1 ? "thing" : "things"} worth sorting first. None of this stops Calculate — whoever it is about is still named, on the next step, either way.`
+        }
+      />
+      <CardBody className="flex flex-col gap-2.5">
+        {rows.map((row) => (
+          <div
+            key={row.label}
+            className="flex flex-wrap items-start justify-between gap-3 rounded-md border border-line p-3"
+          >
+            <div className="flex min-w-0 items-start gap-2.5">
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "mt-0.5 shrink-0 [&>svg]:size-4",
+                  row.ok ? "text-success-text" : "text-warning-text",
+                )}
+              >
+                {row.ok ? <Check /> : <AlertTriangle />}
+              </span>
+              <div className="min-w-0">
+                <p className="text-body-sm text-ink">{row.label}</p>
+                {row.detail && (
+                  <p className="mt-0.5 text-meta leading-relaxed text-muted">
+                    {row.detail}
+                  </p>
+                )}
+              </div>
+            </div>
+            {!row.ok && row.href && (
+              <ButtonLink href={row.href} size="sm" variant="secondary">
+                {row.linkLabel}
+              </ButtonLink>
+            )}
+          </div>
+        ))}
+      </CardBody>
+    </Card>
+  );
+}
 
 function SummaryRow({
   label,
@@ -753,14 +1359,95 @@ function SummaryRow({
 function PayslipTable({
   payslips,
   run,
+  runId,
+  periodLabel: period,
+  employees,
+  editable,
+  onSaved,
+  onDirectoryReload,
 }: {
   payslips: Payslip[];
   /** For the count. A badge saying "9 payslips" beside a company of ten is
       true and, on its own, the wrong answer to "is everybody here?". */
   run: { employeeCount: number; excludedCount: number };
+  runId: string;
+  /** "August 2026", for the tax-override dialog's own copy. */
+  periodLabel: string;
+  /** Just enough of the directory to know who already has the standing
+   *  "always enter this by hand" preference — see `TaxOverrideDialog`. */
+  employees: readonly { id: string; payeManualOverride?: boolean }[];
+  /** `canPrepare && !settled` from the wizard. An approved run's figures are
+   *  the record; nothing here offers to change them. */
+  editable: boolean;
+  onSaved: () => void;
+  /**
+   * Refetches `employees` after a save. Setting the "always" checkbox
+   * changes the very list this component reads it from — without this, the
+   * dialog would reopen showing the checkbox unticked immediately after
+   * ticking and saving it, because `employees` is a separate fetch from the
+   * run and nothing else would tell it the flag just moved.
+   */
+  onDirectoryReload: () => void;
 }) {
   const anyUnpaid = payslips.some((slip) => slip.unpaidDays > 0);
   const note = excludedNote(run);
+
+  const actions = usePayrollActions();
+  const [overriding, setOverriding] = useState<Payslip | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [overrideError, setOverrideError] = useState<string | null>(null);
+
+  function close() {
+    setOverriding(null);
+    setOverrideError(null);
+  }
+
+  async function confirmOverride(input: {
+    payeKobo: number;
+    reason: string;
+    alsoStanding: boolean;
+  }) {
+    if (!overriding) return;
+    setSaving(true);
+    setOverrideError(null);
+    try {
+      await actions.setTaxOverride(runId, {
+        employeeId: overriding.employeeId,
+        ...input,
+      });
+      onSaved();
+      onDirectoryReload();
+      close();
+    } catch (caught) {
+      setOverrideError(
+        caught instanceof ApiError
+          ? caught.message
+          : "Something went wrong. Try again.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function clearOverride() {
+    if (!overriding) return;
+    setSaving(true);
+    setOverrideError(null);
+    try {
+      await actions.clearTaxOverride(runId, overriding.employeeId);
+      onSaved();
+      onDirectoryReload();
+      close();
+    } catch (caught) {
+      setOverrideError(
+        caught instanceof ApiError
+          ? caught.message
+          : "Something went wrong. Try again.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <Card>
@@ -775,7 +1462,9 @@ function PayslipTable({
       />
       {note && (
         <CardBody className="border-b border-line">
-          <p className="text-body-sm leading-relaxed text-warning-text">{note}</p>
+          <p className="text-body-sm leading-relaxed text-warning-text">
+            {note}
+          </p>
         </CardBody>
       )}
       <TableWrap className="rounded-none border-0">
@@ -791,7 +1480,9 @@ function PayslipTable({
         </THead>
         <TBody>
           {payslips.map((slip) => {
-            const deductionLines = slip.lines.filter((l) => l.kind === "DEDUCTION");
+            const deductionLines = slip.lines.filter(
+              (l) => l.kind === "DEDUCTION",
+            );
             return (
               <TR key={slip.id}>
                 <TDPrimary
@@ -820,13 +1511,52 @@ function PayslipTable({
                   {formatKobo(slip.grossKobo)}
                 </TD>
                 <TD align="right" className="tabular text-muted">
-                  {formatKobo(slip.pensionEmployeeKobo)}
+                  {wasDeducted(slip.operates, "pension") ? (
+                    formatKobo(slip.pensionEmployeeKobo)
+                  ) : (
+                    <span className="text-faint">Not operated</span>
+                  )}
                 </TD>
                 <TD align="right" className="tabular text-muted">
-                  {formatKobo(slip.nhfKobo)}
+                  {wasDeducted(slip.operates, "nhf") ? (
+                    formatKobo(slip.nhfKobo)
+                  ) : (
+                    <span className="text-faint">Not operated</span>
+                  )}
                 </TD>
                 <TD align="right" className="tabular text-muted">
-                  {formatKobo(slip.payeKobo)}
+                  {wasDeducted(slip.operates, "paye") ? (
+                    <span className="flex flex-col items-end gap-0.5">
+                      <span
+                        className={slip.payeOverridden ? "text-ink" : undefined}
+                      >
+                        {formatKobo(slip.payeKobo)}
+                      </span>
+                      {slip.payeOverridden ? (
+                        <button
+                          type="button"
+                          title={slip.payeOverrideReason ?? undefined}
+                          onClick={() => setOverriding(slip)}
+                          disabled={!editable}
+                          className="text-meta font-normal text-accent-text underline-offset-2 hover:underline disabled:pointer-events-none disabled:text-faint"
+                        >
+                          Entered by hand
+                        </button>
+                      ) : (
+                        editable && (
+                          <button
+                            type="button"
+                            onClick={() => setOverriding(slip)}
+                            className="text-meta font-normal text-muted underline-offset-2 hover:text-accent-text hover:underline"
+                          >
+                            Enter manually
+                          </button>
+                        )
+                      )}
+                    </span>
+                  ) : (
+                    <span className="text-faint">Not operated</span>
+                  )}
                 </TD>
                 <TD align="right" className="tabular text-muted">
                   {slip.otherDeductionsKobo > 0 ? (
@@ -852,9 +1582,9 @@ function PayslipTable({
       </TableWrap>
       <CardBody className="border-t border-line">
         <p className="text-meta leading-relaxed text-muted">
-          Employer pension is not in any column here. It is a company cost on top
-          of gross and does not reduce anybody&apos;s pay — the totals on the next
-          step show it separately.
+          Employer pension is not in any column here. It is a company cost on
+          top of gross and does not reduce anybody&apos;s pay — the totals on
+          the next step show it separately.
         </p>
       </CardBody>
       <CardBody className="border-t border-line">
@@ -862,6 +1592,30 @@ function PayslipTable({
           Open the payslips
         </ButtonLink>
       </CardBody>
+      {overriding && (
+        <TaxOverrideDialog
+          open
+          name={overriding.name}
+          periodLabel={period}
+          {...(overriding.payeOverridden
+            ? {
+                currentKobo: overriding.payeKobo,
+                ...(overriding.payeOverrideReason
+                  ? { currentReason: overriding.payeOverrideReason }
+                  : {}),
+                onClear: () => void clearOverride(),
+              }
+            : { computedKobo: overriding.payeKobo })}
+          standingAlready={
+            employees.find((e) => e.id === overriding.employeeId)
+              ?.payeManualOverride ?? false
+          }
+          onClose={close}
+          onConfirm={(input) => void confirmOverride(input)}
+          loading={saving}
+          {...(overrideError ? { error: overrideError } : {})}
+        />
+      )}
     </Card>
   );
 }

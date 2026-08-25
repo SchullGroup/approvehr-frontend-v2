@@ -1,10 +1,13 @@
 import { ToastProvider } from "@/components/ui";
 import { AuthGate } from "@/components/portal/auth-gate";
+import { SetupGate } from "@/components/portal/setup-gate";
 import { AppShell } from "@/components/portal/shell";
 
 /* The gate sits inside the toast provider so a sign-out can raise a toast, and
    outside the shell so the sign-in screen gets its own chrome rather than
-   appearing inside a sidebar it has no business showing. */
+   appearing inside a sidebar it has no business showing. SetupGate sits inside
+   AuthGate — it needs a signed-in session to decide anything — and outside
+   AppShell so a redirect to /setup fires before the sidebar ever paints. */
 export default function AppLayout({
   children,
 }: {
@@ -13,7 +16,9 @@ export default function AppLayout({
   return (
     <ToastProvider>
       <AuthGate>
-        <AppShell>{children}</AppShell>
+        <SetupGate>
+          <AppShell>{children}</AppShell>
+        </SetupGate>
       </AuthGate>
     </ToastProvider>
   );

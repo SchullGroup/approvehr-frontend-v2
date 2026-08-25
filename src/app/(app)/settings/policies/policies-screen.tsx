@@ -122,7 +122,6 @@ export function PoliciesScreen() {
     <>
       <PageHeader
         title="Handbook"
-        description="Your policies, and who has accepted each one."
         breadcrumb={[{ href: "/settings", label: "Settings" }]}
         action={
           canManage && policies.editable ? (

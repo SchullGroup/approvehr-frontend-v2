@@ -122,11 +122,7 @@ export function longDate(isoDate: string): string {
 /* -------------------------------------------------------------------- types */
 
 export type PayrollRunStatus =
-  | "DRAFT"
-  | "IN_REVIEW"
-  | "APPROVED"
-  | "PAID"
-  | "CANCELLED";
+  "DRAFT" | "IN_REVIEW" | "APPROVED" | "PAID" | "CANCELLED";
 
 export type ExceptionSeverity = "BLOCKER" | "WARNING";
 
@@ -278,6 +274,16 @@ export type Payslip = {
   relief?: ReliefRegime;
   payeKobo: number;
   /**
+   * Whether `payeKobo` above is a figure a human entered by hand for this one
+   * period, in place of the engine's own bands. Every other figure on this
+   * payslip — pension, NHF, the relief and taxable-income lines — is still the
+   * engine's own, unaffected; only this one line and `netKobo`, which is
+   * derived from it, take the override instead.
+   */
+  payeOverridden: boolean;
+  /** Why it does not come from the bands. Null when `payeOverridden` is false. */
+  payeOverrideReason: string | null;
+  /**
    * Which statutory deductions the run that produced this payslip operated.
    *
    * Attached by the API to every payslip, for the same reason `relief` is: a
@@ -334,10 +340,32 @@ export type RunExclusion = {
   excludedAt: string;
 };
 
+/**
+ * A hand-entered PAYE figure standing in for the engine's own bands, for one
+ * person on one payroll.
+ *
+ * Same shape as `RunExclusion`, structured rather than left for a screen to
+ * parse out of the `payroll_tax_overridden` warning's message — "who set
+ * this and when" belongs to an editable review row.
+ */
+export type RunTaxOverride = {
+  id: string;
+  employeeId: string;
+  employeeNo: string;
+  name: string;
+  payeKobo: number;
+  reason: string;
+  /** Who entered it. Null only where the deciding user has no employee record. */
+  setBy: string | null;
+  /** ISO instant. */
+  setAt: string;
+};
+
 export type PayrollRunDetail = PayrollRun & {
   payslips: Payslip[];
   exceptions: RunException[];
   exclusions: RunExclusion[];
+  taxOverrides: RunTaxOverride[];
 };
 
 /**
@@ -379,6 +407,22 @@ export type ExclusionChange = {
   name: string;
   reason?: string;
   excludedAt?: string;
+  run: PreparedRun;
+};
+
+/**
+ * What entering (or clearing) a tax override changed.
+ *
+ * `run` is the period rebuilt with the figure applied, same reasoning as
+ * `ExclusionChange`: net pay moves the moment the figure does, and a screen
+ * that kept the old totals would show a payslip disagreeing with itself.
+ */
+export type TaxOverrideChange = {
+  employeeId: string;
+  name: string;
+  payeKobo?: number;
+  reason?: string;
+  setAt?: string;
   run: PreparedRun;
 };
 
@@ -655,6 +699,10 @@ type ApiPayslip = {
   /** Derived from the run, not stored on the payslip. See `Payslip.operates`. */
   operates?: StatutoryOperation;
   paye: Decimalish;
+  /** Set once, at prepare time, from whichever `PayrollTaxOverride` existed
+   *  for this person on this run. See `Payslip.payeOverridden`. */
+  payeOverridden?: boolean;
+  payeOverrideReason?: string | null;
   otherDeductions: Decimalish;
   net: Decimalish;
   unpaidDays: number;
@@ -688,6 +736,15 @@ type ApiRunDetail = ApiRun & {
     employee: { employeeNo: string; firstName: string; lastName: string };
     excludedBy: { firstName: string; lastName: string } | null;
   }[];
+  taxOverrides: {
+    id: string;
+    employeeId: string;
+    paye: Decimalish;
+    reason: string;
+    setAt: string;
+    employee: { employeeNo: string; firstName: string; lastName: string };
+    setBy: { firstName: string; lastName: string } | null;
+  }[];
 };
 
 function toRun(row: ApiRun): PayrollRun {
@@ -711,7 +768,8 @@ function toRun(row: ApiRun): PayrollRun {
     preparedAt: row.preparedAt,
     approvedAt: row.approvedAt,
     paidAt: row.paidAt,
-    settingsFrozen: row.settingsSnapshot !== null && row.settingsSnapshot !== undefined,
+    settingsFrozen:
+      row.settingsSnapshot !== null && row.settingsSnapshot !== undefined,
     /* Defaulted to deducted, which is what a run written before these columns
        existed actually did. This is the one place a missing value is read as a
        positive: the alternative is telling somebody a historical payroll
@@ -748,6 +806,8 @@ function toPayslip(row: ApiPayslip): Payslip {
        claiming an absence nobody reported. */
     ...(row.operates ? { operates: row.operates } : {}),
     payeKobo: koboFromDecimal(row.paye),
+    payeOverridden: row.payeOverridden ?? false,
+    payeOverrideReason: row.payeOverrideReason ?? null,
     otherDeductionsKobo: koboFromDecimal(row.otherDeductions),
     netKobo: koboFromDecimal(row.net),
     unpaidDays: row.unpaidDays,
@@ -784,13 +844,7 @@ export type PayslipListParams = {
   q?: string;
   delivery?: PayslipDelivery;
   sort?:
-    | "name"
-    | "employeeNo"
-    | "gross"
-    | "net"
-    | "paye"
-    | "emailedAt"
-    | "viewedAt";
+    "name" | "employeeNo" | "gross" | "net" | "paye" | "emailedAt" | "viewedAt";
   order?: "asc" | "desc";
 };
 
@@ -805,6 +859,24 @@ export type PayslipPage = {
   total: number;
   counts: PayslipCounts;
 };
+
+/**
+ * Just enough of a run to place a payslip in time — the period it paid, when,
+ * and whether it is still a draft. Not the full `PayrollRun`: a single payslip
+ * has no business computing the run's totals to answer "when was this paid".
+ */
+export type PayslipRunSummary = {
+  id: string;
+  period: string;
+  payDate: string;
+  status: PayrollRunStatus;
+};
+
+/** One of an employee's own payslips, with the run it belongs to attached —
+ *  their own history has no "which month" picker to hang the period on. */
+export type OwnPayslip = Payslip & { run: PayslipRunSummary };
+
+type ApiPayslipWithRun = ApiPayslip & { run: PayslipRunSummary };
 
 /* ---------------------------------------------------------------- endpoints */
 
@@ -841,6 +913,18 @@ export const payrollApi = {
           ? `${row.excludedBy.firstName} ${row.excludedBy.lastName}`
           : null,
         excludedAt: row.excludedAt,
+      })),
+      taxOverrides: row.taxOverrides.map((row) => ({
+        id: row.id,
+        employeeId: row.employeeId,
+        employeeNo: row.employee.employeeNo,
+        name: `${row.employee.firstName} ${row.employee.lastName}`,
+        payeKobo: koboFromDecimal(row.paye),
+        reason: row.reason,
+        setBy: row.setBy
+          ? `${row.setBy.firstName} ${row.setBy.lastName}`
+          : null,
+        setAt: row.setAt,
       })),
     };
   },
@@ -903,10 +987,7 @@ export const payrollApi = {
    * the new `PreparedRun`, so a screen reloads from that rather than guessing
    * what the totals became.
    */
-  exclude: (
-    id: string,
-    body: { employeeId: string; reason: string },
-  ) =>
+  exclude: (id: string, body: { employeeId: string; reason: string }) =>
     request<ExclusionChange>(`/payroll/runs/${id}/exclusions`, {
       method: "POST",
       body,
@@ -917,6 +998,36 @@ export const payrollApi = {
     request<ExclusionChange>(`/payroll/runs/${id}/exclusions/${employeeId}`, {
       method: "DELETE",
     }),
+
+  /**
+   * Enters somebody's PAYE by hand for this one payroll, in place of the
+   * engine's own bands. Upserts — entering a second figure while one already
+   * exists corrects it rather than refusing. `alsoStanding` also opens this
+   * person's PAYE editable by default on future runs.
+   */
+  setTaxOverride: (
+    id: string,
+    body: {
+      employeeId: string;
+      payeKobo: number;
+      reason: string;
+      alsoStanding?: boolean;
+    },
+  ) =>
+    request<TaxOverrideChange>(`/payroll/runs/${id}/tax-overrides`, {
+      method: "POST",
+      body,
+    }),
+
+  /** Clears this period's hand-entered PAYE. The next figure comes from the
+   *  bands again. Does not touch the standing preference. */
+  clearTaxOverride: (id: string, employeeId: string) =>
+    request<TaxOverrideChange>(
+      `/payroll/runs/${id}/tax-overrides/${employeeId}`,
+      {
+        method: "DELETE",
+      },
+    ),
 
   preview: (employeeId: string, period: string, signal?: AbortSignal) =>
     request<PayslipPreview>("/payroll/preview", {
@@ -935,6 +1046,44 @@ export const payrollApi = {
       body,
       ...(signal ? { signal } : {}),
     }),
+
+  /**
+   * One employee's own payslip history, across every run.
+   *
+   * The self-service read: the API accepts this without `VIEW_SALARIES` when
+   * the id is the caller's own. See `payslips` above for the company register.
+   */
+  employeePayslips: async (
+    employeeId: string,
+    params: { page?: number; pageSize?: number } = {},
+    signal?: AbortSignal,
+  ): Promise<{ payslips: OwnPayslip[]; total: number }> => {
+    const result = await requestPaged<ApiPayslipWithRun>(
+      `/payroll/employees/${employeeId}/payslips`,
+      { query: { ...params }, ...(signal ? { signal } : {}) },
+    );
+    return {
+      payslips: result.data.map((row) => ({ ...toPayslip(row), run: row.run })),
+      total: result.meta.total,
+    };
+  },
+
+  /**
+   * One payslip, by its own id.
+   *
+   * The owner reads this without `VIEW_SALARIES`; anybody else needs it. A 403
+   * here means it exists and is somebody else's; a 404 means it does not.
+   */
+  payslip: async (
+    id: string,
+    signal?: AbortSignal,
+  ): Promise<{ payslip: Payslip; run: PayslipRunSummary }> => {
+    const row = await request<ApiPayslipWithRun>(`/payroll/payslips/${id}`, {
+      ...(signal ? { signal } : {}),
+    });
+    const { run, ...slip } = row;
+    return { payslip: toPayslip(slip), run };
+  },
 
   /** The company's payroll policy, and what switching a deduction off means. */
   settings: (signal?: AbortSignal) =>
@@ -1010,9 +1159,7 @@ export function payslipCountLabel(run: {
  * Null when nobody was excluded, so a caller renders nothing at all rather than
  * "0 people excluded" — which is a line that makes a reader look for a list.
  */
-export function excludedNote(run: {
-  excludedCount: number;
-}): string | null {
+export function excludedNote(run: { excludedCount: number }): string | null {
   if (run.excludedCount === 0) return null;
   return run.excludedCount === 1
     ? "1 person is on the payroll for this period and was deliberately left off it, with a reason recorded."
@@ -1025,16 +1172,49 @@ export function excludedNote(run: {
  * A list of problems with nowhere to go is a list somebody reads twice and
  * acts on once. Where the fix is a field on a record, the row links straight
  * at it; where it is a judgement call, it does not pretend otherwise.
+ *
+ * `tab` and `field` are read by the record screen and have to name a real
+ * one: `field` only opens its section pre-focused when `tab` is the section
+ * that field actually lives on — `grossMonthly` is on `employment`, not
+ * `pay`, and a mismatched pair silently opens nothing. A code with no field
+ * worth naming — a judgement call, or a fact about the whole run rather than
+ * one record — links at the record, or the screen the fact is actually
+ * about, and does not pretend otherwise.
  */
+/** The noun a statutory-switch WARNING is about, for `shortNoticeFor`. */
+const STATUTORY_NOTICE_NOUN: Readonly<Record<string, string>> = {
+  paye_not_deducted: "PAYE",
+  pension_not_operated: "Pension",
+  nhf_not_deducted: "National Housing Fund",
+};
+
+/**
+ * A short, factual stand-in for the three statutory-switch WARNINGs'
+ * `exception.message`, which is the engine's own multi-sentence paragraph —
+ * the Act it names, what a scheme becoming compulsory at fifteen people
+ * means today. That paragraph is right for a reader deciding whether to
+ * switch a deduction back on (`/settings/payroll` links to it rather than
+ * repeating it); it is not what somebody approving a period that already
+ * reflects the decision needs to read again. Null for every other code —
+ * their message is exactly what a reader needs, at whatever length.
+ */
+export function shortNoticeFor(code: string): string | null {
+  const noun = STATUTORY_NOTICE_NOUN[code];
+  return noun ? `${noun} is switched off for this payroll.` : null;
+}
+
 export function fixFor(
   code: string,
   employeeId: string | null,
 ): { href: string; label: string } | null {
+  /* Not employee-scoped: a count of pending overtime across the run, not one
+     person's record. The only code here answered before the `employeeId`
+     gate, because it does not need one. */
+  if (code === "overtime_awaiting_approval") {
+    return { href: `/people/overtime`, label: "Review overtime" };
+  }
   if (!employeeId) return null;
   switch (code) {
-    /* `tab` and `field` are read by the record screen. Without them the link
-       landed on the Personal tab and the person had to go looking for the thing
-       the button had just named. */
     case "missing_bank_account":
       return {
         href: `/people/${employeeId}?tab=pay&field=bankAccount`,
@@ -1044,6 +1224,18 @@ export function fixFor(
       return {
         href: `/people/${employeeId}?tab=pay&field=pensionPin`,
         label: "Add pension PIN",
+      };
+    case "missing_tax_state":
+      return {
+        href: `/people/${employeeId}?tab=pay&field=taxState`,
+        label: "Add PAYE state",
+      };
+    /* `employment`, not `pay` — this is the tab `grossMonthly` actually
+       renders on, beside job title and department. */
+    case "missing_pay":
+      return {
+        href: `/people/${employeeId}?tab=employment&field=grossMonthly`,
+        label: "Set their pay",
       };
     case "deduction_carried":
       return { href: `/payroll/loans`, label: "Open loans" };

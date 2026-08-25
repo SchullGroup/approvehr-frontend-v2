@@ -28,7 +28,6 @@ export default function ApprovalsPage() {
     <>
       <PageHeader
         title="My approvals"
-        description="Everything waiting on a decision from you — leave, payroll, offers, expenses — ranked by what breaks first if you do nothing."
         action={<StartPeriodButton withIcon />}
       />
       <PageBody>

@@ -3,6 +3,7 @@
 import { useCallback, useSyncExternalStore } from "react";
 import { EMPLOYEES } from "@/lib/mock/people";
 import type { Employee } from "@/lib/types";
+import { createPersistedState } from "./persisted";
 
 /*
  * Employee edits.
@@ -14,9 +15,29 @@ import type { Employee } from "@/lib/types";
  *
  * Persists to localStorage so an edit survives navigation — the point of
  * editing is that the payroll run and the record page then agree.
+ *
+ * ## This store established the pattern and is now on the factory
+ *
+ * It used to hold its own copy of the hydration logic, kept that way
+ * deliberately because it was load-bearing verified code. What ended that is
+ * `current()`: the hand-rolled copy had no equivalent and no place to put one,
+ * so its four write paths computed from `read()` — which is the seed until
+ * something subscribes — and there was nothing to reach for instead. Rather
+ * than grow a second `hydrate()` here, it moved.
+ *
+ * Two things the move fixed for free:
+ *
+ *   - the old `subscribe` set `hydrated = true` *before* the microtask and with
+ *     no `typeof window` guard, so a server render that reached it would have
+ *     marked the module hydrated and stopped the browser from ever loading
+ *     storage. The factory checks the window first, for exactly this;
+ *   - there was no version field, which is what stranded payloads when
+ *     `created`/`archived` arrived.
+ *
+ * `legacy` carries the pre-envelope payload across. This store's shape has not
+ * changed — only the wrapper — and emptying every demo browser's directory to
+ * land an audit about writes that silently discard data would be its own joke.
  */
-
-const KEY = "approvehr.employee.store";
 
 /**
  * Three kinds of local change, kept apart deliberately:
@@ -37,62 +58,26 @@ type StoreState = {
 
 const EMPTY: StoreState = { overrides: {}, created: [], archived: [] };
 
-let cache: StoreState = EMPTY;
-let hydrated = false;
-const listeners = new Set<() => void>();
-
-function loadFromStorage(): StoreState {
-  try {
-    const raw = window.localStorage.getItem(KEY);
-    /* Spread over EMPTY so a payload written by an older build, which had
-       only `overrides`, does not arrive missing the newer arrays. */
-    return raw ? { ...EMPTY, ...(JSON.parse(raw) as StoreState) } : EMPTY;
-  } catch {
-    return EMPTY;
-  }
-}
-
-/**
- * getSnapshot deliberately returns EMPTY until the first subscription runs.
- *
- * Reading localStorage here instead would make the client's first render
- * disagree with the server HTML — the exact hydration mismatch React warns
- * about. Subscribe only runs after hydration, so loading there and then
- * notifying gives a correct second render rather than a broken first one.
- */
-function read(): StoreState {
-  return cache;
-}
-
-function commit(next: StoreState) {
-  cache = next;
-  try {
-    window.localStorage.setItem(KEY, JSON.stringify(next));
-  } catch {
-    /* Private mode. The in-memory cache still holds for this session. */
-  }
-  listeners.forEach((l) => l());
-}
-
-function subscribe(listener: () => void) {
-  listeners.add(listener);
-
-  if (!hydrated) {
-    hydrated = true;
-    /* After paint, so this never runs during hydration itself. */
-    queueMicrotask(() => {
-      const stored = loadFromStorage();
-      if (stored !== EMPTY) {
-        cache = stored;
-        listeners.forEach((l) => l());
-      }
-    });
-  }
-
-  return () => {
-    listeners.delete(listener);
-  };
-}
+const store = createPersistedState<StoreState>({
+  key: "approvehr.employee.store",
+  empty: EMPTY,
+  version: 1,
+  /* Written by this store before it used the `{ v, data }` envelope: a bare
+     `StoreState`. Recognised by the three arrays rather than by "it parsed",
+     so a key holding something else entirely is dropped rather than spread
+     over the state. Any one of the three is enough — the oldest payloads had
+     `overrides` alone, which is what the old loader's spread over EMPTY was
+     for. */
+  legacy: (raw) => {
+    if (typeof raw !== "object" || raw === null) return null;
+    const candidate = raw as Partial<StoreState>;
+    const shaped =
+      (candidate.overrides !== undefined && typeof candidate.overrides === "object") ||
+      Array.isArray(candidate.created) ||
+      Array.isArray(candidate.archived);
+    return shaped ? (candidate as StoreState) : null;
+  },
+});
 
 /** Merge a base record with any stored edits. */
 export function applyOverrides(
@@ -120,42 +105,51 @@ export function nextIdentity(existing: Employee[]) {
 }
 
 export function useEmployeeStore() {
-  const state = useSyncExternalStore(subscribe, read, () => EMPTY);
+  const state = useSyncExternalStore(
+    store.subscribe,
+    store.read,
+    store.getServerSnapshot,
+  );
   const { overrides, created, archived } = state;
 
+  /* `current()` in all four writes, never `read()`. This hook subscribes, so
+     any screen holding one of these has hydrated — but `update` is also reached
+     from `useEmployeeMutations`, and a screen can hold that without ever
+     rendering a directory. See the note at the top of `store/persisted.ts`. */
+
   const update = useCallback((id: string, patch: Partial<Employee>) => {
-    const s = read();
+    const s = store.current();
     /* A created record is patched in place; a seed record gets an override. */
     if (s.created.some((e) => e.id === id)) {
-      commit({
+      store.commit({
         ...s,
         created: s.created.map((e) => (e.id === id ? { ...e, ...patch } : e)),
       });
       return;
     }
-    commit({
+    store.commit({
       ...s,
       overrides: { ...s.overrides, [id]: { ...s.overrides[id], ...patch } },
     });
   }, []);
 
   const create = useCallback((employee: Employee) => {
-    const s = read();
-    commit({ ...s, created: [...s.created, employee] });
+    const s = store.current();
+    store.commit({ ...s, created: [...s.created, employee] });
   }, []);
 
   const archive = useCallback((id: string) => {
-    const s = read();
+    const s = store.current();
     if (s.archived.includes(id)) return;
-    commit({ ...s, archived: [...s.archived, id] });
+    store.commit({ ...s, archived: [...s.archived, id] });
   }, []);
 
   const restore = useCallback((id: string) => {
-    const s = read();
-    commit({ ...s, archived: s.archived.filter((x) => x !== id) });
+    const s = store.current();
+    store.commit({ ...s, archived: s.archived.filter((x) => x !== id) });
   }, []);
 
-  const resetAll = useCallback(() => commit(EMPTY), []);
+  const resetAll = useCallback(() => store.reset(), []);
 
   /* Seed records plus anything created here, with edits applied. Archived
      records are filtered out of the directory but still resolvable by id, so
@@ -166,14 +160,19 @@ export function useEmployeeStore() {
   ];
   const directory = all.filter((e) => !archived.includes(e.id));
 
+  /* `get` is a render read — `useEmployeeDetail` calls it while rendering — so
+     it takes the subscribed snapshot and not the store. It used to call `read()`
+     twice while memoising on `[overrides, created]`, which returned the same
+     cache and needed an exhaustive-deps suppression to say so. Reading the
+     snapshot it is already keyed on is the same answer with the lie removed,
+     and it leaves this file with no `read()` call at all: the only reference is
+     the one `useSyncExternalStore` holds. */
   const get = useCallback(
     (id: string) => {
       const base =
-        EMPLOYEES.find((e) => e.id === id) ??
-        read().created.find((e) => e.id === id);
-      return base ? applyOverrides(base, read().overrides) : undefined;
+        EMPLOYEES.find((e) => e.id === id) ?? created.find((e) => e.id === id);
+      return base ? applyOverrides(base, overrides) : undefined;
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [overrides, created],
   );
 

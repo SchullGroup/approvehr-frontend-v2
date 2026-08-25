@@ -1,16 +1,18 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { RotateCcw, Save } from "lucide-react";
+import { Lock, RotateCcw, Save } from "lucide-react";
 import {
   Badge,
   Button,
+  ButtonLink,
   Callout,
   Card,
   CardBody,
   CardHeader,
   Checkbox,
   Disclosure,
+  EmptyState,
   Field,
   FieldSet,
   Input,
@@ -22,6 +24,7 @@ import {
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { naira, wasDeducted, type StatutoryOperation } from "@/lib/api/payroll";
+import { usePermissions } from "@/lib/permissions";
 import {
   quoteSettingsFrom,
   usePayslipQuote,
@@ -32,11 +35,11 @@ import {
   type PayrollSettings,
   type PensionComponent,
 } from "@/lib/payroll/settings";
-import { usePayrollSettings } from "@/lib/payroll/use-settings";
 import {
-  DEMO_REFUSAL,
-  useDeductionSwitches,
-} from "@/lib/store/payroll-deductions";
+  usePayrollSettings,
+  type DeductionKey,
+} from "@/lib/payroll/use-settings";
+import { DEMO_REFUSAL } from "@/lib/store/payroll-deductions";
 
 /** The six sub-forms, each its own disclosure. */
 type Section = "deductions" | "working" | "split" | "pension" | "nhf" | "checks";
@@ -80,8 +83,6 @@ const DEDUCTION_COPY = {
   string,
   { noun: string; path: "paye" | "pension" | "nhf"; question: string; on: string; off: string }
 >;
-
-type DeductionKey = keyof typeof DEDUCTION_COPY;
 
 const DEDUCTION_KEYS = [
   "payeEnabled",
@@ -133,42 +134,80 @@ const DEDUCTION_KEYS = [
  * The consequence, and it is on screen: the three switches take effect on the
  * next payroll run; the rates below them move this preview and nothing else
  * until the local store is converted.
+ *
+ * ## Gated on `VIEW_SALARIES`, like the endpoint it reads
+ *
+ * `GET /payroll/settings` needs `VIEW_SALARIES` — "the pension rate and the
+ * salary split *are* information about what people earn" — and until this
+ * change nothing on this screen agreed. Every sibling settings screen refuses
+ * with a `Lock` empty state; this one rendered the whole interactive form,
+ * Save button included, to anybody who could reach the URL, and only the API
+ * call inside "What you deduct" ever refused. Nothing sensitive actually
+ * leaked — the six-way rate form is local-only and the real switches 403
+ * correctly — but the picture on screen was a company's payroll policy, fully
+ * interactive, in front of somebody who cannot even read it.
+ *
+ * `MANAGE_PAY_STRUCTURE` is the separate write permission the PATCH route
+ * needs, and it is not implied by `VIEW_SALARIES` — a payroll analyst can
+ * hold one and not the other. So reading this form needs the first and every
+ * control on it needs the second, the same split `overtime/form.tsx` makes
+ * for the same reason.
  */
 export function PayrollSettingsForm() {
-  const { settings, save, reset } = usePayrollSettings();
-  const [draft, setDraft] = useState<PayrollSettings>(settings);
+  const { can, loading: permissionsLoading } = usePermissions();
+  const {
+    settings,
+    save,
+    reset,
+    saveDeduction,
+    loading: settingsLoading,
+    error: settingsError,
+    available,
+    defaults,
+    notices,
+  } = usePayrollSettings();
+  /**
+   * Keyed by the `settings` it was started from, not copied into state once at
+   * mount — the same pattern `overtime/form.tsx` uses, and for the same
+   * reason: `settings` starts at `DEFAULT_SETTINGS` and is replaced once the
+   * connected fetch resolves, and a `useState(settings)` initializer only
+   * ever reads that first, pre-fetch value. Without this, editing the form
+   * connected would show 22 working days forever no matter what the company
+   * had actually saved, because nothing here would notice the real answer
+   * arriving underneath it.
+   */
+  const [edited, setEdited] = useState<{
+    from: PayrollSettings;
+    value: PayrollSettings;
+  } | null>(null);
+  const draft = edited && edited.from === settings ? edited.value : settings;
   const [saved, setSaved] = useState(true);
   const toast = useToast();
 
-  const deductions = useDeductionSwitches();
-  const stored = deductions.settings?.settings ?? null;
+  const canManagePay = can("MANAGE_PAY_STRUCTURE");
   /** The switch currently being saved, so only that row goes quiet. */
   const [switching, setSwitching] = useState<DeductionKey | null>(null);
 
   /**
-   * The draft, with the three switches taken from the API rather than from local
-   * storage.
+   * The draft, with the three switches taken from the live settings rather
+   * than from whatever `draft` was initialised with.
    *
-   * **Derived every render, never copied into state.** Synchronising the server's
-   * answer into `draft` would need a `setState` inside an effect — a cascading
-   * render, and the thing `react-hooks/set-state-in-effect` exists to stop. It
-   * also matters for correctness: the preview has to quote what a real run will
-   * do, and a real run reads these three from the API.
-   *
-   * Falls back to the local draft only while the read is in flight, so nothing
-   * here claims a company deducts something the server has not confirmed.
+   * **Derived every render, never copied into state.** Synchronising the
+   * live answer into `draft` would need a `setState` inside an effect — a
+   * cascading render, and the thing `react-hooks/set-state-in-effect` exists
+   * to stop. It also matters for correctness: the preview has to quote what a
+   * real run will do, and a real run reads these three from wherever
+   * `saveDeduction` last wrote them — which may be after this component's
+   * `draft` was set.
    */
   const effective: PayrollSettings = useMemo(
     () => ({
       ...draft,
-      paye: { enabled: stored?.payeEnabled ?? draft.paye.enabled },
-      pension: {
-        ...draft.pension,
-        enabled: stored?.pensionEnabled ?? draft.pension.enabled,
-      },
-      nhf: { ...draft.nhf, enabled: stored?.nhfEnabled ?? draft.nhf.enabled },
+      paye: { enabled: settings.paye.enabled },
+      pension: { ...draft.pension, enabled: settings.pension.enabled },
+      nhf: { ...draft.nhf, enabled: settings.nhf.enabled },
     }),
-    [draft, stored],
+    [draft, settings.paye.enabled, settings.pension.enabled, settings.nhf.enabled],
   );
 
   const issues = validateSettings(effective);
@@ -176,7 +215,7 @@ export function PayrollSettingsForm() {
     issues.find((i) => i.field === field)?.message;
 
   function update(patch: (s: PayrollSettings) => PayrollSettings) {
-    setDraft((d) => patch(structuredClone(d)));
+    setEdited({ from: settings, value: patch(structuredClone(draft)) });
     setSaved(false);
   }
 
@@ -196,7 +235,7 @@ export function PayrollSettingsForm() {
   const setDeduction = async (key: DeductionKey, on: boolean) => {
     setSwitching(key);
     try {
-      await deductions.save({ [key]: on });
+      await saveDeduction(key, on);
       toast.push({
         title: `${DEDUCTION_COPY[key].noun} ${on ? "will be deducted" : "is not deducted"}`,
         tone: on ? "success" : "info",
@@ -217,6 +256,68 @@ export function PayrollSettingsForm() {
       });
     } finally {
       setSwitching(null);
+    }
+  };
+
+  /** Which batched action is in flight, so both buttons refuse a double-submit. */
+  const [busy, setBusy] = useState<"save" | "reset" | null>(null);
+
+  const doSave = async () => {
+    setBusy("save");
+    try {
+      await save(draft);
+      /* Same reasoning as `doReset`: `settings` is about to become exactly
+         what was just saved, so reading it live is one source of truth
+         instead of trusting this render's own copy of what "saved" means. */
+      setEdited(null);
+      setSaved(true);
+      toast.push({
+        title: "Payroll settings saved",
+        tone: "success",
+        detail: "The next payroll will use these.",
+      });
+    } catch (error) {
+      toast.push({
+        title: "That did not save",
+        tone: "danger",
+        detail:
+          error instanceof ApiError
+            ? error.message
+            : error instanceof Error
+              ? error.message
+              : "Something went wrong. Try again.",
+      });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const doReset = async () => {
+    setBusy("reset");
+    try {
+      await reset();
+      /* Clears the draft rather than setting it to `DEFAULT_SETTINGS`
+         directly: `draft` already falls back to reading `settings` live
+         whenever there is no in-progress edit, and `settings` is about to
+         become the reset values via the same `setFetched` `reset()` itself
+         triggers — one source of truth instead of two copies of "what reset
+         means" that could disagree. */
+      setEdited(null);
+      setSaved(true);
+      toast.push({ title: "Reset to defaults", tone: "info" });
+    } catch (error) {
+      toast.push({
+        title: "That did not reset",
+        tone: "danger",
+        detail:
+          error instanceof ApiError
+            ? error.message
+            : error instanceof Error
+              ? error.message
+              : "Something went wrong. Try again.",
+      });
+    } finally {
+      setBusy(null);
     }
   };
 
@@ -267,6 +368,23 @@ export function PayrollSettingsForm() {
   const toggle = (id: Section) =>
     setManual((current) => ({ ...current, [id]: !isOpen(id) }));
 
+  if (permissionsLoading) {
+    return <Skeleton className="h-96 w-full" />;
+  }
+
+  if (!can("VIEW_SALARIES")) {
+    return (
+      <Card>
+        <EmptyState
+          icon={<Lock aria-hidden="true" />}
+          title="Payroll settings are not part of your access"
+          description="The pension rate and the salary split are information about what people earn, so this is kept to whoever can see salaries. Ask whoever manages access to add that permission to your role."
+          action={<ButtonLink href="/settings">Back to settings</ButtonLink>}
+        />
+      </Card>
+    );
+  }
+
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
       <div className="flex flex-col gap-5">
@@ -280,23 +398,47 @@ export function PayrollSettingsForm() {
           </Callout>
         )}
 
+        {!canManagePay && (
+          <Callout tone="info" title="You can see this, not change it">
+            Changing payroll settings needs pay-structure permission. Ask
+            whoever manages access if you need it.
+          </Callout>
+        )}
+
         {/*
           Outside the reveal, deliberately — `PARITY.md` Rule 5. A company that
           deducts no PAYE has taken on an employer obligation, and somebody who
           never opens a section must not be able to be surprised by it. The
           switches themselves are inside; what they commit you to is out here.
 
-          The wording is the API's, from `statutoryNotices` in the payroll
-          engine, rendered verbatim. It names an Act, and a locally reworded
-          version of a legal consequence is how the two stop agreeing.
+          One line, not the statute. `notice.message` is the API's full
+          paragraph — the Act it names, what a scheme becoming compulsory at
+          fifteen people means for this company today — and it still fires in
+          full where it actually has to be read before money moves: as a
+          WARNING on the payroll run itself. Here it would only ever be read
+          past, so this names the fact and links straight to the switch
+          rather than restating the law beside it.
         */}
-        {deductions.notices.map((notice) => (
-          <Callout
-            key={notice.code}
-            tone="warning"
-            title={`${DEDUCTION_COPY[notice.field].noun} is not deducted on this payroll`}
-          >
-            {notice.message}
+        {notices.map((notice) => (
+          <Callout key={notice.code} tone="warning">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span>
+                {DEDUCTION_COPY[notice.field].noun} is switched off for this
+                payroll.
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={!available || switching !== null || !canManagePay}
+                loading={switching === notice.field}
+                onClick={() => {
+                  if (!isOpen("deductions")) toggle("deductions");
+                  void setDeduction(notice.field, true);
+                }}
+              >
+                Turn it on
+              </Button>
+            </div>
           </Callout>
         ))}
 
@@ -304,7 +446,7 @@ export function PayrollSettingsForm() {
           className="bg-surface"
           title="What you deduct"
           meta={
-            deductions.loading ? (
+            settingsLoading ? (
               <Badge tone="neutral" size="sm">
                 Reading
               </Badge>
@@ -331,18 +473,18 @@ export function PayrollSettingsForm() {
           onToggle={() => toggle("deductions")}
           panelClassName="flex flex-col gap-5 p-5"
         >
-          {deductions.error ? (
+          {settingsError ? (
             <Callout tone="danger" title="Could not read what you deduct">
-              {deductions.error}
+              {settingsError.message}
             </Callout>
           ) : (
             <>
-              {!deductions.available && (
+              {!available && (
                 <Callout tone="info" title="Reading only, in this demo">
                   {DEMO_REFUSAL}
                 </Callout>
               )}
-              {deductions.available && deductions.defaults && (
+              {available && defaults && (
                 <Callout tone="info" title="Nothing has been chosen yet">
                   These are the standard Nigerian settings. Answering a question
                   below saves your own.
@@ -358,9 +500,10 @@ export function PayrollSettingsForm() {
                     description={on ? copy.on : copy.off}
                     checked={on}
                     disabled={
-                      !deductions.available ||
-                      deductions.loading ||
-                      switching !== null
+                      !available ||
+                      settingsLoading ||
+                      switching !== null ||
+                      !canManagePay
                     }
                     onChange={(e) => void setDeduction(key, e.target.checked)}
                   />
@@ -741,28 +884,17 @@ export function PayrollSettingsForm() {
         <div className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-line bg-surface px-1 py-3">
           <Button
             variant="ghost"
-            onClick={() => {
-              reset();
-              setDraft(structuredClone(settings));
-              setSaved(true);
-              toast.push({ title: "Reset to defaults", tone: "info" });
-            }}
+            disabled={!canManagePay || busy !== null}
+            onClick={() => void doReset()}
           >
             <RotateCcw aria-hidden="true" className="size-4" />
             Reset to defaults
           </Button>
           <Button
             variant="approve"
-            disabled={issues.length > 0 || saved}
-            onClick={() => {
-              save(draft);
-              setSaved(true);
-              toast.push({
-                title: "Payroll settings saved",
-                tone: "success",
-                detail: "The next payroll will use these.",
-              });
-            }}
+            loading={busy === "save"}
+            disabled={issues.length > 0 || saved || !canManagePay || busy !== null}
+            onClick={() => void doSave()}
           >
             <Save aria-hidden="true" className="size-4" />
             {saved ? "Saved" : "Save settings"}

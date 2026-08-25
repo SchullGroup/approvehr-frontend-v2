@@ -1,12 +1,24 @@
 import type { Metadata } from "next";
 import { Check } from "lucide-react";
+import Image from "next/image";
 import { Reveal } from "@/components/marketing/motion";
 import { DemoForm } from "./form";
+
+const LOGOS = [
+  { src: "/clients/nnpc.png", alt: "NNPC", w: 414, h: 120 },
+  { src: "/clients/fmm.png", alt: "Federal Ministry", w: 225, h: 120 },
+  { src: "/clients/crffn.png", alt: "CRFFN", w: 209, h: 120 },
+  { src: "/clients/usce.png", alt: "USCE", w: 213, h: 120 },
+  { src: "/clients/schull.png", alt: "Schulltech", w: 430, h: 96 },
+  { src: "/clients/beat.png", alt: "Beate Synergy", w: 252, h: 96 },
+  { src: "/clients/voz.png", alt: "Vomoz", w: 243, h: 120 },
+  { src: "/clients/schullio.png", alt: "schull.io", w: 570, h: 120 },
+];
 
 export const metadata: Metadata = {
   title: "Book a demo",
   description:
-    "Thirty minutes on your own numbers. We will run a payroll cycle end to end and tell you honestly whether it fits.",
+    "See the value of ApproveHR in ten minutes. No setup, no slides — just a focused look at what it can do for your organisation.",
 };
 
 export default function DemoPage() {
@@ -16,19 +28,18 @@ export default function DemoPage() {
         <Reveal>
           <div>
             <h1 className="text-h1 text-slate">
-              Thirty minutes, your numbers, no slides.
+              Let us show you how to transform your organisation.
             </h1>
             <p className="mt-6 text-lead text-slate-muted">
-              Send us your headcount and how you run payroll today. We will set
-              the demo up against a company shaped like yours and run a cycle
-              end to end.
+              In ten minutes you will see exactly what ApproveHR can do for
+              your team — no setup, no slides, just the value.
             </p>
 
             <ul className="mt-10 flex flex-col gap-5">
               {[
                 {
-                  title: "You will see a full payroll run",
-                  body: "Prepared, PAYE and pension calculated, sent for approval, schedules generated. Not a slide of one.",
+                  title: "You will see payroll done end to end",
+                  body: "PAYE and pension calculated, sent for approval, schedules generated — the whole thing, not a slide of it.",
                 },
                 {
                   title: "We will tell you if it does not fit",
@@ -59,11 +70,48 @@ export default function DemoPage() {
               ))}
             </ul>
 
-            <p className="mt-10 border-t border-sand-line pt-6 text-meta leading-relaxed text-slate-muted">
-              We use what you send here to prepare the call and nothing else.
-              Your details are not sold, shared or added to a marketing list
-              without you asking.
-            </p>
+            <div className="mt-10 border-t border-sand-line pt-8">
+              <p className="text-meta font-semibold uppercase tracking-widest text-slate-muted">
+                Trusted by Nigerian teams in energy, government and technology
+              </p>
+              <div className="mt-5 grid grid-cols-4 gap-x-6 gap-y-4">
+                {LOGOS.map((logo) => (
+                  <Image
+                    key={logo.src}
+                    src={logo.src}
+                    alt={logo.alt}
+                    width={logo.w}
+                    height={logo.h}
+                    className="h-7 w-auto object-contain opacity-50"
+                  />
+                ))}
+              </div>
+            </div>
+
+            <figure className="mt-7 rounded-2xl border border-sand-line bg-white/70 p-6">
+              <blockquote className="text-body leading-relaxed text-slate">
+                &ldquo;Compliance and scale were what kept me up. Payroll and
+                tax now run themselves, and I finally get numbers I can make
+                decisions on instead of numbers I have to check.&rdquo;
+              </blockquote>
+              <figcaption className="mt-5 flex items-center gap-3 border-t border-sand-line pt-4">
+                <Image
+                  src="/avatars/ko.png"
+                  alt=""
+                  width={44}
+                  height={44}
+                  className="size-10 shrink-0 rounded-full object-cover"
+                />
+                <div className="min-w-0">
+                  <p className="text-body-sm font-medium text-slate">
+                    Ayo Oseni
+                  </p>
+                  <p className="text-meta text-slate-muted">
+                    Founder, USCExperts
+                  </p>
+                </div>
+              </figcaption>
+            </figure>
           </div>
         </Reveal>
 

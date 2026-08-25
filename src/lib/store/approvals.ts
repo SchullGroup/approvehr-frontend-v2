@@ -51,7 +51,7 @@ export function useApprovalStore() {
   );
 
   const decide = useCallback((id: string, decision: Decision, note?: string) => {
-    const s = store.read();
+    const s = store.current();
     store.commit({
       decisions: {
         ...s.decisions,
@@ -67,7 +67,7 @@ export function useApprovalStore() {
 
   const decideMany = useCallback((ids: string[], decision: Decision) => {
     if (ids.length === 0) return;
-    const s = store.read();
+    const s = store.current();
     const next = { ...s.decisions };
     for (const id of ids) {
       next[id] = { decision, at: TODAY, byId: actingId };
@@ -76,7 +76,7 @@ export function useApprovalStore() {
   }, [actingId]);
 
   const reopen = useCallback((id: string) => {
-    const s = store.read();
+    const s = store.current();
     if (!s.decisions[id]) return;
     const next = { ...s.decisions };
     delete next[id];

@@ -183,7 +183,6 @@ function Record({ id }: { id: string }) {
             </Badge>
           ) : undefined
         }
-        description={subtitle(record, card)}
         action={
           card ? (
             <ButtonLink
@@ -339,26 +338,6 @@ function Record({ id }: { id: string }) {
       )}
     </>
   );
-}
-
-/**
- * The line under the name.
- *
- * Prefers what the seed knows about their working life — current title and
- * employer — because that is what somebody about to interview them wants. Falls
- * back to the advert and the date, which is what the API can say for certain.
- */
-function subtitle(
-  record: ApplicantRecord | null,
-  card: PipelineCard | null,
-): string {
-  if (card) {
-    return `${card.candidate.currentTitle} at ${card.candidate.currentCompany} · applied ${card.appliedAt}`;
-  }
-  if (record) {
-    return `Applied for ${record.postingTitle} on ${record.appliedOn}`;
-  }
-  return "";
 }
 
 /* -------------------------------------------------------------------- rail */

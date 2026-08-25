@@ -856,7 +856,7 @@ export function useTicket(id: string | null) {
      mutating it, so the persisted payload and the render never disagree. */
   const writeDemo = useCallback(
     (change: (ticket: DemoTicket) => DemoTicket) => {
-      const current = demoStore.read();
+      const current = demoStore.current();
       demoStore.commit({
         ...current,
         tickets: current.tickets.map((ticket) =>
@@ -1065,7 +1065,7 @@ export function useRaiseTicket() {
         return created.id;
       }
 
-      const current = demoStore.read();
+      const current = demoStore.current();
       const category = DEMO_CATEGORIES.find((c) => c.id === body.categoryId) ?? null;
       const stamped = new Date().toISOString();
       const id = `tk-demo-${current.nextRef}`;

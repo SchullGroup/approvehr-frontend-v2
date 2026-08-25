@@ -698,8 +698,16 @@ export function useEmployeeMutations() {
 
       const updated = await api.update(id, {
         ...rest,
-        ...(departmentId === undefined ? {} : { departmentId }),
-        ...(workLocationId === undefined ? {} : { workLocationId }),
+        /* Three states again, same as `grossMonthly` below: absent leaves the
+           assignment alone, `""` — the picker's "Not assigned" / "Not set" —
+           means withdraw it and has to cross the wire as `null`, because the
+           API's schema wants a real UUID or nothing, never an empty string. */
+        ...(departmentId === undefined
+          ? {}
+          : { departmentId: departmentId === "" ? null : departmentId }),
+        ...(workLocationId === undefined
+          ? {}
+          : { workLocationId: workLocationId === "" ? null : workLocationId }),
         /* The enums are upper case on the wire and lower case in `Employee` —
            `toEmployee` lower-cases on the way in, so this is the way back. */
         ...(status ? { status: status.toUpperCase() } : {}),

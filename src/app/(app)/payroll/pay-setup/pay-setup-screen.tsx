@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Coins, Layers, Scissors } from "lucide-react";
-import { Tabs } from "@/components/ui";
+import { Coins, Layers, Scissors, ShieldAlert } from "lucide-react";
+import { EmptyState, Tabs } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { GradesPanel } from "@/app/(app)/payroll/pay-setup/grades-panel";
+import { useCan } from "@/lib/permissions";
 import { ComponentsPanel } from "./components-panel";
 import { PAY_SETUP_TABS, isPaySetupTab, type PaySetupTab } from "./tabs";
 
@@ -29,6 +30,16 @@ import { PAY_SETUP_TABS, isPaySetupTab, type PaySetupTab } from "./tabs";
  * imported, never edited here, and it renders no page header of its own — the
  * shell owns the heading and the route, every panel owns its own body. Keep that
  * division if a fourth tab is added.
+ *
+ * ## Who may look
+ *
+ * Allowances and deductions are read with `VIEW_SALARIES` on the API
+ * (`GET /pay-components`) — the same permission the Grades tab's own store
+ * additionally requires to *edit*, so `VIEW_SALARIES` is the floor for this
+ * whole page. Connected, this is a second lock on a door already locked. It
+ * earns its place in demo mode, where `useGrades` and `usePayComponents`
+ * answer regardless of role unless a screen asks: previewing "Employee"
+ * under `/settings/roles` must not still show what pay is made of.
  */
 
 /* Labels and icons only. The ids and their order come from `tabs.ts`, which the
@@ -42,6 +53,7 @@ const META: Record<PaySetupTab, { label: string; icon: React.ReactNode }> = {
 const ITEMS = PAY_SETUP_TABS.map((id) => ({ id, ...META[id] }));
 
 export function PaySetupScreen({ initialTab }: { initialTab: PaySetupTab }) {
+  const canView = useCan("VIEW_SALARIES");
   const [tab, setTab] = useState<PaySetupTab>(initialTab);
 
   const change = (next: string) => {
@@ -55,12 +67,28 @@ export function PaySetupScreen({ initialTab }: { initialTab: PaySetupTab }) {
     window.history.replaceState(null, "", url);
   };
 
+  if (!canView) {
+    return (
+      <>
+        <PageHeader title="Pay setup" />
+        <PageBody>
+          <EmptyState
+            icon={<ShieldAlert aria-hidden="true" />}
+            title="You cannot view pay setup"
+            description={
+              "Seeing what pay is made of — allowances, deductions and " +
+              "grades — needs the “View salaries” permission. Ask " +
+              "somebody who holds it."
+            }
+          />
+        </PageBody>
+      </>
+    );
+  }
+
   return (
     <>
-      <PageHeader
-        title="Pay setup"
-        description="What pay is made of besides salary: what you add, what you take off, and the bands each job sits in."
-      />
+      <PageHeader title="Pay setup" />
 
       <PageBody>
         <Tabs items={ITEMS} value={tab} onChange={change}>

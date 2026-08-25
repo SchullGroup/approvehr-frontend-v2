@@ -1,10 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, CalendarClock, Play, Receipt } from "lucide-react";
+import {
+  ArrowRight,
+  CalendarClock,
+  Play,
+  Receipt,
+  ShieldAlert,
+} from "lucide-react";
 import {
   Badge,
   ButtonLink,
+  Callout,
   Card,
   CardBody,
   CardHeader,
@@ -21,7 +28,6 @@ import {
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import {
-  ExceptionList,
   RunStatusBadge,
   SourceBadge,
   TotalsPanel,
@@ -32,7 +38,12 @@ import {
   periodLabel,
   wasDeducted,
 } from "@/lib/api/payroll";
-import { countBySeverity, usePayrollRun, usePayrollRuns } from "@/lib/store/payroll";
+import { useCan } from "@/lib/permissions";
+import {
+  countBySeverity,
+  usePayrollRun,
+  usePayrollRuns,
+} from "@/lib/store/payroll";
 import { TODAY } from "@/lib/today";
 
 /**
@@ -51,8 +62,20 @@ import { TODAY } from "@/lib/today";
  * The list gives totals; only the detail carries the exceptions. Blockers are
  * the single most useful thing this page can tell somebody — a run they think is
  * ready and is not — so it is worth the second request.
+ *
+ * ## Who may look
+ *
+ * `GET /payroll/runs` and `GET /payroll/runs/:id` both require `VIEW_SALARIES`
+ * on the API — most of the company should not see what everybody else is
+ * paid — so this is the same gate, moved to the front of the screen rather
+ * than left for the first request to refuse. Connected, that makes it a
+ * second lock on a door already locked. It earns its place in demo mode,
+ * where every store answers regardless of role unless a screen asks:
+ * previewing "Employee" under `/settings/roles` must not still show the
+ * company's gross and net.
  */
 export function PayrollScreen() {
+  const canView = useCan("VIEW_SALARIES");
   const { runs, loading, error, connected } = usePayrollRuns();
   const current = runs[0] ?? null;
   const detail = usePayrollRun(current?.id ?? null);
@@ -61,11 +84,28 @@ export function PayrollScreen() {
   const hasCurrentPeriod = runs.some((run) => run.period === currentPeriod);
   const counts = countBySeverity(detail.run?.exceptions ?? []);
 
+  if (!canView) {
+    return (
+      <>
+        <PageHeader title="Payroll" />
+        <PageBody>
+          <EmptyState
+            icon={<ShieldAlert aria-hidden="true" />}
+            title="You cannot view payroll"
+            description={
+              "Seeing what the company pays needs the “View salaries” " +
+              "permission. Ask somebody who holds it."
+            }
+          />
+        </PageBody>
+      </>
+    );
+  }
+
   return (
     <>
       <PageHeader
         title="Payroll"
-        description="Runs, what each one owes, and anything that would make it wrong."
         action={
           <ButtonLink
             href={
@@ -85,9 +125,7 @@ export function PayrollScreen() {
       <PageBody className="flex flex-col gap-6">
         <SourceBadge connected={connected} loading={loading} error={error} />
 
-        {error && (
-          <LoadFailure subject="payroll" error={error} />
-        )}
+        {error && <LoadFailure subject="payroll" error={error} />}
 
         {/* An error is not an empty state. "No run yet" beside "you need
             VIEW_SALARIES" tells somebody to prepare a run they would not be
@@ -150,19 +188,28 @@ export function PayrollScreen() {
                 </CardBody>
               </Card>
 
+              {/* One line, not the full list — the run itself is where each
+                  exception is read and fixed, and the stat cards above
+                  already carry the counts. Repeating every row here, in the
+                  same red-bordered shape the run uses, read as a wall of
+                  errors rather than a summary of one. */}
               {detail.run && detail.run.exceptions.length > 0 && (
-                <ExceptionList
-                  exceptions={detail.run.exceptions}
-                  onRecheck={
+                <Callout tone={counts.blockers > 0 ? "danger" : "warning"}>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <span>
+                      {counts.blockers > 0
+                        ? `${counts.blockers} ${counts.blockers === 1 ? "thing" : "things"} to fix before this can be approved${counts.warnings > 0 ? `, ${counts.warnings} more worth a look` : ""}.`
+                        : `${counts.warnings} ${counts.warnings === 1 ? "thing" : "things"} worth a look before approving. Nothing stops the run.`}
+                    </span>
                     <ButtonLink
                       href={`/payroll/runs/new?period=${current.period}`}
                       size="sm"
-                      variant="secondary"
+                      variant={counts.blockers > 0 ? "accent" : "secondary"}
                     >
                       Open the run
                     </ButtonLink>
-                  }
-                />
+                  </div>
+                </Callout>
               )}
 
               <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)]">
@@ -188,16 +235,18 @@ export function PayrollScreen() {
                            company that operates none of them, and the screen
                            behind the link would then have to take two of them
                            back. */
-                        meta: (
+                        meta:
                           [
-                            wasDeducted(current.operates, "paye") ? "PAYE" : null,
+                            wasDeducted(current.operates, "paye")
+                              ? "PAYE"
+                              : null,
                             wasDeducted(current.operates, "pension")
                               ? "pension"
                               : null,
                             wasDeducted(current.operates, "nhf") ? "NHF" : null,
-                          ].filter((part): part is string => part !== null).join(", ") ||
-                          "Nothing deducted this period"
-                        ),
+                          ]
+                            .filter((part): part is string => part !== null)
+                            .join(", ") || "Nothing deducted this period",
                       },
                       {
                         href: "/payroll/pay-setup",

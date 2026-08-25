@@ -190,7 +190,6 @@ function Queue({ initialPostingId }: { initialPostingId: string }) {
     <>
       <PageHeader
         title="Applications"
-        description="Everyone who applied through your careers page."
         breadcrumb={[
           { href: "/hiring", label: "Pipeline" },
           { href: "/hiring/postings", label: "Job adverts" },

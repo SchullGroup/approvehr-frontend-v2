@@ -67,6 +67,26 @@ function currentValue(f: EditableField, employee: Employee): unknown {
 }
 
 /**
+ * The `<option>` a `select` field's picker offers for "not one of these".
+ *
+ * Never itself a stored value — chosen, it reveals a free-text field, and
+ * whatever gets typed there is what actually ends up on the patch.
+ */
+const OTHER_OPTION_VALUE = "__other__";
+
+/**
+ * Whether a `select` field with `allowOther` is showing a value its own
+ * options list does not carry — a record holding a name typed before this
+ * existed, or one this company added that the shared list hasn't caught up
+ * with.
+ */
+function isCustomValue(f: EditableField, value: unknown): boolean {
+  if (!f.allowOther) return false;
+  if (value === null || value === undefined || value === "") return false;
+  return !f.options?.some((o) => o.value === String(value));
+}
+
+/**
  * The draft a section opens with: the record's own values, so Cancel is a true
  * revert and Save only ever sends what somebody actually changed.
  *
@@ -114,6 +134,17 @@ export type EditableField = {
   options?: PickerOption[];
   /** `picker` only. What the trigger reads when nothing is chosen. */
   placeholder?: string;
+  /**
+   * `select` only. Appends an "Other (specify)" choice that reveals a
+   * free-text input in its place — for a fixed list that is a starting point
+   * rather than a closed register, where the value on file may genuinely not
+   * be one of the options offered.
+   */
+  allowOther?: boolean;
+  /** Label for the appended choice. Defaults to "Other (specify)". */
+  otherLabel?: string;
+  /** Says "(optional)" in the label, styled lighter than the rest of it. */
+  optional?: boolean;
   help?: string;
   /** Exactly this many digits. Caps the input and shows a counter. */
   digits?: number;
@@ -188,8 +219,32 @@ export function EditableSection({
   const [text, setText] = useState<Record<string, string>>(() =>
     openOnField === undefined ? {} : seedFrom(fields, employee).text,
   );
+  /**
+   * `draft`'s starting point, frozen for the life of this edit — what "did
+   * this field change" is measured against in `save()`.
+   *
+   * Not the same thing as reading `employee`/`fields` live there. `currentDepartment`
+   * and `currentLocation` in `record.tsx` resolve from `useDepartments()` /
+   * `useWorkLocations()`, both of which start empty and fill in from the API a
+   * moment after the record itself has already rendered. Open this section
+   * before that fetch lands and `departmentId`'s seed is `""` — but if the API
+   * response arrives *while the section is still open*, the field's live value
+   * flips to the real id underneath an input the person never touched. Diffing
+   * against that live value made an untouched "Not assigned" look like a
+   * deliberate clear, and sent `""` where the API wanted a UUID or nothing.
+   * Diffing against this frozen snapshot instead means only an actual edit —
+   * one that lands in `draft` via an `onChange` — can produce a patch entry. */
+  const [baseline, setBaseline] = useState<EmployeePatch>(() =>
+    openOnField === undefined ? {} : seedFrom(fields, employee).draft,
+  );
   const [errors, setErrors] = useState<SectionError[]>([]);
   const [busy, setBusy] = useState(false);
+  /* Which `allowOther` fields are explicitly showing their free-text input,
+     by key. Kept apart from `isCustomValue`: picking "Other (specify)" clears
+     the draft value ready for typing, and if that were the only signal the
+     field would read as unset the instant it was chosen and the select would
+     flip straight back to itself. */
+  const [otherFields, setOtherFields] = useState<Record<string, boolean>>({});
 
   /* A DOM side effect, not state: put the caret where the caller pointed. The
      empty dependency list is deliberate — this fires on arrival and never
@@ -211,14 +266,21 @@ export function EditableSection({
     const seed = seedFrom(fields, employee);
     setDraft(seed.draft);
     setText(seed.text);
+    setBaseline(seed.draft);
     setErrors([]);
+    /* Reset rather than seeded: a custom value already on the record shows
+       its free-text input anyway, via `isCustomValue` below, with no explicit
+       toggle needed. */
+    setOtherFields({});
     setEditing(true);
   }
 
   function cancel() {
     setDraft({});
     setText({});
+    setBaseline({});
     setErrors([]);
+    setOtherFields({});
     setEditing(false);
   }
 
@@ -232,7 +294,7 @@ export function EditableSection({
         const typed = (text[String(f.key)] ?? "").replace(/[^\d.]/g, "").trim();
         /* Emptied means withdrawn, which is `null` rather than `0`. */
         if (typed === "") {
-          if (valueOf(f) !== null && valueOf(f) !== undefined) {
+          if (baseline[f.key] !== null && baseline[f.key] !== undefined) {
             patch[f.key] = null as never;
           }
           continue;
@@ -243,7 +305,7 @@ export function EditableSection({
         }
         /* Integer kobo, split on the point rather than multiplied. */
         const kobo = koboFromDecimal(typed);
-        if (kobo !== Number(valueOf(f) ?? NaN)) patch[f.key] = kobo as never;
+        if (kobo !== Number(baseline[f.key] ?? NaN)) patch[f.key] = kobo as never;
         continue;
       }
       const next = draft[f.key];
@@ -253,7 +315,11 @@ export function EditableSection({
          braces beside the seeding fix above, because this is the branch that
          did the damage. */
       if (next === undefined) continue;
-      if (next !== valueOf(f)) patch[f.key] = next as never;
+      /* Against `baseline`, not `valueOf(f)` — see the comment on `baseline`
+         above. `valueOf` still backs the read-only view below, where live is
+         correct; here it would compare a field the person may never have
+         touched against a value that moved out from under it. */
+      if (next !== baseline[f.key]) patch[f.key] = next as never;
     }
 
     if (bad.length > 0) {
@@ -389,6 +455,7 @@ export function EditableSection({
                 key={String(f.key)}
                 label={f.label}
                 required={f.required}
+                optional={f.optional}
                 help={f.help}
                 error={errorFor(f.key)}
               >
@@ -416,12 +483,44 @@ export function EditableSection({
                       ? {}
                       : { placeholder: f.placeholder })}
                   />
+                ) : f.type === "select" &&
+                  (otherFields[String(f.key)] ||
+                    isCustomValue(f, draft[f.key])) ? (
+                  <div className="flex flex-col gap-1.5">
+                    <Input
+                      data-section-field={String(f.key)}
+                      value={String(draft[f.key] ?? "")}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setDraft((d) => ({ ...d, [f.key]: v }));
+                        setErrors((x) => x.filter((y) => y.field !== f.key));
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="self-start"
+                      onClick={() => {
+                        setOtherFields((o) => ({ ...o, [String(f.key)]: false }));
+                        setDraft((d) => ({ ...d, [f.key]: "" as never }));
+                        setErrors((x) => x.filter((y) => y.field !== f.key));
+                      }}
+                    >
+                      Choose from the list instead
+                    </Button>
+                  </div>
                 ) : f.type === "select" ? (
                   <Select
                     value={String(draft[f.key] ?? "")}
                     onChange={(e) => {
                       const v = e.target.value;
-                      setDraft((d) => ({ ...d, [f.key]: v }));
+                      if (f.allowOther && v === OTHER_OPTION_VALUE) {
+                        setOtherFields((o) => ({ ...o, [String(f.key)]: true }));
+                        setDraft((d) => ({ ...d, [f.key]: "" as never }));
+                      } else {
+                        setDraft((d) => ({ ...d, [f.key]: v }));
+                      }
                       setErrors((x) => x.filter((y) => y.field !== f.key));
                     }}
                   >
@@ -430,6 +529,11 @@ export function EditableSection({
                         {o.label}
                       </option>
                     ))}
+                    {f.allowOther && (
+                      <option value={OTHER_OPTION_VALUE}>
+                        {f.otherLabel ?? "Other (specify)"}
+                      </option>
+                    )}
                   </Select>
                 ) : (
                   <Input

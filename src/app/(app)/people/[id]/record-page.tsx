@@ -234,9 +234,11 @@ export function EmployeeRecordPage({ id }: { id: string }) {
               {employee.employeeNo}
             </Badge>
             {/* Which source this record came from, stated rather than implied. */}
-            <Badge tone={record.connected ? "success" : "warning"} size="sm" dot>
-              {sourceNote(record.connected)}
-            </Badge>
+            {sourceNote(record.connected) && (
+              <Badge tone="warning" size="sm" dot>
+                {sourceNote(record.connected)}
+              </Badge>
+            )}
             {archived && (
               <Badge tone="danger" size="sm" dot>
                 Archived
@@ -244,7 +246,6 @@ export function EmployeeRecordPage({ id }: { id: string }) {
             )}
           </>
         }
-        description={`${employee.jobTitle} · ${employee.department} · ${employee.location}`}
         action={
           archived ? (
             <Button
@@ -291,7 +292,6 @@ export function EmployeeRecordPage({ id }: { id: string }) {
 
         <EmployeeRecord
           employee={employee}
-          missing={record.missing}
           connected={record.connected}
           manager={manager}
           managerName={record.managerName}

@@ -524,11 +524,18 @@ function GradeDialog({
       : null);
   const levelValue = Number.parseInt(level, 10);
 
+  /* The common mistake is just the top and bottom swapped, so that gets the
+     plain sentence. The mid-point can only be out of range on its own once
+     somebody has typed one in — see "Set the level and mid-point myself"
+     below — so it gets a second, still short, sentence rather than one
+     sentence trying to cover both at once. */
   const orderError =
     minValue !== null && maxValue !== null && midValue !== null
-      ? minValue > midValue || midValue > maxValue
-        ? "The bottom has to be at or below the mid-point, and the mid-point at or below the top."
-        : undefined
+      ? minValue > maxValue
+        ? "Top has to be higher than bottom."
+        : minValue > midValue || midValue > maxValue
+          ? "The mid-point has to be between the bottom and the top."
+          : undefined
       : undefined;
 
   const ready =

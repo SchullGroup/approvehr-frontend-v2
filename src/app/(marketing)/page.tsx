@@ -74,12 +74,6 @@ export default function HomePage() {
       <section className="px-4 pb-20 pt-16 sm:pt-24">
         <div className="container-page">
           <div className="text-center">
-            <Reveal delay={40}>
-              <p className="text-meta font-medium uppercase tracking-[0.1em] text-slate-muted">
-                HR, payroll and recruitment · Built for Nigeria
-              </p>
-            </Reveal>
-
             <Reveal delay={60}>
               <h1 className="mx-auto mt-5 max-w-4xl text-mega text-slate">
                 All your HR and payroll, in one system.
@@ -90,26 +84,20 @@ export default function HomePage() {
               <p className="mx-auto mt-7 max-w-2xl text-lead text-slate-muted">
                 Employee records, payroll, recruitment, leave and approvals —
                 one platform, one employee record, no re-typing.
-                <span className="block pt-3 text-slate">
-                  PAYE, pension and NHF calculated to current Nigerian law.
-                  Every schedule your state IRS and PFAs expect, generated from
-                  the run.
-                </span>
               </p>
             </Reveal>
 
             <Reveal delay={180}>
               <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
                 <Pill href="/demo" variant="solid" size="lg" arrow>
-                  Book a demo
+                  Start free — book a demo
                 </Pill>
                 <Pill href={heroCta.href} variant="quiet" size="lg">
                   {heroCta.label}
                 </Pill>
               </div>
               <p className="mt-4 text-meta text-slate-muted">
-                Thirty minutes on your own numbers. No card, no install, no
-                procurement step before you have decided anything.
+                Your first month and data migration are on us. No card required before you have decided anything.
               </p>
             </Reveal>
           </div>
@@ -121,15 +109,15 @@ export default function HomePage() {
                 {[
                   {
                     title: "Approval before money moves",
-                    body: "A run is prepared, reviewed and approved by named people. The payment file only exists after approval.",
+                    body: "Every payroll is prepared, reviewed and approved by named people. The payment file only exists after approval.",
                   },
                   {
                     title: "Deductions you do not maintain",
-                    body: "PAYE bands, 8% and 10% pension, NHF. We track the changes; you run the payroll.",
+                    body: "PAYE bands, 8% and 10% pension, NHF. We track the changes so you do not have to.",
                   },
                   {
                     title: "Schedules, not spreadsheets",
-                    body: "Every remittance schedule comes out of the run itself, split by PFA and by state.",
+                    body: "Every remittance schedule is generated automatically, split by PFA and by state.",
                   },
                 ].map((item) => (
                   <div
@@ -165,7 +153,7 @@ export default function HomePage() {
           <Reveal>
             <SectionHeading
               eyebrow="Built for how your company runs"
-              title="One payroll run. Three sets of rules."
+              title="One payroll. Three types of company."
               lead="A site crew on rotating shifts. A head office on salary. A contractor on withholding tax. Your working month, salary structure and pensionable components are settings you control — not assumptions we make."
             />
           </Reveal>
@@ -239,7 +227,7 @@ export default function HomePage() {
               {[
                 "PAYE calculated against current Finance Act bands, with reliefs applied in the right order",
                 "Pension at 8% employee and 10% employer, scheduled per PFA",
-                "NHF and NSITF computed and filed on the same run",
+                "NHF and NSITF computed and filed at the same time",
                 "Multi-state employees filed to the correct state IRS",
                 "Statutory changes tracked by us, not by you",
               ].map((line) => (
@@ -270,9 +258,9 @@ export default function HomePage() {
         <div className="container-page">
           <Reveal>
             <SectionHeading
-              eyebrow="What one run produces"
+              eyebrow="What one payroll produces"
               title="Approve once. Every obligation follows."
-              lead="One month for a 264-person company, staff in two states, three pension providers. Everything below comes out of a single approved run — computed, not re-keyed."
+              lead="One month for a 264-person company, staff in two states, three pension providers. Everything below comes out of a single approved payroll — computed, not re-keyed."
             />
           </Reveal>
 
@@ -322,14 +310,13 @@ export default function HomePage() {
                   Pricing
                 </p>
                 <h2 className="text-h1 text-white">
-                  Priced per employee, per month. In naira.
+                  Start free. Pay from month two.
                 </h2>
                 <p className="mt-5 max-w-md text-body leading-relaxed text-white/60">
-                  The rate falls as your headcount rises. No implementation fee
-                  to start, no per-module upsell to run payroll properly.
+                  Your first month on us. We migrate your existing employee records and payroll history at no cost. Pricing after that is per employee, per month — the rate falls as your team grows.
                 </p>
-                <Pill href="/pricing" variant="solid" arrow className="mt-8">
-                  See the full pricing
+                <Pill href="/demo" variant="solid" arrow className="mt-8">
+                  Get started free
                 </Pill>
               </div>
 
@@ -367,16 +354,14 @@ export default function HomePage() {
           <Reveal>
             <div className="rounded-3xl border border-sand-line bg-white/60 px-8 py-16 text-center">
               <h2 className="mx-auto max-w-3xl text-h1 text-slate">
-                Watch it run your payroll. Then decide.
+                Start free. We move your data. You pay from month two.
               </h2>
               <p className="mx-auto mt-5 max-w-xl text-lead text-slate-muted">
-                Thirty minutes on your own numbers. No slides, no discovery
-                call, no pressure. If it does not fit how you pay people, we
-                will tell you in the meeting.
+                Book a thirty-minute demo on your own numbers. If it fits, we migrate your records and run your first payroll at no cost.
               </p>
               <div className="mt-9 flex flex-wrap justify-center gap-3">
                 <Pill href="/demo" variant="solid" size="lg" arrow>
-                  Book a demo
+                  Start free — book a demo
                 </Pill>
                 <Pill href={closingCta.href} variant="quiet" size="lg">
                   {closingCta.label}

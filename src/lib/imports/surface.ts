@@ -34,7 +34,6 @@ export type ImportSurface = {
   dictionary: Dictionary<string>;
   /** The page heading. Never carries "· ApproveHR". */
   title: string;
-  description: string;
   breadcrumb: readonly { href: string; label: string }[];
   /** Where the records are once they are in. The link at the end of the flow. */
   home: { href: string; label: string };

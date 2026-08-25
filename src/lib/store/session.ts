@@ -93,11 +93,15 @@ async function restore() {
       });
       return;
     } catch (error) {
-      if (!(error instanceof SessionExpiredError)) {
-        /* Network failure rather than a bad token: the API is down but the
-           token may be fine. Keep it and fall through to offline mode. */
+      if (error instanceof SessionExpiredError) {
+        /* The refresh itself failed (or was refused), so the token is
+           genuinely dead. `client.ts` has already cleared it; clearing again
+           here is just belt-and-suspenders. */
+        tokens.clear();
       }
-      tokens.clear();
+      /* Anything else — a plain `ApiError` from a network failure or a 5xx —
+         is the API being unreachable, not a bad token. Keep it and fall
+         through to offline mode. */
     }
   }
 
@@ -118,6 +122,30 @@ async function restore() {
   }
 
   set({ status: "signed_out", mode: "api", user: null, employeeId: null });
+}
+
+/**
+ * Marks the session signed-in from a result the caller already has, without
+ * going through `signIn` or waiting on `subscribe`'s restore-on-first-mount.
+ *
+ * For the one caller today outside `useSession()` that writes tokens itself:
+ * `register-screen.tsx`. `tokens.set()` notifies `onAuthChange`, but that
+ * listener (below) only reacts to tokens *disappearing* — and `hydrated` only
+ * restores from storage the first time anything subscribes in this tab, which
+ * has usually already happened by the time somebody reaches `/register`: the
+ * sign-in gate they came from is itself `AuthGate`'s first subscribe. Without
+ * this, `router.replace("/dashboard")` remounts `AuthGate` against a `cache`
+ * still latched to that earlier `signed_out`, and a person who just created an
+ * account is shown the sign-in screen again despite holding valid tokens.
+ */
+export function markSignedIn(user: ApiUser): void {
+  safeRemove(OFFLINE_KEY);
+  set({
+    status: "signed_in",
+    mode: "api",
+    user,
+    employeeId: user.employeeId,
+  });
 }
 
 function subscribe(listener: () => void) {

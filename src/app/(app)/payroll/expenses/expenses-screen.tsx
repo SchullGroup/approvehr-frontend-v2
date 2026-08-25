@@ -245,11 +245,6 @@ export function ExpensesScreen() {
     <>
       <PageHeader
         title="Expenses"
-        description={
-          canApprove
-            ? "What staff have claimed back, and what you still owe them."
-            : "Money you spent for work, and where each claim has got to."
-        }
         action={
           <Button variant="accent" size="sm" onClick={() => setClaiming(true)}>
             <Plus aria-hidden="true" className="size-4" />

@@ -1447,7 +1447,7 @@ export function useKpiMutations() {
     recordProgress: useCallback(
       async (measureId: string, currentValue: string, note?: string) => {
         if (!isConnected) {
-          const state = demoStore.read();
+          const state = demoStore.current();
           demoStore.commit({
             ...state,
             readings: { ...state.readings, [measureId]: currentValue },
@@ -1608,7 +1608,7 @@ export function useObjectiveMutations() {
   /** Move one goal along the axis locally, and record why. */
   const local = useCallback(
     (id: string, next: DemoApproval) => {
-      const state = demoStore.read();
+      const state = demoStore.current();
       demoStore.commit({
         ...state,
         approvals: { ...state.approvals, [id]: next },
@@ -1618,12 +1618,12 @@ export function useObjectiveMutations() {
   );
 
   const seed = useCallback((id: string): ApiGoal | undefined => {
-    const state = demoStore.read();
+    const state = demoStore.current();
     return demoGoals(state.readings, state.approvals).find((goal) => goal.id === id);
   }, []);
 
   const revisionsOf = useCallback((id: string): number => {
-    return demoStore.read().approvals[id]?.revisions ?? 0;
+    return demoStore.current().approvals[id]?.revisions ?? 0;
   }, []);
 
   /**
@@ -1877,7 +1877,7 @@ export function useReviewMutations() {
     save: useCallback(
       async (id: string, answers: AnswerBody[]) => {
         if (!isConnected) {
-          const state = demoStore.read();
+          const state = demoStore.current();
           const existing = state.answers[id] ?? {};
           const next: DemoAnswers = { ...existing };
           for (const answer of answers) {
@@ -1910,7 +1910,7 @@ export function useReviewMutations() {
                 .join(", ")}.`,
             );
           }
-          const state = demoStore.read();
+          const state = demoStore.current();
           demoStore.commit({
             ...state,
             sent: {
@@ -1965,7 +1965,7 @@ export function useSignOff() {
 
   const answer = useCallback(
     (id: string, next: DemoSignOff) => {
-      const state = demoStore.read();
+      const state = demoStore.current();
       demoStore.commit({
         ...state,
         signOff: { ...state.signOff, [id]: next },
@@ -2773,12 +2773,15 @@ export function outstandingIn(
         reviewId: person.self.reviewId,
       });
     }
-    if (person.manager && !person.manager.submitted) {
+    /* One row per appraiser who has not written, not one per person — a person
+       with two appraisers and one answer still owes the second one. */
+    for (const manager of person.managers) {
+      if (manager.submitted) continue;
       rows.push({
         employeeId: person.employeeId,
         employeeName: person.employeeName,
-        what: `${person.manager.managerName} has not written ${person.employeeName}'s review`,
-        reviewId: person.manager.reviewId,
+        what: `${manager.managerName} has not written ${person.employeeName}'s review`,
+        reviewId: manager.reviewId,
       });
     }
   }

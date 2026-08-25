@@ -182,7 +182,6 @@ export function ShiftsScreen({ initialTab }: { initialTab: ShiftTab }) {
     <>
       <PageHeader
         title="Shifts"
-        description="Who works when. Nights, earlies, weekend cover."
         meta={
           DEMO_ENABLED && grid.source === "demo" ? (
             <Badge tone="warning" size="sm">

@@ -275,7 +275,6 @@ function Endpoint({ id }: { id: string }) {
     <>
       <PageHeader
         title={hostOf(detail.url)}
-        description={detail.url}
         breadcrumb={[
           { href: "/settings", label: "Settings" },
           { href: "/settings/webhooks", label: "Webhooks" },

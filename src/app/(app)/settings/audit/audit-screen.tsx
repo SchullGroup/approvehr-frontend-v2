@@ -211,7 +211,6 @@ function Trail({ initialEntityType = "", initialEntityId = "" }: ScreenProps) {
     <>
       <PageHeader
         title="Audit log"
-        description="Everything anyone has done, in plain English."
         breadcrumb={[{ href: "/settings", label: "Settings" }]}
         meta={
           trail.live || !DEMO_ENABLED ? (

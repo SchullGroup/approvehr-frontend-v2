@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import {
   leaveApi,
+  type LeaveAccrualWire,
   type LeaveBalanceRow,
   type LeaveDetail,
   type LeaveListParams,
@@ -302,6 +303,16 @@ export type LeaveTypesState = {
  * against — so the booking dialog and the settings page cannot offer different
  * lists.
  */
+/** `LeavePolicy`'s lowercase accrual to the wire's own casing. */
+const ACCRUAL_TO_WIRE: Record<
+  "annual_upfront" | "monthly" | "on_completion",
+  LeaveAccrualWire
+> = {
+  annual_upfront: "ANNUAL_UPFRONT",
+  monthly: "MONTHLY",
+  on_completion: "ON_COMPLETION",
+};
+
 export function useLeaveTypes(): LeaveTypesState {
   const { isConnected } = useSession();
   const { settings } = useCompanySettings();
@@ -329,7 +340,9 @@ export function useLeaveTypes(): LeaveTypesState {
         id: null,
         name: type.name,
         entitledDays: type.entitled,
+        accrual: ACCRUAL_TO_WIRE[type.accrual],
         carryOverMax: type.carryOverMax,
+        carryOverExpiresMonths: type.carryOverExpiresMonths,
         requiresEvidence: type.requiresEvidence,
         minNoticeDays: type.minNoticeDays,
         isPaid: true,

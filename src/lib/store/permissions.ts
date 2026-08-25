@@ -475,7 +475,7 @@ export function useRoles(held: readonly PermissionKey[] = PERMISSION_KEYS) {
 
   const write = useCallback(
     (mutate: (current: DemoState) => DemoState) => {
-      const current = demo.read();
+      const current = demo.current();
       const next = mutate(current);
       assertSomebodyKeepsAccess(current, next);
       demo.commit(next);
@@ -500,7 +500,7 @@ export function useRoles(held: readonly PermissionKey[] = PERMISSION_KEYS) {
       }
 
       const permissions = ordered(body.permissions ?? []);
-      assertNameFree(demo.read(), body.name);
+      assertNameFree(demo.current(), body.name);
       assertCanGrant(permissions, heldList);
 
       const seed: SeedRole = {
@@ -531,7 +531,7 @@ export function useRoles(held: readonly PermissionKey[] = PERMISSION_KEYS) {
         return;
       }
 
-      const current = demo.read();
+      const current = demo.current();
       const role = demoRoles(current).find((candidate) => candidate.id === id);
       if (!role) refuse("That role no longer exists. Reload the page.");
 
@@ -583,7 +583,7 @@ export function useRoles(held: readonly PermissionKey[] = PERMISSION_KEYS) {
         return;
       }
 
-      const current = demo.read();
+      const current = demo.current();
       const role = demoRoles(current).find((candidate) => candidate.id === id);
       if (!role) return;
 
@@ -626,7 +626,7 @@ export function useRoles(held: readonly PermissionKey[] = PERMISSION_KEYS) {
         return { added: result.added.length, alreadyIn: result.alreadyIn.length };
       }
 
-      const current = demo.read();
+      const current = demo.current();
       const role = demoRoles(current).find((candidate) => candidate.id === id);
       if (!role) refuse("That role no longer exists. Reload the page.");
 
@@ -874,7 +874,7 @@ export function useRolePreview() {
   const state = useSyncExternalStore(demo.subscribe, demo.read, demo.getServerSnapshot);
 
   const set = useCallback((roleId: string | null) => {
-    demo.commit({ ...demo.read(), previewRoleId: roleId });
+    demo.commit({ ...demo.current(), previewRoleId: roleId });
   }, []);
 
   const roleId = isConnected ? null : state.previewRoleId;

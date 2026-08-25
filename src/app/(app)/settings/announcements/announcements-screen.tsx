@@ -152,7 +152,6 @@ export function AnnouncementsScreen() {
     <>
       <PageHeader
         title="Noticeboard"
-        description="What your company is telling everybody. Published notices appear on the dashboard; a draft appears nowhere."
         breadcrumb={[{ href: "/settings", label: "Settings" }]}
         action={
           <div className="flex items-center gap-2">

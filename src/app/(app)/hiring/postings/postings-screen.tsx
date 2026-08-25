@@ -222,7 +222,6 @@ function Adverts() {
     <>
       <PageHeader
         title="Job adverts"
-        description="What is on your careers page, and the link to share."
         breadcrumb={[{ href: "/hiring", label: "Pipeline" }]}
         action={
           <>

@@ -135,7 +135,6 @@ export function KnowledgeScreen() {
     <>
       <PageHeader
         title="Help articles"
-        description="What people read, what they voted down, and what they could not find."
         breadcrumb={[{ href: "/settings", label: "Settings" }]}
         action={
           <div className="flex items-center gap-2">

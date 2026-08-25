@@ -408,18 +408,27 @@ export type ApiRemindResult = {
   noAccount: number;
 };
 
-/** One person's row in a cycle. Peer forms are counted, never named. */
+/**
+ * One person's row in a cycle. Peer forms are counted, never named.
+ *
+ * `managers` is a list, not a single field: with `multiAppraiser` on, one
+ * person can have more than one manager review — a line manager and a
+ * functional manager both writing about the same cycle — and each needs its
+ * own reviewId or there is no way to open, write or finalise it. With one
+ * appraiser (the default) this holds exactly one entry.
+ */
 export type ApiParticipant = {
   employeeId: string;
   employeeName: string;
   departmentId: string | null;
   self: { reviewId: string; submitted: boolean } | null;
-  manager: {
+  managers: {
     reviewId: string;
     submitted: boolean;
+    finalised: boolean;
     managerName: string;
     rating: number | null;
-  } | null;
+  }[];
   peers: { asked: number; answered: number };
 };
 
