@@ -60,7 +60,7 @@ import {
   wasDeducted,
 } from "@/lib/api/payroll";
 import { useCan } from "@/lib/permissions";
-import { useEmployeeMutations } from "@/lib/store/employees-api";
+import { useEmployeeDirectory, useEmployeeMutations } from "@/lib/store/employees-api";
 import {
   countBySeverity,
   usePayrollActions,
@@ -68,10 +68,8 @@ import {
   usePayrollRuns,
 } from "@/lib/store/payroll";
 import { useSetupChecklist } from "@/lib/store/setup-checklist";
+import { fullName } from "@/lib/types";
 import { TODAY } from "@/lib/today";
-
-/** Exceptions the wizard answers inline rather than by sending somebody away. */
-const INLINE_FIX_CODES = new Set(["missing_pay"]);
 
 /**
  * Running a payroll period.
@@ -175,10 +173,45 @@ export function PayrollRunWizard() {
   const detail = usePayrollRun(runId);
   const run = detail.run;
 
-  const exceptions = useMemo(() => run?.exceptions ?? [], [run]);
-  const counts = countBySeverity(exceptions);
+  const allExceptions = useMemo(() => run?.exceptions ?? [], [run]);
+  /* `missing_pay` gets a table of its own below, not a row per person in the
+     generic list — see `MissingPayTable`. Filtered out here so the two never
+     show the same person twice. */
+  const exceptions = useMemo(
+    () => allExceptions.filter((e) => e.code !== "missing_pay"),
+    [allExceptions],
+  );
+  const missingPay = useMemo(
+    () => allExceptions.filter((e) => e.code === "missing_pay" && e.employeeId),
+    [allExceptions],
+  );
+  const counts = countBySeverity(allExceptions);
   const discrepancies = prepared?.discrepancies ?? [];
   const settled = run?.status === "APPROVED" || run?.status === "PAID";
+  /* Names and departments for the missing-pay table — the exception itself
+     carries only an id. 200 is the API's own cap on a list request (see
+     `lib/http.ts`) — asking for more refuses the whole request with a 400
+     rather than quietly capping it, which silently emptied this table the
+     first time this was tried. `record-page.tsx` reaches for the same
+     number for the same reason. */
+  const directory = useEmployeeDirectory({ pageSize: 200 });
+  const missingPayRows = useMemo(
+    () =>
+      missingPay
+        .map((exception) => {
+          const person = directory.employees.find(
+            (e) => e.id === exception.employeeId,
+          );
+          if (!person) return null;
+          return {
+            employeeId: exception.employeeId as string,
+            name: fullName(person),
+            department: person.department,
+          };
+        })
+        .filter((row): row is NonNullable<typeof row> => row !== null),
+    [missingPay, directory.employees],
+  );
 
   const blocked = counts.blockers > 0 || discrepancies.length > 0;
   const canContinue = [
@@ -331,21 +364,6 @@ export function PayrollRunWizard() {
   function actionFor(exception: RunException): React.ReactNode {
     if (!exception.employeeId || !canPrepare || settled) return null;
     const employeeId = exception.employeeId;
-
-    /* Set right here rather than sent to the record and back — this figure is
-       exactly what the exception is about, so a redirect for one number is a
-       detour, not a fix. Recalculates on save, the same as pressing
-       "Calculate again" — a stale figure sitting beside a payslip that has
-       already moved on is worse than the trip back through Calculate. */
-    if (exception.code === "missing_pay") {
-      return (
-        <SetPayInline
-          employeeId={employeeId}
-          disabled={busy !== null}
-          onSaved={() => void prepare()}
-        />
-      );
-    }
 
     if (exception.code === "missing_bank_account") {
       return (
@@ -547,11 +565,15 @@ export function PayrollRunWizard() {
             </Card>
           ) : run ? (
             <>
-              <ExceptionList
-                exceptions={exceptions}
-                actionFor={actionFor}
-                replaceFixFor={INLINE_FIX_CODES}
-              />
+              {missingPayRows.length > 0 && (
+                <MissingPayTable
+                  runId={run.id}
+                  rows={missingPayRows}
+                  disabled={busy !== null}
+                  onSaved={() => void prepare()}
+                />
+              )}
+              <ExceptionList exceptions={exceptions} actionFor={actionFor} />
               {/* Under the list rather than inside it. The exception rows say
                   what happened; this says who is not on the payroll, in four
                   facts a person can act on a year from now. */}
@@ -752,86 +774,178 @@ export function PayrollRunWizard() {
 
 /* -------------------------------------------------------------------------- */
 
+/** The one true sentence for every exclusion this table can create. */
+const MISSING_PAY_EXCLUSION_REASON =
+  "No monthly pay was on file when this payroll was checked.";
+
 /**
- * The one figure a `missing_pay` exception is actually about, typed in
- * beside the row it names rather than on a different screen.
+ * Everybody `missing_pay` names, worked through as one list rather than one
+ * exception at a time.
  *
- * Same act as `useEmployeeMutations().update`'s ordinary callers — this is
- * not a special payroll-only write, it is the record's own `grossMonthly`,
- * so a figure set here and one set from the record page cannot disagree.
- * `onSaved` recalculates the run, matching what pressing "Calculate again"
- * already does after any other fix — a payslip left showing the old figure
- * would be a right number sitting under a stale one.
+ * The old shape was a red-bordered warning card per person, each with its
+ * own "Set pay" button — the same figure, thirty times over, styled like
+ * thirty separate problems. This is one thing: a table of the people
+ * nobody has agreed a salary for yet.
+ *
+ * Everybody starts **included and ticked**, because the ordinary case is
+ * "these are new starters, go and get their numbers" — not "most of these
+ * people should not be paid". Unticking one is the other real case — pay
+ * genuinely is not agreed yet, or they should not be on this period at all
+ * — and it excludes them the same way `missing_bank_account`'s own button
+ * does, with a reason, because "why was Grace not paid in August" must
+ * always have an answer. The reason here is written once, for all of them,
+ * because it is the same true sentence for every row on this exact list:
+ * nobody had set their pay when this payroll was checked.
+ *
+ * One save for the page rather than one button per row — typing eight
+ * figures and pressing eight buttons is the thing this replaces. Pay is
+ * still exactly `useEmployeeMutations().update`'s ordinary write, so a
+ * figure set here and one set from the record page cannot disagree.
  */
-function SetPayInline({
-  employeeId,
+function MissingPayTable({
+  runId,
+  rows,
   disabled,
   onSaved,
 }: {
-  employeeId: string;
+  runId: string;
+  rows: readonly { employeeId: string; name: string; department: string }[];
   disabled?: boolean;
   onSaved: () => void;
 }) {
   const employees = useEmployeeMutations();
-  const [value, setValue] = useState("");
+  const actions = usePayrollActions();
+  const [pay, setPay] = useState<Record<string, string>>({});
+  const [excluded, setExcluded] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function submit() {
-    const amount = Number(value);
-    if (!value.trim() || !Number.isFinite(amount) || amount <= 0) {
-      setError("Enter an amount above zero.");
-      return;
-    }
+  const included = rows.filter((row) => !excluded.has(row.employeeId));
+  const allIncluded = excluded.size === 0;
+  const noneIncluded = included.length === 0;
+  const ready = included.every((row) => {
+    const amount = Number(pay[row.employeeId]);
+    return pay[row.employeeId]?.trim() && Number.isFinite(amount) && amount > 0;
+  });
+
+  async function save() {
     setSaving(true);
     setError(null);
-    try {
-      await employees.update(employeeId, { grossMonthly: amount });
-      onSaved();
-    } catch (caught) {
-      setError(
-        caught instanceof ApiError
-          ? caught.message
-          : "Could not save. Try again.",
-      );
-    } finally {
-      setSaving(false);
+    const failed: string[] = [];
+    for (const row of included) {
+      try {
+        await employees.update(row.employeeId, {
+          grossMonthly: Number(pay[row.employeeId]),
+        });
+      } catch {
+        failed.push(row.name);
+      }
     }
+    for (const row of rows.filter((r) => excluded.has(r.employeeId))) {
+      try {
+        await actions.exclude(runId, {
+          employeeId: row.employeeId,
+          reason: MISSING_PAY_EXCLUSION_REASON,
+        });
+      } catch {
+        failed.push(row.name);
+      }
+    }
+    setSaving(false);
+    if (failed.length > 0) {
+      setError(
+        `Everybody else went through. This did not: ${failed.join(", ")}. Try them again.`,
+      );
+    }
+    onSaved();
   }
 
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-1.5">
-        <Input
-          type="number"
-          inputMode="decimal"
-          min="0"
-          step="1000"
-          placeholder="Monthly gross, ₦"
-          aria-label="Monthly gross pay"
-          value={value}
-          disabled={disabled || saving}
-          className="w-36"
-          onChange={(event) => setValue(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              void submit();
-            }
-          }}
-        />
-        <Button
-          variant="secondary"
-          size="sm"
-          disabled={disabled}
-          loading={saving}
-          onClick={() => void submit()}
-        >
-          Set pay
-        </Button>
-      </div>
-      {error && <p className="text-meta text-danger-text">{error}</p>}
-    </div>
+    <Card>
+      <CardHeader
+        title={`${rows.length} ${rows.length === 1 ? "person has" : "people have"} no pay set`}
+        description="Ticked people are paid what you enter below. Untick anyone who should not be on this payroll — they come off with a reason recorded, same as excluding them anywhere else."
+      />
+      <TableWrap className="rounded-none border-0 border-t border-line">
+        <THead>
+          <TH className="w-56">
+            <Checkbox
+              label="Include"
+              checked={allIncluded}
+              indeterminate={!allIncluded && !noneIncluded}
+              onChange={() =>
+                setExcluded(
+                  allIncluded ? new Set(rows.map((r) => r.employeeId)) : new Set(),
+                )
+              }
+            />
+          </TH>
+          <TH>Name</TH>
+          <TH>Department</TH>
+          <TH className="w-48">Monthly gross</TH>
+        </THead>
+        <TBody>
+          {rows.map((row) => {
+            const isIncluded = !excluded.has(row.employeeId);
+            return (
+              <TR key={row.employeeId}>
+                <TD>
+                  <Checkbox
+                    label="Include them"
+                    checked={isIncluded}
+                    onChange={() =>
+                      setExcluded((prior) => {
+                        const next = new Set(prior);
+                        if (isIncluded) next.add(row.employeeId);
+                        else next.delete(row.employeeId);
+                        return next;
+                      })
+                    }
+                  />
+                </TD>
+                <TDPrimary title={row.name} />
+                <TD className="text-body">{row.department}</TD>
+                <TD>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    step="1000"
+                    placeholder="₦ a month"
+                    aria-label={`Monthly gross for ${row.name}`}
+                    value={pay[row.employeeId] ?? ""}
+                    disabled={disabled || saving || !isIncluded}
+                    onChange={(event) =>
+                      setPay((prior) => ({
+                        ...prior,
+                        [row.employeeId]: event.target.value,
+                      }))
+                    }
+                  />
+                </TD>
+              </TR>
+            );
+          })}
+        </TBody>
+      </TableWrap>
+      <CardBody className="flex flex-col gap-2 border-t border-line pt-4">
+        {error && <p className="text-meta text-danger-text">{error}</p>}
+        <div>
+          <Button
+            variant="accent"
+            disabled={disabled || !ready}
+            loading={saving}
+            onClick={() => void save()}
+          >
+            {noneIncluded
+              ? `Exclude ${rows.length} ${rows.length === 1 ? "person" : "people"}`
+              : `Set pay for ${included.length}${
+                  excluded.size > 0 ? `, exclude ${excluded.size}` : ""
+                }`}
+          </Button>
+        </div>
+      </CardBody>
+    </Card>
   );
 }
 

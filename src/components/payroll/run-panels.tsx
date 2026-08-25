@@ -204,11 +204,6 @@ function ExceptionRow({
         <p className="text-body-sm leading-relaxed text-ink">
           {shortNoticeFor(exception.code) ?? exception.message}
         </p>
-        <p className="mt-0.5 text-meta text-body">
-          {blocking
-            ? "The run cannot be approved while this is open."
-            : "You can approve with this open. Approving records that you saw it."}
-        </p>
       </div>
       <div className="flex shrink-0 flex-wrap items-center gap-2">
         {fix && (

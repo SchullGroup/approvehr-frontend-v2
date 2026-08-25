@@ -50,6 +50,14 @@ export type Employee = {
   startDate: string;
   endDate?: string | null;
   status: EmploymentStatus;
+  /**
+   * The pay band this role sits in — a reference range, not a figure.
+   * `null` on nobody yet; `undefined` on a source that predates the field
+   * (the demo seed, which derives a grade instead — see `lib/store/grades.ts`).
+   * Never used to set `grossMonthly`: the two are independent, so two people
+   * on the same grade can be paid differently.
+   */
+  salaryGradeId?: Uuid | null;
 
   /**
    * Contractual monthly gross in naira, or **null** where nobody has set one.

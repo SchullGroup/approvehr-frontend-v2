@@ -120,6 +120,13 @@ export type ApiEmployee = {
   status: string;
   startDate: string;
   endDate: string | null;
+  /**
+   * The pay band this role sits in, or null on nobody. Never used to derive
+   * `grossMonthlyKobo` — the two are independent figures, set independently,
+   * so two people on the same grade can be paid differently.
+   */
+  salaryGradeId: string | null;
+  salaryGrade: { id: string; code: string; name: string } | null;
   /** Null where nobody has agreed a figure. Never rendered as ₦0.00. */
   grossMonthlyKobo: number | null;
   /**
@@ -744,6 +751,7 @@ export function toEmployee(api: ApiEmployee): Employee {
     startDate: api.startDate,
     endDate: api.endDate,
     status: api.status.toLowerCase() as Employee["status"],
+    salaryGradeId: api.salaryGradeId,
     grossMonthly:
       api.grossMonthlyKobo === null ? null : toNaira(api.grossMonthlyKobo),
     ...(api.hasBankAccount !== undefined ? { hasBankAccount: api.hasBankAccount } : {}),

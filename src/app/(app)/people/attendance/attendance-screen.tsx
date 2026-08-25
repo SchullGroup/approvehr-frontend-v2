@@ -515,11 +515,7 @@ function TodayView({
         <Stat
           label="Not clocked in"
           value={String(unexplained)}
-          hint={
-            restDays > 0
-              ? `${restDays} more off on the rota`
-              : "nothing booked, nothing recorded"
-          }
+          {...(restDays > 0 ? { hint: `${restDays} more off on the rota` } : {})}
         />
       </div>
 

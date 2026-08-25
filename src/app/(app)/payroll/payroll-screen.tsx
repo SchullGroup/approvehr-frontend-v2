@@ -11,6 +11,7 @@ import {
 import {
   Badge,
   ButtonLink,
+  Callout,
   Card,
   CardBody,
   CardHeader,
@@ -27,7 +28,6 @@ import {
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import {
-  ExceptionList,
   RunStatusBadge,
   SourceBadge,
   TotalsPanel,
@@ -188,19 +188,28 @@ export function PayrollScreen() {
                 </CardBody>
               </Card>
 
+              {/* One line, not the full list — the run itself is where each
+                  exception is read and fixed, and the stat cards above
+                  already carry the counts. Repeating every row here, in the
+                  same red-bordered shape the run uses, read as a wall of
+                  errors rather than a summary of one. */}
               {detail.run && detail.run.exceptions.length > 0 && (
-                <ExceptionList
-                  exceptions={detail.run.exceptions}
-                  onRecheck={
+                <Callout tone={counts.blockers > 0 ? "danger" : "warning"}>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <span>
+                      {counts.blockers > 0
+                        ? `${counts.blockers} ${counts.blockers === 1 ? "thing" : "things"} to fix before this can be approved${counts.warnings > 0 ? `, ${counts.warnings} more worth a look` : ""}.`
+                        : `${counts.warnings} ${counts.warnings === 1 ? "thing" : "things"} worth a look before approving. Nothing stops the run.`}
+                    </span>
                     <ButtonLink
                       href={`/payroll/runs/new?period=${current.period}`}
                       size="sm"
-                      variant="secondary"
+                      variant={counts.blockers > 0 ? "accent" : "secondary"}
                     >
                       Open the run
                     </ButtonLink>
-                  }
-                />
+                  </div>
+                </Callout>
               )}
 
               <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)]">

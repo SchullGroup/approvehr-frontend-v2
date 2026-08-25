@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ArrowRight, Download } from "lucide-react";
 import {
   Badge,
@@ -28,11 +28,7 @@ import type { Dictionary } from "@/lib/imports/spec";
 import type { ImportPrerequisite } from "@/lib/imports/surface";
 import { useCan } from "@/lib/permissions";
 import { useDepartments } from "@/lib/store/departments";
-import {
-  needsDecision,
-  type CheckOutcome,
-  type RowLine,
-} from "@/lib/store/imports";
+import type { CheckOutcome, RowLine } from "@/lib/store/imports";
 
 /** "person" → "People". The noun starts a stat label often enough to earn this. */
 const capitalise = (word: string): string =>
@@ -120,6 +116,8 @@ type Props = {
   unchecked: boolean;
   decisions: Record<number, "skip" | "update">;
   onDecide: (row: number, action: "skip" | "update") => void;
+  onDecideAll: (rows: readonly number[], action: "skip" | "update") => void;
+  onSeedDecisions: (rows: readonly number[]) => void;
   acknowledged: boolean;
   onAcknowledge: (value: boolean) => void;
 };
@@ -139,6 +137,8 @@ export function CheckReport({
   unchecked,
   decisions,
   onDecide,
+  onDecideAll,
+  onSeedDecisions,
   acknowledged,
   onAcknowledge,
 }: Props) {
@@ -200,25 +200,63 @@ export function CheckReport({
       return next;
     });
 
-  /* Rows waiting on an answer get their own card, so they stay out of the
-     problem list — the same row appearing twice, once with a "type a correction"
-     box beside it, would suggest a typo is what is wrong with it. */
+  /* Rows that look like somebody already on file get their own card, so they
+     stay out of the problem list — the same row appearing twice, once with a
+     "type a correction" box beside it, would suggest a typo is what is wrong
+     with it. Always, not only while undecided: the Duplicates card is where
+     these are answered, whatever the answer currently is. */
   const duplicates = useMemo(
     () => check.problems.filter((row) => row.duplicate !== null),
     [check.problems],
   );
-  const undecided = duplicates.filter(needsDecision);
+
+  /**
+   * Every duplicate defaults to "update" the moment the check reveals it, so
+   * the customer's job is opting specific people OUT rather than answering
+   * for every one of them. Seeded once per check — a row already decided,
+   * including one just set to "skip", is never overwritten; a duplicate a
+   * recheck turns up for the first time gets the same default the others
+   * already have.
+   */
+  useEffect(() => {
+    if (duplicates.length > 0) onSeedDecisions(duplicates.map((row) => row.row));
+  }, [duplicates, onSeedDecisions]);
+
+  /**
+   * Duplicates whose answer has not been through a check yet.
+   *
+   * `row.duplicate.decision` is the API's own echo of whatever decision that
+   * row's *last check* carried — `null` until one has. Comparing it against
+   * the live `decisions` map is what tells the difference between "answered,
+   * and the report already reflects it" and "answered here, on screen, and
+   * not sent yet" — the same distinction `fixes` versus `fixCount` draws for
+   * a typed correction. Approving here without a recheck would apply an
+   * answer the batch was never fingerprinted against, which is exactly what
+   * that fingerprint exists to refuse.
+   */
+  const pendingDuplicates = duplicates.filter(
+    (row) => (decisions[row.row] ?? null) !== row.duplicate!.decision,
+  );
+
   const flaggedRows = useMemo(
     () => check.problems.filter((row) => row.missing.length > 0),
     [check.problems],
   );
+  /* Only a field a payroll run would treat as a blocker earns the read-it-
+     first gate below — see `Flagged`'s own note. An asset's serial number or
+     a department's cost centre never sets `important`, so a file of nothing
+     but those never asks for the tick, and the step completes on its own. */
+  const flaggedNeedsAck = flaggedRows.some((row) =>
+    row.missing.some((item) => item.important),
+  );
 
   /* One line per problem rather than per row: a row with three things wrong has
-     three fixes, and collapsing them hides two. */
+     three fixes, and collapsing them hides two. Duplicates are excluded here
+     unconditionally — they always have their own card, decided or not. */
   const lines = useMemo(
     () =>
       check.problems
-        .filter((row) => !needsDecision(row))
+        .filter((row) => row.duplicate === null)
         .flatMap((row) =>
           row.problems.map((issue, index) => ({
             key: `${row.row}-${index}-${issue.column}`,
@@ -266,7 +304,7 @@ export function CheckReport({
           ? "Nothing to fix"
           : `${skipRows.toLocaleString("en-NG")} to fix`,
       isComplete:
-        ordered.length === 0 || (!unchecked && undecided.length === 0),
+        ordered.length === 0 || (!unchecked && pendingDuplicates.length === 0),
     },
     {
       id: "flagged",
@@ -275,7 +313,7 @@ export function CheckReport({
         flaggedRows.length === 0
           ? "Nothing missing"
           : `${flaggedRows.length.toLocaleString("en-NG")} to read`,
-      isComplete: flaggedRows.length === 0 || acknowledged,
+      isComplete: flaggedRows.length === 0 || !flaggedNeedsAck || acknowledged,
     },
   ]);
 
@@ -287,16 +325,26 @@ export function CheckReport({
    * for the reason they cannot carry on. The flagged-acknowledgement gate is
    * not here any more — it belongs to the sub-step that shows the list it is
    * acknowledging.
+   *
+   * A duplicate answer given here is exactly as unsent as a typed correction
+   * — both change what a recheck would report, and applying either without
+   * one would send the API an answer the batch was never fingerprinted
+   * against. So the two share one blocker and one button: "Recheck &
+   * continue" fires the same recheck whichever (or both) is why it is
+   * showing, and the label says which.
    */
-  const problemsBlocker = unchecked
-    ? ({
-        kind: "fixes",
-        label: `Recheck & continue (${fixCount} ${fixCount === 1 ? "fix" : "fixes"})`,
-      } as const)
-    : undecided.length > 0
+  const problemsBlocker =
+    unchecked || pendingDuplicates.length > 0
       ? ({
-          kind: "duplicates",
-          label: `${undecided.length} still to answer above`,
+          kind: "fixes",
+          label: `Recheck & continue (${[
+            fixCount > 0 ? `${fixCount} ${fixCount === 1 ? "fix" : "fixes"}` : null,
+            pendingDuplicates.length > 0
+              ? `${pendingDuplicates.length} duplicate ${pendingDuplicates.length === 1 ? "answer" : "answers"}`
+              : null,
+          ]
+            .filter(Boolean)
+            .join(", ")})`,
         } as const)
       : willImport === 0
         ? ({ kind: "nothing", label: "Nothing to import" } as const)
@@ -459,7 +507,7 @@ export function CheckReport({
               rows={duplicates}
               decisions={decisions}
               onDecide={onDecide}
-              undecided={undecided.length}
+              onDecideAll={onDecideAll}
             />
           )}
 
@@ -706,12 +754,12 @@ export function CheckReport({
             <Button
               variant="accent"
               onClick={onContinue}
-              disabled={flaggedRows.length > 0 && !acknowledged}
+              disabled={flaggedRows.length > 0 && flaggedNeedsAck && !acknowledged}
             >
-              {flaggedRows.length > 0 && !acknowledged
+              {flaggedRows.length > 0 && flaggedNeedsAck && !acknowledged
                 ? "Tick the box above to carry on"
                 : "Continue"}
-              {(flaggedRows.length === 0 || acknowledged) && (
+              {(flaggedRows.length === 0 || !flaggedNeedsAck || acknowledged) && (
                 <ArrowRight aria-hidden="true" className="size-4" />
               )}
             </Button>
@@ -727,9 +775,13 @@ export function CheckReport({
 /**
  * Rows that look like somebody already on file, with the two answers.
  *
- * Skip or update, per row, chosen by the customer. Deciding for them is the one
- * thing this must not do: creating a second record for one person and dropping a
- * row on suspicion are both wrong, and the file cannot say which this is.
+ * Every row defaults to **update** the moment it is found, checkbox already
+ * ticked — the product owner's own words were that answering one row at a
+ * time, sixty rows deep in a file, is too slow to be worth doing. Opting a
+ * person OUT is one click; nothing here is hidden or silent, because the row
+ * stays on screen, ticked or not, until "Recheck & continue" is pressed —
+ * there is no moment where a choice is made without it being visible and
+ * changeable first.
  *
  * The evidence is shown rather than summarised — what matched, and the value
  * that matched — because "possible duplicate" is a verdict nobody can check and
@@ -740,28 +792,27 @@ function Duplicates({
   rows,
   decisions,
   onDecide,
-  undecided,
+  onDecideAll,
 }: {
   dictionary: Dictionary<string>;
   rows: readonly RowLine[];
   decisions: Record<number, "skip" | "update">;
   onDecide: (row: number, action: "skip" | "update") => void;
-  undecided: number;
+  onDecideAll: (rows: readonly number[], action: "skip" | "update") => void;
 }) {
+  const rowNumbers = rows.map((row) => row.row);
+  const updatingCount = rowNumbers.filter(
+    (number) => decisions[number] !== "skip",
+  ).length;
+  const allUpdating = updatingCount === rowNumbers.length;
+  const noneUpdating = updatingCount === 0;
+
   return (
     <Card>
       <CardHeader
         level={2}
-        title={
-          undecided > 0
-            ? `${undecided} ${undecided === 1 ? "row" : "rows"} might already be on your list`
-            : "Every possible duplicate is answered"
-        }
-        description={
-          undecided > 0
-            ? "Found by work email, or by name and date of birth. Nothing happens to these until you say which."
-            : "These will do what you chose. Change any of them before you carry on."
-        }
+        title={`${rows.length} ${rows.length === 1 ? "row" : "rows"} might already be on your list`}
+        description={`Found by work email, or by name and date of birth. ${updatingCount} of ${rows.length} will update the matching record — untick the ones you'd rather leave alone.`}
       />
       <TableWrap
         className="rounded-none border-0 border-t border-line"
@@ -772,13 +823,22 @@ function Duplicates({
           <TH>In your file</TH>
           <TH>Already on your list</TH>
           <TH>Matched on</TH>
-          <TH className="w-72">What should we do?</TH>
+          <TH className="w-56">
+            <Checkbox
+              label="Update"
+              checked={allUpdating}
+              indeterminate={!allUpdating && !noneUpdating}
+              onChange={() =>
+                onDecideAll(rowNumbers, allUpdating ? "skip" : "update")
+              }
+            />
+          </TH>
         </THead>
         <TBody>
           {rows.map((row) => {
             const match = row.duplicate;
             if (!match) return null;
-            const chosen = decisions[row.row] ?? match.decision;
+            const willUpdate = decisions[row.row] !== "skip";
             return (
               <TR key={row.row}>
                 <TD className="tabular align-top font-medium text-ink">
@@ -812,28 +872,17 @@ function Duplicates({
                   </span>
                 </TD>
                 <TD className="align-top">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <Button
-                      size="sm"
-                      variant={chosen === "update" ? "accent" : "secondary"}
-                      onClick={() => onDecide(row.row, "update")}
-                    >
-                      Update them
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={chosen === "skip" ? "accent" : "secondary"}
-                      onClick={() => onDecide(row.row, "skip")}
-                    >
-                      Leave them alone
-                    </Button>
-                  </div>
+                  <Checkbox
+                    label="Update them"
+                    checked={willUpdate}
+                    onChange={(event) =>
+                      onDecide(row.row, event.target.checked ? "update" : "skip")
+                    }
+                  />
                   <p className="mt-1.5 text-meta leading-relaxed text-muted">
-                    {chosen === "update"
+                    {willUpdate
                       ? `This row goes onto ${match.name}'s record. They keep the ${dictionary.keyLabel} they already have, ${match.employeeNo}.`
-                      : chosen === "skip"
-                        ? "This row is not imported, and nothing about them changes."
-                        : "Updating writes this row onto their record. Leaving them alone imports nothing from this row."}
+                      : "Left alone — this row is not imported, and nothing about them changes."}
                   </p>
                 </TD>
               </TR>
@@ -919,27 +968,43 @@ function Flagged({
   const setShowAll = tier === "important" ? setShowAllImportant : setShowAllLater;
   const visible = showAll ? shown : shown.slice(0, 20);
 
+  /* Only `missing_pay` and `missing_bank_account` on the employee dictionary
+     ever mark a field `important` — everything else (an asset's serial
+     number, a department's cost centre) is always in `later`. That is the
+     one place this list genuinely blocks a payment, so it is the only case
+     that earns the amber "important" framing and the read-it-first gate
+     below. A file with nothing in that tier gets one plain, unforced list —
+     matching what it actually is: nothing stops the import, and here is
+     what is missing, once, not held up as a decision to make. */
+  const anyImportant = important.length > 0;
+
   return (
     <div>
       <div className="flex items-start gap-3 p-4 sm:p-5">
-        <span
-          aria-hidden="true"
-          className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-warning-soft text-warning-text [&>svg]:size-4"
-        >
-          <AlertTriangle />
-        </span>
+        {anyImportant && (
+          <span
+            aria-hidden="true"
+            className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-warning-soft text-warning-text [&>svg]:size-4"
+          >
+            <AlertTriangle />
+          </span>
+        )}
         <div className="min-w-0">
           <h3 className="text-body-sm font-semibold text-ink">
-            Important: {rows.length}{" "}
-            {rows.length === 1
-              ? `${dictionary.noun.one} is`
-              : `${dictionary.noun.many} are`}{" "}
-            missing a detail payroll will ask for
+            {anyImportant
+              ? `Important: ${rows.length} ${
+                  rows.length === 1
+                    ? `${dictionary.noun.one} is`
+                    : `${dictionary.noun.many} are`
+                } missing something needed to pay them`
+              : `${rows.length} ${
+                  rows.length === 1 ? dictionary.noun.one : dictionary.noun.many
+                } ${rows.length === 1 ? "is" : "are"} missing an optional detail`}
           </h3>
           <p className="mt-1 max-w-2xl text-meta leading-relaxed text-muted">
-            They will still be imported. None of this stops a record from being
-            created and nothing is invented to fill the gap — but each one comes
-            back at a payroll run, so it is worth knowing now rather than then.
+            {anyImportant
+              ? "They will still be imported, and nothing is invented to fill the gap — but a payroll run cannot pay somebody without these, so it is worth knowing now rather than then."
+              : `Every ${dictionary.noun.one} still imports. These can be filled in later, on the record or by importing the file again.`}
           </p>
         </div>
       </div>
@@ -961,11 +1026,13 @@ function Flagged({
         </div>
       )}
 
-      <p className="px-4 pt-4 text-meta text-muted sm:px-5">
-        {tier === "important"
-          ? "A payroll run cannot pay these people at all without one of these — set it now, or exclude them from a run until it is there."
-          : "These leave a schedule or a filing incomplete, never the payment itself. Fine to come back to."}
-      </p>
+      {anyImportant && (
+        <p className="px-4 pt-4 text-meta text-muted sm:px-5">
+          {tier === "important"
+            ? "A payroll run cannot pay these people at all without one of these — set it now, or exclude them from a run until it is there."
+            : "These leave a schedule or a filing incomplete, never the payment itself. Fine to come back to."}
+        </p>
+      )}
 
       <TableWrap
         className="mt-3 rounded-none border-0 border-t border-line"
@@ -1030,12 +1097,14 @@ function Flagged({
             Next: what can wait ({later.length})
           </Button>
         ) : (
-          <Checkbox
-            label={`I have read this list of ${rows.length}`}
-            description={`These can be filled in afterwards, on each ${dictionary.noun.one}'s record — or by importing the same file again with the columns added.`}
-            checked={acknowledged}
-            onChange={(event) => onAcknowledge(event.currentTarget.checked)}
-          />
+          anyImportant && (
+            <Checkbox
+              label={`I have read this list of ${rows.length}`}
+              description={`These can be filled in afterwards, on each ${dictionary.noun.one}'s record — or by importing the same file again with the columns added.`}
+              checked={acknowledged}
+              onChange={(event) => onAcknowledge(event.currentTarget.checked)}
+            />
+          )
         )}
       </div>
     </div>

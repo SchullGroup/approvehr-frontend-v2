@@ -59,6 +59,8 @@ import type { LeaveBalanceRow, LeaveRow } from "@/lib/api/leave";
 import { useCan } from "@/lib/permissions";
 import { useDepartments } from "@/lib/store/departments";
 import { useWorkLocations } from "@/lib/store/work-locations";
+import { useGrades } from "@/lib/store/grades";
+import { BandPosition } from "@/app/(app)/payroll/pay-setup/band-position";
 import type { EmployeePatch } from "@/lib/store/employees-api";
 import { usePayPreview } from "@/lib/store/pay-components";
 import { useSession } from "@/lib/store/session";
@@ -238,6 +240,7 @@ export function EmployeeRecord({
   const [exitOpen, setExitOpen] = useState(false);
   const departments = useDepartments();
   const locations = useWorkLocations();
+  const grades = useGrades({ pageSize: 100 });
   const { employeeId: me } = useSession();
   const canSeeSalaries = useCan("VIEW_SALARIES");
   /* The same permission `POST /offboarding` demands to record somebody else's
@@ -297,6 +300,12 @@ export function EmployeeRecord({
   const currentLocation = locations.locations.find(
     (l) => l.name === employee.location,
   );
+
+  /* The grade select needs the row it is showing, for its mid-point — the
+     same lookup `BandPosition` does internally for the meter, done here too
+     because the "set pay to the mid-point" action needs the figure before
+     any fetch that component makes. */
+  const currentGrade = grades.rows.find((g) => g.id === employee.salaryGradeId);
 
   /* Completeness counts the fields payroll and compliance actually need —
      not every field on the form, which would always read "incomplete". */
@@ -644,6 +653,41 @@ export function EmployeeRecord({
                   format: (v) => statusOf(String(v)).label,
                   options: connected ? API_STATUSES : LOCAL_STATUSES,
                 },
+                /*
+                 * A range, not a figure. Picking a grade never sets or moves
+                 * `grossMonthly` below — the two are independent, so two
+                 * people on the same grade can be paid differently, which is
+                 * the whole point of a band rather than a fixed number.
+                 *
+                 * Connected only, for the same reason `workLocationId` below
+                 * is: `useGrades()` is read-only offline, and demo mode
+                 * already *derives* a grade from `grossMonthly` (nearest
+                 * mid-point — see `lib/store/grades.ts`) rather than storing
+                 * one. Offering a picker that saves onto a field the demo
+                 * band meter would then ignore is worse than not offering it.
+                 */
+                ...(connected
+                  ? [
+                      {
+                        key: "salaryGradeId" as const,
+                        label: "Salary grade",
+                        type: "select" as const,
+                        placeholder: "Not on a grade",
+                        value: employee.salaryGradeId ?? "",
+                        format: () =>
+                          currentGrade
+                            ? `${currentGrade.code} ${currentGrade.name}`
+                            : "Not on a grade",
+                        options: [
+                          { value: "", label: "Not on a grade" },
+                          ...grades.rows.map((g) => ({
+                            value: g.id,
+                            label: `${g.code} ${g.name}`,
+                          })),
+                        ],
+                      },
+                    ]
+                  : []),
                 {
                   key: "grossMonthly",
                   label: "Gross monthly",
@@ -692,6 +736,38 @@ export function EmployeeRecord({
                   : []),
               ]}
             />
+
+            {employee.salaryGradeId && (
+              <Card>
+                <CardHeader
+                  level={4}
+                  title="Where this sits in the band"
+                  description="The grade is a range, not a figure — this person's own pay stays whatever is set above, anywhere in it or outside it."
+                />
+                <CardBody>
+                  <BandPosition
+                    key={employee.salaryGradeId}
+                    employeeId={employee.id}
+                    action={
+                      employee.grossMonthly === null && currentGrade ? (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() =>
+                            void onSave({
+                              grossMonthly: naira(currentGrade.midGrossKobo),
+                            })
+                          }
+                        >
+                          Set pay to the mid-point,{" "}
+                          <Money amount={naira(currentGrade.midGrossKobo)} decimals />
+                        </Button>
+                      ) : undefined
+                    }
+                  />
+                </CardBody>
+              </Card>
+            )}
 
             <Card>
               <CardHeader title="Reporting line" />

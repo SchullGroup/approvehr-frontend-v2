@@ -337,9 +337,6 @@ function translate(
   };
 }
 
-/** True for a row line that carries something the reader has to answer. */
-export const needsDecision = (line: RowLine): boolean =>
-  line.duplicate !== null && line.duplicate.decision === null;
 
 /**
  * The decisions that belong to one part, renumbered to that part's own rows.
@@ -472,12 +469,53 @@ export function useImport(dictionary: Dictionary<string>) {
    * Keyed by the file's own row number, and sent as part of the check — the API
    * folds the decisions into the fingerprint, so a batch checked with "skip" and
    * applied with "update" is refused rather than quietly landing the other one.
-   * A row with no answer does not import, and the report says why.
+   *
+   * Every duplicate row gets an entry here — `update`, by default, the moment
+   * the check reveals it (see the seeding effect in `CheckReport`). There is
+   * no "undecided" state any more: the customer's job is to opt specific
+   * people OUT, not to answer for every one of them, which is what made this
+   * screen one click per row instead of one click for the file. A row is only
+   * ever absent from this map before its first check, or after `chooseFile`
+   * clears it for a new one.
    */
   const [decisions, setDecisions] = useState<Record<number, "skip" | "update">>({});
 
   const decide = useCallback((row: number, action: "skip" | "update") => {
     setDecisions((prior) => ({ ...prior, [row]: action }));
+  }, []);
+
+  /** The same answer for every row given — the "select all" / "clear all" action. */
+  const decideAll = useCallback(
+    (rows: readonly number[], action: "skip" | "update") => {
+      setDecisions((prior) => {
+        const next = { ...prior };
+        for (const row of rows) next[row] = action;
+        return next;
+      });
+    },
+    [],
+  );
+
+  /**
+   * Fills in "update" for rows a person has not touched, without disturbing
+   * one they have. Called once a check reveals which rows are duplicates, so
+   * the default is "update" from the first render of the report rather than
+   * a blank the customer has to fill in themselves — and called again after
+   * every recheck, where it is a no-op for rows already decided and a fresh
+   * default for any new duplicate the recheck turned up.
+   */
+  const seedDecisions = useCallback((rows: readonly number[]) => {
+    setDecisions((prior) => {
+      let changed = false;
+      const next = { ...prior };
+      for (const row of rows) {
+        if (!(row in next)) {
+          next[row] = "update";
+          changed = true;
+        }
+      }
+      return changed ? next : prior;
+    });
   }, []);
 
   /**
@@ -1169,6 +1207,8 @@ export function useImport(dictionary: Dictionary<string>) {
     unchecked: check !== null && Object.keys(fixes).length !== check.fixCount,
     decisions,
     decide,
+    decideAll,
+    seedDecisions,
     acknowledged,
     acknowledge,
     downloadTemplate,

@@ -250,6 +250,8 @@ export function ImportFlow({ surface }: { surface: ImportSurface }) {
             onDecide={(row, action) => {
               imp.decide(row, action);
             }}
+            onDecideAll={imp.decideAll}
+            onSeedDecisions={imp.seedDecisions}
             acknowledged={imp.acknowledged}
             onAcknowledge={imp.acknowledge}
             /* Fixing a cell here and re-checking, rather than downloading the
