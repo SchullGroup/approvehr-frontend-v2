@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Check, Lock } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -31,21 +31,27 @@ import {
   useFeatures,
   useWizard,
 } from "@/lib/store/features";
+import {
+  takePendingVerification,
+  type PendingVerification,
+} from "@/lib/pending-email-verification";
+import { VerificationNudge } from "./verification-nudge";
 
 /**
  * Setup.
  *
  * The second thing a customer sees, and the screen that decides how big the
- * rest of the product looks. Seven questions, one per screen, each answerable
+ * rest of the product looks. Eight questions, one per screen, each answerable
  * from memory by somebody who has never used HR software: how many people you
  * pay, whether anyone works nights, whether you lend money, whether staff claim
- * expenses, whether you run appraisals, whether you deduct PAYE, and whether you
- * run a pension scheme.
+ * expenses, whether you run appraisals, whether you deduct PAYE, whether you
+ * run a pension scheme, and whether staff check in and out on ApproveHR.
  *
- * The last two are different in kind and worth knowing about. Five decide which
- * **modules** exist and cost nothing to get wrong, because Settings turns them
- * back on. Two decide what the **payroll engine computes**, and getting those
- * wrong is a wrong payslip — a company with no pension scheme, asked nothing,
+ * The PAYE and pension questions are different in kind and worth knowing
+ * about. The other six decide which **modules** exist and cost nothing to get
+ * wrong, because Settings turns them back on. Those two decide what the
+ * **payroll engine computes**, and getting those wrong is a wrong payslip —
+ * a company with no pension scheme, asked nothing,
  * has 8% taken off every salary it runs. So their "No" carries the API's own
  * sentence about what it means, on screen, before the click.
  *
@@ -91,6 +97,31 @@ export function SetupWizard() {
    * written by a click — sits on top of it.
    */
   const [movedTo, setMovedTo] = useState<number | null>(null);
+
+  /**
+   * The "confirm your email" nudge, handed off from the register screen.
+   *
+   * A real side effect (reading and consuming `sessionStorage`), not derived
+   * render data, so this is the one piece of state on this screen that
+   * belongs in an effect rather than computed inline — same reasoning as the
+   * `started` ref on `verify-email-screen.tsx`. Guarded the same way, against
+   * the double-invoke React does in development.
+   */
+  const [pending, setPending] = useState<PendingVerification | null>(null);
+  const pendingChecked = useRef(false);
+  useEffect(() => {
+    if (pendingChecked.current) return;
+    pendingChecked.current = true;
+    setPending(takePendingVerification());
+  }, []);
+  const nudge = pending && (
+    <VerificationNudge
+      email={pending.email}
+      hint={pending.hint}
+      onDismiss={() => setPending(null)}
+    />
+  );
+
   /**
    * `null` until something happens: the wizard has not been finished *in this
    * visit*. That is a different fact from "setup is complete", which the server
@@ -207,6 +238,7 @@ export function SetupWizard() {
         flags={MODULE_FEATURE_KEYS.filter((key) => features[key])}
         seeded={seeded}
         returning={phase !== "done"}
+        nudge={nudge}
       />
     );
   }
@@ -252,6 +284,7 @@ export function SetupWizard() {
 
   return (
     <Frame>
+      {nudge}
       <div className="flex items-center justify-between gap-4">
         <p className="text-body-sm font-medium text-muted">
           Question {index + 1} of {total}
@@ -465,13 +498,16 @@ function Done({
   flags,
   seeded,
   returning,
+  nudge,
 }: {
   flags: FeatureKey[];
   seeded: ApiSeeded | null;
   returning: boolean;
+  nudge: React.ReactNode;
 }) {
   return (
     <Frame>
+      {nudge}
       <span className="flex size-10 items-center justify-center rounded-full bg-success-soft text-success-text">
         <Check aria-hidden="true" strokeWidth={2.5} className="size-5" />
       </span>

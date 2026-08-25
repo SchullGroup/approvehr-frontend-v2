@@ -13,6 +13,7 @@ import {
   Input,
 } from "@/components/ui";
 import { account, passwordAccepted } from "@/lib/api/account";
+import { stashPendingVerification } from "@/lib/pending-email-verification";
 import { PasswordField } from "../password-field";
 
 /**
@@ -78,13 +79,16 @@ export function RegisterScreen() {
     setBusy(true);
     setError(null);
     try {
-      await account.register({
+      const result = await account.register({
         companyName,
         firstName,
         lastName,
         email,
         password,
       });
+      /* Carried across the redirect below so the setup wizard can nudge
+         towards confirming it — see lib/pending-email-verification.ts. */
+      stashPendingVerification({ email, hint: result.emailVerification });
       /* Deliberately not `router.push` — see the note above. */
       /* `replace`, not `push`: the back button must not return somebody to a
          signup form they have already submitted. Busy stays true through the

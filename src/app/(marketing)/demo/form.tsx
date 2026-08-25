@@ -89,7 +89,7 @@ export function DemoForm() {
           <Check aria-hidden="true" className="size-6 text-slate" strokeWidth={3} />
         </span>
         <h2 className="mt-6 text-h3 text-slate">Pick a time</h2>
-        <p className="mx-auto mt-3 max-w-sm text-body leading-relaxed text-slate-muted">
+        <p className="mx-auto mt-3 max-w-sm leading-relaxed text-slate-muted">
           We opened our scheduling page in a new tab — grab whichever slot
           suits you.
         </p>
@@ -241,7 +241,7 @@ export function DemoForm() {
             value={form.notes}
             onChange={(e) => set("notes", e.currentTarget.value)}
             placeholder="We have staff across three states and file PAYE separately for each."
-            className="mt-2 w-full resize-y rounded-xl border border-sand-line bg-white px-4 py-3 text-body text-slate placeholder:text-slate-muted/60 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate"
+            className="mt-2 w-full resize-y rounded-xl border border-sand-line bg-white px-4 py-3 text-body placeholder:text-slate-muted/60 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate"
           />
         </div>
 
@@ -316,7 +316,7 @@ function TextField({
         placeholder={placeholder}
         onChange={(e) => onChange(e.currentTarget.value)}
         className={cn(
-          "mt-2 h-11 w-full rounded-xl border bg-white px-4 text-body text-slate",
+          "mt-2 h-11 w-full rounded-xl border bg-white px-4 text-body",
           "placeholder:text-slate-muted/60 focus:outline-none",
           "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate",
           error ? "border-danger" : "border-sand-line",
@@ -356,7 +356,7 @@ function Chip({
       aria-pressed={selected}
       onClick={onClick}
       className={cn(
-        "rounded-full border px-3.5 py-2 text-meta transition-all duration-200 ease-[var(--ease-out-soft)]",
+        "rounded-full border px-3.5 py-2 text-meta transition-all duration-200 ease-out-soft",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate",
         selected
           ? "border-slate bg-slate text-white"
