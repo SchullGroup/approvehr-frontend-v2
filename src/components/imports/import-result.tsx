@@ -8,7 +8,6 @@ import {
   Callout,
   Card,
   CardBody,
-  CardFooter,
   CardHeader,
   Modal,
   Stat,
@@ -21,7 +20,7 @@ import {
 } from "@/components/ui";
 import type { Dictionary } from "@/lib/imports/spec";
 import type { ImportSurface } from "@/lib/imports/surface";
-import type { ApplyOutcome, CheckOutcome } from "@/lib/store/imports";
+import type { ApplyOutcome } from "@/lib/store/imports";
 
 const count = (value: number): string => value.toLocaleString("en-NG");
 
@@ -40,6 +39,11 @@ const capitalise = (word: string): string =>
  *
  * Dismissible, and dismissing leaves the full result on the page behind it. The
  * modal is the acknowledgement, not the record.
+ *
+ * Its footer is centred rather than end-aligned, on purpose: both actions —
+ * import another file, or go see what landed — are equally likely next steps
+ * after a clean import, not a primary-and-cancel pair, and end-aligning them
+ * read as if one was a dismissal.
  */
 
 /**
@@ -72,7 +76,12 @@ export function confirmLabel(
 }
 
 /**
- * Step four: confirm, then the result.
+ * The outcome of an import already submitted.
+ *
+ * Rendered only once `result` exists — the step that used to ask "ready to
+ * import?" first is gone; the Fixes step's own button submits directly, in
+ * the same words this file already builds for it (`confirmLabel`), so there
+ * is nothing left to confirm a second time on a page of its own.
  *
  * ## Never a success message without the number
  *
@@ -88,22 +97,17 @@ export function confirmLabel(
  * says which rows landed, which did not, and hands back the ones that did not.
  * Pretending the whole thing failed would be as wrong as pretending it worked.
  */
-export function ImportResult({
+export function ImportOutcome({
   surface,
-  check,
+  filename,
   result,
-  busy,
-  onBack,
-  onConfirm,
   onDownload,
   onAnother,
   onRetry,
 }: {
-  check: CheckOutcome;
-  result: ApplyOutcome | null;
-  busy: boolean;
-  onBack: () => void;
-  onConfirm: () => void;
+  /** Named in the success modal, so "30 imported" also says from where. */
+  filename: string;
+  result: ApplyOutcome;
   onDownload: () => void;
   onAnother: () => void;
   /**
@@ -122,59 +126,6 @@ export function ImportResult({
   const dictionary: Dictionary<string> = surface.dictionary;
   const noun = dictionary.noun;
   const people = (value: number): string => (value === 1 ? noun.one : noun.many);
-  if (!result) {
-    return (
-      <Card>
-        <CardHeader
-          level={2}
-          title="Ready to import"
-          description={`From ${check.filename}. Nothing has changed yet.`}
-        />
-        <CardBody className="flex flex-col gap-4">
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Stat label="To add" value={count(check.toCreate)} />
-            <Stat label="To update" value={count(check.toUpdate)} />
-            <Stat
-              label="To be skipped"
-              value={count(check.toSkip)}
-              hint={check.toSkip > 0 ? "these stay in your file" : undefined}
-            />
-          </div>
-
-          {DEMO_ENABLED && !check.authoritative ? (
-            <Callout tone="warning" title="Importing needs the API">
-              {surface.refusalWithoutApi}
-            </Callout>
-          ) : (
-            check.toSkip > 0 && (
-              <Callout tone="info" title={`${count(check.toSkip)} rows will not be imported`}>
-                They are still in your file. Download them from the previous
-                step, fix them in Excel, and upload that file on its own.
-              </Callout>
-            )
-          )}
-        </CardBody>
-
-        <CardFooter>
-          <Button variant="ghost" onClick={onBack}>
-            Back to the check
-          </Button>
-          {check.authoritative && (
-            <Button
-              variant="approve"
-              size="lg"
-              onClick={onConfirm}
-              loading={busy}
-              disabled={check.toCreate + check.toUpdate === 0}
-            >
-              <CheckCircle2 aria-hidden="true" className="size-4" />
-              {confirmLabel(noun, check.toCreate, check.toUpdate, check.toSkip)}
-            </Button>
-          )}
-        </CardFooter>
-      </Card>
-    );
-  }
 
   const landed = result.created + result.updated;
   const missed = result.notImported.length;
@@ -345,9 +296,8 @@ export function ImportResult({
         </CardBody>
       </Card>
 
-      {/* Clean import only — see the note above `ImportResult`. */}
-      {result !== null &&
-        result.failure === null &&
+      {/* Clean import only — see the note above `ImportOutcome`. */}
+      {result.failure === null &&
         result.notImported.length === 0 &&
         !acknowledged && (
           <Modal
@@ -358,7 +308,7 @@ export function ImportResult({
               result.created + result.updated,
             )} imported`}
             footer={
-              <div className="flex flex-wrap justify-end gap-2">
+              <div className="flex w-full flex-wrap justify-center gap-2">
                 <Button variant="secondary" onClick={onAnother}>
                   Import another file
                 </Button>
@@ -377,7 +327,7 @@ export function ImportResult({
               </span>
               <p className="text-body text-ink">
                 {count(result.created)} added and {count(result.updated)} updated
-                from {check.filename}.
+                from {filename}.
               </p>
               <p className="text-body-sm text-muted">
                 Every row in the file landed.

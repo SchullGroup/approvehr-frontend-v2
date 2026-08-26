@@ -206,6 +206,7 @@ export type EmployeeField =
   | "lastName"
   | "middleName"
   | "email"
+  | "canLogin"
   | "phone"
   | "dateOfBirth"
   | "gender"
@@ -298,6 +299,14 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     recommended: {
       why: "no work email — payslips cannot be sent to them, and a re-import cannot tell they are already on file",
     },
+  },
+  {
+    field: "canLogin",
+    column: "can_login",
+    aliases: ["login", "has_login", "portal_access", "can_sign_in"],
+    required: false,
+    example: "yes",
+    note: "Leave this out and we work it out from the email column: somebody with a work address gets login access, somebody without does not. Say no for staff who are paid but never use the system — drivers, cleaners, site labour.",
   },
   {
     field: "phone",
