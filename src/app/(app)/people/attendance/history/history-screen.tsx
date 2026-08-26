@@ -84,11 +84,21 @@ import { CalendarLegend, MonthCalendar } from "./month-calendar";
  *
  * Unlike `/people/attendance`, there is no personal reading of a who-came-in
  * calendar — a plain employee has no "my own history" version of a roster for
- * every day of the month. `GET /attendance/roster` and `/attendance/summary`
- * need no permission on the API (the same "who was in" is unconditional as the
- * screen this one splits off from), so the gate belongs here, not there: a nav
- * item is only ever a visibility hint, never enforcement, and `nav.tsx`'s
- * `permission` on this item is the same hint, nothing more.
+ * every day of the month, and `/attendance/summary` has no per-employee row to
+ * fall back to at all.
+ *
+ * **This used to say `GET /attendance/roster` and `/attendance/summary` need
+ * no permission on the API, so the gate belonged here and nowhere else.** That
+ * was wrong: neither endpoint checked anything, so both answered for the whole
+ * company on any valid token whether or not this screen was the one asking —
+ * `useAttendanceMonth`/`useAttendanceRoster` fire before the `canSeeHistory`
+ * check below ever runs, because hooks cannot be conditional. The API enforces
+ * the same rule now (`attendance/router.ts#seesCompanyAttendance`); `/roster`
+ * degrades to a caller's own row the way `attendance-screen.tsx` also relies
+ * on, but `/summary` refuses outright, matching the refusal this screen already
+ * renders below rather than a narrower reading nothing here uses. `nav.tsx`'s
+ * `permission` on this item remains only a visibility hint — the enforcement
+ * is no longer solely this component's to get right.
  *
  * `useIsManager()` (their own reports) or `EDIT_RECORDS` (the company's)
  * decides it, matching `attendance-screen.tsx`'s roster gate exactly, so a
@@ -153,7 +163,9 @@ export function HistoryScreen() {
               title="Attendance history is not part of your access"
               description="This is the company's who-came-in calendar, not your own. Only a manager or somebody who can edit records can open it."
               action={
-                <ButtonLink href="/people/attendance">Go to attendance</ButtonLink>
+                <ButtonLink href="/people/attendance">
+                  Go to attendance
+                </ButtonLink>
               }
             />
           </Card>
@@ -174,7 +186,10 @@ export function HistoryScreen() {
 
       <PageBody className="flex flex-col gap-6">
         {summary.error && (
-          <LoadFailure subject="this month's attendance" error={summary.error} />
+          <LoadFailure
+            subject="this month's attendance"
+            error={summary.error}
+          />
         )}
 
         <Card>
@@ -300,7 +315,10 @@ function DayTable({
      exists for a day somebody is *on*, so a one-day window cannot tell "off
      today" from "not on a rota at all", and those two need opposite treatment.
      Four weeks covers any cycle in use here. */
-  const rota = useRotaContext(addDays(roster.date, -13), addDays(roster.date, 14));
+  const rota = useRotaContext(
+    addDays(roster.date, -13),
+    addDays(roster.date, 14),
+  );
 
   if (roster.loading || !day) {
     return (
@@ -336,14 +354,17 @@ function DayTable({
           description="Nobody clocked in or out, and no record was made either way."
         />
         <CardBody className="flex flex-col gap-4">
-          <Callout tone="neutral" title="This is not a day everybody was absent">
+          <Callout
+            tone="neutral"
+            title="This is not a day everybody was absent"
+          >
             <span className="flex flex-col gap-1.5">
               <span>
-                No attendance exists for this date, so there is nothing here that
-                says anybody was missing. A day nobody came in and a day nothing
-                was recorded look the same in the data and are not the same
-                claim — reading the second as the first is what once prorated a
-                whole company&apos;s pay to nothing.
+                No attendance exists for this date, so there is nothing here
+                that says anybody was missing. A day nobody came in and a day
+                nothing was recorded look the same in the data and are not the
+                same claim — reading the second as the first is what once
+                prorated a whole company&apos;s pay to nothing.
               </span>
               {firstRecordedDate ? (
                 <span>
@@ -356,9 +377,11 @@ function DayTable({
               ) : (
                 <span>
                   Nobody has ever clocked in
-                  {DEMO_ENABLED && source === "demo" ? " in this browser" : " here"}, so every day
-                  reads this way. Payroll withholds nothing for absence at a
-                  company that does not record attendance.
+                  {DEMO_ENABLED && source === "demo"
+                    ? " in this browser"
+                    : " here"}
+                  , so every day reads this way. Payroll withholds nothing for
+                  absence at a company that does not record attendance.
                 </span>
               )}
             </span>
@@ -432,7 +455,9 @@ function DayTable({
         ) : (
           <CardBody className="flex flex-col gap-3">
             <p className="text-body-sm text-body">
-              {cameInAnyway.length === 1 ? "One person" : `${cameInAnyway.length} people`}{" "}
+              {cameInAnyway.length === 1
+                ? "One person"
+                : `${cameInAnyway.length} people`}{" "}
               clocked in anyway. That is either leave nobody cancelled on the
               record or work somebody is owed extra for — one of them needs
               fixing and the other needs paying.
@@ -456,7 +481,12 @@ function DayTable({
                 </li>
               ))}
             </ul>
-            <ButtonLink href="/people/overtime" variant="secondary" size="sm" className="self-start">
+            <ButtonLink
+              href="/people/overtime"
+              variant="secondary"
+              size="sm"
+              className="self-start"
+            >
               Check overtime
             </ButtonLink>
           </CardBody>
@@ -556,7 +586,10 @@ function DayTable({
                 <TD className="text-muted">
                   {row.workLocation ? (
                     <span className="inline-flex items-center gap-1.5">
-                      <MapPin aria-hidden="true" className="size-3.5 text-faint" />
+                      <MapPin
+                        aria-hidden="true"
+                        className="size-3.5 text-faint"
+                      />
                       {row.workLocation}
                     </span>
                   ) : (
