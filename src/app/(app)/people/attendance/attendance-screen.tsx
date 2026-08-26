@@ -515,19 +515,12 @@ function TodayView({
         <Stat
           label="Not clocked in"
           value={String(unexplained)}
-          hint={
-            restDays > 0
-              ? `${restDays} more off on the rota`
-              : "nothing booked, nothing recorded"
-          }
+          {...(restDays > 0 ? { hint: `${restDays} more off on the rota` } : {})}
         />
       </div>
 
       <Card>
-        <CardHeader
-          title={`Roster — ${shortDate(roster.date)}`}
-          description="Exceptions first. Anyone on approved leave is shown as on leave, never as a no-show."
-        />
+        <CardHeader title={`Roster — ${shortDate(roster.date)}`} />
         <TableWrap className="rounded-none border-0">
           <THead>
             <TH>Employee</TH>

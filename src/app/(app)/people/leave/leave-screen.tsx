@@ -267,9 +267,11 @@ export function LeaveScreen() {
       <PageHeader
         title="Time off"
         meta={
-          <Badge tone={connected ? "success" : "warning"} size="sm" dot>
-            {sourceNote(connected)}
-          </Badge>
+          sourceNote(connected) && (
+            <Badge tone="warning" size="sm" dot>
+              {sourceNote(connected)}
+            </Badge>
+          )
         }
         action={
           <div className="flex flex-wrap items-center gap-2">

@@ -183,9 +183,11 @@ export function ApprovalInbox() {
       {/* Which source these decisions are being written to, stated rather than
           implied. Connected, approving here writes to the database. */}
       <div className="flex flex-wrap items-center gap-2">
-        <Badge tone={queue.connected ? "success" : "warning"} size="sm" dot>
-          {sourceNote(queue.connected)}
-        </Badge>
+        {sourceNote(queue.connected) && (
+          <Badge tone="warning" size="sm" dot>
+            {sourceNote(queue.connected)}
+          </Badge>
+        )}
         {queue.loading && (
           <span className="text-meta text-muted">Loading…</span>
         )}

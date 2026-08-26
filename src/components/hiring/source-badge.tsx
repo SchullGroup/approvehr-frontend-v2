@@ -26,11 +26,14 @@ export function SourceBadge({
   live: boolean;
   note?: string;
 }) {
+  const label = sourceNote(live);
   return (
     <span className="inline-flex flex-wrap items-center gap-2">
-      <Badge tone={live ? "success" : "warning"} size="sm" dot>
-        {sourceNote(live)}
-      </Badge>
+      {label && (
+        <Badge tone="warning" size="sm" dot>
+          {label}
+        </Badge>
+      )}
       {note && <span className="text-meta text-muted">{note}</span>}
     </span>
   );

@@ -49,15 +49,22 @@ declare global {
 }
 
 /**
- * Where the figures on a screen came from.
+ * Where the figures on a screen came from — or `null` when that is simply
+ * "the database", which is not something a user needs told to them.
  *
  * Roughly thirty screens carried this as an inline ternary against their own
  * `connected` flag. It lives here now for the same reason the flag does: the
  * copy that names demo mode should exist in exactly one module, so removing it
  * is one edit and verifying it is gone is one grep.
+ *
+ * `live` used to render "Live from the API" — true and uninteresting. A
+ * badge that only ever says "this is real" on a real product is a badge for
+ * nobody; every caller that renders one is expected to skip it when this
+ * returns `null`, the same way they already skip `loading`/`error` when those
+ * are absent.
  */
-export function sourceNote(live: boolean): string {
-  if (live) return "Live from the API";
+export function sourceNote(live: boolean): string | null {
+  if (live) return null;
   /**
    * Not live, and no demo to blame it on.
    *

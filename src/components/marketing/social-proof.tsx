@@ -80,7 +80,7 @@ export function Testimonials() {
       <div className="container-page">
         <Reveal>
           <h2 className="max-w-3xl text-h1 text-slate">
-            The people who run payroll here already made the switch.
+            The people who manage payroll here already made the switch.
           </h2>
         </Reveal>
 

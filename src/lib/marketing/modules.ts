@@ -13,7 +13,7 @@
  * - **Canonical module names.** Buyers search for "payroll software", "HR
  *   software", "recruitment software". Naming a module `Recruitment` rather than
  *   `Hiring & ATS` costs nothing and matches the words in their head.
- * - **Headline: a benefit, in six words or fewer.** "A smarter way to manage staff",
+ * - **Headline: a benefit, in six words or fewer.** "Your people, in one place",
  *   not "One record per person, and it is always current".
  * - **Blurb: two short sentences, active verbs, no subordinate clauses.** The
  *   old blurbs were 35-word sentences with three commas; correct, and unread.
@@ -66,30 +66,30 @@ export const MODULES: ModuleDef[] = [
   {
     id: "core-hr",
     label: "Core HR",
-    headline: "A smarter way to manage staff",
+    headline: "Your people, in one place",
     blurb:
-      "Every employee record, contract and document in one system, with update access for staff. Changes get routed for approval before they happen.",
+      "Every employee record, contract and document in one system. Staff update their own details, and changes route for approval before they land.",
     wash: "indigo",
     capabilities: [
       {
         title: "Employee records",
         detail:
-          "Personal details, pay history, bank and pension identifiers, next of kin, and every document, sorted and assigned staff by staff.",
+          "Personal details, pay history, bank and pension identifiers, next of kin, and every document — attached to the person, not a folder.",
       },
       {
         title: "Employee self-service",
         detail:
-          "Staff change their own address, bank account and next of kin \u2014 subject to HR approval first.",
+          "Staff change their own address, bank account and next of kin. Sensitive fields go to HR for approval first.",
       },
       {
         title: "Org structure",
         detail:
-          "Departments, reporting lines and multiple entities, built from staff records. An administrator sees every branch at once; a branch manager sees their own.",
+          "Departments, reporting lines and multiple entities. The chart is generated from the records, so it cannot go stale.",
       },
       {
         title: "Letters and documents",
         detail:
-          "Confirmation letters, contract amendments and references, generated from editable templates.",
+          "Confirmation letters, contract amendments and references, generated from templates that fill themselves in.",
       },
     ],
   },
@@ -98,7 +98,7 @@ export const MODULES: ModuleDef[] = [
     label: "Payroll",
     headline: "Payroll that knows Nigerian law",
     blurb:
-      "Run payroll with PAYE, pension and NHF calculated to current law. Every schedule your state IRS and PFAs ask for comes out of the run itself.",
+      "Process payroll with PAYE, pension and NHF calculated to current law. Every schedule your state IRS and PFAs ask for is generated automatically.",
     wash: "green",
     statutory: "PAYE · Pension · NHF · NSITF · ITF",
     capabilities: [
@@ -110,12 +110,12 @@ export const MODULES: ModuleDef[] = [
       {
         title: "Remittance schedules",
         detail:
-          "Pension schedules per PFA, PAYE per state IRS, NHF returns. Generated from the run, never rebuilt in Excel.",
+          "Pension schedules per PFA, PAYE per state IRS, NHF returns. Generated automatically, never rebuilt in Excel.",
       },
       {
         title: "Approval before money moves",
         detail:
-          "A run is prepared, reviewed and approved by named people. The payment file only exists after approval.",
+          "Every payroll is prepared, reviewed and approved by named people. The payment file only exists after approval.",
       },
       {
         title: "Loans and salary advances",
@@ -132,15 +132,15 @@ export const MODULES: ModuleDef[] = [
   {
     id: "hiring",
     label: "Recruitment",
-    headline: "From job ad to signed offer",
+    headline: "From requisition to signed offer",
     blurb:
-      "A full applicant tracking system. Post a role, track every application, and collect structured scorecards. An accepted offer becomes an employee record without retyping anything.",
+      "Post a role, track every applicant through a pipeline you configure, and collect structured scorecards. An accepted offer becomes an employee record without retyping anything.",
     wash: "amber",
     capabilities: [
       {
-        title: "Job applications from your website",
+        title: "Requisitions with approval",
         detail:
-          "Published roles get their own public page on your own address. Applications arrive in the pipeline already, with the advert and the source they came from recorded.",
+          "A role opens with a band, a headcount and a hiring team — approved by the budget holder before it goes live.",
       },
       {
         title: "Pipelines you configure",
@@ -148,9 +148,14 @@ export const MODULES: ModuleDef[] = [
           "Sourcing, shortlisting, screening, interview, selection. Turn off the stages a junior role does not need.",
       },
       {
-        title: "Screening done from your website",
+        title: "Knockout screening",
         detail:
           "Ask what disqualifies early — right to work, notice period, salary expectation — and see it on the candidate card.",
+      },
+      {
+        title: "Interview scorecards",
+        detail:
+          "Interviewers rate agreed competencies and recommend. Nobody leaves the interview stage until every scorecard is in.",
       },
       {
         title: "Offers",
@@ -162,7 +167,7 @@ export const MODULES: ModuleDef[] = [
   {
     id: "time",
     label: "Time & Leave",
-    headline: "Attendance that syncs with payroll",
+    headline: "Attendance that agrees with payroll",
     blurb:
       "Clock in from the web or a phone. Leave accrues on your own policy, and what attendance records is what payroll pays.",
     wash: "blue",
@@ -171,7 +176,7 @@ export const MODULES: ModuleDef[] = [
       {
         title: "Clock in and out",
         detail:
-          "From a browser or a phone, inside registered work locations, so a site team clocks in where they actually are.",
+          "From a browser or a phone, with work locations so a site team clocks in where they actually are.",
       },
       {
         title: "Leave policies",
@@ -186,12 +191,7 @@ export const MODULES: ModuleDef[] = [
       {
         title: "Timesheets payroll can use",
         detail:
-          "Unpaid absence prorates against your working month, not a 22-day assumption.",
-      },
-      {
-        title: "Overtime, priced and paid",
-        detail:
-          "Hours past a shift are worked out from the clock, not claimed on a form. Separate weekday, weekend and public-holiday rates, approval before anything is paid, and it lands on the payslip as its own line.",
+          "Unpaid absence prorates against your working month, not a 22-day assumption borrowed from somewhere else.",
       },
       {
         title: "Public holidays",
@@ -203,15 +203,15 @@ export const MODULES: ModuleDef[] = [
   {
     id: "performance",
     label: "Performance",
-    headline: "Trackable objectives and reviews",
+    headline: "Reviews you can defend",
     blurb:
       "Set objectives that ladder up to company goals and run review cycles on a schedule. Every rating carries the evidence behind it.",
     wash: "violet",
     capabilities: [
       {
-        title: "Clear goal tracking and supervision",
+        title: "Goals that cascade",
         detail:
-          "Company goals flow down to teams and individuals, so any KPI traces back to what it serves.",
+          "Company goals flow down to teams and individuals, so any objective traces back to what it serves.",
       },
       {
         title: "Review cycles",
@@ -219,19 +219,9 @@ export const MODULES: ModuleDef[] = [
           "Self, manager and peer review on a schedule you set, with reminders that go out without you chasing.",
       },
       {
-        title: "What an appraisal is made of",
+        title: "Competency scoring",
         detail:
-          "Four parts, ready to use on day one: core competencies, behavioural competencies, key result areas, and leadership for anyone who manages people. Rename or reweight any of them.",
-      },
-      {
-        title: "Appraisal questions you set",
-        detail:
-          "Build the form per cycle. Each question asks self, manager, peer or direct report \u2014 or all four \u2014 and peer answers are anonymous in the data, not just on the screen.",
-      },
-      {
-        title: "KPI measuring",
-        detail:
-          "Define the KPIs that matter per role and weight them. Scores stay comparable across a department.",
+          "Define the competencies that matter per role and weight them. Scores stay comparable across a department.",
       },
       {
         title: "Calibration",

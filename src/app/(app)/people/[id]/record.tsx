@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
+  AlertTriangle,
   CalendarDays,
   Eye,
   EyeOff,
@@ -58,6 +59,8 @@ import type { LeaveBalanceRow, LeaveRow } from "@/lib/api/leave";
 import { useCan } from "@/lib/permissions";
 import { useDepartments } from "@/lib/store/departments";
 import { useWorkLocations } from "@/lib/store/work-locations";
+import { useGrades } from "@/lib/store/grades";
+import { BandPosition } from "@/app/(app)/payroll/pay-setup/band-position";
 import type { EmployeePatch } from "@/lib/store/employees-api";
 import { usePayPreview } from "@/lib/store/pay-components";
 import { useSession } from "@/lib/store/session";
@@ -237,6 +240,7 @@ export function EmployeeRecord({
   const [exitOpen, setExitOpen] = useState(false);
   const departments = useDepartments();
   const locations = useWorkLocations();
+  const grades = useGrades({ pageSize: 100 });
   const { employeeId: me } = useSession();
   const canSeeSalaries = useCan("VIEW_SALARIES");
   /* The same permission `POST /offboarding` demands to record somebody else's
@@ -296,6 +300,12 @@ export function EmployeeRecord({
   const currentLocation = locations.locations.find(
     (l) => l.name === employee.location,
   );
+
+  /* The grade select needs the row it is showing, for its mid-point — the
+     same lookup `BandPosition` does internally for the meter, done here too
+     because the "set pay to the mid-point" action needs the figure before
+     any fetch that component makes. */
+  const currentGrade = grades.rows.find((g) => g.id === employee.salaryGradeId);
 
   /* Completeness counts the fields payroll and compliance actually need —
      not every field on the form, which would always read "incomplete". */
@@ -358,6 +368,39 @@ export function EmployeeRecord({
               tone={completeness === 100 ? "success" : completeness >= 70 ? "accent" : "warning"}
             />
           </CardBody>
+
+          {/* A small checklist, not the page's main focus. These never hold
+              back a payslip — `payrollGapsFor` says so in `consequence` — so a
+              red callout at the top of the record was claiming the same
+              urgency for a missing TIN as a missing bank account, which is
+              exactly the bug this split fixes. They still need a place that
+              is not nowhere; a sidebar item is that place. */}
+          {payrollAdvisory.length > 0 && (
+            <CardBody className="border-t border-line">
+              <p className="mb-2 text-meta font-medium text-muted">
+                Worth adding, not pay-blocking
+              </p>
+              <ul className="flex flex-col gap-1.5">
+                {payrollAdvisory.map((g) => (
+                  <li key={g.field} className="flex items-start gap-2">
+                    <AlertTriangle
+                      aria-hidden="true"
+                      className="mt-0.5 size-3.5 shrink-0 text-warning-text"
+                    />
+                    {/* `title` rather than dropping `consequence`: the reason
+                        it does not block still exists, just one hover away
+                        instead of in a paragraph nobody asked to read. */}
+                    <span
+                      className="text-meta leading-relaxed text-body"
+                      title={g.consequence}
+                    >
+                      {g.label}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </CardBody>
+          )}
         </Card>
 
         <Card>
@@ -435,18 +478,6 @@ export function EmployeeRecord({
           </Callout>
         )}
 
-        {payrollAdvisory.length > 0 && (
-          <Callout tone="warning" title="Recommended, but not pay-blocking">
-            <ul className="flex flex-col gap-1">
-              {payrollAdvisory.map((g) => (
-                <li key={g.field}>
-                  <span className="font-medium">{g.label}</span> — {g.consequence}
-                </li>
-              ))}
-            </ul>
-          </Callout>
-        )}
-
         {employee.endDate && (
           <Callout tone="warning" title="Leaving the company">
             Last day is {employee.endDate}. Check final settlement, outstanding
@@ -477,7 +508,8 @@ export function EmployeeRecord({
                 { key: "lastName", label: "Last name", required: true },
                 {
                   key: "middleName",
-                  label: "Middle name (optional)",
+                  label: "Middle name",
+                  optional: true,
                   emptyLabel: "Not recorded",
                 },
                 {
@@ -491,7 +523,8 @@ export function EmployeeRecord({
                 { key: "dateOfBirth", label: "Date of birth", type: "date" },
                 {
                   key: "gender",
-                  label: "Gender (optional)",
+                  label: "Gender",
+                  optional: true,
                   type: "select",
                   options: [
                     { value: "", label: "Prefer not to say" },
@@ -502,20 +535,23 @@ export function EmployeeRecord({
                 },
                 {
                   key: "addressLine",
-                  label: "Home address (optional)",
+                  label: "Home address",
+                  optional: true,
                   emptyLabel: "No address recorded",
                   help: "Where they live. Not the office they work at.",
                 },
                 {
                   key: "nin",
-                  label: "NIN (optional)",
+                  label: "NIN",
+                  optional: true,
                   digits: 11,
                   emptyLabel: "No NIN recorded",
                   help: "National Identification Number, 11 digits.",
                 },
                 {
                   key: "stateOfOrigin",
-                  label: "State of origin (optional)",
+                  label: "State of origin",
+                  optional: true,
                   type: "select",
                   emptyLabel: "Not recorded",
                   /* Not the tax state. Origin is where somebody is from; the
@@ -532,13 +568,15 @@ export function EmployeeRecord({
                 },
                 {
                   key: "lgaOfOrigin",
-                  label: "Local government area (optional)",
+                  label: "Local government area",
+                  optional: true,
                   emptyLabel: "Not recorded",
                   help: "Free text — there are 774, and we will not refuse a real one.",
                 },
                 {
                   key: "religion",
-                  label: "Religion (optional)",
+                  label: "Religion",
+                  optional: true,
                   emptyLabel: "Not recorded",
                   help: "Recorded because holidays and dietary arrangements depend on it.",
                 },
@@ -571,6 +609,13 @@ export function EmployeeRecord({
         {tab === "employment" && (
           <div className="flex flex-col gap-5">
             <EditableSection
+              /* Arrive editing when a payroll exception sent us here naming
+                 the field — `missing_pay` names `grossMonthly`, which lives
+                 here rather than on `pay`. Gated on the tab so a stale
+                 `?field=` cannot open this editor from another tab. */
+              {...(tab === "employment" && focusField
+                ? { openOnField: focusField }
+                : {})}
               title="Role"
               employee={employee}
               onSave={onSave}
@@ -608,9 +653,45 @@ export function EmployeeRecord({
                   format: (v) => statusOf(String(v)).label,
                   options: connected ? API_STATUSES : LOCAL_STATUSES,
                 },
+                /*
+                 * A range, not a figure. Picking a grade never sets or moves
+                 * `grossMonthly` below — the two are independent, so two
+                 * people on the same grade can be paid differently, which is
+                 * the whole point of a band rather than a fixed number.
+                 *
+                 * Connected only, for the same reason `workLocationId` below
+                 * is: `useGrades()` is read-only offline, and demo mode
+                 * already *derives* a grade from `grossMonthly` (nearest
+                 * mid-point — see `lib/store/grades.ts`) rather than storing
+                 * one. Offering a picker that saves onto a field the demo
+                 * band meter would then ignore is worse than not offering it.
+                 */
+                ...(connected
+                  ? [
+                      {
+                        key: "salaryGradeId" as const,
+                        label: "Salary grade",
+                        type: "select" as const,
+                        placeholder: "Not on a grade",
+                        value: employee.salaryGradeId ?? "",
+                        format: () =>
+                          currentGrade
+                            ? `${currentGrade.code} ${currentGrade.name}`
+                            : "Not on a grade",
+                        options: [
+                          { value: "", label: "Not on a grade" },
+                          ...grades.rows.map((g) => ({
+                            value: g.id,
+                            label: `${g.code} ${g.name}`,
+                          })),
+                        ],
+                      },
+                    ]
+                  : []),
                 {
                   key: "grossMonthly",
-                  label: "Gross monthly (optional)",
+                  label: "Gross monthly",
+                  optional: true,
                   type: "number",
                   help: "Changing this changes their next payslip. Clear it if pay is no longer agreed — payroll will name them until it is set again.",
                   /* Two decimals, never abbreviated: this is a figure somebody
@@ -655,6 +736,38 @@ export function EmployeeRecord({
                   : []),
               ]}
             />
+
+            {employee.salaryGradeId && (
+              <Card>
+                <CardHeader
+                  level={4}
+                  title="Where this sits in the band"
+                  description="The grade is a range, not a figure — this person's own pay stays whatever is set above, anywhere in it or outside it."
+                />
+                <CardBody>
+                  <BandPosition
+                    key={employee.salaryGradeId}
+                    employeeId={employee.id}
+                    action={
+                      employee.grossMonthly === null && currentGrade ? (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() =>
+                            void onSave({
+                              grossMonthly: naira(currentGrade.midGrossKobo),
+                            })
+                          }
+                        >
+                          Set pay to the mid-point,{" "}
+                          <Money amount={naira(currentGrade.midGrossKobo)} decimals />
+                        </Button>
+                      ) : undefined
+                    }
+                  />
+                </CardBody>
+              </Card>
+            )}
 
             <Card>
               <CardHeader title="Reporting line" />

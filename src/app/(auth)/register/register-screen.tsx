@@ -13,6 +13,7 @@ import {
   Input,
 } from "@/components/ui";
 import { account, passwordAccepted } from "@/lib/api/account";
+import { stashPendingVerification } from "@/lib/pending-email-verification";
 import { markSignedIn } from "@/lib/store/session";
 import { PasswordField } from "../password-field";
 
@@ -88,6 +89,10 @@ export function RegisterScreen() {
       /* See the note above — this is what makes the next mount of `AuthGate`
          find a signed-in session instead of the one it hydrated earlier. */
       markSignedIn(result.user);
+      /* Carried across the redirect below so the setup wizard can nudge
+         towards confirming it — see lib/pending-email-verification.ts. */
+      stashPendingVerification({ email, hint: result.emailVerification });
+      /* Deliberately not `router.push` — see the note above. */
       /* `replace`, not `push`: the back button must not return somebody to a
          signup form they have already submitted. Busy stays true through the
          navigation so the button cannot be pressed twice. */

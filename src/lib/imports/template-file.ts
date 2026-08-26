@@ -60,6 +60,12 @@ export type TemplateColumn = {
    * in the directory that nobody hired.
    */
   exampleOverride?: string;
+  /**
+   * The exact values this column accepts, for a real Excel dropdown cell
+   * rather than a note beside it. Absent for a plain-text or free-form
+   * column — see `ColumnSpec.dropdown` for which ones qualify and why.
+   */
+  dropdown?: readonly string[];
 };
 
 /** A dictionary in the builder's shape. Used when the API has not answered. */
@@ -76,6 +82,7 @@ export const columnsFromDictionary = (
     ...(spec.templateExample === undefined
       ? {}
       : { exampleOverride: spec.templateExample }),
+    ...(spec.dropdown === undefined ? {} : { dropdown: spec.dropdown }),
   }));
 
 /**
@@ -105,6 +112,7 @@ export const columnsFromApi = (
       note: column.note,
       alsoAccepted: column.alsoAccepted,
       ...(override === undefined ? {} : { exampleOverride: override }),
+      ...(column.dropdown === undefined ? {} : { dropdown: column.dropdown }),
     };
   });
 };
@@ -168,6 +176,34 @@ export function buildTemplateFiles(
     headers.map((heading, index) => [heading, example[index] ?? ""]),
   );
 
+  /**
+   * Every dropdown column, paired with the index it holds on the *options*
+   * sheet — never the same index it holds on the staff sheet, because two
+   * dropdown columns sitting apart in the staff sheet still need adjacent
+   * columns on the sheet that carries their lists.
+   */
+  const dropdowns = columns
+    .map((column, index) => ({ index, options: column.dropdown }))
+    .filter(
+      (entry): entry is { index: number; options: readonly string[] } =>
+        entry.options !== undefined && entry.options.length > 0,
+    );
+
+  const LISTS_SHEET = "Lists";
+  const listRows: string[][] = [];
+  if (dropdowns.length > 0) {
+    const longest = Math.max(...dropdowns.map((d) => d.options.length));
+    for (let row = 0; row < longest; row += 1) {
+      listRows.push(dropdowns.map((d) => d.options[row] ?? ""));
+    }
+  }
+  const validations = dropdowns.map((d, listsIndex) => ({
+    column: d.index,
+    optionsSheet: LISTS_SHEET,
+    optionsColumn: listsIndex,
+    optionCount: d.options.length,
+  }));
+
   const guide: string[][] = [
     ["How to fill this in"],
     ...legend.map((line) => [line]),
@@ -195,6 +231,7 @@ export function buildTemplateFiles(
            follow them. Enough to read; not so much that 33 columns cannot be
            scrolled. */
         widths: headers.map((heading) => Math.min(34, Math.max(12, heading.length + 3))),
+        ...(validations.length > 0 ? { validations } : {}),
       },
       {
         name: "Columns explained",
@@ -203,6 +240,11 @@ export function buildTemplateFiles(
         boldRows: [0, legend.length + (matching ? 1 : 0) + 2],
         widths: [22, 14, 24, 70, 44],
       },
+      /* Hidden — this sheet exists only to give every dropdown a source range
+         to point at, never for a person to open. See `SheetSpec.hidden`. */
+      ...(listRows.length > 0
+        ? [{ name: LISTS_SHEET, rows: listRows, hidden: true }]
+        : []),
     ]),
     csvFilename: `${basename}.csv`,
     xlsxFilename: `${basename}.xlsx`,

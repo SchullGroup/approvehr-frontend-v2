@@ -8,7 +8,6 @@ import {
   ArrowRight,
   Check,
   Save,
-  ShieldAlert,
   Trash2,
   UserRoundCheck,
   UserRoundPlus,
@@ -56,6 +55,7 @@ import {
 import { useWorkLocations } from "@/lib/store/attendance";
 import { NO_DEPARTMENT } from "@/lib/store/demo-structure";
 import { useDepartments } from "@/lib/store/departments";
+import { useOrgTaxState } from "@/lib/store/company";
 import { NIGERIAN_BANKS } from "@/lib/reference/banks";
 import {
   NIGERIAN_STATES,
@@ -293,6 +293,21 @@ export function NewEmployeeForm() {
   }
   const features = useFeatures();
   const drafts = useEmployeeDraft();
+  const orgTax = useOrgTaxState();
+  const [settingOrgTax, setSettingOrgTax] = useState<string>("");
+  const [savingOrgTax, setSavingOrgTax] = useState(false);
+  const [orgTaxError, setOrgTaxError] = useState<string | null>(null);
+
+  async function commitOrgTaxState() {
+    if (!settingOrgTax) return;
+    setSavingOrgTax(true);
+    setOrgTaxError(null);
+    const ok = await orgTax.setTaxState(settingOrgTax);
+    setSavingOrgTax(false);
+    if (!ok) {
+      setOrgTaxError("That could not be saved. Try again.");
+    }
+  }
 
   const [draft, setDraft] = useState<EmployeeDraft>(BLANK_DRAFT);
   const [open, setOpen] = useState<OpenGroups>({
@@ -802,21 +817,21 @@ export function NewEmployeeForm() {
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
       <div className="flex flex-col gap-5">
-        {/* Which source this record will be written to, stated rather than
-            implied — the same badge the directory and the record page carry. */}
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge tone={connected ? "success" : "warning"} size="sm" dot>
-            {connected || !DEMO_ENABLED
-              ? "Saves to the API"
-              : "Saves in this browser only — demo data"}
-          </Badge>
-          {!connected && (
+        {/* In production this always saves to the API — there is no other
+            destination — so the badge said nothing a reader didn't already
+            know. Demo mode still needs to be legible: it just does not need a
+            badge to say so on a form that will also warn about it below. */}
+        {!connected && DEMO_ENABLED && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge tone="warning" size="sm" dot>
+              Saves in this browser only — demo data
+            </Badge>
             <span className="text-meta text-muted">
               No API is answering, so this record will not reach a payroll run or
               another device.
             </span>
-          )}
-        </div>
+          </div>
+        )}
 
         {showResume && drafts.saved && (
           <Callout tone="accent" title="You have an unfinished draft">
@@ -928,18 +943,14 @@ export function NewEmployeeForm() {
                       onChange={(e) => set("lastName", e.target.value)}
                     />
                   </Field>
-                  <Field label="Middle name (optional)" error={errorFor("middleName")}>
+                  <Field label="Middle name" optional error={errorFor("middleName")}>
                     <Input
                       data-employee-field="middleName"
                       value={draft.middleName}
                       onChange={(e) => set("middleName", e.target.value)}
                     />
                   </Field>
-                  <Field
-                    label="Work email"
-                    error={errorFor("email")}
-                    help="Payslips and approvals go here."
-                  >
+                  <Field label="Work email" error={errorFor("email")}>
                     <Input
                       data-employee-field="email"
                       type="email"
@@ -957,7 +968,7 @@ export function NewEmployeeForm() {
                       placeholder="+234 803 000 0000"
                     />
                   </Field>
-                  <Field label="Date of birth (optional)" error={errorFor("dateOfBirth")}>
+                  <Field label="Date of birth" optional error={errorFor("dateOfBirth")}>
                     <Input
                       data-employee-field="dateOfBirth"
                       type="date"
@@ -965,11 +976,7 @@ export function NewEmployeeForm() {
                       onChange={(e) => set("dateOfBirth", e.target.value)}
                     />
                   </Field>
-                  <Field
-                    label="Home address (optional)"
-                    error={errorFor("addressLine")}
-                    help="Where they live. Not the office they work at."
-                  >
+                  <Field label="Home address" optional error={errorFor("addressLine")}>
                     <Input
                       data-employee-field="addressLine"
                       value={draft.addressLine}
@@ -977,11 +984,7 @@ export function NewEmployeeForm() {
                       placeholder="14 Bishop Oluwole Street, Victoria Island, Lagos"
                     />
                   </Field>
-                  <Field
-                    label="NIN (optional)"
-                    error={errorFor("nin")}
-                    help="National Identification Number."
-                  >
+                  <Field label="NIN" optional error={errorFor("nin")}>
                     <Input
                       data-employee-field="nin"
                       inputMode="numeric"
@@ -991,11 +994,7 @@ export function NewEmployeeForm() {
                       placeholder="12345678901"
                     />
                   </Field>
-                  <Field
-                    label="State of origin (optional)"
-                    error={errorFor("stateOfOrigin")}
-                    help="Where they are from — not where their PAYE is filed."
-                  >
+                  <Field label="State of origin" optional error={errorFor("stateOfOrigin")}>
                     <Picker
                       data-employee-field="stateOfOrigin"
                       value={draft.stateOfOrigin}
@@ -1008,9 +1007,9 @@ export function NewEmployeeForm() {
                     />
                   </Field>
                   <Field
-                    label="Local government area (optional)"
+                    label="Local government area"
+                    optional
                     error={errorFor("lgaOfOrigin")}
-                    help="Free text — there are 774, so we do not check it against a list."
                   >
                     <Input
                       data-employee-field="lgaOfOrigin"
@@ -1019,11 +1018,7 @@ export function NewEmployeeForm() {
                       placeholder="Ikeduru"
                     />
                   </Field>
-                  <Field
-                    label="Religion (optional)"
-                    error={errorFor("religion")}
-                    help="Recorded because holidays and dietary arrangements depend on it."
-                  >
+                  <Field label="Religion" optional error={errorFor("religion")}>
                     <Input
                       data-employee-field="religion"
                       value={draft.religion}
@@ -1095,7 +1090,8 @@ export function NewEmployeeForm() {
                     />
                   </Field>
                   <Field
-                    label="Gross monthly (optional)"
+                    label="Gross monthly"
+                    optional
                     error={errorFor("grossMonthly")}
                     help="Before PAYE, pension and NHF. Leave it blank until it is agreed — payroll will name them until it is set."
                   >
@@ -1272,7 +1268,11 @@ export function NewEmployeeForm() {
                       <div className="grid gap-5 sm:grid-cols-2">
                         <Field
                           label="Tax state"
-                          help="Which state revenue service receives their PAYE. Left blank, your company's own state is used."
+                          help={
+                            !orgTax.loading && !orgTax.taxState
+                              ? "Which state revenue service receives their PAYE. Your company has no default yet — set one below, or pick one for this person here."
+                              : "Which state revenue service receives their PAYE. Left blank, your company's own state is used."
+                          }
                         >
                           <Select
                             value={draft.taxState}
@@ -1286,6 +1286,47 @@ export function NewEmployeeForm() {
                             ))}
                           </Select>
                         </Field>
+                        {!orgTax.loading && !orgTax.taxState && (
+                          <div className="rounded-xl border border-warning-line bg-warning-soft p-4 sm:col-span-2">
+                            <p className="text-body-sm font-medium text-ink">
+                              Set your company&rsquo;s default tax state
+                            </p>
+                            <p className="mt-1 text-meta text-muted">
+                              Nobody has to pick one for this person if the
+                              company has its own — set it once, here, and it
+                              applies to everybody after this.
+                            </p>
+                            <div className="mt-3 flex flex-wrap items-end gap-2">
+                              <Select
+                                value={settingOrgTax}
+                                onChange={(e) => setSettingOrgTax(e.target.value)}
+                                className="max-w-xs"
+                              >
+                                <option value="">Choose a state</option>
+                                {TAX_STATES.map((s) => (
+                                  <option key={s} value={s}>
+                                    {s}
+                                  </option>
+                                ))}
+                              </Select>
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                size="sm"
+                                loading={savingOrgTax}
+                                disabled={!settingOrgTax}
+                                onClick={() => void commitOrgTaxState()}
+                              >
+                                Save as company default
+                              </Button>
+                            </div>
+                            {orgTaxError && (
+                              <p className="mt-2 text-meta text-danger-text">
+                                {orgTaxError}
+                              </p>
+                            )}
+                          </div>
+                        )}
                         <Field
                           label="TIN"
                           error={errorFor("tin")}
@@ -1565,35 +1606,6 @@ export function NewEmployeeForm() {
         <Card>
           <CardHeader title="Payroll readiness" />
           <CardBody className="flex flex-col gap-3">
-            {wouldBlock.length === 0 ? (
-              <Callout tone="success" title="Payroll ready">
-                Everything payroll needs is present. This person will be picked
-                up by the next run.
-              </Callout>
-            ) : (
-              <Callout
-                tone="danger"
-                icon={<ShieldAlert aria-hidden="true" />}
-                title={`${wouldBlock.length} still needed`}
-              >
-                {wouldBlock.join(", ")}. You can add{" "}
-                {wouldBlock.length > 1 ? "them" : "it"} now — the record will
-                show {wouldBlock.length > 1 ? "these" : "this"} as outstanding
-                and the payroll run will hold this person back until{" "}
-                {wouldBlock.length > 1 ? "they are" : "it is"} filled in.
-              </Callout>
-            )}
-
-            {/* A separate, softer callout: neither of these holds pay back the
-                way the one above does — see `payrollGapsFor`. Folding them
-                into the same red box was the bug. */}
-            {wouldAdvise.length > 0 && (
-              <Callout tone="warning" title="Recommended, not pay-blocking">
-                {wouldAdvise.join(", ")}. Worth adding, but they will not stop
-                this person being paid.
-              </Callout>
-            )}
-
             <ul className="flex flex-col gap-2">
               {(
                 [

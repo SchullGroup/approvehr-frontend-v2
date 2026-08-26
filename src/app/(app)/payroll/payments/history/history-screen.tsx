@@ -183,9 +183,11 @@ export function PaymentHistoryScreen() {
         breadcrumb={[{ href: "/payroll/payments", label: "Payments" }]}
         title="Payment history"
         meta={
-          <Badge tone={history.live ? "success" : "warning"} size="sm" dot>
-            {sourceNote(history.live)}
-          </Badge>
+          sourceNote(history.live) && (
+            <Badge tone="warning" size="sm" dot>
+              {sourceNote(history.live)}
+            </Badge>
+          )
         }
       />
 

@@ -185,6 +185,38 @@ export type SheetSpec = {
   widths?: readonly number[];
   /** Freeze the first row so a long file keeps its headings on screen. */
   freezeFirstRow?: boolean;
+  /**
+   * Present but not shown in the tab bar.
+   *
+   * For a sheet that exists only to hold the option lists a dropdown points
+   * at — nobody fills it in, and Excel refuses a validation whose source
+   * range is on a sheet that has been deleted, so it has to exist somewhere.
+   * Hidden rather than a card in the guide sheet, because the guide already
+   * says which values are accepted in prose; this is the machine's copy of
+   * the same list, not a second explanation for a person to read.
+   */
+  hidden?: boolean;
+  /**
+   * Dropdown cells on this sheet, each pointing at a column of options on
+   * another sheet rather than an inline list.
+   *
+   * A `formula1="\"A,B,C\""` inline list is capped at 255 characters by
+   * Excel itself, and the 37 Nigerian states alone are past that — so every
+   * dropdown here is a range reference, which has no such limit and is the
+   * form Excel itself writes when a person builds one by hand.
+   */
+  validations?: readonly {
+    /** 0-based column index on *this* sheet that gets the dropdown. */
+    column: number;
+    /** The sheet the option list lives on. */
+    optionsSheet: string;
+    /** How many options that sheet's column holds, starting at its row 1. */
+    optionCount: number;
+    /** 0-based column index on the options sheet. Defaults to the same column. */
+    optionsColumn?: number;
+    /** Last data row the dropdown applies to. A generous ceiling, not a count. */
+    lastRow?: number;
+  }[];
 };
 
 const SHEET_NAME_LIMIT = 31;
@@ -225,7 +257,40 @@ function sheetXml(sheet: SheetSpec): string {
     ? '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
     : "";
 
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="A1:${columnName(width - 1)}${Math.max(1, sheet.rows.length)}"/>${view}<cols>${cols}</cols><sheetData>${rows}</sheetData></worksheet>`;
+  const validations = dataValidationsXml(sheet.validations);
+
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="A1:${columnName(width - 1)}${Math.max(1, sheet.rows.length)}"/>${view}<cols>${cols}</cols><sheetData>${rows}</sheetData>${validations}</worksheet>`;
+}
+
+/** A sheet reference for a formula. Always quoted — cheap, and never wrong. */
+const sheetRef = (name: string): string => `'${name.replace(/'/g, "''")}'`;
+
+/**
+ * `<dataValidations>`, one `<dataValidation>` per dropdown column.
+ *
+ * Every one is a range reference to another sheet's column, never an inline
+ * `formula1="\"A,B,C\""` list — Excel caps an inline list at 255 characters,
+ * which the 37 Nigerian states alone exceed. A range has no such limit and is
+ * the form Excel itself writes when a person builds a dropdown by hand.
+ *
+ * The range covers rows 2 to `lastRow` (default a few thousand): the header
+ * row is never validated, and the ceiling is generous rather than counted,
+ * because nobody has told us how many rows somebody will eventually paste in.
+ */
+function dataValidationsXml(
+  validations: SheetSpec["validations"],
+): string {
+  if (!validations || validations.length === 0) return "";
+  const entries = validations
+    .map((v) => {
+      const optionsCol = columnName(v.optionsColumn ?? v.column);
+      const lastRow = v.lastRow ?? 5000;
+      const sqref = `${columnName(v.column)}2:${columnName(v.column)}${lastRow}`;
+      const source = `${sheetRef(v.optionsSheet)}!$${optionsCol}$1:$${optionsCol}$${v.optionCount}`;
+      return `<dataValidation type="list" allowBlank="1" showInputMessage="1" showErrorMessage="1" sqref="${sqref}"><formula1>${escapeXml(source)}</formula1></dataValidation>`;
+    })
+    .join("");
+  return `<dataValidations count="${validations.length}">${entries}</dataValidations>`;
 }
 
 const STYLES_XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="49" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyNumberFormat="1"/><xf numFmtId="49" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
@@ -253,7 +318,7 @@ export function writeXlsx(sheets: readonly SheetSpec[]): Uint8Array {
   const sheetTags = named
     .map(
       (sheet, index) =>
-        `<sheet name="${escapeXml(sheet.name)}" sheetId="${index + 1}" r:id="rId${index + 1}"/>`,
+        `<sheet name="${escapeXml(sheet.name)}" sheetId="${index + 1}"${sheet.hidden ? ' state="hidden"' : ""} r:id="rId${index + 1}"/>`,
     )
     .join("");
 
@@ -488,6 +553,10 @@ export type XlsxSheet = {
   name: string;
   /** Rows of strings, rectangular, in the sheet's own order. */
   grid: string[][];
+  /** Absent from the tab bar — Excel still opens it, just does not show it. */
+  hidden: boolean;
+  /** Every dropdown cell on this sheet, by the column it sits in. */
+  dataValidations: readonly { column: number; source: string }[];
 };
 
 export type XlsxFile = {
@@ -538,11 +607,43 @@ export async function readXlsx(input: ArrayBuffer | Uint8Array): Promise<XlsxFil
     const target = rid ? targets.get(rid) : undefined;
     const xml = target ? await readPart(bytes, entries, `xl/${target}`) : null;
     if (!xml) continue;
-    sheets.push({ name, grid: gridOf(xml, shared, dateStyles, date1904, notes) });
+    sheets.push({
+      name,
+      grid: gridOf(xml, shared, dateStyles, date1904, notes),
+      hidden: /state="hidden"/.test(tag),
+      dataValidations: dataValidationsOf(xml),
+    });
   }
 
   if (sheets.length === 0) throw new Error("no sheets");
   return { sheets, notes };
+}
+
+/**
+ * Every `<dataValidation>` on a sheet, read back for the round trip a test
+ * needs — the column it sits in, and the source range as written.
+ *
+ * Only the first column of `sqref` is kept: this reader only ever has to
+ * recognise what this writer produces, and every dropdown here is written
+ * against exactly one column.
+ */
+function dataValidationsOf(
+  xml: string,
+): { column: number; source: string }[] {
+  const found: { column: number; source: string }[] = [];
+  for (const match of xml.matchAll(
+    /<dataValidation\b([^>]*)>\s*<formula1>([\s\S]*?)<\/formula1>/g,
+  )) {
+    const attributes = match[1] ?? "";
+    const sqref = /sqref="([^"]*)"/.exec(attributes)?.[1] ?? "";
+    const letters = /^([A-Za-z]+)/.exec(sqref)?.[1];
+    if (!letters) continue;
+    found.push({
+      column: columnIndex(letters),
+      source: unescapeXml(match[2] ?? ""),
+    });
+  }
+  return found;
 }
 
 /** One worksheet's XML to a rectangular grid of strings. */

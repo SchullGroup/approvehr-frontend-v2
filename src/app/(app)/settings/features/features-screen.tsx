@@ -191,9 +191,11 @@ export function FeaturesScreen() {
         title="Turn on more features"
         breadcrumb={[{ href: "/settings", label: "Settings" }]}
         meta={
-          <Badge tone={connected ? "success" : "warning"} size="sm" dot>
-            {sourceNote(connected)}
-          </Badge>
+          sourceNote(connected) && (
+            <Badge tone="warning" size="sm" dot>
+              {sourceNote(connected)}
+            </Badge>
+          )
         }
       />
 

@@ -210,7 +210,11 @@ async function main(): Promise<void> {
   /* --- The workbook holds the same two rows --------------------------- */
 
   const workbook = await readXlsx(files.xlsx);
-  eq("the workbook has a staff sheet and a guide", workbook.sheets.length, 2);
+  eq(
+    "the workbook has a staff sheet, a guide and a hidden list of options",
+    workbook.sheets.length,
+    3,
+  );
   eq("the sheet somebody fills in comes first", workbook.sheets[0]?.name, "Staff list");
   eq(
     "the workbook's headings are the CSV's headings",
@@ -244,6 +248,53 @@ async function main(): Promise<void> {
     "and which are recommended",
     guide.filter((row) => row[1] === "Recommended").length,
     EMPLOYEE_COLUMNS.filter((spec) => spec.recommended !== undefined).length,
+  );
+
+  /* --- Dropdown cells: a fixed vocabulary is a real Excel cell, not a note --
+     The 37 states alone are past Excel's 255-character inline-list limit, so
+     every one of these is a range on the hidden sheet rather than an inline
+     list — proving the range exists and is right, not just that the column
+     looks selectable in isolation. */
+
+  const listsSheet = workbook.sheets[2];
+  eq("the third sheet is the hidden list of options", listsSheet?.name, "Lists");
+  eq("and it does not show in the tab bar", listsSheet?.hidden, true);
+
+  const dropdownColumns = columns
+    .map((column, index) => ({ index, column }))
+    .filter((entry) => entry.column.dropdown !== undefined);
+
+  eq(
+    "every column the dictionary marks as a fixed vocabulary gets a dropdown",
+    (workbook.sheets[0]?.dataValidations ?? [])
+      .map((v) => v.column)
+      .sort((a, b) => a - b),
+    dropdownColumns.map((d) => d.index).sort((a, b) => a - b),
+  );
+
+  for (const { index, column } of dropdownColumns) {
+    const validation = workbook.sheets[0]?.dataValidations.find(
+      (v) => v.column === index,
+    );
+    eq(
+      `${column.column}'s dropdown points at the hidden sheet`,
+      validation?.source.startsWith("'Lists'!"),
+      true,
+    );
+  }
+
+  /* The hidden sheet's own columns hold exactly the values the dictionary
+     declared — read back off the file, not re-typed here, so a value this
+     script and the dictionary could quietly disagree about is impossible. */
+  const listsColumns = dropdownColumns.map((entry, listIndex) =>
+    (listsSheet?.grid ?? [])
+      .map((row) => row[listIndex] ?? "")
+      .filter((value) => value !== ""),
+  );
+  eq(
+    "and the hidden sheet's own lists are exactly the dictionary's own values",
+    listsColumns,
+    dropdownColumns.map((entry) => [...(entry.column.dropdown ?? [])]),
   );
 
   /* --- Reading a file we did not write -------------------------------- */
@@ -329,6 +380,16 @@ async function main(): Promise<void> {
         .map(columnOf)
         .sort(),
       EMPLOYEE_COLUMNS.filter((spec) => spec.cell !== undefined)
+        .map((spec) => spec.column)
+        .sort(),
+    );
+    eq(
+      "and the same columns get a dropdown",
+      blocks
+        .filter((block) => /\n    dropdown: /.test(block))
+        .map(columnOf)
+        .sort(),
+      EMPLOYEE_COLUMNS.filter((spec) => spec.dropdown !== undefined)
         .map((spec) => spec.column)
         .sort(),
     );

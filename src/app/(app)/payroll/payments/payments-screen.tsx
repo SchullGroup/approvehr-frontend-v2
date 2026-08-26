@@ -148,9 +148,11 @@ export function PaymentsScreen() {
       <PageHeader
         title="Payments"
         meta={
-          <Badge tone={list.live ? "success" : "warning"} size="sm" dot>
-            {sourceNote(list.live)}
-          </Badge>
+          sourceNote(list.live) && (
+            <Badge tone="warning" size="sm" dot>
+              {sourceNote(list.live)}
+            </Badge>
+          )
         }
         action={
           buildable.length > 0 ? (

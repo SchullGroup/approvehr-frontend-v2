@@ -27,6 +27,7 @@ import { PageBody, PageHeader } from "@/components/portal/shell";
 import { usePermissions } from "@/lib/permissions";
 import {
   useCompanySettings,
+  useOrgTaxState,
   validateProfile,
   type CompanyProfile,
   type ProfileError,
@@ -107,6 +108,37 @@ function Form() {
   const { settings, updateProfile } = useCompanySettings();
   const { directory } = useEmployeeStore();
   const toast = useToast();
+
+  /**
+   * The org's own PAYE state, split out from the rest of the profile.
+   *
+   * The rest of this form is demo-store only — converting all of it is its own
+   * piece of work — but this one field cannot wait for that: an employee create
+   * and every import refuse outright with no default set, and until now this
+   * screen let somebody "save" one that only ever reached their own browser.
+   * Saves itself immediately rather than joining the batched draft below, so
+   * setting it here actually reaches the row `POST /employees` and the importer
+   * both read.
+   */
+  const orgTax = useOrgTaxState();
+  const [savingOrgTax, setSavingOrgTax] = useState(false);
+  const [orgTaxError, setOrgTaxError] = useState<string | null>(null);
+
+  async function saveOrgTaxState(state: string) {
+    setSavingOrgTax(true);
+    setOrgTaxError(null);
+    const ok = await orgTax.setTaxState(state);
+    setSavingOrgTax(false);
+    if (!ok) {
+      setOrgTaxError("That could not be saved. Try again.");
+      return;
+    }
+    toast.push({
+      title: "Primary tax state saved",
+      tone: "success",
+      detail: "Payroll and the staff importer use this from now on.",
+    });
+  }
 
   const [draft, setDraft] = useState<Partial<CompanyProfile>>({});
   const [errors, setErrors] = useState<ProfileError[]>([]);
@@ -228,12 +260,17 @@ function Form() {
                   </Field>
                   <Field
                     label="Primary tax state"
-                    help="Where PAYE is filed for staff on the main entity."
+                    help="Where PAYE is filed for staff on the main entity. Saves as soon as you pick one — every employee create and staff import reads this."
+                    {...(orgTaxError ? { error: orgTaxError } : {})}
                   >
                     <Select
-                      value={value("state")}
-                      onChange={(e) => set("state", e.target.value)}
+                      value={orgTax.taxState ?? ""}
+                      disabled={orgTax.loading || savingOrgTax}
+                      onChange={(e) => void saveOrgTaxState(e.target.value)}
                     >
+                      <option value="" disabled>
+                        {orgTax.loading ? "Loading…" : "Not set"}
+                      </option>
                       {STATES.map((s) => (
                         <option key={s} value={s}>
                           {s}

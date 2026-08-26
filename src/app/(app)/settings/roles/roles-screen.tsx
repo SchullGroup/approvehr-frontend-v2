@@ -28,6 +28,7 @@ import {
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
+import { sourceNote } from "@/lib/demo";
 import type { Catalogue } from "@/lib/api/permissions";
 import { usePermissions } from "@/lib/permissions";
 import {
@@ -126,15 +127,11 @@ export function RolesScreen() {
         title="Roles and permissions"
         breadcrumb={[{ href: "/settings", label: "Settings" }]}
         meta={
-          roles.connected || !DEMO_ENABLED ? (
-            <Badge tone="success" size="sm" dot>
-              Live from the API
+          sourceNote(roles.connected) ? (
+            <Badge tone="warning" size="sm" dot>
+              {sourceNote(roles.connected)}
             </Badge>
-          ) : (
-            <Badge tone="neutral" size="sm" dot>
-              Demo data, this browser only
-            </Badge>
-          )
+          ) : undefined
         }
         action={
           canManage ? (

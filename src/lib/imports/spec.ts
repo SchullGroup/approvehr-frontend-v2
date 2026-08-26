@@ -41,6 +41,13 @@ const DATE_FORMATS = "Use DD/MM/YYYY or YYYY-MM-DD.";
  * something plausible on one browser and an Invalid Date on another. A date where
  * both numbers are 12 or less is read day-first and counted, because 03/04/2021
  * is either 3 April or 4 March and the file does not say which.
+ *
+ * A two-digit year is completed, not refused — 00–68 to 20XX, 69–99 to 19XX,
+ * the same Excel/POSIX pivot the API's copy uses. See the note on
+ * `approvehr-api/src/modules/imports/columns.ts#parseDate` for why this one
+ * case is safe to complete where day/month order is not: the day/month bounds
+ * check and the caller's own age-plausibility check on a date of birth still
+ * catch a pivot that produced nonsense.
  */
 export function parseImportDate(
   raw: string,
@@ -59,10 +66,13 @@ export function parseImportDate(
     return build(Number(dmy[3]), month, day, day <= 12 && month <= 12, text);
   }
 
-  if (/^\d{1,2}[/.-]\d{1,2}[/.-]\d{2}$/.test(text)) {
-    return bad(
-      `"${text}" has a two-digit year. Write the year in full — 2021, not 21.`,
-    );
+  const dmyShort = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2})$/.exec(text);
+  if (dmyShort) {
+    const day = Number(dmyShort[1]);
+    const month = Number(dmyShort[2]);
+    const shortYear = Number(dmyShort[3]);
+    const year = shortYear <= 68 ? 2000 + shortYear : 1900 + shortYear;
+    return build(year, month, day, day <= 12 && month <= 12, text);
   }
 
   if (/^\d{4,5}(\.\d+)?$/.test(text)) {
@@ -193,10 +203,17 @@ export type CellKind =
  * this company is asked for it at all — a company that turned pension setup off
  * is not nagged for RSA PINs here, because the single-record form has stopped
  * asking too.
+ *
+ * `important` is what splits the Fixes step's missing-details list into "needed
+ * to pay them" and "add later" — true only for the fields a payroll run cannot
+ * pay somebody without at all (a missing salary, a missing account number),
+ * mirroring which ones the API raises as a BLOCKER rather than a WARNING.
+ * Absent means false.
  */
 export type Recommendation = {
   feature?: "taxSetup" | "pensionSetup" | "bankDetails";
   why: string;
+  important?: boolean;
 };
 
 export type ColumnSpec<Field extends string = string> = {
@@ -222,6 +239,15 @@ export type ColumnSpec<Field extends string = string> = {
    * without it.
    */
   templateExample?: string;
+  /**
+   * The exact values this column accepts, when it is a fixed, universal
+   * vocabulary — so the downloaded Excel template can turn the column into a
+   * real dropdown cell. Deliberately narrow: a company's own departments or
+   * salary grades are not this — see the API's `MIGRATION_ONLY_COLUMNS`
+   * header for why those were removed from the importer rather than given a
+   * dropdown. Absent means plain text.
+   */
+  dropdown?: readonly string[];
 };
 
 /**
