@@ -1,24 +1,14 @@
 "use client";
 
-import { Download, ShieldAlert } from "lucide-react";
+import { ShieldAlert } from "lucide-react";
 import {
-  Badge,
-  Button,
   Callout,
   Card,
   CardBody,
   CardHeader,
   EmptyState,
-  Money,
   Skeleton,
   Stat,
-  TBody,
-  TD,
-  TDPrimary,
-  TH,
-  THead,
-  TR,
-  TableWrap,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { SourceBadge } from "@/components/payroll/run-panels";
@@ -47,17 +37,22 @@ import { useDeductionSwitches } from "@/lib/store/payroll-deductions";
  * employer contribution and has nothing to do with the three payslip deductions,
  * so switching PAYE off does not touch it.
  *
- * ## The figures are illustrative and the screen says so
+ * ## There are no invented figures on this screen, and there used to be
  *
- * `StatutorySchedule` exists in the schema and nothing writes it yet, so these
- * rows are an illustration of the shape rather than a read of a run — in
- * **either** mode, connected or not, because there is no endpoint on either
- * side of this that would make them real. That is stated in a callout right
- * under the header, not buried in a footnote, because the standing rule is
- * that a screen must never look connected when it is not. What is real here is
- * **which bodies appear**, which is the part this change is about, and the
- * `SourceBadge` reports whether *that* half — what this company actually
- * deducts — came from the API or from this browser's demo answers.
+ * This screen carried a hardcoded `FILINGS` array — "Lagos State IRS,
+ * ₦14,203,880, 198 staff, **Filed**" — with a callout underneath explaining
+ * that all of it was illustrative. Both are gone. A remittance amount, a due
+ * date and a **Filed** badge are exactly the figures somebody acts on, and
+ * "Filed" against a return nobody filed is a regulatory penalty wearing a
+ * green badge. The callout was doing real work while it was there, but a
+ * label warning that the data below is fake is not a substitute for not
+ * shipping fake data — and on a live product it is the wrong half to keep.
+ *
+ * `StatutorySchedule` exists in the schema and nothing writes it yet, so what
+ * remains is only what is true: **which bodies this company files for**, read
+ * from what it actually deducts, and the statement that each schedule appears
+ * once a run is approved. The `SourceBadge` reports where that came from.
+ * When the generator lands, the amounts arrive with it.
  *
  * ## Who may look
  *
@@ -71,86 +66,6 @@ import { useDeductionSwitches } from "@/lib/store/payroll-deductions";
  */
 
 type Group = "paye" | "pension" | "nhf" | "other";
-
-const FILINGS: {
-  body: string;
-  kind: string;
-  group: Group;
-  amount: number;
-  due: string;
-  staff: number;
-  status: "filed" | "due" | "scheduled";
-}[] = [
-  {
-    body: "Lagos State IRS",
-    kind: "PAYE",
-    group: "paye",
-    amount: 14_203_880,
-    due: "10 Sep 2026",
-    staff: 198,
-    status: "filed",
-  },
-  {
-    body: "Ogun State IRS",
-    kind: "PAYE",
-    group: "paye",
-    amount: 1_940_220,
-    due: "10 Sep 2026",
-    staff: 31,
-    status: "filed",
-  },
-  {
-    body: "Stanbic IBTC Pensions",
-    kind: "Pension",
-    group: "pension",
-    amount: 3_412_600,
-    due: "07 Sep 2026",
-    staff: 94,
-    status: "filed",
-  },
-  {
-    body: "ARM Pensions",
-    kind: "Pension",
-    group: "pension",
-    amount: 2_610_400,
-    due: "07 Sep 2026",
-    staff: 71,
-    status: "filed",
-  },
-  {
-    body: "Leadway Pensure",
-    kind: "Pension",
-    group: "pension",
-    amount: 2_117_200,
-    due: "07 Sep 2026",
-    staff: 58,
-    status: "filed",
-  },
-  {
-    body: "FMBN",
-    kind: "NHF",
-    group: "nhf",
-    amount: 2_325_110,
-    due: "10 Sep 2026",
-    staff: 264,
-    status: "due",
-  },
-  {
-    body: "NSITF",
-    kind: "ECS",
-    group: "other",
-    amount: 930_045,
-    due: "15 Sep 2026",
-    staff: 264,
-    status: "scheduled",
-  },
-];
-
-const STATUS = {
-  filed: { tone: "success" as const, label: "Filed" },
-  due: { tone: "warning" as const, label: "Due" },
-  scheduled: { tone: "info" as const, label: "Scheduled" },
-};
 
 /**
  * What is said in place of a schedule.
@@ -218,18 +133,16 @@ export function StatutoryScreen() {
       }
     : null;
 
-  const shown = FILINGS.filter(
-    (filing) =>
-      filing.group === "other" || operates === null || operates[filing.group],
+  /* What this company does deduct, and therefore has to file for. NSITF is
+     always in the list: it is an employer contribution under the Employees'
+     Compensation Act and has nothing to do with the three payslip
+     deductions. */
+  const filesFor = (["paye", "pension", "nhf"] as const).filter(
+    (group) => operates === null || operates[group],
   );
   const absent = (["paye", "pension", "nhf"] as const).filter(
     (group) => operates !== null && !operates[group],
   );
-
-  const total = shown.reduce((sum, filing) => sum + filing.amount, 0);
-  const outstanding = shown
-    .filter((filing) => filing.status !== "filed")
-    .reduce((sum, filing) => sum + filing.amount, 0);
 
   return (
     <>
@@ -239,12 +152,6 @@ export function StatutoryScreen() {
           { href: "/payroll/statutory", label: "Statutory filings" },
         ]}
         title="Statutory filings"
-        action={
-          <Button variant="secondary" size="sm" disabled={shown.length === 0}>
-            <Download aria-hidden="true" className="size-3.5" />
-            Download all schedules
-          </Button>
-        }
       />
 
       <PageBody className="flex flex-col gap-6">
@@ -257,15 +164,6 @@ export function StatutoryScreen() {
           loading={deductions.loading}
           error={deductions.error ? { message: deductions.error } : null}
         />
-
-        <Callout tone="info" title="These schedules are illustrative">
-          Nothing in this build writes a real statutory schedule from an
-          approved payroll run yet, so the amounts, due dates, employee counts
-          and status below are illustrative rather than a read of your own
-          payroll — whether or not this company is connected to the API. Which
-          bodies appear <strong className="font-medium">is</strong> real: it is
-          read from what this company actually deducts, below.
-        </Callout>
 
         {/*
           Outside everything, because it is the one thing on this screen that
@@ -290,23 +188,20 @@ export function StatutoryScreen() {
           </div>
         ) : (
           <>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2">
               <Stat
-                label="Total remittance"
-                value={<Money amount={total} compact size="xl" />}
+                label="You file for"
+                value={String(filesFor.length + 1)}
+                hint="Including NSITF, which every employer contributes to"
               />
               <Stat
-                label="Outstanding"
-                value={<Money amount={outstanding} compact size="xl" />}
-              />
-              <Stat
-                label="Bodies"
-                value={String(shown.length)}
+                label="Not deducted"
+                value={String(absent.length)}
                 {...(absent.length > 0
                   ? {
-                      hint: `${absent
+                      hint: absent
                         .map((group) => GROUP_LABEL[group])
-                        .join(", ")} not deducted`,
+                        .join(", "),
                     }
                   : {})}
               />
@@ -334,45 +229,26 @@ export function StatutoryScreen() {
               </Card>
             )}
 
-            {shown.length > 0 && (
-              <TableWrap caption="Statutory filings for August 2026 by body, amount and due date">
-                <THead>
-                  <TH>Body</TH>
-                  <TH>Type</TH>
-                  <TH align="right">Employees</TH>
-                  <TH align="right">Amount</TH>
-                  <TH>Due</TH>
-                  <TH>Status</TH>
-                </THead>
-                <TBody>
-                  {shown.map((filing) => (
-                    <TR key={`${filing.body}-${filing.kind}`} interactive>
-                      <TDPrimary title={filing.body} />
-                      <TD>
-                        <Badge tone="neutral" size="sm">
-                          {filing.kind}
-                        </Badge>
-                      </TD>
-                      <TD align="right" className="tabular">
-                        {filing.staff}
-                      </TD>
-                      <TD
-                        align="right"
-                        className="tabular font-medium text-ink"
-                      >
-                        <Money amount={filing.amount} />
-                      </TD>
-                      <TD className="tabular">{filing.due}</TD>
-                      <TD>
-                        <Badge tone={STATUS[filing.status].tone} size="sm" dot>
-                          {STATUS[filing.status].label}
-                        </Badge>
-                      </TD>
-                    </TR>
-                  ))}
-                </TBody>
-              </TableWrap>
-            )}
+            <Card>
+              <CardHeader
+                title="What you file for"
+                description="Read from what this company actually deducts."
+              />
+              <CardBody className="flex flex-col gap-3">
+                {[...filesFor.map((group) => GROUP_LABEL[group]), "NSITF"].map(
+                  (label) => (
+                    <p
+                      key={label}
+                      className="text-body-sm leading-relaxed text-body"
+                    >
+                      <strong className="font-medium text-ink">{label}</strong>{" "}
+                      — the schedule, the amount and the due date appear here
+                      once a payroll run for the period is approved.
+                    </p>
+                  ),
+                )}
+              </CardBody>
+            </Card>
 
             <Card>
               <CardHeader title="How this is produced" />
@@ -392,12 +268,6 @@ export function StatutoryScreen() {
                     Settings → Payroll
                   </strong>
                   .
-                </p>
-                <p className="text-meta leading-relaxed text-muted">
-                  The amounts and bodies above are illustrative. Which{" "}
-                  deductions appear is read from this company&apos;s own payroll
-                  settings; generating real schedules from a run is not built
-                  yet.
                 </p>
               </CardBody>
             </Card>
