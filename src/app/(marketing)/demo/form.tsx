@@ -5,7 +5,10 @@ import { Check } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { PillButton } from "@/components/marketing/pill";
 import { MODULES } from "@/lib/marketing/modules";
-import { submitDemoRequest, configured as isApiConfigured } from "@/lib/marketing/demo";
+import {
+  submitDemoRequest,
+  configured as isApiConfigured,
+} from "@/lib/marketing/demo";
 
 /**
  * `phone` and `notes` are client-optional but not server-unlimited — the API
@@ -121,12 +124,16 @@ export function DemoForm() {
     return (
       <div className="rounded-3xl border border-sand-line bg-white/70 p-10 text-center">
         <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-success">
-          <Check aria-hidden="true" className="size-6 text-slate" strokeWidth={3} />
+          <Check
+            aria-hidden="true"
+            className="size-6 text-slate"
+            strokeWidth={3}
+          />
         </span>
         <h2 className="mt-6 text-h3 text-slate">Pick a time</h2>
         <p className="mx-auto mt-3 max-w-sm text-body leading-relaxed">
-          We opened our scheduling page in a new tab — grab whichever slot
-          suits you.
+          We opened our scheduling page in a new tab, grab whichever slot suits
+          you.
         </p>
         <a
           href={SCHEDULING_URL}
@@ -142,7 +149,8 @@ export function DemoForm() {
           </p>
         ) : (
           <p className="mt-8 rounded-xl bg-wash-amber p-3.5 text-meta leading-relaxed text-slate-soft">
-            This is a prototype — no API is configured, so the details above were not sent to a server.
+            This is a prototype — no API is configured, so the details above
+            were not sent to a server.
           </p>
         )}
       </div>
@@ -289,7 +297,9 @@ export function DemoForm() {
               errors.notes ? "border-danger" : "border-sand-line",
             )}
           />
-          {errors.notes && <FieldError id="notes-error">{errors.notes}</FieldError>}
+          {errors.notes && (
+            <FieldError id="notes-error">{errors.notes}</FieldError>
+          )}
         </div>
 
         {serverError && (
@@ -343,10 +353,7 @@ function TextField({
 }) {
   return (
     <div>
-      <label
-        htmlFor={id}
-        className="block text-body-sm font-medium text-slate"
-      >
+      <label htmlFor={id} className="block text-body-sm font-medium text-slate">
         {label}
         {required && (
           <span aria-hidden="true" className="ml-0.5 text-danger-text">
