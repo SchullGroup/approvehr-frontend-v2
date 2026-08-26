@@ -574,52 +574,6 @@ function ScreeningAnswers() {
   );
 }
 
-function Scorecard() {
-  return (
-    <DayFrame className={SHELL}>
-      <Head title="Scorecard" chip="Strong yes" chipTone="green" />
-      <Person
-        initials="CN"
-        name="Obinna Ezeh"
-        meta="Technical · 90 mins"
-        tint="bg-success-strong"
-      />
-      <div className="mt-3 flex flex-col gap-2">
-        {[
-          ["System design", 5],
-          ["Code quality", 5],
-          ["Debugging", 4],
-        ].map(([label, score]) => (
-          <div key={label as string}>
-            <div className="mb-1 flex justify-between">
-              <span className="text-meta text-slate/55">
-                {label as string}
-              </span>
-              <span className="text-meta tabular-nums text-slate/45">
-                {score as number} / 5
-              </span>
-            </div>
-            <span className="flex gap-0.5">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <span
-                  key={i}
-                  className={cn(
-                    "h-1.5 flex-1 rounded-full",
-                    i < (score as number) ? "bg-warning" : "bg-slate/10",
-                  )}
-                />
-              ))}
-            </span>
-          </div>
-        ))}
-      </div>
-      <p className="mt-auto border-t border-slate/8 pt-2 text-meta leading-snug text-slate/50">
-        Cannot leave Interview until every scorecard is submitted.
-      </p>
-    </DayFrame>
-  );
-}
-
 function OfferStatus() {
   return (
     <DayFrame className={SHELL}>
@@ -862,7 +816,7 @@ function ReviewCycle() {
 function CompetencyScores() {
   return (
     <DayFrame className={SHELL}>
-      <Head title="Competency scores" chip="4.2 / 5" chipTone="green" />
+      <Head title="KPI scores" chip="4.2 / 5" chipTone="green" />
       <div className="flex flex-col gap-2.5">
         {[
           ["Delivery", 88, "40%"],
@@ -1055,13 +1009,7 @@ export const CAPABILITY_MOCKUPS: Record<ModuleId, Mockup[]> = {
     LoanSchedule,
     Payslip,
   ],
-  hiring: [
-    RequisitionApproval,
-    StageConfig,
-    ScreeningAnswers,
-    Scorecard,
-    OfferStatus,
-  ],
+  hiring: [RequisitionApproval, StageConfig, ScreeningAnswers, OfferStatus],
   time: [ClockIn, LeavePolicy, LeaveApproval, Holidays],
   performance: [GoalCascade, ReviewCycle, CompetencyScores, Calibration],
   desk: [TicketThread, SlaBoard, KnowledgeBase],
