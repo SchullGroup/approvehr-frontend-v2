@@ -175,7 +175,7 @@ export default async function ModulePage({
                         {String(i + 1).padStart(2, "0")}
                       </span>
                       <h3 className="mt-2 text-h3 text-slate">{cap.title}</h3>
-                      <p className="mt-4 max-w-md text-body leading-relaxed text-slate-muted">
+                      <p className="mt-4 max-w-md text-body leading-relaxed">
                         {cap.detail}
                       </p>
                     </div>
@@ -215,7 +215,7 @@ export default async function ModulePage({
               <Reveal key={other.id} as="li" delay={i * 50}>
                 <Link
                   href={`/product/${other.id}`}
-                  className="group flex h-full items-start gap-3 rounded-2xl border border-sand-line bg-sand p-5 transition-all duration-300 ease-[var(--ease-out-soft)] hover:-translate-y-0.5 hover:bg-white"
+                  className="group flex h-full items-start gap-3 rounded-2xl border border-sand-line bg-sand p-5 transition-all duration-300 ease-out-soft hover:-translate-y-0.5 hover:bg-white"
                 >
                   <div className="min-w-0 flex-1">
                     <h3 className="text-body-lg font-medium text-slate">
