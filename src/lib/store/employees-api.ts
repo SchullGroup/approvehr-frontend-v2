@@ -618,6 +618,7 @@ export function useEmployeeMutations() {
            a decision. The API refuses only if the company has no state either,
            and says where to set one. */
         ...(draft.taxState ? { taxState: draft.taxState } : {}),
+        ...(draft.canLogin === undefined ? {} : { canLogin: draft.canLogin }),
         ...(draft.email ? { email: draft.email } : {}),
         ...(draft.phone ? { phone: draft.phone } : {}),
         ...(draft.dateOfBirth ? { dateOfBirth: draft.dateOfBirth } : {}),

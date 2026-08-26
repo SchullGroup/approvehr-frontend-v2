@@ -45,7 +45,16 @@ import {
   type ApiRosterRow,
   type ApiWorkLocation,
 } from "@/lib/api/attendance";
+import { employees as employeesApi } from "@/lib/api/endpoints";
+import type { BulkInviteResult } from "@/lib/api/invites";
+import { invitesApi } from "@/lib/api/invites";
+import { permissionsApi } from "@/lib/api/permissions";
 import { addDays, timesLabel } from "@/lib/api/shifts";
+import {
+  InviteStaffDialog,
+  type InviteCandidate,
+  type InviteRoleOption,
+} from "./invite-staff-dialog";
 import { PositionError } from "@/lib/geolocation";
 import { useCan, useIsManager } from "@/lib/permissions";
 import {
@@ -123,12 +132,113 @@ export function AttendanceScreen() {
      answers true first, and the two must run every render in the same order. */
   const isManager = useIsManager();
   const canEditRecords = useCan("EDIT_RECORDS");
+  const canInvite = useCan("INVITE_STAFF");
   const canSeeRoster = isManager || canEditRecords;
 
   const [view, setView] = useState<View>("today");
   const [picked, setPicked] = useState<string | null>(null);
   const [correcting, setCorrecting] = useState<ApiRosterRow | null>(null);
   const [busy, setBusy] = useState(false);
+
+  /**
+   * Staff logins, set up on demand rather than eagerly.
+   *
+   * `inviteCandidates: null` is "the dialog is open and still loading",
+   * against `[]` which is "loaded, and there is genuinely nobody left to set
+   * up" — the same absent-vs-empty distinction this codebase draws
+   * everywhere else a real zero and a not-yet-known are different facts.
+   * Nothing is fetched until the dialog opens: this page already carries the
+   * roster, the timesheet and every work location, and a company that never
+   * clicks the button should not pay for a fourth request on every visit.
+   */
+  const [invitingOpen, setInvitingOpen] = useState(false);
+  const [inviteCandidates, setInviteCandidates] = useState<
+    InviteCandidate[] | null
+  >(null);
+  const [inviteRoles, setInviteRoles] = useState<InviteRoleOption[]>([]);
+  const [inviteDefaultRoleId, setInviteDefaultRoleId] = useState<string | null>(
+    null,
+  );
+  const [inviteBusy, setInviteBusy] = useState(false);
+  const [inviteResult, setInviteResult] = useState<BulkInviteResult | null>(
+    null,
+  );
+  const [inviteBanner, setInviteBanner] = useState<string | null>(null);
+
+  async function openInviteDialog() {
+    /* An invitation creates a real account and sends a real email — the same
+       category as a payment provider, not as a demo write that merely never
+       leaves this browser. Refusing here, in the caller's own words, beats
+       opening a form that can only ever fail. */
+    if (!session.isConnected) {
+      toast.push({
+        title: "This needs the API",
+        tone: "info",
+        detail:
+          "Demo mode cannot create a real account or send a real invitation email.",
+      });
+      return;
+    }
+    setInvitingOpen(true);
+    setInviteCandidates(null);
+    setInviteResult(null);
+    setInviteBanner(null);
+    try {
+      const [directory, roleList] = await Promise.all([
+        employeesApi.list({ status: "ACTIVE", pageSize: 200 }),
+        permissionsApi.roles(),
+      ]);
+      setInviteCandidates(
+        directory.data
+          .filter((person) => !person.canLogin)
+          .map((person) => ({
+            employeeId: person.id,
+            name: `${person.firstName} ${person.lastName}`,
+            jobTitle: person.jobTitle,
+          })),
+      );
+      setInviteRoles(
+        roleList.roles.map((role) => ({ id: role.id, name: role.name })),
+      );
+      /* "Employee" carries no permissions at all, which is exactly right for
+         somebody being set up for nothing but clocking themselves in — the
+         backend does not gate self-service attendance on any permission. */
+      setInviteDefaultRoleId(
+        roleList.roles.find((role) => role.name === "Employee")?.id ??
+          roleList.roles[0]?.id ??
+          null,
+      );
+    } catch (error) {
+      setInviteBanner(
+        error instanceof ApiError ? error.message : "Could not load your staff list.",
+      );
+      setInviteCandidates([]);
+    }
+  }
+
+  function closeInviteDialog() {
+    setInvitingOpen(false);
+    setInviteCandidates(null);
+    setInviteResult(null);
+    setInviteBanner(null);
+  }
+
+  async function sendInvites(
+    people: { employeeId: string; email: string }[],
+    roleId: string,
+  ) {
+    setInviteBusy(true);
+    setInviteBanner(null);
+    try {
+      setInviteResult(await invitesApi.bulkSend(people, [roleId]));
+    } catch (error) {
+      setInviteBanner(
+        error instanceof ApiError ? error.message : "Something went wrong. Try again.",
+      );
+    } finally {
+      setInviteBusy(false);
+    }
+  }
 
   const policy = roster.policy;
 
@@ -214,18 +324,32 @@ export function AttendanceScreen() {
       <PageHeader
         title="Attendance"
         action={
-          /* The view toggle chooses between two company-wide reads, so it has
-             no reason to exist for somebody who cannot see either of them. */
-          canSeeRoster ? (
-            <SegmentedControl
-              label="View"
-              value={view}
-              onChange={setView}
-              options={[
-                { value: "today", label: "Today" },
-                { value: "timesheet", label: "Timesheet" },
-              ]}
-            />
+          canInvite || canSeeRoster ? (
+            <div className="flex flex-wrap items-center gap-2">
+              {canInvite && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => void openInviteDialog()}
+                >
+                  Set up staff logins
+                </Button>
+              )}
+              {/* The view toggle chooses between two company-wide reads, so
+                  it has no reason to exist for somebody who cannot see
+                  either of them. */}
+              {canSeeRoster && (
+                <SegmentedControl
+                  label="View"
+                  value={view}
+                  onChange={setView}
+                  options={[
+                    { value: "today", label: "Today" },
+                    { value: "timesheet", label: "Timesheet" },
+                  ]}
+                />
+              )}
+            </div>
           ) : undefined
         }
       />
@@ -385,6 +509,19 @@ export function AttendanceScreen() {
           locations={locations.locations}
           onClose={() => setCorrecting(null)}
           onSaved={refresh}
+        />
+      )}
+
+      {invitingOpen && (
+        <InviteStaffDialog
+          candidates={inviteCandidates}
+          roles={inviteRoles}
+          defaultRoleId={inviteDefaultRoleId}
+          busy={inviteBusy}
+          result={inviteResult}
+          banner={inviteBanner}
+          onClose={closeInviteDialog}
+          onSend={(people, roleId) => void sendInvites(people, roleId)}
         />
       )}
     </>

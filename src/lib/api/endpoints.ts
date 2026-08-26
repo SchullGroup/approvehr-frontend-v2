@@ -134,6 +134,15 @@ export type ApiEmployee = {
   /** Whether a payroll run should open this person's PAYE editable by
    *  default. See `Employee.payeManualOverride`. */
   payeManualOverride: boolean;
+  /**
+   * Whether this record is entitled to a login at all. Most staff are not —
+   * this is a payroll and HR record first, and a portal account is opt-in,
+   * granted by an invitation (`@/lib/api/invites`). `true` does not mean an
+   * account exists yet: it can mean invited-and-not-accepted just as well as
+   * signed-in-for-years. There is no field on this type for which of those it
+   * is — ask `GET /invites` for the pending half.
+   */
+  canLogin: boolean;
   /** Null where nobody has agreed a figure. Never rendered as ₦0.00. */
   grossMonthlyKobo: number | null;
   /**
@@ -791,6 +800,7 @@ export function toEmployee(api: ApiEmployee): Employee {
     status: api.status.toLowerCase() as Employee["status"],
     salaryGradeId: api.salaryGradeId,
     payeManualOverride: api.payeManualOverride,
+    canLogin: api.canLogin,
     grossMonthly:
       api.grossMonthlyKobo === null ? null : toNaira(api.grossMonthlyKobo),
     ...(api.hasBankAccount !== undefined

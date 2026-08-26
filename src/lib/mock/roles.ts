@@ -57,6 +57,7 @@ export const SEED_ROLES: SeedRole[] = DEMO_ENABLED ? [
       "EXPORT_DATA",
       "IMPORT_DATA",
       "MANAGE_SETTINGS",
+      "INVITE_STAFF",
     ],
     members: ["p-05", "p-06"],
   },

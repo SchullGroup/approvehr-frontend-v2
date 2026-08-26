@@ -698,6 +698,15 @@ export function NewEmployeeForm() {
       startDate: draft.startDate,
       /* Omitted, not zeroed, when nobody has agreed a figure. */
       ...(gross === null ? {} : { grossMonthly: gross }),
+      /* This form has no control for granting a login — that decision, and the
+         account it creates, belongs to the invite flow (`/people/attendance`'s
+         setup, or the record page later). Explicit `false` here rather than
+         leaving it to the API's own default, which is `true`: a create with no
+         email and no opinion on login would otherwise be refused outright,
+         which is exactly backwards for the person this field exists for —
+         most staff being added have no work email and were never going to sign
+         in anywhere. */
+      canLogin: false,
       status: draft.status,
       employmentType: draft.employmentType,
       /* Omitted rather than defaulted: the API falls back to the company's own
