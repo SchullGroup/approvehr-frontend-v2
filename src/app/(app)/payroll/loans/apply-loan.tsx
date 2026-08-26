@@ -392,7 +392,7 @@ export function ApplyLoanModal({
 
         {priced && (
           <div className="rounded-lg border border-line bg-canvas p-4">
-            <p className="text-body leading-relaxed text-ink">
+            <p className="text-body leading-relaxed">
               <strong className="font-semibold">
                 {money(priced.instalmentKobo)} a month
               </strong>{" "}

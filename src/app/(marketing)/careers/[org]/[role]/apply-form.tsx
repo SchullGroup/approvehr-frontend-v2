@@ -137,7 +137,7 @@ export function ApplyForm({
       className="rounded-3xl border border-sand-line bg-white/70 p-7 sm:p-9"
     >
       <h2 className="text-h3 text-slate">Apply for this role</h2>
-      <p className="mt-2 text-body leading-relaxed text-slate-muted">
+      <p className="mt-2 text-body leading-relaxed">
         {roleTitle} at {company}. Four boxes and you are done.
       </p>
 

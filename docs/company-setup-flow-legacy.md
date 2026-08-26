@@ -126,11 +126,12 @@ of the marketing site before this codebase was retired for the rebuild.
 | **Structure of the last step** | Status checklist, links out to other pages, no in-place answers | 8 in-place questions, one per screen, answered without leaving |
 | **Company creation** | Two separate API calls (register bundles a bare company, then a second `createCompany` fleshes it out); failure mid-way silently redirects to a generic "add company" page | One `POST /auth/register`, one transaction; `/setup/wizard/complete` is idempotent by construction, no failure-path redirect needed |
 | **Multi-tenancy** | Subdomain-based (`company.approvehr.io`), checked live for availability | `organizationId`-scoped only, no subdomain concept |
-| **What decides "done"** | Real state elsewhere (profile fields filled, departments/employees created) — nothing to skip past, only to go and do | Explicit wizard questions with defaults; every one skippable, "Skip setup" finishes instantly at the safe defaults |
+| **What decides "done" (the last step of the flow itself)** | Real state elsewhere (profile fields filled, departments/employees created) — nothing to skip past, only to go and do | Explicit wizard questions with defaults; every one skippable, "Skip setup" finishes instantly at the safe defaults |
+| **The *ongoing*, revisitable checklist** | `/setup-wizard` itself doubles as this — 3 items, computed from real data, but never finished (the payroll item was planned and dropped) | A **separate**, more thorough version at `/settings` — 7 rows, richer states (`done`/`attention`/`todo`/`optional`/`unknown`), each stating what it affects. See `company-setup-flow.md` §8. Current didn't lack this, as an earlier draft of this document claimed — it just lives somewhere the wizard-vs-checklist framing above doesn't cover, and is a genuinely fuller version of the same idea legacy had |
 | **Legal/statutory framing** | None found — the checklist checks presence of data, not compliance consequences | PAYE and pension questions render the API's own legal-consequence sentence before the click (Personal Income Tax Act, Pension Reform Act 2014's 15-employee threshold) |
-| **Payroll/statutory setup** | Planned (a commented-out 4th checklist item) but never shipped | Two of the eight wizard questions directly configure the payroll engine; defaults seed automatically on completion |
+| **Payroll/statutory setup** | Planned (a commented-out 4th checklist item) but never shipped | Two of the eight wizard questions directly configure the payroll engine; defaults seed automatically on completion; the `/settings` checklist has its own payroll-readiness row on top of that |
 | **Seeding on completion** | None found | Nigerian statutory leave types + default payroll settings, seeded automatically |
-| **Email verification** | A real transport existed (Resend integration) — verification could plausibly gate access, though this document can't confirm production enforcement | No transport exists by design; verification is a dismissible nudge only, documented as such |
+| **Email verification** | A real transport existed (Resend integration) — verification could plausibly gate access, though this document can't confirm production enforcement | Updated 2026-08-26: also real now. `approvehr-backend`'s `staging` branch wires the same approach — Resend primary, an internal gateway mailer as fallback, explicitly carried over from this legacy backend's own implementation — verified against a real inbox per its commit message. Still a nudge, not a gate, in the current frontend today; that's a product decision now unblocked rather than a capability gap |
 | **Progressive disclosure** | None — same 3-page flow regardless of company size | The wizard's headcount answer alone turns departments/grades off for companies under 10 people |
 | **Live status** | Possibly already retired — gated behind an env flag that, off, redirects to an external marketing site instead | Live; register → dashboard → `SetupGate` → wizard is the active path |
 
@@ -138,9 +139,13 @@ of the marketing site before this codebase was retired for the rebuild.
 
 The legacy flow **collects data and checks it exists elsewhere**; the
 current flow **asks a fixed set of questions and configures the product
-from the answers, including the two that carry real legal weight**. The
-legacy system built more infrastructure it never finished connecting
-(Resend, the payroll checklist item); the current system shipped a smaller
-surface but closed the loop on what it did ship — every question actually
+from the answers, including the two that carry real legal weight** — and
+separately, in `/settings`, ships a fuller version of legacy's own
+"check real data" checklist idea. The legacy system built infrastructure it
+never finished connecting (the payroll checklist item; Resend was actually
+finished and worked); the current system has since closed most of the same
+gaps from the other direction — a real mail transport as of 2026-08-25, a
+richer persistent checklist already live at `/settings` — while still
+closing the loop on what its own wizard shipped: every question actually
 changes something, and the two that matter most (PAYE, pension) can't be
 answered wrong without being told the consequence first.

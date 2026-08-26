@@ -284,6 +284,9 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
   /* The site calls this "Recruitment"; the routes are `/hiring/*` and the
      module id is `hiring`. The heading follows the site, the URLs do not
      move — a live job advert's link is not worth a rename. */
+  /* Switched off for now — every route below renders `ComingSoon`
+     (`app/(app)/hiring/layout.tsx`), so the nav says so too rather than
+     linking somewhere that looks broken. */
   hiring: [
     {
       href: "/hiring",
@@ -291,6 +294,7 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       icon: <BriefcaseBusiness aria-hidden="true" />,
       permission: "MANAGE_HIRING",
       feature: "hiring",
+      soon: true,
     },
     {
       href: "/hiring/postings",
@@ -298,6 +302,7 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       icon: <Megaphone aria-hidden="true" />,
       permission: "MANAGE_HIRING",
       feature: "hiring",
+      soon: true,
     },
     {
       href: "/hiring/interviews",
@@ -305,6 +310,7 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       icon: <CalendarClock aria-hidden="true" />,
       permission: "MANAGE_HIRING",
       feature: "hiring",
+      soon: true,
     },
     {
       href: "/hiring/offers",
@@ -312,6 +318,7 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       icon: <FileSignature aria-hidden="true" />,
       permission: "MANAGE_HIRING",
       feature: "hiring",
+      soon: true,
     },
   ],
 

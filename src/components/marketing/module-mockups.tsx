@@ -368,7 +368,7 @@ function ApprovalChain() {
         ].map((s, i) => (
           <div key={s.n} className="relative flex items-center gap-2.5">
             {i < 2 && (
-              <span className="absolute left-[13px] top-7 h-2.5 w-px bg-slate/12" />
+              <span className="absolute left-3.25 top-7 h-2.5 w-px bg-slate/12" />
             )}
             <Person
               initials={s.n.split(" ").map((p) => p[0]).join("")}
@@ -400,7 +400,7 @@ function LoanSchedule() {
         </span>
         <span className="text-meta text-slate/45">₦75,000 / month</span>
       </div>
-      <div className="mt-2.5 flex gap-[3px]">
+      <div className="mt-2.5 flex gap-0.75">
         {Array.from({ length: 12 }).map((_, i) => (
           <span
             key={i}
@@ -806,7 +806,7 @@ function GoalCascade() {
             </p>
             <span className="mt-1 block h-1 overflow-hidden rounded-full bg-slate/10">
               <span
-                className="block h-full rounded-full bg-[#7c5cd6]"
+                className="block h-full rounded-full bg-cat-4"
                 style={{ width: `${pct as number}%` }}
               />
             </span>
@@ -844,7 +844,7 @@ function ReviewCycle() {
               <span
                 className={cn(
                   "block h-full rounded-full",
-                  (pct as number) === 100 ? "bg-success" : "bg-[#7c5cd6]",
+                  (pct as number) === 100 ? "bg-success" : "bg-cat-4",
                 )}
                 style={{ width: `${pct as number}%` }}
               />
@@ -881,7 +881,7 @@ function CompetencyScores() {
             </div>
             <span className="block h-1.5 overflow-hidden rounded-full bg-slate/8">
               <span
-                className="block h-full rounded-full bg-[#7c5cd6]"
+                className="block h-full rounded-full bg-cat-4"
                 style={{ width: `${pct as number}%` }}
               />
             </span>
@@ -909,7 +909,7 @@ function Calibration() {
             <span
               className={cn(
                 "w-full rounded-t-md",
-                i === 2 ? "bg-[#7c5cd6]" : "bg-[#7c5cd6]/35",
+                i === 2 ? "bg-cat-4" : "bg-cat-4/35",
               )}
               style={{ height: `${(n / 38) * 84}px` }}
             />

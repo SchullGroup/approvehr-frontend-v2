@@ -120,7 +120,7 @@ function SignIn() {
 
         {reachable === true && (
           <>
-            <p className="mt-2 text-body leading-relaxed text-body">
+            <p className="mt-2 text-body leading-relaxed">
               Sign in with your work email. Your role decides what you can see
               and do.
             </p>
@@ -216,7 +216,7 @@ function SignIn() {
 
         {reachable === false && DEMO_ENABLED && (
           <>
-            <p className="mt-2 text-body leading-relaxed text-body">
+            <p className="mt-2 text-body leading-relaxed">
               The API is not running, so this is the demo. Choose whose account
               to open — every screen then behaves as that person.
             </p>
