@@ -228,16 +228,22 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
 
   payroll: [
     {
+      /* The screen itself gates on `VIEW_SALARIES` (`payroll-screen.tsx`),
+         not `RUN_PAYROLL` — a viewer without RUN_PAYROLL is a deliberate
+         role (see the router's own docstring), and needs to find this. */
       href: "/payroll",
       label: "Monthly payroll",
       icon: <Banknote aria-hidden="true" />,
-      permission: "RUN_PAYROLL",
+      permission: "VIEW_SALARIES",
     },
     {
+      /* `pay-setup-screen.tsx` gates on `VIEW_SALARIES` too, not
+         `MANAGE_PAY_STRUCTURE` — the screen has its own read/write split
+         inside it; the nav only needs to decide who can open the door. */
       href: "/payroll/pay-setup",
       label: "Pay setup",
       icon: <SlidersHorizontal aria-hidden="true" />,
-      permission: "MANAGE_PAY_STRUCTURE",
+      permission: "VIEW_SALARIES",
     },
     {
       href: "/payroll/payslips",
@@ -274,10 +280,12 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       permission: "RUN_PAYROLL",
     },
     {
+      /* `statutory-screen.tsx` gates on `VIEW_SALARIES`, same reasoning as
+         "Monthly payroll" above. */
       href: "/payroll/statutory",
       label: "Statutory filings",
       icon: <FileText aria-hidden="true" />,
-      permission: "RUN_PAYROLL",
+      permission: "VIEW_SALARIES",
     },
   ],
 

@@ -105,7 +105,7 @@ export function DashboardScreen() {
         <PageBody>
           <Card>
             <CardBody className="flex flex-col items-start gap-3">
-              <p className="text-body text-ink">
+              <p className="text-body">
                 {error ??
                   "Your dashboard did not load. Try again in a moment."}
               </p>
@@ -291,7 +291,7 @@ export function DashboardScreen() {
               <CardBody>
                 {payroll === null ? (
                   <div className="flex flex-col items-start gap-3">
-                    <p className="text-body text-body">
+                    <p className="text-body">
                       No run has been prepared for this month yet.
                     </p>
                     <ButtonLink href="/payroll/runs/new" variant="accent" size="sm">
@@ -413,7 +413,7 @@ function Row({
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line p-3">
       <div className="min-w-0">
-        <p className="text-body font-medium text-ink">
+        <p className="text-body font-medium">
           {/* Urgency carries a word as well as a colour. */}
           {urgent && (
             <span className="mr-2 text-meta font-semibold uppercase tracking-wide text-danger-text">

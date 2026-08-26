@@ -347,7 +347,7 @@ function TeamRow({
       </span>
 
       <div className="min-w-0 flex-1">
-        <p className="flex flex-wrap items-center gap-2 text-body font-medium text-ink">
+        <p className="flex flex-wrap items-center gap-2 text-body font-medium">
           {team.name}
           {/* Cross-functional is the fact worth a badge: it is the one that says
               membership implies nothing about anybody's pay. */}
@@ -386,7 +386,7 @@ function TeamRow({
 
       <div className="shrink-0 text-right">
         <p className="text-meta uppercase tracking-wide text-faint">Members</p>
-        <p className="tabular text-body font-medium text-ink">
+        <p className="tabular text-body font-medium">
           {team.memberCount}
         </p>
       </div>
@@ -518,6 +518,13 @@ function TeamDrawer({
                 <p className="tabular mt-0.5 text-body-sm text-ink">
                   <Money amount={team.payrollKobo / 100} compact />
                 </p>
+                {team.payrollUnknown > 0 && (
+                  <p className="mt-0.5 text-meta text-faint">
+                    {team.members.length - team.payrollUnknown} of{" "}
+                    {team.members.length} — {team.payrollUnknown} have no pay
+                    set
+                  </p>
+                )}
               </div>
             </div>
 

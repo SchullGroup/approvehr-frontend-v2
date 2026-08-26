@@ -65,7 +65,7 @@ export default async function RolePage({
       <section className="px-4 pb-28 pt-16 sm:pt-24">
         <div className="container-page max-w-2xl">
           <h1 className="text-h2 text-slate">This role is not showing</h1>
-          <p className="mt-4 text-body leading-relaxed text-slate-muted">
+          <p className="mt-4 leading-relaxed text-slate-muted">
             {result.reason === "unconfigured"
               ? "This site is not connected to a careers system."
               : "We could not load it just now."}
@@ -88,7 +88,7 @@ export default async function RolePage({
       <div className="container-page grid gap-14 lg:grid-cols-[1.15fr_1fr] lg:gap-20">
         <Reveal>
           <div>
-            <p className="mb-3 text-meta font-semibold uppercase tracking-[0.1em] text-slate-muted">
+            <p className="mb-3 text-meta font-semibold uppercase tracking-widest text-slate-muted">
               {role.company}
             </p>
             <h1 className="text-h1 text-slate">{role.title}</h1>
@@ -122,7 +122,7 @@ export default async function RolePage({
             {/* The advert as it was written. Kept as typed rather than parsed —
                 a job description is somebody's own words about their own
                 company, and reformatting it is how a paragraph loses a line. */}
-            <div className="mt-10 whitespace-pre-line border-t border-sand-line pt-10 text-body leading-relaxed text-slate-soft">
+            <div className="mt-10 whitespace-pre-line border-t border-sand-line pt-10 text-body leading-relaxed">
               {role.description}
             </div>
           </div>
@@ -178,7 +178,7 @@ function Closed({ org, closedOn }: { org: string; closedOn: string | null }) {
   return (
     <div className="rounded-3xl border border-sand-line bg-white/70 p-7 sm:p-9">
       <h2 className="text-h3 text-slate">Applications have closed</h2>
-      <p className="mt-3 text-body leading-relaxed text-slate-muted">
+      <p className="mt-3 text-body leading-relaxed">
         {closedOn
           ? `The last day to apply was ${closedOn}.`
           : "This role is no longer taking applications."}
