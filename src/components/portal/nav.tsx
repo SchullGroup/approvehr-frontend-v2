@@ -228,16 +228,22 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
 
   payroll: [
     {
+      /* The screen itself gates on `VIEW_SALARIES` (`payroll-screen.tsx`),
+         not `RUN_PAYROLL` — a viewer without RUN_PAYROLL is a deliberate
+         role (see the router's own docstring), and needs to find this. */
       href: "/payroll",
       label: "Monthly payroll",
       icon: <Banknote aria-hidden="true" />,
-      permission: "RUN_PAYROLL",
+      permission: "VIEW_SALARIES",
     },
     {
+      /* `pay-setup-screen.tsx` gates on `VIEW_SALARIES` too, not
+         `MANAGE_PAY_STRUCTURE` — the screen has its own read/write split
+         inside it; the nav only needs to decide who can open the door. */
       href: "/payroll/pay-setup",
       label: "Pay setup",
       icon: <SlidersHorizontal aria-hidden="true" />,
-      permission: "MANAGE_PAY_STRUCTURE",
+      permission: "VIEW_SALARIES",
     },
     {
       href: "/payroll/payslips",
@@ -274,16 +280,21 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       permission: "RUN_PAYROLL",
     },
     {
+      /* `statutory-screen.tsx` gates on `VIEW_SALARIES`, same reasoning as
+         "Monthly payroll" above. */
       href: "/payroll/statutory",
       label: "Statutory filings",
       icon: <FileText aria-hidden="true" />,
-      permission: "RUN_PAYROLL",
+      permission: "VIEW_SALARIES",
     },
   ],
 
   /* The site calls this "Recruitment"; the routes are `/hiring/*` and the
      module id is `hiring`. The heading follows the site, the URLs do not
      move — a live job advert's link is not worth a rename. */
+  /* Switched off for now — every route below renders `ComingSoon`
+     (`app/(app)/hiring/layout.tsx`), so the nav says so too rather than
+     linking somewhere that looks broken. */
   hiring: [
     {
       href: "/hiring",
@@ -291,6 +302,7 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       icon: <BriefcaseBusiness aria-hidden="true" />,
       permission: "MANAGE_HIRING",
       feature: "hiring",
+      soon: true,
     },
     {
       href: "/hiring/postings",
@@ -298,6 +310,7 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       icon: <Megaphone aria-hidden="true" />,
       permission: "MANAGE_HIRING",
       feature: "hiring",
+      soon: true,
     },
     {
       href: "/hiring/interviews",
@@ -305,6 +318,7 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       icon: <CalendarClock aria-hidden="true" />,
       permission: "MANAGE_HIRING",
       feature: "hiring",
+      soon: true,
     },
     {
       href: "/hiring/offers",
@@ -312,6 +326,7 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       icon: <FileSignature aria-hidden="true" />,
       permission: "MANAGE_HIRING",
       feature: "hiring",
+      soon: true,
     },
   ],
 

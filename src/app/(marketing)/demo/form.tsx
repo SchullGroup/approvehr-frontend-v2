@@ -143,16 +143,20 @@ export function DemoForm() {
         >
           Didn&apos;t open? Open the scheduler
         </a>
-        {isApiConfigured ? (
-          <p className="mt-8 rounded-xl bg-wash-green/40 p-3.5 text-meta leading-relaxed text-slate-soft">
-            {apiNote ?? "ApproveHR has your demo request."}
-          </p>
-        ) : (
-          <p className="mt-8 rounded-xl bg-wash-amber p-3.5 text-meta leading-relaxed text-slate-soft">
-            This is a prototype — no API is configured, so the details above
-            were not sent to a server.
-          </p>
-        )}
+        {/* The tone still splits on `isApiConfigured` — green for a request
+            that actually landed, amber for one that could not — but the copy
+            itself comes from `apiNote` either way now. Two hardcoded strings
+            saying the same two things was how they drifted: this file used
+            to say "prototype" here while demo.ts's own unconfigured note,
+            computed but never read, said something else entirely. */}
+        <p
+          className={cn(
+            "mt-8 rounded-xl p-3.5 text-meta leading-relaxed text-slate-soft",
+            isApiConfigured ? "bg-wash-green/40" : "bg-wash-amber",
+          )}
+        >
+          {apiNote ?? "ApproveHR has your demo request."}
+        </p>
       </div>
     );
   }

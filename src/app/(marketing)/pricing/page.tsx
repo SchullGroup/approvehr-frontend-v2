@@ -297,7 +297,7 @@ export default function PricingPage() {
 
           <Reveal delay={80}>
             <div className="mt-10 overflow-x-auto rounded-2xl border border-sand-line bg-white/70">
-              <table className="w-full min-w-[640px] border-collapse text-meta">
+              <table className="w-full min-w-160 border-collapse text-meta">
                 <thead>
                   <tr className="border-b border-sand-line">
                     <th className="py-4 pl-6 pr-4 text-left text-meta font-semibold uppercase tracking-[0.08em] text-slate-muted">

@@ -6,6 +6,11 @@ setup wizard). It is a different flow from new-**employee** onboarding
 checklist and no wizard. Don't conflate the two — several files in this repo
 use "onboarding" for both.
 
+There is a **third** thing worth distinguishing from both: `/settings`'s own
+checklist (§8), which is not part of the wizard flow at all — it's the
+ongoing, revisitable answer to "is this company actually set up," and it
+outlives the wizard.
+
 ## 1. Register (`app/(auth)/register`)
 
 Company name, first/last name, email, password → `POST /auth/register`,
@@ -136,4 +141,73 @@ doesn't carry `emailVerifiedAt`, even though `/auth/me` already returns it
 in the wire payload. Exposing it there is a small backend-adjacent step
 (typing an already-present field) that would let a persistent "still
 unverified" indicator exist beyond the one-time post-registration nudge —
-not done here, out of scope for a soft nudge scoped to company setup.
+not done here, out of scope for a soft nudge scoped to company setup. (This
+gap is real and unrelated to §8 below — the Settings checklist has no
+email-verification row at all.)
+
+## 8. The Settings checklist — the persistent version of "is this set up"
+
+Added 2026-08-25 (discovered in this repo 2026-08-26, after landing in a
+large staging→dev merge). Not part of the register→wizard flow — a company
+that finished or skipped the wizard still sees this, indefinitely, at
+`/settings`. Worth knowing about in the same breath as the wizard because it
+is the current system's answer to a question the wizard doesn't try to
+answer: not "what did you say your company was like," but "does the data
+back it up."
+
+**Backend**: `GET /setup/checklist`
+(`approvehr-backend/src/modules/setup/checklist.ts`) — one request, composed
+server-side from nine modules, returning **facts only** (counts and
+booleans, no opinion, no wording). The file's own header explains why: a
+fact about a company must have one definition, or two screens end up
+disagreeing about the same company.
+
+**Frontend**: `app/(app)/settings/checklist.ts` turns those facts into
+seven rows, each with a `status` (`done` / `attention` / `todo` / `optional`
+/ `unknown`), a plain-English `detail`, and — always — a real link
+(`href`/`linkLabel`), never a "not built yet" card. `attention` is not a
+softer `todo`: it means something is genuinely set up and is nonetheless
+wrong right now (nobody can approve a payroll; an account with no role can
+sign in and see nothing). `optional` exists so a row that can never fail
+(the employee-record-fields row — every option there defaults to on)
+doesn't inflate the "X of 7 done" count by counting as done.
+
+The seven rows: company profile, work locations, employee record fields
+(optional, not counted), leave types and holidays, pay setup, roles and
+access, and payroll checks (blockers/warnings a real run would raise —
+computed from the same two settings the run itself reads, so this row and
+the run cannot disagree with each other).
+
+Rendered at `/settings` as a progress meter plus the row list, replacing
+what used to be eight unlabelled `LinkCard`s. Things with no finished state
+— the noticeboard, knowledge base, notifications, integrations, webhooks,
+the audit trail — sit below it as a plain index instead, on purpose: "a
+company does not complete its noticeboard," and putting them in the
+checklist would give the count a denominator that can never reach zero.
+
+### A real discrepancy this document's research found, not fixed here
+
+Three places in the backend each answer "how many employees does this
+company have," and they don't agree:
+
+| Where | Query | 
+|---|---|
+| Dashboard (`insights/service.ts`, `headcount.active`) | `{ archivedAt: null, status: "ACTIVE" }` |
+| **The real payroll run** (`payroll/service.ts`, when preparing a period) | `{ archivedAt: null, status: "ACTIVE" }` **OR** `{ status: "EXITED", endDate: { gte: period } }` — deliberately, with a comment explaining a real incident: without the second clause, closing someone's exit mid-month silently dropped their final payslip from that period's run |
+| **This checklist** (`setup/checklist.ts`, `payrollChecks.employees`/`missingBankAccount`/`missingPensionPin`) | `{ archivedAt: null }` — no status filter at all |
+
+So the checklist's count is wrong in both directions relative to what a real
+run actually covers: it **includes** people still in `ONBOARDING` (not yet
+coverable by any run) and **excludes** people in their exit month who the
+run *does* still owe a payslip (their `archivedAt` is already set by the
+time the checklist reads it). A company with several people mid-onboarding
+would see the "Payroll checks" row warn about missing bank
+accounts/pension PINs for people who were never going to be on this
+period's run in the first place.
+
+Not fixed in this repo — `setup/checklist.ts` is backend code, and this is
+exactly the failure mode its own file header warns against ("a second
+implementation of a fact is how two screens end up disagreeing"). Worth
+raising with whoever owns that module: the fix is almost certainly matching
+`payroll/service.ts`'s `OR` clause rather than inventing a fourth
+definition.

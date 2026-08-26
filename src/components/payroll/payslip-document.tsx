@@ -367,7 +367,7 @@ export function PayslipDocument({
           </p>
         </div>
         <div className="text-right">
-          <p className="text-meta font-semibold uppercase tracking-[0.1em] text-muted">
+          <p className="text-meta font-semibold uppercase tracking-widest text-muted">
             Payslip
           </p>
           <p className="mt-1 text-h4 text-ink">{period}</p>
@@ -606,7 +606,7 @@ export function PayslipDocument({
 
 function ColumnHead({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="text-meta font-semibold uppercase tracking-[0.1em] text-muted">
+    <h2 className="text-meta font-semibold uppercase tracking-widest text-muted">
       {children}
     </h2>
   );

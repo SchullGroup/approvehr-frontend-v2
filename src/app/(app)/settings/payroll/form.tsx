@@ -1082,7 +1082,7 @@ function PreviewRow({
       <span
         className={
           strong
-            ? "tabular text-body font-semibold text-ink"
+            ? "tabular font-semibold text-ink"
             : "tabular text-body-sm text-body"
         }
       >

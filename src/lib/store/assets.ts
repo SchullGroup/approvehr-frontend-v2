@@ -123,6 +123,15 @@ export type EquipmentItem = {
   kind: string | null;
   /** No kind counts as returnable: chasing a mug beats losing a laptop. */
   returnRequired: boolean;
+  /**
+   * Where it lives, and whose budget it is on. Independent of each other and
+   * of `holder` — a laptop assigned to somebody in Finance does not become
+   * Finance's asset.
+   */
+  departmentId: string | null;
+  department: string | null;
+  workLocationId: string | null;
+  workLocation: string | null;
   purchasedOn: string | null;
   /** Naira. `null` when nobody recorded what it cost. */
   cost: number | null;
@@ -328,6 +337,10 @@ function toItem(row: ApiAsset): EquipmentItem {
     kindId: row.categoryId,
     kind: row.categoryName,
     returnRequired: row.returnRequired,
+    departmentId: row.departmentId,
+    department: row.departmentName,
+    workLocationId: row.workLocationId,
+    workLocation: row.workLocationName,
     purchasedOn: row.purchasedOn,
     cost: row.purchaseCostKobo === null ? null : naira(row.purchaseCostKobo),
     status: row.status,
@@ -451,6 +464,12 @@ function seedAsset(input: {
     categoryId: input.kindId,
     categoryName: kind?.name ?? null,
     returnRequired: kind?.returnRequired ?? true,
+    /* The seed has no demo department/location data to draw from — honestly
+       absent rather than a fabricated pick. */
+    departmentId: null,
+    departmentName: null,
+    workLocationId: null,
+    workLocationName: null,
     purchasedOn: input.boughtDaysAgo ? daysAgo(input.boughtDaysAgo) : null,
     purchaseCostKobo: input.cost === undefined ? null : input.cost * NAIRA,
     status: input.status,
@@ -1021,6 +1040,8 @@ export type ItemInput = {
   tag: string;
   name: string;
   kindId?: string;
+  departmentId?: string;
+  workLocationId?: string;
   serialNumber?: string;
   make?: string;
   model?: string;
@@ -1036,6 +1057,8 @@ export type ItemPatch = {
   tag?: string;
   name?: string;
   kindId?: string | null;
+  departmentId?: string | null;
+  workLocationId?: string | null;
   serialNumber?: string | null;
   make?: string | null;
   model?: string | null;
@@ -1214,6 +1237,10 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
           tag: input.tag,
           name: input.name,
           ...(input.kindId ? { categoryId: input.kindId } : {}),
+          ...(input.departmentId ? { departmentId: input.departmentId } : {}),
+          ...(input.workLocationId
+            ? { workLocationId: input.workLocationId }
+            : {}),
           ...(input.serialNumber ? { serialNumber: input.serialNumber } : {}),
           ...(input.make ? { make: input.make } : {}),
           ...(input.model ? { model: input.model } : {}),
@@ -1261,6 +1288,11 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
             categoryId: kind?.id ?? null,
             categoryName: kind?.name ?? null,
             returnRequired: kind?.returnRequired ?? true,
+            /* Demo mode doesn't track department/location — see `seedAsset`. */
+            departmentId: null,
+            departmentName: null,
+            workLocationId: null,
+            workLocationName: null,
             purchasedOn: input.purchasedOn ?? null,
             purchaseCostKobo: input.cost === undefined ? null : kobo(input.cost),
             status: "AVAILABLE",
@@ -1282,6 +1314,12 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
           ...(patch.tag === undefined ? {} : { tag: patch.tag }),
           ...(patch.name === undefined ? {} : { name: patch.name }),
           ...(patch.kindId === undefined ? {} : { categoryId: patch.kindId }),
+          ...(patch.departmentId === undefined
+            ? {}
+            : { departmentId: patch.departmentId }),
+          ...(patch.workLocationId === undefined
+            ? {}
+            : { workLocationId: patch.workLocationId }),
           ...(patch.serialNumber === undefined
             ? {}
             : { serialNumber: patch.serialNumber }),

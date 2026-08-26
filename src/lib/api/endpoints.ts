@@ -49,6 +49,15 @@ export type ApiUser = {
    * it is not the same as being an employee.
    */
   roles: { id: string; name: string }[];
+  /**
+   * `null` means genuinely unverified. `undefined` means an API a deploy
+   * behind this frontend didn't send the field at all — `/auth/me` has
+   * carried it for a while, `sign-in` and `register` are catching up. Treat
+   * the two differently: see `useSession()`'s `emailVerified`, which follows
+   * the same defaulting reasoning as `roles` above rather than assuming
+   * `Boolean(undefined)` is a safe stand-in for "unverified".
+   */
+  emailVerifiedAt?: string | null;
 };
 
 export const auth = {

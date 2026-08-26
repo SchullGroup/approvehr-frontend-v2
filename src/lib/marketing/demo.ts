@@ -51,8 +51,13 @@ export async function submitDemoRequest(
     return {
       ok: true,
       value: {
-        id: "local-prototype",
-        note: "Local prototype — no backend API is configured for this page.",
+        id: "unconfigured",
+        /* Same fact as careers.ts's "unconfigured" reason, same wording
+           convention: state the connection, not the product's maturity.
+           This is the standalone marketing export's normal state, not a
+           prototype — the backend is real, this deployment just isn't
+           pointed at it. */
+        note: "This site is not connected to ApproveHR's system, so the details above were not sent anywhere.",
       },
     };
   }

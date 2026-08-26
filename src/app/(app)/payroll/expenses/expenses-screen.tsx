@@ -116,6 +116,15 @@ export function ExpensesScreen() {
   const { status, typeId, from, to } = list.filters;
 
   const types = useExpenseTypes(includeArchived);
+  /**
+   * A claim in the approval queue can reference an archived type — the type
+   * was retired after somebody claimed against it, not before. Resolving
+   * "does this claim need a receipt" must not depend on `includeArchived`,
+   * which only controls what the Types *management* tab chooses to show —
+   * or an archived type's claims silently stop being checked for a receipt
+   * the moment somebody archives it.
+   */
+  const allTypes = useExpenseTypes(true);
   const register = useExpenseClaims("all", {
     page: list.page,
     pageSize: list.pageSize,
@@ -464,7 +473,7 @@ export function ExpensesScreen() {
           {tab === "queue" && canApprove && (
             <ApprovalQueue
               claims={queue.claims}
-              types={types.types}
+              types={allTypes.types}
               myEmployeeId={queue.myEmployeeId}
               loading={queue.loading}
               onApprove={async (claim) => {

@@ -661,6 +661,7 @@ export function demoTeamDetail(
       (sum, member) => sum + (member.grossMonthlyKobo ?? 0),
       0,
     ),
+    payrollUnknown: members.filter((member) => member.grossMonthlyKobo === null).length,
   };
 }
 
