@@ -10,7 +10,7 @@ import {
   Picker,
   Select,
 } from "@/components/ui";
-import { NIGERIAN_BANKS, bankCodeFor } from "@/lib/reference/banks";
+import { NIGERIAN_BANKS } from "@/lib/reference/banks";
 import type {
   ApiBankAccount,
   CreateAccountBody,
@@ -55,7 +55,6 @@ export function AccountForm({
   const [bankName, setBankName] = useState(account?.bankName ?? "");
   const [accountName, setAccountName] = useState(account?.accountName ?? "");
   const [accountNumber, setAccountNumber] = useState("");
-  const [bankCode, setBankCode] = useState(account?.bankCode ?? "");
   const [accountType, setAccountType] = useState(account?.accountType ?? "Current");
   const [isPrimary, setIsPrimary] = useState(!hasPrimary);
   const [busy, setBusy] = useState(false);
@@ -85,7 +84,6 @@ export function AccountForm({
         bankName: bankName.trim(),
         accountName: accountName.trim(),
         ...(numberTouched ? { accountNumber: digits } : {}),
-        ...(bankCode.trim() ? { bankCode: bankCode.trim() } : {}),
         ...(accountType.trim() ? { accountType: accountType.trim() } : {}),
         ...(isPrimary ? { isPrimary: true } : {}),
       } as CreateAccountBody & UpdateAccountBody);
@@ -134,25 +132,11 @@ export function AccountForm({
            */}
           <Picker
             value={bankName}
-            onChange={(value) => {
-              setBankName(value);
-              /* Filled from the register, not typed. Only ever overwrites a code
-                 that came from a bank rather than from a person: an operator who
-                 pasted the exact string their portal wants keeps it. */
-              const known = bankCodeFor(value);
-              if (known && bankCode.trim() === "") setBankCode(known);
-              else if (known && bankCodeFor(bankName) === bankCode.trim()) {
-                setBankCode(known);
-              }
-            }}
+            onChange={(value) => setBankName(value)}
             placeholder="Choose the bank"
             options={NIGERIAN_BANKS.map((b) => ({
               value: b.label,
               label: b.label,
-              /* No code in the hint: it has its own field below, which
-                 choosing a bank fills in, so showing it here was the same fact
-                 twice — and 255 rows each carrying a second line made the list
-                 harder to scan than the names alone. */
             }))}
           />
         </Field>
@@ -206,20 +190,6 @@ export function AccountForm({
             <option value="Savings">Savings</option>
             <option value="Corporate">Corporate</option>
           </Select>
-        </Field>
-
-        <Field
-          optional
-          label="Bank code"
-          help="Some bank portals need it in the upload file.">
-          <Input
-            value={bankCode}
-            placeholder="058"
-            onChange={(e) => {
-              const value = e.target.value;
-              setBankCode(value);
-            }}
-          />
         </Field>
 
         {/* Editing cannot turn the flag off — the way to stop this account being
