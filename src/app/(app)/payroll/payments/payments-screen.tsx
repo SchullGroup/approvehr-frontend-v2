@@ -190,6 +190,7 @@ export function PaymentsScreen() {
               <Money
                 amount={naira(summary.summary?.outstanding.totalKobo ?? 0)}
                 decimals
+                size="xl"
               />
             }
             hint={`${summary.summary?.outstanding.count ?? 0} ${

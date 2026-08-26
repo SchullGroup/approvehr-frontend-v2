@@ -407,15 +407,17 @@ function UserMenu() {
               {/* Unconditional here, which is what makes the small-screen trade
                   above acceptable: the answer is always one tap away. */}
               <SessionRoleBadge className="mt-1.5" />
-              {/* Which mode you are in, stated rather than implied. A demo that
-                  looks connected is the one thing worse than a demo — which is
-                  why the line only has a second half in a build that has a
-                  demo. In production `mode` is always "api". */}
-              <p className="mt-1.5 text-meta text-faint">
-                {!DEMO_ENABLED || mode === "api"
-                  ? "Connected to the API"
-                  : "Demo session — data is local to this browser"}
-              </p>
+              {/* A demo that looks connected is the one thing worse than a
+                  demo, so this stays for that case. The connected case says
+                  nothing a real customer needs told — "yes, the product
+                  works" is not information — and in a production build
+                  `mode` is always "api", so this line is absent from every
+                  live company's account, not merely quiet on it. */}
+              {DEMO_ENABLED && mode !== "api" && (
+                <p className="mt-1.5 text-meta text-faint">
+                  Demo session — data is local to this browser
+                </p>
+              )}
             </div>
             {recordId && (
               <Link

@@ -353,8 +353,8 @@ export function BookLeaveDialog({
 
         {remaining !== undefined && days > 0 && days <= remaining && (
           <Callout tone="info" title={`${remaining - days} days left afterwards`}>
-            Days already waiting on a decision are held back from that figure, so
-            approving this will not take them over their entitlement.
+            That already allows for any other requests of theirs still waiting
+            on a decision.
           </Callout>
         )}
       </div>

@@ -129,11 +129,7 @@ export function QuestionsDialog({
             <Spinner size="sm" />
             Loading the form
           </span>
-        ) : questions.length === 0 ? (
-          <p className="text-body-sm text-body">
-            No questions yet. A form with none asks nobody anything.
-          </p>
-        ) : (
+        ) : questions.length === 0 ? null : (
           <ul className="flex flex-col gap-2">
             {questions.map((question) => (
               <li
