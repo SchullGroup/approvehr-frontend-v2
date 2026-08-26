@@ -1,5 +1,6 @@
 import { ToastProvider } from "@/components/ui";
 import { AuthGate } from "@/components/portal/auth-gate";
+import { Logo } from "@/components/brand/logo";
 
 /**
  * The setup wizard's own route group — full screen, no `AppShell`.
@@ -16,6 +17,10 @@ import { AuthGate } from "@/components/portal/auth-gate";
  * with. `ToastProvider` is repeated here rather than hoisted to the root
  * layout for the same reason `(app)/layout.tsx` carries its own: see that
  * file's note on keeping the root layout free of `@/components/ui`.
+ *
+ * The mark on its own, not the full lockup with wordmark: "full screen" was
+ * about removing the sidebar/topbar's navigation, not the brand itself — a
+ * screen with no logo at all reads as broken, not as focused.
  */
 export default function SetupLayout({
   children,
@@ -24,7 +29,18 @@ export default function SetupLayout({
 }) {
   return (
     <ToastProvider>
-      <AuthGate>{children}</AuthGate>
+      <AuthGate>
+        <div className="flex min-h-dvh flex-col bg-canvas">
+          <header className="border-b border-line bg-surface">
+            <div className="mx-auto flex h-14 max-w-5xl items-center px-5">
+              <Logo size={24} showWordmark={false} />
+            </div>
+          </header>
+          <main id="main" className="flex flex-1 flex-col">
+            {children}
+          </main>
+        </div>
+      </AuthGate>
     </ToastProvider>
   );
 }

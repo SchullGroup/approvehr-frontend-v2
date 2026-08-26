@@ -260,7 +260,7 @@ function Form() {
                   </Field>
                   <Field
                     label="Primary tax state"
-                    help="Where PAYE is filed for staff on the main entity. Saves as soon as you pick one — every employee create and staff import reads this."
+                    help="Where PAYE is filed for staff on the main entity."
                     {...(orgTaxError ? { error: orgTaxError } : {})}
                   >
                     <Select

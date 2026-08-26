@@ -5,27 +5,24 @@ import Link from "next/link";
 import { ArrowLeft, Check, Lock } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
-  Badge,
   Button,
   ButtonLink,
   Callout,
+  Field,
   ProgressMeter,
+  Select,
   Skeleton,
   useToast,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import type {
-  ApiSeeded,
   ApiWizardOption,
   ApiWizardQuestion,
   FeatureKey,
-  PayrollDeductions,
 } from "@/lib/api/setup";
-import {
-  FEATURE_KEYS,
-  MODULE_FEATURE_KEYS,
-  PAYROLL_DEDUCTION_KEYS,
-} from "@/lib/api/setup";
+import { MODULE_FEATURE_KEYS } from "@/lib/api/setup";
+import { NIGERIAN_STATES } from "@/lib/reference/lists";
+import { useOrgTaxState } from "@/lib/store/company";
 import {
   FEATURE_COPY,
   useFeatures,
@@ -55,13 +52,18 @@ import {
  * study it; a question invites you to answer it. The answer is a button, never
  * a dropdown-plus-Save.
  *
- * **Skipping is free.** Skip writes nothing at all — the safe default is
- * already in place and the option carrying it is marked "Now", so what happens
- * if you skip is visible rather than promised, and no words are put in anybody's
- * mouth about whether they lend their staff money. (Progress on the server is a
- * single forward-only number, not a record per question, so a skipped question
- * is re-asked only if you stop at it. Answering a later one moves the counter
- * past it. Worth knowing; not worth a second column in the database.)
+ * **There is no skip.** Every question gets an answer before the next one
+ * shows, and no option is pre-marked as the current or default state — this
+ * used to be skippable with a "Now" badge showing what skipping would leave
+ * in place, and both let somebody get through setup without deciding anything.
+ *
+ * **A "yes" that needs a fact gets asked for the fact.** Turning PAYE on is not
+ * enough to compute it: `Organization.taxState` decides which state every
+ * employee files to, and it used to be possible to answer "Yes" here and land
+ * on the dashboard with no state set at all — a blocker that surfaced only
+ * when somebody tried to run payroll for real. Answering "Yes" to the PAYE
+ * question now asks which state, on the same screen, before letting the
+ * wizard move on, so the gap closes at setup time rather than at payroll time.
  *
  * **Progress is the truth.** The bar measures questions *answered on the
  * server*, so a resumed wizard opens where it stopped and the bar agrees with
@@ -78,6 +80,7 @@ import {
 export function SetupWizard() {
   const wizard = useWizard();
   const features = useFeatures();
+  const orgTax = useOrgTaxState();
   const toast = useToast();
 
   /**
@@ -97,10 +100,19 @@ export function SetupWizard() {
    * owns, and the two produce different sentences on the last screen.
    */
   const [phase, setPhase] = useState<"done" | null>(null);
-  const [seeded, setSeeded] = useState<ApiSeeded | null>(null);
   /** The option currently being saved, so only that button spins. */
   const [busy, setBusy] = useState<string | null>(null);
   const [finishing, setFinishing] = useState(false);
+  /**
+   * Set the moment an option that turns PAYE on is chosen and the
+   * organisation has no tax state on file yet. While this holds a value, the
+   * wizard does not advance — the state prompt below is the only next step,
+   * not an extra screen to click past.
+   */
+  const [awaitingTaxState, setAwaitingTaxState] = useState(false);
+  const [taxStateChoice, setTaxStateChoice] = useState("");
+  const [savingTaxState, setSavingTaxState] = useState(false);
+  const [taxStateError, setTaxStateError] = useState<string | null>(null);
 
   const total = wizard.questions.length;
   /* `step` counts answers and is 1-based, so it is already the index of the
@@ -113,7 +125,7 @@ export function SetupWizard() {
   const finish = useCallback(async () => {
     setFinishing(true);
     try {
-      setSeeded(await wizard.complete());
+      await wizard.complete();
       setPhase("done");
     } catch (error) {
       toast.push({
@@ -129,12 +141,23 @@ export function SetupWizard() {
     }
   }, [wizard, toast]);
 
+  /** What "answer accepted" does next — the shared tail of both paths below. */
+  const advance = useCallback(async () => {
+    if (index + 1 < total) setMovedTo(index + 1);
+    else await finish();
+  }, [index, total, finish]);
+
   const choose = async (question: ApiWizardQuestion, option: ApiWizardOption) => {
     setBusy(option.value);
     try {
       await wizard.answer(question.id, option.value);
-      if (index + 1 < total) setMovedTo(index + 1);
-      else await finish();
+      if (option.payroll?.payeEnabled && !orgTax.taxState) {
+        setTaxStateChoice("");
+        setTaxStateError(null);
+        setAwaitingTaxState(true);
+      } else {
+        await advance();
+      }
     } catch (error) {
       toast.push({
         title: "Could not save that answer",
@@ -149,17 +172,18 @@ export function SetupWizard() {
     }
   };
 
-  /**
-   * Skip writes nothing — no request, no flag change, no step.
-   *
-   * The safe default is already stored and the option carrying it is marked
-   * "Now" on screen, so skipping has a visible consequence rather than a
-   * promised one. See the note at the top of this file for what that means for
-   * resuming.
-   */
-  const skip = async () => {
-    if (index + 1 < total) setMovedTo(index + 1);
-    else await finish();
+  const confirmTaxState = async () => {
+    if (!taxStateChoice) return;
+    setSavingTaxState(true);
+    setTaxStateError(null);
+    const ok = await orgTax.setTaxState(taxStateChoice);
+    setSavingTaxState(false);
+    if (!ok) {
+      setTaxStateError("That could not be saved. Try again.");
+      return;
+    }
+    setAwaitingTaxState(false);
+    await advance();
   };
 
   /* ------------------------------------------------------------ loading */
@@ -205,7 +229,6 @@ export function SetupWizard() {
            "you turned on Bank accounts" to somebody who answered five
            questions about shifts and loans. */
         flags={MODULE_FEATURE_KEYS.filter((key) => features[key])}
-        seeded={seeded}
         returning={phase !== "done"}
       />
     );
@@ -252,20 +275,9 @@ export function SetupWizard() {
 
   return (
     <Frame>
-      <div className="flex items-center justify-between gap-4">
-        <p className="text-body-sm font-medium text-muted">
-          Question {index + 1} of {total}
-        </p>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => void finish()}
-          loading={finishing}
-          disabled={busy !== null}
-        >
-          Skip setup
-        </Button>
-      </div>
+      <p className="text-body-sm font-medium text-muted">
+        Question {index + 1} of {total}
+      </p>
 
       <ProgressMeter
         value={index}
@@ -296,16 +308,50 @@ export function SetupWizard() {
           <OptionButton
             key={option.value}
             option={option}
-            current={isCurrent(option, features, wizard.deductions)}
             busy={busy === option.value}
-            disabled={busy !== null || finishing}
+            disabled={busy !== null || finishing || awaitingTaxState}
             onSelect={() => void choose(question, option)}
           />
         ))}
       </div>
 
-      <div className="mt-7 flex items-center justify-between gap-4 border-t border-line pt-5">
-        {index > 0 ? (
+      {awaitingTaxState && (
+        <div className="mt-6 rounded-lg border border-accent-line bg-accent-soft p-5">
+          <Field
+            label="Which state do you file PAYE to?"
+            help="The state every employee falls back to when their own record does not say."
+            {...(taxStateError ? { error: taxStateError } : {})}
+          >
+            <Select
+              value={taxStateChoice}
+              disabled={savingTaxState}
+              onChange={(e) => setTaxStateChoice(e.target.value)}
+            >
+              <option value="" disabled>
+                Choose a state
+              </option>
+              {NIGERIAN_STATES.map((state) => (
+                <option key={state} value={state}>
+                  {state}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Button
+            variant="accent"
+            size="sm"
+            className="mt-4"
+            loading={savingTaxState}
+            disabled={!taxStateChoice}
+            onClick={() => void confirmTaxState()}
+          >
+            Continue
+          </Button>
+        </div>
+      )}
+
+      {index > 0 && !awaitingTaxState && (
+        <div className="mt-7 border-t border-line pt-5">
           <Button
             variant="ghost"
             size="sm"
@@ -315,19 +361,8 @@ export function SetupWizard() {
             <ArrowLeft aria-hidden="true" className="size-4" />
             Back
           </Button>
-        ) : (
-          <span />
-        )}
-
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => void skip()}
-          disabled={busy !== null || finishing}
-        >
-          Skip this one
-        </Button>
-      </div>
+        </div>
+      )}
     </Frame>
   );
 }
@@ -349,44 +384,6 @@ function Frame({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Whether this option describes the state the company is in right now.
- *
- * Computed from the option's own served `sets` and `payroll` rather than from a
- * table of question ids, so it keeps working when the API adds a question.
- * Marking it is what makes "Skip this one" honest: the consequence of skipping
- * is on screen, next to the thing that would have changed it.
- *
- * `deductions` is **null until the company has payroll settings**, and a null
- * answers "unknown" rather than "everything on" — an option that writes a
- * payroll switch is then marked on nothing. Defaulting it to the schema's
- * defaults would put "Now" against an answer nobody gave.
- */
-function isCurrent(
-  option: ApiWizardOption,
-  features: ReturnType<typeof useFeatures>,
-  deductions: PayrollDeductions | null,
-): boolean {
-  const flagKeys = FEATURE_KEYS.filter((key) => option.sets[key] !== undefined);
-  const payrollKeys = PAYROLL_DEDUCTION_KEYS.filter(
-    (key) => option.payroll?.[key] !== undefined,
-  );
-  const bandMatches =
-    option.sets.headcountBand === undefined ||
-    option.sets.headcountBand === features.headcountBand;
-  if (!bandMatches) return false;
-
-  if (payrollKeys.length > 0) {
-    if (deductions === null) return false;
-    if (!payrollKeys.every((key) => option.payroll?.[key] === deductions[key])) {
-      return false;
-    }
-  }
-
-  if (flagKeys.length === 0) return payrollKeys.length > 0 ? true : bandMatches;
-  return flagKeys.every((key) => option.sets[key] === features[key]);
-}
-
-/**
  * One answer.
  *
  * `option.consequence` is the API's own sentence about what switching a
@@ -396,16 +393,18 @@ function isCurrent(
  * choice with a real consequence — a configurable product is fine, one that
  * quietly helps somebody be non-compliant is not. It is not paraphrased locally:
  * two wordings for one legal fact is how they stop agreeing.
+ *
+ * No option is pre-marked as the current or default state: setup is meant to
+ * be answered, not glanced at and left, and a "Now" badge on one option reads
+ * as permission to do exactly that.
  */
 function OptionButton({
   option,
-  current,
   busy,
   disabled,
   onSelect,
 }: {
   option: ApiWizardOption;
-  current: boolean;
   busy: boolean;
   disabled: boolean;
   onSelect: () => void;
@@ -421,26 +420,12 @@ function OptionButton({
         "transition-[border-color,background-color,box-shadow] duration-150",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text",
         "disabled:cursor-not-allowed disabled:opacity-60",
-        current
-          ? "border-accent-line bg-accent-soft"
-          : "border-line bg-surface hover:border-control-line hover:bg-canvas",
+        "border-line bg-surface hover:border-control-line hover:bg-canvas",
         !option.consequence && "justify-center",
       )}
     >
       <span className="flex w-full items-center justify-between gap-3">
-        <span
-          className={cn(
-            "text-body-sm font-medium",
-            current ? "text-accent-text" : "text-ink",
-          )}
-        >
-          {option.label}
-        </span>
-        {current && (
-          <span className="shrink-0 text-meta font-medium text-accent-text">
-            Now
-          </span>
-        )}
+        <span className="text-body-sm font-medium text-ink">{option.label}</span>
         {busy && <span className="shrink-0 text-meta text-muted">Saving…</span>}
       </span>
       {option.consequence && (
@@ -460,14 +445,17 @@ function OptionButton({
  * Only what was turned **on** is listed. A list of what a company does not do is
  * a list of things to feel behind about, and the settings page exists for the
  * day one of them becomes true.
+ *
+ * The primary action is adding a first employee, not the dashboard. A
+ * dashboard with nobody on it is an empty room — the concrete next step is
+ * putting somebody real into the system, and the getting-started checklist
+ * there picks up from here for whatever comes after that.
  */
 function Done({
   flags,
-  seeded,
   returning,
 }: {
   flags: FeatureKey[];
-  seeded: ApiSeeded | null;
   returning: boolean;
 }) {
   return (
@@ -503,20 +491,16 @@ function Done({
         ))}
       </ul>
 
-      {seeded && (seeded.leaveTypes > 0 || seeded.payrollSettings) && (
-        <div className="mt-6">
-          <Badge tone="success" dot>
-            {seeded.leaveTypes > 0
-              ? `${seeded.leaveTypes} leave types ready to use`
-              : "Payroll settings ready to use"}
-          </Badge>
-        </div>
-      )}
-
       <div className="mt-9 flex flex-wrap items-center gap-x-5 gap-y-3">
-        <ButtonLink href="/dashboard" variant="accent" size="lg">
-          Go to the dashboard
+        <ButtonLink href="/people/new" variant="accent" size="lg">
+          Add your first employee
         </ButtonLink>
+        <Link
+          href="/dashboard"
+          className="text-body-sm font-medium text-accent-text underline decoration-accent-line underline-offset-4 hover:decoration-accent"
+        >
+          Go to the dashboard
+        </Link>
         <Link
           href="/settings/features"
           className="text-body-sm font-medium text-accent-text underline decoration-accent-line underline-offset-4 hover:decoration-accent"
