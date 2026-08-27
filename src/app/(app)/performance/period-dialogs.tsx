@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
+import { cn } from "@/lib/cn";
 import {
   Badge,
   Button,
@@ -15,9 +16,11 @@ import {
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import type {
+  ApiQuestion,
   CreateQuestionBody,
   ReviewAudience,
   ReviewQuestionKind,
+  UpdateQuestionBody,
 } from "@/lib/api/performance";
 import { useCycleQuestions } from "@/lib/store/performance";
 
@@ -62,16 +65,20 @@ export function QuestionsDialog({
   periodName,
   onClose,
   onAdd,
+  onUpdate,
   onRemove,
 }: {
   cycleId: string;
   periodName: string;
   onClose: () => void;
   onAdd: (body: CreateQuestionBody) => Promise<void>;
+  onUpdate: (id: string, body: UpdateQuestionBody) => Promise<void>;
   onRemove: (id: string) => Promise<void>;
 }) {
   const { questions, loading, reload } = useCycleQuestions(cycleId);
 
+  /** The question being changed, or `null` while the form is adding a new one. */
+  const [editing, setEditing] = useState<ApiQuestion | null>(null);
   const [prompt, setPrompt] = useState("");
   const [kind, setKind] = useState<ReviewQuestionKind>("TEXT");
   const [audience, setAudience] = useState<ReviewAudience | "ALL">("ALL");
@@ -79,7 +86,25 @@ export function QuestionsDialog({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const add = async () => {
+  const startEdit = (question: ApiQuestion) => {
+    setEditing(question);
+    setPrompt(question.prompt);
+    setKind(question.kind);
+    setAudience(question.askedOf[0] ?? "ALL");
+    setRequired(question.required);
+    setError(null);
+  };
+
+  const cancelEdit = () => {
+    setEditing(null);
+    setPrompt("");
+    setKind("TEXT");
+    setAudience("ALL");
+    setRequired(true);
+    setError(null);
+  };
+
+  const save = async () => {
     if (prompt.trim().length < 5) {
       setError("Write the question out.");
       return;
@@ -87,16 +112,27 @@ export function QuestionsDialog({
     setError(null);
     setSaving(true);
     try {
-      const body: CreateQuestionBody = { prompt: prompt.trim(), kind, required };
-      if (audience !== "ALL") body.askedOf = [audience];
-      await onAdd(body);
-      setPrompt("");
+      const askedOf = audience === "ALL" ? [] : [audience];
+      if (editing) {
+        await onUpdate(editing.id, {
+          prompt: prompt.trim(),
+          kind,
+          askedOf,
+          required,
+        });
+        cancelEdit();
+      } else {
+        await onAdd({ prompt: prompt.trim(), kind, askedOf, required });
+        setPrompt("");
+      }
       reload();
     } catch (caught) {
       setError(
         caught instanceof ApiError
           ? caught.message
-          : "Could not add that question.",
+          : editing
+            ? "Could not save that change."
+            : "Could not add that question.",
       );
     } finally {
       setSaving(false);
@@ -106,6 +142,7 @@ export function QuestionsDialog({
   const remove = async (id: string) => {
     try {
       await onRemove(id);
+      if (editing?.id === id) cancelEdit();
       reload();
     } catch (caught) {
       setError(
@@ -134,7 +171,12 @@ export function QuestionsDialog({
             {questions.map((question) => (
               <li
                 key={question.id}
-                className="flex flex-wrap items-start justify-between gap-3 rounded-md border border-line p-3"
+                className={cn(
+                  "flex flex-wrap items-start justify-between gap-3 rounded-md border p-3",
+                  editing?.id === question.id
+                    ? "border-accent-line bg-accent-soft"
+                    : "border-line",
+                )}
               >
                 <span className="min-w-0">
                   <span className="block text-body-sm font-medium text-ink">
@@ -158,19 +200,38 @@ export function QuestionsDialog({
                     )}
                   </span>
                 </span>
-                <IconButton
-                  label={`Remove "${question.prompt}"`}
-                  onClick={() => void remove(question.id)}
-                >
-                  <Trash2 aria-hidden="true" />
-                </IconButton>
+                <span className="flex shrink-0 gap-1">
+                  {/* A multiple-choice question is read here and never written by
+                      this form — see the file's own header — so editing it here
+                      would silently coerce it to a kind with no choices. */}
+                  {question.kind !== "CHOICE" && (
+                    <IconButton
+                      label={`Edit "${question.prompt}"`}
+                      disabled={saving}
+                      onClick={() => startEdit(question)}
+                    >
+                      <Pencil aria-hidden="true" />
+                    </IconButton>
+                  )}
+                  <IconButton
+                    label={`Remove "${question.prompt}"`}
+                    disabled={saving}
+                    onClick={() => void remove(question.id)}
+                  >
+                    <Trash2 aria-hidden="true" />
+                  </IconButton>
+                </span>
               </li>
             ))}
           </ul>
         )}
 
         <div className="flex flex-col gap-4 border-t border-line pt-5">
-          <Field label="Add a question" required {...(error ? { error } : {})}>
+          <Field
+            label={editing ? "Edit the question" : "Add a question"}
+            required
+            {...(error ? { error } : {})}
+          >
             <Input
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
@@ -216,10 +277,15 @@ export function QuestionsDialog({
             onChange={(event) => setRequired(event.target.checked)}
           />
 
-          <div>
-            <Button variant="accent" loading={saving} onClick={() => void add()}>
-              Add question
+          <div className="flex gap-2">
+            <Button variant="accent" loading={saving} onClick={() => void save()}>
+              {editing ? "Save changes" : "Add question"}
             </Button>
+            {editing && (
+              <Button variant="ghost" disabled={saving} onClick={cancelEdit}>
+                Cancel
+              </Button>
+            )}
           </div>
         </div>
       </div>

@@ -44,6 +44,7 @@ import {
   type CreateGoalBody,
   type CreateKeyResultBody,
   type CreateQuestionBody,
+  type UpdateQuestionBody,
   type GoalStatus,
   type ObjectiveApproval,
   type RateBody,
@@ -2272,6 +2273,14 @@ export function useCycleMutations() {
       async (cycleId: string, body: CreateQuestionBody) => {
         guard("Adding a question needs the API.");
         return performanceApi.addQuestion(cycleId, body);
+      },
+      [guard],
+    ),
+
+    updateQuestion: useCallback(
+      async (id: string, body: UpdateQuestionBody) => {
+        guard("Editing a question needs the API.");
+        return performanceApi.updateQuestion(id, body);
       },
       [guard],
     ),

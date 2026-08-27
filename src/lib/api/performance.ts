@@ -1180,6 +1180,20 @@ export type CreateQuestionBody = {
   options?: string[];
 };
 
+/**
+ * Every field optional, the usual PATCH contract — absent means "leave it
+ * alone". The API still refuses `prompt`, `kind` or `options` once somebody
+ * has answered the question; `required` and `askedOf` stay changeable even
+ * then. See `updateQuestionSchema` on the API for the exact wording.
+ */
+export type UpdateQuestionBody = {
+  prompt?: string;
+  kind?: ReviewQuestionKind;
+  askedOf?: ReviewAudience[];
+  required?: boolean;
+  options?: string[];
+};
+
 export type AnswerBody = {
   questionId: string;
   ratingValue?: number;
@@ -1580,6 +1594,12 @@ export const performanceApi = {
   addQuestion: (cycleId: string, body: CreateQuestionBody) =>
     request<ApiQuestion>(`/performance/cycles/${cycleId}/questions`, {
       method: "POST",
+      body,
+    }),
+
+  updateQuestion: (id: string, body: UpdateQuestionBody) =>
+    request<ApiQuestion>(`/performance/questions/${id}`, {
+      method: "PATCH",
       body,
     }),
 

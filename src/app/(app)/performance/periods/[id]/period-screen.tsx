@@ -467,6 +467,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
             detail.reload();
           }}
           onAdd={(body) => periods.addQuestion(cycleId, body).then(() => {})}
+          onUpdate={(id, body) => periods.updateQuestion(id, body).then(() => {})}
           onRemove={(id) => periods.removeQuestion(id).then(() => {})}
         />
       )}
