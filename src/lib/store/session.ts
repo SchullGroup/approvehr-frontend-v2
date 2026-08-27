@@ -222,7 +222,11 @@ export function signInOptions(): SignInOption[] {
 }
 
 export function useSession() {
-  const state = useSyncExternalStore(subscribe, () => cache, () => LOADING);
+  const state = useSyncExternalStore(
+    subscribe,
+    () => cache,
+    () => LOADING,
+  );
 
   const signIn = useCallback(
     async (email: string, password: string): Promise<void> => {
@@ -255,6 +259,32 @@ export function useSession() {
       user: null,
       employeeId,
     });
+  }, []);
+
+  /**
+   * Mark the guided tour shown — finished or skipped, both count.
+   *
+   * Written locally first so the tour closes on the click rather than after a
+   * round trip, and a failed request is swallowed on purpose: the cost of
+   * losing it is the tour appearing once more on the next load, which is a far
+   * smaller failure than a dismissal that appears to work and does not, or an
+   * error toast about a tour nobody wanted to think about again.
+   *
+   * A no-op in demo mode. There is no `user` there to have dismissed anything,
+   * and `<GuidedTour />` only opens itself for a real one — see its header.
+   */
+  const dismissTour = useCallback(async (): Promise<void> => {
+    const current = cache;
+    if (current.mode !== "api" || !current.user) return;
+    set({
+      ...current,
+      user: { ...current.user, tourDismissedAt: new Date().toISOString() },
+    });
+    try {
+      await auth.dismissTour();
+    } catch {
+      /* See above. */
+    }
   }, []);
 
   const signOut = useCallback(async (): Promise<void> => {
@@ -322,7 +352,8 @@ export function useSession() {
      * the honest answer: `employeeId` is only null for an account with no staff
      * record behind it, and such an account genuinely owns nothing.
      */
-    actingId: state.employeeId ?? (DEMO_ENABLED ? (CURRENT_USER?.id ?? "") : ""),
+    actingId:
+      state.employeeId ?? (DEMO_ENABLED ? (CURRENT_USER?.id ?? "") : ""),
     permissions: state.user?.permissions ?? [],
     /**
      * A demo session holds everything, because there is no account behind it to
@@ -332,6 +363,21 @@ export function useSession() {
     can: (permission: string) =>
       (DEMO_ENABLED && state.mode === "offline") ||
       (state.user?.permissions ?? []).includes(permission),
+    /**
+     * Whether this person has already been shown the guided tour.
+     *
+     * A boolean rather than the timestamp, because every reading of it is the
+     * same question and the three states it collapses are easy to get the
+     * wrong way round: **null** is "never dismissed" and is the only value
+     * that shows the tour; a **string** is when they dismissed it; and
+     * **undefined** — an API one deploy behind, which the type does not admit
+     * but the wire can still produce — counts as seen, since nagging somebody
+     * the server cannot answer for is the worse of the two failures.
+     *
+     * True with no account at all, so demo mode never opens it by itself.
+     */
+    tourSeen: state.user ? state.user.tourDismissedAt !== null : true,
+    dismissTour,
     signIn,
     signInOffline,
     signOut,
