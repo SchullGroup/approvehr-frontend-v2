@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import { Paperclip } from "lucide-react";
 import {
-  Badge,
   Button,
   Field,
   Input,
@@ -287,19 +286,14 @@ export function ClaimForm({
           </Select>
         </Field>
 
-        {/* The chosen type's two rules, the moment it is chosen. */}
-        {type && (
-          <div className="-mt-2 flex flex-wrap items-center gap-2">
-            <Badge tone={type.requiresReceipt ? "warning" : "neutral"} size="sm">
-              {type.requiresReceipt ? "Receipt needed" : "No receipt needed"}
-            </Badge>
-            <Badge tone="neutral" size="sm">
-              {type.cap === null ? "No cap" : `Up to ${money(type.cap)} a claim`}
-            </Badge>
-            {type.description && (
-              <span className="text-body-sm text-muted">{type.description}</span>
-            )}
-          </div>
+        {/* No badge stating a receipt is or is not needed, or what the cap
+            is — a category with no rule set has neither yet, and a badge
+            reading "No cap" or "No receipt needed" would read as a decision
+            somebody made rather than the absence of one. The amount field's
+            own cap note (below) and the receipt field's own asterisk still
+            say the real rule the moment the company sets one. */}
+        {type?.description && (
+          <p className="-mt-2 text-body-sm text-muted">{type.description}</p>
         )}
 
         <Field

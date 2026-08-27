@@ -1098,7 +1098,7 @@ function CorrectionDialog({
           label="Reason for the change"
           required
           error={touched && !note.trim() ? "A reason is required." : undefined}
-          help="Payroll pays against this record, so a change cannot be silent."
+          help="Payroll pays against this record."
         >
           <Input
             value={note}
