@@ -223,7 +223,6 @@ export function BookLeaveDialog({
       open={open}
       onClose={close}
       title="Book leave"
-      description="Raised as waiting. It appears in the approvals inbox immediately."
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={close} disabled={saving}>
@@ -352,10 +351,10 @@ export function BookLeaveDialog({
         )}
 
         {remaining !== undefined && days > 0 && days <= remaining && (
-          <Callout tone="info" title={`${remaining - days} days left afterwards`}>
-            That already allows for any other requests of theirs still waiting
-            on a decision.
-          </Callout>
+          <p className="text-body-sm text-muted">
+            <span className="font-medium text-ink">{remaining - days}</span>{" "}
+            days left afterwards.
+          </p>
         )}
       </div>
     </Modal>
