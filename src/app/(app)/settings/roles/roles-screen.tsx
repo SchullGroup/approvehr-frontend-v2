@@ -28,6 +28,7 @@ import {
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
+import { invitesApi } from "@/lib/api/invites";
 import { sourceNote } from "@/lib/demo";
 import type { Catalogue } from "@/lib/api/permissions";
 import { usePermissions } from "@/lib/permissions";
@@ -87,7 +88,9 @@ export function RolesScreen({
   const toast = useToast();
 
   const [openId, setOpenId] = useState<string | null>(initialOpenId);
-  const [creating, setCreating] = useState<{ from: RoleView | null } | null>(null);
+  const [creating, setCreating] = useState<{ from: RoleView | null } | null>(
+    null,
+  );
   const [deleting, setDeleting] = useState<RoleView | null>(null);
   const [removing, setRemoving] = useState(false);
 
@@ -194,8 +197,8 @@ export function RolesScreen({
         {roles.counts.peopleWhoCanManageAccess === 1 && (
           <Callout tone="warning">
             <p className="font-medium text-ink">
-              One person can manage access. If they leave, nobody can change these
-              roles.
+              One person can manage access. If they leave, nobody can change
+              these roles.
             </p>
             <div className="mt-2.5">
               <Button
@@ -320,9 +323,25 @@ export function RolesScreen({
           held={access.permissions}
           from={creating.from}
           onClose={() => setCreating(null)}
-          onCreate={async (body) => {
+          onCreate={async (body, people) => {
             const ok = await run(async () => {
               const made = await roles.create(body);
+              /* Two requests, and the order matters: the role is the one that
+                 cannot be retried cleanly (a second attempt collides on the
+                 name), so it goes first and a refused address leaves it
+                 standing. Every refusal comes back named. */
+              if (people.length > 0) {
+                const result = await invitesApi.sendByEmail(people, [made.id]);
+                if (result.failed.length > 0) {
+                  throw new ApiError(
+                    409,
+                    "some_not_invited",
+                    `${body.name} was created. ${result.failed
+                      .map((one) => `${one.name}: ${one.message}`)
+                      .join(" ")}`,
+                  );
+                }
+              }
               setOpenId(made.id);
             }, `${body.name} created`);
             if (ok) setCreating(null);
@@ -418,7 +437,9 @@ function RoleRow({
           {role.labels.length === 0
             ? "Their own record only"
             : role.labels.slice(0, 3).join(" · ") +
-              (role.labels.length > 3 ? ` · +${role.labels.length - 3} more` : "")}
+              (role.labels.length > 3
+                ? ` · +${role.labels.length - 3} more`
+                : "")}
         </p>
       </div>
 
@@ -478,7 +499,9 @@ function YourAccess({
 }) {
   /* Labelled, never keyed. `APPROVE_PAYROLL` on a settings page is a leak of the
      enum into the product, and the catalogue exists so it cannot happen. */
-  const labels = new Map(catalogue.permissions.map((entry) => [entry.key, entry.label]));
+  const labels = new Map(
+    catalogue.permissions.map((entry) => [entry.key, entry.label]),
+  );
   const held = [...access.permissions];
 
   return (
@@ -504,8 +527,8 @@ function YourAccess({
 
         {held.length === 0 ? (
           <p className="text-body-sm leading-relaxed text-muted">
-            Nothing yet — you can see your own record, your own payslips and your
-            own requests.
+            Nothing yet — you can see your own record, your own payslips and
+            your own requests.
           </p>
         ) : (
           <ul className="flex flex-col gap-2">

@@ -16,6 +16,7 @@ import {
   useToast,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
+import { invitesApi } from "@/lib/api/invites";
 import type {
   ApiWizardOption,
   ApiWizardQuestion,
@@ -845,10 +846,31 @@ function RolesStep({
           held={access.permissions}
           from={null}
           onClose={() => setCreating(false)}
-          onCreate={async (body) => {
+          onCreate={async (body, people) => {
             try {
-              await roles.create(body);
-              toast.push({ title: `${body.name} created`, tone: "success" });
+              const made = await roles.create(body);
+              /* The role first, then the invitations — a refused address
+                 leaves the role standing, which is the right way round: the
+                 role cannot be retried without colliding on its own name. */
+              const result =
+                people.length > 0
+                  ? await invitesApi.sendByEmail(people, [made.id])
+                  : null;
+              toast.push({
+                title: `${body.name} created`,
+                tone:
+                  result && result.failed.length > 0 ? "warning" : "success",
+                ...(result
+                  ? {
+                      detail:
+                        result.failed.length > 0
+                          ? `${result.sent.length} invited. ${result.failed
+                              .map((one) => `${one.name}: ${one.message}`)
+                              .join(" ")}`
+                          : `${result.sent.length} invited.`,
+                    }
+                  : {}),
+              });
               setCreating(false);
               return true;
             } catch (error) {

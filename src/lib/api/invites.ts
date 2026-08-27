@@ -39,6 +39,17 @@ export type PendingInvite = {
 
 export type BulkInvitePerson = { employeeId: string; email: string };
 
+/**
+ * Somebody being invited who has no staff record — see `inviteByEmailSchema`
+ * on the API. Names are here rather than derived from the address because
+ * `acceptInvite` never asks for them, so a guess would be permanent.
+ */
+export type InviteByEmailPerson = {
+  firstName: string;
+  lastName: string;
+  email: string;
+};
+
 export type BulkInviteResult = {
   sent: SentInvite[];
   failed: { employeeId: string; name: string; message: string }[];
@@ -63,6 +74,20 @@ export const invitesApi = {
     roleIds: string[],
   ): Promise<BulkInviteResult> =>
     request<BulkInviteResult>("/invites/bulk", {
+      method: "POST",
+      body: { people, roleIds },
+    }),
+
+  /**
+   * Give people access with no employee record behind it — the path for
+   * somebody who is not on the payroll, and for a company defining its roles
+   * before it has added anybody.
+   */
+  sendByEmail: (
+    people: InviteByEmailPerson[],
+    roleIds: string[],
+  ): Promise<BulkInviteResult> =>
+    request<BulkInviteResult>("/invites/by-email", {
       method: "POST",
       body: { people, roleIds },
     }),
