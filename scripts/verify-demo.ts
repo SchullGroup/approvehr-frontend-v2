@@ -69,6 +69,7 @@ const BANNED = [
  */
 const TRUE_IN_PRODUCTION = [
   "Drafts live in this browser only — they are not on your other",
+  "In this browser only — it will not be here on another device.",
   "In this browser only. It will not be here on another device.",
 ];
 
