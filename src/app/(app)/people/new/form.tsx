@@ -470,14 +470,29 @@ export function NewEmployeeForm() {
 
   /* ---------------------------------------------------------- validation */
 
-  /** Format checks, run only on fields somebody actually filled in. */
-  function formatErrors(): FormError[] {
+  /**
+   * Format checks for the fields "Who they are" owns, run only on ones
+   * somebody actually filled in.
+   *
+   * Kept apart from `formatErrors` below: these three render on the "who"
+   * step, not "extras", and validating them there — as one function used to —
+   * meant a bad phone number typed on step one silently blocked the Continue
+   * button two steps later, with no field on screen to show the error on.
+   */
+  function identityFormatErrors(): FormError[] {
     return validateEmployee({
       ...(draft.email ? { email: draft.email } : {}),
       ...(draft.phone ? { phone: draft.phone } : {}),
+      ...(draft.dateOfBirth ? { dateOfBirth: draft.dateOfBirth } : {}),
+    });
+  }
+
+  /** Format checks for the fields Extras owns, run only on ones somebody
+      actually filled in. */
+  function formatErrors(): FormError[] {
+    return validateEmployee({
       ...(draft.tin ? { tin: draft.tin } : {}),
       ...(draft.pensionPin ? { pensionPin: draft.pensionPin } : {}),
-      ...(draft.dateOfBirth ? { dateOfBirth: draft.dateOfBirth } : {}),
     });
   }
 
@@ -496,6 +511,7 @@ export function NewEmployeeForm() {
         found.push({ field: "firstName", message: "First name is required." });
       if (!draft.lastName.trim())
         found.push({ field: "lastName", message: "Last name is required." });
+      found.push(...identityFormatErrors());
     };
     const job = () => {
       if (!draft.jobTitle.trim())
@@ -563,10 +579,24 @@ export function NewEmployeeForm() {
 
   /* -------------------------------------------------------------- actions */
 
+  /** Which collapsible Extras group a field renders inside, so its error
+      is not raised behind an accordion nobody has opened. */
+  const GROUP_OF: Partial<Record<string, keyof OpenGroups>> = {
+    bankAccount: "bankDetails",
+    tin: "taxSetup",
+    annualRent: "taxSetup",
+    pensionPin: "pensionSetup",
+  };
+
   function raise(found: FormError[]) {
     setErrors(found);
     const first = found[0];
-    if (first) focusField(first.field);
+    if (!first) return;
+    const group = GROUP_OF[first.field];
+    if (group) setOpen((o) => ({ ...o, [group]: true }));
+    /* One frame so a group that just opened has actually mounted its field
+       before focus lands on it — a synchronous focus here would miss it. */
+    requestAnimationFrame(() => focusField(first.field));
   }
 
   /** Continue. Validates the step in hand, then moves. */
@@ -586,7 +616,8 @@ export function NewEmployeeForm() {
     toast.push({
       title: "Draft saved",
       tone: "success",
-      detail: "In this browser only. It will not be here on another device.",
+      detail:
+        "Come back to Add a new staff to pick it up. In this browser only — it will not be here on another device.",
     });
   }
 

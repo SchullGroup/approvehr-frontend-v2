@@ -33,6 +33,7 @@ export function PasswordField({
   error,
   autoComplete,
   onEnter,
+  showRules = true,
 }: {
   label: string;
   value: string;
@@ -40,6 +41,13 @@ export function PasswordField({
   error?: string | undefined;
   autoComplete: "new-password" | "current-password";
   onEnter?: () => void;
+  /**
+   * Off for a password that already exists — signing in, or the "current
+   * password" half of a change — where a checklist against today's rules
+   * would flag a perfectly valid older password as failing them. On by
+   * default: every other caller is choosing a new one.
+   */
+  showRules?: boolean;
 }) {
   const [visible, setVisible] = useState(false);
   const [touched, setTouched] = useState(false);
@@ -84,7 +92,7 @@ export function PasswordField({
         </span>
       </div>
 
-      {touched && (
+      {showRules && touched && (
         <ul aria-live="polite" className="mt-0.5 flex flex-col gap-1.5">
           {shown.map((rule) => (
             <li

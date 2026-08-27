@@ -16,6 +16,7 @@ import {
   Spinner,
 } from "@/components/ui";
 import { Logo } from "@/components/brand/logo";
+import { PasswordField } from "@/app/(auth)/password-field";
 import { RoleBadge } from "./role-badge";
 import { ApiError } from "@/lib/api/client";
 import { signInOptions, useApiReachable, useSession } from "@/lib/store/session";
@@ -155,26 +156,17 @@ function SignIn() {
                   }}
                 />
               </Field>
-              <Field
+              <PasswordField
                 label="Password"
-                required
+                autoComplete="current-password"
+                showRules={false}
+                value={password}
+                onChange={setPassword}
                 error={error?.messageFor("password")}
-              >
-                <Input
-                  type="password"
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setPassword(v);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && email && password && !busy) {
-                      void submit();
-                    }
-                  }}
-                />
-              </Field>
+                onEnter={() => {
+                  if (email && password && !busy) void submit();
+                }}
+              />
 
               <Button
                 variant="accent"

@@ -13,11 +13,14 @@ import {
   UserRound,
 } from "lucide-react";
 import { ApiError } from "@/lib/api/client";
+import { passwordAccepted } from "@/lib/api/account";
+import { PasswordField } from "@/app/(auth)/password-field";
 import {
   Avatar,
   Badge,
   Button,
   ButtonLink,
+  Callout,
   Card,
   CardBody,
   CardHeader,
@@ -845,27 +848,36 @@ function SecurityCard({
       <CardBody className="flex flex-col gap-3">
         {changing ? (
           <>
-            <Field label="Current password" error={error?.message}>
-              <Input
-                type="password"
-                autoComplete="current-password"
-                value={current}
-                onChange={(e) => setCurrent(e.target.value)}
-              />
-            </Field>
-            <Field label="New password" help="At least 12 characters.">
-              <Input
-                type="password"
-                autoComplete="new-password"
-                value={next}
-                onChange={(e) => setNext(e.target.value)}
-              />
-            </Field>
+            {/* `currentPassword`/`newPassword` are the API's field names
+                (`changePasswordSchema`); a wrong-current-password or
+                already-your-password refusal carries no field at all, so it
+                needs the banner rather than being lost under a field nobody
+                is looking at. */}
+            {error && error.fieldErrors.length === 0 && (
+              <Callout tone="danger" title="That did not work">
+                {error.message}
+              </Callout>
+            )}
+            <PasswordField
+              label="Current password"
+              autoComplete="current-password"
+              showRules={false}
+              value={current}
+              onChange={setCurrent}
+              error={error?.messageFor("currentPassword")}
+            />
+            <PasswordField
+              label="New password"
+              autoComplete="new-password"
+              value={next}
+              onChange={setNext}
+              error={error?.messageFor("newPassword")}
+            />
             <div className="flex gap-2">
               <Button
                 variant="accent"
                 size="sm"
-                disabled={!current || next.length < 12 || busy !== null}
+                disabled={!current || !passwordAccepted(next) || busy !== null}
                 onClick={() => void changePassword()}
               >
                 {busy === "password" ? "Changing…" : "Change password"}
