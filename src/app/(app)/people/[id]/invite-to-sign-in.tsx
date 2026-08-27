@@ -14,7 +14,7 @@ import { ApiError } from "@/lib/api/client";
 import { invitesApi } from "@/lib/api/invites";
 import { permissionsApi } from "@/lib/api/permissions";
 import { DeliveryNote } from "@/components/portal/delivery-note";
-import type { SentInvite } from "@/lib/api/invites";
+import type { PendingInvite, SentInvite } from "@/lib/api/invites";
 
 /**
  * Giving one person a login, from their own record.
@@ -37,6 +37,24 @@ import type { SentInvite } from "@/lib/api/invites";
  * address **on the record**, so the record is the only thing that decides
  * where it lands. So this dialog states the address rather than offering it,
  * and a record without one is sent to the editor instead.
+ *
+ * ## Somebody already invited gets the two buttons, not a refusal
+ *
+ * The first version of this dialog only sent. Press it for somebody with an
+ * invitation already outstanding and the API answers *"They have already been
+ * invited. Resend or revoke that invitation instead."* — a correct refusal
+ * naming two actions the dialog did not offer, leaving nothing to do but press
+ * the same button again.
+ *
+ * That is the failure this codebase already has a rule about: a button that
+ * returns "that is refused" was a design failure two clicks earlier. So the
+ * dialog reads the pending invitations **as it opens**, beside the roles it was
+ * already fetching, and renders whichever of the two states is true. Resend and
+ * revoke are the actions the API named; now they are the actions on screen.
+ *
+ * Reading up front rather than reacting to the refusal is the deliberate half.
+ * It costs one request the dialog was already parallelising, and it means the
+ * screen is never briefly wrong about what pressing the button will do.
  */
 export function InviteToSignIn({
   employeeId,
@@ -57,24 +75,53 @@ export function InviteToSignIn({
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
   const [sent, setSent] = useState<SentInvite | null>(null);
+  /**
+   * The invitation already outstanding for this person.
+   *
+   * `undefined` while the list is still being read, `null` once it is known
+   * there is none. The distinction is the whole reason it is not a boolean:
+   * rendering "Send the invitation" during the read and swapping it for
+   * "Resend" a moment later is a button that changes meaning under the cursor.
+   */
+  const [pending, setPending] = useState<PendingInvite | null | undefined>(
+    undefined,
+  );
+  const [revoked, setRevoked] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
     void (async () => {
-      try {
-        const list = await permissionsApi.roles(controller.signal);
-        if (controller.signal.aborted) return;
+      /* Both reads together — the dialog cannot render until it knows the roles
+         anyway, so the invitation costs no extra wait. `allSettled` because a
+         failed invitation read must not cost somebody the ability to send one:
+         the API still refuses a duplicate, and that refusal is still shown. */
+      const [roleResult, inviteResult] = await Promise.allSettled([
+        permissionsApi.roles(controller.signal),
+        invitesApi.list({ pageSize: 200 }, controller.signal),
+      ]);
+      if (controller.signal.aborted) return;
+
+      if (roleResult.status === "fulfilled") {
+        const list = roleResult.value;
         setRoles(list.roles.map((role) => ({ id: role.id, name: role.name })));
         /* Employee is the answer for almost everybody being given a login for
            the first time, so it is offered rather than a blank picker. */
         const staff = list.roles.find((role) => role.name === "Employee");
         setRoleId(staff?.id ?? list.roles[0]?.id ?? "");
-      } catch {
-        if (!controller.signal.aborted) setRoles([]);
+      } else {
+        setRoles([]);
       }
+
+      setPending(
+        inviteResult.status === "fulfilled"
+          ? (inviteResult.value.data.find(
+              (row) => row.employeeId === employeeId,
+            ) ?? null)
+          : null,
+      );
     })();
     return () => controller.abort();
-  }, []);
+  }, [employeeId]);
 
   const send = async () => {
     setBusy(true);
@@ -86,6 +133,50 @@ export function InviteToSignIn({
         caught instanceof ApiError
           ? caught.message
           : "That did not send. Try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const resend = async () => {
+    if (!pending) return;
+    setBusy(true);
+    setFailed(null);
+    try {
+      setSent(await invitesApi.resend(pending.userId));
+    } catch (caught) {
+      setFailed(
+        caught instanceof ApiError
+          ? caught.message
+          : "That did not send. Try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /**
+   * Cancel the outstanding invitation.
+   *
+   * Leaves the dialog on the ordinary send form rather than closing, because
+   * revoking is almost never the end of the job — it is what somebody does
+   * when the address was wrong, and the next thing they want is to fix the
+   * record and invite again. `revoked` is what says so on screen.
+   */
+  const revoke = async () => {
+    if (!pending) return;
+    setBusy(true);
+    setFailed(null);
+    try {
+      await invitesApi.revoke(pending.userId);
+      setPending(null);
+      setRevoked(true);
+    } catch (caught) {
+      setFailed(
+        caught instanceof ApiError
+          ? caught.message
+          : "That did not cancel. Try again.",
       );
     } finally {
       setBusy(false);
@@ -141,20 +232,43 @@ export function InviteToSignIn({
     <Modal
       open
       onClose={onClose}
-      title={`Give ${name} a login`}
+      title={pending ? `${name} has been invited` : `Give ${name} a login`}
       footer={
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose} disabled={busy}>
-            Cancel
-          </Button>
-          <Button
-            variant="accent"
-            loading={busy}
-            disabled={busy || !roleId}
-            onClick={() => void send()}
-          >
-            Send the invitation
-          </Button>
+        /* Revoke sits on the left, away from the action somebody came to
+           perform. It is the destructive half of this dialog and the two must
+           not be adjacent. */
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {pending ? (
+            <Button variant="ghost" disabled={busy} onClick={() => void revoke()}>
+              Cancel the invitation
+            </Button>
+          ) : (
+            <span />
+          )}
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={onClose} disabled={busy}>
+              Close
+            </Button>
+            {pending === undefined ? null : pending ? (
+              <Button
+                variant="accent"
+                loading={busy}
+                disabled={busy}
+                onClick={() => void resend()}
+              >
+                Send it again
+              </Button>
+            ) : (
+              <Button
+                variant="accent"
+                loading={busy}
+                disabled={busy || !roleId}
+                onClick={() => void send()}
+              >
+                Send the invitation
+              </Button>
+            )}
+          </div>
         </div>
       }
     >
@@ -168,12 +282,60 @@ export function InviteToSignIn({
           </p>
         )}
 
-        <p className="text-body-sm leading-relaxed text-body">
-          Sent to <span className="font-medium text-ink">{email}</span>, which
-          is the address on their record. Change it there if it is wrong.
-        </p>
+        {revoked && (
+          <Callout tone="info" title="That invitation is cancelled">
+            The old link no longer works. If the address was wrong, fix it on
+            their record first — an invitation always goes to the address on
+            file.
+          </Callout>
+        )}
 
-        {roles === null ? (
+        {pending === undefined ? (
+          <span className="flex items-center gap-2 text-body-sm text-muted">
+            <Spinner size="sm" />
+            Checking whether they have already been invited
+          </span>
+        ) : pending ? (
+          /* The state that used to arrive as a refusal after a failed click.
+             It names the address the invitation actually went to — which is
+             the one on the record at the time, and may no longer be the one
+             shown on the record now. */
+          <div className="flex flex-col gap-2">
+            <p className="text-body-sm leading-relaxed text-body">
+              An invitation went to{" "}
+              <span className="font-medium text-ink">{pending.email}</span> on{" "}
+              {new Date(pending.invitedAt).toLocaleDateString("en-GB", {
+                day: "numeric",
+                month: "long",
+              })}
+              , and they have not set a password yet.
+            </p>
+            {pending.expired && (
+              <Callout tone="warning" title="That link has expired">
+                Sending it again issues a fresh one.
+              </Callout>
+            )}
+            {pending.email !== email && email && (
+              /* The record has moved on since the invitation went out. This is
+                 exactly the case somebody hits when they came here to correct
+                 an address, so it says which button does what rather than
+                 leaving them to guess. */
+              <Callout tone="warning" title="Their record says something else">
+                The record now reads{" "}
+                <span className="font-medium">{email}</span>. Sending it again
+                still goes to {pending.email} — cancel the invitation and send a
+                new one to use the address on the record.
+              </Callout>
+            )}
+          </div>
+        ) : (
+          <p className="text-body-sm leading-relaxed text-body">
+            Sent to <span className="font-medium text-ink">{email}</span>, which
+            is the address on their record. Change it there if it is wrong.
+          </p>
+        )}
+
+        {pending ? null : roles === null ? (
           <span className="flex items-center gap-2 text-body-sm text-muted">
             <Spinner size="sm" />
             Reading the roles

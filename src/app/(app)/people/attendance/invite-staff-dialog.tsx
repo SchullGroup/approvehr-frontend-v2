@@ -18,6 +18,20 @@ export type InviteCandidate = {
   employeeId: string;
   name: string;
   jobTitle: string | null;
+  /**
+   * The address already on their record — from the import, or from whoever
+   * added them.
+   *
+   * Carried so ticking somebody fills the box rather than presenting an empty
+   * one. It had been dropped when the directory row was mapped, so a company
+   * that imported three hundred staff **with** their emails was asked to type
+   * all three hundred again to give them logins. The data was already there;
+   * only this mapper had thrown it away.
+   *
+   * Null is a real state and stays editable — somebody genuinely has no address
+   * on file, and that is the case this box was built for.
+   */
+  email: string | null;
 };
 
 export type InviteRoleOption = { id: string; name: string };
@@ -309,10 +323,13 @@ export function InviteStaffDialog({
                       : {})}
                     checked={picked}
                     disabled={busy}
+                    /* Seeded from their record, not blank. Still editable —
+                       the address on file may be personal where a work one is
+                       wanted, and this is the moment somebody would fix it. */
                     onChange={() =>
                       picked
                         ? remove(person.employeeId)
-                        : setEmail(person.employeeId, "")
+                        : setEmail(person.employeeId, person.email ?? "")
                     }
                   />
                   {picked && (

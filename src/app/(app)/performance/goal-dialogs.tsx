@@ -11,12 +11,17 @@ import {
   Textarea,
 } from "@/components/ui";
 import {
+  SuggestButton,
+  SuggestionPanel,
+} from "@/components/performance/suggestions";
+import {
   currentQuarter,
   parseMeasure,
   type CreateGoalBody,
   type CreateKeyResultBody,
 } from "@/lib/api/performance";
 import { useCan } from "@/lib/permissions";
+import { useObjectiveSuggestions } from "@/lib/store/ai";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { useSession } from "@/lib/store/session";
 import { TODAY } from "@/lib/today";
@@ -87,6 +92,17 @@ export function NewKpiDialog({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  /**
+   * Suggestions, only under a parent.
+   *
+   * A KPI with no parent has nothing to be suggested *from* — this is the
+   * "turn the company goal into something my team can be held to" case, and
+   * the parent goal is the whole of the grounding. Offering the button on a
+   * top-level KPI would be offering to invent a company's objectives, which is
+   * not a blank page anybody should have filled for them.
+   */
+  const suggestions = useObjectiveSuggestions();
+
   const submit = async () => {
     if (title.trim().length < 3) {
       setError("Give it a title of at least three characters.");
@@ -139,6 +155,36 @@ export function NewKpiDialog({
             placeholder="Fill the two Lagos engineering roles"
           />
         </Field>
+
+        {/* Under the field it fills, not above it: the blank page is the thing
+            being helped with, and a suggestion panel above the input would read
+            as the primary way to write a KPI. Typing it yourself is. */}
+        {parentId && (
+          <div className="flex flex-col gap-3">
+            <SuggestButton
+              loading={suggestions.loading}
+              label="Suggest objectives under this goal"
+              onClick={() => void suggestions.ask({ goalId: parentId })}
+            />
+            <SuggestionPanel
+              state={suggestions}
+              onDismiss={suggestions.clear}
+              useLabel="Use this"
+              emptyHint="Edit it before you save."
+              /* The only path from a suggestion into the form, and it lands in
+                 the editable fields rather than in the create call. Measures
+                 are shown on the suggestion and deliberately not applied —
+                 this dialog cannot create one (`AddMeasureDialog` does), and
+                 silently dropping them would be worse than showing them as the
+                 next thing to add. */
+              onUse={(suggestion) => {
+                setTitle(suggestion.title);
+                if (suggestion.detail) setDescription(suggestion.detail);
+                setError(null);
+              }}
+            />
+          </div>
+        )}
 
         <Field label="Whose KPI is this" required>
           <Select

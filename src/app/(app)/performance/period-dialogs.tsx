@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil, Trash2 } from "lucide-react";
+import { Copy, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
   Badge,
@@ -22,7 +22,7 @@ import type {
   ReviewQuestionKind,
   UpdateQuestionBody,
 } from "@/lib/api/performance";
-import { useCycleQuestions } from "@/lib/store/performance";
+import { useAppraisals, useCycleQuestions } from "@/lib/store/performance";
 
 /** Who a question is put to. `REPORT` exists in the enum and nothing reaches it. */
 const AUDIENCES: { value: ReviewAudience; label: string }[] = [
@@ -67,6 +67,7 @@ export function QuestionsDialog({
   onAdd,
   onUpdate,
   onRemove,
+  onCopyFrom,
 }: {
   cycleId: string;
   periodName: string;
@@ -74,6 +75,8 @@ export function QuestionsDialog({
   onAdd: (body: CreateQuestionBody) => Promise<void>;
   onUpdate: (id: string, body: UpdateQuestionBody) => Promise<void>;
   onRemove: (id: string) => Promise<void>;
+  /** Absent on a period that has started — copying is refused there anyway. */
+  onCopyFrom?: (sourceCycleId: string) => Promise<{ copied: number }>;
 }) {
   const { questions, loading, reload } = useCycleQuestions(cycleId);
 
@@ -153,6 +156,24 @@ export function QuestionsDialog({
     }
   };
 
+  const copyFrom = async (sourceCycleId: string) => {
+    if (!onCopyFrom) return;
+    setError(null);
+    setSaving(true);
+    try {
+      await onCopyFrom(sourceCycleId);
+      reload();
+    } catch (caught) {
+      setError(
+        caught instanceof ApiError
+          ? caught.message
+          : "Could not copy those questions.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <Modal
       open
@@ -168,7 +189,16 @@ export function QuestionsDialog({
             <Spinner size="sm" />
             Loading the form
           </span>
-        ) : questions.length === 0 ? null : (
+        ) : questions.length === 0 ? (
+          /* The blank page this whole feature exists for. Offered **only** while
+             the form is empty: the API refuses a copy onto a period that already
+             has questions, and a button that returns "that is refused" was a
+             design failure two clicks earlier.
+
+             Nothing is shared — the questions arrive as this period's own rows,
+             so editing one here does not touch the period it came from. */
+          onCopyFrom && <CopyFromPeriod cycleId={cycleId} busy={saving} onCopy={copyFrom} />
+        ) : (
           <ul className="flex flex-col gap-2">
             {questions.map((question) => (
               <li
@@ -296,5 +326,95 @@ export function QuestionsDialog({
         </div>
       </div>
     </Modal>
+  );
+}
+
+/**
+ * "Start from a previous period."
+ *
+ * The single biggest reason an appraisal period sits unstarted: somebody has to
+ * write eight questions from a blank page, every half, and the questions barely
+ * change between halves. This is one click and a picker.
+ *
+ * ## Only periods that have questions are offered
+ *
+ * A period with an empty form is not a template, and offering one produces a
+ * copy of nothing followed by the same blank page. The list is filtered on
+ * `questionCount` rather than the API refusing it afterwards, because the
+ * refusal would arrive after the choice.
+ *
+ * ## And the period being edited is never in its own list
+ *
+ * Copying a period onto itself is refused by the API and would be a confusing
+ * thing to offer even if it were not.
+ */
+function CopyFromPeriod({
+  cycleId,
+  busy,
+  onCopy,
+}: {
+  cycleId: string;
+  busy: boolean;
+  onCopy: (sourceCycleId: string) => Promise<void>;
+}) {
+  const appraisals = useAppraisals();
+  const [chosen, setChosen] = useState("");
+
+  const sources = appraisals.cycles.filter(
+    (cycle) => cycle.id !== cycleId && cycle.questionCount > 0,
+  );
+
+  if (appraisals.loading) {
+    return (
+      <span className="flex items-center gap-2 text-body-sm text-muted">
+        <Spinner size="sm" />
+        Looking for a period to copy from
+      </span>
+    );
+  }
+
+  /* Absent, not disabled. A company running its first period has nothing to
+     copy from and does not need to be told about a feature it cannot use. */
+  if (sources.length === 0) return null;
+
+  return (
+    <div className="flex flex-col gap-3 rounded-md border border-line bg-canvas p-3">
+      <span>
+        <span className="block text-body-sm font-medium text-ink">
+          Start from a previous period
+        </span>
+        <span className="mt-0.5 block text-meta text-muted">
+          Copies its questions onto this one. They become this period&rsquo;s
+          own — editing them here changes nothing about the period they came
+          from.
+        </span>
+      </span>
+      <div className="flex flex-wrap items-end gap-2">
+        <Field label="Copy from">
+          <Select
+            value={chosen}
+            disabled={busy}
+            onChange={(event) => setChosen(event.target.value)}
+          >
+            <option value="">Pick a period</option>
+            {sources.map((cycle) => (
+              <option key={cycle.id} value={cycle.id}>
+                {cycle.name} · {cycle.questionCount} question
+                {cycle.questionCount === 1 ? "" : "s"}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Button
+          variant="secondary"
+          loading={busy}
+          disabled={busy || !chosen}
+          onClick={() => void onCopy(chosen)}
+        >
+          <Copy aria-hidden="true" className="size-3.5" />
+          Copy them over
+        </Button>
+      </div>
+    </div>
   );
 }

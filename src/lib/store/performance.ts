@@ -2327,11 +2327,64 @@ export function useCycleMutations() {
     editable: isConnected,
 
     createCycle: useCallback(
-      async (name: string, dueDate?: string) => {
+      async (
+        name: string,
+        dueDate?: string,
+        /** Scope and reminder. Both optional, both read at activation. */
+        options?: { departmentIds?: string[]; remindDaysBefore?: number },
+      ) => {
         guard("Creating an appraisal period needs the API.");
-        return performanceApi.createCycle(
-          dueDate === undefined ? { name } : { name, dueDate },
-        );
+        return performanceApi.createCycle({
+          name,
+          ...(dueDate === undefined ? {} : { dueDate }),
+          ...(options?.departmentIds?.length
+            ? { departmentIds: options.departmentIds }
+            : {}),
+          ...(options?.remindDaysBefore
+            ? { remindDaysBefore: options.remindDaysBefore }
+            : {}),
+        });
+      },
+      [guard],
+    ),
+
+    /**
+     * Start a draft period's form from another period's.
+     *
+     * The reason periods stall: somebody writes eight questions from nothing,
+     * every half, and they barely change. Refused once a period has started and
+     * once it already has questions — both the API's own sentences.
+     */
+    copyQuestions: useCallback(
+      async (cycleId: string, sourceCycleId: string) => {
+        guard("Copying questions needs the API.");
+        return performanceApi.copyQuestions(cycleId, sourceCycleId);
+      },
+      [guard],
+    ),
+
+    /**
+     * Move one person's mark, with a reason.
+     *
+     * A row, not an edit — the computed figure survives beside it, which is the
+     * only reason "why is this different" has an answer later.
+     */
+    calibrate: useCallback(
+      async (
+        cycleId: string,
+        employeeId: string,
+        body: { calibratedBp: number; reason: string },
+      ) => {
+        guard("Moving a mark needs the API.");
+        return performanceApi.calibrate(cycleId, employeeId, body);
+      },
+      [guard],
+    ),
+
+    clearCalibration: useCallback(
+      async (cycleId: string, employeeId: string) => {
+        guard("Putting a mark back needs the API.");
+        return performanceApi.clearCalibration(cycleId, employeeId);
       },
       [guard],
     ),
