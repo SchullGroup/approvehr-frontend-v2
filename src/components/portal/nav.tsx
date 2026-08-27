@@ -1,6 +1,5 @@
 import {
   Banknote,
-  Bell,
   BookOpen,
   BriefcaseBusiness,
   Building2,
@@ -13,7 +12,6 @@ import {
   Clock,
   CreditCard,
   DoorOpen,
-  FileBadge,
   FileSignature,
   FileText,
   FileUp,
@@ -31,7 +29,6 @@ import {
   SlidersHorizontal,
   Target,
   Timer,
-  UserRound,
   UserRoundPlus,
   Users,
 } from "lucide-react";
