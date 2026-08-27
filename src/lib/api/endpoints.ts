@@ -49,6 +49,15 @@ export type ApiUser = {
    * it is not the same as being an employee.
    */
   roles: { id: string; name: string }[];
+  /**
+   * When this person finished or skipped the guided tour, or `null`.
+   *
+   * Absence is what makes the tour appear, the same way
+   * `OrgFeatures.setupCompletedAt` being null is what routes a new company
+   * into setup. Per person rather than per company: a teammate invited six
+   * months later has not seen it either.
+   */
+  tourDismissedAt: string | null;
 };
 
 export const auth = {
@@ -97,6 +106,12 @@ export const auth = {
     request<void>("/auth/change-password", {
       method: "POST",
       body: { currentPassword, newPassword },
+    }),
+
+  /** Finished or skipped — both count as shown. Idempotent on the API. */
+  dismissTour: () =>
+    request<{ tourDismissedAt: string }>("/auth/tour/dismiss", {
+      method: "POST",
     }),
 };
 
