@@ -2,13 +2,14 @@
 
 import { useCallback, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Check, Lock } from "lucide-react";
+import { ArrowLeft, Check, Lock, MapPin } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
   Button,
   ButtonLink,
   Callout,
   Field,
+  Input,
   ProgressMeter,
   Select,
   Skeleton,
@@ -23,6 +24,8 @@ import type {
 import { MODULE_FEATURE_KEYS } from "@/lib/api/setup";
 import { NIGERIAN_STATES } from "@/lib/reference/lists";
 import { useOrgTaxState } from "@/lib/store/company";
+import { useWorkLocations } from "@/lib/store/work-locations";
+import { PositionError, readPosition, type PositionFix } from "@/lib/geolocation";
 import {
   FEATURE_COPY,
   useFeatures,
@@ -81,6 +84,7 @@ export function SetupWizard() {
   const wizard = useWizard();
   const features = useFeatures();
   const orgTax = useOrgTaxState();
+  const offices = useWorkLocations();
   const toast = useToast();
 
   /**
@@ -113,6 +117,19 @@ export function SetupWizard() {
   const [taxStateChoice, setTaxStateChoice] = useState("");
   const [savingTaxState, setSavingTaxState] = useState(false);
   const [taxStateError, setTaxStateError] = useState<string | null>(null);
+  /**
+   * Same shape as the tax-state prompt above, for the same reason: turning
+   * attendance on raises a question that has to be answered *here*, because
+   * a clock-in with nowhere to clock in to is a feature that looks switched
+   * on and does nothing. The company's first office is that answer.
+   */
+  const [awaitingOffice, setAwaitingOffice] = useState(false);
+  const [officeName, setOfficeName] = useState("Head office");
+  const [officeAddress, setOfficeAddress] = useState("");
+  const [officeFix, setOfficeFix] = useState<PositionFix | null>(null);
+  const [locating, setLocating] = useState(false);
+  const [savingOffice, setSavingOffice] = useState(false);
+  const [officeError, setOfficeError] = useState<string | null>(null);
 
   const total = wizard.questions.length;
   /* `step` counts answers and is 1-based, so it is already the index of the
@@ -155,6 +172,16 @@ export function SetupWizard() {
         setTaxStateChoice("");
         setTaxStateError(null);
         setAwaitingTaxState(true);
+      } else if (
+        question.id === "attendance" &&
+        option.sets.attendance === true &&
+        offices.locations.length === 0
+      ) {
+        /* Only when they have no office on file. A company coming back to
+           change this answer already has somewhere to clock in, and asking
+           again would create a second one. */
+        setOfficeError(null);
+        setAwaitingOffice(true);
       } else {
         await advance();
       }
@@ -184,6 +211,70 @@ export function SetupWizard() {
     }
     setAwaitingTaxState(false);
     await advance();
+  };
+
+  /**
+   * Capture where the office is from the browser, rather than asking for
+   * latitude.
+   *
+   * There is no geocoding in this product — no maps key, no places API — so
+   * an address cannot be turned into coordinates. What is available is the
+   * device's own position, and the person setting a company up is very often
+   * sitting in the office they are describing. One tap beats reading two
+   * six-decimal numbers off a maps app, which is what the settings screen
+   * has to ask for later.
+   *
+   * Entirely optional. Without it the office is still created and staff can
+   * still clock in; what is missing is only the check on *where* from.
+   */
+  const captureOfficeLocation = async () => {
+    setLocating(true);
+    setOfficeError(null);
+    try {
+      setOfficeFix(await readPosition());
+    } catch (error) {
+      setOfficeFix(null);
+      setOfficeError(
+        error instanceof PositionError
+          ? error.message
+          : "Your browser would not say where you are. You can set this later in Settings.",
+      );
+    } finally {
+      setLocating(false);
+    }
+  };
+
+  const confirmOffice = async () => {
+    if (!officeName.trim()) return;
+    setSavingOffice(true);
+    setOfficeError(null);
+    try {
+      await offices.create({
+        name: officeName.trim(),
+        ...(officeAddress.trim() ? { addressLine: officeAddress.trim() } : {}),
+        /* All three together or none — the API refuses a half-built fence,
+           and `readPosition` gives both coordinates at once. 150m covers a
+           building and its car park, which is the settings screen's own
+           guidance for a first radius. */
+        ...(officeFix
+          ? {
+              latitude: officeFix.latitude,
+              longitude: officeFix.longitude,
+              radiusMetres: 150,
+            }
+          : {}),
+      });
+      setAwaitingOffice(false);
+      await advance();
+    } catch (error) {
+      setOfficeError(
+        error instanceof ApiError
+          ? error.message
+          : "That could not be saved. Try again.",
+      );
+    } finally {
+      setSavingOffice(false);
+    }
   };
 
   /* ------------------------------------------------------------ loading */
@@ -309,7 +400,7 @@ export function SetupWizard() {
             key={option.value}
             option={option}
             busy={busy === option.value}
-            disabled={busy !== null || finishing || awaitingTaxState}
+            disabled={busy !== null || finishing || awaitingTaxState || awaitingOffice}
             onSelect={() => void choose(question, option)}
           />
         ))}
@@ -350,7 +441,97 @@ export function SetupWizard() {
         </div>
       )}
 
-      {index > 0 && !awaitingTaxState && (
+      {awaitingOffice && (
+        <div className="mt-6 flex flex-col gap-4 rounded-lg border border-accent-line bg-accent-soft p-5">
+          <div>
+            <p className="text-body font-semibold text-ink">
+              Where do people clock in?
+            </p>
+            <p className="mt-1 text-body-sm leading-relaxed text-body">
+              Staff pick a place when they clock in, so there has to be at
+              least one. You can add branches later.
+            </p>
+          </div>
+
+          <Field label="What it is called" required>
+            <Input
+              value={officeName}
+              disabled={savingOffice}
+              placeholder="Head office"
+              onChange={(e) => setOfficeName(e.target.value)}
+            />
+          </Field>
+
+          <Field label="Address" optional help="For the record. It appears on the clock-in screen.">
+            <Input
+              value={officeAddress}
+              disabled={savingOffice}
+              placeholder="12 Allen Avenue, Ikeja, Lagos"
+              onChange={(e) => setOfficeAddress(e.target.value)}
+            />
+          </Field>
+
+          {/* The geofence, offered rather than demanded. An address cannot be
+              turned into coordinates — there is no geocoding here — but the
+              browser knows where this device is, and whoever is setting the
+              company up is usually sitting in the office they are describing. */}
+          <div className="rounded-md border border-line bg-surface p-4">
+            {officeFix ? (
+              <p className="text-body-sm text-ink">
+                Clock-ins will be checked against this spot, within 150m.{" "}
+                <button
+                  type="button"
+                  className="text-accent-text underline-offset-2 hover:underline"
+                  onClick={() => setOfficeFix(null)}
+                >
+                  Undo
+                </button>
+              </p>
+            ) : (
+              <>
+                <p className="text-body-sm leading-relaxed text-body">
+                  If you are at the office now, ApproveHR can record where it
+                  is, and then only accept clock-ins from nearby.
+                </p>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="mt-3"
+                  loading={locating}
+                  disabled={savingOffice}
+                  onClick={() => void captureOfficeLocation()}
+                >
+                  <MapPin aria-hidden="true" className="size-3.5" />
+                  Use my current location
+                </Button>
+              </>
+            )}
+          </div>
+
+          {officeError && (
+            <p
+              role="status"
+              className="rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-body-sm text-ink"
+            >
+              {officeError}
+            </p>
+          )}
+
+          <div>
+            <Button
+              variant="accent"
+              size="sm"
+              loading={savingOffice}
+              disabled={!officeName.trim()}
+              onClick={() => void confirmOffice()}
+            >
+              Continue
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {index > 0 && !awaitingTaxState && !awaitingOffice && (
         <div className="mt-7 border-t border-line pt-5">
           <Button
             variant="ghost"
