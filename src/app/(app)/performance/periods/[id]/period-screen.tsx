@@ -277,7 +277,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
             <Card>
               <CardHeader
                 title="Set it up, then start it"
-                description="Nobody has been asked anything yet. Starting it writes one form for every employee and tells them all in the app."
+                description="Nobody is asked anything until you start it. Add your own questions on top of the four competency groups, which are asked either way — once it has started the form is fixed."
                 action={
                   <Badge
                     tone={period.questionCount > 0 ? "neutral" : "warning"}
@@ -291,14 +291,6 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 }
               />
               <CardBody className="flex flex-col gap-3">
-                <p className="text-body-sm leading-relaxed text-body">
-                  The four groups of competencies are asked either way. These
-                  questions are what you want people to answer in their own
-                  words, or mark out of five, on top of them. Add them now —
-                  once the period has started the form is fixed, because
-                  changing a question people have already answered changes what
-                  they answered.
-                </p>
                 <div className="flex flex-wrap gap-2">
                   <Button size="sm" onClick={() => setQuestionsOpen(true)}>
                     Write the questions
@@ -314,12 +306,6 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                     Start the period
                   </Button>
                 </div>
-                {period.questionCount === 0 && (
-                  <p className="text-meta text-muted">
-                    A form with no questions asks nobody anything, so it cannot
-                    be started yet.
-                  </p>
-                )}
               </CardBody>
             </Card>
           )}

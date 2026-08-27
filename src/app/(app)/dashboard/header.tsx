@@ -27,11 +27,7 @@ function greeting(hour: number): string {
   return "Good evening";
 }
 
-export function DashboardHeader({
-  action,
-}: {
-  action?: React.ReactNode;
-}) {
+export function DashboardHeader({ action }: { action?: React.ReactNode }) {
   const { displayName } = useSession();
   const firstName = displayName?.split(" ")[0];
   const hello = greeting(new Date().getHours());

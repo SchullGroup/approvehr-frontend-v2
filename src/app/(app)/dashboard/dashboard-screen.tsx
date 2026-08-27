@@ -21,6 +21,7 @@ import {
 import { PageBody } from "@/components/portal/shell";
 import { DashboardHeader } from "./header";
 import { AnnouncementsPanel } from "./announcements-panel";
+import { QuickActions } from "./quick-actions";
 import { useDashboard } from "@/lib/store/insights";
 import { StartPeriodButton } from "@/app/(app)/performance";
 import { naira, runStatusLabel } from "@/lib/api/insights";
@@ -99,8 +100,7 @@ export function DashboardScreen() {
           <Card>
             <CardBody className="flex flex-col items-start gap-3">
               <p className="text-body text-ink">
-                {error ??
-                  "Your dashboard did not load. Try again in a moment."}
+                {error ?? "Your dashboard did not load. Try again in a moment."}
               </p>
               <button
                 type="button"
@@ -116,8 +116,16 @@ export function DashboardScreen() {
     );
   }
 
-  const { headcount, approvals, today, announcements, exits, hiring, payroll, money } =
-    data;
+  const {
+    headcount,
+    approvals,
+    today,
+    announcements,
+    exits,
+    hiring,
+    payroll,
+    money,
+  } = data;
 
   /* An exit with nothing outstanding needs nobody, so it earns no row — "Needs
      you" says every line on it is one click from being dealt with, and a row
@@ -248,6 +256,11 @@ export function DashboardScreen() {
           </Card>
         )}
 
+        {/* Routine starts, under the urgent queue and above everything that
+            only reports. Reading is not acting, and the rest of this screen
+            reports. */}
+        <QuickActions />
+
         {/* ---- The noticeboard. Renders nothing when nothing is up ------- */}
         <AnnouncementsPanel board={announcements} />
 
@@ -262,7 +275,11 @@ export function DashboardScreen() {
                     <p className="text-body text-body">
                       No run has been prepared for this month yet.
                     </p>
-                    <ButtonLink href="/payroll/runs/new" variant="accent" size="sm">
+                    <ButtonLink
+                      href="/payroll/runs/new"
+                      variant="accent"
+                      size="sm"
+                    >
                       Start this month&rsquo;s payroll
                       <ArrowRight aria-hidden="true" className="size-4" />
                     </ButtonLink>
@@ -270,9 +287,15 @@ export function DashboardScreen() {
                 ) : (
                   <div className="flex flex-col gap-4">
                     <div className="flex flex-wrap items-baseline gap-3">
-                      <Money amount={naira(payroll.netKobo)} decimals className="text-h2" />
+                      <Money
+                        amount={naira(payroll.netKobo)}
+                        decimals
+                        className="text-h2"
+                      />
                       <Badge
-                        tone={payroll.status === "APPROVED" ? "success" : "neutral"}
+                        tone={
+                          payroll.status === "APPROVED" ? "success" : "neutral"
+                        }
                         size="sm"
                       >
                         {runStatusLabel(payroll.status)}
@@ -288,20 +311,24 @@ export function DashboardScreen() {
                       {payroll.excludedCount > 0
                         ? ` of ${payroll.employeeCount + payroll.excludedCount}`
                         : ""}{" "}
-                      · gross <Money amount={naira(payroll.grossKobo)} decimals />
+                      · gross{" "}
+                      <Money amount={naira(payroll.grossKobo)} decimals />
                     </p>
                     {payroll.excludedCount > 0 && (
                       <p className="text-body-sm text-warning-text">
                         {payroll.excludedCount}{" "}
-                        {payroll.excludedCount === 1 ? "person is" : "people are"}{" "}
-                        deliberately not on this payroll, with the reason recorded
+                        {payroll.excludedCount === 1
+                          ? "person is"
+                          : "people are"}{" "}
+                        deliberately not on this payroll, with the reason
+                        recorded
                       </p>
                     )}
                     {payroll.warnings > 0 && (
                       <p className="text-body-sm text-warning-text">
                         {payroll.warnings}{" "}
-                        {payroll.warnings === 1 ? "thing" : "things"} worth checking
-                        before you approve
+                        {payroll.warnings === 1 ? "thing" : "things"} worth
+                        checking before you approve
                       </p>
                     )}
                     <ButtonLink href="/payroll" variant="secondary" size="sm">
@@ -318,13 +345,19 @@ export function DashboardScreen() {
             <Card>
               <CardHeader title="Hiring" level={3} />
               <CardBody className="grid grid-cols-2 gap-4">
-                <Figure label="In the pipeline" value={hiring.candidatesInPlay} />
+                <Figure
+                  label="In the pipeline"
+                  value={hiring.candidatesInPlay}
+                />
                 <Figure
                   label="Stalled a week or more"
                   value={hiring.stalledSevenDays}
                   warn={hiring.stalledSevenDays > 0}
                 />
-                <Figure label="Interviews this week" value={hiring.interviewsNextSevenDays} />
+                <Figure
+                  label="Interviews this week"
+                  value={hiring.interviewsNextSevenDays}
+                />
                 <Figure label="Offers out" value={hiring.offersOut} />
               </CardBody>
             </Card>
@@ -410,11 +443,7 @@ function Figure({
 }) {
   return (
     <div>
-      <p
-        className={
-          warn ? "text-h3 text-warning-text" : "text-h3 text-ink"
-        }
-      >
+      <p className={warn ? "text-h3 text-warning-text" : "text-h3 text-ink"}>
         {value.toLocaleString()}
       </p>
       <p className="mt-0.5 text-body-sm text-muted">{label}</p>
