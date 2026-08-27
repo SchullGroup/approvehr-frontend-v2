@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { company as api } from "@/lib/api/endpoints";
+import { ApiError } from "@/lib/api/client";
 import { createPersistedState } from "./persisted";
 import { useSession } from "./session";
 
@@ -571,4 +572,82 @@ export function useOrgTaxState() {
   );
 
   return { taxState, loading, saving, setTaxState };
+}
+
+/**
+ * The company's logo, which is a real API field rather than a demo one.
+ *
+ * Shaped on `useOrgTaxState` above, including its retry: this screen fires
+ * several concurrent `company/profile` reads and one can lose a race with a
+ * token refresh, and reporting that as "no logo" would make an administrator
+ * think theirs had been lost.
+ *
+ * The file never leaves the browser as a file. It is read to a `data:` URI
+ * here and travels as one — see `Organization.logoUrl` for why a logo is the
+ * one file in this product that lives in Postgres, and
+ * `updateProfileSchema` for what the API will accept.
+ */
+export function useCompanyLogo() {
+  const { isConnected } = useSession();
+
+  const [remote, setRemote] = useState<{ logoUrl: string | null } | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!isConnected) return;
+    let cancelled = false;
+
+    async function load() {
+      for (let attempt = 0; attempt < 3 && !cancelled; attempt++) {
+        try {
+          const profile = await api.profile();
+          if (!cancelled) setRemote({ logoUrl: profile.logoUrl });
+          return;
+        } catch {
+          if (attempt < 2) await new Promise((r) => setTimeout(r, 400));
+        }
+      }
+      if (!cancelled) setRemote({ logoUrl: null });
+    }
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isConnected]);
+
+  /**
+   * `null` clears the logo; a data URI sets it. Throws the API's own refusal
+   * so the caller can render it — the messages name the actual problem
+   * ("that is not an image file we can put on a payslip"), which is more use
+   * than anything this side could compose.
+   */
+  const save = useCallback(
+    async (logoUrl: string | null): Promise<void> => {
+      if (!isConnected) {
+        throw new ApiError(
+          0,
+          "offline",
+          "Saving a logo needs the API. A logo kept in this browser would " +
+            "never reach a payslip anybody else opens.",
+        );
+      }
+      setSaving(true);
+      try {
+        const profile = await api.updateProfile({ logoUrl });
+        setRemote({ logoUrl: profile.logoUrl });
+      } finally {
+        setSaving(false);
+      }
+    },
+    [isConnected],
+  );
+
+  return {
+    logoUrl: remote?.logoUrl ?? null,
+    loading: isConnected && remote === null,
+    saving,
+    available: isConnected,
+    save,
+  };
 }

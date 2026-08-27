@@ -677,6 +677,8 @@ export type ApiCompanyProfile = {
   industry: string | null;
   addressLine: string | null;
   city: string | null;
+  /** An image `data:` URI, or null. Rendered on the payslip masthead. */
+  logoUrl: string | null;
   taxState: string | null;
   timezone: string;
   currency: string;
