@@ -5,6 +5,7 @@ import {
   Copy,
   Eye,
   Lock,
+  Mail,
   Plus,
   ShieldCheck,
   Trash2,
@@ -28,9 +29,11 @@ import {
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
+import type { ApiPendingInvite } from "@/lib/api/invites";
 import { sourceNote } from "@/lib/demo";
 import type { Catalogue } from "@/lib/api/permissions";
 import { usePermissions } from "@/lib/permissions";
+import { useInvites, type InvitesState } from "@/lib/store/invites";
 import {
   useRolePreview,
   useRoles,
@@ -38,6 +41,7 @@ import {
 } from "@/lib/store/permissions";
 import { CreateRoleDialog } from "./create-role";
 import { RoleEditor } from "./role-editor";
+import { SendInviteDialog } from "./send-invite";
 
 /**
  * Roles and permissions.
@@ -79,12 +83,16 @@ export function RolesScreen() {
   const held = useMemo(() => [...access.permissions], [access.permissions]);
   const roles = useRoles(held);
   const preview = useRolePreview();
+  const invites = useInvites();
   const toast = useToast();
 
   const [openId, setOpenId] = useState<string | null>(null);
   const [creating, setCreating] = useState<{ from: RoleView | null } | null>(null);
   const [deleting, setDeleting] = useState<RoleView | null>(null);
   const [removing, setRemoving] = useState(false);
+  const [inviting, setInviting] = useState(false);
+  const [revoking, setRevoking] = useState<ApiPendingInvite | null>(null);
+  const [revokingBusy, setRevokingBusy] = useState(false);
 
   const canManage = access.can("MANAGE_ROLES");
   const open = roles.roles.find((role) => role.id === openId) ?? null;
@@ -259,6 +267,16 @@ export function RolesScreen() {
           )}
         </Card>
 
+        <InvitationsCard
+          invites={invites}
+          canManage={canManage}
+          onInvite={() => setInviting(true)}
+          onResend={(userId) =>
+            void run(() => invites.resend(userId), "Invitation sent again")
+          }
+          onRevoke={(invite) => setRevoking(invite)}
+        />
+
         <div className="grid gap-6 lg:grid-cols-2">
           <YourAccess access={access} catalogue={roles.catalogue} />
           {preview.available && (
@@ -346,6 +364,39 @@ export function RolesScreen() {
               if (ok) setDeleting(null);
             })
             .finally(() => setRemoving(false));
+        }}
+      />
+
+      {inviting && (
+        <SendInviteDialog
+          roles={roles.roles}
+          pending={invites.invites}
+          onClose={() => setInviting(false)}
+          onSend={(employeeId, roleIds) =>
+            run(() => invites.send(employeeId, roleIds), "Invitation sent")
+          }
+        />
+      )}
+
+      <ConfirmDialog
+        open={revoking !== null}
+        onClose={() => setRevoking(null)}
+        title={`Revoke the invitation to ${revoking?.name ?? ""}?`}
+        confirmLabel="Revoke"
+        tone="danger"
+        loading={revokingBusy}
+        body="An invitation emailed to a work address is a live key to your company's payroll until somebody opens it. Revoking deletes it — inviting them again starts fresh."
+        onConfirm={() => {
+          if (!revoking) return;
+          setRevokingBusy(true);
+          void run(
+            () => invites.revoke(revoking.userId),
+            `Invitation to ${revoking.name} revoked`,
+          )
+            .then((ok) => {
+              if (ok) setRevoking(null);
+            })
+            .finally(() => setRevokingBusy(false));
         }}
       />
     </>
@@ -452,6 +503,115 @@ function RoleRow({
         )}
       </div>
     </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Everybody invited to sign in who has not yet accepted.
+ *
+ * No demo mirror — see `lib/store/invites.ts`'s own header for why. Not
+ * connected renders the same honest "needs a live API" message
+ * `profile-screen.tsx`'s Security card already uses for the same reason.
+ */
+function InvitationsCard({
+  invites,
+  canManage,
+  onInvite,
+  onResend,
+  onRevoke,
+}: {
+  invites: InvitesState;
+  canManage: boolean;
+  onInvite: () => void;
+  onResend: (userId: string) => void;
+  onRevoke: (invite: ApiPendingInvite) => void;
+}) {
+  if (!invites.connected) {
+    return (
+      <Card>
+        <CardHeader title="Invitations" level={3} />
+        <CardBody>
+          <p className="text-body-sm text-muted">
+            Nothing here works without a server. Sign in against the real API
+            to invite somebody to sign in.
+          </p>
+        </CardBody>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader
+        title="Invitations"
+        description="Everybody invited to sign in who has not yet accepted."
+        action={
+          canManage ? (
+            <Button variant="secondary" size="sm" onClick={onInvite}>
+              <Mail aria-hidden="true" className="size-4" />
+              Invite someone
+            </Button>
+          ) : undefined
+        }
+      />
+      {invites.error ? (
+        <CardBody>
+          <LoadFailure subject="invitations" error={invites.error} />
+        </CardBody>
+      ) : invites.invites.length === 0 ? (
+        <EmptyState
+          icon={<Mail aria-hidden="true" />}
+          title={invites.loading ? "Loading…" : "No pending invitations"}
+          {...(invites.loading
+            ? {}
+            : {
+                description:
+                  "Everybody entitled to sign in either already has an account, or has not been invited yet.",
+              })}
+        />
+      ) : (
+        <CardBody className="flex flex-col gap-2">
+          {invites.invites.map((invite) => (
+            <div
+              key={invite.userId}
+              className="flex flex-wrap items-center gap-3 rounded-md border border-line p-3"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="text-body-sm font-medium text-ink">
+                  {invite.name}
+                </p>
+                <p className="mt-0.5 text-meta text-muted">
+                  {invite.email} · {invite.roles.join(", ")}
+                </p>
+              </div>
+              <Badge tone={invite.expired ? "warning" : "neutral"} size="sm">
+                {invite.expired ? "Link expired" : "Pending"}
+              </Badge>
+              {canManage && (
+                <div className="flex shrink-0 gap-1.5">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onResend(invite.userId)}
+                  >
+                    Resend
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onRevoke(invite)}
+                  >
+                    Revoke
+                  </Button>
+                </div>
+              )}
+            </div>
+          ))}
+        </CardBody>
+      )}
+    </Card>
   );
 }
 

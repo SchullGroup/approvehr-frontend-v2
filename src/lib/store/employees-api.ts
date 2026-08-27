@@ -645,6 +645,7 @@ export function useEmployeeMutations() {
           ? { workLocationId: draft.workLocationId }
           : {}),
         ...(draft.managerId ? { managerId: draft.managerId } : {}),
+        ...(draft.canLogin === undefined ? {} : { canLogin: draft.canLogin }),
         /* Upper case on the wire, lower case in `Employee` — the same seam as
            `update` below. */
         ...(draft.status ? { status: draft.status.toUpperCase() } : {}),

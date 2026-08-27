@@ -90,6 +90,14 @@ export type ForgotPasswordResult = {
 
 export type ResetPasswordResult = { sessionsRevoked: number };
 
+/** Same shape `register` and sign-in return — accepting an invite is opening
+ *  a session on an account that already exists, just with no password yet. */
+export type AcceptInviteResult = {
+  accessToken: string;
+  refreshToken: string;
+  user: ApiUser;
+};
+
 /* ------------------------------------------------------------------- calls */
 
 export const account = {
@@ -135,6 +143,20 @@ export const account = {
       anonymous: true,
     });
     tokens.clear();
+    return result;
+  },
+
+  /** Sets a password on a pending invitation, and signs in — same as `register`. */
+  async acceptInvite(
+    token: string,
+    newPassword: string,
+  ): Promise<AcceptInviteResult> {
+    const result = await request<AcceptInviteResult>("/auth/accept-invite", {
+      method: "POST",
+      body: { token, newPassword },
+      anonymous: true,
+    });
+    tokens.set(result.accessToken, result.refreshToken);
     return result;
   },
 };
@@ -184,7 +206,7 @@ export function passwordRules(value: string): PasswordRule[] {
     },
     {
       id: "obvious",
-      label: "Not a password everybody tries",
+      label: "Not a commonly used password",
       met: !OBVIOUS.includes(value.toLowerCase()),
       showWhen: "unmet",
     },

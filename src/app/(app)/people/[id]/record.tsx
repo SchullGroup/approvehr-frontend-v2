@@ -27,7 +27,10 @@ import {
   Card,
   CardBody,
   CardHeader,
+  Checkbox,
+  ConfirmDialog,
   DescriptionList,
+  Modal,
   Money,
   ProgressMeter,
   Skeleton,
@@ -39,6 +42,7 @@ import {
   THead,
   TR,
   TableWrap,
+  useToast,
   type BadgeTone,
 } from "@/components/ui";
 import { EmployeeFileDrawer } from "@/app/(app)/people/documents";
@@ -46,6 +50,7 @@ import { StartExitDialog } from "@/app/(app)/people/offboarding";
 import { PayComponentsPanel } from "@/app/(app)/payroll/pay-setup/pay-components-panel";
 import { RecordHistory } from "@/app/(app)/settings/audit/record-history";
 import { StartPeriodButton } from "@/app/(app)/performance";
+import { ApiError } from "@/lib/api/client";
 import { naira } from "@/lib/api/pay-components";
 import { koboFromDecimal, wasDeducted } from "@/lib/api/payroll";
 import { payslipFiguresFor } from "@/lib/mock/demo-payslips";
@@ -58,8 +63,10 @@ import {
 import type { LeaveBalanceRow, LeaveRow } from "@/lib/api/leave";
 import { useCan } from "@/lib/permissions";
 import { useDepartments } from "@/lib/store/departments";
+import { useInvites } from "@/lib/store/invites";
 import { useWorkLocations } from "@/lib/store/work-locations";
 import { useGrades } from "@/lib/store/grades";
+import { useRoles } from "@/lib/store/permissions";
 import { BandPosition } from "@/app/(app)/payroll/pay-setup/band-position";
 import type { EmployeePatch } from "@/lib/store/employees-api";
 import { usePayPreview } from "@/lib/store/pay-components";
@@ -250,6 +257,9 @@ export function EmployeeRecord({
      worse present than absent. */
   const canEditRecords = useCan("EDIT_RECORDS");
   const canRecordExit = canEditRecords;
+  /* `MANAGE_ROLES`, not `EDIT_RECORDS` — inviting somebody hands out roles,
+     the same act `invites.send` on the API gates the same way. */
+  const canManageRoles = useCan("MANAGE_ROLES");
 
   const name = fullName(employee);
   const status = statusOf(employee.status);
@@ -431,6 +441,7 @@ export function EmployeeRecord({
                 Their documents
               </Button>
             )}
+            <InviteToSignIn employee={employee} canManage={canManageRoles} />
             {/* Their appraisals, from their record. The trend across periods was
                 only reachable from a period's own register before this, which
                 meant the one screen that answers "has this person improved" was
@@ -1168,6 +1179,196 @@ const TAB_IDS = ["personal", "employment", "pay", "leave", "conduct"];
  * rather than a guess: this card and the demo payslip for the same person must
  * never disagree, and the only way to guarantee that is one source.
  */
+/**
+ * Invite this person to sign in, or show where their invitation stands.
+ *
+ * Nothing renders for somebody `canLogin === false` — they are recorded as
+ * not needing an account, and an invite button that would only fail on the
+ * API's own refusal teaches nothing the record page hasn't already said.
+ * Nothing renders disconnected either: sending an invitation is a real email
+ * to a real address, and there is no demo mirror for it — see
+ * `lib/store/invites.ts`.
+ *
+ * Whether they already hold a full account (rather than a pending one) is
+ * not knowable from here — `GET /invites` lists only the pending kind. Which
+ * means "Invite to sign in" can still be offered to somebody who already
+ * accepted; the API's own refusal ("They already have an ApproveHR account")
+ * is what catches that, the same way the rest of this product lets a
+ * specific refusal be the message rather than a second copy of the rule.
+ */
+function InviteToSignIn({
+  employee,
+  canManage,
+}: {
+  employee: Employee;
+  canManage: boolean;
+}) {
+  const invites = useInvites();
+  const roles = useRoles();
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+  const [roleIds, setRoleIds] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [revokeOpen, setRevokeOpen] = useState(false);
+  const [revokeBusy, setRevokeBusy] = useState(false);
+
+  if (!canManage || employee.canLogin === false || !invites.connected) {
+    return null;
+  }
+
+  const pending = invites.invites.find((i) => i.employeeId === employee.id);
+
+  async function send() {
+    if (roleIds.length === 0) return;
+    setBusy(true);
+    try {
+      await invites.send(employee.id, roleIds);
+      toast.push({ title: "Invitation sent", tone: "success" });
+      setOpen(false);
+      setRoleIds([]);
+    } catch (error) {
+      toast.push({
+        title: "That invitation was not sent",
+        tone: "danger",
+        detail:
+          error instanceof ApiError
+            ? error.message
+            : "Something went wrong. Try again.",
+      });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function resend() {
+    if (!pending) return;
+    try {
+      await invites.resend(pending.userId);
+      toast.push({ title: "Invitation sent again", tone: "success" });
+    } catch (error) {
+      toast.push({
+        title: "That did not resend",
+        tone: "danger",
+        detail:
+          error instanceof ApiError
+            ? error.message
+            : "Something went wrong. Try again.",
+      });
+    }
+  }
+
+  async function revoke() {
+    if (!pending) return;
+    setRevokeBusy(true);
+    try {
+      await invites.revoke(pending.userId);
+      toast.push({ title: "Invitation revoked", tone: "info" });
+      setRevokeOpen(false);
+    } catch (error) {
+      toast.push({
+        title: "That invitation was not revoked",
+        tone: "danger",
+        detail:
+          error instanceof ApiError
+            ? error.message
+            : "Something went wrong. Try again.",
+      });
+    } finally {
+      setRevokeBusy(false);
+    }
+  }
+
+  if (pending) {
+    return (
+      <div className="rounded-md border border-line p-2.5">
+        <p className="text-meta text-muted">
+          Invited {shortDate(pending.invitedAt)} —{" "}
+          {pending.expired ? "link expired" : "not yet accepted"}
+        </p>
+        <div className="mt-1.5 flex gap-1.5">
+          <Button variant="ghost" size="sm" onClick={() => void resend()}>
+            Resend
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setRevokeOpen(true)}
+          >
+            Revoke
+          </Button>
+        </div>
+        <ConfirmDialog
+          open={revokeOpen}
+          onClose={() => setRevokeOpen(false)}
+          title={`Revoke the invitation to ${fullName(employee)}?`}
+          confirmLabel="Revoke"
+          tone="danger"
+          loading={revokeBusy}
+          body="Deletes the pending invitation. Inviting them again starts fresh."
+          onConfirm={() => void revoke()}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <Button
+        variant="secondary"
+        size="sm"
+        block
+        onClick={() => setOpen(true)}
+      >
+        <Mail aria-hidden="true" className="size-3.5" />
+        Invite to sign in
+      </Button>
+      {open && (
+        <Modal
+          open
+          onClose={() => setOpen(false)}
+          size="sm"
+          title={`Invite ${fullName(employee)} to sign in`}
+          footer={
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="accent"
+                loading={busy}
+                disabled={roleIds.length === 0}
+                onClick={() => void send()}
+              >
+                Send invitation
+              </Button>
+            </div>
+          }
+        >
+          <p className="text-body-sm text-muted">
+            What their account can do once they accept. At least one role.
+          </p>
+          <div className="mt-3 flex flex-col gap-2">
+            {roles.roles.map((role) => (
+              <Checkbox
+                key={role.id}
+                checked={roleIds.includes(role.id)}
+                onChange={() =>
+                  setRoleIds((current) =>
+                    current.includes(role.id)
+                      ? current.filter((r) => r !== role.id)
+                      : [...current, role.id],
+                  )
+                }
+                label={role.name}
+              />
+            ))}
+          </div>
+        </Modal>
+      )}
+    </>
+  );
+}
+
 function Compensation({
   employee,
   connected,

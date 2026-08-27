@@ -122,6 +122,10 @@ export type ApiEmployee = {
   phone: string | null;
   dateOfBirth: string | null;
   gender: string | null;
+  /** Whether this person is entitled to a sign-in account. See
+   *  `modules/invites` on the API — this is entitlement, not the account
+   *  itself; `false` means no work email is required either. */
+  canLogin: boolean;
   jobTitle: string;
   departmentId: string | null;
   department: string | null;
@@ -790,6 +794,7 @@ export function toEmployee(api: ApiEmployee): Employee {
     phone: api.phone,
     dateOfBirth: api.dateOfBirth,
     ...(api.gender ? { gender: api.gender as Employee["gender"] } : {}),
+    canLogin: api.canLogin,
     jobTitle: api.jobTitle,
     department: api.department ?? "—",
     managerId: api.managerId,
