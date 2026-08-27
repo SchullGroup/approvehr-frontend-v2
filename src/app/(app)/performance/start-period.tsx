@@ -42,9 +42,8 @@ import { useCycleMutations } from "@/lib/store/performance";
  * has started — so a dialog that created and started in one click would lock
  * every company to whatever single question the dialog had room for.
  *
- * The dialog says so in the words a person would use, and the next screen is
- * where the questions and the start button live. Nobody is asked anything until
- * then, which is the sentence on the dialog.
+ * The next screen is where the questions and the start button live, and
+ * nobody is asked anything until somebody presses it there.
  *
  * ## "Period", not "cycle"
  *
@@ -97,7 +96,6 @@ export function StartPeriodDialog({
       open
       onClose={onClose}
       title="Start an appraisal period"
-      description="A period is the stretch of time an appraisal covers — a half, a quarter, a probation. Everybody gets one form each inside it."
       size="sm"
       footer={
         <>
@@ -123,12 +121,6 @@ export function StartPeriodDialog({
             onChange={(event) => setDueDate(event.target.value)}
           />
         </Field>
-        {/* Rule 4: the sentence that would have been an explanation is the
-            sentence that says what happens next, in the order it happens. */}
-        <p className="text-body-sm leading-relaxed text-body">
-          Next you write the questions, then you start it. Nobody is asked
-          anything and nobody is told anything until you do.
-        </p>
       </div>
     </Modal>
   );
