@@ -1,6 +1,7 @@
 "use client";
 
 import { request, requestPaged, type Paged } from "@/lib/api/client";
+import type { DeliveryHint } from "@/lib/api/account";
 
 /**
  * Giving staff a login — `/api/v1/invites`.
@@ -20,6 +21,9 @@ export type SentInvite = {
   employeeId: string | null;
   roles: { id: string; name: string }[];
   expiresAt: string | null;
+  /** Present only while no mail transport is wired, and never in production —
+   *  see `DeliveryHint`. */
+  delivery: DeliveryHint;
 };
 
 export type PendingInvite = {

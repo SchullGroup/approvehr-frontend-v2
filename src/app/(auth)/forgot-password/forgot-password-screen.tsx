@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ApiError } from "@/lib/api/client";
 import { Button, ButtonLink, Callout, Field, Input } from "@/components/ui";
 import { account, type ForgotPasswordResult } from "@/lib/api/account";
-import { DeliveryNote } from "../delivery-note";
+import { DeliveryNote } from "@/components/portal/delivery-note";
 
 /**
  * Asking for a reset link.

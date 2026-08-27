@@ -12,6 +12,7 @@ import {
   Spinner,
 } from "@/components/ui";
 import type { BulkInviteResult } from "@/lib/api/invites";
+import { DeliveryNote } from "@/components/portal/delivery-note";
 
 export type InviteCandidate = {
   employeeId: string;
@@ -151,11 +152,32 @@ export function InviteStaffDialog({
               {result.sent
                 .map((s) => `${s.firstName} ${s.lastName}`)
                 .join(", ")}
-              {
-                ". They can set a password from the link in their email and clock in as soon as they do."
-              }
+              {result.sent.some((s) => s.delivery)
+                ? ". They can clock in as soon as they set a password."
+                : ". They can set a password from the link in their email and clock in as soon as they do."}
             </Callout>
           )}
+
+          {/* Present only while no mail transport is wired, and never in
+              production — see `DeliveryNote`. One per person, because each
+              carries its own one-time token. */}
+          {result.sent
+            .filter((s) => s.delivery)
+            .map((s) => (
+              <div key={s.userId} className="flex flex-col gap-2">
+                <p className="text-body-sm font-medium text-ink">
+                  {s.firstName} {s.lastName}
+                </p>
+                <DeliveryNote
+                  hint={s.delivery}
+                  href={(token) =>
+                    `/accept-invite?token=${encodeURIComponent(token)}`
+                  }
+                  action="Set their password"
+                />
+              </div>
+            ))}
+
           {result.failed.length > 0 && (
             <div className="flex flex-col gap-2">
               <p className="text-body-sm font-medium text-ink">

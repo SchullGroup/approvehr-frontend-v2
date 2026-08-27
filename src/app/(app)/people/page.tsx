@@ -9,7 +9,20 @@ export const metadata: Metadata = {
   description: "Everyone on the payroll, and the state of their record.",
 };
 
-export default function PeoplePage() {
+/**
+ * `?q=` is read here, server-side, and handed down as a prop — the same
+ * reason `ShiftsPage` reads `?tab=` this way rather than with
+ * `useSearchParams` in the client screen. It is what lets the header search's
+ * "nobody matches by name — see everyone" fallback land on a directory
+ * already carrying what was typed, instead of an empty search box.
+ */
+export default async function PeoplePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string | string[] }>;
+}) {
+  const { q } = await searchParams;
+  const single = Array.isArray(q) ? q[0] : q;
   return (
     <>
       <PageHeader
@@ -43,7 +56,7 @@ export default function PeoplePage() {
         }
       />
       <PageBody>
-        <Directory />
+        <Directory {...(single?.trim() ? { initialQuery: single.trim() } : {})} />
       </PageBody>
     </>
   );

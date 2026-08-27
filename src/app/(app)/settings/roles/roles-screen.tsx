@@ -74,14 +74,19 @@ import { RoleEditor } from "./role-editor";
  * badge, because "connected" and "in this browser" genuinely differ and every
  * screen in this product says which one it is on.
  */
-export function RolesScreen() {
+export function RolesScreen({
+  initialOpenId = null,
+}: {
+  /** From `?open=<roleId>` — see `RolesPage`. */
+  initialOpenId?: string | null;
+}) {
   const access = usePermissions();
   const held = useMemo(() => [...access.permissions], [access.permissions]);
   const roles = useRoles(held);
   const preview = useRolePreview();
   const toast = useToast();
 
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(initialOpenId);
   const [creating, setCreating] = useState<{ from: RoleView | null } | null>(null);
   const [deleting, setDeleting] = useState<RoleView | null>(null);
   const [removing, setRemoving] = useState(false);

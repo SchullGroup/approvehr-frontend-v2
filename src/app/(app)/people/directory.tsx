@@ -117,7 +117,13 @@ type Filters = {
  * a city string, not a work-location id, so a filter on it would silently match
  * nobody. Naming that is better than a select that returns an empty table.
  */
-export function Directory() {
+export function Directory({
+  initialQuery,
+}: {
+  /** From `?q=` — what the header search's "see all results" link arrives
+   *  with. */
+  initialQuery?: string;
+}) {
   const router = useRouter();
   const toast = useToast();
   const mutations = useEmployeeMutations();
@@ -130,6 +136,7 @@ export function Directory() {
        discover. */
     sort: "lastName",
     pageSize: 25,
+    ...(initialQuery ? { search: initialQuery } : {}),
   });
 
   /* The view switcher is separate from `list.filters` because it maps onto three

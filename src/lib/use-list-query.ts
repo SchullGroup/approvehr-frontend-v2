@@ -78,6 +78,7 @@ export function useListQuery<Filters extends Record<string, unknown>>({
   sort: initialSort,
   order: initialOrder = "asc",
   pageSize: initialPageSize = 25,
+  search: initialSearch = "",
   searchDelay = 250,
 }: {
   /** The empty state of every filter this table offers. */
@@ -85,6 +86,8 @@ export function useListQuery<Filters extends Record<string, unknown>>({
   sort?: string;
   order?: SortOrder;
   pageSize?: number;
+  /** Seeds the box — a `?q=` a caller arrived with, most often. */
+  search?: string;
   searchDelay?: number;
 }): ListQueryState<Filters> {
   /* The empty shape, captured once. Callers pass an inline literal, so it is a
@@ -92,7 +95,7 @@ export function useListQuery<Filters extends Record<string, unknown>>({
      changes, only the values, and `clearFilters` needs the shape. */
   const empty = useRef(initialFilters);
 
-  const [search, setSearchRaw] = useState("");
+  const [search, setSearchRaw] = useState(initialSearch);
   const [filters, setFilters] = useState<Filters>(initialFilters);
   const [sorting, setSorting] = useState<{
     sort: string | undefined;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -18,6 +18,7 @@ import {
   Badge,
   MoneyPrivacyToggle,
 } from "@/components/ui";
+import { CommandPalette } from "./command-palette";
 import { NAV, visibleNav, type BadgeSource, type NavGroup } from "./nav";
 import { SessionRoleBadge } from "./role-badge";
 import { usePermissions } from "@/lib/permissions";
@@ -40,8 +41,32 @@ import { useSession } from "@/lib/store/session";
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const pathname = usePathname();
   const badges = useNavBadges();
+
+  /* The `/` shortcut the search button's own `kbd` promises. Ignored while
+     already typing somewhere — a `/` in a note or an amount must reach the
+     field it was typed into, not hijack the page out from under it. */
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) {
+        return;
+      }
+      const target = event.target as HTMLElement | null;
+      const typing =
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable);
+      if (typing) return;
+      event.preventDefault();
+      setSearchOpen(true);
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   /* The sidebar is filtered by who is looking and what the company turned on.
      Both hooks answer from a cache after first load, so this is not a request
@@ -92,9 +117,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           <CompanySwitcher />
 
-          {/* Search. Wired to the command palette later. */}
           <button
             type="button"
+            onClick={() => setSearchOpen(true)}
             className={cn(
               "ml-auto hidden items-center gap-2 rounded-md border border-line bg-canvas",
               "px-3 py-1.5 text-body-sm text-muted transition-colors",
@@ -174,6 +199,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+
+      {searchOpen && (
+        <CommandPalette onClose={() => setSearchOpen(false)} />
+      )}
     </div>
   );
 }
