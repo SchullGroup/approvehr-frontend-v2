@@ -94,19 +94,11 @@ export type GoalStatus = "ON_TRACK" | "AT_RISK" | "OFF_TRACK" | "DONE";
  * they call for opposite actions.
  */
 export type ObjectiveApproval =
-  | "DRAFT"
-  | "AWAITING_APPROVAL"
-  | "AGREED"
-  | "NEEDS_REVISION"
-  | "REJECTED";
+  "DRAFT" | "AWAITING_APPROVAL" | "AGREED" | "NEEDS_REVISION" | "REJECTED";
 
 /** Mirrors `ReviewCycleStage`. Forward only, and `PUBLISHED` is one-way. */
 export type ReviewCycleStage =
-  | "DRAFT"
-  | "SELF"
-  | "MANAGER"
-  | "CALIBRATION"
-  | "PUBLISHED";
+  "DRAFT" | "SELF" | "MANAGER" | "CALIBRATION" | "PUBLISHED";
 
 export type ReviewKind = "SELF" | "MANAGER" | "PEER";
 
@@ -555,10 +547,7 @@ export type ApiReviewDetail = ApiReview & {
 
 /** Mirrors `AppraiserRole`. */
 export type AppraiserRole =
-  | "LINE_MANAGER"
-  | "FUNCTIONAL_MANAGER"
-  | "PROJECT_LEAD"
-  | "SKIP_LEVEL";
+  "LINE_MANAGER" | "FUNCTIONAL_MANAGER" | "PROJECT_LEAD" | "SKIP_LEVEL";
 
 export type ApiAppraiserContext = {
   role: AppraiserRole;
@@ -603,6 +592,58 @@ export type ApiAppraiserException = {
     | "APPRAISER_UNAVAILABLE"
     | "NO_LINE_MANAGER";
   message: string;
+};
+
+/**
+ * One line per **kind** of exception, not one line per person.
+ *
+ * The API names every blocker by person on purpose — "one refusal naming
+ * eleven problems beats eleven refusals naming one" is the rule the payroll
+ * run and this mapping both follow. That rule stops helping once a dozen
+ * people share the exact same templated sentence differing only by name:
+ * thirty lines that all read "X has no appraiser yet..." is not thirty facts,
+ * it is one fact said thirty times. So this groups by `code` — a genuinely
+ * different problem still gets its own line; a repeated one collapses to a
+ * count, and the caller decides what "go and look at them" means (a filter,
+ * a modal, whatever the screen already offers).
+ *
+ * A group of exactly one is not collapsed — a single full sentence is not a
+ * wall of anything, and naming the one person by name there is strictly more
+ * useful than a count of one.
+ */
+export function groupExceptionsByCode<
+  T extends { code: string; severity: "BLOCKER" | "WARNING"; message: string },
+>(
+  issues: T[],
+): { code: string; severity: "BLOCKER" | "WARNING"; items: T[] }[] {
+  const order: string[] = [];
+  const byCode = new Map<string, T[]>();
+  for (const issue of issues) {
+    if (!byCode.has(issue.code)) {
+      byCode.set(issue.code, []);
+      order.push(issue.code);
+    }
+    byCode.get(issue.code)!.push(issue);
+  }
+  return order.map((code) => {
+    const items = byCode.get(code)!;
+    return { code, severity: items[0]!.severity, items };
+  });
+}
+
+/** What a *group* of the same exception says, since the API's own `message`
+ *  is written for exactly one person and does not pluralise. */
+export const EXCEPTION_CODE_SUMMARY: Record<
+  ApiAppraiserException["code"],
+  (count: number) => string
+> = {
+  NO_APPRAISER: (n) => `${n} people have no appraiser yet.`,
+  NO_LINE_MANAGER: (n) =>
+    `${n} people have no line manager on file, so there is nobody to fall back to.`,
+  WEIGHTS_NOT_WHOLE: (n) =>
+    `${n} people have appraiser weights that do not add up to 100%.`,
+  APPRAISER_UNAVAILABLE: (n) =>
+    `${n} people have an appraiser who has since left.`,
 };
 
 export type ApiAppraiserMapRow = {
@@ -849,11 +890,7 @@ export type ApiScoringWeightsSaved = ApiScoringWeights & {
  * expectations" starts is how the same person ends up in two different bands.
  */
 export type ScoreBand =
-  | "OUTSTANDING"
-  | "EXCEEDS"
-  | "MEETS"
-  | "PARTIALLY_MEETS"
-  | "BELOW";
+  "OUTSTANDING" | "EXCEEDS" | "MEETS" | "PARTIALLY_MEETS" | "BELOW";
 
 /** One band, with the edges and the sentence the API sends for it. */
 export type ApiBandCount = {
@@ -1068,7 +1105,8 @@ export type GoalListParams = {
   page?: number;
   pageSize?: number;
   q?: string;
-  sort?: "title" | "progress" | "status" | "dueQuarter" | "createdAt" | "updatedAt";
+  sort?:
+    "title" | "progress" | "status" | "dueQuarter" | "createdAt" | "updatedAt";
   order?: "asc" | "desc";
   status?: GoalStatus;
   /** Where an objective is in the agreement lifecycle. */
@@ -1286,7 +1324,9 @@ export const performanceApi = {
    * status — the response says `shared`, not published.
    */
   shareGoal: (id: string) =>
-    request<ApiGoalShared>(`/performance/goals/${id}/publish`, { method: "POST" }),
+    request<ApiGoalShared>(`/performance/goals/${id}/publish`, {
+      method: "POST",
+    }),
 
   completeGoal: (id: string, note?: string) =>
     request<ApiGoalCompleted>(`/performance/goals/${id}/complete`, {
@@ -1438,11 +1478,15 @@ export const performanceApi = {
 
   /** One-way. Everybody's manager review becomes readable by its subject. */
   closeCycle: (id: string) =>
-    request<ApiCyclePublished>(`/performance/cycles/${id}/close`, { method: "POST" }),
+    request<ApiCyclePublished>(`/performance/cycles/${id}/close`, {
+      method: "POST",
+    }),
 
   /** Notifications inside the app, not email. See the note in the store. */
   remindCycle: (id: string) =>
-    request<ApiRemindResult>(`/performance/cycles/${id}/remind`, { method: "POST" }),
+    request<ApiRemindResult>(`/performance/cycles/${id}/remind`, {
+      method: "POST",
+    }),
 
   participants: (id: string, signal?: AbortSignal) =>
     request<ApiCycleParticipants>(
@@ -1455,7 +1499,11 @@ export const performanceApi = {
   /** The whole map for a cycle. `EDIT_RECORDS` — an aggregate over everybody. */
   appraiserMap: (
     cycleId: string,
-    params: { departmentId?: string; teamId?: string; exceptionsOnly?: boolean } = {},
+    params: {
+      departmentId?: string;
+      teamId?: string;
+      exceptionsOnly?: boolean;
+    } = {},
     signal?: AbortSignal,
   ) =>
     request<ApiAppraiserMap>(`/performance/cycles/${cycleId}/appraisers`, {
@@ -1502,7 +1550,10 @@ export const performanceApi = {
 
   /** Open to everybody: a scale you are measured against but cannot read is absurd. */
   scoringWeights: (signal?: AbortSignal) =>
-    request<ApiScoringWeights>("/performance/scoring-weights", signalOf(signal)),
+    request<ApiScoringWeights>(
+      "/performance/scoring-weights",
+      signalOf(signal),
+    ),
 
   /**
    * The **whole** set, replaced, and refused unless it makes exactly 100%.
@@ -1647,10 +1698,13 @@ export const performanceApi = {
 
   /** Refused while a required question is unanswered, and it names them. */
   submitReview: (id: string, body: SubmitReviewBody = {}) =>
-    request<ApiReview & { submitted: true }>(`/performance/reviews/${id}/submit`, {
-      method: "POST",
-      body,
-    }),
+    request<ApiReview & { submitted: true }>(
+      `/performance/reviews/${id}/submit`,
+      {
+        method: "POST",
+        body,
+      },
+    ),
 
   /* --------------------------------------------------------------- sign-off
    *

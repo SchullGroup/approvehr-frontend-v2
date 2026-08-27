@@ -13,6 +13,7 @@ import {
   Callout,
   ConfirmDialog,
   EmptyState,
+  Modal,
   Spinner,
   Stat,
   TBody,
@@ -23,13 +24,17 @@ import {
   TableWrap,
   useToast,
 } from "@/components/ui";
+import { cn } from "@/lib/cn";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
+  EXCEPTION_CODE_SUMMARY,
   dayLabel,
+  groupExceptionsByCode,
   scoreLabel,
   weightLabel,
   type ApiAppraiserMap,
+  type ApiAppraiserMapRow,
   type ApiCycleParticipants,
   type ApiScoreRegister,
   type ApiScoreRow,
@@ -41,6 +46,7 @@ import {
   useCycleRegister,
 } from "@/lib/store/performance";
 import { QuestionsDialog } from "../../period-dialogs";
+import { AppraisersDialog } from "../../appraiser-map";
 
 /**
  * Running one appraisal period.
@@ -218,15 +224,15 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
         meta={
           period ? (
             <>
-              <Badge
-                tone={published ? "neutral" : "info"}
-                size="sm"
-                dot
-              >
+              <Badge tone={published ? "neutral" : "info"} size="sm" dot>
                 {period.stageLabel}
               </Badge>
               {period.scoringFrozen && (
-                <Badge tone="accent" size="sm" icon={<Lock aria-hidden="true" />}>
+                <Badge
+                  tone="accent"
+                  size="sm"
+                  icon={<Lock aria-hidden="true" />}
+                >
                   Weights frozen
                 </Badge>
               )}
@@ -239,7 +245,10 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 and a different screen. Linked from here because this is where
                 somebody is when they decide they want it. */}
             {canSeeCompany && !draft && (
-              <ButtonLink size="sm" href={`/performance/periods/${cycleId}/report`}>
+              <ButtonLink
+                size="sm"
+                href={`/performance/periods/${cycleId}/report`}
+              >
                 See the report
               </ButtonLink>
             )}
@@ -319,7 +328,10 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
               six seconds. They stay until the page is left or somebody dismisses
               them. */}
           {noAppraiser && (
-            <Callout tone="danger" title="Some people have nobody appraising them">
+            <Callout
+              tone="danger"
+              title="Some people have nobody appraising them"
+            >
               <p>
                 {noAppraiser.join(", ")}{" "}
                 {noAppraiser.length === 1 ? "has" : "have"} no manager, so
@@ -327,7 +339,9 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 with no mark unless somebody is assigned.
               </p>
               <p className="mt-2 flex flex-wrap items-center gap-3">
-                <span>Set a manager on their record, or assign an appraiser.</span>
+                <span>
+                  Set a manager on their record, or assign an appraiser.
+                </span>
                 <Button
                   variant="secondary"
                   size="sm"
@@ -446,7 +460,11 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
 
           {detail.available && !detail.loading && (
             <>
-              <NobodyAppraising exceptions={detail.exceptions} />
+              <NobodyAppraising
+                cycleId={cycleId}
+                exceptions={detail.exceptions}
+                onFixed={() => detail.reload()}
+              />
               <Outstanding
                 rows={outstanding}
                 participants={detail.participants}
@@ -467,7 +485,9 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
             detail.reload();
           }}
           onAdd={(body) => periods.addQuestion(cycleId, body).then(() => {})}
-          onUpdate={(id, body) => periods.updateQuestion(id, body).then(() => {})}
+          onUpdate={(id, body) =>
+            periods.updateQuestion(id, body).then(() => {})
+          }
           onRemove={(id) => periods.removeQuestion(id).then(() => {})}
         />
       )}
@@ -489,7 +509,6 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
   );
 }
 
-
 /* -------------------------------------------------------------------------- */
 
 /**
@@ -502,12 +521,31 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
  * An empty list is stated rather than left blank. "Everybody has an appraiser" is
  * a fact worth reading, and a card that simply disappears when the news is good
  * is a card nobody trusts when it comes back.
+ *
+ * ## One line per problem, not one line per person
+ *
+ * A company where nobody has been mapped yet can have thirty people sharing
+ * the exact same `NO_APPRAISER` sentence, and thirty near-identical lines is
+ * not thirty facts — it is one fact said thirty times. `groupExceptionsByCode`
+ * collapses a repeated one to a count with a **Review and fix** button; a
+ * genuinely different problem, or a lone occurrence of this one, still gets
+ * its own full sentence. See its own header on `lib/api/performance.ts`.
  */
 function NobodyAppraising({
+  cycleId,
   exceptions,
+  onFixed,
 }: {
+  cycleId: string;
   exceptions: ApiAppraiserMap | null;
+  onFixed: () => void;
 }) {
+  const [reviewing, setReviewing] = useState<{
+    code: string;
+    severity: "BLOCKER" | "WARNING";
+  } | null>(null);
+  const [assigning, setAssigning] = useState<ApiAppraiserMapRow | null>(null);
+
   if (!exceptions) return null;
 
   const rows = exceptions.rows.filter((row) => row.exceptions.length > 0);
@@ -521,23 +559,25 @@ function NobodyAppraising({
         />
         <CardBody className="flex items-center gap-2 text-body-sm text-body">
           <CheckCheck aria-hidden="true" className="size-4 text-success-text" />
-          All {exceptions.counts.people} people have somebody appraising them, and
-          every set of weights makes a whole mark.
+          All {exceptions.counts.people} people have somebody appraising them,
+          and every set of weights makes a whole mark.
         </CardBody>
       </Card>
     );
   }
 
-  const blockers = rows.flatMap((row) =>
-    row.exceptions
-      .filter((issue) => issue.severity === "BLOCKER")
-      .map((issue) => ({ key: `${row.employeeId}-${issue.code}`, issue })),
+  const byRow = new Map(rows.map((row) => [row.employeeId, row]));
+  const flat = rows.flatMap((row) =>
+    row.exceptions.map((issue) => ({
+      key: `${row.employeeId}-${issue.code}`,
+      employeeId: row.employeeId,
+      ...issue,
+    })),
   );
-  const warnings = rows.flatMap((row) =>
-    row.exceptions
-      .filter((issue) => issue.severity === "WARNING")
-      .map((issue) => ({ key: `${row.employeeId}-${issue.code}`, issue })),
-  );
+  const blockerCount = flat.filter(
+    (issue) => issue.severity === "BLOCKER",
+  ).length;
+  const warningCount = flat.length - blockerCount;
 
   return (
     <Card>
@@ -550,35 +590,152 @@ function NobodyAppraising({
         }
         action={
           <Badge
-            tone={blockers.length > 0 ? "danger" : "warning"}
+            tone={blockerCount > 0 ? "danger" : "warning"}
             size="sm"
             icon={<UserX aria-hidden="true" />}
           >
-            {blockers.length > 0
-              ? `${blockers.length} ${blockers.length === 1 ? "blocker" : "blockers"}`
-              : `${warnings.length} to look at`}
+            {blockerCount > 0
+              ? `${blockerCount} ${blockerCount === 1 ? "blocker" : "blockers"}`
+              : `${warningCount} to look at`}
           </Badge>
         }
       />
       <CardBody className="flex flex-col gap-2">
-        {blockers.map(({ key, issue }) => (
-          <p
-            key={key}
-            className="rounded-md border border-danger-line bg-danger-soft px-3.5 py-2.5 text-body-sm text-ink"
-          >
-            {issue.message}
-          </p>
-        ))}
-        {warnings.map(({ key, issue }) => (
-          <p
-            key={key}
-            className="rounded-md border border-warning-line bg-warning-soft px-3.5 py-2.5 text-body-sm text-ink"
-          >
-            {issue.message}
-          </p>
-        ))}
+        {groupExceptionsByCode(flat).map((group) => {
+          const tone =
+            group.severity === "BLOCKER"
+              ? "border-danger-line bg-danger-soft"
+              : "border-warning-line bg-warning-soft";
+
+          if (group.items.length === 1) {
+            const issue = group.items[0]!;
+            return (
+              <p
+                key={issue.key}
+                className={cn(
+                  "rounded-md border px-3.5 py-2.5 text-body-sm text-ink",
+                  tone,
+                )}
+              >
+                {issue.message}
+              </p>
+            );
+          }
+
+          return (
+            <div
+              key={group.code}
+              className={cn(
+                "flex flex-wrap items-center justify-between gap-3 rounded-md border px-3.5 py-2.5 text-body-sm text-ink",
+                tone,
+              )}
+            >
+              <span>
+                {EXCEPTION_CODE_SUMMARY[
+                  group.code as keyof typeof EXCEPTION_CODE_SUMMARY
+                ](group.items.length)}
+              </span>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() =>
+                  setReviewing({ code: group.code, severity: group.severity })
+                }
+              >
+                Review and fix
+              </Button>
+            </div>
+          );
+        })}
       </CardBody>
+
+      {reviewing && (
+        <ReviewGroupModal
+          title={EXCEPTION_CODE_SUMMARY[
+            reviewing.code as keyof typeof EXCEPTION_CODE_SUMMARY
+          ](
+            flat.filter(
+              (issue) =>
+                issue.code === reviewing.code &&
+                issue.severity === reviewing.severity,
+            ).length,
+          )}
+          people={flat
+            .filter(
+              (issue) =>
+                issue.code === reviewing.code &&
+                issue.severity === reviewing.severity,
+            )
+            .map((issue) => byRow.get(issue.employeeId))
+            .filter((row): row is ApiAppraiserMapRow => row !== undefined)}
+          onClose={() => setReviewing(null)}
+          onAssign={(row) => setAssigning(row)}
+        />
+      )}
+
+      {assigning && (
+        <AppraisersDialog
+          cycleId={cycleId}
+          row={assigning}
+          onClose={() => setAssigning(null)}
+          onSaved={() => {
+            setAssigning(null);
+            setReviewing(null);
+            onFixed();
+          }}
+        />
+      )}
     </Card>
+  );
+}
+
+/**
+ * Everybody caught by one collapsed exception group, named — the detail a
+ * summary line deliberately does not carry. "Assign" opens the exact same
+ * dialog `appraiser-map.tsx`'s own table uses, so there is one appraiser
+ * editor in the product, not a second one built for this modal.
+ */
+function ReviewGroupModal({
+  title,
+  people,
+  onClose,
+  onAssign,
+}: {
+  title: string;
+  people: ApiAppraiserMapRow[];
+  onClose: () => void;
+  onAssign: (row: ApiAppraiserMapRow) => void;
+}) {
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={title}
+      size="lg"
+      footer={<Button onClick={onClose}>Done</Button>}
+    >
+      <ul className="flex flex-col divide-y divide-line rounded-md border border-line">
+        {people.map((row) => (
+          <li
+            key={row.employeeId}
+            className="flex flex-wrap items-center justify-between gap-3 px-3.5 py-2.5"
+          >
+            <span className="min-w-0">
+              <span className="block text-body-sm font-medium text-ink">
+                {row.employeeName}
+              </span>
+              <span className="mt-0.5 flex flex-wrap items-center gap-2 text-meta text-muted">
+                <span>{row.jobTitle}</span>
+                {row.departmentName && <span>{row.departmentName}</span>}
+              </span>
+            </span>
+            <Button variant="secondary" size="sm" onClick={() => onAssign(row)}>
+              {row.appraisers.length === 0 ? "Assign" : "Change"}
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </Modal>
   );
 }
 
@@ -592,7 +749,12 @@ function Outstanding({
   rows,
   participants,
 }: {
-  rows: { employeeId: string; employeeName: string; what: string; reviewId: string }[];
+  rows: {
+    employeeId: string;
+    employeeName: string;
+    what: string;
+    reviewId: string;
+  }[];
   participants: ApiCycleParticipants | null;
 }) {
   if (!participants) return null;
@@ -619,7 +781,10 @@ function Outstanding({
 
         {rows.length === 0 ? (
           <p className="flex items-center gap-2 text-body-sm text-body">
-            <CheckCheck aria-hidden="true" className="size-4 text-success-text" />
+            <CheckCheck
+              aria-hidden="true"
+              className="size-4 text-success-text"
+            />
             Everything asked for has come in.
           </p>
         ) : (
@@ -695,7 +860,9 @@ function MultiAppraiserReviews({
                     : manager.submitted
                       ? "Written, not final"
                       : "Not written yet"}
-                  {manager.rating !== null ? ` · ${manager.rating} out of 5` : ""}
+                  {manager.rating !== null
+                    ? ` · ${manager.rating} out of 5`
+                    : ""}
                 </p>
               </div>
               <Link
