@@ -270,6 +270,13 @@ export type DirectorySummary = {
   archived: number | undefined;
   /** Every incomplete record, whatever the filter. For the view switcher. */
   blockedEverywhere: number | undefined;
+  /**
+   * Headcount by employment status, for the filter in force.
+   *
+   * On the wire since the endpoint existed and read by nothing until now.
+   * `undefined` until the server answers — absent, never zeroed.
+   */
+  byStatus: Record<string, number> | undefined;
   loading: boolean;
   error: ApiError | null;
 };
@@ -354,6 +361,12 @@ export function useDirectorySummary(
         0,
       ),
       incomplete: rows.filter((e) => missingForPayroll(e).length > 0).length,
+      /* Derived from the same rows the other figures are over, so the demo's
+         status chart and its total cannot disagree. */
+      byStatus: rows.reduce<Record<string, number>>((acc, e) => {
+        acc[e.status] = (acc[e.status] ?? 0) + 1;
+        return acc;
+      }, {}),
       archived: archivedIds.size,
       blockedEverywhere: local.directory.filter(
         (e) => missingForPayroll(e).length > 0,
@@ -376,6 +389,17 @@ export function useDirectorySummary(
     incomplete: row?.payrollBlockedInFilter,
     archived: row?.archived,
     blockedEverywhere: row?.payrollBlocked,
+    /**
+     * Headcount by employment status, for the filter in force.
+     *
+     * `EmployeeSummary.byStatus` has been on every directory response since the
+     * endpoint existed and this hook returned six named fields and dropped it —
+     * so the eight statuses were visible only one badge at a time, down a
+     * table. `undefined` until the server has answered, like every field beside
+     * it: a zero here is a claim the reader cannot tell from a request in
+     * flight.
+     */
+    byStatus: row?.byStatus,
     loading: !matched,
     error: matched ? state.error : null,
   };

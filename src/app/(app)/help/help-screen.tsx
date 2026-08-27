@@ -7,6 +7,7 @@ import {
   Badge,
   Button,
   Callout,
+  BarChart,
   Card,
   CardBody,
   CardHeader,
@@ -175,6 +176,36 @@ function QueueView() {
           />
         </div>
 
+        {/* ---- What people are asking about ------------------------------
+            Four counts of open tickets say how much is waiting and never say
+            what any of it is about. `volume.byCategory` has been on the
+            analytics response the whole time — the pulse kept three of its
+            fifteen fields — and it is already `{ name, count }`, which is the
+            shape a chart takes.
+
+            Absent rather than empty when there is nothing to say: null means
+            the request has not answered or this is demo mode, where the seed's
+            tickets carry no category. An empty bar chart would read as "nobody
+            has asked us anything". */}
+        {pulse.byCategory && pulse.byCategory.length > 0 && (
+          <Card>
+            <CardHeader
+              title="What people are asking about"
+              description="Tickets raised in the last 30 days, most-asked first."
+            />
+            <CardBody>
+              <BarChart
+                colorBy="series"
+                format={(n) => String(n)}
+                caption="Tickets raised by category over the last 30 days"
+                points={[...pulse.byCategory]
+                  .sort((a, b) => b.count - a.count)
+                  .map((row) => ({ label: row.name, value: row.count }))}
+              />
+            </CardBody>
+          </Card>
+        )}
+
         {/*
           A count and a button, not a paragraph. The number is the whole point
           and pressing it filters the queue down to exactly those tickets.
@@ -328,7 +359,6 @@ function MyRequestsView() {
         <Card>
           <CardHeader
             title="Your requests"
-            description="Open one to read the replies, add to it, or say it is still not fixed."
             action={
               <SegmentedControl
                 label="Which of your requests"

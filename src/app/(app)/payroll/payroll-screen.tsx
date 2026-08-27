@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -8,7 +9,9 @@ import {
   Receipt,
   ShieldAlert,
 } from "lucide-react";
+import type { Point } from "@/components/ui";
 import {
+  AreaChart,
   Badge,
   ButtonLink,
   Callout,
@@ -35,6 +38,7 @@ import {
 import {
   formatKobo,
   headcountLabel,
+  naira,
   periodLabel,
   wasDeducted,
 } from "@/lib/api/payroll";
@@ -77,6 +81,57 @@ import { TODAY } from "@/lib/today";
 export function PayrollScreen() {
   const canView = useCan("VIEW_SALARIES");
   const { runs, loading, error, connected } = usePayrollRuns();
+
+  /**
+   * Net pay per calendar month, with a hole where nothing was run.
+   *
+   * Built over a **continuous run of months** rather than over `runs`, which is
+   * the whole point. `runs` holds only the periods somebody actually prepared,
+   * so plotting it directly would put February next to April and draw a
+   * straight line across March — a month that never happened, rendered as a
+   * gentle trend. Walking the calendar from the earliest completed run to the
+   * latest and looking each month up is what makes a missing month visible as a
+   * missing month.
+   *
+   * Only APPROVED and PAID count. CANCELLED runs moved no money, and a DRAFT's
+   * figures can still change while a trend line is read as history — either one
+   * on this chart would be a number nobody could reconcile against the table
+   * below it.
+   */
+  const { netByMonth, skippedMonths } = useMemo(() => {
+    const done = new Map<string, number>();
+    for (const run of runs) {
+      if (run.status !== "APPROVED" && run.status !== "PAID") continue;
+      /* Last one wins on a duplicated period — `runs` is newest-first, so the
+         earlier assignment is the more recent run. */
+      if (!done.has(run.period)) done.set(run.period, naira(run.netKobo));
+    }
+    if (done.size === 0) return { netByMonth: [], skippedMonths: 0 };
+
+    const months = [...done.keys()].sort();
+    const first = months[0] ?? "";
+    const last = months[months.length - 1] ?? "";
+    const step = (key: string): string => {
+      const [y, m] = key.split("-").map(Number);
+      const year = y ?? 0;
+      const month = m ?? 1;
+      return month === 12
+        ? `${String(year + 1)}-01`
+        : `${String(year)}-${String(month + 1).padStart(2, "0")}`;
+    };
+
+    const points: Point[] = [];
+    let skipped = 0;
+    /* Bounded by the span itself, and by a sanity ceiling so a malformed period
+       string cannot spin here. */
+    for (let key = first, guard = 0; guard < 120; key = step(key), guard += 1) {
+      const value = done.get(key) ?? null;
+      if (value === null) skipped += 1;
+      points.push({ label: periodLabel(key), value });
+      if (key === last) break;
+    }
+    return { netByMonth: points, skippedMonths: skipped };
+  }, [runs]);
   const current = runs[0] ?? null;
   const detail = usePayrollRun(current?.id ?? null);
 
@@ -276,11 +331,49 @@ export function PayrollScreen() {
           )
         )}
 
+        {/* ---- What payroll has cost, month by month ---------------------
+            The table below carries up to 24 periods and answers "did this
+            month jump?" only by reading two rows and subtracting. This is the
+            same figures as a shape.
+
+            Three rules, and each one is a claim avoided:
+
+            - **A month with no run is a gap, not a zero.** A period nobody ran
+              is simply absent from `runs`; drawing it at the axis would say the
+              company paid nothing that month, and spacing by array index would
+              quietly redraw the calendar so August touched June. `Point.value`
+              is null and `AreaChart` breaks its line there.
+            - **CANCELLED runs are excluded.** They are in this list and they
+              moved no money.
+            - **DRAFT is excluded too.** Those figures can still change, and a
+              trend line is read as history. */}
+        {netByMonth.length > 1 && (
+          <Card>
+            <CardHeader
+              title="Net paid, month by month"
+              description={
+                skippedMonths > 0
+                  ? `${String(skippedMonths)} ${skippedMonths === 1 ? "month has" : "months have"} no completed run and ${skippedMonths === 1 ? "is" : "are"} left blank rather than drawn as nothing paid.`
+                  : "Every month with a completed run."
+              }
+            />
+            <CardBody>
+              <AreaChart
+                height={160}
+                points={netByMonth}
+                format={(n) =>
+                  `₦${n.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                }
+                caption="Net pay by month, over the runs that were approved or paid"
+              />
+            </CardBody>
+          </Card>
+        )}
+
         {runs.length > 0 && (
           <Card>
             <CardHeader
               title="Every run"
-              description="Newest month first."
               action={
                 <Badge tone="neutral" size="sm">
                   {runs.length} {runs.length === 1 ? "period" : "periods"}
