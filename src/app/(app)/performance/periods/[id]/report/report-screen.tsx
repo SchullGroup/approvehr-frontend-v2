@@ -15,6 +15,7 @@ import {
   Card,
   CardBody,
   CardHeader,
+  ColumnChart,
   DescriptionList,
   EmptyState,
   Spinner,
@@ -33,6 +34,7 @@ import {
   type ApiBandCount,
   type ApiCycleReport,
   type ApiNamedOnList,
+  type ScoreBand,
 } from "@/lib/api/performance";
 import { useCan } from "@/lib/permissions";
 import { BAND_TONE, useCycleReport } from "@/lib/store/performance";
@@ -158,10 +160,7 @@ export function PeriodReportScreen({ cycleId }: { cycleId: string }) {
 
         {report && report.marks.people === 0 && (
           <Card>
-            <CardHeader
-              title="Nothing to report yet"
-              description="A report needs somebody to report on."
-            />
+            <CardHeader title="Nothing to report yet" />
             <EmptyState
               compact
               icon={<UserX aria-hidden="true" />}
@@ -269,6 +268,22 @@ function Headline({ report }: { report: ApiCycleReport }) {
  * Bars are a share of the marks that exist, never of the headcount. The unscored
  * row sits below a rule, outside the five bands, and says why.
  */
+/**
+ * The column colours, matching `BAND_TONE`'s badges.
+ *
+ * A separate map because `BAND_TONE` yields a `BadgeTone` name and a chart
+ * needs a colour. Kept next to its one consumer rather than in the store: this
+ * is the only place a band becomes a fill, and a second table of band colours
+ * in `store/performance.ts` would be one more thing to keep in step.
+ */
+const BAND_FILL: Record<ScoreBand, string> = {
+  BELOW: "var(--color-danger)",
+  PARTIALLY_MEETS: "var(--color-warning)",
+  MEETS: "var(--color-line-strong)",
+  EXCEEDS: "var(--color-accent)",
+  OUTSTANDING: "var(--color-success-strong)",
+};
+
 function Distribution({ report }: { report: ApiCycleReport }) {
   const { distribution } = report;
 
@@ -283,6 +298,11 @@ function Distribution({ report }: { report: ApiCycleReport }) {
         }
       />
       <CardBody className="flex flex-col gap-4">
+        {/* The shape first, then the figures. The chart answers "what shape is
+            this company in", which five independent bars could not; the list
+            under it still answers "who is in this band", which a chart cannot.
+            Neither replaces the other, and the list is also the accessible
+            copy — the chart is `aria-hidden`. */}
         {distribution.scored === 0 ? (
           <p className="text-body-sm text-muted">
             No mark has been recorded in this period, so there is no
@@ -290,6 +310,22 @@ function Distribution({ report }: { report: ApiCycleReport }) {
             five zeroes.
           </p>
         ) : (
+          <ColumnChart
+            height={160}
+            points={distribution.bands.map((band) => ({
+              label: band.label,
+              value: band.people,
+            }))}
+            /* The badge tones, so a reader who has learnt amber-means-partially
+               -meets on the register does not learn it again here. Never the
+               only cue: every column carries its count and its band name. */
+            tones={distribution.bands.map((band) => BAND_FILL[band.band])}
+            format={(n) => `${String(n)}`}
+            caption={`The spread of ${String(distribution.scored)} ${distribution.scored === 1 ? "mark" : "marks"} across the five bands.`}
+          />
+        )}
+
+        {distribution.scored > 0 && (
           <ul className="flex flex-col gap-3">
             {distribution.bands.map((band) => (
               <BandRow key={band.band} band={band} of={distribution.scored} />
@@ -320,12 +356,23 @@ function Distribution({ report }: { report: ApiCycleReport }) {
   );
 }
 
+/**
+ * One band, as words and names.
+ *
+ * **It used to carry its own bar and no longer does.** Each band filling a share
+ * of its own separate track answered "how big is this band" five times over and
+ * never showed the shape — which is now the chart's job, on one shared axis
+ * above. Two renderings of the same proportion is one too many, and the one
+ * that had to go is the one that could not be compared across bands.
+ *
+ * What stays is what a chart cannot say: the range the band covers, what it
+ * means, and **who is in it**. The names are the reason anybody scrolls to this
+ * list, and they are also what makes it the accessible copy of the chart.
+ */
 function BandRow({ band, of }: { band: ApiBandCount; of: number }) {
-  const share = of === 0 ? 0 : (band.people / of) * 100;
-
   return (
-    <li>
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+    <li className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-line pb-3 last:border-0 last:pb-0">
+      <span className="flex min-w-0 flex-col gap-1">
         <span className="flex flex-wrap items-center gap-2">
           <Badge tone={BAND_TONE[band.band]} size="sm">
             {band.label}
@@ -334,22 +381,14 @@ function BandRow({ band, of }: { band: ApiBandCount; of: number }) {
             {weightLabel(band.fromBp)} to {weightLabel(band.toBp)}
           </span>
         </span>
-        <span className="tabular text-body-sm font-medium text-ink">
-          {band.people} of {of}
+        <span className="text-meta text-muted">
+          {band.meaning}
+          {band.names.length > 0 && ` ${band.names.join(", ")}.`}
         </span>
-      </div>
-
-      <span className="mt-1.5 block h-2 overflow-hidden rounded-full bg-sunken">
-        <span
-          className="block h-full rounded-full bg-accent transition-[width] duration-500 ease-[var(--ease-out-soft)]"
-          style={{ width: `${share}%` }}
-        />
       </span>
-
-      <p className="mt-1 text-meta text-muted">
-        {band.meaning}
-        {band.names.length > 0 && ` ${band.names.join(", ")}.`}
-      </p>
+      <span className="tabular shrink-0 text-body-sm font-medium text-ink">
+        {band.people} of {of}
+      </span>
     </li>
   );
 }

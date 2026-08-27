@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { DoorOpen, FileUp, Plus } from "lucide-react";
 import { ButtonLink } from "@/components/ui";
+import { BulkInviteButton } from "@/components/portal/bulk-invite";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { Directory } from "./directory";
 
@@ -48,6 +49,15 @@ export default async function PeoplePage({
               <FileUp aria-hidden="true" className="size-4" />
               Import from spreadsheet
             </ButtonLink>
+            {/* Adding somebody creates a **record**, not an account — most of a
+                payroll never signs in, and the importer only invites a row that
+                carries a `role`. So a company that imports three hundred people
+                with their emails gets three hundred records and no logins, and
+                until now the only door to fixing that was under Attendance.
+
+                "Why has nobody got a login" is asked here, on the Directory,
+                where the people are. Absent for anybody without INVITE_STAFF. */}
+            <BulkInviteButton />
             <ButtonLink href="/people/new" variant="accent" size="sm">
               <Plus aria-hidden="true" className="size-4" />
               Add employee

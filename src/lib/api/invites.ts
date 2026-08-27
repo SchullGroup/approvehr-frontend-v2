@@ -55,6 +55,22 @@ export type BulkInviteResult = {
   failed: { employeeId: string; name: string; message: string }[];
 };
 
+/** A real sign-in with no personnel file — see `unlinkedUsers` on the API. */
+export type UnlinkedUser = {
+  userId: string;
+  name: string;
+  email: string;
+  lastSignInAt: string | null;
+};
+
+export type LinkedAccount = {
+  userId: string;
+  name: string;
+  email: string;
+  employeeId: string | null;
+  employeeName: string | null;
+};
+
 export const invitesApi = {
   send: (employeeId: string, roleIds: string[]): Promise<SentInvite> =>
     request<SentInvite>("/invites", {
@@ -101,11 +117,67 @@ export const invitesApi = {
       ...(signal ? { signal } : {}),
     }),
 
+  /**
+   * Whether an invitation will actually reach anybody.
+   *
+   * Asked before offering to send one. With no mail transport wired the API
+   * creates the account, sends nothing and answers 200 — so a screen promising
+   * "they can set a password from the link in their email" was describing an
+   * email that does not exist. This is how a screen finds out.
+   */
+  delivery: (
+    signal?: AbortSignal,
+  ): Promise<{ email: boolean; note: string | null }> =>
+    request<{ email: boolean; note: string | null }>(
+      "/invites/delivery",
+      signal ? { signal } : {},
+    ),
+
+  /**
+   * A fresh invitation link, to pass on by hand.
+   *
+   * A **POST**, because it mints a new token and invalidates the previous one —
+   * so a link taken last week stops working when a new one is taken, and a link
+   * cannot be quietly harvested and left live alongside its replacement. It also
+   * keeps the token out of a URL and therefore out of browser history.
+   *
+   * Refused for an account that already has a password: this is an onboarding
+   * tool, not a password reset performed on somebody else's behalf. Audited by
+   * user on the API.
+   */
+  link: (
+    userId: string,
+  ): Promise<{
+    userId: string;
+    email: string;
+    name: string;
+    url: string;
+    expiresAt: string;
+  }> =>
+    request(`/invites/${userId}/link`, { method: "POST" }),
+
   resend: (userId: string): Promise<SentInvite> =>
     request<SentInvite>(`/invites/${userId}/resend`, { method: "POST" }),
 
   revoke: (userId: string): Promise<{ userId: string; email: string }> =>
     request<{ userId: string; email: string }>(`/invites/${userId}`, {
       method: "DELETE",
+    }),
+
+  /** Real accounts with nobody to be — the company's own registrant, most
+   *  often. Needs `MANAGE_ROLES`, not `INVITE_STAFF`: see `linkToEmployee`. */
+  unlinked: (signal?: AbortSignal): Promise<UnlinkedUser[]> =>
+    request<UnlinkedUser[]>("/invites/unlinked", {
+      ...(signal ? { signal } : {}),
+    }),
+
+  /** `employeeId: null` clears the link rather than leaving it alone. */
+  linkEmployee: (
+    userId: string,
+    employeeId: string | null,
+  ): Promise<LinkedAccount> =>
+    request<LinkedAccount>(`/invites/${userId}/employee`, {
+      method: "PATCH",
+      body: { employeeId },
     }),
 };

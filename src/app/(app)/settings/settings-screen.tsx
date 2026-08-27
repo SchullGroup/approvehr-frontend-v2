@@ -4,6 +4,7 @@ import {
   ArrowRight,
   Bell,
   BookOpen,
+  LifeBuoy,
   Check,
   CircleDashed,
   FileText,
@@ -113,6 +114,13 @@ const ONGOING = [
     description:
       "Notices everybody sees on their dashboard. Publishing is what makes one visible; a draft appears nowhere.",
     icon: <Megaphone aria-hidden="true" />,
+  },
+  {
+    href: "/settings/helpdesk",
+    title: "Help desk",
+    description:
+      "What people can raise a request about, and how quickly you have promised to answer.",
+    icon: <LifeBuoy aria-hidden="true" />,
   },
   {
     href: "/settings/knowledge",
