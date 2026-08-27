@@ -73,7 +73,10 @@ export function InviteStaffDialog({
    *  failure — as against a per-person one, which `result.failed` carries. */
   banner?: string | null;
   onClose: () => void;
-  onSend: (people: { employeeId: string; email: string }[], roleId: string) => void;
+  onSend: (
+    people: { employeeId: string; email: string }[],
+    roleId: string,
+  ) => void;
 }) {
   const [query, setQuery] = useState("");
   const [emails, setEmails] = useState<Record<string, string>>({});
@@ -116,9 +119,12 @@ export function InviteStaffDialog({
   }
 
   const entries = Object.entries(emails);
-  const ready = entries.filter(([, email]) => LOOKS_LIKE_EMAIL.test(email.trim()));
+  const ready = entries.filter(([, email]) =>
+    LOOKS_LIKE_EMAIL.test(email.trim()),
+  );
   const invalid = entries.some(
-    ([, email]) => email.trim().length > 0 && !LOOKS_LIKE_EMAIL.test(email.trim()),
+    ([, email]) =>
+      email.trim().length > 0 && !LOOKS_LIKE_EMAIL.test(email.trim()),
   );
 
   function submit() {
@@ -142,8 +148,12 @@ export function InviteStaffDialog({
         <div className="flex flex-col gap-4">
           {result.sent.length > 0 && (
             <Callout tone="success" title={`${result.sent.length} invited`}>
-              {result.sent.map((s) => `${s.firstName} ${s.lastName}`).join(", ")}
-              {". They can set a password from the link in their email and clock in as soon as they do."}
+              {result.sent
+                .map((s) => `${s.firstName} ${s.lastName}`)
+                .join(", ")}
+              {
+                ". They can set a password from the link in their email and clock in as soon as they do."
+              }
             </Callout>
           )}
           {result.failed.length > 0 && (
@@ -173,8 +183,7 @@ export function InviteStaffDialog({
     <Modal
       open
       onClose={onClose}
-      title="Set up staff logins"
-      description="Staff with a login can clock themselves in and out. Most roles do not need one — pick the ones who do."
+      title="Give staff a login so they can clock in"
       size="lg"
       footer={
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -212,7 +221,10 @@ export function InviteStaffDialog({
 
         {roles.length > 0 && (
           <div className="flex items-center gap-3">
-            <label className="text-body-sm font-medium text-ink" htmlFor="invite-role">
+            <label
+              className="text-body-sm font-medium text-ink"
+              htmlFor="invite-role"
+            >
               Sign in as
             </label>
             <Select
@@ -270,11 +282,15 @@ export function InviteStaffDialog({
                 >
                   <Checkbox
                     label={person.name}
-                    {...(person.jobTitle ? { description: person.jobTitle } : {})}
+                    {...(person.jobTitle
+                      ? { description: person.jobTitle }
+                      : {})}
                     checked={picked}
                     disabled={busy}
                     onChange={() =>
-                      picked ? remove(person.employeeId) : setEmail(person.employeeId, "")
+                      picked
+                        ? remove(person.employeeId)
+                        : setEmail(person.employeeId, "")
                     }
                   />
                   {picked && (
@@ -286,7 +302,9 @@ export function InviteStaffDialog({
                       disabled={busy}
                       aria-invalid={badFormat}
                       className="w-64"
-                      onChange={(e) => setEmail(person.employeeId, e.target.value)}
+                      onChange={(e) =>
+                        setEmail(person.employeeId, e.target.value)
+                      }
                     />
                   )}
                 </li>

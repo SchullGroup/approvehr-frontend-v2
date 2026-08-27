@@ -1,8 +1,55 @@
 "use client";
 
 import { createContext, useContext, useId } from "react";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Info } from "lucide-react";
 import { cn } from "@/lib/cn";
+
+/**
+ * The label-line info icon that replaced help text sitting under every field.
+ *
+ * Two copies of `help`, doing two different jobs, is the point rather than
+ * duplication to clean up:
+ *
+ * - A visually-hidden span, permanently in the DOM and named by `id` — this
+ *   is what `aria-describedby` on the control actually points at, so a
+ *   screen-reader user hears the guidance the moment they land on the field,
+ *   exactly as before. Its visibility never depends on hover.
+ * - A visible panel, `aria-hidden`, shown only on hover or focus. It exists
+ *   for sighted mouse and keyboard users, and is hidden from assistive tech
+ *   so the same sentence is not announced twice.
+ *
+ * `group-focus-within` is what makes the panel appear for a keyboard user —
+ * tabbing to the trigger focuses it, which is also what happens when a touch
+ * screen taps a button, so no separate touch handling was needed.
+ */
+function InfoTooltip({ id, text }: { id: string; text: string }) {
+  return (
+    <span className="group relative inline-flex">
+      <span id={id} className="sr-only">
+        {text}
+      </span>
+      <button
+        type="button"
+        aria-label="More about this field"
+        className="text-muted hover:text-ink focus:text-ink focus:outline-none"
+      >
+        <Info aria-hidden="true" className="size-3.5" />
+      </button>
+      <span
+        aria-hidden="true"
+        role="presentation"
+        className={cn(
+          "invisible absolute bottom-full left-1/2 z-50 mb-2 w-64 -translate-x-1/2",
+          "rounded-md border border-line bg-surface p-2.5 text-body-sm leading-relaxed text-body shadow-lg",
+          "opacity-0 transition-opacity duration-100",
+          "group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100",
+        )}
+      >
+        {text}
+      </span>
+    </span>
+  );
+}
 
 /*
  * Field owns the accessible wiring so individual inputs never have to.
@@ -94,29 +141,42 @@ export function Field({
       value={{ inputId, helpId, errorId, hasError, describedBy, required }}
     >
       <div className={cn("flex flex-col gap-1.5", className)}>
-        <label
-          htmlFor={inputId}
+        <span
           className={cn(
-            "text-body-sm font-medium text-ink",
+            "flex items-center gap-1.5",
             hideLabel && "sr-only-focusable",
           )}
         >
-          {label}
-          {required && (
-            <span className="text-danger-text ml-0.5" aria-hidden="true">
-              *
-            </span>
+          <label
+            htmlFor={inputId}
+            className="text-body-sm font-medium text-ink"
+          >
+            {label}
+            {required && (
+              <span className="text-danger-text ml-0.5" aria-hidden="true">
+                *
+              </span>
+            )}
+            {required && <span className="sr-only-focusable"> required</span>}
+            {/* Part of the label, so a screen reader reads it with the field
+                name rather than announcing it separately as guidance. Muted
+                and at the same size: a qualifier, not a second heading. */}
+            {optional && (
+              <span className="font-normal text-muted"> (optional)</span>
+            )}
+          </label>
+          {help && !hasError && !hideLabel && (
+            <InfoTooltip id={helpId} text={help} />
           )}
-          {required && <span className="sr-only-focusable"> required</span>}
-          {/* Part of the label, so a screen reader reads it with the field name
-              rather than announcing it separately as guidance. Muted and at the
-              same size: a qualifier, not a second heading. */}
-          {optional && <span className="font-normal text-muted"> (optional)</span>}
-        </label>
+        </span>
 
         {children}
 
-        {help && !hasError && (
+        {/* The help text with nowhere to attach beside — a hidden label has no
+            visible line for the icon to sit on, so guidance for a
+            visually-hidden field stays as a plain, always-visible line rather
+            than a tooltip nobody can see the trigger for. */}
+        {help && !hasError && hideLabel && (
           <p id={helpId} className="text-body-sm leading-relaxed text-muted">
             {help}
           </p>
@@ -168,12 +228,10 @@ export function FieldSet({
           .join(" ") || undefined
       }
     >
-      <legend className="text-body-sm font-medium text-ink mb-1">{legend}</legend>
-      {help && !error && (
-        <p id={helpId} className="text-body-sm text-muted -mt-1">
-          {help}
-        </p>
-      )}
+      <legend className="mb-1 flex items-center gap-1.5 text-body-sm font-medium text-ink">
+        {legend}
+        {help && !error && <InfoTooltip id={helpId} text={help} />}
+      </legend>
       {children}
       {error && (
         <p
