@@ -27,12 +27,12 @@ import { usePermissions } from "@/lib/permissions";
 import { useOrgTaxState } from "@/lib/store/company";
 import { useWorkLocations } from "@/lib/store/work-locations";
 import { useRoles } from "@/lib/store/permissions";
-import { PositionError, readPosition, type PositionFix } from "@/lib/geolocation";
 import {
-  FEATURE_COPY,
-  useFeatures,
-  useWizard,
-} from "@/lib/store/features";
+  PositionError,
+  readPosition,
+  type PositionFix,
+} from "@/lib/geolocation";
+import { FEATURE_COPY, useFeatures, useWizard } from "@/lib/store/features";
 import { CreateRoleDialog } from "@/app/(app)/settings/roles/create-role";
 
 /**
@@ -147,7 +147,8 @@ export function SetupWizard() {
      total. */
   const resumeAt = total === 0 ? 0 : Math.min(wizard.step, total - 1);
   const index = movedTo ?? resumeAt;
-  const done = phase === "done" || (!wizard.loading && wizard.setupCompletedAt !== null);
+  const done =
+    phase === "done" || (!wizard.loading && wizard.setupCompletedAt !== null);
 
   const finish = useCallback(async () => {
     setFinishing(true);
@@ -174,7 +175,10 @@ export function SetupWizard() {
     else await finish();
   }, [index, total, finish]);
 
-  const choose = async (question: ApiWizardQuestion, option: ApiWizardOption) => {
+  const choose = async (
+    question: ApiWizardQuestion,
+    option: ApiWizardOption,
+  ) => {
     setBusy(option.value);
     try {
       await wizard.answer(question.id, option.value);
@@ -374,6 +378,18 @@ export function SetupWizard() {
     );
   }
 
+  /* `step` counts answers, so a question at or below it has been answered —
+     which is what makes marking its answer honest rather than a default
+     dressed up as one. See `chosenOption`. */
+  const answered = question.step <= wizard.step;
+  const chosen = answered
+    ? chosenOption(
+        question,
+        features as unknown as Record<string, unknown>,
+        wizard.deductions as unknown as Record<string, unknown> | null,
+      )
+    : null;
+
   return (
     <Frame>
       <p className="text-body-sm font-medium text-muted">
@@ -393,6 +409,12 @@ export function SetupWizard() {
         <h1 className="text-h3 text-ink sm:text-h2">{question.question}</h1>
         <p className="mt-3 text-lead text-body">{question.help}</p>
       </div>
+
+      {answered && (
+        <p className="mt-4 text-body-sm text-muted">
+          You answered this already. Pick again to change it.
+        </p>
+      )}
 
       {question.id === "roles" ? (
         <RolesStep
@@ -415,13 +437,59 @@ export function SetupWizard() {
             <OptionButton
               key={option.value}
               option={option}
+              chosen={answered && chosen === option.value}
               busy={busy === option.value}
-              disabled={busy !== null || finishing || awaitingTaxState || awaitingOffice}
+              disabled={
+                busy !== null || finishing || awaitingTaxState || awaitingOffice
+              }
               onSelect={() => void choose(question, option)}
             />
           ))}
         </div>
       )}
+
+      {/* The two questions whose answer is not only an option.
+          Answering them wrote a *fact* — a filing state, an office — through a
+          different store, and coming back to find the option marked but the
+          fact itself invisible is the same "did that save?" moment one level
+          down. Both are shown, and the one that is a single editable value
+          offers a way back into its own prompt. */}
+      {answered &&
+        question.id === "paye" &&
+        orgTax.taxState &&
+        !awaitingTaxState && (
+          <p className="mt-5 flex flex-wrap items-center gap-x-2 gap-y-1 text-body-sm text-body">
+            <span>
+              Filing to{" "}
+              <span className="font-medium text-ink">{orgTax.taxState}</span>.
+            </span>
+            <button
+              type="button"
+              className="font-medium text-accent-text underline-offset-4 hover:underline"
+              disabled={busy !== null || finishing}
+              onClick={() => {
+                setTaxStateChoice(orgTax.taxState ?? "");
+                setTaxStateError(null);
+                setAwaitingTaxState(true);
+              }}
+            >
+              Change
+            </button>
+          </p>
+        )}
+
+      {answered &&
+        question.id === "attendance" &&
+        offices.locations.length > 0 &&
+        !awaitingOffice && (
+          <p className="mt-5 text-body-sm text-body">
+            Clocking in at{" "}
+            <span className="font-medium text-ink">
+              {offices.locations.map((office) => office.name).join(", ")}
+            </span>
+            . You can add branches in Settings.
+          </p>
+        )}
 
       {awaitingTaxState && (
         <div className="mt-6 rounded-lg border border-accent-line bg-accent-soft p-5">
@@ -465,8 +533,8 @@ export function SetupWizard() {
               Where do people clock in?
             </p>
             <p className="mt-1 text-body-sm leading-relaxed text-body">
-              Staff pick a place when they clock in, so there has to be at
-              least one. You can add branches later.
+              Staff pick a place when they clock in, so there has to be at least
+              one. You can add branches later.
             </p>
           </div>
 
@@ -479,7 +547,11 @@ export function SetupWizard() {
             />
           </Field>
 
-          <Field label="Address" optional help="For the record. It appears on the clock-in screen.">
+          <Field
+            label="Address"
+            optional
+            help="For the record. It appears on the clock-in screen."
+          >
             <Input
               value={officeAddress}
               disabled={savingOffice}
@@ -568,6 +640,50 @@ export function SetupWizard() {
 /* -------------------------------------------------------------------------- */
 
 /**
+ * Which option this company is already on, or `null`.
+ *
+ * ## Read the call site before changing this
+ *
+ * It is consulted **only for a question that has already been answered** —
+ * `question.step <= wizard.step`. That restriction is the whole reason this
+ * is safe to have at all, given that this file's own header says no option is
+ * pre-marked as the current state.
+ *
+ * The thing that rule was written against was a "Now" badge marking a
+ * *default* on a question nobody had answered yet, which let somebody click
+ * through setup without ever deciding anything. Marking what you actually
+ * chose, on a question you actually answered, is the opposite of that: going
+ * Back and finding both options blank reads as though the answer was thrown
+ * away, and the answer was not thrown away — it is on the server, which is
+ * where the values compared below come from.
+ *
+ * ## Matching on what the answer *wrote*, not on a stored answer
+ *
+ * There is no "which option did they pick" column anywhere: `POST
+ * /wizard/answer` applies `option.sets` to `OrgFeatures` and `option.payroll`
+ * to `PayrollSettings` and keeps no record of the option itself. So the
+ * option is identified by its effect — the one whose whole patch agrees with
+ * the current state. An option that constrains nothing is skipped rather than
+ * matching vacuously.
+ */
+function chosenOption(
+  question: ApiWizardQuestion,
+  features: Record<string, unknown>,
+  deductions: Record<string, unknown> | null,
+): string | null {
+  for (const option of question.options) {
+    const sets = Object.entries(option.sets);
+    const payroll = Object.entries(option.payroll ?? {});
+    if (sets.length + payroll.length === 0) continue;
+    const agrees =
+      sets.every(([key, value]) => features[key] === value) &&
+      payroll.every(([key, value]) => deductions?.[key] === value);
+    if (agrees) return option.value;
+  }
+  return null;
+}
+
+/**
  * The calm container: one column, centred, nothing else on screen.
  *
  * No `PageHeader`. A page title above a question would be a second heading
@@ -598,11 +714,14 @@ function Frame({ children }: { children: React.ReactNode }) {
  */
 function OptionButton({
   option,
+  chosen,
   busy,
   disabled,
   onSelect,
 }: {
   option: ApiWizardOption;
+  /** Only ever true on a question already answered — see `chosenOption`. */
+  chosen: boolean;
   busy: boolean;
   disabled: boolean;
   onSelect: () => void;
@@ -612,19 +731,37 @@ function OptionButton({
       type="button"
       onClick={onSelect}
       disabled={disabled}
+      aria-pressed={chosen}
       aria-busy={busy || undefined}
       className={cn(
         "flex min-h-16 flex-col gap-1.5 rounded-lg border px-5 py-4 text-left",
         "transition-[border-color,background-color,box-shadow] duration-150",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text",
         "disabled:cursor-not-allowed disabled:opacity-60",
-        "border-line bg-surface hover:border-control-line hover:bg-canvas",
+        chosen
+          ? "border-accent-line bg-accent-soft"
+          : "border-line bg-surface hover:border-control-line hover:bg-canvas",
         !option.consequence && "justify-center",
       )}
     >
       <span className="flex w-full items-center justify-between gap-3">
-        <span className="text-body-sm font-medium text-ink">{option.label}</span>
-        {busy && <span className="shrink-0 text-meta text-muted">Saving…</span>}
+        <span className="text-body-sm font-medium text-ink">
+          {option.label}
+        </span>
+        {busy ? (
+          <span className="shrink-0 text-meta text-muted">Saving…</span>
+        ) : (
+          chosen && (
+            <span className="flex shrink-0 items-center gap-1 text-meta font-medium text-accent-text">
+              <Check
+                aria-hidden="true"
+                strokeWidth={2.5}
+                className="size-3.5"
+              />
+              Chosen
+            </span>
+          )
+        )}
       </span>
       {option.consequence && (
         <span className="text-body-sm leading-relaxed text-body">
