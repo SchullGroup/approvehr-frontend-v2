@@ -98,7 +98,9 @@ export function PeriodsTab() {
           title="Finished periods"
           meta={
             <Badge tone="neutral" size="sm">
-              {finished.length === 1 ? "1 period" : `${finished.length} periods`}
+              {finished.length === 1
+                ? "1 period"
+                : `${finished.length} periods`}
             </Badge>
           }
           hint="Published, and a record now. The marks in them cannot move."
@@ -162,7 +164,9 @@ function PeriodRow({ period }: { period: ApiCycle }) {
                 : `${period.reviewCount} forms`}
             </span>
           )}
-          {period.dueDate && <span>Answers due {dayLabel(period.dueDate)}</span>}
+          {period.dueDate && (
+            <span>Answers due {dayLabel(period.dueDate)}</span>
+          )}
         </p>
       </div>
 

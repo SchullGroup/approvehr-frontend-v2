@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { CalendarRange } from "lucide-react";
 import {
   Button,
+  Checkbox,
+  Disclosure,
   Field,
   Input,
   Modal,
@@ -14,6 +16,7 @@ import {
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { useCan } from "@/lib/permissions";
+import { useDepartments } from "@/lib/store/departments";
 import { useFeatures } from "@/lib/store/features";
 import { useCycleMutations } from "@/lib/store/performance";
 
@@ -62,8 +65,21 @@ export function StartPeriodDialog({
 }) {
   const periods = useCycleMutations();
 
+  const departments = useDepartments();
+
   const [name, setName] = useState("");
   const [dueDate, setDueDate] = useState("");
+  /**
+   * Who the period covers. **Empty is everybody**, and that is the default.
+   *
+   * Asked here rather than on the period screen because the API reads it once,
+   * at activation — the forms are written in that call, so changing the scope
+   * after a period has started moves nobody. Offering it later would be a
+   * control that silently does nothing.
+   */
+  const [scope, setScope] = useState<string[]>([]);
+  /** Days before the deadline to chase whoever still owes a form. */
+  const [remind, setRemind] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -78,6 +94,10 @@ export function StartPeriodDialog({
       const created = await periods.createCycle(
         name.trim(),
         dueDate || undefined,
+        {
+          ...(scope.length > 0 ? { departmentIds: scope } : {}),
+          ...(remind ? { remindDaysBefore: Number(remind) } : {}),
+        },
       );
       onCreated({ id: created.id, name: created.name });
     } catch (caught) {
@@ -100,7 +120,11 @@ export function StartPeriodDialog({
       footer={
         <>
           <Button onClick={onClose}>Cancel</Button>
-          <Button variant="accent" loading={saving} onClick={() => void submit()}>
+          <Button
+            variant="accent"
+            loading={saving}
+            onClick={() => void submit()}
+          >
             Create the period
           </Button>
         </>
@@ -121,6 +145,83 @@ export function StartPeriodDialog({
             onChange={(event) => setDueDate(event.target.value)}
           />
         </Field>
+
+        {/* Both closed by default. Neither is a blocker — a period with no
+            scope covers everybody and a period with no reminder still works —
+            so `PARITY.md` Rule 5 says they may be behind a reveal. The summary
+            carries the current answer so nobody has to open it to check. */}
+        <Disclosure
+          title="Who it covers"
+          meta={
+            scope.length === 0
+              ? "Everybody"
+              : `${scope.length} department${scope.length === 1 ? "" : "s"}`
+          }
+          hint="Leave it as everybody unless this period is only for part of the company."
+        >
+          {departments.flat.length === 0 ? (
+            <p className="text-body-sm text-muted">
+              There are no departments to narrow this to, so it covers
+              everybody.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {departments.flat.map((department) => (
+                <Checkbox
+                  key={department.id}
+                  label={department.name}
+                  checked={scope.includes(department.id)}
+                  onChange={(event) =>
+                    setScope((current) =>
+                      event.target.checked
+                        ? [...current, department.id]
+                        : current.filter((id) => id !== department.id),
+                    )
+                  }
+                />
+              ))}
+              {scope.length > 0 && (
+                <p className="text-meta text-muted">
+                  Only people in {scope.length === 1 ? "this" : "these"}{" "}
+                  department{scope.length === 1 ? "" : "s"} get a form. This is
+                  read when you start the period and cannot be changed
+                  afterwards.
+                </p>
+              )}
+            </div>
+          )}
+        </Disclosure>
+
+        <Disclosure
+          title="Chase people automatically"
+          meta={
+            remind
+              ? `${remind} day${remind === "1" ? "" : "s"} before`
+              : "Switched off"
+          }
+          hint="One reminder, to whoever has not sent their form yet."
+        >
+          <div className="flex flex-col gap-2">
+            <Field optional label="Days before the deadline">
+              <Input
+                type="number"
+                min={1}
+                max={30}
+                inputMode="numeric"
+                className="w-32"
+                value={remind}
+                placeholder="e.g. 3"
+                disabled={!dueDate}
+                onChange={(event) => setRemind(event.target.value)}
+              />
+            </Field>
+            <p className="text-meta text-muted">
+              {dueDate
+                ? "It goes once, to the people who still owe a form — never to anybody who has already sent theirs. One reminder, not one a day: a nudge people learn to ignore takes the real notifications with it."
+                : "Set a due date above first — there is nothing to count back from."}
+            </p>
+          </div>
+        </Disclosure>
       </div>
     </Modal>
   );

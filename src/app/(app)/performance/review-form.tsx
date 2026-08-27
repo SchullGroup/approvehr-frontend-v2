@@ -13,6 +13,11 @@ import {
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import {
+  SuggestButton,
+  SuggestionPanel,
+} from "@/components/performance/suggestions";
+import { useDevelopmentSuggestions } from "@/lib/store/ai";
+import {
   dayLabel,
   type AnswerBody,
   type ApiFormQuestion,
@@ -91,6 +96,7 @@ export function ReviewFormModal({
   const [summary, setSummary] = useState<string>("");
   const [failed, setFailed] = useState<string | null>(null);
   const [busy, setBusy] = useState<"save" | "send" | null>(null);
+  const development = useDevelopmentSuggestions();
 
   const patch = (id: string, next: Draft) =>
     setDraft((current) => ({ ...current, [id]: { ...current[id], ...next } }));
@@ -123,7 +129,9 @@ export function ReviewFormModal({
     draft[question.id] ?? draftFrom(question);
 
   const outstanding = review.questions
-    .filter((question) => question.required && !filled(question, value(question)))
+    .filter(
+      (question) => question.required && !filled(question, value(question)),
+    )
     .map((question) => question.prompt);
 
   /** Only what has actually been typed. Re-answering replaces on the API side. */
@@ -295,7 +303,8 @@ export function ReviewFormModal({
             <Field
               optional
               label="Overall mark"
-              help="Leave it blank if the answers say enough.">
+              help="Leave it blank if the answers say enough."
+            >
               <Select
                 value={mark}
                 placeholder="No overall mark"
@@ -315,6 +324,48 @@ export function ReviewFormModal({
                 onChange={(event) => setSummary(event.target.value)}
               />
             </Field>
+
+            {/* Development areas, on a form about somebody else.
+
+                Not on a self-review: the suggestion is built from competency
+                scores other people gave, and handing somebody their own gaps
+                phrased as development areas is a conversation their appraiser
+                should be having, not a panel.
+
+                Built only from competencies scored **below their target** — see
+                `modules/ai/service.ts#suggestDevelopment`. Somebody meeting
+                every target is refused rather than handed a weakness invented
+                to fill the space, and the refusal is the API's own sentence. */}
+            {review.kind !== "SELF" && (
+              <div className="flex flex-col gap-3">
+                <SuggestButton
+                  loading={development.loading}
+                  label="Suggest development areas"
+                  onClick={() =>
+                    void development.ask({
+                      employeeId: review.subjectId,
+                      cycleId: review.cycleId,
+                    })
+                  }
+                />
+                <SuggestionPanel
+                  state={development}
+                  onDismiss={development.clear}
+                  useLabel="Add to my notes"
+                  emptyHint={`${review.subjectName} never sees this — it is a note for you.`}
+                  /* Appended rather than replacing: an appraiser has usually
+                     already written something, and a suggestion that wiped it
+                     would lose the only part of this form nobody can regenerate. */
+                  onUse={(suggestion) =>
+                    setSummary((current) =>
+                      [current.trim(), `${suggestion.title}: ${suggestion.detail}`]
+                        .filter(Boolean)
+                        .join("\n\n"),
+                    )
+                  }
+                />
+              </div>
+            )}
           </div>
         )}
 

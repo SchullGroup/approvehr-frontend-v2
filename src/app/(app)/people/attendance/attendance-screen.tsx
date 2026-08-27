@@ -195,6 +195,7 @@ export function AttendanceScreen() {
             employeeId: person.id,
             name: `${person.firstName} ${person.lastName}`,
             jobTitle: person.jobTitle,
+            email: person.email,
           })),
       );
       setInviteRoles(

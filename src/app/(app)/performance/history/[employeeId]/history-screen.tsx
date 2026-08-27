@@ -145,8 +145,8 @@ export function ScoreHistoryScreen({ employeeId }: { employeeId: string }) {
                 )}
                 {history.truncated && (
                   <p className="text-body-sm text-muted">
-                    The {history.limit} most recent periods are shown. Older ones
-                    exist and are not on this page.
+                    The {history.limit} most recent periods are shown. Older
+                    ones exist and are not on this page.
                   </p>
                 )}
                 {[...history.points].reverse().map((point) => (
@@ -199,7 +199,9 @@ function Who({ history }: { history: ApiScoreHistory }) {
       <Stat
         label="Across the whole span"
         value={
-          history.trend === null ? "Not a trend yet" : changeLabel(history.trend.changeBp)
+          history.trend === null
+            ? "Not a trend yet"
+            : changeLabel(history.trend.changeBp)
         }
         hint={
           history.trend === null
@@ -225,7 +227,11 @@ function Trend({ history }: { history: ApiScoreHistory }) {
   );
   const trend = history.trend;
 
-  const direction: { icon: React.ReactNode; tone: BadgeTone; words: string } | null =
+  const direction: {
+    icon: React.ReactNode;
+    tone: BadgeTone;
+    words: string;
+  } | null =
     trend === null
       ? null
       : trend.direction === "UP"
@@ -290,7 +296,10 @@ function Trend({ history }: { history: ApiScoreHistory }) {
 /** The periods with no mark, by name, and why that is not a nought. */
 function NoMark({ cycles }: { cycles: string[] }) {
   return (
-    <Callout tone="warning" title={`${cycles.length === 1 ? "One period" : `${cycles.length} periods`} with no mark`}>
+    <Callout
+      tone="warning"
+      title={`${cycles.length === 1 ? "One period" : `${cycles.length} periods`} with no mark`}
+    >
       <p>
         {cycles.join(", ")} recorded nothing that counts towards a mark — no
         agreed objective, no competency rating against a weighted part. That is
@@ -321,7 +330,11 @@ function Point({ point }: { point: ApiHistoryPoint }) {
         action={
           <span className="flex flex-wrap items-center gap-2">
             {point.weightsFrom === "snapshot" && (
-              <Badge tone="neutral" size="sm" icon={<Lock aria-hidden="true" />}>
+              <Badge
+                tone="neutral"
+                size="sm"
+                icon={<Lock aria-hidden="true" />}
+              >
                 Weights frozen
               </Badge>
             )}
@@ -414,7 +427,10 @@ function Components({ components }: { components: ApiComponentScore[] }) {
     <div className="rounded-md border border-line">
       <ul className="divide-y divide-line">
         {components.map((part) => (
-          <li key={part.component} className="flex flex-wrap gap-x-4 gap-y-1 p-3">
+          <li
+            key={part.component}
+            className="flex flex-wrap gap-x-4 gap-y-1 p-3"
+          >
             <div className="min-w-40 flex-1">
               <p className="text-body-sm font-medium text-ink">{part.label}</p>
               {part.included ? (
@@ -424,7 +440,9 @@ function Components({ components }: { components: ApiComponentScore[] }) {
                     ` · ${part.evidenceCount} ${part.evidenceCount === 1 ? "thing" : "things"} recorded`}
                 </p>
               ) : (
-                <p className="mt-0.5 text-meta text-muted">{part.excludedNote}</p>
+                <p className="mt-0.5 text-meta text-muted">
+                  {part.excludedNote}
+                </p>
               )}
             </div>
             <p className="tabular shrink-0 text-body-sm font-medium text-ink">
@@ -478,7 +496,9 @@ function SignOff({ point }: { point: ApiHistoryPoint }) {
         },
         {
           term: "What they said",
-          value: signOff.employeeComment ?? "Nothing, which they were not obliged to add",
+          value:
+            signOff.employeeComment ??
+            "Nothing, which they were not obliged to add",
         },
         ...(signOff.reviewId
           ? [

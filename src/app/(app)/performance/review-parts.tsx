@@ -59,9 +59,11 @@ export function draftFrom(question: ApiFormQuestion): Draft {
   if (!answer) return {};
   return {
     text: answer.textValue ?? undefined,
-    rating: answer.ratingValue === null ? undefined : String(answer.ratingValue),
+    rating:
+      answer.ratingValue === null ? undefined : String(answer.ratingValue),
     choice: answer.choiceValue ?? undefined,
-    bool: answer.boolValue === null ? undefined : answer.boolValue ? "yes" : "no",
+    bool:
+      answer.boolValue === null ? undefined : answer.boolValue ? "yes" : "no",
   };
 }
 
@@ -123,8 +125,8 @@ export function AppraiserStrip({
       )}
       {shared && (
         <p className="mt-1.5 text-body-sm text-muted">
-          The final mark is the weighted average of everybody who answers. Answer
-          for the part of the work you actually saw.
+          The final mark is the weighted average of everybody who answers.
+          Answer for the part of the work you actually saw.
         </p>
       )}
     </div>
