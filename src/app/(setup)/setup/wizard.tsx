@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Check, Lock, MapPin } from "lucide-react";
+import { ArrowLeft, Check, Lock, MapPin, Plus } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
   Button,
@@ -23,31 +23,37 @@ import type {
 } from "@/lib/api/setup";
 import { MODULE_FEATURE_KEYS } from "@/lib/api/setup";
 import { NIGERIAN_STATES } from "@/lib/reference/lists";
+import { usePermissions } from "@/lib/permissions";
 import { useOrgTaxState } from "@/lib/store/company";
 import { useWorkLocations } from "@/lib/store/work-locations";
+import { useRoles } from "@/lib/store/permissions";
 import { PositionError, readPosition, type PositionFix } from "@/lib/geolocation";
 import {
   FEATURE_COPY,
   useFeatures,
   useWizard,
 } from "@/lib/store/features";
+import { CreateRoleDialog } from "@/app/(app)/settings/roles/create-role";
 
 /**
  * Setup.
  *
  * The second thing a customer sees, and the screen that decides how big the
- * rest of the product looks. Seven questions, one per screen, each answerable
+ * rest of the product looks. Nine questions, one per screen, each answerable
  * from memory by somebody who has never used HR software: how many people you
  * pay, whether anyone works nights, whether you lend money, whether staff claim
- * expenses, whether you run appraisals, whether you deduct PAYE, and whether you
- * run a pension scheme.
+ * expenses, whether you run appraisals, whether you deduct PAYE, whether you run
+ * a pension scheme, whether staff check in and out, and any extra roles this
+ * company needs beyond the eight built in ones.
  *
- * The last two are different in kind and worth knowing about. Five decide which
- * **modules** exist and cost nothing to get wrong, because Settings turns them
- * back on. Two decide what the **payroll engine computes**, and getting those
- * wrong is a wrong payslip — a company with no pension scheme, asked nothing,
- * has 8% taken off every salary it runs. So their "No" carries the API's own
- * sentence about what it means, on screen, before the click.
+ * Three kinds, worth knowing apart. Six decide which **modules** exist and
+ * cost nothing to get wrong, because Settings turns them back on. Two decide
+ * what the **payroll engine computes**, and getting those wrong is a wrong
+ * payslip — a company with no pension scheme, asked nothing, has 8% taken off
+ * every salary it runs. So their "No" carries the API's own sentence about
+ * what it means, on screen, before the click. The last — roles — sets nothing
+ * at all; see `RolesStep` below for why it exists here anyway and why it is
+ * the one step that can be skipped.
  *
  * ## Three rules it follows
  *
@@ -55,10 +61,14 @@ import {
  * study it; a question invites you to answer it. The answer is a button, never
  * a dropdown-plus-Save.
  *
- * **There is no skip.** Every question gets an answer before the next one
- * shows, and no option is pre-marked as the current or default state — this
- * used to be skippable with a "Now" badge showing what skipping would leave
- * in place, and both let somebody get through setup without deciding anything.
+ * **There is no skip — with one deliberate exception.** Every question gets an
+ * answer before the next one shows, and no option is pre-marked as the current
+ * or default state — this used to be skippable with a "Now" badge showing what
+ * skipping would leave in place, and both let somebody get through setup
+ * without deciding anything. The one exception is the roles step: unlike every
+ * question above it, getting it wrong is not a wrong payslip or a missing
+ * module, so it is allowed to say "skip this, I'll do it later" instead of
+ * forcing a decision that has no real consequence either way.
  *
  * **A "yes" that needs a fact gets asked for the fact.** Turning PAYE on is not
  * enough to compute it: `Organization.taxState` decides which state every
@@ -384,27 +394,34 @@ export function SetupWizard() {
         <p className="mt-3 text-lead text-body">{question.help}</p>
       </div>
 
-      <div
-        className={cn(
-          "mt-9 grid gap-3",
-          /* An option carrying a consequence is a paragraph, not a chip, and two
-             paragraphs side by side in a 36rem column read as a wall. One
-             column whenever any option has one. */
-          question.options.length > 1 &&
-            !question.options.some((option) => option.consequence) &&
-            "sm:grid-cols-2",
-        )}
-      >
-        {question.options.map((option) => (
-          <OptionButton
-            key={option.value}
-            option={option}
-            busy={busy === option.value}
-            disabled={busy !== null || finishing || awaitingTaxState || awaitingOffice}
-            onSelect={() => void choose(question, option)}
-          />
-        ))}
-      </div>
+      {question.id === "roles" ? (
+        <RolesStep
+          disabled={busy !== null || finishing}
+          onContinue={() => void choose(question, question.options[0]!)}
+        />
+      ) : (
+        <div
+          className={cn(
+            "mt-9 grid gap-3",
+            /* An option carrying a consequence is a paragraph, not a chip, and two
+               paragraphs side by side in a 36rem column read as a wall. One
+               column whenever any option has one. */
+            question.options.length > 1 &&
+              !question.options.some((option) => option.consequence) &&
+              "sm:grid-cols-2",
+          )}
+        >
+          {question.options.map((option) => (
+            <OptionButton
+              key={option.value}
+              option={option}
+              busy={busy === option.value}
+              disabled={busy !== null || finishing || awaitingTaxState || awaitingOffice}
+              onSelect={() => void choose(question, option)}
+            />
+          ))}
+        </div>
+      )}
 
       {awaitingTaxState && (
         <div className="mt-6 rounded-lg border border-accent-line bg-accent-soft p-5">
@@ -615,6 +632,103 @@ function OptionButton({
         </span>
       )}
     </button>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The roles question, rendered as a sub-form rather than a choice of options —
+ * see the entry for `roles` in the API's own `QUESTIONS` for why this one
+ * question is answered by clicking "Continue" no matter what happened above
+ * it, and why it is the wizard's one deliberate exception to "there is no
+ * skip".
+ *
+ * Reuses `CreateRoleDialog` from the settings screen whole, unchanged. It is
+ * already decoupled from that screen's drawers and member management, and
+ * already trims a copied role's permissions to what the caller can actually
+ * grant — the founder holds every permission at this point, so nothing is
+ * ever trimmed here, but the same code path stays correct for whoever answers
+ * this on a company where somebody other than the founder finishes setup.
+ */
+function RolesStep({
+  disabled,
+  onContinue,
+}: {
+  disabled: boolean;
+  onContinue: () => void;
+}) {
+  const access = usePermissions();
+  const held = [...access.permissions];
+  const roles = useRoles(held);
+  const toast = useToast();
+  const [creating, setCreating] = useState(false);
+
+  /* What this step actually adds. The eight built-in roles exist before
+     anybody answers a single wizard question, so counting them here would
+     make "Continue" read as though nothing had been done yet. */
+  const custom = roles.roles.filter((role) => !role.isSystem);
+
+  return (
+    <div className="mt-9 flex flex-col gap-4">
+      {custom.length > 0 && (
+        <ul className="flex flex-col divide-y divide-line rounded-md border border-line">
+          {custom.map((role) => (
+            <li key={role.id} className="px-3.5 py-2.5">
+              <p className="text-body-sm font-medium text-ink">{role.name}</p>
+              <p className="mt-0.5 text-body-sm text-muted">
+                {role.description || "No description yet"}
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div>
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={disabled}
+          onClick={() => setCreating(true)}
+        >
+          <Plus aria-hidden="true" className="size-4" />
+          Add a role
+        </Button>
+      </div>
+
+      <div className="mt-3 border-t border-line pt-5">
+        <Button variant="accent" disabled={disabled} onClick={onContinue}>
+          {custom.length > 0 ? "Continue" : "Skip for now — I'll do this later"}
+        </Button>
+      </div>
+
+      {creating && (
+        <CreateRoleDialog
+          roles={roles.roles}
+          held={access.permissions}
+          from={null}
+          onClose={() => setCreating(false)}
+          onCreate={async (body) => {
+            try {
+              await roles.create(body);
+              toast.push({ title: `${body.name} created`, tone: "success" });
+              setCreating(false);
+              return true;
+            } catch (error) {
+              toast.push({
+                title: "That did not work",
+                tone: "danger",
+                detail:
+                  error instanceof ApiError
+                    ? error.message
+                    : "Something went wrong. Try again.",
+              });
+              return false;
+            }
+          }}
+        />
+      )}
+    </div>
   );
 }
 
