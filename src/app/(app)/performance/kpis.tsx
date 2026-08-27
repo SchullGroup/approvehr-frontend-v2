@@ -166,7 +166,10 @@ export function KpisTab({
             label="Whose KPIs to show"
             value={scope}
             onChange={onScopeChange}
-            options={scopes.map((id) => ({ value: id, label: SCOPE_LABEL[id] }))}
+            options={scopes.map((id) => ({
+              value: id,
+              label: SCOPE_LABEL[id],
+            }))}
           />
         ) : (
           <span className="text-body-sm text-muted">{SCOPE_LABEL[scope]}</span>
@@ -198,7 +201,11 @@ export function KpisTab({
         <Stat
           label="Average progress"
           value={`${average}%`}
-          hint={tracked.length === 1 ? "across 1 KPI" : `across ${tracked.length} KPIs`}
+          hint={
+            tracked.length === 1
+              ? "across 1 KPI"
+              : `across ${tracked.length} KPIs`
+          }
         />
         <Stat
           label="Needs attention"
@@ -514,7 +521,9 @@ function GoalCard({
               {/* The appraisal period is what makes this scoreable; a bare
                   quarter is what companies typed before periods existed and is
                   still allowed. */}
-              <span>{goal.reviewCycleName ?? quarterLabel(goal.dueQuarter)}</span>
+              <span>
+                {goal.reviewCycleName ?? quarterLabel(goal.dueQuarter)}
+              </span>
               {goal.revisionCount > 0 && (
                 <span>
                   {goal.revisionCount === 1
@@ -601,8 +610,8 @@ function GoalCard({
         <p className="mt-3 text-body-sm text-muted">
           Agreed, so the target is fixed: the title, the period and every
           measure&apos;s target stay as they are, and no measure can be added
-          because that would change what delivering this means. The numbers still
-          move.
+          because that would change what delivering this means. The numbers
+          still move.
         </p>
       )}
 

@@ -146,7 +146,9 @@ export function QuestionsDialog({
       reload();
     } catch (caught) {
       setError(
-        caught instanceof ApiError ? caught.message : "Could not remove that one.",
+        caught instanceof ApiError
+          ? caught.message
+          : "Could not remove that one.",
       );
     }
   };
@@ -278,7 +280,11 @@ export function QuestionsDialog({
           />
 
           <div className="flex gap-2">
-            <Button variant="accent" loading={saving} onClick={() => void save()}>
+            <Button
+              variant="accent"
+              loading={saving}
+              onClick={() => void save()}
+            >
               {editing ? "Save changes" : "Add question"}
             </Button>
             {editing && (

@@ -123,7 +123,9 @@ export function ReviewFormModal({
     draft[question.id] ?? draftFrom(question);
 
   const outstanding = review.questions
-    .filter((question) => question.required && !filled(question, value(question)))
+    .filter(
+      (question) => question.required && !filled(question, value(question)),
+    )
     .map((question) => question.prompt);
 
   /** Only what has actually been typed. Re-answering replaces on the API side. */
@@ -295,7 +297,8 @@ export function ReviewFormModal({
             <Field
               optional
               label="Overall mark"
-              help="Leave it blank if the answers say enough.">
+              help="Leave it blank if the answers say enough."
+            >
               <Select
                 value={mark}
                 placeholder="No overall mark"

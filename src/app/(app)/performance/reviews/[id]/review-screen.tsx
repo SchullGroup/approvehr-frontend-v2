@@ -91,7 +91,9 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
   const score = useEmployeeScore(
     review?.cycleId ?? null,
     review?.subjectId ?? null,
-    review !== null && review.kind === "MANAGER" && (isSubject || review.mine || canSeeCompany),
+    review !== null &&
+      review.kind === "MANAGER" &&
+      (isSubject || review.mine || canSeeCompany),
   );
 
   if (loading) {
@@ -173,7 +175,11 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
         title={review.kindLabel}
         meta={
           <>
-            <Badge tone={review.submitted ? "neutral" : "warning"} size="sm" dot>
+            <Badge
+              tone={review.submitted ? "neutral" : "warning"}
+              size="sm"
+              dot
+            >
               {review.submitted ? "Sent" : "Not sent yet"}
             </Badge>
             {review.finalised && (
@@ -211,11 +217,15 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
           </p>
 
           {owesAnswer && (
-            <Callout tone="accent" title="This rating is final. It needs your answer">
+            <Callout
+              tone="accent"
+              title="This rating is final. It needs your answer"
+            >
               <p>
-                You have been told your rating for {review.cycleName}. Acknowledge
-                that you have seen it, or say formally that you do not accept it.
-                Both are recorded; leaving it unanswered is not one of the two.
+                You have been told your rating for {review.cycleName}.
+                Acknowledge that you have seen it, or say formally that you do
+                not accept it. Both are recorded; leaving it unanswered is not
+                one of the two.
               </p>
               <p className="mt-2">
                 <strong>Acknowledging is not agreeing.</strong> It records that
@@ -239,7 +249,9 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
           {/* -------------------------------------------------------- the mark */}
           <Card>
             <CardHeader
-              title={review.kind === "MANAGER" ? "The rating" : "The mark on it"}
+              title={
+                review.kind === "MANAGER" ? "The rating" : "The mark on it"
+              }
               description={
                 review.kind === "MANAGER"
                   ? "One person's overall judgement, in their own words, with the date it was sent."

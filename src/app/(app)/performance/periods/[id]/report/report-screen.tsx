@@ -1,7 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { CheckCheck, LineChart, Lock, TriangleAlert, UserX } from "lucide-react";
+import {
+  CheckCheck,
+  LineChart,
+  Lock,
+  TriangleAlert,
+  UserX,
+} from "lucide-react";
 import {
   Badge,
   ButtonLink,
@@ -92,7 +98,11 @@ export function PeriodReportScreen({ cycleId }: { cycleId: string }) {
                 {cycle.stageLabel}
               </Badge>
               {cycle.scoringFrozen && (
-                <Badge tone="accent" size="sm" icon={<Lock aria-hidden="true" />}>
+                <Badge
+                  tone="accent"
+                  size="sm"
+                  icon={<Lock aria-hidden="true" />}
+                >
                   Weights frozen
                 </Badge>
               )}
@@ -240,7 +250,9 @@ function Headline({ report }: { report: ApiCycleReport }) {
       />
       <Stat
         label="Weights used"
-        value={report.weightsFrom === "snapshot" ? "Frozen" : "Company's current"}
+        value={
+          report.weightsFrom === "snapshot" ? "Frozen" : "Company's current"
+        }
         hint={
           report.weightsFrom === "snapshot"
             ? `Copied onto this period when it started, totalling ${weightLabel(report.weightsTotalBp)}`
@@ -273,8 +285,9 @@ function Distribution({ report }: { report: ApiCycleReport }) {
       <CardBody className="flex flex-col gap-4">
         {distribution.scored === 0 ? (
           <p className="text-body-sm text-muted">
-            No mark has been recorded in this period, so there is no distribution.
-            An empty distribution is stated rather than drawn as five zeroes.
+            No mark has been recorded in this period, so there is no
+            distribution. An empty distribution is stated rather than drawn as
+            five zeroes.
           </p>
         ) : (
           <ul className="flex flex-col gap-3">
@@ -296,9 +309,9 @@ function Distribution({ report }: { report: ApiCycleReport }) {
               </Badge>
             </div>
             <p className="mt-1 text-meta text-muted">
-              Deliberately outside the bands. &quot;Nothing was recorded&quot; and
-              &quot;scored nought&quot; are different claims, and only one of them
-              is true here. They are named further down.
+              Deliberately outside the bands. &quot;Nothing was recorded&quot;
+              and &quot;scored nought&quot; are different claims, and only one
+              of them is true here. They are named further down.
             </p>
           </div>
         )}
@@ -422,7 +435,9 @@ function WhatCameIn({ report }: { report: ApiCycleReport }) {
               {
                 term: "Disputed",
                 value:
-                  marks.disputed === 0 ? "None" : `${marks.disputed} on the record`,
+                  marks.disputed === 0
+                    ? "None"
+                    : `${marks.disputed} on the record`,
               },
               {
                 term: "No manager review at all",
@@ -499,7 +514,10 @@ function Parts({ report }: { report: ApiCycleReport }) {
                   ) : (
                     <ul className="flex flex-col gap-1">
                       {part.excluded.map((reason) => (
-                        <li key={reason.reason} className="text-body-sm text-body">
+                        <li
+                          key={reason.reason}
+                          className="text-body-sm text-body"
+                        >
                           <span className="font-medium text-ink">
                             {reason.people}{" "}
                             {reason.people === 1 ? "person" : "people"}
@@ -546,7 +564,11 @@ function NamedList({
         description={description}
         action={
           rows.length === 0 ? (
-            <Badge tone="success" size="sm" icon={<CheckCheck aria-hidden="true" />}>
+            <Badge
+              tone="success"
+              size="sm"
+              icon={<CheckCheck aria-hidden="true" />}
+            >
               Nothing outstanding
             </Badge>
           ) : (
@@ -560,10 +582,15 @@ function NamedList({
           )
         }
       />
-      <CardBody className={rows.length === 0 ? undefined : "flex flex-col gap-2"}>
+      <CardBody
+        className={rows.length === 0 ? undefined : "flex flex-col gap-2"}
+      >
         {rows.length === 0 ? (
           <p className="flex items-center gap-2 text-body-sm text-body">
-            <CheckCheck aria-hidden="true" className="size-4 text-success-text" />
+            <CheckCheck
+              aria-hidden="true"
+              className="size-4 text-success-text"
+            />
             {empty}
           </p>
         ) : (

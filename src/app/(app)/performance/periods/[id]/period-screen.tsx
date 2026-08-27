@@ -2,7 +2,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { CheckCheck, ListChecks, Lock, Play, UserX } from "lucide-react";
+import {
+  ArrowRight,
+  CheckCheck,
+  ListChecks,
+  Lock,
+  Play,
+  UserX,
+} from "lucide-react";
 import {
   Badge,
   Button,
@@ -34,6 +41,7 @@ import {
   scoreLabel,
   weightLabel,
   type ApiAppraiserMap,
+  type ReviewCycleStage,
   type ApiAppraiserMapRow,
   type ApiCycleParticipants,
   type ApiScoreRegister,
@@ -47,6 +55,7 @@ import {
 } from "@/lib/store/performance";
 import { QuestionsDialog } from "../../period-dialogs";
 import { AppraisersDialog } from "../../appraiser-map";
+import { AskPeersButton } from "./ask-peers";
 
 /**
  * Running one appraisal period.
@@ -100,6 +109,24 @@ import { AppraisersDialog } from "../../appraiser-map";
  * "Scored nought" and "nothing was recorded" are different claims about a person,
  * and only one of them is ever true here.
  */
+/**
+ * What the next stage is called on the button, and what follows what.
+ *
+ * `PUBLISHED` is deliberately absent as a destination: closing the period is
+ * what publishes it, the API refuses `stage: PUBLISHED` outright, and the
+ * "Publish the results" button beside this one is that act with its own
+ * confirmation. So this only ever walks SELF → MANAGER → CALIBRATION.
+ */
+const STAGE_AFTER: Partial<Record<ReviewCycleStage, ReviewCycleStage>> = {
+  SELF: "MANAGER",
+  MANAGER: "CALIBRATION",
+};
+
+const STAGE_NEXT_LABEL: Record<string, string> = {
+  MANAGER: "manager review",
+  CALIBRATION: "calibration",
+};
+
 export function PeriodScreen({ cycleId }: { cycleId: string }) {
   const canSeeCompany = useCan("EDIT_RECORDS");
   const canManage = useCan("MANAGE_SETTINGS");
@@ -111,6 +138,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
   const [starting, setStarting] = useState(false);
   const [questionsOpen, setQuestionsOpen] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [advancing, setAdvancing] = useState(false);
   /* Named lists, not counts, and they survive the toast. Both are somebody who
      finishes the period short, and the fixes are different. */
   const [noAppraiser, setNoAppraiser] = useState<string[] | null>(null);
@@ -121,6 +149,11 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
   const draft = period?.stage === "DRAFT";
   const published = period?.stage === "PUBLISHED";
   const running = period !== null && !draft && !published;
+
+  /* Only while it is actually running: a draft has not started and a
+     published one is a record. `undefined` at calibration, which is the last
+     stage before publishing. */
+  const nextStage = running && period ? STAGE_AFTER[period.stage] : undefined;
 
   const failed = (error: unknown) => {
     toast.push({
@@ -163,6 +196,27 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
       failed(error);
     } finally {
       setStarting(false);
+    }
+  };
+
+  const advance = async () => {
+    if (!period || !nextStage) return;
+    setAdvancing(true);
+    try {
+      await periods.advance(cycleId, nextStage);
+      toast.push({
+        title: `${period.name} moved to ${STAGE_NEXT_LABEL[nextStage]}`,
+        tone: "success",
+        detail:
+          nextStage === "MANAGER"
+            ? "Managers write their reviews now. Self-reviews already in are kept."
+            : "Marks are in. Nothing else is asked for until you publish.",
+      });
+      detail.reload();
+    } catch (error) {
+      failed(error);
+    } finally {
+      setAdvancing(false);
     }
   };
 
@@ -251,6 +305,23 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
               >
                 See the report
               </ButtonLink>
+            )}
+            {/* The stage never moved on its own, and nothing moved it: the
+                endpoint has always accepted `MANAGER` and `CALIBRATION`,
+                gated and ordered correctly, and had no caller — so every
+                period in the product read "self-review" right up until it was
+                published, whatever was actually happening in it. This is that
+                button. Forward only; the API refuses going back, and refuses
+                publishing this way. */}
+            {canManage && nextStage && (
+              <Button
+                size="sm"
+                loading={advancing}
+                onClick={() => void advance()}
+              >
+                <ArrowRight aria-hidden="true" className="size-3.5" />
+                Move to {STAGE_NEXT_LABEL[nextStage]}
+              </Button>
             )}
             {canManage && running && (
               <Button size="sm" loading={chasing} onClick={() => void chase()}>
@@ -469,7 +540,12 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 rows={outstanding}
                 participants={detail.participants}
               />
-              <Register register={detail.register} />
+              <Register
+                register={detail.register}
+                cycleId={cycleId}
+                canAskPeers={running && canSeeCompany}
+                onAsked={() => detail.reload()}
+              />
               <MultiAppraiserReviews participants={detail.participants} />
             </>
           )}
@@ -891,7 +967,18 @@ function MultiAppraiserReviews({
  * sign-off column carries three separate facts and reads whichever applies, in
  * order of what somebody has to do about it.
  */
-function Register({ register }: { register: ApiScoreRegister | null }) {
+function Register({
+  register,
+  cycleId,
+  canAskPeers,
+  onAsked,
+}: {
+  register: ApiScoreRegister | null;
+  cycleId: string;
+  /** Running, and the reader is HR or somebody's manager — the API's own rule. */
+  canAskPeers: boolean;
+  onAsked: () => void;
+}) {
   if (!register) return null;
 
   if (register.rows.length === 0) {
@@ -944,10 +1031,17 @@ function Register({ register }: { register: ApiScoreRegister | null }) {
             <TH>Objectives agreed</TH>
             <TH align="right">Score</TH>
             <TH>Sign-off</TH>
+            {canAskPeers && <TH>Feedback</TH>}
           </THead>
           <TBody>
             {register.rows.map((row) => (
-              <RegisterRow key={row.employeeId} row={row} />
+              <RegisterRow
+                key={row.employeeId}
+                row={row}
+                cycleId={cycleId}
+                canAskPeers={canAskPeers}
+                onAsked={onAsked}
+              />
             ))}
           </TBody>
         </TableWrap>
@@ -956,7 +1050,17 @@ function Register({ register }: { register: ApiScoreRegister | null }) {
   );
 }
 
-function RegisterRow({ row }: { row: ApiScoreRow }) {
+function RegisterRow({
+  row,
+  cycleId,
+  canAskPeers,
+  onAsked,
+}: {
+  row: ApiScoreRow;
+  cycleId: string;
+  canAskPeers: boolean;
+  onAsked: () => void;
+}) {
   return (
     <TR>
       <TD>
@@ -995,6 +1099,19 @@ function RegisterRow({ row }: { row: ApiScoreRow }) {
       <TD>
         <SignOffCell row={row} />
       </TD>
+      {/* The 360 half, which had no door at all until now: the endpoint was
+          written, guarded and tested, and the product could render peer
+          answers it had no way of asking for. */}
+      {canAskPeers && (
+        <TD>
+          <AskPeersButton
+            cycleId={cycleId}
+            subjectId={row.employeeId}
+            subjectName={row.employeeName}
+            onAsked={onAsked}
+          />
+        </TD>
+      )}
     </TR>
   );
 }

@@ -49,6 +49,7 @@ export function isPerformanceTab(
   value: string | undefined,
 ): value is PerformanceTab {
   return (
-    value !== undefined && (PERFORMANCE_TABS as readonly string[]).includes(value)
+    value !== undefined &&
+    (PERFORMANCE_TABS as readonly string[]).includes(value)
   );
 }

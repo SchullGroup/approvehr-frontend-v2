@@ -229,10 +229,11 @@ export function ApprovalsScreen() {
         body={
           <span>
             {agreeing?.ownerName ?? "The owner"} will be judged on this for{" "}
-            {agreeing?.reviewCycleName ?? quarterLabel(agreeing?.dueQuarter ?? null)}
+            {agreeing?.reviewCycleName ??
+              quarterLabel(agreeing?.dueQuarter ?? null)}
             . The target is frozen from now on — progress still moves, and
-            changing what was asked for needs a revision that records who changed
-            it and why.
+            changing what was asked for needs a revision that records who
+            changed it and why.
           </span>
         }
         onConfirm={async () => {
@@ -314,9 +315,7 @@ function ObjectiveCard({
                 period is what makes the objective scoreable; a bare quarter is
                 what companies typed before periods existed and is still
                 allowed. */}
-            <span>
-              {goal.reviewCycleName ?? quarterLabel(goal.dueQuarter)}
-            </span>
+            <span>{goal.reviewCycleName ?? quarterLabel(goal.dueQuarter)}</span>
             {goal.revisionCount > 0 && (
               <span>
                 {goal.revisionCount === 1

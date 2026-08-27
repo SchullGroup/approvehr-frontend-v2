@@ -1470,6 +1470,23 @@ export const performanceApi = {
   createCycle: (body: { name: string; dueDate?: string }) =>
     request<ApiCycle>("/performance/cycles", { method: "POST", body }),
 
+  /**
+   * Move a running period on to its next stage.
+   *
+   * Forward only, and never to `PUBLISHED` — closing is what publishes, and
+   * the API refuses the shortcut. A period cannot go back either: people have
+   * already answered against where it is now.
+   *
+   * The endpoint has always been able to do this and nothing ever called it,
+   * so every period in the product sat on "self-review" until it was
+   * published, whatever was actually happening. This was the missing button.
+   */
+  advanceCycle: (id: string, stage: ReviewCycleStage) =>
+    request<ApiCycle>(`/performance/cycles/${id}`, {
+      method: "PATCH",
+      body: { stage },
+    }),
+
   /** Refused without at least one question. Creates every review in one go. */
   activateCycle: (id: string) =>
     request<ApiCycleActivated>(`/performance/cycles/${id}/activate`, {

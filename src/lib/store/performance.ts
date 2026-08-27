@@ -44,6 +44,7 @@ import {
   type CreateGoalBody,
   type CreateKeyResultBody,
   type CreateQuestionBody,
+  type ReviewCycleStage,
   type UpdateQuestionBody,
   type GoalStatus,
   type ObjectiveApproval,
@@ -183,7 +184,8 @@ export const APPROVAL_TONE: Record<ObjectiveApproval, BadgeTone> = {
  * lifecycle.
  */
 export function mayBeSubmitted(goal: ApiGoal): boolean {
-  if (goal.approval !== "DRAFT" && goal.approval !== "NEEDS_REVISION") return false;
+  if (goal.approval !== "DRAFT" && goal.approval !== "NEEDS_REVISION")
+    return false;
   return goal.reviewCycleId !== null || goal.dueQuarter !== null;
 }
 
@@ -340,172 +342,174 @@ type SeedGoal = {
 const DEMO_CYCLE_OPEN = "demo-cycle-h2";
 const DEMO_CYCLE_PUBLISHED = "demo-cycle-h1";
 
-const SEED_GOALS: readonly SeedGoal[] = DEMO_ENABLED ? [
-  {
-    id: "demo-goal-company",
-    title: "Process ₦2bn in client payroll by year end",
-    description: "Every team's goals ladder up to this one.",
-    ownerId: null,
-    parentId: null,
-    status: "ON_TRACK",
-    dueQuarter: "2026-Q4",
-    /* A standing company objective: no cycle, so it is never scored against
+const SEED_GOALS: readonly SeedGoal[] = DEMO_ENABLED
+  ? [
+      {
+        id: "demo-goal-company",
+        title: "Process ₦2bn in client payroll by year end",
+        description: "Every team's goals ladder up to this one.",
+        ownerId: null,
+        parentId: null,
+        status: "ON_TRACK",
+        dueQuarter: "2026-Q4",
+        /* A standing company objective: no cycle, so it is never scored against
        anybody. The nullable case, on screen rather than only in a type. */
-    reviewCycleId: null,
-    approval: "AGREED",
-    measures: [
-      {
-        id: "demo-kr-payroll",
-        label: "Payroll processed",
-        unit: "₦",
-        startValue: "0",
-        targetValue: "2000000000",
-        currentValue: "1240000000",
+        reviewCycleId: null,
+        approval: "AGREED",
+        measures: [
+          {
+            id: "demo-kr-payroll",
+            label: "Payroll processed",
+            unit: "₦",
+            startValue: "0",
+            targetValue: "2000000000",
+            currentValue: "1240000000",
+          },
+          {
+            id: "demo-kr-companies",
+            label: "Companies live",
+            startValue: "8",
+            targetValue: "40",
+            currentValue: "23",
+          },
+        ],
       },
       {
-        id: "demo-kr-companies",
-        label: "Companies live",
-        startValue: "8",
-        targetValue: "40",
-        currentValue: "23",
+        id: "demo-goal-eng",
+        title: "Ship multi-entity payroll",
+        ownerId: "p-01",
+        parentId: "demo-goal-company",
+        status: "ON_TRACK",
+        dueQuarter: "2026-Q3",
+        reviewCycleId: DEMO_CYCLE_OPEN,
+        approval: "AWAITING_APPROVAL",
+        measures: [
+          {
+            id: "demo-kr-entities",
+            label: "Legal entities supported",
+            startValue: "1",
+            targetValue: "5",
+            currentValue: "4",
+          },
+        ],
       },
-    ],
-  },
-  {
-    id: "demo-goal-eng",
-    title: "Ship multi-entity payroll",
-    ownerId: "p-01",
-    parentId: "demo-goal-company",
-    status: "ON_TRACK",
-    dueQuarter: "2026-Q3",
-    reviewCycleId: DEMO_CYCLE_OPEN,
-    approval: "AWAITING_APPROVAL",
-    measures: [
       {
-        id: "demo-kr-entities",
-        label: "Legal entities supported",
-        startValue: "1",
-        targetValue: "5",
-        currentValue: "4",
-      },
-    ],
-  },
-  {
-    id: "demo-goal-finance",
-    title: "Close month-end within five working days",
-    ownerId: "p-02",
-    parentId: "demo-goal-company",
-    status: "AT_RISK",
-    dueQuarter: "2026-Q3",
-    reviewCycleId: DEMO_CYCLE_OPEN,
-    /* At risk *and* waiting to be agreed. The two axes disagreeing is the
+        id: "demo-goal-finance",
+        title: "Close month-end within five working days",
+        ownerId: "p-02",
+        parentId: "demo-goal-company",
+        status: "AT_RISK",
+        dueQuarter: "2026-Q3",
+        reviewCycleId: DEMO_CYCLE_OPEN,
+        /* At risk *and* waiting to be agreed. The two axes disagreeing is the
        ordinary case, not an edge one. */
-    approval: "AWAITING_APPROVAL",
-    measures: [
-      {
-        id: "demo-kr-close",
-        label: "Working days to close",
-        unit: "days",
-        startValue: "11",
-        targetValue: "5",
-        currentValue: "9",
-        lowerIsBetter: true,
+        approval: "AWAITING_APPROVAL",
+        measures: [
+          {
+            id: "demo-kr-close",
+            label: "Working days to close",
+            unit: "days",
+            startValue: "11",
+            targetValue: "5",
+            currentValue: "9",
+            lowerIsBetter: true,
+          },
+          {
+            id: "demo-kr-hosting",
+            label: "Monthly hosting spend",
+            unit: "₦",
+            startValue: "500000",
+            targetValue: "300000",
+            currentValue: "400000",
+            lowerIsBetter: true,
+          },
+        ],
       },
       {
-        id: "demo-kr-hosting",
-        label: "Monthly hosting spend",
-        unit: "₦",
-        startValue: "500000",
-        targetValue: "300000",
-        currentValue: "400000",
-        lowerIsBetter: true,
+        id: "demo-goal-people",
+        title: "Fill 12 open roles",
+        ownerId: "p-05",
+        parentId: "demo-goal-company",
+        status: "ON_TRACK",
+        dueQuarter: "2026-Q3",
+        reviewCycleId: DEMO_CYCLE_OPEN,
+        approval: "AGREED",
+        measures: [
+          {
+            id: "demo-kr-roles",
+            label: "Roles filled",
+            startValue: "0",
+            targetValue: "12",
+            currentValue: "7",
+          },
+        ],
       },
-    ],
-  },
-  {
-    id: "demo-goal-people",
-    title: "Fill 12 open roles",
-    ownerId: "p-05",
-    parentId: "demo-goal-company",
-    status: "ON_TRACK",
-    dueQuarter: "2026-Q3",
-    reviewCycleId: DEMO_CYCLE_OPEN,
-    approval: "AGREED",
-    measures: [
       {
-        id: "demo-kr-roles",
-        label: "Roles filled",
-        startValue: "0",
-        targetValue: "12",
-        currentValue: "7",
+        id: "demo-goal-mine-offers",
+        title: "Fill the two Lagos engineering roles",
+        ownerId: "p-06",
+        parentId: "demo-goal-people",
+        status: "ON_TRACK",
+        dueQuarter: "2026-Q3",
+        reviewCycleId: DEMO_CYCLE_OPEN,
+        approval: "AGREED",
+        measures: [
+          {
+            id: "demo-kr-offers",
+            label: "Offers accepted",
+            startValue: "0",
+            targetValue: "2",
+            currentValue: "1",
+          },
+        ],
       },
-    ],
-  },
-  {
-    id: "demo-goal-mine-offers",
-    title: "Fill the two Lagos engineering roles",
-    ownerId: "p-06",
-    parentId: "demo-goal-people",
-    status: "ON_TRACK",
-    dueQuarter: "2026-Q3",
-    reviewCycleId: DEMO_CYCLE_OPEN,
-    approval: "AGREED",
-    measures: [
       {
-        id: "demo-kr-offers",
-        label: "Offers accepted",
-        startValue: "0",
-        targetValue: "2",
-        currentValue: "1",
-      },
-    ],
-  },
-  {
-    id: "demo-goal-mine-speed",
-    title: "Get candidates to a first interview inside a week",
-    ownerId: "p-06",
-    parentId: "demo-goal-people",
-    status: "AT_RISK",
-    dueQuarter: "2026-Q3",
-    reviewCycleId: DEMO_CYCLE_OPEN,
-    /* Sent back, with the reason on it. A refusal with no reason is not
+        id: "demo-goal-mine-speed",
+        title: "Get candidates to a first interview inside a week",
+        ownerId: "p-06",
+        parentId: "demo-goal-people",
+        status: "AT_RISK",
+        dueQuarter: "2026-Q3",
+        reviewCycleId: DEMO_CYCLE_OPEN,
+        /* Sent back, with the reason on it. A refusal with no reason is not
        feedback, so the seed cannot show one without a reason either. */
-    approval: "NEEDS_REVISION",
-    approvalNote:
-      "Five days is the right target, but say which stage you are measuring from. Screening or the recruiter call?",
-    measures: [
-      {
-        id: "demo-kr-first-interview",
-        label: "Days to first interview",
-        unit: "days",
-        startValue: "14",
-        targetValue: "5",
-        currentValue: "9",
-        lowerIsBetter: true,
+        approval: "NEEDS_REVISION",
+        approvalNote:
+          "Five days is the right target, but say which stage you are measuring from. Screening or the recruiter call?",
+        measures: [
+          {
+            id: "demo-kr-first-interview",
+            label: "Days to first interview",
+            unit: "days",
+            startValue: "14",
+            targetValue: "5",
+            currentValue: "9",
+            lowerIsBetter: true,
+          },
+        ],
       },
-    ],
-  },
-  {
-    id: "demo-goal-mine-handbook",
-    title: "Publish the hiring handbook",
-    ownerId: "p-06",
-    parentId: "demo-goal-people",
-    status: "DONE",
-    dueQuarter: "2026-Q2",
-    /* Last half's, so it hangs off the published cycle rather than the open one. */
-    reviewCycleId: DEMO_CYCLE_PUBLISHED,
-    approval: "AGREED",
-    measures: [
       {
-        id: "demo-kr-handbook",
-        label: "Sections published",
-        startValue: "0",
-        targetValue: "6",
-        currentValue: "6",
+        id: "demo-goal-mine-handbook",
+        title: "Publish the hiring handbook",
+        ownerId: "p-06",
+        parentId: "demo-goal-people",
+        status: "DONE",
+        dueQuarter: "2026-Q2",
+        /* Last half's, so it hangs off the published cycle rather than the open one. */
+        reviewCycleId: DEMO_CYCLE_PUBLISHED,
+        approval: "AGREED",
+        measures: [
+          {
+            id: "demo-kr-handbook",
+            label: "Sections published",
+            startValue: "0",
+            targetValue: "6",
+            currentValue: "6",
+          },
+        ],
       },
-    ],
-  },
-] : [];
+    ]
+  : [];
 
 /**
  * The framework, mirrored for demonstrations with no database.
@@ -638,12 +642,22 @@ const SEED_RATINGS: readonly {
   { employeeId: "p-06", name: "Communication", level: 5, target: 4 },
   { employeeId: "p-06", name: "Teamwork", level: 4, target: 4 },
   { employeeId: "p-06", name: "Initiative", level: 2, target: 4 },
-  { employeeId: "p-06", name: "Delivery against objectives", level: 3, target: 4 },
+  {
+    employeeId: "p-06",
+    name: "Delivery against objectives",
+    level: 3,
+    target: 4,
+  },
 
   { employeeId: "p-01", name: "Job knowledge", level: 5, target: 5 },
   { employeeId: "p-01", name: "Developing people", level: 3, target: 4 },
   { employeeId: "p-01", name: "Decision making", level: 4, target: 4 },
-  { employeeId: "p-01", name: "Accountability for a team", level: 4, target: 4 },
+  {
+    employeeId: "p-01",
+    name: "Accountability for a team",
+    level: 4,
+    target: 4,
+  },
 
   { employeeId: "p-03", name: "Job knowledge", level: 5, target: 4 },
   { employeeId: "p-03", name: "Quality of work", level: 4, target: 4 },
@@ -702,57 +716,59 @@ type SeedQuestion = {
   options?: string[];
 };
 
-const SEED_QUESTIONS: readonly SeedQuestion[] = DEMO_ENABLED ? [
-  {
-    id: "demo-q-self-well",
-    prompt: "What went well for you this period?",
-    kind: "TEXT",
-    required: true,
-    audience: "SELF",
-  },
-  {
-    id: "demo-q-self-short",
-    prompt: "Where did you fall short, and what would you change?",
-    kind: "TEXT",
-    required: true,
-    audience: "SELF",
-  },
-  {
-    id: "demo-q-self-rate",
-    prompt: "Rate your own delivery against your objectives.",
-    kind: "RATING",
-    required: true,
-    audience: "SELF",
-  },
-  {
-    id: "demo-q-mgr-rate",
-    prompt: "Rate delivery against objectives.",
-    kind: "RATING",
-    required: true,
-    audience: "MANAGER",
-  },
-  {
-    id: "demo-q-mgr-more",
-    prompt: "What should this person do more of?",
-    kind: "TEXT",
-    required: true,
-    audience: "MANAGER",
-  },
-  {
-    id: "demo-q-peer-work",
-    prompt: "How easy is this person to work with?",
-    kind: "RATING",
-    required: true,
-    audience: "PEER",
-  },
-  {
-    id: "demo-q-peer-keep",
-    prompt: "What should they keep doing?",
-    kind: "TEXT",
-    required: false,
-    audience: "PEER",
-  },
-] : [];
+const SEED_QUESTIONS: readonly SeedQuestion[] = DEMO_ENABLED
+  ? [
+      {
+        id: "demo-q-self-well",
+        prompt: "What went well for you this period?",
+        kind: "TEXT",
+        required: true,
+        audience: "SELF",
+      },
+      {
+        id: "demo-q-self-short",
+        prompt: "Where did you fall short, and what would you change?",
+        kind: "TEXT",
+        required: true,
+        audience: "SELF",
+      },
+      {
+        id: "demo-q-self-rate",
+        prompt: "Rate your own delivery against your objectives.",
+        kind: "RATING",
+        required: true,
+        audience: "SELF",
+      },
+      {
+        id: "demo-q-mgr-rate",
+        prompt: "Rate delivery against objectives.",
+        kind: "RATING",
+        required: true,
+        audience: "MANAGER",
+      },
+      {
+        id: "demo-q-mgr-more",
+        prompt: "What should this person do more of?",
+        kind: "TEXT",
+        required: true,
+        audience: "MANAGER",
+      },
+      {
+        id: "demo-q-peer-work",
+        prompt: "How easy is this person to work with?",
+        kind: "RATING",
+        required: true,
+        audience: "PEER",
+      },
+      {
+        id: "demo-q-peer-keep",
+        prompt: "What should they keep doing?",
+        kind: "TEXT",
+        required: false,
+        audience: "PEER",
+      },
+    ]
+  : [];
 
 /* ----------------------------------------------------- the demo's local edits */
 
@@ -797,7 +813,10 @@ type DemoState = {
   /** Answers on my own review, by review id then question id. */
   answers: Record<string, DemoAnswers>;
   /** Reviews sent from this browser, with the overall mark. */
-  sent: Record<string, { rating: number | null; summary: string | null; at: string }>;
+  sent: Record<
+    string,
+    { rating: number | null; summary: string | null; at: string }
+  >;
   /** Where the agreement lifecycle got to, by goal id. Sparse. */
   approvals: Record<string, DemoApproval>;
   /** Acknowledgements and disputes, by review id. Sparse. */
@@ -893,7 +912,8 @@ function demoGoals(
       keyResults.length === 0
         ? null
         : Math.round(
-            keyResults.reduce((sum, kr) => sum + kr.percent, 0) / keyResults.length,
+            keyResults.reduce((sum, kr) => sum + kr.percent, 0) /
+              keyResults.length,
           );
     const owner = goal.ownerId ? employeeById(goal.ownerId) : undefined;
 
@@ -943,7 +963,10 @@ function demoGoals(
 function demoEmployeeCompetencies(employeeId: string): ApiEmployeeCompetencies {
   const person = employeeById(employeeId);
   const mine = new Map(
-    SEED_RATINGS.filter((r) => r.employeeId === employeeId).map((r) => [r.name, r]),
+    SEED_RATINGS.filter((r) => r.employeeId === employeeId).map((r) => [
+      r.name,
+      r,
+    ]),
   );
 
   const rows = demoCompetencies.map((competency) => {
@@ -958,7 +981,8 @@ function demoEmployeeCompetencies(employeeId: string): ApiEmployeeCompetencies {
       scaleMax: competency.scaleMax,
       level,
       target,
-      gap: level !== null && target !== null ? Math.max(0, target - level) : null,
+      gap:
+        level !== null && target !== null ? Math.max(0, target - level) : null,
       note: null,
       ratedAt: rating ? "2026-06-28T09:00:00.000Z" : null,
     };
@@ -984,7 +1008,9 @@ function demoGaps(): ApiGap[] {
       const person = employeeById(r.employeeId);
       return {
         employeeId: r.employeeId,
-        employeeName: person ? `${person.firstName} ${person.lastName}` : r.employeeId,
+        employeeName: person
+          ? `${person.firstName} ${person.lastName}`
+          : r.employeeId,
         departmentId: person ? person.department : null,
         competencyId: competency?.id ?? competencyId(r.name),
         competencyName: r.name,
@@ -997,7 +1023,9 @@ function demoGaps(): ApiGap[] {
         ratedAt: "2026-06-28T09:00:00.000Z",
       };
     })
-    .sort((a, b) => b.gap - a.gap || a.employeeName.localeCompare(b.employeeName));
+    .sort(
+      (a, b) => b.gap - a.gap || a.employeeName.localeCompare(b.employeeName),
+    );
 }
 
 /** Departments down the side, competencies across the top. Averages in the cells. */
@@ -1026,8 +1054,9 @@ function demoHeatmap(): ApiHeatmap {
           competencyId: competency.id,
           average,
           rated: cell.length,
-          belowTarget: cell.filter((r) => r.target !== null && r.level < r.target)
-            .length,
+          belowTarget: cell.filter(
+            (r) => r.target !== null && r.level < r.target,
+          ).length,
         };
       }),
     };
@@ -1045,7 +1074,8 @@ function demoHeatmap(): ApiHeatmap {
   };
 }
 
-const reviewId = (cycleId: string, kind: string) => `${cycleId}-${kind.toLowerCase()}`;
+const reviewId = (cycleId: string, kind: string) =>
+  `${cycleId}-${kind.toLowerCase()}`;
 
 function demoReview(
   cycle: ApiCycle,
@@ -1055,7 +1085,9 @@ function demoReview(
 ): ApiReview {
   const id = reviewId(cycle.id, kind);
   const subject = employeeById(subjectId);
-  const manager = subject?.managerId ? employeeById(subject.managerId) : undefined;
+  const manager = subject?.managerId
+    ? employeeById(subject.managerId)
+    : undefined;
   const sent = state.sent[id];
   const seededSubmitted = cycle.stage === "PUBLISHED";
 
@@ -1197,7 +1229,8 @@ function demoHasAppraiser(employeeId: string): boolean {
 function demoMyReviews(state: DemoState, me: string): ApiMyReviews {
   const open = demoCycles.find((c) => c.id === DEMO_CYCLE_OPEN);
   const published = demoCycles.find((c) => c.id === DEMO_CYCLE_PUBLISHED);
-  if (!open || !published) return { toComplete: [], aboutMe: [], peerFeedback: [] };
+  if (!open || !published)
+    return { toComplete: [], aboutMe: [], peerFeedback: [] };
 
   const openSelf = demoReview(open, "SELF", me, state);
   const publishedSelf = demoReview(published, "SELF", me, state);
@@ -1318,7 +1351,8 @@ function useFetched<T>(
           setFetched({ key: full, data, error: null });
         }
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled && ticket === latest.current) {
           setFetched({
             key: full,
@@ -1326,7 +1360,11 @@ function useFetched<T>(
             error:
               error instanceof ApiError
                 ? error
-                : new ApiError(0, "unknown", "Something went wrong. Try again."),
+                : new ApiError(
+                    0,
+                    "unknown",
+                    "Something went wrong. Try again.",
+                  ),
           });
         }
       }
@@ -1397,7 +1435,9 @@ export function useKpis(scope: KpiScope): {
     /* The same narrowing the API does, so the demo cannot show a wider cascade
        than a real staff member would get. */
     const reports = new Set(
-      EMPLOYEES.filter((person) => person.managerId === actingId).map((p) => p.id),
+      EMPLOYEES.filter((person) => person.managerId === actingId).map(
+        (p) => p.id,
+      ),
     );
     return all.filter(
       (goal) =>
@@ -1406,7 +1446,14 @@ export function useKpis(scope: KpiScope): {
           ? goal.ownerId === actingId
           : goal.ownerId !== null && reports.has(goal.ownerId)),
     );
-  }, [isConnected, demo.readings, demo.approvals, scope, actingId, fetched.data]);
+  }, [
+    isConnected,
+    demo.readings,
+    demo.approvals,
+    scope,
+    actingId,
+    fetched.data,
+  ]);
 
   const cascade = useMemo(() => toCascade(goals), [goals]);
 
@@ -1492,7 +1539,9 @@ export function useKpiMutations() {
 
     cancelGoal: useCallback(
       async (id: string, reason: string) => {
-        guard("Stopping a goal needs the API. Everyone working towards it is told.");
+        guard(
+          "Stopping a goal needs the API. Everyone working towards it is told.",
+        );
         return performanceApi.cancelGoal(id, reason);
       },
       [guard],
@@ -1500,7 +1549,9 @@ export function useKpiMutations() {
 
     shareGoal: useCallback(
       async (id: string) => {
-        guard("Sharing a goal tells the people it affects, which needs the API.");
+        guard(
+          "Sharing a goal tells the people it affects, which needs the API.",
+        );
         return performanceApi.shareGoal(id);
       },
       [guard],
@@ -1565,12 +1616,18 @@ export function useObjectiveApprovals(): {
     [],
   );
 
-  const fetched = useFetched<ApiGoal[]>("objective-approvals", isConnected, load);
+  const fetched = useFetched<ApiGoal[]>(
+    "objective-approvals",
+    isConnected,
+    load,
+  );
 
   const derived = useMemo(() => {
     if (isConnected) return [];
     const reports = new Set(
-      EMPLOYEES.filter((person) => person.managerId === actingId).map((p) => p.id),
+      EMPLOYEES.filter((person) => person.managerId === actingId).map(
+        (p) => p.id,
+      ),
     );
     return demoGoals(demo.readings, demo.approvals).filter((goal) => {
       if (goal.approval !== "AWAITING_APPROVAL") return false;
@@ -1607,20 +1664,19 @@ export function useObjectiveMutations() {
   const { isConnected, actingId } = useSession();
 
   /** Move one goal along the axis locally, and record why. */
-  const local = useCallback(
-    (id: string, next: DemoApproval) => {
-      const state = demoStore.current();
-      demoStore.commit({
-        ...state,
-        approvals: { ...state.approvals, [id]: next },
-      });
-    },
-    [],
-  );
+  const local = useCallback((id: string, next: DemoApproval) => {
+    const state = demoStore.current();
+    demoStore.commit({
+      ...state,
+      approvals: { ...state.approvals, [id]: next },
+    });
+  }, []);
 
   const seed = useCallback((id: string): ApiGoal | undefined => {
     const state = demoStore.current();
-    return demoGoals(state.readings, state.approvals).find((goal) => goal.id === id);
+    return demoGoals(state.readings, state.approvals).find(
+      (goal) => goal.id === id,
+    );
   }, []);
 
   const revisionsOf = useCallback((id: string): number => {
@@ -1818,8 +1874,7 @@ export function useAppraisals(): {
   );
 
   return {
-    mine:
-      derived ??
+    mine: derived ??
       fetched.data?.mine ?? { toComplete: [], aboutMe: [], peerFeedback: [] },
     cycles: isConnected ? (fetched.data?.cycles ?? []) : demoCycles,
     loading: fetched.loading,
@@ -1848,12 +1903,18 @@ export function useReview(id: string | null): {
   const fetched = useFetched<ApiReviewDetail>(id ?? "none", active, load);
 
   const derived = useMemo(
-    () => (isConnected || id === null ? null : demoReviewDetail(id, demo, actingId)),
+    () =>
+      isConnected || id === null ? null : demoReviewDetail(id, demo, actingId),
     [isConnected, id, demo, actingId],
   );
 
   if (!isConnected) {
-    return { review: derived, loading: false, error: null, reload: fetched.reload };
+    return {
+      review: derived,
+      loading: false,
+      error: null,
+      reload: fetched.reload,
+    };
   }
   return {
     review: fetched.data,
@@ -1964,22 +2025,21 @@ const FINALISE_OFFLINE =
 export function useSignOff() {
   const { isConnected, actingId } = useSession();
 
-  const answer = useCallback(
-    (id: string, next: DemoSignOff) => {
-      const state = demoStore.current();
-      demoStore.commit({
-        ...state,
-        signOff: { ...state.signOff, [id]: next },
-      });
-    },
-    [],
-  );
+  const answer = useCallback((id: string, next: DemoSignOff) => {
+    const state = demoStore.current();
+    demoStore.commit({
+      ...state,
+      signOff: { ...state.signOff, [id]: next },
+    });
+  }, []);
 
   /** The guard both employee answers share, in the API's words. */
   const assertMayAnswer = useCallback(
     (review: ApiReview) => {
       if (review.subjectId !== actingId) {
-        offline("Only the person a rating is about can acknowledge or dispute it.");
+        offline(
+          "Only the person a rating is about can acknowledge or dispute it.",
+        );
       }
       if (!review.finalised) {
         offline(
@@ -2021,7 +2081,8 @@ export function useSignOff() {
      */
     acknowledge: useCallback(
       async (review: ApiReview, comment?: string) => {
-        if (isConnected) return performanceApi.acknowledgeReview(review.id, comment);
+        if (isConnected)
+          return performanceApi.acknowledgeReview(review.id, comment);
         assertMayAnswer(review);
         answer(review.id, {
           acknowledgedAt: new Date().toISOString(),
@@ -2041,7 +2102,8 @@ export function useSignOff() {
      */
     dispute: useCallback(
       async (review: ApiReview, comment: string) => {
-        if (isConnected) return performanceApi.disputeReview(review.id, comment);
+        if (isConnected)
+          return performanceApi.disputeReview(review.id, comment);
         assertMayAnswer(review);
         answer(review.id, {
           acknowledgedAt: null,
@@ -2187,7 +2249,11 @@ export function useHeatmap(enabled: boolean): {
     async (signal: AbortSignal) => performanceApi.heatmap(signal),
     [],
   );
-  const fetched = useFetched<ApiHeatmap>("heatmap", enabled && isConnected, load);
+  const fetched = useFetched<ApiHeatmap>(
+    "heatmap",
+    enabled && isConnected,
+    load,
+  );
 
   return {
     heatmap: isConnected ? fetched.data : enabled ? demoHeatmap() : null,
@@ -2207,7 +2273,8 @@ export function useCycleQuestions(cycleId: string | null): {
   const active = cycleId !== null && isConnected;
 
   const load = useCallback(
-    async (signal: AbortSignal) => performanceApi.questions(cycleId ?? "", signal),
+    async (signal: AbortSignal) =>
+      performanceApi.questions(cycleId ?? "", signal),
     [cycleId],
   );
 
@@ -2300,6 +2367,21 @@ export function useCycleMutations() {
             "so it needs the API.",
         );
         return performanceApi.activateCycle(id);
+      },
+      [guard],
+    ),
+
+    /**
+     * Move a running period on to the next stage.
+     *
+     * Refused offline for the same reason starting one is: it changes what
+     * everybody in the company is being asked for next, and a stage advanced
+     * in a browser would move nobody's form.
+     */
+    advance: useCallback(
+      async (id: string, stage: ReviewCycleStage) => {
+        guard("Moving a period on to its next stage needs the API.");
+        return performanceApi.advanceCycle(id, stage);
       },
       [guard],
     ),
@@ -2454,7 +2536,11 @@ export function useAppraiserMutations() {
     refusal: APPRAISER_OFFLINE,
 
     setAppraisers: useCallback(
-      async (cycleId: string, employeeId: string, appraisers: ApiAppraiserEntry[]) => {
+      async (
+        cycleId: string,
+        employeeId: string,
+        appraisers: ApiAppraiserEntry[],
+      ) => {
         if (!isConnected) offline(APPRAISER_OFFLINE);
         return performanceApi.setAppraisers(cycleId, employeeId, appraisers);
       },
@@ -2633,7 +2719,9 @@ export function useMyAppraisers(
     const person = employeeById(employeeId);
     if (!cycle || !person) return null;
 
-    const manager = person.managerId ? employeeById(person.managerId) : undefined;
+    const manager = person.managerId
+      ? employeeById(person.managerId)
+      : undefined;
     const started = cycle.stage !== "DRAFT";
     const name = `${person.firstName} ${person.lastName}`;
 
@@ -2644,7 +2732,9 @@ export function useMyAppraisers(
       departmentId: person.department,
       departmentName: person.department,
       lineManagerId: person.managerId,
-      lineManagerName: manager ? `${manager.firstName} ${manager.lastName}` : null,
+      lineManagerName: manager
+        ? `${manager.firstName} ${manager.lastName}`
+        : null,
       cycleName: cycle.name,
       appraisers: manager
         ? [
@@ -2673,7 +2763,8 @@ export function useMyAppraisers(
         ? []
         : [
             {
-              severity: (started ? "BLOCKER" : "WARNING") as "BLOCKER" | "WARNING",
+              severity: (started ? "BLOCKER" : "WARNING") as
+                "BLOCKER" | "WARNING",
               code: "NO_APPRAISER" as const,
               message: started
                 ? `Nobody is appraising ${name}. They will finish this period with no mark.`
@@ -2719,7 +2810,8 @@ export function useEmployeeScore(
   reload: () => void;
 } {
   const { isConnected } = useSession();
-  const active = cycleId !== null && employeeId !== null && enabled && isConnected;
+  const active =
+    cycleId !== null && employeeId !== null && enabled && isConnected;
 
   const load = useCallback(
     async (signal: AbortSignal) =>
@@ -2843,8 +2935,16 @@ const WEIGHTS_SAVE_OFFLINE =
 const DEMO_WEIGHTS: ApiScoringWeights = {
   source: "default",
   rows: [
-    { component: "OBJECTIVES", label: "Delivery against objectives", weightBp: 4_000 },
-    { component: "CORE_COMPETENCY", label: "Core competencies", weightBp: 2_500 },
+    {
+      component: "OBJECTIVES",
+      label: "Delivery against objectives",
+      weightBp: 4_000,
+    },
+    {
+      component: "CORE_COMPETENCY",
+      label: "Core competencies",
+      weightBp: 2_500,
+    },
     {
       component: "BEHAVIOURAL_COMPETENCY",
       label: "Behavioural competencies",

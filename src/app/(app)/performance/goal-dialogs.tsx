@@ -116,7 +116,11 @@ export function NewKpiDialog({
       footer={
         <>
           <Button onClick={onClose}>Cancel</Button>
-          <Button variant="accent" loading={saving} onClick={() => void submit()}>
+          <Button
+            variant="accent"
+            loading={saving}
+            onClick={() => void submit()}
+          >
             Create KPI
           </Button>
         </>
@@ -137,10 +141,15 @@ export function NewKpiDialog({
         </Field>
 
         <Field label="Whose KPI is this" required>
-          <Select value={owner} onChange={(event) => setOwner(event.target.value)}>
+          <Select
+            value={owner}
+            onChange={(event) => setOwner(event.target.value)}
+          >
             <option value="me">Mine</option>
             {canSetCompanyWide && (
-              <option value="company">The whole company — everyone sees it</option>
+              <option value="company">
+                The whole company — everyone sees it
+              </option>
             )}
             {employees
               .filter((person) => person.id !== employeeId)
@@ -207,7 +216,8 @@ export function AddMeasureDialog({
 
   const submit = async () => {
     const found: Record<string, string> = {};
-    if (label.trim().length < 2) found["label"] = "Name what is being measured.";
+    if (label.trim().length < 2)
+      found["label"] = "Name what is being measured.";
     if (!target.trim()) found["target"] = "Set the number you are aiming at.";
 
     const from = parseMeasure(start.trim() || "0");
@@ -252,7 +262,11 @@ export function AddMeasureDialog({
       footer={
         <>
           <Button onClick={onClose}>Cancel</Button>
-          <Button variant="accent" loading={saving} onClick={() => void submit()}>
+          <Button
+            variant="accent"
+            loading={saving}
+            onClick={() => void submit()}
+          >
             Add measure
           </Button>
         </>
@@ -299,8 +313,14 @@ export function AddMeasureDialog({
           </Field>
         </div>
 
-        <Field label="Unit" help="₦, %, days, customers — whatever you say out loud.">
-          <Input value={unit} onChange={(event) => setUnit(event.target.value)} />
+        <Field
+          label="Unit"
+          help="₦, %, days, customers — whatever you say out loud."
+        >
+          <Input
+            value={unit}
+            onChange={(event) => setUnit(event.target.value)}
+          />
         </Field>
 
         <Checkbox
@@ -332,7 +352,9 @@ export function StopKpiDialog({
 
   const submit = async () => {
     if (reason.trim().length < 3) {
-      setError("Say why in a few words. Everyone working towards this will see it.");
+      setError(
+        "Say why in a few words. Everyone working towards this will see it.",
+      );
       return;
     }
     setError(null);
@@ -354,7 +376,11 @@ export function StopKpiDialog({
       footer={
         <>
           <Button onClick={onClose}>Keep it</Button>
-          <Button variant="danger" loading={saving} onClick={() => void submit()}>
+          <Button
+            variant="danger"
+            loading={saving}
+            onClick={() => void submit()}
+          >
             Stop it
           </Button>
         </>

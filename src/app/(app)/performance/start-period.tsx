@@ -100,7 +100,11 @@ export function StartPeriodDialog({
       footer={
         <>
           <Button onClick={onClose}>Cancel</Button>
-          <Button variant="accent" loading={saving} onClick={() => void submit()}>
+          <Button
+            variant="accent"
+            loading={saving}
+            onClick={() => void submit()}
+          >
             Create the period
           </Button>
         </>

@@ -79,7 +79,11 @@ export function RecordLevelDialog({
       footer={
         <>
           <Button onClick={onClose}>Cancel</Button>
-          <Button variant="accent" loading={saving} onClick={() => void submit()}>
+          <Button
+            variant="accent"
+            loading={saving}
+            onClick={() => void submit()}
+          >
             Save it
           </Button>
         </>
@@ -148,7 +152,11 @@ export function RecordLevelDialog({
               ))}
             </Select>
           </Field>
-          <Field optional label="Where they should be" help="This is what makes a gap.">
+          <Field
+            optional
+            label="Where they should be"
+            help="This is what makes a gap."
+          >
             <Select
               value={target}
               placeholder="No target"
