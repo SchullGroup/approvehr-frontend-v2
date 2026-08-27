@@ -710,6 +710,11 @@ export function useEmployeeMutations() {
         employmentType,
         department,
         location,
+        pensionPin,
+        tin,
+        bankAccount,
+        nin,
+        phone,
         ...rest
       } = fields;
 
@@ -733,6 +738,18 @@ export function useEmployeeMutations() {
         ...(workLocationId === undefined
           ? {}
           : { workLocationId: workLocationId === "" ? null : workLocationId }),
+        /* Same shape again: each of these is format-checked when present — an
+           RSA PIN, a TIN, a NUBAN account, a NIN, a phone number — so `""`
+           fails that check instead of clearing the field, and only `null` does. */
+        ...(pensionPin === undefined
+          ? {}
+          : { pensionPin: pensionPin === "" ? null : pensionPin }),
+        ...(tin === undefined ? {} : { tin: tin === "" ? null : tin }),
+        ...(bankAccount === undefined
+          ? {}
+          : { bankAccount: bankAccount === "" ? null : bankAccount }),
+        ...(nin === undefined ? {} : { nin: nin === "" ? null : nin }),
+        ...(phone === undefined ? {} : { phone: phone === "" ? null : phone }),
         /* The enums are upper case on the wire and lower case in `Employee` —
            `toEmployee` lower-cases on the way in, so this is the way back. */
         ...(status ? { status: status.toUpperCase() } : {}),
