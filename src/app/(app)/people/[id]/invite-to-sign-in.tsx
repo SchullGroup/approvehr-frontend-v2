@@ -14,6 +14,7 @@ import { ApiError } from "@/lib/api/client";
 import { invitesApi } from "@/lib/api/invites";
 import { permissionsApi } from "@/lib/api/permissions";
 import { DeliveryNote } from "@/components/portal/delivery-note";
+import { InviteLinkButton } from "@/components/portal/invite-link";
 import type { PendingInvite, SentInvite } from "@/lib/api/invites";
 
 /**
@@ -87,6 +88,18 @@ export function InviteToSignIn({
     undefined,
   );
   const [revoked, setRevoked] = useState(false);
+  /**
+   * Whether this server can send email at all.
+   *
+   * `undefined` while unknown, `null` when the check itself failed. Only an
+   * explicit `email: false` makes the dialog say an invitation will not arrive
+   * — claiming it in either of the other two states would be guessing about
+   * somebody's deployment.
+   */
+  const [delivery, setDelivery] = useState<
+    { email: boolean; note: string | null } | null | undefined
+  >(undefined);
+  const noEmail = delivery?.email === false;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -95,11 +108,20 @@ export function InviteToSignIn({
          anyway, so the invitation costs no extra wait. `allSettled` because a
          failed invitation read must not cost somebody the ability to send one:
          the API still refuses a duplicate, and that refusal is still shown. */
-      const [roleResult, inviteResult] = await Promise.allSettled([
-        permissionsApi.roles(controller.signal),
-        invitesApi.list({ pageSize: 200 }, controller.signal),
-      ]);
+      const [roleResult, inviteResult, deliveryResult] =
+        await Promise.allSettled([
+          permissionsApi.roles(controller.signal),
+          invitesApi.list({ pageSize: 200 }, controller.signal),
+          invitesApi.delivery(controller.signal),
+        ]);
       if (controller.signal.aborted) return;
+
+      /* Undefined until known. Assuming email works and being wrong is the
+         failure this whole change is about, so an unanswered check says
+         nothing rather than promising delivery. */
+      setDelivery(
+        deliveryResult.status === "fulfilled" ? deliveryResult.value : null,
+      );
 
       if (roleResult.status === "fulfilled") {
         const list = roleResult.value;
@@ -195,10 +217,23 @@ export function InviteToSignIn({
         footer={<Button onClick={onClose}>Done</Button>}
       >
         <div className="flex flex-col gap-4">
-          <Callout tone="success" title={`${name} was invited`}>
-            They can set a password from the link in their email and sign in as
-            soon as they do.
-          </Callout>
+          {/* Two different facts, and the old copy asserted the wrong one
+              whenever no transport was wired: it promised an email that was
+              never sent. */}
+          {noEmail ? (
+            <Callout tone="warning" title={`${name}'s account is ready`}>
+              This server cannot send email, so nothing has been sent to them.
+              Take the link below and pass it on yourself.
+            </Callout>
+          ) : (
+            <Callout tone="success" title={`${name} was invited`}>
+              They can set a password from the link in their email and sign in
+              as soon as they do.
+            </Callout>
+          )}
+
+          {noEmail && <InviteLinkButton userId={sent.userId} name={name} />}
+
           <DeliveryNote
             hint={sent.delivery}
             href={(token) =>
@@ -282,6 +317,15 @@ export function InviteToSignIn({
           </p>
         )}
 
+        {/* Said before the click, not after it. A dialog that takes the action
+            and then explains that nothing happened is the shape of failure this
+            whole change is about. */}
+        {noEmail && delivery?.note && (
+          <Callout tone="warning" title="No email will be sent">
+            {delivery.note}
+          </Callout>
+        )}
+
         {revoked && (
           <Callout tone="info" title="That invitation is cancelled">
             The old link no longer works. If the address was wrong, fix it on
@@ -312,8 +356,19 @@ export function InviteToSignIn({
             </p>
             {pending.expired && (
               <Callout tone="warning" title="That link has expired">
-                Sending it again issues a fresh one.
+                {noEmail
+                  ? "Take a new link below."
+                  : "Sending it again issues a fresh one."}
               </Callout>
+            )}
+            {/* The way through when nothing can be emailed: the invitation
+                exists and, without this, nobody could ever act on it. */}
+            {noEmail && (
+              <InviteLinkButton
+                userId={pending.userId}
+                name={name}
+                hint="They have an account waiting. This is the link that lets them set a password."
+              />
             )}
             {pending.email !== email && email && (
               /* The record has moved on since the invitation went out. This is
