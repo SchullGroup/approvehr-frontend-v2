@@ -3,6 +3,7 @@
 import { sourceNote } from "@/lib/demo";
 import { AlertTriangle, Check, Scale, ShieldAlert, UserMinus } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { useMoneyHidden } from "@/lib/store/money-privacy";
 import {
   Badge,
   Button,
@@ -459,6 +460,12 @@ export function TotalRow({
   note?: string;
   strong?: boolean;
 }) {
+  /* Same mask `Money` renders — six dots, whatever the figure — so a company's
+     total cost is covered by the same click as everything else on the page.
+     Not built on `Money` itself: its inner span always renders `font-medium
+     text-ink`, which is exactly the emphasis `strong` exists to withhold from
+     the deduction lines sitting above the total. */
+  const hidden = useMoneyHidden();
   return (
     <div className="flex items-baseline justify-between gap-4">
       <div className="min-w-0">
@@ -480,7 +487,7 @@ export function TotalRow({
           strong ? "text-h4 text-ink" : "text-body",
         )}
       >
-        {formatKobo(kobo)}
+        {hidden ? "•".repeat(6) : formatKobo(kobo)}
       </p>
     </div>
   );
