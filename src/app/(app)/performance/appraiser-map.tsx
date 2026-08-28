@@ -817,22 +817,15 @@ export function AppraisersDialog({
                 </Field>
               </div>
 
-              <div className="flex flex-wrap items-end justify-between gap-3">
-                <Field
-                  optional
-                  label="Why"
-                  help="For when the role alone does not say it."
-                  className="min-w-[16rem] flex-1"
-                >
-                  <Input
-                    value={draft.note}
-                    placeholder="Ran the Lagos migration all half"
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      setRow(index, { note: value });
-                    }}
-                  />
-                </Field>
+              {/* The "Why" note has no input any more. The role and the share
+                  are what the mapping is for, and a free-text box under every
+                  row made a two-field decision look like a three-field form.
+
+                  `note` stays on the draft and is still sent (see `toPayload`)
+                  so that editing a mapping does not silently wipe a note set
+                  before this field went — removing a control is not a reason to
+                  destroy the data behind it. Nothing writes a new one. */}
+              <div className="flex justify-end">
                 <Button
                   variant="ghost"
                   size="sm"

@@ -25,6 +25,7 @@ import {
 } from "@/lib/api/knowledge";
 import { useSession } from "./session";
 import { createPersistedState } from "./persisted";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * The knowledge base.
@@ -413,6 +414,9 @@ export function useKbCategories() {
      keeping a second copy of "am I loading". */
   const [tick, setTick] = useState(0);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -436,7 +440,7 @@ export function useKbCategories() {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, tick]);
+  }, [isConnected, tick, revalidation]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
   const demo = useMemo((): Tree => ({ ...demoTree(), error: null }), []);
@@ -537,6 +541,9 @@ export function useKbArticles(params: KbArticleListParams = {}) {
   const [fetched, setFetched] = useState<(Rows & { key: string }) | null>(null);
   const [tick, setTick] = useState(0);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -570,7 +577,7 @@ export function useKbArticles(params: KbArticleListParams = {}) {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, key, tick]);
+  }, [isConnected, key, tick, revalidation]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
 
@@ -718,6 +725,9 @@ export function useKbArticle(idOrSlug: string | null) {
     null,
   );
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected || !idOrSlug) return;
     let cancelled = false;
@@ -740,7 +750,7 @@ export function useKbArticle(idOrSlug: string | null) {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, idOrSlug]);
+  }, [isConnected, idOrSlug, revalidation]);
 
   const demoRow = useMemo(() => {
     if (isConnected || !idOrSlug) return null;
@@ -912,6 +922,9 @@ export function useKbSearch({ pageSize = 8, minLength = 2 } = {}) {
   const term = query.trim();
   const active = term.length >= minLength;
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!active) return;
     let cancelled = false;
@@ -997,7 +1010,7 @@ export function useKbSearch({ pageSize = 8, minLength = 2 } = {}) {
       controller.abort();
       clearTimeout(timer);
     };
-  }, [term, active, isConnected, pageSize]);
+  }, [term, active, isConnected, pageSize, revalidation]);
 
   const matched = result !== null && result.term === term;
 
@@ -1045,6 +1058,9 @@ export function useKbAnalytics() {
   } | null>(null);
   const [tick, setTick] = useState(0);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -1066,7 +1082,7 @@ export function useKbAnalytics() {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, tick]);
+  }, [isConnected, tick, revalidation]);
 
   const demo = useMemo((): ApiKbAnalytics => {
     const published = DEMO_ARTICLES.filter((a) => a.published);

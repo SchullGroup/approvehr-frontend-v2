@@ -46,6 +46,7 @@ import { useEmployeeStore } from "./employees";
 import { TODAY } from "@/lib/today";
 import { createPersistedState } from "./persisted";
 import { useSession } from "./session";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * The rota, in both modes.
@@ -833,6 +834,9 @@ export function useShiftCatalogue(includeArchived = false): CatalogueState {
 
   const key = `${String(includeArchived)}|${tick}`;
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -860,7 +864,7 @@ export function useShiftCatalogue(includeArchived = false): CatalogueState {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, includeArchived, key]);
+  }, [isConnected, includeArchived, key, revalidation]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
 
@@ -922,6 +926,9 @@ export function useRota(params: RotaParams): RotaState {
      handles a stale *response*. */
   const latest = useRef(0);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     const ticket = latest.current + 1;
@@ -952,7 +959,7 @@ export function useRota(params: RotaParams): RotaState {
     /* `params` is an object literal at most call sites, so depending on it
        directly would re-run every render. The key is its value. */
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isConnected, key]);
+  }, [isConnected, key, revalidation]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
   const matched = fetched !== null && fetched.key === key;
@@ -1013,6 +1020,9 @@ export function useMyRota(range: { from?: string; to?: string } = {}): MyRotaSta
 
   const key = `${range.from ?? ""}|${range.to ?? ""}|${employeeId ?? ""}|${tick}`;
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -1040,7 +1050,7 @@ export function useMyRota(range: { from?: string; to?: string } = {}): MyRotaSta
       controller.abort();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isConnected, key]);
+  }, [isConnected, key, revalidation]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
   const matched = fetched !== null && fetched.key === key;
@@ -1106,6 +1116,9 @@ export function useSwaps(params: SwapListParams = {}): SwapsState {
 
   const key = `${params.status ?? ""}|${String(params.mine ?? false)}|${params.page ?? 1}|${params.pageSize ?? 50}|${tick}`;
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -1138,7 +1151,7 @@ export function useSwaps(params: SwapListParams = {}): SwapsState {
       controller.abort();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isConnected, key]);
+  }, [isConnected, key, revalidation]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
   const matched = fetched !== null && fetched.key === key;

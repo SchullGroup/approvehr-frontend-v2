@@ -31,6 +31,7 @@ import { EMPLOYEES } from "@/lib/mock/people";
 import { TODAY } from "@/lib/today";
 import { createPersistedState } from "./persisted";
 import { useSession } from "./session";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * The handbook, and the register of warnings.
@@ -500,6 +501,9 @@ export function usePolicies(params: PolicyListParams = {}) {
      keeping a second copy of "am I loading". */
   const [tick, setTick] = useState(0);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -533,7 +537,7 @@ export function usePolicies(params: PolicyListParams = {}) {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, key, tick]);
+  }, [isConnected, key, tick, revalidation]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
 
@@ -635,6 +639,9 @@ export function usePolicyText(id: string | null) {
     return row ? demoPolicy(row, false) : null;
   }, [isConnected, id]);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected || !id) return;
     let cancelled = false;
@@ -657,7 +664,7 @@ export function usePolicyText(id: string | null) {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, id]);
+  }, [isConnected, id, revalidation]);
 
   if (!isConnected) {
     return { policy: demoBody, loading: false, error: null as ApiError | null };
@@ -695,6 +702,9 @@ export function useAcknowledgements(
 
   const key = policyId ? `${policyId}:${state}` : null;
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected || !policyId || !key) return;
     let cancelled = false;
@@ -729,7 +739,7 @@ export function useAcknowledgements(
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, policyId, state, key]);
+  }, [isConnected, policyId, state, key, revalidation]);
 
   const matched = key !== null && fetched !== null && fetched.key === key;
   return {
@@ -770,6 +780,9 @@ export function useMyPolicies() {
   } | null>(null);
   const [tick, setTick] = useState(0);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -791,7 +804,7 @@ export function useMyPolicies() {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, tick]);
+  }, [isConnected, tick, revalidation]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
 
@@ -973,6 +986,9 @@ export function useConductRecord(employeeId: string | null) {
      of `reload`. */
   const [tick, setTick] = useState(0);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected || !employeeId) return;
     let cancelled = false;
@@ -995,7 +1011,7 @@ export function useConductRecord(employeeId: string | null) {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, employeeId, tick]);
+  }, [isConnected, employeeId, tick, revalidation]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
 

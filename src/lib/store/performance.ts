@@ -55,6 +55,7 @@ import {
 import { EMPLOYEES, employeeById } from "@/lib/mock/people";
 import { createPersistedState } from "./persisted";
 import { useSession } from "./session";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * Performance, in both modes: KPIs, appraisals and skills.
@@ -1337,6 +1338,9 @@ function useFetched<T>(
   const latest = useRef(0);
   const full = `${key}|${tick}`;
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!active) return;
     const ticket = latest.current + 1;
@@ -1374,7 +1378,7 @@ function useFetched<T>(
       cancelled = true;
       controller.abort();
     };
-  }, [active, full, load]);
+  }, [active, full, load, revalidation]);
 
   const matched = fetched !== null && fetched.key === full;
   return {

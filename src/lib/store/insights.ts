@@ -9,6 +9,7 @@ import {
 import { useSession } from "@/lib/store/session";
 import { useEmployeeStore } from "@/lib/store/employees";
 import { DEMO_ANNOUNCEMENTS } from "@/lib/mock/announcements";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * The dashboard and reports: the API when there is one, local figures when
@@ -157,6 +158,9 @@ export function useDashboard(): DashboardState & { reload: () => void } {
   const [tick, setTick] = useState(0);
   const [fetched, setFetched] = useState<DashboardState | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -180,7 +184,7 @@ export function useDashboard(): DashboardState & { reload: () => void } {
     return () => {
       cancelled = true;
     };
-  }, [isConnected, tick]);
+  }, [isConnected, tick, revalidation]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
 
@@ -236,6 +240,9 @@ export function useReports(period?: string): ReportsState & { reload: () => void
   const [tick, setTick] = useState(0);
   const [fetched, setFetched] = useState<ReportsState | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -259,7 +266,7 @@ export function useReports(period?: string): ReportsState & { reload: () => void
     return () => {
       cancelled = true;
     };
-  }, [isConnected, period, tick]);
+  }, [isConnected, period, tick, revalidation]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
 

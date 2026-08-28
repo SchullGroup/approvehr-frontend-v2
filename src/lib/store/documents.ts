@@ -19,6 +19,7 @@ import {
 import { EMPLOYEES } from "@/lib/mock/people";
 import { daysSince, shortDate, TODAY } from "@/lib/today";
 import { useSession } from "./session";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * Documents on file, and the ones still being chased.
@@ -463,9 +464,12 @@ export function useDocumentRegister(params: RequestListParams = {}) {
     }
   }, [isConnected, key]);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, revalidation]);
 
   /** How many different people are on the hook. The headline the screen leads with. */
   const peopleWaitingOn = useMemo(
@@ -559,9 +563,12 @@ export function useExpiringDocuments(days = 30) {
     }
   }, [isConnected, days]);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, revalidation]);
 
   return {
     rows: state.data?.rows ?? [],
@@ -639,6 +646,9 @@ export function useEmployeeFile(
     [isConnected, includeArchived],
   );
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (employeeId === null) return;
     let cancelled = false;
@@ -649,7 +659,7 @@ export function useEmployeeFile(
     return () => {
       cancelled = true;
     };
-  }, [employeeId, load]);
+  }, [employeeId, load, revalidation]);
 
   const matched =
     employeeId !== null &&
@@ -801,6 +811,9 @@ export function useMyDocuments() {
     }
   }, [isConnected, employeeId]);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -810,7 +823,7 @@ export function useMyDocuments() {
     return () => {
       cancelled = true;
     };
-  }, [key, resolve]);
+  }, [key, resolve, revalidation]);
 
   const load = useCallback(async () => {
     const state = await resolve();

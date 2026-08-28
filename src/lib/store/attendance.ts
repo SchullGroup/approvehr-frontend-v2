@@ -43,6 +43,7 @@ import { useLeaveStore } from "./leave";
 import { createPersistedState, patched } from "./persisted";
 import { useRota } from "./shifts";
 import { useSession } from "./session";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * Clock-ins, clock-outs and the attendance policy.
@@ -340,6 +341,9 @@ export function useAttendanceRoster(date?: string): RosterState {
      handles a stale *response*. */
   const latest = useRef(0);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     const ticket = latest.current + 1;
@@ -385,7 +389,7 @@ export function useAttendanceRoster(date?: string): RosterState {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, date, key]);
+  }, [isConnected, date, key, revalidation]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
 
@@ -508,6 +512,9 @@ export function useAttendanceTimesheet(days = 15): TimesheetState {
   const key = `${days}|${tick}`;
   const latest = useRef(0);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     const ticket = latest.current + 1;
@@ -538,7 +545,7 @@ export function useAttendanceTimesheet(days = 15): TimesheetState {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, days, key]);
+  }, [isConnected, days, key, revalidation]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
   const matched = fetched !== null && fetched.key === key;

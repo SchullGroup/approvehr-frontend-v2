@@ -11,6 +11,7 @@ import {
 } from "@/lib/api/payroll";
 import { useDemoDeductions } from "./features";
 import { useSession } from "./session";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * The three switches that decide what the payroll engine computes.
@@ -135,6 +136,9 @@ export function useDeductionSwitches(): DeductionSwitchState {
     [demoAnswers],
   );
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (isLoading || !isConnected) return;
     let cancelled = false;
@@ -163,7 +167,7 @@ export function useDeductionSwitches(): DeductionSwitchState {
       cancelled = true;
       controller.abort();
     };
-  }, [key, isConnected, isLoading]);
+  }, [key, isConnected, isLoading, revalidation]);
 
   const save = useCallback(
     async (patch: PayrollSettingsPatch) => {

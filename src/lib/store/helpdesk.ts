@@ -19,6 +19,7 @@ import { CURRENT_USER, employeeById } from "@/lib/mock/people";
 import { useCan } from "@/lib/permissions";
 import { createPersistedState } from "./persisted";
 import { useSession } from "./session";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * The help desk, from whichever source is available.
@@ -691,6 +692,9 @@ export function useTickets(filter: TicketFilter, bump = 0) {
     error: ApiError | null;
   } | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     const controller = new AbortController();
@@ -725,7 +729,7 @@ export function useTickets(filter: TicketFilter, bump = 0) {
       }
     })();
     return () => controller.abort();
-  }, [isConnected, scope, params, key, bump]);
+  }, [isConnected, scope, params, key, bump, revalidation]);
 
   /**
    * Demo rows are derived during render, not copied into state.
@@ -817,6 +821,9 @@ export function useTicket(id: string | null) {
 
   const active = Boolean(id) && isConnected;
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!active || !id) return;
     const controller = new AbortController();
@@ -835,7 +842,7 @@ export function useTicket(id: string | null) {
       }
     })();
     return () => controller.abort();
-  }, [id, active, version]);
+  }, [id, active, version, revalidation]);
 
   const viewer = useMemo<Viewer>(
     () => ({ employeeId: actingId, canManage }),
@@ -1030,6 +1037,9 @@ export function useRaiseTicket() {
     error: null,
   });
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     const controller = new AbortController();
@@ -1056,7 +1066,7 @@ export function useRaiseTicket() {
       }
     })();
     return () => controller.abort();
-  }, [isConnected]);
+  }, [isConnected, revalidation]);
 
   const raise = useCallback(
     async (body: CreateTicketBody): Promise<string> => {
@@ -1194,6 +1204,9 @@ export function useHelpdeskPulse(enabled: boolean, bump = 0): HelpdeskPulse {
   );
   const [state, setState] = useState<HelpdeskPulse>(EMPTY_PULSE);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!enabled || !isConnected) return;
     const controller = new AbortController();
@@ -1231,7 +1244,7 @@ export function useHelpdeskPulse(enabled: boolean, bump = 0): HelpdeskPulse {
       }
     })();
     return () => controller.abort();
-  }, [enabled, isConnected, bump]);
+  }, [enabled, isConnected, bump, revalidation]);
 
   const demo = useMemo<HelpdeskPulse | null>(() => {
     if (isConnected || !enabled) return null;

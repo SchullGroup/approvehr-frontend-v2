@@ -15,6 +15,7 @@ import {
 import { demoDepartmentName } from "./demo-structure";
 import { useEmployeeStore } from "./employees";
 import { useSession } from "./session";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * The employee directory, from whichever source is available.
@@ -111,9 +112,12 @@ export function useEmployeeDirectory(params: EmployeeListParams = {}) {
     }
   }, [isConnected, key]);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, revalidation]);
 
   if (!isConnected) {
     /* Demo mode: filter, sort and page the in-memory directory so the screen
@@ -305,6 +309,9 @@ export function useDirectorySummary(
     error: ApiError | null;
   } | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -333,7 +340,7 @@ export function useDirectorySummary(
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, key]);
+  }, [isConnected, key, revalidation]);
 
   const demo = useMemo(() => {
     if (isConnected) return null;
@@ -488,6 +495,9 @@ export function useEmployee(id: string): EmployeeRecordState {
    */
   const askable = active && isUuid(id);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!askable) return;
     const controller = new AbortController();
@@ -514,7 +524,7 @@ export function useEmployee(id: string): EmployeeRecordState {
       cancelled = true;
       controller.abort();
     };
-  }, [id, nonce, askable]);
+  }, [id, nonce, askable, revalidation]);
 
   const reload = useCallback(() => setNonce((n) => n + 1), []);
 
