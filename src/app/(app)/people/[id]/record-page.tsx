@@ -282,7 +282,7 @@ export function EmployeeRecordPage({ id }: { id: string }) {
         {/* The record itself is on screen; it is the directory read behind it
             that failed, so this says what is missing from the page rather than
             standing in for the page. */}
-        <LoadFailure subject="the rest of the directory" error={directory.error}>
+        <LoadFailure subject="the rest of the directory" error={directory.error} onRetry={directory.reload}>
           Their manager and direct reports may be missing below.
         </LoadFailure>
 

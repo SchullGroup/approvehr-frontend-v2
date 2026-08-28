@@ -111,7 +111,7 @@ function ScreeningCard({
             <LoadFailure
               subject="the applications for this role"
               error={queue.error}
-            >
+             onRetry={queue.reload}>
               <Button
                 variant="secondary"
                 size="sm"

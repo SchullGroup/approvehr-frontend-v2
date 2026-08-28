@@ -197,7 +197,7 @@ export function KpisTab({
         </div>
       </div>
 
-      <LoadFailure subject="the KPI cascade" error={kpis.error} />
+      <LoadFailure subject="the KPI cascade" error={kpis.error}  onRetry={kpis.reload}/>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat label="KPIs being tracked" value={String(tracked.length)} />

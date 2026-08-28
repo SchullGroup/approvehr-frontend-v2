@@ -248,7 +248,7 @@ function Adverts() {
         )}
 
         {postings.error && (
-          <LoadFailure subject="your adverts" error={postings.error} />
+          <LoadFailure subject="your adverts" error={postings.error}  onRetry={postings.reload}/>
         )}
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

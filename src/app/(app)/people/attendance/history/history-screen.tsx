@@ -219,7 +219,7 @@ export function HistoryScreen() {
           <LoadFailure
             subject="this month's attendance"
             error={summary.error}
-          />
+           onRetry={summary.reload}/>
         )}
 
         {/* ---- Turnout across the month ----------------------------------
@@ -295,7 +295,7 @@ export function HistoryScreen() {
         <DaySummary day={day} loading={summary.loading} />
 
         {roster.error ? (
-          <LoadFailure subject="that day's roster" error={roster.error} />
+          <LoadFailure subject="that day's roster" error={roster.error}  onRetry={roster.reload}/>
         ) : (
           <DayTable
             roster={roster}

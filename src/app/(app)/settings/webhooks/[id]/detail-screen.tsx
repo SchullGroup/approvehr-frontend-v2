@@ -35,6 +35,7 @@ import { EventPicker } from "../add-webhook";
 import { SignatureDoc } from "../signature-doc";
 import { DeliveryLog, type LogFilters } from "./log";
 import { TestPanel } from "./test-panel";
+import { failureMessage } from "@/components/portal/load-failure";
 
 /**
  * One endpoint: send a test, read the log, fix it, document it.
@@ -88,7 +89,11 @@ export function WebhookDetailScreen({ id }: { id: string }) {
             <EmptyState
               icon={<Webhook aria-hidden="true" />}
               title="You cannot manage webhooks"
-              description="A delivery log contains payroll data that was sent to another server, so it is kept to the people who manage company settings."
+              /* The sibling screen (`webhooks-screen.tsx`) has said who to ask
+                 since it was written; this one stated the reason and stopped.
+                 A refusal that explains itself and names nobody leaves the
+                 reader exactly where an unexplained one does. */
+              description="A delivery log contains payroll data that was sent to another server, so it is kept to the people who manage company settings. Ask whoever handles access to add that permission to your role."
             />
           </Card>
         </PageBody>
@@ -169,8 +174,9 @@ function Endpoint({ id }: { id: string }) {
               icon={<Webhook aria-hidden="true" />}
               title="This endpoint is not here"
               description={
-                webhook.error ??
-                "It may have been deleted, or the link may belong to another company."
+                webhook.error
+                  ? failureMessage(webhook.error, "this endpoint")
+                  : "It may have been deleted, or the link may belong to another company."
               }
               action={
                 <ButtonLink href="/settings/webhooks" variant="accent">

@@ -170,7 +170,7 @@ export function ComponentsPanel({ kind }: { kind: PayComponentKind }) {
         </Callout>
       )}
 
-      <LoadFailure subject={`the ${copy.plural}`} error={components.error} />
+      <LoadFailure subject={`the ${copy.plural}`} error={components.error}  onRetry={components.reload}/>
 
       <Card>
         <CardHeader

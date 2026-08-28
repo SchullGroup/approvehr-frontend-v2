@@ -253,7 +253,7 @@ function AllOvertime() {
         <LoadFailure
           subject={`the overtime for ${monthLabel(period)}`}
           error={overtime.error}
-        />
+         onRetry={overtime.reload}/>
 
         {overtime.policyKnown && !policy.enabled && (
           <Card>

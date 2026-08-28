@@ -186,7 +186,7 @@ export function AnnouncementsScreen() {
           </Callout>
         )}
 
-        <LoadFailure subject="the noticeboard" error={board.error} />
+        <LoadFailure subject="the noticeboard" error={board.error}  onRetry={board.reload}/>
 
         <div className="grid gap-4 sm:grid-cols-3">
           <Stat label="On the board" value={String(live.length)} hint="staff see these" />

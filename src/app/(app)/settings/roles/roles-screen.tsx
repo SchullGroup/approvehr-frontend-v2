@@ -174,7 +174,7 @@ export function RolesScreen({
         )}
 
         {roles.error && (
-          <LoadFailure subject="your roles" error={roles.error} />
+          <LoadFailure subject="your roles" error={roles.error}  onRetry={roles.reload}/>
         )}
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">

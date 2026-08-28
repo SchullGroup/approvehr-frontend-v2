@@ -166,7 +166,7 @@ export function ConductPanel({
             <LoadFailure
               subject="this person's conduct record"
               error={conduct.error}
-            />
+             onRetry={conduct.reload}/>
           ) : actions.length === 0 ? (
             <p className="text-body-sm text-body">
               No warnings have been recorded.

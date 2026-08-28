@@ -259,7 +259,7 @@ export function HolidayCalendarCard({
       <LoadFailure
         subject={`the ${year} holiday calendar`}
         error={calendar.error}
-      />
+       onRetry={calendar.reload}/>
 
       {/* Outside the disclosure. The count, with the consequence attached: both
           halves are true and the second is the one nobody expects. */}

@@ -191,7 +191,7 @@ export function DocumentsScreen() {
               <LoadFailure
                 subject="the documents coming up for renewal"
                 error={expiring.error}
-              />
+               onRetry={expiring.reload}/>
             </CardBody>
           ) : expiring.loading ? (
             <CardBody>
@@ -273,7 +273,7 @@ export function DocumentsScreen() {
                 <LoadFailure
                   subject="the documents you have asked for"
                   error={register.error}
-                />
+                 onRetry={register.reload}/>
               </div>
             ) : register.loading && register.requests.length === 0 ? (
               <span className="flex items-center gap-2 text-body-sm text-muted">

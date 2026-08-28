@@ -138,7 +138,7 @@ export function HelpdeskSettingsScreen() {
           promised to answer.
         </p>
 
-        {error && <LoadFailure subject="the help desk settings" error={error} />}
+        {error && <LoadFailure subject="the help desk settings" error={error}  onRetry={reload}/>}
 
         <Card>
           <CardHeader

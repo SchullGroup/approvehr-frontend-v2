@@ -1074,8 +1074,8 @@ function Register({
         title="Where the marks stand"
         description={
           register.weightsFrom === "snapshot"
-            ? `Weighted with the set frozen onto this period, totalling ${weightLabel(register.weightsTotalBp)}.`
-            : `Weighted with the company's current set, totalling ${weightLabel(register.weightsTotalBp)}. This period has no frozen weights, so a change to them would move these marks.`
+            ? `Scored on the weights locked in when this period started, totalling ${weightLabel(register.weightsTotalBp)}. Changing the company's weights later will not move these marks.`
+            : `Scored on the company's weights as they stand today, totalling ${weightLabel(register.weightsTotalBp)}. This period never locked in its own copy, so changing the company's weights would recalculate every mark here, including ones already given.`
         }
         action={
           <span className="flex flex-wrap gap-2">

@@ -109,7 +109,7 @@ export function SkillsTab({
         )}
       </div>
 
-      <LoadFailure subject="your skills framework" error={mine.error} />
+      <LoadFailure subject="your skills framework" error={mine.error}  onRetry={mine.reload}/>
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Stat label="Skills on your framework" value={String(summary.total)} />

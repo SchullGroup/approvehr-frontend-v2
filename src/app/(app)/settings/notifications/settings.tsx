@@ -257,7 +257,7 @@ function Rules() {
 
       <PageBody className="flex flex-col gap-6">
         {isConnected && fetched?.error && (
-          <LoadFailure subject="your notification settings" error={fetched.error} />
+          <LoadFailure subject="your notification settings" error={fetched.error}/>
         )}
 
         {protectedOff.length > 0 && (

@@ -61,7 +61,7 @@ export function PeriodsTab() {
         <StartPeriodButton variant="accent" withIcon />
       </div>
 
-      <LoadFailure subject="the appraisal periods" error={appraisals.error} />
+      <LoadFailure subject="the appraisal periods" error={appraisals.error}  onRetry={appraisals.reload}/>
 
       <Card>
         <CardHeader

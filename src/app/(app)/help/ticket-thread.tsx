@@ -181,7 +181,7 @@ export function TicketThread({
           </div>
         )}
 
-        <LoadFailure subject="this ticket" error={ticket.error} />
+        <LoadFailure subject="this ticket" error={ticket.error}/>
 
         {detail && (
           <div className="flex flex-col gap-5">
