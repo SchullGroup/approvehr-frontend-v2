@@ -7,7 +7,8 @@ import { Field, IconButton, Input } from "@/components/ui";
 import { PASSWORD_MIN, passwordRules } from "@/lib/api/account";
 
 /**
- * The password box, used by register and by reset.
+ * The password box, used by register, reset, accept-invite and the
+ * authenticated change-password form.
  *
  * ## The requirements appear as you meet them
  *
@@ -17,6 +18,17 @@ import { PASSWORD_MIN, passwordRules } from "@/lib/api/account";
  * appears, unmet; reach twelve characters and it goes green. The correction
  * ("not a password everybody tries") stays hidden until it is actually needed,
  * because a rule you are not breaking is noise.
+ *
+ * ## `strict` — the same checklist, a few more rows
+ *
+ * Set for an account that can see pay, run payroll, or hand out access —
+ * `requiresStrongPassword` (`lib/permissions.ts` for a signed-in caller; the
+ * API's own `GET /auth/reset-password` / `GET /auth/accept-invite` preview for
+ * the two flows where nobody is signed in yet) decides which accounts that is.
+ * No banner explaining why there are more rows: the rows themselves are the
+ * explanation, the same way "12 characters or more" needs no paragraph above
+ * it, and this codebase has already relearned once this session that a second
+ * sentence saying what the row beside it already says is clutter, not clarity.
  *
  * ## Show, rather than confirm
  *
@@ -33,6 +45,7 @@ export function PasswordField({
   error,
   autoComplete,
   onEnter,
+  strict = false,
 }: {
   label: string;
   value: string;
@@ -40,11 +53,13 @@ export function PasswordField({
   error?: string | undefined;
   autoComplete: "new-password" | "current-password";
   onEnter?: () => void;
+  /** True for an account that can see pay, run payroll, or hand out access. */
+  strict?: boolean;
 }) {
   const [visible, setVisible] = useState(false);
   const [touched, setTouched] = useState(false);
 
-  const rules = passwordRules(value);
+  const rules = passwordRules(value, strict);
   const shown = rules.filter(
     (rule) => rule.showWhen === "always" || !rule.met,
   );
