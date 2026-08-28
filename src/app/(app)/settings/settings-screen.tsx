@@ -4,6 +4,7 @@ import {
   ArrowRight,
   Bell,
   BookOpen,
+  Clock,
   LifeBuoy,
   ShieldCheck,
   Check,
@@ -141,6 +142,13 @@ const ONGOING = [
     description:
       "Documents people have to read and acknowledge, and who has not yet.",
     icon: <ScrollText aria-hidden="true" />,
+  },
+  {
+    href: "/settings/attendance",
+    title: "Working hours",
+    description:
+      "The shift everybody's clock-in is measured against, the grace before it counts as late, and which weekdays are working days.",
+    icon: <Clock aria-hidden="true" />,
   },
   {
     href: "/settings/overtime",

@@ -16,6 +16,7 @@ import {
   type ApiRosterRow,
   type ApiTimesheetRow,
   type AttendanceStatus,
+  type PolicyBody,
 } from "@/lib/api/attendance";
 import type { ApiRotaCell } from "@/lib/api/shifts";
 import { readPosition } from "@/lib/geolocation";
@@ -44,6 +45,7 @@ import { createPersistedState, patched } from "./persisted";
 import { useRota } from "./shifts";
 import { useSession } from "./session";
 import { useRevalidation } from "@/lib/revalidate";
+import { useCan } from "@/lib/permissions";
 
 /**
  * Clock-ins, clock-outs and the attendance policy.
@@ -259,6 +261,12 @@ function toApiPolicy(policy: AttendancePolicy): ApiAttendancePolicy {
   };
 }
 
+/** The inverse of `toApiPolicy`'s weekday conversion, for writing a patch
+ * that arrived in the API's numbering back into the demo store's own. */
+function fromApiWeekday(day: number): number {
+  return day === 7 ? 0 : day;
+}
+
 /* ------------------------------------------------------------------- roster */
 
 export type RosterState = {
@@ -460,6 +468,134 @@ export function useAttendanceRoster(date?: string): RosterState {
     error: matched ? fetched.error : null,
     source: "api",
     reload,
+  };
+}
+
+/* -------------------------------------------------------------------- policy */
+
+export type AttendancePolicyState = {
+  policy: ApiAttendancePolicy;
+  loading: boolean;
+  error: string | null;
+  saving: boolean;
+  editable: boolean;
+  source: AttendanceSource;
+  save: (patch: PolicyBody) => Promise<ApiAttendancePolicy>;
+  reload: () => void;
+};
+
+/**
+ * The company's shift hours, grace period and working weekdays — read and
+ * written on their own, apart from `useAttendanceRoster`, which only ever
+ * reads the policy embedded in a roster response and has no reason to write
+ * it back.
+ *
+ * Shaped after `useOvertimePolicy` (`lib/store/overtime.ts`): a fetch-on-mount
+ * for connected mode, the demo store for offline, and `save` re-reading rather
+ * than trusting its own patch, because the API decides what it actually stored.
+ *
+ * `MANAGE_SETTINGS`, not `MANAGE_PAY_STRUCTURE` — this is when people are
+ * expected at work, not what they are paid for it, and `updatePolicy` on the
+ * API gates on the same permission.
+ */
+export function useAttendancePolicy(): AttendancePolicyState {
+  const { isConnected } = useSession();
+  const editable = useCan("MANAGE_SETTINGS");
+  const local = useAttendanceStore();
+
+  const [fetched, setFetched] = useState<{
+    connected: boolean;
+    policy: ApiAttendancePolicy;
+  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+
+  /* Re-ask when somebody comes back to the window. Not in the key below, so
+     the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
+  useEffect(() => {
+    if (!isConnected) return;
+    let cancelled = false;
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const policy = await attendanceApi.policy(controller.signal);
+        if (cancelled) return;
+        setFetched({ connected: true, policy });
+        setError(null);
+      } catch (caught) {
+        if (cancelled) return;
+        if (caught instanceof DOMException && caught.name === "AbortError") return;
+        setError(
+          caught instanceof ApiError
+            ? caught.message
+            : "Could not read the attendance policy.",
+        );
+      }
+    })();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [isConnected, attempt, revalidation]);
+
+  const fromApi = fetched?.connected === true ? fetched.policy : null;
+  const policy = isConnected ? (fromApi ?? toApiPolicy(DEFAULT_POLICY)) : toApiPolicy(local.policy);
+
+  const save = useCallback(
+    async (patch: PolicyBody): Promise<ApiAttendancePolicy> => {
+      setSaving(true);
+      try {
+        if (!isConnected) {
+          /* `patch` arrives in the API's ISO weekday numbering (1=Monday) —
+             the shape this whole hook speaks in — and the demo store keeps
+             its own 0=Sunday numbering, so a `workingWeekdays` patch is
+             converted back rather than written through unchanged. Writing it
+             raw would silently rotate every day by one the next time the
+             demo read it back through `toApiPolicy`.
+
+             Read back through `store.current()` after committing, the same
+             "do not trust your own patch" rule the connected branch follows
+             below — `local.policy` is this render's snapshot and would still
+             be the pre-save value. */
+          const { workingWeekdays, ...rest } = patch;
+          store.commit({
+            ...store.current(),
+            policy: {
+              ...store.current().policy,
+              ...rest,
+              ...(workingWeekdays
+                ? { workingWeekdays: workingWeekdays.map(fromApiWeekday) }
+                : {}),
+            },
+          });
+          return toApiPolicy({ ...DEFAULT_POLICY, ...store.current().policy });
+        }
+        await attendanceApi.updatePolicy(patch);
+        /* Re-read rather than trust the patch: the API decides what it
+           stored, and a screen showing what it sent can disagree with the
+           database. */
+        const settled = await attendanceApi.policy();
+        setFetched({ connected: true, policy: settled });
+        return settled;
+      } finally {
+        setSaving(false);
+      }
+    },
+    [isConnected],
+  );
+
+  return {
+    policy,
+    /* Derived, not tracked: connected with nothing fetched yet *is* loading. */
+    loading: isConnected && fromApi === null && error === null,
+    error,
+    saving,
+    editable,
+    source: isConnected ? "api" : "demo",
+    save,
+    reload: useCallback(() => setAttempt((n) => n + 1), []),
   };
 }
 
