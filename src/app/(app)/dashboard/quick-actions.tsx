@@ -143,11 +143,7 @@ export function QuickActions() {
 
   return (
     <Card>
-      <CardHeader
-        title="Start something"
-        description="The things people come here to do, without hunting for them."
-        level={3}
-      />
+      <CardHeader title="Start something" level={3} />
       <CardBody className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {visible.map((action) => (
           <Link
