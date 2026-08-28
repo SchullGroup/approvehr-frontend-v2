@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { LogIn, LogOut, Undo2 } from "lucide-react";
+import { Clock, LogIn, LogOut, Undo2 } from "lucide-react";
 import {
   Avatar,
   Badge,
@@ -144,6 +144,25 @@ export function MyClockCard({
                 ? `${STATUS_LABEL[myRow.status]} today — nothing to clock.`
                 : "You have not clocked in today."}
           </p>
+
+          {/* Bold and ahead of the click, not a caption after it: the
+              question this answers is "what time do I need to be here",
+              and that only matters before somebody has clocked in. Once
+              `myRow.clockIn` exists the actual time already answers it, and
+              showing both would leave two clocks on the card disagreeing
+              about which one is real. Absent, not a guessed 08:00–17:00,
+              when the policy has not loaded yet. */}
+          {!myRow?.clockIn && !nothingToClock && policy && (
+            <p className="mt-1 flex items-center gap-1.5 text-body font-semibold text-ink">
+              <Clock aria-hidden="true" className="size-4 text-accent-text" />
+              Expected {policy.shiftStart}–{policy.shiftEnd}
+              {policy.graceMinutes > 0 && (
+                <span className="text-body-sm font-normal text-muted">
+                  · {policy.graceMinutes} min grace
+                </span>
+              )}
+            </p>
+          )}
 
           {/* Only while the clock is running.
               ----------------------------------
