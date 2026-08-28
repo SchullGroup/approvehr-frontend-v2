@@ -157,7 +157,7 @@ export function StartPeriodDialog({
               ? "Everybody"
               : `${scope.length} department${scope.length === 1 ? "" : "s"}`
           }
-          hint="Leave it as everybody unless this period is only for part of the company."
+          hint="Everybody, unless you pick specific departments below."
         >
           {departments.flat.length === 0 ? (
             <p className="text-body-sm text-muted">
@@ -199,7 +199,7 @@ export function StartPeriodDialog({
               ? `${remind} day${remind === "1" ? "" : "s"} before`
               : "Switched off"
           }
-          hint="One reminder, to whoever has not sent their form yet."
+          hint="One reminder to whoever still owes a form."
         >
           <div className="flex flex-col gap-2">
             <Field optional label="Days before the deadline">
