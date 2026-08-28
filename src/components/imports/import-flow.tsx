@@ -39,7 +39,7 @@ import type { ApiImportBatchDetail } from "@/lib/api/imports";
 import type { Dictionary } from "@/lib/imports/spec";
 import type { ImportSurface } from "@/lib/imports/surface";
 import { CheckReport } from "./check-report";
-import { ImportResult } from "./import-result";
+import { ImportOutcome } from "./import-result";
 import { MatchColumns } from "./match-columns";
 
 /**
@@ -54,14 +54,17 @@ import { MatchColumns } from "./match-columns";
  * is a dictionary, a surface and a validate/apply pair, not a fourth copy of
  * this file.
  *
- * ## Four steps, and the third is the product
+ * ## Three steps, and the third is the product
  *
- * 1. Choose a file. 2. Match its columns to ours. 3. **Check.** 4. Import.
+ * 1. Choose a file. 2. Match its columns to ours. 3. **Check, then import.**
  *
- * Step three is why the other three exist. Nobody uploads five hundred salaries
+ * Step three is why the other two exist. Nobody uploads five hundred salaries
  * blind: the check reports what will be created, what will be updated, and every
  * row that will not go in — with its row number, the column, and what to do
- * about it — before anything is written. Nothing on step three touches a record.
+ * about it — before anything is written. The step's own button is what submits:
+ * there used to be a fourth step asking "ready to import?" first, and it never
+ * said anything the check above it had not already said. Once the button is
+ * pressed, the same step shows what happened instead of what is about to.
  *
  * ## The rules the copy on this screen follows
  *
@@ -106,19 +109,11 @@ export function ImportFlow({ surface }: { surface: ImportSurface }) {
     {
       id: "check",
       label: "Fixes",
-      hint: imp.check
-        ? `${imp.check.toSkip.toLocaleString("en-NG")} to fix, ${imp.check.flagged.toLocaleString("en-NG")} flagged`
-        : "Before anything is saved",
-      isComplete: imp.check !== null,
-    },
-    {
-      id: "import",
-      label: "Confirm",
       hint: imp.result
         ? `${(imp.result.created + imp.result.updated).toLocaleString("en-NG")} in, ${imp.result.notImported.length.toLocaleString("en-NG")} not`
         : imp.check
-          ? `${(imp.check.toCreate + imp.check.toUpdate).toLocaleString("en-NG")} ${dictionary.noun.many}`
-          : "One confirmation",
+          ? `${imp.check.toSkip.toLocaleString("en-NG")} to fix, ${imp.check.flagged.toLocaleString("en-NG")} flagged`
+          : "Before anything is saved",
       isComplete: imp.result !== null,
     },
   ];
@@ -234,17 +229,16 @@ export function ImportFlow({ surface }: { surface: ImportSurface }) {
           />
         )}
 
-        {stepper.index === 2 && imp.check && (
+        {stepper.index === 2 && imp.check && imp.result === null && (
           <CheckReport
             dictionary={dictionary}
             prerequisites={surface.prerequisites}
             check={imp.check}
+            refusalWithoutApi={surface.refusalWithoutApi}
             onBack={() => stepper.goTo(1)}
             onDownload={imp.downloadRowsToFix}
-            onContinue={() => stepper.goTo(3)}
-            /* Answers to "is this the same person?", and the acknowledgement of
-               the people who import with a detail missing. Both gate the step:
-               see `blocker` in the report. */
+            /* Answers to "is this the same person?" gate the step: see
+               `blocker` in the report. */
             unchecked={imp.unchecked}
             decisions={imp.decisions}
             onDecide={(row, action) => {
@@ -252,28 +246,28 @@ export function ImportFlow({ surface }: { surface: ImportSurface }) {
             }}
             onDecideAll={imp.decideAll}
             onSeedDecisions={imp.seedDecisions}
-            acknowledged={imp.acknowledged}
-            onAcknowledge={imp.acknowledge}
             /* Fixing a cell here and re-checking, rather than downloading the
                rejects and editing them in Excel. `runCheck` re-applies the
                corrections over freshly mapped rows, so pressing this repeatedly
-               is safe and the raw file is never altered. */
+               is safe and the raw file is never altered. Missing-but-optional
+               details are fixed the same way, from the same map. */
             fixes={imp.fixes}
             fixCount={imp.fixCount}
             onFix={imp.fixCell}
             onRecheck={() => void imp.runCheck()}
             rechecking={imp.progress !== null}
+            /* The step's own button now submits directly — see the file
+               header for why there is no separate confirm step any more. */
+            onConfirm={() => void imp.runImport()}
+            confirming={imp.progress !== null}
           />
         )}
 
-        {stepper.index === 3 && imp.check && (
-          <ImportResult
+        {stepper.index === 2 && imp.check && imp.result !== null && (
+          <ImportOutcome
             surface={surface}
-            check={imp.check}
+            filename={imp.check.filename}
             result={imp.result}
-            busy={imp.progress !== null}
-            onBack={() => stepper.goTo(2)}
-            onConfirm={() => void imp.runImport()}
             onDownload={imp.downloadNotImported}
             onAnother={() => {
               imp.clear();

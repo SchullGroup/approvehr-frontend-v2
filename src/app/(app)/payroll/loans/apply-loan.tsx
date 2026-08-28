@@ -77,9 +77,6 @@ function parseWhole(text: string): number | null {
   return Number.isInteger(value) && value > 0 ? value : null;
 }
 
-/** Common terms, offered as one tap each so nobody has to think in months. */
-const QUICK_TERMS = [3, 6, 9, 12, 18, 24];
-
 /**
  * The shortest term that brings the instalment inside a third of take-home.
  *
@@ -191,6 +188,22 @@ export function ApplyLoanModal({
     applicantId && selfId && applicantId !== selfId,
   );
   /**
+   * Whether the request should name the applicant explicitly, as against
+   * relying on the API's own `actor.employeeId` fallback.
+   *
+   * Not the same question as `forSomebodyElse`, which is "is this applicant
+   * someone other than me" and exists for the pronoun in the copy below. This
+   * one is "did this screen choose an applicant at all" — true whenever
+   * `canApplyForOthers` picked somebody, even if that somebody is the caller
+   * themselves, and even when the caller's own login has no linked employee
+   * record (`selfId === null`) to compare against. Using `forSomebodyElse`
+   * here was the bug: with no employee record on their own login, it could
+   * never be true, so `employeeId` was never sent and the API fell back to
+   * `actor.employeeId` — also null — and refused with "This login is not
+   * linked to an employee record" no matter who was chosen in the picker.
+   */
+  const explicitApplicant = canApplyForOthers && Boolean(applicantId);
+  /**
    * The applicant's payslip, from the API.
    *
    * `GET /pay-components/preview/:employeeId` — their real net, with their real
@@ -269,7 +282,7 @@ export function ApplyLoanModal({
     setFailure(null);
     try {
       const loan = await apply({
-        ...(forSomebodyElse && applicantId ? { employeeId: applicantId } : {}),
+        ...(explicitApplicant && applicantId ? { employeeId: applicantId } : {}),
         principalKobo: priced.principalKobo,
         termMonths: months,
         ...(interestRate > 0 ? { interestRate } : {}),
@@ -348,31 +361,14 @@ export function ApplyLoanModal({
           label="Over how many months?"
           required
           error={failure?.messageFor("termMonths")}
-          help="Longer means less comes out each month, and more months of it."
         >
-          <div className="flex flex-col gap-2">
-            <Input
-              value={term}
-              onChange={(event) => setTerm(event.target.value)}
-              inputMode="numeric"
-              autoComplete="off"
-              className="max-w-32"
-            />
-            <div className="flex flex-wrap gap-1.5">
-              {QUICK_TERMS.map((quick) => (
-                <Button
-                  key={quick}
-                  type="button"
-                  size="sm"
-                  variant={months === quick ? "primary" : "ghost"}
-                  aria-pressed={months === quick}
-                  onClick={() => setTerm(String(quick))}
-                >
-                  {quick} months
-                </Button>
-              ))}
-            </div>
-          </div>
+          <Input
+            value={term}
+            onChange={(event) => setTerm(event.target.value)}
+            inputMode="numeric"
+            autoComplete="off"
+            className="max-w-32"
+          />
         </Field>
 
         <Field

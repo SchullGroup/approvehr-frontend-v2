@@ -94,19 +94,11 @@ export type GoalStatus = "ON_TRACK" | "AT_RISK" | "OFF_TRACK" | "DONE";
  * they call for opposite actions.
  */
 export type ObjectiveApproval =
-  | "DRAFT"
-  | "AWAITING_APPROVAL"
-  | "AGREED"
-  | "NEEDS_REVISION"
-  | "REJECTED";
+  "DRAFT" | "AWAITING_APPROVAL" | "AGREED" | "NEEDS_REVISION" | "REJECTED";
 
 /** Mirrors `ReviewCycleStage`. Forward only, and `PUBLISHED` is one-way. */
 export type ReviewCycleStage =
-  | "DRAFT"
-  | "SELF"
-  | "MANAGER"
-  | "CALIBRATION"
-  | "PUBLISHED";
+  "DRAFT" | "SELF" | "MANAGER" | "CALIBRATION" | "PUBLISHED";
 
 export type ReviewKind = "SELF" | "MANAGER" | "PEER";
 
@@ -555,10 +547,7 @@ export type ApiReviewDetail = ApiReview & {
 
 /** Mirrors `AppraiserRole`. */
 export type AppraiserRole =
-  | "LINE_MANAGER"
-  | "FUNCTIONAL_MANAGER"
-  | "PROJECT_LEAD"
-  | "SKIP_LEVEL";
+  "LINE_MANAGER" | "FUNCTIONAL_MANAGER" | "PROJECT_LEAD" | "SKIP_LEVEL";
 
 export type ApiAppraiserContext = {
   role: AppraiserRole;
@@ -603,6 +592,58 @@ export type ApiAppraiserException = {
     | "APPRAISER_UNAVAILABLE"
     | "NO_LINE_MANAGER";
   message: string;
+};
+
+/**
+ * One line per **kind** of exception, not one line per person.
+ *
+ * The API names every blocker by person on purpose — "one refusal naming
+ * eleven problems beats eleven refusals naming one" is the rule the payroll
+ * run and this mapping both follow. That rule stops helping once a dozen
+ * people share the exact same templated sentence differing only by name:
+ * thirty lines that all read "X has no appraiser yet..." is not thirty facts,
+ * it is one fact said thirty times. So this groups by `code` — a genuinely
+ * different problem still gets its own line; a repeated one collapses to a
+ * count, and the caller decides what "go and look at them" means (a filter,
+ * a modal, whatever the screen already offers).
+ *
+ * A group of exactly one is not collapsed — a single full sentence is not a
+ * wall of anything, and naming the one person by name there is strictly more
+ * useful than a count of one.
+ */
+export function groupExceptionsByCode<
+  T extends { code: string; severity: "BLOCKER" | "WARNING"; message: string },
+>(
+  issues: T[],
+): { code: string; severity: "BLOCKER" | "WARNING"; items: T[] }[] {
+  const order: string[] = [];
+  const byCode = new Map<string, T[]>();
+  for (const issue of issues) {
+    if (!byCode.has(issue.code)) {
+      byCode.set(issue.code, []);
+      order.push(issue.code);
+    }
+    byCode.get(issue.code)!.push(issue);
+  }
+  return order.map((code) => {
+    const items = byCode.get(code)!;
+    return { code, severity: items[0]!.severity, items };
+  });
+}
+
+/** What a *group* of the same exception says, since the API's own `message`
+ *  is written for exactly one person and does not pluralise. */
+export const EXCEPTION_CODE_SUMMARY: Record<
+  ApiAppraiserException["code"],
+  (count: number) => string
+> = {
+  NO_APPRAISER: (n) => `${n} people have no appraiser yet.`,
+  NO_LINE_MANAGER: (n) =>
+    `${n} people have no line manager on file, so there is nobody to fall back to.`,
+  WEIGHTS_NOT_WHOLE: (n) =>
+    `${n} people have appraiser weights that do not add up to 100%.`,
+  APPRAISER_UNAVAILABLE: (n) =>
+    `${n} people have an appraiser who has since left.`,
 };
 
 export type ApiAppraiserMapRow = {
@@ -725,6 +766,28 @@ export type ApiScoreException = {
   message: string;
 };
 
+/**
+ * A mark somebody moved, and why.
+ *
+ * A **row, not an edit** — the same shape as a payroll exclusion: a figure, a
+ * reason, a person, a date. `ApiScoreRow.computedBp` still reads what the
+ * answers produced, so "why is this person's mark different" has an answer a
+ * year later. An edit in place could not answer it.
+ */
+export type ApiCalibration = {
+  cycleId: string;
+  employeeId: string;
+  /** What the answers produced, untouched. */
+  originalBp: number;
+  /** What the company decided. This is the mark of record. */
+  calibratedBp: number;
+  /** Required, and a floor of ten characters. A move with no account of why is
+   *  the single most common way an appraisal becomes indefensible. */
+  reason: string;
+  calibratedAt: string;
+  calibratedByName: string | null;
+};
+
 export type ApiScoreRow = {
   employeeId: string;
   employeeName: string;
@@ -749,6 +812,22 @@ export type ApiScoreRow = {
   band: ScoreBand | null;
   /** The API's wording for the band. Render this, not a local table. */
   bandLabel: string | null;
+  /**
+   * What the answers produced, before anybody moved it.
+   *
+   * Equal to `scoreBp` for almost everybody. It differs only where a
+   * `calibration` row exists, and a screen showing a calibrated mark should
+   * show this beside it — the moved figure alone is a number nobody can
+   * account for.
+   */
+  computedBp: number | null;
+  /**
+   * The calibration on this person, or **null** where there is none.
+   *
+   * Null is the ordinary state and is not a mark of zero. Check for the object,
+   * never for a falsy `calibratedBp`.
+   */
+  calibration: ApiCalibration | null;
   components: ApiComponentScore[];
   objectives: {
     agreed: number;
@@ -849,11 +928,7 @@ export type ApiScoringWeightsSaved = ApiScoringWeights & {
  * expectations" starts is how the same person ends up in two different bands.
  */
 export type ScoreBand =
-  | "OUTSTANDING"
-  | "EXCEEDS"
-  | "MEETS"
-  | "PARTIALLY_MEETS"
-  | "BELOW";
+  "OUTSTANDING" | "EXCEEDS" | "MEETS" | "PARTIALLY_MEETS" | "BELOW";
 
 /** One band, with the edges and the sentence the API sends for it. */
 export type ApiBandCount = {
@@ -1068,7 +1143,8 @@ export type GoalListParams = {
   page?: number;
   pageSize?: number;
   q?: string;
-  sort?: "title" | "progress" | "status" | "dueQuarter" | "createdAt" | "updatedAt";
+  sort?:
+    "title" | "progress" | "status" | "dueQuarter" | "createdAt" | "updatedAt";
   order?: "asc" | "desc";
   status?: GoalStatus;
   /** Where an objective is in the agreement lifecycle. */
@@ -1180,6 +1256,20 @@ export type CreateQuestionBody = {
   options?: string[];
 };
 
+/**
+ * Every field optional, the usual PATCH contract — absent means "leave it
+ * alone". The API still refuses `prompt`, `kind` or `options` once somebody
+ * has answered the question; `required` and `askedOf` stay changeable even
+ * then. See `updateQuestionSchema` on the API for the exact wording.
+ */
+export type UpdateQuestionBody = {
+  prompt?: string;
+  kind?: ReviewQuestionKind;
+  askedOf?: ReviewAudience[];
+  required?: boolean;
+  options?: string[];
+};
+
 export type AnswerBody = {
   questionId: string;
   ratingValue?: number;
@@ -1272,7 +1362,9 @@ export const performanceApi = {
    * status — the response says `shared`, not published.
    */
   shareGoal: (id: string) =>
-    request<ApiGoalShared>(`/performance/goals/${id}/publish`, { method: "POST" }),
+    request<ApiGoalShared>(`/performance/goals/${id}/publish`, {
+      method: "POST",
+    }),
 
   completeGoal: (id: string, note?: string) =>
     request<ApiGoalCompleted>(`/performance/goals/${id}/complete`, {
@@ -1413,8 +1505,96 @@ export const performanceApi = {
   cycle: (id: string, signal?: AbortSignal) =>
     request<ApiCycle>(`/performance/cycles/${id}`, signalOf(signal)),
 
-  createCycle: (body: { name: string; dueDate?: string }) =>
-    request<ApiCycle>("/performance/cycles", { method: "POST", body }),
+  createCycle: (body: {
+    name: string;
+    dueDate?: string;
+    /**
+     * Who the period covers. **Empty means everybody**, which is the default
+     * and what every period did before scoping existed.
+     *
+     * Read once, at activation — the forms are written in that call, so
+     * changing the scope afterwards moves nobody. The interface only offers it
+     * on a draft for that reason.
+     */
+    departmentIds?: string[];
+    /** Days before `dueDate` to nudge whoever still owes a form. */
+    remindDaysBefore?: number;
+  }) => request<ApiCycle>("/performance/cycles", { method: "POST", body }),
+
+  /**
+   * Change a draft period's scope or its reminder.
+   *
+   * Separate from `advanceCycle`, which is the same endpoint carrying a stage.
+   * Kept apart because they are different acts with different rules — a stage
+   * moves a running period on and cannot go back, while these two only mean
+   * anything before it starts.
+   */
+  updateCycle: (
+    id: string,
+    body: { departmentIds?: string[]; remindDaysBefore?: number | null },
+  ) =>
+    request<ApiCycle>(`/performance/cycles/${id}`, { method: "PATCH", body }),
+
+  /**
+   * Start this period's form from another period's.
+   *
+   * The reason appraisal periods stall: somebody has to write eight questions
+   * from nothing, every half, and the questions barely change. This copies
+   * them as **this period's own rows** — nothing is shared and nothing locks,
+   * so editing one here does not touch the period it came from.
+   *
+   * Refused on a period that has started, and on one that already has
+   * questions. Both refusals are the API's own sentences.
+   */
+  copyQuestions: (id: string, sourceCycleId: string) =>
+    request<{ cycleId: string; copied: number }>(
+      `/performance/cycles/${id}/questions/copy`,
+      { method: "POST", body: { sourceCycleId } },
+    ),
+
+  /**
+   * Move one person's mark, with a reason.
+   *
+   * Calibration is a **row, not an edit** — the same shape as a payroll
+   * exclusion: a figure, a reason, a person, a date. The computed mark is never
+   * overwritten; `ScoreRow.computedBp` still reads what the answers produced
+   * and `scoreBp` reads what the company decided. "Why is this person's mark
+   * different" is the question the row exists to answer, and an edit in place
+   * could not answer it.
+   */
+  calibrate: (
+    cycleId: string,
+    employeeId: string,
+    body: { calibratedBp: number; reason: string },
+  ) =>
+    request<ApiCalibration>(
+      `/performance/cycles/${cycleId}/calibrations/${employeeId}`,
+      { method: "PUT", body },
+    ),
+
+  /** Put the computed mark back. The row goes; nothing else moves. */
+  clearCalibration: (cycleId: string, employeeId: string) =>
+    request<{ cycleId: string; employeeId: string; cleared: boolean }>(
+      `/performance/cycles/${cycleId}/calibrations/${employeeId}`,
+      { method: "DELETE" },
+    ),
+
+  /**
+   * Move a running period on to its next stage.
+   *
+   * Forward only, and never to `PUBLISHED` — closing is what publishes, and
+   * the API refuses the shortcut. A period cannot go back either: people have
+   * already answered against where it is now.
+   *
+   * The endpoint has always been able to do this and nothing ever called it,
+   * so every period in the product sat on "self-review" until it was
+   * published, whatever was actually happening. This was the missing button.
+   */
+  advanceCycle: (id: string, stage: ReviewCycleStage) =>
+    request<ApiCycle>(`/performance/cycles/${id}`, {
+      method: "PATCH",
+      body: { stage },
+    }),
 
   /** Refused without at least one question. Creates every review in one go. */
   activateCycle: (id: string) =>
@@ -1424,11 +1604,15 @@ export const performanceApi = {
 
   /** One-way. Everybody's manager review becomes readable by its subject. */
   closeCycle: (id: string) =>
-    request<ApiCyclePublished>(`/performance/cycles/${id}/close`, { method: "POST" }),
+    request<ApiCyclePublished>(`/performance/cycles/${id}/close`, {
+      method: "POST",
+    }),
 
   /** Notifications inside the app, not email. See the note in the store. */
   remindCycle: (id: string) =>
-    request<ApiRemindResult>(`/performance/cycles/${id}/remind`, { method: "POST" }),
+    request<ApiRemindResult>(`/performance/cycles/${id}/remind`, {
+      method: "POST",
+    }),
 
   participants: (id: string, signal?: AbortSignal) =>
     request<ApiCycleParticipants>(
@@ -1441,7 +1625,11 @@ export const performanceApi = {
   /** The whole map for a cycle. `EDIT_RECORDS` — an aggregate over everybody. */
   appraiserMap: (
     cycleId: string,
-    params: { departmentId?: string; teamId?: string; exceptionsOnly?: boolean } = {},
+    params: {
+      departmentId?: string;
+      teamId?: string;
+      exceptionsOnly?: boolean;
+    } = {},
     signal?: AbortSignal,
   ) =>
     request<ApiAppraiserMap>(`/performance/cycles/${cycleId}/appraisers`, {
@@ -1488,7 +1676,10 @@ export const performanceApi = {
 
   /** Open to everybody: a scale you are measured against but cannot read is absurd. */
   scoringWeights: (signal?: AbortSignal) =>
-    request<ApiScoringWeights>("/performance/scoring-weights", signalOf(signal)),
+    request<ApiScoringWeights>(
+      "/performance/scoring-weights",
+      signalOf(signal),
+    ),
 
   /**
    * The **whole** set, replaced, and refused unless it makes exactly 100%.
@@ -1583,6 +1774,12 @@ export const performanceApi = {
       body,
     }),
 
+  updateQuestion: (id: string, body: UpdateQuestionBody) =>
+    request<ApiQuestion>(`/performance/questions/${id}`, {
+      method: "PATCH",
+      body,
+    }),
+
   removeQuestion: (id: string) =>
     request<{ id: string; deleted: boolean }>(`/performance/questions/${id}`, {
       method: "DELETE",
@@ -1627,10 +1824,13 @@ export const performanceApi = {
 
   /** Refused while a required question is unanswered, and it names them. */
   submitReview: (id: string, body: SubmitReviewBody = {}) =>
-    request<ApiReview & { submitted: true }>(`/performance/reviews/${id}/submit`, {
-      method: "POST",
-      body,
-    }),
+    request<ApiReview & { submitted: true }>(
+      `/performance/reviews/${id}/submit`,
+      {
+        method: "POST",
+        body,
+      },
+    ),
 
   /* --------------------------------------------------------------- sign-off
    *

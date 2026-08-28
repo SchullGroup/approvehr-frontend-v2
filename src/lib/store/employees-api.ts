@@ -270,6 +270,13 @@ export type DirectorySummary = {
   archived: number | undefined;
   /** Every incomplete record, whatever the filter. For the view switcher. */
   blockedEverywhere: number | undefined;
+  /**
+   * Headcount by employment status, for the filter in force.
+   *
+   * On the wire since the endpoint existed and read by nothing until now.
+   * `undefined` until the server answers — absent, never zeroed.
+   */
+  byStatus: Record<string, number> | undefined;
   loading: boolean;
   error: ApiError | null;
 };
@@ -354,6 +361,12 @@ export function useDirectorySummary(
         0,
       ),
       incomplete: rows.filter((e) => missingForPayroll(e).length > 0).length,
+      /* Derived from the same rows the other figures are over, so the demo's
+         status chart and its total cannot disagree. */
+      byStatus: rows.reduce<Record<string, number>>((acc, e) => {
+        acc[e.status] = (acc[e.status] ?? 0) + 1;
+        return acc;
+      }, {}),
       archived: archivedIds.size,
       blockedEverywhere: local.directory.filter(
         (e) => missingForPayroll(e).length > 0,
@@ -376,6 +389,17 @@ export function useDirectorySummary(
     incomplete: row?.payrollBlockedInFilter,
     archived: row?.archived,
     blockedEverywhere: row?.payrollBlocked,
+    /**
+     * Headcount by employment status, for the filter in force.
+     *
+     * `EmployeeSummary.byStatus` has been on every directory response since the
+     * endpoint existed and this hook returned six named fields and dropped it —
+     * so the eight statuses were visible only one badge at a time, down a
+     * table. `undefined` until the server has answered, like every field beside
+     * it: a zero here is a claim the reader cannot tell from a request in
+     * flight.
+     */
+    byStatus: row?.byStatus,
     loading: !matched,
     error: matched ? state.error : null,
   };
@@ -618,6 +642,7 @@ export function useEmployeeMutations() {
            a decision. The API refuses only if the company has no state either,
            and says where to set one. */
         ...(draft.taxState ? { taxState: draft.taxState } : {}),
+        ...(draft.canLogin === undefined ? {} : { canLogin: draft.canLogin }),
         ...(draft.email ? { email: draft.email } : {}),
         ...(draft.phone ? { phone: draft.phone } : {}),
         ...(draft.dateOfBirth ? { dateOfBirth: draft.dateOfBirth } : {}),
@@ -645,6 +670,7 @@ export function useEmployeeMutations() {
           ? { workLocationId: draft.workLocationId }
           : {}),
         ...(draft.managerId ? { managerId: draft.managerId } : {}),
+        ...(draft.canLogin === undefined ? {} : { canLogin: draft.canLogin }),
         /* Upper case on the wire, lower case in `Employee` — the same seam as
            `update` below. */
         ...(draft.status ? { status: draft.status.toUpperCase() } : {}),
@@ -685,6 +711,11 @@ export function useEmployeeMutations() {
         employmentType,
         department,
         location,
+        pensionPin,
+        tin,
+        bankAccount,
+        nin,
+        phone,
         ...rest
       } = fields;
 
@@ -708,6 +739,18 @@ export function useEmployeeMutations() {
         ...(workLocationId === undefined
           ? {}
           : { workLocationId: workLocationId === "" ? null : workLocationId }),
+        /* Same shape again: each of these is format-checked when present — an
+           RSA PIN, a TIN, a NUBAN account, a NIN, a phone number — so `""`
+           fails that check instead of clearing the field, and only `null` does. */
+        ...(pensionPin === undefined
+          ? {}
+          : { pensionPin: pensionPin === "" ? null : pensionPin }),
+        ...(tin === undefined ? {} : { tin: tin === "" ? null : tin }),
+        ...(bankAccount === undefined
+          ? {}
+          : { bankAccount: bankAccount === "" ? null : bankAccount }),
+        ...(nin === undefined ? {} : { nin: nin === "" ? null : nin }),
+        ...(phone === undefined ? {} : { phone: phone === "" ? null : phone }),
         /* The enums are upper case on the wire and lower case in `Employee` —
            `toEmployee` lower-cases on the way in, so this is the way back. */
         ...(status ? { status: status.toUpperCase() } : {}),

@@ -5,7 +5,7 @@ import { CheckCircle2, Loader2 } from "lucide-react";
 import { ApiError, onAuthChange, tokens } from "@/lib/api/client";
 import { Button, ButtonLink, Callout } from "@/components/ui";
 import { account, type DeliveryHint } from "@/lib/api/account";
-import { DeliveryNote } from "../delivery-note";
+import { DeliveryNote } from "@/components/portal/delivery-note";
 
 /**
  * Confirming an email address.

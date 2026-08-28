@@ -37,22 +37,13 @@ import {
  * this file guessed. If you change the API's dictionary, re-copy it here.
  */
 
-
 /** The employment types the API accepts, as it writes them. */
 export type EmploymentTypeCode =
-  | "FULL_TIME"
-  | "PART_TIME"
-  | "CONTRACT"
-  | "INTERN"
-  | "NYSC";
+  "FULL_TIME" | "PART_TIME" | "CONTRACT" | "INTERN" | "NYSC";
 
 /** The employment statuses the API accepts, as it writes them. */
 export type EmploymentStatusCode =
-  | "ONBOARDING"
-  | "ACTIVE"
-  | "ON_LEAVE"
-  | "SUSPENDED"
-  | "EXITED";
+  "ONBOARDING" | "ACTIVE" | "ON_LEAVE" | "SUSPENDED" | "EXITED";
 
 /**
  * The 36 states and FCT. PAYE is filed to a state revenue service, so this is
@@ -110,7 +101,9 @@ const STATE_ALIASES: Readonly<Record<string, string>> = {
   akwaibom: "Akwa Ibom",
 };
 
-export const EMPLOYMENT_TYPE_WORDS: Readonly<Record<string, EmploymentTypeCode>> = {
+export const EMPLOYMENT_TYPE_WORDS: Readonly<
+  Record<string, EmploymentTypeCode>
+> = {
   fulltime: "FULL_TIME",
   full: "FULL_TIME",
   permanent: "FULL_TIME",
@@ -133,7 +126,9 @@ export const EMPLOYMENT_TYPE_WORDS: Readonly<Record<string, EmploymentTypeCode>>
   youthservice: "NYSC",
 };
 
-export const EMPLOYMENT_STATUS_WORDS: Readonly<Record<string, EmploymentStatusCode>> = {
+export const EMPLOYMENT_STATUS_WORDS: Readonly<
+  Record<string, EmploymentStatusCode>
+> = {
   active: "ACTIVE",
   current: "ACTIVE",
   employed: "ACTIVE",
@@ -186,7 +181,9 @@ export function resolveTaxState(value: string): string | null {
  * a second time — its own values, deduplicated in the order they are
  * declared, cannot drift from what the checker actually accepts.
  */
-const GENDER_OPTIONS: readonly string[] = [...new Set(Object.values(GENDER_WORDS))];
+const GENDER_OPTIONS: readonly string[] = [
+  ...new Set(Object.values(GENDER_WORDS)),
+];
 
 /** Every accepted spelling of "must say monthly", collapsed to the one word. */
 const PAY_FREQUENCY_OPTIONS: readonly string[] = ["monthly"];
@@ -206,6 +203,8 @@ export type EmployeeField =
   | "lastName"
   | "middleName"
   | "email"
+  | "canLogin"
+  | "role"
   | "phone"
   | "dateOfBirth"
   | "gender"
@@ -300,6 +299,33 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     },
   },
   {
+    field: "canLogin",
+    column: "can_login",
+    aliases: ["login", "has_login", "portal_access", "can_sign_in"],
+    required: false,
+    example: "yes",
+    note: "Leave this out and we work it out from the email column: somebody with a work address gets login access, somebody without does not. Say no for staff who are paid but never use the system — drivers, cleaners, site labour.",
+  },
+  {
+    field: "role",
+    column: "role",
+    aliases: [
+      "access",
+      "access_role",
+      "permission",
+      "permissions",
+      "user_role",
+    ],
+    required: false,
+    example: "Employee",
+    note: "Optional, and the only column that sends anything: fill it in and that person is emailed a link to set a password and sign in as this role. Leave it blank and they are on the payroll with no login. Needs their work email.",
+    /* Mirrors the API's copy, which resolves whatever is typed against the
+       company's own roles — see `SYSTEM_ROLES` there. The four names are the
+       ones every company is seeded with; a company that has made its own can
+       still type one in. */
+    dropdown: ["Owner", "HR manager", "Payroll officer", "Employee"],
+  },
+  {
     field: "phone",
     column: "phone",
     aliases: ["phone_number", "mobile", "mobile_number", "telephone"],
@@ -370,7 +396,12 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     field: "endDate",
     cell: { kind: "date" },
     column: "end_date",
-    aliases: ["termination_date", "exit_date", "date_of_exit", "last_working_day"],
+    aliases: [
+      "termination_date",
+      "exit_date",
+      "date_of_exit",
+      "last_working_day",
+    ],
     required: false,
     example: "",
     note: "Leave it empty for current staff.",
@@ -442,7 +473,12 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
   {
     field: "tin",
     column: "tin",
-    aliases: ["tax_id", "tax_identification_number", "tax_number", "tin_number"],
+    aliases: [
+      "tax_id",
+      "tax_identification_number",
+      "tax_number",
+      "tin_number",
+    ],
     required: false,
     example: "1234567890",
     note: "10 digits, FIRS format. Flagged if it is not.",
@@ -455,7 +491,13 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     field: "annualRent",
     cell: { kind: "money", zeroAllowed: true, subject: "Rent" },
     column: "annual_rent",
-    aliases: ["rent", "annual_rent_paid", "yearly_rent", "rent_paid", "rent_declared"],
+    aliases: [
+      "rent",
+      "annual_rent_paid",
+      "yearly_rent",
+      "rent_paid",
+      "rent_declared",
+    ],
     required: false,
     example: "1,800,000.00",
     note: "Annual rent they have declared, in naira. 20% of it is relieved against PAYE, up to ₦500,000. Leave it empty for anybody who has not declared — empty is not the same as 0, and 0 is a declaration.",
@@ -537,7 +579,9 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     required: false,
     example: "Imo",
     note: "One of the 36 states or the FCT. IMO STATE and Imo both read as Imo. An unrecognised one is flagged, never guessed at.",
-    recommended: { why: "Reported in statutory and federal-character returns." },
+    recommended: {
+      why: "Reported in statutory and federal-character returns.",
+    },
     dropdown: NIGERIAN_TAX_STATES,
   },
   {
@@ -558,7 +602,6 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     note: "Free text, never a fixed list. Recorded because holidays and dietary arrangements depend on it.",
   },
 ];
-
 
 /* -------------------------------------------------------------------- rules */
 
@@ -608,7 +651,8 @@ function employeeRowRules(ctx: RowContext<EmployeeField>): void {
   }
 
   const type = text("employmentType");
-  const resolvedType = type === "" ? null : EMPLOYMENT_TYPE_WORDS[normalizeKey(type)];
+  const resolvedType =
+    type === "" ? null : EMPLOYMENT_TYPE_WORDS[normalizeKey(type)];
   if (type !== "" && !resolvedType) {
     error(
       "employmentType",
@@ -756,7 +800,8 @@ export const EMPLOYEES: Dictionary<EmployeeField> = buildDictionary(
     fileNotes: employeeFileNotes,
     identify: (text) => ({
       key: text("employeeNo") || null,
-      name: [text("firstName"), text("lastName")].filter(Boolean).join(" ") || null,
+      name:
+        [text("firstName"), text("lastName")].filter(Boolean).join(" ") || null,
     }),
   },
   COLUMNS,

@@ -139,6 +139,12 @@ function Reports() {
   const { payrollByDepartment, grossBreakdown, headcount, operationalLoad } =
     data;
   const totalPeople = headcount.byDepartment.reduce((s, d) => s + d.count, 0);
+  /* The employment-mix whole, which is not necessarily `totalPeople` — see the
+     donut below. */
+  const byEmploymentType = headcount.byEmploymentType.reduce(
+    (s, t) => s + t.count,
+    0,
+  );
   const totalGross =
     payrollByDepartment?.reduce((s, d) => s + d.grossKobo, 0) ?? 0;
 
@@ -250,6 +256,51 @@ function Reports() {
             </CardBody>
           </Card>
 
+          {/* ---- Cost per head ------------------------------------------- */}
+          <Card>
+            <CardHeader
+              title="Cost per head by department"
+              level={3}
+              description="Gross pay for the period divided by the people it covered."
+            />
+            <CardBody>
+              {/* `headcount` has been on `payrollByDepartment` the whole time
+                  and nothing has ever read it — the card above maps `grossKobo`
+                  alone, so the one question both department charts exist to
+                  answer together ("is Engineering expensive because it is big,
+                  or because it is expensive?") needed a reader to hold twelve
+                  numbers from two cards in their head.
+
+                  Sorted, unlike the two above, because this is a ranking rather
+                  than a per-department lookup — and the ordering mismatch
+                  between the other two cards is exactly what made comparing
+                  them by eye unreliable. */}
+              {payrollByDepartment && payrollByDepartment.length > 0 ? (
+                <BarChart
+                  caption="Average gross pay per person, by department, for the period"
+                  colorBy="series"
+                  format={(n) =>
+                    `₦${n.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                  }
+                  points={[...payrollByDepartment]
+                    .map((d) => ({
+                      label: d.department,
+                      /* Absent, not zero. A department with a gross figure and
+                         no headcount is a division by nothing — the honest
+                         answer is "no figure", and `BarChart` now renders that
+                         as an empty dashed track rather than a bar at the
+                         floor. */
+                      value:
+                        d.headcount > 0 ? naira(d.grossKobo) / d.headcount : null,
+                    }))
+                    .sort((a, b) => (b.value ?? -1) - (a.value ?? -1))}
+                />
+              ) : (
+                <NoRunYet />
+              )}
+            </CardBody>
+          </Card>
+
           {/* ---- Headcount ----------------------------------------------- */}
           <Card>
             <CardHeader title="Headcount by department" level={3} />
@@ -272,11 +323,7 @@ function Reports() {
 
           {/* ---- Operational load ---------------------------------------- */}
           <Card>
-            <CardHeader
-              title="Operational load"
-              level={3}
-              description="How much work the month put through the system."
-            />
+            <CardHeader title="Operational load" level={3} />
             <CardBody className="grid grid-cols-2 gap-5">
               <Load
                 label="Leave requests"
@@ -294,13 +341,39 @@ function Reports() {
                 label="Attendance corrections"
                 value={operationalLoad.attendanceCorrections}
               />
-              {headcount.byEmploymentType.map((t) => (
-                <Load
-                  key={t.type}
-                  label={employmentTypeLabel(t.type)}
-                  value={t.count}
+            </CardBody>
+          </Card>
+
+          {/* ---- Employment mix ------------------------------------------ */}
+          <Card>
+            <CardHeader title="Employment mix" level={3} />
+            <CardBody>
+              {/* Moved out of "Operational load", where it did not belong.
+                  Those four figures are unrelated queue depths in unrelated
+                  units — a number you act on, one at a time. These are
+                  **mutually exclusive parts of one whole** that sum to the
+                  headcount, and putting the two kinds of fact under one heading
+                  invited exactly the arithmetic a donut does for you. */}
+              {headcount.byEmploymentType.length > 0 ? (
+                <DonutChart
+                  caption="People by employment type"
+                  /* The sum of THIS chart's own segments, not `totalPeople`.
+                     `totalPeople` is summed from `byDepartment`, and somebody
+                     with no department is absent from that and present here —
+                     so the two disagree in exactly the company most likely to
+                     be reading this card. A ring whose centre does not equal
+                     its arcs is the §1.1 defect this product is sold against. */
+                  centreLabel={`${String(byEmploymentType)} ${byEmploymentType === 1 ? "person" : "people"}`}
+                  points={headcount.byEmploymentType.map((t) => ({
+                    label: employmentTypeLabel(t.type),
+                    value: t.count,
+                  }))}
                 />
-              ))}
+              ) : (
+                <p className="text-body text-muted">
+                  Nobody has an employment type recorded yet.
+                </p>
+              )}
             </CardBody>
           </Card>
         </div>

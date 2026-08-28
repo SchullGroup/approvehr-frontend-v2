@@ -15,7 +15,7 @@ import { PASSWORD_MIN, passwordRules } from "@/lib/api/account";
  * empty box is read by nobody and obeyed by accident; a row that ticks as you
  * type is read by everybody. So: focus the field and the one real requirement
  * appears, unmet; reach twelve characters and it goes green. The correction
- * ("not a password everybody tries") stays hidden until it is actually needed,
+ * ("not a commonly used password") stays hidden until it is actually needed,
  * because a rule you are not breaking is noise.
  *
  * ## Show, rather than confirm
@@ -93,35 +93,46 @@ export function PasswordField({
       </div>
 
       {showRules && touched && (
-        <ul aria-live="polite" className="mt-0.5 flex flex-col gap-1.5">
-          {shown.map((rule) => (
-            <li
-              key={rule.id}
-              className="flex items-center gap-2 text-body-sm"
-            >
-              <span
-                aria-hidden="true"
-                className={cn(
-                  "flex size-4 shrink-0 items-center justify-center rounded-full border transition-colors",
-                  rule.met
-                    ? "border-success-strong bg-success text-ink"
-                    : "border-control-line text-transparent",
-                )}
+        <>
+          {/* One plain sentence, not a rule — the checklist below already
+              states the rules. A layperson does not necessarily know that
+              length is what actually matters, or that this product asks for
+              none of the symbol/number juggling most sites still demand. */}
+          <p className="mt-1.5 text-body-sm leading-relaxed text-muted">
+            Longer beats complicated: a short phrase like three ordinary
+            words is easy to remember and hard to guess. No symbols or
+            numbers required.
+          </p>
+          <ul aria-live="polite" className="mt-1.5 flex flex-col gap-1.5">
+            {shown.map((rule) => (
+              <li
+                key={rule.id}
+                className="flex items-center gap-2 text-body-sm"
               >
-                <Check className="size-3" strokeWidth={3} />
-              </span>
-              <span className={rule.met ? "text-body" : "text-muted"}>
-                {rule.label}
-              </span>
-              <span className="sr-only">{rule.met ? "done" : "not yet"}</span>
-              {rule.id === "length" && !rule.met && value.length > 0 && (
-                <span aria-hidden="true" className="tabular text-muted">
-                  {remaining} to go
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "flex size-4 shrink-0 items-center justify-center rounded-full border transition-colors",
+                    rule.met
+                      ? "border-success-strong bg-success text-ink"
+                      : "border-control-line text-transparent",
+                  )}
+                >
+                  <Check className="size-3" strokeWidth={3} />
                 </span>
-              )}
-            </li>
-          ))}
-        </ul>
+                <span className={rule.met ? "text-body" : "text-muted"}>
+                  {rule.label}
+                </span>
+                <span className="sr-only">{rule.met ? "done" : "not yet"}</span>
+                {rule.id === "length" && !rule.met && value.length > 0 && (
+                  <span aria-hidden="true" className="tabular text-muted">
+                    {remaining} to go
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </Field>
   );

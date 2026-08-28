@@ -2,7 +2,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Clock, LogIn, LogOut, MapPin, Timer, TriangleAlert } from "lucide-react";
+import {
+  Clock,
+  LogIn,
+  LogOut,
+  MapPin,
+  Timer,
+  TriangleAlert,
+} from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
   Avatar,
@@ -30,6 +37,7 @@ import {
   useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
+import { BulkInviteButton } from "@/components/portal/bulk-invite";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -85,17 +93,24 @@ type View = "today" | "timesheet";
  *
  * ## Who sees the roster
  *
- * The API answers `/attendance/roster` and `/attendance/timesheet` for anybody —
- * "who was in" needs no permission on that side, deliberately. That is not the
- * same question as whether *this page* should print everybody's row in front of
- * a plain employee who opened it to clock in. It should not: a nav item is only
- * ever a visibility hint, never enforcement, so the gate belongs here.
+ * **This used to say the API answers `/attendance/roster` and
+ * `/attendance/timesheet` for anybody, deliberately, and that the gate
+ * belonged only here because a nav item is a visibility hint and not
+ * enforcement.** That was wrong about the API half: nothing there checked
+ * anything, so both endpoints answered the whole company for any valid
+ * token regardless of what this screen painted — recoverable from the
+ * network tab with no more access than a plain employee already has. The
+ * API now enforces the same rule this screen renders
+ * (`attendance/router.ts#attendanceScope`), and what is left here is real UI
+ * policy rather than the only door: which reading a plain employee gets
+ * shown, not whether the wider one leaks to them first.
  *
  * `useIsManager()` (their own reports) or `EDIT_RECORDS` (the company's) decides
  * it. Clocking in is unconditional — it is the one thing every employee does on
  * this screen — and everything below it, the company roster and the 15-day
  * timesheet alike, renders only for those two. Someone without either sees their
- * own recent attendance instead of everyone's.
+ * own recent attendance instead of everyone's, which is now the same row the API
+ * itself scopes them to.
  */
 export function AttendanceScreen() {
   const roster = useAttendanceRoster();
@@ -109,6 +124,7 @@ export function AttendanceScreen() {
      answers true first, and the two must run every render in the same order. */
   const isManager = useIsManager();
   const canEditRecords = useCan("EDIT_RECORDS");
+  const canInvite = useCan("INVITE_STAFF");
   const canSeeRoster = isManager || canEditRecords;
 
   const [view, setView] = useState<View>("today");
@@ -116,12 +132,18 @@ export function AttendanceScreen() {
   const [correcting, setCorrecting] = useState<ApiRosterRow | null>(null);
   const [busy, setBusy] = useState(false);
 
+
+
+
+
   const policy = roster.policy;
 
   /* Attributing an action to a person needs an employee id, and the id in the
      session is an *account* id when connected. `employeeId` is the one that
      matches a roster row; `displayName` is the one to print. */
-  const myRow = roster.rows.find((row) => row.employeeId === session.employeeId);
+  const myRow = roster.rows.find(
+    (row) => row.employeeId === session.employeeId,
+  );
 
   /* Derived rather than stored, so the first location to arrive becomes the
      default without a setState in an effect. The ids differ between the two
@@ -198,18 +220,28 @@ export function AttendanceScreen() {
       <PageHeader
         title="Attendance"
         action={
-          /* The view toggle chooses between two company-wide reads, so it has
-             no reason to exist for somebody who cannot see either of them. */
-          canSeeRoster ? (
-            <SegmentedControl
-              label="View"
-              value={view}
-              onChange={setView}
-              options={[
-                { value: "today", label: "Today" },
-                { value: "timesheet", label: "Timesheet" },
-              ]}
-            />
+          canInvite || canSeeRoster ? (
+            <div className="flex flex-wrap items-center gap-2">
+              {/* The same component the Directory mounts. This screen kept its
+                  own eighty lines of orchestration around the same dialog, and
+                  two copies drift until one stops defaulting to the right role
+                  or stops filtering out people who already have an account. */}
+              <BulkInviteButton label="Set up staff logins" />
+              {/* The view toggle chooses between two company-wide reads, so
+                  it has no reason to exist for somebody who cannot see
+                  either of them. */}
+              {canSeeRoster && (
+                <SegmentedControl
+                  label="View"
+                  value={view}
+                  onChange={setView}
+                  options={[
+                    { value: "today", label: "Today" },
+                    { value: "timesheet", label: "Timesheet" },
+                  ]}
+                />
+              )}
+            </div>
           ) : undefined
         }
       />
@@ -223,7 +255,10 @@ export function AttendanceScreen() {
             looking at this screen most often is looking for this control. */}
         <Card>
           <CardBody className="flex flex-wrap items-center gap-4">
-            <Avatar name={session.displayName ?? myRow?.employeeName ?? "You"} size="md" />
+            <Avatar
+              name={session.displayName ?? myRow?.employeeName ?? "You"}
+              size="md"
+            />
             <div className="min-w-0 flex-1">
               <p className="text-body font-semibold">
                 {session.displayName ?? myRow?.employeeName ?? "Your day"}
@@ -336,7 +371,11 @@ export function AttendanceScreen() {
         {canSeeRoster ? (
           view === "today" ? (
             roster.date ? (
-              <TodayView roster={roster} onCorrect={setCorrecting} />
+              <TodayView
+                roster={roster}
+                onCorrect={setCorrecting}
+                canCorrect={canEditRecords}
+              />
             ) : (
               <LoadingPanel label="Loading today's roster" />
             )
@@ -364,6 +403,7 @@ export function AttendanceScreen() {
           onSaved={refresh}
         />
       )}
+
     </>
   );
 }
@@ -417,7 +457,6 @@ function MyAttendanceSummary({
     <Card>
       <CardHeader
         title={`Your attendance — ${shortDate(sheet.from)} to ${shortDate(sheet.to)}`}
-        description="Your own days over this window."
         action={
           <ButtonLink href="/people/overtime" variant="secondary" size="sm">
             <Timer aria-hidden="true" className="size-4" />
@@ -461,9 +500,19 @@ function MyAttendanceSummary({
 function TodayView({
   roster,
   onCorrect,
+  canCorrect,
 }: {
   roster: RosterState;
   onCorrect: (row: ApiRosterRow) => void;
+  /**
+   * Separate from `canSeeRoster` on purpose. That gate is `isManager ||
+   * EDIT_RECORDS` — whether this screen is worth opening at all — and a
+   * manager with reports but no `EDIT_RECORDS` passes it and still cannot
+   * correct a record: the backend route is `EDIT_RECORDS` alone. Reusing the
+   * broader gate here let such a manager open the dialog, type a correction,
+   * and only discover the 403 after clicking Save.
+   */
+  canCorrect: boolean;
 }) {
   /* A four-week window around the day, not the day itself.
      A rota row only exists for a day somebody is *on*, so a one-day window
@@ -507,7 +556,10 @@ function TodayView({
           icon={<Clock aria-hidden="true" />}
           trend={
             count("LATE") > 0 && roster.policy
-              ? { direction: "down", label: `after ${roster.policy.shiftStart}` }
+              ? {
+                  direction: "down",
+                  label: `after ${roster.policy.shiftStart}`,
+                }
               : undefined
           }
         />
@@ -515,7 +567,9 @@ function TodayView({
         <Stat
           label="Not clocked in"
           value={String(unexplained)}
-          {...(restDays > 0 ? { hint: `${restDays} more off on the rota` } : {})}
+          {...(restDays > 0
+            ? { hint: `${restDays} more off on the rota` }
+            : {})}
         />
       </div>
 
@@ -605,7 +659,10 @@ function TodayView({
                   <TD className="text-muted">
                     {row.workLocation ? (
                       <span className="inline-flex items-center gap-1.5">
-                        <MapPin aria-hidden="true" className="size-3.5 text-faint" />
+                        <MapPin
+                          aria-hidden="true"
+                          className="size-3.5 text-faint"
+                        />
                         {row.workLocation}
                       </span>
                     ) : (
@@ -615,17 +672,23 @@ function TodayView({
                   <TD align="right">
                     <div className="flex justify-end gap-1.5">
                       {row.status === "ABSENT" && !off && (
-                        <ButtonLink href="/people/leave" variant="ghost" size="sm">
+                        <ButtonLink
+                          href="/people/leave"
+                          variant="ghost"
+                          size="sm"
+                        >
                           Approve leave
                         </ButtonLink>
                       )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onCorrect(row)}
-                      >
-                        Fix record
-                      </Button>
+                      {canCorrect && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onCorrect(row)}
+                        >
+                          Fix record
+                        </Button>
+                      )}
                     </div>
                   </TD>
                 </TR>
@@ -744,7 +807,10 @@ function TimesheetView({ sheet }: { sheet: TimesheetState }) {
                     ) : (row.proration.amount ?? 0) > 0 ? (
                       <span className="inline-flex flex-col items-end">
                         <span className="inline-flex items-center gap-1.5 font-medium text-danger-text">
-                          <TriangleAlert aria-hidden="true" className="size-3.5" />
+                          <TriangleAlert
+                            aria-hidden="true"
+                            className="size-3.5"
+                          />
                           {`−${formatMoney(row.proration.amount ?? 0, "NGN", {
                             decimals: true,
                           })}`}
@@ -851,7 +917,11 @@ function CorrectionDialog({
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="accent" disabled={saving} onClick={() => void save()}>
+          <Button
+            variant="accent"
+            disabled={saving}
+            onClick={() => void save()}
+          >
             Save correction
           </Button>
         </div>
@@ -907,7 +977,7 @@ function CorrectionDialog({
           label="Reason for the change"
           required
           error={touched && !note.trim() ? "A reason is required." : undefined}
-          help="Payroll pays against this record, so a change cannot be silent."
+          help="Payroll pays against this record."
         >
           <Input
             value={note}

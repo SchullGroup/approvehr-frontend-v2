@@ -2,12 +2,7 @@
 
 import Link from "next/link";
 import { Layers } from "lucide-react";
-import {
-  Badge,
-  Disclosure,
-  EmptyState,
-  Spinner,
-} from "@/components/ui";
+import { Badge, Disclosure, EmptyState, Spinner } from "@/components/ui";
 import { weightLabel } from "@/lib/api/performance";
 import { useFramework, useScoringWeights } from "@/lib/store/performance";
 
@@ -66,8 +61,9 @@ function HowItWorksBody() {
         </p>
         <p className="mt-1">
           A half, a quarter, a probation. Starting one gives every employee a
-          form and tells them it is open. Everything below happens inside it, and
-          a person&rsquo;s mark belongs to one period rather than to the year.
+          form and tells them it is open. Everything below happens inside it,
+          and a person&rsquo;s mark belongs to one period rather than to the
+          year.
         </p>
       </div>
 
@@ -168,13 +164,13 @@ function HowItWorksBody() {
           Nothing recorded is not a nought
         </p>
         <p className="mt-1">
-          A part with nothing behind it &mdash; no agreed objective, nobody rated
-          the competencies, not a manager &mdash; is left out of the mark, and
-          the remaining parts carry the difference. The screens say which part
-          was left out and for how many people.{" "}
+          A part with nothing behind it &mdash; no agreed objective, nobody
+          rated the competencies, not a manager &mdash; is left out of the mark,
+          and the remaining parts carry the difference. The screens say which
+          part was left out and for how many people.{" "}
           <span className="text-ink">
-            &ldquo;Scored nought&rdquo; and &ldquo;nothing was recorded&rdquo; are
-            different things to say about a person.
+            &ldquo;Scored nought&rdquo; and &ldquo;nothing was recorded&rdquo;
+            are different things to say about a person.
           </span>
         </p>
       </div>
@@ -186,8 +182,8 @@ function HowItWorksBody() {
         <p className="mt-1">
           The appraiser makes the mark final, the employee reads it, and either
           acknowledges it or formally disagrees. Both are recorded with a date.
-          Acknowledging is not agreeing, and the screen says so where somebody is
-          about to do it.
+          Acknowledging is not agreeing, and the screen says so where somebody
+          is about to do it.
         </p>
       </div>
     </div>

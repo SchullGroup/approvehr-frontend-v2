@@ -1,23 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  Bell,
-  ChevronDown,
-  ChevronLeft,
-  Menu,
-  Search,
-  X,
-} from "lucide-react";
+import { Bell, ChevronDown, ChevronLeft, Menu, Search, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Logo } from "@/components/brand/logo";
-import {
-  Avatar,
-  Badge,
-  MoneyPrivacyToggle,
-} from "@/components/ui";
+import { Avatar, Badge, MoneyPrivacyToggle } from "@/components/ui";
+import { CommandPalette } from "./command-palette";
+import { GuidedTour, openTour } from "./tour/guided-tour";
 import { NAV, visibleNav, type BadgeSource, type NavGroup } from "./nav";
 import { SessionRoleBadge } from "./role-badge";
 import { usePermissions } from "@/lib/permissions";
@@ -41,8 +32,32 @@ import { VerificationBanner } from "./verification-banner";
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const pathname = usePathname();
   const badges = useNavBadges();
+
+  /* The `/` shortcut the search button's own `kbd` promises. Ignored while
+     already typing somewhere — a `/` in a note or an amount must reach the
+     field it was typed into, not hijack the page out from under it. */
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) {
+        return;
+      }
+      const target = event.target as HTMLElement | null;
+      const typing =
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable);
+      if (typing) return;
+      event.preventDefault();
+      setSearchOpen(true);
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   /* The sidebar is filtered by who is looking and what the company turned on.
      Both hooks answer from a cache after first load, so this is not a request
@@ -74,6 +89,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             aria-expanded={open}
             aria-controls="portal-nav"
             aria-label={open ? "Close navigation" : "Open navigation"}
+            data-tour="nav-toggle"
             className="rounded-md p-2 text-ink hover:bg-canvas lg:hidden"
           >
             {open ? (
@@ -93,9 +109,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           <CompanySwitcher />
 
-          {/* Search. Wired to the command palette later. */}
           <button
             type="button"
+            onClick={() => setSearchOpen(true)}
+            data-tour="search"
             className={cn(
               "ml-auto hidden items-center gap-2 rounded-md border border-line bg-canvas",
               "px-3 py-1.5 text-body-sm text-muted transition-colors",
@@ -148,7 +165,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <div className="flex flex-1">
         {/* Sidebar */}
-        <aside className="no-print sidebar-surface hidden w-60 shrink-0 border-r border-line lg:block">
+        <aside
+          data-tour="nav"
+          className="no-print sidebar-surface hidden w-60 shrink-0 border-r border-line lg:block"
+        >
           <div className="scrollbar-slim sticky top-14 max-h-[calc(100dvh-3.5rem)] overflow-y-auto px-3 py-4">
             {nav}
           </div>
@@ -182,6 +202,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+
+      {searchOpen && <CommandPalette onClose={() => setSearchOpen(false)} />}
+
+      {/* Mounted here rather than on a page: it points at this shell's own
+          chrome, which is the only thing present on every route. It renders
+          nothing at all unless the signed-in account has never dismissed it,
+          or somebody opens it from the account menu. */}
+      <GuidedTour />
     </div>
   );
 }
@@ -230,7 +258,10 @@ function useNavBadges(): Record<BadgeSource, number> {
  * directory and has no nav item of its own — but the moment a more specific item
  * exists, it takes the highlight outright.
  */
-function resolveActiveHref(groups: NavGroup[], pathname: string): string | null {
+function resolveActiveHref(
+  groups: NavGroup[],
+  pathname: string,
+): string | null {
   let best: string | null = null;
   for (const group of groups) {
     for (const item of group.items) {
@@ -281,6 +312,10 @@ function SidebarNav({
                   <Link
                     href={item.href}
                     aria-current={active ? "page" : undefined}
+                    /* The guided tour points at items by route, so it can only
+                       ever highlight one this company actually has — the list
+                       here is already filtered by permission and feature. */
+                    data-tour={`nav-item:${item.href}`}
                     onClick={onNavigate}
                     className={cn(
                       "group flex items-center gap-2.5 rounded-md px-2.5 py-2 text-body-sm font-medium",
@@ -301,7 +336,9 @@ function SidebarNav({
                     >
                       {item.icon}
                     </span>
-                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                    <span className="min-w-0 flex-1 truncate">
+                      {item.label}
+                    </span>
 
                     {item.soon && (
                       <span className="shrink-0 text-meta font-normal text-faint">
@@ -391,7 +428,10 @@ function UserMenu() {
           </span>
         </span>
         <SessionRoleBadge className="hidden shrink-0 sm:inline-flex" />
-        <ChevronDown aria-hidden="true" className="size-3.5 shrink-0 text-faint" />
+        <ChevronDown
+          aria-hidden="true"
+          className="size-3.5 shrink-0 text-faint"
+        />
       </button>
 
       {open && (
@@ -415,15 +455,17 @@ function UserMenu() {
               {/* Unconditional here, which is what makes the small-screen trade
                   above acceptable: the answer is always one tap away. */}
               <SessionRoleBadge className="mt-1.5" />
-              {/* Which mode you are in, stated rather than implied. A demo that
-                  looks connected is the one thing worse than a demo — which is
-                  why the line only has a second half in a build that has a
-                  demo. In production `mode` is always "api". */}
-              <p className="mt-1.5 text-meta text-faint">
-                {!DEMO_ENABLED || mode === "api"
-                  ? "Connected to the API"
-                  : "Demo session — data is local to this browser"}
-              </p>
+              {/* A demo that looks connected is the one thing worse than a
+                  demo, so this stays for that case. The connected case says
+                  nothing a real customer needs told — "yes, the product
+                  works" is not information — and in a production build
+                  `mode` is always "api", so this line is absent from every
+                  live company's account, not merely quiet on it. */}
+              {DEMO_ENABLED && mode !== "api" && (
+                <p className="mt-1.5 text-meta text-faint">
+                  Demo session — data is local to this browser
+                </p>
+              )}
             </div>
             {recordId && (
               <Link
@@ -469,6 +511,19 @@ function UserMenu() {
             >
               Settings
             </Link>
+            {/* Dismissing the tour is not a decision anybody should be stuck
+                with, and this is the only way back to it. */}
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                openTour();
+              }}
+              className="block w-full rounded-md px-2.5 py-2 text-left text-body-sm text-body hover:bg-canvas hover:text-ink"
+            >
+              Take the tour
+            </button>
             <button
               type="button"
               role="menuitem"
@@ -536,7 +591,8 @@ export function PageHeader({
    */
   const backCrumb =
     breadcrumb && breadcrumb.length > 0
-      ? breadcrumb[breadcrumb.length - 1]!.href === pathname && breadcrumb.length > 1
+      ? breadcrumb[breadcrumb.length - 1]!.href === pathname &&
+        breadcrumb.length > 1
         ? breadcrumb[breadcrumb.length - 2]!
         : breadcrumb[breadcrumb.length - 1]!
       : null;
@@ -571,7 +627,9 @@ export function PageHeader({
               </Link>
             )}
 
-            <span aria-hidden="true" className="text-line-strong">|</span>
+            <span aria-hidden="true" className="text-line-strong">
+              |
+            </span>
 
             <nav aria-label="Breadcrumb">
               <ol className="flex flex-wrap items-center gap-1.5 text-meta text-muted">
@@ -599,7 +657,9 @@ export function PageHeader({
               {meta}
             </div>
           </div>
-          {action && <div className="flex shrink-0 items-center gap-2">{action}</div>}
+          {action && (
+            <div className="flex shrink-0 items-center gap-2">{action}</div>
+          )}
         </div>
 
         {tabs}
@@ -615,9 +675,7 @@ export function PageBody({
   className?: string;
   children: React.ReactNode;
 }) {
-  return (
-    <div className={cn("px-5 py-6 sm:px-7", className)}>{children}</div>
-  );
+  return <div className={cn("px-5 py-6 sm:px-7", className)}>{children}</div>;
 }
 
 /** Sticky helper for empty "not built yet" routes so the nav stays honest. */

@@ -383,6 +383,15 @@ const DEMO_QUESTIONS: ApiWizardQuestion[] = DEMO_ENABLED ? [
       },
     ],
   },
+  {
+    id: "roles",
+    step: 9,
+    question: "Any other roles this company needs?",
+    help:
+      "Owner, Administrator, HR manager, Payroll analyst, Payroll officer, " +
+      "Finance approver, Line manager and Employee are already set up.",
+    options: [{ value: "continue", label: "Continue", sets: {} }],
+  },
 ] : [];
 
 const DEMO_KEY = "approvehr.features.demo";

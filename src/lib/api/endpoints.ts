@@ -58,6 +58,15 @@ export type ApiUser = {
    * `Boolean(undefined)` is a safe stand-in for "unverified".
    */
   emailVerifiedAt?: string | null;
+  /**
+   * When this person finished or skipped the guided tour, or `null`.
+   *
+   * Absence is what makes the tour appear, the same way
+   * `OrgFeatures.setupCompletedAt` being null is what routes a new company
+   * into setup. Per person rather than per company: a teammate invited six
+   * months later has not seen it either.
+   */
+  tourDismissedAt: string | null;
 };
 
 export const auth = {
@@ -107,6 +116,12 @@ export const auth = {
       method: "POST",
       body: { currentPassword, newPassword },
     }),
+
+  /** Finished or skipped — both count as shown. Idempotent on the API. */
+  dismissTour: () =>
+    request<{ tourDismissedAt: string }>("/auth/tour/dismiss", {
+      method: "POST",
+    }),
 };
 
 /* ---------------------------------------------------------------- employees */
@@ -143,6 +158,15 @@ export type ApiEmployee = {
   /** Whether a payroll run should open this person's PAYE editable by
    *  default. See `Employee.payeManualOverride`. */
   payeManualOverride: boolean;
+  /**
+   * Whether this record is entitled to a login at all. Most staff are not —
+   * this is a payroll and HR record first, and a portal account is opt-in,
+   * granted by an invitation (`@/lib/api/invites`). `true` does not mean an
+   * account exists yet: it can mean invited-and-not-accepted just as well as
+   * signed-in-for-years. There is no field on this type for which of those it
+   * is — ask `GET /invites` for the pending half.
+   */
+  canLogin: boolean;
   /** Null where nobody has agreed a figure. Never rendered as ₦0.00. */
   grossMonthlyKobo: number | null;
   /**
@@ -677,6 +701,8 @@ export type ApiCompanyProfile = {
   industry: string | null;
   addressLine: string | null;
   city: string | null;
+  /** An image `data:` URI, or null. Rendered on the payslip masthead. */
+  logoUrl: string | null;
   taxState: string | null;
   timezone: string;
   currency: string;
@@ -800,6 +826,7 @@ export function toEmployee(api: ApiEmployee): Employee {
     status: api.status.toLowerCase() as Employee["status"],
     salaryGradeId: api.salaryGradeId,
     payeManualOverride: api.payeManualOverride,
+    canLogin: api.canLogin,
     grossMonthly:
       api.grossMonthlyKobo === null ? null : toNaira(api.grossMonthlyKobo),
     ...(api.hasBankAccount !== undefined

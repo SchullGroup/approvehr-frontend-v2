@@ -19,7 +19,9 @@ import {
   Badge,
   ButtonLink,
   Button,
+  BarChart,
   Card,
+  CardHeader,
   CardBody,
   EmptyState,
   Field,
@@ -117,7 +119,13 @@ type Filters = {
  * a city string, not a work-location id, so a filter on it would silently match
  * nobody. Naming that is better than a select that returns an empty table.
  */
-export function Directory() {
+export function Directory({
+  initialQuery,
+}: {
+  /** From `?q=` — what the header search's "see all results" link arrives
+   *  with. */
+  initialQuery?: string;
+}) {
   const router = useRouter();
   const toast = useToast();
   const mutations = useEmployeeMutations();
@@ -130,6 +138,7 @@ export function Directory() {
        discover. */
     sort: "lastName",
     pageSize: 25,
+    ...(initialQuery ? { search: initialQuery } : {}),
   });
 
   /* The view switcher is separate from `list.filters` because it maps onto three
@@ -174,6 +183,25 @@ export function Directory() {
   const { employees: rows, loading, connected, error, reload } =
     useEmployeeDirectory(params);
   const summary = useDirectorySummary(params);
+
+  /**
+   * Headcount by status, in the order `STATUS` declares.
+   *
+   * Declaration order, not count order: these are stages somebody moves
+   * through — onboarding, probation, active, offboarding — and sorting by size
+   * would shuffle a progression into a ranking. Statuses nobody is in are
+   * dropped rather than drawn as empty rows.
+   */
+  const statusPoints = useMemo(() => {
+    const counts = summary.byStatus;
+    if (!counts) return [];
+    return (Object.keys(STATUS) as EmploymentStatus[])
+      .map((key) => ({
+        label: STATUS[key].label,
+        value: counts[key.toUpperCase()] ?? counts[key] ?? 0,
+      }))
+      .filter((point) => point.value > 0);
+  }, [summary.byStatus]);
 
   const departments = useDepartments();
   const locations = useWorkLocations();
@@ -288,6 +316,37 @@ export function Directory() {
         )}
       </div>
 
+      {/* ---- Where people stand ----------------------------------------
+          `byStatus` has been on every directory response since the endpoint
+          existed and no screen read it — the eight statuses were visible one
+          badge at a time, down a table, so "how many are still on probation"
+          meant counting rows.
+
+          It follows the filter, like every tile beside it, so filtering to one
+          department narrows this too. Absent while the server has not answered:
+          an empty chart under a real headcount would read as nobody having a
+          status at all. */}
+      {statusPoints.length > 1 && (
+        <Card>
+          <CardHeader
+            title="Where people stand"
+            description={
+              applied.length > 0 || view !== "active"
+                ? "Across what is filtered below."
+                : undefined
+            }
+          />
+          <CardBody>
+            <BarChart
+              colorBy="series"
+              format={(n) => String(n)}
+              caption="Headcount by employment status"
+              points={statusPoints}
+            />
+          </CardBody>
+        </Card>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat
           label="Employees"
@@ -320,19 +379,27 @@ export function Directory() {
           }
           icon={<Banknote aria-hidden="true" />}
         />
-        <Stat
-          label="Records incomplete"
-          value={count(summary.incomplete)}
-          icon={<ShieldAlert aria-hidden="true" />}
-          {...(summary.incomplete !== undefined && summary.incomplete > 0
-            ? { trend: { direction: "down" as const, label: "Worth checking before payroll" } }
-            : {})}
-          /* Only a missing bank account actually blocks a payslip — a missing
-             PIN only leaves the remittance schedule incomplete, and a missing
-             TIN does not affect the run at all. This count is every field that
-             is unfilled, not every record that will miss pay. */
-          hint="missing bank, PIN or TIN — only a missing bank account blocks pay"
-        />
+        {/* Wrapped rather than given an `href` prop — `Stat` has none, and no
+            other clickable-stat pattern exists yet in this app to follow. */}
+        <Link
+          href="/people/incomplete"
+          className="block h-full rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+        >
+          <Stat
+            label="Records incomplete"
+            value={count(summary.incomplete)}
+            icon={<ShieldAlert aria-hidden="true" />}
+            className="h-full transition-colors hover:border-accent-line"
+            {...(summary.incomplete !== undefined && summary.incomplete > 0
+              ? { trend: { direction: "down" as const, label: "Worth checking before payroll" } }
+              : {})}
+            /* Only a missing bank account actually blocks a payslip — a missing
+               PIN only leaves the remittance schedule incomplete, and a missing
+               TIN does not affect the run at all. This count is every field that
+               is unfilled, not every record that will miss pay. */
+            hint="missing bank, PIN or TIN — only a missing bank account blocks pay"
+          />
+        </Link>
       </div>
 
       <FilterBar

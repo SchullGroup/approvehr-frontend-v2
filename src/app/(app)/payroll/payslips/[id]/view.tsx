@@ -179,6 +179,7 @@ export function PayslipView({ id }: { id: string }) {
                   ? [liveCompany.addressLine, liveCompany.city].filter(Boolean).join(", ") ||
                     "—"
                   : "—",
+                logoUrl: liveCompany?.logoUrl ?? null,
               }
             : {
                 name: demoCompany.profile.legalName,

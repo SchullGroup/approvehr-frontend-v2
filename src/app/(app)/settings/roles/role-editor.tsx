@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Copy, Lock, TriangleAlert, UserMinus, UserPlus } from "lucide-react";
+import { Copy, TriangleAlert, UserMinus, UserPlus } from "lucide-react";
 import {
   Badge,
   Button,
@@ -33,21 +33,29 @@ import { AddPeopleDialog } from "./add-people";
  *
  * `Owner`, `HR manager`, `Payroll officer` and `Employee` ship with the product
  * and our own support answers describe them, so their names and permission sets
- * do not move. The old version of this screen rendered an editable form and let
- * the save fail. This one renders the switches disabled with the reason on them,
- * and puts **Duplicate to edit** where the save button would have been — the
- * thing somebody in that position actually wants. Descriptions stay editable,
- * because "who this is for here" is the company's sentence, not ours.
+ * do not move. Two earlier versions of this screen got that fact wrong in two
+ * different directions: the first rendered an editable form and let the save
+ * fail; the second rendered every permission as a switch, disabled, which reads
+ * as broken rather than as fixed — a row of controls nobody can touch is not
+ * how "this cannot be changed" is usually said.
+ *
+ * This one says it as what it is: a plain list of what the role actually
+ * grants, `GrantedPermissions` below, with nothing to toggle because nothing
+ * here toggles. **Duplicate to edit** — in the drawer's own footer — is where
+ * somebody who wants a version they *can* change goes. Descriptions stay
+ * editable even on a locked role, because "who this is for here" is the
+ * company's sentence, not ours.
  *
  * ## The escalation guard is on the switch, not in the error
  *
- * The API refuses to let anybody hand out a permission they do not hold
- * themselves — otherwise "Manage access" quietly equals every permission, since
- * its holder could mint a role carrying anything and step into it. That refusal
- * has to be visible *before* the save: a switch for something you cannot give
- * out is disabled and says so in one line. Turning one **off** is never blocked,
- * which matches the API — HR has to be able to remove a departing payroll
- * officer without being able to approve payroll themselves.
+ * Switches only exist on a custom role now, and the guard is still on them
+ * rather than only in the error the API would return. It refuses to let
+ * anybody hand out a permission they do not hold themselves — otherwise
+ * "Manage access" quietly equals every permission, since its holder could mint
+ * a role carrying anything and step into it. A switch for something the reader
+ * cannot give out is disabled and says so in one line. Turning one **off** is
+ * never blocked, which matches the API — HR has to be able to remove a
+ * departing payroll officer without being able to approve payroll themselves.
  */
 export function RoleEditor({
   role,
@@ -92,7 +100,8 @@ export function RoleEditor({
   const changes = useMemo(() => {
     const list: string[] = [];
     if (!locked && name.trim() !== role.name) list.push("name");
-    if (description.trim() !== (role.description ?? "")) list.push("description");
+    if (description.trim() !== (role.description ?? ""))
+      list.push("description");
     const added = draft.filter((key) => !role.permissions.includes(key));
     const removed = role.permissions.filter((key) => !draft.includes(key));
     if (added.length > 0) list.push(`${added.length} added`);
@@ -185,7 +194,6 @@ export function RoleEditor({
             setName={setName}
             description={description}
             setDescription={setDescription}
-            onDuplicate={onDuplicate}
           />
         ) : (
           <PeopleTab
@@ -216,7 +224,6 @@ function PermissionsTab({
   setName,
   description,
   setDescription,
-  onDuplicate,
 }: {
   role: RoleView;
   catalogue: Catalogue;
@@ -229,7 +236,6 @@ function PermissionsTab({
   setName: (next: string) => void;
   description: string;
   setDescription: (next: string) => void;
-  onDuplicate: () => void;
 }) {
   const toggle = (key: PermissionKey, on: boolean) =>
     setDraft(on ? [...draft, key] : draft.filter((held_) => held_ !== key));
@@ -257,20 +263,6 @@ function PermissionsTab({
 
   return (
     <div className="flex flex-col gap-6">
-      {locked && (
-        <Callout tone="neutral" icon={<Lock aria-hidden="true" />}>
-          <p className="font-medium text-ink">
-            {role.name} is built in. Its name and permissions are fixed.
-          </p>
-          <div className="mt-2.5">
-            <Button variant="secondary" size="sm" onClick={onDuplicate}>
-              <Copy aria-hidden="true" className="size-3.5" />
-              Duplicate to edit
-            </Button>
-          </div>
-        </Callout>
-      )}
-
       {readOnly && !locked && (
         <Callout tone="neutral">
           You can see this role but not change it. Ask somebody who can manage
@@ -305,27 +297,101 @@ function PermissionsTab({
         </Field>
       </div>
 
-      {catalogue.sections.map((section) => (
+      {locked ? (
+        <GrantedPermissions role={role} catalogue={catalogue} draft={draft} />
+      ) : (
+        catalogue.sections.map((section) => (
+          <section key={section.key} className="flex flex-col gap-3.5">
+            <h3 className="text-meta font-semibold uppercase tracking-wide text-faint">
+              {section.title}
+            </h3>
+            <div className="flex flex-col divide-y divide-line rounded-md border border-line">
+              {section.permissions.map((entry) => (
+                <PermissionRow
+                  key={entry.key}
+                  entry={entry}
+                  on={draft.includes(entry.key)}
+                  held={held}
+                  locked={readOnly}
+                  notes={notes.get(entry.key) ?? []}
+                  onToggle={toggle}
+                />
+              ))}
+            </div>
+          </section>
+        ))
+      )}
+    </div>
+  );
+}
+
+/**
+ * What a built-in role can do, stated rather than offered.
+ *
+ * A disabled switch on every one of the catalogue's permissions — most of
+ * them off — used to stand in for "this cannot be changed", which is a
+ * strange way to say it: a row of controls nobody can touch reads as broken,
+ * not as fixed. Since none of them can move, this shows only what is
+ * actually granted, as a plain list, in the section order the catalogue
+ * already defines. `Duplicate to edit` — in the drawer's own footer — is
+ * where the reader who wants to change one of these goes.
+ */
+function GrantedPermissions({
+  role,
+  catalogue,
+  draft,
+}: {
+  role: RoleView;
+  catalogue: Catalogue;
+  draft: PermissionKey[];
+}) {
+  const sections = catalogue.sections
+    .map((section) => ({
+      ...section,
+      permissions: section.permissions.filter((entry) =>
+        draft.includes(entry.key),
+      ),
+    }))
+    .filter((section) => section.permissions.length > 0);
+
+  if (sections.length === 0) {
+    return (
+      <Callout tone="neutral">
+        {role.name} holds no permission at all. Access here is entirely
+        self-service — reaching your own record, payslips and requests by being
+        who they belong to, not by anything this role grants.
+      </Callout>
+    );
+  }
+
+  return (
+    <>
+      {sections.map((section) => (
         <section key={section.key} className="flex flex-col gap-3.5">
           <h3 className="text-meta font-semibold uppercase tracking-wide text-faint">
             {section.title}
           </h3>
-          <div className="flex flex-col divide-y divide-line rounded-md border border-line">
+          <ul className="flex flex-col divide-y divide-line rounded-md border border-line">
             {section.permissions.map((entry) => (
-              <PermissionRow
-                key={entry.key}
-                entry={entry}
-                on={draft.includes(entry.key)}
-                held={held}
-                locked={locked || readOnly}
-                notes={notes.get(entry.key) ?? []}
-                onToggle={toggle}
-              />
+              <li key={entry.key} className="px-3.5 py-3">
+                <p className="flex items-center gap-2 text-body-sm font-medium text-ink">
+                  {entry.label}
+                  {entry.sensitive && (
+                    <TriangleAlert
+                      aria-label="Handle with care"
+                      className="size-3.5 shrink-0 text-warning-text"
+                    />
+                  )}
+                </p>
+                <p className="mt-0.5 text-body-sm text-muted">
+                  {entry.description}
+                </p>
+              </li>
             ))}
-          </div>
+          </ul>
         </section>
       ))}
-    </div>
+    </>
   );
 }
 
@@ -367,7 +433,9 @@ function PermissionRow({
           </span>
         }
         description={
-          blocked ? "You do not hold this, so you cannot give it out." : entry.description
+          blocked
+            ? "You do not hold this, so you cannot give it out."
+            : entry.description
         }
       />
       {notes.map((note) => (
@@ -484,7 +552,9 @@ function PeopleTab({
                 <p className="truncate text-body font-medium text-ink">
                   {member.name}
                 </p>
-                <p className="truncate text-body-sm text-muted">{member.email}</p>
+                <p className="truncate text-body-sm text-muted">
+                  {member.email}
+                </p>
               </div>
               {member.lastSignInAt === null && (
                 <Badge tone="warning" size="sm">
@@ -498,8 +568,8 @@ function PeopleTab({
                   disabled={busy === member.userId}
                   onClick={() => {
                     setBusy(member.userId);
-                    void onRemovePerson(member.userId, member.name).finally(() =>
-                      setBusy(null),
+                    void onRemovePerson(member.userId, member.name).finally(
+                      () => setBusy(null),
                     );
                   }}
                   aria-label={`Take ${member.name} out of ${role.name}`}

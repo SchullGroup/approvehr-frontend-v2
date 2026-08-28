@@ -8,7 +8,6 @@ import {
   Badge,
   Button,
   ButtonLink,
-  Callout,
   Card,
   CardBody,
   CardHeader,
@@ -36,7 +35,6 @@ import {
   usePaidPeople,
   usePaymentBatches,
   usePaymentHistory,
-  usePaymentsSummary,
 } from "@/lib/store/payments";
 import { longDate, monthLabel } from "../format";
 
@@ -91,7 +89,6 @@ export function PaymentHistoryScreen() {
   const [period, setPeriod] = useState("");
   const [page, setPage] = useState(1);
 
-  const summary = usePaymentsSummary();
   const history = usePaymentHistory({
     page,
     pageSize: PAGE_SIZE,
@@ -161,11 +158,6 @@ export function PaymentHistoryScreen() {
   const from = history.total === 0 ? 0 : (history.page - 1) * history.pageSize + 1;
   const to = Math.min(history.page * history.pageSize, history.total);
 
-  /* Absent, not false. `summary` is null while it loads and stays null if the
-     call is refused, and "we do not know whether a provider is wired" is not the
-     same fact as "no provider is wired". */
-  const provider = summary.summary?.provider;
-
   function choosePerson(id: string) {
     const found = payees.people.find((entry) => entry.id === id);
     setPerson(id === "" ? null : { id, name: found?.name ?? person?.name ?? "" });
@@ -194,19 +186,6 @@ export function PaymentHistoryScreen() {
       <PageBody className="flex flex-col gap-6">
         {history.error && (
           <LoadFailure subject="the payment history" error={history.error} />
-        )}
-
-        {/* Rendered whenever we know there is no provider, not only when a row
-            happens to show it: it is the key to reading the whole column, and
-            somebody filtering to an empty month still needs to know what the
-            product does and does not do. */}
-        {provider && !provider.connected && (
-          <Callout tone="info" title="ApproveHR does not move this money">
-            Bank transfers are not connected. A batch is approved here, the payment
-            file is downloaded, and somebody uploads it to your bank — so a paid
-            salary reads &ldquo;Downloaded — paid at your bank&rdquo; rather than
-            &ldquo;Paid&rdquo;. Your bank statement is the record that it arrived.
-          </Callout>
         )}
 
         <div className="grid gap-4 sm:grid-cols-2">

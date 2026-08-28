@@ -79,7 +79,11 @@ import {
  * "key results" — the acronym is jargon and the thing is a number with a
  * target.
  */
-export function PerformanceScreen({ initialTab }: { initialTab: PerformanceTab }) {
+export function PerformanceScreen({
+  initialTab,
+}: {
+  initialTab: PerformanceTab;
+}) {
   const features = useFeatures();
   const canSeeCompany = useCan("EDIT_RECORDS");
   const canManage = useCan("MANAGE_SETTINGS");
@@ -126,7 +130,7 @@ export function PerformanceScreen({ initialTab }: { initialTab: PerformanceTab }
     id,
     label:
       id === "now"
-        ? "What needs you"
+        ? "Approvals"
         : id === "kpis"
           ? "KPIs"
           : id === "periods"
@@ -159,10 +163,7 @@ export function PerformanceScreen({ initialTab }: { initialTab: PerformanceTab }
 
   /* A link straight to the periods with the flag off gets a button that turns
      them on, not a silent redirect. KPIs and what-needs-you work without it. */
-  if (
-    (tab === "periods" || tab === "appraisers") &&
-    !features.appraisals
-  ) {
+  if ((tab === "periods" || tab === "appraisers") && !features.appraisals) {
     return (
       <>
         <PageHeader title="Performance" />
@@ -196,9 +197,7 @@ export function PerformanceScreen({ initialTab }: { initialTab: PerformanceTab }
         /* The redundant entry point, on the module's own front page. Absent for
            anybody who cannot run a period — see `StartPeriodButton`. */
         action={
-          activeTab === "periods" ? undefined : (
-            <StartPeriodButton withIcon />
-          )
+          activeTab === "periods" ? undefined : <StartPeriodButton withIcon />
         }
       />
 

@@ -80,6 +80,15 @@ function refuse(what: string): never {
  * If the backend seed list changes, this list is stale and the demo is wrong.
  * That is the cost of a demo that runs with no database; the alternative was a
  * screen that shows nothing without one.
+ *
+ * ## `active` is the one field that is not a straight copy
+ *
+ * The API seeds all eight **off** — nobody chose them, so nothing is charged
+ * until somebody switches one on. The four in `DEMO_PACKAGE` below are on
+ * here, because the demo is an operating company and people are assigned to
+ * them: the API refuses to put anybody on a switched-off component, so a demo
+ * showing both at once would contradict the product it is demonstrating. The
+ * other four arrive off, exactly as a real new company finds them.
  */
 const DEFAULTS: readonly Omit<ApiPayComponent, "id" | "assignmentCount">[] = [
   {
@@ -96,7 +105,7 @@ const DEFAULTS: readonly Omit<ApiPayComponent, "id" | "assignmentCount">[] = [
     defaultAmountKobo: null,
     defaultRate: null,
     sortOrder: 10,
-    active: true,
+    active: false,
     isSystem: true,
     archived: false,
   },
@@ -114,7 +123,7 @@ const DEFAULTS: readonly Omit<ApiPayComponent, "id" | "assignmentCount">[] = [
     defaultAmountKobo: null,
     defaultRate: 1,
     sortOrder: 20,
-    active: true,
+    active: false,
     isSystem: true,
     archived: false,
   },
@@ -185,7 +194,7 @@ const DEFAULTS: readonly Omit<ApiPayComponent, "id" | "assignmentCount">[] = [
     defaultAmountKobo: null,
     defaultRate: null,
     sortOrder: 220,
-    active: true,
+    active: false,
     isSystem: true,
     archived: false,
   },
@@ -220,7 +229,7 @@ const DEFAULTS: readonly Omit<ApiPayComponent, "id" | "assignmentCount">[] = [
     defaultAmountKobo: null,
     defaultRate: null,
     sortOrder: 240,
-    active: true,
+    active: false,
     isSystem: true,
     archived: false,
   },
@@ -373,14 +382,18 @@ export function usePayComponents(params: PayComponentListParams = {}) {
       const needle = parsed.q?.trim().toLowerCase();
       const rows = demoComponents()
         .filter((row) => (parsed.kind ? row.kind === parsed.kind : true))
-        .filter((row) => (parsed.active === undefined ? true : row.active === parsed.active))
+        .filter((row) =>
+          parsed.active === undefined ? true : row.active === parsed.active,
+        )
         .filter(
           (row) =>
             !needle ||
             row.name.toLowerCase().includes(needle) ||
             row.code.toLowerCase().includes(needle),
         )
-        .sort((a, b) => a.sortOrder - b.sortOrder || a.code.localeCompare(b.code));
+        .sort(
+          (a, b) => a.sortOrder - b.sortOrder || a.code.localeCompare(b.code),
+        );
       setState({
         rows,
         total: rows.length,
@@ -465,7 +478,9 @@ export function usePayComponents(params: PayComponentListParams = {}) {
      */
     setActive: useCallback(
       async (id: string, active: boolean) => {
-        guard(active ? "Turning a pay component on" : "Turning a pay component off");
+        guard(
+          active ? "Turning a pay component on" : "Turning a pay component off",
+        );
         const updated = await api.update(id, { active });
         await load();
         return updated;
@@ -598,7 +613,10 @@ export function useEmployeePayComponents(
 
   const load = useCallback(async () => {
     if (isLoading || !employeeId) return;
-    const parsed = JSON.parse(key) as { period?: string; includeInactive?: boolean };
+    const parsed = JSON.parse(key) as {
+      period?: string;
+      includeInactive?: boolean;
+    };
 
     if (!isConnected) {
       const employee = EMPLOYEES.find((row) => row.id === employeeId);
@@ -620,12 +638,16 @@ export function useEmployeePayComponents(
               period: { start: periodStart(), end: TODAY },
               assignments,
               totals: {
-                allowanceKobo: sum(assignments.filter((a) => a.kind === "ALLOWANCE")),
+                allowanceKobo: sum(
+                  assignments.filter((a) => a.kind === "ALLOWANCE"),
+                ),
                 preTaxDeductionKobo: sum(
                   assignments.filter((a) => a.kind === "DEDUCTION" && a.preTax),
                 ),
                 postTaxDeductionKobo: sum(
-                  assignments.filter((a) => a.kind === "DEDUCTION" && !a.preTax),
+                  assignments.filter(
+                    (a) => a.kind === "DEDUCTION" && !a.preTax,
+                  ),
                 ),
               },
             }
@@ -777,8 +799,12 @@ export function usePayPreview(
     };
     const params: PreviewParams = {
       ...(parsed.period ? { period: parsed.period } : {}),
-      ...(parsed.unpaidDays === undefined ? {} : { unpaidDays: parsed.unpaidDays }),
-      ...(parsed.addComponentId ? { addComponentId: parsed.addComponentId } : {}),
+      ...(parsed.unpaidDays === undefined
+        ? {}
+        : { unpaidDays: parsed.unpaidDays }),
+      ...(parsed.addComponentId
+        ? { addComponentId: parsed.addComponentId }
+        : {}),
       ...(parsed.addAmountKobo === undefined
         ? {}
         : { addAmountKobo: parsed.addAmountKobo }),
@@ -799,7 +825,8 @@ export function usePayPreview(
         const data = await api.preview(wanted, params, controller.signal);
         if (!cancelled) setResult({ key, data, error: null });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
           setResult({
             key,
@@ -819,7 +846,13 @@ export function usePayPreview(
   const reload = useCallback(() => setNonce((n) => n + 1), []);
 
   if (!isConnected) {
-    return { data: null, loading: false, error: null, available: false, reload };
+    return {
+      data: null,
+      loading: false,
+      error: null,
+      available: false,
+      reload,
+    };
   }
 
   const matched = result !== null && result.key === key;
@@ -838,8 +871,12 @@ export function usePayPreview(
 export function usePayComponentTotals(rows: ApiPayComponent[]) {
   return useMemo(
     () => ({
-      allowances: rows.filter((row) => row.kind === "ALLOWANCE" && !row.archived).length,
-      deductions: rows.filter((row) => row.kind === "DEDUCTION" && !row.archived).length,
+      allowances: rows.filter(
+        (row) => row.kind === "ALLOWANCE" && !row.archived,
+      ).length,
+      deductions: rows.filter(
+        (row) => row.kind === "DEDUCTION" && !row.archived,
+      ).length,
       switchedOff: rows.filter((row) => !row.active && !row.archived).length,
       assignments: rows.reduce((total, row) => total + row.assignmentCount, 0),
     }),

@@ -90,6 +90,12 @@ export type ForgotPasswordResult = {
 
 export type ResetPasswordResult = { sessionsRevoked: number };
 
+export type AcceptInviteResult = {
+  accessToken: string;
+  refreshToken: string;
+  user: ApiUser;
+};
+
 /* ------------------------------------------------------------------- calls */
 
 export const account = {
@@ -135,6 +141,27 @@ export const account = {
       anonymous: true,
     });
     tokens.clear();
+    return result;
+  },
+
+  /**
+   * Exchanges an invitation for a password and a signed-in session, in one
+   * request — the API's `acceptInvite` returns the same shape `sign-in` does,
+   * because accepting an invitation and signing in are the same act the first
+   * time. Stores tokens exactly as `register` does; the caller still calls
+   * `markSignedIn(result.user)` itself, the same one extra step
+   * `register-screen.tsx` takes, and for the same reason documented there.
+   */
+  async acceptInvite(
+    token: string,
+    newPassword: string,
+  ): Promise<AcceptInviteResult> {
+    const result = await request<AcceptInviteResult>("/auth/accept-invite", {
+      method: "POST",
+      body: { token, newPassword },
+      anonymous: true,
+    });
+    tokens.set(result.accessToken, result.refreshToken);
     return result;
   },
 };
@@ -184,7 +211,7 @@ export function passwordRules(value: string): PasswordRule[] {
     },
     {
       id: "obvious",
-      label: "Not a password everybody tries",
+      label: "Not a commonly used password",
       met: !OBVIOUS.includes(value.toLowerCase()),
       showWhen: "unmet",
     },

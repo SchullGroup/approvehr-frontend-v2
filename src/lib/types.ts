@@ -72,6 +72,14 @@ export type Employee = {
   payeManualOverride?: boolean;
 
   /**
+   * Whether this record is entitled to a login. Most staff are not — a
+   * portal account is opt-in, granted by an invitation
+   * (`@/lib/api/invites`), not a fact set here. `undefined` in demo mode,
+   * which has no accounts at all to be entitled to.
+   */
+  canLogin?: boolean;
+
+  /**
    * Contractual monthly gross in naira, or **null** where nobody has set one.
    *
    * Nullable because the API's column is: somebody can be on the staff list

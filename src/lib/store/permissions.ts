@@ -148,6 +148,13 @@ const DEMO_COPY: Record<
     section: "company",
     sensitive: true,
   },
+  INVITE_STAFF: {
+    label: "Invite staff to sign in",
+    description:
+      "Send staff a login. They can only be given access the inviter already has.",
+    section: "company",
+    sensitive: true,
+  },
   EXPORT_DATA: {
     label: "Export",
     description: "Download staff, pay and attendance as a spreadsheet.",

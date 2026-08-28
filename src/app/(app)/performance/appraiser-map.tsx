@@ -25,8 +25,10 @@ import {
   APPRAISER_ROLES,
   APPRAISER_ROLE_HELP,
   APPRAISER_ROLE_LABEL,
+  EXCEPTION_CODE_SUMMARY,
   FULL_WEIGHT_BP,
   evenWeights,
+  groupExceptionsByCode,
   weightLabel,
   weightProblem,
   type ApiAppraiserEntry,
@@ -83,8 +85,9 @@ export function AppraiserMapTab() {
    * one people are currently being marked in.
    */
   const suggested =
-    cycles.find((cycle) => cycle.stage !== "PUBLISHED" && cycle.stage !== "DRAFT") ??
-    cycles[0];
+    cycles.find(
+      (cycle) => cycle.stage !== "PUBLISHED" && cycle.stage !== "DRAFT",
+    ) ?? cycles[0];
 
   const [chosen, setChosen] = useState<string | null>(null);
   const [exceptionsOnly, setExceptionsOnly] = useState(false);
@@ -96,9 +99,12 @@ export function AppraiserMapTab() {
       ? chosen
       : (suggested?.id ?? null);
 
-  const { map, loading, error, editable, refusal, reload } = useAppraiserMap(cycleId, {
-    exceptionsOnly,
-  });
+  const { map, loading, error, editable, refusal, reload } = useAppraiserMap(
+    cycleId,
+    {
+      exceptionsOnly,
+    },
+  );
 
   if (!editable) {
     return (
@@ -222,7 +228,10 @@ export function AppraiserMapTab() {
 
       {map && (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Stat label="People in the period" value={String(map.counts.people)} />
+          <Stat
+            label="People in the period"
+            value={String(map.counts.people)}
+          />
           <Stat
             label="One manager, 100%"
             value={String(map.counts.simple)}
@@ -264,33 +273,84 @@ export function AppraiserMapTab() {
             }
           />
           <CardBody className="flex flex-col gap-2">
-            {[...blockers, ...warnings].map((issue) => (
-              <p
-                key={issue.key}
-                className={cn(
-                  "flex gap-2.5 rounded-md border px-3.5 py-2.5 text-body-sm",
-                  issue.severity === "BLOCKER"
-                    ? "border-danger-line bg-danger-soft text-ink"
-                    : "border-warning-line bg-warning-soft text-ink",
-                )}
-              >
-                <AlertTriangle
-                  aria-hidden="true"
+            {groupExceptionsByCode([...blockers, ...warnings]).map((group) => {
+              const tone =
+                group.severity === "BLOCKER"
+                  ? "border-danger-line bg-danger-soft text-ink"
+                  : "border-warning-line bg-warning-soft text-ink";
+              const icon =
+                group.severity === "BLOCKER"
+                  ? "text-danger-text"
+                  : "text-warning-text";
+
+              /* One person, one problem — the full sentence, exactly as
+                 before. A single line is not a wall of anything, and naming
+                 them by name here is more useful than a count of one. */
+              if (group.items.length === 1) {
+                const issue = group.items[0]!;
+                return (
+                  <p
+                    key={issue.key}
+                    className={cn(
+                      "flex gap-2.5 rounded-md border px-3.5 py-2.5 text-body-sm",
+                      tone,
+                    )}
+                  >
+                    <AlertTriangle
+                      aria-hidden="true"
+                      className={cn("mt-0.5 size-4 shrink-0", icon)}
+                    />
+                    <span>
+                      <span className="sr-only">
+                        {group.severity === "BLOCKER"
+                          ? "Blocker: "
+                          : "Warning: "}
+                      </span>
+                      {issue.message}
+                    </span>
+                  </p>
+                );
+              }
+
+              /* Several people, the same problem — one line naming the count
+                 rather than the same templated sentence repeated per name.
+                 "Review and fix" is the filter already on this screen: the
+                 table right below is where fixing one of them actually
+                 happens, so there is nothing new to build here. */
+              return (
+                <div
+                  key={group.code}
                   className={cn(
-                    "mt-0.5 size-4 shrink-0",
-                    issue.severity === "BLOCKER"
-                      ? "text-danger-text"
-                      : "text-warning-text",
+                    "flex flex-wrap items-center justify-between gap-3 rounded-md border px-3.5 py-2.5 text-body-sm",
+                    tone,
                   )}
-                />
-                <span>
-                  <span className="sr-only">
-                    {issue.severity === "BLOCKER" ? "Blocker: " : "Warning: "}
+                >
+                  <span className="flex gap-2.5">
+                    <AlertTriangle
+                      aria-hidden="true"
+                      className={cn("mt-0.5 size-4 shrink-0", icon)}
+                    />
+                    <span>
+                      <span className="sr-only">
+                        {group.severity === "BLOCKER"
+                          ? "Blocker: "
+                          : "Warning: "}
+                      </span>
+                      {EXCEPTION_CODE_SUMMARY[
+                        group.code as keyof typeof EXCEPTION_CODE_SUMMARY
+                      ](group.items.length)}
+                    </span>
                   </span>
-                  {issue.message}
-                </span>
-              </p>
-            ))}
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setExceptionsOnly(true)}
+                  >
+                    Review and fix
+                  </Button>
+                </div>
+              );
+            })}
           </CardBody>
         </Card>
       )}
@@ -309,7 +369,9 @@ export function AppraiserMapTab() {
           <EmptyState
             compact
             icon={<Network aria-hidden="true" />}
-            title={exceptionsOnly ? "Nothing is wrong" : "Nobody in this period"}
+            title={
+              exceptionsOnly ? "Nothing is wrong" : "Nobody in this period"
+            }
             description={
               exceptionsOnly
                 ? "Everybody has an appraiser and every set of weights makes 100%."
@@ -319,7 +381,11 @@ export function AppraiserMapTab() {
         ) : (
           <CardBody className="flex flex-col gap-2">
             {map.rows.map((row) => (
-              <PersonRow key={row.employeeId} row={row} onEdit={() => setEditing(row)} />
+              <PersonRow
+                key={row.employeeId}
+                row={row}
+                onEdit={() => setEditing(row)}
+              />
             ))}
           </CardBody>
         )}
@@ -478,7 +544,7 @@ const bpOf = (pct: string): number => Math.round(Number(pct || "0") * 100);
  * never has to think about the arithmetic. This is the entire reason weights are
  * integer basis points rather than percentages.
  */
-function AppraisersDialog({
+export function AppraisersDialog({
   cycleId,
   row,
   onClose,
@@ -548,37 +614,47 @@ function AppraisersDialog({
   const weightIssue = weightProblem(entries);
   const duplicated =
     new Set(entries.map((entry) => entry.appraiserId)).size !== entries.length;
-  const lineManagers = entries.filter((entry) => entry.role === "LINE_MANAGER").length;
+  const lineManagers = entries.filter(
+    (entry) => entry.role === "LINE_MANAGER",
+  ).length;
   const missingSubmitted = [...submittedIds].filter(
     (id) => !entries.some((entry) => entry.appraiserId === id),
   );
 
   /* Every one of these is the API's rule, checked here so it lands while the row
      is still on screen. The server is where each of them is real. */
-  const localProblem =
-    duplicated
-      ? "The same person is listed twice. One appraiser, one row, one role."
-      : lineManagers > 1
-        ? "Only one person can be the line manager. Make the others functional managers or project leads."
-        : missingSubmitted.length > 0
-          ? `${row.appraisers
-              .filter((one) => missingSubmitted.includes(one.appraiserId))
-              .map((one) => one.appraiserName)
-              .join(", ")} already sent their review. Change their weight rather than taking them off.`
-          : entries.some((entry) => entry.weightBp < 1)
-            ? "An appraiser with no weight is not an appraiser. Remove the row instead."
-            : weightIssue;
+  const localProblem = duplicated
+    ? "The same person is listed twice. One appraiser, one row, one role."
+    : lineManagers > 1
+      ? "Only one person can be the line manager. Make the others functional managers or project leads."
+      : missingSubmitted.length > 0
+        ? `${row.appraisers
+            .filter((one) => missingSubmitted.includes(one.appraiserId))
+            .map((one) => one.appraiserName)
+            .join(
+              ", ",
+            )} already sent their review. Change their weight rather than taking them off.`
+        : entries.some((entry) => entry.weightBp < 1)
+          ? "An appraiser with no weight is not an appraiser. Remove the row instead."
+          : weightIssue;
 
   const setRow = (index: number, patch: Partial<DraftRow>) =>
     setRows((current) =>
-      current.map((draft, at) => (at === index ? { ...draft, ...patch } : draft)),
+      current.map((draft, at) =>
+        at === index ? { ...draft, ...patch } : draft,
+      ),
     );
 
   const addRow = () =>
     setRows((current) => {
       const next = [
         ...current,
-        { appraiserId: "", role: "FUNCTIONAL_MANAGER" as AppraiserRole, weightPct: "0", note: "" },
+        {
+          appraiserId: "",
+          role: "FUNCTIONAL_MANAGER" as AppraiserRole,
+          weightPct: "0",
+          note: "",
+        },
       ];
       const split = evenWeights(next.length);
       return next.map((draft, at) => ({
@@ -682,9 +758,9 @@ function AppraisersDialog({
 
         {rows.length === 0 && (
           <Callout tone="warning" title="Nobody would appraise them">
-            Saving with an empty list is allowed and it is a real state — it is how
-            you undo a mapping. They will finish the period with no mark, and the
-            period will say so by name.
+            Saving with an empty list is allowed and it is a real state — it is
+            how you undo a mapping. They will finish the period with no mark,
+            and the period will say so by name.
           </Callout>
         )}
 
@@ -713,10 +789,7 @@ function AppraisersDialog({
                   </Select>
                 </Field>
 
-                <Field
-                  label="As their"
-                  help={APPRAISER_ROLE_HELP[draft.role]}
-                >
+                <Field label="As their" help={APPRAISER_ROLE_HELP[draft.role]}>
                   <Select
                     value={draft.role}
                     onChange={(event) => {
@@ -752,7 +825,8 @@ function AppraisersDialog({
                   optional
                   label="Why"
                   help="For when the role alone does not say it."
-                  className="min-w-[16rem] flex-1">
+                  className="min-w-[16rem] flex-1"
+                >
                   <Input
                     value={draft.note}
                     placeholder="Ran the Lagos migration all half"
@@ -776,8 +850,8 @@ function AppraisersDialog({
 
               {locked && (
                 <p className="text-meta text-muted">
-                  They have already sent this review. Their weight can change; they
-                  cannot be taken off.
+                  They have already sent this review. Their weight can change;
+                  they cannot be taken off.
                 </p>
               )}
             </div>
@@ -797,9 +871,9 @@ function AppraisersDialog({
         </div>
 
         <p className="text-body-sm text-muted">
-          The mark is the weighted average of whoever has answered, so a share of
-          0% is not a thing — remove the row instead. Everybody added is told, and
-          gets their own form straight away if the period is running.
+          The mark is the weighted average of whoever has answered, so a share
+          of 0% is not a thing — remove the row instead. Everybody added is
+          told, and gets their own form straight away if the period is running.
         </p>
       </div>
     </Modal>

@@ -22,8 +22,11 @@ export const metadata: Metadata = {
  * `useSearchParams` in the screen would force the whole page into a Suspense
  * boundary and a client-side read for one string.
  *
- * `now` is the default because the first question anybody arrives with is "what
- * do I do", and the tab that used to be first was a list of KPIs.
+ * `periods` is the default: a period is the thing somebody opens this module
+ * to work on. `PerformanceScreen` still falls back to `now` on its own if the
+ * signed-in person cannot see periods at all — staff always land on `now`
+ * regardless of what is requested here, because periods is gated on
+ * `canManage || canSeeCompany` and `now` is the one tab everybody has.
  */
 export default async function PerformancePage({
   searchParams,
@@ -33,6 +36,8 @@ export default async function PerformancePage({
   const { tab } = await searchParams;
   const single = Array.isArray(tab) ? tab[0] : tab;
   return (
-    <PerformanceScreen initialTab={isPerformanceTab(single) ? single : "now"} />
+    <PerformanceScreen
+      initialTab={isPerformanceTab(single) ? single : "periods"}
+    />
   );
 }

@@ -57,6 +57,7 @@ import {
 } from "@/lib/reference/lists";
 import type { LeaveBalanceRow, LeaveRow } from "@/lib/api/leave";
 import { useCan } from "@/lib/permissions";
+import { InviteToSignInButton } from "./invite-to-sign-in";
 import { useDepartments } from "@/lib/store/departments";
 import { useWorkLocations } from "@/lib/store/work-locations";
 import { useGrades } from "@/lib/store/grades";
@@ -250,6 +251,9 @@ export function EmployeeRecord({
      worse present than absent. */
   const canEditRecords = useCan("EDIT_RECORDS");
   const canRecordExit = canEditRecords;
+  /* Issuing a login is its own permission, deliberately split from editing a
+     record — see the header of `modules/invites/router.ts`. */
+  const canInvite = useCan("INVITE_STAFF");
 
   const name = fullName(employee);
   const status = statusOf(employee.status);
@@ -351,9 +355,20 @@ export function EmployeeRecord({
 
           <CardBody className="border-t border-line">
             <ul className="flex flex-col gap-2.5">
-              <Contact icon={<Mail aria-hidden="true" />} value={employee.email} missing="No email address" />
-              <Contact icon={<Phone aria-hidden="true" />} value={employee.phone} missing="No phone number" />
-              <Contact icon={<MapPin aria-hidden="true" />} value={employee.location} />
+              <Contact
+                icon={<Mail aria-hidden="true" />}
+                value={employee.email}
+                missing="No email address"
+              />
+              <Contact
+                icon={<Phone aria-hidden="true" />}
+                value={employee.phone}
+                missing="No phone number"
+              />
+              <Contact
+                icon={<MapPin aria-hidden="true" />}
+                value={employee.location}
+              />
               <Contact
                 icon={<CalendarDays aria-hidden="true" />}
                 value={`Started ${employee.startDate}`}
@@ -366,7 +381,13 @@ export function EmployeeRecord({
               value={completeness}
               label="Record complete"
               showValue
-              tone={completeness === 100 ? "success" : completeness >= 70 ? "accent" : "warning"}
+              tone={
+                completeness === 100
+                  ? "success"
+                  : completeness >= 70
+                    ? "accent"
+                    : "warning"
+              }
             />
           </CardBody>
 
@@ -449,6 +470,19 @@ export function EmployeeRecord({
                 here because looking at somebody's record is one of the moments
                 the thought arrives. Secondary, like its neighbours. */}
             <StartPeriodButton block />
+            {/* The fourth and last way a company brings somebody's email in:
+                the attendance screen does a batch of clock-in logins, the
+                importer does one per row that carries a role, the new-role
+                dialog invites by address alone — and this is "this person,
+                now", which is the shape the question takes on a record. Hidden
+                once they already have one, since the API refuses a second. */}
+            {canInvite && employee.canLogin && !hasLeft && (
+              <InviteToSignInButton
+                employeeId={employee.id}
+                name={name}
+                email={employee.email ?? null}
+              />
+            )}
             {/* Secondary, like its neighbours. Recording an exit is
                 consequential rather than the thing you came here to do, and a
                 blue primary button on every employee record would read as the
@@ -600,7 +634,10 @@ export function EmployeeRecord({
                     columns={2}
                     items={[
                       { term: "Name", value: employee.nextOfKin.name },
-                      { term: "Relationship", value: employee.nextOfKin.relationship },
+                      {
+                        term: "Relationship",
+                        value: employee.nextOfKin.relationship,
+                      },
                       { term: "Phone", value: employee.nextOfKin.phone },
                     ]}
                   />
@@ -706,7 +743,9 @@ export function EmployeeRecord({
                   /* Two decimals, never abbreviated: this is a figure somebody
                      reconciles against a bank statement. Absent, never zero:
                      `Money` renders "Not set yet" rather than ₦0.00. */
-                  format: (v) => <Money amount={v === null ? null : Number(v)} decimals />,
+                  format: (v) => (
+                    <Money amount={v === null ? null : Number(v)} decimals />
+                  ),
                 },
                 /*
                  * Settable at creation (`/people/new`'s Picker) and, until now,
@@ -769,7 +808,10 @@ export function EmployeeRecord({
                           }
                         >
                           Set pay to the mid-point,{" "}
-                          <Money amount={naira(currentGrade.midGrossKobo)} decimals />
+                          <Money
+                            amount={naira(currentGrade.midGrossKobo)}
+                            decimals
+                          />
                         </Button>
                       ) : undefined
                     }
@@ -877,14 +919,18 @@ export function EmployeeRecord({
                   emptyLabel: "No bank account — payroll blocked",
                   help: "Ten digits. Payroll cannot pay without this.",
                   digits: 10,
-                  format: (v) => <Guarded value={String(v)} canReveal={canReveal} />,
+                  format: (v) => (
+                    <Guarded value={String(v)} canReveal={canReveal} />
+                  ),
                 },
                 {
                   key: "pensionPin",
                   label: "Pension PIN",
                   emptyLabel: "No pension PIN — payroll blocked",
                   help: "PEN followed by 9 to 12 digits.",
-                  format: (v) => <Guarded value={String(v)} canReveal={canReveal} />,
+                  format: (v) => (
+                    <Guarded value={String(v)} canReveal={canReveal} />
+                  ),
                 },
                 {
                   key: "pensionProvider",
@@ -934,12 +980,16 @@ export function EmployeeRecord({
                   emptyLabel: "No TIN — payroll blocked",
                   help: "Ten digits.",
                   digits: 10,
-                  format: (v) => <Guarded value={String(v)} canReveal={canReveal} />,
+                  format: (v) => (
+                    <Guarded value={String(v)} canReveal={canReveal} />
+                  ),
                 },
                 {
                   key: "nhfNumber",
                   label: "NHF number",
-                  format: (v) => <Guarded value={String(v)} canReveal={canReveal} />,
+                  format: (v) => (
+                    <Guarded value={String(v)} canReveal={canReveal} />
+                  ),
                 },
                 /**
                  * Declared rent, and the only place the record can answer the
@@ -1068,7 +1118,7 @@ export function EmployeeRecord({
                         <TR key={r.id}>
                           <TDPrimary
                             title={r.leaveType}
-                            {...(r.reason ?? r.decisionNote
+                            {...((r.reason ?? r.decisionNote)
                               ? { subtitle: r.reason ?? r.decisionNote ?? "" }
                               : {})}
                           />
