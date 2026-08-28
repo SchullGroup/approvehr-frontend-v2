@@ -15,10 +15,10 @@ import {
   Input,
   Spinner,
 } from "@/components/ui";
-import { AuthShell } from "./auth-shell";
-import { TwoFactorStep } from "./two-factor-step";
+import { Logo } from "@/components/brand/logo";
 import { RoleBadge } from "./role-badge";
 import { ApiError } from "@/lib/api/client";
+import { TwoFactorStep } from "./two-factor-step";
 import {
   type TwoFactorChallengeState, signInOptions, useApiReachable, useSession } from "@/lib/store/session";
 import { fullName } from "@/lib/types";
@@ -83,7 +83,7 @@ function SignIn() {
       const outcome = await signIn(email, password);
       /* A challenge is the next step, not a failure — the screen swaps to a
          code field. Nothing is signed in until the code is verified, which is
-         why the store returns this rather than setting a half-open session. */
+         why the store returns this rather than opening a half-signed session. */
       if (outcome.challenge) setChallenge(outcome.challenge);
     } catch (caught) {
       setError(
@@ -110,7 +110,25 @@ function SignIn() {
   }
 
   return (
-    <AuthShell>
+    <div className="flex min-h-dvh flex-col bg-canvas">
+      <header className="border-b border-line bg-surface">
+        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-5">
+          <Link href="/" aria-label="ApproveHR home" className="text-ink">
+            <Logo size={24} />
+          </Link>
+          <Link
+            href="/"
+            className="text-body-sm text-muted transition-colors hover:text-ink"
+          >
+            Back to the website
+          </Link>
+        </div>
+      </header>
+
+      <main
+        id="main"
+        className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center px-5 py-14"
+      >
         <div className="flex items-center gap-2.5">
           <h1 className="text-h2 text-ink">Sign in</h1>
           <ConnectionBadge reachable={reachable} />
@@ -306,7 +324,8 @@ function SignIn() {
             </Link>
           </p>
         )}
-    </AuthShell>
+      </main>
+    </div>
   );
 }
 

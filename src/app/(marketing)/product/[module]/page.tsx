@@ -20,7 +20,7 @@ import {
   ReviewMockup,
 } from "@/components/marketing/mockups";
 import { CAPABILITY_MOCKUPS } from "@/components/marketing/module-mockups";
-import { liveProductCta, newTabIfApp } from "@/lib/marketing/links";
+import { liveProductCta } from "@/lib/marketing/links";
 
 /* A module page has already shown the walkthrough, so the honest fallback when
    there's no live app to enter is the price, not another tour. */
@@ -138,7 +138,6 @@ export default async function ModulePage({
                   href={cta.href}
                   variant="quiet"
                   size="lg"
-                  {...newTabIfApp(cta.href)}
                 >
                   {cta.label}
                 </Pill>

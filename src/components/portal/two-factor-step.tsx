@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { KeyRound, ShieldCheck } from "lucide-react";
+import Link from "next/link";
 import { Button, Callout, Field, Input } from "@/components/ui";
+import { Logo } from "@/components/brand/logo";
 import { ApiError } from "@/lib/api/client";
 import type { TwoFactorChallengeState } from "@/lib/store/session";
-import { AuthShell } from "./auth-shell";
 
 /**
  * The second step of a sign-in: the code.
@@ -74,8 +75,27 @@ export function TwoFactorStep({
   const ready = useRecovery ? recovery.trim().length >= 4 : code.trim().length === 6;
 
   return (
-    <AuthShell>
-      <div className="flex flex-col gap-5">
+    /* The sign-in screen's own chrome, inline.
+       -----------------------------------------
+       Not a shared `AuthShell`: one exists in another branch's working tree
+       and importing it would make this file depend on something unmerged —
+       which is exactly how this branch first went red in CI. The markup is
+       twelve lines and identical to the step before it, so the two screens
+       read as one flow. Extract it the day both are on the same branch. */
+    <div className="flex min-h-dvh flex-col bg-canvas">
+      <header className="border-b border-line bg-surface">
+        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-5">
+          <Link href="/" aria-label="ApproveHR home" className="text-ink">
+            <Logo size={24} />
+          </Link>
+        </div>
+      </header>
+
+      <main
+        id="main"
+        className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center px-5 py-14"
+      >
+        <div className="flex flex-col gap-5">
         <div className="flex items-start gap-2.5">
           <ShieldCheck aria-hidden="true" className="mt-0.5 size-5 text-accent-text" />
           <div>
@@ -174,7 +194,8 @@ export function TwoFactorStep({
             administrator can turn two-factor off for your account.
           </p>
         )}
-      </div>
-    </AuthShell>
+        </div>
+      </main>
+    </div>
   );
 }
