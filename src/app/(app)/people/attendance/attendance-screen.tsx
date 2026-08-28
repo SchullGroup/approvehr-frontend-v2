@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   Clock,
-  MapPin,
+  MoreHorizontal,
   Timer,
   TriangleAlert,
 } from "lucide-react";
@@ -42,7 +42,7 @@ import {
   type ApiRosterRow,
   type ApiWorkLocation,
 } from "@/lib/api/attendance";
-import { addDays, timesLabel } from "@/lib/api/shifts";
+import { addDays, hoursLabel, timesLabel } from "@/lib/api/shifts";
 import { useCan, useIsManager } from "@/lib/permissions";
 import {
   STATUS_LABEL,
@@ -388,8 +388,7 @@ function TodayView({
             <TH>Status</TH>
             <TH>In</TH>
             <TH>Out</TH>
-            <TH>Where</TH>
-            <TH align="right">Fix</TH>
+            <TH align="right">Actions</TH>
           </THead>
           <TBody>
             {roster.rows.map((row) => {
@@ -414,7 +413,10 @@ function TodayView({
                     </Badge>
                     {row.lateByMinutes > 0 && (
                       <span className="mt-0.5 block text-meta text-warning-text">
-                        {row.lateByMinutes} min late
+                        {row.lateByMinutes > 60
+                          ? hoursLabel(row.lateByMinutes)
+                          : `${row.lateByMinutes} min`}{" "}
+                        late
                       </span>
                     )}
                     {row.leave && (
@@ -463,40 +465,13 @@ function TodayView({
                   <TD className="tabular text-muted">
                     {row.clockOut ?? (row.clockIn ? "still in" : "—")}
                   </TD>
-                  <TD className="text-muted">
-                    {row.workLocation ? (
-                      <span className="inline-flex items-center gap-1.5">
-                        <MapPin
-                          aria-hidden="true"
-                          className="size-3.5 text-faint"
-                        />
-                        {row.workLocation}
-                      </span>
-                    ) : (
-                      "—"
-                    )}
-                  </TD>
                   <TD align="right">
-                    <div className="flex justify-end gap-1.5">
-                      {row.status === "ABSENT" && !off && (
-                        <ButtonLink
-                          href="/people/leave"
-                          variant="ghost"
-                          size="sm"
-                        >
-                          Approve leave
-                        </ButtonLink>
-                      )}
-                      {canCorrect && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onCorrect(row)}
-                        >
-                          Fix record
-                        </Button>
-                      )}
-                    </div>
+                    <RowActions
+                      row={row}
+                      off={off}
+                      canCorrect={canCorrect}
+                      onCorrect={onCorrect}
+                    />
                   </TD>
                 </TR>
               );
@@ -505,6 +480,87 @@ function TodayView({
         </TableWrap>
       </Card>
     </>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * One row's actions, behind a menu rather than two standing buttons.
+ *
+ * A row rarely has both — "Approve leave" only applies to somebody absent and
+ * not on a day off, "Edit clock-in" only to whoever can correct a record — so
+ * two always-visible ghost buttons per row spent most of their width on
+ * nothing. Renders nothing at all when neither applies, same principle as a
+ * dead control being worse than none.
+ */
+function RowActions({
+  row,
+  off,
+  canCorrect,
+  onCorrect,
+}: {
+  row: ApiRosterRow;
+  off: boolean;
+  canCorrect: boolean;
+  onCorrect: (row: ApiRosterRow) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const canApproveLeave = row.status === "ABSENT" && !off;
+
+  if (!canApproveLeave && !canCorrect) return null;
+
+  return (
+    <div className="relative inline-block text-left">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        aria-label={`Actions for ${row.employeeName}`}
+        className="rounded-md p-1.5 hover:bg-canvas"
+      >
+        <MoreHorizontal aria-hidden="true" className="size-4 text-muted" />
+      </button>
+
+      {open && (
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setOpen(false)}
+            aria-hidden="true"
+          />
+          <div
+            role="menu"
+            className="animate-scale-in absolute right-0 z-50 mt-1.5 w-48 rounded-lg border border-line bg-surface p-1.5 shadow-lg"
+          >
+            {canApproveLeave && (
+              <Link
+                href="/people/leave"
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className="block rounded-md px-2.5 py-2 text-body-sm text-body hover:bg-canvas hover:text-ink"
+              >
+                Approve leave
+              </Link>
+            )}
+            {canCorrect && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  onCorrect(row);
+                }}
+                className="block w-full rounded-md px-2.5 py-2 text-left text-body-sm text-body hover:bg-canvas hover:text-ink"
+              >
+                Edit clock-in
+              </button>
+            )}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
