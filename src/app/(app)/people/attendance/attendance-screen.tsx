@@ -2,12 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import {
-  Clock,
-  MoreHorizontal,
-  Timer,
-  TriangleAlert,
-} from "lucide-react";
+import { Clock, MoreHorizontal, Timer, TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
   Badge,
@@ -38,10 +33,7 @@ import { BulkInviteButton } from "@/components/portal/bulk-invite";
 import { MyClockCard } from "@/components/portal/my-clock-card";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
-import {
-  type ApiRosterRow,
-  type ApiWorkLocation,
-} from "@/lib/api/attendance";
+import { type ApiRosterRow, type ApiWorkLocation } from "@/lib/api/attendance";
 import { addDays, hoursLabel, timesLabel } from "@/lib/api/shifts";
 import { useCan, useIsManager } from "@/lib/permissions";
 import {
@@ -122,7 +114,6 @@ export function AttendanceScreen() {
 
   const [view, setView] = useState<View>("today");
   const [correcting, setCorrecting] = useState<ApiRosterRow | null>(null);
-
 
   const refresh = () => {
     roster.reload();
@@ -210,7 +201,6 @@ export function AttendanceScreen() {
           onSaved={refresh}
         />
       )}
-
     </>
   );
 }
@@ -297,6 +287,31 @@ function MyAttendanceSummary({
   );
 }
 
+/** What the roster table's own filter narrows to. Independent of the stat
+ * cards above it, which always describe the whole roster — only the table
+ * body answers to this. */
+type RosterFilter = "all" | "clocked_in" | "not_clocked_in" | "on_leave";
+
+const ROSTER_FILTERS: { value: RosterFilter; label: string }[] = [
+  { value: "all", label: "Everyone" },
+  { value: "clocked_in", label: "Clocked in" },
+  { value: "not_clocked_in", label: "Not clocked in" },
+  { value: "on_leave", label: "On leave" },
+];
+
+function matchesRosterFilter(row: ApiRosterRow, filter: RosterFilter): boolean {
+  switch (filter) {
+    case "all":
+      return true;
+    case "clocked_in":
+      return row.status === "PRESENT" || row.status === "LATE";
+    case "not_clocked_in":
+      return row.status === "ABSENT";
+    case "on_leave":
+      return row.status === "ON_LEAVE";
+  }
+}
+
 /**
  * Today.
  *
@@ -321,6 +336,7 @@ function TodayView({
    */
   canCorrect: boolean;
 }) {
+  const [filter, setFilter] = useState<RosterFilter>("all");
   /* A four-week window around the day, not the day itself.
      A rota row only exists for a day somebody is *on*, so a one-day window
      cannot tell "off today" from "not on a rota at all" — and those two need
@@ -348,6 +364,10 @@ function TodayView({
   const absent = roster.rows.filter((row) => row.status === "ABSENT");
   const unexplained = absent.filter((row) => !offToday(row)).length;
   const restDays = absent.length - unexplained;
+
+  const visibleRows = roster.rows.filter((row) =>
+    matchesRosterFilter(row, filter),
+  );
 
   return (
     <>
@@ -381,103 +401,121 @@ function TodayView({
       </div>
 
       <Card>
-        <CardHeader title={`Roster — ${shortDate(roster.date)}`} />
-        <TableWrap className="rounded-none border-0">
-          <THead>
-            <TH>Employee</TH>
-            <TH>Status</TH>
-            <TH>In</TH>
-            <TH>Out</TH>
-            <TH align="right">Actions</TH>
-          </THead>
-          <TBody>
-            {roster.rows.map((row) => {
-              const shift = rota.shiftOn(row.employeeId, roster.date);
-              const off = offToday(row);
-              return (
-                <TR key={row.employeeId} interactive>
-                  <TDPrimary
-                    title={
-                      <Link
-                        href={`/people/${row.employeeId}`}
-                        className="hover:text-accent-text hover:underline underline-offset-4"
-                      >
-                        {row.employeeName}
-                      </Link>
-                    }
-                    subtitle={row.jobTitle}
-                  />
-                  <TD>
-                    <Badge tone={STATUS_TONE[row.status]} size="sm" dot>
-                      {STATUS_LABEL[row.status]}
-                    </Badge>
-                    {row.lateByMinutes > 0 && (
-                      <span className="mt-0.5 block text-meta text-warning-text">
-                        {row.lateByMinutes > 60
-                          ? hoursLabel(row.lateByMinutes)
-                          : `${row.lateByMinutes} min`}{" "}
-                        late
-                      </span>
-                    )}
-                    {row.leave && (
-                      <span className="mt-0.5 block text-meta text-faint">
-                        {row.leave.type}, to {row.leave.endDate}
-                      </span>
-                    )}
-                    {row.anomaly && (
-                      <span className="mt-0.5 block text-meta font-medium text-warning-text">
-                        {row.anomaly}
-                      </span>
-                    )}
-                    {/* The rota, where there is one. A day off on a rota is a
+        <CardHeader
+          title={`Roster — ${shortDate(roster.date)}`}
+          action={
+            <SegmentedControl
+              label="Show"
+              value={filter}
+              onChange={setFilter}
+              options={ROSTER_FILTERS}
+            />
+          }
+        />
+        {visibleRows.length === 0 ? (
+          <CardBody>
+            <p className="text-body-sm text-muted">
+              Nobody on the roster matches that filter today.
+            </p>
+          </CardBody>
+        ) : (
+          <TableWrap className="rounded-none border-0">
+            <THead>
+              <TH>Employee</TH>
+              <TH>Status</TH>
+              <TH>In</TH>
+              <TH>Out</TH>
+              <TH align="right">Actions</TH>
+            </THead>
+            <TBody>
+              {visibleRows.map((row) => {
+                const shift = rota.shiftOn(row.employeeId, roster.date);
+                const off = offToday(row);
+                return (
+                  <TR key={row.employeeId} interactive>
+                    <TDPrimary
+                      title={
+                        <Link
+                          href={`/people/${row.employeeId}`}
+                          className="hover:text-accent-text hover:underline underline-offset-4"
+                        >
+                          {row.employeeName}
+                        </Link>
+                      }
+                      subtitle={row.jobTitle}
+                    />
+                    <TD>
+                      <Badge tone={STATUS_TONE[row.status]} size="sm" dot>
+                        {STATUS_LABEL[row.status]}
+                      </Badge>
+                      {row.lateByMinutes > 0 && (
+                        <span className="mt-0.5 block text-meta text-warning-text">
+                          {row.lateByMinutes > 60
+                            ? hoursLabel(row.lateByMinutes)
+                            : `${row.lateByMinutes} min`}{" "}
+                          late
+                        </span>
+                      )}
+                      {row.leave && (
+                        <span className="mt-0.5 block text-meta text-faint">
+                          {row.leave.type}, to {row.leave.endDate}
+                        </span>
+                      )}
+                      {row.anomaly && (
+                        <span className="mt-0.5 block text-meta font-medium text-warning-text">
+                          {row.anomaly}
+                        </span>
+                      )}
+                      {/* The rota, where there is one. A day off on a rota is a
                         rest day whatever the office calendar says, so saying so
                         here is what keeps this row and the payslip agreeing —
                         and a rest day somebody worked anyway is money owed, on
                         a surface this screen does not own. */}
-                    {shift ? (
-                      <span className="mt-0.5 block text-meta text-faint">
-                        On the rota: {shift.shiftName}, {timesLabel(shift)}
-                      </span>
-                    ) : off ? (
-                      row.clockIn ? (
-                        <span className="mt-0.5 block text-meta text-muted">
-                          Worked a rest day on their rota —{" "}
-                          <Link
-                            href="/people/overtime"
-                            className="font-medium text-accent-text underline underline-offset-4"
-                          >
-                            check overtime
-                          </Link>
+                      {shift ? (
+                        <span className="mt-0.5 block text-meta text-faint">
+                          On the rota: {shift.shiftName}, {timesLabel(shift)}
                         </span>
-                      ) : (
-                        <span className="mt-0.5 block text-meta text-muted">
-                          Rest day on their rota — no pay is held back
+                      ) : off ? (
+                        row.clockIn ? (
+                          <span className="mt-0.5 block text-meta text-muted">
+                            Worked a rest day on their rota —{" "}
+                            <Link
+                              href="/people/overtime"
+                              className="font-medium text-accent-text underline underline-offset-4"
+                            >
+                              check overtime
+                            </Link>
+                          </span>
+                        ) : (
+                          <span className="mt-0.5 block text-meta text-muted">
+                            Rest day on their rota — no pay is held back
+                          </span>
+                        )
+                      ) : null}
+                      {row.correctionNote && (
+                        <span className="mt-0.5 block text-meta text-faint">
+                          Corrected: {row.correctionNote}
                         </span>
-                      )
-                    ) : null}
-                    {row.correctionNote && (
-                      <span className="mt-0.5 block text-meta text-faint">
-                        Corrected: {row.correctionNote}
-                      </span>
-                    )}
-                  </TD>
-                  <TD className="tabular">{row.clockIn ?? "—"}</TD>
-                  <TD className="tabular text-muted">
-                    {row.clockOut ?? (row.clockIn ? "still in" : "—")}
-                  </TD>
-                  <TD align="right">
-                    <RowActions
-                      row={row}
-                      off={off}
-                      canCorrect={canCorrect}
-                      onCorrect={onCorrect}
-                    />
-                  </TD>
-                </TR>
-              );
-            })}
-          </TBody>
-        </TableWrap>
+                      )}
+                    </TD>
+                    <TD className="tabular">{row.clockIn ?? "—"}</TD>
+                    <TD className="tabular text-muted">
+                      {row.clockOut ?? (row.clockIn ? "still in" : "—")}
+                    </TD>
+                    <TD align="right">
+                      <RowActions
+                        row={row}
+                        off={off}
+                        canCorrect={canCorrect}
+                        onCorrect={onCorrect}
+                      />
+                    </TD>
+                  </TR>
+                );
+              })}
+            </TBody>
+          </TableWrap>
+        )}
       </Card>
     </>
   );
