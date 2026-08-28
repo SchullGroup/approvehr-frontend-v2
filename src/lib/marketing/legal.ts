@@ -468,8 +468,39 @@ const DPA: LegalDoc = {
       id: "sub-processors",
       heading: "Sub-processors",
       body: [
-        "We use sub-processors for hosting, backup, email delivery and payment execution. Each is under a written contract carrying the same obligations we carry to you, and we remain liable to you for what they do.",
-        "The current list, with what each one does and where it stores data, is available on request and will be published here once it is stable. We will give you 30 days' notice before adding one. If you reasonably object on data protection grounds, you may end the affected part of the subscription without penalty — that is a real right, not a formality.",
+        "Each of these is under a written contract carrying the same obligations we carry to you, and we remain liable to you for what they do. We will give you 30 days' notice before adding one. If you reasonably object on data protection grounds, you may end the affected part of the subscription without penalty — that is a real right, not a formality.",
+      ],
+      rows: [
+        {
+          term: "Amazon Web Services",
+          detail:
+            "Hosting, the database and backups. This is where your data lives: the application, the Postgres database and its 30 days of backups all run in AWS, in the United States (us-east-1). Everything in the product passes through it.",
+        },
+        {
+          term: "Resend",
+          detail:
+            "Email delivery, and the first provider tried. Receives the recipient's name and address and the contents of the message — which for a notification includes the subject of it, such as whose review is outstanding. United States.",
+        },
+        {
+          term: "Amazon SES",
+          detail:
+            "Email delivery, used when Resend is unavailable or refuses a message. Receives the same as Resend. United States (us-east-1).",
+        },
+        {
+          term: "Google",
+          detail:
+            "Suggested objectives, progress notes and development areas, through the Gemini API — and only where your company has switched suggestions on. Receives the facts a suggestion is built from: goal text and measures, the headline somebody typed, or competency names with their scores and the appraiser's written note. It is not sent names, staff numbers, salaries or any identifier, and nothing it returns is saved without somebody editing and submitting it themselves.",
+        },
+        {
+          term: "Anthropic",
+          detail:
+            "The same role as Google, and an alternative to it — one or the other answers, never both. Receives the same facts under the same limits.",
+        },
+        {
+          term: "9jaPay",
+          detail:
+            "Payment execution, and only for a company that has connected it. Receives the payee's name, bank and account number and the amount, for the salaries in a batch you have approved. Nigeria.",
+        },
       ],
     },
     {

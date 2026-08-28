@@ -195,7 +195,13 @@ function recordFieldsRow(facts: SetupFacts): ChecklistRow {
 }
 
 function leaveRow(facts: SetupFacts): ChecklistRow {
-  const { types, holidays, awaitingProclamation, year } = facts.leave;
+  const {
+    types,
+    biggestEntitlement,
+    holidays,
+    year,
+    awaitingProclamation,
+  } = facts.leave;
 
   if (types === 0) {
     return {
@@ -232,10 +238,20 @@ function leaveRow(facts: SetupFacts): ChecklistRow {
     affects:
       "What people can book, what every balance is measured against, and how payroll prorates a month.",
     status: "done",
+    /* The entitlement is named, not just the count of types. Counting them
+       never prompted anybody to check the figures inside — an admin saw "5
+       leave types" and had no way to tell whether the days each grants were
+       the company's or the seed's. The number somebody eventually notices is
+       on a balance, months later, with nothing to say where it came from. */
     detail:
-      awaitingProclamation > 0
-        ? `${plural(types, "leave type", "leave types")} and ${plural(holidays, "holiday", "holidays")} for ${year}, ${awaitingProclamation} of them awaiting proclamation.`
-        : `${plural(types, "leave type", "leave types")} and ${plural(holidays, "holiday", "holidays")} for ${year}.`,
+      `${plural(types, "leave type", "leave types")}` +
+      (biggestEntitlement !== null
+        ? `, the largest at ${plural(biggestEntitlement, "day", "days")} a year`
+        : "") +
+      ` and ${plural(holidays, "holiday", "holidays")} for ${year}` +
+      (awaitingProclamation > 0
+        ? `, ${awaitingProclamation} of them awaiting proclamation.`
+        : "."),
     href: "/settings/leave",
     linkLabel: "Review leave",
   };

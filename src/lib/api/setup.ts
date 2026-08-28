@@ -261,6 +261,8 @@ export type ApiSetupChecklist = {
   recordFields: { taxSetup: boolean; pensionSetup: boolean; bankDetails: boolean };
   leave: {
     types: number;
+    /** The largest annual entitlement on file. See the API's own note. */
+    biggestEntitlement: number | null;
     year: number;
     holidays: number;
     awaitingProclamation: number;
