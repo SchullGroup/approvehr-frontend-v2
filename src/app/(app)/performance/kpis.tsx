@@ -26,9 +26,15 @@ import {
   SegmentedControl,
   Spinner,
   Stat,
+  Textarea,
   useToast,
 } from "@/components/ui";
+import {
+  SuggestButton,
+  SuggestionPanel,
+} from "@/components/performance/suggestions";
 import { ApiError } from "@/lib/api/client";
+import { useTaskSummarySuggestion } from "@/lib/store/ai";
 import {
   formatMeasure,
   quarterLabel,
@@ -166,7 +172,10 @@ export function KpisTab({
             label="Whose KPIs to show"
             value={scope}
             onChange={onScopeChange}
-            options={scopes.map((id) => ({ value: id, label: SCOPE_LABEL[id] }))}
+            options={scopes.map((id) => ({
+              value: id,
+              label: SCOPE_LABEL[id],
+            }))}
           />
         ) : (
           <span className="text-body-sm text-muted">{SCOPE_LABEL[scope]}</span>
@@ -198,7 +207,11 @@ export function KpisTab({
         <Stat
           label="Average progress"
           value={`${average}%`}
-          hint={tracked.length === 1 ? "across 1 KPI" : `across ${tracked.length} KPIs`}
+          hint={
+            tracked.length === 1
+              ? "across 1 KPI"
+              : `across ${tracked.length} KPIs`
+          }
         />
         <Stat
           label="Needs attention"
@@ -285,8 +298,8 @@ export function KpisTab({
                   )
                 }
                 onReopen={setReopening}
-                onRecord={async (measureId, value) => {
-                  await mutations.recordProgress(measureId, value);
+                onRecord={async (measureId, value, note) => {
+                  await mutations.recordProgress(measureId, value, note);
                   if (kpis.source === "api") kpis.reload();
                 }}
               />
@@ -402,7 +415,11 @@ function GoalBranch({
   onShare: (goal: ApiGoal) => void;
   onSubmit: (goal: ApiGoal) => void;
   onReopen: (goal: ApiGoal) => void;
-  onRecord: (measureId: string, value: string) => Promise<void>;
+  onRecord: (
+    measureId: string,
+    value: string,
+    note?: string,
+  ) => Promise<void>;
 }) {
   return (
     <div className="flex flex-col gap-3">
@@ -468,7 +485,11 @@ function GoalCard({
   onShare: (goal: ApiGoal) => void;
   onSubmit: (goal: ApiGoal) => void;
   onReopen: (goal: ApiGoal) => void;
-  onRecord: (measureId: string, value: string) => Promise<void>;
+  onRecord: (
+    measureId: string,
+    value: string,
+    note?: string,
+  ) => Promise<void>;
 }) {
   const progress = goal.measuredProgress ?? goal.progress;
   const done = goal.status === "DONE";
@@ -514,7 +535,9 @@ function GoalCard({
               {/* The appraisal period is what makes this scoreable; a bare
                   quarter is what companies typed before periods existed and is
                   still allowed. */}
-              <span>{goal.reviewCycleName ?? quarterLabel(goal.dueQuarter)}</span>
+              <span>
+                {goal.reviewCycleName ?? quarterLabel(goal.dueQuarter)}
+              </span>
               {goal.revisionCount > 0 && (
                 <span>
                   {goal.revisionCount === 1
@@ -581,6 +604,7 @@ function GoalCard({
             <MeasureRow
               key={measure.id}
               measure={measure}
+              goalId={goal.id}
               editable={!done}
               onRecord={onRecord}
             />
@@ -601,8 +625,8 @@ function GoalCard({
         <p className="mt-3 text-body-sm text-muted">
           Agreed, so the target is fixed: the title, the period and every
           measure&apos;s target stay as they are, and no measure can be added
-          because that would change what delivering this means. The numbers still
-          move.
+          because that would change what delivering this means. The numbers
+          still move.
         </p>
       )}
 
@@ -679,16 +703,25 @@ function GoalCard({
  */
 function MeasureRow({
   measure,
+  goalId,
   editable,
   onRecord,
 }: {
   measure: ApiKeyResult;
+  /** The objective this measure belongs to. Grounds the write-up suggestion. */
+  goalId: string;
   editable: boolean;
-  onRecord: (measureId: string, value: string) => Promise<void>;
+  onRecord: (
+    measureId: string,
+    value: string,
+    note?: string,
+  ) => Promise<void>;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
+  const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
+  const summary = useTaskSummarySuggestion();
 
   const value = draft ?? measure.currentValue;
   const changed = draft !== null && draft.trim() !== measure.currentValue;
@@ -698,8 +731,10 @@ function MeasureRow({
     setSaving(true);
     setFailed(null);
     try {
-      await onRecord(measure.id, (draft ?? "").trim());
+      await onRecord(measure.id, (draft ?? "").trim(), note.trim() || undefined);
       setDraft(null);
+      setNote("");
+      summary.clear();
     } catch (error) {
       setFailed(
         error instanceof ApiError
@@ -774,11 +809,62 @@ function MeasureRow({
               >
                 Save<span className="sr-only"> {measure.label}</span>
               </Button>
-              <Button size="sm" onClick={() => setDraft(null)}>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setDraft(null);
+                  setNote("");
+                  summary.clear();
+                }}
+              >
                 Undo
               </Button>
             </>
           )}
+        </div>
+      )}
+
+      {/* The note the API has always accepted and nothing has ever rendered.
+          `progressSchema` takes `{ currentValue, note }` and `recordProgress`
+          has carried a third argument the whole time — so a number moved and
+          the reason it moved was lost, which is the fact somebody actually
+          needs at the review. It appears only once the number has changed:
+          asking "what did you do" beside a figure nobody has touched is a
+          question about nothing. */}
+      {editable && changed && (
+        <div className="flex flex-col gap-2">
+          <Textarea
+            rows={2}
+            aria-label={`What moved ${measure.label}`}
+            placeholder="What moved it? Closed the Ikeja rollout…"
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <SuggestButton
+              loading={summary.loading}
+              label="Write this up for me"
+              onClick={() =>
+                void summary.ask({ goalId, headline: note.trim() })
+              }
+            />
+            {note.trim().length > 0 && note.trim().length < 10 && (
+              <span className="text-meta text-muted">
+                A few more words and it can draft the rest.
+              </span>
+            )}
+          </div>
+          <SuggestionPanel
+            state={summary}
+            onDismiss={summary.clear}
+            useLabel="Use this wording"
+            emptyHint="Your words, expanded — check it before you save."
+            /* Replaces the headline with the fuller version, in an editable box
+               somebody still has to press Save under. The suggestion is built
+               from what they typed and adds no achievement they did not
+               mention — see `modules/ai/service.ts#suggestTaskSummary`. */
+            onUse={(suggestion) => setNote(suggestion.detail || suggestion.title)}
+          />
         </div>
       )}
 

@@ -1148,6 +1148,19 @@ export type HelpdeskPulse = {
   unanswered: number;
   medianFirstResponseMinutes: number | null;
   minutesPerDay: number;
+  /**
+   * What people are actually asking about, most-asked first.
+   *
+   * `analytics({})` has always returned this and the pulse kept three of its
+   * fifteen fields — so the screen could say how many tickets were open and
+   * never what any of them were about, which is the one question four counts
+   * of open tickets cannot answer.
+   *
+   * **Null offline**, not an empty list. The demo pulse is derived from the
+   * local seed and its tickets carry no category, so `[]` would render as
+   * "nobody has asked us anything" — a claim, and a false one.
+   */
+  byCategory: { name: string; count: number }[] | null;
   loading: boolean;
   /** True when nothing is watching the targets between page loads. */
   unwatched: boolean;
@@ -1160,6 +1173,8 @@ const EMPTY_PULSE: HelpdeskPulse = {
   unanswered: 0,
   medianFirstResponseMinutes: null,
   minutesPerDay: WORKING_DAY_FALLBACK.minutesPerDay,
+  /* Null while nothing has arrived — see the field's own note. */
+  byCategory: null,
   loading: true,
   unwatched: true,
 };
@@ -1204,6 +1219,7 @@ export function useHelpdeskPulse(enabled: boolean, bump = 0): HelpdeskPulse {
           unanswered: analytics.firstResponse.unanswered,
           medianFirstResponseMinutes: analytics.firstResponse.medianWorkingMinutes,
           minutesPerDay: analytics.workingDay.minutesPerDay,
+          byCategory: analytics.volume.byCategory,
           loading: false,
           unwatched: true,
         });
@@ -1243,6 +1259,9 @@ export function useHelpdeskPulse(enabled: boolean, bump = 0): HelpdeskPulse {
             ? (measured[middle] ?? null)
             : Math.round(((measured[middle - 1] ?? 0) + (measured[middle] ?? 0)) / 2),
       minutesPerDay: WORKING_DAY_FALLBACK.minutesPerDay,
+      /* Null, not []. The seed's tickets carry no category, so an empty list
+         here would render as "nobody has asked us anything". */
+      byCategory: null,
       loading: false,
       unwatched: true,
     };

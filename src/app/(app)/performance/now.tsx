@@ -221,9 +221,9 @@ export function WhatNeedsYouTab({
           <p>{noAppraiser.message}</p>
           <p className="mt-2">
             Your self-review still counts and still goes in. What is missing is
-            somebody to write the manager review, which is the rating of record —
-            ask whoever runs the period to set a manager on your record or assign
-            an appraiser.
+            somebody to write the manager review, which is the rating of record
+            — ask whoever runs the period to set a manager on your record or
+            assign an appraiser.
           </p>
         </Callout>
       )}
@@ -282,75 +282,75 @@ export function WhatNeedsYouTab({
 
       {/* ---------------------------------------------------------------- open */}
       {scored && (
-      <Card>
-        <CardHeader
-          title="What is open"
-          {...(openPeriod
-            ? {
-                description:
-                  "The appraisal period everything below belongs to.",
-              }
-            : {})}
-          action={
-            openPeriod ? undefined : (
-              <StartPeriodButton variant="accent" withIcon />
-            )
-          }
-        />
-        {appraisals.loading ? (
-          <CardBody className="flex items-center gap-2 text-body-sm text-muted">
-            <Spinner size="sm" />
-            Loading
-          </CardBody>
-        ) : !openPeriod ? (
-          <EmptyState
-            compact
-            icon={<CalendarRange aria-hidden="true" />}
-            title="No appraisal period is running"
-            description="A period is the stretch of time an appraisal covers. Starting one gives everybody a form."
+        <Card>
+          <CardHeader
+            title="What is open"
+            {...(openPeriod
+              ? {
+                  description:
+                    "The appraisal period everything below belongs to.",
+                }
+              : {})}
+            action={
+              openPeriod ? undefined : (
+                <StartPeriodButton variant="accent" withIcon />
+              )
+            }
           />
-        ) : (
-          <CardBody className="flex flex-wrap items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
-                {openPeriod.name}
-                <Badge
-                  tone={openPeriod.stage === "PUBLISHED" ? "neutral" : "info"}
+          {appraisals.loading ? (
+            <CardBody className="flex items-center gap-2 text-body-sm text-muted">
+              <Spinner size="sm" />
+              Loading
+            </CardBody>
+          ) : !openPeriod ? (
+            <EmptyState
+              compact
+              icon={<CalendarRange aria-hidden="true" />}
+              title="No appraisal period is running"
+              description="A period is the stretch of time an appraisal covers. Starting one gives everybody a form."
+            />
+          ) : (
+            <CardBody className="flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
+                  {openPeriod.name}
+                  <Badge
+                    tone={openPeriod.stage === "PUBLISHED" ? "neutral" : "info"}
+                    size="sm"
+                    dot
+                  >
+                    {openPeriod.stageLabel}
+                  </Badge>
+                </p>
+                <p className="mt-1 flex flex-wrap items-center gap-2 text-meta text-muted">
+                  <span>
+                    {openPeriod.questionCount === 1
+                      ? "1 question"
+                      : `${openPeriod.questionCount} questions`}
+                  </span>
+                  <span>
+                    {openPeriod.reviewCount === 1
+                      ? "1 form"
+                      : `${openPeriod.reviewCount} forms`}
+                  </span>
+                  {openPeriod.dueDate && (
+                    <span>Answers due {dayLabel(openPeriod.dueDate)}</span>
+                  )}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <ButtonLink
                   size="sm"
-                  dot
+                  href={`/performance/periods/${openPeriod.id}`}
                 >
-                  {openPeriod.stageLabel}
-                </Badge>
-              </p>
-              <p className="mt-1 flex flex-wrap items-center gap-2 text-meta text-muted">
-                <span>
-                  {openPeriod.questionCount === 1
-                    ? "1 question"
-                    : `${openPeriod.questionCount} questions`}
-                </span>
-                <span>
-                  {openPeriod.reviewCount === 1
-                    ? "1 form"
-                    : `${openPeriod.reviewCount} forms`}
-                </span>
-                {openPeriod.dueDate && (
-                  <span>Answers due {dayLabel(openPeriod.dueDate)}</span>
-                )}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <ButtonLink
-                size="sm"
-                href={`/performance/periods/${openPeriod.id}`}
-              >
-                {openPeriod.stage === "DRAFT"
-                  ? "Set it up and start it"
-                  : "Who is outstanding"}
-              </ButtonLink>
-            </div>
-          </CardBody>
-        )}
-      </Card>
+                  {openPeriod.stage === "DRAFT"
+                    ? "Set it up and start it"
+                    : "Who is outstanding"}
+                </ButtonLink>
+              </div>
+            </CardBody>
+          )}
+        </Card>
       )}
 
       {/* ------------------------------------------------- final, not answered */}
@@ -419,7 +419,9 @@ export function WhatNeedsYouTab({
             <Spinner size="sm" />
             Loading
           </CardBody>
-        ) : owedNow.length === 0 && queue.length === 0 && toSend.length === 0 ? (
+        ) : owedNow.length === 0 &&
+          queue.length === 0 &&
+          toSend.length === 0 ? (
           <EmptyState
             compact
             icon={<CheckCheck aria-hidden="true" />}
@@ -513,34 +515,36 @@ export function WhatNeedsYouTab({
 
             {scored &&
               appraisingMe.map((appraiser) => (
-              <div
-                key={appraiser.assignmentId}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3"
-              >
-                <div className="min-w-0">
-                  <p className="text-body-sm font-medium text-ink">
-                    {appraiser.appraiserName} is appraising you
-                  </p>
-                  <p className="mt-1 flex flex-wrap items-center gap-2 text-meta text-muted">
-                    <span>{appraiser.roleLabel}</span>
-                    {mine.row && <span>{mine.row.cycleName}</span>}
-                    <Badge
-                      tone={appraiser.submitted ? "neutral" : "warning"}
-                      size="sm"
-                      dot
-                    >
-                      {appraiser.submitted ? "Form sent" : "Form not sent yet"}
-                    </Badge>
-                  </p>
-                </div>
-                {/* Their mark, not their form. A working figure moves every time
+                <div
+                  key={appraiser.assignmentId}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3"
+                >
+                  <div className="min-w-0">
+                    <p className="text-body-sm font-medium text-ink">
+                      {appraiser.appraiserName} is appraising you
+                    </p>
+                    <p className="mt-1 flex flex-wrap items-center gap-2 text-meta text-muted">
+                      <span>{appraiser.roleLabel}</span>
+                      {mine.row && <span>{mine.row.cycleName}</span>}
+                      <Badge
+                        tone={appraiser.submitted ? "neutral" : "warning"}
+                        size="sm"
+                        dot
+                      >
+                        {appraiser.submitted
+                          ? "Form sent"
+                          : "Form not sent yet"}
+                      </Badge>
+                    </p>
+                  </div>
+                  {/* Their mark, not their form. A working figure moves every time
                     somebody records a rating, so the subject sees it when it is
                     final and not before — the API refuses it either way. */}
-                <span className="text-meta text-muted">
-                  You will see the mark when it is final
-                </span>
-              </div>
-            ))}
+                  <span className="text-meta text-muted">
+                    You will see the mark when it is final
+                  </span>
+                </div>
+              ))}
           </CardBody>
         )}
       </Card>
@@ -549,74 +553,74 @@ export function WhatNeedsYouTab({
       {scored && <HowItWorks />}
 
       {scored && (
-      <Disclosure
-        title="What was said about you"
-        meta={
-          record.length > 0 ? (
-            <Badge tone="neutral" size="sm">
-              {record.length === 1 ? "1 review" : `${record.length} reviews`}
-            </Badge>
-          ) : undefined
-        }
-        hint={
-          record.length === 0
-            ? "A manager's review reaches you when your rating is made final, or when the period is published — whichever comes first."
-            : answered.length > 0
-              ? `${answered.length === 1 ? "1 has" : `${answered.length} have`} been answered. Nothing here needs you.`
-              : "Yours to read. Nothing here needs you."
-        }
-        level={2}
-      >
-        {record.length === 0 ? (
-          <EmptyState
-            compact
-            icon={<MessagesSquare aria-hidden="true" />}
-            title="Nothing published yet"
-            description="A manager's review reaches you when the period closes, not before."
-          />
-        ) : (
-          <div className="flex flex-col gap-2">
-            {record.map((review) => (
-              <ReviewRow
-                key={review.id}
-                review={review}
-                context="record"
-                actionLabel="Read it"
-                onOpen={() => setOpened(review.id)}
-              />
-            ))}
-          </div>
-        )}
-      </Disclosure>
+        <Disclosure
+          title="What was said about you"
+          meta={
+            record.length > 0 ? (
+              <Badge tone="neutral" size="sm">
+                {record.length === 1 ? "1 review" : `${record.length} reviews`}
+              </Badge>
+            ) : undefined
+          }
+          hint={
+            record.length === 0
+              ? "A manager's review reaches you when your rating is made final, or when the period is published — whichever comes first."
+              : answered.length > 0
+                ? `${answered.length === 1 ? "1 has" : `${answered.length} have`} been answered. Nothing here needs you.`
+                : "Yours to read. Nothing here needs you."
+          }
+          level={2}
+        >
+          {record.length === 0 ? (
+            <EmptyState
+              compact
+              icon={<MessagesSquare aria-hidden="true" />}
+              title="Nothing published yet"
+              description="A manager's review reaches you when the period closes, not before."
+            />
+          ) : (
+            <div className="flex flex-col gap-2">
+              {record.map((review) => (
+                <ReviewRow
+                  key={review.id}
+                  review={review}
+                  context="record"
+                  actionLabel="Read it"
+                  onOpen={() => setOpened(review.id)}
+                />
+              ))}
+            </div>
+          )}
+        </Disclosure>
       )}
 
       {scored && (
-      <Disclosure
-        title="Peer feedback"
-        meta={
-          appraisals.mine.peerFeedback.length > 0 ? (
-            <Badge tone="neutral" size="sm">
-              {appraisals.mine.peerFeedback.length === 1
-                ? "1 period"
-                : `${appraisals.mine.peerFeedback.length} periods`}
-            </Badge>
-          ) : undefined
-        }
-        hint="Anonymous. No name is attached to an answer."
-        level={2}
-      >
-        {appraisals.mine.peerFeedback.length === 0 ? (
-          <p className="text-body-sm text-muted">
-            Nothing from colleagues yet.
-          </p>
-        ) : (
-          <div className="flex flex-col gap-4">
-            {appraisals.mine.peerFeedback.map((entry) => (
-              <PeerBlock key={entry.cycleId} entry={entry} />
-            ))}
-          </div>
-        )}
-      </Disclosure>
+        <Disclosure
+          title="Peer feedback"
+          meta={
+            appraisals.mine.peerFeedback.length > 0 ? (
+              <Badge tone="neutral" size="sm">
+                {appraisals.mine.peerFeedback.length === 1
+                  ? "1 period"
+                  : `${appraisals.mine.peerFeedback.length} periods`}
+              </Badge>
+            ) : undefined
+          }
+          hint="Anonymous. No name is attached to an answer."
+          level={2}
+        >
+          {appraisals.mine.peerFeedback.length === 0 ? (
+            <p className="text-body-sm text-muted">
+              Nothing from colleagues yet.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-4">
+              {appraisals.mine.peerFeedback.map((entry) => (
+                <PeerBlock key={entry.cycleId} entry={entry} />
+              ))}
+            </div>
+          )}
+        </Disclosure>
       )}
 
       {scored && <FrameworkDisclosure />}
@@ -820,7 +824,9 @@ function PeerBlock({ entry }: { entry: ApiPeerFeedback }) {
             {answer.averageRating !== null && (
               <p className="tabular mt-1 text-body-sm text-ink">
                 Average {answer.averageRating} out of 5, across{" "}
-                {answer.answered === 1 ? "1 answer" : `${answer.answered} answers`}
+                {answer.answered === 1
+                  ? "1 answer"
+                  : `${answer.answered} answers`}
               </p>
             )}
             {answer.yeses > 0 && (

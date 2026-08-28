@@ -7,6 +7,7 @@ import {
   Badge,
   Button,
   Callout,
+  BarChart,
   Card,
   CardBody,
   CardHeader,
@@ -175,6 +176,36 @@ function QueueView() {
           />
         </div>
 
+        {/* ---- What people are asking about ------------------------------
+            Four counts of open tickets say how much is waiting and never say
+            what any of it is about. `volume.byCategory` has been on the
+            analytics response the whole time — the pulse kept three of its
+            fifteen fields — and it is already `{ name, count }`, which is the
+            shape a chart takes.
+
+            Absent rather than empty when there is nothing to say: null means
+            the request has not answered or this is demo mode, where the seed's
+            tickets carry no category. An empty bar chart would read as "nobody
+            has asked us anything". */}
+        {pulse.byCategory && pulse.byCategory.length > 0 && (
+          <Card>
+            <CardHeader
+              title="What people are asking about"
+              description="Tickets raised in the last 30 days, most-asked first."
+            />
+            <CardBody>
+              <BarChart
+                colorBy="series"
+                format={(n) => String(n)}
+                caption="Tickets raised by category over the last 30 days"
+                points={[...pulse.byCategory]
+                  .sort((a, b) => b.count - a.count)
+                  .map((row) => ({ label: row.name, value: row.count }))}
+              />
+            </CardBody>
+          </Card>
+        )}
+
         {/*
           A count and a button, not a paragraph. The number is the whole point
           and pressing it filters the queue down to exactly those tickets.
@@ -328,7 +359,6 @@ function MyRequestsView() {
         <Card>
           <CardHeader
             title="Your requests"
-            description="Open one to read the replies, add to it, or say it is still not fixed."
             action={
               <SegmentedControl
                 label="Which of your requests"
@@ -626,7 +656,22 @@ function RaiseRequestModal({
       ) ?? "No reply target set for this category.")
     : undefined;
 
-  const ready = categoryId !== "" && subject.trim().length >= 4;
+  /**
+   * What the API actually requires, which is a subject and nothing else.
+   *
+   * This used to demand a category as well — `categoryId !== ""` — and
+   * `createTicketSchema` has always had `categoryId` as `.optional()`. So the
+   * form invented a requirement the server does not have, and on a company with
+   * **no categories yet** that requirement could never be met: the picker holds
+   * only "Pick one", `ready` is never true, and Send is disabled for ever. An
+   * employee could not raise a help request at all, on the one screen that
+   * exists for people who need help.
+   *
+   * A category routes a ticket and sets its reply target. Where a company has
+   * defined some, choosing one is worth encouraging. Where it has not, an
+   * unrouted ticket on somebody's desk beats a request nobody could send.
+   */
+  const ready = subject.trim().length >= 4;
 
   const submit = async () => {
     setBusy(true);
@@ -695,17 +740,29 @@ function RaiseRequestModal({
 
         <Field
           label="What is it about"
-          required
-          {...(promise ? { help: promise } : {})}
+          optional
+          {...(promise
+            ? { help: promise }
+            : categories.length === 0
+              ? {
+                  /* Said rather than left as an empty picker somebody stares
+                     at. The company has not set categories up; that is a fact
+                     about the company, not a mistake this person made. */
+                  help: "Nobody has set up categories yet, so this goes to the help desk unsorted.",
+                }
+              : {})}
         >
           <Select
             value={categoryId}
+            disabled={categories.length === 0}
             onChange={(event) => {
               const value = event.target.value;
               setCategoryId(value);
             }}
           >
-            <option value="">Pick one</option>
+            <option value="">
+              {categories.length === 0 ? "No categories yet" : "Pick one"}
+            </option>
             {categories.map((category) => (
               <option key={category.id} value={category.id}>
                 {category.name}

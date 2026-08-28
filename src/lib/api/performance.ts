@@ -766,6 +766,28 @@ export type ApiScoreException = {
   message: string;
 };
 
+/**
+ * A mark somebody moved, and why.
+ *
+ * A **row, not an edit** — the same shape as a payroll exclusion: a figure, a
+ * reason, a person, a date. `ApiScoreRow.computedBp` still reads what the
+ * answers produced, so "why is this person's mark different" has an answer a
+ * year later. An edit in place could not answer it.
+ */
+export type ApiCalibration = {
+  cycleId: string;
+  employeeId: string;
+  /** What the answers produced, untouched. */
+  originalBp: number;
+  /** What the company decided. This is the mark of record. */
+  calibratedBp: number;
+  /** Required, and a floor of ten characters. A move with no account of why is
+   *  the single most common way an appraisal becomes indefensible. */
+  reason: string;
+  calibratedAt: string;
+  calibratedByName: string | null;
+};
+
 export type ApiScoreRow = {
   employeeId: string;
   employeeName: string;
@@ -790,6 +812,22 @@ export type ApiScoreRow = {
   band: ScoreBand | null;
   /** The API's wording for the band. Render this, not a local table. */
   bandLabel: string | null;
+  /**
+   * What the answers produced, before anybody moved it.
+   *
+   * Equal to `scoreBp` for almost everybody. It differs only where a
+   * `calibration` row exists, and a screen showing a calibrated mark should
+   * show this beside it — the moved figure alone is a number nobody can
+   * account for.
+   */
+  computedBp: number | null;
+  /**
+   * The calibration on this person, or **null** where there is none.
+   *
+   * Null is the ordinary state and is not a mark of zero. Check for the object,
+   * never for a falsy `calibratedBp`.
+   */
+  calibration: ApiCalibration | null;
   components: ApiComponentScore[];
   objectives: {
     agreed: number;
@@ -1467,8 +1505,96 @@ export const performanceApi = {
   cycle: (id: string, signal?: AbortSignal) =>
     request<ApiCycle>(`/performance/cycles/${id}`, signalOf(signal)),
 
-  createCycle: (body: { name: string; dueDate?: string }) =>
-    request<ApiCycle>("/performance/cycles", { method: "POST", body }),
+  createCycle: (body: {
+    name: string;
+    dueDate?: string;
+    /**
+     * Who the period covers. **Empty means everybody**, which is the default
+     * and what every period did before scoping existed.
+     *
+     * Read once, at activation — the forms are written in that call, so
+     * changing the scope afterwards moves nobody. The interface only offers it
+     * on a draft for that reason.
+     */
+    departmentIds?: string[];
+    /** Days before `dueDate` to nudge whoever still owes a form. */
+    remindDaysBefore?: number;
+  }) => request<ApiCycle>("/performance/cycles", { method: "POST", body }),
+
+  /**
+   * Change a draft period's scope or its reminder.
+   *
+   * Separate from `advanceCycle`, which is the same endpoint carrying a stage.
+   * Kept apart because they are different acts with different rules — a stage
+   * moves a running period on and cannot go back, while these two only mean
+   * anything before it starts.
+   */
+  updateCycle: (
+    id: string,
+    body: { departmentIds?: string[]; remindDaysBefore?: number | null },
+  ) =>
+    request<ApiCycle>(`/performance/cycles/${id}`, { method: "PATCH", body }),
+
+  /**
+   * Start this period's form from another period's.
+   *
+   * The reason appraisal periods stall: somebody has to write eight questions
+   * from nothing, every half, and the questions barely change. This copies
+   * them as **this period's own rows** — nothing is shared and nothing locks,
+   * so editing one here does not touch the period it came from.
+   *
+   * Refused on a period that has started, and on one that already has
+   * questions. Both refusals are the API's own sentences.
+   */
+  copyQuestions: (id: string, sourceCycleId: string) =>
+    request<{ cycleId: string; copied: number }>(
+      `/performance/cycles/${id}/questions/copy`,
+      { method: "POST", body: { sourceCycleId } },
+    ),
+
+  /**
+   * Move one person's mark, with a reason.
+   *
+   * Calibration is a **row, not an edit** — the same shape as a payroll
+   * exclusion: a figure, a reason, a person, a date. The computed mark is never
+   * overwritten; `ScoreRow.computedBp` still reads what the answers produced
+   * and `scoreBp` reads what the company decided. "Why is this person's mark
+   * different" is the question the row exists to answer, and an edit in place
+   * could not answer it.
+   */
+  calibrate: (
+    cycleId: string,
+    employeeId: string,
+    body: { calibratedBp: number; reason: string },
+  ) =>
+    request<ApiCalibration>(
+      `/performance/cycles/${cycleId}/calibrations/${employeeId}`,
+      { method: "PUT", body },
+    ),
+
+  /** Put the computed mark back. The row goes; nothing else moves. */
+  clearCalibration: (cycleId: string, employeeId: string) =>
+    request<{ cycleId: string; employeeId: string; cleared: boolean }>(
+      `/performance/cycles/${cycleId}/calibrations/${employeeId}`,
+      { method: "DELETE" },
+    ),
+
+  /**
+   * Move a running period on to its next stage.
+   *
+   * Forward only, and never to `PUBLISHED` — closing is what publishes, and
+   * the API refuses the shortcut. A period cannot go back either: people have
+   * already answered against where it is now.
+   *
+   * The endpoint has always been able to do this and nothing ever called it,
+   * so every period in the product sat on "self-review" until it was
+   * published, whatever was actually happening. This was the missing button.
+   */
+  advanceCycle: (id: string, stage: ReviewCycleStage) =>
+    request<ApiCycle>(`/performance/cycles/${id}`, {
+      method: "PATCH",
+      body: { stage },
+    }),
 
   /** Refused without at least one question. Creates every review in one go. */
   activateCycle: (id: string) =>

@@ -16,6 +16,7 @@ import {
   CardHeader,
   Money,
   Spinner,
+  StackedBar,
   Stat,
 } from "@/components/ui";
 import { PageBody } from "@/components/portal/shell";
@@ -200,6 +201,68 @@ export function DashboardScreen() {
           />
         </div>
 
+        {/* ---- Who is in today -------------------------------------------
+            `expected` splits into exactly these four, and two of them —
+            `late` and `expected` itself — were being fetched on every dashboard
+            load and rendered nowhere. The tile above shows one part of a
+            composition and hints at two more; this is the whole of it.
+
+            **Gated on the parts, not on `expected`.** In demo mode
+            `store/insights.ts` deliberately returns a real `expected` with all
+            four parts at zero, because the dashboard does not reach into the
+            attendance store. A bar drawn on that would be an empty track inside
+            a real headcount — a confident claim that nobody turned up. */}
+        {today.clockedIn + today.late + today.onLeave + today.unaccountedFor >
+          0 && (
+          <Card>
+            <CardHeader
+              title="Who is in today"
+              description={`Of ${String(today.expected)} expected.`}
+            />
+            <CardBody>
+              <StackedBar
+                total={today.expected}
+                format={(n) => String(n)}
+                segments={[
+                  {
+                    label: "Clocked in",
+                    value: today.clockedIn,
+                    color: "var(--color-success-strong)",
+                  },
+                  ...(today.late > 0
+                    ? [
+                        {
+                          label: "Late",
+                          value: today.late,
+                          color: "var(--color-warning)",
+                        },
+                      ]
+                    : []),
+                  ...(today.onLeave > 0
+                    ? [
+                        {
+                          label: "On leave",
+                          value: today.onLeave,
+                          color: "var(--color-accent-line)",
+                        },
+                      ]
+                    : []),
+                  ...(today.unaccountedFor > 0
+                    ? [
+                        {
+                          label: "Not accounted for",
+                          value: today.unaccountedFor,
+                          color: "var(--color-danger)",
+                        },
+                      ]
+                    : []),
+                ]}
+                caption={`Of ${String(today.expected)} expected today: ${String(today.clockedIn)} clocked in, ${String(today.late)} late, ${String(today.onLeave)} on leave, ${String(today.unaccountedFor)} not accounted for.`}
+              />
+            </CardBody>
+          </Card>
+        )}
+
         {/* ---- Things to do, each with the button that does it ------------ */}
         {(approvals.waiting > 0 ||
           headcount.incomplete > 0 ||
@@ -207,10 +270,7 @@ export function DashboardScreen() {
           (payroll && payroll.blockers > 0) ||
           (nobodyOnPayroll && canAddEmployee)) && (
           <Card>
-            <CardHeader
-              title="Needs you"
-              description="Each of these is one click from being dealt with."
-            />
+            <CardHeader title="Needs you" />
             <CardBody className="flex flex-col gap-3">
               {/* First, because nothing else on this card can be true for a
                   company that has never added anyone — every other row here
