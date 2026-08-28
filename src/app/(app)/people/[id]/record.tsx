@@ -47,7 +47,7 @@ import { PayComponentsPanel } from "@/app/(app)/payroll/pay-setup/pay-components
 import { RecordHistory } from "@/app/(app)/settings/audit/record-history";
 import { StartPeriodButton } from "@/app/(app)/performance";
 import { naira } from "@/lib/api/pay-components";
-import { koboFromDecimal } from "@/lib/api/payroll";
+import { koboFromDecimal, wasDeducted } from "@/lib/api/payroll";
 import { payslipFiguresFor } from "@/lib/mock/demo-payslips";
 import { banksIncluding } from "@/lib/reference/banks";
 import {
@@ -264,7 +264,8 @@ export function EmployeeRecord({
      it there is no button rather than a disabled one, the choice `Guarded` and
      `RecordHistory` already make on this page: a control that cannot work is
      worse present than absent. */
-  const canRecordExit = useCan("EDIT_RECORDS");
+  const canEditRecords = useCan("EDIT_RECORDS");
+  const canRecordExit = canEditRecords;
   /* Issuing a login is its own permission, deliberately split from editing a
      record — see the header of `modules/invites/router.ts`. */
   const canInvite = useCan("INVITE_STAFF");
@@ -482,14 +483,26 @@ export function EmployeeRecord({
               <FileText aria-hidden="true" className="size-3.5" />
               View latest payslip
             </ButtonLink>
-            <Button
-              variant="secondary"
-              size="sm"
-              block
-              onClick={() => setFileOpen(true)}
-            >
-              {isSelf ? "My documents" : "Their documents"}
-            </Button>
+            {/* The HR register's own file, opened on this person specifically —
+                gated the same as "Record their exit" below: the backend only
+                lets `EDIT_RECORDS` verify or remove a document (self-checking
+                would defeat the point of review), so an employee viewing their
+                own record here would otherwise see live-looking buttons that
+                can never succeed. Seeing their own file is `/documents`.
+
+                The label still switches on `isSelf`, because somebody who does
+                hold the permission can open this on their own record, and
+                "Their documents" about yourself reads as a bug. */}
+            {canEditRecords && (
+              <Button
+                variant="secondary"
+                size="sm"
+                block
+                onClick={() => setFileOpen(true)}
+              >
+                {isSelf ? "My documents" : "Their documents"}
+              </Button>
+            )}
             {/* Their appraisals, from their record. The trend across periods was
                 only reachable from a period's own register before this, which
                 meant the one screen that answers "has this person improved" was
@@ -1300,6 +1313,16 @@ function Compensation({
   const isSelf = me !== null && me === employee.id;
 
   const live = preview.data?.payslip ?? null;
+  /**
+   * A deduction this employer does not operate is ABSENT, not ₦0.00 — see
+   * `wasDeducted`'s own comment. Read off `live` specifically, not the merged
+   * `figures` below: the illustrative demo fixture has no not-operated
+   * concept at all (`wasDeducted(undefined, …)` already reads that as
+   * "shown", which is the right default for it).
+   */
+  const payeShown = wasDeducted(live?.operates, "paye");
+  const pensionShown = wasDeducted(live?.operates, "pension");
+  const nhfShown = wasDeducted(live?.operates, "nhf");
   /* Only offline, and only for a salary the fixture actually covers. */
   const illustrative =
     connected || employee.grossMonthly === null
@@ -1369,19 +1392,40 @@ function Compensation({
             <Line label="Housing" value={figures.housing} muted />
             <Line label="Transport" value={figures.transport} muted />
             <div className="h-px bg-line" />
-            <Line label="Pension (employee)" value={-figures.pensionEmployee} />
-            <Line label="NHF" value={-figures.nhf} />
-            <Line label="PAYE" value={-figures.paye} />
+            {pensionShown && (
+              <Line label="Pension (employee)" value={-figures.pensionEmployee} />
+            )}
+            {nhfShown && <Line label="NHF" value={-figures.nhf} />}
+            {payeShown && <Line label="PAYE" value={-figures.paye} />}
+            {live && (!payeShown || !pensionShown || !nhfShown) && (
+              <p className="text-meta leading-relaxed text-muted">
+                Not deducted:{" "}
+                {[
+                  !pensionShown && "pension",
+                  !nhfShown && "NHF",
+                  !payeShown && "PAYE",
+                ]
+                  .filter(Boolean)
+                  .join(", ")}
+                . This employer does not operate{" "}
+                {[!pensionShown, !nhfShown, !payeShown].filter(Boolean).length === 1
+                  ? "it"
+                  : "them"}
+                .
+              </p>
+            )}
             <div className="h-px bg-line" />
             <Line label="Net monthly" value={figures.net} strong />
-            <p className="mt-1 rounded-md bg-canvas p-2.5 text-meta leading-relaxed text-muted">
-              Employer pension of{" "}
-              <Money amount={figures.pensionEmployer} decimals /> is paid on top
-              and is not deducted.
-              {live
-                ? ""
-                : " Illustrative figures, generated by the payroll engine on the API for the demo salaries. A real run computes them live."}
-            </p>
+            {pensionShown && (
+              <p className="mt-1 rounded-md bg-canvas p-2.5 text-meta leading-relaxed text-muted">
+                Employer pension of{" "}
+                <Money amount={figures.pensionEmployer} decimals /> is paid on
+                top and is not deducted.
+                {live
+                  ? ""
+                  : " Illustrative figures, generated by the payroll engine on the API for the demo salaries. A real run computes them live."}
+              </p>
+            )}
           </>
         )}
       </CardBody>
@@ -1530,7 +1574,7 @@ function Line({
       <span
         className={
           strong
-            ? "tabular text-body font-semibold text-ink"
+            ? "tabular text-body font-semibold"
             : "tabular text-body-sm text-body"
         }
       >

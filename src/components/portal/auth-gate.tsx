@@ -16,6 +16,7 @@ import {
   Spinner,
 } from "@/components/ui";
 import { Logo } from "@/components/brand/logo";
+import { PasswordField } from "@/components/portal/password-field";
 import { RoleBadge } from "./role-badge";
 import { ApiError } from "@/lib/api/client";
 import { TwoFactorStep } from "./two-factor-step";
@@ -143,7 +144,7 @@ function SignIn() {
 
         {reachable === true && (
           <>
-            <p className="mt-2 text-body leading-relaxed text-body">
+            <p className="mt-2 text-body leading-relaxed">
               Sign in with your work email. Your role decides what you can see
               and do.
             </p>
@@ -178,26 +179,17 @@ function SignIn() {
                   }}
                 />
               </Field>
-              <Field
+              <PasswordField
                 label="Password"
-                required
+                autoComplete="current-password"
+                showRules={false}
+                value={password}
+                onChange={setPassword}
                 error={error?.messageFor("password")}
-              >
-                <Input
-                  type="password"
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setPassword(v);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && email && password && !busy) {
-                      void submit();
-                    }
-                  }}
-                />
-              </Field>
+                onEnter={() => {
+                  if (email && password && !busy) void submit();
+                }}
+              />
 
               <Button
                 variant="accent"
@@ -239,7 +231,7 @@ function SignIn() {
 
         {reachable === false && DEMO_ENABLED && (
           <>
-            <p className="mt-2 text-body leading-relaxed text-body">
+            <p className="mt-2 text-body leading-relaxed">
               The API is not running, so this is the demo. Choose whose account
               to open — every screen then behaves as that person.
             </p>
@@ -358,7 +350,7 @@ function ConnectionBadge({ reachable }: { reachable: boolean | null }) {
 function Unreachable() {
   return (
     <>
-      <p className="mt-2 text-body leading-relaxed text-body">
+      <p className="mt-2 text-body leading-relaxed">
         Signing in needs the ApproveHR service, and it is not answering right
         now. Nothing you have entered has been lost, and nothing has been signed
         in.

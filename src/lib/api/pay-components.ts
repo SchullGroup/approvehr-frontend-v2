@@ -1,6 +1,7 @@
 "use client";
 
 import { request, requestPaged, type Paged } from "@/lib/api/client";
+import type { StatutoryOperation } from "@/lib/api/payroll";
 
 /**
  * Pay components — `/api/v1/pay-components`.
@@ -162,6 +163,14 @@ export type ApiPayslipLine = { code: string; label: string; amountKobo: number }
 
 /** The engine's answer for one person in one period. */
 export type ApiComputedPayslip = {
+  /**
+   * Which statutory deductions this employer operates.
+   *
+   * Read this before reading `payeKobo`, `pensionEmployeeKobo` or `nhfKobo` —
+   * `NOT_OPERATED` means the matching amount is not a figure, not a real zero.
+   * See `wasDeducted` in `lib/api/payroll.ts`.
+   */
+  operates: StatutoryOperation;
   contractualKobo: number;
   grossKobo: number;
   basicKobo: number;

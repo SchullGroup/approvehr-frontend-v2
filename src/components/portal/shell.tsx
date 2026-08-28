@@ -22,6 +22,7 @@ import { rosterFor } from "@/lib/workflows/attendance";
 import { TODAY } from "@/lib/today";
 import { buildApprovalQueue } from "@/lib/workflows/queue";
 import { useSession } from "@/lib/store/session";
+import { VerificationBanner } from "./verification-banner";
 
 /**
  * The app shell. The sidebar is a light surface rather than a saturated slab:
@@ -191,6 +192,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
 
         <main id="main" className="min-w-0 flex-1">
+          {/* Inside `main`, not a sibling of it, so it occupies the content
+              column only — the sidebar (`aside`, above) is a separate flex
+              child it never overlaps. `sticky top-14` pins it to the same
+              offset the sidebar's own sticky nav uses (the header's height),
+              so it stays on screen through a scroll rather than scrolling
+              away with the page. */}
+          <VerificationBanner />
           {children}
         </main>
       </div>
@@ -680,8 +688,7 @@ export function ComingSoon({ label }: { label: string }) {
         </Badge>
         <h2 className="mt-4 text-h4 text-ink">{label}</h2>
         <p className="mt-2 max-w-sm text-body-sm text-body">
-          This module is on the roadmap. Hiring is the first one built out end
-          to end — start there.
+          This module is on the roadmap and isn&apos;t switched on yet.
         </p>
       </div>
     </PageBody>

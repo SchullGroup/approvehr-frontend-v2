@@ -3122,6 +3122,7 @@ export function useScoringWeights(): {
      `offline`, which is the module's refusal helper — shadowing it here made the
      save path uncallable, and `tsc` said only "not callable". */
   const demoValue = useMemo(() => DEMO_WEIGHTS, []);
+  const { reload } = fetched;
 
   return {
     weights: isConnected ? fetched.data : demoValue,
@@ -3134,12 +3135,12 @@ export function useScoringWeights(): {
       async (weights: Record<ScoreComponent, number>) => {
         if (!isConnected) offline(WEIGHTS_SAVE_OFFLINE);
         const saved = await performanceApi.setScoringWeights(weights);
-        fetched.reload();
+        reload();
         return saved;
       },
-      [isConnected, fetched.reload],
+      [isConnected, reload],
     ),
-    reload: fetched.reload,
+    reload,
   };
 }
 

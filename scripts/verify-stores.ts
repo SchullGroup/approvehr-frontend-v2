@@ -148,22 +148,27 @@ for (const file of files) {
     const source = lines[index] ?? "";
 
     /* Rule 1. */
-    for (const _ of line.matchAll(/\.read\s*\(\s*\)/g)) {
+    const readMatches = (line.match(/\.read\s*\(\s*\)/g) ?? []).length;
+    if (readMatches > 0) {
       const excused =
         source.includes(ESCAPE) || (lines[index - 1] ?? "").includes(ESCAPE);
-      if (excused) continue;
-      offences.push({
-        file: rel,
-        line: index + 1,
-        snippet: source.trim().slice(0, 78),
-        why: "`read()` is called. A write path must use `current()`; a render read passes `store.read` to useSyncExternalStore without calling it.",
-      });
+      if (!excused) {
+        for (let i = 0; i < readMatches; i += 1) {
+          offences.push({
+            file: rel,
+            line: index + 1,
+            snippet: source.trim().slice(0, 78),
+            why: "`read()` is called. A write path must use `current()`; a render read passes `store.read` to useSyncExternalStore without calling it.",
+          });
+        }
+      }
     }
 
     if (/\.read\b(?!\s*\()/.test(line)) readRefs += 1;
 
     /* Rule 2. */
-    for (const _ of line.matchAll(/\.current\s*\(\s*\)/g)) {
+    const currentMatches = (line.match(/\.current\s*\(\s*\)/g) ?? []).length;
+    for (let i = 0; i < currentMatches; i += 1) {
       currentCalls += 1;
       const where = renderRanges.find(
         (range) => index >= range.from && index <= range.to,

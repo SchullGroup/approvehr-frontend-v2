@@ -257,7 +257,7 @@ export function passwordRules(value: string, strict = false): PasswordRule[] {
     },
     {
       id: "obvious",
-      label: "Not a password everybody tries",
+      label: "Not a commonly used password",
       met: !OBVIOUS.includes(value.toLowerCase()),
       showWhen: "unmet",
     },

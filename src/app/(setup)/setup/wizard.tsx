@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Check, Lock, MapPin, Plus } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -37,6 +37,11 @@ import {
 import { FEATURE_COPY, useFeatures, useWizard } from "@/lib/store/features";
 import { CreateRoleDialog } from "@/app/(app)/settings/roles/create-role";
 import { failureMessage } from "@/components/portal/load-failure";
+import {
+  takePendingVerification,
+  type PendingVerification,
+} from "@/lib/pending-email-verification";
+import { VerificationNudge } from "./verification-nudge";
 
 /**
  * Setup.
@@ -115,6 +120,34 @@ export function SetupWizard() {
    * written by a click — sits on top of it.
    */
   const [movedTo, setMovedTo] = useState<number | null>(null);
+  /**
+   * The "confirm your email" nudge, handed off from the register screen.
+   *
+   * A real side effect (reading and consuming `sessionStorage`), not derived
+   * render data, so this is the one piece of state on this screen that
+   * belongs in an effect rather than computed inline — same reasoning as the
+   * `started` ref on `verify-email-screen.tsx`. Guarded the same way, against
+   * the double-invoke React does in development. Rendered from `Frame`
+   * rather than threaded through every branch below it as a prop: `Frame` is
+   * already the one wrapper every branch but `Done` returns through, and this
+   * screen has no persistent shell around it to fall back on — `(setup)`'s
+   * own `layout.tsx` is deliberately chrome-free, so
+   * `components/portal/verification-banner.tsx` never reaches this route.
+   */
+  const [pending, setPending] = useState<PendingVerification | null>(null);
+  const pendingChecked = useRef(false);
+  useEffect(() => {
+    if (pendingChecked.current) return;
+    pendingChecked.current = true;
+    setPending(takePendingVerification());
+  }, []);
+  const nudge = pending && (
+    <VerificationNudge
+      email={pending.email}
+      hint={pending.hint}
+      onDismiss={() => setPending(null)}
+    />
+  );
   /**
    * `null` until something happens: the wizard has not been finished *in this
    * visit*. That is a different fact from "setup is complete", which the server
@@ -356,7 +389,7 @@ export function SetupWizard() {
 
   if (wizard.loading) {
     return (
-      <Frame>
+      <Frame nudge={nudge}>
         <Skeleton className="h-3 w-28" />
         <Skeleton className="mt-4 h-2 w-full" />
         <Skeleton className="mt-10 h-9 w-4/5" />
@@ -371,7 +404,7 @@ export function SetupWizard() {
 
   if (wizard.error) {
     return (
-      <Frame>
+      <Frame nudge={nudge}>
         <Callout tone="danger" title="Setup could not load">
           {failureMessage(wizard.error, "your setup")}
         </Callout>
@@ -396,6 +429,7 @@ export function SetupWizard() {
            questions about shifts and loans. */
         flags={MODULE_FEATURE_KEYS.filter((key) => features[key])}
         returning={phase !== "done"}
+        nudge={nudge}
       />
     );
   }
@@ -403,7 +437,7 @@ export function SetupWizard() {
   const question = wizard.questions[index];
   if (!question) {
     return (
-      <Frame>
+      <Frame nudge={nudge}>
         <Callout tone="warning" title="Nothing to ask">
           There are no setup questions right now.
         </Callout>
@@ -420,7 +454,7 @@ export function SetupWizard() {
      Saying so once, plainly, beats five failing buttons. */
   if (!wizard.canAnswer) {
     return (
-      <Frame>
+      <Frame nudge={nudge}>
         <span className="flex size-10 items-center justify-center rounded-full bg-sunken text-muted">
           <Lock aria-hidden="true" className="size-5" />
         </span>
@@ -452,7 +486,7 @@ export function SetupWizard() {
     : null;
 
   return (
-    <Frame>
+    <Frame nudge={nudge}>
       <p className="text-body-sm font-medium text-muted">
         Question {index + 1} of {total}
       </p>
@@ -797,9 +831,17 @@ function chosenOption(
  * No `PageHeader`. A page title above a question would be a second heading
  * competing with the only thing being asked.
  */
-function Frame({ children }: { children: React.ReactNode }) {
+function Frame({
+  nudge,
+  children,
+}: {
+  /** From `SetupWizard`'s own `pending` state — see the note there. */
+  nudge?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <div className="mx-auto w-full max-w-xl px-5 py-12 sm:px-7 sm:py-16">
+      {nudge}
       {children}
     </div>
   );
@@ -1015,12 +1057,14 @@ function RolesStep({
 function Done({
   flags,
   returning,
+  nudge,
 }: {
   flags: FeatureKey[];
   returning: boolean;
+  nudge?: React.ReactNode;
 }) {
   return (
-    <Frame>
+    <Frame nudge={nudge}>
       <span className="flex size-10 items-center justify-center rounded-full bg-success-soft text-success-text">
         <Check aria-hidden="true" strokeWidth={2.5} className="size-5" />
       </span>

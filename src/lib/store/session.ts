@@ -392,6 +392,18 @@ export function useSession() {
      * reaching `.map` is a blank screen; an empty one is a missing badge.
      */
     roles: state.user?.roles ?? [],
+    /**
+     * Whether the signed-in account's email is confirmed.
+     *
+     * Only an explicit `null` means genuinely unverified. Everything else —
+     * demo mode (`state.user` is `null`, nothing to confirm), a real ISO
+     * date, and `undefined` (an API a deploy behind `/auth/me`, which has
+     * carried this field for a while — see the comment on
+     * `ApiUser.emailVerifiedAt`) — defaults to verified. A missing signal
+     * must never *look like* an unverified account, or everyone gets a
+     * banner the moment `sign-in`/`register` lag `/auth/me` by one deploy.
+     */
+    emailVerified: state.user?.emailVerifiedAt !== null,
     employee,
     displayName,
     employeeId: state.employeeId,

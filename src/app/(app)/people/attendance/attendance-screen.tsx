@@ -262,7 +262,7 @@ export function AttendanceScreen() {
               size="md"
             />
             <div className="min-w-0 flex-1">
-              <p className="text-body font-semibold text-ink">
+              <p className="text-body font-semibold">
                 {session.displayName ?? myRow?.employeeName ?? "Your day"}
               </p>
               <p className="mt-0.5 text-body-sm text-muted">
