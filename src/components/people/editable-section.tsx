@@ -169,6 +169,14 @@ export type EditableField = {
   required?: boolean;
   /** Rendered when the value is absent and the section is not being edited. */
   emptyLabel?: string;
+  /**
+   * The empty state is ordinary, not a gap worth flagging red.
+   *
+   * The reporting line is the case this exists for: the one person with no
+   * manager is usually the head of the company, not a record missing
+   * something the way an unset bank account or pension PIN is.
+   */
+  emptyIsNormal?: boolean;
   /** Formats the stored value for display. */
   format?: (v: unknown) => React.ReactNode;
   /**
@@ -447,7 +455,11 @@ export function EditableSection({
   <dt className="text-meta text-muted">{f.label}</dt>
   <dd className="mt-0.5 text-body-sm text-ink">
     {value === null || value === undefined || value === "" ? (
-      <span className="font-medium text-danger-text">
+      <span
+        className={
+          f.emptyIsNormal ? "text-muted" : "font-medium text-danger-text"
+        }
+      >
         {f.emptyLabel ?? "Not provided"}
       </span>
     ) : f.type === "money" ? (
