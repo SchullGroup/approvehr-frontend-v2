@@ -210,23 +210,35 @@ export function ReviewFormModal({
         )
       }
     >
-      {/* The modal is for answering. Everything a rating has to be able to
-          explain — the components behind the mark, who else appraised, the
-          acknowledgement — is on the record, and this is the way to it. */}
-      <p className="mb-4 text-body-sm text-muted">
-        <Link
-          href={`/performance/reviews/${review.id}`}
-          className="font-medium text-accent-text underline-offset-2 hover:underline"
-        >
-          Open the full record
-        </Link>{" "}
-        for the mark, its components and the sign-off.
-      </p>
+      {/* The way to the record — but only once there is a record.
+          "Open the full record for the mark, its components and the sign-off"
+          is three nouns a person filling in a form has no use for, and before
+          they send it there is nothing behind the link at all: no mark, no
+          components, no sign-off. Somebody opening this has one job, and the
+          screen should be about that job. */}
+      {review.submitted && (
+        <p className="mb-4 text-body-sm text-muted">
+          <Link
+            href={`/performance/reviews/${review.id}`}
+            className="font-medium text-accent-text underline-offset-2 hover:underline"
+          >
+            See what came of this
+          </Link>{" "}
+          — the mark, and whether it has been signed off.
+        </p>
+      )}
       <div className="flex flex-col gap-5">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge tone={review.submitted ? "neutral" : "warning"} size="sm" dot>
-            {review.submitted ? "Sent" : "Not sent yet"}
-          </Badge>
+          {/* Only once it is sent. "Not sent yet" on an open, half-typed form
+              tells the person a thing they can see — they are looking at the
+              empty boxes — and the footer already says how many answers are
+              outstanding before it can go. A badge that restates the obvious is
+              the noise this screen had too much of. */}
+          {review.submitted && (
+            <Badge tone="neutral" size="sm" dot>
+              Sent
+            </Badge>
+          )}
           {/* The sign-off state belongs here too, or the modal reads as the whole
               story about a rating that has since become the one of record. Each
               is its own fact: not finalised does not mean disputed. */}
