@@ -101,6 +101,7 @@ export function GradesPanel() {
     pageSize: 100,
   });
   const totals = useGradeTotals(grades.rows);
+  const increase = useGradeIncrease();
   const toast = useToast();
 
   const [creating, setCreating] = useState(false);
@@ -277,7 +278,7 @@ export function GradesPanel() {
                     key={row.id}
                     row={row}
                     editable={grades.editable}
-                    canApply={grades.editable || !grades.connected}
+                    canApply={increase.canApply}
                     onView={() => setViewing(row)}
                     onRaise={() => setRaising(row)}
                     onEdit={() => setEditing(row)}
@@ -1137,7 +1138,7 @@ function PeopleDrawer({
             key={person.id}
             className="rounded-lg border border-line bg-surface p-4"
           >
-            <p className="text-body font-medium text-ink">{person.name}</p>
+            <p className="font-medium text-ink">{person.name}</p>
             <p className="text-body-sm text-muted">
               {person.jobTitle} · {person.employeeNo}
             </p>

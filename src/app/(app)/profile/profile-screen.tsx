@@ -13,11 +13,14 @@ import {
   UserRound,
 } from "lucide-react";
 import { ApiError } from "@/lib/api/client";
+import { passwordAccepted } from "@/lib/api/account";
+import { PasswordField } from "@/components/portal/password-field";
 import {
   Avatar,
   Badge,
   Button,
   ButtonLink,
+  Callout,
   Card,
   CardBody,
   CardHeader,
@@ -36,8 +39,6 @@ import {
 import { cn } from "@/lib/cn";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { SessionRoleBadge } from "@/components/portal/role-badge";
-import { PasswordField } from "@/components/portal/password-field";
-import { passwordAccepted } from "@/lib/api/account";
 import { permissionsApi, type Catalogue } from "@/lib/api/permissions";
 import { requiresStrongPassword, usePermissions } from "@/lib/permissions";
 import { useSession } from "@/lib/store/session";
@@ -875,19 +876,24 @@ function SecurityCard({
       <CardBody className="flex flex-col gap-3">
         {changing ? (
           <>
-            <Field
+            {/* `currentPassword`/`newPassword` are the API's field names
+                (`changePasswordSchema`); a wrong-current-password or
+                already-your-password refusal carries no field at all, so it
+                needs the banner rather than being lost under a field nobody
+                is looking at. */}
+            {error && error.fieldErrors.length === 0 && (
+              <Callout tone="danger" title="That did not work">
+                {error.message}
+              </Callout>
+            )}
+            <PasswordField
               label="Current password"
-              /* A too-weak new password is that field's error, not this
-                 one's — shown there via `PasswordField` instead. */
-              error={error && !error.messageFor("newPassword") ? error.message : undefined}
-            >
-              <Input
-                type="password"
-                autoComplete="current-password"
-                value={current}
-                onChange={(e) => setCurrent(e.target.value)}
-              />
-            </Field>
+              autoComplete="current-password"
+              showRules={false}
+              value={current}
+              onChange={setCurrent}
+              error={error?.messageFor("currentPassword")}
+            />
             <PasswordField
               label="New password"
               autoComplete="new-password"

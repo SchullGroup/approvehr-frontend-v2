@@ -22,6 +22,8 @@ import {
   type ItemInput,
   type ItemPatch,
 } from "@/lib/store/assets";
+import { useDepartments } from "@/lib/store/departments";
+import { useWorkLocations } from "@/lib/store/work-locations";
 
 /**
  * Add or edit one piece of equipment.
@@ -65,9 +67,16 @@ export function ItemForm({
 }) {
   const editing = item !== undefined;
 
+  const departments = useDepartments();
+  const locations = useWorkLocations();
+
   const [tag, setTag] = useState(item?.tag ?? "");
   const [name, setName] = useState(item?.name ?? "");
   const [kindId, setKindId] = useState(item?.kindId ?? "");
+  const [departmentId, setDepartmentId] = useState(item?.departmentId ?? "");
+  const [workLocationId, setWorkLocationId] = useState(
+    item?.workLocationId ?? "",
+  );
   const [make, setMake] = useState(item?.make ?? "");
   const [model, setModel] = useState(item?.model ?? "");
   const [serialNumber, setSerialNumber] = useState(item?.serialNumber ?? "");
@@ -98,6 +107,8 @@ export function ItemForm({
           tag: tag.trim(),
           name: name.trim(),
           kindId: kindId === "" ? null : kindId,
+          departmentId: departmentId === "" ? null : departmentId,
+          workLocationId: workLocationId === "" ? null : workLocationId,
           make: make.trim() === "" ? null : make.trim(),
           model: model.trim() === "" ? null : model.trim(),
           serialNumber: serialNumber.trim() === "" ? null : serialNumber.trim(),
@@ -111,6 +122,8 @@ export function ItemForm({
           tag: tag.trim(),
           name: name.trim(),
           ...(kindId ? { kindId } : {}),
+          ...(departmentId ? { departmentId } : {}),
+          ...(workLocationId ? { workLocationId } : {}),
           ...(make.trim() ? { make: make.trim() } : {}),
           ...(model.trim() ? { model: model.trim() } : {}),
           ...(serialNumber.trim() ? { serialNumber: serialNumber.trim() } : {}),
@@ -233,6 +246,38 @@ export function ItemForm({
                 </option>
               ))}
             </Select>
+          </Field>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          {/* Where it lives, and whose budget it is on — independent of each
+              other and of who is holding it (that's the handover flow, not
+              this form). What a stock-take and a departmental cost report
+              read. */}
+          <Field label="Work location" optional>
+            <Picker
+              value={workLocationId}
+              onChange={setWorkLocationId}
+              placeholder="Not set"
+              loading={locations.loading}
+              options={locations.locations.map((l) => ({
+                value: l.id,
+                label: l.name,
+              }))}
+            />
+          </Field>
+
+          <Field label="Department" optional>
+            <Picker
+              value={departmentId}
+              onChange={setDepartmentId}
+              placeholder="Not assigned"
+              loading={departments.loading}
+              options={departments.flat.map((d) => ({
+                value: d.id,
+                label: d.name,
+              }))}
+            />
           </Field>
         </div>
 

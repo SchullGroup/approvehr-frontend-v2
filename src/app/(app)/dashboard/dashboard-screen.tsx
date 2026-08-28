@@ -85,6 +85,12 @@ export function DashboardScreen() {
      the card can be present and this button still refused, which is what a
      read-only finance reader met. Absent, not disabled. */
   const canRunPayroll = useCan("RUN_PAYROLL");
+  /* Gates the "nobody's on the payroll yet" row below. `headcount` is sent
+     to everybody, unlike `hiring`/`payroll`/`money`/`exits` — so without this,
+     somebody who cannot add an employee would see an action they cannot take.
+     Same principle `StartPeriodButton` above already follows: a dead control
+     is worse than no control. */
+  const canAddEmployee = useCan("EDIT_RECORDS");
 
   if (loading) {
     return (
@@ -107,7 +113,7 @@ export function DashboardScreen() {
         <PageBody>
           <Card>
             <CardBody className="flex flex-col items-start gap-3">
-              <p className="text-body text-ink">
+              <p className="text-body">
                 {error ??
                   "Your dashboard did not load. Try again in a moment."}
               </p>
@@ -137,6 +143,13 @@ export function DashboardScreen() {
      held up. Both render nothing, and the check is presence-then-value rather
      than truthiness so the two stay distinguishable in the code. */
   const exitsHeldUp = exits ? exits.withMandatoryOutstanding : 0;
+
+  /* A company that has never added anyone satisfies none of the other
+     "Needs you" conditions — no approvals, no incomplete records (there is
+     nobody to be incomplete), no exits, no payroll blockers — so without
+     this the card that is supposed to say what needs doing stays hidden for
+     exactly the company that has done the least. */
+  const nobodyOnPayroll = headcount.active === 0;
 
   return (
     <>
@@ -184,7 +197,12 @@ export function DashboardScreen() {
             hint={
               headcount.incomplete > 0
                 ? "Missing a bank account or pension PIN"
-                : "Everyone can be paid"
+                : /* "Everyone can be paid" is true of an empty set, which
+                     reads as reassurance where none is warranted — there is
+                     nobody to have finished a record for. */
+                  nobodyOnPayroll
+                  ? "Nobody added yet"
+                  : "Everyone can be paid"
             }
             icon={<AlertTriangle aria-hidden="true" />}
           />
@@ -256,10 +274,23 @@ export function DashboardScreen() {
         {(approvals.waiting > 0 ||
           headcount.incomplete > 0 ||
           exitsHeldUp > 0 ||
-          (payroll && payroll.blockers > 0)) && (
+          (payroll && payroll.blockers > 0) ||
+          (nobodyOnPayroll && canAddEmployee)) && (
           <Card>
             <CardHeader title="Needs you" />
             <CardBody className="flex flex-col gap-3">
+              {/* First, because nothing else on this card can be true for a
+                  company that has never added anyone — every other row here
+                  needs an employee to exist first. */}
+              {nobodyOnPayroll && canAddEmployee && (
+                <Row
+                  href="/people/new"
+                  label="Nobody's on the payroll yet"
+                  detail="Add your first person to start paying them"
+                  action="Add employee"
+                />
+              )}
+
               {approvals.waiting > 0 && (
                 <Row
                   href="/approvals"
@@ -327,7 +358,7 @@ export function DashboardScreen() {
               <CardBody>
                 {payroll === null ? (
                   <div className="flex flex-col items-start gap-3">
-                    <p className="text-body text-body">
+                    <p className="text-body">
                       No run has been prepared for this month yet.
                     </p>
                     {canRunPayroll && (
@@ -451,7 +482,7 @@ function Row({
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line p-3">
       <div className="min-w-0">
-        <p className="text-body font-medium text-ink">
+        <p className="text-body font-medium">
           {/* Urgency carries a word as well as a colour. */}
           {urgent && (
             <span className="mr-2 text-meta font-semibold uppercase tracking-wide text-danger-text">

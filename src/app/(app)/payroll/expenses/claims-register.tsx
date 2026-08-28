@@ -181,7 +181,7 @@ export function ClaimsRegister({
                       </TD>
                     )}
 
-                    <TD className="max-w-[22rem]">
+                    <TD className="max-w-88">
                       <span className="block text-ink">{claim.description}</span>
                       <span className="block text-meta text-muted">
                         {claim.type}

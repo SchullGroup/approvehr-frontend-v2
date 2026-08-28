@@ -137,7 +137,7 @@ export default function HomePage() {
                       />
                     </span>
                     <div>
-                      <h3 className="text-body font-medium text-slate">
+                      <h3 className="font-medium text-slate">
                         {item.title}
                       </h3>
                       <p className="mt-1 text-body-sm leading-relaxed text-slate-muted">
@@ -167,18 +167,18 @@ export default function HomePage() {
             {SHAPES.map((shape, i) => (
               <Reveal key={shape.title} as="article" delay={i * 80}>
                 <div className="group h-full overflow-hidden rounded-3xl border border-sand-line bg-sand">
-                  <div className="relative aspect-[4/3] overflow-hidden">
+                  <div className="relative aspect-4/3 overflow-hidden">
                     <Image
                       src={shape.src}
                       alt={shape.alt}
                       fill
                       sizes="(max-width: 768px) 100vw, 33vw"
-                      className="object-cover transition-transform duration-500 ease-[var(--ease-out-soft)] group-hover:scale-[1.03]"
+                      className="object-cover transition-transform duration-500 ease-out-soft group-hover:scale-[1.03]"
                     />
                   </div>
                   <div className="p-6">
                     <h3 className="text-h4 text-slate">{shape.title}</h3>
-                    <p className="mt-2.5 text-body leading-relaxed text-slate-muted">
+                    <p className="mt-2.5 text-body leading-relaxed">
                       {shape.body}
                     </p>
                     <p className="mt-4 inline-flex rounded-full bg-white px-3 py-1 text-meta font-medium text-slate-soft">
@@ -244,7 +244,7 @@ export default function HomePage() {
                       strokeWidth={3}
                     />
                   </span>
-                  <span className="text-body leading-relaxed text-slate-soft">
+                  <span className="text-body leading-relaxed">
                     {line}
                   </span>
                 </li>
@@ -289,7 +289,7 @@ export default function HomePage() {
             ].map((item, i) => (
               <Reveal key={i} as="div" delay={i * 70}>
                 <dt className="text-mega text-slate">{item.value}</dt>
-                <dd className="mt-3 text-body leading-relaxed text-slate-muted">
+                <dd className="mt-3 text-body leading-relaxed">
                   {item.label}
                 </dd>
               </Reveal>
@@ -311,13 +311,13 @@ export default function HomePage() {
           <Reveal>
             <div className="grid gap-10 rounded-3xl bg-night p-10 lg:grid-cols-2 lg:items-center lg:p-14">
               <div>
-                <p className="mb-3 text-meta font-semibold uppercase tracking-[0.1em] text-white/40">
+                <p className="mb-3 text-meta font-semibold uppercase tracking-widest text-white/40">
                   Pricing
                 </p>
                 <h2 className="text-h1 text-white">
                   Start free. Pay from month two.
                 </h2>
-                <p className="mt-5 max-w-md text-body leading-relaxed text-white/60">
+                <p className="mt-5 max-w-md leading-relaxed text-white/60">
                   Your first month on us. We migrate your existing employee records and payroll history at no cost. Pricing after that is per employee, per month — the rate falls as your team grows.
                 </p>
                 <Pill href="/demo" variant="solid" arrow className="mt-8">

@@ -69,6 +69,8 @@ export type ApiTeamDetail = ApiTeam & {
   members: ApiTeamMember[];
   /** Monthly cost of the people on it, in integer kobo. */
   payrollKobo: number;
+  /** How many of `members` were left out of `payrollKobo` because they have no pay set. */
+  payrollUnknown: number;
 };
 
 /** Whoever the rule moved. Names, because a count cannot be checked by a human. */
