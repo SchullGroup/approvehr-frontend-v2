@@ -41,6 +41,7 @@ import {
 } from "@/lib/store/performance";
 import { AppraisersDialog } from "./appraiser-map";
 import { FrameworkDisclosure, HowItWorks } from "./how-it-works";
+import { PeriodStatus } from "./period-status";
 import { ReviewFormModal } from "./review-form";
 import { SkillsTab } from "./skills";
 import { StartPeriodButton } from "./start-period";
@@ -372,7 +373,8 @@ export function WhatNeedsYouTab({
               }
             />
           ) : (
-            <CardBody className="flex flex-wrap items-center justify-between gap-3">
+            <>
+              <CardBody className="flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
                   {openPeriod.name}
@@ -418,7 +420,18 @@ export function WhatNeedsYouTab({
                   </ButtonLink>
                 </div>
               )}
-            </CardBody>
+              </CardBody>
+
+              {/* How far along it is, for whoever is running it. Absent for
+                  everybody else rather than zeroed — see `period-status.tsx`.
+                  This card said which period was open and nothing about its
+                  state, so "where is this up to" was two clicks from the screen
+                  that asked it. */}
+              <PeriodStatus
+                cycleId={openPeriod.id}
+                canSeeCompany={canSeeCompany}
+              />
+            </>
           )}
         </Card>
       )}
