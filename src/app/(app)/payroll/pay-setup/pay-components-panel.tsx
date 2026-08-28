@@ -192,16 +192,33 @@ export function PayComponentsPanel({
               "deduction",
             )}
           />
+          {/* "Needs the API" was on screen for all three of these and is a
+              developer's sentence, not a reader's — and for the commonest one
+              it was not even true. `takeHomeKobo` is null when the preview has
+              no answer, and the usual reason is that this person has no monthly
+              pay set, which the "Salary a month" figure to the left already
+              says. The API being unreachable is a different fact, `available`
+              is what reports it, and neither is "needs the API". */}
           <Figure
             label="Take-home this month"
             value={
-              takeHomeKobo === null
-                ? baseline.loading
+              takeHomeKobo !== null
+                ? money(takeHomeKobo)
+                : baseline.loading
                   ? "…"
-                  : "Needs the API"
-                : money(takeHomeKobo)
+                  : data?.employee.grossMonthlyKobo == null
+                    ? "Not yet"
+                    : !baseline.available
+                      ? "Not available"
+                      : "Not worked out"
             }
-            hint="after PAYE, pension and NHF"
+            hint={
+              takeHomeKobo === null &&
+              !baseline.loading &&
+              data?.employee.grossMonthlyKobo == null
+                ? "once a monthly salary is set"
+                : "after PAYE, pension and NHF"
+            }
             strong
           />
         </div>
@@ -221,7 +238,12 @@ export function PayComponentsPanel({
             description={
               lines.loading
                 ? undefined
-                : "Add a car allowance, a cooperative deduction, a salary advance being recovered — anything that is not the base salary."
+                : lines.editable
+                  ? "Add a car allowance, a cooperative deduction, a salary advance being recovered — anything that is not the base salary."
+                  : /* Without `MANAGE_PAY_STRUCTURE` there is no Add button, so
+                       an instruction to add one is an instruction to nobody.
+                       State what the emptiness means instead. */
+                    "Nothing is added to or taken off this salary — no car allowance, no cooperative deduction, no advance being recovered."
             }
             action={
               !lines.loading && lines.editable ? (

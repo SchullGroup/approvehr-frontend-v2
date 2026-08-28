@@ -17,6 +17,7 @@ import {
 } from "@/lib/api/setup";
 import { EMPLOYEES } from "@/lib/mock/people";
 import { useSession } from "./session";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * Which parts of the product this company sees.
@@ -664,12 +665,15 @@ function useLoadedState(): State {
 
   const key = isConnected ? `api:${user?.organizationId ?? "self"}` : "demo";
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     /* Nothing to load until the session knows whether it is signed in — loading
        demo first and API second would flash a different nav. */
     if (isLoading) return;
     void ensure(key);
-  }, [key, isLoading]);
+  }, [key, isLoading, revalidation]);
 
   return state;
 }
@@ -860,6 +864,9 @@ export function useWizard() {
     error: null,
   });
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (isLoading) return;
     let cancelled = false;
@@ -905,7 +912,7 @@ export function useWizard() {
     return () => {
       cancelled = true;
     };
-  }, [isConnected, isLoading, attempt]);
+  }, [isConnected, isLoading, attempt, revalidation]);
 
   const answer = useCallback(
     async (questionId: string, value: string): Promise<void> => {

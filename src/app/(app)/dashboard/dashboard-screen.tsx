@@ -25,6 +25,7 @@ import { AnnouncementsPanel } from "./announcements-panel";
 import { useDashboard } from "@/lib/store/insights";
 import { StartPeriodButton } from "@/app/(app)/performance";
 import { naira, runStatusLabel } from "@/lib/api/insights";
+import { useCan } from "@/lib/permissions";
 
 /**
  * The screen people open first.
@@ -77,6 +78,13 @@ import { naira, runStatusLabel } from "@/lib/api/insights";
  */
 export function DashboardScreen() {
   const { data, loading, error, reload } = useDashboard();
+  /* The card this sits in is gated by the API on `VIEW_SALARIES` — "absent
+     means no permission", see the comment on the block below. Preparing a
+     payroll is `RUN_PAYROLL`, which is a different permission on purpose:
+     `PARITY.md` splits reading what people are paid from releasing money. So
+     the card can be present and this button still refused, which is what a
+     read-only finance reader met. Absent, not disabled. */
+  const canRunPayroll = useCan("RUN_PAYROLL");
 
   if (loading) {
     return (
@@ -322,10 +330,12 @@ export function DashboardScreen() {
                     <p className="text-body text-body">
                       No run has been prepared for this month yet.
                     </p>
-                    <ButtonLink href="/payroll/runs/new" variant="accent" size="sm">
-                      Start this month&rsquo;s payroll
-                      <ArrowRight aria-hidden="true" className="size-4" />
-                    </ButtonLink>
+                    {canRunPayroll && (
+                      <ButtonLink href="/payroll/runs/new" variant="accent" size="sm">
+                        Start this month&rsquo;s payroll
+                        <ArrowRight aria-hidden="true" className="size-4" />
+                      </ButtonLink>
+                    )}
                   </div>
                 ) : (
                   <div className="flex flex-col gap-4">

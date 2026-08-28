@@ -19,6 +19,7 @@ import {
 } from "@/lib/api/webhooks";
 import { todayDate } from "@/lib/today";
 import { useSession } from "./session";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * Webhooks, from whichever source is available.
@@ -403,6 +404,9 @@ export function useWebhookCatalogue() {
     error: string | null;
   } | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -428,7 +432,7 @@ export function useWebhookCatalogue() {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected]);
+  }, [isConnected, revalidation]);
 
   if (!isConnected) {
     return {
@@ -473,6 +477,9 @@ export function useWebhooks(options: WebhookListOptions = {}) {
      under another. */
   const key = `${state}|${q}|${page}|${nonce}`;
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -511,7 +518,7 @@ export function useWebhooks(options: WebhookListOptions = {}) {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, state, q, page, key]);
+  }, [isConnected, state, q, page, key, revalidation]);
 
   const reload = useCallback(() => setNonce((n) => n + 1), []);
 
@@ -559,6 +566,9 @@ export function useWebhook(id: string) {
 
   const key = `${id}|${nonce}`;
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected || !id) return;
     let cancelled = false;
@@ -584,7 +594,7 @@ export function useWebhook(id: string) {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, id, key]);
+  }, [isConnected, id, key, revalidation]);
 
   const reload = useCallback(() => setNonce((n) => n + 1), []);
 
@@ -647,6 +657,9 @@ export function useDeliveryLog(webhookId: string, options: DeliveryLogOptions = 
 
   const key = `${webhookId}|${status}|${event}|${page}|${nonce}`;
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected || !webhookId) return;
     let cancelled = false;
@@ -686,7 +699,7 @@ export function useDeliveryLog(webhookId: string, options: DeliveryLogOptions = 
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, webhookId, status, event, page, key]);
+  }, [isConnected, webhookId, status, event, page, key, revalidation]);
 
   const reload = useCallback(() => setNonce((n) => n + 1), []);
 

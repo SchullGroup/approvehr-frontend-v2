@@ -33,6 +33,7 @@ import { createPersistedState } from "./persisted";
 import { useLeaveBalances } from "./leave-balances";
 import { useSession } from "./session";
 import { useEmployeeStore } from "./employees";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * Leavers, from whichever source is available.
@@ -1068,6 +1069,9 @@ export function useExits(params: ExitListParams = {}) {
   const [attempt, setAttempt] = useState(0);
   const [fetched, setFetched] = useState<ListState | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (isLoading || !isConnected) return;
     let cancelled = false;
@@ -1103,7 +1107,7 @@ export function useExits(params: ExitListParams = {}) {
     /* `key` is `query` stringified, so it is the same dependency spelled twice
        — but it is what makes a stale response for a superseded filter fail the
        comparison below rather than render. */
-  }, [key, query, isConnected, isLoading, attempt]);
+  }, [key, query, isConnected, isLoading, attempt, revalidation]);
 
   const local = useMemo(() => {
     const matchesState =
@@ -1193,6 +1197,9 @@ export function useExit(id: string) {
     [id],
   );
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (isLoading || !isConnected) return;
     let cancelled = false;
@@ -1217,7 +1224,7 @@ export function useExit(id: string) {
       cancelled = true;
       controller.abort();
     };
-  }, [id, load, isConnected, isLoading, attempt]);
+  }, [id, load, isConnected, isLoading, attempt, revalidation]);
 
   const localExit = useMemo(
     () => demo.exits.find((row) => row.id === id) ?? null,
@@ -1393,6 +1400,9 @@ export function useMyExit() {
      a staff record there is no id to filter on — and asking the list for
      "nobody's exits" would be a request whose only possible answer is a
      validation error. */
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (isLoading || !isConnected || !subject) return;
     let cancelled = false;
@@ -1422,7 +1432,7 @@ export function useMyExit() {
       cancelled = true;
       controller.abort();
     };
-  }, [subject, isConnected, isLoading, attempt]);
+  }, [subject, isConnected, isLoading, attempt, revalidation]);
 
   const local = useMemo(
     () =>
@@ -1534,6 +1544,9 @@ export function useExitTemplates(includeInactive = false) {
 
   const key = includeInactive ? "all" : "active";
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (isLoading || !isConnected) return;
     let cancelled = false;
@@ -1561,7 +1574,7 @@ export function useExitTemplates(includeInactive = false) {
       cancelled = true;
       controller.abort();
     };
-  }, [key, includeInactive, isConnected, isLoading, attempt]);
+  }, [key, includeInactive, isConnected, isLoading, attempt, revalidation]);
 
   const local = useMemo(
     () =>

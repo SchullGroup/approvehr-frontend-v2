@@ -17,6 +17,7 @@ import {
 import { bandPositionOf, type Band } from "@/lib/grades/band";
 import { EMPLOYEES } from "@/lib/mock/people";
 import { useSession } from "./session";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * Salary grades, from whichever source is available.
@@ -259,9 +260,12 @@ export function useGrades(params: GradeListParams = {}) {
     }
   }, [isConnected, isLoading, key]);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, revalidation]);
 
   const guard = useCallback(
     (what: string) => {
@@ -364,6 +368,9 @@ export function useGradeEmployees(gradeId: string | null, band: Band | null) {
   const active = gradeId !== null && band !== null && !isLoading;
   const wanted = isConnected ? gradeId : null;
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!wanted) return;
     let cancelled = false;
@@ -394,7 +401,7 @@ export function useGradeEmployees(gradeId: string | null, band: Band | null) {
     return () => {
       cancelled = true;
     };
-  }, [wanted]);
+  }, [wanted, revalidation]);
 
   const demoRows = useMemo(() => {
     if (isConnected || !gradeId) return [];
@@ -445,6 +452,9 @@ export function useBandPosition(employeeId: string | null) {
   const active = employeeId !== null && !isLoading;
   const wanted = isConnected ? employeeId : null;
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!wanted) return;
     let cancelled = false;
@@ -467,7 +477,7 @@ export function useBandPosition(employeeId: string | null) {
     return () => {
       cancelled = true;
     };
-  }, [wanted]);
+  }, [wanted, revalidation]);
 
   /**
    * The demo answer, derived rather than fetched.

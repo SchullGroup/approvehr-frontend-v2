@@ -22,6 +22,7 @@ import {
 } from "./demo-structure";
 import { useEmployeeStore } from "./employees";
 import { useSession } from "./session";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * Departments, in both modes — and demo mode can now edit them.
@@ -183,6 +184,9 @@ export function useDepartments(includeArchived = false) {
 
   const key = `${String(includeArchived)}|${tick}`;
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -206,7 +210,7 @@ export function useDepartments(includeArchived = false) {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, includeArchived, key]);
+  }, [isConnected, includeArchived, key, revalidation]);
 
   const reload = useCallback(() => setTick((current) => current + 1), []);
 
@@ -537,6 +541,9 @@ export function useDepartment(id: string | null) {
     detail: ApiDepartmentDetail | null;
   } | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!active || !id) return;
     let cancelled = false;
@@ -554,7 +561,7 @@ export function useDepartment(id: string | null) {
       cancelled = true;
       controller.abort();
     };
-  }, [id, active]);
+  }, [id, active, revalidation]);
 
   const people = useMemo(() => structurePeople(directory), [directory]);
   const demoDetail = useMemo(

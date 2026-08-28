@@ -311,6 +311,24 @@ export function EmployeeRecord({
    */
   const canReveal = canSeeSalaries || (me !== null && me === employee.id);
 
+  /**
+   * Whether the person reading this record is the person it is about.
+   *
+   * Almost every sentence on this page was written for somebody in HR looking
+   * at a colleague, which is the common case and the wrong one to write for
+   * *exclusively*: an employee opens their own record and is told, in the third
+   * person, that their missing TIN blocks a payroll run they have never heard
+   * of and cannot do anything about. Not an error, but it reads as one — and
+   * "this app shouldn't feel buggy" is the whole complaint.
+   *
+   * So this switches wording rather than hiding facts. Somebody is entitled to
+   * see that their bank account is missing; what they are not served by is
+   * being handed a payroll operator's framing of it. Where an action genuinely
+   * belongs to somebody else, the rule is the one `my-documents.tsx` already
+   * follows: **name who can**, rather than offering a control that gets refused.
+   */
+  const isSelf = me !== null && me === employee.id;
+
   /* The department picker sends an id, and the id it should show as selected is
      the one whose name matches the record — `Employee` carries the name only.
      Works in both modes: offline `flat` is derived from the seed. */
@@ -420,7 +438,9 @@ export function EmployeeRecord({
           {payrollAdvisory.length > 0 && (
             <CardBody className="border-t border-line">
               <p className="mb-2 text-meta font-medium text-muted">
-                Worth adding, not pay-blocking
+                {isSelf
+                  ? "Missing from your record"
+                  : "Worth adding, not pay-blocking"}
               </p>
               <ul className="flex flex-col gap-1.5">
                 {payrollAdvisory.map((g) => (
@@ -468,7 +488,7 @@ export function EmployeeRecord({
               block
               onClick={() => setFileOpen(true)}
             >
-              Their documents
+              {isSelf ? "My documents" : "Their documents"}
             </Button>
             {/* Their appraisals, from their record. The trend across periods was
                 only reachable from a period's own register before this, which
@@ -481,7 +501,7 @@ export function EmployeeRecord({
               block
             >
               <TrendingUp aria-hidden="true" className="size-3.5" />
-              Their appraisal history
+              {isSelf ? "My appraisal history" : "Their appraisal history"}
             </ButtonLink>
             {/* The third door on one dialog. Starting a period covers the whole
                 company rather than this person — the dialog says so — and it is
@@ -912,7 +932,11 @@ export function EmployeeRecord({
                 ? { openOnField: focusField }
                 : {})}
               title="Payment and statutory"
-              description="Missing values block the run."
+              description={
+                isSelf
+                  ? "Where your salary is paid, and the numbers the company files against."
+                  : "Missing values block the run."
+              }
               employee={employee}
               onSave={onSave}
               fields={[
@@ -946,7 +970,9 @@ export function EmployeeRecord({
                 {
                   key: "bankAccount",
                   label: "Account",
-                  emptyLabel: "No bank account — payroll blocked",
+                  emptyLabel: isSelf
+                    ? "Not on file — your salary has nowhere to go"
+                    : "No bank account — payroll blocked",
                   help: "Ten digits. Payroll cannot pay without this.",
                   digits: 10,
                   format: (v) => (
@@ -956,7 +982,9 @@ export function EmployeeRecord({
                 {
                   key: "pensionPin",
                   label: "Pension PIN",
-                  emptyLabel: "No pension PIN — payroll blocked",
+                  emptyLabel: isSelf
+                    ? "Not on file — your pension cannot be paid in"
+                    : "No pension PIN — payroll blocked",
                   help: "PEN followed by 9 to 12 digits.",
                   format: (v) => (
                     <Guarded value={String(v)} canReveal={canReveal} />
@@ -1007,7 +1035,9 @@ export function EmployeeRecord({
                 {
                   key: "tin",
                   label: "TIN",
-                  emptyLabel: "No TIN — payroll blocked",
+                  emptyLabel: isSelf
+                    ? "Not on file — your tax cannot be filed against you"
+                    : "No TIN — payroll blocked",
                   help: "Ten digits.",
                   digits: 10,
                   format: (v) => (
@@ -1260,6 +1290,14 @@ function Compensation({
   connected: boolean;
 }) {
   const preview = usePayPreview(employee.id);
+  const { employeeId: me } = useSession();
+  /* Reading your own pay and being able to change what the company deducts are
+     different acts, and this card used to offer the second to anybody who could
+     do the first. `MANAGE_PAY_STRUCTURE` is what `PATCH /payroll/settings`
+     demands — see `settings/payroll/form.tsx` — so without it the link goes
+     rather than landing somebody on a form that is read-only for them. */
+  const canManagePay = useCan("MANAGE_PAY_STRUCTURE");
+  const isSelf = me !== null && me === employee.id;
 
   const live = preview.data?.payslip ?? null;
   /* Only offline, and only for a salary the fixture actually covers. */
@@ -1289,9 +1327,11 @@ function Compensation({
         title="Compensation"
         description="Split according to your company salary structure."
         action={
-          <ButtonLink href="/settings/payroll" variant="ghost" size="sm">
-            Structure settings
-          </ButtonLink>
+          canManagePay ? (
+            <ButtonLink href="/settings/payroll" variant="ghost" size="sm">
+              Structure settings
+            </ButtonLink>
+          ) : undefined
         }
       />
       <CardBody className="flex flex-col gap-3">
@@ -1304,8 +1344,19 @@ function Compensation({
           </>
         ) : figures === null ? (
           <p className="text-body-sm leading-relaxed text-muted">
+            {/* The API's own sentence, verbatim — except to the one reader it
+                was not written for. It says "{name} has no monthly pay set …
+                Set their pay first", which on your own record names you in the
+                third person and then asks you to do a thing only payroll can
+                do. Same failure as an error with no way out of it: the fix is
+                not a button here, because there is no button this reader could
+                be given. It is naming who to ask. */}
             {connected && preview.error
-              ? preview.error.message
+              ? isSelf
+                ? "Your monthly pay has not been set yet, so this month’s " +
+                  "figures cannot be worked out. Payroll sets it — ask them, " +
+                  "or raise it on the help desk."
+                : preview.error.message
               : "PAYE, pension and NHF are worked out by the payroll engine on " +
                 "the API, and this salary is not one the demo holds illustrative " +
                 "figures for. Start the API to see what this person is paid."}

@@ -12,6 +12,7 @@ import {
 import { WORK_LOCATIONS } from "@/lib/mock/attendance";
 import { createPersistedState } from "./persisted";
 import { useSession } from "./session";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * Work locations — the offices, branches and sites people clock in at.
@@ -212,6 +213,9 @@ export function useWorkLocationList(includeArchived: boolean): WorkLocationsStat
 
   const key = `${includeArchived ? "all" : "on"}|${tick}`;
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -238,7 +242,7 @@ export function useWorkLocationList(includeArchived: boolean): WorkLocationsStat
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, includeArchived, key]);
+  }, [isConnected, includeArchived, key, revalidation]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
 

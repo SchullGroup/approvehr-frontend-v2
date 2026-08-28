@@ -21,6 +21,7 @@ import { useCompanySettings } from "./company";
 import { useLeaveStore } from "./leave";
 import { useLeaveBalances } from "./leave-balances";
 import { useSession } from "./session";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * Leave, from whichever source is available.
@@ -161,9 +162,12 @@ export function useLeaveRequests(params: LeaveListParams = {}): LeaveListState {
     }
   }, [isConnected, key]);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, revalidation]);
 
   if (!isConnected) {
     /* Demo mode: the same filters, applied in memory. */
@@ -224,6 +228,9 @@ export function useLeaveRequestDetail(id: string | null): LeaveDetailState {
     detail: LeaveDetail | null;
   } | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!active || !id) return;
     let cancelled = false;
@@ -238,7 +245,7 @@ export function useLeaveRequestDetail(id: string | null): LeaveDetailState {
     return () => {
       cancelled = true;
     };
-  }, [id, active]);
+  }, [id, active, revalidation]);
 
   const rows = useMemo(
     () => (isConnected ? [] : local.requests.map(fromSeed)),
@@ -318,6 +325,9 @@ export function useLeaveTypes(): LeaveTypesState {
   const { settings } = useCompanySettings();
   const [fetched, setFetched] = useState<LeaveTypeRow[] | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -332,7 +342,7 @@ export function useLeaveTypes(): LeaveTypesState {
     return () => {
       cancelled = true;
     };
-  }, [isConnected]);
+  }, [isConnected, revalidation]);
 
   const local = useMemo<LeaveTypeRow[]>(
     () =>
@@ -398,6 +408,9 @@ export function useLeaveBalancesFor(
     rows: Record<string, LeaveBalanceRow[]>;
   } | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected || key === "") return;
     let cancelled = false;
@@ -417,7 +430,7 @@ export function useLeaveBalancesFor(
     return () => {
       cancelled = true;
     };
-  }, [isConnected, key]);
+  }, [isConnected, key, revalidation]);
 
   const matched = fetched !== null && fetched.key === key;
 
@@ -611,6 +624,9 @@ export function useEmployeeLeaveBalances(
 
   const active = isConnected && employeeId !== null;
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!active || employeeId === null) return;
     const controller = new AbortController();
@@ -636,7 +652,7 @@ export function useEmployeeLeaveBalances(
       cancelled = true;
       controller.abort();
     };
-  }, [active, employeeId]);
+  }, [active, employeeId, revalidation]);
 
   if (!isConnected) {
     return {
