@@ -539,21 +539,57 @@ function UserMenu() {
   );
 }
 
+/**
+ * Which company you are looking at.
+ *
+ * ## It used to be a hardcoded lie
+ *
+ * This rendered the literal string "Schull Technologies" and the letter "S" for
+ * every account in every organisation, reading no data at all. Two companies
+ * open side by side therefore both said "Schull Technologies", which is exactly
+ * how somebody ends up creating appraisal forms in one company and wondering
+ * why an employee in another cannot see them. The label is the *only* thing on
+ * screen that distinguishes two tenants, so a wrong one is worse than none.
+ *
+ * ## And it is not a switcher
+ *
+ * `User.organizationId` is a single column — an account belongs to exactly one
+ * organisation and there is no membership join table, so there is nothing to
+ * switch *to*. The chevron promised a menu that could never exist and the
+ * button did nothing when pressed: a dead control, which this codebase's own
+ * rule says should be absent rather than inert. It is a label now.
+ *
+ * Renders nothing when the name is not known — after a fresh sign-in, before
+ * the first `/auth/me`. Absent, not a guess.
+ */
 function CompanySwitcher() {
+  const { user } = useSession();
+  const organization = user?.organization;
+  if (!organization) return null;
+
+  /* The trading name is what people call the company; the legal name is what
+     the certificate says. Prefer the first and fall back to the second, the
+     same order `payslip-document.tsx` uses for the employer block. */
+  const name = organization.tradingName ?? organization.legalName;
+  const initial = name.trim().charAt(0).toUpperCase() || "?";
+
   return (
-    <button
-      type="button"
+    <span
       className={cn(
         "hidden items-center gap-2 rounded-md border border-line px-2.5 py-1.5",
-        "text-body-sm font-medium text-ink transition-colors hover:bg-canvas sm:flex",
+        "text-body-sm font-medium text-ink sm:flex",
       )}
+      title={
+        organization.tradingName && organization.tradingName !== organization.legalName
+          ? organization.legalName
+          : undefined
+      }
     >
       <span className="flex size-5 items-center justify-center rounded-xs bg-accent text-meta font-bold text-white">
-        S
+        {initial}
       </span>
-      Schull Technologies
-      <ChevronDown aria-hidden="true" className="size-3.5 text-faint" />
-    </button>
+      <span className="max-w-[14rem] truncate">{name}</span>
+    </span>
   );
 }
 

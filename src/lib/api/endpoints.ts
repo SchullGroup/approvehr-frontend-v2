@@ -31,6 +31,20 @@ export type ApiUser = {
   firstName: string;
   lastName: string;
   organizationId: string;
+  /**
+   * The company this account belongs to, by name.
+   *
+   * Optional because only `GET /auth/me` returns it — sign-in and refresh hand
+   * back the account alone. Every page load restores through `/auth/me`, so in
+   * practice it is present; a screen reading it must still handle the gap by
+   * showing **nothing** rather than a guess, which is the point of the field
+   * existing at all. See `CompanySwitcher`.
+   */
+  organization?: {
+    id: string;
+    legalName: string;
+    tradingName: string | null;
+  };
   employeeId: string | null;
   permissions: string[];
   /**
