@@ -166,8 +166,15 @@ export function WhatNeedsYouTab({
 
   /* Whoever may change the mapping — the API gates `PUT /cycles/:id/appraisers`
      on `MANAGE_SETTINGS`, so this is the same question asked before offering the
-     button rather than after the refusal. */
-  const canAssignAppraiser = useCan("MANAGE_SETTINGS");
+     button rather than after the refusal.
+
+     The same permission decides whether a period may be set up, started, or its
+     feature flag turned on, so the cards below read it too. They had no gate at
+     all: an employee opening KPIs & appraisals was offered "Set it up and start
+     it" on a draft period and "Turn appraisals on", both of which land on a
+     screen that is read-only for them. */
+  const canManagePeriods = useCan("MANAGE_SETTINGS");
+  const canAssignAppraiser = canManagePeriods;
   const [assigningSelf, setAssigningSelf] = useState(false);
 
   /* My own objectives, split by who the next move belongs to. `mine` scope also
@@ -308,11 +315,17 @@ export function WhatNeedsYouTab({
         <Card>
           <CardHeader
             title="Appraisals are switched off"
-            description="KPIs work without them. Turning them on adds appraisal periods, a mark made of objectives and competencies, and a record of what each person was told."
+            description={
+              canManagePeriods
+                ? "KPIs work without them. Turning them on adds appraisal periods, a mark made of objectives and competencies, and a record of what each person was told."
+                : "Your company does not run formal appraisals. KPIs still work."
+            }
             action={
-              <ButtonLink variant="accent" size="sm" href="/settings/features">
-                Turn appraisals on
-              </ButtonLink>
+              canManagePeriods ? (
+                <ButtonLink variant="accent" size="sm" href="/settings/features">
+                  Turn appraisals on
+                </ButtonLink>
+              ) : undefined
             }
           />
         </Card>
@@ -339,7 +352,11 @@ export function WhatNeedsYouTab({
               compact
               icon={<CalendarRange aria-hidden="true" />}
               title="No appraisal period is running"
-              description="A period is the stretch of time an appraisal covers. Starting one gives everybody a form."
+              description={
+                canManagePeriods
+                  ? "A period is the stretch of time an appraisal covers. Starting one gives everybody a form."
+                  : "Your form turns up here when one starts."
+              }
             />
           ) : (
             <CardBody className="flex flex-wrap items-center justify-between gap-3">
@@ -370,16 +387,24 @@ export function WhatNeedsYouTab({
                   )}
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <ButtonLink
-                  size="sm"
-                  href={`/performance/periods/${openPeriod.id}`}
-                >
-                  {openPeriod.stage === "DRAFT"
-                    ? "Set it up and start it"
-                    : "Who is outstanding"}
-                </ButtonLink>
-              </div>
+              {/* Both destinations are the period's management screen, so both
+                  are gated the same way `showOutstandingLink` already gates the
+                  one beside it. Setting a period up and reading who is
+                  outstanding are things a period's owner does; an employee's
+                  own business with a period is the form, which is the work list
+                  below. Absent, not disabled. */}
+              {canManagePeriods && (
+                <div className="flex flex-wrap gap-2">
+                  <ButtonLink
+                    size="sm"
+                    href={`/performance/periods/${openPeriod.id}`}
+                  >
+                    {openPeriod.stage === "DRAFT"
+                      ? "Set it up and start it"
+                      : "Who is outstanding"}
+                  </ButtonLink>
+                </div>
+              )}
             </CardBody>
           )}
         </Card>
