@@ -27,6 +27,7 @@ import {
   TR,
   TableWrap,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import {
   scoreLabel,
@@ -143,11 +144,7 @@ export function PeriodReportScreen({ cycleId }: { cycleId: string }) {
           </Callout>
         ) : null}
 
-        {detail.error && (
-          <p className="rounded-md border border-danger-line bg-danger-soft px-3.5 py-2.5 text-body-sm text-ink">
-            {detail.error.message}
-          </p>
-        )}
+        <LoadFailure subject="this period's report" error={detail.error} />
 
         {detail.loading && (
           <Card>

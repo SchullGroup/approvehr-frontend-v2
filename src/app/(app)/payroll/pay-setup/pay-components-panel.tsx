@@ -756,11 +756,10 @@ function AddLineDialog({
                 <OfflineEffect component={chosen} amountKobo={amountKobo} />
               ))}
 
-            {preview.error && (
-              <Callout tone="danger" title="Could not work out the effect">
-                {preview.error.message}
-              </Callout>
-            )}
+            <LoadFailure
+              subject="the effect on their pay"
+              error={preview.error}
+            />
           </>
         )}
       </div>
@@ -822,11 +821,7 @@ function RemoveLineDialog({
           />
         )}
 
-        {preview.error && (
-          <Callout tone="danger" title="Could not work out the effect">
-            {preview.error.message}
-          </Callout>
-        )}
+        <LoadFailure subject="the effect on their pay" error={preview.error} />
       </div>
     </Modal>
   );

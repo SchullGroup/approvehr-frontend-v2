@@ -205,9 +205,16 @@ export function BatchDetailScreen({ id }: { id: string }) {
       />
 
       <PageBody className="flex flex-col gap-6">
+        {/* The batch-level failure sat above a CheckPanel with its own "Check
+            again" and pointed at neither. Naming the next step where the
+            problem is stated beats leaving somebody to find it further down. */}
         {batch.failureReason && (
           <Callout tone="warning" title="What happened to this batch">
-            {batch.failureReason}
+            <p>{batch.failureReason}</p>
+            <p className="mt-2 text-meta text-muted">
+              Fix the records this names, then run the check below again before
+              releasing it.
+            </p>
           </Callout>
         )}
 
@@ -340,6 +347,7 @@ export function BatchDetailScreen({ id }: { id: string }) {
                     <InstructionState
                       status={row.status}
                       failureReason={row.failureReason}
+                      employeeId={row.employeeId}
                     />
                   </TD>
                 </TR>
@@ -430,9 +438,12 @@ function HistoryLine({ term, value }: { term: string; value: string }) {
 function InstructionState({
   status,
   failureReason,
+  /** So a failure can point at the record that would fix it. */
+  employeeId,
 }: {
   status: string;
   failureReason: string | null;
+  employeeId: string | null;
 }) {
   const map: Record<string, { label: string; tone: "neutral" | "warning" | "success" | "danger" }> = {
     PENDING: { label: "Not sent", tone: "neutral" },
@@ -448,7 +459,22 @@ function InstructionState({
         {state.label}
       </Badge>
       {failureReason && (
-        <span className="text-meta text-danger-text">{failureReason}</span>
+        <span className="flex flex-col gap-1">
+          <span className="text-meta text-danger-text">{failureReason}</span>
+          {/* Somebody's pay did not arrive and the row knew who they were and
+              said nothing about what to do. `fixFor` in `lib/api/payroll.ts`
+              has sent a missing bank account to exactly this href since the
+              exclusions work; this is the same fix, on the screen where the
+              money actually failed rather than where it was predicted to. */}
+          {employeeId && (
+            <Link
+              href={`/people/${employeeId}?tab=pay&field=bankAccount`}
+              className="text-meta font-medium text-accent-text underline-offset-2 hover:underline"
+            >
+              Check their bank details
+            </Link>
+          )}
+        </span>
       )}
     </span>
   );

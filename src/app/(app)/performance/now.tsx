@@ -30,6 +30,7 @@ import {
   type ApiPeerFeedback,
   type ApiReview,
 } from "@/lib/api/performance";
+import { useCan } from "@/lib/permissions";
 import { useFeatures } from "@/lib/store/features";
 import { useSession } from "@/lib/store/session";
 import {
@@ -38,6 +39,7 @@ import {
   useMyAppraisers,
   useObjectiveApprovals,
 } from "@/lib/store/performance";
+import { AppraisersDialog } from "./appraiser-map";
 import { FrameworkDisclosure, HowItWorks } from "./how-it-works";
 import { ReviewFormModal } from "./review-form";
 import { SkillsTab } from "./skills";
@@ -162,6 +164,12 @@ export function WhatNeedsYouTab({
       : undefined;
   const appraisingMe = mine.row?.appraisers ?? [];
 
+  /* Whoever may change the mapping — the API gates `PUT /cycles/:id/appraisers`
+     on `MANAGE_SETTINGS`, so this is the same question asked before offering the
+     button rather than after the refusal. */
+  const canAssignAppraiser = useCan("MANAGE_SETTINGS");
+  const [assigningSelf, setAssigningSelf] = useState(false);
+
   /* My own objectives, split by who the next move belongs to. `mine` scope also
      returns the company's, which nobody owns and nobody sends — hence the owner
      check rather than a bare approval filter. */
@@ -231,7 +239,30 @@ export function WhatNeedsYouTab({
            screen, which reads as a note written about them rather than to
            them. Dropped for the same reason. */
         <Callout tone="warning" title="Nobody is set to appraise you yet">
-          Ask whoever runs this period to assign one.
+          {/* Two readers, two different sentences.
+              --------------------------------------
+              Somebody who can set an appraiser gets to do it here, in a dialog,
+              without leaving the screen they are on — the standing rule is that
+              a problem the reader can fix must never be stated without the fix
+              beside it.
+
+              An ordinary employee cannot, and for them the honest answer is who
+              can. Offering a button that the API would refuse is the failure
+              this rule exists to prevent, one step further along. */}
+          {canAssignAppraiser && mine.row && openPeriod ? (
+            <span className="flex flex-wrap items-center gap-3">
+              <span>Set one now and this clears.</span>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setAssigningSelf(true)}
+              >
+                Assign an appraiser
+              </Button>
+            </span>
+          ) : (
+            "Ask whoever runs this period to assign one."
+          )}
         </Callout>
       )}
 
@@ -640,6 +671,24 @@ export function WhatNeedsYouTab({
           reviewId={opened}
           onClose={() => setOpened(null)}
           onDone={appraisals.reload}
+        />
+      )}
+
+      {/* The same dialog the period screen uses, on the screen where the
+          problem was noticed. One implementation of "who appraises this
+          person"; two places it can be reached from. */}
+      {assigningSelf && mine.row && openPeriod && (
+        <AppraisersDialog
+          cycleId={openPeriod.id}
+          row={mine.row}
+          onClose={() => setAssigningSelf(false)}
+          onSaved={() => {
+            setAssigningSelf(false);
+            /* `useMyAppraisers` has no reload of its own; the appraisals load
+               is what this screen re-reads, and the mapping is re-fetched with
+               it on the next render. */
+            appraisals.reload();
+          }}
         />
       )}
     </div>

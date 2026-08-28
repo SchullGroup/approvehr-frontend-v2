@@ -13,6 +13,7 @@ import {
   formatMoney,
   useToast,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { cn } from "@/lib/cn";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -61,11 +62,7 @@ export function MyExpenses({ className }: { className?: string }) {
         />
 
         <CardBody className="flex flex-col gap-4">
-          {mine.error && (
-            <p className="rounded-md border border-danger-line bg-danger-soft px-3 py-2.5 text-body-sm text-danger-text">
-              {mine.error.message}
-            </p>
-          )}
+          <LoadFailure subject="your expense claims" error={mine.error} />
 
           <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
             <div>
