@@ -217,14 +217,21 @@ export function WhatNeedsYouTab({
           hear about your own missing appraiser is the worst possible order to
           find out in. */}
       {scored && noAppraiser && (
-        <Callout tone="warning" title="Nobody is appraising you in this period">
-          <p>{noAppraiser.message}</p>
-          <p className="mt-2">
-            Your self-review still counts and still goes in. What is missing is
-            somebody to write the manager review, which is the rating of record
-            — ask whoever runs the period to set a manager on your record or
-            assign an appraiser.
-          </p>
+        /* One line, not four.
+           ---------------------
+           This used to explain the mechanism — that the cycle falls back to a
+           line manager, that the self-review still counts, what a manager
+           review is for. All true, and none of it this person's job: they
+           cannot set their own appraiser and nothing here changes what they
+           should do next. What they need is that somebody has to fix it and it
+           is not them.
+
+           The API's own `message` named the employee in the third person
+           ("Ekemini Adowoima has no appraiser yet") on the employee's own
+           screen, which reads as a note written about them rather than to
+           them. Dropped for the same reason. */
+        <Callout tone="warning" title="Nobody is set to appraise you yet">
+          Ask whoever runs this period to assign one.
         </Callout>
       )}
 

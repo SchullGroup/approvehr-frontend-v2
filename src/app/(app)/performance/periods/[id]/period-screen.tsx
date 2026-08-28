@@ -9,6 +9,7 @@ import {
   Lock,
   Play,
   UserX,
+  Users,
 } from "lucide-react";
 import {
   Badge,
@@ -462,20 +463,26 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
               because sending somebody to look for the wrong one wastes an
               afternoon. */}
           {!canSeeCompany ? (
-            <Callout tone="info" title="This is a company-wide view">
-              <p>
-                Who owes a form and what everybody scored is an aggregate over
-                every employee, which needs the records permission. Your own
-                review and your own objectives are on{" "}
-                <Link
-                  href="/performance"
-                  className="font-medium text-accent-text underline-offset-2 hover:underline"
-                >
-                  the performance screen
-                </Link>
-                .
-              </p>
-            </Callout>
+            /* An empty state, not a notice on an empty page.
+               ------------------------------------------------
+               A `Callout` on an otherwise blank screen reads as a warning about
+               something that went wrong. Nothing went wrong: this page is a
+               company-wide aggregate and this reader is not the audience for
+               it. An empty state with an icon and a way onward is what a screen
+               that is simply not for you should look like — and it sends them
+               to the one that is. */
+            <Card>
+              <EmptyState
+                icon={<Users aria-hidden="true" />}
+                title="This page is a company-wide view"
+                description="Your own review and objectives are on the performance screen."
+                action={
+                  <ButtonLink href="/performance" variant="accent" size="sm">
+                    Go to your performance
+                  </ButtonLink>
+                }
+              />
+            </Card>
           ) : DEMO_ENABLED && !detail.available ? (
             <Callout tone="warning" title="Demo data, this browser only">
               <p>{detail.refusal}</p>

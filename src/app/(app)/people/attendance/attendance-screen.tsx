@@ -6,6 +6,7 @@ import {
   Clock,
   LogIn,
   LogOut,
+  Undo2,
   MapPin,
   Timer,
   TriangleAlert,
@@ -39,6 +40,7 @@ import {
 import { LoadFailure } from "@/components/portal/load-failure";
 import { BulkInviteButton } from "@/components/portal/bulk-invite";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { DayTimer } from "./day-timer";
 import { ApiError } from "@/lib/api/client";
 import {
   geofenceRefusal,
@@ -116,7 +118,7 @@ export function AttendanceScreen() {
   const roster = useAttendanceRoster();
   const sheet = useAttendanceTimesheet(15);
   const locations = useWorkLocations();
-  const { clockIn, clockOut } = useAttendanceMutations();
+  const { clockIn, clockOut, undoClockOut } = useAttendanceMutations();
   const session = useSession();
   const toast = useToast();
   /* Two separate hook calls, never short-circuited into one expression — a
@@ -267,11 +269,30 @@ export function AttendanceScreen() {
                 {myRow?.clockIn
                   ? myRow.clockOut
                     ? `In at ${myRow.clockIn}, out at ${myRow.clockOut}.`
-                    : `In at ${myRow.clockIn}. Still clocked in.`
+                    : `In at ${myRow.clockIn}.`
                   : nothingToClock && myRow
                     ? `${STATUS_LABEL[myRow.status]} today — nothing to clock.`
                     : "You have not clocked in today."}
               </p>
+
+              {/* Only while the clock is running.
+                  ----------------------------------
+                  The reported problem was that clocking in "looked like nothing
+                  happened" — a static "Still clocked in" is a state, and a
+                  number that moves is proof the press registered. That sentence
+                  is now redundant and has gone; this replaces it.
+
+                  Absent once clocked out, because a finished day is a stored
+                  fact and a ticking readout of it would imply otherwise. The
+                  totals below are the record. */}
+              {myRow?.clockIn && !myRow.clockOut && (
+                <DayTimer
+                  clockIn={myRow.clockIn}
+                  serverTime={roster.time}
+                  policy={policy}
+                  className="mt-1.5"
+                />
+              )}
             </div>
 
             {policy && !policy.selfServiceClockIn ? (
@@ -354,9 +375,46 @@ export function AttendanceScreen() {
                       Clock out
                     </Button>
                   ) : (
-                    <Badge tone="success" size="sm" dot>
-                      Day complete
-                    </Badge>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge tone="success" size="sm" dot>
+                        Day complete
+                      </Badge>
+                      {/* A mis-click is the common case and used to need a
+                          ticket: reversing a clock-out was an HR correction, so
+                          the one person who knew exactly what happened was the
+                          one who could not act.
+
+                          Offered always rather than only inside the window —
+                          the window is the server's rule, and a second copy
+                          here would drift from it. Past it the API refuses and
+                          names the correction as the way through, which is a
+                          better answer than a button that has quietly
+                          disappeared. */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={busy}
+                        onClick={() =>
+                          void run(
+                            /* `run` is shaped for a clock action and returns
+                               the resulting entry; the undo returns the same
+                               three fields with `clockIn` where `time` sits, so
+                               it is mapped rather than given its own runner. */
+                            () =>
+                              undoClockOut().then((result) => ({
+                                employeeId: result.employeeId,
+                                date: result.date,
+                                time: result.clockIn ?? "",
+                              })),
+                            () => "Clock-out reversed",
+                            () => "You are on the clock again.",
+                          )
+                        }
+                      >
+                        <Undo2 aria-hidden="true" className="size-3.5" />
+                        Undo
+                      </Button>
+                    </div>
                   )}
                 </div>
               )
