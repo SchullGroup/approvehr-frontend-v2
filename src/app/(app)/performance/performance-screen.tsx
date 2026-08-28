@@ -126,7 +126,7 @@ export function PerformanceScreen({ initialTab }: { initialTab: PerformanceTab }
     id,
     label:
       id === "now"
-        ? "What needs you"
+        ? "Approvals"
         : id === "kpis"
           ? "KPIs"
           : id === "periods"

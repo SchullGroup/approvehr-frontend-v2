@@ -32,6 +32,7 @@ import {
   type CompanyProfile,
   type ProfileError,
 } from "@/lib/store/company";
+import { CompanyLogoCard } from "./logo-card";
 import { useEmployeeStore } from "@/lib/store/employees";
 import { NIGERIAN_STATES } from "@/lib/reference/lists";
 
@@ -260,7 +261,7 @@ function Form() {
                   </Field>
                   <Field
                     label="Primary tax state"
-                    help="Where PAYE is filed for staff on the main entity. Saves as soon as you pick one — every employee create and staff import reads this."
+                    help="Where PAYE is filed for staff on the main entity."
                     {...(orgTaxError ? { error: orgTaxError } : {})}
                   >
                     <Select
@@ -284,6 +285,8 @@ function Form() {
           </Card>
 
           <div className="flex flex-col gap-6">
+            <CompanyLogoCard />
+
             <Card>
               <CardHeader title="Where this is used" level={3} />
               <CardBody className="flex flex-col gap-2.5 text-body-sm leading-relaxed text-body">

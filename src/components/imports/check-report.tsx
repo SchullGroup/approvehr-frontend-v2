@@ -1,7 +1,8 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ArrowRight, Download } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Download } from "lucide-react";
+import { cn } from "@/lib/cn";
 import {
   Badge,
   Button,
@@ -12,23 +13,22 @@ import {
   CardFooter,
   CardHeader,
   Checkbox,
+  Disclosure,
   Input,
-  SegmentedControl,
   Stat,
-  StepIndicator,
   TBody,
   TD,
   TH,
   THead,
   TR,
   TableWrap,
-  useStepper,
 } from "@/components/ui";
 import type { Dictionary } from "@/lib/imports/spec";
 import type { ImportPrerequisite } from "@/lib/imports/surface";
 import { useCan } from "@/lib/permissions";
 import { useDepartments } from "@/lib/store/departments";
 import type { CheckOutcome, RowLine } from "@/lib/store/imports";
+import { confirmLabel } from "./import-result";
 
 /** "person" → "People". The noun starts a stat label often enough to earn this. */
 const capitalise = (word: string): string =>
@@ -59,11 +59,11 @@ function shortReason(problem: string, value: string | null): string {
 }
 
 /**
- * Step three: what this file will do, before it does it. Entity-agnostic — the
- * words for one row and the things a row can refer to both come off its inputs.
+ * Step three: what this file will do, before it does it — and the step that
+ * submits it. Entity-agnostic — the words for one row and the things a row can
+ * refer to both come off its inputs.
  *
- * The screen the whole flow exists for. Four rules hold it together, and the
- * fourth is the one that was missing:
+ * The screen the whole flow exists for. Four rules hold it together:
  *
  * 1. **Counts first.** Added, updated, not importing, flagged. A person deciding
  *    whether to press the button is deciding against those four numbers.
@@ -75,13 +75,20 @@ function shortReason(problem: string, value: string | null): string {
  * 3. **Fixable here, or in Excel, whichever suits.** Every reported cell has an
  *    input beside it, and the whole set is still downloadable as their own file.
  *    One missing phone number in a 500-row file is not a reason to go back to a
- *    spreadsheet, and two hundred of them are not a reason to stay here.
+ *    spreadsheet, and two hundred of them are not a reason to stay here. The
+ *    same is true of an optional detail merely missing — see `OptionalDetails`.
  * 4. **The three kinds of unfinished business are kept apart**, because they end
  *    differently. A **problem** stops a row. A **duplicate** is a question only
  *    the customer can answer, and the row waits until they do. A **missing
- *    detail** stops nothing and is a list somebody has to have read — which is
- *    what the acknowledgement is for, and why it is a checkbox rather than a
- *    sentence nobody has to look at.
+ *    detail** stops nothing, costs nothing to skip today, and is grouped by
+ *    field further down the same page rather than gated behind its own step —
+ *    there used to be a second step and a checkbox for this, and both asked to
+ *    be read rather than acted on, which a fixable list should not have to.
+ *
+ * One page, not two: this used to hand off to a "ready to import?" step once
+ * everything above was in order. It never said anything this step's own counts
+ * had not already said, so the button at the bottom of this page now submits
+ * directly — see `onConfirm`.
  */
 
 const SHOWN = 60;
@@ -96,16 +103,19 @@ type Props = {
    */
   prerequisites: Readonly<Record<string, ImportPrerequisite>>;
   check: CheckOutcome;
+  /** Shown only in demo mode, when there is no real check to act on. */
+  refusalWithoutApi: string;
   onBack: () => void;
   onDownload: () => void;
-  onContinue: () => void;
   /**
    * Corrections made here, keyed `row:field`.
    *
    * Until now the only way out of a failed row was to download the rejects, fix
    * them in a spreadsheet and upload the file again — which for one missing
    * phone number in a 500-row file is an absurd amount of work, and is the
-   * moment most people give up on an import.
+   * moment most people give up on an import. The same map takes a value typed
+   * for an optional detail further down the page — one mechanism, wherever the
+   * row+field pair came from.
    */
   fixes: Record<string, string>;
   fixCount: number;
@@ -118,17 +128,18 @@ type Props = {
   onDecide: (row: number, action: "skip" | "update") => void;
   onDecideAll: (rows: readonly number[], action: "skip" | "update") => void;
   onSeedDecisions: (rows: readonly number[]) => void;
-  acknowledged: boolean;
-  onAcknowledge: (value: boolean) => void;
+  /** Submits the import — the whole reason this step now has one button, not two steps. */
+  onConfirm: () => void;
+  confirming: boolean;
 };
 
 export function CheckReport({
   dictionary,
   prerequisites,
   check,
+  refusalWithoutApi,
   onBack,
   onDownload,
-  onContinue,
   fixes,
   fixCount,
   onFix,
@@ -139,8 +150,8 @@ export function CheckReport({
   onDecide,
   onDecideAll,
   onSeedDecisions,
-  acknowledged,
-  onAcknowledge,
+  onConfirm,
+  confirming,
 }: Props) {
   const [showAll, setShowAll] = useState(false);
   const canManageSettings = useCan("MANAGE_SETTINGS");
@@ -242,13 +253,6 @@ export function CheckReport({
     () => check.problems.filter((row) => row.missing.length > 0),
     [check.problems],
   );
-  /* Only a field a payroll run would treat as a blocker earns the read-it-
-     first gate below — see `Flagged`'s own note. An asset's serial number or
-     a department's cost centre never sets `important`, so a file of nothing
-     but those never asks for the tick, and the step completes on its own. */
-  const flaggedNeedsAck = flaggedRows.some((row) =>
-    row.missing.some((item) => item.important),
-  );
 
   /* One line per problem rather than per row: a row with three things wrong has
      three fixes, and collapsing them hides two. Duplicates are excluded here
@@ -283,60 +287,23 @@ export function CheckReport({
   const willImport = check.toCreate + check.toUpdate;
 
   /**
-   * Two sub-steps rather than one long page: the problems that need a
-   * decision or a correction, then — separately — the people who are
-   * importing anyway with something payroll will want later.
-   *
-   * They were one scrolling page and the product owner's own words were
-   * "going in circles": a duplicate to answer, sixty rows to fix and two
-   * hundred names on a list nobody blocks on all competed for the same
-   * screen, so pressing the one button at the bottom meant re-reading all of
-   * it to find out which part it was even about. Splitting them is what
-   * "click and see" asks for — each sub-step is answerable on its own, and
-   * the rail says which one still has something outstanding.
-   */
-  const substeps = useStepper([
-    {
-      id: "problems",
-      label: "Problems",
-      hint:
-        ordered.length === 0
-          ? "Nothing to fix"
-          : `${skipRows.toLocaleString("en-NG")} to fix`,
-      isComplete:
-        ordered.length === 0 || (!unchecked && pendingDuplicates.length === 0),
-    },
-    {
-      id: "flagged",
-      label: "Missing details",
-      hint:
-        flaggedRows.length === 0
-          ? "Nothing missing"
-          : `${flaggedRows.length.toLocaleString("en-NG")} to read`,
-      isComplete: flaggedRows.length === 0 || !flaggedNeedsAck || acknowledged,
-    },
-  ]);
-
-  /**
-   * The one thing stopping the *problems* sub-step, if anything is.
+   * The one thing stopping the final button, if anything is.
    *
    * A single value rather than a disabled button and a hope: whatever is in
    * the way gets its name on the button, so nobody has to hunt up the page
-   * for the reason they cannot carry on. The flagged-acknowledgement gate is
-   * not here any more — it belongs to the sub-step that shows the list it is
-   * acknowledging.
+   * for the reason they cannot carry on.
    *
    * A duplicate answer given here is exactly as unsent as a typed correction
    * — both change what a recheck would report, and applying either without
    * one would send the API an answer the batch was never fingerprinted
    * against. So the two share one blocker and one button: "Recheck &
    * continue" fires the same recheck whichever (or both) is why it is
-   * showing, and the label says which.
+   * showing, and the label says which. Once neither is outstanding, the same
+   * button becomes the one that actually submits — see `onConfirm`.
    */
-  const problemsBlocker =
+  const recheckBlocker =
     unchecked || pendingDuplicates.length > 0
-      ? ({
-          kind: "fixes",
+      ? {
           label: `Recheck & continue (${[
             fixCount > 0 ? `${fixCount} ${fixCount === 1 ? "fix" : "fixes"}` : null,
             pendingDuplicates.length > 0
@@ -345,18 +312,8 @@ export function CheckReport({
           ]
             .filter(Boolean)
             .join(", ")})`,
-        } as const)
-      : willImport === 0
-        ? ({ kind: "nothing", label: "Nothing to import" } as const)
-        : null;
-
-  /** Where "Continue" on the problems sub-step goes: on if there is
-   *  something to read there, straight through to the real next step
-   *  otherwise — an empty "nothing here" screen is not a second step. */
-  const afterProblems = () => {
-    if (flaggedRows.length > 0) substeps.goTo(1);
-    else onContinue();
-  };
+        }
+      : null;
 
   return (
     <div className="flex flex-col gap-5">
@@ -492,26 +449,17 @@ export function CheckReport({
           );
         })}
 
-      <StepIndicator
-        steps={substeps.steps}
-        index={substeps.index}
-        furthest={substeps.furthest}
-        onStepSelect={(n) => substeps.goTo(n)}
-      />
+      {duplicates.length > 0 && (
+        <Duplicates
+          dictionary={dictionary}
+          rows={duplicates}
+          decisions={decisions}
+          onDecide={onDecide}
+          onDecideAll={onDecideAll}
+        />
+      )}
 
-      {substeps.index === 0 && (
-        <>
-          {duplicates.length > 0 && (
-            <Duplicates
-              dictionary={dictionary}
-              rows={duplicates}
-              decisions={decisions}
-              onDecide={onDecide}
-              onDecideAll={onDecideAll}
-            />
-          )}
-
-          <Card>
+      <Card>
             <CardHeader
               level={2}
               title={
@@ -585,6 +533,15 @@ export function CheckReport({
                         unchecked;
                       const open =
                         isOpenByDefault(line) !== toggled.has(line.key);
+                      /* The dictionary's own `example` — the same realistic
+                         value the downloaded template prints in this column —
+                         doubles as the format hint here. A blank input asking
+                         for "a date" leaves the shape of it to guesswork; one
+                         placeholdered "28/04/2021" shows day-first, four-digit
+                         years and the separator all at once. */
+                      const fieldExample = line.field
+                        ? dictionary.byField.get(line.field)?.example
+                        : undefined;
                       return (
                         <Fragment key={line.key}>
                           <TR
@@ -659,9 +616,11 @@ export function CheckReport({
                                       fixes[`${line.row}:${line.field}`] ?? ""
                                     }
                                     placeholder={
-                                      line.value === null || line.value === ""
-                                        ? "Type the missing value"
-                                        : "Type a correction"
+                                      fieldExample
+                                        ? `e.g. ${fieldExample}`
+                                        : line.value === null || line.value === ""
+                                          ? "Type the missing value"
+                                          : "Type a correction"
                                     }
                                     onChange={(e) =>
                                       onFix(
@@ -704,68 +663,57 @@ export function CheckReport({
                 )}
               </>
             )}
-
-            <CardFooter>
-              <Button variant="ghost" onClick={onBack}>
-                Back to the columns
-              </Button>
-              <div className="flex items-center gap-2">
-                {skipRows > 0 && (
-                  <Button variant="secondary" onClick={onDownload}>
-                    <Download aria-hidden="true" className="size-4" />
-                    Download the rows to fix
-                  </Button>
-                )}
-                <Button
-                  variant="accent"
-                  onClick={
-                    problemsBlocker?.kind === "fixes"
-                      ? onRecheck
-                      : afterProblems
-                  }
-                  loading={rechecking}
-                  disabled={
-                    problemsBlocker !== null && problemsBlocker.kind !== "fixes"
-                  }
-                >
-                  {problemsBlocker ? problemsBlocker.label : "Continue"}
-                  {problemsBlocker === null && (
-                    <ArrowRight aria-hidden="true" className="size-4" />
-                  )}
-                </Button>
-              </div>
-            </CardFooter>
           </Card>
-        </>
-      )}
 
-      {substeps.index === 1 && (
+      {flaggedRows.length > 0 && (
         <Card>
-          <Flagged
+          <OptionalDetails
             dictionary={dictionary}
             rows={flaggedRows}
-            acknowledged={acknowledged}
-            onAcknowledge={onAcknowledge}
+            fixes={fixes}
+            onFix={onFix}
           />
-          <CardFooter>
-            <Button variant="ghost" onClick={() => substeps.goTo(0)}>
-              Back to problems
-            </Button>
-            <Button
-              variant="accent"
-              onClick={onContinue}
-              disabled={flaggedRows.length > 0 && flaggedNeedsAck && !acknowledged}
-            >
-              {flaggedRows.length > 0 && flaggedNeedsAck && !acknowledged
-                ? "Tick the box above to carry on"
-                : "Continue"}
-              {(flaggedRows.length === 0 || !flaggedNeedsAck || acknowledged) && (
-                <ArrowRight aria-hidden="true" className="size-4" />
-              )}
-            </Button>
-          </CardFooter>
         </Card>
       )}
+
+      {DEMO_ENABLED && !check.authoritative && (
+        <Callout tone="warning" title="Importing needs the API">
+          {refusalWithoutApi}
+        </Callout>
+      )}
+
+      <Card>
+        <CardFooter>
+          <Button variant="ghost" onClick={onBack}>
+            Back to the columns
+          </Button>
+          <div className="flex items-center gap-2">
+            {skipRows > 0 && (
+              <Button variant="secondary" onClick={onDownload}>
+                <Download aria-hidden="true" className="size-4" />
+                Download the rows to fix
+              </Button>
+            )}
+            <Button
+              variant={recheckBlocker ? "accent" : "approve"}
+              size="lg"
+              onClick={recheckBlocker ? onRecheck : onConfirm}
+              loading={rechecking || confirming}
+              disabled={
+                !recheckBlocker &&
+                (willImport === 0 || !check.authoritative)
+              }
+            >
+              {!recheckBlocker && <CheckCircle2 aria-hidden="true" className="size-4" />}
+              {recheckBlocker
+                ? recheckBlocker.label
+                : willImport === 0
+                  ? "Nothing to import"
+                  : confirmLabel(dictionary.noun, check.toCreate, check.toUpdate, check.toSkip)}
+            </Button>
+          </div>
+        </CardFooter>
+      </Card>
     </div>
   );
 }
@@ -918,195 +866,217 @@ const laterOnly = (rows: readonly RowLine[]): TieredRow[] =>
     }))
     .filter((row) => row.missing.length > 0);
 
+/** Every affected row for one missing field, so it can be fixed as one group. */
+type FieldGroup = {
+  field: string;
+  column: string;
+  example: string | undefined;
+  people: { row: number; who: string; why: string }[];
+};
+
+/** `later` rows, regrouped by field rather than by row — see `OptionalDetails`. */
+function groupByField(
+  rows: readonly TieredRow[],
+  dictionary: Dictionary<string>,
+): FieldGroup[] {
+  const groups = new Map<string, FieldGroup>();
+  for (const row of rows) {
+    const who = row.name ?? row.employeeNo ?? "No name in this row";
+    for (const item of row.missing) {
+      const person = { row: row.row, who, why: item.why };
+      const existing = groups.get(item.field);
+      if (existing) existing.people.push(person);
+      else
+        groups.set(item.field, {
+          field: item.field,
+          column: item.column,
+          example: dictionary.byField.get(item.field)?.example,
+          people: [person],
+        });
+    }
+  }
+  return [...groups.values()];
+}
+
 /**
- * The "important" list: people who import with something payroll will want.
+ * Everything a row is missing that will not stop it importing.
  *
- * This is the user's own words — *it shows under important that this user's
- * detail is missing* — and the design follows from what it is for. It does not
- * block, because refusing the record does not produce the bank account. It names
- * every person, because a count is not something anybody can act on. And it is
- * acknowledged with a real checkbox, because the alternative for the two
- * hundredth row of a five hundred row file is a warning nobody reads.
+ * Split into the same two tiers the payroll run itself would recognise
+ * (`ColumnSpec.recommended.important`, so this cannot drift from what the run
+ * actually enforces), rendered two different ways because they need different
+ * things from whoever is looking at them:
  *
- * ## Two tiers, not one long table
- *
- * "A missing bank account" and "a missing TIN" both land here, and they are not
- * the same kind of gap: the first is why a payroll run refuses to pay somebody
- * at all (`missing_pay` / `missing_bank_account`, both BLOCKER-shaped once a
- * run actually reaches them); the second only leaves a schedule or a filing
- * incomplete, and the person is paid correctly regardless. Flattening both into
- * one list is how "important" stops meaning anything on the two-hundredth row.
- * `ColumnSpec.recommended.important` is the one declaration this reads, so a
- * field's tier cannot drift from what the payroll run itself would say about it.
- *
- * The important tier is where this opens if it has anything in it — required
- * comes first — and "Add the rest later" is what moves on to the tier that
- * genuinely can wait. A person can appear in both: their gaps are split by
- * field, not the person set by person.
+ * - **Needed to pay them** (`missing_pay` / `missing_bank_account`) is shown
+ *   plainly, every row named — a count is not something anybody can act on,
+ *   and fixing this one takes more than a text box (a real bank-details form),
+ *   so this tier only ever points at where to go, never asks for a value here.
+ * - **Everything else** (a TIN, a pension PIN, an annual rent figure) is a
+ *   single value each, so it is grouped by field — one thing to open, not one
+ *   row at a time — and typing a value writes straight into the same `fixes`
+ *   map the Problems table above uses. No acknowledgement either: nothing
+ *   here blocks a payment, so there is nothing to make somebody confirm they
+ *   read before they can carry on.
  */
-function Flagged({
+function OptionalDetails({
   dictionary,
   rows,
-  acknowledged,
-  onAcknowledge,
+  fixes,
+  onFix,
 }: {
   dictionary: Dictionary<string>;
   rows: readonly RowLine[];
-  acknowledged: boolean;
-  onAcknowledge: (value: boolean) => void;
+  fixes: Record<string, string>;
+  onFix: (row: number, field: string, value: string) => void;
 }) {
   const important = useMemo(() => importantOnly(rows), [rows]);
   const later = useMemo(() => laterOnly(rows), [rows]);
-  const [tier, setTier] = useState<"important" | "later">(
-    important.length > 0 ? "important" : "later",
-  );
-  const shown = tier === "important" ? important : later;
-
+  const groups = useMemo(() => groupByField(later, dictionary), [later, dictionary]);
   const [showAllImportant, setShowAllImportant] = useState(false);
-  const [showAllLater, setShowAllLater] = useState(false);
-  const showAll = tier === "important" ? showAllImportant : showAllLater;
-  const setShowAll = tier === "important" ? setShowAllImportant : setShowAllLater;
-  const visible = showAll ? shown : shown.slice(0, 20);
-
-  /* Only `missing_pay` and `missing_bank_account` on the employee dictionary
-     ever mark a field `important` — everything else (an asset's serial
-     number, a department's cost centre) is always in `later`. That is the
-     one place this list genuinely blocks a payment, so it is the only case
-     that earns the amber "important" framing and the read-it-first gate
-     below. A file with nothing in that tier gets one plain, unforced list —
-     matching what it actually is: nothing stops the import, and here is
-     what is missing, once, not held up as a decision to make. */
-  const anyImportant = important.length > 0;
+  const visibleImportant = showAllImportant ? important : important.slice(0, 20);
 
   return (
-    <div>
-      <div className="flex items-start gap-3 p-4 sm:p-5">
-        {anyImportant && (
-          <span
-            aria-hidden="true"
-            className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-warning-soft text-warning-text [&>svg]:size-4"
+    <div className="flex flex-col">
+      {important.length > 0 && (
+        <div className="flex flex-col">
+          <div className="flex items-start gap-3 p-4 sm:p-5">
+            <span
+              aria-hidden="true"
+              className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-warning-soft text-warning-text [&>svg]:size-4"
+            >
+              <AlertTriangle />
+            </span>
+            <h3 className="text-body-sm font-semibold text-ink">
+              {`${important.length} ${
+                important.length === 1
+                  ? `${dictionary.noun.one} is`
+                  : `${dictionary.noun.many} are`
+              } missing something needed to pay them`}
+            </h3>
+          </div>
+
+          <TableWrap
+            className="rounded-none border-0 border-t border-line"
+            caption="Rows importing with no way to pay them yet"
           >
-            <AlertTriangle />
-          </span>
-        )}
-        <div className="min-w-0">
-          <h3 className="text-body-sm font-semibold text-ink">
-            {anyImportant
-              ? `Important: ${rows.length} ${
-                  rows.length === 1
-                    ? `${dictionary.noun.one} is`
-                    : `${dictionary.noun.many} are`
-                } missing something needed to pay them`
-              : `${rows.length} ${
-                  rows.length === 1 ? dictionary.noun.one : dictionary.noun.many
-                } ${rows.length === 1 ? "is" : "are"} missing an optional detail`}
-          </h3>
-          <p className="mt-1 max-w-2xl text-meta leading-relaxed text-muted">
-            {anyImportant
-              ? "They will still be imported, and nothing is invented to fill the gap — but a payroll run cannot pay somebody without these, so it is worth knowing now rather than then."
-              : `Every ${dictionary.noun.one} still imports. These can be filled in later, on the record or by importing the file again.`}
-          </p>
-        </div>
-      </div>
+            <THead>
+              <TH className="w-20">Row</TH>
+              <TH>Who</TH>
+              <TH>What is missing, and what it costs</TH>
+            </THead>
+            <TBody>
+              {visibleImportant.map((row) => (
+                <TR key={row.row}>
+                  <TD className="tabular align-top font-medium text-ink">
+                    {row.row}
+                  </TD>
+                  <TD className="align-top">
+                    <span className="block text-meta text-ink">
+                      {row.name ?? "No name in this row"}
+                    </span>
+                    {row.employeeNo && (
+                      <span className="tabular block text-meta text-muted">
+                        {row.employeeNo}
+                        {row.employeeNoGenerated ? " · number generated" : ""}
+                      </span>
+                    )}
+                  </TD>
+                  <TD className="align-top">
+                    <ul className="flex flex-col gap-1">
+                      {row.missing.map((item) => (
+                        <li key={item.field} className="text-meta text-body">
+                          <code className="rounded bg-sunken px-1.5 py-0.5 text-meta">
+                            {item.column}
+                          </code>{" "}
+                          {item.why}
+                        </li>
+                      ))}
+                    </ul>
+                  </TD>
+                </TR>
+              ))}
+            </TBody>
+          </TableWrap>
 
-      {important.length > 0 && later.length > 0 && (
-        <div className="border-t border-line px-4 pt-4 sm:px-5">
-          <SegmentedControl
-            label="Which kind of gap to show"
-            value={tier}
-            onChange={setTier}
-            options={[
-              {
-                value: "important",
-                label: `Needed to pay them (${important.length})`,
-              },
-              { value: "later", label: `Add later (${later.length})` },
-            ]}
-          />
-        </div>
-      )}
-
-      {anyImportant && (
-        <p className="px-4 pt-4 text-meta text-muted sm:px-5">
-          {tier === "important"
-            ? "A payroll run cannot pay these people at all without one of these — set it now, or exclude them from a run until it is there."
-            : "These leave a schedule or a filing incomplete, never the payment itself. Fine to come back to."}
-        </p>
-      )}
-
-      <TableWrap
-        className="mt-3 rounded-none border-0 border-t border-line"
-        caption={
-          tier === "important"
-            ? "Rows importing with no way to pay them yet"
-            : "Rows that import with a detail missing"
-        }
-      >
-        <THead>
-          <TH className="w-20">Row</TH>
-          <TH>Who</TH>
-          <TH>What is missing, and what it costs</TH>
-        </THead>
-        <TBody>
-          {visible.map((row) => (
-            <TR key={row.row}>
-              <TD className="tabular align-top font-medium text-ink">
-                {row.row}
-              </TD>
-              <TD className="align-top">
-                <span className="block text-meta text-ink">
-                  {row.name ?? "No name in this row"}
-                </span>
-                {row.employeeNo && (
-                  <span className="tabular block text-meta text-muted">
-                    {row.employeeNo}
-                    {row.employeeNoGenerated ? " · number generated" : ""}
-                  </span>
+          {important.length > visibleImportant.length && (
+            <div className="px-4 py-3 sm:px-5">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowAllImportant(true)}
+              >
+                Show the other{" "}
+                {(important.length - visibleImportant.length).toLocaleString(
+                  "en-NG",
                 )}
-              </TD>
-              <TD className="align-top">
-                <ul className="flex flex-col gap-1">
-                  {row.missing.map((item) => (
-                    <li key={item.field} className="text-meta text-body">
-                      <code className="rounded bg-sunken px-1.5 py-0.5 text-meta">
-                        {item.column}
-                      </code>{" "}
-                      {item.why}
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {groups.length > 0 && (
+        <div
+          className={cn(
+            "flex flex-col gap-3 p-4 sm:p-5",
+            important.length > 0 && "border-t border-line",
+          )}
+        >
+          <div>
+            <h3 className="text-body-sm font-semibold text-ink">
+              {`${later.length} ${
+                later.length === 1 ? dictionary.noun.one : dictionary.noun.many
+              } missing an optional detail`}
+            </h3>
+            <p className="mt-1 text-meta text-muted">
+              Every {dictionary.noun.one} still imports. Open a field below to
+              fill it in now, or leave it for the record later.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            {groups.map((group) => (
+              <Disclosure
+                key={group.field}
+                title={group.column}
+                meta={
+                  <Badge size="sm">
+                    {group.people.length.toLocaleString("en-NG")}
+                  </Badge>
+                }
+              >
+                <ul className="flex flex-col gap-3">
+                  {group.people.map((person) => (
+                    <li
+                      key={person.row}
+                      className="flex flex-wrap items-center justify-between gap-3"
+                    >
+                      <div className="min-w-0">
+                        <span className="tabular block text-meta text-muted">
+                          Row {person.row}
+                        </span>
+                        <span className="block text-meta text-ink">
+                          {person.who}
+                        </span>
+                      </div>
+                      <Input
+                        className="max-w-xs flex-1"
+                        aria-label={`${group.column} for row ${person.row}`}
+                        value={fixes[`${person.row}:${group.field}`] ?? ""}
+                        placeholder={
+                          group.example ? `e.g. ${group.example}` : "Type the value"
+                        }
+                        onChange={(e) =>
+                          onFix(person.row, group.field, e.target.value)
+                        }
+                      />
                     </li>
                   ))}
                 </ul>
-              </TD>
-            </TR>
-          ))}
-        </TBody>
-      </TableWrap>
-
-      <div className="flex flex-wrap items-center gap-4 px-4 py-4 sm:px-5">
-        {shown.length > visible.length && (
-          <Button variant="ghost" size="sm" onClick={() => setShowAll(true)}>
-            Show the other{" "}
-            {(shown.length - visible.length).toLocaleString("en-NG")}
-          </Button>
-        )}
-        {tier === "important" && later.length > 0 ? (
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => setTier("later")}
-          >
-            Next: what can wait ({later.length})
-          </Button>
-        ) : (
-          anyImportant && (
-            <Checkbox
-              label={`I have read this list of ${rows.length}`}
-              description={`These can be filled in afterwards, on each ${dictionary.noun.one}'s record — or by importing the same file again with the columns added.`}
-              checked={acknowledged}
-              onChange={(event) => onAcknowledge(event.currentTarget.checked)}
-            />
-          )
-        )}
-      </div>
+              </Disclosure>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

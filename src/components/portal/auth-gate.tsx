@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Info, Loader2, Wifi, WifiOff } from "lucide-react";
+import { ArrowRight, Info, Loader2, WifiOff } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
   Avatar,
@@ -298,19 +298,16 @@ function SignIn() {
   );
 }
 
+/**
+ * Says nothing when the API is reachable — that is the ordinary case, and a
+ * badge announcing it on every sign-in is a technical detail nobody asked
+ * for. It still speaks up when it is *not* reachable, because that is the
+ * one state that actually needs explaining, and which build this is changes
+ * what to do about it: in development there is somewhere else to go, and in
+ * production there is not.
+ */
 function ConnectionBadge({ reachable }: { reachable: boolean | null }) {
-  if (reachable === null) return null;
-  if (reachable) {
-    return (
-      <Badge tone="success" size="sm">
-        <Wifi aria-hidden="true" className="size-3" />
-        API connected
-      </Badge>
-    );
-  }
-  /* The unreachable badge says which build this is, because the consequence
-     differs: in development there is somewhere else to go, and in production
-     there is not. */
+  if (reachable !== false) return null;
   return (
     <Badge tone="warning" size="sm">
       <WifiOff aria-hidden="true" className="size-3" />

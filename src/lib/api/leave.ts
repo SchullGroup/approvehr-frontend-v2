@@ -434,7 +434,7 @@ export const leaveApi = {
     toType(
       await request<WireType>("/leave/types", {
         method: "POST",
-        body: JSON.stringify(input),
+        body: input,
       }),
     ),
 

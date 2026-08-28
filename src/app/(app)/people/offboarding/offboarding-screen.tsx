@@ -108,6 +108,19 @@ export function OffboardingScreen() {
           </div>
         )}
 
+        {/* "Start an exit" above is the door for a layoff, a contract ending,
+            or HR recording something on somebody's behalf — every exit
+            somebody else has to decide to raise. A resignation or retirement
+            has a second, more common door that does not live here: staff
+            raise their own from their own Profile page, with no permission
+            needed, and it lands in this same list the moment they send it. A
+            reader looking for that door on this screen alone would not find
+            it, which is the whole reason this line exists. */}
+        <p className="text-body-sm text-muted">
+          Staff can also hand in their own notice from their Profile page —
+          it shows up here the same way as one you start for them.
+        </p>
+
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="relative w-full sm:w-80">
             <Search

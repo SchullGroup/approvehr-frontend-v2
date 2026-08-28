@@ -90,8 +90,6 @@ export type ForgotPasswordResult = {
 
 export type ResetPasswordResult = { sessionsRevoked: number };
 
-/** Same shape `register` and sign-in return — accepting an invite is opening
- *  a session on an account that already exists, just with no password yet. */
 export type AcceptInviteResult = {
   accessToken: string;
   refreshToken: string;
@@ -146,7 +144,14 @@ export const account = {
     return result;
   },
 
-  /** Sets a password on a pending invitation, and signs in — same as `register`. */
+  /**
+   * Exchanges an invitation for a password and a signed-in session, in one
+   * request — the API's `acceptInvite` returns the same shape `sign-in` does,
+   * because accepting an invitation and signing in are the same act the first
+   * time. Stores tokens exactly as `register` does; the caller still calls
+   * `markSignedIn(result.user)` itself, the same one extra step
+   * `register-screen.tsx` takes, and for the same reason documented there.
+   */
   async acceptInvite(
     token: string,
     newPassword: string,

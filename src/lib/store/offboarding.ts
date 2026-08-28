@@ -1618,6 +1618,22 @@ export function useExitTemplates(includeInactive = false) {
         ),
       [run],
     ),
+    /**
+     * Fill an empty checklist with the suggested seven.
+     *
+     * Nothing seeds a checklist on its own any more — a clearance checklist
+     * is a company's own policy, and the defaults used to arrive on first
+     * *read*, so opening this screen to write your own created seven rows
+     * before you had typed anything. Adopting them is now a button.
+     */
+    adoptDefaults: useCallback(
+      () =>
+        run(
+          () => offboardingApi.adoptDefaultTemplates(),
+          () => demoAdoptDefaultTemplates(),
+        ),
+      [run],
+    ),
     /** Off, not gone. */
     switchOff: useCallback(
       (id: string) =>
@@ -1651,6 +1667,19 @@ function serializeTemplate(row: DemoTemplate): ApiExitTemplate {
 }
 
 /** Refuses the same duplicate the API refuses, with the same wording. */
+function demoAdoptDefaultTemplates() {
+  const state = store.current();
+  if (state.templates.length > 0) {
+    throw refuse(
+      409,
+      "conflict",
+      "This company already has a checklist. Add the lines you want to it " +
+        "instead of replacing what is there.",
+    );
+  }
+  store.commit({ ...state, templates: seedTemplates() });
+}
+
 function demoAddTemplate(body: TemplateBody) {
   const state = store.current();
   const clash = state.templates.find(

@@ -729,14 +729,17 @@ export function NewEmployeeForm() {
       startDate: draft.startDate,
       /* Omitted, not zeroed, when nobody has agreed a figure. */
       ...(gross === null ? {} : { grossMonthly: gross }),
+      /* No field on this form asks for login access directly — granting one is
+         the invite flow's decision (the record page, or `/people/attendance`'s
+         bulk setup), not this form's. So it is implied by whether an email was
+         given, matching what the API actually requires: `canLogin` defaults
+         `true`, which demands an email, and most staff being added here have
+         no work email and were never going to sign in anywhere. A driver added
+         with no email would otherwise fail on that refusal with no field on
+         screen to explain it. */
+      canLogin: draft.email.trim() !== "",
       status: draft.status,
       employmentType: draft.employmentType,
-      /* No field on this form asks for login access directly — it is implied
-         by whether an email was given, matching what the API actually
-         requires (`canLogin` defaults `true`, which demands an email). A
-         driver added with no email would otherwise fail on this refusal with
-         no field on screen to explain it. */
-      canLogin: draft.email.trim() !== "",
       /* Omitted rather than defaulted: the API falls back to the company's own
          PAYE state, which beats this form guessing Lagos. */
       ...(draft.taxState ? { taxState: draft.taxState } : {}),

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { account, type DeliveryHint } from "@/lib/api/account";
 import { useSession } from "@/lib/store/session";
-import { DeliveryNote } from "@/app/(auth)/delivery-note";
+import { DeliveryNote } from "@/components/portal/delivery-note";
 
 /**
  * "Verify your email" — a full-width strip below the top bar, on every
@@ -15,7 +15,7 @@ import { DeliveryNote } from "@/app/(auth)/delivery-note";
  * ## Persistent, not permanent
  *
  * This is a step up from the one-shot nudge on the setup wizard
- * (`app/(app)/setup/verification-nudge.tsx`, which only ever appears once,
+ * (`app/(setup)/setup/verification-nudge.tsx`, which only ever appears once,
  * to whoever just registered, and is gone for good once dismissed). That one
  * is scoped to company setup; this one is scoped to the account, and shows
  * to *anybody* signed in with an unverified email — an invited employee

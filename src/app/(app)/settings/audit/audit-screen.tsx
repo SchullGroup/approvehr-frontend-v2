@@ -212,16 +212,18 @@ function Trail({ initialEntityType = "", initialEntityId = "" }: ScreenProps) {
       <PageHeader
         title="Audit log"
         breadcrumb={[{ href: "/settings", label: "Settings" }]}
+        /* Connected says nothing a real customer needs told — "this is your
+           real log" is not information — and in a production build
+           `DEMO_ENABLED` is false, so the badge would otherwise be a
+           permanent, unremovable fixture on every live company's audit
+           screen. Only the demo case, where looking connected would be the
+           one thing worse than a demo, still earns a badge. */
         meta={
-          trail.live || !DEMO_ENABLED ? (
-            <Badge tone="success" size="sm" dot>
-              Live from the API
-            </Badge>
-          ) : (
+          !trail.live && DEMO_ENABLED ? (
             <Badge tone="neutral" size="sm">
               Demo data, this browser only
             </Badge>
-          )
+          ) : undefined
         }
       />
 

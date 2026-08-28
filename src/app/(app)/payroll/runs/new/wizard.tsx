@@ -1,8 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import {
+  Fragment,
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -48,7 +57,6 @@ import {
   TotalsPanel,
 } from "@/components/payroll/run-panels";
 import { ExcludeFromPayrollDialog } from "@/components/payroll/exclude-dialog";
-import { TaxOverrideDialog } from "@/components/payroll/tax-override-dialog";
 import { ApiError } from "@/lib/api/client";
 import {
   excludedNote,
@@ -166,6 +174,20 @@ export function PayrollRunWizard() {
   const [confirming, setConfirming] = useState(false);
 
   /**
+   * Stands in for `MissingPayTable`'s own button — see the note on that
+   * component for why one button beats two. `missingPayRef` fires the save;
+   * `missingPayStatus` is what the footer button reads to decide whether it
+   * currently means that, or means "Continue" as normal.
+   */
+  const missingPayRef = useRef<MissingPayHandle>(null);
+  const [missingPayStatusRaw, setMissingPayStatusRaw] =
+    useState<MissingPayStatus | null>(null);
+  const onMissingPayStatusChange = useCallback(
+    (status: MissingPayStatus) => setMissingPayStatusRaw(status),
+    [],
+  );
+
+  /**
    * Who is being excluded, and any refusal from the last attempt.
    *
    * The exception rows carry an `employeeId` and a message, not a name, so the
@@ -241,6 +263,13 @@ export function PayrollRunWizard() {
         .filter((row): row is NonNullable<typeof row> => row !== null),
     [missingPay, directory.employees],
   );
+  /* `MissingPayTable` unmounts the moment this empties — a save just cleared
+     the last of it — and an unmount reports nothing, so the raw state alone
+     would carry on showing its last label ("Set pay for 1") forever. Derived
+     rather than reset from an effect: "empty" is already the fact that
+     matters, on every render, not a change to react to. */
+  const missingPayStatus =
+    missingPayRows.length === 0 ? null : missingPayStatusRaw;
   const missingTaxStateRows = useMemo(
     () =>
       missingTaxState
@@ -616,10 +645,12 @@ export function PayrollRunWizard() {
             <>
               {missingPayRows.length > 0 && (
                 <MissingPayTable
+                  ref={missingPayRef}
                   runId={run.id}
                   rows={missingPayRows}
                   disabled={busy !== null}
                   onSaved={() => void prepare()}
+                  onStatusChange={onMissingPayStatusChange}
                 />
               )}
               {missingTaxStateRows.length > 0 && (
@@ -769,6 +800,15 @@ export function PayrollRunWizard() {
               )}
               {settled ? "Already approved" : "Approve this run"}
             </Button>
+          ) : missingPayStatus ? (
+            <Button
+              variant="accent"
+              onClick={() => void missingPayRef.current?.save()}
+              loading={missingPayStatus.saving}
+              disabled={!missingPayStatus.ready}
+            >
+              {missingPayStatus.label}
+            </Button>
           ) : (
             <Button
               variant="accent"
@@ -812,12 +852,6 @@ export function PayrollRunWizard() {
                 This is the one step that cannot be undone from here. It will:
               </p>
               <ApprovalConsequences run={run} />
-              {counts.warnings > 0 && (
-                <p>
-                  {counts.warnings} warning{counts.warnings === 1 ? "" : "s"}{" "}
-                  will be recorded against the run as seen and accepted.
-                </p>
-              )}
             </div>
           }
         />
@@ -856,22 +890,38 @@ const MISSING_PAY_EXCLUSION_REASON =
  * still exactly `useEmployeeMutations().update`'s ordinary write, so a
  * figure set here and one set from the record page cannot disagree.
  */
-function MissingPayTable({
-  runId,
-  rows,
-  disabled,
-  onSaved,
-}: {
-  runId: string;
-  rows: readonly {
-    employeeId: string;
-    name: string;
-    department: string;
-    salaryGradeId: string | null;
-  }[];
-  disabled?: boolean;
-  onSaved: () => void;
-}) {
+export type MissingPayHandle = { save: () => Promise<void> };
+
+/** What the wizard's own footer button needs to stand in for this table's own. */
+export type MissingPayStatus = {
+  ready: boolean;
+  saving: boolean;
+  label: string;
+};
+
+const MissingPayTable = forwardRef<
+  MissingPayHandle,
+  {
+    runId: string;
+    rows: readonly {
+      employeeId: string;
+      name: string;
+      department: string;
+      salaryGradeId: string | null;
+    }[];
+    disabled?: boolean;
+    onSaved: () => void;
+    /**
+     * Mirrors just enough state up to the wizard's own footer to stand in
+     * for the button this card used to carry itself — see the note above
+     * the render below for why there is only one button now, not two.
+     */
+    onStatusChange: (status: MissingPayStatus) => void;
+  }
+>(function MissingPayTable(
+  { runId, rows, disabled, onSaved, onStatusChange },
+  ref,
+) {
   const employees = useEmployeeMutations();
   const actions = usePayrollActions();
   const grades = useGrades({ pageSize: 100 });
@@ -900,6 +950,11 @@ function MissingPayTable({
     const amount = Number(pay[row.employeeId]);
     return pay[row.employeeId]?.trim() && Number.isFinite(amount) && amount > 0;
   });
+  const label = noneIncluded
+    ? `Exclude ${rows.length} ${rows.length === 1 ? "person" : "people"}`
+    : `Set pay for ${included.length}${
+        excluded.size > 0 ? `, exclude ${excluded.size}` : ""
+      }`;
 
   function pickGrade(employeeId: string, gradeId: string) {
     setGrade((prior) => ({ ...prior, [employeeId]: gradeId }));
@@ -920,7 +975,7 @@ function MissingPayTable({
     );
   }
 
-  async function save() {
+  const save = useCallback(async () => {
     setSaving(true);
     setError(null);
     const failed: string[] = [];
@@ -953,7 +1008,28 @@ function MissingPayTable({
       );
     }
     onSaved();
-  }
+  }, [
+    included,
+    pay,
+    grade,
+    rows,
+    excluded,
+    employees,
+    actions,
+    runId,
+    onSaved,
+  ]);
+
+  useImperativeHandle(ref, () => ({ save }), [save]);
+
+  /* Reported up rather than rendered here: the wizard's own footer button
+     stands in for this card's, so whether it reads "Continue" or "Set pay for
+     N" depends on state that lives in this component. A ref alone would not
+     do — the footer has to re-render when this changes, and a ref update
+     never triggers that on its own. */
+  useEffect(() => {
+    onStatusChange({ ready, saving, label });
+  }, [ready, saving, label, onStatusChange]);
 
   return (
     <Card>
@@ -1052,26 +1128,14 @@ function MissingPayTable({
           })}
         </TBody>
       </TableWrap>
-      <CardBody className="flex flex-col gap-2 border-t border-line pt-4">
-        {error && <p className="text-meta text-danger-text">{error}</p>}
-        <div>
-          <Button
-            variant="accent"
-            disabled={disabled || !ready}
-            loading={saving}
-            onClick={() => void save()}
-          >
-            {noneIncluded
-              ? `Exclude ${rows.length} ${rows.length === 1 ? "person" : "people"}`
-              : `Set pay for ${included.length}${
-                  excluded.size > 0 ? `, exclude ${excluded.size}` : ""
-                }`}
-          </Button>
-        </div>
-      </CardBody>
+      {error && (
+        <CardBody className="border-t border-line pt-4">
+          <p className="text-meta text-danger-text">{error}</p>
+        </CardBody>
+      )}
     </Card>
   );
-}
+});
 
 /**
  * Everybody with no PAYE state set, collapsed to one line rather than one
@@ -1211,6 +1275,11 @@ function PreflightChecklist() {
      skeleton competing with the period form for attention, and there is
      nothing to act on until it answers. */
   const { facts } = useSetupChecklist();
+  const pathname = usePathname();
+  const search = useSearchParams();
+  /* Where "Add one" below sends the bank-accounts screen's own Back link —
+     otherwise it lands on the generic Settings page, not back on this run. */
+  const here = `${pathname}${search.toString() ? `?${search.toString()}` : ""}`;
   if (!facts) return null;
 
   type Row = {
@@ -1278,7 +1347,7 @@ function PreflightChecklist() {
       label: "Your company has a payout account on file",
       ok: facts.pay.hasPrimaryBankAccount,
       detail: "Needed to build a payment batch once this run is approved.",
-      href: "/settings/bank-accounts",
+      href: `/settings/bank-accounts?from=${encodeURIComponent(here)}`,
       linkLabel: "Add one",
     });
   }
@@ -1402,6 +1471,17 @@ function PayslipTable({
     setOverrideError(null);
   }
 
+  /* One row open at a time. Opening a second while one is half-typed would
+     leave two forms claiming the same column, and the figure being replaced is
+     the one in the row above each of them. */
+  function toggle(slip: Payslip) {
+    if (overriding?.id === slip.id) close();
+    else {
+      setOverriding(slip);
+      setOverrideError(null);
+    }
+  }
+
   async function confirmOverride(input: {
     payeKobo: number;
     reason: string;
@@ -1483,99 +1563,125 @@ function PayslipTable({
             const deductionLines = slip.lines.filter(
               (l) => l.kind === "DEDUCTION",
             );
+            const open = overriding?.id === slip.id;
             return (
-              <TR key={slip.id}>
-                <TDPrimary
-                  title={
-                    <Link
-                      href={`/payroll/payslips/${slip.id}`}
-                      className="hover:text-accent-text hover:underline underline-offset-4"
-                    >
-                      {slip.name}
-                    </Link>
-                  }
-                  subtitle={slip.employeeNo}
-                />
-                {anyUnpaid && (
-                  <TD align="right" className="tabular">
-                    {slip.unpaidDays > 0 ? (
-                      <span className="text-warning-text">
-                        {slip.unpaidDays}
+              <Fragment key={slip.id}>
+                <TR>
+                  <TDPrimary
+                    title={
+                      <Link
+                        href={`/payroll/payslips/${slip.id}`}
+                        className="hover:text-accent-text hover:underline underline-offset-4"
+                      >
+                        {slip.name}
+                      </Link>
+                    }
+                    subtitle={slip.employeeNo}
+                  />
+                  {anyUnpaid && (
+                    <TD align="right" className="tabular">
+                      {slip.unpaidDays > 0 ? (
+                        <span className="text-warning-text">
+                          {slip.unpaidDays}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </TD>
+                  )}
+                  <TD align="right" className="tabular text-body">
+                    {formatKobo(slip.grossKobo)}
+                  </TD>
+                  <TD align="right" className="tabular text-muted">
+                    {wasDeducted(slip.operates, "pension") ? (
+                      formatKobo(slip.pensionEmployeeKobo)
+                    ) : (
+                      <span className="text-faint">Not operated</span>
+                    )}
+                  </TD>
+                  <TD align="right" className="tabular text-muted">
+                    {wasDeducted(slip.operates, "nhf") ? (
+                      formatKobo(slip.nhfKobo)
+                    ) : (
+                      <span className="text-faint">Not operated</span>
+                    )}
+                  </TD>
+                  <TD align="right" className="tabular text-muted">
+                    {wasDeducted(slip.operates, "paye") ? (
+                      <span className="flex flex-col items-end gap-0.5">
+                        <span
+                          className={
+                            slip.payeOverridden ? "text-ink" : undefined
+                          }
+                        >
+                          {formatKobo(slip.payeKobo)}
+                        </span>
+                        {slip.payeOverridden ? (
+                          <button
+                            type="button"
+                            title={slip.payeOverrideReason ?? undefined}
+                            onClick={() => toggle(slip)}
+                            disabled={!editable}
+                            className="text-meta font-normal text-accent-text underline-offset-2 hover:underline disabled:pointer-events-none disabled:text-faint"
+                          >
+                            {open ? "Close" : "Entered by hand"}
+                          </button>
+                        ) : (
+                          editable && (
+                            <button
+                              type="button"
+                              onClick={() => toggle(slip)}
+                              className="text-meta font-normal text-muted underline-offset-2 hover:text-accent-text hover:underline"
+                            >
+                              {open ? "Close" : "Enter manually"}
+                            </button>
+                          )
+                        )}
                       </span>
+                    ) : (
+                      <span className="text-faint">Not operated</span>
+                    )}
+                  </TD>
+                  <TD align="right" className="tabular text-muted">
+                    {slip.otherDeductionsKobo > 0 ? (
+                      <>
+                        {formatKobo(slip.otherDeductionsKobo)}
+                        {deductionLines.length > 0 && (
+                          <span className="mt-0.5 block text-meta font-normal text-faint">
+                            {deductionLines.map((l) => l.label).join(", ")}
+                          </span>
+                        )}
+                      </>
                     ) : (
                       "—"
                     )}
                   </TD>
+                  <TD align="right" className="tabular font-medium text-ink">
+                    {formatKobo(slip.netKobo)}
+                  </TD>
+                </TR>
+                {open && (
+                  <TR>
+                    <TD colSpan={anyUnpaid ? 8 : 7} className="bg-canvas p-0">
+                      <PayeByHand
+                        slip={slip}
+                        periodLabel={period}
+                        standingAlready={
+                          employees.find((e) => e.id === slip.employeeId)
+                            ?.payeManualOverride ?? false
+                        }
+                        saving={saving}
+                        error={overrideError}
+                        onCancel={close}
+                        onSave={(input) => void confirmOverride(input)}
+                        {...(slip.payeOverridden
+                          ? { onClear: () => void clearOverride() }
+                          : {})}
+                      />
+                    </TD>
+                  </TR>
                 )}
-                <TD align="right" className="tabular text-body">
-                  {formatKobo(slip.grossKobo)}
-                </TD>
-                <TD align="right" className="tabular text-muted">
-                  {wasDeducted(slip.operates, "pension") ? (
-                    formatKobo(slip.pensionEmployeeKobo)
-                  ) : (
-                    <span className="text-faint">Not operated</span>
-                  )}
-                </TD>
-                <TD align="right" className="tabular text-muted">
-                  {wasDeducted(slip.operates, "nhf") ? (
-                    formatKobo(slip.nhfKobo)
-                  ) : (
-                    <span className="text-faint">Not operated</span>
-                  )}
-                </TD>
-                <TD align="right" className="tabular text-muted">
-                  {wasDeducted(slip.operates, "paye") ? (
-                    <span className="flex flex-col items-end gap-0.5">
-                      <span
-                        className={slip.payeOverridden ? "text-ink" : undefined}
-                      >
-                        {formatKobo(slip.payeKobo)}
-                      </span>
-                      {slip.payeOverridden ? (
-                        <button
-                          type="button"
-                          title={slip.payeOverrideReason ?? undefined}
-                          onClick={() => setOverriding(slip)}
-                          disabled={!editable}
-                          className="text-meta font-normal text-accent-text underline-offset-2 hover:underline disabled:pointer-events-none disabled:text-faint"
-                        >
-                          Entered by hand
-                        </button>
-                      ) : (
-                        editable && (
-                          <button
-                            type="button"
-                            onClick={() => setOverriding(slip)}
-                            className="text-meta font-normal text-muted underline-offset-2 hover:text-accent-text hover:underline"
-                          >
-                            Enter manually
-                          </button>
-                        )
-                      )}
-                    </span>
-                  ) : (
-                    <span className="text-faint">Not operated</span>
-                  )}
-                </TD>
-                <TD align="right" className="tabular text-muted">
-                  {slip.otherDeductionsKobo > 0 ? (
-                    <>
-                      {formatKobo(slip.otherDeductionsKobo)}
-                      {deductionLines.length > 0 && (
-                        <span className="mt-0.5 block text-meta font-normal text-faint">
-                          {deductionLines.map((l) => l.label).join(", ")}
-                        </span>
-                      )}
-                    </>
-                  ) : (
-                    "—"
-                  )}
-                </TD>
-                <TD align="right" className="tabular font-medium text-ink">
-                  {formatKobo(slip.netKobo)}
-                </TD>
-              </TR>
+              </Fragment>
             );
           })}
         </TBody>
@@ -1592,30 +1698,152 @@ function PayslipTable({
           Open the payslips
         </ButtonLink>
       </CardBody>
-      {overriding && (
-        <TaxOverrideDialog
-          open
-          name={overriding.name}
-          periodLabel={period}
-          {...(overriding.payeOverridden
-            ? {
-                currentKobo: overriding.payeKobo,
-                ...(overriding.payeOverrideReason
-                  ? { currentReason: overriding.payeOverrideReason }
-                  : {}),
-                onClear: () => void clearOverride(),
-              }
-            : { computedKobo: overriding.payeKobo })}
-          standingAlready={
-            employees.find((e) => e.id === overriding.employeeId)
-              ?.payeManualOverride ?? false
-          }
-          onClose={close}
-          onConfirm={(input) => void confirmOverride(input)}
-          loading={saving}
-          {...(overrideError ? { error: overrideError } : {})}
-        />
-      )}
     </Card>
+  );
+}
+
+/**
+ * Entering somebody's PAYE by hand, in the row it belongs to.
+ *
+ * This was a modal, and a modal was wrong for it: the figure being replaced is
+ * in the cell directly above this form, and covering the table to type over one
+ * number in it meant losing sight of the number. It opens under the row now,
+ * with the bands' own figure quoted in the description so both are on screen at
+ * once.
+ *
+ * **The reason stays required, and stays here.** The obvious inline build is an
+ * amount field and nothing else, and it would throw away the one thing that
+ * makes this different from a number silently typed over another — "why does
+ * this not match the bands" has to have a written answer as durable as "why was
+ * Grace not paid in August". The API enforces the same four-character floor and
+ * says so in its own words; this refuses first so nobody types a figure, saves,
+ * and is sent back.
+ *
+ * Pension, NHF and every other line keep computing normally — only this figure
+ * and net pay, which is derived from it, take what is typed here. Said on
+ * screen rather than assumed, because "does this also change their pension" is
+ * the obvious next question.
+ */
+function PayeByHand({
+  slip,
+  periodLabel,
+  standingAlready,
+  saving,
+  error,
+  onSave,
+  onCancel,
+  onClear,
+}: {
+  slip: Payslip;
+  /** "August 2026". An override belongs to exactly one period, like an
+   *  exclusion — the figure two months from now may be different. */
+  periodLabel: string;
+  /** Whether `Employee.payeManualOverride` is already set for this person. */
+  standingAlready: boolean;
+  saving: boolean;
+  error: string | null;
+  onSave: (input: {
+    payeKobo: number;
+    reason: string;
+    alsoStanding: boolean;
+  }) => void;
+  onCancel: () => void;
+  /** Present only when there is something to clear back to the bands. */
+  onClear?: () => void;
+}) {
+  const overridden = slip.payeOverridden;
+  const [amount, setAmount] = useState(String(slip.payeKobo / 100));
+  const [reason, setReason] = useState(slip.payeOverrideReason ?? "");
+  const [alsoStanding, setAlsoStanding] = useState(standingAlready);
+
+  const parsed = Number(amount);
+  const amountInvalid =
+    !amount.trim() || !Number.isFinite(parsed) || parsed < 0;
+  const tooShort = reason.trim().length < 4;
+  const firstName = slip.name.split(" ")[0] ?? slip.name;
+
+  return (
+    <div className="flex flex-col gap-4 border-l-2 border-accent px-4 py-4">
+      <p className="text-body-sm leading-relaxed text-muted">
+        {overridden
+          ? `${formatKobo(slip.payeKobo)} for ${periodLabel}, entered by hand.`
+          : `The bands put ${firstName}'s PAYE at ${formatKobo(slip.payeKobo)} for ${periodLabel}.`}{" "}
+        What you enter replaces it on this one payslip and net pay moves with
+        it. Pension, housing fund and every other line keep computing normally.
+      </p>
+
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+        <Field label="Monthly PAYE" required help="Naira, not annual.">
+          <Input
+            type="number"
+            inputMode="decimal"
+            min="0"
+            step="100"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="₦ a month"
+            className="sm:w-44"
+          />
+        </Field>
+
+        <div className="flex-1">
+          <Field
+            label="Why does this not come from the bands?"
+            required
+            help="Whoever asks this question next year reads exactly what you type here."
+            {...(error ? { error } : {})}
+          >
+            <Input
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Agreed with the state IRS at a different figure."
+            />
+          </Field>
+        </div>
+      </div>
+
+      <Checkbox
+        label={`Always enter ${firstName}'s PAYE by hand from now on`}
+        checked={alsoStanding}
+        onChange={(e) => setAlsoStanding(e.target.checked)}
+      />
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          variant="accent"
+          size="sm"
+          onClick={() =>
+            onSave({
+              payeKobo: Math.round(parsed * 100),
+              reason: reason.trim(),
+              alsoStanding,
+            })
+          }
+          disabled={amountInvalid || tooShort || saving}
+          loading={saving}
+        >
+          {overridden ? `Save ${firstName}'s figure` : "Enter it by hand"}
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={onCancel}
+          disabled={saving}
+        >
+          Cancel
+        </Button>
+        {onClear && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onClear}
+            disabled={saving}
+            className="ml-auto"
+          >
+            Clear — use the bands instead
+          </Button>
+        )}
+      </div>
+    </div>
   );
 }

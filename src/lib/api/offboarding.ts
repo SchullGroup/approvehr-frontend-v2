@@ -538,15 +538,30 @@ export const offboardingApi = {
     }),
 
   /**
-   * Switches the line off. It is not destroyed, because the seeder treats "no
-   * templates" as "seed the defaults" and would put a deliberately removed line
-   * straight back the next time somebody resigned.
+   * Switches the line off rather than destroying it. A line that has been on
+   * real exits is part of their record, so it stops being offered instead of
+   * ceasing to have existed.
+   *
+   * This used to be forced by the seeder — "no templates" meant "seed the
+   * defaults", so deleting the last line brought all seven back the next time
+   * somebody resigned. Nothing seeds on its own now, and the reason above is
+   * the one that was always the real one.
    */
   deactivateTemplate: (id: string) =>
     request<{ id: string; label: string; active: false; note: string }>(
       `/offboarding/templates/${id}`,
       { method: "DELETE" },
     ),
+
+  /**
+   * Fill an empty checklist with the suggested seven. Refused once the company
+   * has written anything of its own — adopting is a starting point, not a
+   * merge into a list somebody has already ordered.
+   */
+  adoptDefaultTemplates: () =>
+    request<{ added: number }>("/offboarding/templates/adopt-defaults", {
+      method: "POST",
+    }),
 
   reorderTemplates: (ids: string[]) =>
     request<{ reordered: number }>("/offboarding/templates/reorder", {

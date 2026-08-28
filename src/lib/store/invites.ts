@@ -4,8 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import {
   invitesApi,
-  type ApiPendingInvite,
-  type ApiSentInvite,
+  type PendingInvite,
+  type SentInvite,
 } from "@/lib/api/invites";
 import { useSession } from "./session";
 
@@ -20,20 +20,20 @@ import { useSession } from "./session";
  * already does for changing a password.
  */
 export type InvitesState = {
-  invites: ApiPendingInvite[];
+  invites: PendingInvite[];
   loading: boolean;
   error: ApiError | null;
   connected: boolean;
   reload: () => void;
-  send: (employeeId: string, roleIds: string[]) => Promise<ApiSentInvite>;
-  resend: (userId: string) => Promise<ApiSentInvite>;
+  send: (employeeId: string, roleIds: string[]) => Promise<SentInvite>;
+  resend: (userId: string) => Promise<SentInvite>;
   revoke: (userId: string) => Promise<{ userId: string; email: string }>;
 };
 
 export function useInvites(): InvitesState {
   const { isConnected } = useSession();
   const [state, setState] = useState<{
-    invites: ApiPendingInvite[];
+    invites: PendingInvite[];
     loading: boolean;
     error: ApiError | null;
   }>({ invites: [], loading: isConnected, error: null });

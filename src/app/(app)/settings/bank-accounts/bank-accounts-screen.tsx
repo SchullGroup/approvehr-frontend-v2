@@ -3,6 +3,7 @@
 import { sourceNote } from "@/lib/demo";
 import { useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Archive, Landmark, Plus, RotateCcw, Star } from "lucide-react";
 import {
   Badge,
@@ -60,6 +61,10 @@ import { AccountForm } from "./account-form";
  */
 export function BankAccountsScreen() {
   const { can, loading: permissionsLoading } = usePermissions();
+  /* Wherever this was reached from — the payroll run wizard's own preflight
+     checklist links here with it — beats always landing back on the generic
+     Settings index when that is not where the visit started. */
+  const from = useSearchParams().get("from");
   const [showArchived, setShowArchived] = useState(false);
   const accounts = useBankAccounts(showArchived);
   const toast = useToast();
@@ -88,7 +93,11 @@ export function BankAccountsScreen() {
               icon={<Landmark aria-hidden="true" />}
               title="Bank accounts are not part of your access"
               description="Where salary money leaves from is a settings decision. Ask whoever manages settings if you need it."
-              action={<ButtonLink href="/settings">Back to settings</ButtonLink>}
+              action={
+                <ButtonLink href={from ?? "/settings"}>
+                  {from ? "Back" : "Back to settings"}
+                </ButtonLink>
+              }
             />
           </Card>
         </PageBody>
@@ -122,7 +131,11 @@ export function BankAccountsScreen() {
     <>
       <PageHeader
         title="Bank accounts"
-        breadcrumb={[{ href: "/settings", label: "Settings" }]}
+        breadcrumb={[
+          from
+            ? { href: from, label: "Payroll" }
+            : { href: "/settings", label: "Settings" },
+        ]}
         meta={
           sourceNote(accounts.live) && (
             <Badge tone="warning" size="sm" dot>

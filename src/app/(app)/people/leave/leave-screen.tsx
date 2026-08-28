@@ -4,7 +4,14 @@ import { sourceNote } from "@/lib/demo";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { CalendarDays, Check, ChevronRight, Plus, Undo2, X } from "lucide-react";
+import {
+  CalendarDays,
+  Check,
+  ChevronRight,
+  Plus,
+  Undo2,
+  X,
+} from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
   Badge,
@@ -328,212 +335,206 @@ export function LeaveScreen() {
           />
         </div>
 
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
-          {/* min-w-0: a grid item's default min-width is auto, so without it
-              this card stretches to the table's max-content width and the
-              page scrolls sideways instead of the table scrolling inside it. */}
-          <Card className="min-w-0">
-            <CardHeader
-              title="Requests"
-              description="Waiting first, then by start date."
-              action={
-                <div className="flex items-center gap-3">
-                  {loading && (
-                    <span className="text-meta text-muted">Loading…</span>
-                  )}
-                  {/* Offered only to somebody who can see everybody's. For
+        <Card className="min-w-0">
+          <CardHeader
+            title="Requests"
+            description="Waiting first, then by start date."
+            action={
+              <div className="flex items-center gap-3">
+                {loading && (
+                  <span className="text-meta text-muted">Loading…</span>
+                )}
+                {/* Offered only to somebody who can see everybody's. For
                       anyone else there is nothing to switch between. */}
-                  {canDecide && (
-                    <SegmentedControl
-                      label="Whose leave to show"
-                      value={scope}
-                      onChange={setScope}
-                      options={[
-                        { value: "everyone", label: "Everyone" },
-                        { value: "mine", label: "Mine" },
-                      ]}
-                    />
-                  )}
-                </div>
+                {canDecide && (
+                  <SegmentedControl
+                    label="Whose leave to show"
+                    value={scope}
+                    onChange={setScope}
+                    options={[
+                      { value: "everyone", label: "Everyone" },
+                      { value: "mine", label: "Mine" },
+                    ]}
+                  />
+                )}
+              </div>
+            }
+          />
+          {requests.length === 0 && !loading ? (
+            <EmptyState
+              icon={<CalendarDays aria-hidden="true" />}
+              title={
+                onlyMine ? "You have no leave booked" : "No leave booked yet"
+              }
+              description="Book leave and it appears here, and in the approvals inbox, straight away."
+              action={
+                <Button
+                  variant="accent"
+                  size="sm"
+                  onClick={() => setBooking(true)}
+                >
+                  <Plus aria-hidden="true" className="size-4" />
+                  Book leave
+                </Button>
               }
             />
-            {requests.length === 0 && !loading ? (
-              <EmptyState
-                icon={<CalendarDays aria-hidden="true" />}
-                title={onlyMine ? "You have no leave booked" : "No leave booked yet"}
-                description="Book leave and it appears here, and in the approvals inbox, straight away."
-                action={
-                  <Button
-                    variant="accent"
-                    size="sm"
-                    onClick={() => setBooking(true)}
-                  >
-                    <Plus aria-hidden="true" className="size-4" />
-                    Book leave
-                  </Button>
-                }
-              />
-            ) : (
-              <TableWrap className="rounded-none border-0">
-                <THead>
-                  <TH>Employee</TH>
-                  <TH>Type</TH>
-                  <TH>Dates</TH>
-                  <TH align="right">Days</TH>
-                  <TH>Approver</TH>
-                  <TH>Status</TH>
-                  <TH align="right">Decision</TH>
-                  <TH align="right">
-                    <span className="sr-only">Open</span>
-                  </TH>
-                </THead>
-                <TBody>
-                  {requests.map((r) => (
-                    <TR key={r.id}>
-                      <TDPrimary
-                        title={
-                          <Link
-                            href={`/people/${r.employeeId}`}
-                            className="hover:text-accent-text hover:underline underline-offset-4"
-                          >
-                            {r.employeeName}
-                          </Link>
-                        }
-                        subtitle={r.reason ?? r.decisionNote ?? undefined}
-                      />
-                      <TD>{r.leaveType}</TD>
-                      <TD className="tabular whitespace-nowrap">
-                        {r.from} → {r.to}
-                      </TD>
-                      <TD align="right" className="tabular font-medium text-ink">
-                        {r.days}
-                      </TD>
-                      <TD>{r.approverName ?? "—"}</TD>
-                      <TD>
-                        <Badge tone={STATUS[r.status].tone} size="sm" dot>
-                          {STATUS[r.status].label}
-                        </Badge>
-                        {r.decidedAt && r.status !== "pending" && (
-                          <span className="mt-0.5 block text-meta text-faint">
-                            {shortDate(r.decidedAt)}
-                          </span>
-                        )}
-                      </TD>
-                      <TD align="right">
-                        {!canDecide ? (
-                          <span className="text-meta text-faint">—</span>
-                        ) : r.status === "pending" ? (
-                          <div className="flex justify-end gap-1.5">
-                            <Button
-                              variant="approve"
-                              size="sm"
-                              onClick={() => void approve(r)}
-                              aria-label={`Approve ${r.employeeName}'s leave`}
-                            >
-                              <Check aria-hidden="true" className="size-3.5" />
-                              Approve
-                            </Button>
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => setDeclining(r)}
-                              aria-label={`Send back ${r.employeeName}'s request`}
-                            >
-                              <X aria-hidden="true" className="size-3.5" />
-                            </Button>
-                          </div>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => void undo(r)}
-                            aria-label={`Undo the decision on ${r.employeeName}'s request`}
-                          >
-                            <Undo2 aria-hidden="true" className="size-3.5" />
-                            Undo
-                          </Button>
-                        )}
-                      </TD>
-                      <TD align="right">
-                        <IconButton
-                          label={`Open ${r.employeeName}'s ${r.leaveType} request`}
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setOpenId(r.id)}
+          ) : (
+            <TableWrap className="rounded-none border-0">
+              <THead>
+                <TH>Employee</TH>
+                <TH>Type</TH>
+                <TH>Dates</TH>
+                <TH align="right">Days</TH>
+                <TH>Approver</TH>
+                <TH>Status</TH>
+                <TH align="right">Decision</TH>
+                <TH align="right">
+                  <span className="sr-only">Open</span>
+                </TH>
+              </THead>
+              <TBody>
+                {requests.map((r) => (
+                  <TR key={r.id}>
+                    <TDPrimary
+                      title={
+                        <Link
+                          href={`/people/${r.employeeId}`}
+                          className="hover:text-accent-text hover:underline underline-offset-4"
                         >
-                          <ChevronRight aria-hidden="true" className="size-4" />
-                        </IconButton>
-                      </TD>
-                    </TR>
-                  ))}
-                </TBody>
-              </TableWrap>
-            )}
-            {/* The API caps a page at 200 requests. Saying so beats a total
+                          {r.employeeName}
+                        </Link>
+                      }
+                      subtitle={r.reason ?? r.decisionNote ?? undefined}
+                    />
+                    <TD>{r.leaveType}</TD>
+                    <TD className="tabular whitespace-nowrap">
+                      {r.from} → {r.to}
+                    </TD>
+                    <TD align="right" className="tabular font-medium text-ink">
+                      {r.days}
+                    </TD>
+                    <TD>{r.approverName ?? "—"}</TD>
+                    <TD>
+                      <Badge tone={STATUS[r.status].tone} size="sm" dot>
+                        {STATUS[r.status].label}
+                      </Badge>
+                      {r.decidedAt && r.status !== "pending" && (
+                        <span className="mt-0.5 block text-meta text-faint">
+                          {shortDate(r.decidedAt)}
+                        </span>
+                      )}
+                    </TD>
+                    <TD align="right">
+                      {!canDecide ? (
+                        <span className="text-meta text-faint">—</span>
+                      ) : r.status === "pending" ? (
+                        <div className="flex justify-end gap-1.5">
+                          <Button
+                            variant="approve"
+                            size="sm"
+                            onClick={() => void approve(r)}
+                            aria-label={`Approve ${r.employeeName}'s leave`}
+                          >
+                            <Check aria-hidden="true" className="size-3.5" />
+                            Approve
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setDeclining(r)}
+                            aria-label={`Send back ${r.employeeName}'s request`}
+                          >
+                            <X aria-hidden="true" className="size-3.5" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => void undo(r)}
+                          aria-label={`Undo the decision on ${r.employeeName}'s request`}
+                        >
+                          <Undo2 aria-hidden="true" className="size-3.5" />
+                          Undo
+                        </Button>
+                      )}
+                    </TD>
+                    <TD align="right">
+                      <IconButton
+                        label={`Open ${r.employeeName}'s ${r.leaveType} request`}
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setOpenId(r.id)}
+                      >
+                        <ChevronRight aria-hidden="true" className="size-4" />
+                      </IconButton>
+                    </TD>
+                  </TR>
+                ))}
+              </TBody>
+            </TableWrap>
+          )}
+          {/* The API caps a page at 200 requests. Saying so beats a total
                 that quietly disagrees with the rows above it. Skipped for a
                 signed-in account with no employee record: the callout above
                 already explains why the table is empty, and `total` there
                 describes everybody's requests, not this account's. */}
-            {!noRecord && total > requests.length && (
-              <CardFooter>
-                <p className="text-body-sm text-muted">
-                  The first {requests.length} of {total} requests are shown,
-                  and the figures above cover those.
-                </p>
-              </CardFooter>
+          {!noRecord && total > requests.length && (
+            <CardFooter>
+              <p className="text-body-sm text-muted">
+                The first {requests.length} of {total} requests are shown, and
+                the figures above cover those.
+              </p>
+            </CardFooter>
+          )}
+        </Card>
+
+        <Card>
+          <CardHeader
+            title="Annual leave left"
+            description="Pending days are already held back."
+          />
+          <CardBody className="grid gap-x-8 gap-y-3.5 sm:grid-cols-2 lg:grid-cols-3">
+            {balances.loading && (
+              <p className="text-body-sm text-muted">Loading balances…</p>
             )}
-          </Card>
-
-          <div className="flex flex-col gap-5">
-            <Card>
-              <CardHeader
-                title="Annual leave left"
-                description="Pending days are already held back."
-              />
-              <CardBody className="flex flex-col gap-3.5">
-                {balances.loading && (
-                  <p className="text-body-sm text-muted">Loading balances…</p>
-                )}
-                {shown.length === 0 && !balances.loading && (
-                  <p className="text-body-sm text-muted">
-                    Nobody has booked leave yet.
-                  </p>
-                )}
-                {shown.map((person) => {
-                  const balance = balances.of(person.id);
-                  if (!balance) return null;
-                  return (
-                    <div key={person.id}>
-                      <div className="mb-1 flex items-baseline justify-between gap-2">
-                        <span className="truncate text-body-sm text-body">
-                          {person.name}
-                        </span>
-                        <span
-                          className={cn(
-                            "tabular shrink-0 text-meta",
-                            balance.remaining <= 3
-                              ? "text-warning-text"
-                              : "text-muted",
-                          )}
-                        >
-                          {balance.remaining} left
-                          {balance.pending > 0 && ` · ${balance.pending} pending`}
-                        </span>
-                      </div>
-                      <ProgressMeter
-                        value={balance.taken}
-                        max={balance.entitled}
-                        size="sm"
-                        tone={balance.remaining <= 3 ? "warning" : "accent"}
-                      />
-                    </div>
-                  );
-                })}
-              </CardBody>
-            </Card>
-
-          </div>
-        </div>
+            {shown.length === 0 && !balances.loading && (
+              <p className="text-body-sm text-muted">
+                Nobody has booked leave yet.
+              </p>
+            )}
+            {shown.map((person) => {
+              const balance = balances.of(person.id);
+              if (!balance) return null;
+              return (
+                <div key={person.id}>
+                  <div className="mb-1 flex items-baseline justify-between gap-2">
+                    <span className="truncate text-body-sm text-body">
+                      {person.name}
+                    </span>
+                    <span
+                      className={cn(
+                        "tabular shrink-0 text-meta",
+                        balance.remaining <= 3
+                          ? "text-warning-text"
+                          : "text-muted",
+                      )}
+                    >
+                      {balance.remaining} left
+                      {balance.pending > 0 && ` · ${balance.pending} pending`}
+                    </span>
+                  </div>
+                  <ProgressMeter
+                    value={balance.taken}
+                    max={balance.entitled}
+                    size="sm"
+                    tone={balance.remaining <= 3 ? "warning" : "accent"}
+                  />
+                </div>
+              );
+            })}
+          </CardBody>
+        </Card>
 
         {/* Full width rather than in the 340px column it used to hold a
             four-line list in: twelve months do not fit in a rail, and the reason
@@ -544,7 +545,10 @@ export function LeaveScreen() {
             so it renders as a summary with its counts and opens on request. The
             ungazetted-dates warning renders outside the reveal, because payroll
             is already costing those days. */}
-        <HolidayCalendarCard defaultYear={calendarYear} canManage={canManageSettings} />
+        <HolidayCalendarCard
+          defaultYear={calendarYear}
+          canManage={canManageSettings}
+        />
       </PageBody>
 
       <RequestPanel
@@ -561,7 +565,9 @@ export function LeaveScreen() {
       <DeclineDialog
         open={declining !== null}
         what={
-          declining ? `${declining.employeeName}'s ${declining.leaveType} leave` : ""
+          declining
+            ? `${declining.employeeName}'s ${declining.leaveType} leave`
+            : ""
         }
         onClose={() => setDeclining(null)}
         onConfirm={async (note) => {
@@ -614,7 +620,9 @@ function RequestPanel({
       open={open}
       onClose={onClose}
       title={
-        request ? `${request.leaveType} leave — ${request.employeeName}` : "Request"
+        request
+          ? `${request.leaveType} leave — ${request.employeeName}`
+          : "Request"
       }
       description={
         request
@@ -692,7 +700,9 @@ function RequestPanel({
               { term: "Job title", value: request.employeeJobTitle ?? "—" },
               {
                 term: "Raised",
-                value: request.requestedAt ? shortDate(request.requestedAt) : "—",
+                value: request.requestedAt
+                  ? shortDate(request.requestedAt)
+                  : "—",
               },
               { term: "Approver", value: request.approverName ?? "Not routed" },
               { term: "Reason given", value: request.reason ?? "None given" },
@@ -724,13 +734,14 @@ function RequestPanel({
               />
               {detail.balance.pending > 0 && (
                 <p className="mt-2 text-meta text-muted">
-                  {daysLabel(detail.balance.pending)} still waiting on a decision.
+                  {daysLabel(detail.balance.pending)} still waiting on a
+                  decision.
                 </p>
               )}
               {detail.balance.remaining < 0 && (
                 <p className="mt-2 text-body-sm text-warning-text">
-                  Approving this takes them past their entitlement. The days over
-                  are unpaid unless you say otherwise.
+                  Approving this takes them past their entitlement. The days
+                  over are unpaid unless you say otherwise.
                 </p>
               )}
             </DrawerSection>

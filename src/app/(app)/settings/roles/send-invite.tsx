@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button, Callout, Checkbox, Field, Modal, Picker } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
-import type { ApiPendingInvite } from "@/lib/api/invites";
+import type { PendingInvite } from "@/lib/api/invites";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import type { RoleView } from "@/lib/store/permissions";
 import { fullName } from "@/lib/types";
@@ -25,7 +25,7 @@ export function SendInviteDialog({
   onSend,
 }: {
   roles: RoleView[];
-  pending: ApiPendingInvite[];
+  pending: PendingInvite[];
   onClose: () => void;
   onSend: (employeeId: string, roleIds: string[]) => Promise<boolean>;
 }) {

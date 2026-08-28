@@ -46,7 +46,7 @@ const SHAPES = [
     src: "/photos/site-team.jpg",
     alt: "A site team in hi-vis reviewing drawings together",
     title: "Sites and shifts",
-    body: "Rotating crews, overtime, and a working month that is not 22 days. Unpaid leave prorates against your roster, not an office calendar.",
+    body: "Rotating crews, overtime, and a working month that is adjustable. Unpaid leave prorates against your roster, not an office calendar.",
     setting: "Working month: configurable",
   },
   {
@@ -76,14 +76,14 @@ export default function HomePage() {
           <div className="text-center">
             <Reveal delay={60}>
               <h1 className="mx-auto mt-5 max-w-4xl text-mega text-slate">
-                All your HR and payroll, in one system.
+                A smarter way to manage staff.
               </h1>
             </Reveal>
 
             <Reveal delay={120}>
               <p className="mx-auto mt-7 max-w-2xl text-lead text-slate-muted">
                 Employee records, payroll, recruitment, leave and approvals —
-                one platform, one employee record, no re-typing.
+                managed in one platform.
               </p>
             </Reveal>
 
@@ -109,14 +109,14 @@ export default function HomePage() {
                 {[
                   {
                     title: "Approval before money moves",
-                    body: "Every payroll is prepared, reviewed and approved by named people. The payment file only exists after approval.",
+                    body: "Every payroll is prepared, reviewed and approved by the appropriate office. The payment file only exists after approval.",
                   },
                   {
-                    title: "Deductions you do not maintain",
+                    title: "Automated deductions",
                     body: "PAYE bands, 8% and 10% pension, NHF. We track the changes so you do not have to.",
                   },
                   {
-                    title: "Schedules, not spreadsheets",
+                    title: "Auto-remittance schedules",
                     body: "Every remittance schedule is generated automatically, split by PFA and by state.",
                   },
                 ].map((item) => (
@@ -153,8 +153,8 @@ export default function HomePage() {
           <Reveal>
             <SectionHeading
               eyebrow="Built for how your company runs"
-              title="One payroll. Three types of company."
-              lead="A site crew on rotating shifts. A head office on salary. A contractor on withholding tax. Your working month, salary structure and pensionable components are settings you control — not assumptions we make."
+              title="One payroll. Three company structures."
+              lead="A site crew on rotating shifts. A head office on salary. A contractor on withholding tax. Your working month, salary structure and pensionable components are easy settings you can control."
             />
           </Reveal>
 
@@ -220,7 +220,7 @@ export default function HomePage() {
           <Reveal>
             <SectionHeading
               eyebrow="Statutory compliance"
-              title="Global HR tools stop at the salary."
+              title="Most global HR tools stop at salary."
               lead="They store what someone earns. Then the real work starts — PAYE split by state, pension split by PFA, NHF, NSITF — and it lands back on your finance lead, a spreadsheet and a consultant on retainer. That is the part we built first."
             />
             <ul className="mt-9 flex flex-col gap-4">
@@ -279,7 +279,7 @@ export default function HomePage() {
               {
                 value: <CountUp to={3} />,
                 label:
-                  "Named approvers before a payment file exists. Prepared, reviewed, released — each step timestamped.",
+                  "A named office approves before a payment file exists. Prepared, reviewed, released — each step timestamped.",
               },
             ].map((item, i) => (
               <Reveal key={i} as="div" delay={i * 70}>

@@ -27,10 +27,7 @@ import {
   Card,
   CardBody,
   CardHeader,
-  Checkbox,
-  ConfirmDialog,
   DescriptionList,
-  Modal,
   Money,
   ProgressMeter,
   Skeleton,
@@ -42,7 +39,6 @@ import {
   THead,
   TR,
   TableWrap,
-  useToast,
   type BadgeTone,
 } from "@/components/ui";
 import { EmployeeFileDrawer } from "@/app/(app)/people/documents";
@@ -50,7 +46,6 @@ import { StartExitDialog } from "@/app/(app)/people/offboarding";
 import { PayComponentsPanel } from "@/app/(app)/payroll/pay-setup/pay-components-panel";
 import { RecordHistory } from "@/app/(app)/settings/audit/record-history";
 import { StartPeriodButton } from "@/app/(app)/performance";
-import { ApiError } from "@/lib/api/client";
 import { naira } from "@/lib/api/pay-components";
 import { koboFromDecimal, wasDeducted } from "@/lib/api/payroll";
 import { payslipFiguresFor } from "@/lib/mock/demo-payslips";
@@ -62,11 +57,10 @@ import {
 } from "@/lib/reference/lists";
 import type { LeaveBalanceRow, LeaveRow } from "@/lib/api/leave";
 import { useCan } from "@/lib/permissions";
+import { InviteToSignInButton } from "./invite-to-sign-in";
 import { useDepartments } from "@/lib/store/departments";
-import { useInvites } from "@/lib/store/invites";
 import { useWorkLocations } from "@/lib/store/work-locations";
 import { useGrades } from "@/lib/store/grades";
-import { useRoles } from "@/lib/store/permissions";
 import { BandPosition } from "@/app/(app)/payroll/pay-setup/band-position";
 import type { EmployeePatch } from "@/lib/store/employees-api";
 import { usePayPreview } from "@/lib/store/pay-components";
@@ -257,9 +251,9 @@ export function EmployeeRecord({
      worse present than absent. */
   const canEditRecords = useCan("EDIT_RECORDS");
   const canRecordExit = canEditRecords;
-  /* `MANAGE_ROLES`, not `EDIT_RECORDS` — inviting somebody hands out roles,
-     the same act `invites.send` on the API gates the same way. */
-  const canManageRoles = useCan("MANAGE_ROLES");
+  /* Issuing a login is its own permission, deliberately split from editing a
+     record — see the header of `modules/invites/router.ts`. */
+  const canInvite = useCan("INVITE_STAFF");
 
   const name = fullName(employee);
   const status = statusOf(employee.status);
@@ -361,9 +355,20 @@ export function EmployeeRecord({
 
           <CardBody className="border-t border-line">
             <ul className="flex flex-col gap-2.5">
-              <Contact icon={<Mail aria-hidden="true" />} value={employee.email} missing="No email address" />
-              <Contact icon={<Phone aria-hidden="true" />} value={employee.phone} missing="No phone number" />
-              <Contact icon={<MapPin aria-hidden="true" />} value={employee.location} />
+              <Contact
+                icon={<Mail aria-hidden="true" />}
+                value={employee.email}
+                missing="No email address"
+              />
+              <Contact
+                icon={<Phone aria-hidden="true" />}
+                value={employee.phone}
+                missing="No phone number"
+              />
+              <Contact
+                icon={<MapPin aria-hidden="true" />}
+                value={employee.location}
+              />
               <Contact
                 icon={<CalendarDays aria-hidden="true" />}
                 value={`Started ${employee.startDate}`}
@@ -376,7 +381,13 @@ export function EmployeeRecord({
               value={completeness}
               label="Record complete"
               showValue
-              tone={completeness === 100 ? "success" : completeness >= 70 ? "accent" : "warning"}
+              tone={
+                completeness === 100
+                  ? "success"
+                  : completeness >= 70
+                    ? "accent"
+                    : "warning"
+              }
             />
           </CardBody>
 
@@ -441,7 +452,6 @@ export function EmployeeRecord({
                 Their documents
               </Button>
             )}
-            <InviteToSignIn employee={employee} canManage={canManageRoles} />
             {/* Their appraisals, from their record. The trend across periods was
                 only reachable from a period's own register before this, which
                 meant the one screen that answers "has this person improved" was
@@ -460,6 +470,19 @@ export function EmployeeRecord({
                 here because looking at somebody's record is one of the moments
                 the thought arrives. Secondary, like its neighbours. */}
             <StartPeriodButton block />
+            {/* The fourth and last way a company brings somebody's email in:
+                the attendance screen does a batch of clock-in logins, the
+                importer does one per row that carries a role, the new-role
+                dialog invites by address alone — and this is "this person,
+                now", which is the shape the question takes on a record. Hidden
+                once they already have one, since the API refuses a second. */}
+            {canInvite && employee.canLogin && !hasLeft && (
+              <InviteToSignInButton
+                employeeId={employee.id}
+                name={name}
+                email={employee.email ?? null}
+              />
+            )}
             {/* Secondary, like its neighbours. Recording an exit is
                 consequential rather than the thing you came here to do, and a
                 blue primary button on every employee record would read as the
@@ -611,7 +634,10 @@ export function EmployeeRecord({
                     columns={2}
                     items={[
                       { term: "Name", value: employee.nextOfKin.name },
-                      { term: "Relationship", value: employee.nextOfKin.relationship },
+                      {
+                        term: "Relationship",
+                        value: employee.nextOfKin.relationship,
+                      },
                       { term: "Phone", value: employee.nextOfKin.phone },
                     ]}
                   />
@@ -717,7 +743,9 @@ export function EmployeeRecord({
                   /* Two decimals, never abbreviated: this is a figure somebody
                      reconciles against a bank statement. Absent, never zero:
                      `Money` renders "Not set yet" rather than ₦0.00. */
-                  format: (v) => <Money amount={v === null ? null : Number(v)} decimals />,
+                  format: (v) => (
+                    <Money amount={v === null ? null : Number(v)} decimals />
+                  ),
                 },
                 /*
                  * Settable at creation (`/people/new`'s Picker) and, until now,
@@ -780,7 +808,10 @@ export function EmployeeRecord({
                           }
                         >
                           Set pay to the mid-point,{" "}
-                          <Money amount={naira(currentGrade.midGrossKobo)} decimals />
+                          <Money
+                            amount={naira(currentGrade.midGrossKobo)}
+                            decimals
+                          />
                         </Button>
                       ) : undefined
                     }
@@ -888,14 +919,18 @@ export function EmployeeRecord({
                   emptyLabel: "No bank account — payroll blocked",
                   help: "Ten digits. Payroll cannot pay without this.",
                   digits: 10,
-                  format: (v) => <Guarded value={String(v)} canReveal={canReveal} />,
+                  format: (v) => (
+                    <Guarded value={String(v)} canReveal={canReveal} />
+                  ),
                 },
                 {
                   key: "pensionPin",
                   label: "Pension PIN",
                   emptyLabel: "No pension PIN — payroll blocked",
                   help: "PEN followed by 9 to 12 digits.",
-                  format: (v) => <Guarded value={String(v)} canReveal={canReveal} />,
+                  format: (v) => (
+                    <Guarded value={String(v)} canReveal={canReveal} />
+                  ),
                 },
                 {
                   key: "pensionProvider",
@@ -945,12 +980,16 @@ export function EmployeeRecord({
                   emptyLabel: "No TIN — payroll blocked",
                   help: "Ten digits.",
                   digits: 10,
-                  format: (v) => <Guarded value={String(v)} canReveal={canReveal} />,
+                  format: (v) => (
+                    <Guarded value={String(v)} canReveal={canReveal} />
+                  ),
                 },
                 {
                   key: "nhfNumber",
                   label: "NHF number",
-                  format: (v) => <Guarded value={String(v)} canReveal={canReveal} />,
+                  format: (v) => (
+                    <Guarded value={String(v)} canReveal={canReveal} />
+                  ),
                 },
                 /**
                  * Declared rent, and the only place the record can answer the
@@ -1079,7 +1118,7 @@ export function EmployeeRecord({
                         <TR key={r.id}>
                           <TDPrimary
                             title={r.leaveType}
-                            {...(r.reason ?? r.decisionNote
+                            {...((r.reason ?? r.decisionNote)
                               ? { subtitle: r.reason ?? r.decisionNote ?? "" }
                               : {})}
                           />
@@ -1179,196 +1218,6 @@ const TAB_IDS = ["personal", "employment", "pay", "leave", "conduct"];
  * rather than a guess: this card and the demo payslip for the same person must
  * never disagree, and the only way to guarantee that is one source.
  */
-/**
- * Invite this person to sign in, or show where their invitation stands.
- *
- * Nothing renders for somebody `canLogin === false` — they are recorded as
- * not needing an account, and an invite button that would only fail on the
- * API's own refusal teaches nothing the record page hasn't already said.
- * Nothing renders disconnected either: sending an invitation is a real email
- * to a real address, and there is no demo mirror for it — see
- * `lib/store/invites.ts`.
- *
- * Whether they already hold a full account (rather than a pending one) is
- * not knowable from here — `GET /invites` lists only the pending kind. Which
- * means "Invite to sign in" can still be offered to somebody who already
- * accepted; the API's own refusal ("They already have an ApproveHR account")
- * is what catches that, the same way the rest of this product lets a
- * specific refusal be the message rather than a second copy of the rule.
- */
-function InviteToSignIn({
-  employee,
-  canManage,
-}: {
-  employee: Employee;
-  canManage: boolean;
-}) {
-  const invites = useInvites();
-  const roles = useRoles();
-  const toast = useToast();
-  const [open, setOpen] = useState(false);
-  const [roleIds, setRoleIds] = useState<string[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [revokeOpen, setRevokeOpen] = useState(false);
-  const [revokeBusy, setRevokeBusy] = useState(false);
-
-  if (!canManage || employee.canLogin === false || !invites.connected) {
-    return null;
-  }
-
-  const pending = invites.invites.find((i) => i.employeeId === employee.id);
-
-  async function send() {
-    if (roleIds.length === 0) return;
-    setBusy(true);
-    try {
-      await invites.send(employee.id, roleIds);
-      toast.push({ title: "Invitation sent", tone: "success" });
-      setOpen(false);
-      setRoleIds([]);
-    } catch (error) {
-      toast.push({
-        title: "That invitation was not sent",
-        tone: "danger",
-        detail:
-          error instanceof ApiError
-            ? error.message
-            : "Something went wrong. Try again.",
-      });
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function resend() {
-    if (!pending) return;
-    try {
-      await invites.resend(pending.userId);
-      toast.push({ title: "Invitation sent again", tone: "success" });
-    } catch (error) {
-      toast.push({
-        title: "That did not resend",
-        tone: "danger",
-        detail:
-          error instanceof ApiError
-            ? error.message
-            : "Something went wrong. Try again.",
-      });
-    }
-  }
-
-  async function revoke() {
-    if (!pending) return;
-    setRevokeBusy(true);
-    try {
-      await invites.revoke(pending.userId);
-      toast.push({ title: "Invitation revoked", tone: "info" });
-      setRevokeOpen(false);
-    } catch (error) {
-      toast.push({
-        title: "That invitation was not revoked",
-        tone: "danger",
-        detail:
-          error instanceof ApiError
-            ? error.message
-            : "Something went wrong. Try again.",
-      });
-    } finally {
-      setRevokeBusy(false);
-    }
-  }
-
-  if (pending) {
-    return (
-      <div className="rounded-md border border-line p-2.5">
-        <p className="text-meta text-muted">
-          Invited {shortDate(pending.invitedAt)} —{" "}
-          {pending.expired ? "link expired" : "not yet accepted"}
-        </p>
-        <div className="mt-1.5 flex gap-1.5">
-          <Button variant="ghost" size="sm" onClick={() => void resend()}>
-            Resend
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setRevokeOpen(true)}
-          >
-            Revoke
-          </Button>
-        </div>
-        <ConfirmDialog
-          open={revokeOpen}
-          onClose={() => setRevokeOpen(false)}
-          title={`Revoke the invitation to ${fullName(employee)}?`}
-          confirmLabel="Revoke"
-          tone="danger"
-          loading={revokeBusy}
-          body="Deletes the pending invitation. Inviting them again starts fresh."
-          onConfirm={() => void revoke()}
-        />
-      </div>
-    );
-  }
-
-  return (
-    <>
-      <Button
-        variant="secondary"
-        size="sm"
-        block
-        onClick={() => setOpen(true)}
-      >
-        <Mail aria-hidden="true" className="size-3.5" />
-        Invite to sign in
-      </Button>
-      {open && (
-        <Modal
-          open
-          onClose={() => setOpen(false)}
-          size="sm"
-          title={`Invite ${fullName(employee)} to sign in`}
-          footer={
-            <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                variant="accent"
-                loading={busy}
-                disabled={roleIds.length === 0}
-                onClick={() => void send()}
-              >
-                Send invitation
-              </Button>
-            </div>
-          }
-        >
-          <p className="text-body-sm text-muted">
-            What their account can do once they accept. At least one role.
-          </p>
-          <div className="mt-3 flex flex-col gap-2">
-            {roles.roles.map((role) => (
-              <Checkbox
-                key={role.id}
-                checked={roleIds.includes(role.id)}
-                onChange={() =>
-                  setRoleIds((current) =>
-                    current.includes(role.id)
-                      ? current.filter((r) => r !== role.id)
-                      : [...current, role.id],
-                  )
-                }
-                label={role.name}
-              />
-            ))}
-          </div>
-        </Modal>
-      )}
-    </>
-  );
-}
-
 function Compensation({
   employee,
   connected,

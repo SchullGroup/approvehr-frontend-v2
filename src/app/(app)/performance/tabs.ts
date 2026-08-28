@@ -19,17 +19,19 @@
  * whole migration and it needs no alias table.
  */
 export const PERFORMANCE_TABS = [
-  /** What is open, what is waiting on you, what is waiting on somebody else. */
-  "now",
-  "kpis",
   /**
-   * The appraisal periods.
+   * The appraisal periods. First, because a period is the thing somebody
+   * opens this module to work on — everything else is either derived from
+   * one (`now`) or a company-wide setting (`kpis`, `appraisers`).
    *
    * "Period" is the user's word; `ReviewCycle` is the model's. Only people who
    * can run or read a period across the company see this — staff learn which
    * period is open from `now`, which is the only fact about it that is theirs.
    */
   "periods",
+  /** What is open, what is waiting on you, what is waiting on somebody else. */
+  "now",
+  "kpis",
   /**
    * Who appraises whom. Last, and usually absent.
    *

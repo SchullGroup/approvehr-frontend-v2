@@ -53,7 +53,7 @@ import { useExitTemplates } from "@/lib/store/offboarding";
  * ## Off, never deleted
  *
  * Switching a line off keeps it. The reason is not sentiment: a company with no
- * templates at all gets the defaults seeded, so a real delete would put the line
+ * templates at all used to get the defaults seeded, so a real delete would put the line
  * they just removed straight back the next time somebody resigned. The switch
  * says "on new checklists", because that is exactly what it changes — an exit
  * already running keeps the lines it was given.
@@ -61,11 +61,24 @@ import { useExitTemplates } from "@/lib/store/offboarding";
 export function ChecklistSettingsScreen() {
   const [showOff, setShowOff] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [adopting, setAdopting] = useState(false);
   const [editing, setEditing] = useState<ApiExitTemplate | null>(null);
 
   const templates = useExitTemplates(showOff);
   const toast = useToast();
   const canEdit = useCan("MANAGE_SETTINGS");
+
+  async function adoptDefaults() {
+    setAdopting(true);
+    try {
+      await run(
+        () => templates.adoptDefaults(),
+        "Suggested checklist added — edit or remove any line",
+      );
+    } finally {
+      setAdopting(false);
+    }
+  }
 
   async function run(action: () => Promise<unknown>, success: string) {
     try {
@@ -150,13 +163,22 @@ export function ChecklistSettingsScreen() {
           <Card>
             <EmptyState
               icon={<ListChecks aria-hidden="true" />}
-              title="Nothing on the checklist"
-              description="Add the things somebody has to do before they leave — hand back a laptop, agree the final pay."
+              title="Nothing on the checklist yet"
+              description="What somebody has to do before they leave — hand back a laptop, agree the final pay, notify the pension provider. Write your own, or start from the seven most companies need and edit from there."
               action={
                 canEdit ? (
-                  <Button variant="accent" onClick={() => setAdding(true)}>
-                    Add a line
-                  </Button>
+                  <span className="flex flex-wrap items-center justify-center gap-2">
+                    <Button
+                      variant="accent"
+                      loading={adopting}
+                      onClick={() => void adoptDefaults()}
+                    >
+                      Use the suggested checklist
+                    </Button>
+                    <Button variant="secondary" onClick={() => setAdding(true)}>
+                      Write my own
+                    </Button>
+                  </span>
                 ) : undefined
               }
             />

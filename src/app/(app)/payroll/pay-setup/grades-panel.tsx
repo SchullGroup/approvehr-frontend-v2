@@ -40,7 +40,12 @@ import {
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
-import { kobo, naira, type ApiGrade, type ApiIncreaseResult } from "@/lib/api/grades";
+import {
+  kobo,
+  naira,
+  type ApiGrade,
+  type ApiIncreaseResult,
+} from "@/lib/api/grades";
 import {
   useGradeEmployees,
   useGradeIncrease,
@@ -110,7 +115,8 @@ export function GradesPanel() {
   const nextLevel = useMemo(
     () =>
       grades.rows.reduce(
-        (highest, row) => (row.archived ? highest : Math.max(highest, row.level)),
+        (highest, row) =>
+          row.archived ? highest : Math.max(highest, row.level),
         0,
       ) + 1,
     [grades.rows],
@@ -139,8 +145,8 @@ export function GradesPanel() {
       {DEMO_ENABLED && !grades.connected && !grades.loading && (
         <Callout tone="warning" title="Demo data, this browser only">
           You can price a rise here and see exactly what it would cost. Applying
-          one, and adding or editing a grade, needs the API — pay set in a browser
-          would never reach a payroll run.
+          one, and adding or editing a grade, needs the API — pay set in a
+          browser would never reach a payroll run.
         </Callout>
       )}
 
@@ -149,7 +155,11 @@ export function GradesPanel() {
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat label="Grades" value={String(totals.grades)} hint="on the ladder" />
+        <Stat
+          label="Salary grades"
+          value={String(totals.grades)}
+          hint="on the ladder"
+        />
         <Stat
           label="People on a grade"
           value={String(totals.employees)}
@@ -157,7 +167,13 @@ export function GradesPanel() {
         />
         <Stat
           label="Monthly cost"
-          value={<Money amount={naira(totals.monthlyPayrollKobo)} decimals size="xl" />}
+          value={
+            <Money
+              amount={naira(totals.monthlyPayrollKobo)}
+              decimals
+              size="xl"
+            />
+          }
           hint="gross, before employer pension"
         />
         <Stat
@@ -172,11 +188,15 @@ export function GradesPanel() {
 
       <Card>
         <CardHeader
-          title="Grades"
+          title="Salary grades"
           description="Ordered by level, lowest first. The band is what the grade is worth a month."
           action={
             grades.editable ? (
-              <Button variant="accent" size="sm" onClick={() => setCreating(true)}>
+              <Button
+                variant="accent"
+                size="sm"
+                onClick={() => setCreating(true)}
+              >
                 <Plus aria-hidden="true" className="size-4" />
                 Add grade
               </Button>
@@ -229,7 +249,11 @@ export function GradesPanel() {
               }
               action={
                 !grades.loading && !search && grades.editable ? (
-                  <Button variant="accent" size="sm" onClick={() => setCreating(true)}>
+                  <Button
+                    variant="accent"
+                    size="sm"
+                    onClick={() => setCreating(true)}
+                  >
                     <Plus aria-hidden="true" className="size-4" />
                     Add the first grade
                   </Button>
@@ -295,7 +319,10 @@ export function GradesPanel() {
           nextLevel={editing.level}
           onClose={() => setEditing(null)}
           onSubmit={async (body) => {
-            const ok = await run(() => grades.update(editing.id, body), "Saved");
+            const ok = await run(
+              () => grades.update(editing.id, body),
+              "Saved",
+            );
             if (ok) setEditing(null);
           }}
         />
@@ -552,7 +579,8 @@ function GradeDialog({
     !orderError;
 
   const submit = () => {
-    if (!ready || minValue === null || maxValue === null || midValue === null) return;
+    if (!ready || minValue === null || maxValue === null || midValue === null)
+      return;
     setBusy(true);
     void onSubmit({
       code: code.trim().toUpperCase(),
@@ -587,7 +615,11 @@ function GradeDialog({
     >
       <div className="flex flex-col gap-4">
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Code" required help="What payslips and offer letters quote.">
+          <Field
+            label="Code"
+            required
+            help="What payslips and offer letters quote."
+          >
             <Input
               value={code}
               autoFocus={mode === "create"}
@@ -625,7 +657,12 @@ function GradeDialog({
               }}
             />
           </Field>
-          <Field label="Top of band" required help="Naira a month." error={orderError}>
+          <Field
+            label="Top of band"
+            required
+            help="Naira a month."
+            error={orderError}
+          >
             <Input
               type="number"
               inputMode="decimal"
@@ -656,18 +693,18 @@ function GradeDialog({
               Mid-point
             </dt>
             <dd className="text-body-sm font-medium text-ink">
-              {midValue === null ? (
-                "—"
-              ) : (
-                <Money amount={midValue} decimals />
-              )}
+              {midValue === null ? "—" : <Money amount={midValue} decimals />}
             </dd>
           </div>
         </dl>
 
         {(advanced || mode === "edit") && (
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Level" required help="Rank on the ladder. One grade per level.">
+            <Field
+              label="Level"
+              required
+              help="Rank on the ladder. One grade per level."
+            >
               <Input
                 type="number"
                 min={1}
@@ -679,7 +716,10 @@ function GradeDialog({
                 }}
               />
             </Field>
-            <Field label="Mid-point" help="Naira a month. Halfway if you leave it.">
+            <Field
+              label="Mid-point"
+              help="Naira a month. Halfway if you leave it."
+            >
               <Input
                 type="number"
                 inputMode="decimal"
@@ -784,7 +824,9 @@ function RaiseDialog({
       })
       .catch((error: unknown) =>
         setFailure(
-          error instanceof ApiError ? error.message : "The rise was not applied.",
+          error instanceof ApiError
+            ? error.message
+            : "The rise was not applied.",
         ),
       );
   };
@@ -830,7 +872,9 @@ function RaiseDialog({
               disabled={!ready || increase.busy !== null}
               onClick={showPreview}
             >
-              {increase.busy === "preview" ? "Working it out…" : "Show what it costs"}
+              {increase.busy === "preview"
+                ? "Working it out…"
+                : "Show what it costs"}
             </Button>
           )}
         </div>
@@ -860,7 +904,9 @@ function RaiseDialog({
                 setDraft((d) => ({ ...d, basis: value }));
               }}
             >
-              <option value="PERCENT">A percentage of what they earn now</option>
+              <option value="PERCENT">
+                A percentage of what they earn now
+              </option>
               <option value="AMOUNT">The same amount for everybody</option>
             </Select>
           </Field>
@@ -886,7 +932,11 @@ function RaiseDialog({
               />
             </Field>
           ) : (
-            <Field label="Amount each" required help="Naira a month, added to everyone.">
+            <Field
+              label="Amount each"
+              required
+              help="Naira a month, added to everyone."
+            >
               <Input
                 type="number"
                 inputMode="decimal"
@@ -903,7 +953,11 @@ function RaiseDialog({
             </Field>
           )}
 
-          <Field optional label="Note" help="Goes in the audit trail with the rise.">
+          <Field
+            optional
+            label="Note"
+            help="Goes in the audit trail with the rise."
+          >
             <Input
               value={draft.note}
               placeholder="2026 annual review"
@@ -1063,9 +1117,7 @@ function PeopleDrawer({
       )} to ${formatPlain(naira(grade.maxGrossKobo))} a month`}
     >
       <div className="flex flex-col gap-5">
-        {error && (
-          <LoadFailure subject="the list" error={error} />
-        )}
+        {error && <LoadFailure subject="the list" error={error} />}
 
         {loading && <p className="text-body-sm text-muted">Loading…</p>}
 

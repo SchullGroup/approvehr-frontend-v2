@@ -42,14 +42,6 @@ export type Employee = {
   dateOfBirth: string | null;
   gender?: "female" | "male" | "other";
 
-  /**
-   * Whether this person is entitled to a sign-in account — not whether they
-   * have one yet, see `lib/store/invites.ts` for that. `undefined` on a
-   * source that predates the field (the demo seed), which reads the same as
-   * `true`: every demo persona is nominally entitled to sign in.
-   */
-  canLogin?: boolean;
-
   jobTitle: string;
   department: string;
   managerId: Uuid | null;
@@ -78,6 +70,14 @@ export type Employee = {
    * the field.
    */
   payeManualOverride?: boolean;
+
+  /**
+   * Whether this record is entitled to a login. Most staff are not — a
+   * portal account is opt-in, granted by an invitation
+   * (`@/lib/api/invites`), not a fact set here. `undefined` in demo mode,
+   * which has no accounts at all to be entitled to.
+   */
+  canLogin?: boolean;
 
   /**
    * Contractual monthly gross in naira, or **null** where nobody has set one.

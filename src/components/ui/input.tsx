@@ -46,10 +46,24 @@ export type InputProps = React.InputHTMLAttributes<HTMLInputElement> & {
 };
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
-  { className, icon, suffix, digits, onChange, ...props },
+  { className, icon, suffix, digits, onChange, onWheel, ...props },
   ref,
 ) {
   const field = useFieldControl();
+
+  /* A focused number input changes value on a scroll — not a click, not a
+     key, just passing the cursor over it while scrolling the page. Blurring
+     it the moment a wheel event arrives hands the scroll back to the page,
+     which is what everyone here expects, rather than to a figure they never
+     meant to touch. Composed with the caller's own handler, not replacing
+     it — see `handleChange` just below for the same rule on `onChange`. */
+  const handleWheel =
+    props.type === "number"
+      ? (event: React.WheelEvent<HTMLInputElement>) => {
+          event.currentTarget.blur();
+          onWheel?.(event);
+        }
+      : onWheel;
 
   /* The counter reuses the suffix slot rather than inventing a second one. An
      explicit `suffix` still wins: a currency matters more than a count. */
@@ -85,6 +99,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         : { inputMode: "numeric" as const, maxLength: digits })}
       {...props}
       onChange={handleChange}
+      onWheel={handleWheel}
     />
   );
 

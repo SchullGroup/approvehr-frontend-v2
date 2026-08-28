@@ -1,5 +1,5 @@
 /**
- * The fifteen permission keys, and nothing else.
+ * The sixteen permission keys, and nothing else.
  *
  * ## Why this is its own file
  *
@@ -47,6 +47,7 @@ export const PERMISSION_KEYS = [
   /* Company */
   "MANAGE_SETTINGS",
   "MANAGE_ROLES",
+  "INVITE_STAFF",
   /* Records and reports */
   "EXPORT_DATA",
   "IMPORT_DATA",

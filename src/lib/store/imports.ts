@@ -519,17 +519,6 @@ export function useImport(dictionary: Dictionary<string>) {
   }, []);
 
   /**
-   * Whether the flagged list has been read.
-   *
-   * Not a formality. The list is people who will be in the directory with
-   * something payroll needs missing, and the alternative to an acknowledgement
-   * is a warning nobody has to look at — which for the two hundredth row of a
-   * five hundred row file is the same as no warning at all.
-   */
-  const [acknowledged, setAcknowledged] = useState(false);
-  const acknowledge = useCallback((value: boolean) => setAcknowledged(value), []);
-
-  /**
    * Which of the file's rows to send, by row number, or null for all of them.
    *
    * Set after a partial import so the second attempt carries only the rows that
@@ -566,7 +555,6 @@ export function useImport(dictionary: Dictionary<string>) {
        onto another's rows. */
     setFixes({});
     setDecisions({});
-    setAcknowledged(false);
     setSelection(null);
     mapped.current = [];
 
@@ -664,7 +652,6 @@ export function useImport(dictionary: Dictionary<string>) {
       setResult(null);
       setFixes({});
       setDecisions({});
-      setAcknowledged(false);
       setSelection(null);
       mapped.current = [];
 
@@ -712,7 +699,6 @@ export function useImport(dictionary: Dictionary<string>) {
     setResult(null);
     setFixes({});
     setDecisions({});
-    setAcknowledged(false);
     setSelection(null);
     setError(null);
     setProgress(null);
@@ -747,10 +733,6 @@ export function useImport(dictionary: Dictionary<string>) {
     if (!file || !isMappingReady(dictionary, mapping)) return false;
     setError(null);
     setResult(null);
-    /* A new check produces a new flagged list, so an acknowledgement of the old
-       one no longer describes anything on screen. Cheap to re-tick, and the
-       alternative is somebody carrying on past a list they have not seen. */
-    setAcknowledged(false);
 
     /* Mapped from the raw file, then the person's corrections laid back over
        the top. Order matters: mapping first so a re-mapped column is honoured,
@@ -1056,7 +1038,6 @@ export function useImport(dictionary: Dictionary<string>) {
     setSelection([...result.notImported]);
     setResult(null);
     setCheck(null);
-    setAcknowledged(false);
     setError(null);
     return true;
   }, [result]);
@@ -1209,8 +1190,6 @@ export function useImport(dictionary: Dictionary<string>) {
     decide,
     decideAll,
     seedDecisions,
-    acknowledged,
-    acknowledge,
     downloadTemplate,
     downloadRowsToFix,
     downloadNotImported,

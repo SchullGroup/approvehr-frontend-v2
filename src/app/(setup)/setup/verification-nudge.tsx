@@ -5,7 +5,7 @@ import { Mail } from "lucide-react";
 import { Button, Callout } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { account, type DeliveryHint } from "@/lib/api/account";
-import { DeliveryNote } from "@/app/(auth)/delivery-note";
+import { DeliveryNote } from "@/components/portal/delivery-note";
 
 /**
  * "Confirm your email", shown above the setup wizard right after
