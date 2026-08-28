@@ -135,7 +135,6 @@ function Diary() {
         <Card>
           <CardHeader
             title="Before anybody gets interviewed"
-            description="Nobody reaches a diary until somebody has read their application."
             action={<SourceBadge live={backlog.live} />}
           />
           <CardBody className="flex flex-col gap-4">

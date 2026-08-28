@@ -81,7 +81,7 @@ const COLUMNS: readonly ColumnSpec<AssetField>[] = [
        would have that flag set by an empty cell. See the API's dictionary. */
     required: true,
     example: "Laptop",
-    note: "What sort of thing it is — Laptop, Phone, Access card. We add a kind you do not have yet, using the answer in the next column. Required, because whether a leaver has to hand something back is recorded against the kind.",
+    note: "What sort of thing it is, e.g. Laptop, Phone, Access card.",
   },
   {
     field: "tag",
@@ -103,7 +103,7 @@ const COLUMNS: readonly ColumnSpec<AssetField>[] = [
        read off the case, so inventing one sends somebody looking for nothing. */
     required: true,
     example: "LAP-0042",
-    note: "Your own label for it — what is written on the sticker. Unique across your register. If your sheet only has serial numbers, copy that column into this one; we will not invent a tag, because a tag that is not on the case sends somebody looking for nothing.",
+    note: "Your asset tag — what's on the sticker. Must be unique.",
   },
   {
     field: "name",
@@ -120,7 +120,7 @@ const COLUMNS: readonly ColumnSpec<AssetField>[] = [
     ],
     required: true,
     example: 'MacBook Air 13"',
-    note: "Required. What somebody would call it in a sentence.",
+    note: "What it's called, e.g. \"MacBook Pro 14-inch\".",
   },
   {
     field: "mustReturn",
@@ -139,7 +139,7 @@ const COLUMNS: readonly ColumnSpec<AssetField>[] = [
        meaningless, which is why it is required and never inferred. */
     required: true,
     example: "yes",
-    note: 'yes or no. "yes" means a leaver cannot be cleared until it is handed back — a laptop, a phone, an access card. "no" means it is theirs to keep — a branded mug, a training manual. Recorded against the kind, so every Laptop shares one answer, and we will not guess it.',
+    note: "Yes or no — must it be handed back when they leave?",
   },
   {
     field: "serialNumber",
@@ -147,7 +147,7 @@ const COLUMNS: readonly ColumnSpec<AssetField>[] = [
     aliases: ["serial", "serial_no", "sn", "imei", "service_tag", "vin"],
     required: false,
     example: "C02X1234ABCD",
-    note: "The manufacturer's number. We also match on it, so a second import of the same serial asks you about that item rather than adding it twice.",
+    note: "The manufacturer's serial number.",
     recommended: {
       why: "no serial number — an unreturned item cannot be identified to an insurer, a repairer or the police",
     },
@@ -166,7 +166,7 @@ const COLUMNS: readonly ColumnSpec<AssetField>[] = [
     ],
     required: false,
     example: "950,000.00",
-    note: "What it cost, in naira. The naira sign and commas are fine. Leave it empty if you do not know — we will not write a zero, because zero is a claim that it was free.",
+    note: "What it cost, in naira. Leave blank if unknown — 0 means it was free.",
     recommended: {
       why: "no value recorded — an item that does not come back has no figure against it, so the conversation about it is an argument",
     },
@@ -177,7 +177,7 @@ const COLUMNS: readonly ColumnSpec<AssetField>[] = [
     aliases: ["state", "item_condition", "asset_condition", "grade"],
     required: false,
     example: "good",
-    note: "new, good, fair, poor or damaged. This is what it is like now; on a handover it becomes the state it went out in, which is what a damage claim rests on.",
+    note: "new, good, fair, poor or damaged.",
   },
   {
     field: "purchasedOn",
@@ -192,7 +192,7 @@ const COLUMNS: readonly ColumnSpec<AssetField>[] = [
     ],
     required: false,
     example: "14/03/2024",
-    note: "DD/MM/YYYY or YYYY-MM-DD. Both are accepted and neither is guessed at.",
+    note: "DD/MM/YYYY or YYYY-MM-DD.",
   },
   {
     field: "make",
@@ -200,7 +200,7 @@ const COLUMNS: readonly ColumnSpec<AssetField>[] = [
     aliases: ["manufacturer", "brand", "vendor"],
     required: false,
     example: "Apple",
-    note: "Optional.",
+    note: "The manufacturer, e.g. Apple, Dell.",
   },
   {
     field: "model",
@@ -208,7 +208,7 @@ const COLUMNS: readonly ColumnSpec<AssetField>[] = [
     aliases: ["model_number", "model_name", "variant"],
     required: false,
     example: "A2681",
-    note: "Optional.",
+    note: "The model name or number.",
   },
   {
     field: "status",
@@ -216,7 +216,7 @@ const COLUMNS: readonly ColumnSpec<AssetField>[] = [
     aliases: ["asset_status", "location_status", "availability", "state_of_use"],
     required: false,
     example: "available",
-    note: "available, in_repair, retired or lost. Leave it empty for anything ordinary. Do not write assigned — say who has it in the two columns below and we work that out.",
+    note: "available, in_repair, retired or lost. Say who holds it below, not here.",
   },
   {
     field: "holderEmployeeNo",
@@ -232,7 +232,7 @@ const COLUMNS: readonly ColumnSpec<AssetField>[] = [
     ],
     required: false,
     example: "EMP-1000",
-    note: "The staff number of whoever has it now. Leave both holder columns empty for anything sitting in the store.",
+    note: "The staff number of whoever has it now.",
   },
   {
     field: "holderEmail",
@@ -248,7 +248,7 @@ const COLUMNS: readonly ColumnSpec<AssetField>[] = [
     ],
     required: false,
     example: "ngozi.williams@company.com",
-    note: "Their work email, if you do not have staff numbers. We read the staff number first when a row has both.",
+    note: "Their work email, if you don't have staff numbers.",
   },
   {
     field: "assignedOn",
@@ -263,7 +263,7 @@ const COLUMNS: readonly ColumnSpec<AssetField>[] = [
     ],
     required: false,
     example: "01/07/2025",
-    note: "When they were given it. Defaults to today if you name a holder and leave this empty.",
+    note: "When they were given it. Defaults to today.",
   },
   {
     field: "notes",
@@ -271,7 +271,7 @@ const COLUMNS: readonly ColumnSpec<AssetField>[] = [
     aliases: ["comment", "comments", "remarks", "note"],
     required: false,
     example: "Charger missing",
-    note: "Optional. Anything a register column does not cover.",
+    note: "Anything else worth noting.",
   },
 ];
 

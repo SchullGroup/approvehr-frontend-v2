@@ -6,9 +6,11 @@ import {
   Building2,
   ChevronRight,
   CornerDownRight,
+  Pencil,
   Plus,
   RotateCcw,
   Trash2,
+  UserCog,
   UserPlus,
   Users,
 } from "lucide-react";
@@ -23,6 +25,7 @@ import {
   ConfirmDialog,
   EmptyState,
   Field,
+  IconButton,
   Input,
   Modal,
   Money,
@@ -39,6 +42,7 @@ import { useCan } from "@/lib/permissions";
 import { isUnassigned } from "@/lib/store/demo-structure";
 import { useDepartments, type DepartmentNode } from "@/lib/store/departments";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
+import { AssignHeadDialog } from "./assign-head-dialog";
 import { AssignPeopleDialog } from "./assign-people-dialog";
 import { TeamsPanel } from "./teams-panel";
 
@@ -105,6 +109,8 @@ export function DepartmentsScreen() {
   const [assigning, setAssigning] = useState<DepartmentNode | null>(null);
   const [assignBusy, setAssignBusy] = useState(false);
   const [assignFailed, setAssignFailed] = useState<string | null>(null);
+  const [assigningHead, setAssigningHead] = useState<DepartmentNode | null>(null);
+  const [headBusy, setHeadBusy] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   /**
@@ -308,6 +314,7 @@ export function DepartmentsScreen() {
                         onEdit={setEditing}
                         onArchive={setArchiving}
                         onAssign={setAssigning}
+                        onAssignHead={setAssigningHead}
                       />
                     ))}
                   </CardBody>
@@ -422,10 +429,6 @@ export function DepartmentsScreen() {
         <EditDialog
           node={editing}
           options={departments.flat}
-          employees={employees.map((e) => ({
-            id: e.id,
-            name: `${e.firstName} ${e.lastName}`,
-          }))}
           onClose={() => setEditing(null)}
           onSave={async (body, parentId) => {
             const ok = await run(async () => {
@@ -435,6 +438,31 @@ export function DepartmentsScreen() {
               }
             }, "Saved");
             if (ok) setEditing(null);
+          }}
+        />
+      )}
+
+      {assigningHead && (
+        <AssignHeadDialog
+          departmentName={assigningHead.name}
+          currentHeadId={assigningHead.headId}
+          employees={employees.map((e) => ({
+            id: e.id,
+            name: `${e.firstName} ${e.lastName}`,
+            jobTitle: e.jobTitle,
+          }))}
+          busy={headBusy}
+          onClose={() => setAssigningHead(null)}
+          onAssign={async (headId) => {
+            setHeadBusy(true);
+            const ok = await run(
+              () => departments.update(assigningHead.id, { headId }),
+              headId === null
+                ? `${assigningHead.name} has no head now`
+                : "Head assigned",
+            );
+            setHeadBusy(false);
+            if (ok) setAssigningHead(null);
           }}
         />
       )}
@@ -545,6 +573,7 @@ function DepartmentRow({
   onEdit,
   onArchive,
   onAssign,
+  onAssignHead,
 }: {
   node: DepartmentNode;
   expanded: Set<string>;
@@ -557,6 +586,7 @@ function DepartmentRow({
   onEdit: (node: DepartmentNode) => void;
   onArchive: (node: DepartmentNode) => void;
   onAssign: (node: DepartmentNode) => void;
+  onAssignHead: (node: DepartmentNode) => void;
 }) {
   const isOpen = expanded.has(node.id);
   const hasChildren = node.children.length > 0;
@@ -682,7 +712,7 @@ function DepartmentRow({
         </div>
 
         {(canAssign || canManage) && (
-          <div className="flex shrink-0 gap-1.5">
+          <div className="flex shrink-0 items-center gap-1.5">
             {canAssign && (
               <Button
                 variant="secondary"
@@ -695,28 +725,46 @@ function DepartmentRow({
               </Button>
             )}
             {canManage && (
-              <>
-                <Button
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => onAssignHead(node)}
+                aria-label={`Assign a head to ${node.name}`}
+              >
+                <UserCog aria-hidden="true" className="size-3.5" />
+                Assign head
+              </Button>
+            )}
+            {/* Less-frequent structural actions, collapsed to icons with a
+                native hover tooltip (IconButton sets both `title` and
+                `aria-label`) so the row does not read as a wall of buttons. */}
+            {canManage && (
+              <div className="flex items-center gap-0.5 border-l border-line pl-1.5">
+                <IconButton
+                  label={`Add a sub-department inside ${node.name}`}
                   variant="ghost"
                   size="sm"
                   onClick={() => onAddChild(node.id)}
-                  aria-label={`Add a sub-department inside ${node.name}`}
                 >
-                  <Plus aria-hidden="true" className="size-3.5" />
-                  Sub-unit
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => onEdit(node)}>
-                  Edit
-                </Button>
-                <Button
+                  <Plus aria-hidden="true" className="size-4" />
+                </IconButton>
+                <IconButton
+                  label={`Edit ${node.name}`}
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onEdit(node)}
+                >
+                  <Pencil aria-hidden="true" className="size-3.5" />
+                </IconButton>
+                <IconButton
+                  label={`Archive ${node.name}`}
                   variant="ghost"
                   size="sm"
                   onClick={() => onArchive(node)}
-                  aria-label={`Archive ${node.name}`}
                 >
                   <Trash2 aria-hidden="true" className="size-3.5" />
-                </Button>
-              </>
+                </IconButton>
+              </div>
             )}
           </div>
         )}
@@ -735,6 +783,7 @@ function DepartmentRow({
               onEdit={onEdit}
               onArchive={onArchive}
               onAssign={onAssign}
+              onAssignHead={onAssignHead}
             />
           </div>
         ))}
@@ -829,21 +878,18 @@ function CreateDialog({
 function EditDialog({
   node,
   options,
-  employees,
   onClose,
   onSave,
 }: {
   node: DepartmentNode;
   options: Omit<DepartmentNode, "children">[];
-  employees: { id: string; name: string }[];
   onClose: () => void;
   onSave: (
-    body: { name?: string; headId?: string | null; costCentre?: string | null },
+    body: { name?: string; costCentre?: string | null },
     parentId?: string | null,
   ) => Promise<void>;
 }) {
   const [name, setName] = useState(node.name);
-  const [headId, setHeadId] = useState(node.headId ?? "");
   const [costCentre, setCostCentre] = useState(node.costCentre ?? "");
   const [parentId, setParentId] = useState(node.parentId ?? "");
   const [busy, setBusy] = useState(false);
@@ -882,7 +928,6 @@ function EditDialog({
               void onSave(
                 {
                   ...(name.trim() !== node.name ? { name: name.trim() } : {}),
-                  headId: headId === "" ? null : headId,
                   costCentre: costCentre.trim() === "" ? null : costCentre.trim(),
                 },
                 parentId === "" ? null : parentId,
@@ -903,26 +948,6 @@ function EditDialog({
               setName(v);
             }}
           />
-        </Field>
-
-        <Field
-          label="Head"
-          help="Who leads it. A head is responsible for everyone beneath the unit, not only their direct reports."
-        >
-          <Select
-            value={headId}
-            onChange={(e) => {
-              const v = e.target.value;
-              setHeadId(v);
-            }}
-          >
-            <option value="">Nobody assigned</option>
-            {employees.map((employee) => (
-              <option key={employee.id} value={employee.id}>
-                {employee.name}
-              </option>
-            ))}
-          </Select>
         </Field>
 
         <Field

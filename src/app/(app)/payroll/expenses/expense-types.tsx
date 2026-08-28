@@ -74,7 +74,7 @@ export function ExpenseTypes({
       <Card>
         <CardHeader
           title="Expense types"
-          description="What people can claim for. Each one carries its own cap and receipt rule."
+          description="Each one carries its own cap and receipt rule."
           action={
             <div className="flex flex-wrap items-center gap-4">
               <Checkbox

@@ -68,7 +68,6 @@ export function MyDocuments({
         {heading && (
           <CardHeader
             title="My documents"
-            description="What the company holds about you, and what it is asking you for."
             level={3}
             {...(addButton ? { action: addButton } : {})}
           />
@@ -87,7 +86,7 @@ export function MyDocuments({
               compact
               icon={<UserRound aria-hidden="true" />}
               title="Not linked to a staff record"
-              description="This sign-in has no personnel file yet. Ask an administrator to link it."
+              description="This sign-in has no personnel file yet. An administrator can link it from that person's record page — Link an existing sign-in."
             />
           ) : (
             <>

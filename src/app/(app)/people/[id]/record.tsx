@@ -58,6 +58,7 @@ import {
 import type { LeaveBalanceRow, LeaveRow } from "@/lib/api/leave";
 import { useCan } from "@/lib/permissions";
 import { InviteToSignInButton } from "./invite-to-sign-in";
+import { LinkExistingAccountButton } from "./link-existing-account";
 import { useDepartments } from "@/lib/store/departments";
 import { useWorkLocations } from "@/lib/store/work-locations";
 import { useGrades } from "@/lib/store/grades";
@@ -236,7 +237,21 @@ export function EmployeeRecord({
   );
   /* Only honoured on the tab that owns the field, so a stale link cannot open an
      editor on a section the field does not belong to. */
-  const focusField = params.get("field") ?? undefined;
+  const urlFocusField = params.get("field") ?? undefined;
+  /**
+   * A same-page jump — clicking "Pension PIN" in the sidebar's own checklist
+   * switches `tab` via plain state, which never touches the URL `tab` was
+   * seeded from. Reading the URL alone would leave a click on that list doing
+   * nothing after the first paint, so a manual jump overrides it.
+   */
+  const [manualFocusField, setManualFocusField] = useState<string | undefined>(
+    undefined,
+  );
+  const focusField = manualFocusField ?? urlFocusField;
+  const jumpTo = (nextTab: string, field: string) => {
+    setTab(nextTab);
+    setManualFocusField(field);
+  };
   const [fileOpen, setFileOpen] = useState(false);
   const [exitOpen, setExitOpen] = useState(false);
   const departments = useDepartments();
@@ -253,6 +268,11 @@ export function EmployeeRecord({
   /* Issuing a login is its own permission, deliberately split from editing a
      record — see the header of `modules/invites/router.ts`. */
   const canInvite = useCan("INVITE_STAFF");
+  /* Repointing an *existing* sign-in is tighter still — see the header of
+     `linkToEmployee` on the API. Never fold this into `canInvite`: showing
+     the button to someone who can only send fresh invitations would offer a
+     control the API is going to 403. */
+  const canLinkAccount = useCan("MANAGE_ROLES");
 
   const name = fullName(employee);
   const status = statusOf(employee.status);
@@ -333,6 +353,7 @@ export function EmployeeRecord({
   const payrollGaps = payrollGapsFor(employee);
   const payrollBlocking = payrollGaps.filter((g) => g.blocking);
   const payrollAdvisory = payrollGaps.filter((g) => !g.blocking);
+  const firstBlocking = payrollBlocking[0];
 
   return (
     <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)] lg:items-start">
@@ -408,15 +429,21 @@ export function EmployeeRecord({
                       aria-hidden="true"
                       className="mt-0.5 size-3.5 shrink-0 text-warning-text"
                     />
-                    {/* `title` rather than dropping `consequence`: the reason
-                        it does not block still exists, just one hover away
+                    {/* A click, not just a reason on hover: this used to be
+                        read-only, so fixing it meant landing on the record and
+                        hunting for the field by hand. Every one of these lives
+                        on Pay & statutory, so the tab is fixed rather than
+                        looked up. `title` still carries `consequence` — the
+                        reason it does not block still exists, one hover away
                         instead of in a paragraph nobody asked to read. */}
-                    <span
-                      className="text-meta leading-relaxed text-body"
+                    <button
+                      type="button"
+                      onClick={() => jumpTo("pay", g.field)}
+                      className="text-meta leading-relaxed text-body underline decoration-dotted underline-offset-2 hover:text-accent-text hover:decoration-solid"
                       title={g.consequence}
                     >
                       {g.label}
-                    </span>
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -474,6 +501,15 @@ export function EmployeeRecord({
                 email={employee.email ?? null}
               />
             )}
+            {/* The other way to close the same gap: somebody who already
+                signs in — most often whoever registered the company — with
+                no personnel file pointing back at them. */}
+            {canLinkAccount && employee.canLogin && !hasLeft && (
+              <LinkExistingAccountButton
+                employeeId={employee.id}
+                employeeName={name}
+              />
+            )}
             {/* Secondary, like its neighbours. Recording an exit is
                 consequential rather than the thing you came here to do, and a
                 blue primary button on every employee record would read as the
@@ -501,14 +537,22 @@ export function EmployeeRecord({
             incomplete, and a missing TIN does nothing to the run at all. Three
             fields in one red callout claiming the same fate for all of them was
             the bug — see `payrollGapsFor`. */}
-        {payrollBlocking.length > 0 && (
+        {firstBlocking && (
           <Callout
             tone="danger"
             icon={<ShieldAlert aria-hidden="true" />}
             title={`${payrollBlocking.length} field${payrollBlocking.length > 1 ? "s" : ""} missing before payroll can run`}
           >
             {payrollBlocking.map((g) => g.label).join(", ")}.{" "}
-            {payrollBlocking[0]?.consequence}
+            {firstBlocking.consequence}
+            <Button
+              variant="secondary"
+              size="sm"
+              className="mt-3"
+              onClick={() => jumpTo("pay", firstBlocking.field)}
+            >
+              Fix it now
+            </Button>
           </Callout>
         )}
 
@@ -860,11 +904,6 @@ export function EmployeeRecord({
           <div className="flex flex-col gap-5">
             <Compensation employee={employee} connected={connected} />
 
-            {/* What they get on top of salary belongs on their record, not on a
-                separate setup screen. The panel owns its own loading, errors
-                and demo-mode caveats. */}
-            <PayComponentsPanel employeeId={employee.id} />
-
             <EditableSection
               /* Arrive editing when a payroll exception sent us here naming the
                  field. Gated on the tab so a stale `?field=` cannot open this
@@ -873,7 +912,7 @@ export function EmployeeRecord({
                 ? { openOnField: focusField }
                 : {})}
               title="Payment and statutory"
-              description="What payroll needs to pay and remit. Missing values block the run."
+              description="Missing values block the run."
               employee={employee}
               onSave={onSave}
               fields={[
@@ -1006,6 +1045,11 @@ export function EmployeeRecord({
                 },
               ]}
             />
+
+            {/* What they get on top of salary belongs on their record, not on a
+                separate setup screen. The panel owns its own loading, errors
+                and demo-mode caveats. */}
+            <PayComponentsPanel employeeId={employee.id} />
           </div>
         )}
 
@@ -1084,7 +1128,6 @@ export function EmployeeRecord({
             <Card>
               <CardHeader
                 title="Requests"
-                description="Every request they have raised, and what happened to it."
                 level={3}
               />
               {leaveRequests.length === 0 ? (

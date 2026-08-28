@@ -188,7 +188,7 @@ export function GradesPanel() {
       <Card>
         <CardHeader
           title="Salary grades"
-          description="Ordered by level, lowest first. The band is what the grade is worth a month."
+          description="The band is what the grade is worth a month."
           action={
             grades.editable ? (
               <Button

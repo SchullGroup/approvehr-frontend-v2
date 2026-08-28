@@ -285,12 +285,6 @@ export function WhatNeedsYouTab({
         <Card>
           <CardHeader
             title="What is open"
-            {...(openPeriod
-              ? {
-                  description:
-                    "The appraisal period everything below belongs to.",
-                }
-              : {})}
             action={
               openPeriod ? undefined : (
                 <StartPeriodButton variant="accent" withIcon />
@@ -410,10 +404,7 @@ export function WhatNeedsYouTab({
 
       {/* ---------------------------------------------------- waiting on you */}
       <Card>
-        <CardHeader
-          title="Waiting on you"
-          description="Each of these is one click from being dealt with."
-        />
+        <CardHeader title="Waiting on you" />
         {appraisals.loading ? (
           <CardBody className="flex items-center gap-2 text-body-sm text-muted">
             <Spinner size="sm" />

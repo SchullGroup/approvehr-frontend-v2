@@ -130,10 +130,7 @@ export function SkillsTab({
       </div>
 
       <Card>
-        <CardHeader
-          title="Your skills"
-          description="Your level, the target beside it, and the gap between."
-        />
+        <CardHeader title="Your skills" />
         {mine.loading ? (
           <CardBody className="flex items-center gap-2 text-body-sm text-muted">
             <Spinner size="sm" />
@@ -171,10 +168,7 @@ export function SkillsTab({
 
       {(canSeeCompany || isManager) && (
         <Card>
-          <CardHeader
-            title="Where people are below target"
-            description="Biggest gap first."
-          />
+          <CardHeader title="Where people are below target" />
           {gaps.loading ? (
             <CardBody className="flex items-center gap-2 text-body-sm text-muted">
               <Spinner size="sm" />

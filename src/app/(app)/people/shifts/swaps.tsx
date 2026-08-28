@@ -128,7 +128,6 @@ export function SwapPanel({
       <Card className={className}>
         <CardHeader
           title="Cover requests"
-          description="Somebody asking a colleague to take a shift."
           level={3}
           action={
             <SegmentedControl<Filter>
