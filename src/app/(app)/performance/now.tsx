@@ -106,7 +106,7 @@ export function WhatNeedsYouTab({
   const appraisals = useAppraisals();
   const approvals = useObjectiveApprovals();
   const mineGoals = useKpis("mine");
-  const { actingId } = useSession();
+  const { actingId, employeeId } = useSession();
 
   /**
    * Whether any of the appraisal half of this screen exists at all.
@@ -221,7 +221,20 @@ export function WhatNeedsYouTab({
         </div>
       )}
 
-      {appraisals.error && (
+      {/* Not shown to somebody with no employee record at all. That is not a
+          failure to recover from — it is a founder's own account, exactly as
+          created at registration, and `ownEmployeeId` on the API already
+          tells this same person, the moment they try to act on a goal or a
+          review, that linking themselves is optional housekeeping rather
+          than a fix this page should nag them about on every visit. The rest
+          of this screen — cycles, appraisals for other people — works for
+          them regardless, which is what made this read as "wrong here"
+          rather than as a genuine error: the danger-toned banner presumed a
+          broken personal state on an account that was never meant to have
+          one. A caller who *does* have a record and still hit this is a real
+          failure worth surfacing, so the check is on the session, not on
+          whether the error exists. */}
+      {appraisals.error && employeeId !== null && (
         <p className="rounded-md border border-danger-line bg-danger-soft px-3.5 py-2.5 text-body-sm text-ink">
           {appraisals.error.message}
         </p>

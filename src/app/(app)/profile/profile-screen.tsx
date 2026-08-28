@@ -24,11 +24,8 @@ import {
   Card,
   CardBody,
   CardHeader,
-  ConfirmDialog,
   DescriptionList,
   EmptyState,
-  Field,
-  Input,
   Money,
   ProgressMeter,
   Skeleton,
@@ -49,7 +46,6 @@ import { MyLoans } from "@/app/(app)/payroll/loans";
 import { MyRota } from "@/app/(app)/people/shifts";
 import { MyAssets } from "@/app/(app)/people/assets";
 import { Resign } from "@/app/(app)/people/offboarding";
-import { useEmployeeStore } from "@/lib/store/employees";
 import {
   fullName,
   payrollGapsFor,
@@ -58,6 +54,7 @@ import {
 } from "@/lib/types";
 import { self } from "@/lib/api/self";
 import { PROFILE_TABS, isProfileTab, type ProfileTab } from "./tabs";
+import { MyDetails } from "./my-details";
 
 /**
  * The employee's own screen.
@@ -257,8 +254,13 @@ export function ProfileScreen({ initialTab }: { initialTab: ProfileTab }) {
         <Tabs items={TAB_ITEMS} value={tab} onChange={change}>
           {tab === "details" && (
             <div className="flex flex-col gap-6">
+              {/* `MyDetails` replaced `ContactPanel`, which wrote through
+                  `useEmployeeStore().update` — the HR path, needing
+                  `EDIT_RECORDS`. An employee holds none, so pressing save there
+                  answered 403 while the screen said "Saved". This one calls
+                  `PATCH /employees/me`, which is the route that exists for it. */}
+              <MyDetails me={employee} only="immediate" />
               <div className="grid gap-6 lg:grid-cols-2">
-                <ContactPanel employeeId={employeeId} />
                 <EmploymentCard employee={employee} />
                 <SecurityCard onSignOut={signOut} apiMode={mode === "api"} />
               </div>
@@ -277,8 +279,17 @@ export function ProfileScreen({ initialTab }: { initialTab: ProfileTab }) {
             <div className="flex flex-col gap-6">
               <div className="grid gap-6 lg:grid-cols-2">
                 <PayCard grossMonthly={employee.grossMonthly} />
-                <BankPanel employeeId={employeeId} />
               </div>
+              {/* Same replacement as the Details tab, and this is the half that
+                  matters: `BankPanel` wrote an account number straight to the
+                  record. Now it is proposed, and payroll agrees before the
+                  salary goes anywhere new. */}
+              <MyDetails
+                me={employee}
+                only="approval"
+                title="What your pay is worked out from"
+                description="You can change any of these. Payroll checks them before they take effect, because your salary is paid on them."
+              />
               {/* Composed, not reimplemented: `MyLoans` is exported from its own
                   module so there is one component that knows what a loan looks
                   like to the person repaying it. */}
@@ -407,274 +418,9 @@ function EmploymentCard({ employee }: { employee: Employee }) {
 
 /* -------------------------------------------------------------------------- */
 
-/**
- * Phone and next of kin. Editable, because the person is the authority on them.
- */
-function ContactPanel({ employeeId }: { employeeId: string }) {
-  const { directory, update } = useEmployeeStore();
-  const toast = useToast();
-  const me = directory.find((e) => e.id === employeeId);
-
-  const [editing, setEditing] = useState(false);
-  const [phone, setPhone] = useState(me?.phone ?? "");
-  const [kinName, setKinName] = useState(me?.nextOfKin?.name ?? "");
-  const [kinRelationship, setKinRelationship] = useState(
-    me?.nextOfKin?.relationship ?? "",
-  );
-  const [kinPhone, setKinPhone] = useState(me?.nextOfKin?.phone ?? "");
-
-  if (!me) return null;
-
-  function save() {
-    update(employeeId, {
-      phone: phone.trim() || null,
-      nextOfKin:
-        kinName.trim() || kinPhone.trim()
-          ? {
-              name: kinName.trim(),
-              relationship: kinRelationship.trim(),
-              phone: kinPhone.trim(),
-            }
-          : null,
-    });
-    setEditing(false);
-    toast.push({ title: "Saved", tone: "success" });
-  }
-
-  return (
-    <Card>
-      <CardHeader
-        title="How to reach you"
-        level={3}
-        action={
-          editing ? undefined : (
-            <Button size="sm" variant="secondary" onClick={() => setEditing(true)}>
-              Edit
-            </Button>
-          )
-        }
-      />
-      <CardBody className="flex flex-col gap-4">
-        {editing ? (
-          <>
-            <Field label="Phone">
-              <Input
-                value={phone}
-                inputMode="tel"
-                onChange={(e) => setPhone(e.target.value)}
-              />
-            </Field>
-            <Field
-              label="Next of kin"
-              help="Who we call if something happens at work."
-            >
-              <Input
-                value={kinName}
-                placeholder="Full name"
-                onChange={(e) => setKinName(e.target.value)}
-              />
-            </Field>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Relationship">
-                <Input
-                  value={kinRelationship}
-                  placeholder="Spouse, parent, sibling"
-                  onChange={(e) => setKinRelationship(e.target.value)}
-                />
-              </Field>
-              <Field label="Their phone">
-                <Input
-                  value={kinPhone}
-                  inputMode="tel"
-                  onChange={(e) => setKinPhone(e.target.value)}
-                />
-              </Field>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="accent" size="sm" onClick={save}>
-                Save
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>
-                Cancel
-              </Button>
-            </div>
-          </>
-        ) : (
-          <DescriptionList
-            items={[
-              { term: "Work email", value: me.email ?? "Not on file" },
-              { term: "Phone", value: me.phone ?? "Not on file" },
-              {
-                term: "Next of kin",
-                value: me.nextOfKin
-                  ? `${me.nextOfKin.name}${me.nextOfKin.relationship ? ` (${me.nextOfKin.relationship})` : ""} · ${me.nextOfKin.phone}`
-                  : "Not on file",
-              },
-            ]}
-          />
-        )}
-      </CardBody>
-    </Card>
-  );
-}
 
 /* -------------------------------------------------------------------------- */
 
-/**
- * Bank details.
- *
- * Separated from the rest of the contact fields on purpose. An employee quietly
- * changing their account shortly before a run is the classic payroll diversion,
- * and `/settings/notifications` treats "bank details changed" as a fraud control
- * that argues against being switched off.
- *
- * So this panel does two things the others do not: it confirms before saving,
- * and it says plainly that the change is notified. Not as a warning to frighten
- * an honest employee — most people changing their account are just changing
- * banks — but because somebody being told is the only thing standing in front of
- * the fraud, and a person who knows that is not surprised later.
- *
- * It sits on the `pay` tab rather than beside the phone number: where the money
- * lands is a question about pay, and the person who came here to read their
- * gross is the person who notices the account is wrong.
- */
-function BankPanel({ employeeId }: { employeeId: string }) {
-  const { directory, update } = useEmployeeStore();
-  const toast = useToast();
-  const me = directory.find((e) => e.id === employeeId);
-
-  const [editing, setEditing] = useState(false);
-  const [confirming, setConfirming] = useState(false);
-  const [bankName, setBankName] = useState(me?.bankName ?? "");
-  const [bankAccount, setBankAccount] = useState(me?.bankAccount ?? "");
-
-  if (!me) return null;
-
-  const changed =
-    bankName.trim() !== (me.bankName ?? "") ||
-    bankAccount.trim() !== (me.bankAccount ?? "");
-
-  /* Nigerian NUBAN account numbers are ten digits. Checking the shape here
-     saves a failed payment file rather than a form error. */
-  const accountLooksRight = /^\d{10}$/.test(bankAccount.trim());
-
-  function commit() {
-    update(employeeId, {
-      bankName: bankName.trim() || null,
-      bankAccount: bankAccount.trim() || null,
-    });
-    setConfirming(false);
-    setEditing(false);
-    toast.push({
-      title: "Bank details updated",
-      tone: "success",
-      detail: "Your people team has been notified.",
-    });
-  }
-
-  return (
-    <>
-      <Card>
-        <CardHeader
-          title="Where you get paid"
-          level={3}
-          action={
-            editing ? undefined : (
-              <Button size="sm" variant="secondary" onClick={() => setEditing(true)}>
-                Change
-              </Button>
-            )
-          }
-        />
-        <CardBody className="flex flex-col gap-4">
-          {editing ? (
-            <>
-              <Field label="Bank">
-                <Input
-                  value={bankName}
-                  onChange={(e) => setBankName(e.target.value)}
-                />
-              </Field>
-              <Field
-                label="Account number"
-                error={
-                  bankAccount.trim() && !accountLooksRight
-                    ? "Nigerian account numbers are ten digits."
-                    : undefined
-                }
-              >
-                <Input
-                  value={bankAccount}
-                  inputMode="numeric"
-                  maxLength={10}
-                  onChange={(e) =>
-                    setBankAccount(e.target.value.replace(/\D/g, ""))
-                  }
-                />
-              </Field>
-              <p className="text-body-sm text-muted">
-                Your people team is told when this changes.
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="accent"
-                  size="sm"
-                  disabled={!changed || !accountLooksRight}
-                  onClick={() => setConfirming(true)}
-                >
-                  Save
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setBankName(me.bankName ?? "");
-                    setBankAccount(me.bankAccount ?? "");
-                    setEditing(false);
-                  }}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </>
-          ) : (
-            <>
-              <span
-                aria-hidden="true"
-                className="flex size-9 items-center justify-center rounded-md bg-sunken text-faint [&>svg]:size-[18px]"
-              >
-                <Landmark aria-hidden="true" />
-              </span>
-              <DescriptionList
-                items={[
-                  { term: "Bank", value: me.bankName ?? "Not on file" },
-                  {
-                    term: "Account",
-                    /* Last four only. There is no reason for a full account
-                       number to sit on screen in an open-plan office. */
-                    value: me.bankAccount
-                      ? `•••• ${me.bankAccount.slice(-4)}`
-                      : "Not on file",
-                  },
-                ]}
-              />
-            </>
-          )}
-        </CardBody>
-      </Card>
-
-      <ConfirmDialog
-        open={confirming}
-        onClose={() => setConfirming(false)}
-        onConfirm={commit}
-        title="Change where you get paid?"
-        confirmLabel="Change it"
-        tone="primary"
-        body={`Future payments go to ${bankName || "this bank"}, account ending ${bankAccount.slice(-4)}. Your people team is notified.`}
-      />
-    </>
-  );
-}
 
 /* -------------------------------------------------------------------------- */
 
