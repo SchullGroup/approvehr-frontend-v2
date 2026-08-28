@@ -3,17 +3,19 @@
 import { useEffect, useState } from "react";
 import { Pencil, X } from "lucide-react";
 import {
+  Badge,
   Button,
   Card,
   CardBody,
   CardHeader,
+  Disclosure,
   Field,
   Input,
   Money,
   Picker,
   Select,
-  useToast,
   type PickerOption,
+  useToast,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { koboFromDecimal, naira } from "@/lib/api/payroll";
@@ -112,9 +114,25 @@ function seedFrom(
   return { draft, text };
 }
 
+export type EditableGroup = {
+  id: string;
+  title: string;
+  /** A small lucide icon, rendered before the title on the closed line. */
+  icon?: React.ReactNode;
+  /** One line under the title, when the group needs explaining. */
+  hint?: string;
+};
+
 export type EditableField = {
   key: keyof EmployeePatch;
   label: string;
+  /**
+   * Which group this field belongs to, by id. Only meaningful when the section
+   * is given `groups`. A field with no group renders above the first one —
+   * which is the right place for the one or two things somebody always wants in
+   * front of them.
+   */
+  group?: string;
   type?:
     | "text"
     | "email"
@@ -168,6 +186,7 @@ export function EditableSection({
   employee,
   fields,
   columns = 2,
+  groups,
   onSave,
   openOnField,
 }: {
@@ -176,6 +195,29 @@ export function EditableSection({
   employee: Employee;
   fields: EditableField[];
   columns?: 1 | 2;
+  /**
+   * Collapsible groups for the fields, in the order they should appear.
+   *
+   * ## Why a record page needs these and a form does not
+   *
+   * The employee record carries thirty-odd fields across its tabs, and the
+   * incumbent this product is sold against shows all of them at once — which is
+   * why nobody can find anything on it. Tabs were the first cut. Inside a tab,
+   * "Payment and statutory" alone is eight fields, most of which are fine, and
+   * the reader is looking for the one that is not.
+   *
+   * So each group's closed line carries its own state, and names what is
+   * missing rather than counting it: "2 missing" makes somebody open the group
+   * to find out which, which is the click this exists to save.
+   *
+   * ## Every group opens while editing
+   *
+   * `Disclosure` unmounts what it hides. A collapsed group during an edit means
+   * a validation error on a field nobody can see, and a Save that refuses with
+   * the reason off screen — the exact dead end this codebase has a rule
+   * against. Collapsing earns its place while reading, not while writing.
+   */
+  groups?: EditableGroup[];
   /** Commits the changed fields. Rejecting with an `ApiError` is expected. */
   onSave: (patch: EmployeePatch) => Promise<unknown>;
   /**
@@ -393,6 +435,141 @@ export function EditableSection({
     }
   }
 
+  /* One renderer, used flat and inside a group — so a field looks and behaves
+     the same either way, and adding a group cannot quietly change how a value
+     is displayed or edited. */
+  const renderField = (f: EditableField) => {
+            const value = valueOf(f);
+
+    if (!editing) {
+      return (
+        <div key={String(f.key)}>
+  <dt className="text-meta text-muted">{f.label}</dt>
+  <dd className="mt-0.5 text-body-sm text-ink">
+    {value === null || value === undefined || value === "" ? (
+      <span className="font-medium text-danger-text">
+        {f.emptyLabel ?? "Not provided"}
+      </span>
+    ) : f.type === "money" ? (
+      <Money amount={naira(Number(value))} />
+    ) : f.format ? (
+      f.format(value)
+    ) : (
+      String(value)
+    )}
+  </dd>
+        </div>
+      );
+    }
+
+    return (
+      <Field
+        key={String(f.key)}
+        label={f.label}
+        required={f.required}
+        optional={f.optional}
+        help={f.help}
+        error={errorFor(f.key)}
+      >
+        {f.type === "money" ? (
+  <Input
+    data-section-field={String(f.key)}
+    {...(f.digits === undefined ? {} : { digits: f.digits })}
+    inputMode="numeric"
+    value={text[String(f.key)] ?? ""}
+    onChange={(e) => {
+      const raw = e.target.value;
+      setText((t) => ({ ...t, [String(f.key)]: raw }));
+      setErrors((x) => x.filter((y) => y.field !== f.key));
+    }}
+  />
+        ) : f.type === "picker" ? (
+  <Picker
+    value={String(draft[f.key] ?? "")}
+    onChange={(v) => {
+      setDraft((d) => ({ ...d, [f.key]: v }));
+      setErrors((x) => x.filter((y) => y.field !== f.key));
+    }}
+    options={f.options ?? []}
+    {...(f.placeholder === undefined
+      ? {}
+      : { placeholder: f.placeholder })}
+  />
+        ) : f.type === "select" &&
+  (otherFields[String(f.key)] ||
+    isCustomValue(f, draft[f.key])) ? (
+  <div className="flex flex-col gap-1.5">
+    <Input
+      data-section-field={String(f.key)}
+      value={String(draft[f.key] ?? "")}
+      onChange={(e) => {
+        const v = e.target.value;
+        setDraft((d) => ({ ...d, [f.key]: v }));
+        setErrors((x) => x.filter((y) => y.field !== f.key));
+      }}
+    />
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      className="self-start"
+      onClick={() => {
+        setOtherFields((o) => ({ ...o, [String(f.key)]: false }));
+        setDraft((d) => ({ ...d, [f.key]: "" as never }));
+        setErrors((x) => x.filter((y) => y.field !== f.key));
+      }}
+    >
+      Choose from the list instead
+    </Button>
+  </div>
+        ) : f.type === "select" ? (
+  <Select
+    value={String(draft[f.key] ?? "")}
+    onChange={(e) => {
+      const v = e.target.value;
+      if (f.allowOther && v === OTHER_OPTION_VALUE) {
+        setOtherFields((o) => ({ ...o, [String(f.key)]: true }));
+        setDraft((d) => ({ ...d, [f.key]: "" as never }));
+      } else {
+        setDraft((d) => ({ ...d, [f.key]: v }));
+      }
+      setErrors((x) => x.filter((y) => y.field !== f.key));
+    }}
+  >
+    {f.options?.map((o) => (
+      <option key={o.value} value={o.value}>
+        {o.label}
+      </option>
+    ))}
+    {f.allowOther && (
+      <option value={OTHER_OPTION_VALUE}>
+        {f.otherLabel ?? "Other (specify)"}
+      </option>
+    )}
+  </Select>
+        ) : (
+  <Input
+    data-section-field={String(f.key)}
+    {...(f.digits === undefined ? {} : { digits: f.digits })}
+    type={f.type ?? "text"}
+    value={String(draft[f.key] ?? "")}
+    onChange={(e) => {
+      const raw = e.target.value;
+      const v = f.type === "number" ? Number(raw) : raw;
+      setDraft((d) => ({ ...d, [f.key]: v }));
+      setErrors((x) => x.filter((y) => y.field !== f.key));
+    }}
+  />
+        )}
+      </Field>
+    );
+  };
+
+  const listClass =
+    columns === 2
+      ? "grid gap-x-8 gap-y-4 sm:grid-cols-2"
+      : "flex flex-col gap-4";
+
   return (
     <Card>
       <CardHeader
@@ -427,140 +604,57 @@ export function EditableSection({
         }
       />
       <CardBody>
-        <dl
-          className={
-            columns === 2
-              ? "grid gap-x-8 gap-y-4 sm:grid-cols-2"
-              : "flex flex-col gap-4"
-          }
-        >
-          {fields.map((f) => {
-            const value = valueOf(f);
-
-            if (!editing) {
+        {groups && groups.length > 0 ? (
+          <div className="flex flex-col gap-2">
+            {fields.some((f) => !f.group) && (
+              <dl className={listClass}>
+                {fields.filter((f) => !f.group).map(renderField)}
+              </dl>
+            )}
+            {groups.map((group, index) => {
+              const own = fields.filter((f) => f.group === group.id);
+              if (own.length === 0) return null;
+              const empty = own.filter((f) => {
+                const value = valueOf(f);
+                return value === null || value === undefined || value === "";
+              });
               return (
-                <div key={String(f.key)}>
-                  <dt className="text-meta text-muted">{f.label}</dt>
-                  <dd className="mt-0.5 text-body-sm text-ink">
-                    {value === null || value === undefined || value === "" ? (
-                      <span className="font-medium text-danger-text">
-                        {f.emptyLabel ?? "Not provided"}
-                      </span>
-                    ) : f.type === "money" ? (
-                      <Money amount={naira(Number(value))} />
-                    ) : f.format ? (
-                      f.format(value)
+                <Disclosure
+                  key={group.id}
+                  {...(editing ? { open: true } : {})}
+                  defaultOpen={index === 0}
+                  level={4}
+                  title={
+                    <span className="flex items-center gap-2">
+                      {group.icon ? (
+                        <span className="text-accent-text">{group.icon}</span>
+                      ) : null}
+                      {group.title}
+                    </span>
+                  }
+                  meta={
+                    empty.length > 0 ? (
+                      <Badge tone="warning" size="sm">
+                        {empty.map((f) => f.label).join(", ")}
+                      </Badge>
                     ) : (
-                      String(value)
-                    )}
-                  </dd>
-                </div>
+                      <Badge tone="neutral" size="sm">
+                        {own.length === 1
+                          ? "On file"
+                          : `All ${String(own.length)} on file`}
+                      </Badge>
+                    )
+                  }
+                  {...(group.hint ? { hint: group.hint } : {})}
+                >
+                  <dl className={listClass}>{own.map(renderField)}</dl>
+                </Disclosure>
               );
-            }
-
-            return (
-              <Field
-                key={String(f.key)}
-                label={f.label}
-                required={f.required}
-                optional={f.optional}
-                help={f.help}
-                error={errorFor(f.key)}
-              >
-                {f.type === "money" ? (
-                  <Input
-                    data-section-field={String(f.key)}
-                    {...(f.digits === undefined ? {} : { digits: f.digits })}
-                    inputMode="numeric"
-                    value={text[String(f.key)] ?? ""}
-                    onChange={(e) => {
-                      const raw = e.target.value;
-                      setText((t) => ({ ...t, [String(f.key)]: raw }));
-                      setErrors((x) => x.filter((y) => y.field !== f.key));
-                    }}
-                  />
-                ) : f.type === "picker" ? (
-                  <Picker
-                    value={String(draft[f.key] ?? "")}
-                    onChange={(v) => {
-                      setDraft((d) => ({ ...d, [f.key]: v }));
-                      setErrors((x) => x.filter((y) => y.field !== f.key));
-                    }}
-                    options={f.options ?? []}
-                    {...(f.placeholder === undefined
-                      ? {}
-                      : { placeholder: f.placeholder })}
-                  />
-                ) : f.type === "select" &&
-                  (otherFields[String(f.key)] ||
-                    isCustomValue(f, draft[f.key])) ? (
-                  <div className="flex flex-col gap-1.5">
-                    <Input
-                      data-section-field={String(f.key)}
-                      value={String(draft[f.key] ?? "")}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setDraft((d) => ({ ...d, [f.key]: v }));
-                        setErrors((x) => x.filter((y) => y.field !== f.key));
-                      }}
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="self-start"
-                      onClick={() => {
-                        setOtherFields((o) => ({ ...o, [String(f.key)]: false }));
-                        setDraft((d) => ({ ...d, [f.key]: "" as never }));
-                        setErrors((x) => x.filter((y) => y.field !== f.key));
-                      }}
-                    >
-                      Choose from the list instead
-                    </Button>
-                  </div>
-                ) : f.type === "select" ? (
-                  <Select
-                    value={String(draft[f.key] ?? "")}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      if (f.allowOther && v === OTHER_OPTION_VALUE) {
-                        setOtherFields((o) => ({ ...o, [String(f.key)]: true }));
-                        setDraft((d) => ({ ...d, [f.key]: "" as never }));
-                      } else {
-                        setDraft((d) => ({ ...d, [f.key]: v }));
-                      }
-                      setErrors((x) => x.filter((y) => y.field !== f.key));
-                    }}
-                  >
-                    {f.options?.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                    {f.allowOther && (
-                      <option value={OTHER_OPTION_VALUE}>
-                        {f.otherLabel ?? "Other (specify)"}
-                      </option>
-                    )}
-                  </Select>
-                ) : (
-                  <Input
-                    data-section-field={String(f.key)}
-                    {...(f.digits === undefined ? {} : { digits: f.digits })}
-                    type={f.type ?? "text"}
-                    value={String(draft[f.key] ?? "")}
-                    onChange={(e) => {
-                      const raw = e.target.value;
-                      const v = f.type === "number" ? Number(raw) : raw;
-                      setDraft((d) => ({ ...d, [f.key]: v }));
-                      setErrors((x) => x.filter((y) => y.field !== f.key));
-                    }}
-                  />
-                )}
-              </Field>
-            );
-          })}
-        </dl>
+            })}
+          </div>
+        ) : (
+          <dl className={listClass}>{fields.map(renderField)}</dl>
+        )}
       </CardBody>
     </Card>
   );

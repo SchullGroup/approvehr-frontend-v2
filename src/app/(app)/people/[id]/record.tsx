@@ -9,12 +9,16 @@ import {
   Eye,
   EyeOff,
   FileText,
+  IdCard,
+  Landmark,
   Mail,
   MapPin,
   Phone,
+  PiggyBank,
   ShieldAlert,
   TrendingUp,
   UserMinus,
+  UserRound,
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -615,6 +619,24 @@ export function EmployeeRecord({
           <div className="flex flex-col gap-5">
             <EditableSection
               title="Personal details"
+              /* Name, email and phone stay above the groups — they are what
+                 somebody opening a record is nearly always after, and putting
+                 them behind a click to be consistent would be consistency at
+                 the reader's expense. The other nine are reference: correct on
+                 most records, and looked at when something specific is wanted. */
+              groups={[
+                {
+                  id: "identity",
+                  title: "Identity and address",
+                  icon: <UserRound aria-hidden="true" className="size-4" />,
+                },
+                {
+                  id: "origin",
+                  title: "Origin",
+                  icon: <MapPin aria-hidden="true" className="size-4" />,
+                  hint: "Asked for by some statutory returns.",
+                },
+              ]}
               employee={employee}
               onSave={onSave}
               fields={[
@@ -634,9 +656,15 @@ export function EmployeeRecord({
                   help: "Payslips and approvals are sent here.",
                 },
                 { key: "phone", label: "Phone", type: "tel" },
-                { key: "dateOfBirth", label: "Date of birth", type: "date" },
+                {
+                  key: "dateOfBirth",
+                  label: "Date of birth",
+                  type: "date",
+                  group: "identity",
+                },
                 {
                   key: "gender",
+                  group: "identity",
                   label: "Gender",
                   optional: true,
                   type: "select",
@@ -649,6 +677,7 @@ export function EmployeeRecord({
                 },
                 {
                   key: "addressLine",
+                  group: "identity",
                   label: "Home address",
                   optional: true,
                   emptyLabel: "No address recorded",
@@ -656,6 +685,7 @@ export function EmployeeRecord({
                 },
                 {
                   key: "nin",
+                  group: "identity",
                   label: "NIN",
                   optional: true,
                   digits: 11,
@@ -664,6 +694,7 @@ export function EmployeeRecord({
                 },
                 {
                   key: "stateOfOrigin",
+                  group: "origin",
                   label: "State of origin",
                   optional: true,
                   type: "select",
@@ -682,6 +713,7 @@ export function EmployeeRecord({
                 },
                 {
                   key: "lgaOfOrigin",
+                  group: "origin",
                   label: "Local government area",
                   optional: true,
                   emptyLabel: "Not recorded",
@@ -689,6 +721,7 @@ export function EmployeeRecord({
                 },
                 {
                   key: "religion",
+                  group: "origin",
                   label: "Religion",
                   optional: true,
                   emptyLabel: "Not recorded",
@@ -953,6 +986,28 @@ export function EmployeeRecord({
                   ? "Where your salary is paid, and the numbers the company files against."
                   : "Missing values block the run."
               }
+              /* Eight fields, most of which are fine on any given record — the
+                 reader is looking for the one that is not. Each closed line
+                 names what is missing, so a record is six lines to scan rather
+                 than eight fields to read. Bank first: it is the only one of
+                 the three that stops a payslip outright. */
+              groups={[
+                {
+                  id: "bank",
+                  title: "Where the salary is paid",
+                  icon: <Landmark aria-hidden="true" className="size-4" />,
+                },
+                {
+                  id: "pension",
+                  title: "Pension",
+                  icon: <PiggyBank aria-hidden="true" className="size-4" />,
+                },
+                {
+                  id: "tax",
+                  title: "Tax and statutory numbers",
+                  icon: <IdCard aria-hidden="true" className="size-4" />,
+                },
+              ]}
               employee={employee}
               onSave={onSave}
               fields={[
@@ -965,6 +1020,7 @@ export function EmployeeRecord({
                  */
                 {
                   key: "bankName",
+                  group: "bank",
                   label: "Bank",
                   type: "picker",
                   placeholder: "Not known yet",
@@ -985,6 +1041,7 @@ export function EmployeeRecord({
                 },
                 {
                   key: "bankAccount",
+                  group: "bank",
                   label: "Account",
                   emptyLabel: isSelf
                     ? "Not on file — your salary has nowhere to go"
@@ -997,6 +1054,7 @@ export function EmployeeRecord({
                 },
                 {
                   key: "pensionPin",
+                  group: "pension",
                   label: "Pension PIN",
                   emptyLabel: isSelf
                     ? "Not on file — your pension cannot be paid in"
@@ -1008,6 +1066,7 @@ export function EmployeeRecord({
                 },
                 {
                   key: "pensionProvider",
+                  group: "pension",
                   label: "Pension provider",
                   type: "select",
                   /* A starting point a company edits, not the PenCom register
@@ -1037,6 +1096,7 @@ export function EmployeeRecord({
                  */
                 {
                   key: "taxState",
+                  group: "tax",
                   label: "Tax state",
                   type: "select",
                   help: "Sets which state IRS receives their PAYE.",
@@ -1050,6 +1110,7 @@ export function EmployeeRecord({
                 },
                 {
                   key: "tin",
+                  group: "tax",
                   label: "TIN",
                   emptyLabel: isSelf
                     ? "Not on file — your tax cannot be filed against you"
@@ -1062,6 +1123,7 @@ export function EmployeeRecord({
                 },
                 {
                   key: "nhfNumber",
+                  group: "tax",
                   label: "NHF number",
                   format: (v) => (
                     <Guarded value={String(v)} canReveal={canReveal} />
@@ -1084,6 +1146,7 @@ export function EmployeeRecord({
                  */
                 {
                   key: "annualRentKobo",
+                  group: "tax",
                   label: "Yearly rent declared",
                   type: "money",
                   emptyLabel: "Nothing declared — no personal relief",
