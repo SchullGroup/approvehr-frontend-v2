@@ -642,10 +642,7 @@ function NobodyAppraising({
   if (rows.length === 0) {
     return (
       <Card>
-        <CardHeader
-          title="Who is appraising whom"
-          description="Nothing outstanding here."
-        />
+        <CardHeader title="Who is appraising whom" />
         <CardBody className="flex items-center gap-2 text-body-sm text-body">
           <CheckCheck aria-hidden="true" className="size-4 text-success-text" />
           All {exceptions.counts.people} people have somebody appraising them,

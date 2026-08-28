@@ -372,6 +372,11 @@ const SECURITY: LegalDoc = {
           detail:
             "Automated vulnerability scanning on our dependencies, with security patches prioritised over feature work.",
         },
+        {
+          term: "Drafting suggestions",
+          detail:
+            "The performance module can draft text a person then edits — an objective, a progress note, a development area. A third-party language model writes the draft, and it is sent only the short list of facts shown on screen beside the suggestion. Nothing it returns is written to a record: a suggestion becomes data when somebody edits it and submits it themselves, and not before. Where no assistant is connected the button is simply absent.",
+        },
       ],
     },
     {

@@ -52,7 +52,6 @@ export function MyExpenses({ className }: { className?: string }) {
         <CardHeader
           title="Expenses"
           level={3}
-          description="Money you spent for work and want back."
           action={
             <Button variant="secondary" size="sm" onClick={() => setClaiming(true)}>
               <Plus aria-hidden="true" className="size-3.5" />

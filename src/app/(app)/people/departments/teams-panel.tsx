@@ -159,7 +159,7 @@ export function TeamsPanel({
       <Card>
         <CardHeader
           title="Teams"
-          description="A working group with a lead. Joining one does not move anybody's pay — unless the team belongs to a department."
+          description="Joining one does not move anybody's pay — unless the team belongs to a department."
           {...(canManage
             ? {
                 action: (

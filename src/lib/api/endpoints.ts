@@ -60,20 +60,102 @@ export type ApiUser = {
   tourDismissedAt: string | null;
 };
 
+/**
+ * What a sign-in answers with.
+ *
+ * A **discriminated union**, mirroring the API's. A shape with optional tokens
+ * would let a screen render a signed-in state from a response that granted
+ * nothing, which is the one mistake this feature cannot survive.
+ */
+export type SignInOutcome =
+  | { kind: "signed-in"; user: ApiUser }
+  | {
+      kind: "two-factor";
+      challengeId: string;
+      expiresAt: string;
+      /** The code itself, where the server has no mail transport. */
+      delivery: { token: string; expiresAt: string; note: string } | null;
+      recoveryCodesLeft: number;
+    };
+
 export const auth = {
-  async signIn(email: string, password: string): Promise<ApiUser> {
+  async signIn(email: string, password: string): Promise<SignInOutcome> {
+    const result = await request<
+      | { accessToken: string; refreshToken: string; user: ApiUser }
+      | {
+          twoFactorRequired: true;
+          challengeId: string;
+          expiresAt: string;
+          delivery: { token: string; expiresAt: string; note: string } | null;
+          recoveryCodesLeft: number;
+        }
+    >("/auth/sign-in", {
+      method: "POST",
+      body: { email, password },
+      anonymous: true,
+    });
+
+    /* No token is stored on the challenge arm, because there is none to store —
+       the API mints nothing until the code is verified. */
+    if ("twoFactorRequired" in result) {
+      return {
+        kind: "two-factor",
+        challengeId: result.challengeId,
+        expiresAt: result.expiresAt,
+        delivery: result.delivery,
+        recoveryCodesLeft: result.recoveryCodesLeft,
+      };
+    }
+
+    tokens.set(result.accessToken, result.refreshToken);
+    return { kind: "signed-in", user: result.user };
+  },
+
+  /** Finish a challenged sign-in, with the emailed code or a recovery code. */
+  async completeTwoFactor(input: {
+    challengeId: string;
+    code?: string;
+    recoveryCode?: string;
+  }): Promise<ApiUser> {
     const result = await request<{
       accessToken: string;
       refreshToken: string;
       user: ApiUser;
-    }>("/auth/sign-in", {
+    }>("/auth/two-factor", {
       method: "POST",
-      body: { email, password },
+      body: input,
       anonymous: true,
     });
     tokens.set(result.accessToken, result.refreshToken);
     return result.user;
   },
+
+  /** This account's own two-factor state. See `twoFactorStatus` on the API. */
+  twoFactorStatus: () =>
+    request<{
+      enabled: boolean;
+      enabledAt: string | null;
+      recoveryCodesLeft: number;
+      /** Whether an emailed code could actually arrive. */
+      emailWorks: boolean;
+    }>("/auth/two-factor"),
+
+  /**
+   * Turn it on. The recovery codes come back **once** and never again.
+   *
+   * The caller must show them and must not discard them silently — they are
+   * ten live credentials and the only way in if the email never arrives.
+   */
+  enrolTwoFactor: () =>
+    /* `/enrol`, not `/two-factor` — that path is the sign-in completion, and
+       mounting both on it made enrolment unreachable. */
+    request<{ recoveryCodes: string[]; enabledAt: string }>(
+      "/auth/two-factor/enrol",
+      { method: "POST" },
+    ),
+
+  disableTwoFactor: () =>
+    request<{ enabled: false }>("/auth/two-factor", { method: "DELETE" }),
 
   async signOut(): Promise<void> {
     const refreshToken = tokens.refresh();

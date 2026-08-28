@@ -57,6 +57,7 @@ import {
   TotalsPanel,
 } from "@/components/payroll/run-panels";
 import { ExcludeFromPayrollDialog } from "@/components/payroll/exclude-dialog";
+import { useStepUp } from "@/components/portal/step-up";
 import { ApiError } from "@/lib/api/client";
 import {
   excludedNote,
@@ -136,6 +137,7 @@ const currentPeriod = TODAY.slice(0, 7);
 export function PayrollRunWizard() {
   const router = useRouter();
   const toast = useToast();
+  const stepUp = useStepUp();
   const params = useSearchParams();
 
   /* A period in the URL means somebody came from the dashboard to look at a run
@@ -478,7 +480,14 @@ export function PayrollRunWizard() {
     if (!runId) return;
     setBusy("approve");
     try {
-      const result = await actions.approve(runId);
+      /* The one-way door, so it is the act a company is most likely to put a
+         code in front of. `run` acts first and only asks for a code if the API
+         refuses — so a company with the switch off notices nothing, and this
+         screen carries no copy of the rule about who requires what. */
+      const result = await stepUp.run(() => actions.approve(runId), {
+        action: "PAYROLL_APPROVE",
+        subjectId: runId,
+      });
       setConfirming(false);
       toast.push({
         title: `${periodLabel(period)} approved`,
@@ -821,6 +830,11 @@ export function PayrollRunWizard() {
           )}
         </div>
       </div>
+
+      {/* Renders only while a code is being asked for, which is only ever after
+          the API has refused the approval — a company with the switch off never
+          sees it. */}
+      {stepUp.dialog}
 
       {excluding && (
         <ExcludeFromPayrollDialog

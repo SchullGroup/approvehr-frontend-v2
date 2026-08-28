@@ -215,7 +215,6 @@ function Overview() {
             <Card>
               <CardHeader
                 title="Where applications are"
-                description="How many people are in each state right now."
                 action={<SourceBadge live={live} />}
               />
               <CardBody>

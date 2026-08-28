@@ -17,7 +17,7 @@ import {
   StatutoryMockup,
 } from "@/components/marketing/mockups";
 import { quote } from "@/lib/marketing/pricing";
-import { liveProductCta } from "@/lib/marketing/links";
+import { liveProductCta, newTabIfApp } from "@/lib/marketing/links";
 
 /* Secondary CTAs. Both promise a running product, so both degrade to something
    that exists when the app isn't deployed alongside the site. */
@@ -92,7 +92,12 @@ export default function HomePage() {
                 <Pill href="/demo" variant="solid" size="lg" arrow>
                   Start free — book a demo
                 </Pill>
-                <Pill href={heroCta.href} variant="quiet" size="lg">
+                <Pill
+                  href={heroCta.href}
+                  variant="quiet"
+                  size="lg"
+                  {...newTabIfApp(heroCta.href)}
+                >
                   {heroCta.label}
                 </Pill>
               </div>
@@ -363,7 +368,12 @@ export default function HomePage() {
                 <Pill href="/demo" variant="solid" size="lg" arrow>
                   Start free — book a demo
                 </Pill>
-                <Pill href={closingCta.href} variant="quiet" size="lg">
+                <Pill
+                  href={closingCta.href}
+                  variant="quiet"
+                  size="lg"
+                  {...newTabIfApp(closingCta.href)}
+                >
                   {closingCta.label}
                 </Pill>
               </div>

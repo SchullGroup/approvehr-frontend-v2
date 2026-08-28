@@ -52,7 +52,7 @@ export function MyPayslipIndex() {
       {error && <LoadFailure subject="your payslips" error={error} />}
 
       <Card>
-        <CardHeader title="Your payslips" description="Newest first." />
+        <CardHeader title="Your payslips" />
 
         {payslips.length === 0 && !loading ? (
           <EmptyState

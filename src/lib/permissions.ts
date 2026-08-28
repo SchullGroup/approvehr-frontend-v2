@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PERMISSION_KEYS, type PermissionKey } from "@/lib/permission-keys";
-import { permissionsApi, type UserAccess } from "@/lib/api/permissions";
+import { permissionsApi, type Catalogue, type UserAccess } from "@/lib/api/permissions";
 import { useEmployeeStore } from "@/lib/store/employees";
 import { useRolePreview } from "@/lib/store/permissions";
 import { useSession } from "@/lib/store/session";
@@ -88,6 +88,31 @@ export function hasAnyPermission(
   permissions: readonly PermissionKey[],
 ): boolean {
   return permissions.some((permission) => set.has(permission));
+}
+
+/**
+ * Does this set need the stronger password policy?
+ *
+ * Mirrors `requiresStrongPassword` in the API's `permissions/service.ts` —
+ * same question, asked from a permission set the caller already holds rather
+ * than one looked up from a token. `catalogue` carries the `sensitive` flag
+ * this reads; it is not hardcoded a second time here because the two role
+ * lists this product ships (`prisma/seed.ts`'s demo fixture and this
+ * module's own `SYSTEM_ROLES`) already disagree with each other on what
+ * "HR manager" holds, and a *third*, frontend-only list of "which
+ * permissions count as sensitive" would be a fourth thing to keep in sync
+ * rather than a fix. `null` — the catalogue has not loaded yet, or there is
+ * none to ask (demo mode) — answers `false`: the lenient default, same as
+ * the reset and invite screens while their own preview is still in flight.
+ */
+export function requiresStrongPassword(
+  permissions: PermissionSet,
+  catalogue: Catalogue | null,
+): boolean {
+  if (!catalogue) return false;
+  return catalogue.permissions.some(
+    (entry) => entry.sensitive && permissions.has(entry.key),
+  );
 }
 
 /**

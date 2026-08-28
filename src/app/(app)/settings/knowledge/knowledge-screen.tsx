@@ -182,7 +182,6 @@ export function KnowledgeScreen() {
         <Card>
           <CardHeader
             title="Searches that found nothing"
-            description="Questions people typed that no article answers."
             action={
               <SearchX aria-hidden="true" className="size-4 text-faint" />
             }
@@ -292,10 +291,7 @@ export function KnowledgeScreen() {
         )}
 
         <Card>
-          <CardHeader
-            title="Every article"
-            description="How much each one is read, and how readers rated it."
-          />
+          <CardHeader title="Every article" />
 
           <CardBody className="flex flex-wrap items-center gap-3">
             <SegmentedControl<Filter>

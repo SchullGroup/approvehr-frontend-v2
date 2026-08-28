@@ -128,7 +128,6 @@ export function PayComponentsPanel({
       <CardHeader
         level={2}
         title="Allowances and deductions"
-        description="What this person gets on top of salary, what comes off it, and what each one does to their take-home pay."
         action={
           lines.editable ? (
             <Button variant="accent" size="sm" onClick={() => setAdding(true)}>
@@ -147,7 +146,10 @@ export function PayComponentsPanel({
           </Callout>
         )}
 
-        {lines.error && (
+        {/* "No monthly pay set" is not a load failure — it is the reason
+            there is nothing to show, and the "Salary a month" figure below
+            already says so. A red banner repeating it is noise, not help. */}
+        {lines.error && !lines.error.message.includes("no monthly pay set") && (
           <LoadFailure subject="this person's pay lines" error={lines.error} />
         )}
 

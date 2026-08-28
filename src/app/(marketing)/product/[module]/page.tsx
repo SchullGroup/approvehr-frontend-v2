@@ -134,7 +134,11 @@ export default async function ModulePage({
                 <Pill href="/demo" variant="solid" size="lg" arrow>
                   Book a demo
                 </Pill>
-                <Pill href={cta.href} variant="quiet" size="lg">
+                <Pill
+                  href={cta.href}
+                  variant="quiet"
+                  size="lg"
+                >
                   {cta.label}
                 </Pill>
               </div>
@@ -198,6 +202,47 @@ export default async function ModulePage({
           </div>
         </div>
       </section>
+
+      {/*
+       * Limits, where a module has any.
+       *
+       * Performance is the only one today: it is the single place this product
+       * generates text, and a drafting feature described without its limits is
+       * the claim this site keeps refusing to make. The list is longer than the
+       * capability bullet that introduces it, deliberately — see the drafting
+       * note in `lib/marketing/modules.ts`.
+       *
+       * Hairlines rather than ticks. A green check against "it never rates
+       * anybody" reads as a feature being sold; these are boundaries, and they
+       * should look like a list somebody could hold us to.
+       */}
+      {mod.limits && (
+        <section className="border-t border-sand-line px-4 py-20">
+          <div className="container-page">
+            <Reveal>
+              <div className="grid gap-10 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:gap-16">
+                <div>
+                  <h2 className="text-h2 text-slate">{mod.limits.heading}</h2>
+                  <p className="mt-5 text-body leading-relaxed text-slate-muted">
+                    {mod.limits.lead}
+                  </p>
+                </div>
+
+                <ul className="flex flex-col">
+                  {mod.limits.points.map((point) => (
+                    <li
+                      key={point}
+                      className="border-t border-sand-line py-5 text-body leading-relaxed text-slate-soft first:border-t-0 first:pt-0 lg:first:border-t lg:first:pt-5"
+                    >
+                      {point}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </Reveal>
+          </div>
+        </section>
+      )}
 
       {/* Other modules */}
       <section className="border-t border-sand-line bg-sand-deep px-4 py-20">

@@ -69,7 +69,7 @@ export function PeriodsTab() {
       <Card>
         <CardHeader
           title="Open and not yet started"
-          description="A period covers a stretch of time. Everybody in the company gets one form inside it."
+          description="Everybody in the company gets one form inside it."
         />
         {appraisals.loading ? (
           <CardBody className="flex items-center gap-2 text-body-sm text-muted">
