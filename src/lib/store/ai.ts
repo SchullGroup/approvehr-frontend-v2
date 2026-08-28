@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import {
   assistantStatus,
+  draftPeriodGoals,
+  draftPeriodQuestions,
   suggestDevelopment,
   suggestObjectives,
   suggestTaskSummary,
@@ -224,3 +226,17 @@ export const useTaskSummarySuggestion = () =>
 /** Development areas behind a low competency score. */
 export const useDevelopmentSuggestions = () =>
   useSuggestion<{ employeeId: string; cycleId?: string }>(suggestDevelopment);
+
+/**
+ * The two halves of a drafted period.
+ *
+ * Separate hooks over separate calls, so the wizard can render one arriving
+ * while the other is still in flight and keep whichever succeeds. Sharing one
+ * `SuggestState` would make a slow questions call blank the goals somebody was
+ * already reading.
+ */
+export const usePeriodGoalDraft = () =>
+  useSuggestion<{ text: string; count?: number }>(draftPeriodGoals);
+
+export const usePeriodQuestionDraft = () =>
+  useSuggestion<{ text: string; count?: number }>(draftPeriodQuestions);
