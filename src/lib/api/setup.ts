@@ -78,7 +78,17 @@ export const RECORD_FIELD_KEYS = ["taxSetup", "pensionSetup", "bankDetails"] as 
  * The API refuses turning it on while `appraisals` is off, and turns it off with
  * appraisals. Nothing is deleted either way.
  */
-export const ADVANCED_FEATURE_KEYS = ["multiAppraiser"] as const;
+export const ADVANCED_FEATURE_KEYS = ["multiAppraiser", "twoFactor"] as const;
+
+/** The acts a company can put a code in front of. Mirrors `StepUpAction`. */
+export const STEP_UP_ACTIONS = [
+  "PAYROLL_APPROVE",
+  "PAYMENT_SUBMIT",
+  "ROLE_CHANGE",
+  "BANK_DETAILS",
+] as const;
+
+export type StepUpAction = (typeof STEP_UP_ACTIONS)[number];
 
 /** Everything switchable, in the order the Settings page shows it. */
 export const FEATURE_KEYS = [
@@ -94,6 +104,16 @@ export type FeatureKey = (typeof FEATURE_KEYS)[number];
 
 /** What a PATCH sends, and what a wizard option's `sets` looks like. */
 export type FeaturePatch = {
+  /**
+   * `stepUpActions` is the one member that is not a boolean.
+   *
+   * Declared explicitly rather than widening the mapped type, so every other
+   * key keeps its `boolean` and a caller cannot pass an array where a flag
+   * belongs. It is sent as the **whole set** — "these and only these" — because
+   * a removal cannot be expressed as a partial list.
+   */
+  stepUpActions?: StepUpAction[];
+} & {
   [K in FeatureKey]?: boolean;
 } & { headcountBand?: HeadcountBand };
 
@@ -116,6 +136,10 @@ export type ApiFeatures = {
   bankDetails: boolean;
   /** Several appraisers per person, with roles and weights. Needs `appraisals`. */
   multiAppraiser: boolean;
+  /** Whether a second factor is asked for at all. Off by default. */
+  twoFactor: boolean;
+  /** Which acts need a code, when `twoFactor` is on. Empty means sign-in only. */
+  stepUpActions: StepUpAction[];
   setupStep: number;
   totalSteps: number;
   setupCompletedAt: string | null;
