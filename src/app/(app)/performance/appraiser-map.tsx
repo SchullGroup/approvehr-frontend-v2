@@ -866,12 +866,6 @@ export function AppraisersDialog({
             </Button>
           )}
         </div>
-
-        <p className="text-body-sm text-muted">
-          The mark is the weighted average of whoever has answered, so a share
-          of 0% is not a thing — remove the row instead. Everybody added is
-          told, and gets their own form straight away if the period is running.
-        </p>
       </div>
     </Modal>
   );
