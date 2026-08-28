@@ -143,7 +143,10 @@ const LOCAL_TYPES = [
   { value: "internship", label: "Internship" },
 ];
 
-const TYPE_LABELS: Record<string, string> = Object.fromEntries(
+/** Exported for `profile/profile-screen.tsx`'s read-only Employment card — the
+ * same enum, the same mis-cased value arriving from the same `Employee` type,
+ * so it needs the same lookup rather than a second copy of it. */
+export const TYPE_LABELS: Record<string, string> = Object.fromEntries(
   [...API_TYPES, ...LOCAL_TYPES].map((t) => [t.value, t.label]),
 );
 
@@ -156,7 +159,7 @@ const TYPE_LABELS: Record<string, string> = Object.fromEntries(
  * option because none of its values matched. Everything on this page goes
  * through here rather than trusting either case.
  */
-const enumKey = (value: string) => value.toLowerCase();
+export const enumKey = (value: string) => value.toLowerCase();
 
 /*
  * All three used to be declared here, and all three were wrong in the same way

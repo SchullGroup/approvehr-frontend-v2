@@ -46,6 +46,7 @@ import { MyLoans } from "@/app/(app)/payroll/loans";
 import { MyRota } from "@/app/(app)/people/shifts";
 import { MyAssets } from "@/app/(app)/people/assets";
 import { Resign } from "@/app/(app)/people/offboarding";
+import { TYPE_LABELS, enumKey } from "@/app/(app)/people/[id]/record";
 import {
   fullName,
   payrollGapsFor,
@@ -400,7 +401,12 @@ function EmploymentCard({ employee }: { employee: Employee }) {
           items={[
             { term: "Job title", value: employee.jobTitle },
             { term: "Department", value: employee.department },
-            { term: "Employment type", value: employee.employmentType },
+            {
+              term: "Employment type",
+              value:
+                TYPE_LABELS[enumKey(employee.employmentType)] ??
+                employee.employmentType,
+            },
             { term: "Started", value: employee.startDate },
             { term: "Work location", value: employee.location },
             { term: "Tax state", value: employee.taxState },
