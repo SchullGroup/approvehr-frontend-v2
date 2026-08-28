@@ -28,18 +28,32 @@ import {
 /**
  * Performance, on one route.
  *
- * ## Three tabs, and the first one is a job
+ * ## Four tabs, and the first one is where the period is
  *
- * There were four: *KPIs · Appraisals · Skills · Who appraises whom*. Four nouns
- * and no path, which is exactly what a product owner hit — he read the module and
- * could not work out how to create an appraisal or where the periods were.
+ * There were four nouns to begin with — *KPIs · Appraisals · Skills · Who
+ * appraises whom* — and no path, which is exactly what a product owner hit: he
+ * read the module and could not work out how to create an appraisal or where the
+ * periods were.
  *
  * | Tab | The question it answers |
  * |---|---|
- * | **What needs you** | what is open, what is waiting on you, what is waiting on somebody else |
- * | **KPIs** | what people are aiming at, and how far along it is |
+ * | **Overview** | how far the running period has got, and what is waiting on you |
  * | **Appraisal periods** | what periods there are, and which needs something |
+ * | **KPIs** | what people are aiming at, and how far along it is |
  * | *Who appraises whom* | only under `multiAppraiser` |
+ *
+ * Two things about the first one, both of which were complaints:
+ *
+ * **It was labelled "Approvals" and is not.** `/performance/approvals` is a
+ * different screen — the objective agreement queue — so one word named two
+ * things in one module, and a notification linking to one could land somebody on
+ * the other. The label now matches what the tab has always been documented as.
+ *
+ * **It opens on the period's state, not on a list of periods.** `periods` used to
+ * be the default, so arriving at `/performance` gave you a list and no answer to
+ * "where is this up to" — that took two more clicks. `period-status.tsx` puts the
+ * four figures on the landing for whoever is running the period, and is absent
+ * rather than zeroed for everybody else.
  *
  * Skills left the tab strip entirely and is a closed disclosure on the first
  * tab. It is configuration-shaped — levels against a target the company set —
@@ -130,7 +144,7 @@ export function PerformanceScreen({
     id,
     label:
       id === "now"
-        ? "Approvals"
+        ? "Overview"
         : id === "kpis"
           ? "KPIs"
           : id === "periods"

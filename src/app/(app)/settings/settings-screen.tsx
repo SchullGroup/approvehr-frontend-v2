@@ -14,6 +14,7 @@ import {
   Megaphone,
   Plug,
   ScrollText,
+  Sparkles,
   Timer,
   TriangleAlert,
   Users,
@@ -169,6 +170,13 @@ const ONGOING = [
     title: "Notifications",
     description: "What triggers an email, and who receives approval reminders.",
     icon: <Bell aria-hidden="true" />,
+  },
+  {
+    href: "/settings/ai",
+    title: "Assistant",
+    description:
+      "Suggested objectives, drafted progress notes and development areas. Off until a key is set — and this is the only screen that says so, because a form with no assistant renders no button at all.",
+    icon: <Sparkles aria-hidden="true" />,
   },
   {
     href: "/settings/integrations",

@@ -631,19 +631,30 @@ export function groupExceptionsByCode<
   });
 }
 
-/** What a *group* of the same exception says, since the API's own `message`
- *  is written for exactly one person and does not pluralise. */
+/**
+ * What a *group* of the same exception says, since the API's own `message` is
+ * written for exactly one person and does not pluralise.
+ *
+ * Neither did this, until it went on the landing page: a company with one
+ * unassigned person read **"1 people have no appraiser yet."** on the first
+ * screen of the module. It was defensible while this only rendered inside a
+ * table somebody had gone looking for, and one is much the commonest count —
+ * most companies have nobody unassigned, and the next commonest number is one.
+ */
+const people = (n: number) => (n === 1 ? "1 person" : `${n} people`);
+const have = (n: number) => (n === 1 ? "has" : "have");
+
 export const EXCEPTION_CODE_SUMMARY: Record<
   ApiAppraiserException["code"],
   (count: number) => string
 > = {
-  NO_APPRAISER: (n) => `${n} people have no appraiser yet.`,
+  NO_APPRAISER: (n) => `${people(n)} ${have(n)} no appraiser yet.`,
   NO_LINE_MANAGER: (n) =>
-    `${n} people have no line manager on file, so there is nobody to fall back to.`,
+    `${people(n)} ${have(n)} no line manager on file, so there is nobody to fall back to.`,
   WEIGHTS_NOT_WHOLE: (n) =>
-    `${n} people have appraiser weights that do not add up to 100%.`,
+    `${people(n)} ${have(n)} appraiser weights that do not add up to 100%.`,
   APPRAISER_UNAVAILABLE: (n) =>
-    `${n} people have an appraiser who has since left.`,
+    `${people(n)} ${have(n)} an appraiser who has since left.`,
 };
 
 export type ApiAppraiserMapRow = {

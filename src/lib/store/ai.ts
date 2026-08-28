@@ -62,6 +62,18 @@ export function useAssistantAvailable(): {
   loading: boolean;
   /** The adapter's name. For a settings screen; never shown beside a suggestion. */
   assistant: string | null;
+  /**
+   * Why not, when not. The API's own sentence.
+   *
+   * Also for the settings screen, and for the same reason `assistant` is: a form
+   * renders **no button** and says nothing, so the only place this can be read
+   * is a screen somebody opens on purpose to find out. Until `/settings/ai`
+   * existed there was nowhere, and an administrator had no way to learn the
+   * assistant was a thing at all — which is how "I didn't see a single AI
+   * element" happens to a feature that is built, mounted in three places and
+   * merely switched off.
+   */
+  reason: string | null;
 } {
   const { isConnected, isLoading } = useSession();
   /**
@@ -73,7 +85,8 @@ export function useAssistantAvailable(): {
    * offline never depended on a request in the first place.
    */
   const [answer, setAnswer] = useState<
-    { available: boolean; assistant: string | null } | undefined
+    | { available: boolean; assistant: string | null; reason: string | null }
+    | undefined
   >(undefined);
 
   useEffect(() => {
@@ -89,12 +102,21 @@ export function useAssistantAvailable(): {
         setAnswer({
           available: status.available,
           assistant: status.assistant,
+          reason: status.reason ?? null,
         });
       } catch {
         /* A status call that fails is not worth a banner — it means no button,
            which is the same outcome as no assistant. Swallowed on purpose; the
-           three suggestion calls report their own failures. */
-        if (!cancelled) setAnswer({ available: false, assistant: null });
+           three suggestion calls report their own failures.
+           The settings screen is the one reader that wants to know it was the
+           call rather than the configuration, so it gets a sentence saying so
+           instead of the API's. */
+        if (!cancelled)
+          setAnswer({
+            available: false,
+            assistant: null,
+            reason: "Could not ask the server whether an assistant is wired.",
+          });
       }
     })();
 
@@ -103,9 +125,19 @@ export function useAssistantAvailable(): {
     };
   }, [isConnected, isLoading]);
 
-  if (isLoading) return { available: false, loading: true, assistant: null };
-  if (!isConnected) return { available: false, loading: false, assistant: null };
-  if (!answer) return { available: false, loading: true, assistant: null };
+  if (isLoading)
+    return { available: false, loading: true, assistant: null, reason: null };
+  if (!isConnected)
+    return {
+      available: false,
+      loading: false,
+      assistant: null,
+      /* Not a configuration problem, and the settings screen must not report it
+         as one — there is nothing to switch on here, there is no server. */
+      reason: SUGGESTIONS_UNAVAILABLE,
+    };
+  if (!answer)
+    return { available: false, loading: true, assistant: null, reason: null };
   return { ...answer, loading: false };
 }
 
