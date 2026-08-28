@@ -180,6 +180,7 @@ export function useSetupChecklist(): ChecklistState {
         bankDetails: features.bankDetails,
       },
       leave: {
+        biggestEntitlement: null,
         types: company.settings.leave.types.length,
         year: DEMO_YEAR,
         holidays: demoHolidays.holidays,

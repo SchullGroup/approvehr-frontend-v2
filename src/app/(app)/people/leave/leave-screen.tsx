@@ -496,6 +496,22 @@ export function LeaveScreen() {
           <CardHeader
             title="Annual leave left"
             description="Pending days are already held back."
+            /* The number on this card is a company setting — `entitledDays` on
+               the leave type — and until now nothing on the screen said so.
+               Somebody looking at "20 left" and wondering where 20 came from
+               had to already know `/settings/leave` exists.
+
+               A figure that is configured should say where it is configured,
+               from the screen where somebody reads it. Behind `MANAGE_SETTINGS`
+               because the API is: an employee reading their own balance is not
+               being kept from anything they could act on. */
+            action={
+              canManageSettings ? (
+                <ButtonLink href="/settings/leave" variant="ghost" size="sm">
+                  Set the entitlements
+                </ButtonLink>
+              ) : undefined
+            }
           />
           <CardBody className="grid gap-x-8 gap-y-3.5 sm:grid-cols-2 lg:grid-cols-3">
             {balances.loading && (
