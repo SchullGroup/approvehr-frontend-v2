@@ -12,6 +12,7 @@ import {
   Spinner,
   useToast,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
 import type { ApiDocument, ApiDocumentRequest } from "@/lib/api/documents";
 import { useEmployeeFile } from "@/lib/store/documents";
@@ -101,9 +102,12 @@ export function EmployeeFileDrawer({
             Loading the file
           </div>
         ) : file.error ? (
-          <p role="alert" className="py-6 text-body-sm text-danger-text">
-            {file.error.message}
-          </p>
+          <div role="alert" className="py-6">
+            <LoadFailure
+              subject="this person's document file"
+              error={file.error}
+             onRetry={file.reload}/>
+          </div>
         ) : (
           <div className="flex flex-col gap-6">
             {outstanding.length > 0 && (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Check, Lock, MapPin, Plus } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -26,7 +26,8 @@ import { MODULE_FEATURE_KEYS } from "@/lib/api/setup";
 import { NIGERIAN_STATES } from "@/lib/reference/lists";
 import { usePermissions } from "@/lib/permissions";
 import { useOrgTaxState } from "@/lib/store/company";
-import { useWorkLocations } from "@/lib/store/work-locations";
+import { useWorkLocationList, useWorkLocationMutations } from "@/lib/store/work-locations";
+import type { ApiWorkLocation } from "@/lib/api/attendance";
 import { useRoles } from "@/lib/store/permissions";
 import {
   PositionError,
@@ -35,6 +36,12 @@ import {
 } from "@/lib/geolocation";
 import { FEATURE_COPY, useFeatures, useWizard } from "@/lib/store/features";
 import { CreateRoleDialog } from "@/app/(app)/settings/roles/create-role";
+import { failureMessage } from "@/components/portal/load-failure";
+import {
+  takePendingVerification,
+  type PendingVerification,
+} from "@/lib/pending-email-verification";
+import { VerificationNudge } from "./verification-nudge";
 
 /**
  * Setup.
@@ -95,7 +102,11 @@ export function SetupWizard() {
   const wizard = useWizard();
   const features = useFeatures();
   const orgTax = useOrgTaxState();
-  const offices = useWorkLocations();
+  /* Not `useWorkLocations()`: that convenience wrapper exposes a create that
+     reloads itself but no way to reload after an *update*, and this screen
+     needs both — see `confirmOffice` below, which now does either. */
+  const offices = useWorkLocationList(false);
+  const officeMutations = useWorkLocationMutations();
   const toast = useToast();
 
   /**
@@ -109,6 +120,34 @@ export function SetupWizard() {
    * written by a click — sits on top of it.
    */
   const [movedTo, setMovedTo] = useState<number | null>(null);
+  /**
+   * The "confirm your email" nudge, handed off from the register screen.
+   *
+   * A real side effect (reading and consuming `sessionStorage`), not derived
+   * render data, so this is the one piece of state on this screen that
+   * belongs in an effect rather than computed inline — same reasoning as the
+   * `started` ref on `verify-email-screen.tsx`. Guarded the same way, against
+   * the double-invoke React does in development. Rendered from `Frame`
+   * rather than threaded through every branch below it as a prop: `Frame` is
+   * already the one wrapper every branch but `Done` returns through, and this
+   * screen has no persistent shell around it to fall back on — `(setup)`'s
+   * own `layout.tsx` is deliberately chrome-free, so
+   * `components/portal/verification-banner.tsx` never reaches this route.
+   */
+  const [pending, setPending] = useState<PendingVerification | null>(null);
+  const pendingChecked = useRef(false);
+  useEffect(() => {
+    if (pendingChecked.current) return;
+    pendingChecked.current = true;
+    setPending(takePendingVerification());
+  }, []);
+  const nudge = pending && (
+    <VerificationNudge
+      email={pending.email}
+      hint={pending.hint}
+      onDismiss={() => setPending(null)}
+    />
+  );
   /**
    * `null` until something happens: the wizard has not been finished *in this
    * visit*. That is a different fact from "setup is complete", which the server
@@ -141,6 +180,15 @@ export function SetupWizard() {
   const [locating, setLocating] = useState(false);
   const [savingOffice, setSavingOffice] = useState(false);
   const [officeError, setOfficeError] = useState<string | null>(null);
+  /**
+   * Reopening the office form to change what was already saved, rather than
+   * creating a second office — `null` while the form (if open at all) is
+   * making the *first* one. Set only by the "Edit" line under an answered
+   * attendance question, never by the initial "Yes".
+   */
+  const [editingLocationId, setEditingLocationId] = useState<string | null>(
+    null,
+  );
 
   const total = wizard.questions.length;
   /* `step` counts answers and is 1-based, so it is already the index of the
@@ -264,21 +312,40 @@ export function SetupWizard() {
     setSavingOffice(true);
     setOfficeError(null);
     try {
-      await offices.create({
+      /* All three together or none — the API refuses a half-built fence, and
+         `readPosition` gives both coordinates at once. 150m covers a building
+         and its car park, which is the settings screen's own guidance for a
+         first radius. */
+      const fence = officeFix
+        ? {
+            latitude: officeFix.latitude,
+            longitude: officeFix.longitude,
+            radiusMetres: 150,
+          }
+        : {};
+      if (editingLocationId) {
+        /* A correction to what is already on file, not a second office —
+           `null` clears the address rather than a blank string leaving the
+           old one in place, which is what `WorkLocationPatch` means by
+           "absent leaves a field alone; `null` clears it". */
+        await officeMutations.update(editingLocationId, {
+          name: officeName.trim(),
+          addressLine: officeAddress.trim() ? officeAddress.trim() : null,
+          ...fence,
+        });
+        offices.reload();
+        setAwaitingOffice(false);
+        setEditingLocationId(null);
+        /* Correcting an answer already on this question does not move
+           forward — only a fresh "Yes" does that. */
+        return;
+      }
+      await officeMutations.create({
         name: officeName.trim(),
         ...(officeAddress.trim() ? { addressLine: officeAddress.trim() } : {}),
-        /* All three together or none — the API refuses a half-built fence,
-           and `readPosition` gives both coordinates at once. 150m covers a
-           building and its car park, which is the settings screen's own
-           guidance for a first radius. */
-        ...(officeFix
-          ? {
-              latitude: officeFix.latitude,
-              longitude: officeFix.longitude,
-              radiusMetres: 150,
-            }
-          : {}),
+        ...fence,
       });
+      offices.reload();
       setAwaitingOffice(false);
       await advance();
     } catch (error) {
@@ -292,11 +359,37 @@ export function SetupWizard() {
     }
   };
 
+  /**
+   * Reopen the office form on what is already saved, rather than the blank
+   * "Head office" a fresh answer starts from. Only reachable once an office
+   * exists — see the preview line below, which is the only thing that renders
+   * this button.
+   */
+  const openEditOffice = (office: ApiWorkLocation) => {
+    setOfficeName(office.name);
+    setOfficeAddress(office.addressLine ?? "");
+    setOfficeFix(
+      office.latitude !== null && office.longitude !== null
+        ? {
+            latitude: office.latitude,
+            longitude: office.longitude,
+            /* Not a real reading — the office has no stored accuracy, only a
+               fence. `accuracyMetres` is never sent to the API or shown on
+               screen; it exists purely as `PositionFix`'s third field. */
+            accuracyMetres: 0,
+          }
+        : null,
+    );
+    setOfficeError(null);
+    setEditingLocationId(office.id);
+    setAwaitingOffice(true);
+  };
+
   /* ------------------------------------------------------------ loading */
 
   if (wizard.loading) {
     return (
-      <Frame>
+      <Frame nudge={nudge}>
         <Skeleton className="h-3 w-28" />
         <Skeleton className="mt-4 h-2 w-full" />
         <Skeleton className="mt-10 h-9 w-4/5" />
@@ -311,9 +404,9 @@ export function SetupWizard() {
 
   if (wizard.error) {
     return (
-      <Frame>
+      <Frame nudge={nudge}>
         <Callout tone="danger" title="Setup could not load">
-          {wizard.error}
+          {failureMessage(wizard.error, "your setup")}
         </Callout>
         <div className="mt-5 flex flex-wrap gap-2">
           <Button variant="accent" onClick={wizard.reload}>
@@ -336,6 +429,7 @@ export function SetupWizard() {
            questions about shifts and loans. */
         flags={MODULE_FEATURE_KEYS.filter((key) => features[key])}
         returning={phase !== "done"}
+        nudge={nudge}
       />
     );
   }
@@ -343,7 +437,7 @@ export function SetupWizard() {
   const question = wizard.questions[index];
   if (!question) {
     return (
-      <Frame>
+      <Frame nudge={nudge}>
         <Callout tone="warning" title="Nothing to ask">
           There are no setup questions right now.
         </Callout>
@@ -360,7 +454,7 @@ export function SetupWizard() {
      Saying so once, plainly, beats five failing buttons. */
   if (!wizard.canAnswer) {
     return (
-      <Frame>
+      <Frame nudge={nudge}>
         <span className="flex size-10 items-center justify-center rounded-full bg-sunken text-muted">
           <Lock aria-hidden="true" className="size-5" />
         </span>
@@ -392,7 +486,7 @@ export function SetupWizard() {
     : null;
 
   return (
-    <Frame>
+    <Frame nudge={nudge}>
       <p className="text-body-sm font-medium text-muted">
         Question {index + 1} of {total}
       </p>
@@ -481,14 +575,44 @@ export function SetupWizard() {
 
       {answered &&
         question.id === "attendance" &&
-        offices.locations.length > 0 &&
+        offices.locations.length === 1 &&
+        !awaitingOffice &&
+        (() => {
+          const office = offices.locations[0]!;
+          return (
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+              <p className="text-body-sm text-body">
+                Clocking in at{" "}
+                <span className="font-medium text-ink">{office.name}</span>
+                {office.addressLine && (
+                  <span className="text-muted"> — {office.addressLine}</span>
+                )}
+                . You can add branches in Settings.
+              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => openEditOffice(office)}
+              >
+                Edit
+              </Button>
+            </div>
+          );
+        })()}
+
+      {/* More than one office already exists — the wizard made one, Settings
+          made the rest. Editing any of them by name here would be guessing
+          which "Head office" somebody means; Settings has the real list. */}
+      {answered &&
+        question.id === "attendance" &&
+        offices.locations.length > 1 &&
         !awaitingOffice && (
           <p className="mt-5 text-body-sm text-body">
             Clocking in at{" "}
             <span className="font-medium text-ink">
               {offices.locations.map((office) => office.name).join(", ")}
             </span>
-            . You can add branches in Settings.
+            . Manage branches in Settings.
           </p>
         )}
 
@@ -531,11 +655,14 @@ export function SetupWizard() {
         <div className="mt-6 flex flex-col gap-4 rounded-lg border border-accent-line bg-accent-soft p-5">
           <div>
             <p className="text-body font-semibold text-ink">
-              Where do people clock in?
+              {editingLocationId
+                ? "Change where people clock in"
+                : "Where do people clock in?"}
             </p>
             <p className="mt-1 text-body-sm leading-relaxed text-body">
-              Staff pick a place when they clock in, so there has to be at least
-              one. You can add branches later.
+              {editingLocationId
+                ? "This updates the office already on file — it does not add a second one."
+                : "Staff pick a place when they clock in, so there has to be at least one. You can add branches later."}
             </p>
           </div>
 
@@ -607,7 +734,7 @@ export function SetupWizard() {
             </p>
           )}
 
-          <div>
+          <div className="flex items-center gap-2">
             <Button
               variant="accent"
               size="sm"
@@ -615,8 +742,22 @@ export function SetupWizard() {
               disabled={!officeName.trim()}
               onClick={() => void confirmOffice()}
             >
-              Continue
+              {editingLocationId ? "Save" : "Continue"}
             </Button>
+            {editingLocationId && (
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={savingOffice}
+                onClick={() => {
+                  setAwaitingOffice(false);
+                  setEditingLocationId(null);
+                  setOfficeError(null);
+                }}
+              >
+                Cancel
+              </Button>
+            )}
           </div>
         </div>
       )}
@@ -690,9 +831,17 @@ function chosenOption(
  * No `PageHeader`. A page title above a question would be a second heading
  * competing with the only thing being asked.
  */
-function Frame({ children }: { children: React.ReactNode }) {
+function Frame({
+  nudge,
+  children,
+}: {
+  /** From `SetupWizard`'s own `pending` state — see the note there. */
+  nudge?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <div className="mx-auto w-full max-w-xl px-5 py-12 sm:px-7 sm:py-16">
+      {nudge}
       {children}
     </div>
   );
@@ -908,12 +1057,14 @@ function RolesStep({
 function Done({
   flags,
   returning,
+  nudge,
 }: {
   flags: FeatureKey[];
   returning: boolean;
+  nudge?: React.ReactNode;
 }) {
   return (
-    <Frame>
+    <Frame nudge={nudge}>
       <span className="flex size-10 items-center justify-center rounded-full bg-success-soft text-success-text">
         <Check aria-hidden="true" strokeWidth={2.5} className="size-5" />
       </span>

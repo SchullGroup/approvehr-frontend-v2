@@ -94,8 +94,7 @@ const COPY = {
     one: "an allowance",
     caption: "Allowances, with what each one does to tax and pension",
     title: "Allowances",
-    description:
-      "Money added to pay. Each one carries whether tax and pension apply to it.",
+    description: "Each one carries whether tax and pension apply to it.",
     add: "Add an allowance",
     empty: "No allowances yet",
     emptyHint:
@@ -107,8 +106,7 @@ const COPY = {
     one: "a deduction",
     caption: "Deductions, with what each one does to tax and take-home pay",
     title: "Deductions",
-    description:
-      "Money taken off pay. Each one carries whether it comes off before or after tax.",
+    description: "Each one carries whether it comes off before or after tax.",
     add: "Add a deduction",
     empty: "No deductions yet",
     emptyHint:
@@ -172,7 +170,7 @@ export function ComponentsPanel({ kind }: { kind: PayComponentKind }) {
         </Callout>
       )}
 
-      <LoadFailure subject={`the ${copy.plural}`} error={components.error} />
+      <LoadFailure subject={`the ${copy.plural}`} error={components.error}  onRetry={components.reload}/>
 
       <Card>
         <CardHeader

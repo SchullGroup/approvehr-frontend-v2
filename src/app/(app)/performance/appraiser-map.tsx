@@ -20,6 +20,7 @@ import {
   Switch,
   useToast,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
 import {
   APPRAISER_ROLES,
@@ -94,6 +95,21 @@ export function AppraiserMapTab() {
   const [editing, setEditing] = useState<ApiAppraiserMapRow | null>(null);
   const [autoBusy, setAutoBusy] = useState(false);
 
+  /* Fetched once for the whole table rather than once per row — a period of two
+     hundred people would otherwise open two hundred identical requests. The
+     dialog fetches its own copy because it is also opened from the period
+     screen, where this tab is not mounted. */
+  const { employees } = useEmployeeDirectory({ pageSize: 200 });
+  const people = useMemo(
+    () =>
+      employees.map((person) => ({
+        id: person.id,
+        name: `${person.firstName} ${person.lastName}`,
+        jobTitle: person.jobTitle,
+      })),
+    [employees],
+  );
+
   const cycleId =
     chosen && cycles.some((cycle) => cycle.id === chosen)
       ? chosen
@@ -145,6 +161,28 @@ export function AppraiserMapTab() {
         .filter((issue) => issue.severity === "WARNING")
         .map((issue) => ({ key: `${row.employeeId}-${issue.code}`, ...issue })),
     ) ?? [];
+
+  /**
+   * One appraiser, at 100%, saved from the row.
+   *
+   * The same `PUT` the dialog sends — a set of one at the full weight — so the
+   * server rule that a set makes exactly 100% is satisfied by construction
+   * rather than waived. Errors are thrown rather than swallowed: the row shows
+   * the API's own sentence under itself, because a pick that silently did
+   * nothing is the failure this whole change is about.
+   */
+  const quickAssign = async (row: ApiAppraiserMapRow, appraiserId: string) => {
+    if (!cycleId) return;
+    await mutations.setAppraisers(cycleId, row.employeeId, [
+      { appraiserId, role: "LINE_MANAGER", weightBp: FULL_WEIGHT_BP },
+    ]);
+    toast.push({
+      title: `${people.find((one) => one.id === appraiserId)?.name ?? "They"} now appraises ${row.employeeName}`,
+      tone: "success",
+      detail: "As their line manager, for the whole mark. Change it any time.",
+    });
+    reload();
+  };
 
   const autoAssign = async () => {
     if (!cycleId) return;
@@ -220,11 +258,7 @@ export function AppraiserMapTab() {
         </div>
       </div>
 
-      {error && (
-        <Callout tone="danger" title="Could not read the mapping">
-          {error.message}
-        </Callout>
-      )}
+      <LoadFailure subject="the appraiser mapping" error={error}  onRetry={reload}/>
 
       {map && (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -384,7 +418,9 @@ export function AppraiserMapTab() {
               <PersonRow
                 key={row.employeeId}
                 row={row}
+                people={people}
                 onEdit={() => setEditing(row)}
+                onQuickAssign={(appraiserId) => quickAssign(row, appraiserId)}
               />
             ))}
           </CardBody>
@@ -415,13 +451,48 @@ export function AppraiserMapTab() {
  * never on its own. A 3.4 that is 40% in and a 3.4 that is complete are
  * different claims, and only one of them is a mark.
  */
+/**
+ * One person, and — where nobody is appraising them — the whole fix in place.
+ *
+ * ## Why the assignment is on the row and not behind the dialog
+ *
+ * It used to take five interactions and two stacked modals to say the ordinary
+ * thing: "this person's appraiser is that person". Review and fix, then Assign,
+ * then Add an appraiser, then choose, then Save the mapping — with the second
+ * modal opening on top of the first, which is its own problem.
+ *
+ * Four of those five exist to serve the case the dialog was built for: several
+ * appraisers, each with a role and a share of the mark. That case is real and
+ * the dialog stays for it. It is not the common case. **One line manager at
+ * 100% is**, and the API models it as exactly that — a set of one at 10000
+ * basis points — so nothing has to be relaxed to offer it in a single step.
+ *
+ * So the row picks a person and saves. Roles, shares and second appraisers are
+ * still one click away, and the wording says so rather than hiding it.
+ *
+ * ## Saving on the pick, with no confirm step
+ *
+ * Deliberate. A confirm would put the click back that this is removing, and the
+ * act is reversible in the place it was made: the row turns into "Change", the
+ * dialog opens on what was just saved, and an empty set is a legitimate save
+ * that undoes it. Nothing here is one-way, and the API refuses the two things
+ * that would matter — appraising yourself, and dropping somebody who has
+ * already sent a review.
+ */
 function PersonRow({
   row,
+  people,
   onEdit,
+  onQuickAssign,
 }: {
   row: ApiAppraiserMapRow;
+  /** Fetched once by the tab, not once per row. */
+  people: { id: string; name: string; jobTitle: string }[];
   onEdit: () => void;
+  onQuickAssign: (appraiserId: string) => Promise<void>;
 }) {
+  const [assigning, setAssigning] = useState(false);
+  const [quickFailed, setQuickFailed] = useState<string | null>(null);
   const worst = row.exceptions.some((issue) => issue.severity === "BLOCKER")
     ? "BLOCKER"
     : row.exceptions.length > 0
@@ -506,9 +577,58 @@ function PersonRow({
         </p>
       </div>
 
-      <Button variant="secondary" size="sm" onClick={onEdit}>
-        {row.appraisers.length === 0 ? "Assign" : "Change"}
-      </Button>
+      {row.appraisers.length > 0 ? (
+        <Button variant="secondary" size="sm" onClick={onEdit}>
+          Change
+        </Button>
+      ) : (
+        <div className="flex flex-col items-end gap-1">
+          <div className="flex items-center gap-2">
+            {/* The subject is filtered out here rather than left for the API to
+                refuse: appraising yourself is not an option worth offering. */}
+            <Select
+              aria-label={`Appraiser for ${row.employeeName}`}
+              className="min-w-[13rem]"
+              disabled={assigning}
+              value=""
+              onChange={(event) => {
+                const appraiserId = event.target.value;
+                if (!appraiserId) return;
+                setAssigning(true);
+                setQuickFailed(null);
+                void onQuickAssign(appraiserId)
+                  .catch((error: unknown) => {
+                    setQuickFailed(
+                      error instanceof ApiError
+                        ? error.message
+                        : "That did not save. Try again.",
+                    );
+                  })
+                  .finally(() => {
+                    setAssigning(false);
+                  });
+              }}
+            >
+              <option value="">
+                {assigning ? "Saving…" : "Assign an appraiser"}
+              </option>
+              {people
+                .filter((person) => person.id !== row.employeeId)
+                .map((person) => (
+                  <option key={person.id} value={person.id}>
+                    {person.name} — {person.jobTitle}
+                  </option>
+                ))}
+            </Select>
+            <Button variant="ghost" size="sm" onClick={onEdit}>
+              More options
+            </Button>
+          </div>
+          {quickFailed !== null && (
+            <p className="text-meta text-danger-text">{quickFailed}</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -566,18 +686,23 @@ export function AppraisersDialog({
           weightPct: String(one.weightBp / 100),
           note: one.note ?? "",
         }))
-      : /* The obvious starting point: their line manager, all of it. Not an
-           empty row — the ordinary answer should need no typing. */
-        row.lineManagerId
-        ? [
+        : /* The obvious starting point: their line manager, all of it. Not an
+             empty row — the ordinary answer should need no typing.
+
+             With no line manager it is still one row rather than none, and that
+             is a click removed: opening on an empty list meant pressing "Add an
+             appraiser" before there was anything to choose from, on a dialog
+             whose entire purpose is to choose one. An untouched blank row is
+             filtered out of `entries`, so "nobody assigned" still reads as
+             nobody assigned and saving an empty set still undoes a mapping. */
+          [
             {
-              appraiserId: row.lineManagerId,
+              appraiserId: row.lineManagerId ?? "",
               role: "LINE_MANAGER" as AppraiserRole,
               weightPct: "100",
               note: "",
             },
-          ]
-        : [],
+          ],
   );
   const [failed, setFailed] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -820,22 +945,15 @@ export function AppraisersDialog({
                 </Field>
               </div>
 
-              <div className="flex flex-wrap items-end justify-between gap-3">
-                <Field
-                  optional
-                  label="Why"
-                  help="For when the role alone does not say it."
-                  className="min-w-[16rem] flex-1"
-                >
-                  <Input
-                    value={draft.note}
-                    placeholder="Ran the Lagos migration all half"
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      setRow(index, { note: value });
-                    }}
-                  />
-                </Field>
+              {/* The "Why" note has no input any more. The role and the share
+                  are what the mapping is for, and a free-text box under every
+                  row made a two-field decision look like a three-field form.
+
+                  `note` stays on the draft and is still sent (see `toPayload`)
+                  so that editing a mapping does not silently wipe a note set
+                  before this field went — removing a control is not a reason to
+                  destroy the data behind it. Nothing writes a new one. */}
+              <div className="flex justify-end">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -869,12 +987,6 @@ export function AppraisersDialog({
             </Button>
           )}
         </div>
-
-        <p className="text-body-sm text-muted">
-          The mark is the weighted average of whoever has answered, so a share
-          of 0% is not a thing — remove the row instead. Everybody added is
-          told, and gets their own form straight away if the period is running.
-        </p>
       </div>
     </Modal>
   );

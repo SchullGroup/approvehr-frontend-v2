@@ -14,6 +14,7 @@ import {
   Skeleton,
   useToast,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { SourceBadge } from "@/components/hiring/source-badge";
 import {
@@ -106,17 +107,19 @@ function ScreeningCard({
             <span className="sr-only-focusable">Loading applications</span>
           </CardBody>
         ) : queue.error ? (
-          <CardBody className="flex flex-wrap items-center gap-3">
-            <p className="text-body-sm text-danger-text">
-              {queue.error.message}
-            </p>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => void queue.reload()}
-            >
-              Try again
-            </Button>
+          <CardBody>
+            <LoadFailure
+              subject="the applications for this role"
+              error={queue.error}
+             onRetry={queue.reload}>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => void queue.reload()}
+              >
+                Try again
+              </Button>
+            </LoadFailure>
           </CardBody>
         ) : queue.adverts.length === 0 ? (
           <EmptyState

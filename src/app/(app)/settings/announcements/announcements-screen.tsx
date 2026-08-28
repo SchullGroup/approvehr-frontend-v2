@@ -26,6 +26,7 @@ import {
   TableWrap,
   useToast,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -185,11 +186,7 @@ export function AnnouncementsScreen() {
           </Callout>
         )}
 
-        {board.error && (
-          <Callout tone="danger" title="Could not read the noticeboard">
-            {board.error.message}
-          </Callout>
-        )}
+        <LoadFailure subject="the noticeboard" error={board.error}  onRetry={board.reload}/>
 
         <div className="grid gap-4 sm:grid-cols-3">
           <Stat label="On the board" value={String(live.length)} hint="staff see these" />

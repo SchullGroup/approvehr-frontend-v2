@@ -386,12 +386,83 @@ export const helpdeskApi = {
       ...(signal ? { signal } : {}),
     }),
 
+  /**
+   * The write half of categories, which the frontend never had.
+   *
+   * `POST`, `PATCH` and `DELETE /helpdesk/categories` have existed, been
+   * permissioned and been tested since the module was built, and **nothing in
+   * this product called any of them** — so a company could read the categories
+   * it did not have and had no way to make one. `MANAGE_SETTINGS` on all three,
+   * which is what routes a ticket and sets its reply target.
+   */
+  createCategory: (body: {
+    name: string;
+    description?: string;
+    defaultAssigneeId?: string;
+    slaPolicyId?: string;
+  }) =>
+    request<ApiTicketCategory>("/helpdesk/categories", {
+      method: "POST",
+      body,
+    }),
+
+  /**
+   * `null` clears; an absent key leaves alone.
+   *
+   * The distinction is the API's, not a convenience: taking the reply target
+   * off a category and not mentioning it are different acts, and a form that
+   * sent `undefined` for both would silently be unable to clear one.
+   */
+  updateCategory: (
+    id: string,
+    body: {
+      name?: string;
+      description?: string | null;
+      defaultAssigneeId?: string | null;
+      slaPolicyId?: string | null;
+      active?: boolean;
+    },
+  ) =>
+    request<ApiTicketCategory>(`/helpdesk/categories/${id}`, {
+      method: "PATCH",
+      body,
+    }),
+
   /** Also readable by anyone — and where `workingDay` comes from. */
   sla: (includeInactive = false, signal?: AbortSignal) =>
     request<ApiSlaList>("/helpdesk/sla", {
       query: { includeInactive: String(includeInactive) },
       ...(signal ? { signal } : {}),
     }),
+
+  /**
+   * A reply-and-resolution promise, per priority.
+   *
+   * Same story as the categories: `POST` and `PATCH /helpdesk/sla` were built
+   * and never called. The API refuses a resolution target shorter than its
+   * first-response target — a promise to finish before you have replied is not
+   * a promise anybody can keep — and says so in its own sentence.
+   *
+   * Both targets are **working minutes**, not wall-clock: the SLA clock stops
+   * outside working hours and on the company's own holidays.
+   */
+  createSla: (body: {
+    name: string;
+    priority: TicketPriority;
+    firstResponseMinutes: number;
+    resolutionMinutes: number;
+  }) => request<ApiSlaPolicy>("/helpdesk/sla", { method: "POST", body }),
+
+  updateSla: (
+    id: string,
+    body: {
+      name?: string;
+      priority?: TicketPriority;
+      firstResponseMinutes?: number;
+      resolutionMinutes?: number;
+      active?: boolean;
+    },
+  ) => request<ApiSlaPolicy>(`/helpdesk/sla/${id}`, { method: "PATCH", body }),
 
   analytics: (
     range: { from?: string; to?: string } = {},

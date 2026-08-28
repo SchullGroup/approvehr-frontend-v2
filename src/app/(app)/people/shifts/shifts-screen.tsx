@@ -28,6 +28,7 @@ import {
   useToast,
   type TabItem,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -215,11 +216,7 @@ export function ShiftsScreen({ initialTab }: { initialTab: ShiftTab }) {
       <PageBody>
         <Tabs items={TABS} value={tab} onChange={changeTab}>
           <div className="flex flex-col gap-6">
-            {grid.error && (
-              <p className="rounded-md border border-danger-line bg-danger-soft px-3.5 py-2.5 text-body-sm text-ink">
-                {grid.error.message}
-              </p>
-            )}
+            <LoadFailure subject="the rota" error={grid.error}  onRetry={grid.reload}/>
 
             {tab === "rota" ? (
               <>

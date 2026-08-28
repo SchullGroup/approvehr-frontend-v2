@@ -119,7 +119,7 @@ export function ApplyForm({
           <Check aria-hidden="true" className="size-6 text-slate" strokeWidth={3} />
         </span>
         <h2 className="mt-6 text-h3 text-slate">Application sent</h2>
-        <p className="mx-auto mt-3 max-w-sm text-body leading-relaxed text-slate-muted">
+        <p className="mx-auto mt-3 max-w-sm text-body leading-relaxed">
           {sent.note}
         </p>
         <p className="mx-auto mt-4 max-w-sm text-body-sm leading-relaxed text-slate-muted">
@@ -137,7 +137,7 @@ export function ApplyForm({
       className="rounded-3xl border border-sand-line bg-white/70 p-7 sm:p-9"
     >
       <h2 className="text-h3 text-slate">Apply for this role</h2>
-      <p className="mt-2 text-body leading-relaxed text-slate-muted">
+      <p className="mt-2 text-body leading-relaxed">
         {roleTitle} at {company}. Four boxes and you are done.
       </p>
 
@@ -203,7 +203,7 @@ export function ApplyForm({
             value={form.note}
             onChange={(event) => set("note", event.currentTarget.value)}
             placeholder="Link to my CV: …&#10;I am on one month's notice."
-            className="mt-2 w-full resize-y rounded-xl border border-sand-line bg-white px-4 py-3 text-body text-slate placeholder:text-slate-muted/60 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate"
+            className="mt-2 w-full resize-y rounded-xl border border-sand-line bg-white px-4 py-3 text-slate placeholder:text-slate-muted/60 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate"
           />
         </div>
 
@@ -285,7 +285,7 @@ function TextField({
         placeholder={placeholder}
         onChange={(event) => onChange(event.currentTarget.value)}
         className={cn(
-          "mt-2 h-11 w-full rounded-xl border bg-white px-4 text-body text-slate",
+          "mt-2 h-11 w-full rounded-xl border bg-white px-4 text-slate",
           "placeholder:text-slate-muted/60 focus:outline-none",
           "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate",
           error ? "border-danger" : "border-sand-line",

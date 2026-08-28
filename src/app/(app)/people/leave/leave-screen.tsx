@@ -28,6 +28,7 @@ import {
   EmptyState,
   IconButton,
   ProgressMeter,
+  StackedBar,
   SegmentedControl,
   Stat,
   TBody,
@@ -41,6 +42,7 @@ import {
   type BadgeTone,
 } from "@/components/ui";
 import { DeclineDialog } from "@/components/portal/decline-dialog";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import { daysLabel, type LeaveRow, type LeaveRowStatus } from "@/lib/api/leave";
@@ -294,11 +296,7 @@ export function LeaveScreen() {
       />
 
       <PageBody className="flex flex-col gap-6">
-        {error && (
-          <Callout tone="danger" title="Could not read the requests">
-            {error.message}
-          </Callout>
-        )}
+        <LoadFailure subject="the leave requests" error={error}  onRetry={reload}/>
 
         {noRecord && (
           <Callout tone="info" title="This account has no employee record">
@@ -322,7 +320,12 @@ export function LeaveScreen() {
             value={String(monthAhead.length)}
             hint="approved, starting within 31 days"
           />
-          <Stat label="Days approved this year" value={String(daysBooked)} />
+          {/* Not "Days approved" — read on a plain employee's own screen, that
+              sounds like an action they took ("did I approve my own leave?"),
+              when it is a fact about their leave: days of theirs an approver
+              has signed off this year. "Taken" matches "Annual leave used" /
+              "Annual days left" beside it, and cannot be misread either way. */}
+          <Stat label="Days taken this year" value={String(daysBooked)} />
           <Stat
             label="Annual leave used"
             value={utilisation === null ? "—" : `${utilisation}%`}
@@ -524,11 +527,42 @@ export function LeaveScreen() {
                       {balance.pending > 0 && ` · ${balance.pending} pending`}
                     </span>
                   </div>
-                  <ProgressMeter
-                    value={balance.taken}
-                    max={balance.entitled}
-                    size="sm"
-                    tone={balance.remaining <= 3 ? "warning" : "accent"}
+                  {/* Taken **and** pending, on one track.
+                      ------------------------------------
+                      A `ProgressMeter` filled by `taken` alone said 12 of 20
+                      while three more days were already held back — the bar and
+                      the "· 3 pending" beside it were describing different
+                      facts, which is the same two-numbers-for-one-thing defect
+                      the drawer meter on this screen already records fixing.
+
+                      `entitled - taken - pending` is `remaining` by definition
+                      (see `LeaveBalanceRow`), so the three segments and the
+                      empty tail account for the entitlement exactly, with no
+                      residue to explain. `StackedBar` draws anything past the
+                      end past the end rather than clamping, which matters here:
+                      `remaining` genuinely goes negative when somebody is
+                      approved beyond their entitlement, and this screen already
+                      has the sentence for it. */}
+                  <StackedBar
+                    total={balance.entitled}
+                    format={(n) => `${String(n)}`}
+                    segments={[
+                      {
+                        label: "Taken",
+                        value: balance.taken,
+                        color: "var(--color-accent)",
+                      },
+                      ...(balance.pending > 0
+                        ? [
+                            {
+                              label: "Pending",
+                              value: balance.pending,
+                              color: "var(--color-warning)",
+                            },
+                          ]
+                        : []),
+                    ]}
+                    caption={`${person.name}: ${String(balance.taken)} days taken, ${String(balance.pending)} pending, of ${String(balance.entitled)} entitled.`}
                   />
                 </div>
               );

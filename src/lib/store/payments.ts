@@ -33,6 +33,7 @@ import {
 import { EMPLOYEES } from "@/lib/mock/people";
 import { createPersistedState } from "./persisted";
 import { useSession } from "./session";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * Payments, from whichever source is available.
@@ -639,6 +640,9 @@ export function usePaymentsSummary(): PaymentsSummaryState {
     error: ApiError | null;
   } | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -662,7 +666,7 @@ export function usePaymentsSummary(): PaymentsSummaryState {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, rev]);
+  }, [isConnected, rev, revalidation]);
 
   if (!isConnected) {
     const outstanding = book.batches
@@ -760,6 +764,9 @@ export function usePaymentBatches(params: BatchListParams = {}): BatchListState 
     error: ApiError | null;
   } | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -786,7 +793,7 @@ export function usePaymentBatches(params: BatchListParams = {}): BatchListState 
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, query, key]);
+  }, [isConnected, query, key, revalidation]);
 
   if (!isConnected) {
     let rows = book.batches.map(toBatch);
@@ -849,6 +856,9 @@ export function usePaymentBatch(id: string | null): BatchDetailState {
     error: ApiError | null;
   } | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!active || !id) return;
     let cancelled = false;
@@ -873,7 +883,7 @@ export function usePaymentBatch(id: string | null): BatchDetailState {
       cancelled = true;
       controller.abort();
     };
-  }, [id, active, rev]);
+  }, [id, active, rev, revalidation]);
 
   if (!isConnected) {
     const found = id ? book.batches.find((batch) => batch.id === id) : undefined;
@@ -937,6 +947,9 @@ export function useLedger(params: LedgerListParams = {}): LedgerState {
     error: ApiError | null;
   } | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -960,7 +973,7 @@ export function useLedger(params: LedgerListParams = {}): LedgerState {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, query, key]);
+  }, [isConnected, query, key, revalidation]);
 
   if (!isConnected) {
     let rows = book.ledger;
@@ -1136,6 +1149,9 @@ export function usePaymentHistory(
     error: ApiError | null;
   } | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -1159,7 +1175,7 @@ export function usePaymentHistory(
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, query, key]);
+  }, [isConnected, query, key, revalidation]);
 
   const offline = useMemo(() => {
     if (isConnected) return null;
@@ -1242,6 +1258,9 @@ export function usePaidPeople(period?: string): PaidPeopleState {
     result: ApiPaymentHistoryPage | null;
   } | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -1264,7 +1283,7 @@ export function usePaidPeople(period?: string): PaidPeopleState {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, period, key]);
+  }, [isConnected, period, key, revalidation]);
 
   const offline = useMemo(() => {
     if (isConnected) return null;
@@ -1333,6 +1352,9 @@ export function useBankAccounts(includeArchived = false): BankAccountsState {
     [includeArchived, rev],
   );
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -1366,7 +1388,7 @@ export function useBankAccounts(includeArchived = false): BankAccountsState {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, includeArchived, key]);
+  }, [isConnected, includeArchived, key, revalidation]);
 
   const create = useCallback(
     async (body: CreateAccountBody) => {
@@ -1947,6 +1969,9 @@ export function usePayableRuns(): PayableRunsState {
     null,
   );
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -1966,7 +1991,7 @@ export function usePayableRuns(): PayableRunsState {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, rev]);
+  }, [isConnected, rev, revalidation]);
 
   if (!isConnected) return { runs: [], loading: false, live: false };
 

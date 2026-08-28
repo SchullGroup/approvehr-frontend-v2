@@ -80,7 +80,9 @@ export function SignOffDialog({
     <Modal
       open
       onClose={onClose}
-      title={disputing ? "Say you do not accept this" : "Acknowledge this rating"}
+      title={
+        disputing ? "Say you do not accept this" : "Acknowledge this rating"
+      }
       description={
         disputing
           ? `Your rating for ${review.cycleName} stays as it is. The dispute goes on the record beside it.`

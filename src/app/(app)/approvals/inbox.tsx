@@ -21,7 +21,6 @@ import {
   Avatar,
   Badge,
   Button,
-  Callout,
   Card,
   CardBody,
   EmptyState,
@@ -32,6 +31,7 @@ import {
   type BadgeTone,
 } from "@/components/ui";
 import { DeclineDialog } from "@/components/portal/decline-dialog";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
 import { employeeById } from "@/lib/mock/people";
 import type { ApprovalKind } from "@/lib/mock/workflows";
@@ -41,6 +41,24 @@ import {
   type QueueFilter,
 } from "@/lib/store/approvals-api";
 import type { QueueItem } from "@/lib/workflows/queue";
+import { hasAnyPermission, useIsManager, usePermissions } from "@/lib/permissions";
+
+/**
+ * Holding any one of these is what makes "waiting on you" a question that can
+ * ever have a nonzero answer. Exported for `components/portal/shell.tsx`'s
+ * sidebar badge, which used to compute the same queue with no permission
+ * check at all — a plain employee's "My approvals" badge showed the whole
+ * company's pending count, and the page it opened onto correctly showed
+ * them nothing, which read as the badge being simply wrong. One list, so the
+ * two cannot drift back apart the way they already had once.
+ */
+export const APPROVE_PERMISSIONS = [
+  "APPROVE_LEAVE",
+  "APPROVE_LEAVE_ALL",
+  "APPROVE_PAYROLL",
+  "APPROVE_LOANS",
+  "APPROVE_EXPENSES",
+] as const;
 
 const ICON: Record<ApprovalKind, React.ReactNode> = {
   leave: <CalendarDays aria-hidden="true" />,
@@ -82,12 +100,28 @@ const TONE: Record<ApprovalKind, BadgeTone> = {
  *
  * A decision that moved nothing downstream says so, in both modes. Only leave has
  * a module behind it today.
+ *
+ * ## The economics only render for somebody who can ever see them move
+ *
+ * "Waiting on you" was already personally scoped — `GET /approvals/summary`
+ * answers "your own queue", never the company's — so a plain employee's tiles
+ * were not leaking anything. The problem was the audience, not the data: a
+ * stat row about deadlines and "value at stake" is furniture for somebody who
+ * can never have anything routed to them, and it will read as exactly zero
+ * forever, which is a worse thing to put in front of them than nothing.
+ * `canApprove` — a manager's own reports, or one of the approve-granting
+ * permissions — is the same question `useIsManager()`/`hasAnyPermission`
+ * answer everywhere else in this product; it is not a new gate invented for
+ * this screen.
  */
 export function ApprovalInbox() {
   const [filter, setFilter] = useState<QueueFilter>("all");
   const [declining, setDeclining] = useState<QueueItem | null>(null);
   const queue = useApprovalQueue(filter);
   const toast = useToast();
+  const isManager = useIsManager();
+  const { permissions } = usePermissions();
+  const canApprove = isManager || hasAnyPermission(permissions, APPROVE_PERMISSIONS);
 
   const decide = async (
     item: QueueItem,
@@ -193,126 +227,138 @@ export function ApprovalInbox() {
         )}
       </div>
 
-      {queue.error && (
-        <Callout tone="danger" title="Could not read your approvals">
-          {queue.error.message}
-        </Callout>
-      )}
+      <LoadFailure subject="your approvals" error={queue.error} onRetry={queue.reload} />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat label="Waiting on you" value={String(queue.counts.pending)} />
-        <Stat
-          label="Value at stake"
-          value={<Money amount={queue.counts.atStake} decimals size="xl" />}
-          hint="across every decision waiting"
-        />
-        <Stat
-          label="Has a deadline"
-          value={String(queue.counts.withDeadline)}
-          icon={<Clock aria-hidden="true" />}
-          trend={
-            queue.counts.withDeadline > 0
-              ? { direction: "down", label: "Time-bound" }
-              : undefined
-          }
-        />
-        <Stat
-          label="Waiting 5+ days"
-          value={String(queue.counts.ageing)}
-          trend={
-            queue.counts.ageing > 0
-              ? { direction: "down", label: "Ageing" }
-              : undefined
-          }
-        />
-      </div>
+      {canApprove ? (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <Stat label="Waiting on you" value={String(queue.counts.pending)} />
+            <Stat
+              label="Value at stake"
+              value={<Money amount={queue.counts.atStake} decimals size="xl" />}
+              hint="across every decision waiting"
+            />
+            <Stat
+              label="Has a deadline"
+              value={String(queue.counts.withDeadline)}
+              icon={<Clock aria-hidden="true" />}
+              trend={
+                queue.counts.withDeadline > 0
+                  ? { direction: "down", label: "Time-bound" }
+                  : undefined
+              }
+            />
+            <Stat
+              label="Waiting 5+ days"
+              value={String(queue.counts.ageing)}
+              trend={
+                queue.counts.ageing > 0
+                  ? { direction: "down", label: "Ageing" }
+                  : undefined
+              }
+            />
+          </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <SegmentedControl
-          label="Filter approvals"
-          value={filter}
-          onChange={setFilter}
-          options={[
-            { value: "all", label: "All" },
-            { value: "money", label: "Moves money" },
-            { value: "people", label: "People" },
-            { value: "overdue", label: "Needs attention" },
-          ]}
-        />
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => void approveRoutine()}
-          disabled={queue.routineCount === 0}
-        >
-          <Check aria-hidden="true" className="size-3.5" />
-          {queue.routineCount === 0
-            ? "Nothing routine to approve"
-            : `Approve ${queue.routineCount} routine ${
-                queue.routineCount === 1 ? "item" : "items"
-              }`}
-        </Button>
-      </div>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <SegmentedControl
+              label="Filter approvals"
+              value={filter}
+              onChange={setFilter}
+              options={[
+                { value: "all", label: "All" },
+                { value: "money", label: "Moves money" },
+                { value: "people", label: "People" },
+                { value: "overdue", label: "Needs attention" },
+              ]}
+            />
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => void approveRoutine()}
+              disabled={queue.routineCount === 0}
+            >
+              <Check aria-hidden="true" className="size-3.5" />
+              {queue.routineCount === 0
+                ? "Nothing routine to approve"
+                : `Approve ${queue.routineCount} routine ${
+                    queue.routineCount === 1 ? "item" : "items"
+                  }`}
+            </Button>
+          </div>
 
-      {queue.items.length === 0 ? (
-        <Card>
-          <EmptyState
-            icon={<Check aria-hidden="true" />}
-            title="Nothing waiting on you"
-            description="Everything routed to you has been actioned. New requests appear here the moment they are raised."
-          />
-        </Card>
-      ) : (
-        <ul className="flex flex-col gap-3">
-          {queue.items.map((item) => (
-            <li key={item.id}>
-              <ApprovalRow
-                item={item}
-                onApprove={() => void decide(item, "approved")}
-                onSendBack={() => setDeclining(item)}
+          {queue.items.length === 0 ? (
+            <Card>
+              <EmptyState
+                icon={<Check aria-hidden="true" />}
+                title="Nothing waiting on you"
+                description="Everything routed to you has been actioned. New requests appear here the moment they are raised."
               />
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {queue.decided.length > 0 && (
-        <Card>
-          <CardBody>
-            <p className="text-meta font-semibold tracking-wide text-muted">
-              Just decided
-            </p>
-            <ul className="mt-3 flex flex-col gap-2">
-              {queue.decided.map(({ item, decision }) => (
-                <li
-                  key={item.id}
-                  className="flex items-center gap-3 text-body-sm"
-                >
-                  <Badge
-                    tone={decision === "approved" ? "success" : "neutral"}
-                    size="sm"
-                    dot
-                  >
-                    {decision === "approved" ? "Approved" : "Sent back"}
-                  </Badge>
-                  <span className="min-w-0 flex-1 truncate text-body">
-                    {item.title}
-                  </span>
-                  {/* Undo matters here: these decisions reach the record, so a
-                      mis-click is not something a refresh fixes. */}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => void undo(item)}
-                    aria-label={`Undo the decision on ${item.title}`}
-                  >
-                    <Undo2 aria-hidden="true" className="size-3.5" />
-                    Undo
-                  </Button>
+            </Card>
+          ) : (
+            <ul className="flex flex-col gap-3">
+              {queue.items.map((item) => (
+                <li key={item.id}>
+                  <ApprovalRow
+                    item={item}
+                    onApprove={() => void decide(item, "approved")}
+                    onSendBack={() => setDeclining(item)}
+                  />
                 </li>
               ))}
             </ul>
-          </CardBody>
+          )}
+
+          {queue.decided.length > 0 && (
+            <Card>
+              <CardBody>
+                <p className="text-meta font-semibold tracking-wide text-muted">
+                  Just decided
+                </p>
+                <ul className="mt-3 flex flex-col gap-2">
+                  {queue.decided.map(({ item, decision }) => (
+                    <li
+                      key={item.id}
+                      className="flex items-center gap-3 text-body-sm"
+                    >
+                      <Badge
+                        tone={decision === "approved" ? "success" : "neutral"}
+                        size="sm"
+                        dot
+                      >
+                        {decision === "approved" ? "Approved" : "Sent back"}
+                      </Badge>
+                      <span className="min-w-0 flex-1 truncate text-body">
+                        {item.title}
+                      </span>
+                      {/* Undo matters here: these decisions reach the record,
+                          so a mis-click is not something a refresh fixes. */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => void undo(item)}
+                        aria-label={`Undo the decision on ${item.title}`}
+                      >
+                        <Undo2 aria-hidden="true" className="size-3.5" />
+                        Undo
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              </CardBody>
+            </Card>
+          )}
+        </>
+      ) : (
+        /* Not a smaller version of the queue above: it will read exactly zero
+           forever, on every tile, for anybody who lands here. That is worse
+           than nothing, because it invites the question "am I missing
+           something" rather than answering "this is not part of your role." */
+        <Card>
+          <EmptyState
+            icon={<Check aria-hidden="true" />}
+            title="Nothing for you to approve"
+            description="Approving requests is not part of your role here. If that changes, anything routed to you will appear on this screen."
+          />
         </Card>
       )}
 

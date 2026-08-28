@@ -47,7 +47,7 @@ import { PayComponentsPanel } from "@/app/(app)/payroll/pay-setup/pay-components
 import { RecordHistory } from "@/app/(app)/settings/audit/record-history";
 import { StartPeriodButton } from "@/app/(app)/performance";
 import { naira } from "@/lib/api/pay-components";
-import { koboFromDecimal } from "@/lib/api/payroll";
+import { koboFromDecimal, wasDeducted } from "@/lib/api/payroll";
 import { payslipFiguresFor } from "@/lib/mock/demo-payslips";
 import { banksIncluding } from "@/lib/reference/banks";
 import {
@@ -58,6 +58,7 @@ import {
 import type { LeaveBalanceRow, LeaveRow } from "@/lib/api/leave";
 import { useCan } from "@/lib/permissions";
 import { InviteToSignInButton } from "./invite-to-sign-in";
+import { LinkExistingAccountButton } from "./link-existing-account";
 import { useDepartments } from "@/lib/store/departments";
 import { useWorkLocations } from "@/lib/store/work-locations";
 import { useGrades } from "@/lib/store/grades";
@@ -142,7 +143,10 @@ const LOCAL_TYPES = [
   { value: "internship", label: "Internship" },
 ];
 
-const TYPE_LABELS: Record<string, string> = Object.fromEntries(
+/** Exported for `profile/profile-screen.tsx`'s read-only Employment card — the
+ * same enum, the same mis-cased value arriving from the same `Employee` type,
+ * so it needs the same lookup rather than a second copy of it. */
+export const TYPE_LABELS: Record<string, string> = Object.fromEntries(
   [...API_TYPES, ...LOCAL_TYPES].map((t) => [t.value, t.label]),
 );
 
@@ -155,7 +159,7 @@ const TYPE_LABELS: Record<string, string> = Object.fromEntries(
  * option because none of its values matched. Everything on this page goes
  * through here rather than trusting either case.
  */
-const enumKey = (value: string) => value.toLowerCase();
+export const enumKey = (value: string) => value.toLowerCase();
 
 /*
  * All three used to be declared here, and all three were wrong in the same way
@@ -236,7 +240,21 @@ export function EmployeeRecord({
   );
   /* Only honoured on the tab that owns the field, so a stale link cannot open an
      editor on a section the field does not belong to. */
-  const focusField = params.get("field") ?? undefined;
+  const urlFocusField = params.get("field") ?? undefined;
+  /**
+   * A same-page jump — clicking "Pension PIN" in the sidebar's own checklist
+   * switches `tab` via plain state, which never touches the URL `tab` was
+   * seeded from. Reading the URL alone would leave a click on that list doing
+   * nothing after the first paint, so a manual jump overrides it.
+   */
+  const [manualFocusField, setManualFocusField] = useState<string | undefined>(
+    undefined,
+  );
+  const focusField = manualFocusField ?? urlFocusField;
+  const jumpTo = (nextTab: string, field: string) => {
+    setTab(nextTab);
+    setManualFocusField(field);
+  };
   const [fileOpen, setFileOpen] = useState(false);
   const [exitOpen, setExitOpen] = useState(false);
   const departments = useDepartments();
@@ -249,10 +267,16 @@ export function EmployeeRecord({
      it there is no button rather than a disabled one, the choice `Guarded` and
      `RecordHistory` already make on this page: a control that cannot work is
      worse present than absent. */
-  const canRecordExit = useCan("EDIT_RECORDS");
+  const canEditRecords = useCan("EDIT_RECORDS");
+  const canRecordExit = canEditRecords;
   /* Issuing a login is its own permission, deliberately split from editing a
      record — see the header of `modules/invites/router.ts`. */
   const canInvite = useCan("INVITE_STAFF");
+  /* Repointing an *existing* sign-in is tighter still — see the header of
+     `linkToEmployee` on the API. Never fold this into `canInvite`: showing
+     the button to someone who can only send fresh invitations would offer a
+     control the API is going to 403. */
+  const canLinkAccount = useCan("MANAGE_ROLES");
 
   const name = fullName(employee);
   const status = statusOf(employee.status);
@@ -290,6 +314,24 @@ export function EmployeeRecord({
    * one place it matters.
    */
   const canReveal = canSeeSalaries || (me !== null && me === employee.id);
+
+  /**
+   * Whether the person reading this record is the person it is about.
+   *
+   * Almost every sentence on this page was written for somebody in HR looking
+   * at a colleague, which is the common case and the wrong one to write for
+   * *exclusively*: an employee opens their own record and is told, in the third
+   * person, that their missing TIN blocks a payroll run they have never heard
+   * of and cannot do anything about. Not an error, but it reads as one — and
+   * "this app shouldn't feel buggy" is the whole complaint.
+   *
+   * So this switches wording rather than hiding facts. Somebody is entitled to
+   * see that their bank account is missing; what they are not served by is
+   * being handed a payroll operator's framing of it. Where an action genuinely
+   * belongs to somebody else, the rule is the one `my-documents.tsx` already
+   * follows: **name who can**, rather than offering a control that gets refused.
+   */
+  const isSelf = me !== null && me === employee.id;
 
   /* The department picker sends an id, and the id it should show as selected is
      the one whose name matches the record — `Employee` carries the name only.
@@ -333,6 +375,7 @@ export function EmployeeRecord({
   const payrollGaps = payrollGapsFor(employee);
   const payrollBlocking = payrollGaps.filter((g) => g.blocking);
   const payrollAdvisory = payrollGaps.filter((g) => !g.blocking);
+  const firstBlocking = payrollBlocking[0];
 
   return (
     <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)] lg:items-start">
@@ -399,7 +442,9 @@ export function EmployeeRecord({
           {payrollAdvisory.length > 0 && (
             <CardBody className="border-t border-line">
               <p className="mb-2 text-meta font-medium text-muted">
-                Worth adding, not pay-blocking
+                {isSelf
+                  ? "Missing from your record"
+                  : "Worth adding, not pay-blocking"}
               </p>
               <ul className="flex flex-col gap-1.5">
                 {payrollAdvisory.map((g) => (
@@ -408,15 +453,21 @@ export function EmployeeRecord({
                       aria-hidden="true"
                       className="mt-0.5 size-3.5 shrink-0 text-warning-text"
                     />
-                    {/* `title` rather than dropping `consequence`: the reason
-                        it does not block still exists, just one hover away
+                    {/* A click, not just a reason on hover: this used to be
+                        read-only, so fixing it meant landing on the record and
+                        hunting for the field by hand. Every one of these lives
+                        on Pay & statutory, so the tab is fixed rather than
+                        looked up. `title` still carries `consequence` — the
+                        reason it does not block still exists, one hover away
                         instead of in a paragraph nobody asked to read. */}
-                    <span
-                      className="text-meta leading-relaxed text-body"
+                    <button
+                      type="button"
+                      onClick={() => jumpTo("pay", g.field)}
+                      className="text-meta leading-relaxed text-body underline decoration-dotted underline-offset-2 hover:text-accent-text hover:decoration-solid"
                       title={g.consequence}
                     >
                       {g.label}
-                    </span>
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -435,14 +486,26 @@ export function EmployeeRecord({
               <FileText aria-hidden="true" className="size-3.5" />
               View latest payslip
             </ButtonLink>
-            <Button
-              variant="secondary"
-              size="sm"
-              block
-              onClick={() => setFileOpen(true)}
-            >
-              Their documents
-            </Button>
+            {/* The HR register's own file, opened on this person specifically —
+                gated the same as "Record their exit" below: the backend only
+                lets `EDIT_RECORDS` verify or remove a document (self-checking
+                would defeat the point of review), so an employee viewing their
+                own record here would otherwise see live-looking buttons that
+                can never succeed. Seeing their own file is `/documents`.
+
+                The label still switches on `isSelf`, because somebody who does
+                hold the permission can open this on their own record, and
+                "Their documents" about yourself reads as a bug. */}
+            {canEditRecords && (
+              <Button
+                variant="secondary"
+                size="sm"
+                block
+                onClick={() => setFileOpen(true)}
+              >
+                {isSelf ? "My documents" : "Their documents"}
+              </Button>
+            )}
             {/* Their appraisals, from their record. The trend across periods was
                 only reachable from a period's own register before this, which
                 meant the one screen that answers "has this person improved" was
@@ -454,7 +517,7 @@ export function EmployeeRecord({
               block
             >
               <TrendingUp aria-hidden="true" className="size-3.5" />
-              Their appraisal history
+              {isSelf ? "My appraisal history" : "Their appraisal history"}
             </ButtonLink>
             {/* The third door on one dialog. Starting a period covers the whole
                 company rather than this person — the dialog says so — and it is
@@ -472,6 +535,15 @@ export function EmployeeRecord({
                 employeeId={employee.id}
                 name={name}
                 email={employee.email ?? null}
+              />
+            )}
+            {/* The other way to close the same gap: somebody who already
+                signs in — most often whoever registered the company — with
+                no personnel file pointing back at them. */}
+            {canLinkAccount && employee.canLogin && !hasLeft && (
+              <LinkExistingAccountButton
+                employeeId={employee.id}
+                employeeName={name}
               />
             )}
             {/* Secondary, like its neighbours. Recording an exit is
@@ -501,14 +573,22 @@ export function EmployeeRecord({
             incomplete, and a missing TIN does nothing to the run at all. Three
             fields in one red callout claiming the same fate for all of them was
             the bug — see `payrollGapsFor`. */}
-        {payrollBlocking.length > 0 && (
+        {firstBlocking && (
           <Callout
             tone="danger"
             icon={<ShieldAlert aria-hidden="true" />}
             title={`${payrollBlocking.length} field${payrollBlocking.length > 1 ? "s" : ""} missing before payroll can run`}
           >
             {payrollBlocking.map((g) => g.label).join(", ")}.{" "}
-            {payrollBlocking[0]?.consequence}
+            {firstBlocking.consequence}
+            <Button
+              variant="secondary"
+              size="sm"
+              className="mt-3"
+              onClick={() => jumpTo("pay", firstBlocking.field)}
+            >
+              Fix it now
+            </Button>
           </Callout>
         )}
 
@@ -860,11 +940,6 @@ export function EmployeeRecord({
           <div className="flex flex-col gap-5">
             <Compensation employee={employee} connected={connected} />
 
-            {/* What they get on top of salary belongs on their record, not on a
-                separate setup screen. The panel owns its own loading, errors
-                and demo-mode caveats. */}
-            <PayComponentsPanel employeeId={employee.id} />
-
             <EditableSection
               /* Arrive editing when a payroll exception sent us here naming the
                  field. Gated on the tab so a stale `?field=` cannot open this
@@ -873,7 +948,11 @@ export function EmployeeRecord({
                 ? { openOnField: focusField }
                 : {})}
               title="Payment and statutory"
-              description="What payroll needs to pay and remit. Missing values block the run."
+              description={
+                isSelf
+                  ? "Where your salary is paid, and the numbers the company files against."
+                  : "Missing values block the run."
+              }
               employee={employee}
               onSave={onSave}
               fields={[
@@ -907,7 +986,9 @@ export function EmployeeRecord({
                 {
                   key: "bankAccount",
                   label: "Account",
-                  emptyLabel: "No bank account — payroll blocked",
+                  emptyLabel: isSelf
+                    ? "Not on file — your salary has nowhere to go"
+                    : "No bank account — payroll blocked",
                   help: "Ten digits. Payroll cannot pay without this.",
                   digits: 10,
                   format: (v) => (
@@ -917,7 +998,9 @@ export function EmployeeRecord({
                 {
                   key: "pensionPin",
                   label: "Pension PIN",
-                  emptyLabel: "No pension PIN — payroll blocked",
+                  emptyLabel: isSelf
+                    ? "Not on file — your pension cannot be paid in"
+                    : "No pension PIN — payroll blocked",
                   help: "PEN followed by 9 to 12 digits.",
                   format: (v) => (
                     <Guarded value={String(v)} canReveal={canReveal} />
@@ -968,7 +1051,9 @@ export function EmployeeRecord({
                 {
                   key: "tin",
                   label: "TIN",
-                  emptyLabel: "No TIN — payroll blocked",
+                  emptyLabel: isSelf
+                    ? "Not on file — your tax cannot be filed against you"
+                    : "No TIN — payroll blocked",
                   help: "Ten digits.",
                   digits: 10,
                   format: (v) => (
@@ -1006,6 +1091,11 @@ export function EmployeeRecord({
                 },
               ]}
             />
+
+            {/* What they get on top of salary belongs on their record, not on a
+                separate setup screen. The panel owns its own loading, errors
+                and demo-mode caveats. */}
+            <PayComponentsPanel employeeId={employee.id} />
           </div>
         )}
 
@@ -1084,7 +1174,6 @@ export function EmployeeRecord({
             <Card>
               <CardHeader
                 title="Requests"
-                description="Every request they have raised, and what happened to it."
                 level={3}
               />
               {leaveRequests.length === 0 ? (
@@ -1217,8 +1306,26 @@ function Compensation({
   connected: boolean;
 }) {
   const preview = usePayPreview(employee.id);
+  const { employeeId: me } = useSession();
+  /* Reading your own pay and being able to change what the company deducts are
+     different acts, and this card used to offer the second to anybody who could
+     do the first. `MANAGE_PAY_STRUCTURE` is what `PATCH /payroll/settings`
+     demands — see `settings/payroll/form.tsx` — so without it the link goes
+     rather than landing somebody on a form that is read-only for them. */
+  const canManagePay = useCan("MANAGE_PAY_STRUCTURE");
+  const isSelf = me !== null && me === employee.id;
 
   const live = preview.data?.payslip ?? null;
+  /**
+   * A deduction this employer does not operate is ABSENT, not ₦0.00 — see
+   * `wasDeducted`'s own comment. Read off `live` specifically, not the merged
+   * `figures` below: the illustrative demo fixture has no not-operated
+   * concept at all (`wasDeducted(undefined, …)` already reads that as
+   * "shown", which is the right default for it).
+   */
+  const payeShown = wasDeducted(live?.operates, "paye");
+  const pensionShown = wasDeducted(live?.operates, "pension");
+  const nhfShown = wasDeducted(live?.operates, "nhf");
   /* Only offline, and only for a salary the fixture actually covers. */
   const illustrative =
     connected || employee.grossMonthly === null
@@ -1246,9 +1353,11 @@ function Compensation({
         title="Compensation"
         description="Split according to your company salary structure."
         action={
-          <ButtonLink href="/settings/payroll" variant="ghost" size="sm">
-            Structure settings
-          </ButtonLink>
+          canManagePay ? (
+            <ButtonLink href="/settings/payroll" variant="ghost" size="sm">
+              Structure settings
+            </ButtonLink>
+          ) : undefined
         }
       />
       <CardBody className="flex flex-col gap-3">
@@ -1261,8 +1370,19 @@ function Compensation({
           </>
         ) : figures === null ? (
           <p className="text-body-sm leading-relaxed text-muted">
+            {/* The API's own sentence, verbatim — except to the one reader it
+                was not written for. It says "{name} has no monthly pay set …
+                Set their pay first", which on your own record names you in the
+                third person and then asks you to do a thing only payroll can
+                do. Same failure as an error with no way out of it: the fix is
+                not a button here, because there is no button this reader could
+                be given. It is naming who to ask. */}
             {connected && preview.error
-              ? preview.error.message
+              ? isSelf
+                ? "Your monthly pay has not been set yet, so this month’s " +
+                  "figures cannot be worked out. Payroll sets it — ask them, " +
+                  "or raise it on the help desk."
+                : preview.error.message
               : "PAYE, pension and NHF are worked out by the payroll engine on " +
                 "the API, and this salary is not one the demo holds illustrative " +
                 "figures for. Start the API to see what this person is paid."}
@@ -1275,19 +1395,40 @@ function Compensation({
             <Line label="Housing" value={figures.housing} muted />
             <Line label="Transport" value={figures.transport} muted />
             <div className="h-px bg-line" />
-            <Line label="Pension (employee)" value={-figures.pensionEmployee} />
-            <Line label="NHF" value={-figures.nhf} />
-            <Line label="PAYE" value={-figures.paye} />
+            {pensionShown && (
+              <Line label="Pension (employee)" value={-figures.pensionEmployee} />
+            )}
+            {nhfShown && <Line label="NHF" value={-figures.nhf} />}
+            {payeShown && <Line label="PAYE" value={-figures.paye} />}
+            {live && (!payeShown || !pensionShown || !nhfShown) && (
+              <p className="text-meta leading-relaxed text-muted">
+                Not deducted:{" "}
+                {[
+                  !pensionShown && "pension",
+                  !nhfShown && "NHF",
+                  !payeShown && "PAYE",
+                ]
+                  .filter(Boolean)
+                  .join(", ")}
+                . This employer does not operate{" "}
+                {[!pensionShown, !nhfShown, !payeShown].filter(Boolean).length === 1
+                  ? "it"
+                  : "them"}
+                .
+              </p>
+            )}
             <div className="h-px bg-line" />
             <Line label="Net monthly" value={figures.net} strong />
-            <p className="mt-1 rounded-md bg-canvas p-2.5 text-meta leading-relaxed text-muted">
-              Employer pension of{" "}
-              <Money amount={figures.pensionEmployer} decimals /> is paid on top
-              and is not deducted.
-              {live
-                ? ""
-                : " Illustrative figures, generated by the payroll engine on the API for the demo salaries. A real run computes them live."}
-            </p>
+            {pensionShown && (
+              <p className="mt-1 rounded-md bg-canvas p-2.5 text-meta leading-relaxed text-muted">
+                Employer pension of{" "}
+                <Money amount={figures.pensionEmployer} decimals /> is paid on
+                top and is not deducted.
+                {live
+                  ? ""
+                  : " Illustrative figures, generated by the payroll engine on the API for the demo salaries. A real run computes them live."}
+              </p>
+            )}
           </>
         )}
       </CardBody>
@@ -1436,7 +1577,7 @@ function Line({
       <span
         className={
           strong
-            ? "tabular text-body font-semibold text-ink"
+            ? "tabular text-body font-semibold"
             : "tabular text-body-sm text-body"
         }
       >

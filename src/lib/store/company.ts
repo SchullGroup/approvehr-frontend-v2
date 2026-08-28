@@ -5,6 +5,7 @@ import { company as api } from "@/lib/api/endpoints";
 import { ApiError } from "@/lib/api/client";
 import { createPersistedState } from "./persisted";
 import { useSession } from "./session";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * Company settings: profile, leave policy, roles, notifications, integrations.
@@ -514,6 +515,9 @@ export function useOrgTaxState() {
   const [remote, setRemote] = useState<{ taxState: string | null } | null>(null);
   const [saving, setSaving] = useState(false);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -544,7 +548,7 @@ export function useOrgTaxState() {
     return () => {
       cancelled = true;
     };
-  }, [isConnected]);
+  }, [isConnected, revalidation]);
 
   const loading = isConnected && remote === null;
   const taxState = isConnected
@@ -593,6 +597,9 @@ export function useCompanyLogo() {
   const [remote, setRemote] = useState<{ logoUrl: string | null } | null>(null);
   const [saving, setSaving] = useState(false);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -614,7 +621,7 @@ export function useCompanyLogo() {
     return () => {
       cancelled = true;
     };
-  }, [isConnected]);
+  }, [isConnected, revalidation]);
 
   /**
    * `null` clears the logo; a data URI sets it. Throws the API's own refusal

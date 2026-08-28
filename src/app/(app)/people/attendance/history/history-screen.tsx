@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import type { Point } from "@/components/ui";
 import Link from "next/link";
 import { CalendarOff, Lock, MapPin, Umbrella } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -11,6 +12,7 @@ import {
   Card,
   CardBody,
   CardHeader,
+  ColumnChart,
   EmptyState,
   Skeleton,
   Stat,
@@ -37,6 +39,7 @@ import {
 import { useAttendanceMonth } from "@/lib/store/attendance-history";
 import { useSession } from "@/lib/store/session";
 import { TODAY, shortDate } from "@/lib/today";
+import { DayHoliday } from "./day-holiday";
 import { CalendarLegend, MonthCalendar } from "./month-calendar";
 
 /**
@@ -127,6 +130,33 @@ export function HistoryScreen() {
   const roster = useAttendanceRoster(selected);
 
   const day = summary.days.find((row) => row.date === selected) ?? null;
+
+  /**
+   * Clock-ins per working day, and how many days nothing is known about.
+   *
+   * `present + late` is "turned up" — somebody late still came in, and putting
+   * them outside the figure would make lateness read as absence. People on
+   * approved leave are not counted as turnout and are not counted against it
+   * either; they are simply not part of this question, which is what the
+   * calendar underneath is for.
+   *
+   * A day is `null` when it was not tracked or has not happened yet. Both are
+   * genuine absences of a figure rather than a figure of nought.
+   */
+  const turnout = useMemo(() => {
+    const working = summary.days.filter((row) => row.kind === "WORKING");
+    /* Mapped, then counted — not counted during the map. A `let` mutated inside
+       a render callback is what the React compiler refuses, and rightly: the
+       callback may run more than once and the tally would double. */
+    const points: Point[] = working.map((row) => ({
+      label: String(Number(row.date.slice(8, 10))),
+      value: row.tracked && !row.future ? row.present + row.late : null,
+    }));
+    return {
+      points,
+      untracked: points.filter((point) => point.value === null).length,
+    };
+  }, [summary.days]);
   const awaiting = summary.days.some(
     (row) => row.holiday !== null && !row.holiday.confirmed,
   );
@@ -189,7 +219,43 @@ export function HistoryScreen() {
           <LoadFailure
             subject="this month's attendance"
             error={summary.error}
-          />
+           onRetry={summary.reload}/>
+        )}
+
+        {/* ---- Turnout across the month ----------------------------------
+            The calendar below is a good day-picker and a poor trend: "is
+            turnout falling?" currently means reading twenty-two cells in
+            sequence. This is the same month as a shape.
+
+            Two rules, and the second is the one that matters here:
+
+            - **Only working days are on the axis.** A rest day or a holiday
+              with nobody in is not a turnout figure, and drawing it as a short
+              column would put the weekend in the trend.
+            - **An untracked day is a gap, not a zero.** `absent` is
+              `number | null` precisely because "we were not recording" and
+              "nobody came" are opposite facts — the type's own comment calls a
+              zero here "the zero-pay bug wearing a calendar". A column at the
+              floor would be that bug wearing a chart. */}
+        {turnout.points.length > 1 && (
+          <Card>
+            <CardHeader
+              title="Who turned up"
+              description={
+                turnout.untracked > 0
+                  ? `${String(turnout.untracked)} working ${turnout.untracked === 1 ? "day is" : "days are"} blank — attendance was not being recorded, which is not the same as nobody coming in.`
+                  : "Every working day this month."
+              }
+            />
+            <CardBody>
+              <ColumnChart
+                height={140}
+                points={turnout.points}
+                format={(n) => String(n)}
+                caption={`People who clocked in on each working day of ${summary.month}.`}
+              />
+            </CardBody>
+          </Card>
         )}
 
         <Card>
@@ -205,10 +271,31 @@ export function HistoryScreen() {
           <CalendarLegend awaitingProclamation={awaiting} />
         </Card>
 
+        {/* The holiday for the selected date, and the way to add one.
+            ------------------------------------------------------------
+            A Nigerian public holiday is often proclaimed days before it
+            happens, and the moment somebody finds out is the moment they are
+            looking at the month — here, at the date. Sending them to
+            `/settings/leave` to type a date they were already pointing at is
+            how one gets recorded late or not at all.
+
+            Above the day's totals rather than below: whether the day was a
+            holiday changes how every figure under it should be read. */}
+        {day && !summary.loading && (
+          <DayHoliday
+            date={day.date}
+            holiday={day.holiday}
+            /* The server decides what the day now is — its `kind`, its
+               `tracked`, its holiday. Patching it here would be this screen
+               guessing at a precedence that lives in one function on the API. */
+            onChanged={() => summary.reload()}
+          />
+        )}
+
         <DaySummary day={day} loading={summary.loading} />
 
         {roster.error ? (
-          <LoadFailure subject="that day's roster" error={roster.error} />
+          <LoadFailure subject="that day's roster" error={roster.error}  onRetry={roster.reload}/>
         ) : (
           <DayTable
             roster={roster}
@@ -351,7 +438,6 @@ function DayTable({
       <Card>
         <CardHeader
           title={`${shortDate(roster.date)} — no attendance recorded`}
-          description="Nobody clocked in or out, and no record was made either way."
         />
         <CardBody className="flex flex-col gap-4">
           <Callout
@@ -441,8 +527,8 @@ function DayTable({
           title={`${shortDate(roster.date)} — ${label}`}
           description={
             day.kind === "HOLIDAY"
-              ? "A public holiday. Nobody was expected in and payroll withholds nothing."
-              : "Outside the company's working week. Nobody was expected in."
+              ? "Payroll withholds nothing."
+              : "Outside the company's working week."
           }
         />
         {cameInAnyway.length === 0 ? (

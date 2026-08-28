@@ -91,7 +91,9 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
   const score = useEmployeeScore(
     review?.cycleId ?? null,
     review?.subjectId ?? null,
-    review !== null && review.kind === "MANAGER" && (isSubject || review.mine || canSeeCompany),
+    review !== null &&
+      review.kind === "MANAGER" &&
+      (isSubject || review.mine || canSeeCompany),
   );
 
   if (loading) {
@@ -173,7 +175,11 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
         title={review.kindLabel}
         meta={
           <>
-            <Badge tone={review.submitted ? "neutral" : "warning"} size="sm" dot>
+            <Badge
+              tone={review.submitted ? "neutral" : "warning"}
+              size="sm"
+              dot
+            >
               {review.submitted ? "Sent" : "Not sent yet"}
             </Badge>
             {review.finalised && (
@@ -211,11 +217,15 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
           </p>
 
           {owesAnswer && (
-            <Callout tone="accent" title="This rating is final. It needs your answer">
+            <Callout
+              tone="accent"
+              title="This rating is final. It needs your answer"
+            >
               <p>
-                You have been told your rating for {review.cycleName}. Acknowledge
-                that you have seen it, or say formally that you do not accept it.
-                Both are recorded; leaving it unanswered is not one of the two.
+                You have been told your rating for {review.cycleName}.
+                Acknowledge that you have seen it, or say formally that you do
+                not accept it. Both are recorded; leaving it unanswered is not
+                one of the two.
               </p>
               <p className="mt-2">
                 <strong>Acknowledging is not agreeing.</strong> It records that
@@ -239,7 +249,9 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
           {/* -------------------------------------------------------- the mark */}
           <Card>
             <CardHeader
-              title={review.kind === "MANAGER" ? "The rating" : "The mark on it"}
+              title={
+                review.kind === "MANAGER" ? "The rating" : "The mark on it"
+              }
               description={
                 review.kind === "MANAGER"
                   ? "One person's overall judgement, in their own words, with the date it was sent."
@@ -292,7 +304,6 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
               {review.appraiser && (
                 <AppraiserStrip
                   appraiser={review.appraiser}
-                  subjectName={review.subjectName}
                   mine={review.mine}
                 />
               )}
@@ -368,8 +379,8 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
             <ScorePanel
               score={score.score}
               loading={score.loading}
-              message={score.available ? score.error?.message : score.refusal}
               subjectName={review.subjectName}
+              message={score.available ? score.error?.message : score.refusal}
             />
           )}
 
@@ -567,8 +578,8 @@ function ScorePanel({
         title="What the mark is made of"
         description={
           score.weightsFrom === "snapshot"
-            ? "The weights frozen onto this period when it started. A later change to the company's weights does not move this mark."
-            : "The company's current weights. This period started before weights were frozen onto a period, so a change to them would move this mark."
+            ? "Scored on the weights locked in when this period started. Changing the company's weights later will not move this mark."
+            : "Scored on the company's weights as they stand today. This period never locked in its own copy, so changing the company's weights would recalculate this mark too, even though it has already been given."
         }
       />
       <CardBody className="flex flex-col gap-5">

@@ -90,7 +90,7 @@ export function OffboardingScreen() {
 
       <PageBody className="flex flex-col gap-6">
         {exits.error && (
-          <LoadFailure subject="the list" error={exits.error} />
+          <LoadFailure subject="the list" error={exits.error}  onRetry={exits.reload}/>
         )}
 
         {/* Two numbers, not three. "Working through a checklist" would be

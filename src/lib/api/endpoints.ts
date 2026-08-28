@@ -31,6 +31,20 @@ export type ApiUser = {
   firstName: string;
   lastName: string;
   organizationId: string;
+  /**
+   * The company this account belongs to, by name.
+   *
+   * Optional because only `GET /auth/me` returns it — sign-in and refresh hand
+   * back the account alone. Every page load restores through `/auth/me`, so in
+   * practice it is present; a screen reading it must still handle the gap by
+   * showing **nothing** rather than a guess, which is the point of the field
+   * existing at all. See `CompanySwitcher`.
+   */
+  organization?: {
+    id: string;
+    legalName: string;
+    tradingName: string | null;
+  };
   employeeId: string | null;
   permissions: string[];
   /**
@@ -50,6 +64,15 @@ export type ApiUser = {
    */
   roles: { id: string; name: string }[];
   /**
+   * `null` means genuinely unverified. `undefined` means an API a deploy
+   * behind this frontend didn't send the field at all — `/auth/me` has
+   * carried it for a while, `sign-in` and `register` are catching up. Treat
+   * the two differently: see `useSession()`'s `emailVerified`, which follows
+   * the same defaulting reasoning as `roles` above rather than assuming
+   * `Boolean(undefined)` is a safe stand-in for "unverified".
+   */
+  emailVerifiedAt?: string | null;
+  /**
    * When this person finished or skipped the guided tour, or `null`.
    *
    * Absence is what makes the tour appear, the same way
@@ -60,20 +83,102 @@ export type ApiUser = {
   tourDismissedAt: string | null;
 };
 
+/**
+ * What a sign-in answers with.
+ *
+ * A **discriminated union**, mirroring the API's. A shape with optional tokens
+ * would let a screen render a signed-in state from a response that granted
+ * nothing, which is the one mistake this feature cannot survive.
+ */
+export type SignInOutcome =
+  | { kind: "signed-in"; user: ApiUser }
+  | {
+      kind: "two-factor";
+      challengeId: string;
+      expiresAt: string;
+      /** The code itself, where the server has no mail transport. */
+      delivery: { token: string; expiresAt: string; note: string } | null;
+      recoveryCodesLeft: number;
+    };
+
 export const auth = {
-  async signIn(email: string, password: string): Promise<ApiUser> {
+  async signIn(email: string, password: string): Promise<SignInOutcome> {
+    const result = await request<
+      | { accessToken: string; refreshToken: string; user: ApiUser }
+      | {
+          twoFactorRequired: true;
+          challengeId: string;
+          expiresAt: string;
+          delivery: { token: string; expiresAt: string; note: string } | null;
+          recoveryCodesLeft: number;
+        }
+    >("/auth/sign-in", {
+      method: "POST",
+      body: { email, password },
+      anonymous: true,
+    });
+
+    /* No token is stored on the challenge arm, because there is none to store —
+       the API mints nothing until the code is verified. */
+    if ("twoFactorRequired" in result) {
+      return {
+        kind: "two-factor",
+        challengeId: result.challengeId,
+        expiresAt: result.expiresAt,
+        delivery: result.delivery,
+        recoveryCodesLeft: result.recoveryCodesLeft,
+      };
+    }
+
+    tokens.set(result.accessToken, result.refreshToken);
+    return { kind: "signed-in", user: result.user };
+  },
+
+  /** Finish a challenged sign-in, with the emailed code or a recovery code. */
+  async completeTwoFactor(input: {
+    challengeId: string;
+    code?: string;
+    recoveryCode?: string;
+  }): Promise<ApiUser> {
     const result = await request<{
       accessToken: string;
       refreshToken: string;
       user: ApiUser;
-    }>("/auth/sign-in", {
+    }>("/auth/two-factor", {
       method: "POST",
-      body: { email, password },
+      body: input,
       anonymous: true,
     });
     tokens.set(result.accessToken, result.refreshToken);
     return result.user;
   },
+
+  /** This account's own two-factor state. See `twoFactorStatus` on the API. */
+  twoFactorStatus: () =>
+    request<{
+      enabled: boolean;
+      enabledAt: string | null;
+      recoveryCodesLeft: number;
+      /** Whether an emailed code could actually arrive. */
+      emailWorks: boolean;
+    }>("/auth/two-factor"),
+
+  /**
+   * Turn it on. The recovery codes come back **once** and never again.
+   *
+   * The caller must show them and must not discard them silently — they are
+   * ten live credentials and the only way in if the email never arrives.
+   */
+  enrolTwoFactor: () =>
+    /* `/enrol`, not `/two-factor` — that path is the sign-in completion, and
+       mounting both on it made enrolment unreachable. */
+    request<{ recoveryCodes: string[]; enabledAt: string }>(
+      "/auth/two-factor/enrol",
+      { method: "POST" },
+    ),
+
+  disableTwoFactor: () =>
+    request<{ enabled: false }>("/auth/two-factor", { method: "DELETE" }),
 
   async signOut(): Promise<void> {
     const refreshToken = tokens.refresh();
@@ -265,6 +370,26 @@ function employeeQuery(params: EmployeeListParams) {
   };
 }
 
+/** A detail somebody asked to change, waiting on payroll. */
+export type ApiPendingChange = {
+  id: string;
+  field: string;
+  /** "Account number". The API's wording, so the two cannot drift. */
+  label: string;
+  /** "••••4471 → ••••5566". Already masked server-side. */
+  summary: string;
+  requestedAt: string;
+};
+
+export type ApiSelfUpdateOutcome = {
+  /** Written to the record just now. */
+  applied: string[];
+  /** Now waiting on somebody. */
+  pending: { id: string; field: string; label: string }[];
+  /** Sent, but nobody's to change from here — each with who can. */
+  refused: { field: string; reason: string }[];
+};
+
 export const employees = {
   list: (params: EmployeeListParams = {}, signal?: AbortSignal) =>
     requestPaged<ApiEmployee>("/employees", {
@@ -293,6 +418,26 @@ export const employees = {
 
   update: (id: string, body: Record<string, unknown>) =>
     request<ApiEmployee>(`/employees/${id}`, { method: "PATCH", body }),
+
+  /**
+   * The caller's own record, changed by them.
+   *
+   * Separate from `update` and deliberately so: that one takes an id and can
+   * change anybody's salary, this one takes no id and can change only what
+   * `self-service.ts` on the API lists. The response is a three-way outcome
+   * rather than the employee, because that is what happened — some fields
+   * landed, some are waiting on payroll, and some were never the caller's to
+   * send. Returning the record alone would show the bank account unchanged
+   * with nothing to say why.
+   */
+  updateMine: (body: Record<string, unknown>) =>
+    request<ApiSelfUpdateOutcome>("/employees/me", { method: "PATCH", body }),
+
+  /** What the caller has waiting on somebody. */
+  myChanges: (signal?: AbortSignal) =>
+    request<{ changes: ApiPendingChange[] }>("/employees/me/changes", {
+      ...(signal ? { signal } : {}),
+    }),
 
   archive: (id: string) =>
     request<ApiEmployee>(`/employees/${id}`, { method: "DELETE" }),

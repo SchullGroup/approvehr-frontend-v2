@@ -108,6 +108,18 @@ export type ApiAsset = {
   categoryName: string | null;
   /** No category counts as returnable: chasing a mug beats losing a laptop. */
   returnRequired: boolean;
+  /**
+   * Where the item lives, and whose budget it is on.
+   *
+   * Independent of each other and of whoever holds it. A laptop assigned to
+   * somebody in Finance does not become Finance's asset — these say where the
+   * company says the item belongs, which is what a stock-take and a
+   * departmental cost report read.
+   */
+  workLocationId: string | null;
+  workLocationName: string | null;
+  departmentId: string | null;
+  departmentName: string | null;
   purchasedOn: string | null;
   purchaseCostKobo: number | null;
   status: AssetStatus;
@@ -278,6 +290,10 @@ export type CreateAssetBody = {
   tag: string;
   name: string;
   categoryId?: string;
+  /** Where the item lives. Independent of who holds it — see `ApiAsset`. */
+  workLocationId?: string;
+  /** Whose budget it is on. Independent of who holds it — see `ApiAsset`. */
+  departmentId?: string;
   serialNumber?: string;
   make?: string;
   model?: string;
@@ -292,6 +308,8 @@ export type UpdateAssetBody = {
   tag?: string;
   name?: string;
   categoryId?: string | null;
+  workLocationId?: string | null;
+  departmentId?: string | null;
   serialNumber?: string | null;
   make?: string | null;
   model?: string | null;

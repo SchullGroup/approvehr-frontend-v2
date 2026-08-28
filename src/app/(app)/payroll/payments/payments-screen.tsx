@@ -68,6 +68,24 @@ import { LedgerPanel } from "./ledger-panel";
 export function PaymentsScreen() {
   const { can, loading: permissionsLoading } = usePermissions();
   const summary = usePaymentsSummary();
+
+  /**
+   * The four figures, or `null` where there is no answer yet.
+   *
+   * Null means the request is in flight or failed — `usePaymentsSummary`
+   * leaves `summary` null in both cases. Zero means the figure arrived and is
+   * genuinely nothing, which is a different fact and reads differently on
+   * screen. Derived in one place so the four tiles cannot disagree about which
+   * state they are in.
+   */
+  const paid = summary.summary;
+  const money = {
+    outstanding: paid?.outstanding.totalKobo ?? null,
+    outstandingCount: paid?.outstanding.count ?? null,
+    built: paid?.thisMonth.totalKobo ?? null,
+    builtCount: paid?.thisMonth.payments ?? null,
+    settled: paid?.thisMonth.settledKobo ?? null,
+  };
   const list = usePaymentBatches({ pageSize: 25 });
   const payable = usePayableRuns();
   const actions = usePaymentActions();
@@ -166,7 +184,7 @@ export function PaymentsScreen() {
 
       <PageBody className="flex flex-col gap-6">
         {list.error && (
-          <LoadFailure subject="the payment batches" error={list.error} />
+          <LoadFailure subject="the payment batches" error={list.error}  onRetry={list.reload}/>
         )}
 
         {summary.summary && !primary && (
@@ -184,29 +202,53 @@ export function PaymentsScreen() {
         )}
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {/* An em dash while the figure is unknown, never ₦0.00.
+              -----------------------------------------------------
+              Every one of these read `summary.summary?.…Kobo ?? 0`, and
+              `summary` is null while the request is in flight **and** after it
+              fails — so an unanswered request rendered "Waiting to go out —
+              ₦0.00", which is a confident claim that there is nothing waiting.
+              That is the ₦0 incident pattern this codebase has a rule about,
+              and the sibling `history-screen` already had the right shape. */}
           <Stat
             label="Waiting to go out"
             value={
-              <Money
-                amount={naira(summary.summary?.outstanding.totalKobo ?? 0)}
-                decimals
-                size="xl"
-              />
+              money.outstanding === null ? (
+                <Unknown />
+              ) : (
+                <Money amount={naira(money.outstanding)} decimals size="xl" />
+              )
             }
-            hint={`${summary.summary?.outstanding.count ?? 0} ${
-              (summary.summary?.outstanding.count ?? 0) === 1 ? "batch" : "batches"
-            }`}
+            hint={
+              money.outstandingCount === null
+                ? "not counted yet"
+                : `${String(money.outstandingCount)} ${money.outstandingCount === 1 ? "batch" : "batches"}`
+            }
           />
           <Stat
             label={thisMonth ? `Built in ${thisMonth.period}` : "Built this month"}
-            value={<Money amount={naira(thisMonth?.totalKobo ?? 0)} decimals size="xl" />}
-            hint={`${thisMonth?.payments ?? 0} ${
-              (thisMonth?.payments ?? 0) === 1 ? "payment" : "payments"
-            }`}
+            value={
+              money.built === null ? (
+                <Unknown />
+              ) : (
+                <Money amount={naira(money.built)} decimals size="xl" />
+              )
+            }
+            hint={
+              money.builtCount === null
+                ? "not counted yet"
+                : `${String(money.builtCount)} ${money.builtCount === 1 ? "payment" : "payments"}`
+            }
           />
           <Stat
             label="Left the account"
-            value={<Money amount={naira(thisMonth?.settledKobo ?? 0)} decimals size="xl" />}
+            value={
+              money.settled === null ? (
+                <Unknown />
+              ) : (
+                <Money amount={naira(money.settled)} decimals size="xl" />
+              )
+            }
             hint="what the ledger says settled"
           />
           <Stat
@@ -250,10 +292,7 @@ export function PaymentsScreen() {
         )}
 
         <Card>
-          <CardHeader
-            title="Payment batches"
-            description="Newest first. Open one to see who is being paid and what it comes to."
-          />
+          <CardHeader title="Payment batches" />
           {list.loading ? (
             <CardBody className="flex justify-center py-10">
               <Spinner />
@@ -373,5 +412,21 @@ export function PaymentsScreen() {
         />
       )}
     </>
+  );
+}
+
+/**
+ * The figure that has not arrived.
+ *
+ * An em dash rather than a spinner: these four tiles sit side by side, and four
+ * spinners read as a broken screen where four dashes read as "not yet". Same
+ * treatment `history-screen` uses, and for the same reason — a `₦0.00` here is
+ * a claim, and the claim is false.
+ */
+function Unknown() {
+  return (
+    <span className="text-h4 text-muted" title="Not loaded yet">
+      &mdash;
+    </span>
   );
 }

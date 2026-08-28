@@ -477,7 +477,7 @@ export function TotalRow({
       <p
         className={cn(
           "tabular shrink-0",
-          strong ? "text-h4 text-ink" : "text-body text-body",
+          strong ? "text-h4 text-ink" : "text-body",
         )}
       >
         {formatKobo(kobo)}

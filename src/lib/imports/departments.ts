@@ -72,7 +72,7 @@ const COLUMNS: readonly ColumnSpec<DepartmentField>[] = [
     ],
     required: true,
     example: "Finance",
-    note: "Required. This is what we match on, so a second import of the same name updates that department instead of adding another. Capital letters and punctuation are ignored when we match, and a department already on file keeps the name it has.",
+    note: "The department's name. Not case- or punctuation-sensitive when matching.",
   },
   {
     field: "parent",
@@ -88,7 +88,7 @@ const COLUMNS: readonly ColumnSpec<DepartmentField>[] = [
     ],
     required: false,
     example: "Group Services",
-    note: "The unit this one sits inside, by name. It can be a department you already have or one created further down this same file — the order of the rows does not matter. Leave it empty for a top-level department. A department with a parent is shown as a team inside it.",
+    note: "The department it sits inside, by name. Leave blank for a top-level department.",
   },
   {
     field: "costCentre",
@@ -103,7 +103,7 @@ const COLUMNS: readonly ColumnSpec<DepartmentField>[] = [
     ],
     required: false,
     example: "CC-2100",
-    note: "Your own code for this unit, up to 40 characters. Payroll reports group cost by it.",
+    note: "Your cost centre code, up to 40 characters.",
     recommended: {
       why: "no cost centre code — this unit's pay cannot be grouped against your ledger in a payroll report",
     },
@@ -123,7 +123,7 @@ const COLUMNS: readonly ColumnSpec<DepartmentField>[] = [
     ],
     required: false,
     example: "ngozi.williams@company.com",
-    note: "Their work email or their staff number — not their name, because two people can share one. They must already be on your staff list. We report anything that matches nobody instead of leaving the head blank without saying so.",
+    note: "The head's work email or staff number — not their name. Must already be on your staff list.",
     recommended: {
       why: "nobody named as head — a head is who sees everyone beneath this unit, not only their own direct reports",
     },

@@ -139,7 +139,7 @@ export function TeamsPanel({
   return (
     <div className="flex flex-col gap-6">
       {teams.error && (
-        <LoadFailure subject="the teams" error={teams.error} />
+        <LoadFailure subject="the teams" error={teams.error}  onRetry={teams.reload}/>
       )}
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -159,7 +159,7 @@ export function TeamsPanel({
       <Card>
         <CardHeader
           title="Teams"
-          description="A working group with a lead. Joining one does not move anybody's pay — unless the team belongs to a department."
+          description="Joining one does not move anybody's pay — unless the team belongs to a department."
           {...(canManage
             ? {
                 action: (
@@ -347,7 +347,7 @@ function TeamRow({
       </span>
 
       <div className="min-w-0 flex-1">
-        <p className="flex flex-wrap items-center gap-2 text-body font-medium text-ink">
+        <p className="flex flex-wrap items-center gap-2 text-body font-medium">
           {team.name}
           {/* Cross-functional is the fact worth a badge: it is the one that says
               membership implies nothing about anybody's pay. */}
@@ -386,7 +386,7 @@ function TeamRow({
 
       <div className="shrink-0 text-right">
         <p className="text-meta uppercase tracking-wide text-faint">Members</p>
-        <p className="tabular text-body font-medium text-ink">
+        <p className="tabular text-body font-medium">
           {team.memberCount}
         </p>
       </div>
@@ -518,6 +518,13 @@ function TeamDrawer({
                 <p className="tabular mt-0.5 text-body-sm text-ink">
                   <Money amount={team.payrollKobo / 100} compact />
                 </p>
+                {team.payrollUnknown > 0 && (
+                  <p className="mt-0.5 text-meta text-faint">
+                    {team.members.length - team.payrollUnknown} of{" "}
+                    {team.members.length} — {team.payrollUnknown} have no pay
+                    set
+                  </p>
+                )}
               </div>
             </div>
 

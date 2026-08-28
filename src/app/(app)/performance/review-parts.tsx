@@ -59,9 +59,11 @@ export function draftFrom(question: ApiFormQuestion): Draft {
   if (!answer) return {};
   return {
     text: answer.textValue ?? undefined,
-    rating: answer.ratingValue === null ? undefined : String(answer.ratingValue),
+    rating:
+      answer.ratingValue === null ? undefined : String(answer.ratingValue),
     choice: answer.choiceValue ?? undefined,
-    bool: answer.boolValue === null ? undefined : answer.boolValue ? "yes" : "no",
+    bool:
+      answer.boolValue === null ? undefined : answer.boolValue ? "yes" : "no",
   };
 }
 
@@ -89,17 +91,22 @@ export function filled(question: ApiFormQuestion, held: Draft): boolean {
  * mapping existed. Absent means the question has no answer, so a role of "line
  * manager" or a weight of "0%" would be a claim rather than a blank.
  *
- * `appraiserCount` is what turns "40%" from a fraction into a sentence: a share
- * means nothing without knowing what it is a share of, and one appraiser at 100%
- * needs no sentence at all, so it does not get one.
+ * ## It used to say the same thing three times
+ *
+ * "You are appraising Chidera Anusiobi-Uzor as their line manager, and yours is
+ * the whole mark." The badge beside it already says *Line manager*. The modal
+ * header above it already says *About Chidera Anusiobi-Uzor*. So two thirds of
+ * that sentence was restating what was on screen, and the third — "yours is the
+ * whole mark" — made a reader work out that it meant 100%.
+ *
+ * One fact belongs here and it is the share, said as a number.
  */
 export function AppraiserStrip({
   appraiser,
-  subjectName,
   mine,
 }: {
   appraiser: ApiAppraiserContext;
-  subjectName: string;
+  /** Whether the reader wrote it. Only changes "Your" to "This". */
   mine: boolean;
 }) {
   const shared = appraiser.appraiserCount > 1;
@@ -111,11 +118,11 @@ export function AppraiserStrip({
           {appraiser.roleLabel}
         </Badge>
         <span>
-          {mine ? "You are appraising" : "Appraising"} {subjectName} as their{" "}
-          {appraiser.roleLabel.toLowerCase()}
+          {mine ? "Your review" : "This review"} counts for{" "}
+          {weightLabel(appraiser.weightBp)} of the mark
           {shared
-            ? `, for ${weightLabel(appraiser.weightBp)} of the mark — one of ${appraiser.appraiserCount} appraisers.`
-            : ", and yours is the whole mark."}
+            ? `, alongside ${String(appraiser.appraiserCount - 1)} ${appraiser.appraiserCount === 2 ? "other" : "others"}.`
+            : "."}
         </span>
       </p>
       {appraiser.note && (
@@ -123,8 +130,10 @@ export function AppraiserStrip({
       )}
       {shared && (
         <p className="mt-1.5 text-body-sm text-muted">
-          The final mark is the weighted average of everybody who answers. Answer
-          for the part of the work you actually saw.
+          {/* The instruction, without the arithmetic lesson that used to precede
+              it. How a weighted average works is not something somebody needs
+              in order to answer the question in front of them. */}
+          Answer for the part of the work you actually saw.
         </p>
       )}
     </div>

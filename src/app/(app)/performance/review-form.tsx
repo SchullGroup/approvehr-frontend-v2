@@ -13,6 +13,11 @@ import {
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import {
+  SuggestButton,
+  SuggestionPanel,
+} from "@/components/performance/suggestions";
+import { useDevelopmentSuggestions } from "@/lib/store/ai";
+import {
   dayLabel,
   type AnswerBody,
   type ApiFormQuestion,
@@ -91,6 +96,7 @@ export function ReviewFormModal({
   const [summary, setSummary] = useState<string>("");
   const [failed, setFailed] = useState<string | null>(null);
   const [busy, setBusy] = useState<"save" | "send" | null>(null);
+  const development = useDevelopmentSuggestions();
 
   const patch = (id: string, next: Draft) =>
     setDraft((current) => ({ ...current, [id]: { ...current[id], ...next } }));
@@ -123,7 +129,9 @@ export function ReviewFormModal({
     draft[question.id] ?? draftFrom(question);
 
   const outstanding = review.questions
-    .filter((question) => question.required && !filled(question, value(question)))
+    .filter(
+      (question) => question.required && !filled(question, value(question)),
+    )
     .map((question) => question.prompt);
 
   /** Only what has actually been typed. Re-answering replaces on the API side. */
@@ -202,23 +210,35 @@ export function ReviewFormModal({
         )
       }
     >
-      {/* The modal is for answering. Everything a rating has to be able to
-          explain — the components behind the mark, who else appraised, the
-          acknowledgement — is on the record, and this is the way to it. */}
-      <p className="mb-4 text-body-sm text-muted">
-        <Link
-          href={`/performance/reviews/${review.id}`}
-          className="font-medium text-accent-text underline-offset-2 hover:underline"
-        >
-          Open the full record
-        </Link>{" "}
-        for the mark, its components and the sign-off.
-      </p>
+      {/* The way to the record — but only once there is a record.
+          "Open the full record for the mark, its components and the sign-off"
+          is three nouns a person filling in a form has no use for, and before
+          they send it there is nothing behind the link at all: no mark, no
+          components, no sign-off. Somebody opening this has one job, and the
+          screen should be about that job. */}
+      {review.submitted && (
+        <p className="mb-4 text-body-sm text-muted">
+          <Link
+            href={`/performance/reviews/${review.id}`}
+            className="font-medium text-accent-text underline-offset-2 hover:underline"
+          >
+            See what came of this
+          </Link>{" "}
+          — the mark, and whether it has been signed off.
+        </p>
+      )}
       <div className="flex flex-col gap-5">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge tone={review.submitted ? "neutral" : "warning"} size="sm" dot>
-            {review.submitted ? "Sent" : "Not sent yet"}
-          </Badge>
+          {/* Only once it is sent. "Not sent yet" on an open, half-typed form
+              tells the person a thing they can see — they are looking at the
+              empty boxes — and the footer already says how many answers are
+              outstanding before it can go. A badge that restates the obvious is
+              the noise this screen had too much of. */}
+          {review.submitted && (
+            <Badge tone="neutral" size="sm" dot>
+              Sent
+            </Badge>
+          )}
           {/* The sign-off state belongs here too, or the modal reads as the whole
               story about a rating that has since become the one of record. Each
               is its own fact: not finalised does not mean disputed. */}
@@ -253,7 +273,6 @@ export function ReviewFormModal({
         {review.appraiser && (
           <AppraiserStrip
             appraiser={review.appraiser}
-            subjectName={review.subjectName}
             mine={review.mine}
           />
         )}
@@ -295,7 +314,8 @@ export function ReviewFormModal({
             <Field
               optional
               label="Overall mark"
-              help="Leave it blank if the answers say enough.">
+              help="Leave it blank if the answers say enough."
+            >
               <Select
                 value={mark}
                 placeholder="No overall mark"
@@ -315,6 +335,48 @@ export function ReviewFormModal({
                 onChange={(event) => setSummary(event.target.value)}
               />
             </Field>
+
+            {/* Development areas, on a form about somebody else.
+
+                Not on a self-review: the suggestion is built from competency
+                scores other people gave, and handing somebody their own gaps
+                phrased as development areas is a conversation their appraiser
+                should be having, not a panel.
+
+                Built only from competencies scored **below their target** — see
+                `modules/ai/service.ts#suggestDevelopment`. Somebody meeting
+                every target is refused rather than handed a weakness invented
+                to fill the space, and the refusal is the API's own sentence. */}
+            {review.kind !== "SELF" && (
+              <div className="flex flex-col gap-3">
+                <SuggestButton
+                  loading={development.loading}
+                  label="Suggest development areas"
+                  onClick={() =>
+                    void development.ask({
+                      employeeId: review.subjectId,
+                      cycleId: review.cycleId,
+                    })
+                  }
+                />
+                <SuggestionPanel
+                  state={development}
+                  onDismiss={development.clear}
+                  useLabel="Add to my notes"
+                  emptyHint={`${review.subjectName} never sees this — it is a note for you.`}
+                  /* Appended rather than replacing: an appraiser has usually
+                     already written something, and a suggestion that wiped it
+                     would lose the only part of this form nobody can regenerate. */
+                  onUse={(suggestion) =>
+                    setSummary((current) =>
+                      [current.trim(), `${suggestion.title}: ${suggestion.detail}`]
+                        .filter(Boolean)
+                        .join("\n\n"),
+                    )
+                  }
+                />
+              </div>
+            )}
           </div>
         )}
 

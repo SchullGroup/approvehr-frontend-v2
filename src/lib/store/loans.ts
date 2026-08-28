@@ -33,6 +33,7 @@ import { employeeById } from "@/lib/mock/people";
 import { TODAY } from "@/lib/today";
 import { createPersistedState } from "./persisted";
 import { useSession } from "./session";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * Staff loans, from whichever source is available.
@@ -474,6 +475,9 @@ export function useLoans(params: LoanListParamsWithScope = {}): LoanListState {
     error: ApiError | null;
   } | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -515,7 +519,7 @@ export function useLoans(params: LoanListParamsWithScope = {}): LoanListState {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, scope, query, key]);
+  }, [isConnected, scope, query, key, revalidation]);
 
   if (!isConnected) {
     const mineId = scope === "mine" ? (employeeId ?? actingId) : employeeId;
@@ -591,6 +595,9 @@ export function useLoan(id: string | null): {
     error: ApiError | null;
   } | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!active || !id) return;
     let cancelled = false;
@@ -614,7 +621,7 @@ export function useLoan(id: string | null): {
       cancelled = true;
       controller.abort();
     };
-  }, [id, active, rev]);
+  }, [id, active, rev, revalidation]);
 
   if (!isConnected) {
     const found = id ? book.find((loan) => loan.id === id) : undefined;
@@ -660,6 +667,9 @@ export function useLoanSummary(enabled = true): {
     error: ApiError | null;
   } | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!active) return;
     let cancelled = false;
@@ -683,7 +693,7 @@ export function useLoanSummary(enabled = true): {
       cancelled = true;
       controller.abort();
     };
-  }, [active, key]);
+  }, [active, key, revalidation]);
 
   const demoSummary = useMemo<ApiLoanSummary>(() => {
     const thisMonth = monthStart(TODAY);

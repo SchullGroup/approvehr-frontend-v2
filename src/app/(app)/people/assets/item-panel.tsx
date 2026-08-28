@@ -272,6 +272,8 @@ export function ItemPanel({
           <DescriptionList
             items={[
               { term: "Kind", value: detail.kind ?? "Not sorted into a kind" },
+              { term: "Work location", value: detail.workLocation ?? "Not set" },
+              { term: "Department", value: detail.department ?? "Not assigned" },
               {
                 term: "Make and model",
                 value:
@@ -302,7 +304,7 @@ export function ItemPanel({
           )}
 
           <section>
-            <h3 className="text-body font-semibold text-ink">
+            <h3 className="font-semibold text-ink">
               Who has had it
             </h3>
             {detail.history.length === 0 ? (
@@ -315,7 +317,7 @@ export function ItemPanel({
           </section>
 
           <section>
-            <h3 className="text-body font-semibold text-ink">Repairs</h3>
+            <h3 className="font-semibold text-ink">Repairs</h3>
             {detail.repairs.length === 0 ? (
               <p className="mt-2 text-body-sm text-muted">
                 Nothing has been fixed on this.

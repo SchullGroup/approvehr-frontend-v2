@@ -18,6 +18,7 @@ import {
   Textarea,
   useToast,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
 import type { ApiAction, DisciplinaryLevel } from "@/lib/api/conduct";
 import { useCan } from "@/lib/permissions";
@@ -158,7 +159,14 @@ export function ConductPanel({
               Loading
             </div>
           ) : conduct.error ? (
-            <p className="text-body-sm text-body">{conduct.error.message}</p>
+            /* Not a paragraph of body text. A read that failed and a record
+               with nothing on it sat in the same size and colour here, one line
+               apart, and "No warnings have been recorded" is the sentence a
+               failed read must never be mistaken for. */
+            <LoadFailure
+              subject="this person's conduct record"
+              error={conduct.error}
+             onRetry={conduct.reload}/>
           ) : actions.length === 0 ? (
             <p className="text-body-sm text-body">
               No warnings have been recorded.

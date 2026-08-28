@@ -101,6 +101,7 @@ export function GradesPanel() {
     pageSize: 100,
   });
   const totals = useGradeTotals(grades.rows);
+  const increase = useGradeIncrease();
   const toast = useToast();
 
   const [creating, setCreating] = useState(false);
@@ -150,7 +151,7 @@ export function GradesPanel() {
       )}
 
       {grades.error && (
-        <LoadFailure subject="the salary bands" error={grades.error} />
+        <LoadFailure subject="the salary bands" error={grades.error}  onRetry={grades.reload}/>
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -188,7 +189,7 @@ export function GradesPanel() {
       <Card>
         <CardHeader
           title="Salary grades"
-          description="Ordered by level, lowest first. The band is what the grade is worth a month."
+          description="The band is what the grade is worth a month."
           action={
             grades.editable ? (
               <Button
@@ -277,7 +278,7 @@ export function GradesPanel() {
                     key={row.id}
                     row={row}
                     editable={grades.editable}
-                    canApply={grades.editable || !grades.connected}
+                    canApply={increase.canApply}
                     onView={() => setViewing(row)}
                     onRaise={() => setRaising(row)}
                     onEdit={() => setEditing(row)}
@@ -1137,7 +1138,7 @@ function PeopleDrawer({
             key={person.id}
             className="rounded-lg border border-line bg-surface p-4"
           >
-            <p className="text-body font-medium text-ink">{person.name}</p>
+            <p className="font-medium text-ink">{person.name}</p>
             <p className="text-body-sm text-muted">
               {person.jobTitle} · {person.employeeNo}
             </p>

@@ -81,9 +81,11 @@ export { ToastProvider, useToast } from "./toast";
 export {
   AreaChart,
   BarChart,
+  ColumnChart,
+  StackedBar,
   DonutChart,
   Sparkline,
   FunnelChart,
   SERIES,
 } from "./chart";
-export type { Point } from "./chart";
+export type { Point, Segment } from "./chart";

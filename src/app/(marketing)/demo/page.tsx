@@ -89,7 +89,7 @@ export default function DemoPage() {
             </div>
 
             <figure className="mt-7 rounded-2xl border border-sand-line bg-white/70 p-6">
-              <blockquote className="text-body leading-relaxed text-slate">
+              <blockquote className="text-body leading-relaxed">
                 &ldquo;Compliance and scale were what kept me up. Payroll and
                 tax now run themselves, and I finally get numbers I can make
                 decisions on instead of numbers I have to check.&rdquo;

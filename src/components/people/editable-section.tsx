@@ -193,8 +193,16 @@ export function EditableSection({
   const canEdit = useCan("EDIT_RECORDS");
   /* Initial state rather than an effect: the section must render editable on
      its first paint, and setting it from an effect would flash the read-only
-     view and trip `no-setState-in-effect`. */
-  const [editing, setEditing] = useState(openOnField !== undefined);
+     view and trip `no-setState-in-effect`.
+
+     `&& canEdit` because this used to be `openOnField !== undefined` alone,
+     and `openOnField` comes off a URL — `?tab=pay&field=bankAccount`. So the
+     Edit button was correctly hidden from anybody without `EDIT_RECORDS`, and
+     one link handed the same person the whole editor anyway, Save included, for
+     the API to refuse with a 403 after they had typed. An employee reaches it
+     from their own record's advisory list. The permission is the rule; a
+     deep link is not an exception to it. */
+  const [editing, setEditing] = useState(openOnField !== undefined && canEdit);
   /**
    * Seeded on the first render when we arrive already editing.
    *

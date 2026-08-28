@@ -32,6 +32,61 @@ function focusableWithin(root: HTMLElement): HTMLElement[] {
  *
  * Returns a ref to attach to the container element.
  */
+/**
+ * Body scroll lock, counted rather than remembered per layer.
+ *
+ * ## The bug this replaces, which left the whole app unscrollable
+ *
+ * Each layer used to snapshot `document.body.style.overflow` when it opened and
+ * write that snapshot back when it closed. With one layer that is correct. With
+ * two it is not, and this app stacks them — the appraiser flow opens a list of
+ * people and then a dialog for one of them on top.
+ *
+ * Outer opens: snapshot `""`, set `hidden`.
+ * Inner opens: snapshot `"hidden"`, set `hidden`.
+ *
+ * Now the order of teardown decides the outcome. Unmount inner then outer and
+ * it happens to work. Close the outer first — which is what a "save and close
+ * everything" action does, and what React does when the parent's state clears
+ * and both unmount together — and the outer restores `""` while the inner then
+ * restores its snapshot of `"hidden"`. **The page never scrolls again**, on
+ * every route, until a reload. No error, nothing in the console, and the
+ * element responsible is long gone.
+ *
+ * A count has no ordering problem: the first layer locks, the last unlocks, and
+ * whichever order they arrive in the arithmetic is the same.
+ *
+ * The original value is captured **once**, when the count goes from zero to
+ * one, so a page that deliberately sets its own `overflow` still gets it back.
+ * Module scope rather than a ref, because the layers do not know about each
+ * other — which is the whole reason the per-layer snapshot failed.
+ */
+let openLayers = 0;
+let overflowBeforeFirstLayer = "";
+
+function lockScroll(): void {
+  if (typeof document === "undefined") return;
+  if (openLayers === 0) {
+    overflowBeforeFirstLayer = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+  }
+  openLayers += 1;
+}
+
+function unlockScroll(): void {
+  if (typeof document === "undefined") return;
+  /* Never below zero. A double cleanup — React 18's development remount does
+     exactly that — would otherwise leave the count negative, and the next real
+     layer would fail to lock. */
+  openLayers = Math.max(0, openLayers - 1);
+  if (openLayers === 0) {
+    document.body.style.overflow = overflowBeforeFirstLayer;
+  }
+}
+
+/** For the check that proves the count returns to zero. Not for components. */
+export const __scrollLockDepth = () => openLayers;
+
 export function useFocusTrap<T extends HTMLElement = HTMLDivElement>(
   open: boolean,
   onClose?: () => void,
@@ -106,12 +161,11 @@ export function useFocusTrap<T extends HTMLElement = HTMLDivElement>(
     document.addEventListener("keydown", onKeyDown, true);
 
     // Prevent the page behind from scrolling while a layer is open.
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    lockScroll();
 
     return () => {
       document.removeEventListener("keydown", onKeyDown, true);
-      document.body.style.overflow = previousOverflow;
+      unlockScroll();
       restoreTo.current?.focus?.();
     };
   }, [open]);

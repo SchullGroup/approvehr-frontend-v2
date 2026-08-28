@@ -26,6 +26,7 @@ import {
 import { CURRENT_USER, employeeById } from "@/lib/mock/people";
 import { createPersistedState } from "./persisted";
 import { useSession } from "./session";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * Equipment, from whichever source is available.
@@ -123,6 +124,15 @@ export type EquipmentItem = {
   kind: string | null;
   /** No kind counts as returnable: chasing a mug beats losing a laptop. */
   returnRequired: boolean;
+  /**
+   * Where it lives, and whose budget it is on. Independent of each other and
+   * of `holder` — a laptop assigned to somebody in Finance does not become
+   * Finance's asset.
+   */
+  departmentId: string | null;
+  department: string | null;
+  workLocationId: string | null;
+  workLocation: string | null;
   purchasedOn: string | null;
   /** Naira. `null` when nobody recorded what it cost. */
   cost: number | null;
@@ -328,6 +338,10 @@ function toItem(row: ApiAsset): EquipmentItem {
     kindId: row.categoryId,
     kind: row.categoryName,
     returnRequired: row.returnRequired,
+    departmentId: row.departmentId,
+    department: row.departmentName,
+    workLocationId: row.workLocationId,
+    workLocation: row.workLocationName,
     purchasedOn: row.purchasedOn,
     cost: row.purchaseCostKobo === null ? null : naira(row.purchaseCostKobo),
     status: row.status,
@@ -451,6 +465,12 @@ function seedAsset(input: {
     categoryId: input.kindId,
     categoryName: kind?.name ?? null,
     returnRequired: kind?.returnRequired ?? true,
+    /* The seed has no demo department/location data to draw from — honestly
+       absent rather than a fabricated pick. */
+    departmentId: null,
+    departmentName: null,
+    workLocationId: null,
+    workLocationName: null,
     purchasedOn: input.boughtDaysAgo ? daysAgo(input.boughtDaysAgo) : null,
     purchaseCostKobo: input.cost === undefined ? null : input.cost * NAIRA,
     status: input.status,
@@ -887,6 +907,9 @@ export function useEquipmentKinds(includeInactive = false) {
     error: ApiError | null;
   } | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     const controller = new AbortController();
@@ -910,7 +933,7 @@ export function useEquipmentKinds(includeInactive = false) {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, includeInactive, stamp]);
+  }, [isConnected, includeInactive, stamp, revalidation]);
 
   const answered = remote !== null && remote.stamp === stamp;
 
@@ -1021,6 +1044,8 @@ export type ItemInput = {
   tag: string;
   name: string;
   kindId?: string;
+  departmentId?: string;
+  workLocationId?: string;
   serialNumber?: string;
   make?: string;
   model?: string;
@@ -1036,6 +1061,8 @@ export type ItemPatch = {
   tag?: string;
   name?: string;
   kindId?: string | null;
+  departmentId?: string | null;
+  workLocationId?: string | null;
   serialNumber?: string | null;
   make?: string | null;
   model?: string | null;
@@ -1097,6 +1124,9 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
     error: ApiError | null;
   } | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected || !enabled) return;
     const controller = new AbortController();
@@ -1130,7 +1160,7 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, enabled, key, stamp]);
+  }, [isConnected, enabled, key, stamp, revalidation]);
 
   const answered = remote !== null && remote.stamp === stamp;
 
@@ -1214,6 +1244,10 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
           tag: input.tag,
           name: input.name,
           ...(input.kindId ? { categoryId: input.kindId } : {}),
+          ...(input.departmentId ? { departmentId: input.departmentId } : {}),
+          ...(input.workLocationId
+            ? { workLocationId: input.workLocationId }
+            : {}),
           ...(input.serialNumber ? { serialNumber: input.serialNumber } : {}),
           ...(input.make ? { make: input.make } : {}),
           ...(input.model ? { model: input.model } : {}),
@@ -1261,6 +1295,11 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
             categoryId: kind?.id ?? null,
             categoryName: kind?.name ?? null,
             returnRequired: kind?.returnRequired ?? true,
+            /* Demo mode doesn't track department/location — see `seedAsset`. */
+            departmentId: null,
+            departmentName: null,
+            workLocationId: null,
+            workLocationName: null,
             purchasedOn: input.purchasedOn ?? null,
             purchaseCostKobo: input.cost === undefined ? null : kobo(input.cost),
             status: "AVAILABLE",
@@ -1282,6 +1321,12 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
           ...(patch.tag === undefined ? {} : { tag: patch.tag }),
           ...(patch.name === undefined ? {} : { name: patch.name }),
           ...(patch.kindId === undefined ? {} : { categoryId: patch.kindId }),
+          ...(patch.departmentId === undefined
+            ? {}
+            : { departmentId: patch.departmentId }),
+          ...(patch.workLocationId === undefined
+            ? {}
+            : { workLocationId: patch.workLocationId }),
           ...(patch.serialNumber === undefined
             ? {}
             : { serialNumber: patch.serialNumber }),
@@ -1756,6 +1801,9 @@ export function useEquipmentItem(id: string | null) {
     error: ApiError | null;
   } | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected || !id) return;
     const controller = new AbortController();
@@ -1779,7 +1827,7 @@ export function useEquipmentItem(id: string | null) {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, id, stamp]);
+  }, [isConnected, id, stamp, revalidation]);
 
   const answered = fetched !== null && fetched.stamp === stamp;
 
@@ -1827,6 +1875,9 @@ export function useRepairs(params: RepairListParams = {}, enabled = true) {
     error: ApiError | null;
   } | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected || !enabled) return;
     const controller = new AbortController();
@@ -1860,7 +1911,7 @@ export function useRepairs(params: RepairListParams = {}, enabled = true) {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, enabled, key, stamp]);
+  }, [isConnected, enabled, key, stamp, revalidation]);
 
   const answered = remote !== null && remote.stamp === stamp;
 
@@ -2024,6 +2075,9 @@ export function useEquipmentSummary(enabled = true) {
     error: ApiError | null;
   } | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected || !enabled) return;
     const controller = new AbortController();
@@ -2063,7 +2117,7 @@ export function useEquipmentSummary(enabled = true) {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, enabled, stamp]);
+  }, [isConnected, enabled, stamp, revalidation]);
 
   const answered = remote !== null && remote.stamp === stamp;
 
@@ -2166,6 +2220,9 @@ export function useMyEquipment(employeeId: string | null) {
     error: ApiError | null;
   } | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected || !employeeId) return;
     const controller = new AbortController();
@@ -2226,7 +2283,7 @@ export function useMyEquipment(employeeId: string | null) {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, employeeId, stamp]);
+  }, [isConnected, employeeId, stamp, revalidation]);
 
   const answered = remote !== null && remote.stamp === stamp;
 

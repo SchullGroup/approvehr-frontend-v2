@@ -11,6 +11,7 @@ import {
   IconButton,
   Spinner,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { UNCONFIRMED_HOLIDAY_EFFECT, type PublicHolidayRow } from "@/lib/api/leave";
 import { usePublicHolidays } from "@/lib/store/holidays";
 import { shortDate } from "@/lib/today";
@@ -255,11 +256,10 @@ export function HolidayCalendarCard({
 
   return (
     <div className="flex flex-col gap-4">
-      {calendar.error && (
-        <Callout tone="danger" title="Could not read the calendar">
-          {calendar.error.message}
-        </Callout>
-      )}
+      <LoadFailure
+        subject={`the ${year} holiday calendar`}
+        error={calendar.error}
+       onRetry={calendar.reload}/>
 
       {/* Outside the disclosure. The count, with the consequence attached: both
           halves are true and the second is the one nobody expects. */}

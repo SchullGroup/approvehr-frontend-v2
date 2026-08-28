@@ -30,6 +30,7 @@ import {
   type ApiPeerFeedback,
   type ApiReview,
 } from "@/lib/api/performance";
+import { useCan } from "@/lib/permissions";
 import { useFeatures } from "@/lib/store/features";
 import { useSession } from "@/lib/store/session";
 import {
@@ -38,6 +39,7 @@ import {
   useMyAppraisers,
   useObjectiveApprovals,
 } from "@/lib/store/performance";
+import { AppraisersDialog } from "./appraiser-map";
 import { FrameworkDisclosure, HowItWorks } from "./how-it-works";
 import { ReviewFormModal } from "./review-form";
 import { SkillsTab } from "./skills";
@@ -104,7 +106,7 @@ export function WhatNeedsYouTab({
   const appraisals = useAppraisals();
   const approvals = useObjectiveApprovals();
   const mineGoals = useKpis("mine");
-  const { actingId } = useSession();
+  const { actingId, employeeId } = useSession();
 
   /**
    * Whether any of the appraisal half of this screen exists at all.
@@ -162,6 +164,19 @@ export function WhatNeedsYouTab({
       : undefined;
   const appraisingMe = mine.row?.appraisers ?? [];
 
+  /* Whoever may change the mapping — the API gates `PUT /cycles/:id/appraisers`
+     on `MANAGE_SETTINGS`, so this is the same question asked before offering the
+     button rather than after the refusal.
+
+     The same permission decides whether a period may be set up, started, or its
+     feature flag turned on, so the cards below read it too. They had no gate at
+     all: an employee opening KPIs & appraisals was offered "Set it up and start
+     it" on a draft period and "Turn appraisals on", both of which land on a
+     screen that is read-only for them. */
+  const canManagePeriods = useCan("MANAGE_SETTINGS");
+  const canAssignAppraiser = canManagePeriods;
+  const [assigningSelf, setAssigningSelf] = useState(false);
+
   /* My own objectives, split by who the next move belongs to. `mine` scope also
      returns the company's, which nobody owns and nobody sends — hence the owner
      check rather than a bare approval filter. */
@@ -206,7 +221,20 @@ export function WhatNeedsYouTab({
         </div>
       )}
 
-      {appraisals.error && (
+      {/* Not shown to somebody with no employee record at all. That is not a
+          failure to recover from — it is a founder's own account, exactly as
+          created at registration, and `ownEmployeeId` on the API already
+          tells this same person, the moment they try to act on a goal or a
+          review, that linking themselves is optional housekeeping rather
+          than a fix this page should nag them about on every visit. The rest
+          of this screen — cycles, appraisals for other people — works for
+          them regardless, which is what made this read as "wrong here"
+          rather than as a genuine error: the danger-toned banner presumed a
+          broken personal state on an account that was never meant to have
+          one. A caller who *does* have a record and still hit this is a real
+          failure worth surfacing, so the check is on the session, not on
+          whether the error exists. */}
+      {appraisals.error && employeeId !== null && (
         <p className="rounded-md border border-danger-line bg-danger-soft px-3.5 py-2.5 text-body-sm text-ink">
           {appraisals.error.message}
         </p>
@@ -217,14 +245,44 @@ export function WhatNeedsYouTab({
           hear about your own missing appraiser is the worst possible order to
           find out in. */}
       {scored && noAppraiser && (
-        <Callout tone="warning" title="Nobody is appraising you in this period">
-          <p>{noAppraiser.message}</p>
-          <p className="mt-2">
-            Your self-review still counts and still goes in. What is missing is
-            somebody to write the manager review, which is the rating of record —
-            ask whoever runs the period to set a manager on your record or assign
-            an appraiser.
-          </p>
+        /* One line, not four.
+           ---------------------
+           This used to explain the mechanism — that the cycle falls back to a
+           line manager, that the self-review still counts, what a manager
+           review is for. All true, and none of it this person's job: they
+           cannot set their own appraiser and nothing here changes what they
+           should do next. What they need is that somebody has to fix it and it
+           is not them.
+
+           The API's own `message` named the employee in the third person
+           ("Ekemini Adowoima has no appraiser yet") on the employee's own
+           screen, which reads as a note written about them rather than to
+           them. Dropped for the same reason. */
+        <Callout tone="warning" title="Nobody is set to appraise you yet">
+          {/* Two readers, two different sentences.
+              --------------------------------------
+              Somebody who can set an appraiser gets to do it here, in a dialog,
+              without leaving the screen they are on — the standing rule is that
+              a problem the reader can fix must never be stated without the fix
+              beside it.
+
+              An ordinary employee cannot, and for them the honest answer is who
+              can. Offering a button that the API would refuse is the failure
+              this rule exists to prevent, one step further along. */}
+          {canAssignAppraiser && mine.row && openPeriod ? (
+            <span className="flex flex-wrap items-center gap-3">
+              <span>Set one now and this clears.</span>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setAssigningSelf(true)}
+              >
+                Assign an appraiser
+              </Button>
+            </span>
+          ) : (
+            "Ask whoever runs this period to assign one."
+          )}
         </Callout>
       )}
 
@@ -270,11 +328,17 @@ export function WhatNeedsYouTab({
         <Card>
           <CardHeader
             title="Appraisals are switched off"
-            description="KPIs work without them. Turning them on adds appraisal periods, a mark made of objectives and competencies, and a record of what each person was told."
+            description={
+              canManagePeriods
+                ? "KPIs work without them. Turning them on adds appraisal periods, a mark made of objectives and competencies, and a record of what each person was told."
+                : "Your company does not run formal appraisals. KPIs still work."
+            }
             action={
-              <ButtonLink variant="accent" size="sm" href="/settings/features">
-                Turn appraisals on
-              </ButtonLink>
+              canManagePeriods ? (
+                <ButtonLink variant="accent" size="sm" href="/settings/features">
+                  Turn appraisals on
+                </ButtonLink>
+              ) : undefined
             }
           />
         </Card>
@@ -282,75 +346,81 @@ export function WhatNeedsYouTab({
 
       {/* ---------------------------------------------------------------- open */}
       {scored && (
-      <Card>
-        <CardHeader
-          title="What is open"
-          {...(openPeriod
-            ? {
-                description:
-                  "The appraisal period everything below belongs to.",
-              }
-            : {})}
-          action={
-            openPeriod ? undefined : (
-              <StartPeriodButton variant="accent" withIcon />
-            )
-          }
-        />
-        {appraisals.loading ? (
-          <CardBody className="flex items-center gap-2 text-body-sm text-muted">
-            <Spinner size="sm" />
-            Loading
-          </CardBody>
-        ) : !openPeriod ? (
-          <EmptyState
-            compact
-            icon={<CalendarRange aria-hidden="true" />}
-            title="No appraisal period is running"
-            description="A period is the stretch of time an appraisal covers. Starting one gives everybody a form."
+        <Card>
+          <CardHeader
+            title="What is open"
+            action={
+              openPeriod ? undefined : (
+                <StartPeriodButton variant="accent" withIcon />
+              )
+            }
           />
-        ) : (
-          <CardBody className="flex flex-wrap items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
-                {openPeriod.name}
-                <Badge
-                  tone={openPeriod.stage === "PUBLISHED" ? "neutral" : "info"}
-                  size="sm"
-                  dot
-                >
-                  {openPeriod.stageLabel}
-                </Badge>
-              </p>
-              <p className="mt-1 flex flex-wrap items-center gap-2 text-meta text-muted">
-                <span>
-                  {openPeriod.questionCount === 1
-                    ? "1 question"
-                    : `${openPeriod.questionCount} questions`}
-                </span>
-                <span>
-                  {openPeriod.reviewCount === 1
-                    ? "1 form"
-                    : `${openPeriod.reviewCount} forms`}
-                </span>
-                {openPeriod.dueDate && (
-                  <span>Answers due {dayLabel(openPeriod.dueDate)}</span>
-                )}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <ButtonLink
-                size="sm"
-                href={`/performance/periods/${openPeriod.id}`}
-              >
-                {openPeriod.stage === "DRAFT"
-                  ? "Set it up and start it"
-                  : "Who is outstanding"}
-              </ButtonLink>
-            </div>
-          </CardBody>
-        )}
-      </Card>
+          {appraisals.loading ? (
+            <CardBody className="flex items-center gap-2 text-body-sm text-muted">
+              <Spinner size="sm" />
+              Loading
+            </CardBody>
+          ) : !openPeriod ? (
+            <EmptyState
+              compact
+              icon={<CalendarRange aria-hidden="true" />}
+              title="No appraisal period is running"
+              description={
+                canManagePeriods
+                  ? "A period is the stretch of time an appraisal covers. Starting one gives everybody a form."
+                  : "Your form turns up here when one starts."
+              }
+            />
+          ) : (
+            <CardBody className="flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
+                  {openPeriod.name}
+                  <Badge
+                    tone={openPeriod.stage === "PUBLISHED" ? "neutral" : "info"}
+                    size="sm"
+                    dot
+                  >
+                    {openPeriod.stageLabel}
+                  </Badge>
+                </p>
+                <p className="mt-1 flex flex-wrap items-center gap-2 text-meta text-muted">
+                  <span>
+                    {openPeriod.questionCount === 1
+                      ? "1 question"
+                      : `${openPeriod.questionCount} questions`}
+                  </span>
+                  <span>
+                    {openPeriod.reviewCount === 1
+                      ? "1 form"
+                      : `${openPeriod.reviewCount} forms`}
+                  </span>
+                  {openPeriod.dueDate && (
+                    <span>Answers due {dayLabel(openPeriod.dueDate)}</span>
+                  )}
+                </p>
+              </div>
+              {/* Both destinations are the period's management screen, so both
+                  are gated the same way `showOutstandingLink` already gates the
+                  one beside it. Setting a period up and reading who is
+                  outstanding are things a period's owner does; an employee's
+                  own business with a period is the form, which is the work list
+                  below. Absent, not disabled. */}
+              {canManagePeriods && (
+                <div className="flex flex-wrap gap-2">
+                  <ButtonLink
+                    size="sm"
+                    href={`/performance/periods/${openPeriod.id}`}
+                  >
+                    {openPeriod.stage === "DRAFT"
+                      ? "Set it up and start it"
+                      : "Who is outstanding"}
+                  </ButtonLink>
+                </div>
+              )}
+            </CardBody>
+          )}
+        </Card>
       )}
 
       {/* ------------------------------------------------- final, not answered */}
@@ -410,16 +480,15 @@ export function WhatNeedsYouTab({
 
       {/* ---------------------------------------------------- waiting on you */}
       <Card>
-        <CardHeader
-          title="Waiting on you"
-          description="Each of these is one click from being dealt with."
-        />
+        <CardHeader title="Waiting on you" />
         {appraisals.loading ? (
           <CardBody className="flex items-center gap-2 text-body-sm text-muted">
             <Spinner size="sm" />
             Loading
           </CardBody>
-        ) : owedNow.length === 0 && queue.length === 0 && toSend.length === 0 ? (
+        ) : owedNow.length === 0 &&
+          queue.length === 0 &&
+          toSend.length === 0 ? (
           <EmptyState
             compact
             icon={<CheckCheck aria-hidden="true" />}
@@ -513,34 +582,36 @@ export function WhatNeedsYouTab({
 
             {scored &&
               appraisingMe.map((appraiser) => (
-              <div
-                key={appraiser.assignmentId}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3"
-              >
-                <div className="min-w-0">
-                  <p className="text-body-sm font-medium text-ink">
-                    {appraiser.appraiserName} is appraising you
-                  </p>
-                  <p className="mt-1 flex flex-wrap items-center gap-2 text-meta text-muted">
-                    <span>{appraiser.roleLabel}</span>
-                    {mine.row && <span>{mine.row.cycleName}</span>}
-                    <Badge
-                      tone={appraiser.submitted ? "neutral" : "warning"}
-                      size="sm"
-                      dot
-                    >
-                      {appraiser.submitted ? "Form sent" : "Form not sent yet"}
-                    </Badge>
-                  </p>
-                </div>
-                {/* Their mark, not their form. A working figure moves every time
+                <div
+                  key={appraiser.assignmentId}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3"
+                >
+                  <div className="min-w-0">
+                    <p className="text-body-sm font-medium text-ink">
+                      {appraiser.appraiserName} is appraising you
+                    </p>
+                    <p className="mt-1 flex flex-wrap items-center gap-2 text-meta text-muted">
+                      <span>{appraiser.roleLabel}</span>
+                      {mine.row && <span>{mine.row.cycleName}</span>}
+                      <Badge
+                        tone={appraiser.submitted ? "neutral" : "warning"}
+                        size="sm"
+                        dot
+                      >
+                        {appraiser.submitted
+                          ? "Form sent"
+                          : "Form not sent yet"}
+                      </Badge>
+                    </p>
+                  </div>
+                  {/* Their mark, not their form. A working figure moves every time
                     somebody records a rating, so the subject sees it when it is
                     final and not before — the API refuses it either way. */}
-                <span className="text-meta text-muted">
-                  You will see the mark when it is final
-                </span>
-              </div>
-            ))}
+                  <span className="text-meta text-muted">
+                    You will see the mark when it is final
+                  </span>
+                </div>
+              ))}
           </CardBody>
         )}
       </Card>
@@ -549,74 +620,74 @@ export function WhatNeedsYouTab({
       {scored && <HowItWorks />}
 
       {scored && (
-      <Disclosure
-        title="What was said about you"
-        meta={
-          record.length > 0 ? (
-            <Badge tone="neutral" size="sm">
-              {record.length === 1 ? "1 review" : `${record.length} reviews`}
-            </Badge>
-          ) : undefined
-        }
-        hint={
-          record.length === 0
-            ? "A manager's review reaches you when your rating is made final, or when the period is published — whichever comes first."
-            : answered.length > 0
-              ? `${answered.length === 1 ? "1 has" : `${answered.length} have`} been answered. Nothing here needs you.`
-              : "Yours to read. Nothing here needs you."
-        }
-        level={2}
-      >
-        {record.length === 0 ? (
-          <EmptyState
-            compact
-            icon={<MessagesSquare aria-hidden="true" />}
-            title="Nothing published yet"
-            description="A manager's review reaches you when the period closes, not before."
-          />
-        ) : (
-          <div className="flex flex-col gap-2">
-            {record.map((review) => (
-              <ReviewRow
-                key={review.id}
-                review={review}
-                context="record"
-                actionLabel="Read it"
-                onOpen={() => setOpened(review.id)}
-              />
-            ))}
-          </div>
-        )}
-      </Disclosure>
+        <Disclosure
+          title="What was said about you"
+          meta={
+            record.length > 0 ? (
+              <Badge tone="neutral" size="sm">
+                {record.length === 1 ? "1 review" : `${record.length} reviews`}
+              </Badge>
+            ) : undefined
+          }
+          hint={
+            record.length === 0
+              ? "A manager's review reaches you when your rating is made final, or when the period is published — whichever comes first."
+              : answered.length > 0
+                ? `${answered.length === 1 ? "1 has" : `${answered.length} have`} been answered. Nothing here needs you.`
+                : "Yours to read. Nothing here needs you."
+          }
+          level={2}
+        >
+          {record.length === 0 ? (
+            <EmptyState
+              compact
+              icon={<MessagesSquare aria-hidden="true" />}
+              title="Nothing published yet"
+              description="A manager's review reaches you when the period closes, not before."
+            />
+          ) : (
+            <div className="flex flex-col gap-2">
+              {record.map((review) => (
+                <ReviewRow
+                  key={review.id}
+                  review={review}
+                  context="record"
+                  actionLabel="Read it"
+                  onOpen={() => setOpened(review.id)}
+                />
+              ))}
+            </div>
+          )}
+        </Disclosure>
       )}
 
       {scored && (
-      <Disclosure
-        title="Peer feedback"
-        meta={
-          appraisals.mine.peerFeedback.length > 0 ? (
-            <Badge tone="neutral" size="sm">
-              {appraisals.mine.peerFeedback.length === 1
-                ? "1 period"
-                : `${appraisals.mine.peerFeedback.length} periods`}
-            </Badge>
-          ) : undefined
-        }
-        hint="Anonymous. No name is attached to an answer."
-        level={2}
-      >
-        {appraisals.mine.peerFeedback.length === 0 ? (
-          <p className="text-body-sm text-muted">
-            Nothing from colleagues yet.
-          </p>
-        ) : (
-          <div className="flex flex-col gap-4">
-            {appraisals.mine.peerFeedback.map((entry) => (
-              <PeerBlock key={entry.cycleId} entry={entry} />
-            ))}
-          </div>
-        )}
-      </Disclosure>
+        <Disclosure
+          title="Peer feedback"
+          meta={
+            appraisals.mine.peerFeedback.length > 0 ? (
+              <Badge tone="neutral" size="sm">
+                {appraisals.mine.peerFeedback.length === 1
+                  ? "1 period"
+                  : `${appraisals.mine.peerFeedback.length} periods`}
+              </Badge>
+            ) : undefined
+          }
+          hint="Anonymous. No name is attached to an answer."
+          level={2}
+        >
+          {appraisals.mine.peerFeedback.length === 0 ? (
+            <p className="text-body-sm text-muted">
+              Nothing from colleagues yet.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-4">
+              {appraisals.mine.peerFeedback.map((entry) => (
+                <PeerBlock key={entry.cycleId} entry={entry} />
+              ))}
+            </div>
+          )}
+        </Disclosure>
       )}
 
       {scored && <FrameworkDisclosure />}
@@ -638,6 +709,24 @@ export function WhatNeedsYouTab({
           reviewId={opened}
           onClose={() => setOpened(null)}
           onDone={appraisals.reload}
+        />
+      )}
+
+      {/* The same dialog the period screen uses, on the screen where the
+          problem was noticed. One implementation of "who appraises this
+          person"; two places it can be reached from. */}
+      {assigningSelf && mine.row && openPeriod && (
+        <AppraisersDialog
+          cycleId={openPeriod.id}
+          row={mine.row}
+          onClose={() => setAssigningSelf(false)}
+          onSaved={() => {
+            setAssigningSelf(false);
+            /* `useMyAppraisers` has no reload of its own; the appraisals load
+               is what this screen re-reads, and the mapping is re-fetched with
+               it on the next render. */
+            appraisals.reload();
+          }}
         />
       )}
     </div>
@@ -780,10 +869,20 @@ function ReviewRow({
           {actionLabel}
         </Button>
         {/* Everything a rating has to be able to explain — the components behind
-            it, who else appraised, the acknowledgement — is on the record. */}
-        <ButtonLink size="sm" href={`/performance/reviews/${review.id}`}>
-          The record
-        </ButtonLink>
+            it, who else appraised, the acknowledgement — is on the record.
+
+            None of which exists before the form is sent. Offered unconditionally,
+            this took somebody from a form they had not started to a page reading
+            "Overall mark: None given", "Rating of record: Not yet", "What went
+            wrong this period: Not answered" — a record of nothing, which reads
+            as a product that has lost the answers rather than one waiting for
+            them. There is exactly one thing to do with an unsent form and it is
+            the button to the left. */}
+        {review.submitted && (
+          <ButtonLink size="sm" href={`/performance/reviews/${review.id}`}>
+            The record
+          </ButtonLink>
+        )}
       </div>
     </div>
   );
@@ -820,7 +919,9 @@ function PeerBlock({ entry }: { entry: ApiPeerFeedback }) {
             {answer.averageRating !== null && (
               <p className="tabular mt-1 text-body-sm text-ink">
                 Average {answer.averageRating} out of 5, across{" "}
-                {answer.answered === 1 ? "1 answer" : `${answer.answered} answers`}
+                {answer.answered === 1
+                  ? "1 answer"
+                  : `${answer.answered} answers`}
               </p>
             )}
             {answer.yeses > 0 && (

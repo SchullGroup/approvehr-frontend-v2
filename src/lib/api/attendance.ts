@@ -238,6 +238,15 @@ export type ApiRosterRow = {
 export type ApiRoster = {
   /** `YYYY-MM-DD`. The server's answer, not the browser's clock. */
   date: string;
+  /**
+   * The server's own `HH:MM`, in the organisation's day.
+   *
+   * The same fact as `date`, one unit finer, and needed for the same reason.
+   * Attendance times are UTC-rendered throughout, so a client working out how
+   * long somebody has been clocked in from its own wall clock is out by its own
+   * UTC offset — a whole hour in Lagos. Anchor on this instead.
+   */
+  time: string;
   policy: ApiAttendancePolicy;
   /** Exceptions first: absent, late, on leave, present, holiday, rest day. */
   rows: ApiRosterRow[];
@@ -714,6 +723,21 @@ export const attendanceApi = {
       time: result.clockOut,
     };
   },
+
+  /**
+   * Undo your own clock-out, just after making it.
+   *
+   * No body: it acts on your entry for today and nothing else. Refused past a
+   * short window on the API, because an unbounded undo is a way to manufacture
+   * a working day on a product that turns these rows into pay — the refusal
+   * names the HR correction as the way through, and this shows that sentence
+   * verbatim rather than paraphrasing it.
+   */
+  undoClockOut: () =>
+    request<{ employeeId: string; date: string; clockIn: string | null }>(
+      "/attendance/clock-out/undo",
+      { method: "POST" },
+    ),
 
   /** `EDIT_RECORDS`. The note is part of the record, not of the request. */
   correct: (employeeId: string, date: string, body: CorrectionBody) =>

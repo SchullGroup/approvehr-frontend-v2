@@ -15,6 +15,7 @@ import {
   Stat,
   useToast,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { SourceBadge } from "@/components/hiring/source-badge";
 import { usePermissions } from "@/lib/permissions";
@@ -135,20 +136,17 @@ function Diary() {
         <Card>
           <CardHeader
             title="Before anybody gets interviewed"
-            description="Nobody reaches a diary until somebody has read their application."
             action={<SourceBadge live={backlog.live} />}
           />
           <CardBody className="flex flex-col gap-4">
-            {backlog.error && (
-              <div className="flex flex-wrap items-center gap-3">
-                <p className="text-body-sm text-danger-text">
-                  {backlog.error.message}
-                </p>
-                <Button variant="secondary" size="sm" onClick={backlog.reload}>
-                  Try again
-                </Button>
-              </div>
-            )}
+            <LoadFailure
+              subject="the screening backlog"
+              error={backlog.error}
+             onRetry={backlog.reload}>
+              <Button variant="secondary" size="sm" onClick={backlog.reload}>
+                Try again
+              </Button>
+            </LoadFailure>
             <div className="grid gap-4 sm:grid-cols-3">
               <Stat
                 label="Waiting to be screened"

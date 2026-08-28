@@ -29,6 +29,7 @@ import {
 } from "./demo-structure";
 import { useEmployeeStore } from "./employees";
 import { useSession } from "./session";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * Teams, in both modes — and demo mode can now edit them.
@@ -106,6 +107,9 @@ export function useTeams(
   const departmentId = params.departmentId;
   const key = `${String(includeArchived)}|${departmentId ?? ""}|${tick}`;
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -132,7 +136,7 @@ export function useTeams(
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, includeArchived, departmentId, key]);
+  }, [isConnected, includeArchived, departmentId, key, revalidation]);
 
   const reload = useCallback(() => setTick((current) => current + 1), []);
 
@@ -202,6 +206,9 @@ export function useTeam(id: string | null): TeamDetailState {
   const active = Boolean(id) && isConnected;
   const key = `${id ?? ""}|${tick}`;
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!active || !id) return;
     let cancelled = false;
@@ -225,7 +232,7 @@ export function useTeam(id: string | null): TeamDetailState {
       cancelled = true;
       controller.abort();
     };
-  }, [active, id, key]);
+  }, [active, id, key, revalidation]);
 
   const reload = useCallback(() => setTick((current) => current + 1), []);
 

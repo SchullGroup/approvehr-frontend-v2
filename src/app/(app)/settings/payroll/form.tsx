@@ -22,6 +22,7 @@ import {
   Switch,
   useToast,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
 import { naira, wasDeducted, type StatutoryOperation } from "@/lib/api/payroll";
 import { usePermissions } from "@/lib/permissions";
@@ -474,9 +475,7 @@ export function PayrollSettingsForm() {
           panelClassName="flex flex-col gap-5 p-5"
         >
           {settingsError ? (
-            <Callout tone="danger" title="Could not read what you deduct">
-              {settingsError.message}
-            </Callout>
+            <LoadFailure subject="what you deduct" error={settingsError} />
           ) : (
             <>
               {!available && (
@@ -1082,7 +1081,7 @@ function PreviewRow({
       <span
         className={
           strong
-            ? "tabular text-body font-semibold text-ink"
+            ? "tabular font-semibold text-ink"
             : "tabular text-body-sm text-body"
         }
       >

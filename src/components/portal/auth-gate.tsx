@@ -16,9 +16,12 @@ import {
   Spinner,
 } from "@/components/ui";
 import { Logo } from "@/components/brand/logo";
+import { PasswordField } from "@/components/portal/password-field";
 import { RoleBadge } from "./role-badge";
 import { ApiError } from "@/lib/api/client";
-import { signInOptions, useApiReachable, useSession } from "@/lib/store/session";
+import { TwoFactorStep } from "./two-factor-step";
+import {
+  type TwoFactorChallengeState, signInOptions, useApiReachable, useSession } from "@/lib/store/session";
 import { fullName } from "@/lib/types";
 
 /**
@@ -62,19 +65,27 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
 function SignIn() {
   const reachable = useApiReachable();
-  const { signIn, signInOffline } = useSession();
+  const { signIn, completeTwoFactor, signInOffline } = useSession();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
+  /** Set when the password was right and a second factor is due. */
+  const [challenge, setChallenge] = useState<TwoFactorChallengeState | null>(
+    null,
+  );
 
   async function submit() {
     setBusy(true);
     setError(null);
     try {
-      await signIn(email, password);
+      const outcome = await signIn(email, password);
+      /* A challenge is the next step, not a failure — the screen swaps to a
+         code field. Nothing is signed in until the code is verified, which is
+         why the store returns this rather than opening a half-signed session. */
+      if (outcome.challenge) setChallenge(outcome.challenge);
     } catch (caught) {
       setError(
         caught instanceof ApiError
@@ -84,6 +95,19 @@ function SignIn() {
     } finally {
       setBusy(false);
     }
+  }
+
+  /* The password step is over. Rendering the form underneath as well would let
+     somebody re-submit a password while a challenge is open, which mints a
+     second challenge and quietly kills the code they are already typing. */
+  if (challenge) {
+    return (
+      <TwoFactorStep
+        challenge={challenge}
+        onCancel={() => setChallenge(null)}
+        onVerify={completeTwoFactor}
+      />
+    );
   }
 
   return (
@@ -120,7 +144,7 @@ function SignIn() {
 
         {reachable === true && (
           <>
-            <p className="mt-2 text-body leading-relaxed text-body">
+            <p className="mt-2 text-body leading-relaxed">
               Sign in with your work email. Your role decides what you can see
               and do.
             </p>
@@ -155,26 +179,17 @@ function SignIn() {
                   }}
                 />
               </Field>
-              <Field
+              <PasswordField
                 label="Password"
-                required
+                autoComplete="current-password"
+                showRules={false}
+                value={password}
+                onChange={setPassword}
                 error={error?.messageFor("password")}
-              >
-                <Input
-                  type="password"
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setPassword(v);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && email && password && !busy) {
-                      void submit();
-                    }
-                  }}
-                />
-              </Field>
+                onEnter={() => {
+                  if (email && password && !busy) void submit();
+                }}
+              />
 
               <Button
                 variant="accent"
@@ -216,7 +231,7 @@ function SignIn() {
 
         {reachable === false && DEMO_ENABLED && (
           <>
-            <p className="mt-2 text-body leading-relaxed text-body">
+            <p className="mt-2 text-body leading-relaxed">
               The API is not running, so this is the demo. Choose whose account
               to open — every screen then behaves as that person.
             </p>
@@ -335,7 +350,7 @@ function ConnectionBadge({ reachable }: { reachable: boolean | null }) {
 function Unreachable() {
   return (
     <>
-      <p className="mt-2 text-body leading-relaxed text-body">
+      <p className="mt-2 text-body leading-relaxed">
         Signing in needs the ApproveHR service, and it is not answering right
         now. Nothing you have entered has been lost, and nothing has been signed
         in.

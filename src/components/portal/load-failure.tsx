@@ -1,6 +1,7 @@
 "use client";
 
-import { Callout } from "@/components/ui";
+import { RotateCw } from "lucide-react";
+import { Button, Callout } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 
 /**
@@ -68,6 +69,17 @@ function apiSentenceIsBetter(error: ApiError): boolean {
   return false;
 }
 
+/**
+ * The sentence `LoadFailure` would show, for the few places that need a string.
+ *
+ * A description prop, mostly. Exported rather than copied so a screen that
+ * cannot render the component still says the same thing the component would —
+ * the whole point of having one place that turns a failure into words.
+ */
+export function failureMessage(error: unknown, subject: string): string {
+  return adviceFor(error, subject);
+}
+
 function adviceFor(error: unknown, subject: string): string {
   if (!(error instanceof ApiError)) {
     return (
@@ -105,6 +117,33 @@ function adviceFor(error: unknown, subject: string): string {
 const capitalise = (text: string): string =>
   text.charAt(0).toUpperCase() + text.slice(1);
 
+/**
+ * Whether pressing "Try again" could plausibly change the answer.
+ *
+ * The advice above tells somebody to try again for five of these classes and,
+ * until now, gave them nothing to try with — a sentence naming an action the
+ * screen does not offer, which is the shape of dead end this component was
+ * created to remove. It was the last one left, and the widest: forty screens
+ * render this.
+ *
+ * The list is short on purpose. A 403 will refuse identically for as long as
+ * the permission is missing, a 404 will stay missing, and a 409 or a 422 is a
+ * refusal about the request rather than a failure of it — offering a retry on
+ * any of those teaches people to press a button that cannot work, which is the
+ * same defect one step along. Retrying an ended session is worse than useless:
+ * the honest action there is signing in, which the advice already says.
+ *
+ * So: no connection, a timeout, a rate limit, and anything 5xx. Those are the
+ * four where the request was sound and the moment was wrong.
+ */
+function retryCouldHelp(error: unknown): boolean {
+  if (!(error instanceof ApiError)) return true;
+  if (error.status === 0) return true;
+  if (error.status === 408 || error.status === 504) return true;
+  if (error.status === 429) return true;
+  return error.status >= 500;
+}
+
 export function LoadFailure({
   /**
    * What did not arrive, as a noun phrase that fits mid-sentence and starts
@@ -114,11 +153,22 @@ export function LoadFailure({
    */
   subject,
   error,
+  /**
+   * Load the thing again. Usually the store's own `reload`.
+   *
+   * Optional because a few call sites genuinely have nothing to re-run — a
+   * value handed down as a prop, or a read whose hook exposes no reload. Where
+   * one exists it should be passed: the advice already tells somebody to try
+   * again, and a button is the difference between that being an instruction and
+   * being a dead end.
+   */
+  onRetry,
   /** Extra guidance the screen itself knows, shown under the advice. */
   children,
 }: {
   subject: string;
   error: unknown;
+  onRetry?: (() => void) | undefined;
   children?: React.ReactNode;
 }) {
   if (!error) return null;
@@ -126,6 +176,17 @@ export function LoadFailure({
     <Callout tone="danger" title={`${capitalise(subject)} did not load`}>
       <p>{adviceFor(error, subject)}</p>
       {children ? <div className="mt-2">{children}</div> : null}
+      {onRetry && retryCouldHelp(error) && (
+        <Button
+          variant="secondary"
+          size="sm"
+          className="mt-3"
+          onClick={onRetry}
+        >
+          <RotateCw aria-hidden="true" className="size-3.5" />
+          Try again
+        </Button>
+      )}
     </Callout>
   );
 }

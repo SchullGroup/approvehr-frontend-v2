@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { ApiError } from "@/lib/api/client";
 import {
+  type StepUpAction,
   FEATURE_KEYS,
   RECORD_FIELD_KEYS,
   setup,
@@ -16,6 +17,7 @@ import {
 } from "@/lib/api/setup";
 import { EMPLOYEES } from "@/lib/mock/people";
 import { useSession } from "./session";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * Which parts of the product this company sees.
@@ -59,6 +61,15 @@ type Source = "loading" | "api" | "demo";
 
 type State = {
   flags: FeatureFlags;
+  /**
+   * Which acts need a second factor.
+   *
+   * Not on `FeatureFlags`, which is booleans by construction and is what the
+   * nav filters on. This is a list, it gates no screen, and folding it in would
+   * mean every `Record<FeatureKey, boolean>` in this file stopped typechecking
+   * for a value none of them can use.
+   */
+  stepUpActions: StepUpAction[];
   headcountBand: HeadcountBand;
   setupStep: number;
   totalSteps: number;
@@ -66,7 +77,18 @@ type State = {
   setupRequired: boolean;
   loading: boolean;
   /** A message ready to show. `null` when the last load worked. */
-  error: string | null;
+  /**
+   * The failure itself, not its sentence.
+   *
+   * This used to be `string | null` — `error.message` pulled off an `ApiError`
+   * and the class thrown away. `LoadFailure` chooses its advice from the class,
+   * so every screen reading this fell to the general branch: no "sign in
+   * again" for a 401, no "wait a moment" for a 429, and no Try again button,
+   * since offering one depends on knowing the failure could pass. Keeping the
+   * caught value costs nothing and lets the one component that renders it do
+   * its job.
+   */
+  error: unknown;
   source: Source;
   /**
    * What the **demo** company deducts, from the two payroll setup questions.
@@ -116,6 +138,7 @@ const BASE_FLAGS: FeatureFlags = {
   /* Off, like every module. A company with one manager per person must never be
      shown a weighting table it did not ask for. */
   multiAppraiser: false,
+  twoFactor: false,
 };
 
 const TOTAL_STEPS_FALLBACK = 5;
@@ -129,6 +152,10 @@ const LOADING: State = {
   /* Not "true" until something says so. A nav that renders during a load must
      not decide the customer needs setting up. */
   setupRequired: false,
+  /* Empty until the server says otherwise. An absent list is not "no acts are
+     protected" — it is "we have not been told yet" — but the two render the
+     same and nothing is gated on it, so an empty default is safe here. */
+  stepUpActions: [],
   loading: true,
   error: null,
   source: "loading",
@@ -202,6 +229,13 @@ export const FEATURE_COPY: Record<
   multiAppraiser: {
     label: "More than one appraiser per person",
     line: "For people judged by a project lead or another department's manager as well as their own. Each appraiser gets a share of the mark.",
+  },
+  /* Named for what it does rather than what it is called. "Two-factor
+     authentication" is a phrase people have learnt to skip past; "a code from
+     your email" is the thing that will actually happen to them. */
+  twoFactor: {
+    label: "Ask for a code from email",
+    line: "People who have set it up are asked for a six-digit code when they sign in. You choose separately which actions also need one.",
   },
 };
 
@@ -544,8 +578,10 @@ function fromApi(features: ApiFeatures): State {
   return {
     /* The payroll settings row is the authority connected — see the field. */
     deductions: null,
+    stepUpActions: features.stepUpActions,
     flags: {
       departments: features.departments,
+      twoFactor: features.twoFactor,
       grades: features.grades,
       shifts: features.shifts,
       loans: features.loans,
@@ -573,6 +609,10 @@ function fromDemo(demo: DemoState): State {
   return {
     deductions: demo.deductions,
     flags: demo.flags,
+    /* Demo mode never asks for a code: there is no real account to protect and
+       no email to send one to. Empty rather than absent, because nothing here
+       is waiting on a server. */
+    stepUpActions: [],
     headcountBand: demo.headcountBand,
     setupStep: demo.setupStep,
     totalSteps: DEMO_QUESTIONS.length,
@@ -610,10 +650,7 @@ async function ensure(key: string, force = false): Promise<void> {
       set({
         ...cache,
         loading: false,
-        error:
-          error instanceof ApiError
-            ? error.message
-            : "Could not read which features are on.",
+        error,
       });
     } finally {
       inflight = null;
@@ -636,12 +673,15 @@ function useLoadedState(): State {
 
   const key = isConnected ? `api:${user?.organizationId ?? "self"}` : "demo";
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     /* Nothing to load until the session knows whether it is signed in — loading
        demo first and API second would flash a different nav. */
     if (isLoading) return;
     void ensure(key);
-  }, [key, isLoading]);
+  }, [key, isLoading, revalidation]);
 
   return state;
 }
@@ -665,7 +705,18 @@ export function useFeatures(): FeatureFlags & {
   totalSteps: number;
   setupCompletedAt: string | null;
   loading: boolean;
-  error: string | null;
+  /**
+   * The failure itself, not its sentence.
+   *
+   * This used to be `string | null` — `error.message` pulled off an `ApiError`
+   * and the class thrown away. `LoadFailure` chooses its advice from the class,
+   * so every screen reading this fell to the general branch: no "sign in
+   * again" for a 401, no "wait a moment" for a 429, and no Try again button,
+   * since offering one depends on knowing the failure could pass. Keeping the
+   * caught value costs nothing and lets the one component that renders it do
+   * its job.
+   */
+  error: unknown;
   /** `"api"` or `"demo"` once loaded. Screens that say which mode they are in. */
   source: Source;
   reload: () => void;
@@ -721,6 +772,7 @@ export function useFeatureSettings() {
         commit(features);
         return {
           departments: features.departments,
+          twoFactor: features.twoFactor,
           grades: features.grades,
           shifts: features.shifts,
           loans: features.loans,
@@ -763,6 +815,20 @@ export function useFeatureSettings() {
       (headcountBand: HeadcountBand) => save({ headcountBand }, "headcountBand"),
       [save],
     ),
+    /**
+     * Which acts need a code. **The whole set, not a patch.**
+     *
+     * The API takes the list as "these and only these", because a removal
+     * cannot be expressed as a partial one — same reasoning as the appraiser
+     * weights, where the set is the fact and half a set is not a smaller fact.
+     * So the caller sends the array it wants to end up with.
+     */
+    setStepUpActions: useCallback(
+      (stepUpActions: StepUpAction[]) =>
+        save({ stepUpActions }, "twoFactor"),
+      [save],
+    ),
+    stepUpActions: state.stepUpActions,
   };
 }
 
@@ -782,7 +848,18 @@ type WizardState = {
    */
   deductions: PayrollDeductions | null;
   loading: boolean;
-  error: string | null;
+  /**
+   * The failure itself, not its sentence.
+   *
+   * This used to be `string | null` — `error.message` pulled off an `ApiError`
+   * and the class thrown away. `LoadFailure` chooses its advice from the class,
+   * so every screen reading this fell to the general branch: no "sign in
+   * again" for a 401, no "wait a moment" for a 429, and no Try again button,
+   * since offering one depends on knowing the failure could pass. Keeping the
+   * caught value costs nothing and lets the one component that renders it do
+   * its job.
+   */
+  error: unknown;
 };
 
 /**
@@ -817,6 +894,9 @@ export function useWizard() {
     error: null,
   });
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (isLoading) return;
     let cancelled = false;
@@ -851,10 +931,7 @@ export function useWizard() {
         setState((current) => ({
           ...current,
           loading: false,
-          error:
-            error instanceof ApiError
-              ? error.message
-              : "The questions did not load. Try again in a moment.",
+          error,
         }));
       }
     })();
@@ -862,7 +939,7 @@ export function useWizard() {
     return () => {
       cancelled = true;
     };
-  }, [isConnected, isLoading, attempt]);
+  }, [isConnected, isLoading, attempt, revalidation]);
 
   const answer = useCallback(
     async (questionId: string, value: string): Promise<void> => {
