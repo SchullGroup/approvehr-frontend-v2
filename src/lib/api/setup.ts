@@ -243,6 +243,8 @@ export type ApiSetupChecklist = {
   /** Null until the five setup questions have been finished. */
   setupCompletedAt: string | null;
   company: {
+    /** Whether a logo has been uploaded. See the note on the API's own copy. */
+    logo: boolean;
     rcNumber: boolean;
     tin: boolean;
     addressLine: boolean;

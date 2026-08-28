@@ -11,7 +11,7 @@ import { CommandPalette } from "./command-palette";
 import { GuidedTour, openTour } from "./tour/guided-tour";
 import { NAV, visibleNav, type BadgeSource, type NavGroup } from "./nav";
 import { SessionRoleBadge } from "./role-badge";
-import { usePermissions } from "@/lib/permissions";
+import { hasAnyPermission, useIsManager, usePermissions } from "@/lib/permissions";
 import { useFeatures } from "@/lib/store/features";
 import { useUnreadCount } from "@/lib/store/notifications";
 import { useApprovalStore } from "@/lib/store/approvals";
@@ -21,6 +21,7 @@ import { useEmployeeStore } from "@/lib/store/employees";
 import { rosterFor } from "@/lib/workflows/attendance";
 import { TODAY } from "@/lib/today";
 import { buildApprovalQueue } from "@/lib/workflows/queue";
+import { APPROVE_PERMISSIONS } from "@/app/(app)/approvals/inbox";
 import { useSession } from "@/lib/store/session";
 import { VerificationBanner } from "./verification-banner";
 
@@ -220,6 +221,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
  * Counts the sidebar shows. Read from the same stores the screens read, so the
  * badge and the page can never disagree — which they did while the numbers were
  * literals in nav.tsx.
+ *
+ * That guarantee covered the data and missed the audience: `buildApprovalQueue`
+ * is the company's whole pending queue, unscoped, and the badge showed its
+ * length to everybody — a plain employee's own "My approvals" read 6 while the
+ * page itself, correctly, told them approving is not part of their role. Same
+ * `canApprove` question `approvals/inbox.tsx` already answers before it renders
+ * anything, asked here before the count is even computed.
  */
 function useNavBadges(): Record<BadgeSource, number> {
   const leave = useLeaveStore();
@@ -227,13 +235,18 @@ function useNavBadges(): Record<BadgeSource, number> {
   const attendance = useAttendanceStore();
   const { directory } = useEmployeeStore();
   const unread = useUnreadCount();
+  const isManager = useIsManager();
+  const { permissions } = usePermissions();
+  const canApprove = isManager || hasAnyPermission(permissions, APPROVE_PERMISSIONS);
 
   return {
     unreadNotifications: unread,
-    approvals: buildApprovalQueue({
-      leaveRequests: leave.requests,
-      decisions: approvals.decisions,
-    }).length,
+    approvals: canApprove
+      ? buildApprovalQueue({
+          leaveRequests: leave.requests,
+          decisions: approvals.decisions,
+        }).length
+      : 0,
     pendingLeave: leave.pending.length,
     notClockedIn: rosterFor({
       date: TODAY,
