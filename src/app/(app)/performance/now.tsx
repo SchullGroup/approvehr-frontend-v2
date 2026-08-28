@@ -869,10 +869,20 @@ function ReviewRow({
           {actionLabel}
         </Button>
         {/* Everything a rating has to be able to explain — the components behind
-            it, who else appraised, the acknowledgement — is on the record. */}
-        <ButtonLink size="sm" href={`/performance/reviews/${review.id}`}>
-          The record
-        </ButtonLink>
+            it, who else appraised, the acknowledgement — is on the record.
+
+            None of which exists before the form is sent. Offered unconditionally,
+            this took somebody from a form they had not started to a page reading
+            "Overall mark: None given", "Rating of record: Not yet", "What went
+            wrong this period: Not answered" — a record of nothing, which reads
+            as a product that has lost the answers rather than one waiting for
+            them. There is exactly one thing to do with an unsent form and it is
+            the button to the left. */}
+        {review.submitted && (
+          <ButtonLink size="sm" href={`/performance/reviews/${review.id}`}>
+            The record
+          </ButtonLink>
+        )}
       </div>
     </div>
   );
