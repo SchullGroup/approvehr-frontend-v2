@@ -150,7 +150,7 @@ export function GradesPanel() {
       )}
 
       {grades.error && (
-        <LoadFailure subject="the salary bands" error={grades.error} />
+        <LoadFailure subject="the salary bands" error={grades.error}  onRetry={grades.reload}/>
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

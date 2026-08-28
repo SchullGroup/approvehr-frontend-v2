@@ -331,7 +331,7 @@ export function KnowledgeScreen() {
               <LoadFailure
                 subject="the knowledge base"
                 error={articles.error}
-              />
+               onRetry={articles.reload}/>
             </CardBody>
           )}
 

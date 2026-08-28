@@ -174,7 +174,7 @@ export function NotificationsInbox() {
 
       <PageBody className="flex flex-col gap-5">
         {notifications.error && (
-          <LoadFailure subject="your notifications" error={notifications.error} />
+          <LoadFailure subject="your notifications" error={notifications.error}  onRetry={notifications.reload}/>
         )}
 
         <div className="flex flex-wrap items-center justify-between gap-3">

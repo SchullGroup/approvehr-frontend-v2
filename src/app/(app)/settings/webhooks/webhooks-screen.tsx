@@ -173,9 +173,9 @@ function Endpoints() {
           </Callout>
         )}
 
-        {list.error && (
-          <LoadFailure subject="your endpoints" error={list.error} />
-        )}
+        {/* No `&&` guard: the component renders nothing without an error, and
+            an `unknown &&` expression is not a valid React child. */}
+        <LoadFailure subject="your endpoints" error={list.error} onRetry={list.reload} />
 
         <div className="flex flex-wrap items-center gap-3">
           <SegmentedControl

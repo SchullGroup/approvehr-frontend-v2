@@ -205,7 +205,7 @@ export function FeaturesScreen() {
             so there is no `ApiError` left to classify and this renders the
             general advice. Widening that state to `ApiError | null` is what
             would let the API's own 403 sentence through. */}
-        <LoadFailure subject="your feature settings" error={features.error} />
+        <LoadFailure subject="your feature settings" error={features.error}/>
 
         {!features.editable && (
           <Callout tone="info" title="You cannot change these">

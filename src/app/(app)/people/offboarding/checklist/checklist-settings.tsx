@@ -130,7 +130,7 @@ export function ChecklistSettingsScreen() {
 
       <PageBody className="flex flex-col gap-6">
         {templates.error && (
-          <LoadFailure subject="the checklist" error={templates.error} />
+          <LoadFailure subject="the checklist" error={templates.error}  onRetry={templates.reload}/>
         )}
 
         <Callout tone="info" title="These apply to the next exit, not to one already running">

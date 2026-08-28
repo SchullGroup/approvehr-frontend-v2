@@ -160,7 +160,7 @@ export function LocationsScreen() {
       />
 
       <PageBody className="flex flex-col gap-6">
-        <LoadFailure subject="your work locations" error={list.error} />
+        <LoadFailure subject="your work locations" error={list.error}  onRetry={list.reload}/>
 
         {/* The one honest gap in demo mode, stated rather than left to be
             discovered by wondering why a fence let somebody in. */}

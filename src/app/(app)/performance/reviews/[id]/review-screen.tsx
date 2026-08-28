@@ -579,8 +579,8 @@ function ScorePanel({
         title="What the mark is made of"
         description={
           score.weightsFrom === "snapshot"
-            ? "The weights frozen onto this period when it started. A later change to the company's weights does not move this mark."
-            : "The company's current weights. This period started before weights were frozen onto a period, so a change to them would move this mark."
+            ? "Scored on the weights locked in when this period started. Changing the company's weights later will not move this mark."
+            : "Scored on the company's weights as they stand today. This period never locked in its own copy, so changing the company's weights would recalculate this mark too, even though it has already been given."
         }
       />
       <CardBody className="flex flex-col gap-5">

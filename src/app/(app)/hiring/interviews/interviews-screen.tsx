@@ -142,7 +142,7 @@ function Diary() {
             <LoadFailure
               subject="the screening backlog"
               error={backlog.error}
-            >
+             onRetry={backlog.reload}>
               <Button variant="secondary" size="sm" onClick={backlog.reload}>
                 Try again
               </Button>

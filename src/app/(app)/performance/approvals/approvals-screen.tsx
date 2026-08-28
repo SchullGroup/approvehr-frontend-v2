@@ -157,7 +157,7 @@ export function ApprovalsScreen() {
           <LoadFailure
             subject="the objectives waiting on you"
             error={approvals.error}
-          />
+           onRetry={approvals.reload}/>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Stat

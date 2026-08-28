@@ -401,7 +401,18 @@ export function useWebhookCatalogue() {
   const { isConnected, isLoading } = useSession();
   const [loaded, setLoaded] = useState<{
     catalogue: CatalogueView | null;
-    error: string | null;
+    /**
+   * The failure itself, not its sentence.
+   *
+   * This used to be `string | null` — `error.message` pulled off an `ApiError`
+   * and the class thrown away. `LoadFailure` chooses its advice from the class,
+   * so every screen reading this fell to the general branch: no "sign in
+   * again" for a 401, no "wait a moment" for a 429, and no Try again button,
+   * since offering one depends on knowing the failure could pass. Keeping the
+   * caught value costs nothing and lets the one component that renders it do
+   * its job.
+   */
+  error: unknown;
   } | null>(null);
 
   /* Re-ask when somebody comes back to the window. Not in the key below,
@@ -421,10 +432,7 @@ export function useWebhookCatalogue() {
         if (cancelled) return;
         setLoaded({
           catalogue: null,
-          error:
-            error instanceof ApiError
-              ? error.message
-              : "The event list did not load. Try again in a moment.",
+          error,
         });
       }
     })();
@@ -469,7 +477,18 @@ export function useWebhooks(options: WebhookListOptions = {}) {
     rows: ApiWebhook[];
     total: number;
     hasMore: boolean;
-    error: string | null;
+    /**
+   * The failure itself, not its sentence.
+   *
+   * This used to be `string | null` — `error.message` pulled off an `ApiError`
+   * and the class thrown away. `LoadFailure` chooses its advice from the class,
+   * so every screen reading this fell to the general branch: no "sign in
+   * again" for a 401, no "wait a moment" for a 429, and no Try again button,
+   * since offering one depends on knowing the failure could pass. Keeping the
+   * caught value costs nothing and lets the one component that renders it do
+   * its job.
+   */
+  error: unknown;
   } | null>(null);
 
   /* The request this result answers. Comparing it during render is what makes
@@ -507,10 +526,7 @@ export function useWebhooks(options: WebhookListOptions = {}) {
           rows: [],
           total: 0,
           hasMore: false,
-          error:
-            error instanceof ApiError
-              ? error.message
-              : "Your endpoints did not load. Try again in a moment.",
+          error,
         });
       }
     })();
@@ -561,7 +577,18 @@ export function useWebhook(id: string) {
   const [loaded, setLoaded] = useState<{
     key: string;
     detail: ApiWebhookDetail | null;
-    error: string | null;
+    /**
+   * The failure itself, not its sentence.
+   *
+   * This used to be `string | null` — `error.message` pulled off an `ApiError`
+   * and the class thrown away. `LoadFailure` chooses its advice from the class,
+   * so every screen reading this fell to the general branch: no "sign in
+   * again" for a 401, no "wait a moment" for a 429, and no Try again button,
+   * since offering one depends on knowing the failure could pass. Keeping the
+   * caught value costs nothing and lets the one component that renders it do
+   * its job.
+   */
+  error: unknown;
   } | null>(null);
 
   const key = `${id}|${nonce}`;
@@ -583,10 +610,7 @@ export function useWebhook(id: string) {
         setLoaded({
           key,
           detail: null,
-          error:
-            error instanceof ApiError
-              ? error.message
-              : "This endpoint did not load. Try again in a moment.",
+          error,
         });
       }
     })();
@@ -652,7 +676,18 @@ export function useDeliveryLog(webhookId: string, options: DeliveryLogOptions = 
     rows: ApiDelivery[];
     total: number;
     hasMore: boolean;
-    error: string | null;
+    /**
+   * The failure itself, not its sentence.
+   *
+   * This used to be `string | null` — `error.message` pulled off an `ApiError`
+   * and the class thrown away. `LoadFailure` chooses its advice from the class,
+   * so every screen reading this fell to the general branch: no "sign in
+   * again" for a 401, no "wait a moment" for a 429, and no Try again button,
+   * since offering one depends on knowing the failure could pass. Keeping the
+   * caught value costs nothing and lets the one component that renders it do
+   * its job.
+   */
+  error: unknown;
   } | null>(null);
 
   const key = `${webhookId}|${status}|${event}|${page}|${nonce}`;
@@ -688,10 +723,7 @@ export function useDeliveryLog(webhookId: string, options: DeliveryLogOptions = 
           rows: [],
           total: 0,
           hasMore: false,
-          error:
-            error instanceof ApiError
-              ? error.message
-              : "The delivery log did not load. Try again in a moment.",
+          error,
         });
       }
     })();

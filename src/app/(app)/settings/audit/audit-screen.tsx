@@ -229,7 +229,7 @@ function Trail({ initialEntityType = "", initialEntityId = "" }: ScreenProps) {
 
       <PageBody className="flex flex-col gap-5">
         {trail.error && (
-          <LoadFailure subject="the audit log" error={trail.error} />
+          <LoadFailure subject="the audit log" error={trail.error}  onRetry={trail.reload}/>
         )}
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

@@ -120,7 +120,7 @@ export function KbScreen() {
 
             {articles.error && (
               <CardBody>
-                <LoadFailure subject="these articles" error={articles.error} />
+                <LoadFailure subject="these articles" error={articles.error}  onRetry={articles.reload}/>
               </CardBody>
             )}
 

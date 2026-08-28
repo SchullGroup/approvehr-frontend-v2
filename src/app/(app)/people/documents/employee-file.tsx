@@ -106,7 +106,7 @@ export function EmployeeFileDrawer({
             <LoadFailure
               subject="this person's document file"
               error={file.error}
-            />
+             onRetry={file.reload}/>
           </div>
         ) : (
           <div className="flex flex-col gap-6">

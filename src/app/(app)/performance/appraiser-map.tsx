@@ -258,7 +258,7 @@ export function AppraiserMapTab() {
         </div>
       </div>
 
-      <LoadFailure subject="the appraiser mapping" error={error} />
+      <LoadFailure subject="the appraiser mapping" error={error}  onRetry={reload}/>
 
       {map && (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

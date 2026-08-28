@@ -184,7 +184,7 @@ export function PaymentsScreen() {
 
       <PageBody className="flex flex-col gap-6">
         {list.error && (
-          <LoadFailure subject="the payment batches" error={list.error} />
+          <LoadFailure subject="the payment batches" error={list.error}  onRetry={list.reload}/>
         )}
 
         {summary.summary && !primary && (

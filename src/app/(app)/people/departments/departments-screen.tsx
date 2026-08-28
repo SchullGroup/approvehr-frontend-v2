@@ -230,7 +230,7 @@ export function DepartmentsScreen() {
         )}
 
         {departments.error && (
-          <LoadFailure subject="the company structure" error={departments.error} />
+          <LoadFailure subject="the company structure" error={departments.error}  onRetry={departments.reload}/>
         )}
 
         <Tabs

@@ -184,7 +184,7 @@ export function HolidaysPanel({ defaultYear }: { defaultYear: number }) {
           <LoadFailure
             subject={`the ${year} holiday calendar`}
             error={calendar.error}
-          />
+           onRetry={calendar.reload}/>
 
           {/* Demo mode has one honest gap the connected product does not, and it
               is exactly the kind of thing somebody would otherwise discover by

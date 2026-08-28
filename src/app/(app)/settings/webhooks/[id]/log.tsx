@@ -157,7 +157,7 @@ export function DeliveryLog({
             it, so there is no `ApiError` left to classify and this renders the
             general advice. Widening that state to `ApiError | null` is what
             would let the API's own sentence through. */}
-        <LoadFailure subject="the delivery log" error={log.error} />
+        <LoadFailure subject="the delivery log" error={log.error}  onRetry={log.reload}/>
 
         {log.loading ? (
           <Skeleton className="h-40 w-full" />
