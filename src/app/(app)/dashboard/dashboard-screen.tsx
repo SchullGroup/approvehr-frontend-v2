@@ -28,6 +28,7 @@ import { StartPeriodButton } from "@/app/(app)/performance";
 import { naira, runStatusLabel, type DashboardData } from "@/lib/api/insights";
 import { useCan } from "@/lib/permissions";
 import type { ApiBoard } from "@/lib/api/announcements";
+import { QuickActions } from "./quick-actions";
 
 /**
  * The screen people open first.
@@ -418,6 +419,12 @@ function CompanyOverview({
             </CardBody>
           </Card>
         )}
+
+        {/* What to *start*, above what to read. `QuickActions` gates itself on
+            permissions and features, so it renders nothing for somebody who can
+            act on none of it — which is why it is safe here and absent from
+            `EmployeeOverview`, whose reader holds neither permission. */}
+        <QuickActions />
 
         {/* ---- The noticeboard. Renders nothing when nothing is up ------- */}
         <AnnouncementsPanel board={announcements} />
