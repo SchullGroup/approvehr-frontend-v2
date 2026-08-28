@@ -148,6 +148,30 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
   const [noAppraiser, setNoAppraiser] = useState<string[] | null>(null);
   const [noObjectives, setNoObjectives] = useState<string[] | null>(null);
 
+  /**
+   * The last exceptions map that actually loaded, kept across a background
+   * `detail.reload()`.
+   *
+   * `useCycleRegister` nulls its data the instant `reload()` is called and only
+   * repopulates it once the refetch resolves — a "flash blank, then pop back"
+   * shape that is harmless for the stat grid below, but not for
+   * `NobodyAppraising`: assigning one person inside its "N people have no
+   * appraiser" list calls this same `reload()` to pick up the change, which
+   * would otherwise unmount that list (wiping which group it had open) on
+   * every single save. Twenty-seven people meant twenty-seven trips back
+   * through "Review and fix" for one click each. This is fed to it instead of
+   * `detail.exceptions` directly, so it keeps rendering the same list, now
+   * one person shorter, straight through the reload. */
+  const [stableExceptions, setStableExceptions] =
+    useState<ApiAppraiserMap | null>(null);
+  /* Adjusted during render, not an effect — the "you might not need an
+     effect" pattern for remembering the latest non-null value of a prop.
+     An effect would apply this a frame late, which is exactly the flash this
+     exists to avoid. */
+  if (detail.exceptions && detail.exceptions !== stableExceptions) {
+    setStableExceptions(detail.exceptions);
+  }
+
   const period = detail.cycle;
   const outstanding = outstandingIn(detail.participants);
   const draft = period?.stage === "DRAFT";
@@ -557,13 +581,20 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
             </Card>
           )}
 
+          {/* Fed the stable snapshot, not `detail.exceptions` — see its own
+              comment above. Gated on the snapshot rather than on
+              `detail.available && !detail.loading` so this survives the very
+              reload its own "Assign" button triggers. */}
+          {stableExceptions && (
+            <NobodyAppraising
+              cycleId={cycleId}
+              exceptions={stableExceptions}
+              onFixed={() => detail.reload()}
+            />
+          )}
+
           {detail.available && !detail.loading && (
             <>
-              <NobodyAppraising
-                cycleId={cycleId}
-                exceptions={detail.exceptions}
-                onFixed={() => detail.reload()}
-              />
               <Outstanding
                 rows={outstanding}
                 participants={detail.participants}
@@ -820,7 +851,16 @@ function NobodyAppraising({
           onClose={() => setAssigning(null)}
           onSaved={() => {
             setAssigning(null);
-            setReviewing(null);
+            /* `reviewing` stays open on purpose. This dialog is most often
+               reached from inside the "N people have no appraiser yet" list,
+               and closing that list after every single save turned a
+               twenty-seven-person backlog into twenty-seven trips back
+               through "Review and fix". `onFixed` reloads the period, which
+               reloads `exceptions`, which the modal's own `people` list is
+               filtered from below — the person just assigned drops out of it
+               on its own. The list closes itself once nothing is left in it
+               (the `rows.length === 0` branch above returns before reaching
+               this JSX at all), or whenever the reader clicks "Done". */
             onFixed();
           }}
         />
