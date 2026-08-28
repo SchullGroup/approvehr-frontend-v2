@@ -83,10 +83,7 @@ export function PeriodsTab() {
       )}
 
       <Card>
-        <CardHeader
-          title="Open and not yet started"
-          description="Everybody in the company gets one form inside it."
-        />
+        <CardHeader title="Open and not yet started" />
         {appraisals.loading ? (
           <CardBody className="flex items-center gap-2 text-body-sm text-muted">
             <Spinner size="sm" />
