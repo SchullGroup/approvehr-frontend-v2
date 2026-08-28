@@ -247,10 +247,7 @@ export function RolesScreen({
         ))}
 
         <Card>
-          <CardHeader
-            title="Roles"
-            description="Open one to change what it can do, or who is in it."
-          />
+          <CardHeader title="Roles" />
           {roles.roles.length === 0 ? (
             <EmptyState
               icon={<ShieldCheck aria-hidden="true" />}
@@ -736,7 +733,7 @@ function PreviewCard({
     <Card>
       <CardHeader
         title="See it as somebody else"
-        description="Renders the whole app with only that role's permissions. Demo only."
+        description="Demo only."
         level={3}
       />
       <CardBody className="flex flex-col gap-3">

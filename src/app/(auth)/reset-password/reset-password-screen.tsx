@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { ApiError } from "@/lib/api/client";
 import { Button, ButtonLink, Callout } from "@/components/ui";
 import { account, passwordAccepted } from "@/lib/api/account";
-import { PasswordField } from "../password-field";
+import { PasswordField } from "@/components/portal/password-field";
 
 /**
  * Setting a new password from the emailed link.
@@ -34,9 +34,33 @@ export function ResetPasswordScreen({ token }: { token: string | null }) {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<{ sessionsRevoked: number } | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
+  /* Lenient until the preview answers. A dead token never gets past the length
+     check below to make this matter, and defaulting the other way — strict
+     until proven otherwise — would show four rules to somebody whose account
+     has never needed them, for the second it takes this to resolve. */
+  const [strict, setStrict] = useState(false);
+
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    void account
+      .requirementsForReset(token)
+      .then((result) => {
+        if (!cancelled) setStrict(result.requiresStrongPassword);
+      })
+      .catch(() => {
+        /* Leave the lenient default — the real submit below still enforces
+           whatever the account actually needs, so nothing is lost by a
+           preview that could not be reached; only the checklist would be
+           wrong for a few seconds, and it is caught either way. */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
 
   async function submit() {
-    if (!token || !passwordAccepted(password) || busy) return;
+    if (!token || !passwordAccepted(password, strict) || busy) return;
     setBusy(true);
     setError(null);
     try {
@@ -134,11 +158,12 @@ export function ResetPasswordScreen({ token }: { token: string | null }) {
           onChange={setPassword}
           error={error?.messageFor("newPassword")}
           onEnter={() => void submit()}
+          strict={strict}
         />
 
         <Button
           variant="accent"
-          disabled={!passwordAccepted(password) || deadLink !== null}
+          disabled={!passwordAccepted(password, strict) || deadLink !== null}
           loading={busy}
           onClick={() => void submit()}
         >

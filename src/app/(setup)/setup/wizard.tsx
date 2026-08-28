@@ -26,7 +26,8 @@ import { MODULE_FEATURE_KEYS } from "@/lib/api/setup";
 import { NIGERIAN_STATES } from "@/lib/reference/lists";
 import { usePermissions } from "@/lib/permissions";
 import { useOrgTaxState } from "@/lib/store/company";
-import { useWorkLocations } from "@/lib/store/work-locations";
+import { useWorkLocationList, useWorkLocationMutations } from "@/lib/store/work-locations";
+import type { ApiWorkLocation } from "@/lib/api/attendance";
 import { useRoles } from "@/lib/store/permissions";
 import {
   PositionError,
@@ -100,7 +101,11 @@ export function SetupWizard() {
   const wizard = useWizard();
   const features = useFeatures();
   const orgTax = useOrgTaxState();
-  const offices = useWorkLocations();
+  /* Not `useWorkLocations()`: that convenience wrapper exposes a create that
+     reloads itself but no way to reload after an *update*, and this screen
+     needs both — see `confirmOffice` below, which now does either. */
+  const offices = useWorkLocationList(false);
+  const officeMutations = useWorkLocationMutations();
   const toast = useToast();
 
   /**
@@ -174,6 +179,15 @@ export function SetupWizard() {
   const [locating, setLocating] = useState(false);
   const [savingOffice, setSavingOffice] = useState(false);
   const [officeError, setOfficeError] = useState<string | null>(null);
+  /**
+   * Reopening the office form to change what was already saved, rather than
+   * creating a second office — `null` while the form (if open at all) is
+   * making the *first* one. Set only by the "Edit" line under an answered
+   * attendance question, never by the initial "Yes".
+   */
+  const [editingLocationId, setEditingLocationId] = useState<string | null>(
+    null,
+  );
 
   const total = wizard.questions.length;
   /* `step` counts answers and is 1-based, so it is already the index of the
@@ -297,21 +311,40 @@ export function SetupWizard() {
     setSavingOffice(true);
     setOfficeError(null);
     try {
-      await offices.create({
+      /* All three together or none — the API refuses a half-built fence, and
+         `readPosition` gives both coordinates at once. 150m covers a building
+         and its car park, which is the settings screen's own guidance for a
+         first radius. */
+      const fence = officeFix
+        ? {
+            latitude: officeFix.latitude,
+            longitude: officeFix.longitude,
+            radiusMetres: 150,
+          }
+        : {};
+      if (editingLocationId) {
+        /* A correction to what is already on file, not a second office —
+           `null` clears the address rather than a blank string leaving the
+           old one in place, which is what `WorkLocationPatch` means by
+           "absent leaves a field alone; `null` clears it". */
+        await officeMutations.update(editingLocationId, {
+          name: officeName.trim(),
+          addressLine: officeAddress.trim() ? officeAddress.trim() : null,
+          ...fence,
+        });
+        offices.reload();
+        setAwaitingOffice(false);
+        setEditingLocationId(null);
+        /* Correcting an answer already on this question does not move
+           forward — only a fresh "Yes" does that. */
+        return;
+      }
+      await officeMutations.create({
         name: officeName.trim(),
         ...(officeAddress.trim() ? { addressLine: officeAddress.trim() } : {}),
-        /* All three together or none — the API refuses a half-built fence,
-           and `readPosition` gives both coordinates at once. 150m covers a
-           building and its car park, which is the settings screen's own
-           guidance for a first radius. */
-        ...(officeFix
-          ? {
-              latitude: officeFix.latitude,
-              longitude: officeFix.longitude,
-              radiusMetres: 150,
-            }
-          : {}),
+        ...fence,
       });
+      offices.reload();
       setAwaitingOffice(false);
       await advance();
     } catch (error) {
@@ -323,6 +356,32 @@ export function SetupWizard() {
     } finally {
       setSavingOffice(false);
     }
+  };
+
+  /**
+   * Reopen the office form on what is already saved, rather than the blank
+   * "Head office" a fresh answer starts from. Only reachable once an office
+   * exists — see the preview line below, which is the only thing that renders
+   * this button.
+   */
+  const openEditOffice = (office: ApiWorkLocation) => {
+    setOfficeName(office.name);
+    setOfficeAddress(office.addressLine ?? "");
+    setOfficeFix(
+      office.latitude !== null && office.longitude !== null
+        ? {
+            latitude: office.latitude,
+            longitude: office.longitude,
+            /* Not a real reading — the office has no stored accuracy, only a
+               fence. `accuracyMetres` is never sent to the API or shown on
+               screen; it exists purely as `PositionFix`'s third field. */
+            accuracyMetres: 0,
+          }
+        : null,
+    );
+    setOfficeError(null);
+    setEditingLocationId(office.id);
+    setAwaitingOffice(true);
   };
 
   /* ------------------------------------------------------------ loading */
@@ -515,14 +574,44 @@ export function SetupWizard() {
 
       {answered &&
         question.id === "attendance" &&
-        offices.locations.length > 0 &&
+        offices.locations.length === 1 &&
+        !awaitingOffice &&
+        (() => {
+          const office = offices.locations[0]!;
+          return (
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+              <p className="text-body-sm text-body">
+                Clocking in at{" "}
+                <span className="font-medium text-ink">{office.name}</span>
+                {office.addressLine && (
+                  <span className="text-muted"> — {office.addressLine}</span>
+                )}
+                . You can add branches in Settings.
+              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => openEditOffice(office)}
+              >
+                Edit
+              </Button>
+            </div>
+          );
+        })()}
+
+      {/* More than one office already exists — the wizard made one, Settings
+          made the rest. Editing any of them by name here would be guessing
+          which "Head office" somebody means; Settings has the real list. */}
+      {answered &&
+        question.id === "attendance" &&
+        offices.locations.length > 1 &&
         !awaitingOffice && (
           <p className="mt-5 text-body-sm text-body">
             Clocking in at{" "}
             <span className="font-medium text-ink">
               {offices.locations.map((office) => office.name).join(", ")}
             </span>
-            . You can add branches in Settings.
+            . Manage branches in Settings.
           </p>
         )}
 
@@ -565,11 +654,14 @@ export function SetupWizard() {
         <div className="mt-6 flex flex-col gap-4 rounded-lg border border-accent-line bg-accent-soft p-5">
           <div>
             <p className="text-body font-semibold text-ink">
-              Where do people clock in?
+              {editingLocationId
+                ? "Change where people clock in"
+                : "Where do people clock in?"}
             </p>
             <p className="mt-1 text-body-sm leading-relaxed text-body">
-              Staff pick a place when they clock in, so there has to be at least
-              one. You can add branches later.
+              {editingLocationId
+                ? "This updates the office already on file — it does not add a second one."
+                : "Staff pick a place when they clock in, so there has to be at least one. You can add branches later."}
             </p>
           </div>
 
@@ -641,7 +733,7 @@ export function SetupWizard() {
             </p>
           )}
 
-          <div>
+          <div className="flex items-center gap-2">
             <Button
               variant="accent"
               size="sm"
@@ -649,8 +741,22 @@ export function SetupWizard() {
               disabled={!officeName.trim()}
               onClick={() => void confirmOffice()}
             >
-              Continue
+              {editingLocationId ? "Save" : "Continue"}
             </Button>
+            {editingLocationId && (
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={savingOffice}
+                onClick={() => {
+                  setAwaitingOffice(false);
+                  setEditingLocationId(null);
+                  setOfficeError(null);
+                }}
+              >
+                Cancel
+              </Button>
+            )}
           </div>
         </div>
       )}

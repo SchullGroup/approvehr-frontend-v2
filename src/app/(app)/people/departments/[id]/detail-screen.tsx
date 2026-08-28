@@ -156,7 +156,7 @@ export function DepartmentDetailScreen({ id }: { id: string }) {
             level={2}
             description={
               isSub
-                ? "Directly in this sub-department. Click anybody for their record."
+                ? "Directly in this sub-department."
                 : "Directly in this department — not counting anybody in a unit inside it."
             }
           />

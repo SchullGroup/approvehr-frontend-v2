@@ -16,6 +16,20 @@ export const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.trim() || null;
 /** True when there is a real product to send someone into. */
 export const hasLiveApp = APP_URL !== null;
 
+/**
+ * The signed-in product is a different tab, not a page of this site — closing
+ * it should land somebody back on the marketing page they were reading, not
+ * force a click through browser history. Spread onto a `Link`/`Pill`; matches
+ * only the live-app href itself, so an internal route passed through the same
+ * call site (a fallback CTA, `/design-system`) stays ordinary same-tab
+ * navigation.
+ */
+export function newTabIfApp(href: string) {
+  return href === APP_URL
+    ? { target: "_blank" as const, rel: "noopener noreferrer" }
+    : {};
+}
+
 export type Cta = { href: string; label: string };
 
 /**

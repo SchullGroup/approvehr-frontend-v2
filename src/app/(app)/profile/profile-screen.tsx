@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Banknote,
   CalendarClock,
@@ -13,14 +13,11 @@ import {
   UserRound,
 } from "lucide-react";
 import { ApiError } from "@/lib/api/client";
-import { passwordAccepted } from "@/lib/api/account";
-import { PasswordField } from "@/app/(auth)/password-field";
 import {
   Avatar,
   Badge,
   Button,
   ButtonLink,
-  Callout,
   Card,
   CardBody,
   CardHeader,
@@ -39,6 +36,10 @@ import {
 import { cn } from "@/lib/cn";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { SessionRoleBadge } from "@/components/portal/role-badge";
+import { PasswordField } from "@/components/portal/password-field";
+import { passwordAccepted } from "@/lib/api/account";
+import { permissionsApi, type Catalogue } from "@/lib/api/permissions";
+import { requiresStrongPassword, usePermissions } from "@/lib/permissions";
 import { useSession } from "@/lib/store/session";
 import { useEmployee } from "@/lib/store/employees-api";
 import { useEmployeeLeaveBalances } from "@/lib/store/leave-api";
@@ -778,11 +779,37 @@ function SecurityCard({
   apiMode: boolean;
 }) {
   const toast = useToast();
+  const { permissions } = usePermissions();
   const [changing, setChanging] = useState(false);
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [busy, setBusy] = useState<"password" | "sessions" | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
+  /* Static copy, fetched once — same call `role-editor.tsx` already makes for
+     the same `sensitive` flag. `permissions` itself is re-read from the
+     database on every mount of `usePermissions`, not trusted from the access
+     token, which is what makes checking it here honest rather than a stale
+     claim from up to fifteen minutes ago. */
+  const [catalogue, setCatalogue] = useState<Catalogue | null>(null);
+  useEffect(() => {
+    if (!apiMode) return;
+    let cancelled = false;
+    const controller = new AbortController();
+    void permissionsApi
+      .catalogue(controller.signal)
+      .then((result) => {
+        if (!cancelled) setCatalogue(result);
+      })
+      .catch(() => {
+        /* Falls back to the lenient policy — see `requiresStrongPassword`'s
+           own note on a null catalogue. */
+      });
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [apiMode]);
+  const strict = requiresStrongPassword(permissions, catalogue);
 
   async function changePassword() {
     setBusy("password");
@@ -849,22 +876,22 @@ function SecurityCard({
         {changing ? (
           <>
             {/* `currentPassword`/`newPassword` are the API's field names
-                (`changePasswordSchema`); a wrong-current-password or
-                already-your-password refusal carries no field at all, so it
-                needs the banner rather than being lost under a field nobody
-                is looking at. */}
-            {error && error.fieldErrors.length === 0 && (
-              <Callout tone="danger" title="That did not work">
-                {error.message}
-              </Callout>
-            )}
+                (`changePasswordSchema`). A too-weak new password is that
+                field's own error, shown there via `PasswordField`'s
+                checklist. A wrong-current-password or already-your-password
+                refusal carries no field at all, so it lands on this field
+                rather than under a banner nobody asked for. */}
             <PasswordField
               label="Current password"
               autoComplete="current-password"
               showRules={false}
               value={current}
               onChange={setCurrent}
-              error={error?.messageFor("currentPassword")}
+              error={
+                error && !error.messageFor("newPassword")
+                  ? error.message
+                  : undefined
+              }
             />
             <PasswordField
               label="New password"
@@ -872,12 +899,14 @@ function SecurityCard({
               value={next}
               onChange={setNext}
               error={error?.messageFor("newPassword")}
+              onEnter={() => void changePassword()}
+              strict={strict}
             />
             <div className="flex gap-2">
               <Button
                 variant="accent"
                 size="sm"
-                disabled={!current || !passwordAccepted(next) || busy !== null}
+                disabled={!current || !passwordAccepted(next, strict) || busy !== null}
                 onClick={() => void changePassword()}
               >
                 {busy === "password" ? "Changing…" : "Change password"}

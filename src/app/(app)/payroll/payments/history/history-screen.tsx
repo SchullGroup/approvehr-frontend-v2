@@ -282,7 +282,7 @@ export function PaymentHistoryScreen() {
         <Card>
           <CardHeader
             title="Payments"
-            description="Newest first. One row for each payment to each person."
+            description="One row for each payment to each person."
           />
           {history.loading ? (
             <CardBody className="flex justify-center py-10">

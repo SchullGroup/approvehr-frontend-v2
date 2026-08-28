@@ -7,7 +7,6 @@ import {
   Badge,
   Button,
   ButtonLink,
-  Callout,
   Card,
   CardFooter,
   CardHeader,
@@ -25,6 +24,7 @@ import {
   TableWrap,
   useToast,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -250,11 +250,10 @@ function AllOvertime() {
       />
 
       <PageBody className="flex flex-col gap-6">
-        {overtime.error && (
-          <Callout tone="danger" title="Could not read overtime">
-            {overtime.error.message}
-          </Callout>
-        )}
+        <LoadFailure
+          subject={`the overtime for ${monthLabel(period)}`}
+          error={overtime.error}
+        />
 
         {overtime.policyKnown && !policy.enabled && (
           <Card>

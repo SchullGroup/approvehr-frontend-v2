@@ -66,7 +66,6 @@ export function SectionsPanel({
       <Card>
         <CardHeader
           title="Sections"
-          description="How the help centre is grouped."
           action={
             sections.editable ? (
               <Button variant="secondary" size="sm" onClick={() => setAdding(true)}>

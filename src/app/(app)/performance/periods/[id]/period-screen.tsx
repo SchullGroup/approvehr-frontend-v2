@@ -9,6 +9,7 @@ import {
   Lock,
   Play,
   UserX,
+  Users,
 } from "lucide-react";
 import {
   Badge,
@@ -412,12 +413,30 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 starting this period gave them no appraiser. They will finish it
                 with no mark unless somebody is assigned.
               </p>
-              <p className="mt-2 flex flex-wrap items-center gap-3">
-                <span>
-                  Set a manager on their record, or assign an appraiser.
-                </span>
+              {/* Dismiss used to be the only button here, on a message whose
+                  own last sentence told somebody to assign an appraiser. The
+                  card that does that is on this page — this takes them to it,
+                  where every one of these people now has an Assign button
+                  beside their name.
+
+                  `withoutAppraiser` is a list of names and not rows (see
+                  `activateCycle`), so the callout cannot open the dialog on one
+                  person directly. Sending them to the card that can is the
+                  honest affordance rather than a button that guesses. */}
+              <p className="mt-2 flex flex-wrap items-center gap-2">
                 <Button
                   variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    document
+                      .getElementById(APPRAISER_EXCEPTIONS_ANCHOR)
+                      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }}
+                >
+                  Assign appraisers
+                </Button>
+                <Button
+                  variant="ghost"
                   size="sm"
                   onClick={() => setNoAppraiser(null)}
                 >
@@ -462,20 +481,26 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
               because sending somebody to look for the wrong one wastes an
               afternoon. */}
           {!canSeeCompany ? (
-            <Callout tone="info" title="This is a company-wide view">
-              <p>
-                Who owes a form and what everybody scored is an aggregate over
-                every employee, which needs the records permission. Your own
-                review and your own objectives are on{" "}
-                <Link
-                  href="/performance"
-                  className="font-medium text-accent-text underline-offset-2 hover:underline"
-                >
-                  the performance screen
-                </Link>
-                .
-              </p>
-            </Callout>
+            /* An empty state, not a notice on an empty page.
+               ------------------------------------------------
+               A `Callout` on an otherwise blank screen reads as a warning about
+               something that went wrong. Nothing went wrong: this page is a
+               company-wide aggregate and this reader is not the audience for
+               it. An empty state with an icon and a way onward is what a screen
+               that is simply not for you should look like — and it sends them
+               to the one that is. */
+            <Card>
+              <EmptyState
+                icon={<Users aria-hidden="true" />}
+                title="This page is a company-wide view"
+                description="Your own review and objectives are on the performance screen."
+                action={
+                  <ButtonLink href="/performance" variant="accent" size="sm">
+                    Go to your performance
+                  </ButtonLink>
+                }
+              />
+            </Card>
           ) : DEMO_ENABLED && !detail.available ? (
             <Callout tone="warning" title="Demo data, this browser only">
               <p>{detail.refusal}</p>
@@ -620,6 +645,15 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
  * genuinely different problem, or a lone occurrence of this one, still gets
  * its own full sentence. See its own header on `lib/api/performance.ts`.
  */
+/**
+ * The anchor the activation callout scrolls to.
+ *
+ * One constant rather than a string in two files, because a mistyped id here is
+ * a button that silently does nothing — the exact failure the rule about
+ * resolvable errors exists to prevent, wearing a fix.
+ */
+const APPRAISER_EXCEPTIONS_ANCHOR = "appraiser-exceptions";
+
 function NobodyAppraising({
   cycleId,
   exceptions,
@@ -642,10 +676,7 @@ function NobodyAppraising({
   if (rows.length === 0) {
     return (
       <Card>
-        <CardHeader
-          title="Who is appraising whom"
-          description="Nothing outstanding here."
-        />
+        <CardHeader title="Who is appraising whom" />
         <CardBody className="flex items-center gap-2 text-body-sm text-body">
           <CheckCheck aria-hidden="true" className="size-4 text-success-text" />
           All {exceptions.counts.people} people have somebody appraising them,
@@ -669,7 +700,7 @@ function NobodyAppraising({
   const warningCount = flat.length - blockerCount;
 
   return (
-    <Card>
+    <Card id={APPRAISER_EXCEPTIONS_ANCHOR}>
       <CardHeader
         title="Who is appraising whom"
         description={
@@ -696,18 +727,38 @@ function NobodyAppraising({
               ? "border-danger-line bg-danger-soft"
               : "border-warning-line bg-warning-soft";
 
+          /* One person, and the fix is the same fix.
+             ------------------------------------------
+             This branch used to render the message as a bare paragraph with no
+             button, while the branch below — the identical problem affecting
+             two or more people — got "Review and fix" and the assign dialog.
+             So a period with one person missing an appraiser was the *only*
+             shape of that problem with no way to resolve it, which is precisely
+             backwards: one is the easy case.
+
+             `byRow` already holds the row the dialog needs. */
           if (group.items.length === 1) {
             const issue = group.items[0]!;
+            const row = byRow.get(issue.employeeId);
             return (
-              <p
+              <div
                 key={issue.key}
                 className={cn(
-                  "rounded-md border px-3.5 py-2.5 text-body-sm text-ink",
+                  "flex flex-wrap items-center justify-between gap-3 rounded-md border px-3.5 py-2.5 text-body-sm text-ink",
                   tone,
                 )}
               >
-                {issue.message}
-              </p>
+                <span>{issue.message}</span>
+                {row && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setAssigning(row)}
+                  >
+                    {row.appraisers.length === 0 ? "Assign" : "Change"}
+                  </Button>
+                )}
+              </div>
             );
           }
 

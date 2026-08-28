@@ -7,6 +7,7 @@ import {
   type PendingInvite,
   type SentInvite,
 } from "@/lib/api/invites";
+import { useRevalidation } from "@/lib/revalidate";
 import { useSession } from "./session";
 
 /**
@@ -32,6 +33,7 @@ export type InvitesState = {
 
 export function useInvites(): InvitesState {
   const { isConnected } = useSession();
+  const revalidation = useRevalidation();
   const [state, setState] = useState<{
     invites: PendingInvite[];
     loading: boolean;
@@ -58,7 +60,10 @@ export function useInvites(): InvitesState {
 
   useEffect(() => {
     void load();
-  }, [load]);
+    /* See src/lib/revalidate.ts — `revalidation` re-runs this effect when
+       somebody comes back to the window, so a pending invitation resolved
+       from another window (accepted, or revoked) does not sit stale here. */
+  }, [load, revalidation]);
 
   const send = useCallback(
     async (employeeId: string, roleIds: string[]) => {

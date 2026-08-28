@@ -30,6 +30,7 @@ import {
   type ApiPeerFeedback,
   type ApiReview,
 } from "@/lib/api/performance";
+import { useCan } from "@/lib/permissions";
 import { useFeatures } from "@/lib/store/features";
 import { useSession } from "@/lib/store/session";
 import {
@@ -38,6 +39,7 @@ import {
   useMyAppraisers,
   useObjectiveApprovals,
 } from "@/lib/store/performance";
+import { AppraisersDialog } from "./appraiser-map";
 import { FrameworkDisclosure, HowItWorks } from "./how-it-works";
 import { ReviewFormModal } from "./review-form";
 import { SkillsTab } from "./skills";
@@ -162,6 +164,19 @@ export function WhatNeedsYouTab({
       : undefined;
   const appraisingMe = mine.row?.appraisers ?? [];
 
+  /* Whoever may change the mapping — the API gates `PUT /cycles/:id/appraisers`
+     on `MANAGE_SETTINGS`, so this is the same question asked before offering the
+     button rather than after the refusal.
+
+     The same permission decides whether a period may be set up, started, or its
+     feature flag turned on, so the cards below read it too. They had no gate at
+     all: an employee opening KPIs & appraisals was offered "Set it up and start
+     it" on a draft period and "Turn appraisals on", both of which land on a
+     screen that is read-only for them. */
+  const canManagePeriods = useCan("MANAGE_SETTINGS");
+  const canAssignAppraiser = canManagePeriods;
+  const [assigningSelf, setAssigningSelf] = useState(false);
+
   /* My own objectives, split by who the next move belongs to. `mine` scope also
      returns the company's, which nobody owns and nobody sends — hence the owner
      check rather than a bare approval filter. */
@@ -217,14 +232,44 @@ export function WhatNeedsYouTab({
           hear about your own missing appraiser is the worst possible order to
           find out in. */}
       {scored && noAppraiser && (
-        <Callout tone="warning" title="Nobody is appraising you in this period">
-          <p>{noAppraiser.message}</p>
-          <p className="mt-2">
-            Your self-review still counts and still goes in. What is missing is
-            somebody to write the manager review, which is the rating of record
-            — ask whoever runs the period to set a manager on your record or
-            assign an appraiser.
-          </p>
+        /* One line, not four.
+           ---------------------
+           This used to explain the mechanism — that the cycle falls back to a
+           line manager, that the self-review still counts, what a manager
+           review is for. All true, and none of it this person's job: they
+           cannot set their own appraiser and nothing here changes what they
+           should do next. What they need is that somebody has to fix it and it
+           is not them.
+
+           The API's own `message` named the employee in the third person
+           ("Ekemini Adowoima has no appraiser yet") on the employee's own
+           screen, which reads as a note written about them rather than to
+           them. Dropped for the same reason. */
+        <Callout tone="warning" title="Nobody is set to appraise you yet">
+          {/* Two readers, two different sentences.
+              --------------------------------------
+              Somebody who can set an appraiser gets to do it here, in a dialog,
+              without leaving the screen they are on — the standing rule is that
+              a problem the reader can fix must never be stated without the fix
+              beside it.
+
+              An ordinary employee cannot, and for them the honest answer is who
+              can. Offering a button that the API would refuse is the failure
+              this rule exists to prevent, one step further along. */}
+          {canAssignAppraiser && mine.row && openPeriod ? (
+            <span className="flex flex-wrap items-center gap-3">
+              <span>Set one now and this clears.</span>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setAssigningSelf(true)}
+              >
+                Assign an appraiser
+              </Button>
+            </span>
+          ) : (
+            "Ask whoever runs this period to assign one."
+          )}
         </Callout>
       )}
 
@@ -270,11 +315,17 @@ export function WhatNeedsYouTab({
         <Card>
           <CardHeader
             title="Appraisals are switched off"
-            description="KPIs work without them. Turning them on adds appraisal periods, a mark made of objectives and competencies, and a record of what each person was told."
+            description={
+              canManagePeriods
+                ? "KPIs work without them. Turning them on adds appraisal periods, a mark made of objectives and competencies, and a record of what each person was told."
+                : "Your company does not run formal appraisals. KPIs still work."
+            }
             action={
-              <ButtonLink variant="accent" size="sm" href="/settings/features">
-                Turn appraisals on
-              </ButtonLink>
+              canManagePeriods ? (
+                <ButtonLink variant="accent" size="sm" href="/settings/features">
+                  Turn appraisals on
+                </ButtonLink>
+              ) : undefined
             }
           />
         </Card>
@@ -285,12 +336,6 @@ export function WhatNeedsYouTab({
         <Card>
           <CardHeader
             title="What is open"
-            {...(openPeriod
-              ? {
-                  description:
-                    "The appraisal period everything below belongs to.",
-                }
-              : {})}
             action={
               openPeriod ? undefined : (
                 <StartPeriodButton variant="accent" withIcon />
@@ -307,7 +352,11 @@ export function WhatNeedsYouTab({
               compact
               icon={<CalendarRange aria-hidden="true" />}
               title="No appraisal period is running"
-              description="A period is the stretch of time an appraisal covers. Starting one gives everybody a form."
+              description={
+                canManagePeriods
+                  ? "A period is the stretch of time an appraisal covers. Starting one gives everybody a form."
+                  : "Your form turns up here when one starts."
+              }
             />
           ) : (
             <CardBody className="flex flex-wrap items-center justify-between gap-3">
@@ -338,16 +387,24 @@ export function WhatNeedsYouTab({
                   )}
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <ButtonLink
-                  size="sm"
-                  href={`/performance/periods/${openPeriod.id}`}
-                >
-                  {openPeriod.stage === "DRAFT"
-                    ? "Set it up and start it"
-                    : "Who is outstanding"}
-                </ButtonLink>
-              </div>
+              {/* Both destinations are the period's management screen, so both
+                  are gated the same way `showOutstandingLink` already gates the
+                  one beside it. Setting a period up and reading who is
+                  outstanding are things a period's owner does; an employee's
+                  own business with a period is the form, which is the work list
+                  below. Absent, not disabled. */}
+              {canManagePeriods && (
+                <div className="flex flex-wrap gap-2">
+                  <ButtonLink
+                    size="sm"
+                    href={`/performance/periods/${openPeriod.id}`}
+                  >
+                    {openPeriod.stage === "DRAFT"
+                      ? "Set it up and start it"
+                      : "Who is outstanding"}
+                  </ButtonLink>
+                </div>
+              )}
             </CardBody>
           )}
         </Card>
@@ -410,10 +467,7 @@ export function WhatNeedsYouTab({
 
       {/* ---------------------------------------------------- waiting on you */}
       <Card>
-        <CardHeader
-          title="Waiting on you"
-          description="Each of these is one click from being dealt with."
-        />
+        <CardHeader title="Waiting on you" />
         {appraisals.loading ? (
           <CardBody className="flex items-center gap-2 text-body-sm text-muted">
             <Spinner size="sm" />
@@ -642,6 +696,24 @@ export function WhatNeedsYouTab({
           reviewId={opened}
           onClose={() => setOpened(null)}
           onDone={appraisals.reload}
+        />
+      )}
+
+      {/* The same dialog the period screen uses, on the screen where the
+          problem was noticed. One implementation of "who appraises this
+          person"; two places it can be reached from. */}
+      {assigningSelf && mine.row && openPeriod && (
+        <AppraisersDialog
+          cycleId={openPeriod.id}
+          row={mine.row}
+          onClose={() => setAssigningSelf(false)}
+          onSaved={() => {
+            setAssigningSelf(false);
+            /* `useMyAppraisers` has no reload of its own; the appraisals load
+               is what this screen re-reads, and the mapping is re-fetched with
+               it on the next render. */
+            appraisals.reload();
+          }}
         />
       )}
     </div>

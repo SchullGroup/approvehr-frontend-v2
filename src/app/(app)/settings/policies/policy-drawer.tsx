@@ -1,6 +1,7 @@
 "use client";
 
-import { Callout, Drawer, Spinner } from "@/components/ui";
+import { Drawer, Spinner } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { usePolicyText } from "@/lib/store/conduct";
 
 /**
@@ -45,9 +46,7 @@ export function PolicyDrawer({
           Loading
         </div>
       ) : detail.error ? (
-        <Callout tone="danger" title="Could not open it">
-          {detail.error.message}
-        </Callout>
+        <LoadFailure subject="this handbook section" error={detail.error} />
       ) : (
         <p className="whitespace-pre-wrap text-body leading-relaxed text-body">
           {detail.policy?.body ?? "This section has no text."}

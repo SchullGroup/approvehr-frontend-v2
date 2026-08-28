@@ -13,6 +13,7 @@ import {
   EmptyState,
   SkeletonText,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { Can } from "@/lib/permissions";
 import { useKbArticles, useKbCategories } from "@/lib/store/knowledge";
@@ -119,9 +120,7 @@ export function KbScreen() {
 
             {articles.error && (
               <CardBody>
-                <p className="text-body-sm text-danger-text">
-                  {articles.error.message}
-                </p>
+                <LoadFailure subject="these articles" error={articles.error} />
               </CardBody>
             )}
 

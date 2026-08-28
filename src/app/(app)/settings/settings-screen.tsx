@@ -5,6 +5,7 @@ import {
   Bell,
   BookOpen,
   LifeBuoy,
+  ShieldCheck,
   Check,
   CircleDashed,
   FileText,
@@ -114,6 +115,13 @@ const ONGOING = [
     description:
       "Notices everybody sees on their dashboard. Publishing is what makes one visible; a draft appears nowhere.",
     icon: <Megaphone aria-hidden="true" />,
+  },
+  {
+    href: "/settings/security",
+    title: "Sign-in security",
+    description:
+      "Two-factor sign-in, and which actions need a code from email. Off until you turn it on.",
+    icon: <ShieldCheck aria-hidden="true" />,
   },
   {
     href: "/settings/helpdesk",

@@ -48,6 +48,7 @@ import { TODAY } from "@/lib/today";
 import { createPersistedState } from "./persisted";
 import { useEmployeeStore } from "./employees";
 import { useSession } from "./session";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * Payroll runs, from whichever source is available.
@@ -877,9 +878,12 @@ export function usePayrollRuns(): RunsState {
     }
   }, [isConnected]);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, revalidation]);
 
   if (!isConnected) {
     const runs = demo.details.map(summarise);
@@ -928,6 +932,9 @@ export function usePayrollRun(id: string | null): RunState {
 
   const active = isConnected && Boolean(id);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!active || !id) return;
     let cancelled = false;
@@ -953,7 +960,7 @@ export function usePayrollRun(id: string | null): RunState {
       cancelled = true;
       controller.abort();
     };
-  }, [active, id, nonce]);
+  }, [active, id, nonce, revalidation]);
 
   const reload = useCallback(() => setNonce((n) => n + 1), []);
 
@@ -1035,6 +1042,9 @@ export function useRunPayslips(
     error: ApiError | null;
   } | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!active || !runId) return;
     let cancelled = false;
@@ -1066,7 +1076,7 @@ export function useRunPayslips(
       cancelled = true;
       controller.abort();
     };
-  }, [active, runId, key]);
+  }, [active, runId, key, revalidation]);
 
   /* The demo answer, computed in a `useMemo` that touches no state — the shape
      `lib/store/shifts.ts` establishes and every store in this app follows. */
@@ -1210,6 +1220,9 @@ export function useMyPayslips(employeeId: string | null): OwnPayslipsState {
     error: ApiError | null;
   } | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!active || !employeeId) return;
     let cancelled = false;
@@ -1240,7 +1253,7 @@ export function useMyPayslips(employeeId: string | null): OwnPayslipsState {
       cancelled = true;
       controller.abort();
     };
-  }, [active, employeeId]);
+  }, [active, employeeId, revalidation]);
 
   /* Same shape as `useRunPayslips`'s demo branch: a `useMemo` touching no
      state. Every demo run already carries its payslips, so this is a filter
@@ -1674,6 +1687,9 @@ export function usePayslipRecord(
     run: PayslipRunSummary | null;
   } | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -1697,7 +1713,7 @@ export function usePayslipRecord(
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, id]);
+  }, [isConnected, id, revalidation]);
 
   if (!isConnected) {
     const detail =

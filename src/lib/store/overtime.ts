@@ -32,6 +32,7 @@ import { useAttendanceStore } from "./attendance";
 import { useEmployeeStore } from "./employees";
 import { createPersistedState } from "./persisted";
 import { useSession } from "./session";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * Overtime, from whichever source is available.
@@ -205,6 +206,9 @@ export function useOvertimePolicy(): PolicyState {
   const [saving, setSaving] = useState(false);
   const [attempt, setAttempt] = useState(0);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -229,7 +233,7 @@ export function useOvertimePolicy(): PolicyState {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, attempt]);
+  }, [isConnected, attempt, revalidation]);
 
   const demoPolicy = useMemo(
     () => ({ ...DEMO_POLICY, ...state.policy }),
@@ -386,6 +390,9 @@ export function useOvertime({
   /* A slow answer for last month must not overwrite a fast one for this month. */
   const latest = useRef(0);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     const ticket = ++latest.current;
@@ -422,7 +429,7 @@ export function useOvertime({
     })();
 
     return () => controller.abort();
-  }, [isConnected, period, status, key, attempt]);
+  }, [isConnected, period, status, key, attempt, revalidation]);
 
   /* ------------------------------------------------------------ demo reading */
 
@@ -649,6 +656,9 @@ export function useMyOvertime(take = 24): MyOvertimeState {
   } | null>(null);
   const [attempt, setAttempt] = useState(0);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected || !employeeId) return;
     let cancelled = false;
@@ -668,7 +678,7 @@ export function useMyOvertime(take = 24): MyOvertimeState {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, employeeId, take, attempt]);
+  }, [isConnected, employeeId, take, attempt, revalidation]);
 
   const demoRecords = useMemo(() => {
     if (isConnected || !employeeId) return [];

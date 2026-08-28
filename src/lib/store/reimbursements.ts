@@ -21,6 +21,7 @@ import {
 import { CURRENT_USER, employeeById } from "@/lib/mock/people";
 import { createPersistedState } from "./persisted";
 import { useSession } from "./session";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * Expense claims, from whichever source is available.
@@ -556,6 +557,9 @@ export function useExpenseTypes(includeArchived = false) {
      behind a `useCallback`: nothing here sets state synchronously, so there is
      no cascading render, and the cleanup can abort a read the screen has
      already navigated past. */
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     const controller = new AbortController();
@@ -579,7 +583,7 @@ export function useExpenseTypes(includeArchived = false) {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, includeArchived, stamp]);
+  }, [isConnected, includeArchived, stamp, revalidation]);
 
   const answered = remote !== null && remote.stamp === stamp;
 
@@ -828,6 +832,9 @@ export function useExpenseClaims(
     error: ApiError | null;
   } | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected || !enabled) return;
     const controller = new AbortController();
@@ -863,7 +870,7 @@ export function useExpenseClaims(
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, enabled, scope, key, stamp]);
+  }, [isConnected, enabled, scope, key, stamp, revalidation]);
 
   const answered = remote !== null && remote.stamp === stamp;
 
@@ -1296,6 +1303,9 @@ export function useExpenseSummary(enabled = true) {
     error: ApiError | null;
   } | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected || !enabled) return;
     const controller = new AbortController();
@@ -1340,7 +1350,7 @@ export function useExpenseSummary(enabled = true) {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, enabled, stamp]);
+  }, [isConnected, enabled, stamp, revalidation]);
 
   const answered = remote !== null && remote.stamp === stamp;
 

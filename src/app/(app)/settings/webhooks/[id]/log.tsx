@@ -28,6 +28,7 @@ import {
   TR,
   TableWrap,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import type { ApiDelivery } from "@/lib/api/webhooks";
 import { fullStamp } from "@/lib/audit/language";
 import type { useDeliveryLog } from "@/lib/store/webhooks";
@@ -152,9 +153,11 @@ export function DeliveryLog({
           </p>
         )}
 
-        {log.error && (
-          <p className="text-body-sm text-danger-text">{log.error}</p>
-        )}
+        {/* `useDeliveryLog` flattens the error to a string before a screen sees
+            it, so there is no `ApiError` left to classify and this renders the
+            general advice. Widening that state to `ApiError | null` is what
+            would let the API's own sentence through. */}
+        <LoadFailure subject="the delivery log" error={log.error} />
 
         {log.loading ? (
           <Skeleton className="h-40 w-full" />

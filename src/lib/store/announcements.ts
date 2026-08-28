@@ -11,6 +11,7 @@ import {
 } from "@/lib/api/announcements";
 import { DEMO_ANNOUNCEMENTS } from "@/lib/mock/announcements";
 import { useSession } from "./session";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * The company noticeboard, in both modes.
@@ -108,6 +109,9 @@ export function useAnnouncements(
      render can show one filter's answer under another filter's heading. */
   const key = [status, includeExpired, page, pageSize, sort, order, q, tick].join("|");
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -150,7 +154,7 @@ export function useAnnouncements(
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, key, status, includeExpired, page, pageSize, sort, order, q]);
+  }, [isConnected, key, status, includeExpired, page, pageSize, sort, order, q, revalidation]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
 

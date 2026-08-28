@@ -21,7 +21,6 @@ import {
   Avatar,
   Badge,
   Button,
-  Callout,
   Card,
   CardBody,
   EmptyState,
@@ -32,6 +31,7 @@ import {
   type BadgeTone,
 } from "@/components/ui";
 import { DeclineDialog } from "@/components/portal/decline-dialog";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
 import { employeeById } from "@/lib/mock/people";
 import type { ApprovalKind } from "@/lib/mock/workflows";
@@ -193,11 +193,7 @@ export function ApprovalInbox() {
         )}
       </div>
 
-      {queue.error && (
-        <Callout tone="danger" title="Could not read your approvals">
-          {queue.error.message}
-        </Callout>
-      )}
+      <LoadFailure subject="your approvals" error={queue.error} />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat label="Waiting on you" value={String(queue.counts.pending)} />

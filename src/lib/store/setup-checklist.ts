@@ -11,6 +11,7 @@ import { useFeatures } from "./features";
 import { useDemoHolidayCounts } from "./holidays";
 import { useDemoWorkLocations } from "./work-locations";
 import { useSession } from "./session";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * "What do I still need to set up?" — the one read behind `/settings`.
@@ -119,6 +120,9 @@ export function useSetupChecklist(): ChecklistState {
 
   const key = String(tick);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -142,7 +146,7 @@ export function useSetupChecklist(): ChecklistState {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, key]);
+  }, [isConnected, key, revalidation]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
 

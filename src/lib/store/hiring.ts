@@ -40,6 +40,7 @@ import {
   stageCounts,
 } from "@/lib/mock/hiring";
 import { STAGES, type PipelineCard, type StageId } from "@/lib/types";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * The hiring module's data, from whichever source can answer.
@@ -439,6 +440,9 @@ export function useApplicantRecord(id: string): ApplicantView {
     detail: ApiApplicationDetail | null;
   } | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (detailId === null) return;
     let cancelled = false;
@@ -456,7 +460,7 @@ export function useApplicantRecord(id: string): ApplicantView {
     return () => {
       cancelled = true;
     };
-  }, [detailId]);
+  }, [detailId, revalidation]);
 
   const detail =
     detailId !== null && fetched !== null && fetched.id === detailId

@@ -16,6 +16,7 @@ import {
 import { todayDate } from "@/lib/today";
 import { createPersistedState } from "./persisted";
 import { useSession } from "./session";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * The notification inbox.
@@ -340,13 +341,21 @@ export function useUnreadCount(): number {
      the nav badge and the inbox page all call this hook and three requests for
      one number is two too many. Mutations keep it current from there. */
   const accountId = user?.id ?? null;
+  /* Re-ask when somebody comes back to the window.
+     The generation is in the dedupe key rather than only in the dependency
+     list, and it has to be: the guard below is "fetch once per account", so a
+     re-run with the same account would return on the first line and the badge
+     would be the one number on screen that never refreshed. Keyed on both, the
+     three simultaneous mounts still share a single request — they just share a
+     new one each time somebody comes back. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
-    const key = accountId ?? "self";
+    const key = `${accountId ?? "self"}|${revalidation}`;
     if (liveUnreadFor === key) return;
     liveUnreadFor = key;
     void refreshUnread();
-  }, [isConnected, accountId]);
+  }, [isConnected, accountId, revalidation]);
 
   if (!isSignedIn) return 0;
   return isConnected ? live : demoUnread(diff);
@@ -445,11 +454,14 @@ export function useNotifications(tab: InboxTab) {
     [isConnected, tab, limit],
   );
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     const controller = new AbortController();
     void load(controller.signal);
     return () => controller.abort();
-  }, [load]);
+  }, [load, revalidation]);
 
   const items = useMemo(() => {
     if (isConnected) return live.rows;
