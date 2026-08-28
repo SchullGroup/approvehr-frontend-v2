@@ -356,6 +356,26 @@ function employeeQuery(params: EmployeeListParams) {
   };
 }
 
+/** A detail somebody asked to change, waiting on payroll. */
+export type ApiPendingChange = {
+  id: string;
+  field: string;
+  /** "Account number". The API's wording, so the two cannot drift. */
+  label: string;
+  /** "••••4471 → ••••5566". Already masked server-side. */
+  summary: string;
+  requestedAt: string;
+};
+
+export type ApiSelfUpdateOutcome = {
+  /** Written to the record just now. */
+  applied: string[];
+  /** Now waiting on somebody. */
+  pending: { id: string; field: string; label: string }[];
+  /** Sent, but nobody's to change from here — each with who can. */
+  refused: { field: string; reason: string }[];
+};
+
 export const employees = {
   list: (params: EmployeeListParams = {}, signal?: AbortSignal) =>
     requestPaged<ApiEmployee>("/employees", {
@@ -384,6 +404,26 @@ export const employees = {
 
   update: (id: string, body: Record<string, unknown>) =>
     request<ApiEmployee>(`/employees/${id}`, { method: "PATCH", body }),
+
+  /**
+   * The caller's own record, changed by them.
+   *
+   * Separate from `update` and deliberately so: that one takes an id and can
+   * change anybody's salary, this one takes no id and can change only what
+   * `self-service.ts` on the API lists. The response is a three-way outcome
+   * rather than the employee, because that is what happened — some fields
+   * landed, some are waiting on payroll, and some were never the caller's to
+   * send. Returning the record alone would show the bank account unchanged
+   * with nothing to say why.
+   */
+  updateMine: (body: Record<string, unknown>) =>
+    request<ApiSelfUpdateOutcome>("/employees/me", { method: "PATCH", body }),
+
+  /** What the caller has waiting on somebody. */
+  myChanges: (signal?: AbortSignal) =>
+    request<{ changes: ApiPendingChange[] }>("/employees/me/changes", {
+      ...(signal ? { signal } : {}),
+    }),
 
   archive: (id: string) =>
     request<ApiEmployee>(`/employees/${id}`, { method: "DELETE" }),
