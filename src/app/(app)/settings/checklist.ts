@@ -85,7 +85,7 @@ export function checklistProgress(rows: ChecklistRow[]): {
 /* ------------------------------------------------------------------ the rows */
 
 function companyRow(facts: SetupFacts): ChecklistRow {
-  const { rcNumber, addressLine, taxState, tin, entities } = facts.company;
+  const { logo, rcNumber, addressLine, taxState, tin, entities } = facts.company;
   /* TIN is not in the "done" test on purpose: a company can pay salaries and
      file PAYE before its TIN is issued, and blocking the checklist on a number
      the FIRS has not sent yet would be nagging about somebody else's queue. It
@@ -99,16 +99,26 @@ function companyRow(facts: SetupFacts): ChecklistRow {
   const entityNote =
     entities > 1 ? ` ${plural(entities, "entity", "entities")} on file.` : "";
 
+  /* Named separately from `missing`, and deliberately not in the "done" test.
+     A company can run payroll without a logo, so blocking the row on it would
+     be nagging — but the upload sits below a form containing all thirty-seven
+     states, and nothing on this page had ever mentioned it. The honest answer
+     to "where do I add our logo" was "scroll", which is how somebody concludes
+     the feature does not exist. */
+  const logoNote = logo
+    ? ""
+    : " No logo yet — it goes on every payslip and on the emails the platform sends.";
+
   return {
     id: "company",
     title: "Company profile",
     affects:
-      "The header on every payslip, your statutory filings, and the PAYE state an employee inherits when their record does not say.",
+      "The header on every payslip, the emails the platform sends, your statutory filings, and the PAYE state an employee inherits when their record does not say.",
     status: missing.length === 0 ? "done" : "todo",
     detail:
       missing.length === 0
-        ? `Complete.${entityNote}${tin ? "" : " No TIN recorded yet — add it before your first filing."}`
-        : `Still needs ${missing.join(", ")}.`,
+        ? `Complete.${entityNote}${tin ? "" : " No TIN recorded yet — add it before your first filing."}${logoNote}`
+        : `Still needs ${missing.join(", ")}.${logoNote}`,
     href: "/settings/company",
     linkLabel: missing.length === 0 ? "Review the profile" : "Finish the profile",
   };

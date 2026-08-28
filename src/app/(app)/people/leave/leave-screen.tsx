@@ -320,7 +320,12 @@ export function LeaveScreen() {
             value={String(monthAhead.length)}
             hint="approved, starting within 31 days"
           />
-          <Stat label="Days approved this year" value={String(daysBooked)} />
+          {/* Not "Days approved" — read on a plain employee's own screen, that
+              sounds like an action they took ("did I approve my own leave?"),
+              when it is a fact about their leave: days of theirs an approver
+              has signed off this year. "Taken" matches "Annual leave used" /
+              "Annual days left" beside it, and cannot be misread either way. */}
+          <Stat label="Days taken this year" value={String(daysBooked)} />
           <Stat
             label="Annual leave used"
             value={utilisation === null ? "—" : `${utilisation}%`}

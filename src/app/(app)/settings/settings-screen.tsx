@@ -22,9 +22,7 @@ import {
   Badge,
   ButtonLink,
   Callout,
-  Card,
-  CardBody,
-  CardHeader,
+  Disclosure,
   LinkCard,
   ProgressMeter,
   Spinner,
@@ -231,7 +229,11 @@ function Row({ row }: { row: ChecklistRow }) {
         )}
         <ButtonLink
           href={row.href}
-          variant={row.status === "done" || row.status === "optional" ? "secondary" : "accent"}
+          variant={
+            row.status === "done" || row.status === "optional"
+              ? "secondary"
+              : "accent"
+          }
           size="sm"
         >
           {row.linkLabel}
@@ -255,9 +257,7 @@ export function SettingsScreen() {
 
   return (
     <>
-      <PageHeader
-        title="Settings"
-      />
+      <PageHeader title="Settings" />
 
       <PageBody className="flex flex-col gap-6">
         {error && (
@@ -278,87 +278,79 @@ export function SettingsScreen() {
           </Callout>
         )}
 
-        <Card>
-          <CardHeader
-            level={2}
-            className="flex-wrap"
-            title="Setting up your company"
-            description={
-              loading
-                ? "Reading what is set up."
-                : complete
-                  ? "Everything a payroll needs is in place. The rows below are worth a look when something changes."
-                  : "Seven things decide how the product behaves. Each row says where it stands and what it affects."
-            }
-            action={
-              !loading && progress.total > 0 ? (
-                <span className="flex min-w-40 flex-col gap-1.5">
-                  <span className="text-meta font-semibold uppercase tracking-[0.08em] text-muted">
-                    {progress.done} of {progress.total} done
-                  </span>
-                  <ProgressMeter
-                    value={progress.done}
-                    max={progress.total}
-                    tone={complete ? "success" : "accent"}
-                    size="sm"
-                    showValue={false}
-                  />
+        {/* Collapsed by default — a company that opens Settings mainly to
+            reach one card (holidays, roles, integrations) should not have to
+            scroll past six checklist rows to get there every time. The
+            outstanding items still show on the closed line, so there is
+            nothing to open just to learn whether something needs doing. */}
+        <Disclosure
+          title="Setting up your company"
+          level={2}
+          meta={
+            !loading && progress.total > 0 ? (
+              <span className="flex min-w-32 flex-col items-end gap-1.5">
+                <span className="text-meta font-semibold uppercase tracking-[0.08em] text-muted">
+                  {progress.done} of {progress.total} done
                 </span>
-              ) : undefined
-            }
-          />
-
+                <ProgressMeter
+                  value={progress.done}
+                  max={progress.total}
+                  tone={complete ? "success" : "accent"}
+                  size="sm"
+                  showValue={false}
+                />
+              </span>
+            ) : undefined
+          }
+          hint={
+            loading
+              ? "Reading what is set up."
+              : complete
+                ? /* The collapsed line is the only thing a finished company
+                     reads — the rows below it are behind a closed reveal. So
+                     anything still worth doing has to be said here or it is
+                     said nowhere, which is exactly how the logo upload stayed
+                     invisible: present on `/settings/company`, below a form
+                     with thirty-seven states in it, and mentioned by nothing. */
+                  facts && !facts.company.logo
+                  ? "Everything a payroll needs is in place. No logo yet — it goes on every payslip and on the emails the platform sends."
+                  : "Everything a payroll needs is in place."
+                : progress.outstanding.length > 0
+                  ? `Outstanding: ${progress.outstanding.map((row) => row.title).join(", ")}.`
+                  : "Seven things decide how the product behaves."
+          }
+        >
           {loading ? (
-            <CardBody className="flex justify-center py-10">
+            <div className="flex justify-center py-10">
               <Spinner />
-            </CardBody>
+            </div>
           ) : facts === null ? (
-            <CardBody>
-              <p className="text-body-sm text-body">
-                Nothing to show. The checklist reads one endpoint and it did not
-                answer; every page below is unaffected.
-              </p>
-            </CardBody>
+            <p className="text-body-sm text-body">
+              Nothing to show. The checklist reads one endpoint and it did not
+              answer; every page below is unaffected.
+            </p>
           ) : (
-            <>
-              {!complete && progress.outstanding.length > 0 && (
-                <CardBody className="border-b border-line">
-                  <p className="text-body-sm text-body">
-                    Outstanding:{" "}
-                    <strong className="text-ink">
-                      {progress.outstanding.map((row) => row.title).join(", ")}
-                    </strong>
-                    .
-                  </p>
-                </CardBody>
-              )}
-              <ul className="divide-y divide-line">
-                {rows.map((row) => (
-                  <Row key={row.id} row={row} />
-                ))}
-              </ul>
-            </>
+            <ul className="divide-y divide-line rounded-md border border-line">
+              {rows.map((row) => (
+                <Row key={row.id} row={row} />
+              ))}
+            </ul>
           )}
-        </Card>
+        </Disclosure>
 
         {DEMO_ENABLED && source === "demo" && (
           <Callout tone="warning" title="Demo data, this browser only">
-            This checklist is worked out from the seeded company in this browser.
-            Two rows cannot be answered offline at all — whether a bank account is
-            on file, and how many pay components and salary bands exist — and they
-            say so rather than reporting nothing as zero.
+            This checklist is worked out from the seeded company in this
+            browser. Two rows cannot be answered offline at all — whether a bank
+            account is on file, and how many pay components and salary bands
+            exist — and they say so rather than reporting nothing as zero.
           </Callout>
         )}
 
         <section>
           <h2 className="mb-4 text-meta font-semibold uppercase tracking-[0.08em] text-muted">
-            Ongoing, not setup
+            Ongoing
           </h2>
-          <p className="mb-4 max-w-2xl text-body-sm text-muted">
-            These have no finished state — a company never completes its
-            noticeboard — so they sit outside the checklist rather than giving it a
-            count that can never reach zero.
-          </p>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {ONGOING.map((item) => (
               <LinkCard

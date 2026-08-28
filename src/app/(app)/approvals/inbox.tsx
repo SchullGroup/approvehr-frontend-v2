@@ -43,10 +43,16 @@ import {
 import type { QueueItem } from "@/lib/workflows/queue";
 import { hasAnyPermission, useIsManager, usePermissions } from "@/lib/permissions";
 
-/** Holding any one of these is what makes "waiting on you" a question that
-    can ever have a nonzero answer. Mirrors `APPROVE_PERMISSIONS`-style lists
-    elsewhere; kept local because nothing else needs this exact set. */
-const APPROVE_PERMISSIONS = [
+/**
+ * Holding any one of these is what makes "waiting on you" a question that can
+ * ever have a nonzero answer. Exported for `components/portal/shell.tsx`'s
+ * sidebar badge, which used to compute the same queue with no permission
+ * check at all — a plain employee's "My approvals" badge showed the whole
+ * company's pending count, and the page it opened onto correctly showed
+ * them nothing, which read as the badge being simply wrong. One list, so the
+ * two cannot drift back apart the way they already had once.
+ */
+export const APPROVE_PERMISSIONS = [
   "APPROVE_LEAVE",
   "APPROVE_LEAVE_ALL",
   "APPROVE_PAYROLL",

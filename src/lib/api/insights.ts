@@ -30,14 +30,23 @@ export const naira = (kobo: number): number => kobo / 100;
 
 export type DashboardData = {
   asOf: string;
-  headcount: {
+  /**
+   * Absent for a plain employee — the same rule as `hiring`, `payroll` and
+   * `money` below. Headcount, the company-wide approval backlog and who has
+   * not clocked in today are facts about the whole company, not about one
+   * person, so `EDIT_RECORDS` or `VIEW_SALARIES` gates all three together.
+   * `active: 0` here would be a false claim about the company rather than an
+   * honest "you cannot see this" — check for presence, never for a falsy
+   * value, same as every other gated block on this type.
+   */
+  headcount?: {
     active: number;
     startingThisMonth: number;
     leavingThisMonth: number;
     incomplete: number;
   };
-  approvals: { waiting: number; overdue: number; oldestWaitingDays: number | null };
-  today: {
+  approvals?: { waiting: number; overdue: number; oldestWaitingDays: number | null };
+  today?: {
     expected: number;
     clockedIn: number;
     late: number;
