@@ -273,7 +273,6 @@ export function ReviewFormModal({
         {review.appraiser && (
           <AppraiserStrip
             appraiser={review.appraiser}
-            subjectName={review.subjectName}
             mine={review.mine}
           />
         )}

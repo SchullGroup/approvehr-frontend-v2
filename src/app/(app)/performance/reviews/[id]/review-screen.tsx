@@ -304,7 +304,6 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
               {review.appraiser && (
                 <AppraiserStrip
                   appraiser={review.appraiser}
-                  subjectName={review.subjectName}
                   mine={review.mine}
                 />
               )}
@@ -380,8 +379,8 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
             <ScorePanel
               score={score.score}
               loading={score.loading}
-              message={score.available ? score.error?.message : score.refusal}
               subjectName={review.subjectName}
+              message={score.available ? score.error?.message : score.refusal}
             />
           )}
 
