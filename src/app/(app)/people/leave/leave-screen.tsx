@@ -42,6 +42,7 @@ import {
   type BadgeTone,
 } from "@/components/ui";
 import { DeclineDialog } from "@/components/portal/decline-dialog";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import { daysLabel, type LeaveRow, type LeaveRowStatus } from "@/lib/api/leave";
@@ -295,11 +296,7 @@ export function LeaveScreen() {
       />
 
       <PageBody className="flex flex-col gap-6">
-        {error && (
-          <Callout tone="danger" title="Could not read the requests">
-            {error.message}
-          </Callout>
-        )}
+        <LoadFailure subject="the leave requests" error={error} />
 
         {noRecord && (
           <Callout tone="info" title="This account has no employee record">

@@ -17,6 +17,7 @@ import {
   Stat,
   useToast,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import type { ApiComplianceRow, ApiDocumentRequest } from "@/lib/api/documents";
 import { useCan } from "@/lib/permissions";
@@ -186,10 +187,11 @@ export function DocumentsScreen() {
             }
           />
           {expiring.error ? (
-            <CardBody>
-              <p role="alert" className="text-body-sm text-danger-text">
-                {expiring.error.message}
-              </p>
+            <CardBody role="alert">
+              <LoadFailure
+                subject="the documents coming up for renewal"
+                error={expiring.error}
+              />
             </CardBody>
           ) : expiring.loading ? (
             <CardBody>
@@ -267,9 +269,12 @@ export function DocumentsScreen() {
             </Field>
 
             {register.error ? (
-              <p role="alert" className="text-body-sm text-danger-text">
-                {register.error.message}
-              </p>
+              <div role="alert">
+                <LoadFailure
+                  subject="the documents you have asked for"
+                  error={register.error}
+                />
+              </div>
             ) : register.loading && register.requests.length === 0 ? (
               <span className="flex items-center gap-2 text-body-sm text-muted">
                 <Spinner size="sm" />

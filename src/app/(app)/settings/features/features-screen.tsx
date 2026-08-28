@@ -14,6 +14,7 @@ import {
   Switch,
   useToast,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -200,11 +201,11 @@ export function FeaturesScreen() {
       />
 
       <PageBody className="flex flex-col gap-6">
-        {features.error && (
-          <Callout tone="danger" title="Could not read your features">
-            {features.error}
-          </Callout>
-        )}
+        {/* `useFeatures` flattens the error to a string before a screen sees it,
+            so there is no `ApiError` left to classify and this renders the
+            general advice. Widening that state to `ApiError | null` is what
+            would let the API's own 403 sentence through. */}
+        <LoadFailure subject="your feature settings" error={features.error} />
 
         {!features.editable && (
           <Callout tone="info" title="You cannot change these">

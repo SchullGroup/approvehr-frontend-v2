@@ -11,6 +11,7 @@ import {
   Spinner,
   useToast,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import type { ApiDocumentRequest } from "@/lib/api/documents";
 import { useMyDocuments } from "@/lib/store/documents";
 import { AddDocumentModal, AttachDocumentModal } from "./dialogs";
@@ -91,9 +92,9 @@ export function MyDocuments({
           ) : (
             <>
               {mine.error && (
-                <p role="alert" className="text-body-sm text-danger-text">
-                  {mine.error.message}
-                </p>
+                <div role="alert">
+                  <LoadFailure subject="your documents" error={mine.error} />
+                </div>
               )}
 
               {/* The half with something to do in it, first. */}

@@ -1409,14 +1409,26 @@ export function useKpis(scope: KpiScope): {
         const page = await performanceApi.goals({ pageSize: PAGE }, signal);
         return page.data;
       }
-      const [scoped, company] = await Promise.all([
+      /* `allSettled`, for the reason `useAppraisals` records at length: the
+         scoped read refuses for a sign-in with no linked staff record, and a
+         rejected `Promise.all` would throw away the company goals that
+         answered — emptying a screen that has plenty to show. Same latent bug,
+         one hook along. */
+      const [scoped, company] = await Promise.allSettled([
         scope === "mine"
           ? performanceApi.myGoals({ pageSize: PAGE }, signal)
           : performanceApi.teamGoals({ pageSize: PAGE }, signal),
         performanceApi.goals({ companyOnly: true, pageSize: 50 }, signal),
       ]);
+
+      /* The company read failing leaves nothing worth rendering, so it throws.
+         The scoped one failing leaves the company goals, which is a partial
+         answer and a much better one than none. */
+      if (company.status === "rejected") throw company.reason;
+
+      const mine = scoped.status === "fulfilled" ? scoped.value.data : [];
       const seen = new Set<string>();
-      return [...company.data, ...scoped.data].filter((goal) => {
+      return [...company.value.data, ...mine].filter((goal) => {
         if (seen.has(goal.id)) return false;
         seen.add(goal.id);
         return true;
@@ -1851,22 +1863,60 @@ export function useAppraisals(): {
   const { isConnected, actingId } = useSession();
   const demo = useDemoState();
 
+  /**
+   * Two independent reads, and one must not be able to erase the other.
+   *
+   * ## The bug this fixes
+   *
+   * These were a `Promise.all`. `myReviews` throws for a sign-in with **no
+   * linked staff record** — `ownEmployeeId` refuses, correctly, because an
+   * account with no personnel file has no reviews of its own — and a rejected
+   * `Promise.all` discards *every* result, including the company's list of
+   * appraisal periods, which had answered perfectly well.
+   *
+   * The reported symptom was "I started an appraisal period, went back, and it
+   * had completely cleared". The period was in the database the whole time. An
+   * unrelated personal read was taking the whole screen down with it, and the
+   * only account it happened to was one whose owner had never been linked to an
+   * employee — which is exactly the account a founder signs up with.
+   *
+   * ## Why `allSettled` rather than catching one
+   *
+   * The two answer different questions — "what does this company have open" and
+   * "what do I personally owe" — and either can fail for reasons that say
+   * nothing about the other. Whichever arrives is rendered.
+   *
+   * The personal failure is still reported: its error becomes the screen's
+   * `error`, which is what puts the "not linked to a staff record" banner above
+   * the list. Silently swallowing it would trade one wrong screen for another.
+   */
   const load = useCallback(async (signal: AbortSignal) => {
-    const [mine, cycles] = await Promise.all([
+    const [mine, cycles] = await Promise.allSettled([
       performanceApi.myReviews(signal),
       performanceApi.cycles(
         { pageSize: 50, sort: "createdAt", order: "desc" },
         signal,
       ),
     ]);
-    return { mine, cycles: cycles.data };
+
+    /* The company list failing is a real failure of this screen — there is
+       nothing left to show — so it still throws. */
+    if (cycles.status === "rejected") throw cycles.reason;
+
+    return {
+      mine: mine.status === "fulfilled" ? mine.value : null,
+      /* Kept so the screen can say why the personal half is missing, without
+         that reason emptying the list beside it. */
+      mineError: mine.status === "rejected" ? mine.reason : null,
+      cycles: cycles.value.data,
+    };
   }, []);
 
-  const fetched = useFetched<{ mine: ApiMyReviews; cycles: ApiCycle[] }>(
-    "appraisals",
-    isConnected,
-    load,
-  );
+  const fetched = useFetched<{
+    mine: ApiMyReviews | null;
+    mineError: ApiError | null;
+    cycles: ApiCycle[];
+  }>("appraisals", isConnected, load);
 
   const derived = useMemo(
     () => (isConnected ? null : demoMyReviews(demo, actingId)),
@@ -1878,7 +1928,10 @@ export function useAppraisals(): {
       fetched.data?.mine ?? { toComplete: [], aboutMe: [], peerFeedback: [] },
     cycles: isConnected ? (fetched.data?.cycles ?? []) : demoCycles,
     loading: fetched.loading,
-    error: fetched.error,
+    /* The personal read's failure where the whole load did not fail — that is
+       what puts the "not linked to a staff record" banner above a list that is
+       now, correctly, still there. */
+    error: fetched.error ?? fetched.data?.mineError ?? null,
     source: isConnected ? "api" : "demo",
     reload: fetched.reload,
   };

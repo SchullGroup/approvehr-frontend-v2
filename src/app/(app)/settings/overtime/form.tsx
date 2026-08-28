@@ -6,7 +6,6 @@ import {
   Badge,
   Button,
   ButtonLink,
-  Callout,
   Card,
   CardBody,
   CardHeader,
@@ -20,6 +19,7 @@ import {
   Switch,
   useToast,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -170,11 +170,11 @@ export function OvertimePolicyForm() {
       />
 
       <PageBody className="flex flex-col gap-6">
-        {error && (
-          <Callout tone="danger" title="Could not read the policy">
-            {error}
-          </Callout>
-        )}
+        {/* `useOvertimePolicy` flattens the error to a string before a screen
+            sees it, so there is no `ApiError` left to classify and this renders
+            the general advice. Widening that state to `ApiError | null` is what
+            would let the API's own sentence through. */}
+        <LoadFailure subject="the overtime policy" error={error} />
 
         {loading ? (
           <span className="flex items-center gap-2 text-body-sm text-muted">

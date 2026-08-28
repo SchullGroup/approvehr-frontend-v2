@@ -34,6 +34,7 @@ import {
   TableWrap,
   useToast,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import type { KbArticleListParams } from "@/lib/api/knowledge";
@@ -327,9 +328,10 @@ export function KnowledgeScreen() {
 
           {articles.error && (
             <CardBody>
-              <p className="text-body-sm text-danger-text">
-                {articles.error.message}
-              </p>
+              <LoadFailure
+                subject="the knowledge base"
+                error={articles.error}
+              />
             </CardBody>
           )}
 

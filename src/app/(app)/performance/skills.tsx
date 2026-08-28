@@ -21,6 +21,7 @@ import {
   TableWrap,
   useToast,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
 import type { ApiCompetencyRow, ApiHeatmapRow } from "@/lib/api/performance";
 import {
@@ -108,11 +109,7 @@ export function SkillsTab({
         )}
       </div>
 
-      {mine.error && (
-        <p className="rounded-md border border-danger-line bg-danger-soft px-3.5 py-2.5 text-body-sm text-ink">
-          {mine.error.message}
-        </p>
-      )}
+      <LoadFailure subject="your skills framework" error={mine.error} />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Stat label="Skills on your framework" value={String(summary.total)} />

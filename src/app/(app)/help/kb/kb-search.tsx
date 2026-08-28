@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowRight, Loader2, Search, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { ButtonLink, Field, IconButton, Input } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { useKbSearch } from "@/lib/store/knowledge";
 
 /**
@@ -82,11 +83,7 @@ export function KbSearch({
           </p>
         )}
 
-        {search.error && (
-          <p className="text-body-sm text-danger-text">
-            {search.error.message}
-          </p>
-        )}
+        <LoadFailure subject="the search results" error={search.error} />
 
         {search.answered && search.hits.length > 0 && (
           <>

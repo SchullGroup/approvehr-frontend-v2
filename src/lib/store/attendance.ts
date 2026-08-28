@@ -263,6 +263,16 @@ function toApiPolicy(policy: AttendancePolicy): ApiAttendancePolicy {
 export type RosterState = {
   /** The date these rows describe. From the server when connected. */
   date: string;
+  /**
+   * The server's own `HH:MM` at the moment it answered.
+   *
+   * Needed because attendance times are UTC-rendered throughout, so anything
+   * computing an elapsed time from the browser's wall clock is out by the
+   * browser's UTC offset — an hour in Lagos. Anchor on this. Demo mode has no
+   * server, so it reports the browser's own time, which is the correct answer
+   * there: the demo's clock-ins were made by this browser too.
+   */
+  time: string;
   /** Null only while the first connected request is in flight. */
   policy: ApiAttendancePolicy | null;
   /** Exceptions first. Never re-sort by status — that ordering is the point. */
@@ -314,6 +324,8 @@ export function useAttendanceRoster(date?: string): RosterState {
   const [fetched, setFetched] = useState<{
     key: string;
     date: string;
+    /** The server's clock when it answered. See `RosterState.time`. */
+    time: string;
     policy: ApiAttendancePolicy | null;
     rows: ApiRosterRow[];
     recorded: number;
@@ -341,6 +353,7 @@ export function useAttendanceRoster(date?: string): RosterState {
           setFetched({
             key,
             date: roster.date,
+            time: roster.time,
             policy: roster.policy,
             rows: roster.rows,
             recorded: roster.recorded,
@@ -354,6 +367,9 @@ export function useAttendanceRoster(date?: string): RosterState {
           setFetched({
             key,
             date: date ?? "",
+            /* A failed read has no server clock either. Empty, so the timer
+               renders nothing rather than anchoring on the browser's. */
+            time: "",
             policy: null,
             rows: [],
             recorded: 0,
@@ -412,6 +428,10 @@ export function useAttendanceRoster(date?: string): RosterState {
 
     return {
       date: on,
+      /* The browser's own clock, which is the right answer offline: the demo's
+         clock-ins were made by this browser, so there is no offset to correct
+         for and no server to ask. */
+      time: new Date().toTimeString().slice(0, 5),
       policy: toApiPolicy(local.policy),
       rows,
       recorded: local.forDate(on).filter((entry) => entry.clockIn).length,
@@ -425,6 +445,9 @@ export function useAttendanceRoster(date?: string): RosterState {
 
   return {
     date: matched ? fetched.date : (date ?? ""),
+    /* Empty until the server has answered — the timer that reads it renders
+       nothing rather than anchoring on a guess. */
+    time: matched ? fetched.time : "",
     policy: matched ? fetched.policy : null,
     rows: matched ? fetched.rows : [],
     recorded: matched ? fetched.recorded : 0,
@@ -701,6 +724,29 @@ export function useAttendanceMutations() {
   }, [isConnected, actingId, local]);
 
   /**
+   * Undo your own clock-out, just after making it.
+   *
+   * Offline it simply clears the time — the demo's entries were made by this
+   * browser and there is nothing to reconcile. Connected, the API decides,
+   * including the window past which this becomes an HR correction; its refusal
+   * is shown verbatim rather than pre-empted here, because the window is the
+   * server's rule and a second copy would drift.
+   */
+  const undoClockOut = useCallback(async () => {
+    if (!isConnected) {
+      const entry = local.forDate(TODAY).find((row) => row.employeeId === actingId);
+      if (!entry?.clockOut) {
+        throw new ApiError(409, "conflict", "You are still clocked in.");
+      }
+      /* `undefined`, not `null`: the demo entry types `clockOut` as optional,
+         and the patch is spread over the row — an undefined key clears it. */
+      local.correct(actingId, TODAY, { clockOut: undefined }, "Clock-out reversed");
+      return { employeeId: actingId, date: TODAY, clockIn: entry.clockIn };
+    }
+    return attendanceApi.undoClockOut();
+  }, [isConnected, actingId, local]);
+
+  /**
    * A correction, and the note is not optional in either mode.
    *
    * The API's schema requires it; this checks first so the demo refuses on the
@@ -753,7 +799,7 @@ export function useAttendanceMutations() {
     [isConnected, local],
   );
 
-  return { clockIn, clockOut, correct, connected: isConnected };
+  return { clockIn, clockOut, undoClockOut, correct, connected: isConnected };
 }
 
 /* -------------------------------------------------------------------- rotas */
