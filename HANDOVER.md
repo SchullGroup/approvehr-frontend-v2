@@ -5009,3 +5009,172 @@ right and the preview is the bug.
 - **One bonus per person per run.** Two separate bonuses in one month are added
   together with one reason — one figure with one explanation is more auditable
   than two with none, and the payslip shows one line either way.
+
+---
+
+# A payroll worked in a spreadsheet, and two defects only a browser could see
+
+The inline cells recorded above are for correcting two or three people while
+looking at the table. This is the other way a payroll actually gets worked:
+somebody has a file from a supervisor, or three hundred rows of overtime that
+came off a different system. `POST /payroll/runs/:id/adjustments` and
+`src/app/(app)/payroll/runs/new/sheet-panel.tsx`.
+
+## The sheet downloads filled in, and that is the feature
+
+Staff number, name, email, phone, department, **bank and account number** —
+enough for a person to be sure a row is about who they think it is — plus the
+overtime, bonus, tax and salary the run holds now. A blank template for three
+hundred staff is a spreadsheet somebody has to type three hundred names into, in
+our spelling, in the right order.
+
+It has one consequence the whole feature turns on. Because the file arrives
+carrying today's figures, **emptying a cell is a statement**:
+
+| | Means | Because |
+|---|---|---|
+| column absent from the file | leave that figure alone | a sheet of overtime hours says nothing about anybody's bonus |
+| column present, cell blank | take that figure off | the only way somebody can say "remove this" |
+
+Collapsing the two either makes clearing impossible or wipes every figure a
+partial sheet does not mention. `SHEET_BLANK_RULE` is that sentence, written
+once and rendered on the workbook's guide tab **and** above the upload button,
+so the file and the product cannot describe it differently.
+
+The router `compact()`s every row for exactly this. A zod-parsed row spread
+straight through carries `payeKobo: undefined` on every row that had no such
+column, and the service reads which columns a file carried with `in` — which is
+true for a key holding `undefined`. A sheet of overtime hours would have wiped
+every bonus on the run.
+
+**Monthly pay is the deliberate exception.** It writes `Employee.grossMonthly`,
+which is the contract, and there is no such thing as an employee with no salary
+— so a blank cell there leaves it standing. Reading an empty cell as "pay them
+nothing from now on" is the worst available reading of a half-filled sheet.
+
+## Nothing is applied unless every row can be
+
+Different from the importer next door, which imports the good rows and reports
+the rest, and the difference is the subject. An import is many independent
+people: 47 of 50 arriving is 47 people who now exist. A payroll sheet is **one
+statement about one period**, and 297 of 300 leaves a run that is neither what it
+was nor what the sheet says, with nothing on screen able to tell a reader which
+of the two any figure came from. Refusing it whole leaves the run in a state
+somebody can reason about, with every problem named at once.
+
+The same person twice is refused rather than last-one-wins. A blank row for
+somebody not on this payroll passes — the template carries the whole company and
+most of a returned sheet is rows nobody touched.
+
+## Why this is not an `ImportEntity`
+
+`lib/imports/` exists because a file arrives from outside and nobody knows what
+is in it: a heading matcher, duplicate detection, a two-step apply with a
+fingerprint. This is ours going out and coming back, everybody in it already
+exists, and it is applied whole or not at all. Reusing the framework would mean
+a matcher that never matches anything unexpected, a duplicate step that can
+never fire, and a batch record for a file with no partial state. What is
+genuinely shared — writing a workbook, reading one back — is `lib/xlsx.ts` and
+`lib/csv.ts`, used directly.
+
+## One bulk route, because four hundred calls is not the same shape
+
+`setTaxOverride`, `setOvertimeOverride`, `setBonus` and `setMonthlyPay` each end
+by calling `prepare`, which deletes and rebuilds **every payslip on the run**.
+Right for one figure typed into one cell; catastrophic in a loop. A 300-row sheet
+touching two columns is 600 requests and 600 full rebuilds. This writes every row
+and rebuilds once, and resolves every person in one query rather than one per row.
+
+If you add a fifth adjustable figure, add it here too, or the sheet and the cell
+will disagree about what a payroll can carry.
+
+## The two defects, both found by looking
+
+Neither was visible to `tsc`, lint or the build, and both are worth reading as
+classes rather than incidents.
+
+### 1. State owned by a component that unmounts
+
+The panel showed "Applied" from its own `useState`. Applying rebuilds the run,
+and the wizard unmounts that whole subtree while it does — so the confirmation
+was destroyed before it could be read, and a successful upload looked like a
+panel snapping shut for no reason.
+
+I moved the message twice before the diagnosis was right: inside the reveal, then
+just outside it. **The problem was never where the message sat but which
+component owned it.** It is the wizard's toast now, and the wizard survives.
+
+> If a component triggers a refetch that unmounts it, its own success state
+> cannot be the thing that reports the success.
+
+### 2. A count that was true of the wrong noun
+
+The panel's button read **Apply to 1 person** and the toast that followed it read
+**4 people's figures changed** — two mutually exclusive claims about one act, on
+one page, which is the defect this product is sold against.
+
+Both were honest about different things. The client counted figures that move;
+the server counted rows it wrote, and an upsert with an identical value is still
+an upsert. A returned sheet is mostly rows saying exactly what they left with.
+
+Fixed on the server, because that count is the one in the audit trail: three
+`findMany`s up front, and a column is recorded in `changed` only when the stored
+value actually differs — which also stops nine untouched rows moving nine `setAt`
+stamps and putting nine decisions nobody made into the trail.
+
+Same rule as `headcountLabel` one module along: **a number under a label has to
+be true of the thing the label names.**
+
+## The payslip
+
+- **The overtime line shows its working**: `6 hours at ₦2,054.79 an hour, times
+  1.5` under the label. The hourly figure is **divided out of the amount the
+  payslip already carries**, never computed from a salary and a policy —
+  `hourlyRateKobo` on the API owns that, from a basis and a contractual salary
+  this document does not have. A second implementation here is the
+  duplicate-engine mistake this file records at length. So the sentence always
+  reconciles: it is the stored figure, factored. A clocked line carries no
+  multiplier in its label, so none is invented — it says the hours and what they
+  averaged an hour. Nothing is said at all when the hours are missing or nil.
+- **The rent-relief paragraph is gone**, at the product owner's instruction. Four
+  sentences of tax-reform history under a line reading nothing is a leaflet
+  stapled to a receipt. The fact is not lost: `prepare` still raises
+  `rent_relief_unclaimed` naming everybody it applies to, on the list somebody
+  reads before releasing money, and `/people/[id]` has the field. Explaining a
+  gap at length to the one person who cannot close it, while saying nothing to
+  the people who can, was the wrong half.
+- **`bonusOn` matched `"Bonus — "` only.** Correct while a reason was compulsory,
+  and silently broken the day it stopped being: a bonus awarded without one
+  rendered as an empty cell offering to add the bonus already on the payslip. A
+  guard written against a required field is a guard with an expiry date on it.
+
+## Verified
+
+Against the live API on a ten-person August run: the sheet downloading
+pre-filled, a hand-entered 6 hours read back out of its payslip line, a
+bonus-only sheet leaving both overtime overrides untouched, an emptied cell
+clearing a figure, a blank `monthly_salary` changing nothing, the button and the
+toast agreeing at 1, the whole-sheet refusal naming an unknown staff number and
+a repeated person by row and column, the company logo uploading and rendering on
+the payslip above the company name, and the overtime working on a real payslip.
+Every test figure and the test logo were cleared off the demo afterwards.
+
+`npm run check` green in both repos — 54 payroll assertions here, 2076 tests
+there. One run of the backend gate had six failures in `tests/payments.test.ts`,
+a file this change does not touch, which passed **49/49 alone**: contention, by
+this file's own rule, with a dev server on the same database.
+
+## Working in a git worktree, which this session had to do throughout
+
+Three concurrent sessions share these trees, and a peer's uncommitted files
+abort every `git checkout`. `git worktree add` is the way through, and two
+things about it cost time:
+
+- **Symlinking `node_modules` breaks the build.** Turbopack refuses a symlink
+  that points out of the project root — *"Symlink [project]/node_modules is
+  invalid"*. `cp -Rl` hard-links it in a second and costs no disk.
+- **`preview_start` reads `.claude/launch.json` from the session root**, not from
+  the worktree, so it will happily serve the *other* tree's code while you read
+  its output as yours. A parse error from somebody else's in-flight edit is the
+  tell. Add a config with `npm --prefix /path/to/worktree run dev` on its own
+  port, and remove it afterwards.

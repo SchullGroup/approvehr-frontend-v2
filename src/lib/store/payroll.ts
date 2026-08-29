@@ -29,6 +29,8 @@ import {
   type RunException,
   type RunExclusion,
   type BonusChange,
+  type AdjustmentUpload,
+  type SheetOutcome,
   type MonthlyPayChange,
   type OvertimeOverrideChange,
   type OvertimeOverrideKind,
@@ -1602,7 +1604,7 @@ export function usePayrollActions() {
         employeeId: string;
         hours: number;
         kind: OvertimeOverrideKind;
-        reason: string;
+        reason?: string;
       },
     ): Promise<OvertimeOverrideChange> => {
       if (isConnected) return payrollApi.setOvertimeOverride(runId, input);
@@ -1634,7 +1636,7 @@ export function usePayrollActions() {
   const setBonus = useCallback(
     async (
       runId: string,
-      input: { employeeId: string; amountKobo: number; reason: string },
+      input: { employeeId: string; amountKobo: number; reason?: string },
     ): Promise<BonusChange> => {
       if (isConnected) return payrollApi.setBonus(runId, input);
       throw new ApiError(
@@ -1651,6 +1653,29 @@ export function usePayrollActions() {
     async (runId: string, employeeId: string): Promise<PreparedRun> => {
       if (isConnected) return payrollApi.clearBonus(runId, employeeId);
       throw new ApiError(0, "offline", "Adding a bonus needs the API.");
+    },
+    [isConnected],
+  );
+
+  /**
+   * A whole payroll's figures, from one uploaded spreadsheet.
+   *
+   * Refused offline for the same reason as every figure it carries, and one
+   * more of its own: the sheet's contract is that emptying a cell takes a
+   * figure off, which is only true if something recomputes the payroll
+   * afterwards. A demo that accepted the file and moved no payslip would teach
+   * the opposite of what the feature does.
+   */
+  const uploadAdjustments = useCallback(
+    async (runId: string, body: AdjustmentUpload): Promise<SheetOutcome> => {
+      if (isConnected) return payrollApi.uploadAdjustments(runId, body);
+      throw new ApiError(
+        0,
+        "offline",
+        "Uploading a payroll sheet needs the API. Every figure on it moves " +
+          "gross and the tax on it, and the demo has no engine to recompute " +
+          "either.",
+      );
     },
     [isConnected],
   );
@@ -1686,7 +1711,7 @@ export function usePayrollActions() {
       input: {
         employeeId: string;
         payeKobo: number;
-        reason: string;
+        reason?: string;
         alsoStanding?: boolean;
       },
     ): Promise<TaxOverrideChange> => {
@@ -1729,6 +1754,7 @@ export function usePayrollActions() {
     clearOvertimeOverride,
     setBonus,
     clearBonus,
+    uploadAdjustments,
     setMonthlyPay,
     connected: isConnected,
   };
