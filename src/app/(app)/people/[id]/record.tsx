@@ -116,9 +116,24 @@ function statusOf(status: string): { tone: BadgeTone; label: string } {
  * for picking something the interface offered them. Offline the local set is
  * the honest one, because localStorage will hold whatever it is given.
  */
+/*
+ * Onboarding is parked and therefore not offered here either.
+ *
+ * The tab is out of the nav and the create form no longer asks, so the only
+ * remaining way into that state would be this dropdown — putting somebody
+ * somewhere with no screen to see them on. `EmploymentStatus` still carries the
+ * value and the API still accepts it, so an existing ONBOARDING record renders
+ * its badge correctly (`STATUS_TONE` above is keyed by string for exactly this)
+ * and can be moved to Active from here. It just cannot be moved *into* any more.
+ *
+ * The rest stay, and deliberately: `on_leave` is what the leave module produces,
+ * `exited` is what an offboarding writes, and `suspended` is a disciplinary
+ * outcome. Those are set by their own flows and read here; removing them would
+ * hide states the product still creates.
+ */
 const API_STATUSES = [
   { value: "active", label: "Active" },
-  { value: "onboarding", label: "Onboarding" },
+  // { value: "onboarding", label: "Onboarding" },
   { value: "on_leave", label: "On leave" },
   { value: "suspended", label: "Suspended" },
   { value: "exited", label: "Left the company" },
@@ -126,11 +141,11 @@ const API_STATUSES = [
 
 const LOCAL_STATUSES = [
   { value: "active", label: "Active" },
-  { value: "onboarding", label: "Onboarding" },
-  { value: "probation", label: "Probation" },
+  // { value: "onboarding", label: "Onboarding" },
+  // { value: "probation", label: "Probation" },
   { value: "on_leave", label: "On leave" },
   { value: "offboarding", label: "Offboarding" },
-  { value: "inactive", label: "Inactive" },
+  // { value: "inactive", label: "Inactive" },
 ];
 
 const API_TYPES = [
