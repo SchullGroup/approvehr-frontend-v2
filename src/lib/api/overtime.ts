@@ -5,6 +5,7 @@ import {
   type OvertimeKind,
   type OvertimePolicy,
   type OvertimeStatus,
+  type OvertimeHourlyBasis,
 } from "@/lib/overtime/derive";
 
 /**
@@ -70,6 +71,7 @@ type WirePolicy = {
   holidayRate: number | string;
   requiresApproval: boolean;
   hoursPerDay: number;
+  hourlyBasis?: OvertimeHourlyBasis;
 };
 
 type WireRecord = {
@@ -172,6 +174,10 @@ function toPolicy(wire: WirePolicy): OvertimePolicy {
     holidayRate: Number(wire.holidayRate),
     requiresApproval: wire.requiresApproval,
     hoursPerDay: wire.hoursPerDay,
+    /* Absent means an API older than the column. CALENDAR_DAYS is the API's own
+       default for a new company, and reading an absence as the other one would
+       show a preview a third away from what the payslip gets. */
+    hourlyBasis: wire.hourlyBasis ?? "CALENDAR_DAYS",
   };
 }
 

@@ -73,6 +73,10 @@ import {
   wasDeducted,
 } from "@/lib/api/payroll";
 import { useCan } from "@/lib/permissions";
+import { useOvertimePolicy } from "@/lib/store/overtime";
+import { usePayrollSettings } from "@/lib/payroll/use-settings";
+import { BonusByHand, OvertimeByHand, PayByHand } from "./by-hand";
+import type { OvertimeOverrideKind } from "@/lib/api/payroll";
 import {
   useEmployeeDirectory,
   useEmployeeMutations,
@@ -1458,7 +1462,22 @@ function PayslipTable({
   periodLabel: string;
   /** Just enough of the directory to know who already has the standing
    *  "always enter this by hand" preference — see `TaxOverrideDialog`. */
-  employees: readonly { id: string; payeManualOverride?: boolean }[];
+  employees: readonly {
+    id: string;
+    payeManualOverride?: boolean;
+    /**
+     * Their contractual monthly pay, in **naira** — the one money field on
+     * `Employee` that is not kobo, which `HANDOVER.md` records as a legacy the
+     * type is waiting to shed.
+     *
+     * Read from the directory rather than backed out of the payslip. A payslip
+     * prorated for unpaid days carries the prorated figure, and the API values
+     * overtime on the full month — so deriving it from `grossKobo` would show
+     * everybody with a docked day an hourly rate lower than the one they are
+     * actually paid.
+     */
+    grossMonthly?: number | null;
+  }[];
   /** `canPrepare && !settled` from the wizard. An approved run's figures are
    *  the record; nothing here offers to change them. */
   editable: boolean;
@@ -1477,6 +1496,99 @@ function PayslipTable({
 
   const actions = usePayrollActions();
   const [overriding, setOverriding] = useState<Payslip | null>(null);
+  /** Which row has the three by-hand forms open, if any. */
+  const [adjusting, setAdjusting] = useState<Payslip | null>(null);
+  const [adjustSaving, setAdjustSaving] = useState<
+    "overtime" | "bonus" | "pay" | null
+  >(null);
+  const [adjustError, setAdjustError] = useState<string | null>(null);
+  const overtimePolicy = useOvertimePolicy();
+  const { settings: paySettings } = usePayrollSettings();
+  const workingDays = paySettings.workingDaysPerMonth;
+
+  const closeAdjust = () => {
+    setAdjusting(null);
+    setAdjustError(null);
+  };
+  const toggleAdjust = (slip: Payslip) => {
+    setAdjustError(null);
+    setAdjusting((open) => (open?.id === slip.id ? null : slip));
+  };
+
+  /**
+   * One place every by-hand write goes through.
+   *
+   * Each returns a rebuilt run, so the table has to reload rather than patch a
+   * figure locally — the whole period is recomputed server-side and a local
+   * patch would show one moved number beside five stale ones.
+   */
+  const adjust = async (
+    which: "overtime" | "bonus" | "pay",
+    action: () => Promise<unknown>,
+  ) => {
+    setAdjustSaving(which);
+    setAdjustError(null);
+    try {
+      await action();
+      /* `onSaved` is what the tax override already uses: the run is rebuilt
+         server-side, so the table reloads rather than patching one figure and
+         leaving five stale ones beside it. */
+      closeAdjust();
+      onSaved();
+    } catch (caught) {
+      setAdjustError(
+        caught instanceof ApiError
+          ? caught.message
+          : "Something went wrong. Try again.",
+      );
+    } finally {
+      setAdjustSaving(null);
+    }
+  };
+
+  const saveOvertime = (
+    slip: Payslip,
+    input: { hours: number; kind: OvertimeOverrideKind; reason: string },
+  ) =>
+    adjust(
+      "overtime",
+      () =>
+        actions.setOvertimeOverride(runId, {
+          employeeId: slip.employeeId,
+          ...input,
+        }),
+    );
+
+  const clearOvertime = (slip: Payslip) =>
+    adjust(
+      "overtime",
+      () => actions.clearOvertimeOverride(runId, slip.employeeId),
+    );
+
+  const saveBonus = (slip: Payslip, input: { amountKobo: number; reason: string }) =>
+    adjust(
+      "bonus",
+      () => actions.setBonus(runId, { employeeId: slip.employeeId, ...input }),
+    );
+
+  const clearBonusFor = (slip: Payslip) =>
+    adjust(
+      "bonus",
+      () => actions.clearBonus(runId, slip.employeeId),
+    );
+
+  const savePay = (
+    slip: Payslip,
+    input: { grossMonthlyKobo: number; reason: string },
+  ) =>
+    adjust(
+      "pay",
+      () =>
+        actions.setMonthlyPay(runId, {
+          employeeId: slip.employeeId,
+          ...input,
+        }),
+    );
   const [saving, setSaving] = useState(false);
   const [overrideError, setOverrideError] = useState<string | null>(null);
 
@@ -1604,7 +1716,30 @@ function PayslipTable({
                     </TD>
                   )}
                   <TD align="right" className="tabular text-body">
-                    {formatKobo(slip.grossKobo)}
+                    <span className="flex flex-col items-end gap-0.5">
+                      <span>{formatKobo(slip.grossKobo)}</span>
+                      {/* What was added by hand, named under the figure. "Clearly
+                          shown in the table" is the whole request: a gross that
+                          moved with nothing saying why is the claim this product
+                          exists to refuse. */}
+                      {adjustmentsOn(slip).map((line) => (
+                        <span
+                          key={line.id}
+                          className="text-meta font-normal text-accent-text"
+                        >
+                          +{formatKobo(line.amountKobo)} {shortLabel(line.label)}
+                        </span>
+                      ))}
+                      {editable && (
+                        <button
+                          type="button"
+                          onClick={() => toggleAdjust(slip)}
+                          className="text-meta font-normal text-muted underline-offset-2 hover:text-accent-text hover:underline"
+                        >
+                          {adjusting?.id === slip.id ? "Close" : "Adjust"}
+                        </button>
+                      )}
+                    </span>
                   </TD>
                   <TD align="right" className="tabular text-muted">
                     {wasDeducted(slip.operates, "pension") ? (
@@ -1674,6 +1809,53 @@ function PayslipTable({
                     {formatKobo(slip.netKobo)}
                   </TD>
                 </TR>
+                {adjusting?.id === slip.id && (
+                  <TR>
+                    <TD colSpan={anyUnpaid ? 8 : 7} className="bg-canvas p-0">
+                      <div className="flex flex-col divide-y divide-line">
+                        <OvertimeByHand
+                          name={slip.name}
+                          grossMonthlyKobo={monthlyOf(slip, employees)}
+                          workingDaysPerMonth={workingDays}
+                          hoursPerDay={overtimePolicy.policy.hoursPerDay}
+                          basis={overtimePolicy.policy.hourlyBasis}
+                          rates={{
+                            WEEKDAY: overtimePolicy.policy.weekdayRate,
+                            WEEKEND: overtimePolicy.policy.weekendRate,
+                            PUBLIC_HOLIDAY: overtimePolicy.policy.holidayRate,
+                          }}
+                          current={null}
+                          saving={adjustSaving === "overtime"}
+                          error={adjustError}
+                          onSave={(input) => void saveOvertime(slip, input)}
+                          onCancel={closeAdjust}
+                          {...(hasManualOvertime(slip)
+                            ? { onClear: () => void clearOvertime(slip) }
+                            : {})}
+                        />
+                        <BonusByHand
+                          name={slip.name}
+                          current={bonusOn(slip)}
+                          saving={adjustSaving === "bonus"}
+                          error={adjustError}
+                          onSave={(input) => void saveBonus(slip, input)}
+                          onCancel={closeAdjust}
+                          {...(bonusOn(slip)
+                            ? { onClear: () => void clearBonusFor(slip) }
+                            : {})}
+                        />
+                        <PayByHand
+                          name={slip.name}
+                          currentKobo={monthlyOf(slip, employees) || null}
+                          saving={adjustSaving === "pay"}
+                          error={adjustError}
+                          onSave={(input) => void savePay(slip, input)}
+                          onCancel={closeAdjust}
+                        />
+                      </div>
+                    </TD>
+                  </TR>
+                )}
                 {open && (
                   <TR>
                     <TD colSpan={anyUnpaid ? 8 : 7} className="bg-canvas p-0">
@@ -1860,4 +2042,72 @@ function PayeByHand({
       </div>
     </div>
   );
+}
+
+/* ------------------------------------------- what was added by hand, named */
+
+/**
+ * Earning lines somebody typed, as opposed to ones the engine worked out.
+ *
+ * Matched on the label, because `PayslipLine` carries no code column — the
+ * labels are generated in exactly one place (`payroll/assemble.ts`) with fixed
+ * prefixes for this. Fragile enough to say out loud: change a prefix there and
+ * these stop being named under the gross figure, though nothing is mispaid.
+ */
+function adjustmentsOn(slip: Payslip) {
+  return slip.lines.filter(
+    (line) =>
+      line.kind === "EARNING" &&
+      (line.label.startsWith("Overtime, entered by hand") ||
+        line.label.startsWith("Bonus")),
+  );
+}
+
+function hasManualOvertime(slip: Payslip): boolean {
+  return slip.lines.some((line) =>
+    line.label.startsWith("Overtime, entered by hand"),
+  );
+}
+
+/** The bonus on this run, if there is one, as the form wants it. */
+function bonusOn(slip: Payslip): { amountKobo: number; reason: string } | null {
+  const line = slip.lines.find((l) => l.label.startsWith("Bonus — "));
+  if (!line) return null;
+  return {
+    amountKobo: line.amountKobo,
+    reason: line.label.replace(/^Bonus — /, ""),
+  };
+}
+
+/** "Bonus — Q3 target" under a figure is enough; the full line is on the payslip. */
+function shortLabel(label: string): string {
+  if (label.startsWith("Overtime, entered by hand")) return "overtime";
+  if (label.startsWith("Bonus — ")) return label.replace(/^Bonus — /, "");
+  return label;
+}
+
+/**
+ * What this person is paid a month, in kobo.
+ *
+ * From the **directory**, not from the payslip. The first version of this
+ * backed the figure out of `grossKobo` by subtracting the allowance lines,
+ * which is right for somebody paid a full month and wrong for everybody else:
+ * a payslip prorated for unpaid days carries the prorated contract, while the
+ * API values overtime on the whole month. Adaeze, with five unpaid days, would
+ * have been shown an hourly rate well below the one she is actually paid.
+ *
+ * `Employee.grossMonthly` is in naira — the one money field on that type that
+ * is not kobo, which `HANDOVER.md` records as a legacy waiting to be shed.
+ *
+ * Returns 0 when the directory has not answered or the person has no agreed
+ * figure. Both callers handle that: the overtime form shows the divisor with a
+ * zero rate rather than a wrong one, and the pay field opens empty, which is
+ * exactly the `missing_pay` case.
+ */
+function monthlyOf(
+  slip: Payslip,
+  employees: readonly { id: string; grossMonthly?: number | null }[],
+): number {
+  const person = employees.find((row) => row.id === slip.employeeId);
+  return person?.grossMonthly ? Math.round(person.grossMonthly * 100) : 0;
 }
