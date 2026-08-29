@@ -15,6 +15,7 @@ import {
 import { demoDepartmentName } from "./demo-structure";
 import { useEmployeeStore } from "./employees";
 import { useSession } from "./session";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * The employee directory, from whichever source is available.
@@ -111,9 +112,12 @@ export function useEmployeeDirectory(params: EmployeeListParams = {}) {
     }
   }, [isConnected, key]);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, revalidation]);
 
   if (!isConnected) {
     /* Demo mode: filter, sort and page the in-memory directory so the screen
@@ -305,6 +309,9 @@ export function useDirectorySummary(
     error: ApiError | null;
   } | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -333,7 +340,7 @@ export function useDirectorySummary(
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, key]);
+  }, [isConnected, key, revalidation]);
 
   const demo = useMemo(() => {
     if (isConnected) return null;
@@ -488,6 +495,9 @@ export function useEmployee(id: string): EmployeeRecordState {
    */
   const askable = active && isUuid(id);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!askable) return;
     const controller = new AbortController();
@@ -514,7 +524,7 @@ export function useEmployee(id: string): EmployeeRecordState {
       cancelled = true;
       controller.abort();
     };
-  }, [id, nonce, askable]);
+  }, [id, nonce, askable, revalidation]);
 
   const reload = useCallback(() => setNonce((n) => n + 1), []);
 
@@ -685,7 +695,20 @@ export function useEmployeeMutations() {
 
   const update = useCallback(
     async (id: string, patch: EmployeePatch) => {
-      const { departmentId, workLocationId, ...fields } = patch;
+      const { departmentId, workLocationId, managerId, salaryGradeId, ...fields } =
+        patch;
+      /* Unlike `departmentId`, these two are already ids in both modes — no
+         display name stands in for them locally, so the only conversion
+         either needs is the same one every nullable id field needs: `""`,
+         the picker's "not one of these", crosses as `null`. */
+      const normalizedManagerId =
+        managerId === undefined ? undefined : managerId === "" ? null : managerId;
+      const normalizedSalaryGradeId =
+        salaryGradeId === undefined
+          ? undefined
+          : salaryGradeId === ""
+            ? null
+            : salaryGradeId;
 
       if (!isConnected) {
         /* The local store holds display names, so a `departmentId` has to be
@@ -700,6 +723,12 @@ export function useEmployeeMutations() {
           ...(departmentId === undefined
             ? {}
             : { department: demoDepartmentName(departmentId) }),
+          ...(normalizedManagerId === undefined
+            ? {}
+            : { managerId: normalizedManagerId }),
+          ...(normalizedSalaryGradeId === undefined
+            ? {}
+            : { salaryGradeId: normalizedSalaryGradeId }),
         });
         return undefined;
       }
@@ -739,6 +768,12 @@ export function useEmployeeMutations() {
         ...(workLocationId === undefined
           ? {}
           : { workLocationId: workLocationId === "" ? null : workLocationId }),
+        ...(normalizedManagerId === undefined
+          ? {}
+          : { managerId: normalizedManagerId }),
+        ...(normalizedSalaryGradeId === undefined
+          ? {}
+          : { salaryGradeId: normalizedSalaryGradeId }),
         /* Same shape again: each of these is format-checked when present — an
            RSA PIN, a TIN, a NUBAN account, a NIN, a phone number — so `""`
            fails that check instead of clearing the field, and only `null` does. */

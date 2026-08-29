@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarRange } from "lucide-react";
+import { CalendarRange, Sparkles } from "lucide-react";
 import {
   Button,
+  ButtonLink,
+  Callout,
   Checkbox,
   Disclosure,
   Field,
@@ -18,6 +20,7 @@ import { ApiError } from "@/lib/api/client";
 import { useCan } from "@/lib/permissions";
 import { useDepartments } from "@/lib/store/departments";
 import { useFeatures } from "@/lib/store/features";
+import { useAssistantAvailable } from "@/lib/store/ai";
 import { useCycleMutations } from "@/lib/store/performance";
 
 /**
@@ -64,6 +67,7 @@ export function StartPeriodDialog({
   onCreated: (period: { id: string; name: string }) => void;
 }) {
   const periods = useCycleMutations();
+  const assistant = useAssistantAvailable();
 
   const departments = useDepartments();
 
@@ -131,6 +135,34 @@ export function StartPeriodDialog({
       }
     >
       <div className="flex flex-col gap-4">
+        {/* The other door, and only when there is one.
+            ------------------------------------------
+            This dialog is right for somebody who already knows what the period
+            is asking of everybody. The wizard is for the much commoner case
+            where they do not, and it drafts the goals and questions from a
+            description. Absent rather than disabled when no assistant is wired,
+            because that screen would have nothing to do — same rule the Suggest
+            buttons follow. */}
+        {assistant.available && (
+          <Callout tone="accent" title="Not sure what to put in it?">
+            <p>
+              Describe the half in a sentence or two and get the company goals
+              and the review questions as a draft you edit. Nothing is created
+              until you have read it.
+            </p>
+            <p className="mt-2">
+              <ButtonLink
+                href="/performance/periods/new"
+                variant="secondary"
+                size="sm"
+              >
+                <Sparkles aria-hidden="true" className="size-3.5" />
+                Draft it from a description
+              </ButtonLink>
+            </p>
+          </Callout>
+        )}
+
         <Field label="What to call it" required {...(error ? { error } : {})}>
           <Input
             value={name}
@@ -157,7 +189,7 @@ export function StartPeriodDialog({
               ? "Everybody"
               : `${scope.length} department${scope.length === 1 ? "" : "s"}`
           }
-          hint="Leave it as everybody unless this period is only for part of the company."
+          hint="Everybody, unless you pick specific departments below."
         >
           {departments.flat.length === 0 ? (
             <p className="text-body-sm text-muted">
@@ -199,7 +231,7 @@ export function StartPeriodDialog({
               ? `${remind} day${remind === "1" ? "" : "s"} before`
               : "Switched off"
           }
-          hint="One reminder, to whoever has not sent their form yet."
+          hint="One reminder to whoever still owes a form."
         >
           <div className="flex flex-col gap-2">
             <Field optional label="Days before the deadline">

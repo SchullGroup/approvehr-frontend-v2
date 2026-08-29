@@ -139,7 +139,7 @@ export function TeamsPanel({
   return (
     <div className="flex flex-col gap-6">
       {teams.error && (
-        <LoadFailure subject="the teams" error={teams.error} />
+        <LoadFailure subject="the teams" error={teams.error}  onRetry={teams.reload}/>
       )}
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -159,7 +159,7 @@ export function TeamsPanel({
       <Card>
         <CardHeader
           title="Teams"
-          description="A working group with a lead. Joining one does not move anybody's pay — unless the team belongs to a department."
+          description="Joining one does not move anybody's pay — unless the team belongs to a department."
           {...(canManage
             ? {
                 action: (

@@ -66,7 +66,6 @@ export function LedgerPanel({ canRecordFunding }: { canRecordFunding: boolean })
       <Card>
         <CardHeader
           title="Account activity"
-          description="What came in and what went out, newest first."
           action={
             canRecordFunding ? (
               <Button variant="secondary" size="sm" onClick={() => setRecording(true)}>

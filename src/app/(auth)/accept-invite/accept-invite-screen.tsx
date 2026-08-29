@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ApiError } from "@/lib/api/client";
 import { Button, Callout } from "@/components/ui";
 import { account, passwordAccepted } from "@/lib/api/account";
 import { markSignedIn } from "@/lib/store/session";
-import { PasswordField } from "../password-field";
+import { PasswordField } from "@/components/portal/password-field";
 
 /**
  * Turning an invitation into an account.
@@ -31,9 +31,32 @@ export function AcceptInviteScreen({ token }: { token: string | null }) {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
+  /* See the identical note in `ResetPasswordScreen` — lenient until the
+     preview answers, which costs nothing because a dead token never reaches
+     the point where the difference matters. */
+  const [strict, setStrict] = useState(false);
+
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    void account
+      .requirementsForInvite(token)
+      .then((result) => {
+        if (!cancelled) setStrict(result.requiresStrongPassword);
+      })
+      .catch(() => {
+        /* The real submit still enforces whatever the account actually
+           needs; a preview that could not be reached only costs a few
+           seconds of the checklist being wrong, never an accepted password
+           that should have been refused. */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
 
   async function submit() {
-    if (!token || !passwordAccepted(password) || busy) return;
+    if (!token || !passwordAccepted(password, strict) || busy) return;
     setBusy(true);
     setError(null);
     try {
@@ -103,11 +126,12 @@ export function AcceptInviteScreen({ token }: { token: string | null }) {
           onChange={setPassword}
           error={error?.messageFor("newPassword")}
           onEnter={() => void submit()}
+          strict={strict}
         />
 
         <Button
           variant="accent"
-          disabled={!passwordAccepted(password) || deadLink !== null}
+          disabled={!passwordAccepted(password, strict) || deadLink !== null}
           loading={busy}
           onClick={() => void submit()}
         >

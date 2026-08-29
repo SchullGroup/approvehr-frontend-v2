@@ -18,6 +18,7 @@ import {
   type UpdatePostingBody,
 } from "@/lib/api/careers";
 import { CANDIDATES, REQUISITIONS } from "@/lib/mock/hiring";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * Job adverts and the applications they bring in.
@@ -327,9 +328,12 @@ export function usePostings(filters: PostingFilters = {}) {
     }
   }, [status, q, pageSize]);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, revalidation]);
 
   const guard = useCallback(() => {
     if (!connected()) throw demoError();
@@ -452,9 +456,12 @@ export function useApplications(filters: ApplicationFilters = {}) {
     }
   }, [status, postingId, q, pageSize]);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, revalidation]);
 
   const guard = useCallback(() => {
     if (!connected()) throw demoError();
@@ -520,6 +527,9 @@ export function useCareersAnalytics() {
     error: ApiError | null;
   } | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!online) return;
     let cancelled = false;
@@ -540,7 +550,7 @@ export function useCareersAnalytics() {
     return () => {
       cancelled = true;
     };
-  }, [online, attempt]);
+  }, [online, attempt, revalidation]);
 
   const demo = useMemo(() => {
     const { postings, applications } = demoBook();

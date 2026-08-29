@@ -20,6 +20,7 @@ import {
   Stat,
   useToast,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import { useCan } from "@/lib/permissions";
@@ -159,12 +160,12 @@ export function OnboardingScreen() {
             Ticks you make here are saved in this browser
           </Badge>
           {loading && <span className="text-meta text-muted">Loading…</span>}
-          {error && (
-            <span className="text-meta text-danger-text">
-              {error.message}
-            </span>
-          )}
         </div>
+
+        {/* Out of the badge row. A failed read rendered at badge size, between a
+            source note and a count, reads as one more label about the page
+            rather than the reason the page is empty. */}
+        <LoadFailure subject="the onboarding checklists" error={error}  onRetry={reload}/>
 
         <div className="grid gap-4 sm:grid-cols-3">
           <Stat label="In onboarding" value={String(employees.length)} />
@@ -177,14 +178,36 @@ export function OnboardingScreen() {
                   hint: `${Math.round((stepsDone / stepCount) * 100)}% done`,
                 })}
           />
-          <Stat
-            label="Cannot be paid yet"
-            value={String(blocked.length)}
-            hint="missing a bank account"
-            {...(blocked.length > 0
-              ? { trend: { direction: "down" as const, label: "Will miss this month's pay" } }
-              : {})}
-          />
+          {/* Clickable, like the identical stat on the directory.
+              -------------------------------------------------------
+              `Stat` has no `href`, so the directory wraps it in a `Link` and
+              this screen did not — leaving the population most likely to be
+              blocked, new starters, with a count and no way through. Wrapped
+              only when there is something to open: a link to an empty list is
+              worse than none. */}
+          {blocked.length > 0 ? (
+            <Link
+              href="/people/incomplete"
+              className="block h-full rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+            >
+              <Stat
+                label="Cannot be paid yet"
+                value={String(blocked.length)}
+                hint="missing a bank account — open the list"
+                className="h-full transition-colors hover:border-accent-line"
+                trend={{
+                  direction: "down" as const,
+                  label: "Will miss this month's pay",
+                }}
+              />
+            </Link>
+          ) : (
+            <Stat
+              label="Cannot be paid yet"
+              value={String(blocked.length)}
+              hint="missing a bank account"
+            />
+          )}
         </div>
 
         {loading && employees.length === 0 ? (

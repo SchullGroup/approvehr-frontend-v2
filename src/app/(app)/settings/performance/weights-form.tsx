@@ -17,6 +17,7 @@ import {
   Spinner,
   useToast,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -230,11 +231,7 @@ export function ScoringWeightsForm() {
       />
 
       <PageBody className="flex flex-col gap-6">
-        {error && (
-          <Callout tone="danger" title="Could not read the weights">
-            {error.message}
-          </Callout>
-        )}
+        <LoadFailure subject="the scoring weights" error={error} />
 
         {loading ? (
           <span className="flex items-center gap-2 text-body-sm text-muted">

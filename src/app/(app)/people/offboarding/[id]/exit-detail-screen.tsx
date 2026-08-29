@@ -327,7 +327,7 @@ export function ExitDetailScreen({ id }: { id: string }) {
             screen served against an API that predates it should lose one card
             rather than crash on the leaver's page. */}
         {readiness.finalPay !== undefined && (
-          <FinalPayCard finalPay={readiness.finalPay} firstName={firstName} />
+          <FinalPayCard finalPay={readiness.finalPay} />
         )}
 
         {held.length > 0 && (
@@ -335,7 +335,7 @@ export function ExitDetailScreen({ id }: { id: string }) {
             <CardHeader
               title="Still on the equipment register"
               level={3}
-              description={`${firstName} has not handed these back. A checklist line ticked as returned while this still says otherwise stops the exit closing.`}
+              description="A checklist line ticked as returned while this still says otherwise stops the exit closing."
               action={
                 <ButtonLink href="/people/assets" variant="secondary" size="sm">
                   Open the register
@@ -577,10 +577,8 @@ function DeclineDialog({
  */
 function FinalPayCard({
   finalPay,
-  firstName,
 }: {
   finalPay: ApiExitFinalPay;
-  firstName: string;
 }) {
   const untaken = finalPay.untakenLeave.reduce((sum, row) => sum + row.days, 0);
 
@@ -630,7 +628,7 @@ function FinalPayCard({
       <CardHeader
         title="Final pay"
         level={3}
-        description={`What has to be decided before ${firstName}'s last payslip. The figure itself comes from the payroll run.`}
+        description="The figure itself comes from the payroll run."
         action={
           <Badge tone={finalPay.agreed ? "success" : "warning"} size="sm">
             {finalPay.agreed ? "Agreed" : "Not agreed yet"}

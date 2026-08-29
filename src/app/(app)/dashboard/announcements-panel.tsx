@@ -74,7 +74,11 @@ export function AnnouncementsPanel({ board }: { board: ApiBoard }) {
 
         {hiddenHere > 0 && (
           <div>
-            <Button variant="secondary" size="sm" onClick={() => setExpanded(true)}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setExpanded(true)}
+            >
               Show {hiddenHere} more {hiddenHere === 1 ? "notice" : "notices"}
             </Button>
           </div>
@@ -99,7 +103,11 @@ function Notice({ notice }: { notice: ApiBoardNotice }) {
         {notice.pinned && (
           /* A word as well as an icon. An icon alone is a colour-and-shape cue
              that a screen reader has to guess at. */
-          <Badge tone="accent" size="sm" icon={<Pin aria-hidden="true" className="size-3" />}>
+          <Badge
+            tone="accent"
+            size="sm"
+            icon={<Pin aria-hidden="true" className="size-3" />}
+          >
             Pinned
           </Badge>
         )}

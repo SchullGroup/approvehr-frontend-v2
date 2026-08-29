@@ -185,7 +185,7 @@ export function PaymentHistoryScreen() {
 
       <PageBody className="flex flex-col gap-6">
         {history.error && (
-          <LoadFailure subject="the payment history" error={history.error} />
+          <LoadFailure subject="the payment history" error={history.error}  onRetry={history.reload}/>
         )}
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -282,7 +282,7 @@ export function PaymentHistoryScreen() {
         <Card>
           <CardHeader
             title="Payments"
-            description="Newest first. One row for each payment to each person."
+            description="One row for each payment to each person."
           />
           {history.loading ? (
             <CardBody className="flex justify-center py-10">

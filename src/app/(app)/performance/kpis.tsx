@@ -29,6 +29,7 @@ import {
   Textarea,
   useToast,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import {
   SuggestButton,
   SuggestionPanel,
@@ -196,11 +197,7 @@ export function KpisTab({
         </div>
       </div>
 
-      {kpis.error && (
-        <p className="rounded-md border border-danger-line bg-danger-soft px-3.5 py-2.5 text-body-sm text-ink">
-          {kpis.error.message}
-        </p>
-      )}
+      <LoadFailure subject="the KPI cascade" error={kpis.error}  onRetry={kpis.reload}/>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat label="KPIs being tracked" value={String(tracked.length)} />

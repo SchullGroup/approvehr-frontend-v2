@@ -21,6 +21,7 @@ import {
   Stat,
   type BadgeTone,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import {
   changeLabel,
@@ -100,14 +101,14 @@ export function ScoreHistoryScreen({ employeeId }: { employeeId: string }) {
           </Callout>
         )}
 
-        {detail.error && (
-          <Callout tone="danger" title="Could not read the history">
-            {/* The server's own sentence, including the 403 that names the rule:
-                self, direct report, or the records permission. An appraiser
-                assigned to one period is refused here on purpose. */}
-            {detail.error.message}
-          </Callout>
-        )}
+        {/* A 403 here reaches the reader as the server's own sentence, which is
+            the one that names the rule: self, direct report, or the records
+            permission. An appraiser assigned to one period is refused on
+            purpose, and only the server can say so. */}
+        <LoadFailure
+          subject="this person's score history"
+          error={detail.error}
+         onRetry={detail.reload}/>
 
         {detail.loading && (
           <Card>

@@ -15,7 +15,7 @@ import {
 import { account, passwordAccepted } from "@/lib/api/account";
 import { stashPendingVerification } from "@/lib/pending-email-verification";
 import { markSignedIn } from "@/lib/store/session";
-import { PasswordField } from "../password-field";
+import { PasswordField } from "@/components/portal/password-field";
 
 /**
  * Opening an account.
@@ -67,12 +67,15 @@ export function RegisterScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
 
+  /* Always strict: registering always creates the company's Owner, who holds
+     every permission there is — see `requiresStrongPassword` in the API's
+     `permissions/service.ts`. */
   const ready =
     companyName.trim() !== "" &&
     firstName.trim() !== "" &&
     lastName.trim() !== "" &&
     email.trim() !== "" &&
-    passwordAccepted(password);
+    passwordAccepted(password, true);
 
   async function submit() {
     if (!ready || busy) return;
@@ -215,6 +218,7 @@ export function RegisterScreen() {
           onChange={setPassword}
           error={error?.messageFor("password")}
           onEnter={() => void submit()}
+          strict
         />
 
         <Button

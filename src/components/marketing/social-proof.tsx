@@ -12,7 +12,7 @@ import { Marquee, Reveal } from "./motion";
  * fastest way to lose the deal in the demo.
  */
 
-const CLIENTS = [
+export const CLIENTS = [
   { src: "/clients/schull.png", alt: "Schulltech", w: 430, h: 96 },
   { src: "/clients/nnpc.png", alt: "NNPC", w: 414, h: 120 },
   { src: "/clients/schullio.png", alt: "schull.io", w: 570, h: 120 },

@@ -16,6 +16,7 @@ import { SEED_ROLES, type SeedRole } from "@/lib/mock/roles";
 import { PERMISSION_KEYS, type PermissionKey } from "@/lib/permission-keys";
 import { createPersistedState } from "./persisted";
 import { useSession } from "./session";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * Roles, permissions and who is in them.
@@ -472,9 +473,12 @@ export function useRoles(held: readonly PermissionKey[] = PERMISSION_KEYS) {
     }
   }, [isConnected]);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, revalidation]);
 
   /* ------------------------------------------------------------ demo writes */
 
@@ -738,6 +742,9 @@ export function useRoleMembers(roleId: string | null, query = "") {
     error: ApiError | null;
   } | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!roleId || !isConnected) return;
     let cancelled = false;
@@ -771,7 +778,7 @@ export function useRoleMembers(roleId: string | null, query = "") {
       cancelled = true;
       controller.abort();
     };
-  }, [roleId, isConnected, query, want]);
+  }, [roleId, isConnected, query, want, revalidation]);
 
   if (isConnected) {
     const fresh = live && live.key === want ? live : null;
@@ -825,6 +832,9 @@ export function useAssignableAccounts(roleIds: string[]) {
     null,
   );
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -840,7 +850,7 @@ export function useAssignableAccounts(roleIds: string[]) {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, key]);
+  }, [isConnected, key, revalidation]);
 
   if (isConnected) {
     const fresh = loaded && loaded.key === key ? loaded : null;

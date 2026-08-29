@@ -32,6 +32,7 @@ import { useAttendanceStore } from "./attendance";
 import { useEmployeeStore } from "./employees";
 import { createPersistedState } from "./persisted";
 import { useSession } from "./session";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * Overtime, from whichever source is available.
@@ -176,7 +177,18 @@ const toRecord = (
 export type PolicyState = {
   policy: OvertimePolicy;
   loading: boolean;
-  error: string | null;
+  /**
+   * The failure itself, not its sentence.
+   *
+   * This used to be `string | null` — `error.message` pulled off an `ApiError`
+   * and the class thrown away. `LoadFailure` chooses its advice from the class,
+   * so every screen reading this fell to the general branch: no "sign in
+   * again" for a 401, no "wait a moment" for a 429, and no Try again button,
+   * since offering one depends on knowing the failure could pass. Keeping the
+   * caught value costs nothing and lets the one component that renders it do
+   * its job.
+   */
+  error: unknown;
   saving: boolean;
   /** False when connected without `MANAGE_PAY_STRUCTURE`. */
   editable: boolean;
@@ -205,6 +217,9 @@ export function useOvertimePolicy(): PolicyState {
   const [saving, setSaving] = useState(false);
   const [attempt, setAttempt] = useState(0);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -229,7 +244,7 @@ export function useOvertimePolicy(): PolicyState {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, attempt]);
+  }, [isConnected, attempt, revalidation]);
 
   const demoPolicy = useMemo(
     () => ({ ...DEMO_POLICY, ...state.policy }),
@@ -386,6 +401,9 @@ export function useOvertime({
   /* A slow answer for last month must not overwrite a fast one for this month. */
   const latest = useRef(0);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     const ticket = ++latest.current;
@@ -422,7 +440,7 @@ export function useOvertime({
     })();
 
     return () => controller.abort();
-  }, [isConnected, period, status, key, attempt]);
+  }, [isConnected, period, status, key, attempt, revalidation]);
 
   /* ------------------------------------------------------------ demo reading */
 
@@ -649,6 +667,9 @@ export function useMyOvertime(take = 24): MyOvertimeState {
   } | null>(null);
   const [attempt, setAttempt] = useState(0);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected || !employeeId) return;
     let cancelled = false;
@@ -668,7 +689,7 @@ export function useMyOvertime(take = 24): MyOvertimeState {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, employeeId, take, attempt]);
+  }, [isConnected, employeeId, take, attempt, revalidation]);
 
   const demoRecords = useMemo(() => {
     if (isConnected || !employeeId) return [];

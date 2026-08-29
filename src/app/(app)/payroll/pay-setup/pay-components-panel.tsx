@@ -128,7 +128,6 @@ export function PayComponentsPanel({
       <CardHeader
         level={2}
         title="Allowances and deductions"
-        description="What this person gets on top of salary, what comes off it, and what each one does to their take-home pay."
         action={
           lines.editable ? (
             <Button variant="accent" size="sm" onClick={() => setAdding(true)}>
@@ -147,8 +146,11 @@ export function PayComponentsPanel({
           </Callout>
         )}
 
-        {lines.error && (
-          <LoadFailure subject="this person's pay lines" error={lines.error} />
+        {/* "No monthly pay set" is not a load failure — it is the reason
+            there is nothing to show, and the "Salary a month" figure below
+            already says so. A red banner repeating it is noise, not help. */}
+        {lines.error && !lines.error.message.includes("no monthly pay set") && (
+          <LoadFailure subject="this person's pay lines" error={lines.error}  onRetry={lines.reload}/>
         )}
 
         {issues.length > 0 && (
@@ -190,16 +192,33 @@ export function PayComponentsPanel({
               "deduction",
             )}
           />
+          {/* "Needs the API" was on screen for all three of these and is a
+              developer's sentence, not a reader's — and for the commonest one
+              it was not even true. `takeHomeKobo` is null when the preview has
+              no answer, and the usual reason is that this person has no monthly
+              pay set, which the "Salary a month" figure to the left already
+              says. The API being unreachable is a different fact, `available`
+              is what reports it, and neither is "needs the API". */}
           <Figure
             label="Take-home this month"
             value={
-              takeHomeKobo === null
-                ? baseline.loading
+              takeHomeKobo !== null
+                ? money(takeHomeKobo)
+                : baseline.loading
                   ? "…"
-                  : "Needs the API"
-                : money(takeHomeKobo)
+                  : data?.employee.grossMonthlyKobo == null
+                    ? "Not yet"
+                    : !baseline.available
+                      ? "Not available"
+                      : "Not worked out"
             }
-            hint="after PAYE, pension and NHF"
+            hint={
+              takeHomeKobo === null &&
+              !baseline.loading &&
+              data?.employee.grossMonthlyKobo == null
+                ? "once a monthly salary is set"
+                : "after PAYE, pension and NHF"
+            }
             strong
           />
         </div>
@@ -219,7 +238,12 @@ export function PayComponentsPanel({
             description={
               lines.loading
                 ? undefined
-                : "Add a car allowance, a cooperative deduction, a salary advance being recovered — anything that is not the base salary."
+                : lines.editable
+                  ? "Add a car allowance, a cooperative deduction, a salary advance being recovered — anything that is not the base salary."
+                  : /* Without `MANAGE_PAY_STRUCTURE` there is no Add button, so
+                       an instruction to add one is an instruction to nobody.
+                       State what the emptiness means instead. */
+                    "Nothing is added to or taken off this salary — no car allowance, no cooperative deduction, no advance being recovered."
             }
             action={
               !lines.loading && lines.editable ? (
@@ -595,7 +619,7 @@ function AddLineDialog({
             assign but not read the library gets the reason rather than an empty
             list with no explanation. */}
         {library.error && (
-          <LoadFailure subject="the list to choose from" error={library.error} />
+          <LoadFailure subject="the list to choose from" error={library.error}  onRetry={library.reload}/>
         )}
 
         <Field label="What is it?" required>
@@ -754,11 +778,10 @@ function AddLineDialog({
                 <OfflineEffect component={chosen} amountKobo={amountKobo} />
               ))}
 
-            {preview.error && (
-              <Callout tone="danger" title="Could not work out the effect">
-                {preview.error.message}
-              </Callout>
-            )}
+            <LoadFailure
+              subject="the effect on their pay"
+              error={preview.error}
+             onRetry={preview.reload}/>
           </>
         )}
       </div>
@@ -820,11 +843,7 @@ function RemoveLineDialog({
           />
         )}
 
-        {preview.error && (
-          <Callout tone="danger" title="Could not work out the effect">
-            {preview.error.message}
-          </Callout>
-        )}
+        <LoadFailure subject="the effect on their pay" error={preview.error}  onRetry={preview.reload}/>
       </div>
     </Modal>
   );

@@ -214,7 +214,7 @@ function Catalogue() {
 
       <PageBody className="flex flex-col gap-6">
         {isConnected && fetched?.error && (
-          <LoadFailure subject="the integrations catalogue" error={fetched.error} />
+          <LoadFailure subject="the integrations catalogue" error={fetched.error}/>
         )}
 
         <Callout tone="info" title="None of these are live yet">

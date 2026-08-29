@@ -2,6 +2,7 @@
 
 import { ShieldAlert } from "lucide-react";
 import {
+  ButtonLink,
   Callout,
   Card,
   CardBody,
@@ -90,6 +91,8 @@ const GROUP_LABEL: Record<Exclude<Group, "other">, string> = {
 
 export function StatutoryScreen() {
   const canView = useCan("VIEW_SALARIES");
+  /* Same gate the settings screen itself uses. Absent, not disabled. */
+  const canManage = useCan("MANAGE_SETTINGS");
   const deductions = useDeductionSwitches();
   const stored = deductions.settings?.settings ?? null;
 
@@ -176,7 +179,21 @@ export function StatutoryScreen() {
             tone="warning"
             title="Nothing to file, and what that means"
           >
-            {notice.message}
+            <p>{notice.message}</p>
+            {/* `shortNoticeFor` states the convention out loud — that
+                `/settings/payroll` links here rather than repeating itself —
+                and the link only ever ran one way. The reader on this screen is
+                a payroll admin, which is exactly who changes it. */}
+            {canManage && (
+              <ButtonLink
+                href="/settings/payroll"
+                variant="secondary"
+                size="sm"
+                className="mt-3"
+              >
+                Change what you deduct
+              </ButtonLink>
+            )}
           </Callout>
         ))}
 

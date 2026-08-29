@@ -205,7 +205,7 @@ function Queue({ initialPostingId }: { initialPostingId: string }) {
         )}
 
         {applications.error && (
-          <LoadFailure subject="the queue" error={applications.error} />
+          <LoadFailure subject="the queue" error={applications.error}  onRetry={applications.reload}/>
         )}
 
         {cvNote && (

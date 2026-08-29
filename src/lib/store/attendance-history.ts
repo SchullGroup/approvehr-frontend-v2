@@ -16,6 +16,7 @@ import { useAttendanceStore, type AttendanceSource } from "./attendance";
 import { useEmployeeStore } from "./employees";
 import { useLeaveStore } from "./leave";
 import { useSession } from "./session";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * A month of attendance, one row per day — what a calendar is drawn from.
@@ -117,6 +118,9 @@ export function useAttendanceMonth(month: string): AttendanceMonthState {
 
   const key = `${month}|${tick}`;
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -152,7 +156,7 @@ export function useAttendanceMonth(month: string): AttendanceMonthState {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, month, key]);
+  }, [isConnected, month, key, revalidation]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
 

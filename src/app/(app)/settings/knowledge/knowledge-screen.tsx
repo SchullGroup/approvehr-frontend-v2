@@ -34,6 +34,7 @@ import {
   TableWrap,
   useToast,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import type { KbArticleListParams } from "@/lib/api/knowledge";
@@ -182,7 +183,6 @@ export function KnowledgeScreen() {
         <Card>
           <CardHeader
             title="Searches that found nothing"
-            description="Questions people typed that no article answers."
             action={
               <SearchX aria-hidden="true" className="size-4 text-faint" />
             }
@@ -292,10 +292,7 @@ export function KnowledgeScreen() {
         )}
 
         <Card>
-          <CardHeader
-            title="Every article"
-            description="How much each one is read, and how readers rated it."
-          />
+          <CardHeader title="Every article" />
 
           <CardBody className="flex flex-wrap items-center gap-3">
             <SegmentedControl<Filter>
@@ -331,9 +328,10 @@ export function KnowledgeScreen() {
 
           {articles.error && (
             <CardBody>
-              <p className="text-body-sm text-danger-text">
-                {articles.error.message}
-              </p>
+              <LoadFailure
+                subject="the knowledge base"
+                error={articles.error}
+               onRetry={articles.reload}/>
             </CardBody>
           )}
 

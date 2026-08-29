@@ -6,7 +6,7 @@ import { ArrowRight, ChevronDown, Menu, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Logo, LogoMark } from "@/components/brand/logo";
 import { MODULES } from "@/lib/marketing/modules";
-import { appNavLinks, internalNavLinks } from "@/lib/marketing/links";
+import { appNavLinks, internalNavLinks, newTabIfApp } from "@/lib/marketing/links";
 import { LEGAL_LINKS } from "@/lib/marketing/legal";
 import { Pill } from "./pill";
 
@@ -147,6 +147,7 @@ export function MarketingNav() {
               <Link
                 key={label}
                 href={href}
+                {...newTabIfApp(href)}
                 className="rounded-full px-3 py-2 text-body-sm text-slate-soft transition-colors hover:text-slate"
               >
                 {label}
@@ -161,6 +162,7 @@ export function MarketingNav() {
               <Link
                 key={label}
                 href={href}
+                {...newTabIfApp(href)}
                 className="hidden rounded-full px-3 py-2 text-body-sm text-slate-soft transition-colors hover:text-slate sm:block"
               >
                 {label}
@@ -207,6 +209,7 @@ export function MarketingNav() {
                 key={i}
                 href={href}
                 onClick={() => setOpen(false)}
+                {...newTabIfApp(href)}
                 className="block rounded-xl px-3 py-2 text-body text-slate transition-colors hover:bg-sand"
               >
                 {label}
@@ -269,6 +272,7 @@ export function MarketingFooter() {
                   <li key={label}>
                     <Link
                       href={href}
+                      {...newTabIfApp(href)}
                       className="text-body-sm text-slate-soft transition-colors hover:text-slate"
                     >
                       {label}

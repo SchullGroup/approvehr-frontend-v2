@@ -258,7 +258,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
        disagree with itself about the same person. See the API's dictionary. */
     required: false,
     example: "EMP-1000",
-    note: "Your own staff number. This is what we match on, so a second import of the same number updates that person instead of creating a duplicate. Leave it out and we match on email, or on name and date of birth, and generate a number for anybody new.",
+    note: "Your own staff number, if you use one. We generate one if left blank.",
   },
   {
     field: "firstName",
@@ -267,7 +267,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     aliases: ["given_name", "first"],
     required: true,
     example: "Ngozi",
-    note: "Required.",
+    note: "Their first name.",
   },
   {
     field: "lastName",
@@ -276,7 +276,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     aliases: ["surname", "family_name", "last"],
     required: true,
     example: "Williams",
-    note: "Required.",
+    note: "Their last name.",
   },
   {
     field: "middleName",
@@ -284,7 +284,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     aliases: ["other_names", "other_name", "middle"],
     required: false,
     example: "Chiamaka",
-    note: "Optional.",
+    note: "Their middle name, if any.",
   },
   {
     field: "email",
@@ -293,7 +293,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     aliases: ["email_address", "work_email", "company_email", "official_email"],
     required: false,
     example: "ngozi.williams@company.com",
-    note: "Their work address. It is also how we tell whether a row is somebody you already have, so a file without it cannot be safely imported twice.",
+    note: "Their work email address.",
     recommended: {
       why: "no work email — payslips cannot be sent to them, and a re-import cannot tell they are already on file",
     },
@@ -304,7 +304,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     aliases: ["login", "has_login", "portal_access", "can_sign_in"],
     required: false,
     example: "yes",
-    note: "Leave this out and we work it out from the email column: somebody with a work address gets login access, somebody without does not. Say no for staff who are paid but never use the system — drivers, cleaners, site labour.",
+    note: "Yes or no. Defaults to yes if email is filled in.",
   },
   {
     field: "role",
@@ -318,7 +318,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     ],
     required: false,
     example: "Employee",
-    note: "Optional, and the only column that sends anything: fill it in and that person is emailed a link to set a password and sign in as this role. Leave it blank and they are on the payroll with no login. Needs their work email.",
+    note: "Their access level, e.g. Employee. Sends them a signup email.",
     /* Mirrors the API's copy, which resolves whatever is typed against the
        company's own roles — see `SYSTEM_ROLES` there. The four names are the
        ones every company is seeded with; a company that has made its own can
@@ -331,7 +331,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     aliases: ["phone_number", "mobile", "mobile_number", "telephone"],
     required: false,
     example: "+234 803 111 0011",
-    note: "Optional. 10 digits locally, or 11 to 14 with a country code.",
+    note: "Their phone number.",
   },
   {
     field: "dateOfBirth",
@@ -340,7 +340,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     aliases: ["dob", "birth_date", "birthday"],
     required: false,
     example: "14/03/1991",
-    note: "DD/MM/YYYY or YYYY-MM-DD. Both are accepted and neither is guessed at. With a name, this is the second way we recognise somebody you already have.",
+    note: "DD/MM/YYYY or YYYY-MM-DD.",
   },
   {
     field: "gender",
@@ -348,7 +348,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     aliases: ["sex"],
     required: false,
     example: "female",
-    note: "female, male or other.",
+    note: "Female, male or other.",
     dropdown: GENDER_OPTIONS,
   },
   {
@@ -357,7 +357,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     aliases: ["title", "position", "designation", "job_role"],
     required: true,
     example: "Data Analyst",
-    note: "Required.",
+    note: "Their job title.",
   },
   {
     field: "department",
@@ -365,7 +365,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     aliases: ["department_name", "dept", "unit", "division", "team"],
     required: false,
     example: "Finance",
-    note: "Must already exist, by name. We list the ones that do not so you can add them in one go.",
+    note: "Their department. Must already exist.",
   },
   {
     field: "manager",
@@ -373,7 +373,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     aliases: ["manager_name", "line_manager", "supervisor", "reports_to"],
     required: false,
     example: "Adaeze Okafor",
-    note: "Their manager's full name. Matched against this file first, then your existing staff. Ambiguous names are left unset and reported.",
+    note: "Their manager's full name.",
   },
   {
     field: "startDate",
@@ -390,7 +390,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     ],
     required: true,
     example: "28/04/2021",
-    note: "DD/MM/YYYY or YYYY-MM-DD. Required, because leave and pension both count from it.",
+    note: "DD/MM/YYYY or YYYY-MM-DD.",
   },
   {
     field: "endDate",
@@ -404,7 +404,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     ],
     required: false,
     example: "",
-    note: "Leave it empty for current staff.",
+    note: "Leave blank if they still work here.",
   },
   {
     field: "grossMonthly",
@@ -422,7 +422,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     ],
     required: false,
     example: "162,632.00",
-    note: "Monthly gross in naira. ₦, commas and spaces are fine. Must be a monthly figure — we will not divide an annual one.",
+    note: "Monthly gross pay, in naira — not annual.",
     recommended: {
       why: "Without it they are on the staff list and cannot be paid — every payroll will name them until it is set.",
       important: true,
@@ -434,7 +434,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     aliases: ["salary_frequency", "pay_cycle", "frequency"],
     required: false,
     example: "monthly",
-    note: "Must say monthly if it is there at all. Anything else stops the row, because an annual figure imported as monthly overpays by twelve times.",
+    note: "Must say \"monthly\" if included.",
     dropdown: PAY_FREQUENCY_OPTIONS,
   },
   {
@@ -443,7 +443,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     aliases: ["bank"],
     required: false,
     example: "First Bank",
-    note: "Optional.",
+    note: "Their bank.",
   },
   {
     field: "bankAccount",
@@ -451,7 +451,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     aliases: ["bank_account", "bank_account_number", "nuban", "account_no"],
     required: false,
     example: "9477600630",
-    note: "10 digits. Anything else is flagged — payroll cannot pay into it.",
+    note: "Their 10-digit account number.",
     recommended: {
       feature: "bankDetails",
       why: "no account number — they will be on the payroll run and cannot be paid from it",
@@ -464,7 +464,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     aliases: ["rsa_pin", "pension_number", "rsa"],
     required: false,
     example: "PEN000000000",
-    note: "PEN then 9 to 12 digits. Flagged if it is not, because PenCom will refuse the schedule.",
+    note: "Their RSA PIN (PEN + 9–12 digits).",
     recommended: {
       feature: "pensionSetup",
       why: "no RSA PIN — their pension is deducted but the PenCom schedule cannot name them",
@@ -481,7 +481,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     ],
     required: false,
     example: "1234567890",
-    note: "10 digits, FIRS format. Flagged if it is not.",
+    note: "Their Tax ID Number, 10 digits.",
     recommended: {
       feature: "taxSetup",
       why: "no TIN — PAYE is still deducted and remitted, but the FIRS filing cannot name them",
@@ -500,7 +500,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     ],
     required: false,
     example: "1,800,000.00",
-    note: "Annual rent they have declared, in naira. 20% of it is relieved against PAYE, up to ₦500,000. Leave it empty for anybody who has not declared — empty is not the same as 0, and 0 is a declaration.",
+    note: "Annual rent paid, in naira. Leave blank if not declared — 0 counts as declared.",
     recommended: {
       feature: "taxSetup",
       why: "no rent declared — they get no rent relief and pay more PAYE until they declare",
@@ -512,7 +512,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     aliases: ["nhf", "nhf_no", "housing_fund_number"],
     required: false,
     example: "NHF0012345",
-    note: "Optional.",
+    note: "Their NHF number.",
   },
   {
     field: "nextOfKinName",
@@ -520,7 +520,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     aliases: ["next_of_kin", "emergency_contact_name", "kin_name"],
     required: false,
     example: "Chinedu Williams",
-    note: "Optional.",
+    note: "Next of kin's full name.",
   },
   {
     field: "nextOfKinRelationship",
@@ -528,7 +528,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     aliases: ["emergency_contact_relationship", "kin_relationship"],
     required: false,
     example: "Spouse",
-    note: "Optional.",
+    note: "e.g. Spouse, Parent.",
   },
   {
     field: "nextOfKinPhone",
@@ -536,7 +536,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     aliases: ["emergency_contact_phone", "kin_phone"],
     required: false,
     example: "+234 803 111 0022",
-    note: "Optional.",
+    note: "Next of kin's phone number.",
   },
   {
     field: "addressLine",
@@ -550,7 +550,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     ],
     required: false,
     example: "14 Bishop Oluwole Street, Victoria Island, Lagos",
-    note: "Where they live, on one line. Not the office they work at, and not the state their PAYE is filed to.",
+    note: "Their home address.",
     recommended: {
       why: "Somebody has to be able to reach them off-site — a letter, a courier, an exit query.",
     },
@@ -567,7 +567,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     ],
     required: false,
     example: "12345678901",
-    note: "National Identification Number, 11 digits. Spaces and dashes are fine, we strip them. Flagged if it is not 11 digits.",
+    note: "Their National ID Number, 11 digits.",
     recommended: {
       why: "The statutory registrations a Nigerian employee needs are keyed to it.",
     },
@@ -578,7 +578,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     aliases: ["origin_state", "home_state", "state_of_birth"],
     required: false,
     example: "Imo",
-    note: "One of the 36 states or the FCT. IMO STATE and Imo both read as Imo. An unrecognised one is flagged, never guessed at.",
+    note: "Their state of origin.",
     recommended: {
       why: "Reported in statutory and federal-character returns.",
     },
@@ -590,7 +590,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     aliases: ["lga", "lga_of_origin", "local_govt", "local_government"],
     required: false,
     example: "Ikeduru",
-    note: "Free text, deliberately not checked against a list: there are 774 and we will not reject a real one because ours is out of date.",
+    note: "Their local government area.",
     recommended: { why: "Reported alongside the state of origin." },
   },
   {
@@ -599,7 +599,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     aliases: ["faith"],
     required: false,
     example: "Christianity",
-    note: "Free text, never a fixed list. Recorded because holidays and dietary arrangements depend on it.",
+    note: "Their religion.",
   },
 ];
 

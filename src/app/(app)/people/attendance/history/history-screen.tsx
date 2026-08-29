@@ -39,6 +39,7 @@ import {
 import { useAttendanceMonth } from "@/lib/store/attendance-history";
 import { useSession } from "@/lib/store/session";
 import { TODAY, shortDate } from "@/lib/today";
+import { DayHoliday } from "./day-holiday";
 import { CalendarLegend, MonthCalendar } from "./month-calendar";
 
 /**
@@ -218,7 +219,7 @@ export function HistoryScreen() {
           <LoadFailure
             subject="this month's attendance"
             error={summary.error}
-          />
+           onRetry={summary.reload}/>
         )}
 
         {/* ---- Turnout across the month ----------------------------------
@@ -270,10 +271,31 @@ export function HistoryScreen() {
           <CalendarLegend awaitingProclamation={awaiting} />
         </Card>
 
+        {/* The holiday for the selected date, and the way to add one.
+            ------------------------------------------------------------
+            A Nigerian public holiday is often proclaimed days before it
+            happens, and the moment somebody finds out is the moment they are
+            looking at the month — here, at the date. Sending them to
+            `/settings/leave` to type a date they were already pointing at is
+            how one gets recorded late or not at all.
+
+            Above the day's totals rather than below: whether the day was a
+            holiday changes how every figure under it should be read. */}
+        {day && !summary.loading && (
+          <DayHoliday
+            date={day.date}
+            holiday={day.holiday}
+            /* The server decides what the day now is — its `kind`, its
+               `tracked`, its holiday. Patching it here would be this screen
+               guessing at a precedence that lives in one function on the API. */
+            onChanged={() => summary.reload()}
+          />
+        )}
+
         <DaySummary day={day} loading={summary.loading} />
 
         {roster.error ? (
-          <LoadFailure subject="that day's roster" error={roster.error} />
+          <LoadFailure subject="that day's roster" error={roster.error}  onRetry={roster.reload}/>
         ) : (
           <DayTable
             roster={roster}

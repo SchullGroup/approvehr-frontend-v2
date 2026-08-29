@@ -151,7 +151,7 @@ export function GradesPanel() {
       )}
 
       {grades.error && (
-        <LoadFailure subject="the salary bands" error={grades.error} />
+        <LoadFailure subject="the salary bands" error={grades.error}  onRetry={grades.reload}/>
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -189,7 +189,7 @@ export function GradesPanel() {
       <Card>
         <CardHeader
           title="Salary grades"
-          description="Ordered by level, lowest first. The band is what the grade is worth a month."
+          description="The band is what the grade is worth a month."
           action={
             grades.editable ? (
               <Button

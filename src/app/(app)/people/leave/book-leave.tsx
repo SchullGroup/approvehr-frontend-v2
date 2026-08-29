@@ -258,20 +258,17 @@ export function BookLeaveDialog({
             </Select>
           </Field>
         ) : (
-          /* Not a disabled `<Select>`: a greyed-out dropdown still reads as
-             "there are other options, and you are shut out of them". There are
-             no other options. So it states the fact and moves on. The value is
-             already in the draft, so nothing here is load-bearing — removing
-             this block would change how the form looks and not what it sends. */
-          <Field label="Who is this for" error={errorFor("employeeId")}>
-            <p className="text-body text-ink">
-              {session.employee ? fullName(session.employee) : "You"}
-            </p>
-            <p className="mt-1 text-meta text-muted">
-              Your own leave. Ask your people team to book on behalf of somebody
-              else.
-            </p>
-          </Field>
+          /* Nothing at all.
+             This used to answer "Who is this for" with "You", followed by a
+             line about asking the people team to book for somebody else. Three
+             lines to say the form is yours — which somebody opening "Book time
+             off" from their own screen already knows — and the second of them
+             described a capability the reader does not have and cannot use.
+             The value is already in the draft, so this only ever changed how
+             the form looked, never what it sent. Its own comment said so.
+
+             Anybody who *can* book for somebody else gets the picker above. */
+          null
         )}
 
         <Field

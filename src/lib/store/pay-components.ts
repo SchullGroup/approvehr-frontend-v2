@@ -19,6 +19,7 @@ import {
 import { EMPLOYEES } from "@/lib/mock/people";
 import { TODAY } from "@/lib/today";
 import { useSession } from "./session";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * Pay components, from whichever source is available.
@@ -434,9 +435,12 @@ export function usePayComponents(params: PayComponentListParams = {}) {
        property of the reader, not of the response. */
   }, [isConnected, isLoading, key]);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, revalidation]);
 
   const guard = useCallback(
     (what: string) => {
@@ -521,6 +525,9 @@ export function usePayComponentDetail(id: string | null) {
      and the demo path never enters it. */
   const wanted = isConnected && !isLoading ? id : null;
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!wanted) return;
     let cancelled = false;
@@ -543,7 +550,7 @@ export function usePayComponentDetail(id: string | null) {
     return () => {
       cancelled = true;
     };
-  }, [wanted]);
+  }, [wanted, revalidation]);
 
   const demo = useMemo<ApiPayComponentDetail | null>(() => {
     if (isConnected || !id) return null;
@@ -678,9 +685,12 @@ export function useEmployeePayComponents(
        — it is a new function on every render and would loop this hook. */
   }, [employeeId, isConnected, isLoading, key]);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, revalidation]);
 
   const guard = useCallback(
     (what: string) => {

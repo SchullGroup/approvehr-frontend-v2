@@ -221,6 +221,14 @@ export function signInOptions(): SignInOption[] {
     .map((employee) => ({ employee, roles: seedRolesFor(employee.id) }));
 }
 
+/** A sign-in that stopped for a code. Held by the screen, never by the store. */
+export type TwoFactorChallengeState = {
+  challengeId: string;
+  expiresAt: string;
+  delivery: { token: string; expiresAt: string; note: string } | null;
+  recoveryCodesLeft: number;
+};
+
 export function useSession() {
   const state = useSyncExternalStore(
     subscribe,
@@ -228,16 +236,60 @@ export function useSession() {
     () => LOADING,
   );
 
+  /**
+   * Sign in, or report that a second factor is due.
+   *
+   * Returns the challenge rather than throwing, because a challenge is not a
+   * failure — it is the next step, and the screen renders a code field rather
+   * than an error. **Nothing is set on the session in that case**: no token
+   * exists yet, and a store that recorded a half-signed-in state would be a
+   * store some other screen could read as signed in.
+   */
   const signIn = useCallback(
-    async (email: string, password: string): Promise<void> => {
-      const user = await auth.signIn(email, password);
+    async (
+      email: string,
+      password: string,
+    ): Promise<
+      { challenge: null } | { challenge: TwoFactorChallengeState }
+    > => {
+      const outcome = await auth.signIn(email, password);
+      if (outcome.kind === "two-factor") {
+        return {
+          challenge: {
+            challengeId: outcome.challengeId,
+            expiresAt: outcome.expiresAt,
+            delivery: outcome.delivery,
+            recoveryCodesLeft: outcome.recoveryCodesLeft,
+          },
+        };
+      }
+      set({
+        status: "signed_in",
+        mode: "api",
+        user: outcome.user,
+        employeeId: outcome.user.employeeId,
+      });
+      /* An API sign-in supersedes any demo session, so it does not linger. */
+      safeRemove(OFFLINE_KEY);
+      return { challenge: null };
+    },
+    [],
+  );
+
+  /** Finish a challenged sign-in. The session is opened only here. */
+  const completeTwoFactor = useCallback(
+    async (input: {
+      challengeId: string;
+      code?: string;
+      recoveryCode?: string;
+    }): Promise<void> => {
+      const user = await auth.completeTwoFactor(input);
       set({
         status: "signed_in",
         mode: "api",
         user,
         employeeId: user.employeeId,
       });
-      /* An API sign-in supersedes any demo session, so it does not linger. */
       safeRemove(OFFLINE_KEY);
     },
     [],
@@ -391,6 +443,7 @@ export function useSession() {
     tourSeen: state.user ? state.user.tourDismissedAt !== null : true,
     dismissTour,
     signIn,
+    completeTwoFactor,
     signInOffline,
     signOut,
   };

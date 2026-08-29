@@ -26,6 +26,7 @@ import {
 import { CURRENT_USER, employeeById } from "@/lib/mock/people";
 import { createPersistedState } from "./persisted";
 import { useSession } from "./session";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * Equipment, from whichever source is available.
@@ -906,6 +907,9 @@ export function useEquipmentKinds(includeInactive = false) {
     error: ApiError | null;
   } | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     const controller = new AbortController();
@@ -929,7 +933,7 @@ export function useEquipmentKinds(includeInactive = false) {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, includeInactive, stamp]);
+  }, [isConnected, includeInactive, stamp, revalidation]);
 
   const answered = remote !== null && remote.stamp === stamp;
 
@@ -1120,6 +1124,9 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
     error: ApiError | null;
   } | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected || !enabled) return;
     const controller = new AbortController();
@@ -1153,7 +1160,7 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, enabled, key, stamp]);
+  }, [isConnected, enabled, key, stamp, revalidation]);
 
   const answered = remote !== null && remote.stamp === stamp;
 
@@ -1794,6 +1801,9 @@ export function useEquipmentItem(id: string | null) {
     error: ApiError | null;
   } | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected || !id) return;
     const controller = new AbortController();
@@ -1817,7 +1827,7 @@ export function useEquipmentItem(id: string | null) {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, id, stamp]);
+  }, [isConnected, id, stamp, revalidation]);
 
   const answered = fetched !== null && fetched.stamp === stamp;
 
@@ -1865,6 +1875,9 @@ export function useRepairs(params: RepairListParams = {}, enabled = true) {
     error: ApiError | null;
   } | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected || !enabled) return;
     const controller = new AbortController();
@@ -1898,7 +1911,7 @@ export function useRepairs(params: RepairListParams = {}, enabled = true) {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, enabled, key, stamp]);
+  }, [isConnected, enabled, key, stamp, revalidation]);
 
   const answered = remote !== null && remote.stamp === stamp;
 
@@ -2062,6 +2075,9 @@ export function useEquipmentSummary(enabled = true) {
     error: ApiError | null;
   } | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected || !enabled) return;
     const controller = new AbortController();
@@ -2101,7 +2117,7 @@ export function useEquipmentSummary(enabled = true) {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, enabled, stamp]);
+  }, [isConnected, enabled, stamp, revalidation]);
 
   const answered = remote !== null && remote.stamp === stamp;
 
@@ -2204,6 +2220,9 @@ export function useMyEquipment(employeeId: string | null) {
     error: ApiError | null;
   } | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected || !employeeId) return;
     const controller = new AbortController();
@@ -2264,7 +2283,7 @@ export function useMyEquipment(employeeId: string | null) {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, employeeId, stamp]);
+  }, [isConnected, employeeId, stamp, revalidation]);
 
   const answered = remote !== null && remote.stamp === stamp;
 

@@ -10,6 +10,7 @@ import {
   Spinner,
   type BadgeTone,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { useSession } from "@/lib/store/session";
 import {
   CONDITION_LABEL,
@@ -102,9 +103,7 @@ export function MyAssets({
           </div>
         )}
 
-        {error && (
-          <p className="text-body-sm text-danger-text">{error.message}</p>
-        )}
+        <LoadFailure subject="the equipment signed out to you" error={error} />
 
         {!loading && !error && holding.length === 0 && (
           <p className="flex items-center gap-2.5 text-body-sm text-muted">

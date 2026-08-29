@@ -15,6 +15,7 @@ import {
 import { actionLabel } from "@/lib/audit/language";
 import { todayDate } from "@/lib/today";
 import { useSession } from "./session";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * The audit trail, from whichever source is available.
@@ -522,11 +523,14 @@ export function useAuditTrail(filters: AuditListParams) {
     [isConnected, filters, limit],
   );
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     const controller = new AbortController();
     void load(controller.signal);
     return () => controller.abort();
-  }, [load]);
+  }, [load, revalidation]);
 
   const demo = useMemo(() => {
     const matched = DEMO_ENTRIES.filter((entry) => matchesDemo(entry, filters));
@@ -577,6 +581,9 @@ export function useAuditEvent(id: string | null) {
     error: ApiError | null;
   } | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!id || !isConnected) return;
     let cancelled = false;
@@ -600,7 +607,7 @@ export function useAuditEvent(id: string | null) {
       cancelled = true;
       controller.abort();
     };
-  }, [id, isConnected]);
+  }, [id, isConnected, revalidation]);
 
   const demo = useMemo(
     () => (id ? DEMO_ENTRIES.find((entry) => entry.id === id) ?? null : null),
@@ -686,11 +693,14 @@ export function useRecordTimeline(
     [askable, entityType, entityId, limit, includeReads],
   );
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     const controller = new AbortController();
     void load(controller.signal);
     return () => controller.abort();
-  }, [load]);
+  }, [load, revalidation]);
 
   const demo = useMemo(() => {
     const matched = DEMO_ENTRIES.filter(
@@ -772,11 +782,14 @@ export function useAuditFilterOptions(range: { from?: string; to?: string } = {}
     [isConnected, from, to],
   );
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     const controller = new AbortController();
     void load(controller.signal);
     return () => controller.abort();
-  }, [load]);
+  }, [load, revalidation]);
 
   const demo = useMemo(() => demoOptions(from, to), [from, to]);
 

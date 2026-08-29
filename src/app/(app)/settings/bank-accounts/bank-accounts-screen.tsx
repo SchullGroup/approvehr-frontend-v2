@@ -153,7 +153,7 @@ export function BankAccountsScreen() {
 
       <PageBody className="flex flex-col gap-6">
         {accounts.error && (
-          <LoadFailure subject="the accounts" error={accounts.error} />
+          <LoadFailure subject="the accounts" error={accounts.error}  onRetry={accounts.reload}/>
         )}
 
         <div className="grid gap-4 sm:grid-cols-3">

@@ -138,7 +138,7 @@ export function HelpdeskSettingsScreen() {
           promised to answer.
         </p>
 
-        {error && <LoadFailure subject="the help desk settings" error={error} />}
+        {error && <LoadFailure subject="the help desk settings" error={error}  onRetry={reload}/>}
 
         <Card>
           <CardHeader
@@ -226,6 +226,22 @@ export function HelpdeskSettingsScreen() {
                 icon={<Timer aria-hidden="true" />}
                 title="No targets set"
                 description="Without one, nothing is ever late — a ticket has no promise to measure against."
+                /* The categories block sixty lines up does exactly this and
+                   this one simply omitted it: same screen, same permission,
+                   same dialog. */
+                {...(canManage
+                  ? {
+                      action: (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setEditingSla("new")}
+                        >
+                          Add the first one
+                        </Button>
+                      ),
+                    }
+                  : {})}
               />
             ) : (
               policies.map((policy) => (

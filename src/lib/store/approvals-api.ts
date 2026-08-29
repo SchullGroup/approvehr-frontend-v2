@@ -14,6 +14,7 @@ import {
 import { useApprovalStore } from "./approvals";
 import { useLeaveStore } from "./leave";
 import { useSession } from "./session";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * The approval inbox, from whichever source is available.
@@ -182,9 +183,12 @@ export function useApprovalQueue(filter: QueueFilter = "all"): QueueState {
     }
   }, [isConnected, key]);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, revalidation]);
 
   /* ------------------------------------------------------------- demo mode */
 

@@ -14,7 +14,6 @@ import {
   Avatar,
   Badge,
   Button,
-  Callout,
   DescriptionList,
   Drawer,
   Field,
@@ -25,6 +24,7 @@ import {
   Textarea,
   useToast,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
 import {
   formatWorkingMinutes,
@@ -181,11 +181,7 @@ export function TicketThread({
           </div>
         )}
 
-        {ticket.error && (
-          <Callout tone="danger" title="Could not open it">
-            {ticket.error.message}
-          </Callout>
-        )}
+        <LoadFailure subject="this ticket" error={ticket.error}/>
 
         {detail && (
           <div className="flex flex-col gap-5">

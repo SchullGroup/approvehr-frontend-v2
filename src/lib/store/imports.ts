@@ -41,6 +41,7 @@ import {
 } from "@/lib/imports/template-file";
 import { downloadXlsx, isXlsxName, readXlsx } from "@/lib/xlsx";
 import { useSession } from "./session";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * The import, end to end.
@@ -528,6 +529,9 @@ export function useImport(dictionary: Dictionary<string>) {
    */
   const [selection, setSelection] = useState<number[] | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     const controller = new AbortController();
@@ -538,7 +542,7 @@ export function useImport(dictionary: Dictionary<string>) {
         /* The compiled-in copy covers it. Not worth a message. */
       });
     return () => controller.abort();
-  }, [dictionary.slug, isConnected]);
+  }, [dictionary.slug, isConnected, revalidation]);
 
   /**
    * Reads and parses the file. Everything downstream resets.
@@ -1211,6 +1215,9 @@ export function useImportHistory(kind: string, limit = 5) {
   const { isConnected } = useSession();
   const [rows, setRows] = useState<ApiImportBatch[]>([]);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -1234,7 +1241,7 @@ export function useImportHistory(kind: string, limit = 5) {
     return () => {
       cancelled = true;
     };
-  }, [isConnected, kind, limit]);
+  }, [isConnected, kind, limit, revalidation]);
 
   /**
    * A past batch's own row report, fetched on demand rather than carried in

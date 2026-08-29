@@ -16,6 +16,7 @@ import {
   type ApiRosterRow,
   type ApiTimesheetRow,
   type AttendanceStatus,
+  type PolicyBody,
 } from "@/lib/api/attendance";
 import type { ApiRotaCell } from "@/lib/api/shifts";
 import { readPosition } from "@/lib/geolocation";
@@ -43,6 +44,8 @@ import { useLeaveStore } from "./leave";
 import { createPersistedState, patched } from "./persisted";
 import { useRota } from "./shifts";
 import { useSession } from "./session";
+import { useRevalidation } from "@/lib/revalidate";
+import { useCan } from "@/lib/permissions";
 
 /**
  * Clock-ins, clock-outs and the attendance policy.
@@ -258,11 +261,27 @@ function toApiPolicy(policy: AttendancePolicy): ApiAttendancePolicy {
   };
 }
 
+/** The inverse of `toApiPolicy`'s weekday conversion, for writing a patch
+ * that arrived in the API's numbering back into the demo store's own. */
+function fromApiWeekday(day: number): number {
+  return day === 7 ? 0 : day;
+}
+
 /* ------------------------------------------------------------------- roster */
 
 export type RosterState = {
   /** The date these rows describe. From the server when connected. */
   date: string;
+  /**
+   * The server's own `HH:MM` at the moment it answered.
+   *
+   * Needed because attendance times are UTC-rendered throughout, so anything
+   * computing an elapsed time from the browser's wall clock is out by the
+   * browser's UTC offset — an hour in Lagos. Anchor on this. Demo mode has no
+   * server, so it reports the browser's own time, which is the correct answer
+   * there: the demo's clock-ins were made by this browser too.
+   */
+  time: string;
   /** Null only while the first connected request is in flight. */
   policy: ApiAttendancePolicy | null;
   /** Exceptions first. Never re-sort by status — that ordering is the point. */
@@ -314,6 +333,8 @@ export function useAttendanceRoster(date?: string): RosterState {
   const [fetched, setFetched] = useState<{
     key: string;
     date: string;
+    /** The server's clock when it answered. See `RosterState.time`. */
+    time: string;
     policy: ApiAttendancePolicy | null;
     rows: ApiRosterRow[];
     recorded: number;
@@ -328,6 +349,9 @@ export function useAttendanceRoster(date?: string): RosterState {
      handles a stale *response*. */
   const latest = useRef(0);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     const ticket = latest.current + 1;
@@ -341,6 +365,7 @@ export function useAttendanceRoster(date?: string): RosterState {
           setFetched({
             key,
             date: roster.date,
+            time: roster.time,
             policy: roster.policy,
             rows: roster.rows,
             recorded: roster.recorded,
@@ -354,6 +379,9 @@ export function useAttendanceRoster(date?: string): RosterState {
           setFetched({
             key,
             date: date ?? "",
+            /* A failed read has no server clock either. Empty, so the timer
+               renders nothing rather than anchoring on the browser's. */
+            time: "",
             policy: null,
             rows: [],
             recorded: 0,
@@ -369,7 +397,7 @@ export function useAttendanceRoster(date?: string): RosterState {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, date, key]);
+  }, [isConnected, date, key, revalidation]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
 
@@ -412,6 +440,10 @@ export function useAttendanceRoster(date?: string): RosterState {
 
     return {
       date: on,
+      /* The browser's own clock, which is the right answer offline: the demo's
+         clock-ins were made by this browser, so there is no offset to correct
+         for and no server to ask. */
+      time: new Date().toTimeString().slice(0, 5),
       policy: toApiPolicy(local.policy),
       rows,
       recorded: local.forDate(on).filter((entry) => entry.clockIn).length,
@@ -425,6 +457,9 @@ export function useAttendanceRoster(date?: string): RosterState {
 
   return {
     date: matched ? fetched.date : (date ?? ""),
+    /* Empty until the server has answered — the timer that reads it renders
+       nothing rather than anchoring on a guess. */
+    time: matched ? fetched.time : "",
     policy: matched ? fetched.policy : null,
     rows: matched ? fetched.rows : [],
     recorded: matched ? fetched.recorded : 0,
@@ -433,6 +468,134 @@ export function useAttendanceRoster(date?: string): RosterState {
     error: matched ? fetched.error : null,
     source: "api",
     reload,
+  };
+}
+
+/* -------------------------------------------------------------------- policy */
+
+export type AttendancePolicyState = {
+  policy: ApiAttendancePolicy;
+  loading: boolean;
+  error: string | null;
+  saving: boolean;
+  editable: boolean;
+  source: AttendanceSource;
+  save: (patch: PolicyBody) => Promise<ApiAttendancePolicy>;
+  reload: () => void;
+};
+
+/**
+ * The company's shift hours, grace period and working weekdays — read and
+ * written on their own, apart from `useAttendanceRoster`, which only ever
+ * reads the policy embedded in a roster response and has no reason to write
+ * it back.
+ *
+ * Shaped after `useOvertimePolicy` (`lib/store/overtime.ts`): a fetch-on-mount
+ * for connected mode, the demo store for offline, and `save` re-reading rather
+ * than trusting its own patch, because the API decides what it actually stored.
+ *
+ * `MANAGE_SETTINGS`, not `MANAGE_PAY_STRUCTURE` — this is when people are
+ * expected at work, not what they are paid for it, and `updatePolicy` on the
+ * API gates on the same permission.
+ */
+export function useAttendancePolicy(): AttendancePolicyState {
+  const { isConnected } = useSession();
+  const editable = useCan("MANAGE_SETTINGS");
+  const local = useAttendanceStore();
+
+  const [fetched, setFetched] = useState<{
+    connected: boolean;
+    policy: ApiAttendancePolicy;
+  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+
+  /* Re-ask when somebody comes back to the window. Not in the key below, so
+     the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
+  useEffect(() => {
+    if (!isConnected) return;
+    let cancelled = false;
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const policy = await attendanceApi.policy(controller.signal);
+        if (cancelled) return;
+        setFetched({ connected: true, policy });
+        setError(null);
+      } catch (caught) {
+        if (cancelled) return;
+        if (caught instanceof DOMException && caught.name === "AbortError") return;
+        setError(
+          caught instanceof ApiError
+            ? caught.message
+            : "Could not read the attendance policy.",
+        );
+      }
+    })();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [isConnected, attempt, revalidation]);
+
+  const fromApi = fetched?.connected === true ? fetched.policy : null;
+  const policy = isConnected ? (fromApi ?? toApiPolicy(DEFAULT_POLICY)) : toApiPolicy(local.policy);
+
+  const save = useCallback(
+    async (patch: PolicyBody): Promise<ApiAttendancePolicy> => {
+      setSaving(true);
+      try {
+        if (!isConnected) {
+          /* `patch` arrives in the API's ISO weekday numbering (1=Monday) —
+             the shape this whole hook speaks in — and the demo store keeps
+             its own 0=Sunday numbering, so a `workingWeekdays` patch is
+             converted back rather than written through unchanged. Writing it
+             raw would silently rotate every day by one the next time the
+             demo read it back through `toApiPolicy`.
+
+             Read back through `store.current()` after committing, the same
+             "do not trust your own patch" rule the connected branch follows
+             below — `local.policy` is this render's snapshot and would still
+             be the pre-save value. */
+          const { workingWeekdays, ...rest } = patch;
+          store.commit({
+            ...store.current(),
+            policy: {
+              ...store.current().policy,
+              ...rest,
+              ...(workingWeekdays
+                ? { workingWeekdays: workingWeekdays.map(fromApiWeekday) }
+                : {}),
+            },
+          });
+          return toApiPolicy({ ...DEFAULT_POLICY, ...store.current().policy });
+        }
+        await attendanceApi.updatePolicy(patch);
+        /* Re-read rather than trust the patch: the API decides what it
+           stored, and a screen showing what it sent can disagree with the
+           database. */
+        const settled = await attendanceApi.policy();
+        setFetched({ connected: true, policy: settled });
+        return settled;
+      } finally {
+        setSaving(false);
+      }
+    },
+    [isConnected],
+  );
+
+  return {
+    policy,
+    /* Derived, not tracked: connected with nothing fetched yet *is* loading. */
+    loading: isConnected && fromApi === null && error === null,
+    error,
+    saving,
+    editable,
+    source: isConnected ? "api" : "demo",
+    save,
+    reload: useCallback(() => setAttempt((n) => n + 1), []),
   };
 }
 
@@ -485,6 +648,9 @@ export function useAttendanceTimesheet(days = 15): TimesheetState {
   const key = `${days}|${tick}`;
   const latest = useRef(0);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     const ticket = latest.current + 1;
@@ -515,7 +681,7 @@ export function useAttendanceTimesheet(days = 15): TimesheetState {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, days, key]);
+  }, [isConnected, days, key, revalidation]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
   const matched = fetched !== null && fetched.key === key;
@@ -701,6 +867,29 @@ export function useAttendanceMutations() {
   }, [isConnected, actingId, local]);
 
   /**
+   * Undo your own clock-out, just after making it.
+   *
+   * Offline it simply clears the time — the demo's entries were made by this
+   * browser and there is nothing to reconcile. Connected, the API decides,
+   * including the window past which this becomes an HR correction; its refusal
+   * is shown verbatim rather than pre-empted here, because the window is the
+   * server's rule and a second copy would drift.
+   */
+  const undoClockOut = useCallback(async () => {
+    if (!isConnected) {
+      const entry = local.forDate(TODAY).find((row) => row.employeeId === actingId);
+      if (!entry?.clockOut) {
+        throw new ApiError(409, "conflict", "You are still clocked in.");
+      }
+      /* `undefined`, not `null`: the demo entry types `clockOut` as optional,
+         and the patch is spread over the row — an undefined key clears it. */
+      local.correct(actingId, TODAY, { clockOut: undefined }, "Clock-out reversed");
+      return { employeeId: actingId, date: TODAY, clockIn: entry.clockIn };
+    }
+    return attendanceApi.undoClockOut();
+  }, [isConnected, actingId, local]);
+
+  /**
    * A correction, and the note is not optional in either mode.
    *
    * The API's schema requires it; this checks first so the demo refuses on the
@@ -753,7 +942,7 @@ export function useAttendanceMutations() {
     [isConnected, local],
   );
 
-  return { clockIn, clockOut, correct, connected: isConnected };
+  return { clockIn, clockOut, undoClockOut, correct, connected: isConnected };
 }
 
 /* -------------------------------------------------------------------- rotas */

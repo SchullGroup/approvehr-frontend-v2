@@ -9,6 +9,8 @@ import {
 import { useSession } from "@/lib/store/session";
 import { useEmployeeStore } from "@/lib/store/employees";
 import { DEMO_ANNOUNCEMENTS } from "@/lib/mock/announcements";
+import { useRevalidation } from "@/lib/revalidate";
+import { hasAnyPermission, usePermissions } from "@/lib/permissions";
 
 /**
  * The dashboard and reports: the API when there is one, local figures when
@@ -72,6 +74,15 @@ const message = (caught: unknown, fallback: string): string =>
 export function useDashboard(): DashboardState & { reload: () => void } {
   const { isConnected } = useSession();
   const { directory } = useEmployeeStore();
+  /* The same pair the API gates `headcount`/`approvals`/`today` on — see the
+     comment on `DashboardData`. Demo mode has to withhold the same blocks the
+     connected mode would, or an employee's dashboard tells the truth only
+     once they are online. */
+  const { permissions } = usePermissions();
+  const seesCompanyOverview = hasAnyPermission(permissions, [
+    "EDIT_RECORDS",
+    "VIEW_SALARIES",
+  ]);
 
   const demo = useCallback((): DashboardData => {
     const now = new Date();
@@ -79,26 +90,36 @@ export function useDashboard(): DashboardState & { reload: () => void } {
 
     return {
       asOf: iso(now),
-      headcount: {
-        /* `directory` already excludes archived records. */
-        active: directory.length,
-        startingThisMonth: directory.filter((e) => e.startDate.startsWith(month))
-          .length,
-        leavingThisMonth: 0,
-        /* The same test payroll blocks on, so the demo figure means what the
-           connected one means. */
-        incomplete: directory.filter((e) => !e.bankAccount || !e.pensionPin).length,
-      },
-      /* Zero rather than a guess. The approvals queue belongs to another screen
-         and the dashboard does not reach into it. */
-      approvals: { waiting: 0, overdue: 0, oldestWaitingDays: null },
-      today: {
-        expected: directory.length,
-        clockedIn: 0,
-        late: 0,
-        onLeave: 0,
-        unaccountedFor: 0,
-      },
+      /* Assigned via spread rather than declared unconditionally, so the key
+         is genuinely absent for a plain employee — matching the API, which
+         the tests pin on `"headcount" in d` rather than a falsy check. */
+      ...(seesCompanyOverview
+        ? {
+            headcount: {
+              /* `directory` already excludes archived records. */
+              active: directory.length,
+              startingThisMonth: directory.filter((e) =>
+                e.startDate.startsWith(month),
+              ).length,
+              leavingThisMonth: 0,
+              /* The same test payroll blocks on, so the demo figure means
+                 what the connected one means. */
+              incomplete: directory.filter(
+                (e) => !e.bankAccount || !e.pensionPin,
+              ).length,
+            },
+            /* Zero rather than a guess. The approvals queue belongs to
+               another screen and the dashboard does not reach into it. */
+            approvals: { waiting: 0, overdue: 0, oldestWaitingDays: null },
+            today: {
+              expected: directory.length,
+              clockedIn: 0,
+              late: 0,
+              onLeave: 0,
+              unaccountedFor: 0,
+            },
+          }
+        : {}),
       /* Null, not a figure. Producing a payroll total here would mean running
          the frontend engine over local data and presenting it as though a run
          had happened. */
@@ -150,13 +171,16 @@ export function useDashboard(): DashboardState & { reload: () => void } {
         ).length,
       },
     };
-  }, [directory]);
+  }, [directory, seesCompanyOverview]);
 
   const demoData = useMemo(() => (isConnected ? null : demo()), [isConnected, demo]);
 
   const [tick, setTick] = useState(0);
   const [fetched, setFetched] = useState<DashboardState | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -180,7 +204,7 @@ export function useDashboard(): DashboardState & { reload: () => void } {
     return () => {
       cancelled = true;
     };
-  }, [isConnected, tick]);
+  }, [isConnected, tick, revalidation]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
 
@@ -236,6 +260,9 @@ export function useReports(period?: string): ReportsState & { reload: () => void
   const [tick, setTick] = useState(0);
   const [fetched, setFetched] = useState<ReportsState | null>(null);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -259,7 +286,7 @@ export function useReports(period?: string): ReportsState & { reload: () => void
     return () => {
       cancelled = true;
     };
-  }, [isConnected, period, tick]);
+  }, [isConnected, period, tick, revalidation]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
 

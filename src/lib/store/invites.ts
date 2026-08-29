@@ -8,6 +8,7 @@ import {
   type SentInvite,
 } from "@/lib/api/invites";
 import { useSession } from "./session";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * Who has been invited to sign in, and has not yet accepted.
@@ -56,9 +57,12 @@ export function useInvites(): InvitesState {
     }
   }, [isConnected]);
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, revalidation]);
 
   const send = useCallback(
     async (employeeId: string, roleIds: string[]) => {

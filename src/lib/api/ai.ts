@@ -122,3 +122,45 @@ export const suggestDevelopment = (body: {
     method: "POST",
     body,
   });
+
+/**
+ * A whole appraisal period, drafted from a paragraph.
+ *
+ * Two calls rather than one, matching the API. The wizard keeps whichever half
+ * arrives: a period with drafted goals and hand-written questions is a period,
+ * while a single request that refuses because its second half timed out puts
+ * somebody back at a blank page.
+ *
+ * `text` is the person's own description and travels to the model as a **fact**,
+ * never as the instruction — the instruction is assembled server-side, which is
+ * what keeps the guardrails enforceable. See `modules/ai/schemas.ts`.
+ *
+ * Both need `MANAGE_SETTINGS`, because both exist to end in
+ * `POST /performance/cycles`, which needs it. The other three suggestion
+ * endpoints are gated by what they read; these two read nothing narrowed by the
+ * caller, so there is nothing for a read-gate to check.
+ *
+ * **Neither writes anything.** The wizard's last screen calls the ordinary
+ * create endpoints with whatever the person edited, and a measure cannot even
+ * be created without a target — `CreateKeyResultBody.targetValue` is required,
+ * which is the API refusing at the type level the one thing the model must
+ * never fill in.
+ */
+export const draftPeriodGoals = (body: {
+  text: string;
+  count?: number;
+}): Promise<ApiSuggestOutcome> =>
+  request<ApiSuggestOutcome>("/ai/draft/period-goals", {
+    method: "POST",
+    body,
+  });
+
+/** The questions the form asks, for the same period. */
+export const draftPeriodQuestions = (body: {
+  text: string;
+  count?: number;
+}): Promise<ApiSuggestOutcome> =>
+  request<ApiSuggestOutcome>("/ai/draft/period-questions", {
+    method: "POST",
+    body,
+  });

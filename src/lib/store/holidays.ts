@@ -12,6 +12,7 @@ import {
 import { PUBLIC_HOLIDAYS } from "@/lib/mock/workflows";
 import { createPersistedState } from "./persisted";
 import { useSession } from "./session";
+import { useRevalidation } from "@/lib/revalidate";
 
 /**
  * The public holiday calendar, in both modes.
@@ -148,6 +149,9 @@ export function usePublicHolidays(year: number): HolidayCalendarState {
 
   const key = `${year}|${tick}`;
 
+  /* Re-ask when somebody comes back to the window. Not in the key below,
+     so the answer is replaced without the screen flashing a skeleton. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -171,7 +175,7 @@ export function usePublicHolidays(year: number): HolidayCalendarState {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, year, key]);
+  }, [isConnected, year, key, revalidation]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
 

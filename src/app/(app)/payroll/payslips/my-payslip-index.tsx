@@ -8,6 +8,7 @@ import {
   Card,
   CardHeader,
   EmptyState,
+  Money,
   Spinner,
   TBody,
   TD,
@@ -20,7 +21,7 @@ import {
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { SourceBadge } from "@/components/payroll/run-panels";
-import { STATUS_LABEL, formatKobo, periodLabel, type OwnPayslip } from "@/lib/api/payroll";
+import { STATUS_LABEL, naira, periodLabel, type OwnPayslip } from "@/lib/api/payroll";
 import { deliveryOf, useMyPayslips } from "@/lib/store/payroll";
 import { useSession } from "@/lib/store/session";
 
@@ -52,7 +53,7 @@ export function MyPayslipIndex() {
       {error && <LoadFailure subject="your payslips" error={error} />}
 
       <Card>
-        <CardHeader title="Your payslips" description="Newest first." />
+        <CardHeader title="Your payslips" />
 
         {payslips.length === 0 && !loading ? (
           <EmptyState
@@ -85,11 +86,11 @@ export function MyPayslipIndex() {
                       }
                       subtitle={STATUS_LABEL[slip.run.status]}
                     />
-                    <TD align="right" className="tabular text-body">
-                      {formatKobo(slip.grossKobo)}
+                    <TD align="right">
+                      <Money amount={naira(slip.grossKobo)} decimals />
                     </TD>
-                    <TD align="right" className="tabular font-medium text-ink">
-                      {formatKobo(slip.netKobo)}
+                    <TD align="right">
+                      <Money amount={naira(slip.netKobo)} decimals />
                     </TD>
                     <TD>
                       <Badge

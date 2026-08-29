@@ -22,6 +22,7 @@ import {
   TableWrap,
   useToast,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
 import {
   HOLIDAY_DELETE_EFFECTS,
@@ -180,11 +181,10 @@ export function HolidaysPanel({ defaultYear }: { defaultYear: number }) {
         />
 
         <CardBody className="flex flex-col gap-4 pb-0">
-          {calendar.error && (
-            <Callout tone="danger" title="Could not read the calendar">
-              {calendar.error.message}
-            </Callout>
-          )}
+          <LoadFailure
+            subject={`the ${year} holiday calendar`}
+            error={calendar.error}
+           onRetry={calendar.reload}/>
 
           {/* Demo mode has one honest gap the connected product does not, and it
               is exactly the kind of thing somebody would otherwise discover by

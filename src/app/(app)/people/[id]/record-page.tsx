@@ -9,13 +9,13 @@ import {
   Button,
   ButtonLink,
   Card,
-  CardBody,
   Callout,
   ConfirmDialog,
   EmptyState,
   Skeleton,
   useToast,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -279,16 +279,12 @@ export function EmployeeRecordPage({ id }: { id: string }) {
           </Callout>
         )}
 
-        {directory.error && (
-          <Card>
-            <CardBody>
-              <p className="text-body-sm text-body">
-                {directory.error.message} Their manager and direct reports may be
-                missing below.
-              </p>
-            </CardBody>
-          </Card>
-        )}
+        {/* The record itself is on screen; it is the directory read behind it
+            that failed, so this says what is missing from the page rather than
+            standing in for the page. */}
+        <LoadFailure subject="the rest of the directory" error={directory.error} onRetry={directory.reload}>
+          Their manager and direct reports may be missing below.
+        </LoadFailure>
 
         <EmployeeRecord
           employee={employee}
@@ -296,6 +292,7 @@ export function EmployeeRecordPage({ id }: { id: string }) {
           manager={manager}
           managerName={record.managerName}
           reports={reports}
+          companyDirectory={directory.employees}
           /* Live in both modes. Connected these are the leave module's own
              figures, so a decision made in the approvals inbox has already
              moved them; offline they come from the same local store the leave
