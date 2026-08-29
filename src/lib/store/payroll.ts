@@ -28,6 +28,10 @@ import {
   type ReliefRegime,
   type RunException,
   type RunExclusion,
+  type BonusChange,
+  type MonthlyPayChange,
+  type OvertimeOverrideChange,
+  type OvertimeOverrideKind,
   type TaxOverrideChange,
 } from "@/lib/api/payroll";
 import {
@@ -1581,6 +1585,97 @@ export function usePayrollActions() {
    * Reimplementing tax-band arithmetic here to make this button work offline
    * is the mistake `HANDOVER.md` spends a whole section warning against.
    */
+  /**
+   * Overtime hours entered by hand. Refuses offline for the same reason the
+   * tax override does: hours typed here would be valued against a policy and a
+   * salary the demo has no engine to apply, and a figure nobody computed is a
+   * figure nobody can vouch for.
+   */
+  const setOvertimeOverride = useCallback(
+    async (
+      runId: string,
+      input: {
+        employeeId: string;
+        hours: number;
+        kind: OvertimeOverrideKind;
+        reason: string;
+      },
+    ): Promise<OvertimeOverrideChange> => {
+      if (isConnected) return payrollApi.setOvertimeOverride(runId, input);
+      throw new ApiError(
+        0,
+        "offline",
+        "Entering overtime by hand needs the API. The hourly rate comes from " +
+          "the company's policy and the person's salary, and the demo has no " +
+          "engine to apply them, so it will not pretend it has.",
+      );
+    },
+    [isConnected],
+  );
+
+  const clearOvertimeOverride = useCallback(
+    async (runId: string, employeeId: string): Promise<PreparedRun> => {
+      if (isConnected) return payrollApi.clearOvertimeOverride(runId, employeeId);
+      throw new ApiError(
+        0,
+        "offline",
+        "Entering overtime by hand needs the API, so there is nothing here for " +
+          "the demo to clear.",
+      );
+    },
+    [isConnected],
+  );
+
+  /** A one-off payment. Refuses offline for the same reason as the rest. */
+  const setBonus = useCallback(
+    async (
+      runId: string,
+      input: { employeeId: string; amountKobo: number; reason: string },
+    ): Promise<BonusChange> => {
+      if (isConnected) return payrollApi.setBonus(runId, input);
+      throw new ApiError(
+        0,
+        "offline",
+        "Adding a bonus needs the API. It moves gross and the tax on it, and " +
+          "the demo has no engine to recompute either.",
+      );
+    },
+    [isConnected],
+  );
+
+  const clearBonus = useCallback(
+    async (runId: string, employeeId: string): Promise<PreparedRun> => {
+      if (isConnected) return payrollApi.clearBonus(runId, employeeId);
+      throw new ApiError(0, "offline", "Adding a bonus needs the API.");
+    },
+    [isConnected],
+  );
+
+  /**
+   * Somebody's contractual monthly pay, from the payroll table.
+   *
+   * Refused offline, and for a stronger reason than the two overrides: this
+   * writes the **employment record**. A salary changed in browser storage would
+   * never reach a payroll run, and unlike a demo leave request it would look
+   * exactly like a real pay rise on the screen that shows it.
+   */
+  const setMonthlyPay = useCallback(
+    async (
+      runId: string,
+      input: { employeeId: string; grossMonthlyKobo: number; reason: string },
+    ): Promise<MonthlyPayChange> => {
+      if (isConnected) return payrollApi.setMonthlyPay(runId, input);
+      throw new ApiError(
+        0,
+        "offline",
+        "Changing somebody's pay needs the API. This writes their employment " +
+          "record, and a salary kept in this browser would never reach a real " +
+          "payroll.",
+      );
+    },
+    [isConnected],
+  );
+
   const setTaxOverride = useCallback(
     async (
       runId: string,
@@ -1626,6 +1721,11 @@ export function usePayrollActions() {
     putBack,
     setTaxOverride,
     clearTaxOverride,
+    setOvertimeOverride,
+    clearOvertimeOverride,
+    setBonus,
+    clearBonus,
+    setMonthlyPay,
     connected: isConnected,
   };
 }

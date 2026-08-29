@@ -2,9 +2,12 @@
 
 import { useCallback, useSyncExternalStore } from "react";
 import { LEAVE_REQUESTS, type LeaveRequest, type LeaveType } from "@/lib/mock/workflows";
+import { employeeById } from "@/lib/mock/people";
+import { fullName } from "@/lib/types";
 import { useSession } from "./session";
 import { TODAY } from "@/lib/today";
 import { createPersistedState, patched } from "./persisted";
+import { pushDemoNotification } from "./notifications";
 import type { LeaveWindow } from "@/lib/workflows/leave";
 
 /**
@@ -40,6 +43,22 @@ export type LeaveDecision = "approved" | "declined";
 /** A new request needs an id that cannot collide with the seed's `lv-NN`. */
 function nextLeaveId() {
   return `lv-new-${Date.now().toString(36)}`;
+}
+
+/**
+ * The seed or locally-created row underneath an id, ignoring any decision
+ * already patched onto it. `decide` needs to know *who the request belongs
+ * to* to notify them, and that never changes — but it must read this from
+ * `store.current()` rather than the hook's own memoised `requests`, for the
+ * same reason `create` below never reads `requests` either: a callback whose
+ * dependency array does not include it would otherwise notify off whichever
+ * render happened to create the closure.
+ */
+function baseRequestById(
+  s: LeaveState,
+  id: string,
+): LeaveRequest | undefined {
+  return LEAVE_REQUESTS.find((r) => r.id === id) ?? s.created.find((r) => r.id === id);
 }
 
 /** Whole days inclusive of both ends. Weekends are not netted off — the company
@@ -95,6 +114,24 @@ export function useLeaveStore() {
         ...s,
         overrides: { ...s.overrides, [id]: { ...s.overrides[id], ...patch } },
       });
+
+      /* Tell the requester how it went — the demo's version of the
+         `n-leave-decision` rule `leave/service.ts` sends on the API side. */
+      const request = baseRequestById(s, id);
+      if (request) {
+        pushDemoNotification({
+          ruleId: "n-leave-decision",
+          title:
+            decision === "approved"
+              ? "Your leave request was approved"
+              : "Your leave request was declined",
+          body: note ?? null,
+          actionHref: "/people/leave",
+          entityType: "leave_request",
+          entityId: id,
+          severity: decision === "approved" ? "INFO" : "WARNING",
+        });
+      }
     },
     [actingId],
   );
@@ -144,6 +181,24 @@ export function useLeaveStore() {
       requestedAt: TODAY,
     };
     store.commit({ ...s, created: [...s.created, request] });
+
+    /* Tell the named approver, same as `n-leave-request` on the API side —
+       nobody else, for the same reason `leave/service.ts#create` only
+       notifies when one is actually named: an unnamed request has nowhere to
+       go until somebody puts an approver on it. */
+    if (input.approverId) {
+      const requester = employeeById(input.employeeId);
+      pushDemoNotification({
+        ruleId: "n-leave-request",
+        title: `${request.type} leave — ${requester ? fullName(requester) : "Unknown"}`,
+        body: `${request.from} to ${request.to} · ${request.days} ${request.days === 1 ? "day" : "days"}`,
+        actionHref: "/approvals",
+        entityType: "leave_request",
+        entityId: request.id,
+        severity: "ACTION",
+      });
+    }
+
     return request;
   }, []);
 

@@ -531,9 +531,35 @@ function Register() {
           kinds={kinds.usable}
           onCreateKind={() => setAddingKind(true)}
           onClose={() => setAdding(false)}
-          onCreate={async (input) => {
-            await register.addItem(input);
-            toast.push({ title: `${input.name} added`, tone: "success" });
+          onCreate={async (input, assignTo) => {
+            const id = await register.addItem(input);
+            if (!assignTo) {
+              toast.push({ title: `${input.name} added`, tone: "success" });
+              return;
+            }
+            /* The register write already succeeded — a refusal past this
+               point (an employee archived between opening the form and
+               submitting it, say) must not read as "not saved" when the item
+               plainly is. Named, and pointed at the door that still works. */
+            try {
+              await register.handOver(id, {
+                employeeId: assignTo.employeeId,
+                ...(input.condition ? { condition: input.condition } : {}),
+              });
+              toast.push({
+                title: `${input.name} added and handed over`,
+                tone: "success",
+              });
+            } catch (error) {
+              toast.push({
+                title: `${input.name} added, but could not be handed over`,
+                tone: "warning",
+                detail:
+                  error instanceof ApiError
+                    ? error.message
+                    : "Hand it over from its own page instead.",
+              });
+            }
           }}
         />
       )}

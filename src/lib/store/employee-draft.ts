@@ -126,7 +126,17 @@ export const BLANK_DRAFT: EmployeeDraft = {
   departmentId: "",
   managerId: "",
   employmentType: "full_time",
-  status: "onboarding",
+  /* Active, not onboarding.
+     -----------------------
+     This was `onboarding`, which paired with a status field on the create form
+     and an Onboarding tab in the nav. Both are parked, so leaving it would have
+     made every new joiner ONBOARDING with nothing in the interface able to
+     change it — invisible on a screen that no longer asks, and only findable by
+     wondering why somebody was not on the payroll.
+
+     `EmploymentStatus` still has the value and the API still accepts it. What
+     changed is what a person entered through this form starts as. */
+  status: "active",
   startDate: "",
   grossMonthly: "",
   taxState: "",

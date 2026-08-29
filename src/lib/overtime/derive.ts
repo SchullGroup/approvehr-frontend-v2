@@ -1,3 +1,5 @@
+export type OvertimeHourlyBasis = "CALENDAR_DAYS" | "WORKING_DAYS";
+
 /**
  * The overtime arithmetic, once.
  *
@@ -37,6 +39,17 @@ export type OvertimePolicy = {
   requiresApproval: boolean;
   /** The divisor: hours in a normal working day. */
   hoursPerDay: number;
+  /**
+   * How an hour is valued before the multiplier.
+   *
+   * - `CALENDAR_DAYS` — `monthly x 12 / 365 / hoursPerDay`. The default, and
+   *   the formula on a payslip workbook in live use at a Nigerian engineering
+   *   firm.
+   * - `WORKING_DAYS` — `monthly / workingDaysPerMonth / hoursPerDay`.
+   *
+   * They differ by about a third. A company has one of them in its contracts.
+   */
+  hourlyBasis: OvertimeHourlyBasis;
 };
 
 /** The API's own defaults, so an unconfigured company reads the same either way. */
@@ -49,6 +62,7 @@ export const DEFAULT_OVERTIME_POLICY: OvertimePolicy = {
   holidayRate: 2,
   requiresApproval: true,
   hoursPerDay: 8,
+  hourlyBasis: "CALENDAR_DAYS",
 };
 
 /**
