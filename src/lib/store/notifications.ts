@@ -250,14 +250,69 @@ type Diff = {
   read: string[];
   /** Ids dismissed here. Hidden, and the API's delete is a real delete too. */
   deleted: string[];
+  /**
+   * Whole new rows, raised by something happening in this browser rather than
+   * by the seed — the same "a diff, not a copy" shape `lib/store/employees.ts`
+   * uses for `created`. Newest first, so a fresh one needs no sort to reach the
+   * top of an otherwise-empty unread list.
+   */
+  added: InboxItem[];
 };
 
-const EMPTY: Diff = { read: [], deleted: [] };
+const EMPTY: Diff = { read: [], deleted: [], added: [] };
 
 const demo = createPersistedState<Diff>({
   key: "approvehr.notifications.store",
   empty: EMPTY,
 });
+
+/**
+ * Raise a notification in demo mode — the write side of the mechanism the API
+ * calls `notify()`.
+ *
+ * There is no recipient here, on purpose and unlike the API: nothing in this
+ * store's seed is scoped to a signed-in account either (see `Seed` above,
+ * which carries no user id), and a demo has exactly one browser's worth of
+ * localStorage to work with regardless of which persona is signed in at the
+ * moment. Scoping this call to "the approver" or "the requester" would be a
+ * capability the rest of this store does not have, for a distinction demo
+ * mode cannot keep — whoever is signed in when it fires sees it, which is
+ * enough to prove the mechanism without inventing a per-persona inbox.
+ *
+ * `current()`, never `read()` — this is called from other stores' mutation
+ * functions (`lib/store/leave.ts`), which do not themselves subscribe to this
+ * one. Reading the render snapshot here would compute the write from the seed
+ * and silently drop anything already added, which is the exact bug the note
+ * on `lib/store/persisted.ts` is about.
+ */
+export function pushDemoNotification(input: {
+  ruleId: string;
+  title: string;
+  body?: string | null;
+  actionHref?: string | null;
+  entityType: string;
+  entityId?: string | null;
+  severity: NotificationSeverity;
+}): void {
+  const current = demo.current();
+  const item: InboxItem = {
+    id: `demo-added-${current.added.length}-${input.ruleId}`,
+    ruleId: input.ruleId,
+    title: input.title,
+    body: input.body ?? null,
+    actionHref: input.actionHref ?? null,
+    entityType: input.entityType,
+    entityId: input.entityId ?? null,
+    severity: input.severity,
+    read: false,
+    readAt: null,
+    /* The demo's own reference "now", not the wall clock — `useNotifications`
+       below renders relative times off `DEMO_NOW`, and a real timestamp could
+       land after it, which would print as a notification from the future. */
+    createdAt: DEMO_NOW.toISOString(),
+  };
+  demo.commit({ ...current, added: [item, ...current.added] });
+}
 
 /* ---------------------------------------------- the shared unread count */
 
@@ -307,11 +362,11 @@ async function refreshUnread(): Promise<void> {
   }
 }
 
-/** Unread in demo mode: the seed, less what has been read or dismissed. */
+/** Unread in demo mode: the seed plus anything added, less read or dismissed. */
 function demoUnread(diff: Diff): number {
   const read = new Set(diff.read);
   const deleted = new Set(diff.deleted);
-  return DEMO_ITEMS.filter(
+  return [...diff.added, ...DEMO_ITEMS].filter(
     (item) => !item.read && !read.has(item.id) && !deleted.has(item.id),
   ).length;
 }
@@ -467,7 +522,8 @@ export function useNotifications(tab: InboxTab) {
     if (isConnected) return live.rows;
     const read = new Set(diff.read);
     const deleted = new Set(diff.deleted);
-    return DEMO_ITEMS.filter((item) => !deleted.has(item.id))
+    return [...diff.added, ...DEMO_ITEMS]
+      .filter((item) => !deleted.has(item.id))
       .map((item) =>
         !item.read && read.has(item.id)
           ? { ...item, read: true, readAt: DEMO_NOW.toISOString() }
