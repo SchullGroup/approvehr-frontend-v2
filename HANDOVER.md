@@ -4858,3 +4858,154 @@ and it is not obviously worth a link: its reader is usually an employee, who
 cannot change them, so the control would be absent for almost everybody who sees
 the figure. Left alone deliberately rather than swept, and the count corrected
 here so nobody else goes looking for ten.
+
+---
+
+# A payroll can be adjusted by hand, and one of the four is not like the others
+
+Four requests in one session, and the first thing worth recording is that **the
+first of them already existed**.
+
+## "Let us have a way to manually change the tax"
+
+`PayrollTaxOverride` was already built, committed and wired end to end — model,
+engine parameter, service, routes, and an "Enter manually" link in the PAYE
+column of the payslip table. The product owner could not find it for two
+reasons, neither a bug:
+
+1. it is on the **Review** step and he was on **Check**;
+2. his run was **approved**, which freezes every control on it.
+
+**Third instance of the same class.** The company logo, the assistant, and now
+this: a feature present, correct, and findable by nobody. The rule is now in
+three places and belongs here too — *if a control lives somewhere the reader is
+not, something where they are has to say so.* `wizard.tsx`'s Check step says it.
+
+**Check before building.** Half a day of work was avoided by grepping the schema
+first. The doc comment on `PayrollTaxOverride` describes the feature better than
+the request did.
+
+## What was actually missing
+
+| | Scope | Writes |
+|---|---|---|
+| PAYE override | one run | the payslip |
+| **Overtime by hand** | one run | the payslip |
+| **Bonus** | one run | the payslip |
+| **Monthly pay** | **from now on** | `Employee.grossMonthly` |
+
+The first three hang off the run, expire with the period, and survive
+"Calculate again" because `prepare` reads those tables and never writes to
+them. The fourth is the employment contract.
+
+`MONTHLY_PAY_EFFECT` in `lib/api/payroll.ts` is that difference in one sentence,
+written once and rendered in bold above the field. It is the only thing on that
+screen somebody could get badly wrong.
+
+## Hours and a kind. Never a rate.
+
+`PayrollOvertimeOverride` stores minutes and WEEKDAY/WEEKEND/PUBLIC_HOLIDAY. The
+multiplier comes from `OvertimePolicy` at prepare time through `valueOvertime`,
+which is built out of the same `rateFor` and `hourlyRateKobo` that clock-in
+detection uses — so a typed Saturday hour and a clocked one are worth the same.
+
+A rate on the request would make two people's overtime incomparable for a reason
+nobody could see afterwards; a rate stored on the row would go stale the day the
+policy changed. Same rule as the tax schema not accepting its own tax bands.
+
+**It replaces, and what it replaced is named.** Detected records are set aside,
+not added to — adding would pay the wrong hours *and* the right ones. Nothing is
+deleted: they stay APPROVED with a null `payslipId`, still payable later, and
+`prepare` raises `overtime_entered_by_hand` naming them and totalling their
+hours. Approved overtime vanishing off a payslip with nothing saying where it
+went is the entire risk of the feature.
+
+## The overtime formula came from a real payslip, and this repo had it wrong
+
+A May 2026 workbook from an engineering firm in Port Harcourt, 34 payslips, 29
+of them carrying:
+
+    =(F25*12)/365/8*hours*1.5
+
+Monthly salary annualised, over **every day of the year**, and an eight-hour
+day. This repo divided by the *working* month. On ₦400,000 that is ₦2,500.00 an
+hour against their ₦1,643.84 — about a third out, every time somebody works
+late.
+
+`OvertimePolicy.hourlyBasis` now chooses, `CALENDAR_DAYS` is the default, and
+**the migration sets every existing row to `WORKING_DAYS`**. Silently re-pricing
+a live customer's overtime by a third on a deploy is the worst kind of change
+and this does not do it.
+
+365 rather than 365.25: the workbook uses 365, and a leap-year correction nobody
+asked for would put every figure a few kobo off the one they check against.
+
+### Fourteen kobo, and why they are not a bug
+
+On 21 hours at ₦400,000 this engine pays ₦51,780.96; their spreadsheet shows
+₦51,780.82. We round to the kobo **once, before the multiplier**, as every money
+figure here does; the sheet rounds at the end. Kobo-first is what makes a
+payslip reconcile exactly, which is worth more than matching a float to the
+penny. Written into the test rather than left to be discovered.
+
+## A bonus is one month, by construction
+
+Keyed to the run. A standing arrangement is a `PayComponent`; confusing the two
+is how a company pays a December bonus every month until somebody notices in
+March.
+
+**Taxable and not pensionable**, and that is the assertion worth having. This
+file records the defect where an addition flowed into the salary split and
+raised somebody's pension by ₦8,000 and their NHF by ₦1,500 — the old test only
+checked that gross and PAYE went *up*, so it passed for months. The new cases
+check the bases that must **not** move.
+
+## Maker and checker
+
+`RUN_PAYROLL` and `APPROVE_PAYROLL` were always separate, and the split alone
+achieved little: one person holding both could adjust a figure and release the
+money with nobody else in the loop. That matters more now that hand-entered
+figures exist.
+
+Whoever prepared it cannot approve it — **unless nobody else could**. The
+exception is *counted from the database at approval time*, not configured:
+
+- a lone owner still runs payroll, because refusing them would stop the business
+  rather than protect it, and they would share a login instead — which is worse
+  than no control, since then nothing in the trail is true;
+- the day a second person gets `APPROVE_PAYROLL`, segregation begins by itself;
+- only accounts that can actually sign in count, or an unaccepted invitation
+  would hold a payroll;
+- a run with a null `preparedById` is not refused, because refusing on the
+  strength of a null is inventing a maker.
+
+## One bug that only the screen could catch
+
+The overtime preview first derived monthly salary by subtracting allowance lines
+from `grossKobo`. Right for somebody paid a full month; wrong for everybody
+else — a prorated payslip carries the *prorated* contract, while the API values
+overtime on the whole month.
+
+Adaeze, with five unpaid days, was shown **₦1,587.80** an hour against the
+**₦2,054.79** she is actually paid on. 23% low, on a figure somebody would have
+signed off.
+
+`tsc`, lint and `npm run build` were all green with that number on the screen.
+It reads `Employee.grossMonthly` from the directory now, and `monthlyOf` says
+why.
+
+**`hourlyOf` in `by-hand.tsx` is a second implementation of a money figure**,
+which this file warns about at length. It is allowed to exist for one reason,
+stated in its header: *it renders the working, it does not decide the pay.* The
+payslip figure is computed server-side. If the two ever disagree, the server is
+right and the preview is the bug.
+
+## Deliberately not done
+
+- **Pension and NHF are not editable.** They are statutory computations, and a
+  free-text override there would break the correctness argument this product is
+  sold on. The three that are editable are a company's own decisions; those two
+  are not.
+- **One bonus per person per run.** Two separate bonuses in one month are added
+  together with one reason — one figure with one explanation is more auditable
+  than two with none, and the payslip shows one line either way.

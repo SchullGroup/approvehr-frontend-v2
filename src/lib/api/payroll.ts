@@ -348,6 +348,63 @@ export type RunExclusion = {
  * parse out of the `payroll_tax_overridden` warning's message — "who set
  * this and when" belongs to an editable review row.
  */
+export type OvertimeOverrideKind = "WEEKDAY" | "WEEKEND" | "PUBLIC_HOLIDAY";
+
+/** What each kind is called on screen, and nowhere else. */
+export const OVERTIME_KIND_LABEL: Record<OvertimeOverrideKind, string> = {
+  WEEKDAY: "Weekday",
+  WEEKEND: "Weekend",
+  PUBLIC_HOLIDAY: "Public holiday",
+};
+
+export type OvertimeOverrideChange = {
+  employeeId: string;
+  name: string;
+  minutes: number;
+  kind: OvertimeOverrideKind;
+  /** The multiplier the policy priced these at. Reported, never sent. */
+  rate: number;
+  amountKobo: number;
+  /** Approved records this displaced, so a screen can say so. */
+  setAsideCount: number;
+  setAsideMinutes: number;
+  reason: string;
+  setAt: string;
+  run: PreparedRun;
+};
+
+export type BonusChange = {
+  employeeId: string;
+  name: string;
+  amountKobo: number;
+  reason: string;
+  awardedAt: string;
+  run: PreparedRun;
+};
+
+export type MonthlyPayChange = {
+  employeeId: string;
+  name: string;
+  /** Null where nobody had ever set one — see the `missing_pay` blocker. */
+  fromKobo: number | null;
+  toKobo: number;
+  reason: string;
+  changedAt: string;
+  run: PreparedRun;
+};
+
+/**
+ * What changing somebody's pay from a payroll actually does, in one sentence.
+ *
+ * Written once and rendered wherever the control appears, for the same reason
+ * `HOLIDAY_DELETE_EFFECTS` and `membershipEffect` exist: a consequence
+ * described in two places drifts, and this one is the difference between an
+ * adjustment and a change to somebody's contract.
+ */
+export const MONTHLY_PAY_EFFECT =
+  "This changes their record from now on, not just this payroll. Payslips " +
+  "already approved keep the figures they were approved with.";
+
 export type RunTaxOverride = {
   id: string;
   employeeId: string;
@@ -1028,6 +1085,72 @@ export const payrollApi = {
         method: "DELETE",
       },
     ),
+
+  /**
+   * Overtime hours entered by hand for one person on this run.
+   *
+   * **Hours and a kind, never a rate.** The multiplier is the company's own
+   * overtime policy, applied server-side — so a typed Saturday hour and a
+   * clocked one are worth the same. There is deliberately no field to send one.
+   *
+   * Replaces whatever the clock produced for that person in that period. The
+   * displaced records stay approved and unpaid, and the rebuilt run carries a
+   * warning naming them.
+   */
+  setOvertimeOverride: (
+    id: string,
+    body: {
+      employeeId: string;
+      hours: number;
+      kind: OvertimeOverrideKind;
+      reason: string;
+    },
+  ) =>
+    request<OvertimeOverrideChange>(`/payroll/runs/${id}/overtime-overrides`, {
+      method: "POST",
+      body,
+    }),
+
+  /** Takes the typed hours off, so the clock's records pay again. */
+  clearOvertimeOverride: (id: string, employeeId: string) =>
+    request<PreparedRun>(
+      `/payroll/runs/${id}/overtime-overrides/${employeeId}`,
+      { method: "DELETE" },
+    ),
+
+  /**
+   * A one-off payment for one person on this run.
+   *
+   * Per run: a bonus belongs to one month, so next month starts with none. A
+   * standing arrangement is a pay component, not this.
+   */
+  setBonus: (
+    id: string,
+    body: { employeeId: string; amountKobo: number; reason: string },
+  ) =>
+    request<BonusChange>(`/payroll/runs/${id}/bonuses`, { method: "POST", body }),
+
+  clearBonus: (id: string, employeeId: string) =>
+    request<PreparedRun>(`/payroll/runs/${id}/bonuses/${employeeId}`, {
+      method: "DELETE",
+    }),
+
+  /**
+   * Somebody's contractual monthly pay, changed from the payroll table.
+   *
+   * **Not an override.** The two above are figures for one run and expire with
+   * the period; this writes the employment record, so it changes every future
+   * payroll too. Any control that calls this has to say so — see
+   * `MONTHLY_PAY_EFFECT`.
+   */
+  setMonthlyPay: (
+    id: string,
+    body: { employeeId: string; grossMonthlyKobo: number; reason: string },
+  ) =>
+    request<MonthlyPayChange>(`/payroll/runs/${id}/monthly-pay`, {
+      method: "PATCH",
+      body,
+    }),
 
   preview: (employeeId: string, period: string, signal?: AbortSignal) =>
     request<PayslipPreview>("/payroll/preview", {
