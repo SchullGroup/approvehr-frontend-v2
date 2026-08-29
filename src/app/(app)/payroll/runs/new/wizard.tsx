@@ -1010,14 +1010,34 @@ export function PayrollRunWizard() {
               {missingPayStatus.label}
             </Button>
           ) : (
-            <Button
-              variant="accent"
-              onClick={stepper.next}
-              disabled={!canContinue}
-            >
-              Continue
-              <ArrowRight aria-hidden="true" className="size-4" />
-            </Button>
+            <span className="flex items-center gap-3">
+              {/* Why the button is dead, at the button.
+                  ---------------------------------------------------------
+                  `canContinue` goes false on a blocker, and the only
+                  explanation sat in the exception list several screens
+                  above. Somebody who had just excluded two people and
+                  scrolled to the footer found a grey control and nowhere to
+                  read why.
+
+                  Counted rather than named: the list above is where the
+                  names are, and repeating one of them here would make a
+                  reader think it was the only one. */}
+              {stepper.index > 0 && blocked && (
+                <span className="text-meta text-muted">
+                  {counts.blockers + discrepancies.length === 1
+                    ? "1 thing still stops this run."
+                    : `${counts.blockers + discrepancies.length} things still stop this run.`}
+                </span>
+              )}
+              <Button
+                variant="accent"
+                onClick={stepper.next}
+                disabled={!canContinue}
+              >
+                Continue
+                <ArrowRight aria-hidden="true" className="size-4" />
+              </Button>
+            </span>
           )}
         </div>
       </div>
