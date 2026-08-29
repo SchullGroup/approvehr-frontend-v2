@@ -279,10 +279,16 @@ function Policy() {
 
       <PageBody className="flex flex-col gap-6">
         <Callout tone="info" title="These figures are live">
+          {/* A route in backticks is how the doc comments in this repo refer
+              to a screen, and it had leaked into rendered prose — the one
+              instance across 31 screens read by a browser. Backticks are
+              markup, and `/people/leave` is a path rather than anything the
+              person reading this has ever seen: the screen calls itself
+              Time off, and so does the nav. */}
           Entitlement is the number every balance in the product is measured
-          against. Change it here and `/people/leave`, each employee record and
-          the booking form all move at once — there is no separate copy to keep
-          in step.
+          against. Change it here and Time off, each employee record and the
+          booking form all move at once — there is no separate copy to keep in
+          step.
         </Callout>
 
         <Card>

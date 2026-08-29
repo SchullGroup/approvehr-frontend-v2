@@ -552,7 +552,18 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 hint={
                   period.scoringFrozen
                     ? "A later change to the company's weights cannot move these marks"
-                    : "This period started before weights were frozen onto a period"
+                    : /* Two different reasons weights are still live, and only
+                         one of them was being stated. Starting a period is what
+                         freezes them, so EVERY period that has not started yet
+                         is "Live" — and it was being told it "started before
+                         weights were frozen", two lines under a badge reading
+                         `not started`. The legacy case is real but rare; the
+                         not-started case is every new period there is, and the
+                         useful thing to say about it is that a change now
+                         still lands. */
+                      period.stage === "DRAFT"
+                      ? "Whatever they are when this period starts is what it keeps"
+                      : "This period started before weights were frozen onto a period"
                 }
               />
             </div>
