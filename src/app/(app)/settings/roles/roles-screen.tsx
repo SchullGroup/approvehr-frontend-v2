@@ -568,6 +568,32 @@ function InvitationsCard({
     );
   }
 
+  /*
+   * Never looked, so never claim. `useInvites` no longer fetches without
+   * INVITE_STAFF, which stopped five of the six roles firing a doomed request
+   * — and left this panel about to fall through to "No pending invitations",
+   * which asserts a count nobody read. Absent is not zero, and it is not an
+   * error either: the old behaviour rendered the 403 through `LoadFailure` as
+   * "Invitations did not load" over the API's raw "You need the following to
+   * do that: INVITE_STAFF."
+   *
+   * A permission is named the way the rest of the app names one — in words,
+   * with who to ask — not as the enum the API sends.
+   */
+  if (!canInvite) {
+    return (
+      <Card>
+        <CardHeader title="Invitations" level={3} />
+        <CardBody>
+          <p className="text-body-sm text-muted">
+            Seeing who has been invited to sign in needs the “Invite staff”
+            permission. Ask somebody who manages roles.
+          </p>
+        </CardBody>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader

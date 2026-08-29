@@ -1407,7 +1407,20 @@ export type BankAccountsState = {
 };
 
 export function useBankAccounts(includeArchived = false): BankAccountsState {
-  const { isConnected } = useSession();
+  const { isConnected, can } = useSession();
+  /*
+   * `GET /payments/accounts` is `requirePermissions(MANAGE_SETTINGS)` —
+   * checked in `modules/payments/router.ts`, not guessed, because a gate here
+   * narrower than the API's locks somebody out of a screen they are entitled
+   * to. That has happened in this file before.
+   *
+   * The screen already refuses this reader, in the right words. It refuses at
+   * *render*, though, and a hook cannot be called conditionally — so the fetch
+   * fired anyway and each of the five roles without the permission put a 403 in
+   * the console on a page that had already told them no. The refusal was never
+   * the problem; the request behind it was.
+   */
+  const mayRead = can("MANAGE_SETTINGS");
   const book = useDemoBook();
   const rev = useRevision();
 
@@ -1428,7 +1441,7 @@ export function useBankAccounts(includeArchived = false): BankAccountsState {
      so the answer is replaced without the screen flashing a skeleton. */
   const revalidation = useRevalidation();
   useEffect(() => {
-    if (!isConnected) return;
+    if (!isConnected || !mayRead) return;
     let cancelled = false;
     const controller = new AbortController();
     void (async () => {
@@ -1460,7 +1473,7 @@ export function useBankAccounts(includeArchived = false): BankAccountsState {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, includeArchived, key, revalidation]);
+  }, [isConnected, mayRead, includeArchived, key, revalidation]);
 
   const create = useCallback(
     async (body: CreateAccountBody) => {
