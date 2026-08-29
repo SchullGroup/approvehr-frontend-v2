@@ -34,7 +34,7 @@ function Head({
   };
   return (
     <div className="mb-3 flex items-center justify-between gap-3">
-      <span className="text-meta font-medium uppercase tracking-[0.08em] text-slate/40">
+      <span className="text-meta font-medium text-slate/40">
         {title}
       </span>
       {chip && (
@@ -152,7 +152,7 @@ function EmployeeRecord() {
           ["Started", "14 Mar 2022"],
         ].map(([k, v]) => (
           <div key={k}>
-            <p className="text-meta uppercase tracking-wide text-slate/35">
+            <p className="text-meta text-slate/35">
               {k}
             </p>
             <p className="mt-0.5 truncate text-meta text-slate/75">{v}</p>
@@ -189,7 +189,7 @@ function SelfServiceChange() {
 
       <div className="mt-3 flex flex-col gap-2">
         <div className="rounded-lg border border-slate/8 p-2">
-          <p className="text-meta uppercase tracking-wide text-slate/35">
+          <p className="text-meta text-slate/35">
             Current
           </p>
           <p className="mt-0.5 text-meta text-slate/60 line-through">
@@ -197,7 +197,7 @@ function SelfServiceChange() {
           </p>
         </div>
         <div className="rounded-lg border border-success-line bg-wash-green p-2">
-          <p className="text-meta uppercase tracking-wide text-success-text/70">
+          <p className="text-meta text-success-text/70">
             Requested
           </p>
           <p className="mt-0.5 text-meta font-medium text-success-text">
@@ -518,7 +518,7 @@ function StageConfig() {
               {label as string}
             </span>
             {(locked as boolean) && (
-              <span className="text-meta uppercase tracking-wide text-slate/35">
+              <span className="text-meta text-slate/35">
                 Required
               </span>
             )}
@@ -551,7 +551,7 @@ function ScreeningAnswers() {
             <div className="flex items-start justify-between gap-2">
               <p className="text-meta text-slate/55">{q as string}</p>
               {pass !== null && (
-                <span className="shrink-0 text-meta uppercase tracking-wide text-slate/40">
+                <span className="shrink-0 text-meta text-slate/40">
                   Knockout
                 </span>
               )}
@@ -667,7 +667,7 @@ function LeaveApproval() {
       <Head title="Leave request" chip="With manager" chipTone="amber" />
       <Person initials="NE" name="Kemi Balogun" meta="12–16 Sep · 5 days" />
       <div className="mt-3 rounded-lg border border-slate/8 p-2">
-        <p className="text-meta uppercase tracking-wide text-slate/35">
+        <p className="text-meta text-slate/35">
           Who else is off
         </p>
         <div className="mt-1.5 flex flex-col gap-1">
@@ -739,7 +739,7 @@ function GoalCascade() {
     <DayFrame className={SHELL}>
       <Head title="Goal alignment" chip="Q3" chipTone="blue" />
       <div className="rounded-lg bg-slate px-2.5 py-1.5">
-        <p className="text-meta uppercase tracking-wide text-white/45">
+        <p className="text-meta text-white/45">
           Company
         </p>
         <p className="text-meta font-medium text-white">
@@ -752,7 +752,7 @@ function GoalCascade() {
           ["Sales", "40 new mid-market logos", 48],
         ].map(([team, goal, pct]) => (
           <div key={team as string} className="rounded-lg border border-slate/8 p-2">
-            <p className="text-meta uppercase tracking-wide text-slate/35">
+            <p className="text-meta text-slate/35">
               {team as string}
             </p>
             <p className="text-meta font-medium text-slate">

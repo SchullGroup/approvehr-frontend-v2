@@ -244,7 +244,7 @@ export default function PricingPage() {
                   )}
                 >
                   {plan.featured && (
-                    <span className="mb-3 self-start rounded-full bg-accent px-2.5 py-0.5 text-meta font-semibold uppercase tracking-wide text-white">
+                    <span className="mb-3 self-start rounded-full bg-accent px-2.5 py-0.5 text-meta font-semibold text-white">
                       Most popular
                     </span>
                   )}
@@ -300,7 +300,7 @@ export default function PricingPage() {
               <table className="w-full min-w-160 border-collapse text-meta">
                 <thead>
                   <tr className="border-b border-sand-line">
-                    <th className="py-4 pl-6 pr-4 text-left text-meta font-semibold uppercase tracking-[0.08em] text-slate-muted">
+                    <th className="py-4 pl-6 pr-4 text-left text-meta font-semibold text-slate-muted">
                       Feature
                     </th>
                     {planNames.map((name) => (
@@ -320,7 +320,7 @@ export default function PricingPage() {
                       <tr key={`section-${si}`} className="border-t border-sand-line bg-sand/60">
                         <td
                           colSpan={5}
-                          className="py-2.5 pl-6 pr-4 text-meta font-semibold uppercase tracking-[0.08em] text-slate"
+                          className="py-2.5 pl-6 pr-4 text-meta font-semibold text-slate"
                         >
                           {section.module}
                         </td>

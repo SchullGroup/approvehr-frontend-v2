@@ -208,7 +208,7 @@ export function OffboardingScreen() {
                   </div>
 
                   <div className="shrink-0 text-right">
-                    <p className="text-meta uppercase tracking-wide text-faint">
+                    <p className="text-meta text-faint">
                       Last day
                     </p>
                     <p className="tabular text-body font-medium text-ink">

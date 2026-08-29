@@ -283,7 +283,7 @@ function EventGroup({
 
   return (
     <div className="flex flex-col gap-2">
-      <p className="mt-2 flex items-center gap-1.5 text-meta font-semibold uppercase tracking-[0.08em] text-muted">
+      <p className="mt-2 flex items-center gap-1.5 text-meta font-semibold text-muted">
         {note && <AlertTriangle aria-hidden="true" className="size-3.5" />}
         {heading}
       </p>

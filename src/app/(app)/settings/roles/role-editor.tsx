@@ -302,7 +302,7 @@ function PermissionsTab({
       ) : (
         catalogue.sections.map((section) => (
           <section key={section.key} className="flex flex-col gap-3.5">
-            <h3 className="text-meta font-semibold uppercase tracking-wide text-faint">
+            <h3 className="text-meta font-semibold text-faint">
               {section.title}
             </h3>
             <div className="flex flex-col divide-y divide-line rounded-md border border-line">
@@ -368,7 +368,7 @@ function GrantedPermissions({
     <>
       {sections.map((section) => (
         <section key={section.key} className="flex flex-col gap-3.5">
-          <h3 className="text-meta font-semibold uppercase tracking-wide text-faint">
+          <h3 className="text-meta font-semibold text-faint">
             {section.title}
           </h3>
           <ul className="flex flex-col divide-y divide-line rounded-md border border-line">

@@ -495,7 +495,7 @@ function RoleRow({
       </div>
 
       <div className="shrink-0 text-right">
-        <p className="text-meta uppercase tracking-wide text-faint">People</p>
+        <p className="text-meta text-faint">People</p>
         <p className="tabular text-body font-medium text-ink">
           {role.memberCount}
         </p>

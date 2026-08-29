@@ -564,7 +564,7 @@ function Row({
         <p className="text-body font-medium">
           {/* Urgency carries a word as well as a colour. */}
           {urgent && (
-            <span className="mr-2 text-meta font-semibold uppercase tracking-wide text-danger-text">
+            <span className="mr-2 text-meta font-semibold text-danger-text">
               Overdue
             </span>
           )}

@@ -417,7 +417,7 @@ export function BatchDetailScreen({ id }: { id: string }) {
 function Fact({ term, value }: { term: string; value: React.ReactNode }) {
   return (
     <div className="min-w-0">
-      <p className="text-meta font-medium uppercase tracking-wide text-muted">
+      <p className="text-meta font-medium text-muted">
         {term}
       </p>
       <div className="mt-1.5 text-body font-medium text-ink">{value}</div>

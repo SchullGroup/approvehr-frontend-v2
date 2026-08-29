@@ -156,7 +156,7 @@ export function MyAssets({
 
         {returned.length > 0 && (
           <div>
-            <p className="text-meta font-medium uppercase tracking-wide text-faint">
+            <p className="text-meta font-medium text-faint">
               Already handed back
             </p>
             <ul className="mt-2 flex flex-col gap-1">
