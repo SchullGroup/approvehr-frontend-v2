@@ -25,8 +25,12 @@ import {
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { usePermissions } from "@/lib/permissions";
+import { useSession } from "@/lib/store/session";
+import { company as companyApi } from "@/lib/api/endpoints";
+import { ApiError } from "@/lib/api/client";
 import {
   useCompanySettings,
+  useLiveCompanyProfile,
   useOrgTaxState,
   validateProfile,
   type CompanyProfile,
@@ -107,6 +111,22 @@ function Header() {
 
 function Form() {
   const { settings, updateProfile } = useCompanySettings();
+  /**
+   * The company's real profile, when there is an API to ask.
+   *
+   * This screen used to read the demo store unconditionally, so a second
+   * organisation signed in and was shown the first one's legal name, RC number,
+   * TIN and registered address — as its own, on an editable form, above a panel
+   * explaining that these are what statutory filings use. The form's own
+   * comment recorded the gap and deferred it; a second organisation is what
+   * made deferring it untenable.
+   *
+   * `useLiveCompanyProfile` is shared with the payslip masthead, which had the
+   * identical bug and was fixed alone. One hook, both readers: a copy in a page
+   * is how those two came to disagree about the same company.
+   */
+  const live = useLiveCompanyProfile();
+  const { isConnected } = useSession();
   const { directory } = useEmployeeStore();
   const toast = useToast();
 
@@ -145,7 +165,37 @@ function Form() {
   const [errors, setErrors] = useState<ProfileError[]>([]);
 
   const value = <K extends keyof CompanyProfile>(key: K): CompanyProfile[K] =>
-    (draft[key] ?? settings.profile[key]) as CompanyProfile[K];
+    (draft[key] ?? profile[key]) as CompanyProfile[K];
+
+  /**
+   * What this form is editing.
+   *
+   * Connected, that is the organisation's own row. Offline it is the demo
+   * store. **Never a blend**: while the live read is in flight the fields are
+   * empty rather than showing seed values that would be replaced a moment
+   * later, because a fabricated RC number on screen for half a second is still
+   * a fabricated RC number somebody can read and act on.
+   */
+  const profile: CompanyProfile = isConnected
+    ? {
+        legalName: live.profile?.legalName ?? "",
+        tradingName: live.profile?.tradingName ?? "",
+        rcNumber: live.profile?.rcNumber ?? "",
+        tin: live.profile?.tin ?? "",
+        industry: live.profile?.industry ?? "",
+        address: live.profile?.addressLine ?? "",
+        city: live.profile?.city ?? "",
+        state: live.profile?.taxState ?? "",
+        entities: (live.profile?.entities ?? []).map((e) => ({
+          id: e.id,
+          name: e.name,
+          rcNumber: e.rcNumber ?? "",
+          taxState: e.taxState,
+          address: e.addressLine ?? "",
+          isPrimary: e.isPrimary,
+        })),
+      }
+    : settings.profile;
 
   const dirty = Object.keys(draft).length > 0;
   const errorFor = (field: keyof CompanyProfile) =>
@@ -156,17 +206,71 @@ function Form() {
     setErrors((e) => e.filter((x) => x.field !== key));
   };
 
-  function save() {
+  const [saving, setSaving] = useState(false);
+
+  /**
+   * Saves to the organisation's row when connected; to this browser when not.
+   *
+   * It used to call `updateProfile` unconditionally, which writes to
+   * localStorage — so a connected company could edit its RC number, be told
+   * "Company profile saved", and have changed nothing anybody else would ever
+   * see. That is the same class as a green "Paid" against money nobody moved,
+   * and on the screen whose sidebar says these details are what statutory
+   * filings use.
+   *
+   * The demo path keeps the local write and says so, as every other demo write
+   * in this product does.
+   */
+  async function save() {
     const found = validateProfile(draft);
     setErrors(found);
     if (found.length > 0) return;
-    updateProfile(draft);
-    setDraft({});
-    toast.push({
-      title: "Company profile saved",
-      tone: "success",
-      detail: "Letters and statutory filings use these details.",
-    });
+
+    if (!isConnected) {
+      updateProfile(draft);
+      setDraft({});
+      toast.push({
+        title: "Company profile saved in this browser",
+        tone: "success",
+        detail: "Demo mode — it does not reach a server or another device.",
+      });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      /* Only what was typed, and in the API's own field names — `address` and
+         `state` are this form's words for `addressLine` and `taxState`. */
+      const body: Record<string, unknown> = {};
+      if (draft.legalName !== undefined) body["legalName"] = draft.legalName;
+      if (draft.tradingName !== undefined) body["tradingName"] = draft.tradingName;
+      if (draft.rcNumber !== undefined) body["rcNumber"] = draft.rcNumber;
+      if (draft.tin !== undefined) body["tin"] = draft.tin;
+      if (draft.industry !== undefined) body["industry"] = draft.industry;
+      if (draft.address !== undefined) body["addressLine"] = draft.address;
+      if (draft.city !== undefined) body["city"] = draft.city;
+      if (draft.state !== undefined) body["taxState"] = draft.state;
+
+      await companyApi.updateProfile(body);
+      live.reload();
+      setDraft({});
+      toast.push({
+        title: "Company profile saved",
+        tone: "success",
+        detail: "Letters and statutory filings use these details.",
+      });
+    } catch (caught: unknown) {
+      toast.push({
+        title: "Could not save the company profile",
+        tone: "danger",
+        detail:
+          caught instanceof ApiError
+            ? caught.message
+            : "Something went wrong. Try again.",
+      });
+    } finally {
+      setSaving(false);
+    }
   }
 
   /* Live headcount per tax state, so an entity row means something. */
@@ -326,7 +430,7 @@ function Form() {
               <TH>Address</TH>
             </THead>
             <TBody>
-              {settings.profile.entities.map((entity) => (
+              {profile.entities.map((entity) => (
                 <TR key={entity.id}>
                   <TDPrimary
                     title={
