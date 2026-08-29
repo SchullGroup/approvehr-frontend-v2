@@ -188,19 +188,80 @@ export function reliefLine(slip: Payslip): {
     };
   }
 
-  return {
-    label: "Rent relief (per month)",
-    /* What it is worth is deliberately not stated. That depends on the band the
-       relief comes off, which a stored payslip cannot tell us, and working it
-       out here would mean running tax in the browser — the thing this repo has
-       already deleted once. The relief itself is concrete enough to act on. */
-    note:
-      `No rent relief is included, because no rent is recorded against you. ` +
-      `Since 1 January 2026 the consolidated relief allowance no longer exists, ` +
-      `and personal relief is ${rate} of the yearly rent you pay, up to ` +
-      `${cap} a year. Ask your HR team to put your yearly rent on your ` +
-      `employee record, under Pay and statutory.`,
-  };
+  /**
+   * Nothing, when no rent is on file.
+   *
+   * There used to be a paragraph here: no relief is included, the consolidated
+   * relief allowance was abolished on 1 January 2026, personal relief is 20% of
+   * the rent you pay up to ₦500,000 a year, ask HR to add your rent. Every
+   * clause was true, and it was removed at the product owner's instruction.
+   *
+   * The reason it is right to remove is worth keeping. A payslip is a statement
+   * of what somebody was paid; four sentences of tax-reform history under a line
+   * reading nothing is a leaflet stapled to a receipt. Nobody opens their
+   * payslip to find out what changed in the Act.
+   *
+   * **The fact is not lost, and must not be.** `payroll/prepare` raises
+   * `rent_relief_unclaimed` naming everybody it applies to, on the list somebody
+   * reads before releasing money — and `/people/[id]` has the field to fix it.
+   * Explaining a gap at length to the one person who cannot close it, while
+   * saying nothing to the people who can, was always the wrong half.
+   */
+  return { label: "Rent relief (per month)", note: null };
+}
+
+/**
+ * How an overtime line came to its figure, for the person being paid it.
+ *
+ * "Overtime, entered by hand (6.00h at 1.5x) — ₦18,493.11" tells somebody two
+ * of the three numbers in the sum and leaves out the one they would check
+ * against their contract: what an hour of theirs is worth. This puts it back.
+ *
+ * ## This is arithmetic, not a second engine
+ *
+ * The hourly figure is **divided out of the amount the payslip already
+ * carries**, never computed from a salary and a policy. That distinction is the
+ * whole reason this is allowed to exist: `hourlyRateKobo` on the API decides
+ * what an hour is worth, from the company's `OvertimeHourlyBasis` and a
+ * contractual salary this document does not have and must not guess at. A
+ * second implementation of that here is exactly the duplicate-engine mistake
+ * this repo deleted once and paid for.
+ *
+ * So the sum always reconciles: it is the stored figure, factored.
+ *
+ * Two shapes, because the two sources label themselves differently and only one
+ * of them records a multiplier:
+ *
+ * - `(6.00h at 1.5x)` — entered by hand. Hours, the rate, and the hourly
+ *   figure the two of them imply.
+ * - `(4.0h)` — off the clock. No multiplier in the label, so no multiplier is
+ *   invented: what is stated is the hours and what they averaged an hour,
+ *   which is a true sentence about the money either way.
+ *
+ * Returns null for anything that is not overtime, and for a line whose hours
+ * are zero or unreadable — a working somebody cannot check is worse than none.
+ */
+export function overtimeWorking(label: string, amountKobo: number): string | null {
+  if (!label.startsWith("Overtime")) return null;
+
+  const hours = Number(/\(([\d.]+)\s*h/i.exec(label)?.[1]);
+  if (!Number.isFinite(hours) || hours <= 0) return null;
+
+  const money = (kobo: number) =>
+    `₦${(kobo / 100).toLocaleString("en-NG", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+
+  const rate = Number(/at\s+([\d.]+)x/i.exec(label)?.[1]);
+  if (Number.isFinite(rate) && rate > 0) {
+    return (
+      `${String(hours)} hours at ${money(Math.round(amountKobo / hours / rate))} ` +
+      `an hour, times ${String(rate)}`
+    );
+  }
+
+  return `${String(hours)} hours, ${money(Math.round(amountKobo / hours))} an hour`;
 }
 
 /**
@@ -301,7 +362,11 @@ export function PayslipDocument({
     { label: "Basic salary", kobo: slip.basicKobo },
     { label: "Housing allowance", kobo: slip.housingKobo },
     { label: "Transport allowance", kobo: slip.transportKobo },
-    ...allowances.map((line) => ({ label: line.label, kobo: line.amountKobo })),
+    ...allowances.map((line) => ({
+      label: line.label,
+      kobo: line.amountKobo,
+      note: overtimeWorking(line.label, line.amountKobo),
+    })),
   ];
 
   /* Pension and NHF come off before PAYE, so they are printed before it. The
@@ -426,7 +491,12 @@ export function PayslipDocument({
           <ColumnHead>Earnings</ColumnHead>
           <dl className="mt-3 flex flex-col">
             {earnings.map((line, i) => (
-              <LineItem key={`${line.label}-${i}`} label={line.label} kobo={line.kobo} />
+              <LineItem
+                key={`${line.label}-${i}`}
+                label={line.label}
+                kobo={line.kobo}
+                note={"note" in line ? line.note : null}
+              />
             ))}
             <LineItem label="Gross pay" kobo={slip.grossKobo} total />
           </dl>
@@ -660,10 +730,13 @@ function Detail({
 function LineItem({
   label,
   kobo,
+  note,
   total = false,
 }: {
   label: string;
   kobo: number;
+  /** The working under the label — how a figure was arrived at. */
+  note?: string | null;
   total?: boolean;
 }) {
   return (
@@ -680,6 +753,9 @@ function LineItem({
         )}
       >
         {label}
+        {note && (
+          <span className="block text-meta leading-tight text-muted">{note}</span>
+        )}
       </dt>
       <dd
         className={cn(
