@@ -4754,3 +4754,107 @@ when not connected and the component returns `null` on that — rather than walk
 - **The cascade, competency and weight steps of the wizard.** All three have
   their own screens on the period already, and thin versions inside a wizard
   would be three surfaces to replace later.
+
+---
+
+# Language a mark could not be defended on
+
+The last of the four AI options offered in the performance rebuild, and the only
+one that turned out not to be AI at all.
+
+## Why this is not the assistant, and could not have been
+
+The brief was a model call: read the manager's draft, flag language describing a
+person rather than their work. It is not, because of a promise made two changes
+earlier: **`/settings/ai` and the DPA both state that no written appraisal
+comment leaves the platform.** A model-based coach sends a manager's written
+judgement of a named colleague to a third party, and would have made that
+sentence false the day it shipped.
+
+That constraint turned out to improve the feature rather than limit it:
+
+- It works with **no credential**, which is the state the product is in today
+  and the state most companies start in. Every other AI surface here is dark
+  until somebody sets a key; this one is not.
+- It is instant, so it runs while somebody types rather than at the end.
+- It quotes **the exact phrase**. "This reads as judgemental" is an opinion to
+  argue with; "you wrote *Tunde is quite disorganised*" is a fact to act on or
+  dismiss in a glance.
+
+**Standing rule:** before reaching for the assistant, check what the product has
+already promised about where text goes. `src/lib/performance/review-language.ts`
+is deterministic because a published document says it has to be.
+
+## What it flags, and the one nobody asks for
+
+Character-not-conduct, absolutes, comparison to a colleague — and **protected
+characteristics**, which is the category with money attached and the reason to
+keep this feature. Nigerian law makes it more than a style note: section 42 of
+the Constitution, the Labour Act, and the Discrimination Against Persons with
+Disabilities (Prohibition) Act 2018 all bear on it, and the National Industrial
+Court hears claims in which the written record *is* the evidence.
+
+Ethnicity is listed by name in `SENSITIVE_WORDS`, because a generic "do not
+mention ethnicity" catches nothing. The list is a prompt to look, not a filter
+to trust, and it says so.
+
+## Precision is the half that decides whether anybody keeps reading it
+
+The character rules require a **person as the subject**. `slow`, `negative` and
+`difficult` are all ordinary words about a piece of work — "the Lagos migration
+was difficult" is correct English and correct management. "He is difficult" is a
+sentence about a person. `verify-review-language` asserts the false-positive
+half as heavily as the true-positive half, because a checker that flags half a
+page is one people learn to scroll past, and then it protects nothing while
+looking like it does.
+
+`late` and `absent` are deliberately **not** traits: those are facts about
+attendance with rows behind them.
+
+## It never blocks, and the button says what the next press does
+
+First press of Send shows the findings and does not send. Second press sends,
+and the label reads **"Send anyway"**. The API accepts the review either way and
+so must the form — refusing what the server allows is the rule this codebase
+keeps restating.
+
+`FINDINGS_CAVEAT` renders with every list and admits the limit in as many words:
+four rules cannot tell whether a review is fair. A checker presenting itself as
+a verdict gets argued with; one presenting itself as a prompt gets read.
+
+Self-reviews are exempt. This asks whether a judgement of somebody **else**
+would survive scrutiny, and an employee mentioning their own maternity leave is
+a disclosure they are entitled to make.
+
+## Three defects, and the third is the instructive one
+
+- **`are` was missing from the copula**, so every plural was invisible. "They
+  are unprofessional" is the single most likely sentence this exists to catch
+  and it was the one form that could not match.
+- **Contractions had nowhere to go.** "She's arrogant" carries its own verb and
+  the pattern demanded a second one, so most of how people actually write
+  slipped through.
+- **Names were not matched at all.** The first draft knew pronouns only, on the
+  written grounds that matching a name would mean threading it in from the form.
+  The very first sentence typed into a real review was *"Chidera is quite
+  disorganised"* and it sailed straight through.
+
+That third one is worth keeping in mind as a class: a documented reason for a
+limitation is not evidence that the limitation is acceptable. The comment
+explaining why names were excluded made the gap **harder** to see, not easier —
+it read as a decision rather than a hole. Threading the name in was one optional
+argument.
+
+## Where the "ten screens" catalogue actually stands
+
+An earlier entry recorded that ten screens display a company-configured figure
+without linking to the setting that decides it. Re-derived while looking for
+work: **the list is shorter than that and several are already done.**
+`performance/how-it-works.tsx` and `people/leave/holiday-calendar.tsx` both link
+already; the leave entitlement was fixed in `3a9e81c`.
+
+The remaining genuine one is the payslip, which quotes pension and NHF rates,
+and it is not obviously worth a link: its reader is usually an employee, who
+cannot change them, so the control would be absent for almost everybody who sees
+the figure. Left alone deliberately rather than swept, and the count corrected
+here so nobody else goes looking for ten.

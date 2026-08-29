@@ -12,11 +12,13 @@ import {
   Textarea,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
+import { LanguageCheck } from "@/components/performance/language-check";
 import {
   SuggestButton,
   SuggestionPanel,
 } from "@/components/performance/suggestions";
 import { useDevelopmentSuggestions } from "@/lib/store/ai";
+import { findingsAcross } from "@/lib/performance/review-language";
 import {
   dayLabel,
   type AnswerBody,
@@ -96,6 +98,15 @@ export function ReviewFormModal({
   const [summary, setSummary] = useState<string>("");
   const [failed, setFailed] = useState<string | null>(null);
   const [busy, setBusy] = useState<"save" | "send" | null>(null);
+  /**
+   * Whether the language check has been put in front of them once.
+   *
+   * A speed bump, not a gate. The first press of Send with findings on screen
+   * shows them and does not send; the second sends. The API accepts the review
+   * either way and so must this — refusing what the server allows is the thing
+   * this codebase keeps saying not to do.
+   */
+  const [languageSeen, setLanguageSeen] = useState(false);
   const development = useDevelopmentSuggestions();
 
   const patch = (id: string, next: Draft) =>
@@ -124,6 +135,16 @@ export function ReviewFormModal({
 
   const editable = review.mine && !review.submitted;
 
+  /**
+   * Whether the language check applies at all.
+   *
+   * Manager reviews only. A self-review is not the rating of record, and
+   * "I am disorganised" is somebody's own account of their own work — checking
+   * it would be patronising, and an employee mentioning their own maternity
+   * leave is a disclosure they are entitled to make. See `language-check.tsx`.
+   */
+  const coaching = editable && review.kind !== "SELF";
+
   /** What is in the box right now: the local draft, else what is stored. */
   const value = (question: ApiFormQuestion): Draft =>
     draft[question.id] ?? draftFrom(question);
@@ -133,6 +154,23 @@ export function ReviewFormModal({
       (question) => question.required && !filled(question, value(question)),
     )
     .map((question) => question.prompt);
+
+  /**
+   * Every box on this form that carries prose, for the language check.
+   *
+   * The written answers and the summary — never the ratings, which have nothing
+   * to read. Recomputed per keystroke, which is affordable because there is no
+   * request behind it: this check is deterministic and on-device, and the
+   * reason it has to be is in `lib/performance/review-language.ts`. A model
+   * would mean sending a manager's written judgement of a named colleague to a
+   * third party, which `/settings/ai` and the DPA both say does not happen.
+   */
+  const languageTexts = coaching
+    ? [...review.questions.map((question) => value(question).text ?? ""), summary]
+    : [];
+  const languageFindings = coaching
+    ? findingsAcross(languageTexts, review.subjectName)
+    : [];
 
   /** Only what has actually been typed. Re-answering replaces on the API side. */
   const answers = (): AnswerBody[] =>
@@ -155,6 +193,13 @@ export function ReviewFormModal({
     });
 
   const act = async (kind: "save" | "send") => {
+    /* One press to read it, one to send anyway. Never on a self-review — see
+       `language-check.tsx` on why somebody's own words about their own work are
+       not this checker's business. */
+    if (kind === "send" && coaching && languageFindings.length > 0 && !languageSeen) {
+      setLanguageSeen(true);
+      return;
+    }
     setFailed(null);
     setBusy(kind);
     try {
@@ -202,7 +247,9 @@ export function ReviewFormModal({
               loading={busy === "send"}
               onClick={() => void act("send")}
             >
-              Send it
+              {languageSeen && languageFindings.length > 0
+                ? "Send anyway"
+                : "Send it"}
             </Button>
           </>
         ) : (
@@ -347,6 +394,15 @@ export function ReviewFormModal({
                 `modules/ai/service.ts#suggestDevelopment`. Somebody meeting
                 every target is refused rather than handed a weakness invented
                 to fill the space, and the refusal is the API's own sentence. */}
+            {/* What a mark could not be defended on. Manager reviews only, and
+                it never blocks — the first press of Send shows it, the second
+                sends anyway. */}
+            <LanguageCheck
+              texts={languageTexts}
+              subjectName={review.subjectName}
+              acknowledged={languageSeen}
+            />
+
             {review.kind !== "SELF" && (
               <div className="flex flex-col gap-3">
                 <SuggestButton
