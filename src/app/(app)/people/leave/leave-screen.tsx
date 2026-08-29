@@ -519,7 +519,9 @@ export function LeaveScreen() {
             )}
             {shown.length === 0 && !balances.loading && (
               <p className="text-body-sm text-muted">
-                Nobody has booked leave yet.
+                {onlyMine
+                  ? "You have not booked any annual leave yet."
+                  : "Nobody has booked leave yet."}
               </p>
             )}
             {shown.map((person) => {
