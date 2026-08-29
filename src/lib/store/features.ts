@@ -77,7 +77,18 @@ type State = {
   setupRequired: boolean;
   loading: boolean;
   /** A message ready to show. `null` when the last load worked. */
-  error: string | null;
+  /**
+   * The failure itself, not its sentence.
+   *
+   * This used to be `string | null` — `error.message` pulled off an `ApiError`
+   * and the class thrown away. `LoadFailure` chooses its advice from the class,
+   * so every screen reading this fell to the general branch: no "sign in
+   * again" for a 401, no "wait a moment" for a 429, and no Try again button,
+   * since offering one depends on knowing the failure could pass. Keeping the
+   * caught value costs nothing and lets the one component that renders it do
+   * its job.
+   */
+  error: unknown;
   source: Source;
   /**
    * What the **demo** company deducts, from the two payroll setup questions.
@@ -639,10 +650,7 @@ async function ensure(key: string, force = false): Promise<void> {
       set({
         ...cache,
         loading: false,
-        error:
-          error instanceof ApiError
-            ? error.message
-            : "Could not read which features are on.",
+        error,
       });
     } finally {
       inflight = null;
@@ -697,7 +705,18 @@ export function useFeatures(): FeatureFlags & {
   totalSteps: number;
   setupCompletedAt: string | null;
   loading: boolean;
-  error: string | null;
+  /**
+   * The failure itself, not its sentence.
+   *
+   * This used to be `string | null` — `error.message` pulled off an `ApiError`
+   * and the class thrown away. `LoadFailure` chooses its advice from the class,
+   * so every screen reading this fell to the general branch: no "sign in
+   * again" for a 401, no "wait a moment" for a 429, and no Try again button,
+   * since offering one depends on knowing the failure could pass. Keeping the
+   * caught value costs nothing and lets the one component that renders it do
+   * its job.
+   */
+  error: unknown;
   /** `"api"` or `"demo"` once loaded. Screens that say which mode they are in. */
   source: Source;
   reload: () => void;
@@ -829,7 +848,18 @@ type WizardState = {
    */
   deductions: PayrollDeductions | null;
   loading: boolean;
-  error: string | null;
+  /**
+   * The failure itself, not its sentence.
+   *
+   * This used to be `string | null` — `error.message` pulled off an `ApiError`
+   * and the class thrown away. `LoadFailure` chooses its advice from the class,
+   * so every screen reading this fell to the general branch: no "sign in
+   * again" for a 401, no "wait a moment" for a 429, and no Try again button,
+   * since offering one depends on knowing the failure could pass. Keeping the
+   * caught value costs nothing and lets the one component that renders it do
+   * its job.
+   */
+  error: unknown;
 };
 
 /**
@@ -901,10 +931,7 @@ export function useWizard() {
         setState((current) => ({
           ...current,
           loading: false,
-          error:
-            error instanceof ApiError
-              ? error.message
-              : "The questions did not load. Try again in a moment.",
+          error,
         }));
       }
     })();

@@ -20,17 +20,31 @@
  */
 export const PERFORMANCE_TABS = [
   /**
-   * The appraisal periods. First, because a period is the thing somebody
-   * opens this module to work on — everything else is either derived from
-   * one (`now`) or a company-wide setting (`kpis`, `appraisers`).
+   * The overview, and the landing. Labelled "Overview"; the id stays `now` so
+   * that every `?tab=now` link written before the rename still resolves.
+   *
+   * It was labelled **"Approvals"**, which collided with `/performance/approvals`
+   * — a different screen, the objective agreement queue — and contradicted this
+   * module's own documentation, which had always called it *what is open, what
+   * is waiting on you, what is waiting on somebody else*. One word for two
+   * things in one module is how somebody ends up on the wrong screen from a
+   * notification.
+   *
+   * It is first and it is the default because it now carries the running
+   * period's state — how many self-reviews are in, how many manager reviews,
+   * how many marks are final, who has nobody appraising them. That is strictly
+   * more use on arrival than a list of periods, which is what this module used
+   * to open on.
+   */
+  "now",
+  /**
+   * The appraisal periods, as a list.
    *
    * "Period" is the user's word; `ReviewCycle` is the model's. Only people who
    * can run or read a period across the company see this — staff learn which
    * period is open from `now`, which is the only fact about it that is theirs.
    */
   "periods",
-  /** What is open, what is waiting on you, what is waiting on somebody else. */
-  "now",
   "kpis",
   /**
    * Who appraises whom. Last, and usually absent.

@@ -144,7 +144,7 @@ export function PeriodReportScreen({ cycleId }: { cycleId: string }) {
           </Callout>
         ) : null}
 
-        <LoadFailure subject="this period's report" error={detail.error} />
+        <LoadFailure subject="this period's report" error={detail.error}  onRetry={detail.reload}/>
 
         {detail.loading && (
           <Card>

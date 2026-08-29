@@ -185,7 +185,7 @@ export function PaymentHistoryScreen() {
 
       <PageBody className="flex flex-col gap-6">
         {history.error && (
-          <LoadFailure subject="the payment history" error={history.error} />
+          <LoadFailure subject="the payment history" error={history.error}  onRetry={history.reload}/>
         )}
 
         <div className="grid gap-4 sm:grid-cols-2">

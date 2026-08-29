@@ -165,7 +165,7 @@ export function OnboardingScreen() {
         {/* Out of the badge row. A failed read rendered at badge size, between a
             source note and a count, reads as one more label about the page
             rather than the reason the page is empty. */}
-        <LoadFailure subject="the onboarding checklists" error={error} />
+        <LoadFailure subject="the onboarding checklists" error={error}  onRetry={reload}/>
 
         <div className="grid gap-4 sm:grid-cols-3">
           <Stat label="In onboarding" value={String(employees.length)} />

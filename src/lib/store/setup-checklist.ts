@@ -159,6 +159,10 @@ export function useSetupChecklist(): ChecklistState {
     return {
       setupCompletedAt: features.setupCompletedAt,
       company: {
+        /* Demo mode holds no logo — the upload is API-only, and the card on
+           `/settings/company` says so. False rather than absent because the
+           checklist's own sentence is what tells somebody it exists at all. */
+        logo: false,
         rcNumber: profile.rcNumber.trim() !== "",
         tin: profile.tin.trim() !== "",
         addressLine: profile.address.trim() !== "",
@@ -176,6 +180,7 @@ export function useSetupChecklist(): ChecklistState {
         bankDetails: features.bankDetails,
       },
       leave: {
+        biggestEntitlement: null,
         types: company.settings.leave.types.length,
         year: DEMO_YEAR,
         holidays: demoHolidays.holidays,

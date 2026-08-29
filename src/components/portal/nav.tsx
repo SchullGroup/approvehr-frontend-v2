@@ -3,7 +3,6 @@ import {
   BookOpen,
   BriefcaseBusiness,
   Building2,
-  CalendarClock,
   CalendarDays,
   CalendarRange,
   CalendarSearch,
@@ -12,7 +11,6 @@ import {
   Clock,
   CreditCard,
   DoorOpen,
-  FileSignature,
   FileText,
   FileUp,
   FolderOpen,
@@ -21,7 +19,6 @@ import {
   Laptop,
   LayoutDashboard,
   LifeBuoy,
-  Megaphone,
   Receipt,
   ReceiptText,
   Settings,
@@ -288,39 +285,18 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
 
   /* The site calls this "Recruitment"; the routes are `/hiring/*` and the
      module id is `hiring`. The heading follows the site, the URLs do not
-     move — a live job advert's link is not worth a rename. */
-  /* Switched off for now — every route below renders `ComingSoon`
-     (`app/(app)/hiring/layout.tsx`), so the nav says so too rather than
-     linking somewhere that looks broken. */
+     move — a live job advert's link is not worth a rename.
+     One item, not four: pipeline, job adverts, interviews and offers used
+     to be separate links, and every one of them opened onto the same
+     `ComingSoon` wall (`app/(app)/hiring/layout.tsx`) — four doors into one
+     room. `/hiring` now opens the room itself: a walkthrough of what each
+     of those four will do, built from the same copy the marketing site
+     already makes about this module. */
   hiring: [
     {
       href: "/hiring",
-      label: "Pipeline",
+      label: "Recruitment",
       icon: <BriefcaseBusiness aria-hidden="true" />,
-      permission: "MANAGE_HIRING",
-      feature: "hiring",
-      soon: true,
-    },
-    {
-      href: "/hiring/postings",
-      label: "Job adverts",
-      icon: <Megaphone aria-hidden="true" />,
-      permission: "MANAGE_HIRING",
-      feature: "hiring",
-      soon: true,
-    },
-    {
-      href: "/hiring/interviews",
-      label: "Interviews",
-      icon: <CalendarClock aria-hidden="true" />,
-      permission: "MANAGE_HIRING",
-      feature: "hiring",
-      soon: true,
-    },
-    {
-      href: "/hiring/offers",
-      label: "Offers",
-      icon: <FileSignature aria-hidden="true" />,
       permission: "MANAGE_HIRING",
       feature: "hiring",
       soon: true,

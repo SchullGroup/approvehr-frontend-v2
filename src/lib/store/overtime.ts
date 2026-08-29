@@ -177,7 +177,18 @@ const toRecord = (
 export type PolicyState = {
   policy: OvertimePolicy;
   loading: boolean;
-  error: string | null;
+  /**
+   * The failure itself, not its sentence.
+   *
+   * This used to be `string | null` — `error.message` pulled off an `ApiError`
+   * and the class thrown away. `LoadFailure` chooses its advice from the class,
+   * so every screen reading this fell to the general branch: no "sign in
+   * again" for a 401, no "wait a moment" for a 429, and no Try again button,
+   * since offering one depends on knowing the failure could pass. Keeping the
+   * caught value costs nothing and lets the one component that renders it do
+   * its job.
+   */
+  error: unknown;
   saving: boolean;
   /** False when connected without `MANAGE_PAY_STRUCTURE`. */
   editable: boolean;

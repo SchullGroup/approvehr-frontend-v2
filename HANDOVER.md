@@ -4553,3 +4553,308 @@ alone: it is a pre-existing bug in a form this change only added one prop
 to, and chasing it here would have been solving a problem nobody asked
 about instead of the five they did.
 afterwards.
+
+---
+
+# Performance opens on the period, and the assistant can be found
+
+The product owner's words: *"the entire current performance module is very
+confusing especially the current flow in terms of layout arrangement and the
+many options"*, and — separately — *"I need you to explain how we use AI here
+too, I didn't see a single AI element."*
+
+Both were right, and the second one is the more interesting failure.
+
+## Two different things were called "Approvals"
+
+The tab whose id is `now` was labelled **Approvals**. `/performance/approvals`
+is a different screen — the objective agreement queue, titled "Objectives to
+agree". One word, two things, one module, and a notification linking to one
+could land somebody on the other.
+
+The tab's own doc block, two hundred lines above the label, had always called it
+*"what is open, what is waiting on you, what is waiting on somebody else"*. The
+string had drifted away from the documentation sitting beside it, which is worth
+knowing about as a class: nothing in `tsc`, lint or a test can see a label
+contradicting the comment that explains it.
+
+It reads **Overview** now. **The id stays `now`** so every `?tab=now` link
+written before the rename still resolves — the label was what was wrong.
+
+`/performance/approvals` **survives as a route**, deliberately, against the
+tidier reading. The reason is already in this file: it is a queue somebody
+reaches from a notification with one job, and folding it into a tab lands that
+notification on a screen about something else. The overview surfaces the same
+queue as a task row reading one `useObjectiveApprovals()`, so both cannot drift.
+
+## The module opened on a list, not on the period
+
+`periods` was the default tab. So `/performance` gave you a list of periods and
+no answer to "where is this up to" — that was two more clicks — and `periods` is
+gated on `canManage || canSeeCompany`, so **staff hit a fallback on every single
+load**.
+
+`app/(app)/performance/period-status.tsx` is new and puts four figures on the
+landing:
+
+| Cell | Numerator | Denominator |
+|---|---|---|
+| Self-reviews | `forms.selfIn` | `forms.people` |
+| Manager reviews | `forms.managerIn` | `forms.managerIn + forms.managerOutstanding` |
+| Marks final | `marks.finalised` | `marks.people` |
+| Signed off | `marks.acknowledged` | `marks.finalised` |
+
+Every figure comes from `GET /performance/cycles/:id/report`, which already
+returned all of them. **Nothing is computed on the frontend**, for the reason
+the report and history screens already record: a second implementation of a
+score is how two screens end up disagreeing about the same person, and
+`performance-report.test.ts` asserts the identities these satisfy.
+
+### The manager denominator is not the headcount, and the demo proves it
+
+`forms.managerOutstanding` counts **reviews** still to come in, not people —
+`performance/service.ts` says so where it is computed, because somebody with two
+appraisers and one answer contributes 1 to it rather than 0.
+
+The seeded company has ten people and `noReview: 1`, so the honest reading is
+**5 of 9** and `forms.people` would have said 5 of 10. Not a hypothetical: it
+was wrong in the first dataset it was pointed at.
+
+### Three absences, and none of them is a zero
+
+- **No permission.** `useCycleReport`'s `enabled` is `EDIT_RECORDS`. An employee
+  gets no strip, not four zeroed cells — that would be a claim about a company
+  they are not allowed to read.
+- **Offline.** The report refuses in demo mode for the reason `useCycleRegister`
+  gives. The strip is absent; the work list under it is untouched.
+- **A cell with a zero denominator.** Sign-off before any mark is final reads
+  "No mark is final yet", never "0 of 0". *Nobody has signed off* and *nothing is
+  ready to sign off* are different facts, and this is the same rule as
+  `operates: NOT_OPERATED` on a payslip.
+
+## The assistant was invisible, and — the actual defect — undiscoverable
+
+This is the part worth reading, because "it's off" was not the problem.
+
+The assistant **is** built and mounted in three places: suggested objectives
+under a company goal (`goal-dialogs.tsx`), a drafted progress note from a typed
+headline (`kpis.tsx`), development areas from competencies below target
+(`review-form.tsx`). All three render nothing, because
+`components/performance/suggestions.tsx` does `if (checking || !available)
+return null;` and no `GEMINI_API_KEY` / `ANTHROPIC_API_KEY` is set.
+
+**That rule is right and was not changed.** A button that is present and always
+refuses teaches people the product is broken.
+
+What was wrong: `useAssistantAvailable` had **exactly one consumer in the entire
+frontend** — that same file. So no card, no row, no sentence anywhere told an
+administrator that an assistant existed, that it was off, or that there was a
+key to switch it on. `ApiAssistantStatus.assistant` even carried a comment
+saying *"for a settings screen"*, and there was no settings screen.
+
+That is the company-logo defect exactly, and it is now the third instance: a
+feature present, correct, and findable by nobody. **A thing you cannot find is a
+thing you do not have.**
+
+`/settings/ai` is the fix — what it does, whether it is on, which model answers,
+and what is sent to it. **No field for the key**, because the credential is read
+at boot: a box that looks like it saves one and does not is the same failure as
+a green "Paid" against money nobody moved. `useAssistantAvailable` gained
+`reason` for it.
+
+**Standing rule this leaves behind:** if a capability is hidden by "absent, not
+disabled", something else has to say it exists. The rule and the discoverability
+are two different jobs and the first one does not do the second.
+
+## A period, drafted from a paragraph
+
+`/performance/periods/new`, and two new `SuggestionKind`s — `period_goals` and
+`period_questions`. The first kinds that start from nothing: the other three all
+start from a record that already exists.
+
+- **Two calls, not one.** `parseSuggestions` returns a flat list, so one call
+  carrying goals *and* questions would need a discriminator on every element.
+  They also fail differently and should: a period with drafted goals and
+  hand-written questions is a period.
+- **`periodGrounding` is one function behind both**, asserted, so they cannot
+  drift into describing two different companies.
+- **These two carry `MANAGE_SETTINGS` and the other three carry no permission.**
+  `modules/ai/router.ts` argues at length that the gate should be the underlying
+  read, and it is right for the three that narrow to a goal or an employee. A
+  period draft takes **no subject** — nothing narrowed by the caller — so a
+  read-gate has nothing to check. `MANAGE_SETTINGS` is what
+  `POST /performance/cycles` already needs.
+
+### The target rule is in the type, not only in the prompt
+
+A measure with an invented figure is not a suggestion; it is the number the
+whole period is judged against, and a model cannot know whether ₦40m is
+ambitious or already banked. The prompt says so twice — and it is not relied on:
+`CreateKeyResultBody.targetValue` is **required**, so a measure with no figure
+cannot be created at all. Every suggested measure arrives with an empty box and
+whatever the model put in `fields` is not read.
+
+The review screen **names** the measures being left out rather than dropping
+them quietly.
+
+### Edits are a diff, not a copy — and why that was not a style choice
+
+The obvious shape is one `useState` holding the edited list, seeded from the
+draft when it arrives. That seeding has to happen somewhere and both places are
+wrong: during render it is a `setState` in the render phase, and in an effect it
+is the cascading render `lib/store/my-record.ts` was restructured to remove.
+
+So the draft is derived during render and state holds only what was typed over
+it — `store/employees.ts`'s overrides pattern, one module along. Nothing has to
+be seeded, so nothing has to decide when to seed it.
+
+## Three defects the browser found and no type could
+
+- **`EXCEPTION_CODE_SUMMARY` did not pluralise.** A company with one unassigned
+  person read **"1 people have no appraiser yet."** on the first screen of the
+  module. Defensible while it only rendered inside a table somebody had gone
+  looking for; not on a landing page.
+- **The wizard rendered its form before the assistant status arrived**, then
+  replaced it — under somebody who might already have typed the period's name in.
+  `useAssistantAvailable`'s header makes this argument about a Suggest button
+  appearing late; here it was the whole screen.
+- **Nothing linked to the wizard.** Building the route and leaving it unreachable
+  would have been the logo defect a third time in one change. `StartPeriodDialog`
+  offers it now, and only when an assistant is wired.
+
+## Verified
+
+Frontend `npm run check` and `npm run build` exit 0, **97 routes**, both new ones
+prerendered. Backend typecheck, lint and `prettier --check` on `src/` exit 0;
+`ai-suggestions.test.ts` 75 passing, full suite 1892/1893.
+
+The one failure was `Parse Error: Expected HTTP/` in `tests/employees.test.ts` —
+a **transport** error, in a file another session was editing at the time, which
+passed 35/35 alone. Contention, by this file's own rule, and the rule held: the
+cheap first move separated it in one command.
+
+Against the live API as the seeded administrator: the four cells match the report
+read over `curl` and worked out by hand, the exception callout names one person,
+`/settings/ai` reports Off with the reason, and the wizard refuses honestly with
+both escape routes.
+
+**Not exercised:** demo mode in a browser, and the wizard with a real key. The
+strip's absence offline is structural — `useCycleReport` returns `report: null`
+when not connected and the component returns `null` on that — rather than walked.
+
+## Deliberately not done
+
+- **Deleting `/performance/approvals`.** Reasoned above.
+- **Renaming the `now` tab id.** The label was the defect; changing the id would
+  break every existing link for a string nobody reads.
+- **Written-review coaching**, which would flag language describing a person
+  rather than their work before a manager sends a review. Offered and not chosen.
+  It is the highest-value guardrail left in this module and it protects the
+  defensibility argument the whole thing is sold on.
+- **The cascade, competency and weight steps of the wizard.** All three have
+  their own screens on the period already, and thin versions inside a wizard
+  would be three surfaces to replace later.
+
+---
+
+# Language a mark could not be defended on
+
+The last of the four AI options offered in the performance rebuild, and the only
+one that turned out not to be AI at all.
+
+## Why this is not the assistant, and could not have been
+
+The brief was a model call: read the manager's draft, flag language describing a
+person rather than their work. It is not, because of a promise made two changes
+earlier: **`/settings/ai` and the DPA both state that no written appraisal
+comment leaves the platform.** A model-based coach sends a manager's written
+judgement of a named colleague to a third party, and would have made that
+sentence false the day it shipped.
+
+That constraint turned out to improve the feature rather than limit it:
+
+- It works with **no credential**, which is the state the product is in today
+  and the state most companies start in. Every other AI surface here is dark
+  until somebody sets a key; this one is not.
+- It is instant, so it runs while somebody types rather than at the end.
+- It quotes **the exact phrase**. "This reads as judgemental" is an opinion to
+  argue with; "you wrote *Tunde is quite disorganised*" is a fact to act on or
+  dismiss in a glance.
+
+**Standing rule:** before reaching for the assistant, check what the product has
+already promised about where text goes. `src/lib/performance/review-language.ts`
+is deterministic because a published document says it has to be.
+
+## What it flags, and the one nobody asks for
+
+Character-not-conduct, absolutes, comparison to a colleague — and **protected
+characteristics**, which is the category with money attached and the reason to
+keep this feature. Nigerian law makes it more than a style note: section 42 of
+the Constitution, the Labour Act, and the Discrimination Against Persons with
+Disabilities (Prohibition) Act 2018 all bear on it, and the National Industrial
+Court hears claims in which the written record *is* the evidence.
+
+Ethnicity is listed by name in `SENSITIVE_WORDS`, because a generic "do not
+mention ethnicity" catches nothing. The list is a prompt to look, not a filter
+to trust, and it says so.
+
+## Precision is the half that decides whether anybody keeps reading it
+
+The character rules require a **person as the subject**. `slow`, `negative` and
+`difficult` are all ordinary words about a piece of work — "the Lagos migration
+was difficult" is correct English and correct management. "He is difficult" is a
+sentence about a person. `verify-review-language` asserts the false-positive
+half as heavily as the true-positive half, because a checker that flags half a
+page is one people learn to scroll past, and then it protects nothing while
+looking like it does.
+
+`late` and `absent` are deliberately **not** traits: those are facts about
+attendance with rows behind them.
+
+## It never blocks, and the button says what the next press does
+
+First press of Send shows the findings and does not send. Second press sends,
+and the label reads **"Send anyway"**. The API accepts the review either way and
+so must the form — refusing what the server allows is the rule this codebase
+keeps restating.
+
+`FINDINGS_CAVEAT` renders with every list and admits the limit in as many words:
+four rules cannot tell whether a review is fair. A checker presenting itself as
+a verdict gets argued with; one presenting itself as a prompt gets read.
+
+Self-reviews are exempt. This asks whether a judgement of somebody **else**
+would survive scrutiny, and an employee mentioning their own maternity leave is
+a disclosure they are entitled to make.
+
+## Three defects, and the third is the instructive one
+
+- **`are` was missing from the copula**, so every plural was invisible. "They
+  are unprofessional" is the single most likely sentence this exists to catch
+  and it was the one form that could not match.
+- **Contractions had nowhere to go.** "She's arrogant" carries its own verb and
+  the pattern demanded a second one, so most of how people actually write
+  slipped through.
+- **Names were not matched at all.** The first draft knew pronouns only, on the
+  written grounds that matching a name would mean threading it in from the form.
+  The very first sentence typed into a real review was *"Chidera is quite
+  disorganised"* and it sailed straight through.
+
+That third one is worth keeping in mind as a class: a documented reason for a
+limitation is not evidence that the limitation is acceptable. The comment
+explaining why names were excluded made the gap **harder** to see, not easier —
+it read as a decision rather than a hole. Threading the name in was one optional
+argument.
+
+## Where the "ten screens" catalogue actually stands
+
+An earlier entry recorded that ten screens display a company-configured figure
+without linking to the setting that decides it. Re-derived while looking for
+work: **the list is shorter than that and several are already done.**
+`performance/how-it-works.tsx` and `people/leave/holiday-calendar.tsx` both link
+already; the leave entitlement was fixed in `3a9e81c`.
+
+The remaining genuine one is the payslip, which quotes pension and NHF rates,
+and it is not obviously worth a link: its reader is usually an employee, who
+cannot change them, so the control would be absent for almost everybody who sees
+the figure. Left alone deliberately rather than swept, and the count corrected
+here so nobody else goes looking for ten.

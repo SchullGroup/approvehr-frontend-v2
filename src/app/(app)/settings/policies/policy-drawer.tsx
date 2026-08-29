@@ -46,7 +46,7 @@ export function PolicyDrawer({
           Loading
         </div>
       ) : detail.error ? (
-        <LoadFailure subject="this handbook section" error={detail.error} />
+        <LoadFailure subject="this handbook section" error={detail.error}/>
       ) : (
         <p className="whitespace-pre-wrap text-body leading-relaxed text-body">
           {detail.policy?.body ?? "This section has no text."}

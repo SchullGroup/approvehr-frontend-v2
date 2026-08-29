@@ -139,7 +139,7 @@ export function TeamsPanel({
   return (
     <div className="flex flex-col gap-6">
       {teams.error && (
-        <LoadFailure subject="the teams" error={teams.error} />
+        <LoadFailure subject="the teams" error={teams.error}  onRetry={teams.reload}/>
       )}
 
       <div className="grid gap-4 sm:grid-cols-3">

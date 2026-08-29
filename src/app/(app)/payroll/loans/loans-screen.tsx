@@ -209,7 +209,7 @@ export function LoansScreen() {
 
       <PageBody className="flex flex-col gap-6">
         {list.error && (
-          <LoadFailure subject="the loans" error={list.error} />
+          <LoadFailure subject="the loans" error={list.error}  onRetry={list.reload}/>
         )}
 
         {seeEverybody && summary && (

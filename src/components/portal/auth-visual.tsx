@@ -83,12 +83,21 @@ export function AuthVisual() {
           have that gotcha, so the stack now respects the same padding the
           headline above it uses, at every viewport width, with no pixel
           value to re-measure by hand when a mockup's content changes its
-          height. The stagger is a negative top margin plus a left margin on
-          the second card, both small enough that the only thing the overlap
-          covers is Pipeline's own bottom padding, never its cards. */}
-      <div className="relative mt-12 flex flex-col px-14">
+          height.
+
+          No vertical overlap, on purpose, after two rounds of it looking
+          "not arranged properly": a negative margin here previously pulled
+          Payroll up by more than its own `p-3.5` top padding, which meant
+          the overlap was cutting into its header row — the amount and the
+          "Ready to approve" pill — not sitting harmlessly over Pipeline's
+          empty bottom padding as the comment here used to claim. Measuring
+          the gap between two cards' bounding boxes is not the same as
+          checking what sits inside the region where they cross, and this is
+          the second time that distinction mattered. A plain gap has nothing
+          to get wrong. */}
+      <div className="relative mt-12 flex flex-col gap-4 px-14">
         <PipelineMockup className="w-[27rem] shrink-0 self-start rotate-2 shadow-2xl" />
-        <PayrollCardMockup className="-mt-6 ml-14 w-96 shrink-0 self-start shadow-2xl" />
+        <PayrollCardMockup className="ml-14 w-96 shrink-0 self-start shadow-2xl" />
       </div>
     </div>
   );

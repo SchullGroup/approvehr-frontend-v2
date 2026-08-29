@@ -695,7 +695,20 @@ export function useEmployeeMutations() {
 
   const update = useCallback(
     async (id: string, patch: EmployeePatch) => {
-      const { departmentId, workLocationId, ...fields } = patch;
+      const { departmentId, workLocationId, managerId, salaryGradeId, ...fields } =
+        patch;
+      /* Unlike `departmentId`, these two are already ids in both modes — no
+         display name stands in for them locally, so the only conversion
+         either needs is the same one every nullable id field needs: `""`,
+         the picker's "not one of these", crosses as `null`. */
+      const normalizedManagerId =
+        managerId === undefined ? undefined : managerId === "" ? null : managerId;
+      const normalizedSalaryGradeId =
+        salaryGradeId === undefined
+          ? undefined
+          : salaryGradeId === ""
+            ? null
+            : salaryGradeId;
 
       if (!isConnected) {
         /* The local store holds display names, so a `departmentId` has to be
@@ -710,6 +723,12 @@ export function useEmployeeMutations() {
           ...(departmentId === undefined
             ? {}
             : { department: demoDepartmentName(departmentId) }),
+          ...(normalizedManagerId === undefined
+            ? {}
+            : { managerId: normalizedManagerId }),
+          ...(normalizedSalaryGradeId === undefined
+            ? {}
+            : { salaryGradeId: normalizedSalaryGradeId }),
         });
         return undefined;
       }
@@ -749,6 +768,12 @@ export function useEmployeeMutations() {
         ...(workLocationId === undefined
           ? {}
           : { workLocationId: workLocationId === "" ? null : workLocationId }),
+        ...(normalizedManagerId === undefined
+          ? {}
+          : { managerId: normalizedManagerId }),
+        ...(normalizedSalaryGradeId === undefined
+          ? {}
+          : { salaryGradeId: normalizedSalaryGradeId }),
         /* Same shape again: each of these is format-checked when present — an
            RSA PIN, a TIN, a NUBAN account, a NIN, a phone number — so `""`
            fails that check instead of clearing the field, and only `null` does. */

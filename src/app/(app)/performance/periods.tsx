@@ -14,6 +14,7 @@ import {
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { dayLabel, type ApiCycle } from "@/lib/api/performance";
+import { useSession } from "@/lib/store/session";
 import { useAppraisals } from "@/lib/store/performance";
 import { StartPeriodButton } from "./start-period";
 
@@ -43,6 +44,7 @@ import { StartPeriodButton } from "./start-period";
  */
 export function PeriodsTab() {
   const appraisals = useAppraisals();
+  const { employeeId } = useSession();
 
   const periods = appraisals.cycles;
   const live = periods.filter((period) => period.stage !== "PUBLISHED");
@@ -61,13 +63,27 @@ export function PeriodsTab() {
         <StartPeriodButton variant="accent" withIcon />
       </div>
 
-      <LoadFailure subject="the appraisal periods" error={appraisals.error} />
+      {/* Same guard as `now.tsx`'s copy of this error, and for the same
+          reason: `appraisals.error` is `useAppraisals`'s merged field, and its
+          own header explains why — the personal `myReviews` read failing with
+          "not linked to a staff record" is the ordinary state of a founder's
+          own account, not a failure, and it is not a failure *of the periods
+          list* either way, since `cycles` loading is exactly what still put
+          the list below this banner on screen. This guard cannot tell that
+          case apart from a genuine whole-load failure hitting the same
+          unlinked account — `useAppraisals` merges both into one `error` —
+          so that rarer case is suppressed too, same trade `now.tsx` already
+          makes. Splitting the two is a hook change, not a copy-paste fix. */}
+      {employeeId !== null && (
+        <LoadFailure
+          subject="the appraisal periods"
+          error={appraisals.error}
+          onRetry={appraisals.reload}
+        />
+      )}
 
       <Card>
-        <CardHeader
-          title="Open and not yet started"
-          description="Everybody in the company gets one form inside it."
-        />
+        <CardHeader title="Open and not yet started" />
         {appraisals.loading ? (
           <CardBody className="flex items-center gap-2 text-body-sm text-muted">
             <Spinner size="sm" />

@@ -243,6 +243,8 @@ export type ApiSetupChecklist = {
   /** Null until the five setup questions have been finished. */
   setupCompletedAt: string | null;
   company: {
+    /** Whether a logo has been uploaded. See the note on the API's own copy. */
+    logo: boolean;
     rcNumber: boolean;
     tin: boolean;
     addressLine: boolean;
@@ -259,6 +261,8 @@ export type ApiSetupChecklist = {
   recordFields: { taxSetup: boolean; pensionSetup: boolean; bankDetails: boolean };
   leave: {
     types: number;
+    /** The largest annual entitlement on file. See the API's own note. */
+    biggestEntitlement: number | null;
     year: number;
     holidays: number;
     awaitingProclamation: number;

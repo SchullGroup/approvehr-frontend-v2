@@ -45,8 +45,8 @@ export function PasswordField({
   error,
   autoComplete,
   onEnter,
-  showRules = true,
   strict = false,
+  showRules = true,
 }: {
   label: string;
   value: string;
@@ -54,15 +54,19 @@ export function PasswordField({
   error?: string | undefined;
   autoComplete: "new-password" | "current-password";
   onEnter?: () => void;
+  /** True for an account that can see pay, run payroll, or hand out access. */
+  strict?: boolean;
   /**
    * Off for a password that already exists — signing in, or the "current
    * password" half of a change — where a checklist against today's rules
    * would flag a perfectly valid older password as failing them. On by
    * default: every other caller is choosing a new one.
+   *
+   * Orthogonal to `strict`, which decides *which* rules apply rather than
+   * whether they are drawn: a privileged account changing its password wants
+   * the longer checklist on the new field and none at all on the current one.
    */
   showRules?: boolean;
-  /** True for an account that can see pay, run payroll, or hand out access. */
-  strict?: boolean;
 }) {
   const [visible, setVisible] = useState(false);
   const [touched, setTouched] = useState(false);

@@ -12,6 +12,7 @@ import {
   EmptyState,
   Field,
   FilterBar,
+  Money,
   Pagination,
   SegmentedControl,
   Select,
@@ -36,8 +37,8 @@ import {
 import {
   STATUS_LABEL,
   excludedNote,
-  formatKobo,
   headcountLabel,
+  naira,
   periodLabel,
   type PayslipDelivery,
 } from "@/lib/api/payroll";
@@ -431,11 +432,11 @@ function PayslipIndex() {
                         }
                         subtitle={slip.employeeNo}
                       />
-                      <TD align="right" className="tabular text-body">
-                        {formatKobo(slip.grossKobo)}
+                      <TD align="right">
+                        <Money amount={naira(slip.grossKobo)} decimals />
                       </TD>
-                      <TD align="right" className="tabular font-medium text-ink">
-                        {formatKobo(slip.netKobo)}
+                      <TD align="right">
+                        <Money amount={naira(slip.netKobo)} decimals />
                       </TD>
                       <TD>
                         <Badge tone={state.tone} size="sm" dot>

@@ -19,6 +19,7 @@ import {
   CardBody,
   CardHeader,
   EmptyState,
+  Money,
   Stat,
   TBody,
   TD,
@@ -36,7 +37,6 @@ import {
   TotalsPanel,
 } from "@/components/payroll/run-panels";
 import {
-  formatKobo,
   headcountLabel,
   naira,
   periodLabel,
@@ -419,11 +419,11 @@ export function PayrollScreen() {
                         run.employeeCount
                       )}
                     </TD>
-                    <TD align="right" className="tabular text-body">
-                      {formatKobo(run.grossKobo)}
+                    <TD align="right">
+                      <Money amount={naira(run.grossKobo)} decimals />
                     </TD>
-                    <TD align="right" className="tabular font-medium text-ink">
-                      {formatKobo(run.netKobo)}
+                    <TD align="right">
+                      <Money amount={naira(run.netKobo)} decimals />
                     </TD>
                     <TD>
                       <RunStatusBadge status={run.status} />

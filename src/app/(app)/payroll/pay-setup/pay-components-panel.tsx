@@ -150,7 +150,7 @@ export function PayComponentsPanel({
             there is nothing to show, and the "Salary a month" figure below
             already says so. A red banner repeating it is noise, not help. */}
         {lines.error && !lines.error.message.includes("no monthly pay set") && (
-          <LoadFailure subject="this person's pay lines" error={lines.error} />
+          <LoadFailure subject="this person's pay lines" error={lines.error}  onRetry={lines.reload}/>
         )}
 
         {issues.length > 0 && (
@@ -619,7 +619,7 @@ function AddLineDialog({
             assign but not read the library gets the reason rather than an empty
             list with no explanation. */}
         {library.error && (
-          <LoadFailure subject="the list to choose from" error={library.error} />
+          <LoadFailure subject="the list to choose from" error={library.error}  onRetry={library.reload}/>
         )}
 
         <Field label="What is it?" required>
@@ -781,7 +781,7 @@ function AddLineDialog({
             <LoadFailure
               subject="the effect on their pay"
               error={preview.error}
-            />
+             onRetry={preview.reload}/>
           </>
         )}
       </div>
@@ -843,7 +843,7 @@ function RemoveLineDialog({
           />
         )}
 
-        <LoadFailure subject="the effect on their pay" error={preview.error} />
+        <LoadFailure subject="the effect on their pay" error={preview.error}  onRetry={preview.reload}/>
       </div>
     </Modal>
   );

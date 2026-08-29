@@ -216,7 +216,7 @@ export function ShiftsScreen({ initialTab }: { initialTab: ShiftTab }) {
       <PageBody>
         <Tabs items={TABS} value={tab} onChange={changeTab}>
           <div className="flex flex-col gap-6">
-            <LoadFailure subject="the rota" error={grid.error} />
+            <LoadFailure subject="the rota" error={grid.error}  onRetry={grid.reload}/>
 
             {tab === "rota" ? (
               <>

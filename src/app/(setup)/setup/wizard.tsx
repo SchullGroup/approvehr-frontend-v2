@@ -36,6 +36,7 @@ import {
 } from "@/lib/geolocation";
 import { FEATURE_COPY, useFeatures, useWizard } from "@/lib/store/features";
 import { CreateRoleDialog } from "@/app/(app)/settings/roles/create-role";
+import { failureMessage } from "@/components/portal/load-failure";
 import {
   takePendingVerification,
   type PendingVerification,
@@ -405,7 +406,7 @@ export function SetupWizard() {
     return (
       <Frame nudge={nudge}>
         <Callout tone="danger" title="Setup could not load">
-          {wizard.error}
+          {failureMessage(wizard.error, "your setup")}
         </Callout>
         <div className="mt-5 flex flex-wrap gap-2">
           <Button variant="accent" onClick={wizard.reload}>

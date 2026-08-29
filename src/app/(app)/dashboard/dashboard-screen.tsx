@@ -20,12 +20,15 @@ import {
   Stat,
 } from "@/components/ui";
 import { PageBody } from "@/components/portal/shell";
+import { MyClockCard } from "@/components/portal/my-clock-card";
 import { DashboardHeader } from "./header";
 import { AnnouncementsPanel } from "./announcements-panel";
 import { useDashboard } from "@/lib/store/insights";
 import { StartPeriodButton } from "@/app/(app)/performance";
-import { naira, runStatusLabel } from "@/lib/api/insights";
+import { naira, runStatusLabel, type DashboardData } from "@/lib/api/insights";
 import { useCan } from "@/lib/permissions";
+import type { ApiBoard } from "@/lib/api/announcements";
+import { QuickActions } from "./quick-actions";
 
 /**
  * The screen people open first.
@@ -33,6 +36,19 @@ import { useCan } from "@/lib/permissions";
  * One request. `/insights/dashboard` composes it server-side; see the header of
  * `src/modules/insights/service.ts` for why it is not ten calls to ten
  * `/summary` endpoints.
+ *
+ * ## Two dashboards, one screen
+ *
+ * `headcount`, `approvals` and `today` are the company's own figures — a
+ * headcount, an approval backlog, who has not clocked in — and they are
+ * absent, not zeroed, for anybody without `EDIT_RECORDS` or `VIEW_SALARIES`.
+ * This file used to destructure and render them unconditionally, which meant
+ * every plain employee's own dashboard quoted the whole company's headcount
+ * and payroll completeness back at them — a real defect, not a hypothetical
+ * one, found by an employee account reading its own screen. `CompanyOverview`
+ * below is everything the previous single component did; `EmployeeOverview`
+ * is what somebody without those two permissions gets instead, and the branch
+ * between them is the fix.
  *
  * ## Blocks are absent, not empty
  *
@@ -78,19 +94,6 @@ import { useCan } from "@/lib/permissions";
  */
 export function DashboardScreen() {
   const { data, loading, error, reload } = useDashboard();
-  /* Gates the "nobody's on the payroll yet" row below. `headcount` is sent
-     to everybody, unlike `hiring`/`payroll`/`money`/`exits` — so without this,
-     somebody who cannot add an employee would see an action they cannot take.
-     Same principle `StartPeriodButton` above already follows: a dead control
-     is worse than no control. */
-  const canAddEmployee = useCan("EDIT_RECORDS");
-  /* The card this sits in is gated by the API on `VIEW_SALARIES` — "absent
-     means no permission", see the comment on the block below. Preparing a
-     payroll is `RUN_PAYROLL`, which is a different permission on purpose:
-     `PARITY.md` splits reading what people are paid from releasing money. So
-     the card can be present and this button still refused, which is what a
-     read-only finance reader met. Absent, not disabled. */
-  const canRunPayroll = useCan("RUN_PAYROLL");
 
   if (loading) {
     return (
@@ -131,8 +134,78 @@ export function DashboardScreen() {
     );
   }
 
-  const { headcount, approvals, today, announcements, exits, hiring, payroll, money } =
-    data;
+  /* Checked together rather than one standing for all three: the API gates
+     them on the same permission pair, but only this check lets TypeScript
+     narrow all three to defined below, in `CompanyOverview`'s props. */
+  if (data.headcount && data.approvals && data.today) {
+    return (
+      <CompanyOverview
+        {...data}
+        headcount={data.headcount}
+        approvals={data.approvals}
+        today={data.today}
+      />
+    );
+  }
+
+  return <EmployeeOverview announcements={data.announcements} />;
+}
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Somebody without `EDIT_RECORDS` or `VIEW_SALARIES`: the noticeboard,
+ * everybody's, and their own clock-in — the one thing every employee does on
+ * this screen. Nothing here is a smaller version of a company figure; it is a
+ * different, honest question ("what is my day") rather than the company's
+ * question answered badly.
+ */
+function EmployeeOverview({ announcements }: { announcements: ApiBoard }) {
+  return (
+    <>
+      <DashboardHeader action={<StartPeriodButton withIcon />} />
+      <PageBody className="flex flex-col gap-6">
+        <MyClockCard />
+        <AnnouncementsPanel board={announcements} />
+      </PageBody>
+    </>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+type CompanyOverviewProps = Omit<
+  DashboardData,
+  "headcount" | "approvals" | "today"
+> & {
+  headcount: NonNullable<DashboardData["headcount"]>;
+  approvals: NonNullable<DashboardData["approvals"]>;
+  today: NonNullable<DashboardData["today"]>;
+};
+
+/** Everybody with `EDIT_RECORDS` or `VIEW_SALARIES`: the company's own dashboard. */
+function CompanyOverview({
+  headcount,
+  approvals,
+  today,
+  announcements,
+  exits,
+  hiring,
+  payroll,
+  money,
+}: CompanyOverviewProps) {
+  /* The card this sits in is gated by the API on `VIEW_SALARIES` — "absent
+     means no permission", see the comment on the block below. Preparing a
+     payroll is `RUN_PAYROLL`, which is a different permission on purpose:
+     `PARITY.md` splits reading what people are paid from releasing money. So
+     the card can be present and this button still refused, which is what a
+     read-only finance reader met. Absent, not disabled. */
+  const canRunPayroll = useCan("RUN_PAYROLL");
+  /* Gates the "nobody's on the payroll yet" row below. Without this,
+     somebody who cannot add an employee would see an action they cannot take.
+     Same principle `StartPeriodButton` above already follows: a dead control
+     is worse than no control. */
+  const canAddEmployee = useCan("EDIT_RECORDS");
 
   /* An exit with nothing outstanding needs nobody, so it earns no row — "Needs
      you" says every line on it is one click from being dealt with, and a row
@@ -346,6 +419,12 @@ export function DashboardScreen() {
             </CardBody>
           </Card>
         )}
+
+        {/* What to *start*, above what to read. `QuickActions` gates itself on
+            permissions and features, so it renders nothing for somebody who can
+            act on none of it — which is why it is safe here and absent from
+            `EmployeeOverview`, whose reader holds neither permission. */}
+        <QuickActions />
 
         {/* ---- The noticeboard. Renders nothing when nothing is up ------- */}
         <AnnouncementsPanel board={announcements} />

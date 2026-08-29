@@ -141,7 +141,7 @@ export function PoliciesScreen() {
         )}
 
         {policies.error && (
-          <LoadFailure subject="the handbook" error={policies.error} />
+          <LoadFailure subject="the handbook" error={policies.error}  onRetry={policies.reload}/>
         )}
 
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -900,7 +900,7 @@ function ChaseDrawer({
             Loading
           </div>
         ) : list.error ? (
-          <LoadFailure subject="the list" error={list.error} />
+          <LoadFailure subject="the list" error={list.error}/>
         ) : list.rows.length === 0 ? (
           <p className="text-body-sm text-body">
             {state === "outstanding"

@@ -282,7 +282,7 @@ export function EmployeeRecordPage({ id }: { id: string }) {
         {/* The record itself is on screen; it is the directory read behind it
             that failed, so this says what is missing from the page rather than
             standing in for the page. */}
-        <LoadFailure subject="the rest of the directory" error={directory.error}>
+        <LoadFailure subject="the rest of the directory" error={directory.error} onRetry={directory.reload}>
           Their manager and direct reports may be missing below.
         </LoadFailure>
 
@@ -292,6 +292,7 @@ export function EmployeeRecordPage({ id }: { id: string }) {
           manager={manager}
           managerName={record.managerName}
           reports={reports}
+          companyDirectory={directory.employees}
           /* Live in both modes. Connected these are the leave module's own
              figures, so a decision made in the approvals inbox has already
              moved them; offline they come from the same local store the leave

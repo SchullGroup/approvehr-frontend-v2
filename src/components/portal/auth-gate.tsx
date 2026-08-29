@@ -15,13 +15,17 @@ import {
   Input,
   Spinner,
 } from "@/components/ui";
-import { Logo } from "@/components/brand/logo";
+import { AuthShell } from "@/components/portal/auth-shell";
 import { PasswordField } from "@/components/portal/password-field";
 import { RoleBadge } from "./role-badge";
 import { ApiError } from "@/lib/api/client";
 import { TwoFactorStep } from "./two-factor-step";
 import {
-  type TwoFactorChallengeState, signInOptions, useApiReachable, useSession } from "@/lib/store/session";
+  type TwoFactorChallengeState,
+  signInOptions,
+  useApiReachable,
+  useSession,
+} from "@/lib/store/session";
 import { fullName } from "@/lib/types";
 
 /**
@@ -111,101 +115,83 @@ function SignIn() {
   }
 
   return (
-    <div className="flex min-h-dvh flex-col bg-canvas">
-      <header className="border-b border-line bg-surface">
-        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-5">
-          <Link href="/" aria-label="ApproveHR home" className="text-ink">
-            <Logo size={24} />
-          </Link>
-          <Link
-            href="/"
-            className="text-body-sm text-muted transition-colors hover:text-ink"
-          >
-            Back to the website
-          </Link>
-        </div>
-      </header>
+    <AuthShell>
+      <div className="flex items-center gap-2.5">
+        <h1 className="text-h2 text-ink">Sign in</h1>
+        <ConnectionBadge reachable={reachable} />
+      </div>
 
-      <main
-        id="main"
-        className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center px-5 py-14"
-      >
-        <div className="flex items-center gap-2.5">
-          <h1 className="text-h2 text-ink">Sign in</h1>
-          <ConnectionBadge reachable={reachable} />
-        </div>
+      {reachable === null && (
+        <p className="mt-4 flex items-center gap-2 text-body-sm text-muted">
+          <Loader2 aria-hidden="true" className="size-4 animate-spin" />
+          Checking whether the API is running…
+        </p>
+      )}
 
-        {reachable === null && (
-          <p className="mt-4 flex items-center gap-2 text-body-sm text-muted">
-            <Loader2 aria-hidden="true" className="size-4 animate-spin" />
-            Checking whether the API is running…
+      {reachable === true && (
+        <>
+          <p className="mt-2 text-body leading-relaxed">
+            Sign in with your work email. Your role decides what you can see and
+            do.
           </p>
-        )}
 
-        {reachable === true && (
-          <>
-            <p className="mt-2 text-body leading-relaxed">
-              Sign in with your work email. Your role decides what you can see
-              and do.
-            </p>
+          {error && (
+            <Callout
+              tone="danger"
+              title={
+                error.code === "rate_limited"
+                  ? "Too many attempts"
+                  : "That did not work"
+              }
+              className="mt-5"
+            >
+              {error.message}
+            </Callout>
+          )}
 
-            {error && (
-              <Callout
-                tone="danger"
-                title={
-                  error.code === "rate_limited"
-                    ? "Too many attempts"
-                    : "That did not work"
-                }
-                className="mt-5"
-              >
-                {error.message}
-              </Callout>
-            )}
-
-            <div className="mt-6 flex flex-col gap-4">
-              <Field
-                label="Work email"
-                required
-                error={error?.messageFor("email")}
-              >
-                <Input
-                  type="email"
-                  autoComplete="username"
-                  value={email}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setEmail(v);
-                  }}
-                />
-              </Field>
-              <PasswordField
-                label="Password"
-                autoComplete="current-password"
-                showRules={false}
-                value={password}
-                onChange={setPassword}
-                error={error?.messageFor("password")}
-                onEnter={() => {
-                  if (email && password && !busy) void submit();
+          <div className="mt-6 flex flex-col gap-4">
+            <Field
+              label="Work email"
+              required
+              error={error?.messageFor("email")}
+            >
+              <Input
+                type="email"
+                autoComplete="username"
+                value={email}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setEmail(v);
                 }}
               />
+            </Field>
+            <PasswordField
+              label="Password"
+              autoComplete="current-password"
+              showRules={false}
+              value={password}
+              onChange={setPassword}
+              error={error?.messageFor("password")}
+              onEnter={() => {
+                if (email && password && !busy) void submit();
+              }}
+            />
 
-              <Button
-                variant="accent"
-                disabled={!email || !password || busy}
-                onClick={() => void submit()}
-              >
-                {busy ? "Signing in…" : "Sign in"}
-                {!busy && <ArrowRight aria-hidden="true" className="size-4" />}
-              </Button>
-            </div>
+            <Button
+              variant="accent"
+              disabled={!email || !password || busy}
+              onClick={() => void submit()}
+            >
+              {busy ? "Signing in…" : "Sign in"}
+              {!busy && <ArrowRight aria-hidden="true" className="size-4" />}
+            </Button>
+          </div>
 
-            {/* The seeded credentials, shown because this is a development
+          {/* The seeded credentials, shown because this is a development
                 build talking to a development database. It would be
                 indefensible in production, which is why it is behind the build
                 flag rather than behind a sentence saying so. */}
-            {DEMO_ENABLED && (
+          {DEMO_ENABLED && (
             <Card className="mt-8">
               <CardBody className="flex gap-3">
                 <Info
@@ -213,111 +199,113 @@ function SignIn() {
                   className="mt-0.5 size-4 shrink-0 text-faint"
                 />
                 <div className="text-body-sm leading-relaxed text-muted">
-                  <p className="font-medium text-ink">Development seed accounts</p>
+                  <p className="font-medium text-ink">
+                    Development seed accounts
+                  </p>
                   <p className="mt-1">
                     <code className="text-ink">grace.effiong@schull.io</code>{" "}
                     (payroll analyst),{" "}
                     <code className="text-ink">amara.nwachukwu@schull.io</code>{" "}
                     (administrator), and any other{" "}
                     <code>firstname.lastname@schull.io</code> from the seed.
-                    Password <code className="text-ink">approvehr-dev-2026</code>.
+                    Password{" "}
+                    <code className="text-ink">approvehr-dev-2026</code>.
                   </p>
                 </div>
               </CardBody>
             </Card>
-            )}
-          </>
-        )}
+          )}
+        </>
+      )}
 
-        {reachable === false && DEMO_ENABLED && (
-          <>
-            <p className="mt-2 text-body leading-relaxed">
-              The API is not running, so this is the demo. Choose whose account
-              to open — every screen then behaves as that person.
-            </p>
+      {reachable === false && DEMO_ENABLED && (
+        <>
+          <p className="mt-2 text-body leading-relaxed">
+            The API is not running, so this is the demo. Choose whose account to
+            open — every screen then behaves as that person.
+          </p>
 
-            <Callout
-              tone="warning"
-              title="Demo mode — not connected to a server"
-              className="mt-5"
-            >
-              There is no password and nothing is secured. Data you change stays
-              in this browser and does not sync anywhere. To use the real thing,
-              start the API and reload:{" "}
-              <code className="text-ink">npm run dev</code> in{" "}
-              <code className="text-ink">approvehr-api</code>.
-            </Callout>
+          <Callout
+            tone="warning"
+            title="Demo mode — not connected to a server"
+            className="mt-5"
+          >
+            There is no password and nothing is secured. Data you change stays
+            in this browser and does not sync anywhere. To use the real thing,
+            start the API and reload:{" "}
+            <code className="text-ink">npm run dev</code> in{" "}
+            <code className="text-ink">approvehr-api</code>.
+          </Callout>
 
-            <ul className="mt-7 flex flex-col gap-2">
-              {signInOptions().map(({ employee, roles }) => {
-                const active = selected === employee.id;
-                return (
-                  <li key={employee.id}>
-                    <button
-                      type="button"
-                      onClick={() => setSelected(employee.id)}
-                      aria-pressed={active}
-                      className={cn(
-                        "flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors",
-                        active
-                          ? "border-accent bg-accent-soft"
-                          : "border-line bg-surface hover:border-line-strong hover:bg-canvas",
-                      )}
-                    >
-                      <Avatar name={fullName(employee)} size="sm" />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-body-sm font-medium text-ink">
-                          {fullName(employee)}
-                        </span>
-                        <span className="block truncate text-body-sm text-muted">
-                          {employee.jobTitle} · {employee.department}
-                        </span>
+          <ul className="mt-7 flex flex-col gap-2">
+            {signInOptions().map(({ employee, roles }) => {
+              const active = selected === employee.id;
+              return (
+                <li key={employee.id}>
+                  <button
+                    type="button"
+                    onClick={() => setSelected(employee.id)}
+                    aria-pressed={active}
+                    className={cn(
+                      "flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors",
+                      active
+                        ? "border-accent bg-accent-soft"
+                        : "border-line bg-surface hover:border-line-strong hover:bg-canvas",
+                    )}
+                  >
+                    <Avatar name={fullName(employee)} size="sm" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-body-sm font-medium text-ink">
+                        {fullName(employee)}
                       </span>
-                      {/* The persona's actual seeded role. This used to read
+                      <span className="block truncate text-body-sm text-muted">
+                        {employee.jobTitle} · {employee.department}
+                      </span>
+                    </span>
+                    {/* The persona's actual seeded role. This used to read
                           "Full access" for anybody in the People department,
                           which was a guess from the org chart: it was wrong for
                           the Payroll officer, who holds a deliberately narrower
                           set, and it said nothing at all about everybody else. */}
-                      <RoleBadge roles={roles} className="shrink-0" />
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+                    <RoleBadge roles={roles} className="shrink-0" />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
 
-            <div className="mt-7 flex flex-wrap items-center gap-3">
-              <Button
-                variant="accent"
-                disabled={!selected}
-                onClick={() => selected && signInOffline(selected)}
-              >
-                Open the demo
-                <ArrowRight aria-hidden="true" className="size-4" />
-              </Button>
-              <p className="text-body-sm text-muted">
-                {selected
-                  ? "You can switch accounts any time from the top right."
-                  : "Pick an account to continue."}
-              </p>
-            </div>
-          </>
-        )}
-
-        {reachable === false && !DEMO_ENABLED && <Unreachable />}
-
-        {reachable !== null && (reachable || DEMO_ENABLED) && (
-          <p className="mt-8 border-t border-line pt-6 text-body-sm text-muted">
-            New company?{" "}
-            <Link
-              href="/register"
-              className="font-medium text-accent-text hover:underline underline-offset-4"
+          <div className="mt-7 flex flex-wrap items-center gap-3">
+            <Button
+              variant="accent"
+              disabled={!selected}
+              onClick={() => selected && signInOffline(selected)}
             >
-              Create an account
-            </Link>
-          </p>
-        )}
-      </main>
-    </div>
+              Open the demo
+              <ArrowRight aria-hidden="true" className="size-4" />
+            </Button>
+            <p className="text-body-sm text-muted">
+              {selected
+                ? "You can switch accounts any time from the top right."
+                : "Pick an account to continue."}
+            </p>
+          </div>
+        </>
+      )}
+
+      {reachable === false && !DEMO_ENABLED && <Unreachable />}
+
+      {reachable !== null && (reachable || DEMO_ENABLED) && (
+        <p className="mt-8 border-t border-line pt-6 text-body-sm text-muted">
+          New company?{" "}
+          <Link
+            href="/register"
+            className="font-medium text-accent-text hover:underline underline-offset-4"
+          >
+            Create an account
+          </Link>
+        </p>
+      )}
+    </AuthShell>
   );
 }
 

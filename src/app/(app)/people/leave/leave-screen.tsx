@@ -296,7 +296,7 @@ export function LeaveScreen() {
       />
 
       <PageBody className="flex flex-col gap-6">
-        <LoadFailure subject="the leave requests" error={error} />
+        <LoadFailure subject="the leave requests" error={error}  onRetry={reload}/>
 
         {noRecord && (
           <Callout tone="info" title="This account has no employee record">
@@ -320,7 +320,12 @@ export function LeaveScreen() {
             value={String(monthAhead.length)}
             hint="approved, starting within 31 days"
           />
-          <Stat label="Days approved this year" value={String(daysBooked)} />
+          {/* Not "Days approved" — read on a plain employee's own screen, that
+              sounds like an action they took ("did I approve my own leave?"),
+              when it is a fact about their leave: days of theirs an approver
+              has signed off this year. "Taken" matches "Annual leave used" /
+              "Annual days left" beside it, and cannot be misread either way. */}
+          <Stat label="Days taken this year" value={String(daysBooked)} />
           <Stat
             label="Annual leave used"
             value={utilisation === null ? "—" : `${utilisation}%`}
@@ -491,6 +496,22 @@ export function LeaveScreen() {
           <CardHeader
             title="Annual leave left"
             description="Pending days are already held back."
+            /* The number on this card is a company setting — `entitledDays` on
+               the leave type — and until now nothing on the screen said so.
+               Somebody looking at "20 left" and wondering where 20 came from
+               had to already know `/settings/leave` exists.
+
+               A figure that is configured should say where it is configured,
+               from the screen where somebody reads it. Behind `MANAGE_SETTINGS`
+               because the API is: an employee reading their own balance is not
+               being kept from anything they could act on. */
+            action={
+              canManageSettings ? (
+                <ButtonLink href="/settings/leave" variant="ghost" size="sm">
+                  Set the entitlements
+                </ButtonLink>
+              ) : undefined
+            }
           />
           <CardBody className="grid gap-x-8 gap-y-3.5 sm:grid-cols-2 lg:grid-cols-3">
             {balances.loading && (
@@ -498,7 +519,9 @@ export function LeaveScreen() {
             )}
             {shown.length === 0 && !balances.loading && (
               <p className="text-body-sm text-muted">
-                Nobody has booked leave yet.
+                {onlyMine
+                  ? "You have not booked any annual leave yet."
+                  : "Nobody has booked leave yet."}
               </p>
             )}
             {shown.map((person) => {

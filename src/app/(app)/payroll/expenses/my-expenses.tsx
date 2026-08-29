@@ -62,7 +62,7 @@ export function MyExpenses({ className }: { className?: string }) {
         />
 
         <CardBody className="flex flex-col gap-4">
-          <LoadFailure subject="your expense claims" error={mine.error} />
+          <LoadFailure subject="your expense claims" error={mine.error}  onRetry={mine.reload}/>
 
           <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
             <div>

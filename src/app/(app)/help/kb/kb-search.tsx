@@ -83,7 +83,7 @@ export function KbSearch({
           </p>
         )}
 
-        <LoadFailure subject="the search results" error={search.error} />
+        <LoadFailure subject="the search results" error={search.error}/>
 
         {search.answered && search.hits.length > 0 && (
           <>
