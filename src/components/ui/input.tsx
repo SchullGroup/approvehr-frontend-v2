@@ -6,17 +6,20 @@ import { cn } from "@/lib/cn";
 import { useFieldControl } from "./field";
 
 /*
- * Control borders use control-line at 4.3:1 rather than the decorative line
- * token, because an input boundary carries meaning and must clear 3:1.
+ * Resting border is field-line at 3.2:1, not the darker control-line other
+ * controls use — an input boundary carries meaning and must clear 3:1, but a
+ * form with a dozen boxes on it does not need every one of them reading as
+ * bold as its own focus ring. Hover and focus stay dark: those are the
+ * moments the field is meant to stand out.
  */
 
 const CONTROL =
   "w-full bg-surface text-ink placeholder:text-muted " +
-  "border border-control-line rounded-md " +
+  "border border-field-line rounded-md " +
   "transition-[border-color,box-shadow] duration-150 " +
   "hover:border-ink-soft " +
   "focus:border-accent-text focus:outline-none focus:ring-3 focus:ring-accent/25 " +
-  "disabled:bg-sunken disabled:text-muted disabled:cursor-not-allowed disabled:hover:border-control-line " +
+  "disabled:bg-sunken disabled:text-muted disabled:cursor-not-allowed disabled:hover:border-field-line " +
   "aria-[invalid=true]:border-danger-text aria-[invalid=true]:ring-danger/20";
 
 export type InputProps = React.InputHTMLAttributes<HTMLInputElement> & {
