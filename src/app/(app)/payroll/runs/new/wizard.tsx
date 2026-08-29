@@ -16,7 +16,10 @@ import {
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
+  CalendarClock,
   Check,
+  ChevronLeft,
+  ChevronRight,
   RefreshCw,
   ShieldCheck,
 } from "lucide-react";
@@ -141,6 +144,78 @@ const STEPS = [
 
 const currentPeriod = TODAY.slice(0, 7);
 
+/**
+ * Move a `YYYY-MM` key by whole months, through `Date` rather than by
+ * arithmetic on the parts — December plus one is next January, and every
+ * hand-rolled version of this gets that wrong or gets `0`-indexed months
+ * wrong. Day 1 and UTC throughout, so no timezone can move the month.
+ */
+function shiftPeriod(period: string, months: number): string {
+  const [year, month] = period.split("-").map(Number);
+  const moved = new Date(Date.UTC(year!, month! - 1 + months, 1));
+  return moved.toISOString().slice(0, 7);
+}
+
+/**
+ * Where a period sits relative to today, which is the only thing that makes
+ * one month different from another to prepare.
+ *
+ * A **finished** month is the ordinary case. A month **still running** can be
+ * prepared — a company paying on the 25th has no choice — and the figures
+ * cover it as worked so far; the API raises `period_not_finished` saying so,
+ * and `unpaidDaysFor` stops counting at today so nobody is docked for a day
+ * that has not happened. A month that has **not started** is a payment in
+ * advance, which is ordinary for a December run made before the holidays.
+ *
+ * None of the three is refused. The point is that somebody moving off the
+ * obvious month is told what they have moved to, before they calculate.
+ *
+ * ## Two rules about where the numbers come from
+ *
+ * **The real clock, not `TODAY`.** `TODAY` is pinned to the demo dataset's day
+ * so the seed stays coherent; whether a month has ended is not a question
+ * about the seed. The API decides this against `new Date()`, and this sentence
+ * describes what the API is about to do.
+ *
+ * **No day count here.** The first draft worked one out and would have read
+ * "12 days to come" beside the API's own "2 days are still to come" — one
+ * fact, two numbers, on adjacent surfaces, because the two were counting from
+ * different clocks. `period_not_finished` carries the figure; this carries the
+ * consequence. Same rule as never re-implementing a score on this side.
+ */
+function periodStanding(period: string): {
+  tone: "finished" | "running" | "ahead";
+  line: string;
+} {
+  /* Reading the clock during render is safe *here* and would not be in most
+     components. This route is prerendered, and the wizard uses
+     `useSearchParams`, so its Suspense boundary renders the fallback on the
+     server and this subtree is client-only — the date never reaches
+     prerendered HTML, so there is nothing for hydration to disagree with. If
+     that boundary or that hook ever goes, this becomes a build-time date
+     baked into the page. `page.tsx` says the same thing from its end. */
+  const thisMonth = new Date().toISOString().slice(0, 7);
+
+  if (period < thisMonth) {
+    return { tone: "finished", line: "This month is over — the usual case." };
+  }
+  if (period > thisMonth) {
+    return {
+      tone: "ahead",
+      line:
+        "This month has not started, so this pays it in advance. Everybody is " +
+        "paid a full month, and nothing worked in it is known yet.",
+    };
+  }
+  return {
+    tone: "running",
+    line:
+      "This month is still running. The figures cover it as worked so far and " +
+      "nobody is docked for a day that has not happened — calculate again once " +
+      "it ends to pick up the rest.",
+  };
+}
+
 export function PayrollRunWizard() {
   const router = useRouter();
   const toast = useToast();
@@ -177,6 +252,31 @@ export function PayrollRunWizard() {
   const patch = (
     next: Partial<{ period: string; payDate: string; label: string }>,
   ) => setDraft({ period, payDate, label, ...next });
+
+  /**
+   * Moving the month carries the pay date with it.
+   *
+   * Without this, stepping from August to September leaves the pay date on
+   * 2026-08-28 — a September payroll paying in August, which the form would
+   * show without complaint. The day of the month is what somebody chose and
+   * is kept; it is clamped to the new month's length, so the 31st becomes the
+   * 30th in September rather than silently rolling into October.
+   */
+  const withPayDate = (nextPeriod: string) => {
+    const lastDay = new Date(
+      Date.UTC(Number(nextPeriod.slice(0, 4)), Number(nextPeriod.slice(5, 7)), 0),
+    ).getUTCDate();
+    const day = Math.min(Number(payDate.slice(8, 10)) || 28, lastDay);
+    return {
+      period: nextPeriod,
+      payDate: `${nextPeriod}-${String(day).padStart(2, "0")}`,
+    };
+  };
+
+  const moveMonth = (months: number) =>
+    patch(withPayDate(shiftPeriod(period, months)));
+
+  const standing = periodStanding(period);
 
   const [prepared, setPrepared] = useState<PreparedRun | null>(null);
   const [busy, setBusy] = useState<"prepare" | "approve" | null>(null);
@@ -542,12 +642,41 @@ export function PayrollRunWizard() {
             description="The month decides whose contracts, new starters and exits are picked up."
           />
           <CardBody className="grid max-w-2xl gap-5 sm:grid-cols-2">
+            {/* The month was a bare `type="month"` input, which *could* already
+                reach any period and gave nobody a reason to think so — a
+                spinner most people read as a fixed value. The arrows are the
+                affordance; the native input stays behind them for jumping a
+                year rather than stepping to one. Same class of defect as the
+                logo and the assistant: present, correct, findable by nobody. */}
             <Field label="Pay month" required>
-              <Input
-                type="month"
-                value={period}
-                onChange={(e) => patch({ period: e.target.value })}
-              />
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  type="button"
+                  aria-label={`Previous month, ${periodLabel(shiftPeriod(period, -1))}`}
+                  onClick={() => moveMonth(-1)}
+                >
+                  <ChevronLeft aria-hidden="true" className="size-4" />
+                </Button>
+                <Input
+                  type="month"
+                  className="flex-1"
+                  value={period}
+                  onChange={(e) =>
+                    e.target.value && patch(withPayDate(e.target.value))
+                  }
+                />
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  type="button"
+                  aria-label={`Next month, ${periodLabel(shiftPeriod(period, 1))}`}
+                  onClick={() => moveMonth(1)}
+                >
+                  <ChevronRight aria-hidden="true" className="size-4" />
+                </Button>
+              </div>
             </Field>
             <Field
               label="Payment date"
@@ -560,6 +689,25 @@ export function PayrollRunWizard() {
                 onChange={(e) => patch({ payDate: e.target.value })}
               />
             </Field>
+            {/* What moving off this month means, stated where the month is
+                chosen rather than after Calculate. `period_not_finished` says
+                the same thing on the exception list for the run itself — this
+                is the half somebody reads *before* spending the calculation. */}
+            <p
+              className={cn(
+                "text-body-sm leading-relaxed sm:col-span-2",
+                standing.tone === "finished" ? "text-muted" : "text-body",
+              )}
+            >
+              {standing.tone !== "finished" && (
+                <CalendarClock
+                  aria-hidden="true"
+                  className="mr-1.5 inline size-4 -translate-y-px text-warning-text"
+                />
+              )}
+              {standing.line}
+            </p>
+
             <Field
               optional
               label="Name this run"
