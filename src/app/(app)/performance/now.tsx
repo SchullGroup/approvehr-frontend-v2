@@ -908,27 +908,28 @@ function ReviewRow({
         </p>
       </div>
       <div className="flex flex-wrap gap-2">
-        <Button
-          variant={review.submitted ? "secondary" : "accent"}
-          size="sm"
-          onClick={onOpen}
-        >
-          {actionLabel}
-        </Button>
-        {/* Everything a rating has to be able to explain — the components behind
-            it, who else appraised, the acknowledgement — is on the record.
-
-            None of which exists before the form is sent. Offered unconditionally,
-            this took somebody from a form they had not started to a page reading
-            "Overall mark: None given", "Rating of record: Not yet", "What went
-            wrong this period: Not answered" — a record of nothing, which reads
-            as a product that has lost the answers rather than one waiting for
-            them. There is exactly one thing to do with an unsent form and it is
-            the button to the left. */}
-        {review.submitted && (
-          <ButtonLink size="sm" href={`/performance/reviews/${review.id}`}>
-            The record
+        {/* One button, chosen by whether there is a form left to fill in.
+            Before submission the only sensible act is opening it — the full
+            page has nothing on it yet ("Overall mark: None given", "What
+            went wrong this period: Not answered"), a record of nothing that
+            reads as lost answers rather than ones still waiting. After
+            submission the full page is strictly more than the same modal
+            reopened: the components behind the mark, who else appraised,
+            the acknowledgement. Two buttons that both just "showed the
+            review" used to sit here side by side with no way to tell why
+            there were two. */}
+        {review.submitted ? (
+          <ButtonLink
+            variant="accent"
+            size="sm"
+            href={`/performance/reviews/${review.id}`}
+          >
+            Read the review
           </ButtonLink>
+        ) : (
+          <Button variant="accent" size="sm" onClick={onOpen}>
+            {actionLabel}
+          </Button>
         )}
       </div>
     </div>
