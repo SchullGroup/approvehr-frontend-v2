@@ -289,7 +289,7 @@ export type Payslip = {
    * `payeOverridden` above is the older shape and stays until PAYE folds into
    * the same enum.
    */
-  overriddenDeductions?: ("PENSION_EMPLOYEE" | "NHF")[];
+  overriddenDeductions?: DeductionKind[];
   /** Why it does not come from the bands. Null when `payeOverridden` is false. */
   payeOverrideReason: string | null;
   /**
@@ -550,6 +550,16 @@ export type ExclusionChange = {
  * `ExclusionChange`: net pay moves the moment the figure does, and a screen
  * that kept the old totals would show a payslip disagreeing with itself.
  */
+/** The statutory deductions a figure may be entered against by hand. */
+export type DeductionKind = "PENSION_EMPLOYEE" | "NHF";
+
+export type DeductionOverrideChange = {
+  employeeId: string;
+  name: string;
+  kind: DeductionKind;
+  label: string;
+};
+
 export type TaxOverrideChange = {
   employeeId: string;
   name: string;
@@ -1151,6 +1161,34 @@ export const payrollApi = {
       method: "POST",
       body,
     }),
+
+  /**
+   * A pension or NHF figure entered by hand for one person on this run.
+   *
+   * `kind` travels in the body rather than the path because one control edits
+   * either line — a route per deduction is a route to add every time the list
+   * grows.
+   */
+  setDeductionOverride: (
+    id: string,
+    body: {
+      employeeId: string;
+      kind: DeductionKind;
+      amountKobo: number;
+      reason?: string;
+    },
+  ) =>
+    request<DeductionOverrideChange>(
+      `/payroll/runs/${id}/deduction-overrides`,
+      { method: "POST", body },
+    ),
+
+  /** Puts one deduction back to the engine's own figure for this period. */
+  clearDeductionOverride: (id: string, employeeId: string, kind: DeductionKind) =>
+    request<DeductionOverrideChange>(
+      `/payroll/runs/${id}/deduction-overrides/${employeeId}/${kind}`,
+      { method: "DELETE" },
+    ),
 
   /** Clears this period's hand-entered PAYE. The next figure comes from the
    *  bands again. Does not touch the standing preference. */
