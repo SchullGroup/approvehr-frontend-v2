@@ -416,7 +416,21 @@ export function ExcludedList({
     <Card>
       <Disclosure
         title="Not on this payroll"
-        level={2}
+        /**
+         * Level 3, to match the exception groups it sits among.
+         *
+         * It was level 2, which `Disclosure` renders at `text-body-lg` — 17px
+         * against the 15px of every grouped exception directly above it, and
+         * the 14px of its own description directly below. Three sizes in one
+         * stack, and the largest belonging to the least urgent thing on it.
+         *
+         * The component's rule is right and this call site was breaking it: a
+         * level-2 disclosure **heads a page section**. This one does not. It is
+         * a peer of "22 people are not on this payroll" and "8 people have no
+         * pension PIN", which are level 3, and it reads as one of them because
+         * that is what it is.
+         */
+        level={3}
         meta={
           <span className="text-meta font-semibold uppercase tracking-[0.08em] text-muted">
             {exclusions.length}{" "}
