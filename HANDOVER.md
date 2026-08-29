@@ -5455,3 +5455,95 @@ September and October runs already there were left alone — they are not ours.
   something ordinary. Naming the consequence is the job; refusing is not.
 - **The default period.** Still `TODAY`-based, which is pre-existing and a demo
   concern. Only the standing line reads the real clock.
+
+---
+
+# The development-areas suggestion worked for five people out of nine
+
+The complaint was that scoring the competencies would make the review
+suggestion work. Investigating it found the diagnosis was nearly right and the
+thing everybody had assumed was missing was not.
+
+## Three things that were assumed missing and were already built
+
+Recorded because an earlier session's note in this file said "no frontend screen
+calls the rate endpoint", and that was wrong:
+
+- **`SkillsTab` exists and is mounted**, as a closed disclosure titled "Skills
+  and levels" on the Overview tab (`now.tsx`). It reads `useSkills`, `useGaps`,
+  `useHeatmap` and writes through `useRating`.
+- **`performanceApi.rate` and `useRating()` were both already wired.**
+- **48 competency ratings already existed**, 17 of them below target.
+
+So neither the screen, the store, the wrapper nor the data was the gap. Check
+what is there before building it — this is the second time in two sessions that
+grepping first would have saved the work.
+
+## What was actually wrong: coverage, not capability
+
+Activating a cycle creates a manager review for **everybody who has an
+appraiser** — nine people in the demo. `rateEverybody` in
+`scripts/demo-performance-cycle.ts` iterated `PEOPLE`, which is six, and one of
+those six has no manager and therefore no manager review.
+
+So **four people had a review form and no competency scores at all**: Grace
+Effiong, Halima Sani, Musa Ibrahim, Tunde Bakare. Open any of their reviews,
+press "Suggest development areas", and `suggestDevelopment` refuses with its own
+sentence — *"Nobody has scored them on any competency yet, so there is nothing
+to base a suggestion on. Score the competencies first."*
+
+That refusal is correct, and it is exactly what was being read as the feature
+being broken. A capability that works for five of nine people does not read as
+"those four are unscored"; it reads as unreliable.
+
+### The cause is one list doing two jobs
+
+`PEOPLE` decided both what an appraiser *recorded against each competency* and
+what they *wrote on the form*, including how far sign-off was taken. Those are
+separate acts. `RATED_NOT_REVIEWED` is now a second list, and the split is the
+fix rather than four more `PEOPLE` entries — adding them there would also give
+each one a self-review, a written manager form and a sign-off state, moving
+`noReview`, `unscored` and `awaitingAcknowledgement` on the cycle report. The
+demo needs one person with no review at all, or that state never renders.
+
+**Levels are shaped so each person has at least one genuine gap.** Somebody at
+or above target everywhere is refused too — correctly, with a different sentence
+— so straight fives would have left the button looking just as broken.
+
+## A warning that fired on every boot, including the healthy ones
+
+`provider.ts` logged *"no suggestion assistant is wired… Set ANTHROPIC_API_KEY
+to enable it"* at **module load**, unconditionally — before `server.ts` had a
+chance to register anything. A boot with a key configured printed that warning
+and then "suggestion assistant registered" on the next line.
+
+Wrong twice: a warning that fires on every boot is one people stop reading, and
+it named `ANTHROPIC_API_KEY` alone while `GEMINI_API_KEY` is read **first** — so
+somebody following the advice sets the key that loses the tie. It is in
+`server.ts`'s `else` branch now, the one place that knows the answer, and names
+both variables.
+
+## Verified
+
+`GEMINI_API_KEY` is set in this environment, so the whole path was exercised
+rather than reasoned about. Calling `suggestDevelopment` directly for Grace
+Effiong against the live H2 2026 cycle returned three grounded, role-aware
+development areas naming Initiative, Communication and Dependability with her
+actual scores and targets.
+
+**The facts that left the building were logged and read.** Three lines, each a
+competency name, category, score, target and scale. **No personal name**, which
+is the property `/settings/ai` and the DPA both promise — `buildMessage` sends
+`grounding.facts` and never `grounding.summary`, which is where the name is.
+
+After re-running `npm run demo:performance`: **79 ratings, and all 9 people with
+a manager review form have at least one gap.** 0 refuse.
+
+## One thing worth knowing, not changed
+
+`suggestDevelopment` appends the appraiser's free-text `note` to each fact. The
+structured fields carry no name, but a note is prose somebody typed and could
+name a colleague. The seeded ratings set no notes, so nothing here exercises it.
+If the no-names promise is meant strictly, that is the hole — and stripping it
+would cost the model the only qualitative signal it gets, so it is a decision
+rather than an oversight.
