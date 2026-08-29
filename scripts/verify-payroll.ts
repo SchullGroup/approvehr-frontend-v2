@@ -58,6 +58,7 @@ import {
   DEMO_PAYSLIPS,
   payslipFiguresFor,
 } from "../src/lib/mock/demo-payslips";
+import { overtimeWorking } from "../src/components/payroll/payslip-document";
 import { EMPLOYEES } from "../src/lib/mock/people";
 import {
   DEFAULT_SETTINGS,
@@ -305,6 +306,53 @@ if (existsSync(backendEnginePath)) {
 }
 
 /* --- Report ------------------------------------------------------------- */
+
+/* -------------------------------------------------------------------------- */
+/* The overtime working printed on a payslip                                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * `overtimeWorking` factors the amount the payslip already carries. It never
+ * computes one, which is what keeps it out of the duplicate-engine trap — so
+ * what these assert is that the sentence **multiplies back to the stored
+ * figure**, and that it says nothing when it cannot.
+ *
+ * ₦18,493.11 is 6 hours of somebody on ₦500,000 a month under the calendar
+ * basis the payslip workbook this was built against uses: 500000 x 12 / 365 / 8
+ * = ₦2,054.79 an hour, times 1.5. Both the figure and the sentence come from
+ * that, by opposite routes.
+ */
+same(
+  "the hand-entered working factors back to the stored amount",
+  overtimeWorking("Overtime, entered by hand (6.00h at 1.5x)", 1_849_311),
+  "6 hours at ₦2,054.79 an hour, times 1.5",
+);
+
+same(
+  "a clocked line states the hours and what they averaged",
+  overtimeWorking("Overtime 2026-08-13 (4.0h)", 517_808),
+  "4 hours, ₦1,294.52 an hour",
+);
+
+same(
+  "nothing is said about a line that is not overtime",
+  overtimeWorking("Bonus — Q3 target", 5_000_000),
+  null,
+);
+
+same(
+  "nothing is said when the hours cannot be read",
+  overtimeWorking("Overtime, entered by hand", 1_849_311),
+  null,
+);
+
+/* A working somebody cannot check is worse than none, and dividing by it
+   would print Infinity. */
+same(
+  "nothing is said about nil hours",
+  overtimeWorking("Overtime (0h)", 0),
+  null,
+);
 
 const rows: string[] = [];
 const failures: string[] = [];
