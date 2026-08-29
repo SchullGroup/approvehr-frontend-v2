@@ -131,7 +131,27 @@ export const DEFAULT_COMPANY: {
   notifications: NotificationRule[];
   integrations: Integration[];
 } = {
-  profile: {
+  /**
+   * A whole fabricated statutory identity, and therefore gated.
+   *
+   * An RC number, a TIN, a registered address and two invented legal entities.
+   * All of it is demo seed and all of it shipped in the production bundle —
+   * `verify-demo` passed because it looks for demo *copy* and seed *persona
+   * names*, and a company registration number is neither.
+   *
+   * That is the defect this repo already paid for once, one noun along: three
+   * fabricated pension PINs and a payment book reached a production build
+   * behind a green gate. HANDOVER's own note on it lists RC-and-TIN-shaped
+   * values as a thing the check did not cover. It does now.
+   *
+   * Empty in production rather than merely unreachable. The connected path no
+   * longer reads this at all — `useLiveCompanyProfile` does — and demo mode
+   * does not exist in a production build, so nothing reads it there. A value
+   * nobody can reach is still a value in the bundle, and a bundle is a file
+   * anybody can read.
+   */
+  profile: DEMO_ENABLED
+    ? {
     legalName: "Schull Technologies Limited",
     tradingName: "Schull Technologies",
     rcNumber: "RC 1544820",
@@ -158,7 +178,21 @@ export const DEFAULT_COMPANY: {
         isPrimary: false,
       },
     ],
-  },
+      }
+    : {
+        /* Production: nothing. Empty strings rather than omitted fields so the
+           type is unchanged and every reader keeps working — they simply have
+           nothing to show, which is the truth when there is no API answering. */
+        legalName: "",
+        tradingName: "",
+        rcNumber: "",
+        tin: "",
+        industry: "",
+        address: "",
+        city: "",
+        state: "",
+        entities: [],
+      },
   leave: {
     types: [
       {

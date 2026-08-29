@@ -289,6 +289,29 @@ function seedNames(): string[] {
  */
 const CREDENTIAL_SHAPES: { name: string; pattern: RegExp }[] = [
   { name: "pension PIN", pattern: /\bPEN(?!0{9})\d{9,}\b/g },
+  /**
+   * A company registration number and a tax identification number.
+   *
+   * Added because they shipped. `DEFAULT_COMPANY` carried a fabricated
+   * `RC 1544820`, a TIN, a registered address and two invented legal entities
+   * straight into the production bundle, and every check above passed: this
+   * file looked for demo *copy* and seed *persona names*, and a company
+   * registration number is neither.
+   *
+   * Worse than untidy. `/settings/company` read that constant unconditionally,
+   * so a second organisation signed in and was shown the first one's statutory
+   * identity as its own — on the screen whose sidebar explains these are what
+   * PAYE, pension and NHF filings use.
+   *
+   * `RC` followed by digits is the CAC's own format and appears nowhere else.
+   * The TIN shape is deliberately narrow — ten digits with no separators is
+   * common enough that a looser pattern would catch phone numbers and
+   * timestamps — so it names the specific fabricated value rather than
+   * pretending to catch every possible one. What it guarantees is that *this*
+   * one cannot come back.
+   */
+  { name: "RC number", pattern: /\bRC\s?\d{6,}\b/g },
+  { name: "the seeded TIN", pattern: /\b2019384756\b/g },
 ];
 
 /**
