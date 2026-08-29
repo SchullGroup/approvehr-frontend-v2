@@ -135,12 +135,34 @@
    * smaller than 14px. If a design seems to need 11px, the design is wrong —
    * either it is showing something that does not belong on that screen, or the
    * container needs to be bigger.
+   *
+   * ---- The 16px step is `body-md`, and used to be unreachable ----------
+   *
+   * It was `--text-body`, which collides with `--color-body` on the utility
+   * name `text-body` — and Tailwind v4 resolves that in favour of the colour.
+   * So `.text-body { color: … }` was the only rule generated and the 16px step
+   * produced **nothing at all**. Every one of the 400-odd `text-body` uses in
+   * the app is a colour and always was; what did not exist was any way to ask
+   * for the size by name.
+   *
+   * That cost two defects in one day, both reported as "the fonts are not
+   * uniform". `CardHeader` reached for `text-body` expecting 16px, silently
+   * got no size, and inherited 16px from `body` — right by accident.
+   * `Disclosure` was then "fixed" off `text-body` onto `text-body-lg`, which
+   * made a section heading 17px beside the card heading it is meant to match.
+   *
+   * Renaming the size token was safe precisely because it generated nothing:
+   * no call site could lose a size it never had. `--color-body` is untouched
+   * and every `text-body` in the app still means exactly what it meant.
+   *
+   * `scripts/verify-typescale.ts` now refuses any `--text-*` that shares a name
+   * with a `--color-*`, so this cannot come back quietly.
    */
   --text-body-lg: 1.0625rem; /* 17px — a lead-in inside a card         */
   --text-body-lg--line-height: 1.55;
 
-  --text-body: 1rem; /* 16px — the baseline for anything read   */
-  --text-body--line-height: 1.6;
+  --text-body-md: 1rem; /* 16px — the baseline for anything read   */
+  --text-body-md--line-height: 1.6;
 
   --text-body-sm: 0.9375rem; /* 15px — dense rows, table cells         */
   --text-body-sm--line-height: 1.5;

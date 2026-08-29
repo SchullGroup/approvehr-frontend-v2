@@ -47,7 +47,13 @@ export function CardHeader({
       )}
     >
       <div className="min-w-0">
-        <Heading className="text-body font-semibold text-ink">
+        {/* `text-body-md` is 16px, asked for by name.
+            It used to be `text-body`, which is the **colour** utility — the
+            16px it rendered came from `body`'s own inheritance, not from
+            anything this line said. That worked, and it made the size
+            invisible to anybody reading the class list, which is how
+            `Disclosure` came to be 17px beside it. See `globals.css`. */}
+        <Heading className="text-body-md font-semibold text-ink">
           {title}
         </Heading>
         {description && (
