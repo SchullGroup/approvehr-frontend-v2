@@ -74,11 +74,6 @@ export function RecruitmentComingSoon() {
             />
           ))}
         </div>
-
-        <p className="text-center text-body-sm text-muted">
-          We would rather build this properly than switch it on early — the
-          nav will say so the day it is ready.
-        </p>
       </PageBody>
     </>
   );
