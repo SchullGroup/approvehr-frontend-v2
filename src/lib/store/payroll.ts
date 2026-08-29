@@ -29,6 +29,8 @@ import {
   type RunException,
   type RunExclusion,
   type BonusChange,
+  type AdjustmentUpload,
+  type SheetOutcome,
   type MonthlyPayChange,
   type OvertimeOverrideChange,
   type OvertimeOverrideKind,
@@ -852,7 +854,11 @@ export type RunsState = {
 
 /** Every run, newest period first. */
 export function usePayrollRuns(): RunsState {
-  const { isConnected } = useSession();
+  const { isConnected, can } = useSession();
+  /* `GET /payroll/runs` is `VIEW_SALARIES` (`modules/payroll/router.ts`). A
+     reader without it has no runs to be shown and never had — asking produced a
+     403 and nothing else. Empty, not an error: nothing went wrong. */
+  const mayRead = can("VIEW_SALARIES");
   const demo = useDemoContext();
 
   const [state, setState] = useState<{
@@ -863,7 +869,7 @@ export function usePayrollRuns(): RunsState {
   }>({ runs: [], total: 0, loading: isConnected, error: null });
 
   const load = useCallback(async () => {
-    if (!isConnected) return;
+    if (!isConnected || !mayRead) return;
     setState((s) => ({ ...s, loading: true, error: null }));
     try {
       const result = await payrollApi.runs();
@@ -880,7 +886,7 @@ export function usePayrollRuns(): RunsState {
         error: error instanceof ApiError ? error : null,
       }));
     }
-  }, [isConnected]);
+  }, [isConnected, mayRead]);
 
   /* Re-ask when somebody comes back to the window. Not in the key below,
      so the answer is replaced without the screen flashing a skeleton. */
@@ -1598,7 +1604,7 @@ export function usePayrollActions() {
         employeeId: string;
         hours: number;
         kind: OvertimeOverrideKind;
-        reason: string;
+        reason?: string;
       },
     ): Promise<OvertimeOverrideChange> => {
       if (isConnected) return payrollApi.setOvertimeOverride(runId, input);
@@ -1630,7 +1636,7 @@ export function usePayrollActions() {
   const setBonus = useCallback(
     async (
       runId: string,
-      input: { employeeId: string; amountKobo: number; reason: string },
+      input: { employeeId: string; amountKobo: number; reason?: string },
     ): Promise<BonusChange> => {
       if (isConnected) return payrollApi.setBonus(runId, input);
       throw new ApiError(
@@ -1647,6 +1653,29 @@ export function usePayrollActions() {
     async (runId: string, employeeId: string): Promise<PreparedRun> => {
       if (isConnected) return payrollApi.clearBonus(runId, employeeId);
       throw new ApiError(0, "offline", "Adding a bonus needs the API.");
+    },
+    [isConnected],
+  );
+
+  /**
+   * A whole payroll's figures, from one uploaded spreadsheet.
+   *
+   * Refused offline for the same reason as every figure it carries, and one
+   * more of its own: the sheet's contract is that emptying a cell takes a
+   * figure off, which is only true if something recomputes the payroll
+   * afterwards. A demo that accepted the file and moved no payslip would teach
+   * the opposite of what the feature does.
+   */
+  const uploadAdjustments = useCallback(
+    async (runId: string, body: AdjustmentUpload): Promise<SheetOutcome> => {
+      if (isConnected) return payrollApi.uploadAdjustments(runId, body);
+      throw new ApiError(
+        0,
+        "offline",
+        "Uploading a payroll sheet needs the API. Every figure on it moves " +
+          "gross and the tax on it, and the demo has no engine to recompute " +
+          "either.",
+      );
     },
     [isConnected],
   );
@@ -1682,7 +1711,7 @@ export function usePayrollActions() {
       input: {
         employeeId: string;
         payeKobo: number;
-        reason: string;
+        reason?: string;
         alsoStanding?: boolean;
       },
     ): Promise<TaxOverrideChange> => {
@@ -1725,6 +1754,7 @@ export function usePayrollActions() {
     clearOvertimeOverride,
     setBonus,
     clearBonus,
+    uploadAdjustments,
     setMonthlyPay,
     connected: isConnected,
   };

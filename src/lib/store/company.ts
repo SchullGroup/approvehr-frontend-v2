@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
-import { company as api } from "@/lib/api/endpoints";
+import { company as api, type ApiCompanyProfile } from "@/lib/api/endpoints";
 import { ApiError } from "@/lib/api/client";
 import { createPersistedState } from "./persisted";
 import { useSession } from "./session";
@@ -358,6 +358,72 @@ const store = createPersistedState<CompanyState>({
   empty: EMPTY,
   version: 1,
 });
+
+/**
+ * The company's real identity, when there is an API to ask.
+ *
+ * ## Why this is not `useCompanySettings`
+ *
+ * `DEFAULT_COMPANY` is a **fabricated** profile — a legal name, an RC number, a
+ * TIN, a registered address and two legal entities, all invented. It is the
+ * seed for demo mode and it is correct there.
+ *
+ * It reached a real customer twice. First the printed payslip, which carried a
+ * fabricated legal name and RC number on a real company's document; that was
+ * fixed at the payslip. Then `/settings/company` — the screen that *is* the
+ * company's identity — which read the local store unconditionally, so a second
+ * organisation signed in and was shown the first one's RC number and TIN, on a
+ * form, above a panel explaining that these are what "PAYE, pension and NHF
+ * schedules filed on your behalf" use.
+ *
+ * The form's own comment recorded the gap and deferred it: "the rest of this
+ * form is demo-store only — converting all of it is its own piece of work."
+ * That was defensible while one organisation existed and stopped being
+ * defensible the moment a second one did.
+ *
+ * So there is one hook, exported, and both readers use it. A copy of this
+ * living in a page is how the payslip and the settings screen came to disagree
+ * about the same company in the first place.
+ *
+ * Returns `null` offline and while loading — callers fall back to the demo
+ * store only when genuinely not connected, never as a loading state.
+ */
+export function useLiveCompanyProfile(): {
+  profile: ApiCompanyProfile | null;
+  reload: () => void;
+} {
+  const { isConnected } = useSession();
+  const [profile, setProfile] = useState<ApiCompanyProfile | null>(null);
+  const [nonce, setNonce] = useState(0);
+
+  useEffect(() => {
+    /* No `setProfile(null)` here — a disconnected read is *derived* below
+       rather than written from an effect. Setting state on the way out of an
+       effect is the cascading-render shape `lib/store/my-record.ts` was
+       restructured to remove, and the lint rule that names it is right. */
+    if (!isConnected) return;
+    let cancelled = false;
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const result = await api.profile(controller.signal);
+        if (!cancelled) setProfile(result);
+      } catch {
+        /* Absent, not fabricated. A failed read must not fall through to the
+           seed — that is the whole defect this hook exists for. */
+        if (!cancelled) setProfile(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [isConnected, nonce]);
+
+  const reload = useCallback(() => setNonce((n) => n + 1), []);
+  /* Derived, so a stale profile cannot survive a disconnect. */
+  return { profile: isConnected ? profile : null, reload };
+}
 
 export function useCompanySettings() {
   const state = useSyncExternalStore(

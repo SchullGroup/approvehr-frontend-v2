@@ -138,8 +138,30 @@ export function Disclosure({
               <span
                 id={titleId}
                 className={cn(
-                  "font-medium text-ink",
-                  level === 2 ? "text-body-lg" : "text-body-sm",
+                  /**
+                   * A level-2 title is byte-identical to `CardHeader`'s
+                   * heading, deliberately: both head a section, and they sit
+                   * beside each other constantly — the payslip table is a Card
+                   * and the spreadsheet panel is a Disclosure, one above the
+                   * other on the Review step.
+                   *
+                   * It was `text-body-lg` (17px) against the Card's 16px. One
+                   * pixel, and visible as soon as you look at the two together,
+                   * which is what "the fonts are not uniform" means.
+                   *
+                   * **`text-body` here is the colour utility and carries no
+                   * size** — `--color-body` and `--text-body` collide on the
+                   * name and the colour wins, which `globals.css` records and
+                   * `verify-typescale` names in its failure message. So this
+                   * inherits 16px from `body`, exactly as `CardHeader` does.
+                   * That is a trap rather than a design, and the reason to
+                   * write it this way anyway is that copying the Card's own
+                   * class is the only construction that cannot drift from it.
+                   * `text-ink` after it wins the colour back.
+                   */
+                  level === 2
+                    ? "text-body-md font-semibold text-ink"
+                    : "text-body-sm font-medium text-ink",
                 )}
               >
                 {title}

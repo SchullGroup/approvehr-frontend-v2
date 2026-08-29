@@ -18,7 +18,7 @@ import { RunStatusBadge, SourceBadge } from "@/components/payroll/run-panels";
 import { company as companyApi, type ApiCompanyProfile } from "@/lib/api/endpoints";
 import { longDate, periodLabel } from "@/lib/api/payroll";
 import { usePayrollSettings } from "@/lib/payroll/use-settings";
-import { useCompanySettings } from "@/lib/store/company";
+import { useCompanySettings, useLiveCompanyProfile } from "@/lib/store/company";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { usePayslipRecord } from "@/lib/store/payroll";
 
@@ -32,29 +32,6 @@ import { usePayslipRecord } from "@/lib/store/payroll";
  * page already reads (`SourceBadge`, the `rates` prop below); this hook just
  * asks it too, for the one thing it did not yet gate.
  */
-function useCompanyIdentity(connected: boolean) {
-  const [profile, setProfile] = useState<ApiCompanyProfile | null>(null);
-
-  useEffect(() => {
-    if (!connected) return;
-    let cancelled = false;
-    const controller = new AbortController();
-    void (async () => {
-      try {
-        const result = await companyApi.profile(controller.signal);
-        if (!cancelled) setProfile(result);
-      } catch {
-        if (!cancelled) setProfile(null);
-      }
-    })();
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [connected]);
-
-  return profile;
-}
 
 /**
  * One payslip.
@@ -96,7 +73,10 @@ export function PayslipView({ id }: { id: string }) {
      off rather than derived. */
   const { settings } = usePayrollSettings();
   const { settings: demoCompany } = useCompanySettings();
-  const liveCompany = useCompanyIdentity(record.connected);
+  /* The same hook `/settings/company` reads. It used to be a copy living
+     here, which is how that screen and this one came to disagree about the
+     same company: this one was fixed and that one was not. */
+  const liveCompany = useLiveCompanyProfile().profile;
 
   if (record.loading) {
     return (

@@ -68,9 +68,11 @@ export type ApiTeamMember = {
 export type ApiTeamDetail = ApiTeam & {
   members: ApiTeamMember[];
   /** Monthly cost of the people on it, in integer kobo. */
-  payrollKobo: number;
+  /** Null when the caller may not see pay. See `ApiDepartmentNode`. */
+  payrollKobo: number | null;
   /** How many of `members` were left out of `payrollKobo` because they have no pay set. */
-  payrollUnknown: number;
+  /** Null alongside a withheld total — it describes a figure nobody sees. */
+  payrollUnknown: number | null;
 };
 
 /** Whoever the rule moved. Names, because a count cannot be checked by a human. */

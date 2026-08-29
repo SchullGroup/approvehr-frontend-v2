@@ -136,7 +136,12 @@ export function PaymentHistoryScreen() {
   /* `GET /payments/history` needs RUN_PAYROLL. Rendering an empty table to
      somebody the API would refuse reads as "nobody has ever been paid", which is
      a wrong answer rather than a blank one. */
-  if (!can("RUN_PAYROLL")) {
+  /* RUN_PAYROLL **or** APPROVE_PAYROLL, matching the reads in
+     `modules/payments/router.ts`. The Finance approver holds only the second
+     and must never hold the first — separation of duties is the whole point
+     of the split — so checking the first alone shut the one role whose job is
+     releasing money out of the screen where money is released. */
+  if (!can("RUN_PAYROLL") && !can("APPROVE_PAYROLL")) {
     return (
       <>
         <PageHeader title="Payment history" />
@@ -145,7 +150,7 @@ export function PaymentHistoryScreen() {
             <EmptyState
               icon={<History aria-hidden="true" />}
               title="Payment history is not part of your access"
-              description="Only people who run payroll can see what everybody was paid. Your own payslips are on the payslips screen."
+              description="Seeing what everybody was paid needs either the “Run payroll” or the “Approve payroll” permission. Your own payslips are on the payslips screen."
               action={<ButtonLink href="/payroll/payslips">Go to payslips</ButtonLink>}
             />
           </Card>

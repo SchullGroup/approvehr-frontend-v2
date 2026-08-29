@@ -110,13 +110,55 @@ if (offences.length > 0) {
     );
   }
   console.error(
-    "\nUse the body-scale tokens instead — text-body-lg (17px), text-body-sm\n" +
-      "(15px) or text-meta (14px, the floor). Note that `text-body` is a COLOUR\n" +
-      "utility, not a size: `--color-body` and `--text-body` collide in Tailwind\n" +
-      "v4 and the colour wins.\n\n" +
+    "\nUse the body-scale tokens instead — text-body-lg (17px), text-body-md\n" +
+      "(16px), text-body-sm (15px) or text-meta (14px, the floor). Note that\n" +
+      "`text-body` is a COLOUR utility and carries no size at all; the 16px step\n" +
+      "is `text-body-md`.\n\n" +
       "If a design seems to need 12px, the design is wrong — either it shows\n" +
       "something that does not belong on that screen, or the container needs to\n" +
       "be bigger. See the body-scale note in src/app/globals.css.\n",
+  );
+  process.exit(1);
+}
+
+/* -------------------------------------------------------------------------- */
+/* No size token may share a name with a colour token                          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A `--text-x` and a `--color-x` generate the same `text-x` utility, and
+ * Tailwind v4 resolves it in favour of the colour. The size then produces
+ * **nothing at all**, silently — the class is still valid, still does
+ * something, and simply is not the thing its author asked for.
+ *
+ * `--text-body` and `--color-body` collided for months. Every `text-body` in
+ * the app is a colour and always was; what did not exist was any way to name
+ * the 16px step. It cost two defects in one day, both reported as "the fonts
+ * are not uniform": `CardHeader` got 16px by inheriting from `body` rather than
+ * from anything its class list said, and `Disclosure` was then moved onto
+ * `text-body-lg` and rendered a section heading 17px beside the 16px card
+ * heading it exists to match.
+ *
+ * The 16px step is `--text-body-md` now. This check is why it cannot quietly
+ * become unreachable again — and it is structural rather than a list, so a
+ * collision on any future token fails without anybody remembering to add it.
+ */
+const css = fs.readFileSync(path.join(SRC, "app/globals.css"), "utf8");
+const named = (prefix: string): Set<string> =>
+  new Set(
+    [...css.matchAll(new RegExp(`--${prefix}-([a-z0-9-]+)\\s*:`, "g"))]
+      .map((m) => m[1] ?? "")
+      .filter((name) => name !== "" && !name.endsWith("--line-height")),
+  );
+
+const collisions = [...named("text")].filter((name) => named("color").has(name)).sort();
+if (collisions.length > 0) {
+  console.error(
+    `\nThese tokens exist as BOTH a size and a colour, so the size generates\n` +
+      `nothing and any class using it silently has no font-size:\n\n` +
+      collisions.map((name) => `  --text-${name}  vs  --color-${name}`).join("\n") +
+      `\n\nRename the size — the colour is what every existing call site means.\n` +
+      `See the body-scale note in src/app/globals.css.\n`,
   );
   process.exit(1);
 }

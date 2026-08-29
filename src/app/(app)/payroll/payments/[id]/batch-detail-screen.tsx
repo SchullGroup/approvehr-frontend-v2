@@ -80,7 +80,12 @@ export function BatchDetailScreen({ id }: { id: string }) {
     );
   }
 
-  if (!can("RUN_PAYROLL")) {
+  /* RUN_PAYROLL **or** APPROVE_PAYROLL, matching the reads in
+     `modules/payments/router.ts`. The Finance approver holds only the second
+     and must never hold the first — separation of duties is the whole point
+     of the split — so checking the first alone shut the one role whose job is
+     releasing money out of the screen where money is released. */
+  if (!can("RUN_PAYROLL") && !can("APPROVE_PAYROLL")) {
     return (
       <>
         <PageHeader title="Payment batch" />

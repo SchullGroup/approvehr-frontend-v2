@@ -234,8 +234,40 @@ export function useGrades(params: GradeListParams = {}) {
   const key = JSON.stringify(params);
   const ticket = useRef(0);
 
+  /**
+   * The salary ladder is `MANAGE_PAY_STRUCTURE`, and the whole router is behind
+   * it — see `modules/grades/router.ts`, which puts `requirePermissions` on the
+   * router rather than per route.
+   *
+   * Asking anyway is what every role except Administrator was doing. `/people/[id]`
+   * reads this on every record it opens, so an HR manager — who edits records all
+   * day and holds `EDIT_RECORDS` but not this — met a 403 and a red console line
+   * on every single person they looked at. The band picker was empty either way;
+   * the only thing the request achieved was noise, and noise on every page teaches
+   * people that a red console is normal.
+   *
+   * The empty state is derived at **return time**, not written with `setState`,
+   * for the same reason `editable` below is: it is a fact about the account, not
+   * about a response, and `load` never running would otherwise leave `loading`
+   * true for ever. `mayRead` is a boolean rather than `can` itself, so putting it
+   * in the dependency array is safe — see the warning above, which is about the
+   * function's identity changing every render, not about the permission.
+   *
+   * Empty rather than an error is the honest shape: there is no ladder to show
+   * this reader, and nothing went wrong. `rows: []` makes `currentGrade`
+   * undefined and the picker offer nothing, which is what it should offer
+   * somebody who may not set a band.
+   */
+  /* Reads take VIEW_SALARIES **or** MANAGE_PAY_STRUCTURE
+     (`modules/grades/router.ts`): reading a band and setting the company pay
+     structure are different acts. HR manager, Payroll analyst and Finance
+     approver hold the first and none holds the second, so the narrower gate
+     emptied the band picker for exactly the people whose job involves pay.
+     Line managers and employees still see nothing, which is the point. */
+  const mayRead = can("VIEW_SALARIES") || can("MANAGE_PAY_STRUCTURE");
+
   const load = useCallback(async () => {
-    if (isLoading || !isConnected) return;
+    if (isLoading || !isConnected || !mayRead) return;
 
     const mine = ++ticket.current;
     setState((s) => ({ ...s, loading: true, error: null }));
@@ -258,7 +290,7 @@ export function useGrades(params: GradeListParams = {}) {
         error: error instanceof ApiError ? error : null,
       }));
     }
-  }, [isConnected, isLoading, key]);
+  }, [isConnected, isLoading, key, mayRead]);
 
   /* Re-ask when somebody comes back to the window. Not in the key below,
      so the answer is replaced without the screen flashing a skeleton. */
@@ -337,6 +369,18 @@ export function useGrades(params: GradeListParams = {}) {
       loading: isLoading,
       error: null,
       connected: false,
+      editable: false,
+      ...writes,
+    };
+  }
+
+  if (!mayRead) {
+    return {
+      rows: [],
+      total: 0,
+      loading: false,
+      error: null,
+      connected: true,
       editable: false,
       ...writes,
     };

@@ -58,6 +58,7 @@ import {
   DEMO_PAYSLIPS,
   payslipFiguresFor,
 } from "../src/lib/mock/demo-payslips";
+import { overtimeWorking } from "../src/components/payroll/payslip-document";
 import { EMPLOYEES } from "../src/lib/mock/people";
 import {
   DEFAULT_SETTINGS,
@@ -305,6 +306,89 @@ if (existsSync(backendEnginePath)) {
 }
 
 /* --- Report ------------------------------------------------------------- */
+
+/* -------------------------------------------------------------------------- */
+/* The overtime working printed on a payslip                                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * `overtimeWorking` factors the amount the payslip already carries. It never
+ * computes one, which is what keeps it out of the duplicate-engine trap — so
+ * what these assert is that the sentence **multiplies back to the stored
+ * figure**, and that it says nothing when it cannot.
+ *
+ * ₦18,493.11 is 6 hours of somebody on ₦500,000 a month under the calendar
+ * basis the payslip workbook this was built against uses: 500000 x 12 / 365 / 8
+ * = ₦2,054.79 an hour, times 1.5. Both the figure and the sentence come from
+ * that, by opposite routes.
+ */
+same(
+  "the hand-entered working factors back to the stored amount",
+  overtimeWorking("Overtime, entered by hand (6.00h at 1.5x)", 1_849_311),
+  "6 hours at ₦2,054.79 an hour, times 1.5",
+);
+
+same(
+  "a clocked line states the hours and what they averaged",
+  overtimeWorking("Overtime 2026-08-13 (4.0h)", 517_808),
+  "4 hours, ₦1,294.52 an hour",
+);
+
+same(
+  "nothing is said about a line that is not overtime",
+  overtimeWorking("Bonus — Q3 target", 5_000_000),
+  null,
+);
+
+same(
+  "nothing is said when the hours cannot be read",
+  overtimeWorking("Overtime, entered by hand", 1_849_311),
+  null,
+);
+
+/* A working somebody cannot check is worse than none, and dividing by it
+   would print Infinity. */
+same(
+  "nothing is said about nil hours",
+  overtimeWorking("Overtime (0h)", 0),
+  null,
+);
+
+/* -------------------------------------------------------------------------- */
+/* The run table's row identity                                                */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Every column the review table shows, against the engine's own net.
+ *
+ * `engine.ts`: `net = gross − pension − nhf − preTax − paye − postTax`. The
+ * table renders Gross, Overtime, Bonus, PAYE, Deductions and Net — so
+ * **Gross − Deductions − PAYE must equal Net**, where Deductions is pension
+ * plus NHF plus the pre- and post-tax lines.
+ *
+ * This is here because it was false. Pension had a column and lost it, NHF
+ * never had one, and the cell beside PAYE carried only `otherDeductionsKobo` —
+ * so the row was short of its own net by ₦9,500 on a ₦100,000 salary, with
+ * nothing on screen to account for it. Nothing was mispaid; the figures were
+ * all correct. A person simply could not check them on the screen where they
+ * approve the money, and a table that does not add up is indistinguishable
+ * from one that is wrong.
+ *
+ * Asserted over the illustrative payslips rather than a hand-worked case, so
+ * it covers every salary the demo ships and cannot be satisfied by one.
+ */
+for (const slip of DEMO_PAYSLIPS) {
+  /* The fixture's `netKobo` is before any post-tax deduction — the demo applies
+     those itself — so this is the identity with `otherDeductionsKobo` at zero,
+     which is exactly the case that was broken: an ordinary payslip with no loan
+     and no claim on it still lost pension and NHF out of the row. */
+  const deductions = slip.pensionEmployeeKobo + slip.nhfKobo;
+  checks.push({
+    name: `the row adds up at ${String(slip.grossKobo / 100)}`,
+    got: slip.grossKobo - deductions - slip.payeKobo,
+    want: slip.netKobo,
+  });
+}
 
 const rows: string[] = [];
 const failures: string[] = [];
