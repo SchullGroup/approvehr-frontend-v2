@@ -630,7 +630,15 @@ export type PaymentsSummaryState = {
 };
 
 export function usePaymentsSummary(): PaymentsSummaryState {
-  const { isConnected } = useSession();
+  const { isConnected, can } = useSession();
+  /* Every payments route is `RUN_PAYROLL` (`modules/payments/router.ts`), so
+     asking without it only ever produced a 403 on a screen that had already
+     decided what to show. Note who is most likely to try: **Finance approver**,
+     whose job is releasing money and who deliberately does not hold
+     `RUN_PAYROLL` — separation of duties means whoever prepares a run must not
+     release it. That is a gap in the permission model, not in this file; gating
+     here stops the noise, it does not give them the screen. */
+  const mayRead = can("RUN_PAYROLL");
   const book = useDemoBook();
   const rev = useRevision();
 
@@ -644,7 +652,7 @@ export function usePaymentsSummary(): PaymentsSummaryState {
      so the answer is replaced without the screen flashing a skeleton. */
   const revalidation = useRevalidation();
   useEffect(() => {
-    if (!isConnected) return;
+    if (!isConnected || !mayRead) return;
     let cancelled = false;
     const controller = new AbortController();
     void (async () => {
@@ -666,7 +674,7 @@ export function usePaymentsSummary(): PaymentsSummaryState {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, rev, revalidation]);
+  }, [isConnected, mayRead, rev, revalidation]);
 
   if (!isConnected) {
     const outstanding = book.batches
@@ -735,7 +743,15 @@ export type BatchListState = {
 };
 
 export function usePaymentBatches(params: BatchListParams = {}): BatchListState {
-  const { isConnected } = useSession();
+  const { isConnected, can } = useSession();
+  /* Every payments route is `RUN_PAYROLL` (`modules/payments/router.ts`), so
+     asking without it only ever produced a 403 on a screen that had already
+     decided what to show. Note who is most likely to try: **Finance approver**,
+     whose job is releasing money and who deliberately does not hold
+     `RUN_PAYROLL` — separation of duties means whoever prepares a run must not
+     release it. That is a gap in the permission model, not in this file; gating
+     here stops the noise, it does not give them the screen. */
+  const mayRead = can("RUN_PAYROLL");
   const book = useDemoBook();
   const rev = useRevision();
 
@@ -768,7 +784,7 @@ export function usePaymentBatches(params: BatchListParams = {}): BatchListState 
      so the answer is replaced without the screen flashing a skeleton. */
   const revalidation = useRevalidation();
   useEffect(() => {
-    if (!isConnected) return;
+    if (!isConnected || !mayRead) return;
     let cancelled = false;
     const controller = new AbortController();
     void (async () => {
@@ -793,7 +809,7 @@ export function usePaymentBatches(params: BatchListParams = {}): BatchListState 
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, query, key, revalidation]);
+  }, [isConnected, mayRead, query, key, revalidation]);
 
   if (!isConnected) {
     let rows = book.batches.map(toBatch);
@@ -1125,7 +1141,15 @@ export type PaymentHistoryState = {
 export function usePaymentHistory(
   params: PaymentHistoryParams = {},
 ): PaymentHistoryState {
-  const { isConnected } = useSession();
+  const { isConnected, can } = useSession();
+  /* Every payments route is `RUN_PAYROLL` (`modules/payments/router.ts`), so
+     asking without it only ever produced a 403 on a screen that had already
+     decided what to show. Note who is most likely to try: **Finance approver**,
+     whose job is releasing money and who deliberately does not hold
+     `RUN_PAYROLL` — separation of duties means whoever prepares a run must not
+     release it. That is a gap in the permission model, not in this file; gating
+     here stops the noise, it does not give them the screen. */
+  const mayRead = can("RUN_PAYROLL");
   const book = useDemoBook();
   const rev = useRevision();
 
@@ -1153,7 +1177,7 @@ export function usePaymentHistory(
      so the answer is replaced without the screen flashing a skeleton. */
   const revalidation = useRevalidation();
   useEffect(() => {
-    if (!isConnected) return;
+    if (!isConnected || !mayRead) return;
     let cancelled = false;
     const controller = new AbortController();
     void (async () => {
@@ -1175,7 +1199,7 @@ export function usePaymentHistory(
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, query, key, revalidation]);
+  }, [isConnected, mayRead, query, key, revalidation]);
 
   const offline = useMemo(() => {
     if (isConnected) return null;
@@ -1247,7 +1271,9 @@ export type PaidPeopleState = {
 const PAYEE_SCAN_SIZE = 200;
 
 export function usePaidPeople(period?: string): PaidPeopleState {
-  const { isConnected } = useSession();
+  const { isConnected, can } = useSession();
+  /* `GET /payments/history` is `RUN_PAYROLL`, same as the rest of the module. */
+  const mayRead = can("RUN_PAYROLL");
   const book = useDemoBook();
   const rev = useRevision();
 
@@ -1262,7 +1288,7 @@ export function usePaidPeople(period?: string): PaidPeopleState {
      so the answer is replaced without the screen flashing a skeleton. */
   const revalidation = useRevalidation();
   useEffect(() => {
-    if (!isConnected) return;
+    if (!isConnected || !mayRead) return;
     let cancelled = false;
     const controller = new AbortController();
     void (async () => {
@@ -1962,7 +1988,10 @@ export type PayableRunsState = {
  * thing it should do connected when there is nothing waiting to be paid.
  */
 export function usePayableRuns(): PayableRunsState {
-  const { isConnected } = useSession();
+  const { isConnected, can } = useSession();
+  /* `GET /payroll/runs` is `VIEW_SALARIES` (`modules/payroll/router.ts`). A
+     reader without it has no runs to be shown and never had. */
+  const mayRead = can("VIEW_SALARIES");
   const rev = useRevision();
 
   const [fetched, setFetched] = useState<{ rev: number; runs: ApiPayableRun[] } | null>(
@@ -1973,7 +2002,7 @@ export function usePayableRuns(): PayableRunsState {
      so the answer is replaced without the screen flashing a skeleton. */
   const revalidation = useRevalidation();
   useEffect(() => {
-    if (!isConnected) return;
+    if (!isConnected || !mayRead) return;
     let cancelled = false;
     const controller = new AbortController();
     void (async () => {
@@ -1991,7 +2020,7 @@ export function usePayableRuns(): PayableRunsState {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, rev, revalidation]);
+  }, [isConnected, mayRead, rev, revalidation]);
 
   if (!isConnected) return { runs: [], loading: false, live: false };
 
