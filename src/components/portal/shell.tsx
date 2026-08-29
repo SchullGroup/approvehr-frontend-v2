@@ -11,16 +11,17 @@ import { CommandPalette } from "./command-palette";
 import { GuidedTour, openTour } from "./tour/guided-tour";
 import { NAV, visibleNav, type BadgeSource, type NavGroup } from "./nav";
 import { SessionRoleBadge } from "./role-badge";
-import { hasAnyPermission, useIsManager, usePermissions } from "@/lib/permissions";
+import {
+  hasAnyPermission,
+  hasPermission,
+  useIsManager,
+  usePermissions,
+} from "@/lib/permissions";
 import { useFeatures } from "@/lib/store/features";
 import { useUnreadCount } from "@/lib/store/notifications";
-import { useApprovalStore } from "@/lib/store/approvals";
-import { useLeaveStore } from "@/lib/store/leave";
-import { useAttendanceStore } from "@/lib/store/attendance";
-import { useEmployeeStore } from "@/lib/store/employees";
-import { rosterFor } from "@/lib/workflows/attendance";
-import { TODAY } from "@/lib/today";
-import { buildApprovalQueue } from "@/lib/workflows/queue";
+import { useApprovalQueue } from "@/lib/store/approvals-api";
+import { useLeaveRequests } from "@/lib/store/leave-api";
+import { useAttendanceRoster } from "@/lib/store/attendance";
 import { APPROVE_PERMISSIONS } from "@/app/(app)/approvals/inbox";
 import { useSession } from "@/lib/store/session";
 import { VerificationBanner } from "./verification-banner";
@@ -218,43 +219,67 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 /* -------------------------------------------------------------------------- */
 
 /**
- * Counts the sidebar shows. Read from the same stores the screens read, so the
- * badge and the page can never disagree — which they did while the numbers were
- * literals in nav.tsx.
+ * Counts the sidebar shows. Read from the same connected-aware hooks the
+ * screens themselves read, so the badge and the page can never disagree —
+ * which they did while the numbers were literals in nav.tsx.
  *
- * That guarantee covered the data and missed the audience: `buildApprovalQueue`
- * is the company's whole pending queue, unscoped, and the badge showed its
- * length to everybody — a plain employee's own "My approvals" read 6 while the
- * page itself, correctly, told them approving is not part of their role. Same
- * `canApprove` question `approvals/inbox.tsx` already answers before it renders
- * anything, asked here before the count is even computed.
+ * That guarantee covered the data and missed the audience, twice over, and
+ * then missed the connection on top of both:
+ *
+ * - `buildApprovalQueue` over the raw stores was the company's whole pending
+ *   queue, unscoped, and the badge showed its length to everybody — a plain
+ *   employee's own "My approvals" read 6 while the page itself, correctly,
+ *   told them approving is not part of their role. Same `canApprove` question
+ *   `approvals/inbox.tsx` already answers before it renders anything, asked
+ *   here before the count is even computed.
+ * - `pendingLeave` and `notClockedIn` had the identical unscoped-audience
+ *   defect: the whole company's pending leave, and a full roster's
+ *   absentees, shown to every employee under a badge sitting on their own
+ *   personal "Time off" and "Attendance" links.
+ * - All three were also reading `useApprovalStore` / `useLeaveStore` /
+ *   `useAttendanceStore` / `useEmployeeStore` directly — the demo-only,
+ *   localStorage-backed stores, never the dual-mode hooks the real pages
+ *   call. Connected, those stores hold whatever the seed last wrote and
+ *   nothing this company has ever done, so a connected company with an
+ *   empty approvals queue still showed the demo seed's leftover "9". Fixed
+ *   by reading the same `useApprovalQueue` / `useLeaveRequests` /
+ *   `useAttendanceRoster` hooks the approvals inbox, the leave screen and
+ *   the attendance screen already call.
  */
 function useNavBadges(): Record<BadgeSource, number> {
-  const leave = useLeaveStore();
-  const approvals = useApprovalStore();
-  const attendance = useAttendanceStore();
-  const { directory } = useEmployeeStore();
   const unread = useUnreadCount();
   const isManager = useIsManager();
   const { permissions } = usePermissions();
+  const { employeeId } = useSession();
   const canApprove = isManager || hasAnyPermission(permissions, APPROVE_PERMISSIONS);
+  /* The nearest static permission to the "Attendance history" nav item's own
+     `useIsManager() || useCan("EDIT_RECORDS")` gate — a plain employee has no
+     business seeing how many of their colleagues have not clocked in today. */
+  const canSeeRoster = isManager || hasPermission(permissions, "EDIT_RECORDS");
+
+  const approvalQueue = useApprovalQueue();
+  /* An empty string matches nobody's id rather than nobody's filter — the same
+     idiom `session.actingId` uses elsewhere for the same reason: the honest
+     "mine" answer for an account with no linked employee record is zero, not
+     the whole company's pending requests. */
+  const myLeave = useLeaveRequests({
+    employeeId: employeeId ?? "",
+    status: "pending",
+  });
+  const roster = useAttendanceRoster();
 
   return {
     unreadNotifications: unread,
-    approvals: canApprove
-      ? buildApprovalQueue({
-          leaveRequests: leave.requests,
-          decisions: approvals.decisions,
-        }).length
-      : 0,
-    pendingLeave: leave.pending.length,
-    notClockedIn: rosterFor({
-      date: TODAY,
-      employees: directory,
-      entries: attendance.entries,
-      leaveRequests: leave.requests,
-      policy: attendance.policy,
-    }).filter((r) => r.status === "absent").length,
+    approvals: canApprove ? approvalQueue.counts.pending : 0,
+    pendingLeave: myLeave.total,
+    /* `roster.tracked` is false for a company that has never clocked anyone
+       in — every row still reads "absent" in that state (see `RosterState`'s
+       own header), and counting them would claim a wall of no-shows on a day
+       nobody was ever asked to clock in for. */
+    notClockedIn:
+      canSeeRoster && roster.tracked
+        ? roster.rows.filter((r) => r.status === "ABSENT").length
+        : 0,
   };
 }
 
