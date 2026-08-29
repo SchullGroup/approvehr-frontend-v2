@@ -355,7 +355,7 @@ function SidebarNav({
 
                     {item.soon && (
                       <span className="shrink-0 text-meta font-normal text-faint">
-                        Soon
+                        Coming soon
                       </span>
                     )}
                     {count !== undefined && count > 0 && !item.soon && (
