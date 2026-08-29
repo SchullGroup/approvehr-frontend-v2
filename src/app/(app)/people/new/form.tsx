@@ -71,7 +71,6 @@ import {
   fullName,
   payrollGapsFor,
   type Employee,
-  type EmploymentStatus,
   type EmploymentType,
   type PayrollGap,
 } from "@/lib/types";
@@ -431,16 +430,18 @@ export function NewEmployeeForm() {
    * Offline the local set is the honest one, because localStorage holds whatever
    * it is given. Same rule, and same lists, as the record page.
    */
-  const statuses = connected
-    ? [
-        { value: "onboarding", label: "Onboarding" },
-        { value: "active", label: "Active" },
-      ]
-    : [
-        { value: "onboarding", label: "Onboarding" },
-        { value: "probation", label: "Probation" },
-        { value: "active", label: "Active" },
-      ];
+  /* Parked with the status field below. Kept rather than deleted so bringing
+     the choice back is uncommenting two blocks and a nav entry. */
+  // const statuses = connected
+  //   ? [
+  //       { value: "onboarding", label: "Onboarding" },
+  //       { value: "active", label: "Active" },
+  //     ]
+  //   : [
+  //       { value: "onboarding", label: "Onboarding" },
+  //       { value: "probation", label: "Probation" },
+  //       { value: "active", label: "Active" },
+  //     ];
 
   const types = connected
     ? [
@@ -1207,7 +1208,24 @@ export function NewEmployeeForm() {
                       ))}
                     </Select>
                   </Field>
-                  <Field label="Status">
+                  {/* Status, parked with the onboarding tab.
+                      ---------------------------------------
+                      Everybody added here is **Active**. Nothing asks which of
+                      six states a new joiner is in, because the answer was
+                      always "Active" or "Onboarding", and Onboarding now leads
+                      to a screen that is out of the nav.
+
+                      The draft's default moved from `onboarding` to `active`
+                      in the same change — without that, every new joiner would
+                      have been created ONBOARDING with nothing left in the
+                      interface able to change it. The status is still sent
+                      explicitly rather than relying on the column default, so
+                      what is written is unchanged in shape.
+
+                      To bring it back, uncomment this and the `statuses` list
+                      above it, re-add the `EmploymentStatus` type import, and
+                      restore the nav entry in `components/portal/nav.tsx`. */}
+                  {/* <Field label="Status">
                     <Select
                       value={draft.status}
                       onChange={(e) =>
@@ -1220,7 +1238,7 @@ export function NewEmployeeForm() {
                         </option>
                       ))}
                     </Select>
-                  </Field>
+                  </Field> */}
                 </CardBody>
               </Card>
             )}
@@ -1709,12 +1727,17 @@ export function NewEmployeeForm() {
               aria-hidden="true"
               className="mt-0.5 size-4 shrink-0 text-faint"
             />
+            {/* Was: "saving with a status of Onboarding adds them to the
+                onboarding checklist automatically." That promise is not true
+                while the onboarding tab is out of the nav, and a sentence
+                describing a screen nobody can reach is worse than none. */}
             <p className="text-meta leading-relaxed text-muted">
-              Saving with a status of{" "}
-              <Badge tone="info" size="sm">
-                Onboarding
-              </Badge>{" "}
-              adds them to the onboarding checklist automatically.
+              They are added as{" "}
+              <Badge tone="success" size="sm">
+                Active
+              </Badge>
+              , so they appear in the directory and on the next payroll
+              straight away.
             </p>
           </CardBody>
         </Card>

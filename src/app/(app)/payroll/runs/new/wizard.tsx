@@ -1790,13 +1790,22 @@ function PayslipTable({
                           +{formatKobo(line.amountKobo)} {shortLabel(line.label)}
                         </span>
                       ))}
+                      {/* Named, not labelled "Adjust".
+                          -----------------------------
+                          It said "Adjust", which is a grey word describing
+                          nothing — and the product owner, who had asked for
+                          exactly these three things, could not find them. A
+                          control has to say what it does, not that it does
+                          something. */}
                       {editable && (
                         <button
                           type="button"
                           onClick={() => toggleAdjust(slip)}
-                          className="text-meta font-normal text-muted underline-offset-2 hover:text-accent-text hover:underline"
+                          className="text-meta font-medium text-accent-text underline-offset-2 hover:underline"
                         >
-                          {adjusting?.id === slip.id ? "Close" : "Adjust"}
+                          {adjusting?.id === slip.id
+                            ? "Close"
+                            : "Overtime, bonus or pay"}
                         </button>
                       )}
                     </span>
@@ -2020,46 +2029,52 @@ function PayeByHand({
 
   return (
     <div className="flex flex-col gap-4 border-l-2 border-accent px-4 py-4">
-      <p className="text-body-sm leading-relaxed text-muted">
-        {overridden
-          ? `${formatKobo(slip.payeKobo)} for ${periodLabel}, entered by hand.`
-          : `The bands put ${firstName}'s PAYE at ${formatKobo(slip.payeKobo)} for ${periodLabel}.`}{" "}
-        What you enter replaces it on this one payslip and net pay moves with
-        it. Pension, housing fund and every other line keep computing normally.
-      </p>
+      {/* One line, two fields.
+          ---------------------
+          This was a paragraph, two labelled fields with help text under each,
+          and a standing-preference checkbox — a form the size of the table row
+          it sits in, for typing one number. The explanation is now the row's
+          own hint and everything else is inline.
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-        <Field label="Monthly PAYE" required help="Naira, not annual.">
-          <Input
-            type="number"
-            inputMode="decimal"
-            min="0"
-            step="100"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="₦ a month"
-            className="sm:w-44"
-          />
-        </Field>
+          The reason is still required and still free text, because "why does
+          this not match the bands" has to have a written answer for as long as
+          the figure stands. What went is the instruction telling somebody how
+          to write it. */}
+      <div className="flex flex-wrap items-end gap-3">
+        <span className="w-40">
+          <Field label="PAYE this month" required>
+            <Input
+              type="number"
+              inputMode="decimal"
+              min="0"
+              step="100"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="₦ a month"
+            />
+          </Field>
+        </span>
 
-        <div className="flex-1">
-          <Field
-            label="Why does this not come from the bands?"
-            required
-            help="Whoever asks this question next year reads exactly what you type here."
-            {...(error ? { error } : {})}
-          >
+        <span className="min-w-48 flex-1">
+          <Field label="Reason" required {...(error ? { error } : {})}>
             <Input
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="Agreed with the state IRS at a different figure."
             />
           </Field>
-        </div>
+        </span>
       </div>
 
+      <p className="text-meta leading-relaxed text-muted">
+        {overridden
+          ? `${formatKobo(slip.payeKobo)} for ${periodLabel}, entered by hand.`
+          : `The bands put this at ${formatKobo(slip.payeKobo)} for ${periodLabel}.`}{" "}
+        Net pay moves with what you enter; pension and housing fund do not.
+      </p>
+
       <Checkbox
-        label={`Always enter ${firstName}'s PAYE by hand from now on`}
+        label={`Always enter ${firstName}'s PAYE by hand`}
         checked={alsoStanding}
         onChange={(e) => setAlsoStanding(e.target.checked)}
       />
