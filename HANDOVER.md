@@ -5178,3 +5178,137 @@ things about it cost time:
   its output as yours. A parse error from somebody else's in-flight edit is the
   tell. Add a config with `npm --prefix /path/to/worktree run dev` on its own
   port, and remove it afterwards.
+
+---
+
+# Walking the payroll flow found four things 2,109 tests did not
+
+An end-to-end pass over payroll — sign in as each real role, prepare, exclude,
+adjust, upload a sheet, approve, pay — as a script over HTTP rather than against
+the service layer, because what is being tested is what a browser can do
+**including what it is refused**. 75 assertions.
+
+The script is at `scratchpad/payroll-e2e.py` in the session directory rather
+than in either repo: it needs a running API and a seeded company, which is not
+what `npm run check` is. **Everything it found is pinned by vitest tests**, which
+is the durable half. It is worth re-running after any change to the run
+lifecycle, and the reason is this entry.
+
+## What it found, and why unit tests could not
+
+Every one of these is a **sequence**. Each individual guard reads as correct;
+the defect is what happens when you perform the acts in order.
+
+### 1. Cancelling a payroll made that month permanently unrunnable
+
+`prepare` refused any run that was not DRAFT or IN_REVIEW:
+
+> The 2026-09 run is already cancelled. **Cancel it before preparing that period
+> again.**
+
+Advice nobody can follow for a run that is already cancelled — and
+`@@unique([organizationId, period])` means one row per month, so there is no
+second attempt to make. Cancel September by mistake and **nobody in that company
+can ever be paid for September through this product**.
+
+Three things kept it hidden: the guard reads as obviously correct; `cancel`
+answers 200 on an already-cancelled run, so the suggested fix *appears* to work
+and changes nothing; and nothing tested the sequence.
+
+### 2. And cancelling an approved run walked back through the one-way door
+
+`cancel` refused only PAID, so an APPROVED run could be cancelled — leaving
+every loan instalment, expense claim and overtime record that approving had
+settled **still settled**, against a run the product then called cancelled.
+
+Alone, that produced a dead period: bad, and quiet. Paired with the fix above it
+would have made approval reversible by anybody holding `RUN_PAYROLL` — approve,
+cancel, prepare. **The two bugs were masking each other**, which is why fixing
+one without the other would have been worse than fixing neither.
+
+The two guards are stated separately on purpose. `prepare` refuses "you cannot
+re-run this"; `cancel` refuses "you cannot take this back". Two acts, two
+reasons, and sharing one predicate is how the next person changes both while
+meaning one.
+
+### 3. A checker could approve a batch it was not allowed to read
+
+Every payments **read** was gated on `RUN_PAYROLL`. The seeded Finance approver
+deliberately holds only `APPROVE_PAYROLL`, so the one role whose whole job is
+releasing a batch could call approve and could not list or open the thing it was
+approving.
+
+Approving what you cannot read is worse than not approving at all: a rubber
+stamp with a real signature on it, and a trail afterwards showing a considered
+decision nobody was able to consider.
+
+`requireAnyPermission` in `middleware/auth.ts` is new, and is the "any of" that
+`requirePermissions`'s own comment says to write explicitly where it comes up.
+Reads take either permission; **every write stays on exactly one**.
+
+### 4. Salaries were readable by any signed-in account
+
+Not from the walk — from re-checking an earlier audit against current staging,
+and it was still live. `GET /departments` returned `payrollKobo` per department
+beside a headcount, so a department of one published that person's exact pay
+without a record being opened; `GET /departments/:id` returned
+`grossMonthlyKobo` against a **named member**. Reproduced as the seeded Employee
+role, which holds zero permissions: `Halima Sani | Operations Lead | 95000000`.
+
+In the same session `GET /employees` withheld the same figures from the same
+caller. Two routes disagreed about one fact and the permissive one won.
+
+**`GET /teams/:id` had the identical leak and was not in the audit.** Found by
+asking what else answered the same question the same way — which is the move
+worth copying, rather than the fix.
+
+The rule: gate the money, not the tree. An org chart is not privileged and
+gating it would break the directory for everyone; that was never an argument for
+the salaries travelling alongside it. `VIEW_SALARIES` is passed **into the
+service** rather than enforced as a router gate, defaults to withholding, and
+withheld is `null` — never `0`, which would claim the department costs nothing.
+
+## The fifth, which the walk did not find and a test did
+
+`prepare` selected `status: "ACTIVE"`. `EmploymentStatus` has five members and
+**three matched no branch at all** — `ONBOARDING`, `ON_LEAVE`, `SUSPENDED` got
+no payslip and no exception naming them.
+
+Two ways in, neither requiring a mistake: the add-an-employee form pre-selected
+`ONBOARDING` and nothing promoted anybody out of it, and `imports/employees.ts`
+maps a spreadsheet's "maternity leave" onto `ON_LEAVE`.
+
+Dates decide pay now. `startDate: { lte: periodEnd }` was always in that query
+and already kept future joiners out; the status check only ever dropped people
+carrying a label nobody had changed. `SUSPENDED` still withholds — a deliberate
+act rather than a label left alone — and raises `withheld_by_status` naming each
+person, because **the failure was never the withholding, it was the silence**.
+
+`settingsResponse` counted the same wrong set for the Pension Reform Act
+threshold: 14 active and 2 onboarding read as 14, so a company that had become
+obliged to run a scheme was never told.
+
+## Two rules worth carrying forward
+
+**A read with no test is a read whose contract is whatever it happens to do.**
+Nothing exercised `departments.tree()` at all. That is how a salary leak lived
+in a route whose own doc comment explained why it was safe.
+
+**Sequences need their own tests.** Four of the five above are compound: a guard
+that is right, followed by an act that is right, producing a state that is
+wrong. Nothing that tests one call at a time can see them, and the suite was at
+2,109 passing while all four were live.
+
+## A correction on flakiness
+
+This file's rule — *a timeout is a flake, a failed assertion is not* — held for
+one occurrence and was then mis-applied twice by me. Six `tests/payments.test.ts`
+failures in a full run, passing 54/54 alone, looked exactly like the contention
+the rule describes. They were not: I had appended a `describe` **after** the
+block whose header says it must stay last in the file, so every assertion above
+it ran against a registered payment provider instead of the no-provider state
+that ships.
+
+The rule is still right. What it does not cover is order-dependence inside one
+file, and "passes alone, fails in the suite" is the signature of both. **Check
+what you added to the file before reaching for the rule.**
