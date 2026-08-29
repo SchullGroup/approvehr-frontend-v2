@@ -292,6 +292,7 @@ export function EmployeeRecordPage({ id }: { id: string }) {
           manager={manager}
           managerName={record.managerName}
           reports={reports}
+          companyDirectory={directory.employees}
           /* Live in both modes. Connected these are the leave module's own
              figures, so a decision made in the approvals inbox has already
              moved them; offline they come from the same local store the leave

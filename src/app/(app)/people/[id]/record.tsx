@@ -207,6 +207,7 @@ export function EmployeeRecord({
   manager,
   managerName,
   reports,
+  companyDirectory,
   balances,
   leaveRequests,
   leaveLoading = false,
@@ -218,6 +219,15 @@ export function EmployeeRecord({
   /** The manager's name even when their record is outside the page's slice. */
   managerName: string | null;
   reports: Employee[];
+  /**
+   * Who the "reports to" picker offers.
+   *
+   * The same slice `record-page.tsx` already reads to resolve `manager` and
+   * `reports` — the first 200 employees, connected. No fetch of its own: a
+   * second read of the same list would be one more thing for this page and
+   * that one to disagree about.
+   */
+  companyDirectory: Employee[];
   /** Every leave type, with the API's own remaining figure when connected. */
   balances: LeaveBalanceRow[];
   /** This employee's own requests. Live in both modes. */
@@ -924,39 +934,76 @@ export function EmployeeRecord({
               </Card>
             )}
 
-            <Card>
-              <CardHeader title="Reporting line" />
-              <CardBody className="flex flex-col gap-4">
-                <div>
-                  <p className="mb-2 text-meta font-semibold tracking-wide text-muted">
-                    Reports to
-                  </p>
-                  {manager ? (
-                    <PersonLink employee={manager} />
-                  ) : managerName ? (
-                    <p className="text-body-sm text-body">{managerName}</p>
-                  ) : (
-                    <p className="text-body-sm text-muted">
-                      No manager — reports to the board.
-                    </p>
-                  )}
-                </div>
+            <EditableSection
+              title="Reporting line"
+              employee={employee}
+              onSave={onSave}
+              fields={[
+                {
+                  key: "managerId",
+                  label: "Reports to",
+                  type: "picker",
+                  placeholder: "No manager — reports to the board",
+                  value: employee.managerId ?? "",
+                  emptyLabel: "No manager — reports to the board.",
+                  /* The one person at the top of a company has no manager,
+                     which is the ordinary state of a head of the org chart,
+                     not a gap the way an unset bank account is. */
+                  emptyIsNormal: true,
+                  format: () =>
+                    manager ? (
+                      <PersonLink employee={manager} />
+                    ) : (
+                      (managerName ?? "—")
+                    ),
+                  options: [
+                    { value: "", label: "No manager — reports to the board" },
+                    /* Belt and braces: the picker's options come from the first
+                       200 employees, connected. A company past that size could
+                       have a manager sitting outside the slice, and without
+                       this the picker would render as though nobody were
+                       chosen for a field that plainly has somebody. */
+                    ...(employee.managerId &&
+                    !companyDirectory.some((e) => e.id === employee.managerId)
+                      ? [
+                          {
+                            value: employee.managerId,
+                            label: manager
+                              ? fullName(manager)
+                              : (managerName ?? "Current manager"),
+                          },
+                        ]
+                      : []),
+                    ...companyDirectory
+                      .filter((e) => e.id !== employee.id)
+                      .map((e) => ({
+                        value: e.id,
+                        label: fullName(e),
+                        hint: e.jobTitle,
+                      })),
+                  ],
+                },
+              ]}
+            />
 
-                <div className="border-t border-line pt-4">
-                  <p className="mb-2 flex items-center gap-1.5 text-meta font-semibold tracking-wide text-muted">
-                    <Users aria-hidden="true" className="size-3.5" />
-                    Direct reports ({reports.length})
+            <Card>
+              <CardHeader title="Direct reports" />
+              <CardBody>
+                <p className="mb-2 flex items-center gap-1.5 text-meta font-semibold tracking-wide text-muted">
+                  <Users aria-hidden="true" className="size-3.5" />
+                  {reports.length === 0 ? "None" : `${reports.length} in total`}
+                </p>
+                {reports.length === 0 ? (
+                  <p className="text-body-sm text-muted">
+                    Nobody reports to them yet.
                   </p>
-                  {reports.length === 0 ? (
-                    <p className="text-body-sm text-muted">None.</p>
-                  ) : (
-                    <div className="flex flex-col gap-2">
-                      {reports.map((r) => (
-                        <PersonLink key={r.id} employee={r} />
-                      ))}
-                    </div>
-                  )}
-                </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {reports.map((r) => (
+                      <PersonLink key={r.id} employee={r} />
+                    ))}
+                  </div>
+                )}
               </CardBody>
             </Card>
 
