@@ -682,6 +682,39 @@ export function PayrollRunWizard() {
                 {...(canPrepare && !settled ? { onPutBack: putBack } : {})}
                 busyFor={puttingBack}
               />
+
+              {/* Where the per-person figures are.
+                  ---------------------------------
+                  This step is about what is *wrong* with the records; the
+                  figures themselves are one step on, in the payslip table. A
+                  product owner looking for "change the tax" stood on exactly
+                  this screen and could not find it, which is the third time in
+                  this codebase a working feature has been invisible for want of
+                  a sentence pointing at it.
+
+                  Absent once the run is approved: nothing there is editable
+                  then, and a link to controls that are all frozen is worse than
+                  no link. */}
+              {canPrepare && !settled && (
+                <Callout tone="info" title="Changing a figure by hand">
+                  <p>
+                    Tax, overtime, a bonus and somebody&rsquo;s monthly pay are
+                    all entered on the next step, against the person they belong
+                    to — <strong className="text-ink">Review</strong>, where
+                    every payslip is listed.
+                  </p>
+                  <p className="mt-2">
+                    Tax, overtime and a bonus apply to this payroll only. Pay is
+                    the contract, so changing it there changes their record from
+                    now on.
+                  </p>
+                  <p className="mt-2">
+                    <Button size="sm" onClick={() => stepper.goTo(2)}>
+                      Go to the payslips
+                    </Button>
+                  </p>
+                </Callout>
+              )}
             </>
           ) : (
             <EmptyState
@@ -715,6 +748,7 @@ export function PayrollRunWizard() {
                 {...(canPrepare && !settled ? { onPutBack: putBack } : {})}
                 busyFor={puttingBack}
               />
+
             </>
           ) : (
             <EmptyState
