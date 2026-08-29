@@ -258,7 +258,13 @@ export function useGrades(params: GradeListParams = {}) {
    * undefined and the picker offer nothing, which is what it should offer
    * somebody who may not set a band.
    */
-  const mayRead = can("MANAGE_PAY_STRUCTURE");
+  /* Reads take VIEW_SALARIES **or** MANAGE_PAY_STRUCTURE
+     (`modules/grades/router.ts`): reading a band and setting the company pay
+     structure are different acts. HR manager, Payroll analyst and Finance
+     approver hold the first and none holds the second, so the narrower gate
+     emptied the band picker for exactly the people whose job involves pay.
+     Line managers and employees still see nothing, which is the point. */
+  const mayRead = can("VIEW_SALARIES") || can("MANAGE_PAY_STRUCTURE");
 
   const load = useCallback(async () => {
     if (isLoading || !isConnected || !mayRead) return;

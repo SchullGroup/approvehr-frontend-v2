@@ -638,7 +638,12 @@ export function usePaymentsSummary(): PaymentsSummaryState {
      `RUN_PAYROLL` — separation of duties means whoever prepares a run must not
      release it. That is a gap in the permission model, not in this file; gating
      here stops the noise, it does not give them the screen. */
-  const mayRead = can("RUN_PAYROLL");
+  /* `GET /payments/{summary,batches,history}` take RUN_PAYROLL **or**
+     APPROVE_PAYROLL (`modules/payments/router.ts`). The Finance approver holds
+     only the second and must never hold the first — separation of duties — so
+     gating on RUN_PAYROLL alone locked the one role whose job is releasing
+     money out of the screen where money is released. */
+  const mayRead = can("RUN_PAYROLL") || can("APPROVE_PAYROLL");
   const book = useDemoBook();
   const rev = useRevision();
 
@@ -751,7 +756,12 @@ export function usePaymentBatches(params: BatchListParams = {}): BatchListState 
      `RUN_PAYROLL` — separation of duties means whoever prepares a run must not
      release it. That is a gap in the permission model, not in this file; gating
      here stops the noise, it does not give them the screen. */
-  const mayRead = can("RUN_PAYROLL");
+  /* `GET /payments/{summary,batches,history}` take RUN_PAYROLL **or**
+     APPROVE_PAYROLL (`modules/payments/router.ts`). The Finance approver holds
+     only the second and must never hold the first — separation of duties — so
+     gating on RUN_PAYROLL alone locked the one role whose job is releasing
+     money out of the screen where money is released. */
+  const mayRead = can("RUN_PAYROLL") || can("APPROVE_PAYROLL");
   const book = useDemoBook();
   const rev = useRevision();
 
@@ -1149,7 +1159,12 @@ export function usePaymentHistory(
      `RUN_PAYROLL` — separation of duties means whoever prepares a run must not
      release it. That is a gap in the permission model, not in this file; gating
      here stops the noise, it does not give them the screen. */
-  const mayRead = can("RUN_PAYROLL");
+  /* `GET /payments/{summary,batches,history}` take RUN_PAYROLL **or**
+     APPROVE_PAYROLL (`modules/payments/router.ts`). The Finance approver holds
+     only the second and must never hold the first — separation of duties — so
+     gating on RUN_PAYROLL alone locked the one role whose job is releasing
+     money out of the screen where money is released. */
+  const mayRead = can("RUN_PAYROLL") || can("APPROVE_PAYROLL");
   const book = useDemoBook();
   const rev = useRevision();
 
@@ -1273,7 +1288,12 @@ const PAYEE_SCAN_SIZE = 200;
 export function usePaidPeople(period?: string): PaidPeopleState {
   const { isConnected, can } = useSession();
   /* `GET /payments/history` is `RUN_PAYROLL`, same as the rest of the module. */
-  const mayRead = can("RUN_PAYROLL");
+  /* `GET /payments/{summary,batches,history}` take RUN_PAYROLL **or**
+     APPROVE_PAYROLL (`modules/payments/router.ts`). The Finance approver holds
+     only the second and must never hold the first — separation of duties — so
+     gating on RUN_PAYROLL alone locked the one role whose job is releasing
+     money out of the screen where money is released. */
+  const mayRead = can("RUN_PAYROLL") || can("APPROVE_PAYROLL");
   const book = useDemoBook();
   const rev = useRevision();
 
