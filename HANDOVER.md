@@ -5188,11 +5188,15 @@ adjust, upload a sheet, approve, pay — as a script over HTTP rather than again
 the service layer, because what is being tested is what a browser can do
 **including what it is refused**. 75 assertions.
 
-The script is at `scratchpad/payroll-e2e.py` in the session directory rather
-than in either repo: it needs a running API and a seeded company, which is not
-what `npm run check` is. **Everything it found is pinned by vitest tests**, which
-is the durable half. It is worth re-running after any change to the run
-lifecycle, and the reason is this entry.
+The walk is `npm run walk:payroll` in `approvehr-api` — a script rather than a
+test because it needs a running API and a seeded company, which is not what
+`npm run check` is, and because it drives HTTP **as the real seeded roles**: a
+service-layer test cannot see a router gate, and three of the four findings
+below are router gates or their absence.
+
+**Everything it found is pinned by vitest**, which is the half that catches a
+regression. The script is the other half — the thing that finds the next one.
+Re-run it after any change to the run lifecycle, and the reason is this entry.
 
 ## What it found, and why unit tests could not
 
