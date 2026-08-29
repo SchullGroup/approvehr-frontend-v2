@@ -441,13 +441,37 @@ const COMPANY_WIDE: NavItem[] = [
  *
  * Assembled rather than written out so the headings and their order come from
  * one place — see `MODULE_ITEMS` above.
+ *
+ * ## A module nobody can use yet sorts to the bottom
+ *
+ * `MODULES` is the site's own running order and is the right order for a page
+ * arguing the product's shape. It is the wrong order for a sidebar somebody
+ * works in all day: Recruitment sits third there and is the one group that
+ * opens onto a "Coming soon" wall, so the nav put a door that goes nowhere
+ * above four that go somewhere.
+ *
+ * A group sinks when **every** item in it is `soon`. That is a rule rather
+ * than a hardcoded "hiring last", and the difference matters in both
+ * directions: the day the module ships, deleting `soon: true` puts it back in
+ * the site's order with no change here, and a different module that starts as
+ * a preview sinks without anybody remembering to add it.
+ *
+ * A group with a mix — one unbuilt screen among four real ones — does not
+ * sink. Sorting on "some" would drop a group people use for the sake of one
+ * item in it, which is the opposite of the point.
+ *
+ * `sort` is stable in every engine this runs on, so the groups that stay keep
+ * the site's order exactly.
  */
+const comingSoon = (group: { items: readonly NavItem[] }): boolean =>
+  group.items.length > 0 && group.items.every((item) => item.soon === true);
+
 export const NAV: NavGroup[] = [
   { items: PERSONAL },
   ...MODULES.map((module) => ({
     heading: module.label,
     items: MODULE_ITEMS[module.id],
-  })),
+  })).sort((a, b) => Number(comingSoon(a)) - Number(comingSoon(b))),
   { items: COMPANY_WIDE },
 ];
 
