@@ -5316,3 +5316,142 @@ that ships.
 The rule is still right. What it does not cover is order-dependence inside one
 file, and "passes alone, fails in the suite" is the signature of both. **Check
 what you added to the file before reaching for the rule.**
+
+---
+
+# The logo takes an SVG, and a payroll can be run before its month ends
+
+Two requests, and each one reverses a decision recorded above. Both reversals
+are narrower than they look, and the reasoning that produced the original
+decision is still sound in both cases — what changed is what follows from it.
+
+## SVG was refused for a good reason, and the reason was about the renderer
+
+`logo-card.tsx` refused SVG with a comment that is still true as written: an SVG
+is a document that can carry `<script>`, and this value is rendered inside a
+payslip. What that argument never established is that *this* value could
+execute anything, and it cannot: `logoUrl` renders in exactly two places —
+the settings preview and the payslip masthead — and both are `<img src={…}>`,
+which is a script-disabled context in every browser. No script, no fetch, no
+navigation.
+
+**If you add a third renderer, keep it an `<img>`.** Inline `<svg>`, `<object>`
+and `<embed>` all re-enable everything the old comment was worried about.
+
+That is an argument about today's callers rather than about the value, so it is
+deliberately not the only thing standing between a hostile file and the
+database. Two independent mechanisms:
+
+- **`web/src/lib/logo-file.ts#sanitiseSvg` strips**, before the file is encoded:
+  `<script>`, `<foreignObject>`, media and `<handler>` elements, every `on*`
+  attribute by shape rather than by list, every `href` that is not a fragment
+  or an inline `data:image/`, editor namespaces and `<metadata>`. The
+  parse-and-reserialise round trip is load-bearing on its own — it drops the
+  DOCTYPE, which is what closes entity expansion.
+- **`company/schemas.ts#svgIsInert` refuses** the same constructs at the API.
+  It refuses rather than sanitises deliberately: a rewrite that is subtly wrong
+  is a bypass wearing a defence's clothes, while a refusal that is subtly wrong
+  costs somebody one re-export. The client sanitiser is a convenience; **this is
+  the boundary**, because nothing stops somebody sending the PATCH by hand.
+
+Verified in the browser by driving a file carrying all six vectors through the
+real input: every one stripped, and the result accepted by the API — which is
+also the proof that the two sides agree about what is safe.
+
+## Too large is resized now, not refused
+
+The old behaviour told somebody to go and export the file smaller, which sends
+a person who wanted a logo on their payslip off to find image software.
+`prepareLogo` brings a raster down — dimensions first, quality second, because
+a logo at half the pixels is still a clean logo and a logo at 40% quality is a
+smear around its own lettering — and WebP rather than JPEG throughout, since a
+masthead logo usually has a transparent background and JPEG would put a white
+box on the page.
+
+**Resizing does not shrink an SVG**, which is the asymmetry worth knowing: its
+size is markup, not pixels. An oversized one is minified, and one still over
+budget after that is carrying an embedded photograph, so it is rasterised —
+the only thing that actually makes it smaller.
+
+**What is done is always said.** `PreparedLogo.note` is rendered on the card. A
+file quietly replaced by a different file is worse than a refusal, however
+convenient, and that sentence is the whole reason resizing without asking is
+acceptable at all.
+
+## A day that has not happened is not a day somebody failed to turn up
+
+The request was to run next month's payroll this month. The month picker could
+*already* reach any period — a bare `type="month"` input with no min or max —
+which makes this the fourth instance of the class this file keeps recording: a
+capability present, correct, and findable by nobody. It has arrows now, and the
+native input stays behind them for jumping a year rather than stepping to one.
+
+**The interesting half is what running an unfinished month actually did.**
+`unpaidDaysFor`'s loop ran to `periodEnd` whatever the date, so every working
+day still to come counted as a day nobody had turned up for: prepare August on
+the 29th and everybody is docked for the 30th and the 31st.
+
+That is the ₦0 defect one level down, and it fails the same way — silently, with
+arithmetic that reconciles at every step. There is no clock-in on a future
+Monday because the Monday has not happened. The loop stops at `countTo` now,
+defaulting to today.
+
+A **wholly future** month was never affected: `organizationUsesAttendance` is
+scoped to the period, finds no rows, and returns false. Confirmed against the
+live demo, where two future runs prepared before this fix had paid everybody
+correctly. It is the **partly elapsed** month — exactly the case the request is
+about — that was wrong.
+
+Two consequences worth not undoing:
+
+- **An early run must not look final.** `prepare` raises `period_not_finished`
+  naming the days still to come, and preparing again after the month ends picks
+  up whatever actually happened. That is what `prepare` being re-runnable is
+  for.
+- **`countTo` is passed explicitly in `tests/payroll-no-attendance.test.ts`,
+  and must stay passed.** 31 August 2026 is a Monday, so a defaulted `countTo`
+  makes those counts depend on the date the suite runs — 20 rather than 21 —
+  and the file fails for a reason that has nothing to do with what it tests.
+
+### One thing that had to be un-built
+
+The wizard's first draft worked out its own "N days to come" and would have
+rendered **"12 days"** beside the API's **"2 days"** — one fact, two numbers, on
+adjacent surfaces. The frontend was counting from `TODAY`, which is pinned to
+the demo dataset's day, while the API counts from the real clock. The count is
+gone from the frontend entirely: `period_not_finished` carries the figure, and
+the screen carries the consequence. Same rule as never re-implementing a score
+on this side.
+
+Reading the clock during render is safe in that component and would not be in
+most: the route is prerendered, the wizard uses `useSearchParams`, so its
+Suspense boundary renders the fallback on the server and the subtree is
+client-only. Remove either and a build-time date gets baked into the page.
+
+## Verified
+
+Frontend `npm run check` exit **0**. API `npm run check`: typecheck, lint,
+format and lockstep clean; **2119 passing**, with 6 failures in
+`tests/payments.test.ts` — a file neither change touches, which passes **54/54
+alone**, and which failed identically before these changes. The known
+contention case, with a dev server on the same database.
+
+In the browser: the hostile SVG walk above; the month stepper moving forward
+into two future months and back past today into a finished one, with the pay
+date following and the 31st clamping to the 30th rather than rolling into
+October; and a real November run against the live API returning **10 payslips,
+no ₦0 figures**, with `period_not_finished` rendered in the API's own words.
+
+The November run and the test logo were removed from the demo afterwards. The
+September and October runs already there were left alone — they are not ours.
+
+## Deliberately not done
+
+- **A fix link for `period_not_finished`.** `fixFor` returns null for it, which
+  is right: the answer is to wait or to calculate again, and neither is a screen
+  to navigate to. Same treatment as `rent_relief_unclaimed`.
+- **Refusing a future or unfinished period.** A company paying on the 25th has
+  no choice, and one paying a December run before the holidays is doing
+  something ordinary. Naming the consequence is the job; refusing is not.
+- **The default period.** Still `TODAY`-based, which is pre-existing and a demo
+  concern. Only the standing line reads the real clock.
