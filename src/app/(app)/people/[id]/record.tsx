@@ -554,7 +554,7 @@ export function EmployeeRecord({
                 the thought arrives. Secondary, like its neighbours. */}
             <StartPeriodButton block />
             {/* The fourth and last way a company brings somebody's email in:
-                the attendance screen does a batch of clock-in logins, the
+                the directory and attendance screens invite in a batch, the
                 importer does one per row that carries a role, the new-role
                 dialog invites by address alone — and this is "this person,
                 now", which is the shape the question takes on a record. Hidden

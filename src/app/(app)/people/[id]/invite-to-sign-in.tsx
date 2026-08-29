@@ -18,13 +18,13 @@ import { InviteLinkButton } from "@/components/portal/invite-link";
 import type { PendingInvite, SentInvite } from "@/lib/api/invites";
 
 /**
- * Giving one person a login, from their own record.
+ * Inviting one person to sign in, from their own record.
  *
  * ## The door this closes
  *
  * `POST /invites` — one person, one role — was built, tested and had **no
  * caller anywhere in the frontend**. Every other way into the invite system is
- * bulk: the attendance screen sets a batch of clock-in logins up, and the
+ * bulk: the directory and attendance screens invite a batch at once, and the
  * importer now sends one per row that carries a role. Neither answers "this
  * person, now", which is the shape the question takes on a record page, and it
  * is the last of the four moments a company needs to bring somebody's email
@@ -267,7 +267,7 @@ export function InviteToSignIn({
     <Modal
       open
       onClose={onClose}
-      title={pending ? `${name} has been invited` : `Give ${name} a login`}
+      title={pending ? `${name} has been invited` : `Invite ${name} to sign in`}
       footer={
         /* Revoke sits on the left, away from the action somebody came to
            perform. It is the destructive half of this dialog and the two must
@@ -434,7 +434,7 @@ export function InviteToSignInButton({
     <>
       <Button variant="secondary" size="sm" block onClick={() => setOpen(true)}>
         <KeyRound aria-hidden="true" className="size-3.5" />
-        Give them a login
+        Invite them to sign in
       </Button>
       {open && (
         <InviteToSignIn

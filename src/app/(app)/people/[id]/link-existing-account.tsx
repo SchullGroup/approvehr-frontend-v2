@@ -15,8 +15,8 @@ import { ApiError } from "@/lib/api/client";
 import { invitesApi, type UnlinkedUser } from "@/lib/api/invites";
 
 /**
- * The other half of "give them a login" — pointing a sign-in that already
- * exists at this record, rather than sending a fresh invitation.
+ * The other half of "invite them to sign in" — pointing a sign-in that
+ * already exists at this record, rather than sending a fresh invitation.
  *
  * Exists for exactly one recurring shape: whoever registered the company has
  * a real account and no personnel file, permanently — `register` never had

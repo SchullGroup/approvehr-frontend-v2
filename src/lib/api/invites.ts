@@ -4,7 +4,7 @@ import { request, requestPaged, type Paged } from "@/lib/api/client";
 import type { DeliveryHint } from "@/lib/api/account";
 
 /**
- * Giving staff a login — `/api/v1/invites`.
+ * Inviting staff to sign in — `/api/v1/invites`.
  *
  * There is no `Invite` model on the API. A pending invitation **is** a `User`
  * row with no password, plus a live email token — see the header of
@@ -79,7 +79,7 @@ export const invitesApi = {
     }),
 
   /**
-   * Setting a list of staff up with a login in one go — writes each person's
+   * Inviting a list of staff to sign in, in one go — writes each person's
    * email onto their record and invites them with it. See the header of
    * `bulkInviteSchema` on the API for why this is the one place an invite
    * route accepts an address rather than reading one off a record: here, that

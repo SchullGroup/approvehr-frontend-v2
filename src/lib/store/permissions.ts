@@ -152,7 +152,7 @@ const DEMO_COPY: Record<
   INVITE_STAFF: {
     label: "Invite staff to sign in",
     description:
-      "Send staff a login. They can only be given access the inviter already has.",
+      "Send the invitation. They can only be given access the inviter already has.",
     section: "company",
     sensitive: true,
   },
