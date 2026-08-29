@@ -946,7 +946,15 @@ export type LedgerState = {
 };
 
 export function useLedger(params: LedgerListParams = {}): LedgerState {
-  const { isConnected } = useSession();
+  const { isConnected, can } = useSession();
+  /* `GET /payments/ledger` is RUN_PAYROLL alone — NOT the
+     RUN_PAYROLL-or-APPROVE_PAYROLL the batch and history reads take
+     (`modules/payments/router.ts`). The money going in and out of the float is
+     a different question from what a batch pays, and the Finance approver is
+     not given it. So this gate is deliberately narrower than the screen that
+     renders it: opening Payments as the approver is right, and asking for the
+     ledger from there is not. */
+  const mayRead = can("RUN_PAYROLL");
   const book = useDemoBook();
   const rev = useRevision();
 
@@ -977,7 +985,7 @@ export function useLedger(params: LedgerListParams = {}): LedgerState {
      so the answer is replaced without the screen flashing a skeleton. */
   const revalidation = useRevalidation();
   useEffect(() => {
-    if (!isConnected) return;
+    if (!isConnected || !mayRead) return;
     let cancelled = false;
     const controller = new AbortController();
     void (async () => {
@@ -999,7 +1007,7 @@ export function useLedger(params: LedgerListParams = {}): LedgerState {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, query, key, revalidation]);
+  }, [isConnected, mayRead, query, key, revalidation]);
 
   if (!isConnected) {
     let rows = book.ledger;
@@ -1030,6 +1038,24 @@ export function useLedger(params: LedgerListParams = {}): LedgerState {
       loading: false,
       error: null,
       live: false,
+      reload: bumpRevision,
+    };
+  }
+
+  /* No permission means nothing was asked for, so there is nothing coming.
+     `loading: !matched` would otherwise spin for ever against a request that
+     was never made. Empty rather than an error: nothing went wrong. */
+  if (!mayRead) {
+    return {
+      rows: [],
+      total: 0,
+      totals: { inKobo: 0, outKobo: 0 },
+      page,
+      pageSize,
+      totalPages: 1,
+      loading: false,
+      error: null,
+      live: true,
       reload: bumpRevision,
     };
   }
