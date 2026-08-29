@@ -693,26 +693,52 @@ export function PayrollRunWizard() {
                   a sentence pointing at it.
 
                   Absent once the run is approved: nothing there is editable
-                  then, and a link to controls that are all frozen is worse than
-                  no link. */}
-              {canPrepare && !settled && (
-                <Callout tone="info" title="Changing a figure by hand">
+                  then — but it still says the controls exist, which the first
+                  version did not.
+
+                  That was the mistake. Hiding a frozen control is right;
+                  hiding the *explanation* of it leaves somebody looking at an
+                  approved run with no way to learn the capability is there at
+                  all, and that is exactly what happened — a product owner
+                  reported the feature "not implemented" while looking at this
+                  screen on an approved payroll.
+
+                  Fourth instance in this codebase of a working feature being
+                  findable by nobody. The rule, now stated for the last time:
+                  **absent-when-refused applies to the control, never to the
+                  sentence that says the control exists.** */}
+              {canPrepare && (
+                <Callout
+                  tone={settled ? "neutral" : "info"}
+                  title="Changing a figure by hand"
+                >
                   <p>
                     Tax, overtime, a bonus and somebody&rsquo;s monthly pay are
-                    all entered on the next step, against the person they belong
-                    to — <strong className="text-ink">Review</strong>, where
-                    every payslip is listed.
+                    each entered on the <strong className="text-ink">Review</strong>{" "}
+                    step, against the person they belong to — under their gross
+                    figure, where every payslip is listed.
                   </p>
                   <p className="mt-2">
-                    Tax, overtime and a bonus apply to this payroll only. Pay is
+                    Tax, overtime and a bonus apply to one payroll only. Pay is
                     the contract, so changing it there changes their record from
-                    now on.
+                    then on.
                   </p>
-                  <p className="mt-2">
-                    <Button size="sm" onClick={() => stepper.goTo(2)}>
-                      Go to the payslips
-                    </Button>
-                  </p>
+                  {settled ? (
+                    <p className="mt-2">
+                      <strong className="text-ink">
+                        This payroll is approved, so none of it can be changed
+                        now.
+                      </strong>{" "}
+                      Its figures are the record of what was paid. The controls
+                      are there on the next payroll you prepare.
+                    </p>
+                  ) : (
+                    <p className="mt-2">
+                      <Button size="sm" onClick={() => stepper.goTo(2)}>
+                        Go to the payslips
+                      </Button>
+                    </p>
+                  )}
                 </Callout>
               )}
             </>
