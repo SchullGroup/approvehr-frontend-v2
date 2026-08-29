@@ -354,6 +354,42 @@ same(
   null,
 );
 
+/* -------------------------------------------------------------------------- */
+/* The run table's row identity                                                */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Every column the review table shows, against the engine's own net.
+ *
+ * `engine.ts`: `net = gross − pension − nhf − preTax − paye − postTax`. The
+ * table renders Gross, Overtime, Bonus, PAYE, Deductions and Net — so
+ * **Gross − Deductions − PAYE must equal Net**, where Deductions is pension
+ * plus NHF plus the pre- and post-tax lines.
+ *
+ * This is here because it was false. Pension had a column and lost it, NHF
+ * never had one, and the cell beside PAYE carried only `otherDeductionsKobo` —
+ * so the row was short of its own net by ₦9,500 on a ₦100,000 salary, with
+ * nothing on screen to account for it. Nothing was mispaid; the figures were
+ * all correct. A person simply could not check them on the screen where they
+ * approve the money, and a table that does not add up is indistinguishable
+ * from one that is wrong.
+ *
+ * Asserted over the illustrative payslips rather than a hand-worked case, so
+ * it covers every salary the demo ships and cannot be satisfied by one.
+ */
+for (const slip of DEMO_PAYSLIPS) {
+  /* The fixture's `netKobo` is before any post-tax deduction — the demo applies
+     those itself — so this is the identity with `otherDeductionsKobo` at zero,
+     which is exactly the case that was broken: an ordinary payslip with no loan
+     and no claim on it still lost pension and NHF out of the row. */
+  const deductions = slip.pensionEmployeeKobo + slip.nhfKobo;
+  checks.push({
+    name: `the row adds up at ${String(slip.grossKobo / 100)}`,
+    got: slip.grossKobo - deductions - slip.payeKobo,
+    want: slip.netKobo,
+  });
+}
+
 const rows: string[] = [];
 const failures: string[] = [];
 

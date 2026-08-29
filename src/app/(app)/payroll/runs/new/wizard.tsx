@@ -1755,7 +1755,21 @@ function PayslipTable({
               that are worked in. What is left is the two figures somebody
               enters, the tax they may override, and the totals either side. */}
           <TH align="right">PAYE</TH>
-          <TH align="right">Other</TH>
+          {/* Everything taken off besides PAYE, as one figure.
+              -----------------------------------------------
+              This was "Other", and it carried only the pre-tax and post-tax
+              deduction lines — so with the Pension column gone and NHF never
+              having had one, **the row did not add up**: gross minus PAYE minus
+              Other was short of net by pension plus NHF, ₦9,500 on a ₦100,000
+              salary, with nothing on screen to account for it. The product
+              owner's question was "why does the net not include the overtime
+              and bonus" — it did, and the row was unreadable, which comes to
+              the same thing on a screen somebody approves money from.
+
+              Removing the pension column was right. Leaving the figure out of
+              the arithmetic was not: a payroll table whose own figures do not
+              reconcile is the defect this product is sold against. */}
+          <TH align="right">Deductions</TH>
           <TH align="right">Net</TH>
         </THead>
         <TBody>
@@ -1953,18 +1967,7 @@ function PayslipTable({
                     )}
                   </TD>
                   <TD align="right" className="tabular text-muted">
-                    {slip.otherDeductionsKobo > 0 ? (
-                      <>
-                        {formatKobo(slip.otherDeductionsKobo)}
-                        {deductionLines.length > 0 && (
-                          <span className="mt-0.5 block text-meta font-normal text-faint">
-                            {deductionLines.map((l) => l.label).join(", ")}
-                          </span>
-                        )}
-                      </>
-                    ) : (
-                      "—"
-                    )}
+                    <Deductions slip={slip} lines={deductionLines} />
                   </TD>
                   <TD align="right" className="tabular font-medium text-ink">
                     {formatKobo(slip.netKobo)}
@@ -2314,6 +2317,80 @@ function monthlyOf(
  * Same treatment in all three editable columns, because a control that
  * announces itself in one and hides in the next is worse than either.
  */
+/**
+ * Everything taken off besides PAYE, so the row reconciles.
+ *
+ * ## The identity this exists to make visible
+ *
+ * `engine.ts` computes net as
+ *
+ *     gross − pension − nhf − preTax − paye − postTax
+ *
+ * The table shows Gross, Overtime, Bonus, PAYE and Net. Pension had a column
+ * and lost it; NHF never had one; and the old "Other" cell carried only
+ * `otherDeductionsKobo`, which is the pre-tax and post-tax lines alone. So two
+ * terms of that identity were on nobody's screen and **the row was short of
+ * its own net** by pension plus NHF — ₦9,500 on a ₦100,000 salary.
+ *
+ * Nothing was mispaid: every figure the API sent was right, and net already
+ * included the overtime and the bonus. What was wrong is that a person could
+ * not check it, on the screen where they approve the money. A table that does
+ * not add up is indistinguishable from one that is wrong, and this product is
+ * sold on the difference.
+ *
+ * ## Why one column and not three
+ *
+ * Pension came out because a statutory figure nobody edits from here costs a
+ * column that somebody works in. That reasoning holds. What it does not license
+ * is dropping the figure from the arithmetic — so it is a term inside one
+ * total, with the breakdown beneath it, exactly as the Gross cell already names
+ * its overtime and bonus.
+ *
+ * ## Absent, not zero
+ *
+ * A deduction the employer does not operate is not counted and not named. A
+ * company with no pension scheme sees NHF alone; one that operates neither sees
+ * only whatever loans and claims the run carries. `wasDeducted` reads an
+ * unknown operation as deducted, which is what every payslip written before the
+ * switches existed actually was.
+ */
+function Deductions({
+  slip,
+  lines,
+}: {
+  slip: Payslip;
+  lines: readonly { label: string }[];
+}) {
+  const parts: { label: string; kobo: number }[] = [];
+  if (wasDeducted(slip.operates, "pension") && slip.pensionEmployeeKobo > 0) {
+    parts.push({ label: "pension", kobo: slip.pensionEmployeeKobo });
+  }
+  if (wasDeducted(slip.operates, "nhf") && slip.nhfKobo > 0) {
+    parts.push({ label: "NHF", kobo: slip.nhfKobo });
+  }
+  for (const line of lines) {
+    parts.push({ label: line.label, kobo: 0 });
+  }
+
+  const total =
+    (wasDeducted(slip.operates, "pension") ? slip.pensionEmployeeKobo : 0) +
+    (wasDeducted(slip.operates, "nhf") ? slip.nhfKobo : 0) +
+    slip.otherDeductionsKobo;
+
+  if (total === 0) return <>—</>;
+
+  return (
+    <>
+      {formatKobo(total)}
+      {parts.length > 0 && (
+        <span className="mt-0.5 block text-meta font-normal text-faint">
+          {parts.map((p) => p.label).join(", ")}
+        </span>
+      )}
+    </>
+  );
+}
+
 function CellValue({
   amountKobo,
   editable,
