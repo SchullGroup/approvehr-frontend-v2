@@ -1356,9 +1356,21 @@ export const payrollApi = {
 
 /* ----------------------------------------------------------------- helpers */
 
+/**
+ * Where a run *is*, never what may be done to it next.
+ *
+ * `IN_REVIEW` read "Ready to approve", and that was a claim the API refuses:
+ * approval is refused while any blocker is open, so the badge sat at the top
+ * of the Check step saying ready while the exception list below it said two
+ * things stop the run. It also reached employees on their own payslip index,
+ * where it was a sentence about somebody else's inbox entirely.
+ *
+ * A status label that describes an available action has to be recomputed every
+ * time the rules around it change. One that describes a state does not.
+ */
 export const STATUS_LABEL: Record<PayrollRunStatus, string> = {
   DRAFT: "Draft",
-  IN_REVIEW: "Ready to approve",
+  IN_REVIEW: "In review",
   APPROVED: "Approved",
   PAID: "Paid",
   CANCELLED: "Cancelled",

@@ -11,6 +11,7 @@ import {
   Field,
   Select,
   useToast,
+  ButtonLink,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -123,6 +124,46 @@ export function MyClockCard({
       setBusy(false);
     }
   };
+
+  /**
+   * An account with no employee record cannot clock in, and saying so here is
+   * two clicks earlier than the API does.
+   *
+   * **Registering a company creates a `User`, not an `Employee`** — so the
+   * person this happens to is the owner, on day one, in every new company.
+   * The card used to render in full, with their name, their expected hours and
+   * an enabled button, and answer `403 · This account has no employee record
+   * to clock in.` on press. That refusal is correct and well written and it
+   * arrives far too late.
+   *
+   * The card **states the fact rather than disappearing**. Somebody who has
+   * been told there is a clock-in button needs to find out why theirs is not
+   * there; a card that silently vanishes sends them looking for a bug. The
+   * roster beside it already knew — it counted the employees and did not list
+   * this person.
+   */
+  if (!session.employeeId) {
+    return (
+      <Card>
+        <CardBody className="flex flex-wrap items-center gap-4">
+          <Avatar name={session.displayName ?? "You"} size="md" />
+          <div className="min-w-0 flex-1">
+            <p className="text-body font-semibold">
+              {session.displayName ?? "Your day"}
+            </p>
+            <p className="mt-0.5 text-body-sm text-muted">
+              You are signed in to run this company, not as somebody on its
+              payroll — so there is nothing here to clock. Add yourself as an
+              employee and this becomes your own day.
+            </p>
+          </div>
+          <ButtonLink href="/people/new" variant="secondary" size="sm">
+            Add yourself as an employee
+          </ButtonLink>
+        </CardBody>
+      </Card>
+    );
+  }
 
   return (
     <Card>
