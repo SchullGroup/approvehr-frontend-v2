@@ -377,10 +377,77 @@ export type BonusChange = {
   employeeId: string;
   name: string;
   amountKobo: number;
-  reason: string;
+  reason: string | null;
   awardedAt: string;
   run: PreparedRun;
 };
+
+/**
+ * One row of an uploaded payroll sheet.
+ *
+ * **A key is present only when the file carried that column**, and holds `null`
+ * only when it carried the column with the cell empty. Absent means the sheet
+ * said nothing about that figure and the run keeps what it has; `null` means
+ * somebody emptied a cell that arrived with a number in it, which is the only
+ * way to take a figure off. See `SHEET_BLANK_RULE`.
+ *
+ * The optional properties are therefore load-bearing rather than convenience:
+ * do not give this type defaults, and do not build one by spreading an object
+ * with `undefined`s in it.
+ */
+export type AdjustmentUploadRow = {
+  /** 1-based, header excluded — the number the spreadsheet shows. */
+  row: number;
+  employeeNo: string;
+  payeKobo?: number | null;
+  overtimeHours?: number | null;
+  bonusKobo?: number | null;
+  monthlyKobo?: number | null;
+};
+
+export type AdjustmentUpload = {
+  rows: readonly AdjustmentUploadRow[];
+  reason?: string;
+};
+
+/** What one row actually changed, by the sheet's own column headings. */
+export type AppliedSheetRow = {
+  row: number;
+  employeeId: string;
+  name: string;
+  changed: readonly string[];
+};
+
+export type SheetOutcome = {
+  applied: readonly AppliedSheetRow[];
+  /** Rows carrying no figure at all. Not a problem; simply nothing to do. */
+  untouched: number;
+  run: PreparedRun;
+};
+
+/**
+ * What the API says is wrong with an uploaded sheet.
+ *
+ * Arrives on a 422's `details`, and the whole sheet is refused when there is
+ * one of these — so every problem in the file is named at once rather than
+ * one per attempt. `ApiError.details` is `unknown`; `sheetProblems` below is
+ * the one place that shape is asserted.
+ */
+export type SheetProblem = { row: number; column: string; problem: string };
+
+export function sheetProblems(details: unknown): readonly SheetProblem[] {
+  if (typeof details !== "object" || details === null) return [];
+  const problems = (details as { problems?: unknown }).problems;
+  if (!Array.isArray(problems)) return [];
+  return problems.filter(
+    (problem): problem is SheetProblem =>
+      typeof problem === "object" &&
+      problem !== null &&
+      typeof (problem as SheetProblem).row === "number" &&
+      typeof (problem as SheetProblem).column === "string" &&
+      typeof (problem as SheetProblem).problem === "string",
+  );
+}
 
 export type MonthlyPayChange = {
   employeeId: string;
@@ -1134,6 +1201,26 @@ export const payrollApi = {
   clearBonus: (id: string, employeeId: string) =>
     request<PreparedRun>(`/payroll/runs/${id}/bonuses/${employeeId}`, {
       method: "DELETE",
+    }),
+
+  /**
+   * A whole payroll's figures, from one uploaded spreadsheet.
+   *
+   * **Not a loop over the four routes above.** Each of those rebuilds every
+   * payslip on the run when it returns, so three hundred rows would be six
+   * hundred requests and six hundred rebuilds of the whole payroll. This writes
+   * them all and rebuilds once, which is the only reason it exists.
+   *
+   * A row key is present only when the file carried that column, and `null`
+   * only when it carried it blank. `parseSheet` builds the rows that way, and
+   * nothing between here and the server may spread an `undefined` into one —
+   * the API reads which columns a sheet carried with `in`, so a stray key would
+   * clear a figure nobody mentioned.
+   */
+  uploadAdjustments: (id: string, body: AdjustmentUpload) =>
+    request<SheetOutcome>(`/payroll/runs/${id}/adjustments`, {
+      method: "POST",
+      body,
     }),
 
   /**

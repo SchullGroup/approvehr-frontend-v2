@@ -29,6 +29,8 @@ import {
   type RunException,
   type RunExclusion,
   type BonusChange,
+  type AdjustmentUpload,
+  type SheetOutcome,
   type MonthlyPayChange,
   type OvertimeOverrideChange,
   type OvertimeOverrideKind,
@@ -1652,6 +1654,29 @@ export function usePayrollActions() {
   );
 
   /**
+   * A whole payroll's figures, from one uploaded spreadsheet.
+   *
+   * Refused offline for the same reason as every figure it carries, and one
+   * more of its own: the sheet's contract is that emptying a cell takes a
+   * figure off, which is only true if something recomputes the payroll
+   * afterwards. A demo that accepted the file and moved no payslip would teach
+   * the opposite of what the feature does.
+   */
+  const uploadAdjustments = useCallback(
+    async (runId: string, body: AdjustmentUpload): Promise<SheetOutcome> => {
+      if (isConnected) return payrollApi.uploadAdjustments(runId, body);
+      throw new ApiError(
+        0,
+        "offline",
+        "Uploading a payroll sheet needs the API. Every figure on it moves " +
+          "gross and the tax on it, and the demo has no engine to recompute " +
+          "either.",
+      );
+    },
+    [isConnected],
+  );
+
+  /**
    * Somebody's contractual monthly pay, from the payroll table.
    *
    * Refused offline, and for a stronger reason than the two overrides: this
@@ -1725,6 +1750,7 @@ export function usePayrollActions() {
     clearOvertimeOverride,
     setBonus,
     clearBonus,
+    uploadAdjustments,
     setMonthlyPay,
     connected: isConnected,
   };

@@ -74,6 +74,9 @@ import {
 } from "@/lib/api/payroll";
 import { useCan } from "@/lib/permissions";
 import { useOvertimePolicy } from "@/lib/store/overtime";
+import { SheetPanel } from "./sheet-panel";
+import type { SheetRowSource } from "@/lib/payroll/adjustment-sheet";
+import type { Employee } from "@/lib/types";
 import { usePayrollSettings } from "@/lib/payroll/use-settings";
 import { InlineHours, InlineMoney } from "./inline-edit";
 import type { OvertimeHourlyBasis } from "@/lib/overtime/derive";
@@ -769,12 +772,29 @@ export function PayrollRunWizard() {
                 onSaved={() => void prepare()}
                 onDirectoryReload={directory.reload}
               />
+              <SheetPanel
+                runId={run.id}
+                period={run.period.slice(0, 7)}
+                sources={sheetSources(run.payslips, directory.employees)}
+                editable={canPrepare && !settled}
+                onApplied={(summary) => {
+                  /* The toast, not a message inside the panel: applying
+                     rebuilds the run and unmounts that subtree, so anything
+                     the panel held would be gone before it could be read. */
+                  toast.push({
+                    title: "Sheet applied",
+                    tone: "success",
+                    detail: `${summary}. The payroll has been worked out again.`,
+                  });
+                  void prepare();
+                  directory.reload();
+                }}
+              />
               <ExcludedList
                 exclusions={run.exclusions}
                 {...(canPrepare && !settled ? { onPutBack: putBack } : {})}
                 busyFor={puttingBack}
               />
-
             </>
           ) : (
             <EmptyState
@@ -2182,19 +2202,66 @@ function hasManualOvertime(slip: Payslip): boolean {
   );
 }
 
-/** The bonus on this run, if there is one, as the form wants it. */
+/** Both forms of the bonus line: a reason is optional, so the label has two. */
+function isBonusLine(label: string): boolean {
+  return label === "Bonus" || label.startsWith("Bonus — ");
+}
+
+/**
+ * The run, as the spreadsheet's rows.
+ *
+ * Hours come back out of the label the API wrote — `"Overtime, entered by hand
+ * (6.00h at 1.5x)"` — because `Payslip` carries lines and money, not the
+ * minutes behind them. Reading a figure out of a label is a fragility this
+ * codebase has been bitten by before, so it is confined to one function with
+ * one regex, and it fails to `null` rather than to a guess: a sheet that came
+ * down with a blank overtime cell asks somebody to type the hours again, which
+ * is recoverable. A sheet that came down with the *wrong* hours in it is not.
+ */
+function sheetSources(
+  payslips: readonly Payslip[],
+  employees: readonly Employee[],
+): SheetRowSource[] {
+  const byId = new Map(employees.map((e) => [e.id, e]));
+  return payslips.map((payslip) => {
+    const overtime = payslip.lines.find((l) =>
+      l.label.startsWith("Overtime, entered by hand"),
+    );
+    const hours = overtime ? /\(([\d.]+)h/.exec(overtime.label)?.[1] : undefined;
+    const bonus = payslip.lines.find(
+      (l) => l.kind === "EARNING" && isBonusLine(l.label),
+    );
+    return {
+      payslip,
+      employee: byId.get(payslip.employeeId),
+      overtimeHours: hours === undefined ? null : Number(hours),
+      bonusKobo: bonus?.amountKobo ?? null,
+    };
+  });
+}
+
+/**
+ * The bonus on this run, if there is one.
+ *
+ * Matches `"Bonus"` as well as `"Bonus — why"`. The first version of this
+ * looked for `"Bonus — "` alone, which was right while a reason was compulsory
+ * and silently stopped finding anything the day it stopped being — so a bonus
+ * awarded without one rendered as an empty cell offering to add the bonus that
+ * was already sitting on the payslip.
+ */
 function bonusOn(slip: Payslip): { amountKobo: number; reason: string } | null {
-  const line = slip.lines.find((l) => l.label.startsWith("Bonus — "));
+  const line = slip.lines.find((l) => l.kind === "EARNING" && isBonusLine(l.label));
   if (!line) return null;
   return {
     amountKobo: line.amountKobo,
-    reason: line.label.replace(/^Bonus — /, ""),
+    reason: line.label === "Bonus" ? "" : line.label.replace(/^Bonus — /, ""),
   };
 }
 
 /** "Bonus — Q3 target" under a figure is enough; the full line is on the payslip. */
 function shortLabel(label: string): string {
   if (label.startsWith("Overtime, entered by hand")) return "overtime";
+  if (label === "Bonus") return "bonus";
   if (label.startsWith("Bonus — ")) return label.replace(/^Bonus — /, "");
   return label;
 }
