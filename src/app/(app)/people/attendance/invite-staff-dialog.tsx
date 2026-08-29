@@ -42,15 +42,16 @@ export type InviteRoleOption = { id: string; name: string };
 const LOOKS_LIKE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
- * Giving a batch of staff a login, so they can clock themselves in.
+ * Inviting a batch of staff to sign in.
  *
- * ## Why this exists on the attendance screen and not the directory
+ * ## Why this exists on both the directory and the attendance screen
  *
- * A login is not a record field — it is an account, created by
- * `invitesApi.bulkSend`, that puts a real email in a real inbox. The moment
- * that decision matters to most owners is exactly this one: "which of my
- * people need to clock in themselves, versus staff I only run payroll for."
- * The directory has no such moment, so it has no such button.
+ * An invitation is not a record field — it is an account, created by
+ * `invitesApi.bulkSend`, that puts a real email in a real inbox. Attendance is
+ * where the question is sharpest ("which of my people need to clock in
+ * themselves, versus staff I only run payroll for"), but the directory asks a
+ * broader version of the same thing — "why has nobody got a login" — which is
+ * why `BulkInviteButton` mounts this from both places rather than only one.
  *
  * ## One email per person, not one value for everybody
  *
@@ -219,7 +220,7 @@ export function InviteStaffDialog({
     <Modal
       open
       onClose={onClose}
-      title="Give staff a login so they can clock in"
+      title="Invite staff to sign in"
       size="lg"
       footer={
         <div className="flex flex-wrap items-center justify-between gap-3">

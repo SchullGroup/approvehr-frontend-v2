@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { DoorOpen, FileUp, Plus } from "lucide-react";
+import { FileUp, Plus } from "lucide-react";
 import { ButtonLink } from "@/components/ui";
 import { BulkInviteButton } from "@/components/portal/bulk-invite";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -30,13 +30,6 @@ export default async function PeoplePage({
         title="Directory"
         action={
           <div className="flex flex-wrap items-center gap-2">
-            {/* People arrive and people leave, and until this link existed only
-                one of those had a door. `/people/offboarding` was 1,850 lines of
-                working exit flow that nothing in the product pointed at. */}
-            <ButtonLink href="/people/offboarding" variant="secondary" size="sm">
-              <DoorOpen aria-hidden="true" className="size-4" />
-              Exit management
-            </ButtonLink>
             {/* Adding people one at a time is the exception, not the rule:
                 onboarding a company means importing the spreadsheet they
                 already keep. `/people/import` is a complete four-step flow —

@@ -16,7 +16,7 @@ import {
 } from "@/app/(app)/people/attendance/invite-staff-dialog";
 
 /**
- * "Give staff logins", wherever somebody looks for it.
+ * "Invite staff", wherever somebody looks for it.
  *
  * ## Why this is a component and not a second copy
  *
@@ -45,7 +45,7 @@ import {
  * hundred records and no logins, and the fix is this button.
  */
 export function BulkInviteButton({
-  label = "Give staff logins",
+  label = "Invite staff",
   variant = "secondary",
   onDone,
 }: {
