@@ -1015,7 +1015,7 @@ export function EmployeeRecord({
             <Card>
               <CardHeader title="Direct reports" />
               <CardBody>
-                <p className="mb-2 flex items-center gap-1.5 text-meta font-semibold tracking-wide text-muted">
+                <p className="mb-2 flex items-center gap-1.5 text-meta font-semibold text-muted">
                   <Users aria-hidden="true" className="size-3.5" />
                   {reports.length === 0 ? "None" : `${reports.length} in total`}
                 </p>

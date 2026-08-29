@@ -113,6 +113,24 @@ export const SHEET_COLUMNS: readonly SheetColumn[] = [
       "Empty this cell to go back to the computed figure.",
     entered: true,
   },
+  {
+    key: "pension",
+    heading: "pension",
+    note:
+      "Naira, this month only. Fill this in to deduct a different amount from " +
+      "this person — 0 deducts nothing from them. That is not the same as your " +
+      "company having no scheme, which is a switch in Settings. Empty this " +
+      "cell to go back to the computed figure.",
+    entered: true,
+  },
+  {
+    key: "nhf",
+    heading: "nhf",
+    note:
+      "Naira, this month only. Same rule as pension: 0 deducts nothing from " +
+      "this person, and emptying the cell goes back to the computed figure.",
+    entered: true,
+  },
 ] as const;
 
 /**
@@ -181,6 +199,20 @@ export function sheetRow(source: SheetRowSource): CsvRow {
        hundred hand-entered figures on the way back in, and would freeze the
        engine's own answer the moment anybody uploaded anything. */
     paye_tax: payslip.payeOverridden ? naira(payslip.payeKobo) : "",
+    /* Same rule as `paye_tax` above and for the same reason: filling every row
+       with the computed figure would make an untouched sheet look like three
+       hundred hand-entered deductions on the way back in, and would freeze the
+       engine's answer the moment anybody uploaded anything.
+
+       `overriddenDeductions` is the payslip's own record of which ones a
+       person set, so a downloaded sheet carries back exactly what is on the
+       payroll — and a row nobody touched round-trips to no change. */
+    pension: (payslip.overriddenDeductions ?? []).includes("PENSION_EMPLOYEE")
+      ? naira(payslip.pensionEmployeeKobo)
+      : "",
+    nhf: (payslip.overriddenDeductions ?? []).includes("NHF")
+      ? naira(payslip.nhfKobo)
+      : "",
   };
 }
 
@@ -238,6 +270,9 @@ export type ParsedRow = {
   row: number;
   employeeNo: string;
   payeKobo?: number | null;
+  /** Pension and NHF. Zero is a figure; `null` clears back to the computed one. */
+  pensionKobo?: number | null;
+  nhfKobo?: number | null;
   overtimeHours?: number | null;
   bonusKobo?: number | null;
   monthlyKobo?: number | null;
@@ -375,7 +410,10 @@ export async function parseSheet(file: File): Promise<ParsedSheet> {
     const parsed: ParsedRow = { row: number, employeeNo };
     let broke = false;
 
-    const money = (key: "monthly_salary" | "bonus" | "paye_tax", field: keyof ParsedRow) => {
+    const money = (
+      key: "monthly_salary" | "bonus" | "paye_tax" | "pension" | "nhf",
+      field: keyof ParsedRow,
+    ) => {
       if (!index.has(key)) return;
       const value = moneyKobo(cell(key));
       if (value === "bad") {
@@ -393,6 +431,8 @@ export async function parseSheet(file: File): Promise<ParsedSheet> {
     money("monthly_salary", "monthlyKobo");
     money("bonus", "bonusKobo");
     money("paye_tax", "payeKobo");
+    money("pension", "pensionKobo");
+    money("nhf", "nhfKobo");
 
     if (index.has("overtime_hours")) {
       const value = hours(cell("overtime_hours"));

@@ -464,7 +464,7 @@ function ChooseFile({
           <CardBody className="flex flex-col gap-4">
             <TemplateButtons onDownload={onTemplate} />
             <div>
-              <p className="text-meta font-semibold uppercase tracking-wide text-faint">
+              <p className="text-meta font-semibold text-faint">
                 Required
               </p>
               <ul className="mt-2 flex flex-wrap gap-1.5">
@@ -478,7 +478,7 @@ function ChooseFile({
               </ul>
             </div>
             <div>
-              <p className="text-meta font-semibold uppercase tracking-wide text-faint">
+              <p className="text-meta font-semibold text-faint">
                 Recommended
               </p>
               <ul className="mt-2 flex flex-wrap gap-1.5">

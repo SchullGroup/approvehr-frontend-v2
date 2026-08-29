@@ -194,7 +194,7 @@ export function ChecklistSettingsScreen() {
                     className="flex flex-col gap-3 rounded-md border border-line p-3 sm:flex-row sm:items-center sm:gap-4"
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="flex flex-wrap items-center gap-2 text-body font-medium text-ink">
+                      <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
                         <span className={row.active ? "" : "text-muted"}>
                           {row.label}
                         </span>

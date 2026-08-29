@@ -151,7 +151,7 @@ export function TwoFactorStep({
               autoComplete="one-time-code"
               maxLength={6}
               placeholder="000000"
-              className="font-mono tracking-[0.3em]"
+              className="font-mono"
               onChange={(event) =>
                 /* Digits only, so a pasted "123 456" still works rather than
                    failing a six-digit check on the space. */

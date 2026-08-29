@@ -297,7 +297,7 @@ function ObjectiveCard({
     <div className="rounded-lg border border-line p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-body font-medium text-ink">{goal.title}</p>
+          <p className="text-body-sm font-medium text-ink">{goal.title}</p>
           <div className="mt-1.5 flex flex-wrap items-center gap-2 text-meta text-muted">
             {goal.companyWide ? (
               <Badge tone="accent" size="sm">

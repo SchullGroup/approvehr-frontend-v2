@@ -347,7 +347,7 @@ function TeamRow({
       </span>
 
       <div className="min-w-0 flex-1">
-        <p className="flex flex-wrap items-center gap-2 text-body font-medium">
+        <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium">
           {team.name}
           {/* Cross-functional is the fact worth a badge: it is the one that says
               membership implies nothing about anybody's pay. */}
@@ -385,8 +385,8 @@ function TeamRow({
       </div>
 
       <div className="shrink-0 text-right">
-        <p className="text-meta uppercase tracking-wide text-faint">Members</p>
-        <p className="tabular text-body font-medium">
+        <p className="text-meta text-faint">Members</p>
+        <p className="tabular text-body-sm font-medium">
           {team.memberCount}
         </p>
       </div>
@@ -504,7 +504,7 @@ function TeamDrawer({
           <div className="flex flex-col gap-5">
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-md border border-line p-3">
-                <p className="text-meta uppercase tracking-wide text-faint">
+                <p className="text-meta text-faint">
                   Lead
                 </p>
                 <p className="mt-0.5 text-body-sm text-ink">
@@ -515,7 +515,7 @@ function TeamDrawer({
                   rather than headed "Monthly cost" with a dash in it. */}
               {team.payrollKobo !== null && (
               <div className="rounded-md border border-line p-3">
-                <p className="text-meta uppercase tracking-wide text-faint">
+                <p className="text-meta text-faint">
                   Monthly cost
                 </p>
                 <p className="tabular mt-0.5 text-body-sm text-ink">

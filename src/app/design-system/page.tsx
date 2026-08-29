@@ -63,7 +63,7 @@ const TYPE_CLASS: Record<string, string> = {
   h3: "text-h3",
   h4: "text-h4",
   lead: "text-lead",
-  eyebrow: "text-eyebrow uppercase",
+  eyebrow: "text-eyebrow",
 };
 
 const SHADOW_CLASS: Record<string, string> = {
@@ -130,7 +130,7 @@ export default function DesignSystemPage() {
           aria-label="Sections"
           className="sticky top-8 hidden h-fit w-44 shrink-0 lg:block"
         >
-          <p className="mb-3 px-3 text-eyebrow uppercase text-faint">
+          <p className="mb-3 px-3 text-eyebrow text-faint">
             Contents
           </p>
           <ul className="flex flex-col gap-0.5">
@@ -247,7 +247,7 @@ export default function DesignSystemPage() {
             <div className="grid gap-4 lg:grid-cols-2">
               <Card>
                 <CardBody>
-                  <p className="mb-4 text-meta font-medium tracking-wide text-muted">
+                  <p className="mb-4 text-meta font-medium text-muted">
                     Radius
                   </p>
                   <div className="flex flex-wrap gap-5">
@@ -271,7 +271,7 @@ export default function DesignSystemPage() {
 
               <Card>
                 <CardBody>
-                  <p className="mb-4 text-meta font-medium tracking-wide text-muted">
+                  <p className="mb-4 text-meta font-medium text-muted">
                     Elevation
                   </p>
                   <div className="flex flex-wrap gap-5">
@@ -339,7 +339,7 @@ export default function DesignSystemPage() {
               <StatsDemo />
               <Card>
                 <CardBody>
-                  <p className="mb-4 text-meta font-medium tracking-wide text-muted">
+                  <p className="mb-4 text-meta font-medium text-muted">
                     Sparklines
                   </p>
                   <SparklineDemo />
@@ -435,7 +435,7 @@ function SwatchGrid({
 }) {
   return (
     <div className="mb-8 last:mb-0">
-      <p className="mb-1 text-meta font-semibold tracking-wide text-ink">
+      <p className="mb-1 text-meta font-semibold text-ink">
         {title}
       </p>
       {note && (
@@ -465,7 +465,7 @@ function SwatchGrid({
                   </span>
                 )}
               </div>
-              <p className="tabular text-meta uppercase text-muted">
+              <p className="tabular text-meta text-muted">
                 {s.hex}
               </p>
               <p className="mt-0.5 text-meta leading-snug text-muted">

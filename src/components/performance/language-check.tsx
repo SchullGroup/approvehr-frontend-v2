@@ -63,7 +63,7 @@ function Row({ finding }: { finding: Finding }) {
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex flex-wrap items-baseline gap-2">
-          <span className="text-meta font-semibold uppercase tracking-[0.08em] text-muted">
+          <span className="text-meta font-semibold text-muted">
             {LABELS[finding.kind]}
           </span>
           {/* The words as written. A quote is a fact; a characterisation of

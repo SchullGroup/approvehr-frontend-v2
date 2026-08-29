@@ -493,7 +493,7 @@ function ComplianceLine({
       }
     >
       <div className="min-w-0 flex-1">
-        <p className="text-body font-medium text-ink">
+        <p className="text-body-sm font-medium text-ink">
           {complianceSentence(row)}
         </p>
         <p className="mt-0.5 text-body-sm text-muted">

@@ -117,7 +117,7 @@ export function MyPolicies({ className }: { className?: string }) {
                   className="flex flex-wrap items-center gap-3 rounded-md border border-warning-line bg-warning-soft p-3"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="text-body font-medium text-ink">
+                    <p className="text-body-sm font-medium text-ink">
                       {policy.title}
                     </p>
                     <p className="mt-0.5 text-body-sm text-body">

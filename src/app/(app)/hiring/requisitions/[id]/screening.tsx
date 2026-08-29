@@ -292,7 +292,7 @@ function ApplicantRow({
     <div className="flex flex-col gap-3 rounded-md border border-line p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="flex flex-wrap items-center gap-2 text-body font-medium text-ink">
+          <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
             {row.name}
             {row.waiting ? (
               <Badge tone="warning" size="sm" dot>

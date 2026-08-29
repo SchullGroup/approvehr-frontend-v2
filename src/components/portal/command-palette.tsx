@@ -194,7 +194,7 @@ function ResultGroup({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <h3 className="text-meta font-semibold uppercase tracking-wide text-faint">
+      <h3 className="text-meta font-semibold text-faint">
         {title}
       </h3>
       <ul className="flex flex-col divide-y divide-line rounded-md border border-line">

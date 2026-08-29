@@ -342,7 +342,7 @@ export function SettingsScreen() {
           meta={
             !loading && progress.total > 0 ? (
               <span className="flex min-w-32 flex-col items-end gap-1.5">
-                <span className="text-meta font-semibold uppercase tracking-[0.08em] text-muted">
+                <span className="text-meta font-semibold text-muted">
                   {progress.done} of {progress.total} done
                 </span>
                 <ProgressMeter
@@ -420,7 +420,7 @@ export function SettingsScreen() {
         )}
 
         <section>
-          <h2 className="mb-4 text-meta font-semibold uppercase tracking-[0.08em] text-muted">
+          <h2 className="mb-4 text-meta font-semibold text-muted">
             Ongoing
           </h2>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

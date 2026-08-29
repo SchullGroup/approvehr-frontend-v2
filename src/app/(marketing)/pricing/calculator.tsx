@@ -225,7 +225,7 @@ export function PricingCalculator() {
 
       {/* What is included */}
       <div className="lg:col-span-2">
-        <h3 className="text-meta font-semibold uppercase tracking-[0.1em] text-slate-muted">
+        <h3 className="text-meta font-semibold text-slate-muted">
           Included on {q.tier.name}
         </h3>
         <ul className="mt-5 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">

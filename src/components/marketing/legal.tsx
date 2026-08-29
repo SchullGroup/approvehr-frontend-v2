@@ -31,7 +31,7 @@ export function LegalDocument({ doc }: { doc: LegalDoc }) {
       <div className="container-page">
         <div className="grid gap-14 lg:grid-cols-[minmax(0,1fr)_15rem] lg:gap-16">
           <article className="max-w-[42rem]">
-            <p className="text-meta font-medium uppercase tracking-[0.08em] text-slate-muted">
+            <p className="text-meta font-medium text-slate-muted">
               Legal
             </p>
             <h1 className="mt-3 text-h1 text-slate">{doc.title}</h1>
@@ -141,7 +141,7 @@ export function LegalDocument({ doc }: { doc: LegalDoc }) {
             aria-label="On this page"
             className="order-first lg:order-none lg:sticky lg:top-28 lg:self-start"
           >
-            <h2 className="text-meta font-semibold uppercase tracking-[0.08em] text-slate-muted">
+            <h2 className="text-meta font-semibold text-slate-muted">
               On this page
             </h2>
             <ol className="mt-4 flex flex-col gap-2.5">
@@ -158,7 +158,7 @@ export function LegalDocument({ doc }: { doc: LegalDoc }) {
               ))}
             </ol>
 
-            <h2 className="mt-9 border-t border-sand-line pt-6 text-meta font-semibold uppercase tracking-[0.08em] text-slate-muted">
+            <h2 className="mt-9 border-t border-sand-line pt-6 text-meta font-semibold text-slate-muted">
               Other documents
             </h2>
             <ul className="mt-4 flex flex-col gap-2.5">

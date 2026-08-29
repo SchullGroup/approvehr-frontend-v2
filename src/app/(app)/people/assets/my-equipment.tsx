@@ -122,7 +122,7 @@ export function MyAssets({
                   className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1.5 py-3 first:pt-0 last:pb-0"
                 >
                   <div className="min-w-0">
-                    <p className="flex flex-wrap items-center gap-2 text-body font-medium text-ink">
+                    <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
                       {item.name}
                       <span className="tabular text-meta font-normal text-muted">
                         {item.tag}
@@ -156,7 +156,7 @@ export function MyAssets({
 
         {returned.length > 0 && (
           <div>
-            <p className="text-meta font-medium uppercase tracking-wide text-faint">
+            <p className="text-meta font-medium text-faint">
               Already handed back
             </p>
             <ul className="mt-2 flex flex-col gap-1">

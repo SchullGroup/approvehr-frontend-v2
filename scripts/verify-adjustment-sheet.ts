@@ -64,8 +64,15 @@ const PAYE = headingOf(PAYE_KEY);
 const OTHER_ENTERED = entered.filter((c) => c.key !== PAYE_KEY);
 
 async function main() {
-  console.log("\nThe four figure columns, as declared");
-  check("entered columns", entered.length, 4);
+  console.log("\nThe figure columns, as declared");
+  /* The set rather than the count. A bare number told the next person their
+     change broke something and not what — this names the columns, so adding
+     one is a one-line diff that reads as the decision it is. */
+  check(
+    "entered columns",
+    entered.map((c) => c.key).join(", "),
+    "monthly_salary, overtime_hours, bonus, paye_tax, pension, nhf",
+  );
   check(
     "the rule is one exported sentence",
     /Emptying a cell/.test(SHEET_BLANK_RULE) && /whole column/.test(SHEET_BLANK_RULE),

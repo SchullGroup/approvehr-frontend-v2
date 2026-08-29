@@ -62,7 +62,7 @@ export default async function CareersListingPage({
       <div className="container-page">
         <Reveal>
           <header className="max-w-3xl">
-            <p className="mb-3 text-meta font-semibold uppercase tracking-widest text-slate-muted">
+            <p className="mb-3 text-meta font-semibold text-slate-muted">
               Careers
             </p>
             <h1 className="text-h1 text-slate">Open roles</h1>

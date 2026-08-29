@@ -371,7 +371,7 @@ function Trail({ initialEntityType = "", initialEntityId = "" }: ScreenProps) {
               <section key={group.key} aria-labelledby={`audit-day-${group.key}`}>
                 <h2
                   id={`audit-day-${group.key}`}
-                  className="mb-3 text-meta font-semibold uppercase tracking-[0.08em] text-faint"
+                  className="mb-3 text-meta font-semibold text-faint"
                 >
                   {group.heading}
                 </h2>

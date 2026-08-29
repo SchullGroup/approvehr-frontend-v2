@@ -281,6 +281,15 @@ export type Payslip = {
    * derived from it, take the override instead.
    */
   payeOverridden: boolean;
+  /**
+   * Which statutory deductions on this payslip were set by hand.
+   *
+   * A list rather than a flag per deduction, matching `Payslip
+   * .overriddenDeductions` on the API — a third deduction costs nothing here.
+   * `payeOverridden` above is the older shape and stays until PAYE folds into
+   * the same enum.
+   */
+  overriddenDeductions?: ("PENSION_EMPLOYEE" | "NHF")[];
   /** Why it does not come from the bands. Null when `payeOverridden` is false. */
   payeOverrideReason: string | null;
   /**

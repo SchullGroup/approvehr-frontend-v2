@@ -681,7 +681,7 @@ function GradeDialog({
         {/* Facts about what will be saved, not a form. */}
         <dl className="grid gap-3 rounded-lg border border-line bg-canvas p-4 sm:grid-cols-2">
           <div>
-            <dt className="text-meta font-semibold tracking-wide text-faint">
+            <dt className="text-meta font-semibold text-faint">
               Level
             </dt>
             <dd className="tabular text-body-sm font-medium text-ink">
@@ -689,7 +689,7 @@ function GradeDialog({
             </dd>
           </div>
           <div>
-            <dt className="text-meta font-semibold tracking-wide text-faint">
+            <dt className="text-meta font-semibold text-faint">
               Mid-point
             </dt>
             <dd className="text-body-sm font-medium text-ink">
@@ -1074,7 +1074,7 @@ function Figure({
 }) {
   return (
     <div className="rounded-lg border border-line bg-canvas p-4">
-      <p className="text-meta font-semibold tracking-wide text-faint">
+      <p className="text-meta font-semibold text-faint">
         {label}
       </p>
       <p

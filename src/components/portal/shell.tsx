@@ -332,7 +332,7 @@ function SidebarNav({
       {groups.map((group, gi) => (
         <div key={group.heading ?? `g${gi}`}>
           {group.heading && (
-            <h2 className="mb-1.5 px-2.5 text-meta font-semibold uppercase tracking-[0.07em] text-faint">
+            <h2 className="mb-1.5 px-2.5 text-meta font-semibold text-faint">
               {group.heading}
             </h2>
           )}

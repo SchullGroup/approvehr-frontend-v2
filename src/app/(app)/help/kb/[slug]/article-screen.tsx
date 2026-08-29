@@ -194,7 +194,7 @@ export function ArticleScreen({ slug }: { slug: string }) {
 
         <Card className="max-w-3xl">
           <CardBody className="flex flex-col gap-3">
-            <p className="text-body font-medium text-ink">
+            <p className="text-body-sm font-medium text-ink">
               Was this helpful?
             </p>
 

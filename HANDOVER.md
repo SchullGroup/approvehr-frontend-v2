@@ -5316,3 +5316,234 @@ that ships.
 The rule is still right. What it does not cover is order-dependence inside one
 file, and "passes alone, fails in the suite" is the signature of both. **Check
 what you added to the file before reaching for the rule.**
+
+---
+
+# The logo takes an SVG, and a payroll can be run before its month ends
+
+Two requests, and each one reverses a decision recorded above. Both reversals
+are narrower than they look, and the reasoning that produced the original
+decision is still sound in both cases — what changed is what follows from it.
+
+## SVG was refused for a good reason, and the reason was about the renderer
+
+`logo-card.tsx` refused SVG with a comment that is still true as written: an SVG
+is a document that can carry `<script>`, and this value is rendered inside a
+payslip. What that argument never established is that *this* value could
+execute anything, and it cannot: `logoUrl` renders in exactly two places —
+the settings preview and the payslip masthead — and both are `<img src={…}>`,
+which is a script-disabled context in every browser. No script, no fetch, no
+navigation.
+
+**If you add a third renderer, keep it an `<img>`.** Inline `<svg>`, `<object>`
+and `<embed>` all re-enable everything the old comment was worried about.
+
+That is an argument about today's callers rather than about the value, so it is
+deliberately not the only thing standing between a hostile file and the
+database. Two independent mechanisms:
+
+- **`web/src/lib/logo-file.ts#sanitiseSvg` strips**, before the file is encoded:
+  `<script>`, `<foreignObject>`, media and `<handler>` elements, every `on*`
+  attribute by shape rather than by list, every `href` that is not a fragment
+  or an inline `data:image/`, editor namespaces and `<metadata>`. The
+  parse-and-reserialise round trip is load-bearing on its own — it drops the
+  DOCTYPE, which is what closes entity expansion.
+- **`company/schemas.ts#svgIsInert` refuses** the same constructs at the API.
+  It refuses rather than sanitises deliberately: a rewrite that is subtly wrong
+  is a bypass wearing a defence's clothes, while a refusal that is subtly wrong
+  costs somebody one re-export. The client sanitiser is a convenience; **this is
+  the boundary**, because nothing stops somebody sending the PATCH by hand.
+
+Verified in the browser by driving a file carrying all six vectors through the
+real input: every one stripped, and the result accepted by the API — which is
+also the proof that the two sides agree about what is safe.
+
+## Too large is resized now, not refused
+
+The old behaviour told somebody to go and export the file smaller, which sends
+a person who wanted a logo on their payslip off to find image software.
+`prepareLogo` brings a raster down — dimensions first, quality second, because
+a logo at half the pixels is still a clean logo and a logo at 40% quality is a
+smear around its own lettering — and WebP rather than JPEG throughout, since a
+masthead logo usually has a transparent background and JPEG would put a white
+box on the page.
+
+**Resizing does not shrink an SVG**, which is the asymmetry worth knowing: its
+size is markup, not pixels. An oversized one is minified, and one still over
+budget after that is carrying an embedded photograph, so it is rasterised —
+the only thing that actually makes it smaller.
+
+**What is done is always said.** `PreparedLogo.note` is rendered on the card. A
+file quietly replaced by a different file is worse than a refusal, however
+convenient, and that sentence is the whole reason resizing without asking is
+acceptable at all.
+
+## A day that has not happened is not a day somebody failed to turn up
+
+The request was to run next month's payroll this month. The month picker could
+*already* reach any period — a bare `type="month"` input with no min or max —
+which makes this the fourth instance of the class this file keeps recording: a
+capability present, correct, and findable by nobody. It has arrows now, and the
+native input stays behind them for jumping a year rather than stepping to one.
+
+**The interesting half is what running an unfinished month actually did.**
+`unpaidDaysFor`'s loop ran to `periodEnd` whatever the date, so every working
+day still to come counted as a day nobody had turned up for: prepare August on
+the 29th and everybody is docked for the 30th and the 31st.
+
+That is the ₦0 defect one level down, and it fails the same way — silently, with
+arithmetic that reconciles at every step. There is no clock-in on a future
+Monday because the Monday has not happened. The loop stops at `countTo` now,
+defaulting to today.
+
+A **wholly future** month was never affected: `organizationUsesAttendance` is
+scoped to the period, finds no rows, and returns false. Confirmed against the
+live demo, where two future runs prepared before this fix had paid everybody
+correctly. It is the **partly elapsed** month — exactly the case the request is
+about — that was wrong.
+
+Two consequences worth not undoing:
+
+- **An early run must not look final.** `prepare` raises `period_not_finished`
+  naming the days still to come, and preparing again after the month ends picks
+  up whatever actually happened. That is what `prepare` being re-runnable is
+  for.
+- **`countTo` is passed explicitly in `tests/payroll-no-attendance.test.ts`,
+  and must stay passed.** 31 August 2026 is a Monday, so a defaulted `countTo`
+  makes those counts depend on the date the suite runs — 20 rather than 21 —
+  and the file fails for a reason that has nothing to do with what it tests.
+
+### One thing that had to be un-built
+
+The wizard's first draft worked out its own "N days to come" and would have
+rendered **"12 days"** beside the API's **"2 days"** — one fact, two numbers, on
+adjacent surfaces. The frontend was counting from `TODAY`, which is pinned to
+the demo dataset's day, while the API counts from the real clock. The count is
+gone from the frontend entirely: `period_not_finished` carries the figure, and
+the screen carries the consequence. Same rule as never re-implementing a score
+on this side.
+
+Reading the clock during render is safe in that component and would not be in
+most: the route is prerendered, the wizard uses `useSearchParams`, so its
+Suspense boundary renders the fallback on the server and the subtree is
+client-only. Remove either and a build-time date gets baked into the page.
+
+## Verified
+
+Frontend `npm run check` exit **0**. API `npm run check`: typecheck, lint,
+format and lockstep clean; **2119 passing**, with 6 failures in
+`tests/payments.test.ts` — a file neither change touches, which passes **54/54
+alone**, and which failed identically before these changes. The known
+contention case, with a dev server on the same database.
+
+In the browser: the hostile SVG walk above; the month stepper moving forward
+into two future months and back past today into a finished one, with the pay
+date following and the 31st clamping to the 30th rather than rolling into
+October; and a real November run against the live API returning **10 payslips,
+no ₦0 figures**, with `period_not_finished` rendered in the API's own words.
+
+The November run and the test logo were removed from the demo afterwards. The
+September and October runs already there were left alone — they are not ours.
+
+## Deliberately not done
+
+- **A fix link for `period_not_finished`.** `fixFor` returns null for it, which
+  is right: the answer is to wait or to calculate again, and neither is a screen
+  to navigate to. Same treatment as `rent_relief_unclaimed`.
+- **Refusing a future or unfinished period.** A company paying on the 25th has
+  no choice, and one paying a December run before the holidays is doing
+  something ordinary. Naming the consequence is the job; refusing is not.
+- **The default period.** Still `TODAY`-based, which is pre-existing and a demo
+  concern. Only the standing line reads the real clock.
+
+---
+
+# The development-areas suggestion worked for five people out of nine
+
+The complaint was that scoring the competencies would make the review
+suggestion work. Investigating it found the diagnosis was nearly right and the
+thing everybody had assumed was missing was not.
+
+## Three things that were assumed missing and were already built
+
+Recorded because an earlier session's note in this file said "no frontend screen
+calls the rate endpoint", and that was wrong:
+
+- **`SkillsTab` exists and is mounted**, as a closed disclosure titled "Skills
+  and levels" on the Overview tab (`now.tsx`). It reads `useSkills`, `useGaps`,
+  `useHeatmap` and writes through `useRating`.
+- **`performanceApi.rate` and `useRating()` were both already wired.**
+- **48 competency ratings already existed**, 17 of them below target.
+
+So neither the screen, the store, the wrapper nor the data was the gap. Check
+what is there before building it — this is the second time in two sessions that
+grepping first would have saved the work.
+
+## What was actually wrong: coverage, not capability
+
+Activating a cycle creates a manager review for **everybody who has an
+appraiser** — nine people in the demo. `rateEverybody` in
+`scripts/demo-performance-cycle.ts` iterated `PEOPLE`, which is six, and one of
+those six has no manager and therefore no manager review.
+
+So **four people had a review form and no competency scores at all**: Grace
+Effiong, Halima Sani, Musa Ibrahim, Tunde Bakare. Open any of their reviews,
+press "Suggest development areas", and `suggestDevelopment` refuses with its own
+sentence — *"Nobody has scored them on any competency yet, so there is nothing
+to base a suggestion on. Score the competencies first."*
+
+That refusal is correct, and it is exactly what was being read as the feature
+being broken. A capability that works for five of nine people does not read as
+"those four are unscored"; it reads as unreliable.
+
+### The cause is one list doing two jobs
+
+`PEOPLE` decided both what an appraiser *recorded against each competency* and
+what they *wrote on the form*, including how far sign-off was taken. Those are
+separate acts. `RATED_NOT_REVIEWED` is now a second list, and the split is the
+fix rather than four more `PEOPLE` entries — adding them there would also give
+each one a self-review, a written manager form and a sign-off state, moving
+`noReview`, `unscored` and `awaitingAcknowledgement` on the cycle report. The
+demo needs one person with no review at all, or that state never renders.
+
+**Levels are shaped so each person has at least one genuine gap.** Somebody at
+or above target everywhere is refused too — correctly, with a different sentence
+— so straight fives would have left the button looking just as broken.
+
+## A warning that fired on every boot, including the healthy ones
+
+`provider.ts` logged *"no suggestion assistant is wired… Set ANTHROPIC_API_KEY
+to enable it"* at **module load**, unconditionally — before `server.ts` had a
+chance to register anything. A boot with a key configured printed that warning
+and then "suggestion assistant registered" on the next line.
+
+Wrong twice: a warning that fires on every boot is one people stop reading, and
+it named `ANTHROPIC_API_KEY` alone while `GEMINI_API_KEY` is read **first** — so
+somebody following the advice sets the key that loses the tie. It is in
+`server.ts`'s `else` branch now, the one place that knows the answer, and names
+both variables.
+
+## Verified
+
+`GEMINI_API_KEY` is set in this environment, so the whole path was exercised
+rather than reasoned about. Calling `suggestDevelopment` directly for Grace
+Effiong against the live H2 2026 cycle returned three grounded, role-aware
+development areas naming Initiative, Communication and Dependability with her
+actual scores and targets.
+
+**The facts that left the building were logged and read.** Three lines, each a
+competency name, category, score, target and scale. **No personal name**, which
+is the property `/settings/ai` and the DPA both promise — `buildMessage` sends
+`grounding.facts` and never `grounding.summary`, which is where the name is.
+
+After re-running `npm run demo:performance`: **79 ratings, and all 9 people with
+a manager review form have at least one gap.** 0 refuse.
+
+## One thing worth knowing, not changed
+
+`suggestDevelopment` appends the appraiser's free-text `note` to each fact. The
+structured fields carry no name, but a note is prose somebody typed and could
+name a colleague. The seeded ratings set no notes, so nothing here exercises it.
+If the no-names promise is meant strictly, that is the hole — and stripping it
+would cost the model the only qualitative signal it gets, so it is a decision
+rather than an oversight.

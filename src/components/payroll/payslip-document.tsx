@@ -462,7 +462,7 @@ export function PayslipDocument({
           </p>
         </div>
         <div className="text-right">
-          <p className="text-meta font-semibold uppercase tracking-widest text-muted">
+          <p className="text-meta font-semibold text-muted">
             Payslip
           </p>
           <p className="mt-1 text-h4 text-ink">{period}</p>
@@ -628,7 +628,7 @@ export function PayslipDocument({
                     <th
                       key={head}
                       scope="col"
-                      className="pb-2 text-meta font-semibold uppercase tracking-wide text-muted last:text-right"
+                      className="pb-2 text-meta font-semibold text-muted last:text-right"
                     >
                       {head}
                     </th>
@@ -673,27 +673,6 @@ export function PayslipDocument({
       )}
 
       <footer className="mt-8 border-t border-line pt-4">
-        {/* Named for the relief that actually applied, not for the one this
-            footer used to name. The Consolidated Relief Allowance was abolished
-            on 1 January 2026 and replaced by relief on rent — 20% of annual rent
-            declared, capped at ₦500,000 — so a 2026 payslip that says "after the
-            consolidated relief allowance" is describing a relief nobody
-            received. `slip.relief` says which regime ran; `reliefLine` above
-            turns it into the label and, where nothing has been declared, into
-            the sentence that says so. */}
-        <p className="text-meta leading-relaxed text-muted">
-          PAYE is calculated on annualised income under the Personal Income Tax
-          Act as amended, after pension and National Housing Fund relief and any
-          personal relief you are entitled to.{" "}
-          {/* Dropped where there is no scheme. A payslip with no pension on it
-              that closes by telling the reader their pension "is remitted to
-              your PFA" describes a remittance nobody made, and it is the
-              sentence an employee would quote back when asking where their
-              money went. */}
-          {wasDeducted(slip.operates, "pension") &&
-            "Pension is remitted to your PFA under the Pension Reform Act 2014. "}
-          Queries go to your HR help desk.
-        </p>
         {/* Both marks, and in this order. The employer's is the masthead — it
             is their document. This one says what produced it, which is a
             different claim and belongs at the foot in small type. */}
@@ -710,7 +689,7 @@ export function PayslipDocument({
 
 function ColumnHead({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="text-meta font-semibold uppercase tracking-widest text-muted">
+    <h2 className="text-meta font-semibold text-muted">
       {children}
     </h2>
   );

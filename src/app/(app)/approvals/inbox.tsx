@@ -311,7 +311,7 @@ export function ApprovalInbox() {
           {queue.decided.length > 0 && (
             <Card>
               <CardBody>
-                <p className="text-meta font-semibold tracking-wide text-muted">
+                <p className="text-meta font-semibold text-muted">
                   Just decided
                 </p>
                 <ul className="mt-3 flex flex-col gap-2">
@@ -452,7 +452,7 @@ function ApprovalRow({
 
         {item.amount !== undefined && (
           <div className="shrink-0 text-right">
-            <p className="text-meta uppercase tracking-wide text-faint">
+            <p className="text-meta text-faint">
               Value
             </p>
             {/* Never abbreviated. This is a figure somebody reconciles against a

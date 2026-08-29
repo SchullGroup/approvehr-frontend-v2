@@ -11,7 +11,7 @@ import { cn } from "@/lib/cn";
  *   accent     white on ApproveHR blue 10.1:1   (same fill as primary)
  *   approve    success-text on success-soft  4.95:1  (same fill as success)
  *   success    success-text on success-soft  4.95:1
- *   secondary  ink on white            17.1:1   border at 4.3:1
+ *   secondary  body on white            7.1:1   (same fill as ghost)
  *   ghost      body on white            7.1:1
  *   danger     white on danger-text     6.5:1
  *
@@ -50,6 +50,18 @@ import { cn } from "@/lib/cn";
  *
  * If approval ever does sit beside a blue primary on the same screen, revisit
  * this — that is the case the received wisdom is actually about.
+ *
+ * ## `secondary` lost its border
+ *
+ * `secondary` used to carry its own white fill and a visible grey border — the
+ * "outline" look, and also what every bare `<Button>`/`<ButtonLink>` rendered,
+ * since `secondary` is the default for both. Asked to change everywhere the
+ * border showed up, which is everywhere: restyling the one variant fixes every
+ * explicit `secondary` and every default-only call site at once, which a sweep
+ * of call sites cannot guarantee. `secondary` and `ghost` share
+ * `GHOST_TREATMENT` for the same reason `primary`/`accent` share a fill — the
+ * name still says what the button *is* (the secondary action on its screen),
+ * the shared string says what it now *looks like*.
  */
 
 export type ButtonVariant =
@@ -78,15 +90,17 @@ const PRIMARY_FILL =
   "bg-accent text-white shadow-sm hover:bg-accent-hover " +
   "active:bg-accent-hover disabled:hover:bg-accent";
 
+const GHOST_TREATMENT =
+  "bg-transparent text-body hover:bg-sunken hover:text-ink active:bg-line " +
+  "disabled:hover:bg-transparent";
+
 const VARIANTS: Record<ButtonVariant, string> = {
   primary: PRIMARY_FILL,
   accent: PRIMARY_FILL,
   approve: SECONDARY_GREEN,
   success: SECONDARY_GREEN,
-  secondary:
-    "bg-surface text-ink border border-control-line shadow-xs hover:bg-canvas active:bg-sunken disabled:hover:bg-surface",
-  ghost:
-    "bg-transparent text-body hover:bg-sunken hover:text-ink active:bg-line disabled:hover:bg-transparent",
+  secondary: GHOST_TREATMENT,
+  ghost: GHOST_TREATMENT,
   danger:
     "bg-danger-text text-white shadow-sm hover:brightness-110 active:brightness-95",
 };

@@ -55,7 +55,7 @@ export function TH({
     <th
       scope={scope}
       className={cn(
-        "px-4 py-3 text-meta font-semibold tracking-wide text-muted whitespace-nowrap",
+        "px-4 py-3 text-meta font-semibold text-muted whitespace-nowrap",
         align === "right" && "text-right",
         align === "center" && "text-center",
         align === "left" && "text-left",
@@ -117,7 +117,7 @@ export function SortableTH({
       scope="col"
       aria-sort={sorted ? (order === "asc" ? "ascending" : "descending") : "none"}
       className={cn(
-        "px-4 py-3 text-meta font-semibold tracking-wide text-muted whitespace-nowrap",
+        "px-4 py-3 text-meta font-semibold text-muted whitespace-nowrap",
         align === "right" && "text-right",
         align === "center" && "text-center",
         align === "left" && "text-left",
