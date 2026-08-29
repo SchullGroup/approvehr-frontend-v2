@@ -347,7 +347,7 @@ function TeamRow({
       </span>
 
       <div className="min-w-0 flex-1">
-        <p className="flex flex-wrap items-center gap-2 text-body font-medium">
+        <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium">
           {team.name}
           {/* Cross-functional is the fact worth a badge: it is the one that says
               membership implies nothing about anybody's pay. */}
@@ -386,7 +386,7 @@ function TeamRow({
 
       <div className="shrink-0 text-right">
         <p className="text-meta text-faint">Members</p>
-        <p className="tabular text-body font-medium">
+        <p className="tabular text-body-sm font-medium">
           {team.memberCount}
         </p>
       </div>

@@ -461,7 +461,7 @@ function RoleRow({
       </span>
 
       <div className="min-w-0 flex-1">
-        <p className="flex flex-wrap items-center gap-2 text-body font-medium text-ink">
+        <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
           <button
             type="button"
             onClick={onOpen}
@@ -496,7 +496,7 @@ function RoleRow({
 
       <div className="shrink-0 text-right">
         <p className="text-meta text-faint">People</p>
-        <p className="tabular text-body font-medium text-ink">
+        <p className="tabular text-body-sm font-medium text-ink">
           {role.memberCount}
         </p>
       </div>

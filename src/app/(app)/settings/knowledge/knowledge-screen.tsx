@@ -264,7 +264,7 @@ export function KnowledgeScreen() {
                 >
                   <Link
                     href={`/help/kb/${row.slug}`}
-                    className="min-w-0 flex-1 text-body font-medium text-ink underline-offset-4 hover:text-accent-text hover:underline"
+                    className="min-w-0 flex-1 text-body-sm font-medium text-ink underline-offset-4 hover:text-accent-text hover:underline"
                   >
                     {row.title}
                   </Link>

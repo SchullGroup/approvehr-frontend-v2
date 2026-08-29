@@ -120,7 +120,7 @@ function Notice({ notice }: { notice: ApiBoardNotice }) {
         )}
       </div>
 
-      <h4 className="mt-1.5 text-body font-medium text-ink">{notice.title}</h4>
+      <h4 className="mt-1.5 text-body-md font-medium text-ink">{notice.title}</h4>
 
       {/* Plain text, paragraph breaks kept. Never `dangerouslySetInnerHTML`:
           the API stores what somebody typed, and rendering it as markup would

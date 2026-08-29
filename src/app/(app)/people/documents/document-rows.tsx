@@ -123,7 +123,7 @@ export function RequestRow({
             {request.employeeName} · {request.employeeNo}
           </p>
         )}
-        <p className="flex flex-wrap items-center gap-2 text-body font-medium text-ink">
+        <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
           {request.name}
           <Badge tone="neutral" size="sm">
             {CATEGORY_LABEL[request.category]}
@@ -162,7 +162,7 @@ export function DocumentRow({
         <FileText />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="flex flex-wrap items-center gap-2 text-body font-medium text-ink">
+        <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
           {document.name}
           <Badge tone="neutral" size="sm">
             {CATEGORY_LABEL[document.category]}
