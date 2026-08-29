@@ -158,7 +158,7 @@ export function TrailEntry({
           className="flex w-full items-start gap-3 rounded-sm px-1 py-0.5 text-left hover:bg-canvas focus:outline-none focus-visible:ring-3 focus-visible:ring-accent/25"
         >
           <span className="min-w-0 flex-1">
-            <span className="block text-body leading-snug text-ink">
+            <span className="block text-body-sm leading-snug text-ink">
               {sentence.text}
             </span>
             <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-meta text-muted">
