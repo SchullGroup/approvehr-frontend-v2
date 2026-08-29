@@ -160,7 +160,7 @@ export function Disclosure({
                    * `text-ink` after it wins the colour back.
                    */
                   level === 2
-                    ? "text-body font-semibold text-ink"
+                    ? "text-body-md font-semibold text-ink"
                     : "text-body-sm font-medium text-ink",
                 )}
               >
