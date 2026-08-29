@@ -21,6 +21,8 @@ import {
   EmptyState,
   Spinner,
   Stat,
+  Tabs,
+  type TabItem,
 } from "@/components/ui";
 import {
   dayLabel,
@@ -212,6 +214,34 @@ export function WhatNeedsYouTab({
     openPeriod.stage !== "DRAFT" &&
     openPeriod.stage !== "PUBLISHED";
 
+  /**
+   * The three cards below used to stand one above the other — "What is
+   * open", "Waiting on you", "Waiting on somebody else" — which cost a
+   * scroll to reach the one a reader actually came for. One section, three
+   * tabs, same three questions in the same order the module's own doc
+   * comment above already argues for.
+   *
+   * "This period" is absent when appraisals are switched off, matching the
+   * card it replaces — a company without appraisals still sends and agrees
+   * objectives, so the other two tabs are never gated on `scored`.
+   */
+  const sectionTabs: TabItem[] = [
+    ...(scored ? [{ id: "period", label: "This period" }] : []),
+    {
+      id: "waiting-on-you",
+      label: "Waiting on you",
+      ...(waitingOnMe > 0 ? { count: waitingOnMe } : {}),
+    },
+    {
+      id: "waiting-on-others",
+      label: "Waiting on somebody else",
+      ...(waitingOnOthers > 0 ? { count: waitingOnOthers } : {}),
+    },
+  ];
+  const [sectionTab, setSectionTab] = useState(
+    scored ? "period" : "waiting-on-you",
+  );
+
   return (
     <div className="flex flex-col gap-6">
       {DEMO_ENABLED && appraisals.source === "demo" && (
@@ -345,102 +375,12 @@ export function WhatNeedsYouTab({
         </Card>
       )}
 
-      {/* ---------------------------------------------------------------- open */}
-      {scored && (
-        <Card>
-          <CardHeader
-            title="What is open"
-            action={
-              openPeriod ? undefined : (
-                <StartPeriodButton variant="accent" withIcon />
-              )
-            }
-          />
-          {appraisals.loading ? (
-            <CardBody className="flex items-center gap-2 text-body-sm text-muted">
-              <Spinner size="sm" />
-              Loading
-            </CardBody>
-          ) : !openPeriod ? (
-            <EmptyState
-              compact
-              icon={<CalendarRange aria-hidden="true" />}
-              title="No appraisal period is running"
-              description={
-                canManagePeriods
-                  ? "A period is the stretch of time an appraisal covers. Starting one gives everybody a form."
-                  : "Your form turns up here when one starts."
-              }
-            />
-          ) : (
-            <>
-              <CardBody className="flex flex-wrap items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
-                  {openPeriod.name}
-                  <Badge
-                    tone={openPeriod.stage === "PUBLISHED" ? "neutral" : "info"}
-                    size="sm"
-                    dot
-                  >
-                    {openPeriod.stageLabel}
-                  </Badge>
-                </p>
-                <p className="mt-1 flex flex-wrap items-center gap-2 text-meta text-muted">
-                  <span>
-                    {openPeriod.questionCount === 1
-                      ? "1 question"
-                      : `${openPeriod.questionCount} questions`}
-                  </span>
-                  <span>
-                    {openPeriod.reviewCount === 1
-                      ? "1 form"
-                      : `${openPeriod.reviewCount} forms`}
-                  </span>
-                  {openPeriod.dueDate && (
-                    <span>Answers due {dayLabel(openPeriod.dueDate)}</span>
-                  )}
-                </p>
-              </div>
-              {/* Both destinations are the period's management screen, so both
-                  are gated the same way `showOutstandingLink` already gates the
-                  one beside it. Setting a period up and reading who is
-                  outstanding are things a period's owner does; an employee's
-                  own business with a period is the form, which is the work list
-                  below. Absent, not disabled. */}
-              {canManagePeriods && (
-                <div className="flex flex-wrap gap-2">
-                  <ButtonLink
-                    size="sm"
-                    href={`/performance/periods/${openPeriod.id}`}
-                  >
-                    {openPeriod.stage === "DRAFT"
-                      ? "Set it up and start it"
-                      : "Who is outstanding"}
-                  </ButtonLink>
-                </div>
-              )}
-              </CardBody>
-
-              {/* How far along it is, for whoever is running it. Absent for
-                  everybody else rather than zeroed — see `period-status.tsx`.
-                  This card said which period was open and nothing about its
-                  state, so "where is this up to" was two clicks from the screen
-                  that asked it. */}
-              <PeriodStatus
-                cycleId={openPeriod.id}
-                canSeeCompany={canSeeCompany}
-              />
-            </>
-          )}
-        </Card>
-      )}
-
       {/* ------------------------------------------------- final, not answered */}
-      {/* Its own card and above the work list, because a rating nobody has
-          answered is the exposure this whole feature exists to close — and
-          because silence is not acceptance, so it cannot be left to be
-          noticed. */}
+      {/* Outside every tab, not just outside every disclosure. A rating
+          nobody has answered is the exposure this whole feature exists to
+          close, and silence is not acceptance — burying it one click inside
+          "Waiting on you" is exactly the kind of thing Rule 5 exists to
+          forbid for a warning. */}
       {scored && owesAnswer.length > 0 && (
         <Card>
           <CardHeader
@@ -491,143 +431,237 @@ export function WhatNeedsYouTab({
         </Card>
       )}
 
-      {/* ---------------------------------------------------- waiting on you */}
-      <Card>
-        <CardHeader title="Waiting on you" />
-        {appraisals.loading ? (
-          <CardBody className="flex items-center gap-2 text-body-sm text-muted">
-            <Spinner size="sm" />
-            Loading
-          </CardBody>
-        ) : owedNow.length === 0 &&
-          queue.length === 0 &&
-          toSend.length === 0 ? (
-          <EmptyState
-            compact
-            icon={<CheckCheck aria-hidden="true" />}
-            title="Nothing needs you"
-            description="When a period starts, your form turns up here. So does anything of yours to send, and anybody's objectives to agree."
-          />
-        ) : (
-          <CardBody className="flex flex-col gap-2">
-            {/* The objective queue first: agreeing a target is the step before
-                anybody can be rated on it, and it is somebody else's work being
-                held up rather than your own. */}
-            {queue.length > 0 && (
-              <TaskRow
-                icon={<CheckCheck aria-hidden="true" />}
-                title={
-                  queue.length === 1
-                    ? "1 objective is waiting for you to agree it"
-                    : `${queue.length} objectives are waiting for you to agree them`
-                }
-                detail="An objective has to be agreed before the period it covers."
-                href="/performance/approvals"
-                action="Open the queue"
-              />
-            )}
-
-            {toSend.length > 0 && (
-              <TaskRow
-                icon={<ClipboardList aria-hidden="true" />}
-                title={
-                  toSend.length === 1
-                    ? "1 objective of yours has not been sent for approval"
-                    : `${toSend.length} objectives of yours have not been sent for approval`
-                }
-                detail={objectiveNames(toSend)}
-                href="/performance?tab=kpis"
-                action="Open your KPIs"
-              />
-            )}
-
-            {owedNow.map((review) => (
-              <ReviewRow
-                key={review.id}
-                review={review}
-                context="owed"
-                actionLabel="Fill it in"
-                onOpen={() => setOpened(review.id)}
-              />
-            ))}
-          </CardBody>
-        )}
-      </Card>
-
-      {/* ------------------------------------------- waiting on somebody else */}
-      <Card>
-        <CardHeader
-          title="Waiting on somebody else"
-          description="Sent, and nothing more for you to do until it comes back."
-        />
-        {waitingOnOthers === 0 && !showOutstandingLink ? (
-          <EmptyState
-            compact
-            icon={<Clock aria-hidden="true" />}
-            title="Nothing is out with anybody"
-            description="Objectives you send for approval, and the appraiser writing about you, show up here."
-          />
-        ) : (
-          <CardBody className="flex flex-col gap-2">
-            {sentForApproval.length > 0 && (
-              <TaskRow
-                icon={<Clock aria-hidden="true" />}
-                title={
-                  sentForApproval.length === 1
-                    ? "1 objective of yours is waiting to be agreed"
-                    : `${sentForApproval.length} objectives of yours are waiting to be agreed`
-                }
-                detail={objectiveNames(sentForApproval)}
-                href="/performance?tab=kpis"
-                action="See them"
-              />
-            )}
-
-            {showOutstandingLink && openPeriod && (
-              <TaskRow
+      {/* --------------------------------------------------- the three tabs */}
+      <Tabs items={sectionTabs} value={sectionTab} onChange={setSectionTab}>
+        {sectionTab === "period" && scored && (
+          <Card>
+            <CardHeader
+              title="This period"
+              action={
+                openPeriod ? undefined : (
+                  <StartPeriodButton variant="accent" withIcon />
+                )
+              }
+            />
+            {appraisals.loading ? (
+              <CardBody className="flex items-center gap-2 text-body-sm text-muted">
+                <Spinner size="sm" />
+                Loading
+              </CardBody>
+            ) : !openPeriod ? (
+              <EmptyState
+                compact
                 icon={<CalendarRange aria-hidden="true" />}
-                title={`Forms other people owe in ${openPeriod.name}`}
-                detail="Who has not sent theirs in, by name, and one button to nudge them."
-                href={`/performance/periods/${openPeriod.id}`}
-                action="Who is outstanding"
+                title="No appraisal period is running"
+                description={
+                  canManagePeriods
+                    ? "A period is the stretch of time an appraisal covers. Starting one gives everybody a form."
+                    : "Your form turns up here when one starts."
+                }
               />
-            )}
-
-            {scored &&
-              appraisingMe.map((appraiser) => (
-                <div
-                  key={appraiser.assignmentId}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3"
-                >
+            ) : (
+              <>
+                <CardBody className="flex flex-wrap items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-body-sm font-medium text-ink">
-                      {appraiser.appraiserName} is appraising you
-                    </p>
-                    <p className="mt-1 flex flex-wrap items-center gap-2 text-meta text-muted">
-                      <span>{appraiser.roleLabel}</span>
-                      {mine.row && <span>{mine.row.cycleName}</span>}
+                    <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
+                      {openPeriod.name}
                       <Badge
-                        tone={appraiser.submitted ? "neutral" : "warning"}
+                        tone={
+                          openPeriod.stage === "PUBLISHED" ? "neutral" : "info"
+                        }
                         size="sm"
                         dot
                       >
-                        {appraiser.submitted
-                          ? "Form sent"
-                          : "Form not sent yet"}
+                        {openPeriod.stageLabel}
                       </Badge>
                     </p>
+                    <p className="mt-1 flex flex-wrap items-center gap-2 text-meta text-muted">
+                      <span>
+                        {openPeriod.questionCount === 1
+                          ? "1 question"
+                          : `${openPeriod.questionCount} questions`}
+                      </span>
+                      <span>
+                        {openPeriod.reviewCount === 1
+                          ? "1 form"
+                          : `${openPeriod.reviewCount} forms`}
+                      </span>
+                      {openPeriod.dueDate && (
+                        <span>Answers due {dayLabel(openPeriod.dueDate)}</span>
+                      )}
+                    </p>
                   </div>
-                  {/* Their mark, not their form. A working figure moves every time
-                    somebody records a rating, so the subject sees it when it is
-                    final and not before — the API refuses it either way. */}
-                  <span className="text-meta text-muted">
-                    You will see the mark when it is final
-                  </span>
-                </div>
-              ))}
-          </CardBody>
+                  {/* Both destinations are the period's management screen, so both
+                      are gated the same way `showOutstandingLink` already gates the
+                      one beside it. Setting a period up and reading who is
+                      outstanding are things a period's owner does; an employee's
+                      own business with a period is the form, which is the work list
+                      in the tab beside this one. Absent, not disabled. */}
+                  {canManagePeriods && (
+                    <div className="flex flex-wrap gap-2">
+                      <ButtonLink
+                        size="sm"
+                        href={`/performance/periods/${openPeriod.id}`}
+                      >
+                        {openPeriod.stage === "DRAFT"
+                          ? "Set it up and start it"
+                          : "Who is outstanding"}
+                      </ButtonLink>
+                    </div>
+                  )}
+                </CardBody>
+
+                {/* How far along it is, for whoever is running it. Absent for
+                    everybody else rather than zeroed — see `period-status.tsx`.
+                    This card said which period was open and nothing about its
+                    state, so "where is this up to" was two clicks from the screen
+                    that asked it. */}
+                <PeriodStatus
+                  cycleId={openPeriod.id}
+                  canSeeCompany={canSeeCompany}
+                />
+              </>
+            )}
+          </Card>
         )}
-      </Card>
+
+        {sectionTab === "waiting-on-you" && (
+          <Card>
+            <CardHeader title="Waiting on you" />
+            {appraisals.loading ? (
+              <CardBody className="flex items-center gap-2 text-body-sm text-muted">
+                <Spinner size="sm" />
+                Loading
+              </CardBody>
+            ) : owedNow.length === 0 &&
+              queue.length === 0 &&
+              toSend.length === 0 ? (
+              <EmptyState
+                compact
+                icon={<CheckCheck aria-hidden="true" />}
+                title="Nothing needs you"
+                description="When a period starts, your form turns up here. So does anything of yours to send, and anybody's objectives to agree."
+              />
+            ) : (
+              <CardBody className="flex flex-col gap-2">
+                {/* The objective queue first: agreeing a target is the step before
+                    anybody can be rated on it, and it is somebody else's work being
+                    held up rather than your own. */}
+                {queue.length > 0 && (
+                  <TaskRow
+                    icon={<CheckCheck aria-hidden="true" />}
+                    title={
+                      queue.length === 1
+                        ? "1 objective is waiting for you to agree it"
+                        : `${queue.length} objectives are waiting for you to agree them`
+                    }
+                    detail="An objective has to be agreed before the period it covers."
+                    href="/performance/approvals"
+                    action="Open the queue"
+                  />
+                )}
+
+                {toSend.length > 0 && (
+                  <TaskRow
+                    icon={<ClipboardList aria-hidden="true" />}
+                    title={
+                      toSend.length === 1
+                        ? "1 objective of yours has not been sent for approval"
+                        : `${toSend.length} objectives of yours have not been sent for approval`
+                    }
+                    detail={objectiveNames(toSend)}
+                    href="/performance?tab=kpis"
+                    action="Open your KPIs"
+                  />
+                )}
+
+                {owedNow.map((review) => (
+                  <ReviewRow
+                    key={review.id}
+                    review={review}
+                    context="owed"
+                    actionLabel="Fill it in"
+                    onOpen={() => setOpened(review.id)}
+                  />
+                ))}
+              </CardBody>
+            )}
+          </Card>
+        )}
+
+        {sectionTab === "waiting-on-others" && (
+          <Card>
+            <CardHeader title="Waiting on somebody else" />
+            {waitingOnOthers === 0 && !showOutstandingLink ? (
+              <EmptyState
+                compact
+                icon={<Clock aria-hidden="true" />}
+                title="Nothing is out with anybody"
+                description="Objectives you send for approval, and the appraiser writing about you, show up here."
+              />
+            ) : (
+              <CardBody className="flex flex-col gap-2">
+                {sentForApproval.length > 0 && (
+                  <TaskRow
+                    icon={<Clock aria-hidden="true" />}
+                    title={
+                      sentForApproval.length === 1
+                        ? "1 objective of yours is waiting to be agreed"
+                        : `${sentForApproval.length} objectives of yours are waiting to be agreed`
+                    }
+                    detail={objectiveNames(sentForApproval)}
+                    href="/performance?tab=kpis"
+                    action="See them"
+                  />
+                )}
+
+                {showOutstandingLink && openPeriod && (
+                  <TaskRow
+                    icon={<CalendarRange aria-hidden="true" />}
+                    title={`Forms other people owe in ${openPeriod.name}`}
+                    detail="Who has not sent theirs in, by name, and one button to nudge them."
+                    href={`/performance/periods/${openPeriod.id}`}
+                    action="Who is outstanding"
+                  />
+                )}
+
+                {scored &&
+                  appraisingMe.map((appraiser) => (
+                    <div
+                      key={appraiser.assignmentId}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-body-sm font-medium text-ink">
+                          {appraiser.appraiserName} is appraising you
+                        </p>
+                        <p className="mt-1 flex flex-wrap items-center gap-2 text-meta text-muted">
+                          <span>{appraiser.roleLabel}</span>
+                          {mine.row && <span>{mine.row.cycleName}</span>}
+                          <Badge
+                            tone={appraiser.submitted ? "neutral" : "warning"}
+                            size="sm"
+                            dot
+                          >
+                            {appraiser.submitted
+                              ? "Form sent"
+                              : "Form not sent yet"}
+                          </Badge>
+                        </p>
+                      </div>
+                      {/* Their mark, not their form. A working figure moves every time
+                        somebody records a rating, so the subject sees it when it is
+                        final and not before — the API refuses it either way. */}
+                      <span className="text-meta text-muted">
+                        You will see the mark when it is final
+                      </span>
+                    </div>
+                  ))}
+              </CardBody>
+            )}
+          </Card>
+        )}
+      </Tabs>
 
       {/* ------------------------------------------------------- the reference */}
       {scored && <HowItWorks />}
