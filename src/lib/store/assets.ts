@@ -1238,9 +1238,9 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
   /* --------------------------------------------------------- mutations */
 
   const addItem = useCallback(
-    async (input: ItemInput): Promise<void> => {
+    async (input: ItemInput): Promise<string> => {
       if (isConnected) {
-        await api.create({
+        const created = await api.create({
           tag: input.tag,
           name: input.name,
           ...(input.kindId ? { categoryId: input.kindId } : {}),
@@ -1257,7 +1257,7 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
           ...(input.notes ? { notes: input.notes } : {}),
         });
         bumpRevision();
-        return;
+        return created.id;
       }
 
       const state = demo.current();
@@ -1281,12 +1281,13 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
         );
       }
 
+      const id = demoId("item");
       demo.commit({
         ...state,
         assets: [
           ...state.assets,
           {
-            id: demoId("item"),
+            id,
             tag: input.tag,
             name: input.name,
             serialNumber: input.serialNumber ?? null,
@@ -1310,6 +1311,7 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
           },
         ],
       });
+      return id;
     },
     [isConnected],
   );

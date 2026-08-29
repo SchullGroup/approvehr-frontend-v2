@@ -117,7 +117,31 @@ export function Disclosure({
         >
           <span className="min-w-0">
             <span className="flex flex-wrap items-center gap-2">
-              <span id={titleId} className="text-body font-medium text-ink">
+              {/* Size follows the heading level, and `text-body` never set one.
+                  ---------------------------------------------------------------
+                  This was `text-body font-medium`, and `text-body` is a
+                  **colour** utility, not a size — `--color-body` and
+                  `--text-body` collide on that name and Tailwind v4 resolves it
+                  to the colour, which `text-ink` beside it then overrides. So
+                  the title had no font-size at all and inherited 16px from
+                  `body`, while everything it sat next to was `text-body-sm` at
+                  14px.
+
+                  That reads as arbitrarily bigger text on some rows and not
+                  others, which is what it is. `globals.css` records the
+                  collision and `verify-typescale`'s failure message names it;
+                  this is the first place it was actually doing visible harm.
+
+                  A level-2 disclosure heads a page section and earns the larger
+                  size deliberately. A level-3 or level-4 one sits inside a card
+                  among body text and has to match it. */}
+              <span
+                id={titleId}
+                className={cn(
+                  "font-medium text-ink",
+                  level === 2 ? "text-body-lg" : "text-body-sm",
+                )}
+              >
                 {title}
               </span>
               {meta}
