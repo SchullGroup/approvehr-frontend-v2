@@ -156,8 +156,20 @@ export function DepartmentsScreen() {
   const departmentCount = liveUnits.filter((unit) => unit.depth === 0).length;
   const subDepartmentCount = liveUnits.length - departmentCount;
 
+  /**
+   * The whole company's monthly cost — or null, when this reader may not see
+   * pay at all.
+   *
+   * Summing with `?? 0` would turn a withheld figure into a ₦0 contribution
+   * and quietly report a smaller company payroll than the real one, which is
+   * worse than saying nothing. The API withholds all of them or none, so one
+   * null is enough to know the whole total is not ours to state.
+   */
   const totalPayroll = useMemo(
-    () => liveTree.reduce((sum, node) => sum + node.payrollKobo, 0),
+    () =>
+      liveTree.some((node) => node.payrollKobo === null)
+        ? null
+        : liveTree.reduce((sum, node) => sum + (node.payrollKobo ?? 0), 0),
     [liveTree],
   );
 
@@ -252,11 +264,16 @@ export function DepartmentsScreen() {
                   value={String(subDepartmentCount)}
                   hint="nested inside another"
                 />
-                <Stat
-                  label="Monthly payroll"
-                  value={<Money amount={totalPayroll / 100} compact size="xl" />}
-                  hint="across every unit"
-                />
+                {/* Dropped entirely for a reader without `VIEW_SALARIES`,
+                    rather than shown as a dash. The other three stats are
+                    about structure and stay. */}
+                {totalPayroll !== null && (
+                  <Stat
+                    label="Monthly payroll"
+                    value={<Money amount={totalPayroll / 100} compact size="xl" />}
+                    hint="across every unit"
+                  />
+                )}
                 <Stat
                   label="Unassigned"
                   value={String(departments.counts.unassignedEmployees)}
@@ -706,7 +723,11 @@ function DepartmentRow({
               Monthly
             </p>
             <p className="tabular text-body font-medium text-ink">
-              <Money amount={node.payrollKobo / 100} compact />
+              {node.payrollKobo === null ? (
+                <span className="text-faint">—</span>
+              ) : (
+                <Money amount={node.payrollKobo / 100} compact />
+              )}
             </p>
           </div>
         </div>

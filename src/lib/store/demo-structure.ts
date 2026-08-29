@@ -460,7 +460,12 @@ export function demoTree(
     for (const child of node.children) {
       settle(child, depth + 1);
       node.totalEmployees += child.totalEmployees;
-      node.payrollKobo += child.payrollKobo;
+      /* Null rolls up as null, exactly as the service does. Demo mode always
+         has the figures — there is no permission to withhold them behind — but
+         the shape has to match or the two modes render differently. */
+      if (node.payrollKobo !== null && child.payrollKobo !== null) {
+        node.payrollKobo += child.payrollKobo;
+      }
     }
     node.children.sort(byName);
   };

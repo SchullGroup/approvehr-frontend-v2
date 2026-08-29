@@ -744,7 +744,16 @@ export type ApiDepartment = {
   /** 0 is a department; 1+ is a team. */
   depth: number;
   archived: boolean;
-  payrollKobo: number;
+  /**
+   * Monthly cost of this unit and everything under it, in kobo.
+   *
+   * **Null when the caller may not see pay.** `VIEW_SALARIES` decides on the
+   * API, and the structure stays readable either way — the org chart is not
+   * privileged, the money on it is. Render an absence, never `₦0.00`: a zero
+   * says this department costs nothing, which is a claim rather than a
+   * withholding.
+   */
+  payrollKobo: number | null;
   children: ApiDepartment[];
 };
 

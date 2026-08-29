@@ -511,6 +511,9 @@ function TeamDrawer({
                   {team.leadName ?? "Nobody assigned"}
                 </p>
               </div>
+              {/* The whole tile is dropped for a reader who may not see pay,
+                  rather than headed "Monthly cost" with a dash in it. */}
+              {team.payrollKobo !== null && (
               <div className="rounded-md border border-line p-3">
                 <p className="text-meta uppercase tracking-wide text-faint">
                   Monthly cost
@@ -518,7 +521,7 @@ function TeamDrawer({
                 <p className="tabular mt-0.5 text-body-sm text-ink">
                   <Money amount={team.payrollKobo / 100} compact />
                 </p>
-                {team.payrollUnknown > 0 && (
+                {team.payrollUnknown !== null && team.payrollUnknown > 0 && (
                   <p className="mt-0.5 text-meta text-faint">
                     {team.members.length - team.payrollUnknown} of{" "}
                     {team.members.length} — {team.payrollUnknown} have no pay
@@ -526,6 +529,7 @@ function TeamDrawer({
                   </p>
                 )}
               </div>
+              )}
             </div>
 
             {mismatches.length > 0 && (

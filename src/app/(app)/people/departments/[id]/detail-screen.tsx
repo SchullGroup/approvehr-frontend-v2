@@ -129,15 +129,22 @@ export function DepartmentDetailScreen({ id }: { id: string }) {
       <PageBody className="flex flex-col gap-6">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Stat label="People" value={String(detail.directEmployees)} />
-          <Stat
-            label="Monthly"
-            value={<Money amount={detail.payrollKobo / 100} compact size="xl" />}
-            {...(withoutPay > 0
-              ? {
-                  hint: `over ${detail.directEmployees - withoutPay} of ${detail.directEmployees} — ${withoutPay} have no pay set`,
-                }
-              : { hint: "contractual gross, before deductions" })}
-          />
+          {/* Absent, not zeroed, for a reader without `VIEW_SALARIES` — and
+              absent means the whole Stat goes, rather than a card headed
+              "Monthly" with a dash under it. A labelled blank still asserts
+              that there is a figure here somebody is being kept from; no card
+              says only that this screen is about structure. */}
+          {detail.payrollKobo !== null && (
+            <Stat
+              label="Monthly"
+              value={<Money amount={detail.payrollKobo / 100} compact size="xl" />}
+              {...(withoutPay > 0
+                ? {
+                    hint: `over ${detail.directEmployees - withoutPay} of ${detail.directEmployees} — ${withoutPay} have no pay set`,
+                  }
+                : { hint: "contractual gross, before deductions" })}
+            />
+          )}
           <Stat
             label="Units inside"
             value={String(detail.childCount)}
