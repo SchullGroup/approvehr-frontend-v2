@@ -1067,7 +1067,7 @@ export const payrollApi = {
     body: {
       employeeId: string;
       payeKobo: number;
-      reason: string;
+      reason?: string;
       alsoStanding?: boolean;
     },
   ) =>
@@ -1103,7 +1103,8 @@ export const payrollApi = {
       employeeId: string;
       hours: number;
       kind: OvertimeOverrideKind;
-      reason: string;
+      /** Optional — see `PayrollTaxOverride.reason` on the API. */
+      reason?: string;
     },
   ) =>
     request<OvertimeOverrideChange>(`/payroll/runs/${id}/overtime-overrides`, {
@@ -1126,7 +1127,7 @@ export const payrollApi = {
    */
   setBonus: (
     id: string,
-    body: { employeeId: string; amountKobo: number; reason: string },
+    body: { employeeId: string; amountKobo: number; reason?: string },
   ) =>
     request<BonusChange>(`/payroll/runs/${id}/bonuses`, { method: "POST", body }),
 

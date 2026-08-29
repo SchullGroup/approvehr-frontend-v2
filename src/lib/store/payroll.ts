@@ -1598,7 +1598,7 @@ export function usePayrollActions() {
         employeeId: string;
         hours: number;
         kind: OvertimeOverrideKind;
-        reason: string;
+        reason?: string;
       },
     ): Promise<OvertimeOverrideChange> => {
       if (isConnected) return payrollApi.setOvertimeOverride(runId, input);
@@ -1630,7 +1630,7 @@ export function usePayrollActions() {
   const setBonus = useCallback(
     async (
       runId: string,
-      input: { employeeId: string; amountKobo: number; reason: string },
+      input: { employeeId: string; amountKobo: number; reason?: string },
     ): Promise<BonusChange> => {
       if (isConnected) return payrollApi.setBonus(runId, input);
       throw new ApiError(
@@ -1682,7 +1682,7 @@ export function usePayrollActions() {
       input: {
         employeeId: string;
         payeKobo: number;
-        reason: string;
+        reason?: string;
         alsoStanding?: boolean;
       },
     ): Promise<TaxOverrideChange> => {

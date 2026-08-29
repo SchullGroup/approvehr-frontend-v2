@@ -75,8 +75,8 @@ import {
 import { useCan } from "@/lib/permissions";
 import { useOvertimePolicy } from "@/lib/store/overtime";
 import { usePayrollSettings } from "@/lib/payroll/use-settings";
-import { BonusByHand, OvertimeByHand, PayByHand } from "./by-hand";
-import type { OvertimeOverrideKind } from "@/lib/api/payroll";
+import { InlineHours, InlineMoney } from "./inline-edit";
+import type { OvertimeHourlyBasis } from "@/lib/overtime/derive";
 import {
   useEmployeeDirectory,
   useEmployeeMutations,
@@ -1556,23 +1556,35 @@ function PayslipTable({
 
   const actions = usePayrollActions();
   const [overriding, setOverriding] = useState<Payslip | null>(null);
-  /** Which row has the three by-hand forms open, if any. */
-  const [adjusting, setAdjusting] = useState<Payslip | null>(null);
+  /**
+   * Which single cell is being edited, if any.
+   *
+   * One cell at a time and no expansion. The row keeps its height, so a table
+   * of three hundred does not jump under somebody working down it — which is
+   * the whole reason the stacked panels came out.
+   */
+  const [editing, setEditing] = useState<{
+    slipId: string;
+    field: "overtime" | "bonus" | "pay" | "paye";
+  } | null>(null);
   const [adjustSaving, setAdjustSaving] = useState<
-    "overtime" | "bonus" | "pay" | null
+    "overtime" | "bonus" | "pay" | "paye" | null
   >(null);
   const [adjustError, setAdjustError] = useState<string | null>(null);
+
+  const beginEdit = (slip: Payslip, field: "overtime" | "bonus" | "pay" | "paye") => {
+    setAdjustError(null);
+    setEditing({ slipId: slip.id, field });
+  };
+  const editingCell = (slip: Payslip, field: string) =>
+    editing?.slipId === slip.id && editing.field === field;
   const overtimePolicy = useOvertimePolicy();
   const { settings: paySettings } = usePayrollSettings();
   const workingDays = paySettings.workingDaysPerMonth;
 
   const closeAdjust = () => {
-    setAdjusting(null);
+    setEditing(null);
     setAdjustError(null);
-  };
-  const toggleAdjust = (slip: Payslip) => {
-    setAdjustError(null);
-    setAdjusting((open) => (open?.id === slip.id ? null : slip));
   };
 
   /**
@@ -1583,7 +1595,7 @@ function PayslipTable({
    * patch would show one moved number beside five stale ones.
    */
   const adjust = async (
-    which: "overtime" | "bonus" | "pay",
+    which: "overtime" | "bonus" | "pay" | "paye",
     action: () => Promise<unknown>,
   ) => {
     setAdjustSaving(which);
@@ -1606,17 +1618,17 @@ function PayslipTable({
     }
   };
 
-  const saveOvertime = (
-    slip: Payslip,
-    input: { hours: number; kind: OvertimeOverrideKind; reason: string },
-  ) =>
-    adjust(
-      "overtime",
-      () =>
-        actions.setOvertimeOverride(runId, {
-          employeeId: slip.employeeId,
-          ...input,
-        }),
+  /**
+   * Hours only. The rate is the company's weekday multiplier and no reason is
+   * asked for — see `inline-edit.tsx` and `PayrollTaxOverride.reason`.
+   */
+  const saveOvertime = (slip: Payslip, hours: number) =>
+    adjust("overtime", () =>
+      actions.setOvertimeOverride(runId, {
+        employeeId: slip.employeeId,
+        hours,
+        kind: "WEEKDAY",
+      }),
     );
 
   const clearOvertime = (slip: Payslip) =>
@@ -1625,10 +1637,18 @@ function PayslipTable({
       () => actions.clearOvertimeOverride(runId, slip.employeeId),
     );
 
-  const saveBonus = (slip: Payslip, input: { amountKobo: number; reason: string }) =>
-    adjust(
-      "bonus",
-      () => actions.setBonus(runId, { employeeId: slip.employeeId, ...input }),
+  /** The tax figure, alone. No reason, no standing preference, no dialog. */
+  const savePaye = (slip: Payslip, payeKobo: number) =>
+    adjust("paye", () =>
+      actions.setTaxOverride(runId, { employeeId: slip.employeeId, payeKobo }),
+    );
+
+  const clearPaye = (slip: Payslip) =>
+    adjust("paye", () => actions.clearTaxOverride(runId, slip.employeeId));
+
+  const saveBonus = (slip: Payslip, amountKobo: number) =>
+    adjust("bonus", () =>
+      actions.setBonus(runId, { employeeId: slip.employeeId, amountKobo }),
     );
 
   const clearBonusFor = (slip: Payslip) =>
@@ -1738,8 +1758,13 @@ function PayslipTable({
           <TH>Employee</TH>
           {anyUnpaid && <TH align="right">Unpaid days</TH>}
           <TH align="right">Gross</TH>
+          {/* Overtime and bonus are entered here, in the cell, on the row.
+              Housing fund came out to make room: it is a computed statutory
+              line nobody edits from this screen, it is on the payslip, and a
+              column somebody only reads is worth less than one they work in. */}
+          <TH align="right">Overtime</TH>
+          <TH align="right">Bonus</TH>
           <TH align="right">Pension</TH>
-          <TH align="right">Housing fund</TH>
           <TH align="right">PAYE</TH>
           <TH align="right">Other</TH>
           <TH align="right">Net</TH>
@@ -1800,16 +1825,65 @@ function PayslipTable({
                       {editable && (
                         <button
                           type="button"
-                          onClick={() => toggleAdjust(slip)}
-                          className="text-meta font-medium text-accent-text underline-offset-2 hover:underline"
+                          onClick={() => beginEdit(slip, "pay")}
+                          className="text-meta font-normal text-muted underline-offset-2 hover:text-accent-text hover:underline"
                         >
-                          {adjusting?.id === slip.id
-                            ? "Close"
-                            : "Overtime, bonus or pay"}
+                          Change pay
                         </button>
                       )}
                     </span>
                   </TD>
+                  {/* Overtime: hours in, money out, in the cell. */}
+                  <TD align="right" className="tabular text-muted">
+                    {editingCell(slip, "overtime") ? (
+                      <InlineHours
+                        hourlyKobo={hourlyFor(
+                          monthlyOf(slip, employees),
+                          overtimePolicy.policy.hoursPerDay,
+                          workingDays,
+                          overtimePolicy.policy.hourlyBasis,
+                        )}
+                        rate={overtimePolicy.policy.weekdayRate}
+                        saving={adjustSaving === "overtime"}
+                        onSave={(hours) => void saveOvertime(slip, hours)}
+                        onCancel={closeAdjust}
+                      />
+                    ) : (
+                      <CellValue
+                        amountKobo={overtimeOn(slip)}
+                        editable={editable}
+                        onEdit={() => beginEdit(slip, "overtime")}
+                        onClear={
+                          hasManualOvertime(slip)
+                            ? () => void clearOvertime(slip)
+                            : undefined
+                        }
+                      />
+                    )}
+                  </TD>
+
+                  {/* Bonus: an amount, nothing else. */}
+                  <TD align="right" className="tabular text-muted">
+                    {editingCell(slip, "bonus") ? (
+                      <InlineMoney
+                        valueKobo={bonusOn(slip)?.amountKobo ?? null}
+                        saving={adjustSaving === "bonus"}
+                        placeholder="amount"
+                        onSave={(kobo) => void saveBonus(slip, kobo)}
+                        onCancel={closeAdjust}
+                      />
+                    ) : (
+                      <CellValue
+                        amountKobo={bonusOn(slip)?.amountKobo ?? 0}
+                        editable={editable}
+                        onEdit={() => beginEdit(slip, "bonus")}
+                        onClear={
+                          bonusOn(slip) ? () => void clearBonusFor(slip) : undefined
+                        }
+                      />
+                    )}
+                  </TD>
+
                   <TD align="right" className="tabular text-muted">
                     {wasDeducted(slip.operates, "pension") ? (
                       formatKobo(slip.pensionEmployeeKobo)
@@ -1817,47 +1891,49 @@ function PayslipTable({
                       <span className="text-faint">Not operated</span>
                     )}
                   </TD>
+                  {/* PAYE: one input in the cell, and nothing else.
+                      The expanding form that used to open here was the size of
+                      the row it sat in. What it explained is said once above
+                      the table; the reason is optional on the API for exactly
+                      this. */}
                   <TD align="right" className="tabular text-muted">
-                    {wasDeducted(slip.operates, "nhf") ? (
-                      formatKobo(slip.nhfKobo)
-                    ) : (
+                    {!wasDeducted(slip.operates, "paye") ? (
                       <span className="text-faint">Not operated</span>
-                    )}
-                  </TD>
-                  <TD align="right" className="tabular text-muted">
-                    {wasDeducted(slip.operates, "paye") ? (
+                    ) : editingCell(slip, "paye") ? (
+                      <InlineMoney
+                        valueKobo={slip.payeKobo}
+                        saving={adjustSaving === "paye"}
+                        placeholder="PAYE"
+                        onSave={(kobo) => void savePaye(slip, kobo)}
+                        onCancel={closeAdjust}
+                      />
+                    ) : (
                       <span className="flex flex-col items-end gap-0.5">
-                        <span
-                          className={
-                            slip.payeOverridden ? "text-ink" : undefined
-                          }
+                        <button
+                          type="button"
+                          disabled={!editable}
+                          onClick={() => beginEdit(slip, "paye")}
+                          className={cn(
+                            "rounded px-1 text-right disabled:pointer-events-none",
+                            slip.payeOverridden ? "text-ink" : undefined,
+                            editable &&
+                              "hover:bg-canvas hover:text-accent-text focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent-text",
+                          )}
                         >
                           {formatKobo(slip.payeKobo)}
-                        </span>
-                        {slip.payeOverridden ? (
+                        </button>
+                        {slip.payeOverridden && (
                           <button
                             type="button"
-                            title={slip.payeOverrideReason ?? undefined}
-                            onClick={() => toggle(slip)}
                             disabled={!editable}
-                            className="text-meta font-normal text-accent-text underline-offset-2 hover:underline disabled:pointer-events-none disabled:text-faint"
+                            onClick={() => void clearPaye(slip)}
+                            title={slip.payeOverrideReason ?? undefined}
+                            className="text-meta font-normal text-muted underline-offset-2 hover:text-danger-text hover:underline disabled:pointer-events-none"
                           >
-                            {open ? "Close" : "Entered by hand"}
+                            By hand · undo
                           </button>
-                        ) : (
-                          editable && (
-                            <button
-                              type="button"
-                              onClick={() => toggle(slip)}
-                              className="text-meta font-normal text-muted underline-offset-2 hover:text-accent-text hover:underline"
-                            >
-                              {open ? "Close" : "Enter manually"}
-                            </button>
-                          )
                         )}
                       </span>
-                    ) : (
-                      <span className="text-faint">Not operated</span>
                     )}
                   </TD>
                   <TD align="right" className="tabular text-muted">
@@ -1878,50 +1954,12 @@ function PayslipTable({
                     {formatKobo(slip.netKobo)}
                   </TD>
                 </TR>
-                {adjusting?.id === slip.id && (
+                {/* One narrow row for an error, and only when there is one.
+                    The forms themselves are in the cells; nothing expands. */}
+                {adjustError && editing?.slipId === slip.id && (
                   <TR>
-                    <TD colSpan={anyUnpaid ? 8 : 7} className="bg-canvas p-0">
-                      <div className="flex flex-col divide-y divide-line">
-                        <OvertimeByHand
-                          name={slip.name}
-                          grossMonthlyKobo={monthlyOf(slip, employees)}
-                          workingDaysPerMonth={workingDays}
-                          hoursPerDay={overtimePolicy.policy.hoursPerDay}
-                          basis={overtimePolicy.policy.hourlyBasis}
-                          rates={{
-                            WEEKDAY: overtimePolicy.policy.weekdayRate,
-                            WEEKEND: overtimePolicy.policy.weekendRate,
-                            PUBLIC_HOLIDAY: overtimePolicy.policy.holidayRate,
-                          }}
-                          current={null}
-                          saving={adjustSaving === "overtime"}
-                          error={adjustError}
-                          onSave={(input) => void saveOvertime(slip, input)}
-                          onCancel={closeAdjust}
-                          {...(hasManualOvertime(slip)
-                            ? { onClear: () => void clearOvertime(slip) }
-                            : {})}
-                        />
-                        <BonusByHand
-                          name={slip.name}
-                          current={bonusOn(slip)}
-                          saving={adjustSaving === "bonus"}
-                          error={adjustError}
-                          onSave={(input) => void saveBonus(slip, input)}
-                          onCancel={closeAdjust}
-                          {...(bonusOn(slip)
-                            ? { onClear: () => void clearBonusFor(slip) }
-                            : {})}
-                        />
-                        <PayByHand
-                          name={slip.name}
-                          currentKobo={monthlyOf(slip, employees) || null}
-                          saving={adjustSaving === "pay"}
-                          error={adjustError}
-                          onSave={(input) => void savePay(slip, input)}
-                          onCancel={closeAdjust}
-                        />
-                      </div>
+                    <TD colSpan={anyUnpaid ? 9 : 8} className="bg-danger-soft py-2">
+                      <span className="text-body-sm text-ink">{adjustError}</span>
                     </TD>
                   </TR>
                 )}
@@ -2185,4 +2223,75 @@ function monthlyOf(
 ): number {
   const person = employees.find((row) => row.id === slip.employeeId);
   return person?.grossMonthly ? Math.round(person.grossMonthly * 100) : 0;
+}
+
+/**
+ * A figure in an editable cell: the amount, and a way in.
+ *
+ * A dash when there is nothing, so an empty cell is obviously empty rather than
+ * obviously broken. The control appears on hover and on focus rather than
+ * always, because three hundred rows each showing "Add" is a wall of links.
+ */
+function CellValue({
+  amountKobo,
+  editable,
+  onEdit,
+  onClear,
+}: {
+  amountKobo: number;
+  editable: boolean;
+  onEdit: () => void;
+  onClear?: () => void;
+}) {
+  if (!editable) {
+    return amountKobo > 0 ? <>{formatKobo(amountKobo)}</> : <>—</>;
+  }
+  return (
+    <span className="group flex flex-col items-end gap-0.5">
+      <button
+        type="button"
+        onClick={onEdit}
+        className="rounded px-1 text-right hover:bg-canvas hover:text-accent-text focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent-text"
+      >
+        {amountKobo > 0 ? formatKobo(amountKobo) : <span className="text-faint">—</span>}
+      </button>
+      {onClear && (
+        <button
+          type="button"
+          onClick={onClear}
+          className="text-meta font-normal text-muted underline-offset-2 hover:text-danger-text hover:underline"
+        >
+          Remove
+        </button>
+      )}
+    </span>
+  );
+}
+
+/** What this run is paying them in hand-entered or clocked overtime. */
+function overtimeOn(slip: Payslip): number {
+  return slip.lines
+    .filter((line) => line.kind === "EARNING" && line.label.startsWith("Overtime"))
+    .reduce((total, line) => total + line.amountKobo, 0);
+}
+
+/**
+ * What an hour of this person's time is worth, for the live preview.
+ *
+ * `monthly x 12 / 365 / hoursPerDay` on the calendar-day basis — the formula
+ * from the payslip workbook this was built against — and
+ * `monthly / workingDays / hoursPerDay` on the other. It **renders the
+ * working**; the server computes what is actually paid, and if the two ever
+ * disagree the server is right.
+ */
+function hourlyFor(
+  monthlyKobo: number,
+  hoursPerDay: number,
+  workingDaysPerMonth: number,
+  basis: OvertimeHourlyBasis,
+): number {
+  const hours = Math.max(1, hoursPerDay);
+  return basis === "CALENDAR_DAYS"
+    ? Math.round((monthlyKobo * 12) / 365 / hours)
+    : Math.round(monthlyKobo / Math.max(1, workingDaysPerMonth) / hours);
 }
