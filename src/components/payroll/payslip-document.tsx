@@ -300,11 +300,24 @@ export function PayslipDocument({
   slip,
   period,
   payDate,
-  company = {
-    name: "Schull Technologies Ltd",
-    rc: "RC 1482930",
-    address: "12 Adeola Odeku Street, Victoria Island, Lagos",
-  },
+  /**
+   * No default, deliberately.
+   *
+   * This used to default to a fabricated company — "Schull Technologies Ltd",
+   * "RC 1482930", a registered address — so any caller that omitted it printed
+   * an invented statutory identity on a real person's payslip. There is one
+   * caller and it always passes a company, so the default was never reached
+   * and never noticed; it was a lie waiting for a second caller.
+   *
+   * `view.tsx` was fixed once already for exactly this, at the call site,
+   * while the component kept its own copy of the same fabrication with a
+   * *different* RC number. That is the shape worth remembering: fixing the
+   * caller leaves the trap set.
+   *
+   * Required now, so the compiler asks. What is genuinely unknown prints as a
+   * dash, which is what the rest of this document already does.
+   */
+  company,
   rates,
   ytd,
   className,
@@ -434,7 +447,7 @@ export function PayslipDocument({
           {/* The employer's mark, when they have one. `alt` is empty because
               the company name is the line directly under it, and a screen
               reader that announced both would say the name twice. */}
-          {company.logoUrl && (
+          {company?.logoUrl && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={company.logoUrl}
@@ -442,10 +455,10 @@ export function PayslipDocument({
               className="mb-2.5 max-h-12 max-w-[12rem] object-contain object-left"
             />
           )}
-          <p className="text-h4 text-ink">{company.name}</p>
-          <p className="mt-0.5 text-meta text-muted">{company.rc}</p>
+          <p className="text-h4 text-ink">{company?.name ?? "—"}</p>
+          <p className="mt-0.5 text-meta text-muted">{company?.rc ?? "—"}</p>
           <p className="mt-1 max-w-[18rem] text-meta leading-snug text-muted">
-            {company.address}
+            {company?.address ?? "—"}
           </p>
         </div>
         <div className="text-right">
@@ -546,7 +559,7 @@ export function PayslipDocument({
         <section className="mt-6 rounded-md border border-line bg-canvas p-4">
           <ColumnHead>Paid by your employer</ColumnHead>
           <p className="mt-1.5 text-meta leading-relaxed text-muted">
-            Paid by {company.name} on your behalf. These are not deducted from
+            Paid by {company?.name ?? "your employer"} on your behalf. These are not deducted from
             your pay and do not reduce the net figure above.
           </p>
           <dl className="mt-3 flex flex-col">
