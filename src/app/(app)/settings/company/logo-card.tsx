@@ -191,9 +191,16 @@ export function CompanyLogoCard() {
               </p>
             )}
 
+            {/* The formats and the size limit stay: both are refusals this
+                card will actually make, so saying them first saves somebody
+                choosing a file that gets rejected.
+
+                The shape advice — "a wide logo reads better than a tall one"
+                — is gone at the product owner's instruction. It was taste
+                rather than a constraint: nothing refuses a tall logo, and a
+                company's logo is whatever shape their logo is. */}
             <p className="text-meta leading-relaxed text-muted">
-              PNG, JPEG, GIF or WebP, under 48KB. A wide logo reads better than
-              a tall one — it sits on a single line above your company name.
+              PNG, JPEG, GIF or WebP, under 48KB.
             </p>
           </>
         )}
