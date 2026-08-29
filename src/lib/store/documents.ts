@@ -400,7 +400,20 @@ type RegisterState = {
  * the interface is a nicer failure than a hook that silently returns nothing.
  */
 export function useDocumentRegister(params: RequestListParams = {}) {
-  const { isConnected } = useSession();
+  const { isConnected, can } = useSession();
+
+  /**
+   * The register is `EDIT_RECORDS` — `modules/documents/router.ts` puts it on
+   * the route, and `/people/documents` already renders the self-service variant
+   * ("your own documents are on your documents page") to anybody without it.
+   *
+   * It asked anyway. So four of the six seeded roles opened that screen, saw the
+   * right thing, and fired two requests behind it that could only ever come back
+   * 403 — two red console lines on a screen that had already decided correctly
+   * what to show. `mayRead` is a boolean, so it is safe in a dependency array;
+   * `can` itself never is (see `store/grades.ts` for what that costs).
+   */
+  const mayRead = can("EDIT_RECORDS");
 
   const [state, setState] = useState<RegisterState>(() =>
     isConnected
@@ -415,6 +428,7 @@ export function useDocumentRegister(params: RequestListParams = {}) {
   const latest = useRef(0);
 
   const load = useCallback(async () => {
+    if (isConnected && !mayRead) return;
     const parsed = JSON.parse(key) as RequestListParams;
 
     if (!isConnected) {
@@ -462,7 +476,7 @@ export function useDocumentRegister(params: RequestListParams = {}) {
         error: error instanceof ApiError ? error : null,
       }));
     }
-  }, [isConnected, key]);
+  }, [isConnected, key, mayRead]);
 
   /* Re-ask when somebody comes back to the window. Not in the key below,
      so the answer is replaced without the screen flashing a skeleton. */
@@ -482,6 +496,9 @@ export function useDocumentRegister(params: RequestListParams = {}) {
 
   return {
     ...state,
+    /* Never loading for a reader who is not allowed to read it: nothing is in
+       flight and nothing will be. Empty, not an error — nothing went wrong. */
+    ...(isConnected && !mayRead ? { loading: false, editable: false } : {}),
     peopleWaitingOn,
     reload: load,
     ask: useCallback(
@@ -538,7 +555,9 @@ type ExpiringState = {
  * when it lands, renewal dates appear here with no change on this side.
  */
 export function useExpiringDocuments(days = 30) {
-  const { isConnected } = useSession();
+  const { isConnected, can } = useSession();
+  /* Same gate, same reason, same screen — see `useDocumentRegister` above. */
+  const mayRead = can("EDIT_RECORDS");
   const [state, setState] = useState<ExpiringState>(() =>
     isConnected
       ? { data: null, loading: true, error: null }
@@ -548,6 +567,10 @@ export function useExpiringDocuments(days = 30) {
   const load = useCallback(async () => {
     if (!isConnected) {
       setState({ data: demoExpiring(days), loading: false, error: null });
+      return;
+    }
+    if (!mayRead) {
+      setState({ data: null, loading: false, error: null });
       return;
     }
     setState((s) => ({ ...s, loading: true, error: null }));
@@ -561,7 +584,7 @@ export function useExpiringDocuments(days = 30) {
         error: error instanceof ApiError ? error : null,
       }));
     }
-  }, [isConnected, days]);
+  }, [isConnected, days, mayRead]);
 
   /* Re-ask when somebody comes back to the window. Not in the key below,
      so the answer is replaced without the screen flashing a skeleton. */

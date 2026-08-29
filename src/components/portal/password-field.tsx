@@ -115,12 +115,35 @@ export function PasswordField({
         <>
           {/* One plain sentence, not a rule — the checklist below already
               states the rules. A layperson does not necessarily know that
-              length is what actually matters, or that this product asks for
-              none of the symbol/number juggling most sites still demand. */}
+              length is what actually matters, rather than the symbol/number
+              juggling most sites still demand.
+
+              It has to say something different under `strict`, and this is not
+              a nicety. "No symbols or numbers required" is true of the base
+              rules and false the moment the four class rules are added — and
+              the screen it was reaching first was **register**, which is
+              always strict (it creates the company's Owner). So the first
+              thing a new customer read was an instruction to type three
+              ordinary words, followed by a refusal for doing exactly that.
+
+              Still no banner explaining *why* there are more rows — the rows
+              are their own explanation, as the note at the top of this file
+              says. What changes is only that the advice matches the rules
+              being enforced beneath it. */}
           <p className="mt-1.5 text-body-sm leading-relaxed text-muted">
-            Longer beats complicated: a short phrase like three ordinary
-            words is easy to remember and hard to guess. No symbols or
-            numbers required.
+            {strict ? (
+              <>
+                Longer beats complicated: a phrase like three ordinary words,
+                with a capital, a number and a symbol, is easier to remember
+                and harder to guess than a short jumble.
+              </>
+            ) : (
+              <>
+                Longer beats complicated: a short phrase like three ordinary
+                words is easy to remember and hard to guess. No symbols or
+                numbers required.
+              </>
+            )}
           </p>
           <ul aria-live="polite" className="mt-1.5 flex flex-col gap-1.5">
             {shown.map((rule) => (
