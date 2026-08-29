@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   ArrowRight,
   Bell,
@@ -294,13 +295,49 @@ export function SettingsScreen() {
           </Callout>
         )}
 
-        {/* Collapsed by default — a company that opens Settings mainly to
-            reach one card (holidays, roles, integrations) should not have to
-            scroll past six checklist rows to get there every time. The
-            outstanding items still show on the closed line, so there is
-            nothing to open just to learn whether something needs doing. */}
+        {/**
+         * Open while anything is outstanding; collapsed once it is done.
+         *
+         * It was always collapsed, on the argument that a company reaching for
+         * one card should not scroll past six checklist rows every time, and
+         * that the outstanding items show on the closed line anyway so there is
+         * nothing to open just to *learn* something needs doing.
+         *
+         * The second half is where it failed. The closed line reads
+         * "Outstanding: Company profile, Work locations…" — and those are
+         * **prose, not links**. Somebody who has just read that a company
+         * profile is outstanding has nowhere to click, and the nine cards
+         * below are the ongoing surfaces, none of which is the company
+         * profile. The product owner asked three times where to upload a
+         * company logo; it is on `/settings/company`, behind this chevron,
+         * and every time the answer was "expand a thing you had no reason to
+         * think was hiding a route".
+         *
+         * So the first half of the argument is kept and the second is
+         * answered: a **finished** company still gets the collapsed line it
+         * was written for, and an unfinished one gets the rows it needs to
+         * act on. Same rule as everywhere else in this product — closed for a
+         * year of dates or an audit trail, open for something waiting on the
+         * reader.
+         */}
         <Disclosure
+          /**
+           * The key is what makes `defaultOpen` work here.
+           *
+           * `Disclosure` reads `defaultOpen` once, into `useState` — which is
+           * the right contract for an uncontrolled component and means a later
+           * change to the prop does nothing. `loading` is true on the first
+           * render, so without this the checklist would mount closed and stay
+           * closed however many items turned out to be outstanding.
+           *
+           * Remounting once, when the answer arrives, gives the right default
+           * and leaves it a normal uncontrolled disclosure afterwards — the
+           * reader can still close it, and it stays closed. Controlling `open`
+           * instead would take that away.
+           */
+          key={loading ? "loading" : complete ? "done" : "outstanding"}
           title="Setting up your company"
+          defaultOpen={!loading && !complete}
           level={2}
           meta={
             !loading && progress.total > 0 ? (
@@ -327,9 +364,28 @@ export function SettingsScreen() {
                      anything still worth doing has to be said here or it is
                      said nowhere, which is exactly how the logo upload stayed
                      invisible: present on `/settings/company`, below a form
-                     with thirty-seven states in it, and mentioned by nothing. */
+                     with thirty-seven states in it, and mentioned by nothing.
+
+                     Saying it was still not enough. It was a **sentence**, and
+                     the reader had nowhere to click — asked three separate
+                     times where to upload a company logo, having read this
+                     exact line. Naming a gap without a route to it is half a
+                     job, and the missing half is the one that costs the time. */
                   facts && !facts.company.logo
-                  ? "Everything a payroll needs is in place. No logo yet — it goes on every payslip and on the emails the platform sends."
+                  ? (
+                      <>
+                        Everything a payroll needs is in place. No logo yet — it
+                        goes on every payslip and on the emails the platform
+                        sends.{" "}
+                        <Link
+                          href="/settings/company"
+                          className="font-medium text-accent-text underline-offset-2 hover:underline"
+                        >
+                          Add one
+                        </Link>
+                        .
+                      </>
+                    )
                   : "Everything a payroll needs is in place."
                 : progress.outstanding.length > 0
                   ? `Outstanding: ${progress.outstanding.map((row) => row.title).join(", ")}.`

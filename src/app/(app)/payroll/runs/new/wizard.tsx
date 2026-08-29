@@ -686,64 +686,22 @@ export function PayrollRunWizard() {
                 busyFor={puttingBack}
               />
 
-              {/* Where the per-person figures are.
-                  ---------------------------------
-                  This step is about what is *wrong* with the records; the
-                  figures themselves are one step on, in the payslip table. A
-                  product owner looking for "change the tax" stood on exactly
-                  this screen and could not find it, which is the third time in
-                  this codebase a working feature has been invisible for want of
-                  a sentence pointing at it.
+              {/* The "Changing a figure by hand" callout stood here, and is
+                  gone at the product owner's instruction.
 
-                  Absent once the run is approved: nothing there is editable
-                  then — but it still says the controls exist, which the first
-                  version did not.
+                  It existed because the same person had twice failed to find
+                  the tax, overtime and bonus controls — they are on the *next*
+                  step, and this one is about what is wrong with the records.
+                  Every word of it was true. It was also four sentences and a
+                  button explaining an interaction that should announce itself:
+                  the Review table has an Overtime column, a Bonus column and a
+                  PAYE column, each of which opens an input where you click it.
 
-                  That was the mistake. Hiding a frozen control is right;
-                  hiding the *explanation* of it leaves somebody looking at an
-                  approved run with no way to learn the capability is there at
-                  all, and that is exactly what happened — a product owner
-                  reported the feature "not implemented" while looking at this
-                  screen on an approved payroll.
-
-                  Fourth instance in this codebase of a working feature being
-                  findable by nobody. The rule, now stated for the last time:
-                  **absent-when-refused applies to the control, never to the
-                  sentence that says the control exists.** */}
-              {canPrepare && (
-                <Callout
-                  tone={settled ? "neutral" : "info"}
-                  title="Changing a figure by hand"
-                >
-                  <p>
-                    Tax, overtime, a bonus and somebody&rsquo;s monthly pay are
-                    each entered on the <strong className="text-ink">Review</strong>{" "}
-                    step, against the person they belong to — under their gross
-                    figure, where every payslip is listed.
-                  </p>
-                  <p className="mt-2">
-                    Tax, overtime and a bonus apply to one payroll only. Pay is
-                    the contract, so changing it there changes their record from
-                    then on.
-                  </p>
-                  {settled ? (
-                    <p className="mt-2">
-                      <strong className="text-ink">
-                        This payroll is approved, so none of it can be changed
-                        now.
-                      </strong>{" "}
-                      Its figures are the record of what was paid. The controls
-                      are there on the next payroll you prepare.
-                    </p>
-                  ) : (
-                    <p className="mt-2">
-                      <Button size="sm" onClick={() => stepper.goTo(2)}>
-                        Go to the payslips
-                      </Button>
-                    </p>
-                  )}
-                </Callout>
-              )}
+                  The lesson it was written for still stands — a control the
+                  reader cannot find is a control they do not have. What was
+                  wrong was the remedy: make the control legible, do not put a
+                  paragraph in front of it. If those columns ever stop looking
+                  editable, fix the columns rather than restoring this. */}
             </>
           ) : (
             <EmptyState
@@ -1538,10 +1496,17 @@ function PayslipTable({
       true and, on its own, the wrong answer to "is everybody here?". */
   run: { employeeCount: number; excludedCount: number };
   runId: string;
-  /** "August 2026", for the tax-override dialog's own copy. */
+  /** "August 2026". */
   periodLabel: string;
-  /** Just enough of the directory to know who already has the standing
-   *  "always enter this by hand" preference — see `TaxOverrideDialog`. */
+  /**
+   * Just enough of the directory to price overtime and read a contract.
+   *
+   * There is no tax-override dialog any more and there must not be one again:
+   * changing the tax is one input in the cell, typed and saved, with no
+   * confirmation in front of it. A figure a reviewer is correcting while
+   * reading a table is not a decision that needs a second click — approving
+   * the payroll is, and that is the one dialog left on this screen.
+   */
   employees: readonly {
     id: string;
     payeManualOverride?: boolean;
@@ -1784,9 +1749,27 @@ function PayslipTable({
               column somebody only reads is worth less than one they work in. */}
           <TH align="right">Overtime</TH>
           <TH align="right">Bonus</TH>
-          <TH align="right">Pension</TH>
+          {/* Pension came out with Housing fund, and for the same reason: it is
+              a statutory figure nobody edits from this screen, it is on the
+              payslip in full, and every column that is only read costs the ones
+              that are worked in. What is left is the two figures somebody
+              enters, the tax they may override, and the totals either side. */}
           <TH align="right">PAYE</TH>
-          <TH align="right">Other</TH>
+          {/* Everything taken off besides PAYE, as one figure.
+              -----------------------------------------------
+              This was "Other", and it carried only the pre-tax and post-tax
+              deduction lines — so with the Pension column gone and NHF never
+              having had one, **the row did not add up**: gross minus PAYE minus
+              Other was short of net by pension plus NHF, ₦9,500 on a ₦100,000
+              salary, with nothing on screen to account for it. The product
+              owner's question was "why does the net not include the overtime
+              and bonus" — it did, and the row was unreadable, which comes to
+              the same thing on a screen somebody approves money from.
+
+              Removing the pension column was right. Leaving the figure out of
+              the arithmetic was not: a payroll table whose own figures do not
+              reconcile is the defect this product is sold against. */}
+          <TH align="right">Deductions</TH>
           <TH align="right">Net</TH>
         </THead>
         <TBody>
@@ -1835,22 +1818,22 @@ function PayslipTable({
                           +{formatKobo(line.amountKobo)} {shortLabel(line.label)}
                         </span>
                       ))}
-                      {/* Named, not labelled "Adjust".
-                          -----------------------------
-                          It said "Adjust", which is a grey word describing
-                          nothing — and the product owner, who had asked for
-                          exactly these three things, could not find them. A
-                          control has to say what it does, not that it does
-                          something. */}
-                      {editable && (
-                        <button
-                          type="button"
-                          onClick={() => beginEdit(slip, "pay")}
-                          className="text-meta font-normal text-muted underline-offset-2 hover:text-accent-text hover:underline"
-                        >
-                          Change pay
-                        </button>
-                      )}
+                      {/* "Change pay" used to sit under every gross figure —
+                          ten times on a ten-person payroll, three hundred on a
+                          real one, for an act almost nobody performs while
+                          working a month up.
+
+                          It is also the one control here that is **not about
+                          this payroll**: it rewrites `Employee.grossMonthly`,
+                          the contract, from a table headed with a single
+                          month. That mismatch is what made it unreadable — the
+                          product owner's words were "I don't understand the
+                          change pay here".
+
+                          A pay rise belongs on the person's record, which the
+                          employee name already links to. Editing stays in this
+                          table for the three things that genuinely belong to
+                          one period: overtime, a bonus, and the tax. */}
                     </span>
                   </TD>
                   {/* Overtime: hours in, money out, in the cell. */}
@@ -1872,6 +1855,12 @@ function PayslipTable({
                       <CellValue
                         amountKobo={overtimeOn(slip)}
                         editable={editable}
+                        /* Names the unit: hours is what goes in the box and
+                           money is what comes out of it, which the column
+                           heading alone does not say. The bonus cell just
+                           reads "Add" — its heading already names the thing,
+                           and two words wrap in a column this narrow. */
+                        addLabel="Add hours"
                         onEdit={() => beginEdit(slip, "overtime")}
                         onClear={
                           hasManualOvertime(slip)
@@ -1896,6 +1885,7 @@ function PayslipTable({
                       <CellValue
                         amountKobo={bonusOn(slip)?.amountKobo ?? 0}
                         editable={editable}
+                        addLabel="Add"
                         onEdit={() => beginEdit(slip, "bonus")}
                         onClear={
                           bonusOn(slip) ? () => void clearBonusFor(slip) : undefined
@@ -1904,13 +1894,6 @@ function PayslipTable({
                     )}
                   </TD>
 
-                  <TD align="right" className="tabular text-muted">
-                    {wasDeducted(slip.operates, "pension") ? (
-                      formatKobo(slip.pensionEmployeeKobo)
-                    ) : (
-                      <span className="text-faint">Not operated</span>
-                    )}
-                  </TD>
                   {/* PAYE: one input in the cell, and nothing else.
                       The expanding form that used to open here was the size of
                       the row it sat in. What it explained is said once above
@@ -1929,19 +1912,46 @@ function PayslipTable({
                       />
                     ) : (
                       <span className="flex flex-col items-end gap-0.5">
+                        {/* The tax is editable here and always has been — and
+                            like the two columns beside it, nothing on screen
+                            said so.
+
+                            Overtime and a bonus can announce themselves by
+                            being empty ("Add hours"), and PAYE cannot: it
+                            always carries the engine's own figure, so there is
+                            no blank to fill. The cue has to be on the number.
+                            The same dotted underline the add-labels use marks
+                            it as a figure you may type over, and "Change" sits
+                            under it in the same slot the overridden state uses
+                            for "By hand · undo" — so the row does not move
+                            height when it flips between them.
+
+                            A reader who may not edit gets neither: the plain
+                            figure, which is what it is. */}
                         <button
                           type="button"
                           disabled={!editable}
                           onClick={() => beginEdit(slip, "paye")}
+                          aria-label={`Change the PAYE for ${slip.name}`}
                           className={cn(
                             "rounded px-1 text-right disabled:pointer-events-none",
                             slip.payeOverridden ? "text-ink" : undefined,
                             editable &&
-                              "hover:bg-canvas hover:text-accent-text focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent-text",
+                              "underline decoration-dotted underline-offset-2 hover:bg-canvas hover:text-accent-text focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent-text",
                           )}
                         >
                           {formatKobo(slip.payeKobo)}
                         </button>
+                        {editable && !slip.payeOverridden && (
+                          <button
+                            type="button"
+                            onClick={() => beginEdit(slip, "paye")}
+                            tabIndex={-1}
+                            className="text-meta whitespace-nowrap font-normal text-accent-text underline-offset-2 hover:underline"
+                          >
+                            Change
+                          </button>
+                        )}
                         {slip.payeOverridden && (
                           <button
                             type="button"
@@ -1957,18 +1967,7 @@ function PayslipTable({
                     )}
                   </TD>
                   <TD align="right" className="tabular text-muted">
-                    {slip.otherDeductionsKobo > 0 ? (
-                      <>
-                        {formatKobo(slip.otherDeductionsKobo)}
-                        {deductionLines.length > 0 && (
-                          <span className="mt-0.5 block text-meta font-normal text-faint">
-                            {deductionLines.map((l) => l.label).join(", ")}
-                          </span>
-                        )}
-                      </>
-                    ) : (
-                      "—"
-                    )}
+                    <Deductions slip={slip} lines={deductionLines} />
                   </TD>
                   <TD align="right" className="tabular font-medium text-ink">
                     {formatKobo(slip.netKobo)}
@@ -2299,16 +2298,112 @@ function monthlyOf(
  * obviously broken. The control appears on hover and on focus rather than
  * always, because three hundred rows each showing "Add" is a wall of links.
  */
+/**
+ * A figure in a cell you can work in.
+ *
+ * ## An empty one says "Add", not "—"
+ *
+ * It used to render a faint dash inside a button. On a payroll where nobody has
+ * overtime that is a column of ten dashes, and **nothing whatever indicates
+ * they can be clicked** — the product owner's words were "I don't like the way
+ * to edit and add overtime", which is what an invisible control feels like from
+ * the outside rather than a complaint about the input itself.
+ *
+ * A dash is the right glyph for a figure that is genuinely absent and not
+ * yours to change; it is the wrong one for an empty box waiting for a number.
+ * So the two states are now told apart: a reader who may not edit still sees
+ * the dash, and a reader who may sees the word for what would happen.
+ *
+ * Same treatment in all three editable columns, because a control that
+ * announces itself in one and hides in the next is worse than either.
+ */
+/**
+ * Everything taken off besides PAYE, so the row reconciles.
+ *
+ * ## The identity this exists to make visible
+ *
+ * `engine.ts` computes net as
+ *
+ *     gross − pension − nhf − preTax − paye − postTax
+ *
+ * The table shows Gross, Overtime, Bonus, PAYE and Net. Pension had a column
+ * and lost it; NHF never had one; and the old "Other" cell carried only
+ * `otherDeductionsKobo`, which is the pre-tax and post-tax lines alone. So two
+ * terms of that identity were on nobody's screen and **the row was short of
+ * its own net** by pension plus NHF — ₦9,500 on a ₦100,000 salary.
+ *
+ * Nothing was mispaid: every figure the API sent was right, and net already
+ * included the overtime and the bonus. What was wrong is that a person could
+ * not check it, on the screen where they approve the money. A table that does
+ * not add up is indistinguishable from one that is wrong, and this product is
+ * sold on the difference.
+ *
+ * ## Why one column and not three
+ *
+ * Pension came out because a statutory figure nobody edits from here costs a
+ * column that somebody works in. That reasoning holds. What it does not license
+ * is dropping the figure from the arithmetic — so it is a term inside one
+ * total, with the breakdown beneath it, exactly as the Gross cell already names
+ * its overtime and bonus.
+ *
+ * ## Absent, not zero
+ *
+ * A deduction the employer does not operate is not counted and not named. A
+ * company with no pension scheme sees NHF alone; one that operates neither sees
+ * only whatever loans and claims the run carries. `wasDeducted` reads an
+ * unknown operation as deducted, which is what every payslip written before the
+ * switches existed actually was.
+ */
+function Deductions({
+  slip,
+  lines,
+}: {
+  slip: Payslip;
+  lines: readonly { label: string }[];
+}) {
+  const parts: { label: string; kobo: number }[] = [];
+  if (wasDeducted(slip.operates, "pension") && slip.pensionEmployeeKobo > 0) {
+    parts.push({ label: "pension", kobo: slip.pensionEmployeeKobo });
+  }
+  if (wasDeducted(slip.operates, "nhf") && slip.nhfKobo > 0) {
+    parts.push({ label: "NHF", kobo: slip.nhfKobo });
+  }
+  for (const line of lines) {
+    parts.push({ label: line.label, kobo: 0 });
+  }
+
+  const total =
+    (wasDeducted(slip.operates, "pension") ? slip.pensionEmployeeKobo : 0) +
+    (wasDeducted(slip.operates, "nhf") ? slip.nhfKobo : 0) +
+    slip.otherDeductionsKobo;
+
+  if (total === 0) return <>—</>;
+
+  return (
+    <>
+      {formatKobo(total)}
+      {parts.length > 0 && (
+        <span className="mt-0.5 block text-meta font-normal text-faint">
+          {parts.map((p) => p.label).join(", ")}
+        </span>
+      )}
+    </>
+  );
+}
+
 function CellValue({
   amountKobo,
   editable,
   onEdit,
   onClear,
+  /** What clicking an empty cell would do. Shown in place of a dash. */
+  addLabel = "Add",
 }: {
   amountKobo: number;
   editable: boolean;
   onEdit: () => void;
   onClear?: () => void;
+  addLabel?: string;
 }) {
   if (!editable) {
     return amountKobo > 0 ? <>{formatKobo(amountKobo)}</> : <>—</>;
@@ -2320,7 +2415,13 @@ function CellValue({
         onClick={onEdit}
         className="rounded px-1 text-right hover:bg-canvas hover:text-accent-text focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent-text"
       >
-        {amountKobo > 0 ? formatKobo(amountKobo) : <span className="text-faint">—</span>}
+        {amountKobo > 0 ? (
+          formatKobo(amountKobo)
+        ) : (
+          <span className="text-meta whitespace-nowrap text-accent-text underline decoration-dotted underline-offset-2">
+            {addLabel}
+          </span>
+        )}
       </button>
       {onClear && (
         <button
