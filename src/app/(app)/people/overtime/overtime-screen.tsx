@@ -142,7 +142,21 @@ function AllOvertime() {
   const overtime = useOvertime({ period, status });
   const { policy, awaitingApproval, shown } = overtime;
 
-  const canWorkOut = permissions.has("RUN_PAYROLL");
+  /*
+   * Holding RUN_PAYROLL is not enough to be offered this — the company also
+   * has to be running overtime at all. `POST /overtime/detect` answers 422
+   * "Overtime is switched off. Turn it on in Settings before working it out."
+   * and the screen used to render that button twice above the very card that
+   * says the feature is off, so the primary action on the page was one the API
+   * would always turn down.
+   *
+   * `policyKnown` is what keeps this from flickering: until the policy has
+   * arrived, `enabled` is a default rather than an answer, and hiding the
+   * button on a default would take it away from a company that does run
+   * overtime for as long as the request is in flight.
+   */
+  const canWorkOut =
+    permissions.has("RUN_PAYROLL") && (!overtime.policyKnown || policy.enabled);
   const canDecide = permissions.has("APPROVE_LEAVE_ALL");
 
   const periods = useMemo(() => recentPeriods(TODAY, 12), []);

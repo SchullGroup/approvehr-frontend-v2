@@ -243,7 +243,10 @@ export function PayrollScreen() {
                     <span>
                       {counts.blockers > 0
                         ? `${counts.blockers} ${counts.blockers === 1 ? "thing" : "things"} to fix before this can be approved${counts.warnings > 0 ? `, ${counts.warnings} more worth a look` : ""}.`
-                        : `${counts.warnings} ${counts.warnings === 1 ? "thing" : "things"} worth a look before approving. Nothing stops the run.`}
+                        : /* "before approving" is false once it is approved,
+                             and this card is the first thing on the payroll
+                             screen for the rest of the month. */
+                          `${counts.warnings} ${counts.warnings === 1 ? "thing" : "things"} worth a look${current.status === "APPROVED" || current.status === "PAID" ? " on this run" : " before approving"}. Nothing stops the run.`}
                     </span>
                     <ButtonLink
                       href={`/payroll/runs/new?period=${current.period}`}

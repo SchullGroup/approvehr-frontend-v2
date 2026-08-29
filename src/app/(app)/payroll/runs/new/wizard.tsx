@@ -833,6 +833,28 @@ export function PayrollRunWizard() {
           Save &amp; exit
         </Button>
         <div className="flex items-center gap-2">
+          {/*
+           * Why the forward button is dead, said AT the button.
+           *
+           * `canContinue` goes false the moment one BLOCKER stands, and the
+           * only thing that explained it was the exception list — which on a
+           * real run sits several screens above the footer. Somebody who has
+           * just excluded two people, scrolled to the bottom and found a grey
+           * Continue had nowhere to read why. The count is the useful half:
+           * "1 thing still stops this run" tells them how much is left, and
+           * the list they scroll back to says who.
+           *
+           * Only on the steps where `blocked` is what disables it. Step 1 is
+           * disabled by an unfilled period, which the fields themselves say,
+           * and the last step's Approve carries its own reasons.
+           */}
+          {blocked && !stepper.isLast && !stepper.isFirst && !missingPayStatus && (
+            <p className="text-meta text-warning-text">
+              {counts.blockers > 0
+                ? `${counts.blockers} ${counts.blockers === 1 ? "thing" : "things"} still ${counts.blockers === 1 ? "stops" : "stop"} this run.`
+                : "The figures on this run do not add up yet."}
+            </p>
+          )}
           {!stepper.isFirst && (
             <Button variant="secondary" onClick={stepper.back}>
               <ArrowLeft aria-hidden="true" className="size-4" />
@@ -1348,14 +1370,24 @@ function PreflightChecklist() {
 
   const rows: Row[] = [
     {
-      label: "What you deduct is decided",
+      label: facts.pay.settings
+        ? "What you deduct is decided"
+        : "What you deduct is not decided yet",
       ok: facts.pay.settings,
       detail: "PAYE, pension and NHF — each a switch, in payroll settings.",
       href: "/settings/payroll",
       linkLabel: "Decide it",
     },
     {
-      label: "A default PAYE state is set",
+      /* The label states what IS, never what should be. Three rows here used
+         to carry a fixed affirmative — "A default PAYE state is set" sat above
+         a "Set it" button on a company that had never set one, so the sentence
+         read as done and only the amber triangle disagreed with it. The two
+         payroll-checks rows below already flip their wording on `ok`; these
+         now do the same. */
+      label: facts.company.taxState
+        ? "A default PAYE state is set"
+        : "No default PAYE state yet",
       ok: facts.company.taxState,
       detail: "Falls back to this for anybody with no state of their own.",
       href: "/settings/company",
@@ -1400,7 +1432,9 @@ function PreflightChecklist() {
      exactly the wrong figure this product is sold against. */
   if (facts.pay.hasPrimaryBankAccount !== null) {
     rows.push({
-      label: "Your company has a payout account on file",
+      label: facts.pay.hasPrimaryBankAccount
+        ? "Your company has a payout account on file"
+        : "Your company has no payout account on file",
       ok: facts.pay.hasPrimaryBankAccount,
       detail: "Needed to build a payment batch once this run is approved.",
       href: `/settings/bank-accounts?from=${encodeURIComponent(here)}`,

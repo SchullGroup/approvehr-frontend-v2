@@ -124,6 +124,44 @@ export function MyClockCard({
     }
   };
 
+  /*
+   * An account with no staff record behind it cannot clock in, and the API is
+   * right to refuse it — `POST /attendance/clock-in` answers 403 "This account
+   * has no employee record to clock in."
+   *
+   * That refusal is well worded and it arrives two clicks too late. The person
+   * this happens to is the company OWNER on the day they sign up: registering
+   * creates a user, not an employee, so every new company begins with an
+   * administrator who is offered a full clock-in card — their name, their
+   * expected hours, a location, an enabled button — that cannot ever work. The
+   * same screen already knows: the roster below counts "0 of 4" and does not
+   * list them.
+   *
+   * So the card states the fact instead of offering the action, and names the
+   * one thing that changes it. Deliberately not hidden: somebody looking for
+   * the clock-in button they were told about needs to find out why it is not
+   * there, and a card that simply vanishes answers nothing.
+   */
+  if (!session.employeeId) {
+    return (
+      <Card>
+        <CardBody className="flex flex-wrap items-center gap-4">
+          <Avatar name={session.displayName ?? "You"} size="md" />
+          <div className="min-w-0 flex-1">
+            <p className="text-body font-semibold">
+              {session.displayName ?? "Your day"}
+            </p>
+            <p className="mt-0.5 text-body-sm text-muted">
+              This account has no staff record, so there is nothing to clock.
+              Attendance is recorded against an employee — add yourself to the
+              directory if your own hours belong on it.
+            </p>
+          </div>
+        </CardBody>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardBody className="flex flex-wrap items-center gap-4">

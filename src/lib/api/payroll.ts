@@ -1309,9 +1309,24 @@ export const payrollApi = {
 
 /* ----------------------------------------------------------------- helpers */
 
+/**
+ * The run's state, as a word.
+ *
+ * `IN_REVIEW` reads "In review" and not "Ready to approve", which is what it
+ * used to say. A run in this state is frequently NOT ready: the wizard renders
+ * this badge at the top of the Check step while the exception list 900px below
+ * it says "2 stop the run", and the API refuses approval on a blocker. Two
+ * mutually exclusive claims on one screen is the defect this product is sold
+ * against, and the badge is the half that was wrong — a status label describes
+ * where a thing IS, never what may be done to it next.
+ *
+ * It also reaches people who cannot approve anything: an employee's own payslip
+ * carries this word (`payroll/payslips/my-payslip-index.tsx`), where "Ready to
+ * approve" was a sentence about somebody else's inbox.
+ */
 export const STATUS_LABEL: Record<PayrollRunStatus, string> = {
   DRAFT: "Draft",
-  IN_REVIEW: "Ready to approve",
+  IN_REVIEW: "In review",
   APPROVED: "Approved",
   PAID: "Paid",
   CANCELLED: "Cancelled",
