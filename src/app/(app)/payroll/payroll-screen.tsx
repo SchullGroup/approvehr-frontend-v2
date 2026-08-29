@@ -151,18 +151,39 @@ export function PayrollScreen() {
       <PageHeader
         title="Payroll"
         action={
-          <ButtonLink
-            href={
-              hasCurrentPeriod
-                ? `/payroll/runs/new?period=${currentPeriod}`
-                : "/payroll/runs/new"
-            }
-            variant="accent"
-            size="sm"
-          >
-            <Play aria-hidden="true" className="size-3.5" />
-            {hasCurrentPeriod ? "Open this month's payroll" : "Run payroll"}
-          </ButtonLink>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Another month, and the reason this is a second control rather
+                than a wider first one.
+
+                The primary action carries `?period=`, which the wizard reads as
+                "somebody came here to look at a run that already exists" and so
+                opens on the Check step — past the month picker. That is right
+                for the ordinary case and it means the picker cannot be reached
+                from this screen at all: every route out of here named this
+                month, so next month's payroll looked like something the product
+                could not do.
+
+                No `?period=`, so the wizard opens on Period with the month
+                stepper on it. */}
+            {hasCurrentPeriod && (
+              <ButtonLink href="/payroll/runs/new" variant="secondary" size="sm">
+                <CalendarClock aria-hidden="true" className="size-3.5" />
+                Another month
+              </ButtonLink>
+            )}
+            <ButtonLink
+              href={
+                hasCurrentPeriod
+                  ? `/payroll/runs/new?period=${currentPeriod}`
+                  : "/payroll/runs/new"
+              }
+              variant="accent"
+              size="sm"
+            >
+              <Play aria-hidden="true" className="size-3.5" />
+              {hasCurrentPeriod ? "Open this month's payroll" : "Run payroll"}
+            </ButtonLink>
+          </div>
         }
       />
 
