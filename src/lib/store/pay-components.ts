@@ -85,11 +85,19 @@ function refuse(what: string): never {
  * ## `active` is the one field that is not a straight copy
  *
  * The API seeds all eight **off** — nobody chose them, so nothing is charged
- * until somebody switches one on. The four in `DEMO_PACKAGE` below are on
- * here, because the demo is an operating company and people are assigned to
- * them: the API refuses to put anybody on a switched-off component, so a demo
- * showing both at once would contradict the product it is demonstrating. The
- * other four arrive off, exactly as a real new company finds them.
+ * until somebody switches one on. All four allowances arrive off here too,
+ * exactly as a real new company finds them: an allowance is a discretionary
+ * extra, and switching one on sight-unseen is not a decision this product
+ * makes for anybody.
+ *
+ * Two of the four deductions, `COOPERATIVE` and `NHIS`, are on in `DEFAULTS`
+ * and carry entries in `DEMO_PACKAGE` below, because the demo is also meant to
+ * show what an *operating* company looks like and a screen with nothing ever
+ * assigned reads as broken rather than new. The API refuses to put anybody on
+ * a switched-off component, so a component with assignments has to be on —
+ * which is why this is two deliberately-chosen deductions rather than all
+ * eight: showing an allowance both "Off" and already paid to two people would
+ * contradict the product it is demonstrating.
  */
 const DEFAULTS: readonly Omit<ApiPayComponent, "id" | "assignmentCount">[] = [
   {
@@ -142,7 +150,7 @@ const DEFAULTS: readonly Omit<ApiPayComponent, "id" | "assignmentCount">[] = [
     defaultAmountKobo: null,
     defaultRate: null,
     sortOrder: 30,
-    active: true,
+    active: false,
     isSystem: true,
     archived: false,
   },
@@ -160,7 +168,7 @@ const DEFAULTS: readonly Omit<ApiPayComponent, "id" | "assignmentCount">[] = [
     defaultAmountKobo: null,
     defaultRate: null,
     sortOrder: 40,
-    active: true,
+    active: false,
     isSystem: true,
     archived: false,
   },
@@ -244,11 +252,17 @@ const demoId = (code: string) => `demo-pc-${code.toLowerCase()}`;
  * Who is on what, in the demo.
  *
  * Seed data, in the same spirit as the seed salaries and the seed leave
- * requests: a company with nothing assigned makes the panel look broken rather
- * than empty. Deterministic from the employee's position in the directory so
- * the same person always has the same package, and **fixed amounts only** — a
- * percentage line would need the salary split resolved, and there is no reason
- * for a second copy of that arithmetic to exist here.
+ * requests: an *operating* company with nothing ever assigned makes the panel
+ * look broken rather than new. Deterministic from the employee's position in
+ * the directory so the same person always has the same package, and **fixed
+ * amounts only** — a percentage line would need the salary split resolved,
+ * and there is no reason for a second copy of that arithmetic to exist here.
+ *
+ * Deductions only, deliberately. The two allowances that used to be in this
+ * list (`HOUSING_TOP_UP`, `TRANSPORT_TOP_UP`) arrive off in `DEFAULTS` now,
+ * same as every other allowance, and an assignment to an off component is
+ * exactly the state the real API refuses to create — see the note above
+ * `DEFAULTS`.
  */
 const DEMO_PACKAGE: readonly {
   code: string;
@@ -256,8 +270,6 @@ const DEMO_PACKAGE: readonly {
   every: number;
   offset: number;
 }[] = [
-  { code: "HOUSING_TOP_UP", amountKobo: 6_000_000, every: 3, offset: 0 },
-  { code: "TRANSPORT_TOP_UP", amountKobo: 4_500_000, every: 3, offset: 1 },
   { code: "COOPERATIVE", amountKobo: 1_500_000, every: 2, offset: 0 },
   { code: "NHIS", amountKobo: 1_200_000, every: 4, offset: 3 },
 ];
