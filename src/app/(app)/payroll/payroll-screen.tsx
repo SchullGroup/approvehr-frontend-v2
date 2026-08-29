@@ -2,13 +2,7 @@
 
 import { useMemo } from "react";
 import Link from "next/link";
-import {
-  ArrowRight,
-  CalendarClock,
-  Play,
-  Receipt,
-  ShieldAlert,
-} from "lucide-react";
+import { CalendarClock, Play, Receipt, ShieldAlert } from "lucide-react";
 import type { Point } from "@/components/ui";
 import {
   AreaChart,
@@ -36,12 +30,7 @@ import {
   SourceBadge,
   TotalsPanel,
 } from "@/components/payroll/run-panels";
-import {
-  headcountLabel,
-  naira,
-  periodLabel,
-  wasDeducted,
-} from "@/lib/api/payroll";
+import { headcountLabel, naira, periodLabel } from "@/lib/api/payroll";
 import { useCan } from "@/lib/permissions";
 import {
   countBySeverity,
@@ -267,66 +256,7 @@ export function PayrollScreen() {
                 </Callout>
               )}
 
-              <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)]">
-                <TotalsPanel run={current} />
-
-                <Card>
-                  <CardHeader title="Next" />
-                  <CardBody className="flex flex-col gap-2.5">
-                    {[
-                      {
-                        href: "/payroll/payslips",
-                        label: "Payslips",
-                        /* Payslips, and this row links at the payslip index,
-                           so `employeeCount` is exactly right here — unlike the
-                           stat above it, which is labelled "People paid". */
-                        meta: `${current.employeeCount} for ${periodLabel(current.period)}`,
-                      },
-                      {
-                        href: "/payroll/statutory",
-                        label: "Statutory filings",
-                        /* Named from what this run actually deducted. A fixed
-                           "PAYE, pension, NHF" promises three schedules to a
-                           company that operates none of them, and the screen
-                           behind the link would then have to take two of them
-                           back. */
-                        meta:
-                          [
-                            wasDeducted(current.operates, "paye")
-                              ? "PAYE"
-                              : null,
-                            wasDeducted(current.operates, "pension")
-                              ? "pension"
-                              : null,
-                            wasDeducted(current.operates, "nhf") ? "NHF" : null,
-                          ]
-                            .filter((part): part is string => part !== null)
-                            .join(", ") || "Nothing deducted this period",
-                      },
-                      {
-                        href: "/payroll/pay-setup",
-                        label: "Allowances and deductions",
-                        meta: "What goes into a payroll",
-                      },
-                    ].map((item) => (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        className="flex items-center gap-2 rounded-md border border-line p-3 text-body-sm text-ink transition-colors hover:bg-canvas"
-                      >
-                        <span className="min-w-0 flex-1">{item.label}</span>
-                        <span className="shrink-0 text-meta text-muted">
-                          {item.meta}
-                        </span>
-                        <ArrowRight
-                          aria-hidden="true"
-                          className="size-3.5 shrink-0 text-faint"
-                        />
-                      </Link>
-                    ))}
-                  </CardBody>
-                </Card>
-              </div>
+              <TotalsPanel run={current} />
             </>
           )
         )}
