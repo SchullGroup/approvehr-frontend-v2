@@ -760,7 +760,7 @@ function DepartmentRow({
                 native hover tooltip (IconButton sets both `title` and
                 `aria-label`) so the row does not read as a wall of buttons. */}
             {canManage && (
-              <div className="flex items-center gap-0.5 border-l border-line pl-1.5">
+              <div className="flex items-center gap-0.5">
                 <IconButton
                   label={`Add a sub-department inside ${node.name}`}
                   variant="ghost"
