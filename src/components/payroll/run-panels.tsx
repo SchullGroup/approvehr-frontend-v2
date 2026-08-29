@@ -442,7 +442,7 @@ export function ExcludedList({
          */
         level={3}
         meta={
-          <span className="text-meta font-semibold uppercase tracking-[0.08em] text-muted">
+          <span className="text-meta font-semibold text-muted">
             {exclusions.length}{" "}
             {exclusions.length === 1 ? "person" : "people"}
           </span>

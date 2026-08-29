@@ -279,7 +279,7 @@ export function DrawerSection({
   return (
     <section className={cn("min-w-0", className)}>
       <div className="flex items-baseline justify-between gap-3">
-        <h3 className="text-meta font-semibold tracking-wide text-muted">
+        <h3 className="text-meta font-semibold text-muted">
           {title}
         </h3>
         {action && <div className="shrink-0">{action}</div>}

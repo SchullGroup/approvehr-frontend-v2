@@ -88,7 +88,7 @@ export default async function RolePage({
       <div className="container-page grid gap-14 lg:grid-cols-[1.15fr_1fr] lg:gap-20">
         <Reveal>
           <div>
-            <p className="mb-3 text-meta font-semibold uppercase tracking-widest text-slate-muted">
+            <p className="mb-3 text-meta font-semibold text-slate-muted">
               {role.company}
             </p>
             <h1 className="text-h1 text-slate">{role.title}</h1>

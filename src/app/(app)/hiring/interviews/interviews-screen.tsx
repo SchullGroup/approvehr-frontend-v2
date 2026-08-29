@@ -255,7 +255,7 @@ function Diary() {
                   className="flex flex-wrap items-center gap-3 rounded-lg border border-line p-3 transition-colors hover:bg-canvas"
                 >
                   <div className="flex w-16 shrink-0 flex-col items-center rounded-md bg-sunken px-2 py-1.5">
-                    <span className="text-meta uppercase tracking-wide text-muted">
+                    <span className="text-meta text-muted">
                       {when.toLocaleDateString("en-NG", { month: "short" })}
                     </span>
                     <span className="tabular text-h4 leading-none text-ink">

@@ -566,7 +566,7 @@ function PersonRow({
       </div>
 
       <div className="shrink-0 text-right">
-        <p className="text-meta uppercase tracking-wide text-faint">Mark</p>
+        <p className="text-meta text-faint">Mark</p>
         <p className="tabular text-body font-medium text-ink">
           {row.weightedRating === null ? "—" : row.weightedRating}
         </p>

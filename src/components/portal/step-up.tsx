@@ -266,7 +266,7 @@ function StepUpDialog({
               autoComplete="one-time-code"
               maxLength={6}
               placeholder="000000"
-              className="font-mono tracking-[0.3em]"
+              className="font-mono"
               onChange={(event) =>
                 setCode(event.target.value.replace(/\D/g, "").slice(0, 6))
               }

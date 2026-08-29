@@ -216,7 +216,7 @@ export function NotificationsInbox() {
               <section key={group.key} aria-labelledby={`day-${group.key}`}>
                 <h2
                   id={`day-${group.key}`}
-                  className="mb-2 text-meta font-semibold uppercase tracking-wide text-faint"
+                  className="mb-2 text-meta font-semibold text-faint"
                 >
                   {group.heading}
                 </h2>

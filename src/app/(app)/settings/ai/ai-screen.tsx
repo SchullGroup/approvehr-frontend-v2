@@ -172,7 +172,7 @@ export function AiScreen() {
         )}
 
         <section className="flex flex-col gap-3">
-          <h2 className="text-meta font-semibold uppercase tracking-[0.08em] text-muted">
+          <h2 className="text-meta font-semibold text-muted">
             What it does
           </h2>
 

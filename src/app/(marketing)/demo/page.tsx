@@ -71,7 +71,7 @@ export default function DemoPage() {
             </ul>
 
             <div className="mt-10 border-t border-sand-line pt-8">
-              <p className="text-meta font-semibold uppercase tracking-widest text-slate-muted">
+              <p className="text-meta font-semibold text-slate-muted">
                 Trusted by Nigerian teams in energy, government and technology
               </p>
               <div className="mt-5 grid grid-cols-4 gap-x-6 gap-y-4">

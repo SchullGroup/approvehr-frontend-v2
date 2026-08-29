@@ -709,7 +709,7 @@ function Wizard() {
         <aside className="lg:sticky lg:top-20 lg:h-fit">
           <Card>
             <CardBody className="flex flex-col gap-3">
-              <h2 className="text-meta font-semibold tracking-wide text-muted">
+              <h2 className="text-meta font-semibold text-muted">
                 Summary
               </h2>
               <p className="text-h4 text-ink">
@@ -729,7 +729,7 @@ function Wizard() {
               )}
 
               <div className="border-t border-line pt-3">
-                <p className="mb-1.5 text-meta uppercase tracking-wide text-faint">
+                <p className="mb-1.5 text-meta text-faint">
                   Pipeline
                 </p>
                 <ol className="flex flex-col gap-1">

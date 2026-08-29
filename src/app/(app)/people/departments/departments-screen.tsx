@@ -711,7 +711,7 @@ function DepartmentRow({
          */}
         <div className="flex shrink-0 items-center gap-6 text-right">
           <div>
-            <p className="text-meta uppercase tracking-wide text-faint">
+            <p className="text-meta text-faint">
               People
             </p>
             <p className="tabular text-body font-medium text-ink">
@@ -719,7 +719,7 @@ function DepartmentRow({
             </p>
           </div>
           <div className="hidden sm:block">
-            <p className="text-meta uppercase tracking-wide text-faint">
+            <p className="text-meta text-faint">
               Monthly
             </p>
             <p className="tabular text-body font-medium text-ink">

@@ -385,7 +385,7 @@ function TeamRow({
       </div>
 
       <div className="shrink-0 text-right">
-        <p className="text-meta uppercase tracking-wide text-faint">Members</p>
+        <p className="text-meta text-faint">Members</p>
         <p className="tabular text-body font-medium">
           {team.memberCount}
         </p>
@@ -504,7 +504,7 @@ function TeamDrawer({
           <div className="flex flex-col gap-5">
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-md border border-line p-3">
-                <p className="text-meta uppercase tracking-wide text-faint">
+                <p className="text-meta text-faint">
                   Lead
                 </p>
                 <p className="mt-0.5 text-body-sm text-ink">
@@ -515,7 +515,7 @@ function TeamDrawer({
                   rather than headed "Monthly cost" with a dash in it. */}
               {team.payrollKobo !== null && (
               <div className="rounded-md border border-line p-3">
-                <p className="text-meta uppercase tracking-wide text-faint">
+                <p className="text-meta text-faint">
                   Monthly cost
                 </p>
                 <p className="tabular mt-0.5 text-body-sm text-ink">
