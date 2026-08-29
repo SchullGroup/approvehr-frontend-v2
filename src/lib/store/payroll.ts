@@ -854,7 +854,11 @@ export type RunsState = {
 
 /** Every run, newest period first. */
 export function usePayrollRuns(): RunsState {
-  const { isConnected } = useSession();
+  const { isConnected, can } = useSession();
+  /* `GET /payroll/runs` is `VIEW_SALARIES` (`modules/payroll/router.ts`). A
+     reader without it has no runs to be shown and never had — asking produced a
+     403 and nothing else. Empty, not an error: nothing went wrong. */
+  const mayRead = can("VIEW_SALARIES");
   const demo = useDemoContext();
 
   const [state, setState] = useState<{
@@ -865,7 +869,7 @@ export function usePayrollRuns(): RunsState {
   }>({ runs: [], total: 0, loading: isConnected, error: null });
 
   const load = useCallback(async () => {
-    if (!isConnected) return;
+    if (!isConnected || !mayRead) return;
     setState((s) => ({ ...s, loading: true, error: null }));
     try {
       const result = await payrollApi.runs();
@@ -882,7 +886,7 @@ export function usePayrollRuns(): RunsState {
         error: error instanceof ApiError ? error : null,
       }));
     }
-  }, [isConnected]);
+  }, [isConnected, mayRead]);
 
   /* Re-ask when somebody comes back to the window. Not in the key below,
      so the answer is replaced without the screen flashing a skeleton. */

@@ -107,7 +107,11 @@ export const DEMO_REFUSAL =
   "the server, beside the engine that reads it, so it is not repeated here.";
 
 export function useDeductionSwitches(): DeductionSwitchState {
-  const { isConnected, isLoading } = useSession();
+  const { isConnected, isLoading, can } = useSession();
+  /* `GET /payroll/settings` is `VIEW_SALARIES` (`modules/payroll/router.ts`).
+     What a company deducts is information about what people earn, which is why
+     it is gated at all — so a reader without it gets nothing, quietly. */
+  const mayRead = can("VIEW_SALARIES");
   /* The demo answer to the two setup questions. Read so this screen and the
      wizard cannot disagree: the wizard persists "we do not deduct PAYE" and a
      settings screen still reporting PAYE as deducted would be two demo screens
@@ -140,7 +144,7 @@ export function useDeductionSwitches(): DeductionSwitchState {
      so the answer is replaced without the screen flashing a skeleton. */
   const revalidation = useRevalidation();
   useEffect(() => {
-    if (isLoading || !isConnected) return;
+    if (isLoading || !isConnected || !mayRead) return;
     let cancelled = false;
     const controller = new AbortController();
 
@@ -167,7 +171,7 @@ export function useDeductionSwitches(): DeductionSwitchState {
       cancelled = true;
       controller.abort();
     };
-  }, [key, isConnected, isLoading, revalidation]);
+  }, [key, isConnected, isLoading, mayRead, revalidation]);
 
   const save = useCallback(
     async (patch: PayrollSettingsPatch) => {
