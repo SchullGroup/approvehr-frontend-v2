@@ -411,7 +411,7 @@ export function DraftPeriodWizard() {
               <Field
                 label="What the period is about"
                 required
-                help="Your own words. It is sent as something the assistant is told, never as an instruction it follows."
+                help="Your own words. The assistant reads this as background, not as instructions."
               >
                 <Textarea
                   rows={4}
