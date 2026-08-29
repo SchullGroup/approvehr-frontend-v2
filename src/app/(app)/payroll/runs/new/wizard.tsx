@@ -798,6 +798,41 @@ export function PayrollRunWizard() {
             </CardBody>
           </Card>
 
+          {/* The spreadsheet, on the step where a payroll is actually worked.
+              -----------------------------------------------------------------
+              This sat on Review, under a table of thirty rows, which is a
+              surface somebody scrolls past on the way to Approve. It is not a
+              reviewing tool: it is how a payroll gets *fixed* — thirty-four
+              tax figures, or a month of overtime off another system — and the
+              step for fixing things is this one.
+
+              Fourth instance of the class this codebase keeps recording: the
+              capability was built, correct, and where nobody was looking.
+
+              Below the Calculate card rather than above it, because there is
+              nothing to download until a run exists. Rendering it before that
+              would be offering a file of nobody. */}
+          {run && (
+            <SheetPanel
+              runId={run.id}
+              period={run.period.slice(0, 7)}
+              sources={sheetSources(run.payslips, directory.employees)}
+              editable={canPrepare && !settled}
+              onApplied={(summary) => {
+                /* The toast, not a message inside the panel: applying rebuilds
+                   the run and unmounts that subtree, so anything the panel
+                   held would be gone before it could be read. */
+                toast.push({
+                  title: "Sheet applied",
+                  tone: "success",
+                  detail: `${summary}. The payroll has been worked out again.`,
+                });
+                void prepare();
+                directory.reload();
+              }}
+            />
+          )}
+
           <DiscrepancyPanel discrepancies={discrepancies} />
 
           {detail.loading ? (
@@ -878,24 +913,6 @@ export function PayrollRunWizard() {
                 editable={canPrepare && !settled}
                 onSaved={() => void prepare()}
                 onDirectoryReload={directory.reload}
-              />
-              <SheetPanel
-                runId={run.id}
-                period={run.period.slice(0, 7)}
-                sources={sheetSources(run.payslips, directory.employees)}
-                editable={canPrepare && !settled}
-                onApplied={(summary) => {
-                  /* The toast, not a message inside the panel: applying
-                     rebuilds the run and unmounts that subtree, so anything
-                     the panel held would be gone before it could be read. */
-                  toast.push({
-                    title: "Sheet applied",
-                    tone: "success",
-                    detail: `${summary}. The payroll has been worked out again.`,
-                  });
-                  void prepare();
-                  directory.reload();
-                }}
               />
               <ExcludedList
                 exclusions={run.exclusions}
