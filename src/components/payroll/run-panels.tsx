@@ -5,6 +5,7 @@ import { AlertTriangle, Check, Scale, ShieldAlert, UserMinus } from "lucide-reac
 import { cn } from "@/lib/cn";
 import { useMoneyHidden } from "@/lib/store/money-privacy";
 import {
+  Disclosure,
   Badge,
   Button,
   ButtonLink,
@@ -158,7 +159,12 @@ export function ExceptionList({
         action={onRecheck}
       />
       <CardBody className="flex flex-col gap-2.5">
-        {[...blockers, ...warnings].map((exception) => (
+        {/* Blockers stay as rows, one each.
+            -------------------------------
+            They stop the run, there are rarely many, and each names a different
+            person to go and fix. Folding them away would hide the only thing on
+            this screen that has to be dealt with before anybody is paid. */}
+        {blockers.map((exception) => (
           <ExceptionRow
             key={exception.id}
             exception={exception}
@@ -166,8 +172,136 @@ export function ExceptionList({
             hideFix={replaceFixFor?.has(exception.code) ?? false}
           />
         ))}
+
+        {/* Warnings are grouped and closed.
+            -------------------------------
+            Thirty-one rows saying the same sentence about thirty-one people is
+            not thirty-one things to read — it is one thing, thirty-one times.
+            A company with twenty-two people off a payroll had a page of
+            identical amber boxes, which reads as the platform being broken
+            rather than as a list of decisions somebody already made.
+
+            So: one closed row per kind, with the count on it and the names
+            inside. The closed line says what the group is, which is all most
+            people need; opening it gives the same rows as before, unchanged. */}
+        {groupByCode(warnings).map((group) => (
+          <ExceptionGroup
+            key={group.code}
+            group={group}
+            actionFor={actionFor}
+            hideFix={replaceFixFor?.has(group.code) ?? false}
+          />
+        ))}
       </CardBody>
     </Card>
+  );
+}
+
+/** Warnings of one kind, in the order they arrived. */
+type ExceptionGroup = { code: string; rows: RunException[] };
+
+function groupByCode(exceptions: RunException[]): ExceptionGroup[] {
+  const order: string[] = [];
+  const byCode = new Map<string, RunException[]>();
+  for (const exception of exceptions) {
+    if (!byCode.has(exception.code)) {
+      byCode.set(exception.code, []);
+      order.push(exception.code);
+    }
+    byCode.get(exception.code)!.push(exception);
+  }
+  return order.map((code) => ({ code, rows: byCode.get(code)! }));
+}
+
+/**
+ * What a group of one kind is called, said once instead of per person.
+ *
+ * The API's `message` is written for exactly one employee and names them, which
+ * is right on a row and wrong on a heading. These are the same facts in the
+ * plural — and deliberately plain: "22 people are not on this payroll" is a
+ * statement, where twenty-two amber boxes is an alarm about something nobody
+ * needs alarming about.
+ */
+const GROUP_TITLE: Record<string, (n: number) => string> = {
+  excluded_from_payroll: (n) =>
+    n === 1 ? "1 person is not on this payroll" : `${String(n)} people are not on this payroll`,
+  missing_pension_pin: (n) =>
+    n === 1 ? "1 person has no pension PIN" : `${String(n)} people have no pension PIN`,
+  missing_tax_state: (n) =>
+    n === 1 ? "1 person has no PAYE state" : `${String(n)} people have no PAYE state`,
+  rent_relief_unclaimed: (n) =>
+    n === 1 ? "1 person has not declared rent" : `${String(n)} people have not declared rent`,
+  overtime_awaiting_approval: (n) =>
+    n === 1 ? "1 overtime entry is unapproved" : `${String(n)} overtime entries are unapproved`,
+  overtime_entered_by_hand: (n) =>
+    n === 1 ? "1 person's overtime was entered by hand" : `${String(n)} people's overtime was entered by hand`,
+  no_attendance_all_period: (n) =>
+    n === 1 ? "1 person has no attendance at all" : `${String(n)} people have no attendance at all`,
+};
+
+function groupTitle(group: ExceptionGroup): string {
+  const named = GROUP_TITLE[group.code];
+  if (named) return named(group.rows.length);
+  /* An unknown code still groups and still counts — it just borrows the first
+     row's own sentence for its heading rather than inventing one. A `default`
+     that said "7 things" would hide which seven. */
+  return group.rows.length === 1
+    ? (shortNoticeFor(group.code) ?? group.rows[0]!.message)
+    : `${String(group.rows.length)} × ${shortNoticeFor(group.code) ?? group.code}`;
+}
+
+/**
+ * One kind of warning, closed.
+ *
+ * No icon and no tint on the closed line. `PARITY.md` Rule 5 allows a reveal
+ * for anything that is not costing money right now, and none of these are —
+ * the card's own description already says "none of them stops the run". Amber
+ * on top of that is the product shouting about its own normal state.
+ */
+function ExceptionGroup({
+  group,
+  actionFor,
+  hideFix,
+}: {
+  group: ExceptionGroup;
+  actionFor?: (exception: RunException) => React.ReactNode;
+  hideFix: boolean;
+}) {
+  /* One of a kind is not a group. A closed reveal hiding a single sentence
+     costs a click and saves nothing. */
+  if (group.rows.length === 1) {
+    return (
+      <ExceptionRow
+        exception={group.rows[0]!}
+        action={actionFor?.(group.rows[0]!)}
+        hideFix={hideFix}
+        plain
+      />
+    );
+  }
+
+  return (
+    <Disclosure
+      title={groupTitle(group)}
+      level={3}
+      meta={
+        <span className="text-meta font-semibold uppercase tracking-[0.08em] text-muted">
+          {group.rows.length}
+        </span>
+      }
+    >
+      <div className="flex flex-col gap-2">
+        {group.rows.map((exception) => (
+          <ExceptionRow
+            key={exception.id}
+            exception={exception}
+            action={actionFor?.(exception)}
+            hideFix={hideFix}
+            plain
+          />
+        ))}
+      </div>
+    </Disclosure>
   );
 }
 
@@ -175,13 +309,24 @@ function ExceptionRow({
   exception,
   action,
   hideFix = false,
+  plain = false,
 }: {
   exception: RunException;
   action?: React.ReactNode;
   hideFix?: boolean;
+  /**
+   * Inside a group, where the heading has already said what these are.
+   *
+   * No tint and no icon: twenty-two amber boxes behind one reveal is the same
+   * alarm the reveal was added to stop. A blocker is never plain — those keep
+   * their colour wherever they render, because they are the one thing on this
+   * screen that stops a payroll.
+   */
+  plain?: boolean;
 }) {
   const blocking = exception.severity === "BLOCKER";
   const fix = hideFix ? null : fixFor(exception.code, exception.employeeId);
+  const quiet = plain && !blocking;
 
   return (
     <div
@@ -189,9 +334,12 @@ function ExceptionRow({
         "flex flex-wrap items-start gap-3 rounded-md border p-3",
         blocking
           ? "border-danger-line bg-danger-soft"
-          : "border-warning-line bg-warning-soft",
+          : quiet
+            ? "border-line bg-surface"
+            : "border-warning-line bg-warning-soft",
       )}
     >
+      {!quiet && (
       <span
         aria-hidden="true"
         className={cn(
@@ -201,6 +349,7 @@ function ExceptionRow({
       >
         {blocking ? <ShieldAlert /> : <AlertTriangle />}
       </span>
+      )}
       <div className="min-w-0 flex-1">
         <p className="text-body-sm leading-relaxed text-ink">
           {shortNoticeFor(exception.code) ?? exception.message}
@@ -246,19 +395,37 @@ export function ExcludedList({
 }) {
   if (exclusions.length === 0) return null;
 
+  /**
+   * Always closed, however many there are.
+   *
+   * This was a card with every excluded person expanded, which on a company of
+   * thirty was a page of near-identical rows below the payslip table. They are
+   * decisions somebody already made and recorded — the opposite of something
+   * needing attention — so the closed line states the fact and the names are
+   * one click away.
+   *
+   * The count stays on the closed line, because *how many* is the part that
+   * belongs beside the payslip table's own "8 of 30". `PARITY.md` Rule 5: a
+   * reveal is for what is settled, and the warning that must never go behind
+   * one is something costing money right now. Nothing here is.
+   *
+   * The badge is neutral rather than amber for the same reason. Twenty-two
+   * people left off on purpose is not a fault.
+   */
   return (
     <Card>
-      <CardHeader
+      <Disclosure
         title="Not on this payroll"
-        description="Left off deliberately, with the reason recorded. Everybody here is back on next period's payroll automatically — nothing has to remember to put them there."
-        action={
-          <Badge tone="warning" size="sm">
+        level={2}
+        meta={
+          <span className="text-meta font-semibold uppercase tracking-[0.08em] text-muted">
             {exclusions.length}{" "}
             {exclusions.length === 1 ? "person" : "people"}
-          </Badge>
+          </span>
         }
-      />
-      <CardBody className="flex flex-col gap-2.5">
+        hint="Left off deliberately, with the reason recorded. Everybody here is back on next period's payroll automatically — nothing has to remember to put them there."
+      >
+      <div className="flex flex-col gap-2.5">
         {exclusions.map((exclusion) => (
           <div
             key={exclusion.id}
@@ -295,7 +462,8 @@ export function ExcludedList({
             )}
           </div>
         ))}
-      </CardBody>
+      </div>
+      </Disclosure>
     </Card>
   );
 }
