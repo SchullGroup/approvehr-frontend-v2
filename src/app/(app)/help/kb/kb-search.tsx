@@ -104,7 +104,7 @@ export function KbSearch({
                     )}
                   >
                     <span className="min-w-0 flex-1">
-                      <span className="block text-body font-medium text-ink">
+                      <span className="block text-body-sm font-medium text-ink">
                         {hit.title}
                       </span>
                       <span className="mt-0.5 block text-body-sm leading-relaxed text-muted">

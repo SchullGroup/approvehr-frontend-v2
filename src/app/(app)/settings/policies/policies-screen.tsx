@@ -378,7 +378,7 @@ function PolicyRow({
       </span>
 
       <div className="min-w-0 flex-1">
-        <p className="flex flex-wrap items-center gap-2 text-body font-medium text-ink">
+        <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
           {policy.title}
           {policy.published ? (
             <Badge tone="neutral" size="sm">

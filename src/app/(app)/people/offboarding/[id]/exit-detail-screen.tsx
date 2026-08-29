@@ -355,7 +355,7 @@ export function ExitDetailScreen({ id }: { id: string }) {
                     <Laptop aria-hidden="true" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-body font-medium text-ink">
+                    <p className="text-body-sm font-medium text-ink">
                       {asset.name}
                     </p>
                     <p className="tabular mt-0.5 text-body-sm text-muted">
@@ -648,7 +648,7 @@ function FinalPayCard({
               {row.icon}
             </span>
             <div className="min-w-0">
-              <p className="text-body font-medium text-ink">{row.label}</p>
+              <p className="text-body-sm font-medium text-ink">{row.label}</p>
               <p className="mt-0.5 text-body-sm text-muted">{row.detail}</p>
             </div>
           </div>

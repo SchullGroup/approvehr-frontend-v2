@@ -549,7 +549,7 @@ function PeopleTab({
               className="flex flex-wrap items-center gap-3 px-3.5 py-3"
             >
               <div className="min-w-0 flex-1">
-                <p className="truncate text-body font-medium text-ink">
+                <p className="truncate text-body-sm font-medium text-ink">
                   {member.name}
                 </p>
                 <p className="truncate text-body-sm text-muted">

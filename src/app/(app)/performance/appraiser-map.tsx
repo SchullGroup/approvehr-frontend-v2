@@ -511,7 +511,7 @@ function PersonRow({
       )}
     >
       <div className="min-w-0 flex-1">
-        <p className="text-body font-medium text-ink">{row.employeeName}</p>
+        <p className="text-body-sm font-medium text-ink">{row.employeeName}</p>
         <p className="mt-0.5 flex flex-wrap items-center gap-2 text-meta text-muted">
           <span>{row.jobTitle}</span>
           {row.departmentName && <span>{row.departmentName}</span>}
@@ -567,7 +567,7 @@ function PersonRow({
 
       <div className="shrink-0 text-right">
         <p className="text-meta text-faint">Mark</p>
-        <p className="tabular text-body font-medium text-ink">
+        <p className="tabular text-body-sm font-medium text-ink">
           {row.weightedRating === null ? "—" : row.weightedRating}
         </p>
         <p className="text-meta text-muted">
