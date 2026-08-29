@@ -400,7 +400,19 @@ const messageOf = (error: unknown): string =>
 /* --------------------------------------------------------------------- hook */
 
 export function useImport(dictionary: Dictionary<string>) {
-  const { isConnected } = useSession();
+  const { isConnected, can } = useSession();
+  /**
+   * The same gate `components/imports/import-flow.tsx` already applies to the
+   * screen — `IMPORT_DATA`, and the whole router is behind it.
+   *
+   * The screen was refusing correctly and this hook asked anyway. The failure
+   * was already swallowed below ("the compiled-in copy covers it"), so nothing
+   * was visibly broken — but the request still went, still came back 403, and
+   * still put a red line in the console of a screen whose entire content is the
+   * sentence "you cannot import". A refusal that fires a doomed request is a
+   * refusal that has not been believed.
+   */
+  const mayImport = !isConnected || can("IMPORT_DATA");
 
   const [file, setFile] = useState<LoadedFile | null>(null);
   const [mapping, setMapping] = useState<Mapping>({});
@@ -533,7 +545,7 @@ export function useImport(dictionary: Dictionary<string>) {
      so the answer is replaced without the screen flashing a skeleton. */
   const revalidation = useRevalidation();
   useEffect(() => {
-    if (!isConnected) return;
+    if (!isConnected || !mayImport) return;
     const controller = new AbortController();
     void api
       .template(dictionary.slug, controller.signal)
@@ -542,7 +554,7 @@ export function useImport(dictionary: Dictionary<string>) {
         /* The compiled-in copy covers it. Not worth a message. */
       });
     return () => controller.abort();
-  }, [dictionary.slug, isConnected, revalidation]);
+  }, [dictionary.slug, isConnected, mayImport, revalidation]);
 
   /**
    * Reads and parses the file. Everything downstream resets.

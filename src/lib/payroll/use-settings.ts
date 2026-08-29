@@ -215,8 +215,14 @@ export type PayrollSettingsState = {
 };
 
 export function usePayrollSettings(): PayrollSettingsState {
-  const { isConnected, isLoading } = useSession();
+  const { isConnected, isLoading, can } = useSession();
   const local = useLocalPayrollSettings();
+  /* `GET /payroll/settings` is `VIEW_SALARIES` (`modules/payroll/router.ts`):
+     what a company deducts is information about what people earn. Without it
+     the local defaults below are the whole answer, and asking anyway only put a
+     403 on the payroll home, the run wizard and the payslip index for every
+     reader who cannot see pay. */
+  const maySeePay = can("VIEW_SALARIES");
 
   const [tick, setTick] = useState(0);
   const [fetched, setFetched] = useState<{
@@ -228,7 +234,7 @@ export function usePayrollSettings(): PayrollSettingsState {
   /* `isLoading` matters: the session restores asynchronously, and firing this
      read before it resolves would send an unauthenticated request that comes
      back 401 and looks like a permission problem. */
-  const active = isConnected && !isLoading;
+  const active = isConnected && !isLoading && maySeePay;
   const key = `${String(active)}|${tick}`;
 
   useEffect(() => {
