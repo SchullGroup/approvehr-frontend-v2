@@ -798,6 +798,7 @@ export function EmployeeRecord({
                 { key: "jobTitle", label: "Job title", required: true },
                 {
                   key: "departmentId",
+                  clearsToNull: true,
                   label: "Department",
                   type: "select",
                   value: currentDepartment?.id ?? "",
@@ -845,6 +846,7 @@ export function EmployeeRecord({
                   ? [
                       {
                         key: "salaryGradeId" as const,
+                        clearsToNull: true,
                         label: "Salary grade",
                         type: "select" as const,
                         placeholder: "Not on a grade",
@@ -895,6 +897,7 @@ export function EmployeeRecord({
                   ? [
                       {
                         key: "workLocationId" as const,
+                        clearsToNull: true,
                         label: "Work location",
                         type: "picker" as const,
                         placeholder: "Not set",
@@ -956,6 +959,7 @@ export function EmployeeRecord({
               fields={[
                 {
                   key: "managerId",
+                  clearsToNull: true,
                   label: "Reports to",
                   type: "picker",
                   placeholder: "No manager — reports to the board",

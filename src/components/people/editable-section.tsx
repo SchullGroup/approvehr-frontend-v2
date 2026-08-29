@@ -186,6 +186,24 @@ export type EditableField = {
    * and the id is not on `Employee` — only the department's name is.
    */
   value?: unknown;
+  /**
+   * Clearing this field sends `null`, not `""`.
+   *
+   * A `<select>` can only ever hand back a string, so the "Not assigned"
+   * choice on an id field is `value: ""` — and `""` is not a UUID. The four id
+   * fields on the record page (`departmentId`, `managerId`, `workLocationId`,
+   * `salaryGradeId`) are each `z.string().uuid().nullable().optional()` on the
+   * API, so an empty string is refused with "Invalid UUID" while `null` is
+   * exactly how you say "nobody". Un-assigning somebody was therefore
+   * impossible from this form, and the refusal named a type rather than
+   * anything a person could act on.
+   *
+   * Deliberately opt-in per field rather than inferred from `type: "select"`:
+   * `stateOfOrigin`, `bankName` and `pensionProvider` are plain optional
+   * strings where `""` is both accepted and the honest answer, and turning
+   * those into `null` would be a second change nobody asked for.
+   */
+  clearsToNull?: boolean;
 };
 
 export function EditableSection({
@@ -377,7 +395,11 @@ export function EditableSection({
          above. `valueOf` still backs the read-only view below, where live is
          correct; here it would compare a field the person may never have
          touched against a value that moved out from under it. */
-      if (next !== baseline[f.key]) patch[f.key] = next as never;
+      if (next !== baseline[f.key]) {
+        /* See `clearsToNull`. An id field cleared to "" has to travel as
+           `null`, because "" is not a UUID and the API refuses it. */
+        patch[f.key] = (f.clearsToNull && next === "" ? null : next) as never;
+      }
     }
 
     if (bad.length > 0) {
