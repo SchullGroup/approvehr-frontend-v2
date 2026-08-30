@@ -47,6 +47,7 @@ export function SheetPanel({
   period,
   sources,
   onApplied,
+  onClose,
   /** False on an approved run: the figures are frozen and so is this. */
   editable,
 }: {
@@ -65,6 +66,16 @@ export function SheetPanel({
    * the wizard, which survives.
    */
   onApplied: (summary: string) => void;
+  /**
+   * Close the panel.
+   *
+   * The wizard renders this behind its own open/closed state now, so it owns
+   * the toggle and this is how the panel asks to be dismissed. Its absence
+   * broke the build: the wizard passed it and this signature did not take it,
+   * and both halves were green on their own branches — a merge that
+   * typechecks twice and not once.
+   */
+  onClose: () => void;
   editable: boolean;
 }) {
   const actions = usePayrollActions();
@@ -173,8 +184,13 @@ export function SheetPanel({
         </Callout>
       )}
 
+      {/* Open, and closing it closes the panel. The wizard decides whether
+          this is on screen at all, so a disclosure that collapsed in place
+          would leave a heading the wizard still thinks is open. */}
       <Disclosure
         level={2}
+        open
+        onToggle={onClose}
         title="Work this payroll in a spreadsheet"
         meta={`${String(sources.length)} ${sources.length === 1 ? "person" : "people"}, filled in`}
       >
