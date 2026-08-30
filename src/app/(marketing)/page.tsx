@@ -177,14 +177,6 @@ export default function HomePage() {
               </Reveal>
             ))}
           </div>
-
-          <Reveal delay={280}>
-            <p className="mt-10 max-w-2xl text-meta leading-relaxed text-slate-muted">
-              Every one of these ships in the product today. We are pre-launch
-              and still building toward more of it, but we will not claim a
-              capability before it exists.
-            </p>
-          </Reveal>
         </div>
       </section>
 
@@ -331,13 +323,6 @@ export default function HomePage() {
               </Reveal>
             ))}
           </dl>
-
-          <Reveal delay={220}>
-            <p className="mt-10 max-w-2xl text-meta leading-relaxed text-slate-muted">
-              Figures describe the worked example above, not a customer average.
-              We are pre-launch and will not quote results we have not earned.
-            </p>
-          </Reveal>
         </div>
       </section>
 
