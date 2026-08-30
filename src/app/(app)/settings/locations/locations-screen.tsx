@@ -195,7 +195,7 @@ export function LocationsScreen() {
             hint={
               fenced.length === enforcing.length
                 ? "Each one checks where a clock-in came from."
-                : `${fenced.length - enforcing.length} of them are not applied, because staff there may clock in from anywhere.`
+                : `${fenced.length - enforcing.length} of them ${fenced.length - enforcing.length === 1 ? "is" : "are"} not applied, because staff there may clock in from anywhere.`
             }
           />
           <Stat

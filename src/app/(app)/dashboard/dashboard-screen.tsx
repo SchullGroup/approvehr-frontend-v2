@@ -411,7 +411,7 @@ function CompanyOverview({
                 <Row
                   href="/payroll"
                   label={`${payroll.period} payroll has ${payroll.blockers} ${payroll.blockers === 1 ? "problem" : "problems"} to fix`}
-                  detail="It cannot be approved until they are cleared"
+                  detail={`It cannot be approved until ${payroll.blockers === 1 ? "it is" : "they are"} cleared`}
                   action="Open payroll"
                   urgent
                 />
