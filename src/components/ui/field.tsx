@@ -21,6 +21,19 @@ import { cn } from "@/lib/cn";
  * `group-focus-within` is what makes the panel appear for a keyboard user —
  * tabbing to the trigger focuses it, which is also what happens when a touch
  * screen taps a button, so no separate touch handling was needed.
+ *
+ * ## Left-anchored, not centred
+ *
+ * This used to centre the panel over the icon (`left-1/2 -translate-x-1/2`),
+ * which is fine for an icon with room on both sides and breaks for one that
+ * is not — the per-line "What it is for" field in a hand-entered payroll
+ * line sits in the leftmost column of a dialog, so half of a centred,
+ * 256px-wide panel landed off the left edge and rendered as an empty box with
+ * a sliver of border. Anchoring the panel's own left edge to the icon's
+ * means it always grows rightward, which every real trigger in this app has
+ * room for — a label's icon is never the last thing in a line running off
+ * the right of its container the way it can be the first thing running off
+ * the left.
  */
 function InfoTooltip({ id, text }: { id: string; text: string }) {
   return (
@@ -39,7 +52,7 @@ function InfoTooltip({ id, text }: { id: string; text: string }) {
         aria-hidden="true"
         role="presentation"
         className={cn(
-          "invisible absolute bottom-full left-1/2 z-50 mb-2 w-64 -translate-x-1/2",
+          "invisible absolute bottom-full left-0 z-50 mb-2 w-64",
           "rounded-md border border-line bg-surface p-2.5 text-body-sm leading-relaxed text-body shadow-lg",
           "opacity-0 transition-opacity duration-100",
           "group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100",
