@@ -477,7 +477,10 @@ export function PayrollRunWizard() {
     try {
       const result = await actions.exclude(runId, {
         employeeId: excluding.employeeId,
-        reason,
+        /* Omitted rather than sent empty. The field is optional now, and an
+           empty string would fail the API's own floor — which exists to
+           refuse a token answer, not an absent one. */
+        ...(reason ? { reason } : {}),
       });
       setPrepared(result.run);
       setExcluding(null);

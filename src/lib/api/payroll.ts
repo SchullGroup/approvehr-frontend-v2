@@ -1130,7 +1130,10 @@ export const payrollApi = {
    * the new `PreparedRun`, so a screen reloads from that rather than guessing
    * what the totals became.
    */
-  exclude: (id: string, body: { employeeId: string; reason: string }) =>
+  /** `reason` is optional — see `PayrollExclusion.reason`. Omit it rather than
+   *  sending an empty string: the API's floor refuses a token answer, not an
+   *  absent one. */
+  exclude: (id: string, body: { employeeId: string; reason?: string }) =>
     request<ExclusionChange>(`/payroll/runs/${id}/exclusions`, {
       method: "POST",
       body,
