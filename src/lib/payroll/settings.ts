@@ -74,6 +74,12 @@ export const STATUTORY = {
 
 export const DEFAULT_SETTINGS: PayrollSettings = {
   workingDaysPerMonth: 22,
+  /* Deliberately NOT what a brand-new real company defaults to any more —
+     `PayrollSettings.basicPercent` on the API defaults to 100% basic. This
+     60/25/15 is pinned to `DEMO_PAYSLIP_BASIS`, the generated demo-payslip
+     fixture every illustrative figure in demo mode was computed against;
+     changing it here would make the demo's own settings screen disagree with
+     the demo payslips sitting right next to it. */
   salarySplit: { basic: 0.6, housing: 0.25, transport: 0.15 },
   paye: { enabled: true },
   pension: {

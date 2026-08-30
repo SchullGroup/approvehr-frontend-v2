@@ -381,10 +381,23 @@ export function PayslipDocument({
   const carried = carriedForwardKobo(slip);
   const relief = reliefLine(slip);
 
+  /* A company that has not split gross into parts has 100% basic and 0%
+     housing and transport — the product's own default — and a payslip is not
+     the place to print "Housing allowance ₦0.00" for a component that was
+     never part of the salary structure. Same "absent is not zero" rule as
+     the statutory deductions below: the line is missing, not nil. Basic
+     salary is filtered the same way for consistency, even though a
+     configuration that zeroes it out is not one the settings form allows. */
   const earnings = [
-    { label: "Basic salary", kobo: slip.basicKobo },
-    { label: "Housing allowance", kobo: slip.housingKobo },
-    { label: "Transport allowance", kobo: slip.transportKobo },
+    ...(slip.basicKobo !== 0
+      ? [{ label: "Basic salary", kobo: slip.basicKobo }]
+      : []),
+    ...(slip.housingKobo !== 0
+      ? [{ label: "Housing allowance", kobo: slip.housingKobo }]
+      : []),
+    ...(slip.transportKobo !== 0
+      ? [{ label: "Transport allowance", kobo: slip.transportKobo }]
+      : []),
     ...allowances.map((line) => ({
       label: displayLabel(line.label),
       kobo: line.amountKobo,
