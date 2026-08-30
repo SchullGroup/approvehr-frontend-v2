@@ -265,6 +265,16 @@ export function overtimeWorking(label: string, amountKobo: number): string | nul
 }
 
 /**
+ * "Entered by hand" versus off the clock is the payroll clerk's own record of
+ * how a figure reached the run — not a distinction an employee reading their
+ * own payslip has any reason to parse. The hours and rate are still in the
+ * label, and `overtimeWorking` restates them in words directly underneath.
+ */
+function displayLabel(label: string): string {
+  return label.replace(", entered by hand", "");
+}
+
+/**
  * The statutory deductions this employer does not operate, named for a reader.
  *
  * One list, exported, so the payslip, the run's review table and the statutory
@@ -376,7 +386,7 @@ export function PayslipDocument({
     { label: "Housing allowance", kobo: slip.housingKobo },
     { label: "Transport allowance", kobo: slip.transportKobo },
     ...allowances.map((line) => ({
-      label: line.label,
+      label: displayLabel(line.label),
       kobo: line.amountKobo,
       note: overtimeWorking(line.label, line.amountKobo),
     })),
