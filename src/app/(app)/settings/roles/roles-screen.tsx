@@ -17,6 +17,7 @@ import {
   Badge,
   Button,
   Callout,
+  ButtonLink,
   Card,
   CardBody,
   CardHeader,
@@ -139,6 +140,51 @@ export function RolesScreen({
       return false;
     }
   };
+
+  /*
+   * The access map is not a public register.
+   *
+   * `GET /permissions/roles` is deliberately ungated on the API — knowing that
+   * a role called "Finance approver" exists is not privileged — and this screen
+   * read that as licence to render the whole administrative surface to anybody
+   * who typed the URL. An Employee holding no permissions at all was shown
+   * which role carries `APPROVE_PAYROLL`, how many people are in each, an
+   * enabled "Add somebody" that the API then refuses, and the sentence "One
+   * person can manage access. If they leave, nobody can change these roles."
+   *
+   * That last line is the reconnaissance half of exactly the fraud this module
+   * is built to prevent: `modules/permissions` refuses to grant a permission
+   * the granter does not hold *because* somebody granting themselves payroll
+   * approval is how it usually starts. Publishing who to target, and that there
+   * is only one of them, is not something to hand out with the URL.
+   *
+   * Every sibling in Settings already refuses this way — webhooks, features,
+   * announcements, bank accounts. This was the one that did not.
+   */
+  if (roles.connected && !canManage) {
+    return (
+      <>
+        <PageHeader
+          title="Roles and permissions"
+          breadcrumb={[{ href: "/settings", label: "Settings" }]}
+        />
+        <PageBody>
+          <Card>
+            <EmptyState
+              icon={<ShieldCheck aria-hidden="true" />}
+              title="Roles are not part of your access"
+              description="Who can do what — and who can change it — is kept to the people who manage access, because it decides who is able to move money. Ask whoever set up your account if you need something you cannot reach."
+              action={
+                <ButtonLink href="/settings" variant="secondary">
+                  Back to settings
+                </ButtonLink>
+              }
+            />
+          </Card>
+        </PageBody>
+      </>
+    );
+  }
 
   return (
     <>

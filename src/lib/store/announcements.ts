@@ -11,6 +11,7 @@ import {
 } from "@/lib/api/announcements";
 import { DEMO_ANNOUNCEMENTS } from "@/lib/mock/announcements";
 import { useSession } from "./session";
+import { useCan } from "@/lib/permissions";
 import { useRevalidation } from "@/lib/revalidate";
 
 /**
@@ -77,14 +78,35 @@ const NONE: ApiAnnouncement[] = [];
 /**
  * The management list, drafts included.
  *
- * Connected this needs `MANAGE_SETTINGS`; gate the screen with
- * `useCan("MANAGE_SETTINGS")` rather than letting somebody load a list that
- * answers 403.
+ * **The `MANAGE_SETTINGS` gate is here, not on the screen.** This comment used
+ * to say the opposite — "gate the screen with `useCan`" — and the screen did
+ * hold a `canManage` boolean and did use it to hide the write controls, and
+ * still called this hook unconditionally. A hook cannot be called
+ * conditionally, so a screen-level check never stops the request; the only
+ * place that can is the effect itself. `useBankAccounts` in `store/payments.ts`
+ * was fixed the same way for the same reason.
+ *
+ * The refusal it produced was not merely noisy. `GET /announcements` answers
+ * `403 You need the following to do that: MANAGE_SETTINGS.` and the screen
+ * rendered it through `LoadFailure` as "The noticeboard did not load" — a
+ * failure that had not happened — over a raw permission constant, above three
+ * `Stat`s reading 0 for a board that had two live notices, above an empty
+ * state asserting "Nothing on the noticeboard yet". Four wrong claims, to an
+ * Employee, on a company noticeboard.
+ *
+ * Absent, not zero, and not an error: no permission means no request, no rows
+ * and **no `error`**, so nothing downstream can render a refusal as a failure.
+ * Staff read notices on `/dashboard` through `GET /announcements/board`, which
+ * is deliberately open to everybody — see `modules/announcements/router.ts`.
  */
 export function useAnnouncements(
   params: AnnouncementListParams = {},
 ): AnnouncementsState {
   const { isConnected } = useSession();
+  /* Read off the router, not guessed: `GET /announcements` is
+     `requirePermissions(Permission.MANAGE_SETTINGS)`. A gate narrower than the
+     API's locks somebody out of a screen they are entitled to. */
+  const mayRead = useCan("MANAGE_SETTINGS");
 
   const {
     status = "all",
@@ -113,7 +135,7 @@ export function useAnnouncements(
      so the answer is replaced without the screen flashing a skeleton. */
   const revalidation = useRevalidation();
   useEffect(() => {
-    if (!isConnected) return;
+    if (!isConnected || !mayRead) return;
     let cancelled = false;
     const controller = new AbortController();
     void (async () => {
@@ -154,7 +176,7 @@ export function useAnnouncements(
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, key, status, includeExpired, page, pageSize, sort, order, q, revalidation]);
+  }, [isConnected, mayRead, key, status, includeExpired, page, pageSize, sort, order, q, revalidation]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
 
