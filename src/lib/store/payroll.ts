@@ -1470,18 +1470,16 @@ export function usePayrollActions() {
   const exclude = useCallback(
     async (
       runId: string,
-      input: { employeeId: string; reason: string },
+      input: { employeeId: string; reason?: string },
     ): Promise<ExclusionChange> => {
       if (isConnected) return payrollApi.exclude(runId, input);
 
-      const reason = input.reason.trim();
-      if (reason.length < 4) {
-        throw new ApiError(
-          422,
-          "unprocessable",
-          "Say why they are not being paid this period. This is the only answer " +
-            "anybody will have in a year's time.",
-        );
+      /* The demo's copy of the API's own rule, kept in step with it: a blank
+         reason is allowed and a token one is not. Leaving it empty is choosing
+         not to explain; typing "x" is defeating a dialog. */
+      const reason = input.reason?.trim() ?? "";
+      if (reason.length > 0 && reason.length < 4) {
+        throw new ApiError(422, "unprocessable", "Say a little more than that.");
       }
 
       const state = demoStore.current();
