@@ -430,7 +430,7 @@ export function PaymentsScreen() {
  */
 function Unknown() {
   return (
-    <span className="text-h4 text-muted" title="Not loaded yet">
+    <span className="text-muted" title="Not loaded yet">
       &mdash;
     </span>
   );

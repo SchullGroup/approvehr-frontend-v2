@@ -198,11 +198,13 @@ export function PaymentHistoryScreen() {
             label="Payments"
             value={
               /* An em dash, never a 0. Nothing has arrived yet, and a zero here
-                 is a claim that nobody has ever been paid. */
+                 is a claim that nobody has ever been paid. Sized by `Stat`
+                 itself rather than a size class here, so this matches every
+                 other Stat value in the app instead of running 5px smaller. */
               history.loading ? (
-                <span className="text-h4 text-muted">&mdash;</span>
+                <span className="text-muted">&mdash;</span>
               ) : (
-                <span className="text-h4">{history.total}</span>
+                history.total
               )
             }
             hint={filterSentence(person?.name, period)}
@@ -213,11 +215,12 @@ export function PaymentHistoryScreen() {
               /* An em dash both while loading and when nothing matches. "₦0.00"
                  against a person and a month reads as "we paid them nothing",
                  which is a different claim from "there is no payment on file" —
-                 and only the second one is true. */
+                 and only the second one is true. `size="xl"` for the same
+                 reason as the dash above: matches `Stat`'s own value size. */
               history.loading || history.total === 0 ? (
-                <span className="text-h4 text-muted">&mdash;</span>
+                <span className="text-muted">&mdash;</span>
               ) : (
-                <Money amount={naira(history.pageNetKobo)} decimals size="lg" />
+                <Money amount={naira(history.pageNetKobo)} decimals size="xl" />
               )
             }
             hint={
