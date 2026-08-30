@@ -11,8 +11,8 @@ import { cn } from "@/lib/cn";
  *   accent     white on ApproveHR blue 10.1:1   (same fill as primary)
  *   approve    success-text on success-soft  4.95:1  (same fill as success)
  *   success    success-text on success-soft  4.95:1
- *   secondary  body on white            7.1:1   (same fill as ghost)
- *   ghost      body on white            7.1:1
+ *   secondary  body on sunken           6.6:1   (same fill as ghost)
+ *   ghost      body on sunken           6.6:1
  *   danger     white on danger-text     6.5:1
  *
  * ## Two fills, four names
@@ -90,9 +90,22 @@ const PRIMARY_FILL =
   "bg-accent text-white shadow-sm hover:bg-accent-hover " +
   "active:bg-accent-hover disabled:hover:bg-accent";
 
+/**
+ * The resting fill is the one this used to show only on hover.
+ *
+ * Transparent at rest made a secondary action read as a link until somebody
+ * pointed at it, which is a problem on a touch screen — there is no hover
+ * there at all, so the affordance simply never appeared. The tinted rest sits
+ * a step off the card without competing with the accent fill beside it, and
+ * hover and press are now two further steps rather than the only two states.
+ *
+ * `bg-transparent` on disabled, deliberately: a disabled control should not
+ * look like a resting one. It is the one case where the old resting state is
+ * still the right answer.
+ */
 const GHOST_TREATMENT =
-  "bg-transparent text-body hover:bg-sunken hover:text-ink active:bg-line " +
-  "disabled:hover:bg-transparent";
+  "bg-sunken text-body hover:bg-line hover:text-ink active:bg-line-strong " +
+  "disabled:bg-transparent disabled:hover:bg-transparent";
 
 const VARIANTS: Record<ButtonVariant, string> = {
   primary: PRIMARY_FILL,

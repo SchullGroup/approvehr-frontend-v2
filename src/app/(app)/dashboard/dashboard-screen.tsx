@@ -20,6 +20,7 @@ import {
   Stat,
 } from "@/components/ui";
 import { PageBody } from "@/components/portal/shell";
+import { AskPanel } from "@/components/portal/ask-panel";
 import { MyClockCard } from "@/components/portal/my-clock-card";
 import { DashboardHeader } from "./header";
 import { AnnouncementsPanel } from "./announcements-panel";
@@ -166,6 +167,11 @@ function EmployeeOverview({ announcements }: { announcements: ApiBoard }) {
       <DashboardHeader action={<StartPeriodButton withIcon />} />
       <PageBody className="flex flex-col gap-6">
         <MyClockCard />
+        {/* Renders nothing when no assistant is wired — see `AskPanel`. It is
+            offered on both dashboards rather than only the company one:
+            "how many days leave do I have" is a staff question, and the
+            reads answer to the asker's own permissions either way. */}
+        <AskPanel />
         <AnnouncementsPanel board={announcements} />
       </PageBody>
     </>
@@ -229,6 +235,8 @@ function CompanyOverview({
       <DashboardHeader action={<StartPeriodButton withIcon />} />
 
       <PageBody className="flex flex-col gap-6">
+        <AskPanel />
+
         {/* ---- The row that answers "is anything waiting for me" ---------- */}
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <Stat
@@ -411,7 +419,7 @@ function CompanyOverview({
                 <Row
                   href="/payroll"
                   label={`${payroll.period} payroll has ${payroll.blockers} ${payroll.blockers === 1 ? "problem" : "problems"} to fix`}
-                  detail="It cannot be approved until they are cleared"
+                  detail={`It cannot be approved until ${payroll.blockers === 1 ? "it is" : "they are"} cleared`}
                   action="Open payroll"
                   urgent
                 />

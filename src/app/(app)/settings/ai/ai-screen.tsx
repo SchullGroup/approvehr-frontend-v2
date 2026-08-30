@@ -206,7 +206,7 @@ export function AiScreen() {
         <Disclosure
           title="What is sent, and what is not"
           level={2}
-          hint="No name, no salary, no written appraisal comment leaves the platform."
+          hint="Suggestions send no name, no salary, no written comment. Asking a question sends what you asked and the answer to it."
         >
           <div className="flex flex-col gap-3 text-body-sm text-body">
             <p>
@@ -226,6 +226,30 @@ export function AiScreen() {
               a field, somebody edits it, and the ordinary Save writes it under
               their name — there is no endpoint that accepts a suggestion
               directly, on purpose.
+            </p>
+
+            {/* The paragraph that had to be written when Ask shipped. The
+                heading above used to promise that no name and no salary ever
+                left the platform, and Ask makes that untrue for the people who
+                may already see them. Widening the promise quietly would have
+                been the worse half of this feature. */}
+            <p>
+              <strong className="font-semibold text-ink">
+                Asking a question is different, and sends more.
+              </strong>{" "}
+              To answer &ldquo;who has no bank account&rdquo; the assistant is
+              sent the names it found. To answer a question about pay, it is
+              sent the figures. Only ever what the person asking could already
+              see on a screen — the lookups run as them, with their permissions,
+              and a salary is withheld from somebody who may not view salaries
+              rather than sent and then hidden.
+            </p>
+            <p>
+              It reads. There is no lookup that writes, changes or approves
+              anything, and every answer names the records it came from so the
+              working can be checked. Account numbers, pension PINs and TINs are
+              never sent at all — the assistant is told only whether each one is
+              on file.
             </p>
             <p className="text-muted">
               Whichever provider is answering is named in the{" "}
