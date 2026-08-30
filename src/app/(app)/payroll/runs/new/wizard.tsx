@@ -74,6 +74,7 @@ import {
   type RunException,
   type RunExclusion,
   wasDeducted,
+  type DeductionKind,
 } from "@/lib/api/payroll";
 import { useCan } from "@/lib/permissions";
 import { useOvertimePolicy } from "@/lib/store/overtime";
@@ -797,6 +798,41 @@ export function PayrollRunWizard() {
             </CardBody>
           </Card>
 
+          {/* The spreadsheet, on the step where a payroll is actually worked.
+              -----------------------------------------------------------------
+              This sat on Review, under a table of thirty rows, which is a
+              surface somebody scrolls past on the way to Approve. It is not a
+              reviewing tool: it is how a payroll gets *fixed* — thirty-four
+              tax figures, or a month of overtime off another system — and the
+              step for fixing things is this one.
+
+              Fourth instance of the class this codebase keeps recording: the
+              capability was built, correct, and where nobody was looking.
+
+              Below the Calculate card rather than above it, because there is
+              nothing to download until a run exists. Rendering it before that
+              would be offering a file of nobody. */}
+          {run && (
+            <SheetPanel
+              runId={run.id}
+              period={run.period.slice(0, 7)}
+              sources={sheetSources(run.payslips, directory.employees)}
+              editable={canPrepare && !settled}
+              onApplied={(summary) => {
+                /* The toast, not a message inside the panel: applying rebuilds
+                   the run and unmounts that subtree, so anything the panel
+                   held would be gone before it could be read. */
+                toast.push({
+                  title: "Sheet applied",
+                  tone: "success",
+                  detail: `${summary}. The payroll has been worked out again.`,
+                });
+                void prepare();
+                directory.reload();
+              }}
+            />
+          )}
+
           <DiscrepancyPanel discrepancies={discrepancies} />
 
           {detail.loading ? (
@@ -877,24 +913,6 @@ export function PayrollRunWizard() {
                 editable={canPrepare && !settled}
                 onSaved={() => void prepare()}
                 onDirectoryReload={directory.reload}
-              />
-              <SheetPanel
-                runId={run.id}
-                period={run.period.slice(0, 7)}
-                sources={sheetSources(run.payslips, directory.employees)}
-                editable={canPrepare && !settled}
-                onApplied={(summary) => {
-                  /* The toast, not a message inside the panel: applying
-                     rebuilds the run and unmounts that subtree, so anything
-                     the panel held would be gone before it could be read. */
-                  toast.push({
-                    title: "Sheet applied",
-                    tone: "success",
-                    detail: `${summary}. The payroll has been worked out again.`,
-                  });
-                  void prepare();
-                  directory.reload();
-                }}
               />
               <ExcludedList
                 exclusions={run.exclusions}
@@ -981,28 +999,6 @@ export function PayrollRunWizard() {
           Save &amp; exit
         </Button>
         <div className="flex items-center gap-2">
-          {/*
-           * Why the forward button is dead, said AT the button.
-           *
-           * `canContinue` goes false the moment one BLOCKER stands, and the
-           * only thing that explained it was the exception list — which on a
-           * real run sits several screens above the footer. Somebody who has
-           * just excluded two people, scrolled to the bottom and found a grey
-           * Continue had nowhere to read why. The count is the useful half:
-           * "1 thing still stops this run" tells them how much is left, and
-           * the list they scroll back to says who.
-           *
-           * Only on the steps where `blocked` is what disables it. Step 1 is
-           * disabled by an unfilled period, which the fields themselves say,
-           * and the last step's Approve carries its own reasons.
-           */}
-          {blocked && !stepper.isLast && !stepper.isFirst && !missingPayStatus && (
-            <p className="text-meta text-warning-text">
-              {counts.blockers > 0
-                ? `${counts.blockers} ${counts.blockers === 1 ? "thing" : "things"} still ${counts.blockers === 1 ? "stops" : "stop"} this run.`
-                : "The figures on this run do not add up yet."}
-            </p>
-          )}
           {!stepper.isFirst && (
             <Button variant="secondary" onClick={stepper.back}>
               <ArrowLeft aria-hidden="true" className="size-4" />
@@ -1031,14 +1027,34 @@ export function PayrollRunWizard() {
               {missingPayStatus.label}
             </Button>
           ) : (
-            <Button
-              variant="accent"
-              onClick={stepper.next}
-              disabled={!canContinue}
-            >
-              Continue
-              <ArrowRight aria-hidden="true" className="size-4" />
-            </Button>
+            <span className="flex items-center gap-3">
+              {/* Why the button is dead, at the button.
+                  ---------------------------------------------------------
+                  `canContinue` goes false on a blocker, and the only
+                  explanation sat in the exception list several screens
+                  above. Somebody who had just excluded two people and
+                  scrolled to the footer found a grey control and nowhere to
+                  read why.
+
+                  Counted rather than named: the list above is where the
+                  names are, and repeating one of them here would make a
+                  reader think it was the only one. */}
+              {stepper.index > 0 && blocked && (
+                <span className="text-meta text-muted">
+                  {counts.blockers + discrepancies.length === 1
+                    ? "1 thing still stops this run."
+                    : `${counts.blockers + discrepancies.length} things still stop this run.`}
+                </span>
+              )}
+              <Button
+                variant="accent"
+                onClick={stepper.next}
+                disabled={!canContinue}
+              >
+                Continue
+                <ArrowRight aria-hidden="true" className="size-4" />
+              </Button>
+            </span>
           )}
         </div>
       </div>
@@ -1734,8 +1750,23 @@ function PayslipTable({
     slipId: string;
     field: "overtime" | "bonus" | "pay" | "paye";
   } | null>(null);
+  /**
+   * Which row has its deductions breakdown open, and which figure inside it is
+   * being typed into.
+   *
+   * Separate from `editing` above because opening the breakdown is a *read* —
+   * somebody checking what came off — and only the second click is an edit.
+   * Folding them together would make looking at a figure indistinguishable
+   * from changing it in the state, and the row would flip into edit mode the
+   * moment anybody expanded it.
+   */
+  const [openDeductions, setOpenDeductions] = useState<string | null>(null);
+  const [editingDeduction, setEditingDeduction] = useState<{
+    slipId: string;
+    kind: DeductionKind;
+  } | null>(null);
   const [adjustSaving, setAdjustSaving] = useState<
-    "overtime" | "bonus" | "pay" | "paye" | null
+    "overtime" | "bonus" | "pay" | "paye" | "deduction" | null
   >(null);
   const [adjustError, setAdjustError] = useState<string | null>(null);
 
@@ -1762,7 +1793,7 @@ function PayslipTable({
    * patch would show one moved number beside five stale ones.
    */
   const adjust = async (
-    which: "overtime" | "bonus" | "pay" | "paye",
+    which: "overtime" | "bonus" | "pay" | "paye" | "deduction",
     action: () => Promise<unknown>,
   ) => {
     setAdjustSaving(which);
@@ -1812,6 +1843,39 @@ function PayslipTable({
 
   const clearPaye = (slip: Payslip) =>
     adjust("paye", () => actions.clearTaxOverride(runId, slip.employeeId));
+
+  /**
+   * A statutory deduction, by hand. Same shape as the tax one: no reason
+   * asked for, no standing preference, and the run rebuilds server-side.
+   *
+   * Closing the breakdown afterwards is deliberate — the figures behind it
+   * have all moved (pension is pre-tax, so PAYE and net follow), and a panel
+   * left open would be showing the numbers from before the write until the
+   * reload lands.
+   */
+  const saveDeduction = (slip: Payslip, kind: DeductionKind, amountKobo: number) =>
+    adjust("deduction", async () => {
+      const result = await actions.setDeductionOverride(runId, {
+        employeeId: slip.employeeId,
+        kind,
+        amountKobo,
+      });
+      setEditingDeduction(null);
+      setOpenDeductions(null);
+      return result;
+    });
+
+  const clearDeduction = (slip: Payslip, kind: DeductionKind) =>
+    adjust("deduction", async () => {
+      const result = await actions.clearDeductionOverride(
+        runId,
+        slip.employeeId,
+        kind,
+      );
+      setEditingDeduction(null);
+      setOpenDeductions(null);
+      return result;
+    });
 
   const saveBonus = (slip: Payslip, amountKobo: number) =>
     adjust("bonus", () =>
@@ -2105,7 +2169,7 @@ function PayslipTable({
                             The same dotted underline the add-labels use marks
                             it as a figure you may type over, and "Change" sits
                             under it in the same slot the overridden state uses
-                            for "By hand · undo" — so the row does not move
+                            for "Edited · undo" — so the row does not move
                             height when it flips between them.
 
                             A reader who may not edit gets neither: the plain
@@ -2142,14 +2206,38 @@ function PayslipTable({
                             title={slip.payeOverrideReason ?? undefined}
                             className="text-meta font-normal text-muted underline-offset-2 hover:text-danger-text hover:underline disabled:pointer-events-none"
                           >
-                            By hand · undo
+                            Edited · undo
                           </button>
                         )}
                       </span>
                     )}
                   </TD>
                   <TD align="right" className="tabular text-muted">
-                    <Deductions slip={slip} lines={deductionLines} />
+                    <Deductions
+                      slip={slip}
+                      lines={deductionLines}
+                      editable={editable}
+                      open={openDeductions === slip.id}
+                      editingKind={
+                        editingDeduction?.slipId === slip.id
+                          ? editingDeduction.kind
+                          : null
+                      }
+                      saving={adjustSaving === "deduction"}
+                      onToggle={() =>
+                        setOpenDeductions((was) =>
+                          was === slip.id ? null : slip.id,
+                        )
+                      }
+                      onEdit={(kind) =>
+                        setEditingDeduction({ slipId: slip.id, kind })
+                      }
+                      onCancelEdit={() => setEditingDeduction(null)}
+                      onSave={(kind, amountKobo) =>
+                        void saveDeduction(slip, kind, amountKobo)
+                      }
+                      onClear={(kind) => void clearDeduction(slip, kind)}
+                    />
                   </TD>
                   <TD align="right" className="tabular font-medium text-ink">
                     {formatKobo(slip.netKobo)}
@@ -2536,22 +2624,75 @@ function monthlyOf(
  * unknown operation as deducted, which is what every payslip written before the
  * switches existed actually was.
  */
+/**
+ * The deductions total, and what it is made of.
+ *
+ * The column shows one figure because that is what a person checking a payroll
+ * wants: how much came off. The breakdown is behind it rather than beside it —
+ * pension had its own column once and was removed, on the grounds that a
+ * statutory figure nobody usually changes does not earn a column of its own on
+ * a table people scan.
+ *
+ * That was right, and it left the figures uneditable, which stopped being
+ * right the day a company could set them. So the total opens, and the two
+ * statutory lines inside it are the editable ones.
+ *
+ * **Only what is operated appears.** A company with no pension scheme has no
+ * pension row here at all — not a row reading ₦0.00, which would be a claim
+ * that a scheme exists and took nothing. That is the same distinction the
+ * whole feature turns on, one layer up.
+ */
 function Deductions({
   slip,
   lines,
+  editable,
+  open,
+  editingKind,
+  saving,
+  onToggle,
+  onEdit,
+  onCancelEdit,
+  onSave,
+  onClear,
 }: {
   slip: Payslip;
   lines: readonly { label: string }[];
+  editable: boolean;
+  open: boolean;
+  /** Which figure inside the breakdown is being typed into, if any. */
+  editingKind: DeductionKind | null;
+  saving: boolean;
+  onToggle: () => void;
+  onEdit: (kind: DeductionKind) => void;
+  onCancelEdit: () => void;
+  onSave: (kind: DeductionKind, amountKobo: number) => void;
+  onClear: (kind: DeductionKind) => void;
 }) {
-  const parts: { label: string; kobo: number }[] = [];
-  if (wasDeducted(slip.operates, "pension") && slip.pensionEmployeeKobo > 0) {
-    parts.push({ label: "pension", kobo: slip.pensionEmployeeKobo });
+  const overridden = slip.overriddenDeductions ?? [];
+  const parts: {
+    label: string;
+    kobo: number;
+    kind?: DeductionKind;
+  }[] = [];
+
+  if (wasDeducted(slip.operates, "pension")) {
+    parts.push({
+      label: "Pension",
+      kobo: slip.pensionEmployeeKobo,
+      kind: "PENSION_EMPLOYEE",
+    });
   }
-  if (wasDeducted(slip.operates, "nhf") && slip.nhfKobo > 0) {
-    parts.push({ label: "NHF", kobo: slip.nhfKobo });
+  if (wasDeducted(slip.operates, "nhf")) {
+    parts.push({ label: "NHF", kobo: slip.nhfKobo, kind: "NHF" });
   }
-  for (const line of lines) {
-    parts.push({ label: line.label, kobo: 0 });
+  if (slip.otherDeductionsKobo > 0) {
+    parts.push({
+      /* Named from the lines when there is exactly one, because "Loan" tells
+         somebody more than "Other" does. Several collapse to one row rather
+         than listing them: this is a breakdown of a column, not a payslip. */
+      label: lines.length === 1 ? (lines[0]?.label ?? "Other") : "Other",
+      kobo: slip.otherDeductionsKobo,
+    });
   }
 
   const total =
@@ -2559,14 +2700,87 @@ function Deductions({
     (wasDeducted(slip.operates, "nhf") ? slip.nhfKobo : 0) +
     slip.otherDeductionsKobo;
 
-  if (total === 0) return <>—</>;
+  /* Nothing operated and nothing deducted. A dash, and no control — there is
+     no breakdown of nothing, and offering one would be a button that opens an
+     empty panel. */
+  if (parts.length === 0) return <>—</>;
 
   return (
     <>
-      {formatKobo(total)}
-      {parts.length > 0 && (
-        <span className="mt-0.5 block text-meta font-normal text-faint">
-          {parts.map((p) => p.label).join(", ")}
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        aria-label={`${open ? "Hide" : "Show"} what ${slip.name} had deducted`}
+        className={cn(
+          "rounded px-1 text-right underline decoration-dotted underline-offset-2",
+          "hover:bg-canvas hover:text-accent-text focus-visible:outline-2",
+          "focus-visible:outline-offset-1 focus-visible:outline-accent-text",
+          overridden.length > 0 && "text-ink",
+        )}
+      >
+        {total === 0 ? "—" : formatKobo(total)}
+      </button>
+      <span className="mt-0.5 block text-meta font-normal text-faint">
+        {overridden.length > 0 ? "Edited" : parts.map((p) => p.label).join(", ")}
+      </span>
+
+      {open && (
+        <span className="mt-2 block rounded-md border border-line bg-surface p-2 text-left">
+          {parts.map((part) => {
+            const isEdited = part.kind ? overridden.includes(part.kind) : false;
+            return (
+              <span
+                key={part.label}
+                className="flex items-baseline justify-between gap-3 py-0.5"
+              >
+                <span className="text-meta text-muted">{part.label}</span>
+                <span className="flex items-baseline gap-2">
+                  {/* Only the statutory two are editable. "Other" is loans and
+                      claims, which are their own modules' records — editing
+                      the sum of them here would be a figure with nothing
+                      behind it. */}
+                  {part.kind && editingKind === part.kind ? (
+                    <InlineMoney
+                      valueKobo={part.kobo}
+                      saving={saving}
+                      onSave={(kobo) => onSave(part.kind as DeductionKind, kobo)}
+                      onCancel={onCancelEdit}
+                      /* Zero is the answer people are usually here for, so it
+                         is the one the placeholder shows. */
+                      placeholder="0"
+                      hint="0 deducts nothing from this person this month"
+                    />
+                  ) : part.kind && editable ? (
+                    <button
+                      type="button"
+                      onClick={() => onEdit(part.kind as DeductionKind)}
+                      className={cn(
+                        "tabular rounded px-1 underline decoration-dotted underline-offset-2",
+                        "hover:bg-canvas hover:text-accent-text",
+                        isEdited ? "text-ink" : "text-body",
+                      )}
+                    >
+                      {formatKobo(part.kobo)}
+                    </button>
+                  ) : (
+                    <span className="tabular px-1 text-body">
+                      {formatKobo(part.kobo)}
+                    </span>
+                  )}
+                  {isEdited && editable && (
+                    <button
+                      type="button"
+                      onClick={() => onClear(part.kind as DeductionKind)}
+                      className="text-meta font-normal text-muted underline-offset-2 hover:text-danger-text hover:underline"
+                    >
+                      Edited · undo
+                    </button>
+                  )}
+                </span>
+              </span>
+            );
+          })}
         </span>
       )}
     </>

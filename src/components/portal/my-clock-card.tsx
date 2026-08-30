@@ -11,6 +11,7 @@ import {
   Field,
   Select,
   useToast,
+  ButtonLink,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -124,23 +125,22 @@ export function MyClockCard({
     }
   };
 
-  /*
-   * An account with no staff record behind it cannot clock in, and the API is
-   * right to refuse it — `POST /attendance/clock-in` answers 403 "This account
-   * has no employee record to clock in."
+  /**
+   * An account with no employee record cannot clock in, and saying so here is
+   * two clicks earlier than the API does.
    *
-   * That refusal is well worded and it arrives two clicks too late. The person
-   * this happens to is the company OWNER on the day they sign up: registering
-   * creates a user, not an employee, so every new company begins with an
-   * administrator who is offered a full clock-in card — their name, their
-   * expected hours, a location, an enabled button — that cannot ever work. The
-   * same screen already knows: the roster below counts "0 of 4" and does not
-   * list them.
+   * **Registering a company creates a `User`, not an `Employee`** — so the
+   * person this happens to is the owner, on day one, in every new company.
+   * The card used to render in full, with their name, their expected hours and
+   * an enabled button, and answer `403 · This account has no employee record
+   * to clock in.` on press. That refusal is correct and well written and it
+   * arrives far too late.
    *
-   * So the card states the fact instead of offering the action, and names the
-   * one thing that changes it. Deliberately not hidden: somebody looking for
-   * the clock-in button they were told about needs to find out why it is not
-   * there, and a card that simply vanishes answers nothing.
+   * The card **states the fact rather than disappearing**. Somebody who has
+   * been told there is a clock-in button needs to find out why theirs is not
+   * there; a card that silently vanishes sends them looking for a bug. The
+   * roster beside it already knew — it counted the employees and did not list
+   * this person.
    */
   if (!session.employeeId) {
     return (
@@ -152,11 +152,14 @@ export function MyClockCard({
               {session.displayName ?? "Your day"}
             </p>
             <p className="mt-0.5 text-body-sm text-muted">
-              This account has no staff record, so there is nothing to clock.
-              Attendance is recorded against an employee — add yourself to the
-              directory if your own hours belong on it.
+              You are signed in to run this company, not as somebody on its
+              payroll — so there is nothing here to clock. Add yourself as an
+              employee and this becomes your own day.
             </p>
           </div>
+          <ButtonLink href="/people/new" variant="secondary" size="sm">
+            Add yourself as an employee
+          </ButtonLink>
         </CardBody>
       </Card>
     );

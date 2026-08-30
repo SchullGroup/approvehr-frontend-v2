@@ -289,7 +289,7 @@ export type Payslip = {
    * `payeOverridden` above is the older shape and stays until PAYE folds into
    * the same enum.
    */
-  overriddenDeductions?: ("PENSION_EMPLOYEE" | "NHF")[];
+  overriddenDeductions?: DeductionKind[];
   /** Why it does not come from the bands. Null when `payeOverridden` is false. */
   payeOverrideReason: string | null;
   /**
@@ -550,6 +550,16 @@ export type ExclusionChange = {
  * `ExclusionChange`: net pay moves the moment the figure does, and a screen
  * that kept the old totals would show a payslip disagreeing with itself.
  */
+/** The statutory deductions a figure may be entered against by hand. */
+export type DeductionKind = "PENSION_EMPLOYEE" | "NHF";
+
+export type DeductionOverrideChange = {
+  employeeId: string;
+  name: string;
+  kind: DeductionKind;
+  label: string;
+};
+
 export type TaxOverrideChange = {
   employeeId: string;
   name: string;
@@ -1152,6 +1162,34 @@ export const payrollApi = {
       body,
     }),
 
+  /**
+   * A pension or NHF figure entered by hand for one person on this run.
+   *
+   * `kind` travels in the body rather than the path because one control edits
+   * either line — a route per deduction is a route to add every time the list
+   * grows.
+   */
+  setDeductionOverride: (
+    id: string,
+    body: {
+      employeeId: string;
+      kind: DeductionKind;
+      amountKobo: number;
+      reason?: string;
+    },
+  ) =>
+    request<DeductionOverrideChange>(
+      `/payroll/runs/${id}/deduction-overrides`,
+      { method: "POST", body },
+    ),
+
+  /** Puts one deduction back to the engine's own figure for this period. */
+  clearDeductionOverride: (id: string, employeeId: string, kind: DeductionKind) =>
+    request<DeductionOverrideChange>(
+      `/payroll/runs/${id}/deduction-overrides/${employeeId}/${kind}`,
+      { method: "DELETE" },
+    ),
+
   /** Clears this period's hand-entered PAYE. The next figure comes from the
    *  bands again. Does not touch the standing preference. */
   clearTaxOverride: (id: string, employeeId: string) =>
@@ -1319,19 +1357,16 @@ export const payrollApi = {
 /* ----------------------------------------------------------------- helpers */
 
 /**
- * The run's state, as a word.
+ * Where a run *is*, never what may be done to it next.
  *
- * `IN_REVIEW` reads "In review" and not "Ready to approve", which is what it
- * used to say. A run in this state is frequently NOT ready: the wizard renders
- * this badge at the top of the Check step while the exception list 900px below
- * it says "2 stop the run", and the API refuses approval on a blocker. Two
- * mutually exclusive claims on one screen is the defect this product is sold
- * against, and the badge is the half that was wrong — a status label describes
- * where a thing IS, never what may be done to it next.
+ * `IN_REVIEW` read "Ready to approve", and that was a claim the API refuses:
+ * approval is refused while any blocker is open, so the badge sat at the top
+ * of the Check step saying ready while the exception list below it said two
+ * things stop the run. It also reached employees on their own payslip index,
+ * where it was a sentence about somebody else's inbox entirely.
  *
- * It also reaches people who cannot approve anything: an employee's own payslip
- * carries this word (`payroll/payslips/my-payslip-index.tsx`), where "Ready to
- * approve" was a sentence about somebody else's inbox.
+ * A status label that describes an available action has to be recomputed every
+ * time the rules around it change. One that describes a state does not.
  */
 export const STATUS_LABEL: Record<PayrollRunStatus, string> = {
   DRAFT: "Draft",
