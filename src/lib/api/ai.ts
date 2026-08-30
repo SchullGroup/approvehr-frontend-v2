@@ -164,3 +164,21 @@ export const draftPeriodQuestions = (body: {
     method: "POST",
     body,
   });
+
+/**
+ * An answer to a question about the company's own records.
+ *
+ * `used` is the reads that ran, by name, and it is shown rather than logged —
+ * an answer a person cannot check the working of is an oracle, and this
+ * product does not ship those. `available: false` carries a `reason` and never
+ * a `text`, so a refusal cannot be rendered as an answer.
+ */
+export type ApiAnswer = {
+  available: boolean;
+  text?: string;
+  used: string[];
+  reason?: string;
+};
+
+export const ask = (question: string): Promise<ApiAnswer> =>
+  request<ApiAnswer>("/ai/ask", { method: "POST", body: { question } });
