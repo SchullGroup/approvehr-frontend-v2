@@ -257,8 +257,8 @@ export function MarketingFooter() {
           <div>
             <Logo size={24} className="text-slate" />
             <p className="mt-4 max-w-xs text-body-sm leading-relaxed text-slate-muted">
-              HR, payroll and hiring for Nigerian companies. Built around the
-              statutory obligations you already have.
+              HR, payroll and hiring intelligence for Nigerian companies.
+              Built around the statutory obligations you already have.
             </p>
           </div>
 
