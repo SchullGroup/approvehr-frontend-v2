@@ -1584,6 +1584,23 @@ export function headcountLabel(run: {
 }
 
 /**
+ * How many people a figure is actually divided between.
+ *
+ * `headcountLabel` returns "9 of 10 — 1 excluded", which is right in a `Stat`
+ * where the label carries the noun and **wrong inside a sentence**: "Pay
+ * ₦8,497,077.00 to 9 of 10 — 1 excluded" reads as though the money were being
+ * split with somebody who is not being paid.
+ *
+ * This exists because that mistake has now been made twice — on the run's pay
+ * button and on the payroll home — which is one more time than a local helper
+ * should be allowed to be rewritten. Where the exclusion matters, say it in its
+ * own sentence with `excludedNote`.
+ */
+export function paidPeopleLabel(run: { employeeCount: number }): string {
+  return `${String(run.employeeCount)} ${run.employeeCount === 1 ? "person" : "people"}`;
+}
+
+/**
  * The same fact with the noun in it, for prose rather than a labelled figure.
  *
  * `headcountLabel` is for a `Stat` or a `Badge`, where the label already says

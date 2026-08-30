@@ -30,7 +30,13 @@ import {
   SourceBadge,
   TotalsPanel,
 } from "@/components/payroll/run-panels";
-import { headcountLabel, naira, periodLabel } from "@/lib/api/payroll";
+import {
+  formatKobo,
+  headcountLabel,
+  naira,
+  paidPeopleLabel,
+  periodLabel,
+} from "@/lib/api/payroll";
 import { useCan } from "@/lib/permissions";
 import {
   countBySeverity,
@@ -217,10 +223,21 @@ export function PayrollScreen() {
               <Card>
                 <CardHeader
                   title={`${periodLabel(current.period)} payroll`}
+                  /* Three states, not two.
+                     -------------------------------------------------------
+                     This collapsed APPROVED and PAID into one sentence about
+                     frozen figures, which was the whole truth while nothing
+                     could ever set PAID. It can now, so APPROVED means
+                     something specific and uncomfortable: the figures are
+                     settled, the loans are taken, and **nobody has been
+                     paid**. Saying only "the figures are frozen" about that
+                     run is true and is the wrong half. */
                   description={`Pays ${current.payDate}. ${
-                    current.status === "APPROVED" || current.status === "PAID"
-                      ? "Approved — the figures on it are frozen."
-                      : "Not approved yet. Nothing has been paid and nothing has been settled."
+                    current.status === "PAID"
+                      ? "Paid. The money has left the account."
+                      : current.status === "APPROVED"
+                        ? "Approved and frozen. Nobody has been paid yet."
+                        : "Not approved yet. Nothing has been paid and nothing has been settled."
                   }`}
                   action={<RunStatusBadge status={current.status} />}
                 />
@@ -289,6 +306,49 @@ export function PayrollScreen() {
                     </div>
                   </Callout>
                 )}
+
+              {/* The last thing anybody does, and the easiest to forget.
+                  -------------------------------------------------------
+                  Approving is a decision with a satisfying click at the end
+                  of it, and it moves no money. Somebody approves on the 25th,
+                  is pulled into something else, and nothing on the screen
+                  they open every morning says that thirty people are still
+                  waiting — because until `PayrollRunStatus.PAID` could be
+                  reached, there was no fact to render.
+
+                  Withheld once the run is paid, rather than turned green: a
+                  finished thing does not need a card, and the description on
+                  the header above already says so. */}
+              {current.status === "APPROVED" && (
+                <Callout
+                  tone="warning"
+                  /* The amount, not a repeat of the header above it. The
+                     header states the fact — approved, nobody paid — and this
+                     is the thing that makes it urgent. Two cards saying the
+                     same sentence is one of them wasted. */
+                  title={`${formatKobo(current.netKobo)} still to go out`}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <span>
+                      {/* `paidPeopleLabel`, never `headcountLabel`. The latter
+                          returns "9 of 10 — 1 excluded", which inside a
+                          sentence reads as though the money were being split
+                          with somebody who is not being paid. The exclusion
+                          has its own line on the card above. */}
+                      Approved for {paidPeopleLabel(current)} and not yet paid.
+                      Pay them from the wallet, or take the bank file to your
+                      bank.
+                    </span>
+                    <ButtonLink
+                      href={`/payroll/runs/new?period=${current.period}&step=approve`}
+                      size="sm"
+                      variant="accent"
+                    >
+                      Pay them
+                    </ButtonLink>
+                  </div>
+                </Callout>
+              )}
 
               <TotalsPanel run={current} />
             </>
