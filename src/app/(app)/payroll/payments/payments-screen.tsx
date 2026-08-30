@@ -3,17 +3,12 @@
 import { sourceNote } from "@/lib/demo";
 import { useState } from "react";
 import Link from "next/link";
-import {
-  ArrowDownToLine,
-  Banknote,
-  Landmark,
-  Plus,
-  ScrollText,
-} from "lucide-react";
+import { ArrowDownToLine, Banknote, Landmark, ScrollText } from "lucide-react";
 import {
   Badge,
   Button,
   ButtonLink,
+  Callout,
   Card,
   CardBody,
   CardHeader,
@@ -40,58 +35,55 @@ import {
   usePaymentActions,
   usePaymentBatches,
   usePaymentsSummary,
-  usePayableRuns,
+  useWallet,
 } from "@/lib/store/payments";
 import { downloadCsv } from "@/lib/csv";
-import { BuildBatchModal } from "./build-batch-modal";
+import { FundingAccounts } from "../runs/new/pay-panel";
 import { longDate } from "./format";
 import { LedgerPanel } from "./ledger-panel";
 
 /**
- * Payments.
+ * The wallet.
  *
- * ## What this screen is for
+ * ## What this screen used to be, and why it is not that any more
  *
- * One question: what is waiting to go out, and what has actually left the
- * account. Those are two different figures and the tiles keep them apart —
- * "waiting to go out" is a batch somebody built, "left the account" is a bank
- * statement. Collapsing them is how a payroll product ends up showing money as
- * paid because a button was pressed.
+ * It was a batch console: build a payment batch, check it, approve it,
+ * download a file. Four acts of bookkeeping on a screen somebody had to know
+ * existed, sitting between an approved payroll and the people it was meant to
+ * pay. The product owner's assessment was that the page was not needed, and he
+ * was right about the console — a batch is derived entirely from a run, so
+ * assembling one by hand was a second way to do a thing the run already knows.
  *
- * ## Bank transfers are not connected
+ * **Approving a payroll now builds its payment, and the run offers both ways
+ * out** — pay from the wallet, or download the bank file. See
+ * `payroll/runs/new/pay-panel.tsx`. The "Build a payment batch" button that
+ * used to live here is gone, and deliberately: two ways to build a batch for
+ * one run is how a company pays somebody twice.
  *
- * There is no payment provider, so nothing here releases money. The way out is
- * the payment file: approve a batch, download it, upload it to your bank. Every
- * approved batch carries that button, so the working path is never more than one
- * click from wherever somebody notices they need it.
+ * ## What is here instead, and why this page still exists
+ *
+ * The wallet is a real thing and it needed a home. Money is transferred into a
+ * collection account, credits the wallet, and salaries are paid out of it. So
+ * this screen answers exactly three questions:
+ *
+ * 1. **What is in it** — and specifically, what is *available* after
+ *    everything already promised.
+ * 2. **How do I put money in** — the collection account, which was previously
+ *    knowable by nobody inside the company.
+ * 3. **What has gone in and out** — the ledger.
+ *
+ * The payments prepared so far stay at the bottom, as a record rather than a
+ * workbench: every row opens, and every approved row still hands over its bank
+ * file, because somebody who downloaded one and lost it needs it again.
  */
 export function PaymentsScreen() {
   const { can, loading: permissionsLoading } = usePermissions();
+  const wallet = useWallet();
   const summary = usePaymentsSummary();
-
-  /**
-   * The four figures, or `null` where there is no answer yet.
-   *
-   * Null means the request is in flight or failed — `usePaymentsSummary`
-   * leaves `summary` null in both cases. Zero means the figure arrived and is
-   * genuinely nothing, which is a different fact and reads differently on
-   * screen. Derived in one place so the four tiles cannot disagree about which
-   * state they are in.
-   */
-  const paid = summary.summary;
-  const money = {
-    outstanding: paid?.outstanding.totalKobo ?? null,
-    outstandingCount: paid?.outstanding.count ?? null,
-    built: paid?.thisMonth.totalKobo ?? null,
-    builtCount: paid?.thisMonth.payments ?? null,
-    settled: paid?.thisMonth.settledKobo ?? null,
-  };
   const list = usePaymentBatches({ pageSize: 25 });
-  const payable = usePayableRuns();
   const actions = usePaymentActions();
   const toast = useToast();
 
-  const [building, setBuilding] = useState(false);
   const [downloading, setDownloading] = useState<string | null>(null);
 
   if (permissionsLoading) {
@@ -110,13 +102,13 @@ export function PaymentsScreen() {
   if (!can("RUN_PAYROLL") && !can("APPROVE_PAYROLL")) {
     return (
       <>
-        <PageHeader title="Payments" />
+        <PageHeader title="Wallet" />
         <PageBody>
           <Card>
             <EmptyState
               icon={<Banknote aria-hidden="true" />}
-              title="Payments are not part of your access"
-              description="Seeing payment batches needs either the “Run payroll” or the “Approve payroll” permission. Ask somebody who manages roles."
+              title="The wallet is not part of your access"
+              description="Seeing what the company holds needs either the “Run payroll” or the “Approve payroll” permission. Ask somebody who manages roles."
               action={<ButtonLink href="/dashboard">Back to home</ButtonLink>}
             />
           </Card>
@@ -147,29 +139,13 @@ export function PaymentsScreen() {
     }
   }
 
-  const provider = summary.summary?.provider;
+  const held = wallet.wallet;
   const primary = summary.summary?.primaryAccount;
-  const thisMonth = summary.summary?.thisMonth;
-  /* The newest batch whose file the API will actually produce. `can` comes from
-     the server's own view of the state machine, so this cannot offer a download
-     the endpoint would refuse. */
-  const readyToDownload = list.batches.find((batch) => batch.can.downloadFile);
-
-  /* One batch per run. A run that already has a live batch is refused by the API
-     — two batches for one run is how people get paid twice — so those runs are
-     dropped here rather than offered and then refused. */
-  const claimed = new Set(
-    list.batches
-      .filter((batch) => batch.status !== "CANCELLED")
-      .map((batch) => batch.payrollRunId)
-      .filter((id): id is string => id !== null),
-  );
-  const buildable = payable.runs.filter((run) => !claimed.has(run.id));
 
   return (
     <>
       <PageHeader
-        title="Payments"
+        title="Wallet"
         meta={
           sourceNote(list.live) && (
             <Badge tone="warning" size="sm" dot>
@@ -177,84 +153,64 @@ export function PaymentsScreen() {
             </Badge>
           )
         }
-        action={
-          buildable.length > 0 ? (
-            <Button variant="accent" size="sm" onClick={() => setBuilding(true)}>
-              <Plus aria-hidden="true" className="size-4" />
-              Build a payment batch
-            </Button>
-          ) : undefined
-        }
       />
 
       <PageBody className="flex flex-col gap-6">
         {list.error && (
-          <LoadFailure subject="the payment batches" error={list.error}  onRetry={list.reload}/>
+          <LoadFailure
+            subject="the payments"
+            error={list.error}
+            onRetry={list.reload}
+          />
+        )}
+        {wallet.error && (
+          <LoadFailure
+            subject="the wallet balance"
+            error={wallet.error}
+            onRetry={wallet.reload}
+          />
         )}
 
-        {summary.summary && !primary && (
-          <Card>
-            <CardBody className="flex flex-wrap items-center justify-between gap-4">
-              <p className="text-body-sm text-ink">
-                No account for salaries to come from yet.
-              </p>
-              <ButtonLink href="/settings/bank-accounts" variant="accent" size="sm">
-                <Landmark aria-hidden="true" className="size-4" />
-                Add a bank account
-              </ButtonLink>
-            </CardBody>
-          </Card>
-        )}
-
+        {/* Three figures, and an em dash where one has not arrived.
+            -----------------------------------------------------------------
+            Never ₦0.00 for an unanswered request. `useWallet` returns null
+            while loading, on failure, and offline — and a confident zero
+            against any of those three is a claim about a company's money that
+            happens to be false. The ₦0 incident this codebase has a rule about
+            was exactly this shape one module along. */}
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {/* An em dash while the figure is unknown, never ₦0.00.
-              -----------------------------------------------------
-              Every one of these read `summary.summary?.…Kobo ?? 0`, and
-              `summary` is null while the request is in flight **and** after it
-              fails — so an unanswered request rendered "Waiting to go out —
-              ₦0.00", which is a confident claim that there is nothing waiting.
-              That is the ₦0 incident pattern this codebase has a rule about,
-              and the sibling `history-screen` already had the right shape. */}
           <Stat
-            label="Waiting to go out"
+            label="Available to pay with"
             value={
-              money.outstanding === null ? (
-                <Unknown />
+              held ? (
+                <Money amount={naira(held.availableKobo)} decimals size="xl" />
               ) : (
-                <Money amount={naira(money.outstanding)} decimals size="xl" />
+                <Unknown />
               )
             }
-            hint={
-              money.outstandingCount === null
-                ? "not counted yet"
-                : `${String(money.outstandingCount)} ${money.outstandingCount === 1 ? "batch" : "batches"}`
-            }
+            hint="after everything already promised"
           />
           <Stat
-            label={thisMonth ? `Built in ${thisMonth.period}` : "Built this month"}
+            label="In the account"
             value={
-              money.built === null ? (
-                <Unknown />
+              held ? (
+                <Money amount={naira(held.balanceKobo)} decimals size="xl" />
               ) : (
-                <Money amount={naira(money.built)} decimals size="xl" />
+                <Unknown />
               )
             }
-            hint={
-              money.builtCount === null
-                ? "not counted yet"
-                : `${String(money.builtCount)} ${money.builtCount === 1 ? "payment" : "payments"}`
-            }
+            hint="what a bank statement would show"
           />
           <Stat
-            label="Left the account"
+            label="Already promised"
             value={
-              money.settled === null ? (
-                <Unknown />
+              held ? (
+                <Money amount={naira(held.committedKobo)} decimals size="xl" />
               ) : (
-                <Money amount={naira(money.settled)} decimals size="xl" />
+                <Unknown />
               )
             }
-            hint="what the ledger says settled"
+            hint="approved or sent, not yet gone"
           />
           <Stat
             label="Paying from"
@@ -267,37 +223,72 @@ export function PaymentsScreen() {
                 <span className="text-body-sm font-medium text-muted">Not set</span>
               )
             }
-            hint={primary ? `${primary.accountName} · ${primary.accountNumberMasked}` : undefined}
+            hint={
+              primary
+                ? `${primary.accountName} · ${primary.accountNumberMasked}`
+                : undefined
+            }
           />
         </div>
 
-        {/* One line, and beside it the button that does what the line says.
-            When no batch is ready to download there is no button, because
-            pointing somewhere else would make the line a piece of narration. */}
-        {provider && !provider.connected && (
+        {held && held.committedKobo > 0 && (
+          <p className="text-body-sm text-muted">
+            &ldquo;Available&rdquo; is the balance less what is already
+            promised. Two payrolls approved in one morning must not both be told
+            the same money is theirs — which is what a single balance figure
+            would do.
+          </p>
+        )}
+
+        {summary.summary && !primary && (
           <Card>
             <CardBody className="flex flex-wrap items-center justify-between gap-4">
-              <p className="text-body-sm text-body">
-                Bank transfers are not connected yet. Download the payment file and
-                upload it to your bank.
+              <p className="text-body-sm text-ink">
+                No account for salaries to be paid <em>from</em> yet. A payroll
+                cannot build its payment without one.
               </p>
-              {readyToDownload && (
-                <Button
-                  variant="accent"
-                  size="sm"
-                  loading={downloading === readyToDownload.id}
-                  onClick={() => void download(readyToDownload)}
-                >
-                  <ArrowDownToLine aria-hidden="true" className="size-4" />
-                  Download {readyToDownload.reference}
-                </Button>
-              )}
+              <ButtonLink href="/settings/bank-accounts" variant="accent" size="sm">
+                <Landmark aria-hidden="true" className="size-4" />
+                Add a bank account
+              </ButtonLink>
             </CardBody>
           </Card>
         )}
 
         <Card>
-          <CardHeader title="Payment batches" />
+          <CardHeader
+            title="Putting money in"
+            /* The promise is only made where it can be kept. Offline there is
+               no account to transfer into, and a description saying transfers
+               credit the wallet above a callout saying the wallet is not
+               available here is one card making two contradictory claims. */
+            description={
+              held ? "Transfers into this account credit the wallet." : undefined
+            }
+          />
+          <CardBody>
+            {wallet.loading ? (
+              <div className="flex items-center gap-2 text-body-sm text-muted">
+                <Spinner size="sm" />
+                Reading the account
+              </div>
+            ) : held ? (
+              <FundingAccounts accounts={held.fundingAccounts} />
+            ) : (
+              <Callout tone="info" title="Not available here">
+                The wallet is a live balance from the API. There is no ledger to
+                read offline, and a figure invented here would be a claim about
+                a company&rsquo;s money.
+              </Callout>
+            )}
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader
+            title="Payments"
+            description="Prepared when a payroll is approved. Each one opens."
+          />
           {list.loading ? (
             <CardBody className="flex justify-center py-10">
               <Spinner />
@@ -305,14 +296,14 @@ export function PaymentsScreen() {
           ) : list.batches.length === 0 ? (
             <EmptyState
               icon={<Banknote aria-hidden="true" />}
-              title="No payment batches yet"
-              description="A batch is built from an approved payroll run. Approve this month's run and it will show up here."
-              action={<ButtonLink href="/payroll">Go to payroll runs</ButtonLink>}
+              title="Nothing has been paid yet"
+              description="A payment is prepared the moment a payroll is approved, and the run itself offers to send it or hand you the bank file. Approve this month's payroll and it shows up here."
+              action={<ButtonLink href="/payroll">Go to payroll</ButtonLink>}
             />
           ) : (
             <TableWrap
               className="rounded-none border-0"
-              caption="Payment batches, newest first"
+              caption="Payments, newest first"
             >
               <THead>
                 <TH>Reference</TH>
@@ -349,9 +340,7 @@ export function PaymentsScreen() {
                         <Money amount={naira(batch.computedTotalKobo)} decimals />
                       </TD>
                       <TD>
-                        <span className="text-body-sm">
-                          {batch.sourceBankName}
-                        </span>
+                        <span className="text-body-sm">{batch.sourceBankName}</span>
                         <span className="tabular mt-0.5 block text-meta text-muted">
                           {batch.sourceAccountMasked}
                         </span>
@@ -363,6 +352,12 @@ export function PaymentsScreen() {
                       </TD>
                       <TD align="right">
                         <div className="flex justify-end gap-2">
+                          {/* Still here, and it is not a leftover of the old
+                              console: somebody who downloaded a file and lost
+                              it needs it again, and the run it came from is
+                              months back by then. `can.downloadFile` is the
+                              server's own view of the state machine, so this
+                              cannot offer what the endpoint would refuse. */}
                           {batch.can.downloadFile && (
                             <Button
                               variant="secondary"
@@ -371,7 +366,7 @@ export function PaymentsScreen() {
                               onClick={() => void download(batch)}
                             >
                               <ArrowDownToLine aria-hidden="true" className="size-3.5" />
-                              Payment file
+                              Bank file
                             </Button>
                           )}
                           <ButtonLink
@@ -395,7 +390,7 @@ export function PaymentsScreen() {
 
         <p className="flex items-center gap-2 text-body-sm text-muted">
           <ScrollText aria-hidden="true" className="size-4 shrink-0" />
-          Every payment file download is recorded in the{" "}
+          Every bank file download is recorded in the{" "}
           <Link
             href="/settings/audit"
             className="text-accent-text hover:underline underline-offset-4"
@@ -405,17 +400,6 @@ export function PaymentsScreen() {
           .
         </p>
       </PageBody>
-
-      {building && (
-        <BuildBatchModal
-          runs={buildable}
-          onClose={() => setBuilding(false)}
-          onBuilt={() => {
-            setBuilding(false);
-            list.reload();
-          }}
-        />
-      )}
     </>
   );
 }
@@ -423,7 +407,7 @@ export function PaymentsScreen() {
 /**
  * The figure that has not arrived.
  *
- * An em dash rather than a spinner: these four tiles sit side by side, and four
+ * An em dash rather than a spinner: these tiles sit side by side, and four
  * spinners read as a broken screen where four dashes read as "not yet". Same
  * treatment `history-screen` uses, and for the same reason — a `₦0.00` here is
  * a claim, and the claim is false.

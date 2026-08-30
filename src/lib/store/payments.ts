@@ -29,6 +29,7 @@ import {
   type PaymentDiscrepancy,
   type PaymentHistoryParams,
   type UpdateAccountBody,
+  type ApiWallet,
 } from "@/lib/api/payments";
 import { EMPLOYEES } from "@/lib/mock/people";
 import { createPersistedState } from "./persisted";
@@ -726,6 +727,89 @@ export function usePaymentsSummary(): PaymentsSummaryState {
   const matched = fetched !== null && fetched.rev === rev;
   return {
     summary: matched ? fetched.summary : null,
+    loading: !matched,
+    error: matched ? fetched.error : null,
+    live: true,
+    reload: bumpRevision,
+  };
+}
+
+/* ---------------------------------------------------------------- the wallet */
+
+export type WalletState = {
+  /**
+   * Null while loading, on a failure, **and offline** — never a zeroed wallet.
+   *
+   * There is no ledger in demo mode, so there is no honest balance to report.
+   * A ₦0.00 balance is a claim about a company's money and it would be the
+   * wrong one; absent is the only true answer, and every reader of this hook
+   * renders nothing rather than four empty figures. Same rule as
+   * `operates: NOT_OPERATED` on a payslip and `weightedRating: null` on a mark.
+   */
+  wallet: ApiWallet | null;
+  loading: boolean;
+  error: ApiError | null;
+  live: boolean;
+  reload: () => void;
+};
+
+/**
+ * What is in the wallet.
+ *
+ * `VIEW_SALARIES`, matching the API's own gate: this is a figure about the
+ * company's money rather than a control over a run, and the person who needs it
+ * before approving is frequently not the person who prepared it.
+ */
+export function useWallet(): WalletState {
+  const { isConnected, can } = useSession();
+  const mayRead = can("VIEW_SALARIES");
+  const rev = useRevision();
+  const revalidation = useRevalidation();
+
+  const [fetched, setFetched] = useState<{
+    rev: number;
+    wallet: ApiWallet | null;
+    error: ApiError | null;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!isConnected || !mayRead) return;
+    let cancelled = false;
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const wallet = await paymentsApi.wallet(controller.signal);
+        if (!cancelled) setFetched({ rev, wallet, error: null });
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (!cancelled) {
+          setFetched({
+            rev,
+            wallet: null,
+            error: error instanceof ApiError ? error : null,
+          });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [isConnected, mayRead, rev, revalidation]);
+
+  if (!isConnected || !mayRead) {
+    return {
+      wallet: null,
+      loading: false,
+      error: null,
+      live: false,
+      reload: bumpRevision,
+    };
+  }
+
+  const matched = fetched !== null && fetched.rev === rev;
+  return {
+    wallet: matched ? fetched.wallet : null,
     loading: !matched,
     error: matched ? fetched.error : null,
     live: true,
