@@ -9,6 +9,8 @@ import {
   suggestDevelopment,
   suggestObjectives,
   suggestTaskSummary,
+  ask as askApi,
+  type ApiAnswer,
   type ApiSuggestOutcome,
 } from "@/lib/api/ai";
 import { useSession } from "./session";
@@ -240,3 +242,63 @@ export const usePeriodGoalDraft = () =>
 
 export const usePeriodQuestionDraft = () =>
   useSuggestion<{ text: string; count?: number }>(draftPeriodQuestions);
+
+
+/**
+ * Asking a question about the company's records.
+ *
+ * A hook rather than a store: there is nothing to persist and nothing anybody
+ * else needs to read. Each answer replaces the last, deliberately — this is a
+ * lookup, not a conversation, and every question the API answers already
+ * carries its own whole context. A transcript here would imply a memory the
+ * backend does not have.
+ */
+export function useAsk(): {
+  ask: (question: string) => Promise<void>;
+  clear: () => void;
+  answer: ApiAnswer | null;
+  asking: boolean;
+  error: string | null;
+} {
+  const { isConnected } = useSession();
+  const [answer, setAnswer] = useState<ApiAnswer | null>(null);
+  const [asking, setAsking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const run = useCallback(
+    async (question: string) => {
+      if (!isConnected) {
+        setError(
+          "Asking needs the API. The demo has no records behind it to answer from.",
+        );
+        return;
+      }
+      setAsking(true);
+      setError(null);
+      try {
+        setAnswer(await askApi(question));
+      } catch (caught) {
+        /* The API's own sentence where it wrote one — it knows whether this
+           was a rate limit, a refusal or a bad question, and nothing here
+           does. */
+        setError(
+          caught instanceof ApiError ? caught.message : "That did not go through. Try again.",
+        );
+      } finally {
+        setAsking(false);
+      }
+    },
+    [isConnected],
+  );
+
+  return {
+    ask: run,
+    clear: useCallback(() => {
+      setAnswer(null);
+      setError(null);
+    }, []),
+    answer,
+    asking,
+    error,
+  };
+}
