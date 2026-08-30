@@ -28,7 +28,9 @@ import {
   type ReliefRegime,
   type RunException,
   type RunExclusion,
+  type AdjustmentLines,
   type BonusChange,
+  type LinesSaved,
   type AdjustmentUpload,
   type SheetOutcome,
   type MonthlyPayChange,
@@ -1694,6 +1696,54 @@ export function usePayrollActions() {
     [isConnected],
   );
 
+  /** What one person carries, for the modal that edits it. */
+  const adjustmentLines = useCallback(
+    async (runId: string, employeeId: string): Promise<AdjustmentLines> => {
+      if (isConnected) return payrollApi.lines(runId, employeeId);
+      /* Empty rather than a refusal, and the distinction matters here.
+         ------------------------------------------------------------------
+         This is a **read**, and the honest offline answer to "what lines does
+         this person carry" is none: the demo cannot write one, so there are
+         none to report. The refusal belongs on `setLines` below, where
+         somebody is trying to do the thing that needs an engine. Throwing here
+         would put an error banner on a modal that had not been asked to change
+         anything yet. */
+      return { bonuses: [], deductions: [] };
+    },
+    [isConnected],
+  );
+
+  /**
+   * Replace every line of one kind for one person.
+   *
+   * Refused offline for the same reason as a single bonus: it moves gross and
+   * the tax on it, and the demo payslips are fixed figures the API's engine
+   * produced. A demo that accepted the lines and moved no payslip would show a
+   * bonus that changed nobody's pay.
+   */
+  const setLines = useCallback(
+    async (
+      runId: string,
+      input: {
+        employeeId: string;
+        kind: "bonus" | "deduction";
+        lines: readonly { amountKobo: number; reason?: string }[];
+      },
+    ): Promise<LinesSaved> => {
+      if (isConnected) return payrollApi.setLines(runId, input);
+      throw new ApiError(
+        0,
+        "offline",
+        input.kind === "bonus"
+          ? "Adding a bonus needs the API. It moves gross and the tax on it, " +
+            "and the demo has no engine to recompute either."
+          : "Entering a deduction needs the API. It comes off take-home pay " +
+            "after tax, and the demo has no engine to recompute the payslip.",
+      );
+    },
+    [isConnected],
+  );
+
   /**
    * A whole payroll's figures, from one uploaded spreadsheet.
    *
@@ -1842,6 +1892,8 @@ export function usePayrollActions() {
     clearOvertimeOverride,
     setBonus,
     clearBonus,
+    adjustmentLines,
+    setLines,
     uploadAdjustments,
     setMonthlyPay,
     connected: isConnected,
