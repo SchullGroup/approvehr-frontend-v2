@@ -1440,7 +1440,13 @@ export function usePaidPeople(period?: string): PaidPeopleState {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, period, key, revalidation]);
+  /* `mayRead` belongs here, and its absence was not harmless: permissions
+     arrive asynchronously, so it is false on the first render and flips true
+     when they land. With nothing in the array changing at that moment, the
+     effect never re-ran and the payee filter stayed empty for the whole
+     session — for somebody who does hold the permission. The seven sibling
+     hooks in this file all carry it. */
+  }, [isConnected, mayRead, period, key, revalidation]);
 
   const offline = useMemo(() => {
     if (isConnected) return null;
