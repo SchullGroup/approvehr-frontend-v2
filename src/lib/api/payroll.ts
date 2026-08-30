@@ -419,6 +419,26 @@ export type LinesSaved = {
   run: PreparedRun;
 };
 
+/**
+ * What emailing a run's payslips actually did.
+ *
+ * Four outcomes rather than a count, and they are kept apart because each one
+ * needs a different action from a person:
+ *
+ * - **`noEmail`** — named. Nothing was attempted and nothing went wrong;
+ *   somebody has to add an address. "1 not sent" is a number to investigate,
+ *   "Chidi Obi has no email address" is one to act on.
+ * - **`failed`** — tried and did not go. Named, because somebody chases these.
+ * - **`alreadySent`** — the ordinary second press. Reporting it as a failure
+ *   would make a working system look broken.
+ */
+export type PayslipSendOutcome = {
+  sent: number;
+  noEmail: { name: string; employeeNo: string }[];
+  failed: { name: string; employeeNo: string; reason: string }[];
+  alreadySent: number;
+};
+
 export type BonusChange = {
   employeeId: string;
   name: string;
@@ -1233,6 +1253,24 @@ export const payrollApi = {
 
   cancel: (id: string) =>
     request<{ id: string }>(`/payroll/runs/${id}/cancel`, { method: "POST" }),
+
+  /**
+   * Email the payslips on a run.
+   *
+   * Only an approved run — the API refuses a draft, because `prepare` deletes
+   * and rebuilds every payslip and an email cannot be taken back.
+   *
+   * `resend` defaults to false, so the common press ("send the ones that have
+   * not gone") cannot re-mail a whole company by being pressed twice.
+   */
+  sendPayslips: (
+    id: string,
+    body: { employeeIds?: string[]; resend?: boolean } = {},
+  ) =>
+    request<PayslipSendOutcome>(`/payroll/runs/${id}/payslips/send`, {
+      method: "POST",
+      body,
+    }),
 
   /**
    * Leaves somebody off this payroll, with the reason on the record.

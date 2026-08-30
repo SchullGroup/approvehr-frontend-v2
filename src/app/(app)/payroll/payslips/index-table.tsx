@@ -48,6 +48,7 @@ import {
   useRunPayslips,
 } from "@/lib/store/payroll";
 import { useListQuery } from "@/lib/use-list-query";
+import { SendPayslips } from "./send-panel";
 import { usePermissions } from "@/lib/permissions";
 import { MyPayslipIndex } from "./my-payslip-index";
 
@@ -314,6 +315,21 @@ function PayslipIndex() {
         )}
       </div>
 
+      {run && (
+        <SendPayslips
+          runId={run.id}
+          approved={run.status === "APPROVED" || run.status === "PAID"}
+          notSent={counts?.notSent}
+          onSent={() => {
+            /* The three delivery counts are the server's, over the whole run.
+               Nothing here patches them — a send moves rows between the three
+               states and the page they sit on, and a local adjustment would be
+               a second answer to a question the API already answers. */
+            page.reload();
+          }}
+        />
+      )}
+
       <Card>
         <CardHeader
           title="Distribution"
@@ -485,10 +501,17 @@ function PayslipIndex() {
         )}
       </Card>
 
+      {/* This used to say payslips could not be emailed from here at all —
+          "a Sent that emailed nobody would be worse than no button", which was
+          exactly right while nothing wrote `emailedAt`. They can now, and a
+          note saying otherwise directly under a Send button is the screen
+          contradicting itself. What is left is the half that is still true and
+          still asked. */}
       <p className="text-meta leading-relaxed text-muted">
-        Payslips are not emailed from here yet — nothing is connected to a mail
-        server, and a &ldquo;Sent&rdquo; that emailed nobody would be worse than
-        no button. Open a payslip and print it in the meantime.
+        &ldquo;Sent&rdquo; means a mail provider accepted it, and
+        &ldquo;Opened&rdquo; means somebody opened the payslip in ApproveHR —
+        not that they read the email. A payslip can also be opened and printed
+        from its own page.
       </p>
     </div>
   );

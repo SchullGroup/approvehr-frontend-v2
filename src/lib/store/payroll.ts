@@ -31,6 +31,7 @@ import {
   type AdjustmentLines,
   type BonusChange,
   type LinesSaved,
+  type PayslipSendOutcome,
   type AdjustmentUpload,
   type SheetOutcome,
   type MonthlyPayChange,
@@ -1045,6 +1046,14 @@ export type RunPayslipsState = {
   loading: boolean;
   error: ApiError | null;
   connected: boolean;
+  /**
+   * Re-ask, after something has changed the answer.
+   *
+   * Sending payslips moves rows between the three delivery states and between
+   * the pages they sit on, so a caller that patched its own copy would be a
+   * second answer to a question the API already answers. This asks again.
+   */
+  reload: () => void;
 };
 
 /** Which of the three delivery states a payslip is in. */
@@ -1060,6 +1069,14 @@ export function useRunPayslips(
 
   const key = JSON.stringify(params);
   const active = isConnected && Boolean(runId);
+
+  /* A counter the effect below depends on, bumped by `reload`. Not part of
+     `key`, so a re-ask replaces the answer in place rather than flashing a
+     skeleton over a table somebody is reading. */
+  const [refresh, setRefresh] = useState(0);
+  const reload = useCallback(() => {
+    setRefresh((n) => n + 1);
+  }, []);
 
   const [fetched, setFetched] = useState<{
     runId: string;
@@ -1102,7 +1119,7 @@ export function useRunPayslips(
       cancelled = true;
       controller.abort();
     };
-  }, [active, runId, key, revalidation]);
+  }, [active, runId, key, revalidation, refresh]);
 
   /* The demo answer, computed in a `useMemo` that touches no state — the shape
      `lib/store/shifts.ts` establishes and every store in this app follows. */
@@ -1153,7 +1170,7 @@ export function useRunPayslips(
   }, [isConnected, runId, key, demo.details]);
 
   if (local) {
-    return { ...local, loading: false, error: null, connected: false };
+    return { ...local, loading: false, error: null, connected: false, reload };
   }
 
   const matched =
@@ -1169,6 +1186,7 @@ export function useRunPayslips(
     loading: active && !matched,
     error: matched ? fetched.error : null,
     connected: true,
+    reload,
   };
 }
 
@@ -1696,6 +1714,32 @@ export function usePayrollActions() {
     [isConnected],
   );
 
+  /**
+   * Email the payslips on a run.
+   *
+   * Refused offline, and the reason is not the usual "there is no engine": the
+   * demo has real addresses on its seeded people, so a send here would put
+   * actual mail in actual inboxes about a payroll that does not exist. The one
+   * demo write that must never be allowed to work.
+   */
+  const sendPayslips = useCallback(
+    async (
+      runId: string,
+      body: { employeeIds?: string[]; resend?: boolean } = {},
+    ): Promise<PayslipSendOutcome> => {
+      if (isConnected) return payrollApi.sendPayslips(runId, body);
+      throw new ApiError(
+        0,
+        "offline",
+        "Sending payslips needs the API. The demo is not connected to a mail " +
+          "provider, and it must not be — these figures are illustrative, and " +
+          "an email about them would reach a real person about a payroll that " +
+          "never happened.",
+      );
+    },
+    [isConnected],
+  );
+
   /** What one person carries, for the modal that edits it. */
   const adjustmentLines = useCallback(
     async (runId: string, employeeId: string): Promise<AdjustmentLines> => {
@@ -1894,6 +1938,7 @@ export function usePayrollActions() {
     clearBonus,
     adjustmentLines,
     setLines,
+    sendPayslips,
     uploadAdjustments,
     setMonthlyPay,
     connected: isConnected,
