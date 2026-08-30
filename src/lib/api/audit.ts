@@ -110,7 +110,15 @@ export type AuditActor = {
   name: string;
   email: string | null;
   isSystem: boolean;
+  /** Everything, reads included — unaffected by "Show who read the log". */
   events: number;
+  /**
+   * `events` minus reads — the figure that matches the list under the
+   * dropdown while reads are hidden, which is the ordinary state of that
+   * toggle. Showing `events` there is how a dropdown reading "Amara (77)"
+   * sits above a list of 64 rows for the same person.
+   */
+  changes: number;
   lastAt: string | null;
 };
 

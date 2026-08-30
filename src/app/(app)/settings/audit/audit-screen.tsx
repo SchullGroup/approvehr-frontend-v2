@@ -271,7 +271,13 @@ function Trail({ initialEntityType = "", initialEntityId = "" }: ScreenProps) {
                     key={person.id ?? "system"}
                     value={person.isSystem ? "system" : person.id ?? ""}
                   >
-                    {person.name} ({person.events})
+                    {/* Matches the list under this filter, which hides reads
+                        unless "Show who read the log" is on — the same total
+                        `includeReads` already switches everywhere else on
+                        this screen. Showing `events` here regardless was a
+                        dropdown naming one figure over a list reading
+                        another for the same person. */}
+                    {person.name} ({includeReads ? person.events : person.changes})
                   </option>
                 ))}
               </Select>
