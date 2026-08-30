@@ -230,7 +230,27 @@ export function PayrollRunWizard() {
      that already exists, so the rail opens on the checks rather than on a form
      they have already filled in. Read at first render, not in an effect. */
   const periodParam = params.get("period");
-  const stepper = useStepper(STEPS, periodParam ? 1 : 0);
+
+  /**
+   * Which step to open on.
+   *
+   * A period in the URL already meant "skip the form they filled in on the
+   * screen before", and `?step=` is the same idea one further: a run that is
+   * approved and unpaid is linked to from the payroll home with one job — pay
+   * these people — and landing them on Check to press Continue twice is a link
+   * that half-works.
+   *
+   * Matched **by id, never by index**, so reordering `STEPS` cannot silently
+   * send somebody to a different screen. An unknown value falls back to the
+   * period rule rather than throwing: a link somebody typed wrong should open
+   * the wizard, not break it.
+   */
+  const stepParam = params.get("step");
+  const requested = STEPS.findIndex((step) => step.id === stepParam);
+  const stepper = useStepper(
+    STEPS,
+    requested >= 0 ? requested : periodParam ? 1 : 0,
+  );
 
   const canPrepare = useCan("RUN_PAYROLL");
   const canApprove = useCan("APPROVE_PAYROLL");

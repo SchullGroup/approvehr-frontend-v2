@@ -14,7 +14,7 @@ import {
   useToast,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
-import { excludedNote, formatKobo } from "@/lib/api/payroll";
+import { excludedNote, formatKobo, paidPeopleLabel } from "@/lib/api/payroll";
 import type { PayrollRunDetail } from "@/lib/api/payroll";
 import type { PaymentDiscrepancy } from "@/lib/api/payments";
 import { usePaymentActions } from "@/lib/store/payments";
@@ -289,13 +289,13 @@ export function PayPanel({
         ) : recorded ? (
           <p className="text-body-sm text-body">
             Recorded as paid by your bank: {formatKobo(run.netKobo)} to{" "}
-            {paidCount(run)}, against{" "}
+            {paidPeopleLabel(run)}, against{" "}
             <span className="font-medium text-ink">{batch.reference}</span>. The
             wallet has come down by that amount.
           </p>
         ) : settled ? (
           <p className="text-body-sm text-body">
-            {formatKobo(run.netKobo)} to {paidCount(run)}, sent as{" "}
+            {formatKobo(run.netKobo)} to {paidPeopleLabel(run)}, sent as{" "}
             <span className="font-medium text-ink">{batch.reference}</span>.
             Payment history has what each person was sent and what came back.
           </p>
@@ -324,7 +324,7 @@ export function PayPanel({
                 onClick={() => void pay()}
               >
                 {busy !== "pay" && <Banknote aria-hidden="true" className="size-4" />}
-                Pay {formatKobo(run.netKobo)} to {paidCount(run)}
+                Pay {formatKobo(run.netKobo)} to {paidPeopleLabel(run)}
               </Button>
               <Button
                 variant="secondary"
@@ -397,7 +397,7 @@ export function PayPanel({
           batchId={batch.id}
           reference={batch.reference}
           amountKobo={run.netKobo}
-          people={paidCount(run)}
+          people={paidPeopleLabel(run)}
           onClose={() => {
             setRecording(false);
           }}
@@ -486,19 +486,6 @@ export function WalletStrip({ run }: { run: PayrollRunDetail }) {
       </CardBody>
     </Card>
   );
-}
-
-/**
- * How many people this payment actually pays.
- *
- * Not `headcountLabel`, which answers a different question — see the comment
- * where the exclusion is rendered. A payment carries an instruction per
- * payslip, so somebody excluded from the run is not in it at all, and the
- * number beside the amount has to be the number of people the amount is
- * divided between.
- */
-function paidCount(run: { employeeCount: number }): string {
-  return `${String(run.employeeCount)} ${run.employeeCount === 1 ? "person" : "people"}`;
 }
 
 function Figure({
