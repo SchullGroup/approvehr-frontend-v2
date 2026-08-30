@@ -20,6 +20,7 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  FileSpreadsheet,
   RefreshCw,
   ShieldCheck,
 } from "lucide-react";
@@ -265,7 +266,11 @@ export function PayrollRunWizard() {
    */
   const withPayDate = (nextPeriod: string) => {
     const lastDay = new Date(
-      Date.UTC(Number(nextPeriod.slice(0, 4)), Number(nextPeriod.slice(5, 7)), 0),
+      Date.UTC(
+        Number(nextPeriod.slice(0, 4)),
+        Number(nextPeriod.slice(5, 7)),
+        0,
+      ),
     ).getUTCDate();
     const day = Math.min(Number(payDate.slice(8, 10)) || 28, lastDay);
     return {
@@ -282,6 +287,7 @@ export function PayrollRunWizard() {
   const [prepared, setPrepared] = useState<PreparedRun | null>(null);
   const [busy, setBusy] = useState<"prepare" | "approve" | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   /**
    * Stands in for `MissingPayTable`'s own button — see the note on that
@@ -722,8 +728,8 @@ export function PayrollRunWizard() {
               />
             </Field>
 
-            <div className="sm:col-span-2">
-              {existing ? (
+            {existing && (
+              <div className="sm:col-span-2">
                 <Callout
                   tone="info"
                   title={`${periodLabel(period)} is already prepared`}
@@ -738,13 +744,8 @@ export function PayrollRunWizard() {
                     ? "It is approved, so its figures are frozen."
                     : "It is still a draft — you can prepare it again from the next step."}
                 </Callout>
-              ) : (
-                <Callout tone="accent" title="This works out the payroll">
-                  Repeat it as often as you like — nothing is paid until you
-                  approve.
-                </Callout>
-              )}
-            </div>
+              </div>
+            )}
           </CardBody>
         </Card>
       )}
@@ -770,7 +771,34 @@ export function PayrollRunWizard() {
                   ? `Prepared${run.preparedAt ? ` ${run.preparedAt.slice(0, 10)}` : ""}. Preparing again replaces the payslips and settles nothing.`
                   : "Nothing has been worked out for this period yet."
               }
-              action={run ? <RunStatusBadge status={run.status} /> : undefined}
+              action={
+                <div className="flex items-center gap-2">
+                  {/* One button, not the disclosure this used to be — see
+                      SheetPanel's own doc comment for the reasoning. Sitting
+                      in this card's header rather than lower on the page is
+                      the point: it is the first thing here once a run exists,
+                      not something to find by scrolling past the exceptions.
+                      Gated on `run` for the same reason the panel always was
+                      — there is nothing to download or upload until a run
+                      exists, so the button is absent rather than a click that
+                      would open onto nothing. */}
+                  {run && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setSheetOpen(true)}
+                    >
+                      <FileSpreadsheet
+                        aria-hidden="true"
+                        className="size-3.5"
+                      />
+                      Work in a spreadsheet
+                    </Button>
+                  )}
+                  {run && <RunStatusBadge status={run.status} />}
+                </div>
+              }
             />
             <CardBody className="flex flex-wrap items-center gap-3">
               <Button
@@ -798,30 +826,30 @@ export function PayrollRunWizard() {
             </CardBody>
           </Card>
 
-          {/* The spreadsheet, on the step where a payroll is actually worked.
+          {/* The spreadsheet, behind the button in the card header above.
               -----------------------------------------------------------------
-              This sat on Review, under a table of thirty rows, which is a
-              surface somebody scrolls past on the way to Approve. It is not a
-              reviewing tool: it is how a payroll gets *fixed* — thirty-four
-              tax figures, or a month of overtime off another system — and the
-              step for fixing things is this one.
+              This sat as an always-present, closed-by-default disclosure
+              between the Calculate card and the exception list — visible, but
+              one more thing on a page already asking somebody to read a list
+              of what is wrong. A single button opening a modal is a clearer
+              front door: templates and upload both live behind it, and
+              nothing about the page changes until somebody has actually come
+              here to do this.
 
               Fourth instance of the class this codebase keeps recording: the
-              capability was built, correct, and where nobody was looking.
-
-              Below the Calculate card rather than above it, because there is
-              nothing to download until a run exists. Rendering it before that
-              would be offering a file of nobody. */}
-          {run && (
+              capability was built, correct, and where nobody was looking. */}
+          {run && sheetOpen && (
             <SheetPanel
               runId={run.id}
               period={run.period.slice(0, 7)}
               sources={sheetSources(run.payslips, directory.employees)}
               editable={canPrepare && !settled}
+              onClose={() => setSheetOpen(false)}
               onApplied={(summary) => {
                 /* The toast, not a message inside the panel: applying rebuilds
                    the run and unmounts that subtree, so anything the panel
                    held would be gone before it could be read. */
+                setSheetOpen(false);
                 toast.push({
                   title: "Sheet applied",
                   tone: "success",
@@ -1758,7 +1786,10 @@ function PayslipTable({
   >(null);
   const [adjustError, setAdjustError] = useState<string | null>(null);
 
-  const beginEdit = (slip: Payslip, field: "overtime" | "bonus" | "pay" | "paye") => {
+  const beginEdit = (
+    slip: Payslip,
+    field: "overtime" | "bonus" | "pay" | "paye",
+  ) => {
     setAdjustError(null);
     setEditing({ slipId: slip.id, field });
   };
@@ -1818,9 +1849,8 @@ function PayslipTable({
     );
 
   const clearOvertime = (slip: Payslip) =>
-    adjust(
-      "overtime",
-      () => actions.clearOvertimeOverride(runId, slip.employeeId),
+    adjust("overtime", () =>
+      actions.clearOvertimeOverride(runId, slip.employeeId),
     );
 
   /** The tax figure, alone. No reason, no standing preference, no dialog. */
@@ -1841,7 +1871,11 @@ function PayslipTable({
    * left open would be showing the numbers from before the write until the
    * reload lands.
    */
-  const saveDeduction = (slip: Payslip, kind: DeductionKind, amountKobo: number) =>
+  const saveDeduction = (
+    slip: Payslip,
+    kind: DeductionKind,
+    amountKobo: number,
+  ) =>
     adjust("deduction", async () => {
       const result = await actions.setDeductionOverride(runId, {
         employeeId: slip.employeeId,
@@ -1871,22 +1905,17 @@ function PayslipTable({
     );
 
   const clearBonusFor = (slip: Payslip) =>
-    adjust(
-      "bonus",
-      () => actions.clearBonus(runId, slip.employeeId),
-    );
+    adjust("bonus", () => actions.clearBonus(runId, slip.employeeId));
 
   const savePay = (
     slip: Payslip,
     input: { grossMonthlyKobo: number; reason: string },
   ) =>
-    adjust(
-      "pay",
-      () =>
-        actions.setMonthlyPay(runId, {
-          employeeId: slip.employeeId,
-          ...input,
-        }),
+    adjust("pay", () =>
+      actions.setMonthlyPay(runId, {
+        employeeId: slip.employeeId,
+        ...input,
+      }),
     );
   const [saving, setSaving] = useState(false);
   const [overrideError, setOverrideError] = useState<string | null>(null);
@@ -2049,7 +2078,8 @@ function PayslipTable({
                           key={line.id}
                           className="text-meta font-normal text-accent-text"
                         >
-                          +{formatKobo(line.amountKobo)} {shortLabel(line.label)}
+                          +{formatKobo(line.amountKobo)}{" "}
+                          {shortLabel(line.label)}
                         </span>
                       ))}
                       {/* "Change pay" used to sit under every gross figure —
@@ -2122,7 +2152,9 @@ function PayslipTable({
                         addLabel="Add"
                         onEdit={() => beginEdit(slip, "bonus")}
                         onClear={
-                          bonusOn(slip) ? () => void clearBonusFor(slip) : undefined
+                          bonusOn(slip)
+                            ? () => void clearBonusFor(slip)
+                            : undefined
                         }
                       />
                     )}
@@ -2235,8 +2267,13 @@ function PayslipTable({
                     The forms themselves are in the cells; nothing expands. */}
                 {adjustError && editing?.slipId === slip.id && (
                   <TR>
-                    <TD colSpan={anyUnpaid ? 9 : 8} className="bg-danger-soft py-2">
-                      <span className="text-body-sm text-ink">{adjustError}</span>
+                    <TD
+                      colSpan={anyUnpaid ? 9 : 8}
+                      className="bg-danger-soft py-2"
+                    >
+                      <span className="text-body-sm text-ink">
+                        {adjustError}
+                      </span>
                     </TD>
                   </TR>
                 )}
@@ -2484,7 +2521,9 @@ function sheetSources(
     const overtime = payslip.lines.find((l) =>
       l.label.startsWith("Overtime, entered by hand"),
     );
-    const hours = overtime ? /\(([\d.]+)h/.exec(overtime.label)?.[1] : undefined;
+    const hours = overtime
+      ? /\(([\d.]+)h/.exec(overtime.label)?.[1]
+      : undefined;
     const bonus = payslip.lines.find(
       (l) => l.kind === "EARNING" && isBonusLine(l.label),
     );
@@ -2507,7 +2546,9 @@ function sheetSources(
  * was already sitting on the payslip.
  */
 function bonusOn(slip: Payslip): { amountKobo: number; reason: string } | null {
-  const line = slip.lines.find((l) => l.kind === "EARNING" && isBonusLine(l.label));
+  const line = slip.lines.find(
+    (l) => l.kind === "EARNING" && isBonusLine(l.label),
+  );
   if (!line) return null;
   return {
     amountKobo: line.amountKobo,
@@ -2710,7 +2751,9 @@ function Deductions({
         {total === 0 ? "—" : formatKobo(total)}
       </button>
       <span className="mt-0.5 block text-meta font-normal text-faint">
-        {overridden.length > 0 ? "Edited" : parts.map((p) => p.label).join(", ")}
+        {overridden.length > 0
+          ? "Edited"
+          : parts.map((p) => p.label).join(", ")}
       </span>
 
       {open && (
@@ -2732,7 +2775,9 @@ function Deductions({
                     <InlineMoney
                       valueKobo={part.kobo}
                       saving={saving}
-                      onSave={(kobo) => onSave(part.kind as DeductionKind, kobo)}
+                      onSave={(kobo) =>
+                        onSave(part.kind as DeductionKind, kobo)
+                      }
                       onCancel={onCancelEdit}
                       /* Zero is the answer people are usually here for, so it
                          is the one the placeholder shows. */
@@ -2823,7 +2868,9 @@ function CellValue({
 /** What this run is paying them in hand-entered or clocked overtime. */
 function overtimeOn(slip: Payslip): number {
   return slip.lines
-    .filter((line) => line.kind === "EARNING" && line.label.startsWith("Overtime"))
+    .filter(
+      (line) => line.kind === "EARNING" && line.label.startsWith("Overtime"),
+    )
     .reduce((total, line) => total + line.amountKobo, 0);
 }
 
