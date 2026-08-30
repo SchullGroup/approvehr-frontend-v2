@@ -1069,7 +1069,12 @@ export function PayrollRunWizard() {
                     label="Status"
                     value={<RunStatusBadge status={run.status} />}
                   />
-                  <SummaryRow label="People paid" value={headcountLabel(run)} />
+                  {/* Directly beneath a SummaryRow reading "Status: In
+                      review". */}
+                  <SummaryRow
+                    label="People on this payroll"
+                    value={headcountLabel(run)}
+                  />
                   <SummaryRow label="Pays on" value={run.payDate} />
                   <SummaryRow
                     label="Stops payroll"

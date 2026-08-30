@@ -29,7 +29,7 @@ import { usePayrollActions } from "@/lib/store/payroll";
  *
  * ## Downloaded filled in
  *
- * Staff number, name, email, phone, department, bank and account number are
+ * Staff number, name, email, phone, department and whether an account is on file are
  * already in it — enough for a person to be sure a row is about who they think
  * it is — plus the figures the run currently holds. A blank template for three
  * hundred staff is a spreadsheet somebody has to type three hundred names into,
@@ -190,7 +190,7 @@ export function SheetPanel({
 
         <p className="text-body-sm text-muted">
           Downloads with everybody on this payroll already in it — staff number,
-          name, contact, department, bank and account number, plus the figures
+          name, contact, department, whether an account is on file, plus the figures
           the run holds now. Fill in overtime hours, a bonus, a tax figure or a
           new monthly salary, and upload it back.
         </p>

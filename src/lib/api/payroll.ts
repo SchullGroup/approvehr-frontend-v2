@@ -965,6 +965,16 @@ type ApiPayslip = {
   /** Set once, at prepare time, from whichever `PayrollTaxOverride` existed
    *  for this person on this run. See `Payslip.payeOverridden`. */
   payeOverridden?: boolean;
+  /**
+   * Which statutory deductions were set by hand. See `Payslip
+   * .overriddenDeductions`, which this feeds.
+   *
+   * Optional for the same reason `relief` and `operates` are: an older API
+   * answers without it, and that silence has to survive as an absence. An
+   * empty array is a different claim — "nothing was overridden" — and only the
+   * API may make it.
+   */
+  overriddenDeductions?: DeductionKind[];
   payeOverrideReason?: string | null;
   otherDeductions: Decimalish;
   net: Decimalish;
@@ -1074,6 +1084,14 @@ function toPayslip(row: ApiPayslip): Payslip {
        claiming an absence nobody reported. */
     ...(row.operates ? { operates: row.operates } : {}),
     payeKobo: koboFromDecimal(row.paye),
+    /* Conditional, not `?? []`. An empty array says "nothing was set by hand",
+       which is a claim about the payslip; the absence of the field says the API
+       did not tell us. `adjustment-sheet.ts` reads this to decide whether a
+       pension cell is a hand-set figure being carried, and a fabricated `[]`
+       there is what made an overridden pension download blank. */
+    ...(row.overriddenDeductions
+      ? { overriddenDeductions: row.overriddenDeductions }
+      : {}),
     payeOverridden: row.payeOverridden ?? false,
     payeOverrideReason: row.payeOverrideReason ?? null,
     otherDeductionsKobo: koboFromDecimal(row.otherDeductions),
