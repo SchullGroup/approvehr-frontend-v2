@@ -166,7 +166,11 @@ export function PayrollScreen() {
                 No `?period=`, so the wizard opens on Period with the month
                 stepper on it. */}
             {hasCurrentPeriod && (
-              <ButtonLink href="/payroll/runs/new" variant="secondary" size="sm">
+              <ButtonLink
+                href="/payroll/runs/new"
+                variant="secondary"
+                size="sm"
+              >
                 <CalendarClock aria-hidden="true" className="size-3.5" />
                 Another month
               </ButtonLink>
@@ -257,25 +261,34 @@ export function PayrollScreen() {
                   exception is read and fixed, and the stat cards above
                   already carry the counts. Repeating every row here, in the
                   same red-bordered shape the run uses, read as a wall of
-                  errors rather than a summary of one. */}
-              {detail.run && detail.run.exceptions.length > 0 && (
-                <Callout tone={counts.blockers > 0 ? "danger" : "warning"}>
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <span>
-                      {counts.blockers > 0
-                        ? `${counts.blockers} ${counts.blockers === 1 ? "thing" : "things"} to fix before this can be approved${counts.warnings > 0 ? `, ${counts.warnings} more worth a look` : ""}.`
-                        : `${counts.warnings} ${counts.warnings === 1 ? "thing" : "things"} worth a look before approving. Nothing stops the run.`}
-                    </span>
-                    <ButtonLink
-                      href={`/payroll/runs/new?period=${current.period}`}
-                      size="sm"
-                      variant={counts.blockers > 0 ? "accent" : "secondary"}
-                    >
-                      Open the run
-                    </ButtonLink>
-                  </div>
-                </Callout>
-              )}
+                  errors rather than a summary of one.
+
+                  Both sentences below are phrased as "before approving" —
+                  which stops being true the moment somebody has. An approved
+                  run's warnings are history, not a decision still open, so
+                  the whole callout is withheld once the run is frozen rather
+                  than left reading as an instruction nobody can act on. */}
+              {detail.run &&
+                detail.run.exceptions.length > 0 &&
+                current.status !== "APPROVED" &&
+                current.status !== "PAID" && (
+                  <Callout tone={counts.blockers > 0 ? "danger" : "warning"}>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <span>
+                        {counts.blockers > 0
+                          ? `${counts.blockers} ${counts.blockers === 1 ? "thing" : "things"} to fix before this can be approved${counts.warnings > 0 ? `, ${counts.warnings} more worth a look` : ""}.`
+                          : `${counts.warnings} ${counts.warnings === 1 ? "thing" : "things"} worth a look before approving. Nothing stops the run.`}
+                      </span>
+                      <ButtonLink
+                        href={`/payroll/runs/new?period=${current.period}`}
+                        size="sm"
+                        variant={counts.blockers > 0 ? "accent" : "secondary"}
+                      >
+                        Open the run
+                      </ButtonLink>
+                    </div>
+                  </Callout>
+                )}
 
               <TotalsPanel run={current} />
             </>
