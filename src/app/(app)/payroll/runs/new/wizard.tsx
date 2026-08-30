@@ -99,6 +99,7 @@ import {
   usePayrollRun,
   usePayrollRuns,
 } from "@/lib/store/payroll";
+import { useDeductionSwitches } from "@/lib/store/payroll-deductions";
 import { useSetupChecklist } from "@/lib/store/setup-checklist";
 import { fullName } from "@/lib/types";
 import { TODAY } from "@/lib/today";
@@ -1878,17 +1879,6 @@ function PayslipTable({
     field: "overtime" | "bonus" | "pay" | "paye";
   } | null>(null);
   /**
-   * Which row has its deductions breakdown open, and which figure inside it is
-   * being typed into.
-   *
-   * Separate from `editing` above because opening the breakdown is a *read* —
-   * somebody checking what came off — and only the second click is an edit.
-   * Folding them together would make looking at a figure indistinguishable
-   * from changing it in the state, and the row would flip into edit mode the
-   * moment anybody expanded it.
-   */
-  const [openDeductions, setOpenDeductions] = useState<string | null>(null);
-  /**
    * Whose bonus or deduction lines are open in the modal.
    *
    * A modal rather than a cell for both, because a bonus is frequently more
@@ -1990,12 +1980,8 @@ function PayslipTable({
 
   /**
    * A statutory deduction, by hand. Same shape as the tax one: no reason
-   * asked for, no standing preference, and the run rebuilds server-side.
-   *
-   * Closing the breakdown afterwards is deliberate — the figures behind it
-   * have all moved (pension is pre-tax, so PAYE and net follow), and a panel
-   * left open would be showing the numbers from before the write until the
-   * reload lands.
+   * asked for, no standing preference, and the run rebuilds server-side —
+   * pension is pre-tax, so PAYE and net move with it once the reload lands.
    */
   const saveDeduction = (
     slip: Payslip,
@@ -2009,7 +1995,6 @@ function PayslipTable({
         amountKobo,
       });
       setEditingDeduction(null);
-      setOpenDeductions(null);
       return result;
     });
 
@@ -2021,7 +2006,6 @@ function PayslipTable({
         kind,
       );
       setEditingDeduction(null);
-      setOpenDeductions(null);
       return result;
     });
 
@@ -2142,7 +2126,12 @@ function PayslipTable({
               payslip in full, and every column that is only read costs the ones
               that are worked in. What is left is the two figures somebody
               enters, the tax they may override, and the totals either side. */}
-          <TH align="right">PAYE</TH>
+          <TH align="right">
+            <span className="flex flex-col items-end gap-1">
+              PAYE
+              <PayeSwitch editable={editable} onChanged={onSaved} />
+            </span>
+          </TH>
           {/* Everything taken off besides PAYE, as one figure.
               -----------------------------------------------
               This was "Other", and it carried only the pre-tax and post-tax
@@ -2365,18 +2354,12 @@ function PayslipTable({
                       slip={slip}
                       lines={deductionLines}
                       editable={editable}
-                      open={openDeductions === slip.id}
                       editingKind={
                         editingDeduction?.slipId === slip.id
                           ? editingDeduction.kind
                           : null
                       }
                       saving={adjustSaving === "deduction"}
-                      onToggle={() =>
-                        setOpenDeductions((was) =>
-                          was === slip.id ? null : slip.id,
-                        )
-                      }
                       onEdit={(kind) =>
                         setEditingDeduction({ slipId: slip.id, kind })
                       }
@@ -2814,32 +2797,154 @@ function monthlyOf(
  * unknown operation as deducted, which is what every payslip written before the
  * switches existed actually was.
  */
+
+/**
+ * Whether this company deducts PAYE at all, right where the figure sits.
+ *
+ * ## Why this exists
+ *
+ * The PAYE cell already lets somebody type a figure over the engine's own —
+ * and does, whether or not the company deducts PAYE at all, because a
+ * hand-entered figure stands either way (`payroll/engine.ts`). What it cannot
+ * do is offer that control when nothing is operated: `wasDeducted` reads
+ * `NOT_OPERATED` and the cell renders the plain word "Not operated", with no
+ * button under it — there is nothing to click, because there is no figure to
+ * override yet. A company whose real tax situation is "we deduct it, just not
+ * through the bands" — Crafwell is the case this was built for — had no way
+ * to reach that control from this screen at all. The full explanation and the
+ * consequence of switching lives on `/settings/payroll`; this is the fast path
+ * to the one thing somebody actually came here to do.
+ *
+ * ## What it does, and does not, decide
+ *
+ * Toggling this writes `PayrollSettings.payeEnabled` for the **company**, not
+ * for this run alone — the same field `/settings/payroll` writes, through the
+ * same store. It is not a second copy of that switch; it is the same one,
+ * reachable from here because this is where the problem is noticed. Recalculates
+ * immediately (`onChanged`, the same callback the sheet upload and the lines
+ * modal already use to trigger it), so the cells below reflect the new setting
+ * without a second trip to Check.
+ *
+ * ## Absent, not disabled-and-silent
+ *
+ * Nothing renders in demo mode (`useDeductionSwitches` returns `available:
+ * false` with no API) and nothing renders while the read is still in flight —
+ * a switch that might be showing the wrong state is worse than no switch for
+ * the half-second it takes to answer.
+ */
+function PayeSwitch({
+  editable,
+  onChanged,
+}: {
+  /** `canPrepare && !settled` from the table. An approved run's tax policy is
+      history, not a decision still open — same reasoning as every other
+      control in this table. */
+  editable: boolean;
+  onChanged: () => void;
+}) {
+  const { settings: response, loading, available, save } = useDeductionSwitches();
+  const [saving, setSaving] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
+
+  /* `response.settings` is null until the company has a settings row at all —
+     which cannot be true here, since a run cannot have been prepared without
+     one existing. Guarded anyway rather than asserted, because "cannot happen"
+     is exactly the reasoning that produced the ₦0 payroll incident this
+     codebase does not repeat. */
+  if (!available || loading || !response?.settings) return null;
+
+  const on = response.settings.payeEnabled;
+
+  async function toggle() {
+    if (!editable || saving) return;
+    setSaving(true);
+    setFailed(null);
+    try {
+      await save({ payeEnabled: !on });
+      onChanged();
+    } catch (error) {
+      setFailed(error instanceof Error ? error.message : "Could not save that.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <span className="flex flex-col items-end gap-1">
+      <span className="flex items-center gap-1.5">
+        <span className="text-meta font-normal normal-case text-muted">
+          {on ? "On" : "Off"}
+        </span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={on}
+          aria-label={
+            on
+              ? "This company deducts PAYE. Switch it off."
+              : "This company does not deduct PAYE. Switch it on so the figure can be entered."
+          }
+          disabled={!editable || saving}
+          onClick={() => void toggle()}
+          title={
+            editable
+              ? "Changes what this company deducts, for every payroll — not just this one."
+              : "This run is settled, so its tax policy cannot change from here."
+          }
+          className={cn(
+            "relative h-4 w-7 shrink-0 rounded-full transition-colors duration-200",
+            on ? "bg-success-strong" : "bg-line-strong",
+            editable
+              ? "cursor-pointer"
+              : "cursor-not-allowed opacity-50",
+            "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text",
+          )}
+        >
+          <span
+            aria-hidden="true"
+            className={cn(
+              "pointer-events-none absolute left-0.5 top-0.5 size-3 rounded-full bg-white shadow-sm",
+              "transition-transform duration-200 ease-[var(--ease-out-soft)]",
+              on && "translate-x-3",
+            )}
+          />
+        </button>
+      </span>
+      {failed && (
+        <span className="max-w-32 whitespace-normal text-right text-meta font-normal normal-case text-danger-text">
+          {failed}
+        </span>
+      )}
+    </span>
+  );
+}
+
 /**
  * The deductions total, and what it is made of.
  *
- * The column shows one figure because that is what a person checking a payroll
- * wants: how much came off. The breakdown is behind it rather than beside it —
- * pension had its own column once and was removed, on the grounds that a
+ * Pension had its own column once and was removed, on the grounds that a
  * statutory figure nobody usually changes does not earn a column of its own on
- * a table people scan.
- *
- * That was right, and it left the figures uneditable, which stopped being
- * right the day a company could set them. So the total opens, and the two
- * statutory lines inside it are the editable ones.
+ * a table people scan. That was right, and it used to leave the breakdown
+ * behind a click of its own before any figure inside it could be reached —
+ * "let me see what came off" and "let me change it" were two separate
+ * decisions with two separate clicks between them. They are one now: the
+ * parts are always in view, the way Overtime's hours and Bonus's lines
+ * already are, and reaching a figure is the same single click it is
+ * everywhere else in this table.
  *
  * **Only what is operated appears.** A company with no pension scheme has no
  * pension row here at all — not a row reading ₦0.00, which would be a claim
  * that a scheme exists and took nothing. That is the same distinction the
- * whole feature turns on, one layer up.
+ * whole feature turns on, one layer up, and it is what makes this list short
+ * for most companies: NHF defaults off for anybody who has not asked for it,
+ * so its row simply is not there.
  */
 function Deductions({
   slip,
   lines,
   editable,
-  open,
   editingKind,
   saving,
-  onToggle,
   onEdit,
   onCancelEdit,
   onSave,
@@ -2849,11 +2954,9 @@ function Deductions({
   slip: Payslip;
   lines: readonly { label: string }[];
   editable: boolean;
-  open: boolean;
-  /** Which figure inside the breakdown is being typed into, if any. */
+  /** Which figure in the breakdown is being typed into, if any. */
   editingKind: DeductionKind | null;
   saving: boolean;
-  onToggle: () => void;
   onEdit: (kind: DeductionKind) => void;
   onCancelEdit: () => void;
   onSave: (kind: DeductionKind, amountKobo: number) => void;
@@ -2900,86 +3003,69 @@ function Deductions({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={open}
-        aria-label={`${open ? "Hide" : "Show"} what ${slip.name} had deducted`}
-        className={cn(
-          "rounded px-1 text-right underline decoration-dotted underline-offset-2",
-          "hover:bg-canvas hover:text-accent-text focus-visible:outline-2",
-          "focus-visible:outline-offset-1 focus-visible:outline-accent-text",
-          overridden.length > 0 && "text-ink",
-        )}
+      <span
+        className={cn("block text-right", overridden.length > 0 && "text-ink")}
       >
         {total === 0 ? "—" : formatKobo(total)}
-      </button>
-      <span className="mt-0.5 block text-meta font-normal text-faint">
-        {overridden.length > 0
-          ? "Edited"
-          : parts.map((p) => p.label).join(", ")}
       </span>
 
-      {open && (
-        <span className="mt-2 block rounded-md border border-line bg-surface p-2 text-left">
-          {parts.map((part) => {
-            const isEdited = part.kind ? overridden.includes(part.kind) : false;
-            return (
-              <span
-                key={part.label}
-                className="flex items-baseline justify-between gap-3 py-0.5"
-              >
-                <span className="text-meta text-muted">{part.label}</span>
-                <span className="flex items-baseline gap-2">
-                  {/* Only the statutory two are editable. "Other" is loans and
+      <span className="mt-1 block rounded-md border border-line bg-surface p-2 text-left">
+        {parts.map((part) => {
+          const isEdited = part.kind ? overridden.includes(part.kind) : false;
+          return (
+            <span
+              key={part.label}
+              className="flex items-baseline justify-between gap-3 py-0.5"
+            >
+              <span className="text-meta text-muted">{part.label}</span>
+              <span className="flex items-baseline gap-2">
+                {/* Only the statutory two are editable. "Other" is loans and
                       claims, which are their own modules' records — editing
                       the sum of them here would be a figure with nothing
                       behind it. */}
-                  {part.kind && editingKind === part.kind ? (
-                    <InlineMoney
-                      valueKobo={part.kobo}
-                      saving={saving}
-                      onSave={(kobo) =>
-                        onSave(part.kind as DeductionKind, kobo)
-                      }
-                      onCancel={onCancelEdit}
-                      /* Zero is the answer people are usually here for, so it
+                {part.kind && editingKind === part.kind ? (
+                  <InlineMoney
+                    valueKobo={part.kobo}
+                    saving={saving}
+                    onSave={(kobo) => onSave(part.kind as DeductionKind, kobo)}
+                    onCancel={onCancelEdit}
+                    /* Zero is the answer people are usually here for, so it
                          is the one the placeholder shows. */
-                      placeholder="0"
-                      hint="0 deducts nothing from this person this month"
-                    />
-                  ) : part.kind && editable ? (
-                    <button
-                      type="button"
-                      onClick={() => onEdit(part.kind as DeductionKind)}
-                      className={cn(
-                        "tabular rounded px-1 underline decoration-dotted underline-offset-2",
-                        "hover:bg-canvas hover:text-accent-text",
-                        isEdited ? "text-ink" : "text-body",
-                      )}
-                    >
-                      {formatKobo(part.kobo)}
-                    </button>
-                  ) : (
-                    <span className="tabular px-1 text-body">
-                      {formatKobo(part.kobo)}
-                    </span>
-                  )}
-                  {isEdited && editable && (
-                    <button
-                      type="button"
-                      onClick={() => onClear(part.kind as DeductionKind)}
-                      className="text-meta font-normal text-muted underline-offset-2 hover:text-danger-text hover:underline"
-                    >
-                      Edited · undo
-                    </button>
-                  )}
-                </span>
+                    placeholder="0"
+                    hint="0 deducts nothing from this person this month"
+                  />
+                ) : part.kind && editable ? (
+                  <button
+                    type="button"
+                    onClick={() => onEdit(part.kind as DeductionKind)}
+                    className={cn(
+                      "tabular rounded px-1 underline decoration-dotted underline-offset-2",
+                      "hover:bg-canvas hover:text-accent-text",
+                      isEdited ? "text-ink" : "text-body",
+                    )}
+                  >
+                    {formatKobo(part.kobo)}
+                  </button>
+                ) : (
+                  <span className="tabular px-1 text-body">
+                    {formatKobo(part.kobo)}
+                  </span>
+                )}
+                {isEdited && editable && (
+                  <button
+                    type="button"
+                    onClick={() => onClear(part.kind as DeductionKind)}
+                    className="text-meta font-normal text-muted underline-offset-2 hover:text-danger-text hover:underline"
+                  >
+                    Edited · undo
+                  </button>
+                )}
               </span>
-            );
-          })}
+            </span>
+          );
+        })}
 
-          {/* Hand-entered deductions live behind this, and only these.
+        {/* Hand-entered deductions live behind this, and only these.
               -----------------------------------------------------------
               "Other" above is loans, expense claims **and** anything typed
               here, and the frontend cannot tell them apart in the total —
@@ -2987,19 +3073,18 @@ function Deductions({
               and editing the sum of three things would be a figure with
               nothing behind it. The modal reads the typed lines from the API,
               so it shows exactly the ones somebody may change. */}
-          {editable && (
-            <span className="mt-1 block border-t border-line pt-1.5">
-              <button
-                type="button"
-                onClick={onEditLines}
-                className="text-meta font-normal text-accent-text underline-offset-2 hover:underline"
-              >
-                Add or edit a deduction
-              </button>
-            </span>
-          )}
-        </span>
-      )}
+        {editable && (
+          <span className="mt-1 block border-t border-line pt-1.5">
+            <button
+              type="button"
+              onClick={onEditLines}
+              className="text-meta font-normal text-accent-text underline-offset-2 hover:underline"
+            >
+              Add or edit a deduction
+            </button>
+          </span>
+        )}
+      </span>
     </>
   );
 }
