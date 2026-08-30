@@ -265,6 +265,22 @@ export type ApiBatchApproved = {
   fileHref: string;
 };
 
+/**
+ * What recording a bank payment did.
+ *
+ * `settled` is what this call moved; `alreadySettled` is what it left alone.
+ * Kept apart so a screen can say "already recorded" rather than claiming it
+ * paid the same people twice.
+ */
+export type ApiBatchRecordedPaid = {
+  batchId: string;
+  reference: string;
+  settled: number;
+  alreadySettled: number;
+  status: PaymentBatchStatus;
+  totalKobo: number;
+};
+
 export type ApiBatchCancelled = {
   id: string;
   reference: string;
@@ -522,6 +538,50 @@ export type ApiFundingRecorded = {
  * cached, because a stale copy of "can this company pay anybody" is the one
  * thing this payload must not carry. Render from it.
  */
+/**
+ * What the wallet holds, and where money goes into it.
+ *
+ * ## Derived from the ledger, never stored
+ *
+ * There is no balance column on the API and there must not be one. A stored
+ * total is a second copy of a fact, and the day it disagrees with the entries
+ * there is no way to tell which is wrong.
+ *
+ * ## Four figures, because a balance alone is not the question
+ *
+ * What matters before releasing a payroll is not what has left the account —
+ * it is what is left **after** everything already approved and not yet settled.
+ * Approving two payrolls in a morning is ordinary; if both asked only "is the
+ * balance enough", both would say yes and the second would fail at the
+ * provider, after the runs were approved and the figures frozen.
+ *
+ * `availableKobo` can be negative and is reported rather than clamped.
+ */
+export type ApiWallet = {
+  fundedKobo: number;
+  paidOutKobo: number;
+  /** Funded less paid out. What a bank statement would show. */
+  balanceKobo: number;
+  /** Approved or submitted and not yet settled. Promised, not gone. */
+  committedKobo: number;
+  /** Balance less commitments. What a new payroll may draw on. */
+  availableKobo: number;
+  /**
+   * The collection accounts this company was given, active ones only.
+   *
+   * **Empty is ordinary, not an error.** A company on the bank-file path has
+   * never needed one, and the screen says "no account yet" and who to ask. What
+   * it must never do is invent a number — money sent to a made-up account
+   * arrives somewhere real and is attributed to nobody.
+   */
+  fundingAccounts: {
+    provider: string;
+    accountNumber: string;
+    accountName: string;
+    bankName: string;
+  }[];
+};
+
 export type ApiPaymentsSummary = {
   provider: { connected: boolean; name: string | null; note: string | null };
   primaryAccount: ApiBankAccount | null;
@@ -728,6 +788,24 @@ export const paymentsApi = {
   release: (id: string) =>
     request<ApiBatchSubmitted>(`/payments/batches/${id}/submit`, { method: "POST" }),
 
+  /**
+   * Record that a bank paid this batch.
+   *
+   * **Moves no money and talks to no bank.** Somebody downloaded the file,
+   * uploaded it, watched it go, and is telling the product what happened —
+   * which is the only way the wallet's balance comes down on the path that
+   * actually ships, since nothing settles without a provider webhook.
+   *
+   * `paidOn` is the date the bank paid, not the date somebody typed this:
+   * recording on Monday what happened on Friday is the ordinary case, and the
+   * ledger line is one somebody later reconciles against a statement.
+   */
+  markPaid: (id: string, body: { paidOn?: string; reference?: string } = {}) =>
+    request<ApiBatchRecordedPaid>(`/payments/batches/${id}/mark-paid`, {
+      method: "POST",
+      body,
+    }),
+
   cancel: (id: string, reason?: string) =>
     request<ApiBatchCancelled>(`/payments/batches/${id}/cancel`, {
       method: "POST",
@@ -833,6 +911,10 @@ export const paymentsApi = {
       method: "POST",
       body,
     }),
+
+  /** The wallet: what is in it, what is spoken for, and where money goes in. */
+  wallet: (signal?: AbortSignal) =>
+    request<ApiWallet>("/payments/wallet", { ...(signal ? { signal } : {}) }),
 
   summary: (signal?: AbortSignal) =>
     request<ApiPaymentsSummary>("/payments/summary", {

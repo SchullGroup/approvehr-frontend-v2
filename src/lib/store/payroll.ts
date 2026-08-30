@@ -28,7 +28,10 @@ import {
   type ReliefRegime,
   type RunException,
   type RunExclusion,
+  type AdjustmentLines,
   type BonusChange,
+  type LinesSaved,
+  type PayslipSendOutcome,
   type AdjustmentUpload,
   type SheetOutcome,
   type MonthlyPayChange,
@@ -786,6 +789,18 @@ function buildDemoRun(
        `usePayrollActions().setTaxOverride`. Nothing here can ever be
        overridden, so the list is always empty. */
     taxOverrides: [],
+    /* Absent, and deliberately not a zeroed wallet.
+       -------------------------------------------------------------------
+       There is no ledger in demo mode and therefore no honest balance. A
+       ₦0.00 wallet would be a claim about a company's money, and the wrong
+       one — the same rule that keeps `operates: NOT_OPERATED` apart from a
+       computed nil. `funds` is optional for exactly this, and the panel that
+       reads it renders nothing rather than four empty figures.
+
+       `batch` is null for a different reason: the demo genuinely has no
+       payment batch against a run, and null is what "not built yet" means
+       connected too. */
+    batch: null,
   };
 }
 
@@ -1031,6 +1046,14 @@ export type RunPayslipsState = {
   loading: boolean;
   error: ApiError | null;
   connected: boolean;
+  /**
+   * Re-ask, after something has changed the answer.
+   *
+   * Sending payslips moves rows between the three delivery states and between
+   * the pages they sit on, so a caller that patched its own copy would be a
+   * second answer to a question the API already answers. This asks again.
+   */
+  reload: () => void;
 };
 
 /** Which of the three delivery states a payslip is in. */
@@ -1046,6 +1069,14 @@ export function useRunPayslips(
 
   const key = JSON.stringify(params);
   const active = isConnected && Boolean(runId);
+
+  /* A counter the effect below depends on, bumped by `reload`. Not part of
+     `key`, so a re-ask replaces the answer in place rather than flashing a
+     skeleton over a table somebody is reading. */
+  const [refresh, setRefresh] = useState(0);
+  const reload = useCallback(() => {
+    setRefresh((n) => n + 1);
+  }, []);
 
   const [fetched, setFetched] = useState<{
     runId: string;
@@ -1088,7 +1119,7 @@ export function useRunPayslips(
       cancelled = true;
       controller.abort();
     };
-  }, [active, runId, key, revalidation]);
+  }, [active, runId, key, revalidation, refresh]);
 
   /* The demo answer, computed in a `useMemo` that touches no state — the shape
      `lib/store/shifts.ts` establishes and every store in this app follows. */
@@ -1139,7 +1170,7 @@ export function useRunPayslips(
   }, [isConnected, runId, key, demo.details]);
 
   if (local) {
-    return { ...local, loading: false, error: null, connected: false };
+    return { ...local, loading: false, error: null, connected: false, reload };
   }
 
   const matched =
@@ -1155,6 +1186,7 @@ export function useRunPayslips(
     loading: active && !matched,
     error: matched ? fetched.error : null,
     connected: true,
+    reload,
   };
 }
 
@@ -1319,6 +1351,24 @@ const DELIVERY_RANK: Record<PayslipDelivery, number> = {
  * whose record is incomplete, and approving it is the sequence the demo most
  * needs to be able to show.
  */
+/**
+ * Why a demo approval builds no payment.
+ *
+ * Exported because two surfaces need the same sentence: the approval returns it
+ * once, and the pay panel has to say the same thing on every later load of the
+ * same run — `batchProblem` lives in component state and does not survive a
+ * reload, and the panel's generic fallback ("no bank account was on file") is
+ * true connected and false here. One copy, so the two cannot drift into
+ * offering different explanations for one absence.
+ *
+ * The reason itself is the standing rule: a payment instruction assembled in
+ * browser storage can never reach a bank, and a screen that produced one would
+ * be the green "Paid" against money nobody moved.
+ */
+export const DEMO_NO_BATCH_REASON =
+  "Preparing a payment needs the API — it draws on the company's own bank " +
+  "account, and one built here could never reach a bank.";
+
 export function usePayrollActions() {
   const { isConnected, displayName } = useSession();
   const { directory } = useEmployeeStore();
@@ -1427,6 +1477,13 @@ export function usePayrollActions() {
       return {
         id: runId,
         settled: { loans: settledLoans, claims: 0, overtime: 0 },
+        /* No batch, and the reason is the honest one rather than a failure.
+           Building a payment reads an approved run from the API and draws on a
+           real bank account; a batch assembled in browser storage would be a
+           payment instruction that can never reach a bank. Same rule as the
+           green "Paid" against money nobody moved. */
+        batch: null,
+        batchProblem: DEMO_NO_BATCH_REASON,
       };
     },
     [isConnected, people, settings],
@@ -1470,18 +1527,16 @@ export function usePayrollActions() {
   const exclude = useCallback(
     async (
       runId: string,
-      input: { employeeId: string; reason: string },
+      input: { employeeId: string; reason?: string },
     ): Promise<ExclusionChange> => {
       if (isConnected) return payrollApi.exclude(runId, input);
 
-      const reason = input.reason.trim();
-      if (reason.length < 4) {
-        throw new ApiError(
-          422,
-          "unprocessable",
-          "Say why they are not being paid this period. This is the only answer " +
-            "anybody will have in a year's time.",
-        );
+      /* The demo's copy of the API's own rule, kept in step with it: a blank
+         reason is allowed and a token one is not. Leaving it empty is choosing
+         not to explain; typing "x" is defeating a dialog. */
+      const reason = input.reason?.trim() ?? "";
+      if (reason.length > 0 && reason.length < 4) {
+        throw new ApiError(422, "unprocessable", "Say a little more than that.");
       }
 
       const state = demoStore.current();
@@ -1660,6 +1715,80 @@ export function usePayrollActions() {
   );
 
   /**
+   * Email the payslips on a run.
+   *
+   * Refused offline, and the reason is not the usual "there is no engine": the
+   * demo has real addresses on its seeded people, so a send here would put
+   * actual mail in actual inboxes about a payroll that does not exist. The one
+   * demo write that must never be allowed to work.
+   */
+  const sendPayslips = useCallback(
+    async (
+      runId: string,
+      body: { employeeIds?: string[]; resend?: boolean } = {},
+    ): Promise<PayslipSendOutcome> => {
+      if (isConnected) return payrollApi.sendPayslips(runId, body);
+      throw new ApiError(
+        0,
+        "offline",
+        "Sending payslips needs the API. The demo is not connected to a mail " +
+          "provider, and it must not be — these figures are illustrative, and " +
+          "an email about them would reach a real person about a payroll that " +
+          "never happened.",
+      );
+    },
+    [isConnected],
+  );
+
+  /** What one person carries, for the modal that edits it. */
+  const adjustmentLines = useCallback(
+    async (runId: string, employeeId: string): Promise<AdjustmentLines> => {
+      if (isConnected) return payrollApi.lines(runId, employeeId);
+      /* Empty rather than a refusal, and the distinction matters here.
+         ------------------------------------------------------------------
+         This is a **read**, and the honest offline answer to "what lines does
+         this person carry" is none: the demo cannot write one, so there are
+         none to report. The refusal belongs on `setLines` below, where
+         somebody is trying to do the thing that needs an engine. Throwing here
+         would put an error banner on a modal that had not been asked to change
+         anything yet. */
+      return { bonuses: [], deductions: [] };
+    },
+    [isConnected],
+  );
+
+  /**
+   * Replace every line of one kind for one person.
+   *
+   * Refused offline for the same reason as a single bonus: it moves gross and
+   * the tax on it, and the demo payslips are fixed figures the API's engine
+   * produced. A demo that accepted the lines and moved no payslip would show a
+   * bonus that changed nobody's pay.
+   */
+  const setLines = useCallback(
+    async (
+      runId: string,
+      input: {
+        employeeId: string;
+        kind: "bonus" | "deduction";
+        lines: readonly { amountKobo: number; reason?: string }[];
+      },
+    ): Promise<LinesSaved> => {
+      if (isConnected) return payrollApi.setLines(runId, input);
+      throw new ApiError(
+        0,
+        "offline",
+        input.kind === "bonus"
+          ? "Adding a bonus needs the API. It moves gross and the tax on it, " +
+            "and the demo has no engine to recompute either."
+          : "Entering a deduction needs the API. It comes off take-home pay " +
+            "after tax, and the demo has no engine to recompute the payslip.",
+      );
+    },
+    [isConnected],
+  );
+
+  /**
    * A whole payroll's figures, from one uploaded spreadsheet.
    *
    * Refused offline for the same reason as every figure it carries, and one
@@ -1807,6 +1936,9 @@ export function usePayrollActions() {
     clearOvertimeOverride,
     setBonus,
     clearBonus,
+    adjustmentLines,
+    setLines,
+    sendPayslips,
     uploadAdjustments,
     setMonthlyPay,
     connected: isConnected,

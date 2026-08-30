@@ -382,6 +382,63 @@ export type OvertimeOverrideChange = {
   run: PreparedRun;
 };
 
+/**
+ * One named line of a bonus or a deduction.
+ *
+ * The reason is optional and stays optional. A company recording "Bonus" and
+ * nothing else is doing something ordinary — the reason is what makes several
+ * lines legible, not what makes one line valid — and the API's own schema says
+ * the same, so refusing here would be the screen inventing a rule.
+ */
+export type AdjustmentLine = {
+  id: string;
+  amountKobo: number;
+  reason: string | null;
+  /** ISO instant. */
+  at: string;
+};
+
+/** Everything one person carries on this run, for the modal that edits it. */
+export type AdjustmentLines = {
+  bonuses: AdjustmentLine[];
+  deductions: AdjustmentLine[];
+};
+
+/**
+ * What a saved list came to.
+ *
+ * `total` is the figure the table cell shows. It comes back from the API rather
+ * than being summed here for the reason every other money figure in this file
+ * does: two implementations of one number are how two surfaces start disagreeing
+ * about the same person. The cell reads it; nothing on this side adds it up.
+ */
+export type LinesSaved = {
+  employeeId: string;
+  name: string;
+  totalKobo: number;
+  run: PreparedRun;
+};
+
+/**
+ * What emailing a run's payslips actually did.
+ *
+ * Four outcomes rather than a count, and they are kept apart because each one
+ * needs a different action from a person:
+ *
+ * - **`noEmail`** — named. Nothing was attempted and nothing went wrong;
+ *   somebody has to add an address. "1 not sent" is a number to investigate,
+ *   "Chidi Obi has no email address" is one to act on.
+ * - **`failed`** — tried and did not go. Named, because somebody chases these.
+ * - **`alreadySent`** — the ordinary second press. Reporting it as a failure
+ *   would make a working system look broken.
+ */
+export type PayslipSendOutcome = {
+  sent: number;
+  noEmail: { name: string; employeeNo: string }[];
+  failed: { name: string; employeeNo: string; reason: string }[];
+  alreadySent: number;
+};
+
 export type BonusChange = {
   employeeId: string;
   name: string;
@@ -494,11 +551,62 @@ export type RunTaxOverride = {
   setAt: string;
 };
 
+/**
+ * What the wallet holds against what this payroll costs.
+ *
+ * Four figures rather than one, because a balance alone would let two payrolls
+ * approved in a morning both look affordable. `committedKobo` is everything
+ * already approved or submitted and not yet gone; `availableKobo` is what a new
+ * payroll may actually draw on.
+ *
+ * **`afterKobo` is negative when the wallet is short, and is rendered as such.**
+ * "You cannot pay this" is not something somebody can act on. "You are
+ * ₦1,480,000 short" is — it is the figure they take to whoever funds the
+ * account. Clamping it at zero would make a ₦2m shortfall read exactly like an
+ * empty wallet.
+ */
+export type RunFunds = {
+  wallet: {
+    fundedKobo: number;
+    paidOutKobo: number;
+    balanceKobo: number;
+    committedKobo: number;
+    availableKobo: number;
+  };
+  /** This payroll's net. */
+  neededKobo: number;
+  /** What would be left. Negative is the shortfall. */
+  afterKobo: number;
+  enough: boolean;
+};
+
+/**
+ * The payment batch approval built, if it built one.
+ *
+ * **Null before approval, and null is not a failure.** Approval is what creates
+ * it, so a run in review has none — and a run that was approved before the
+ * wallet existed has none either. The screen reads the absence as "no batch
+ * yet" and offers to build one, never as an error.
+ */
+export type RunBatch = {
+  id: string;
+  reference: string;
+  status: string;
+};
+
 export type PayrollRunDetail = PayrollRun & {
   payslips: Payslip[];
   exceptions: RunException[];
   exclusions: RunExclusion[];
   taxOverrides: RunTaxOverride[];
+  /**
+   * Absent where the caller may not see salaries, and absent offline.
+   *
+   * Never zeroed. A wallet showing ₦0.00 to somebody who is not allowed to know
+   * the balance is a claim about the company's money, and the wrong one.
+   */
+  funds?: RunFunds;
+  batch: RunBatch | null;
 };
 
 /**
@@ -573,6 +681,18 @@ export type TaxOverrideChange = {
 export type ApprovedRun = {
   id: string;
   settled: { loans: number; claims: number; overtime: number };
+  /**
+   * The payment approval built, ready to pay or to download as a bank file.
+   *
+   * **Null is not a failure of the approval.** Approving is the one-way door —
+   * loans settled, claims settled, figures frozen — and it completed by the
+   * time the batch was attempted. A company with no bank account on file gets
+   * an approved payroll and no batch, which is exactly right: the payroll is
+   * correct, and there is nowhere to pay it from yet.
+   */
+  batch: { id: string; reference: string } | null;
+  /** Why there is no batch. Null when there is one. */
+  batchProblem: string | null;
 };
 
 /** `GET /preview`. Already kobo throughout — this is the engine's own shape. */
@@ -888,6 +1008,11 @@ type ApiRunDetail = ApiRun & {
     employee: { employeeNo: string; firstName: string; lastName: string };
     setBy: { firstName: string; lastName: string } | null;
   }[];
+  /* Already integer kobo on the wire — `wallet.ts` works in whole kobo so that
+     exact comparison is a reasonable thing to demand of a figure that decides
+     whether a payroll goes out. No `koboFromDecimal` here, deliberately. */
+  funds?: RunFunds;
+  batch: RunBatch | null;
 };
 
 function toRun(row: ApiRun): PayrollRun {
@@ -1069,6 +1194,13 @@ export const payrollApi = {
           : null,
         setAt: row.setAt,
       })),
+      /* `compact`-style: present when the API sent it, absent otherwise.
+         Spreading `funds: row.funds` unconditionally would put an explicit
+         `undefined` on the object, which `exactOptionalPropertyTypes` refuses
+         and which reads on a screen as a figure that arrived empty rather than
+         one that never arrived. */
+      ...(row.funds ? { funds: row.funds } : {}),
+      batch: row.batch ?? null,
     };
   },
 
@@ -1123,6 +1255,24 @@ export const payrollApi = {
     request<{ id: string }>(`/payroll/runs/${id}/cancel`, { method: "POST" }),
 
   /**
+   * Email the payslips on a run.
+   *
+   * Only an approved run — the API refuses a draft, because `prepare` deletes
+   * and rebuilds every payslip and an email cannot be taken back.
+   *
+   * `resend` defaults to false, so the common press ("send the ones that have
+   * not gone") cannot re-mail a whole company by being pressed twice.
+   */
+  sendPayslips: (
+    id: string,
+    body: { employeeIds?: string[]; resend?: boolean } = {},
+  ) =>
+    request<PayslipSendOutcome>(`/payroll/runs/${id}/payslips/send`, {
+      method: "POST",
+      body,
+    }),
+
+  /**
    * Leaves somebody off this payroll, with the reason on the record.
    *
    * `RUN_PAYROLL`, same as preparing, because it is part of working a period up
@@ -1130,7 +1280,10 @@ export const payrollApi = {
    * the new `PreparedRun`, so a screen reloads from that rather than guessing
    * what the totals became.
    */
-  exclude: (id: string, body: { employeeId: string; reason: string }) =>
+  /** `reason` is optional — see `PayrollExclusion.reason`. Omit it rather than
+   *  sending an empty string: the API's floor refuses a token answer, not an
+   *  absent one. */
+  exclude: (id: string, body: { employeeId: string; reason?: string }) =>
     request<ExclusionChange>(`/payroll/runs/${id}/exclusions`, {
       method: "POST",
       body,
@@ -1249,6 +1402,34 @@ export const payrollApi = {
     request<PreparedRun>(`/payroll/runs/${id}/bonuses/${employeeId}`, {
       method: "DELETE",
     }),
+
+  /** Every bonus and deduction line one person carries, for the modal. */
+  lines: (id: string, employeeId: string, signal?: AbortSignal) =>
+    request<AdjustmentLines>(`/payroll/runs/${id}/lines/${employeeId}`, {
+      ...(signal ? { signal } : {}),
+    }),
+
+  /**
+   * Replaces every line of one kind for one person, in one call.
+   *
+   * Whole-list rather than an add per row and a delete per removal, and the
+   * shape is the point: a modal where somebody adds two lines, edits a third
+   * and removes a fourth is **one** decision, and sending it as four requests
+   * makes four of them — any of which can fail on its own and leave the person
+   * carrying half of what somebody meant. It also means the table's total
+   * moves once instead of flickering through four intermediate figures.
+   *
+   * An empty list removes every line of that kind. That is the only way to
+   * clear them and it is deliberate: "no lines" is a list, not a missing one.
+   */
+  setLines: (
+    id: string,
+    body: {
+      employeeId: string;
+      kind: "bonus" | "deduction";
+      lines: readonly { amountKobo: number; reason?: string }[];
+    },
+  ) => request<LinesSaved>(`/payroll/runs/${id}/lines`, { method: "PUT", body }),
 
   /**
    * A whole payroll's figures, from one uploaded spreadsheet.
@@ -1400,6 +1581,23 @@ export function headcountLabel(run: {
     `${run.employeeCount} of ${run.employeeCount + run.excludedCount}` +
     ` — ${run.excludedCount} excluded`
   );
+}
+
+/**
+ * How many people a figure is actually divided between.
+ *
+ * `headcountLabel` returns "9 of 10 — 1 excluded", which is right in a `Stat`
+ * where the label carries the noun and **wrong inside a sentence**: "Pay
+ * ₦8,497,077.00 to 9 of 10 — 1 excluded" reads as though the money were being
+ * split with somebody who is not being paid.
+ *
+ * This exists because that mistake has now been made twice — on the run's pay
+ * button and on the payroll home — which is one more time than a local helper
+ * should be allowed to be rewritten. Where the exclusion matters, say it in its
+ * own sentence with `excludedNote`.
+ */
+export function paidPeopleLabel(run: { employeeCount: number }): string {
+  return `${String(run.employeeCount)} ${run.employeeCount === 1 ? "person" : "people"}`;
 }
 
 /**

@@ -77,7 +77,11 @@ const DEMO_ROW: PayrollSettingsRow = {
   pensionOnBasic: true,
   pensionOnHousing: true,
   pensionOnTransport: true,
-  nhfEnabled: true,
+  /* False, matching the real schema default — see `demoDefaults()` in
+     `features.ts`. Unlike PAYE and pension, NHF has no equivalent history of
+     "every company was already doing this", so a company with no answer of
+     its own gets nothing deducted for it rather than the statutory rate. */
+  nhfEnabled: false,
   nhfRate: "0.025",
   nhfOnGross: false,
   netSwingThreshold: "0.25",

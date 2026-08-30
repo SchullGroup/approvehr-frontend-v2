@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Bell, ChevronDown, ChevronLeft, Menu, Search, X } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { useCanGoBack } from "@/lib/nav-history";
 import { Logo } from "@/components/brand/logo";
 import { Avatar, Badge, MoneyPrivacyToggle } from "@/components/ui";
 import { CommandPalette } from "./command-palette";
@@ -287,7 +288,7 @@ function useNavBadges(): Record<BadgeSource, number> {
  * The single nav item that matches the current path.
  *
  * A plain prefix test lights up every ancestor: on `/people/attendance` both
- * "Directory" (`/people`, a prefix) and "Attendance" (an exact match) were
+ * "Employees" (`/people`, a prefix) and "Attendance" (an exact match) were
  * highlighted, which makes the sidebar look broken and tells you nothing about
  * where you are.
  *
@@ -648,6 +649,8 @@ export function PageHeader({
   tabs?: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const canGoBack = useCanGoBack(pathname);
 
   /*
    * The parent to go "back" to, which is not always the last crumb.
@@ -677,28 +680,48 @@ export function PageHeader({
         {breadcrumb && breadcrumb.length > 0 && (
           <div className="mb-2.5 flex flex-wrap items-center gap-2.5">
             {/*
-             * An explicit way back, pointing at the **parent** rather than at
-             * browser history.
+             * An explicit way back — real navigation history when this visit
+             * actually has any, the deterministic **parent** link otherwise.
              *
-             * The crumbs were already links, and that was not enough: they read
-             * as a location rather than as a control, so people used the
-             * browser's back button — which is not the same journey. Arriving
-             * here from a notification, from search, or from a deep link means
-             * back goes somewhere unrelated to the page you are on, and after a
-             * redirect it can go nowhere at all.
+             * The crumbs were already links, and that was not enough on its
+             * own: they read as a location rather than as a control, so people
+             * used the browser's back button instead — which is not always the
+             * same journey. Arriving here from a notification, from search, or
+             * from a bookmark means `router.back()` goes somewhere unrelated to
+             * the page you are on, or after a redirect, nowhere at all. That
+             * case still gets the fixed parent link, labelled with its name.
              *
-             * Deterministic — the same target every time, whatever route
-             * somebody took to get here. `router.back()` would have been one
-             * line and wrong for that reason.
+             * But arriving here by clicking *into* this page from somewhere
+             * else in the product is the common case, not the exotic one, and
+             * a fixed parent cannot serve it — a payroll exception's "Add
+             * account number" link lands on an employee record, and that
+             * record's own breadcrumb has no way to know it should say "Back
+             * to Run payroll" instead of "Back to Employees". Only real
+             * history knows that, which is what `useCanGoBack` reports: has
+             * this tab actually navigated to a different page since it opened.
+             * When it has, this becomes a real "back" rather than a link to a
+             * fixed destination, and the label drops "to X" rather than name a
+             * destination it cannot promise.
              */}
-            {backCrumb && (
-              <Link
-                href={backCrumb.href}
+            {canGoBack ? (
+              <button
+                type="button"
+                onClick={() => router.back()}
                 className="inline-flex items-center gap-1 rounded-md text-meta font-medium text-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
               >
                 <ChevronLeft aria-hidden="true" className="size-3.5" />
-                Back to {backCrumb.label}
-              </Link>
+                Back
+              </button>
+            ) : (
+              backCrumb && (
+                <Link
+                  href={backCrumb.href}
+                  className="inline-flex items-center gap-1 rounded-md text-meta font-medium text-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                >
+                  <ChevronLeft aria-hidden="true" className="size-3.5" />
+                  Back to {backCrumb.label}
+                </Link>
+              )
             )}
 
             <span aria-hidden="true" className="text-line-strong">

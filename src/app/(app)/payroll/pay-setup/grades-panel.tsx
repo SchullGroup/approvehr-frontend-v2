@@ -992,12 +992,10 @@ function PreviewBody({
         <Figure
           label="Payroll after"
           value={naira(preview.totals.newMonthlyKobo)}
-          strong
         />
         <Figure
           label="Extra every month"
           value={naira(preview.totals.monthlyIncreaseKobo)}
-          strong
           hint={`${formatPlain(naira(preview.totals.annualIncreaseKobo))} over twelve months`}
         />
       </div>
@@ -1065,26 +1063,15 @@ function Figure({
   label,
   value,
   hint,
-  strong = false,
 }: {
   label: string;
   value: number;
   hint?: string;
-  strong?: boolean;
 }) {
   return (
     <div className="rounded-lg border border-line bg-canvas p-4">
-      <p className="text-meta font-semibold text-faint">
-        {label}
-      </p>
-      <p
-        className={cn(
-          "mt-1 tabular",
-          strong ? "text-h4 text-ink" : "text-body-sm text-body",
-        )}
-      >
-        {formatPlain(value)}
-      </p>
+      <p className="text-meta font-semibold text-faint">{label}</p>
+      <p className="mt-1 tabular text-h4 text-ink">{formatPlain(value)}</p>
       {hint && <p className="mt-1 text-meta text-muted">{hint}</p>}
     </div>
   );

@@ -177,6 +177,24 @@ function SignIn() {
               }}
             />
 
+            {/* The way out of the one problem this screen exists to have.
+                ---------------------------------------------------------
+                `/forgot-password` and `/reset-password` were both built and
+                nothing linked to either. The only references anywhere were
+                from the reset screen back to the forgot screen — a loop you
+                could only enter if you were already inside it — so somebody
+                who could not remember their password had no route at all.
+
+                Under the field rather than beside the label: this is the
+                thing you look for *after* typing the wrong password, which
+                is the moment your eye is at the bottom of the form. */}
+            <Link
+              href="/forgot-password"
+              className="-mt-1 self-start text-body-sm text-muted underline-offset-4 hover:text-accent-text hover:underline"
+            >
+              Forgot your password?
+            </Link>
+
             <Button
               variant="accent"
               disabled={!email || !password || busy}

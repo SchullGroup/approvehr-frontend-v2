@@ -14,7 +14,7 @@ export default function NewEmployeePage() {
     <>
       <PageHeader
         breadcrumb={[
-          { href: "/people", label: "Directory" },
+          { href: "/people", label: "Employees" },
           { href: "/people/new", label: "Add employee" },
         ]}
         title="Add an employee"

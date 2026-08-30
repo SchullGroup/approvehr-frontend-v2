@@ -15,7 +15,7 @@ import {
   FileUp,
   FolderOpen,
   History,
-  Landmark,
+  Wallet,
   Laptop,
   LayoutDashboard,
   LifeBuoy,
@@ -165,7 +165,7 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
   "core-hr": [
     {
       href: "/people",
-      label: "Directory",
+      label: "Employees",
       icon: <Users aria-hidden="true" />,
       permission: "EDIT_RECORDS",
     },
@@ -274,16 +274,24 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       feature: "expenses",
     },
     {
+      /* "Wallet", not "Payments", and the rename is the feature.
+         ------------------------------------------------------------------
+         This used to be a batch console — build a payment, check it, approve
+         it, download a file — and it was four acts of bookkeeping standing
+         between an approved payroll and the people it pays. Approving a run
+         builds its payment now and the run offers both ways out, so what is
+         left here is the thing that genuinely has no other home: what the
+         company holds, where money goes in, and what has moved. */
       href: "/payroll/payments",
-      label: "Payments",
-      icon: <Landmark aria-hidden="true" />,
+      label: "Wallet",
+      icon: <Wallet aria-hidden="true" />,
       permission: "RUN_PAYROLL",
     },
     {
       /* Money, not paperwork — "Payslips" above is the other half and the two
-         answer different questions. Sits under Payments because it reads that
+         answer different questions. Sits under the wallet because it reads that
          module's own rows; `resolveActiveHref` picks the longest match, so a
-         batch page still lights up Payments and this only lights itself. */
+         payment page still lights up Wallet and this only lights itself. */
       href: "/payroll/payments/history",
       label: "Payment history",
       icon: <History aria-hidden="true" />,

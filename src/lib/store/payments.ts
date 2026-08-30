@@ -29,6 +29,8 @@ import {
   type PaymentDiscrepancy,
   type PaymentHistoryParams,
   type UpdateAccountBody,
+  type ApiBatchRecordedPaid,
+  type ApiWallet,
 } from "@/lib/api/payments";
 import { EMPLOYEES } from "@/lib/mock/people";
 import { createPersistedState } from "./persisted";
@@ -726,6 +728,89 @@ export function usePaymentsSummary(): PaymentsSummaryState {
   const matched = fetched !== null && fetched.rev === rev;
   return {
     summary: matched ? fetched.summary : null,
+    loading: !matched,
+    error: matched ? fetched.error : null,
+    live: true,
+    reload: bumpRevision,
+  };
+}
+
+/* ---------------------------------------------------------------- the wallet */
+
+export type WalletState = {
+  /**
+   * Null while loading, on a failure, **and offline** — never a zeroed wallet.
+   *
+   * There is no ledger in demo mode, so there is no honest balance to report.
+   * A ₦0.00 balance is a claim about a company's money and it would be the
+   * wrong one; absent is the only true answer, and every reader of this hook
+   * renders nothing rather than four empty figures. Same rule as
+   * `operates: NOT_OPERATED` on a payslip and `weightedRating: null` on a mark.
+   */
+  wallet: ApiWallet | null;
+  loading: boolean;
+  error: ApiError | null;
+  live: boolean;
+  reload: () => void;
+};
+
+/**
+ * What is in the wallet.
+ *
+ * `VIEW_SALARIES`, matching the API's own gate: this is a figure about the
+ * company's money rather than a control over a run, and the person who needs it
+ * before approving is frequently not the person who prepared it.
+ */
+export function useWallet(): WalletState {
+  const { isConnected, can } = useSession();
+  const mayRead = can("VIEW_SALARIES");
+  const rev = useRevision();
+  const revalidation = useRevalidation();
+
+  const [fetched, setFetched] = useState<{
+    rev: number;
+    wallet: ApiWallet | null;
+    error: ApiError | null;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!isConnected || !mayRead) return;
+    let cancelled = false;
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const wallet = await paymentsApi.wallet(controller.signal);
+        if (!cancelled) setFetched({ rev, wallet, error: null });
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (!cancelled) {
+          setFetched({
+            rev,
+            wallet: null,
+            error: error instanceof ApiError ? error : null,
+          });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [isConnected, mayRead, rev, revalidation]);
+
+  if (!isConnected || !mayRead) {
+    return {
+      wallet: null,
+      loading: false,
+      error: null,
+      live: false,
+      reload: bumpRevision,
+    };
+  }
+
+  const matched = fetched !== null && fetched.rev === rev;
+  return {
+    wallet: matched ? fetched.wallet : null,
     loading: !matched,
     error: matched ? fetched.error : null,
     live: true,
@@ -1744,6 +1829,17 @@ export type PaymentActions = {
   cancel: (id: string, reason?: string) => Promise<void>;
   /** The bank file. This is the one that works. */
   downloadFile: (id: string) => Promise<BankFileDownload>;
+  /**
+   * Record that a bank paid a batch we handed over on a file.
+   *
+   * Not a payment. `release` is the one that would move money and it refuses;
+   * this is somebody telling the product what their bank already did, which is
+   * the only way the wallet's balance comes down while no provider is wired.
+   */
+  markPaid: (
+    id: string,
+    body?: { paidOn?: string; reference?: string },
+  ) => Promise<ApiBatchRecordedPaid>;
   createBatch: (payrollRunId: string, sourceBankAccountId?: string) => Promise<string>;
   recordFunding: (body: FundingBody) => Promise<void>;
   live: boolean;
@@ -1924,6 +2020,28 @@ export function usePaymentActions(): PaymentActions {
     [isConnected],
   );
 
+  const markPaid = useCallback(
+    async (
+      id: string,
+      body: { paidOn?: string; reference?: string } = {},
+    ): Promise<ApiBatchRecordedPaid> => {
+      if (isConnected) {
+        const result = await paymentsApi.markPaid(id, body);
+        bumpRevision();
+        return result;
+      }
+      /* Refused offline for the reason the whole ledger is: there is none.
+         A demo that recorded a payment would move a balance that does not
+         exist and then show it beside figures the API generated, which is two
+         answers to one question about a company's money. */
+      refuse(
+        "Recording a bank payment writes to the ledger, and the demo has none. " +
+          "This is bookkeeping against a real account.",
+      );
+    },
+    [isConnected],
+  );
+
   const createBatch = useCallback(
     async (payrollRunId: string, sourceBankAccountId?: string) => {
       if (!isConnected) {
@@ -1979,6 +2097,7 @@ export function usePaymentActions(): PaymentActions {
     release,
     cancel,
     downloadFile,
+    markPaid,
     createBatch,
     recordFunding,
     live: isConnected,

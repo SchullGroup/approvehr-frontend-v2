@@ -592,6 +592,16 @@ export function useEmployee(id: string): EmployeeRecordState {
 export type EmployeePatch = Partial<Employee> & {
   departmentId?: string;
   workLocationId?: string;
+  /**
+   * Email them an invitation to their portal, on create.
+   *
+   * An instruction rather than a field on the record — the API peels it off
+   * before the employee is written, and it means nothing on an update, where
+   * re-sending is `/invites` own resend. Here rather than on `Employee`
+   * because the type is what a screen may *change* about somebody, and this
+   * changes nothing about them.
+   */
+  invite?: boolean;
 };
 
 /**
@@ -626,6 +636,8 @@ export function useEmployeeMutations() {
         lastName: string;
         departmentId?: string;
         workLocationId?: string;
+        /** Email them an invitation. See `EmployeePatch.invite`. */
+        invite?: boolean;
       },
     ) => {
       if (!isConnected) {

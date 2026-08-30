@@ -9,6 +9,7 @@ import {
   Banknote,
   Building2,
   Download,
+  MoreHorizontal,
   Plus,
   RotateCcw,
   Search,
@@ -58,8 +59,11 @@ import {
   missingForPayroll,
   payrollFieldsForDisplay,
   payrollGapsFor,
+  type Employee,
   type EmploymentStatus,
+  type PayrollGap,
 } from "@/lib/types";
+import { MissingDetailsDialog } from "@/components/people/missing-details-dialog";
 
 const STATUS: Record<EmploymentStatus, { tone: BadgeTone; label: string }> = {
   active: { tone: "success", label: "Active" },
@@ -154,6 +158,9 @@ export function Directory({
     setViewRaw(next);
     list.setPage(1);
   };
+
+  /** Id of the row whose "fill in missing details" dialog is open. */
+  const [filling, setFilling] = useState<string | null>(null);
 
   const scope = useMemo(
     () => ({
@@ -542,7 +549,7 @@ export function Directory({
                 Started
               </SortableTH>
               <TH>Status</TH>
-              {view === "archived" && <TH align="right">Actions</TH>}
+              <TH align="right">Actions</TH>
             </THead>
             <TBody>
               {rows.map((e) => {
@@ -593,8 +600,8 @@ export function Directory({
                         )}
                       </div>
                     </TD>
-                    {view === "archived" && (
-                      <TD align="right">
+                    <TD align="right">
+                      {view === "archived" ? (
                         <Button
                           size="sm"
                           variant="secondary"
@@ -623,13 +630,33 @@ export function Directory({
                           <RotateCcw aria-hidden="true" className="size-3.5" />
                           Restore
                         </Button>
-                      </TD>
-                    )}
+                      ) : (
+                        <RowActions
+                          employee={e}
+                          gaps={gaps}
+                          onFillMissing={() => setFilling(e.id)}
+                        />
+                      )}
+                    </TD>
                   </TR>
                 );
               })}
             </TBody>
           </TableWrap>
+
+          {filling && (
+            <MissingDetailsDialog
+              employee={rows.find((e) => e.id === filling)!}
+              gaps={payrollGapsFor(
+                payrollFieldsForDisplay(rows.find((e) => e.id === filling)!),
+              )}
+              onClose={() => setFilling(null)}
+              onSaved={() => {
+                setFilling(null);
+                reload();
+              }}
+            />
+          )}
 
           <Pagination
             page={list.page}
@@ -681,4 +708,72 @@ const count = (value: number | undefined): string =>
 /** A switcher option, with its count only once the count is known. */
 const label = (text: string, value: number | undefined): string =>
   value === undefined || value === 0 ? text : `${text} (${value})`;
+
+/**
+ * The row's overflow menu. Renders nothing when there is nothing to put in
+ * it — same rule as `attendance-screen.tsx`'s own `RowActions`, which this
+ * copies rather than reinvents: a menu button that opens onto an empty list
+ * is worse than no button.
+ *
+ * One item today. The next row action this table grows belongs here too,
+ * rather than as a second button beside it — that is the whole reason this
+ * is a menu and not a ghost button with the pension-PIN gap's name on it.
+ */
+function RowActions({
+  employee,
+  gaps,
+  onFillMissing,
+}: {
+  employee: Employee;
+  gaps: PayrollGap[];
+  onFillMissing: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  if (gaps.length === 0) return null;
+
+  return (
+    <div className="relative inline-block text-left">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        aria-label={`Actions for ${fullName(employee)}`}
+        className="rounded-md p-1.5 hover:bg-canvas"
+      >
+        <MoreHorizontal aria-hidden="true" className="size-4 text-muted" />
+      </button>
+
+      {open && (
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setOpen(false)}
+            aria-hidden="true"
+          />
+          <div
+            role="menu"
+            className="animate-scale-in absolute right-0 z-50 mt-1.5 w-56 rounded-lg border border-line bg-surface p-1.5 shadow-lg"
+          >
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onFillMissing();
+              }}
+              className="block w-full rounded-md px-2.5 py-2 text-left text-body-sm text-body hover:bg-canvas hover:text-ink"
+            >
+              Fill in missing details
+              <span className="block text-meta text-muted">
+                {gaps.map((g) => g.label).join(", ")}
+              </span>
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 

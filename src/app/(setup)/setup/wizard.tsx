@@ -26,6 +26,7 @@ import { MODULE_FEATURE_KEYS } from "@/lib/api/setup";
 import { NIGERIAN_STATES } from "@/lib/reference/lists";
 import { usePermissions } from "@/lib/permissions";
 import { useOrgTaxState } from "@/lib/store/company";
+import { useDeductionSwitches } from "@/lib/store/payroll-deductions";
 import { useWorkLocationList, useWorkLocationMutations } from "@/lib/store/work-locations";
 import type { ApiWorkLocation } from "@/lib/api/attendance";
 import { useRoles } from "@/lib/store/permissions";
@@ -47,21 +48,31 @@ import { VerificationNudge } from "./verification-nudge";
  * Setup.
  *
  * The second thing a customer sees, and the screen that decides how big the
- * rest of the product looks. Nine questions, one per screen, each answerable
+ * rest of the product looks. Seven questions, one per screen, each answerable
  * from memory by somebody who has never used HR software: how many people you
- * pay, whether anyone works nights, whether you lend money, whether staff claim
- * expenses, whether you run appraisals, whether you deduct PAYE, whether you run
- * a pension scheme, whether staff check in and out, and any extra roles this
- * company needs beyond the eight built in ones.
+ * pay, whether you run appraisals, whether you deduct PAYE, whether you run a
+ * pension scheme, whether staff check in and out, any extra roles this company
+ * needs beyond the eight built in ones, and whether gross pay splits into
+ * basic, housing and transport. `shifts`, `loans` and `expenses` used to be
+ * three more questions here and are not any more — they still exist as
+ * Settings toggles, just no longer asked about during onboarding. See
+ * `QUESTION_IDS`'s own header on the API for why that is the one case where a
+ * question was removed rather than only ever appended.
  *
- * Three kinds, worth knowing apart. Six decide which **modules** exist and
- * cost nothing to get wrong, because Settings turns them back on. Two decide
+ * Three kinds, worth knowing apart. Three decide which **modules** exist and
+ * cost nothing to get wrong, because Settings turns them back on. Three decide
  * what the **payroll engine computes**, and getting those wrong is a wrong
  * payslip — a company with no pension scheme, asked nothing, has 8% taken off
- * every salary it runs. So their "No" carries the API's own sentence about
- * what it means, on screen, before the click. The last — roles — sets nothing
- * at all; see `RolesStep` below for why it exists here anyway and why it is
- * the one step that can be skipped.
+ * every salary it runs, and one asked nothing about its salary structure gets
+ * a single basic-salary line rather than a guessed three-way split. PAYE and
+ * pension's "No" carries the API's own sentence about what it means, on
+ * screen, before the click — the salary question has no such sentence,
+ * because neither a single line nor a three-way split is unlawful; what the
+ * split affects is only which base NHF is charged on, and that lives beside
+ * the fields it actually changes, in the sub-form below, rather than blocking
+ * the initial click. The last — roles — sets nothing at all; see `RolesStep`
+ * below for why it exists here anyway and why it is the one step that can be
+ * skipped.
  *
  * ## Three rules it follows
  *
@@ -102,6 +113,10 @@ export function SetupWizard() {
   const wizard = useWizard();
   const features = useFeatures();
   const orgTax = useOrgTaxState();
+  /* Only `save` is used here — the wizard writes a fresh split, it does not
+     read one back to display, so the hook's own fetch effect (gated on
+     `VIEW_SALARIES`) is simply unused rather than worked around. */
+  const deductions = useDeductionSwitches();
   /* Not `useWorkLocations()`: that convenience wrapper exposes a create that
      reloads itself but no way to reload after an *update*, and this screen
      needs both — see `confirmOffice` below, which now does either. */
@@ -189,6 +204,21 @@ export function SetupWizard() {
   const [editingLocationId, setEditingLocationId] = useState<string | null>(
     null,
   );
+  /**
+   * Same shape as the tax-state and office prompts above, for the same
+   * reason: "yes, I split gross pay" is not answerable by clicking an option,
+   * it needs three numbers a person has to type and check sum to 100 —
+   * exactly the shape `sets`/`payroll` cannot express, which is why the
+   * question itself writes nothing (see `QUESTIONS.salaryStructure` on the
+   * API). "No" needs none of this: 100% basic is already the default a fresh
+   * `PayrollSettings` row gets.
+   */
+  const [awaitingSalarySplit, setAwaitingSalarySplit] = useState(false);
+  const [splitBasic, setSplitBasic] = useState("");
+  const [splitHousing, setSplitHousing] = useState("");
+  const [splitTransport, setSplitTransport] = useState("");
+  const [savingSplit, setSavingSplit] = useState(false);
+  const [splitError, setSplitError] = useState<string | null>(null);
 
   const total = wizard.questions.length;
   /* `step` counts answers and is 1-based, so it is already the index of the
@@ -245,6 +275,12 @@ export function SetupWizard() {
            again would create a second one. */
         setOfficeError(null);
         setAwaitingOffice(true);
+      } else if (question.id === "salaryStructure" && option.value === "yes") {
+        setSplitBasic("");
+        setSplitHousing("");
+        setSplitTransport("");
+        setSplitError(null);
+        setAwaitingSalarySplit(true);
       } else {
         await advance();
       }
@@ -274,6 +310,32 @@ export function SetupWizard() {
     }
     setAwaitingTaxState(false);
     await advance();
+  };
+
+  const confirmSalarySplit = async () => {
+    const basic = Number(splitBasic) || 0;
+    const housing = Number(splitHousing) || 0;
+    const transport = Number(splitTransport) || 0;
+    if (Math.abs(basic + housing + transport - 100) > 0.01) return;
+    setSavingSplit(true);
+    setSplitError(null);
+    try {
+      await deductions.save({
+        basicPercent: basic / 100,
+        housingPercent: housing / 100,
+        transportPercent: transport / 100,
+      });
+      setAwaitingSalarySplit(false);
+      await advance();
+    } catch (error) {
+      setSplitError(
+        error instanceof ApiError
+          ? error.message
+          : "That could not be saved. Try again.",
+      );
+    } finally {
+      setSavingSplit(false);
+    }
   };
 
   /**
@@ -535,7 +597,11 @@ export function SetupWizard() {
               chosen={answered && chosen === option.value}
               busy={busy === option.value}
               disabled={
-                busy !== null || finishing || awaitingTaxState || awaitingOffice
+                busy !== null ||
+                finishing ||
+                awaitingTaxState ||
+                awaitingOffice ||
+                awaitingSalarySplit
               }
               onSelect={() => void choose(question, option)}
             />
@@ -762,19 +828,118 @@ export function SetupWizard() {
         </div>
       )}
 
-      {index > 0 && !awaitingTaxState && !awaitingOffice && (
-        <div className="mt-7 border-t border-line pt-5">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setMovedTo(index - 1)}
-            disabled={busy !== null || finishing}
-          >
-            <ArrowLeft aria-hidden="true" className="size-4" />
-            Back
-          </Button>
-        </div>
-      )}
+      {awaitingSalarySplit &&
+        (() => {
+          const basic = Number(splitBasic) || 0;
+          const housing = Number(splitHousing) || 0;
+          const transport = Number(splitTransport) || 0;
+          const splitTotal = basic + housing + transport;
+          const complete =
+            splitBasic !== "" && splitHousing !== "" && splitTransport !== "";
+          return (
+            <div className="mt-6 flex flex-col gap-4 rounded-lg border border-accent-line bg-accent-soft p-5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-body font-semibold text-ink">
+                  How does gross pay split up?
+                </p>
+                {complete && (
+                  <span
+                    className={cn(
+                      "text-body-sm font-medium",
+                      Math.abs(splitTotal - 100) < 0.01
+                        ? "text-success-text"
+                        : "text-danger-text",
+                    )}
+                  >
+                    {splitTotal}%
+                  </span>
+                )}
+              </div>
+              <p className="text-body-sm leading-relaxed text-body">
+                Pension and the National Housing Fund are charged on whichever
+                parts you use — NHF on basic by default, so a bigger basic share
+                means more NHF on the same gross.
+              </p>
+
+              <div className="grid gap-4 sm:grid-cols-3">
+                <Field label="Basic" required>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={splitBasic}
+                    disabled={savingSplit}
+                    suffix="%"
+                    onChange={(e) => setSplitBasic(e.target.value)}
+                  />
+                </Field>
+                <Field label="Housing" required>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={splitHousing}
+                    disabled={savingSplit}
+                    suffix="%"
+                    onChange={(e) => setSplitHousing(e.target.value)}
+                  />
+                </Field>
+                <Field label="Transport" required>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={splitTransport}
+                    disabled={savingSplit}
+                    suffix="%"
+                    onChange={(e) => setSplitTransport(e.target.value)}
+                  />
+                </Field>
+              </div>
+
+              {splitError && (
+                <p
+                  role="status"
+                  className="rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-body-sm text-ink"
+                >
+                  {splitError}
+                </p>
+              )}
+
+              <div>
+                <Button
+                  variant="accent"
+                  size="sm"
+                  loading={savingSplit}
+                  disabled={!complete || Math.abs(splitTotal - 100) > 0.01}
+                  onClick={() => void confirmSalarySplit()}
+                >
+                  Continue
+                </Button>
+              </div>
+            </div>
+          );
+        })()}
+
+      {index > 0 &&
+        !awaitingTaxState &&
+        !awaitingOffice &&
+        !awaitingSalarySplit && (
+          <div className="mt-7 border-t border-line pt-5">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setMovedTo(index - 1)}
+              disabled={busy !== null || finishing}
+            >
+              <ArrowLeft aria-hidden="true" className="size-4" />
+              Back
+            </Button>
+          </div>
+        )}
     </Frame>
   );
 }
