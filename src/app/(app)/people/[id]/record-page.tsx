@@ -224,7 +224,7 @@ export function EmployeeRecordPage({ id }: { id: string }) {
     <>
       <PageHeader
         breadcrumb={[
-          { href: "/people", label: "Directory" },
+          { href: "/people", label: "Employees" },
           { href: `/people/${employee.id}`, label: name },
         ]}
         title={name}

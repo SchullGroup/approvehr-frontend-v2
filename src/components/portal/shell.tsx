@@ -287,7 +287,7 @@ function useNavBadges(): Record<BadgeSource, number> {
  * The single nav item that matches the current path.
  *
  * A plain prefix test lights up every ancestor: on `/people/attendance` both
- * "Directory" (`/people`, a prefix) and "Attendance" (an exact match) were
+ * "Employees" (`/people`, a prefix) and "Attendance" (an exact match) were
  * highlighted, which makes the sidebar look broken and tells you nothing about
  * where you are.
  *

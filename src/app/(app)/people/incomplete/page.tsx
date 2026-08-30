@@ -14,7 +14,7 @@ export default function IncompleteRecordsPage() {
       <PageHeader
         title="Incomplete records"
         breadcrumb={[
-          { href: "/people", label: "Directory" },
+          { href: "/people", label: "Employees" },
           { href: "/people/incomplete", label: "Incomplete records" },
         ]}
       />
