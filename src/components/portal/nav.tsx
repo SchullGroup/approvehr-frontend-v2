@@ -165,7 +165,7 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
   "core-hr": [
     {
       href: "/people",
-      label: "Directory",
+      label: "Employees",
       icon: <Users aria-hidden="true" />,
       permission: "EDIT_RECORDS",
     },
