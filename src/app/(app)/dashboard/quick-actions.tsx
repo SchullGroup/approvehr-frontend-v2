@@ -60,6 +60,8 @@ type Action = {
   permission?: PermissionKey;
   /** Absent means the company always has it. */
   feature?: FeatureKey;
+  /** Same meaning as the sidebar's own `soon` — see `nav.tsx`. */
+  soon?: boolean;
 };
 
 const ACTIONS: readonly Action[] = [
@@ -101,6 +103,7 @@ const ACTIONS: readonly Action[] = [
     icon: <Megaphone aria-hidden="true" />,
     permission: "MANAGE_HIRING",
     feature: "hiring",
+    soon: true,
   },
   {
     href: "/people/departments",
@@ -158,8 +161,15 @@ export function QuickActions() {
               {action.icon}
             </span>
             <span className="min-w-0">
-              <span className="block text-body-sm font-medium text-ink">
-                {action.label}
+              <span className="flex items-center gap-2">
+                <span className="block truncate text-body-sm font-medium text-ink">
+                  {action.label}
+                </span>
+                {action.soon && (
+                  <span className="shrink-0 text-meta font-normal text-faint">
+                    Coming soon
+                  </span>
+                )}
               </span>
               <span className="block truncate text-meta text-muted">
                 {action.detail}
