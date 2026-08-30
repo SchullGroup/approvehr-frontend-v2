@@ -105,45 +105,8 @@ export default function HomePage() {
           </div>
 
           <Reveal delay={240}>
-            <div className="mt-16 grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
-              <PayrollMockup />
-              <div className="flex flex-col gap-5">
-                {[
-                  {
-                    title: "Approval before money moves",
-                    body: "Every payroll is prepared, reviewed and approved by the appropriate office. The payment file only exists after approval.",
-                  },
-                  {
-                    title: "Automated deductions",
-                    body: "PAYE bands, 8% and 10% pension, NHF. We track the changes so you do not have to.",
-                  },
-                  {
-                    title: "Auto-remittance schedules",
-                    body: "Every remittance schedule is generated automatically, split by PFA and by state.",
-                  },
-                ].map((item) => (
-                  <div
-                    key={item.title}
-                    className="flex gap-3 rounded-2xl border border-sand-line bg-white/50 p-5"
-                  >
-                    <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-success">
-                      <Check
-                        aria-hidden="true"
-                        className="size-3 text-slate"
-                        strokeWidth={3}
-                      />
-                    </span>
-                    <div>
-                      <h3 className="font-medium text-slate">
-                        {item.title}
-                      </h3>
-                      <p className="mt-1 text-body-sm leading-relaxed text-slate-muted">
-                        {item.body}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+            <div className="mt-16">
+              <PayrollMockup className="mx-auto max-w-2xl" />
             </div>
           </Reveal>
         </div>
