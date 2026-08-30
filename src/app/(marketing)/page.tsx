@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import { Check } from "lucide-react";
+import { Check, Layers, Radar, ShieldCheck, Sparkles } from "lucide-react";
 import { Pill } from "@/components/marketing/pill";
 import { CountUp, Reveal } from "@/components/marketing/motion";
 import { PlatformOverview } from "@/components/marketing/platform-overview";
@@ -30,10 +30,39 @@ const closingCta = liveProductCta("Explore the product first", {
 });
 
 export const metadata: Metadata = {
-  title: "HR and payroll software for Nigerian companies",
+  title: "HR payroll intelligence for Nigerian companies",
   description:
-    "One system for employee records, payroll, recruitment, leave and approvals. PAYE, pension and NHF calculated to current Nigerian law, with every schedule your state IRS and PFAs expect.",
+    "Your HR intelligence partner: employee records, payroll, recruitment, leave and approvals in one system that checks its own arithmetic, tracks Nigerian statutory law automatically, and drafts the busywork so your team reviews instead of starting from nothing.",
 };
+
+/**
+ * The "HR intelligence" pillars. Each one is a real, shipped capability, not
+ * a roadmap promise — see the closing line under the grid. Keep it that way:
+ * if a pillar stops being true of the product, cut it rather than soften the
+ * wording around it.
+ */
+const INTELLIGENCE = [
+  {
+    icon: ShieldCheck,
+    title: "Statutory law, tracked automatically",
+    body: "PAYE bands, pension rates, reliefs and NHF update the moment Nigerian law changes. Nobody on your team maintains a rate table.",
+  },
+  {
+    icon: Radar,
+    title: "Nothing is silently wrong",
+    body: "Every payroll is checked against its own arithmetic before you ever see it. If a number could not be true (net pay above gross, tax above the top band), the run refuses itself and says exactly why.",
+  },
+  {
+    icon: Sparkles,
+    title: "A head start, not a blank page",
+    body: "Draft objectives from a company goal, a first pass at a progress note, development areas grounded in real scores. Every draft is reviewed by a person before it means anything.",
+  },
+  {
+    icon: Layers,
+    title: "As simple as your company needs",
+    body: "A five-person business sees six menu items. A five-hundred-person group sees the governance it actually needs. The system reveals itself as you grow into it, not all at once.",
+  },
+];
 
 /**
  * Three shapes of company, each tied to a setting that actually differs
@@ -71,6 +100,12 @@ export default function HomePage() {
       <section className="px-4 pb-20 pt-16 sm:pt-24">
         <div className="container-page">
           <div className="text-center">
+            <Reveal>
+              <p className="text-meta font-semibold text-accent">
+                Your HR intelligence partner
+              </p>
+            </Reveal>
+
             <Reveal delay={60}>
               <h1 className="mx-auto mt-5 max-w-4xl text-mega text-slate">
                 A smarter way to manage staff.
@@ -108,6 +143,47 @@ export default function HomePage() {
             <div className="mt-16">
               <PayrollMockup className="mx-auto max-w-2xl" />
             </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ------------------------------------------------------ Intelligence */}
+      <section className="px-4 py-24">
+        <div className="container-page">
+          <Reveal>
+            <SectionHeading
+              eyebrow="HR intelligence"
+              title="Your HR intelligence partner, not just another system of record."
+              lead="Most HR software stores what happened. Ours checks it, flags what needs a second look, and gets a head start on the parts that used to take all day."
+            />
+          </Reveal>
+
+          <div className="mt-14 grid gap-5 sm:grid-cols-2">
+            {INTELLIGENCE.map((item, i) => (
+              <Reveal key={item.title} as="article" delay={i * 70}>
+                <div className="flex h-full flex-col gap-3 rounded-3xl border border-sand-line bg-white/60 p-7">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent/10">
+                    <item.icon
+                      aria-hidden="true"
+                      className="size-5 text-accent"
+                      strokeWidth={2}
+                    />
+                  </span>
+                  <h3 className="text-h4 text-slate">{item.title}</h3>
+                  <p className="text-body leading-relaxed text-slate-soft">
+                    {item.body}
+                  </p>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+
+          <Reveal delay={280}>
+            <p className="mt-10 max-w-2xl text-meta leading-relaxed text-slate-muted">
+              Every one of these ships in the product today. We are pre-launch
+              and still building toward more of it, but we will not claim a
+              capability before it exists.
+            </p>
           </Reveal>
         </div>
       </section>
