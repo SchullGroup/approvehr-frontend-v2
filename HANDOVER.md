@@ -5547,3 +5547,225 @@ name a colleague. The seeded ratings set no notes, so nothing here exercises it.
 If the no-names promise is meant strictly, that is the hole — and stripping it
 would cost the model the only qualitative signal it gets, so it is a decision
 rather than an oversight.
+
+---
+
+# Payroll pays people now, and "Payments" is the Wallet
+
+The product owner's brief: *"For the payroll module we need to completely
+rework it. We do not automatically debit users accounts. We fund the wallet
+using 9JApay, Monnify virtual accounts then pay all salaries from there. This
+means we do not need this page: `/payroll/payments`. The staff get paid
+immediately the run is approved and it can say proceed to pay staff or even
+prepare and download only the sheet and send it to bank to pay the staff."*
+
+Most of the plumbing already existed — `reserved-accounts.ts`, the Monnify and
+9jaPay webhooks, `LedgerEntry` with FUNDING/SALARY/FEE kinds, the provider seam,
+the bank file. Three things did not: nothing computed a balance, approval did
+not touch payments, and no screen could say where money goes *in*.
+
+## One push-back, and the shape it produced
+
+*"The staff get paid immediately the run is approved"* is not what shipped, and
+the reason is on the screen. **Approval is already the one-way door** — it
+settles the loan instalments and the expense claims and freezes the settings
+snapshot onto the run — and putting "and the money leaves" on that same click
+makes it a door nobody can stand at and think.
+
+So approval **builds the payment** and the run then offers both paths, one
+press each: *Pay ₦8,497,077.00 to 9 people*, or *Download the bank file*. That
+is the "proceed to pay staff or prepare and download only the sheet" half of the
+brief, without collapsing two decisions into one irreversible click.
+
+## The wallet, and what `availableKobo` is for
+
+`modules/payments/wallet.ts`. **Derived from the ledger, never stored** — a
+stored total is a second copy of a fact, and the day it disagrees with the
+entries there is no way to tell which is wrong.
+
+Four figures rather than one, and the fourth is the point:
+
+| | |
+|---|---|
+| `balanceKobo` | funded less paid out — what a bank statement shows |
+| `committedKobo` | approved or submitted and **not yet settled** |
+| `availableKobo` | balance less commitments |
+
+Approving two payrolls in a morning is ordinary. If both asked only *is the
+balance enough*, both would say yes and the second would fail at the provider —
+after the run was approved, the loans settled and the figures frozen.
+
+**`afterKobo` is negative when short and is reported as such.** "You cannot pay
+this" is not something anybody can act on; "you are ₦1,480,000 short" is the
+figure they take to whoever funds the account. Flooring it at zero would make a
+₦2m shortfall read exactly like an empty wallet.
+
+`GET /payments/wallet` returns the funding accounts alongside it, because a
+shortfall is not an instruction until there is an account number under it.
+`ReservedAccount` rows were provisioned by our staff and readable only by our
+staff; `fundingAccounts` is the company's own read. Inactive ones are excluded
+rather than greyed: money sent to an old collection account arrives somewhere
+real and is attributed to nobody.
+
+## The wallet never blocks an approval
+
+Stated on the Approve step and nowhere near the button's `disabled`. Approving
+is a decision about the **figures**; funding is a decision about the **money**,
+and a company that approves on the 25th and funds on the 28th is doing something
+completely ordinary. What the strip must do is put the position *before* the
+one-way door rather than after it.
+
+`funds` is **optional** on the run detail and absent twice — for a caller
+without `VIEW_SALARIES`, and offline. Both render nothing. A ₦0.00 wallet is a
+claim about a company's money and would be false in both cases.
+
+## `/payroll/payments` is the Wallet
+
+The route survives; what is on it does not. It was a batch console — build,
+check, approve, download — four acts of bookkeeping between an approved payroll
+and the people it pays. **"Build a payment batch" and `build-batch-modal.tsx`
+are deleted**: two ways to build a batch for one run is how a company pays
+somebody twice.
+
+What is left is the thing with no other home: what the company holds, where
+money goes in, and the ledger. The payments themselves stay at the bottom as a
+record — every row opens, and every approved row still hands over its bank file,
+because somebody who downloaded one and lost it needs it again months later.
+
+The nav item reads **Wallet**. `/payroll/payments/history` is unchanged.
+
+## A hand-entered PAYE stands even where the bands are not run
+
+Separate request, same session. `payeEnabled: false` meant *this payslip has no
+tax line at all*, and an override entered against it was discarded. That reads
+the switch as "nobody here pays tax" and it means something narrower: an
+employer who switches PAYE off has not stopped deducting tax, they have stopped
+asking this engine to work it out. Crafwell is the case — a flat figure per
+person that no band produces.
+
+The switch now means **do not compute PAYE from the bands**. `operates.paye`
+follows the figure rather than only the switch, because a payslip showing
+₦9,500 of tax while calling that line `NOT_OPERATED` contradicts itself. The
+run's `payroll_tax_overridden` warning was gated on the switch too — ungated, or
+the one case this exists for is the one case nobody is warned about.
+
+With the switch off and **no** override there is still no tax, no relief and no
+taxable figure. That half is unchanged and is what the switch is for.
+
+## A bonus is often more than one thing
+
+The Bonus cell took one amount and one reason, so ₦50,000 for the Lagos install
+and ₦20,000 for the weekend cover had to be typed into one sentence — and twelve
+months later nobody can say which project the ₦50,000 belonged to.
+
+`payroll/runs/new/lines-dialog.tsx` holds named lines for both bonuses and
+deductions; the table keeps showing one total, because a payroll table is a
+column of totals. Saved **whole, once**: somebody who adds two lines, edits a
+third and removes a fourth has made one decision, and four requests make four,
+any of which can fail alone.
+
+The deduction modal opens from **inside** the breakdown, not from the "Other"
+figure. "Other" is loans, expense claims *and* typed lines together and the
+frontend cannot tell them apart in that total — nor should it, since a loan
+instalment belongs to the loan.
+
+## Payslips can actually be sent
+
+`Payslip.emailedAt` has existed since the model did, the distribution screen has
+counted three delivery states off it, and **nothing ever wrote it**. Every
+payslip in the product sat at "Not sent" for ever — the screen reporting the
+exact truth about a thing nobody could change, which looks like a working
+feature and therefore never gets reported.
+
+`POST /payroll/runs/:id/payslips/send`, and rules worth not undoing:
+
+- **Only an approved run.** `prepare` deletes and rebuilds every payslip; an
+  email is the one act here that cannot be taken back.
+- **`emailedAt` is stamped after a provider accepts, never beside the attempt.**
+  "Sent" against a rejected email is the green "Paid" over money nobody moved —
+  and worse, because the screen then hides that person behind a filter.
+- **Four outcomes, kept apart**: sent, `noEmail` (named — nothing attempted,
+  nothing wrong, somebody has to add an address), `failed` (named, somebody
+  chases it), `alreadySent` (the ordinary second press). `resend` defaults to
+  false so pressing twice cannot re-mail a company.
+- The mail carries **their own net pay** and a link. Not a PDF: there is no
+  renderer and no object storage, and a link-only mail is useless to the many
+  people who have not been given a login yet.
+- Sends are **sequential**. Three hundred at once is a wall of rate-limit
+  rejections this would then report as three hundred failed payslips.
+
+Demo mode refuses, and for a different reason from every other demo write: the
+demo has **real addresses** on its seeded people, so a send would put actual
+mail in an actual inbox about a payroll that never happened.
+
+## Four defects the browser found and no type could
+
+Recorded as classes, because each is repeatable:
+
+- **A count true of the wrong noun.** The pay button read *"Pay ₦8,497,077.00 to
+  9 of 10 — 1 excluded"*. `headcountLabel` is right in a `Stat` where the label
+  carries the noun and wrong inside a sentence, where it reads as though the
+  money were being split with somebody who is not being paid. Same family as the
+  `payslipCountLabel` bug recorded earlier in this file.
+- **Two explanations for one absence.** A callout said the API was needed and
+  the card below it said no bank account was on file — offline only one was
+  true. One card now, and the offline case is **derived** rather than
+  remembered: component state does not survive a reload, and on the second load
+  the generic fallback was confidently blaming a setting that was never the
+  problem.
+- **A button whose only outcome was a refusal.** `createBatch` refuses with no
+  API, so "Prepare the payment" is absent offline rather than present and always
+  failing.
+- **Typing in a modal wiped what you typed.** `usePayrollActions()` returns a
+  **fresh object literal every render**, so an effect depending on the whole
+  thing re-runs on every render — here it re-seeded the row state. Offline the
+  read resolves instantly, so the field emptied itself before the keystroke
+  finished. Fixed by destructuring the one function out, which is also what
+  `exhaustive-deps` can reason about; suppressing the rule would have left the
+  next person to rediscover it.
+
+> **Standing rule from the last of those:** every `useX()` in `lib/store/*`
+> returns a new object each render unless it says otherwise. Never put one in a
+> dependency array. Destructure the function you need — its own `useCallback`
+> is the stable thing.
+
+## One wire rename
+
+`PUT /runs/:id/lines` returned `total: number` for a kobo figure. Every money
+value crossing this API is integer kobo and says so in its name, and the router
+was already writing it into the audit entry as `totalKobo` — the mismatch was
+the tell. Renamed while nothing consumed it.
+
+## Verified
+
+Both gates green in both repos on the rebased branches — a PR green alone can
+still break the merge. API `npm run check` **2238 passing**; web `npm run check`
+and `npm run build` at **97 routes**, unchanged.
+
+Walked in demo mode end to end: prepare, exclude with a reason, approve, and the
+pay panel appearing in place with the honest offline reason and no dead button;
+the Wallet screen showing em-dashes rather than ₦0.00 for figures it cannot
+know; the bonus modal with two named lines totalling ₦70,000.50 and the demo
+refusal preserving what was typed; and the send panel refusing on an in-review
+month, offering "Send 9 payslips" on the approved one, and refusing honestly
+when pressed.
+
+**Not exercised: connected mode, anywhere in this batch.** Signing in needs a
+password this session does not enter. Every wire shape is pinned by backend
+assertions instead — `payroll-run-funds.test.ts` (7) proves `funds` and `batch`
+on the detail from both sides, `payments-wallet.test.ts` (15) the balance and
+the funding accounts, `payslip-email.test.ts` (9) the send. Somebody with
+credentials should walk the Pay button and a real payslip send once.
+
+## Deliberately not done
+
+- **Wiring a payment provider.** `NINEJAPAY_*` and `MONNIFY_*` are unset and
+  setting them is the user's to do. Until then `release` refuses in the API's own
+  words and the bank file is the way out — which is not a workaround, it is how
+  most Nigerian companies pay staff today.
+- **Provisioning a reserved account from inside the app.** `reserved-accounts.ts`
+  takes a BVN and is deliberately internal-staff-only. The wallet screen reads
+  what exists and says who to ask when there is none.
+- **A PDF payslip attachment.** Needs a renderer and object storage, neither of
+  which exists. The headline figure in the mail body works for the reader with
+  no login, and the link rewards the one who has one.
