@@ -190,11 +190,22 @@ function Who({ history }: { history: ApiScoreHistory }) {
       />
       <Stat
         label="Periods with a mark"
-        value={`${history.counts.scored} of ${history.counts.cycles}`}
+        /* The no-periods case first. `unscored === 0` is true both of somebody
+           marked in every period and of somebody no period has covered, so the
+           hint alone read "Every period has one" over a "0 of 0" — a clean
+           record, claimed about a person nobody has appraised. The three Stats
+           either side of this one already say their own absence. */
+        value={
+          history.counts.cycles === 0
+            ? "None yet"
+            : `${history.counts.scored} of ${history.counts.cycles}`
+        }
         hint={
-          history.counts.unscored === 0
-            ? "Every period has one"
-            : `${history.counts.unscored} ${history.counts.unscored === 1 ? "period" : "periods"} recorded nothing that counts`
+          history.counts.cycles === 0
+            ? "No appraisal period has covered them yet"
+            : history.counts.unscored === 0
+              ? "Every period has one"
+              : `${history.counts.unscored} ${history.counts.unscored === 1 ? "period" : "periods"} recorded nothing that counts`
         }
       />
       <Stat

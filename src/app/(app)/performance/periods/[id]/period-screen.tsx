@@ -402,7 +402,13 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                     onClick={() => void start()}
                   >
                     <Play aria-hidden="true" className="size-3.5" />
-                    Start the period
+                    {/* The control says why it is dead, rather than leaving a
+                        grey button under copy that implies the competency
+                        groups alone are enough. Same shape the importer uses
+                        when its own primary action is blocked. */}
+                    {period.questionCount === 0
+                      ? "Add a question first"
+                      : "Start the period"}
                   </Button>
                 </div>
               </CardBody>
