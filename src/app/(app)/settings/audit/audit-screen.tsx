@@ -260,7 +260,17 @@ function Trail({ initialEntityType = "", initialEntityId = "" }: ScreenProps) {
               />
             </Field>
 
-            <Field label="Who">
+            {/* The count beside each name is every event that person has, and
+                the list below leaves record views out unless "Include views"
+                is ticked — so without this sentence "Grace Effiong (47)" reads
+                as a promise of 47 rows and delivers fewer. The API's
+                `actors()` counts reads unconditionally and takes no
+                `includeReads`, so the number cannot be made to follow the
+                toggle from here; saying what it counts is the honest half. */}
+            <Field
+              label="Who"
+              {...(includeReads ? {} : { help: "Counts include record views, which the list leaves out until you tick Include views." })}
+            >
               <Select
                 value={actor}
                 onChange={(event) => setActor(event.target.value)}
