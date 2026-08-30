@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowDownToLine, Banknote, Landmark } from "lucide-react";
+import { ArrowDownToLine, Banknote, CheckCircle2, Landmark } from "lucide-react";
 import {
   Badge,
   Button,
@@ -10,6 +10,9 @@ import {
   Card,
   CardBody,
   CardHeader,
+  Field,
+  Input,
+  Modal,
   Spinner,
   useToast,
 } from "@/components/ui";
@@ -90,6 +93,7 @@ export function PayPanel({
   const { push } = useToast();
 
   const [busy, setBusy] = useState<"pay" | "file" | null>(null);
+  const [recording, setRecording] = useState(false);
   const [refused, setRefused] = useState<string | null>(null);
   const [problems, setProblems] = useState<readonly PaymentDiscrepancy[]>([]);
 
@@ -261,6 +265,11 @@ export function PayPanel({
 
   const settled = batch.status === "SETTLED" || batch.status === "SUBMITTED";
   const cancelled = batch.status === "CANCELLED";
+  /* COMPLETED is what recording a bank payment leaves behind. Kept apart from
+     `settled` above, which is the provider path — the two arrive at the same
+     place and got there differently, and the sentence a reader needs is
+     different for each. */
+  const recorded = batch.status === "COMPLETED";
 
   return (
     <Card>
@@ -279,6 +288,13 @@ export function PayPanel({
             The payroll is still approved and its figures are unchanged. Prepare
             a new payment if these people still need paying.
           </Callout>
+        ) : recorded ? (
+          <p className="text-body-sm text-body">
+            Recorded as paid by your bank: {formatKobo(run.netKobo)} to{" "}
+            {paidCount(run)}, against{" "}
+            <span className="font-medium text-ink">{batch.reference}</span>. The
+            wallet has come down by that amount.
+          </p>
         ) : settled ? (
           <p className="text-body-sm text-body">
             {formatKobo(run.netKobo)} to {paidCount(run)}, sent as{" "}
@@ -342,10 +358,182 @@ export function PayPanel({
               <p className="text-meta text-muted">{excludedNote(run)}</p>
             )}
             <p className="text-meta text-muted">{WALLET_PAYOUT_STATE}</p>
+
+            {/* The other half of the bank-file path, and the reason the wallet
+                can ever come down.
+                ---------------------------------------------------------
+                Downloading a file is not paying anybody — the money leaves
+                when the bank moves it, which happens outside this product and
+                which nothing here can observe. So somebody has to say so, and
+                this is where they say it: on the run they just took the file
+                from, rather than on a screen they would have to know exists.
+
+                Below the two actions and visually quieter than both, because
+                it is a statement about the past. A control that looked like a
+                third way to pay would be the button this must never become. */}
+            <div className="flex flex-col gap-2 border-t border-line pt-3">
+              <p className="text-meta text-muted">
+                Sent the file to your bank and watched it go through?
+              </p>
+              <div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={busy !== null}
+                  onClick={() => {
+                    setRecording(true);
+                  }}
+                >
+                  <CheckCircle2 aria-hidden="true" className="size-4" />
+                  Record that your bank paid this
+                </Button>
+              </div>
+            </div>
           </>
         )}
       </CardBody>
+
+      {recording && (
+        <RecordPaidDialog
+          batchId={batch.id}
+          reference={batch.reference}
+          amountKobo={run.netKobo}
+          people={paidCount(run)}
+          onClose={() => {
+            setRecording(false);
+          }}
+          onRecorded={() => {
+            setRecording(false);
+            onChanged();
+          }}
+        />
+      )}
     </Card>
+  );
+}
+
+/**
+ * Saying that a bank paid, on a date, against a reference.
+ *
+ * A dialog rather than a button, because two of the three things it records
+ * are typed. **The date is the one that matters**: recording on Monday what
+ * the bank did on Friday is the ordinary case, and a ledger line stamped with
+ * the wrong day is one that will not reconcile against a statement — which is
+ * the entire reason somebody keeps a ledger.
+ *
+ * Both fields are optional at the API and both are offered here, because a
+ * person who has the bank's reference to hand should be able to put it in and
+ * one who does not should not be blocked.
+ */
+function RecordPaidDialog({
+  batchId,
+  reference,
+  amountKobo,
+  people,
+  onClose,
+  onRecorded,
+}: {
+  batchId: string;
+  reference: string;
+  amountKobo: number;
+  people: string;
+  onClose: () => void;
+  onRecorded: (summary: string) => void;
+}) {
+  const actions = usePaymentActions();
+  const [paidOn, setPaidOn] = useState("");
+  const [bankRef, setBankRef] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
+
+  async function record() {
+    setSaving(true);
+    setFailed(null);
+    try {
+      const result = await actions.markPaid(batchId, {
+        ...(paidOn ? { paidOn } : {}),
+        ...(bankRef.trim() ? { reference: bankRef.trim() } : {}),
+      });
+      onRecorded(
+        `${formatKobo(result.totalKobo)} recorded as paid against ${result.reference}.`,
+      );
+    } catch (error) {
+      setFailed(
+        error instanceof ApiError
+          ? error.message
+          : "Nothing was recorded. Try again.",
+      );
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title="Record that your bank paid this"
+      description={`${formatKobo(amountKobo)} to ${people}, on ${reference}.`}
+      footer={
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="ghost" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant="approve"
+            loading={saving}
+            disabled={saving}
+            onClick={() => void record()}
+          >
+            Record it as paid
+          </Button>
+        </div>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        {failed && (
+          <Callout tone="danger" title="Nothing was recorded">
+            {failed}
+          </Callout>
+        )}
+
+        {/* Said before the click, in the words that make it safe. This writes
+            a line in the ledger; it does not move a naira, and nobody reading
+            this screen afterwards should be able to think it did. */}
+        <Callout tone="info" title="This moves no money">
+          It records what your bank has already done, so the wallet balance
+          catches up with the account. Nothing is sent to anybody.
+        </Callout>
+
+        <Field
+          label="When the bank paid"
+          help="The date on the bank's own record, not today. A ledger line has to reconcile against a statement."
+        >
+          <Input
+            type="date"
+            value={paidOn}
+            onChange={(event) => {
+              setPaidOn(event.target.value);
+            }}
+          />
+        </Field>
+
+        <Field
+          label="The bank's reference"
+          help="Optional. It is what lets this line be matched to the one on your statement."
+        >
+          <Input
+            placeholder="e.g. NIP-99887766"
+            value={bankRef}
+            maxLength={120}
+            onChange={(event) => {
+              setBankRef(event.target.value);
+            }}
+          />
+        </Field>
+      </div>
+    </Modal>
   );
 }
 

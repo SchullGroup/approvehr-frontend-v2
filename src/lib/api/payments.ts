@@ -265,6 +265,22 @@ export type ApiBatchApproved = {
   fileHref: string;
 };
 
+/**
+ * What recording a bank payment did.
+ *
+ * `settled` is what this call moved; `alreadySettled` is what it left alone.
+ * Kept apart so a screen can say "already recorded" rather than claiming it
+ * paid the same people twice.
+ */
+export type ApiBatchRecordedPaid = {
+  batchId: string;
+  reference: string;
+  settled: number;
+  alreadySettled: number;
+  status: PaymentBatchStatus;
+  totalKobo: number;
+};
+
 export type ApiBatchCancelled = {
   id: string;
   reference: string;
@@ -771,6 +787,24 @@ export const paymentsApi = {
    */
   release: (id: string) =>
     request<ApiBatchSubmitted>(`/payments/batches/${id}/submit`, { method: "POST" }),
+
+  /**
+   * Record that a bank paid this batch.
+   *
+   * **Moves no money and talks to no bank.** Somebody downloaded the file,
+   * uploaded it, watched it go, and is telling the product what happened —
+   * which is the only way the wallet's balance comes down on the path that
+   * actually ships, since nothing settles without a provider webhook.
+   *
+   * `paidOn` is the date the bank paid, not the date somebody typed this:
+   * recording on Monday what happened on Friday is the ordinary case, and the
+   * ledger line is one somebody later reconciles against a statement.
+   */
+  markPaid: (id: string, body: { paidOn?: string; reference?: string } = {}) =>
+    request<ApiBatchRecordedPaid>(`/payments/batches/${id}/mark-paid`, {
+      method: "POST",
+      body,
+    }),
 
   cancel: (id: string, reason?: string) =>
     request<ApiBatchCancelled>(`/payments/batches/${id}/cancel`, {
