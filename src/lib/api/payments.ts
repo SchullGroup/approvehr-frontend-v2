@@ -522,6 +522,50 @@ export type ApiFundingRecorded = {
  * cached, because a stale copy of "can this company pay anybody" is the one
  * thing this payload must not carry. Render from it.
  */
+/**
+ * What the wallet holds, and where money goes into it.
+ *
+ * ## Derived from the ledger, never stored
+ *
+ * There is no balance column on the API and there must not be one. A stored
+ * total is a second copy of a fact, and the day it disagrees with the entries
+ * there is no way to tell which is wrong.
+ *
+ * ## Four figures, because a balance alone is not the question
+ *
+ * What matters before releasing a payroll is not what has left the account —
+ * it is what is left **after** everything already approved and not yet settled.
+ * Approving two payrolls in a morning is ordinary; if both asked only "is the
+ * balance enough", both would say yes and the second would fail at the
+ * provider, after the runs were approved and the figures frozen.
+ *
+ * `availableKobo` can be negative and is reported rather than clamped.
+ */
+export type ApiWallet = {
+  fundedKobo: number;
+  paidOutKobo: number;
+  /** Funded less paid out. What a bank statement would show. */
+  balanceKobo: number;
+  /** Approved or submitted and not yet settled. Promised, not gone. */
+  committedKobo: number;
+  /** Balance less commitments. What a new payroll may draw on. */
+  availableKobo: number;
+  /**
+   * The collection accounts this company was given, active ones only.
+   *
+   * **Empty is ordinary, not an error.** A company on the bank-file path has
+   * never needed one, and the screen says "no account yet" and who to ask. What
+   * it must never do is invent a number — money sent to a made-up account
+   * arrives somewhere real and is attributed to nobody.
+   */
+  fundingAccounts: {
+    provider: string;
+    accountNumber: string;
+    accountName: string;
+    bankName: string;
+  }[];
+};
+
 export type ApiPaymentsSummary = {
   provider: { connected: boolean; name: string | null; note: string | null };
   primaryAccount: ApiBankAccount | null;
@@ -833,6 +877,10 @@ export const paymentsApi = {
       method: "POST",
       body,
     }),
+
+  /** The wallet: what is in it, what is spoken for, and where money goes in. */
+  wallet: (signal?: AbortSignal) =>
+    request<ApiWallet>("/payments/wallet", { ...(signal ? { signal } : {}) }),
 
   summary: (signal?: AbortSignal) =>
     request<ApiPaymentsSummary>("/payments/summary", {

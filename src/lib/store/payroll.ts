@@ -786,6 +786,18 @@ function buildDemoRun(
        `usePayrollActions().setTaxOverride`. Nothing here can ever be
        overridden, so the list is always empty. */
     taxOverrides: [],
+    /* Absent, and deliberately not a zeroed wallet.
+       -------------------------------------------------------------------
+       There is no ledger in demo mode and therefore no honest balance. A
+       ₦0.00 wallet would be a claim about a company's money, and the wrong
+       one — the same rule that keeps `operates: NOT_OPERATED` apart from a
+       computed nil. `funds` is optional for exactly this, and the panel that
+       reads it renders nothing rather than four empty figures.
+
+       `batch` is null for a different reason: the demo genuinely has no
+       payment batch against a run, and null is what "not built yet" means
+       connected too. */
+    batch: null,
   };
 }
 
@@ -1319,6 +1331,24 @@ const DELIVERY_RANK: Record<PayslipDelivery, number> = {
  * whose record is incomplete, and approving it is the sequence the demo most
  * needs to be able to show.
  */
+/**
+ * Why a demo approval builds no payment.
+ *
+ * Exported because two surfaces need the same sentence: the approval returns it
+ * once, and the pay panel has to say the same thing on every later load of the
+ * same run — `batchProblem` lives in component state and does not survive a
+ * reload, and the panel's generic fallback ("no bank account was on file") is
+ * true connected and false here. One copy, so the two cannot drift into
+ * offering different explanations for one absence.
+ *
+ * The reason itself is the standing rule: a payment instruction assembled in
+ * browser storage can never reach a bank, and a screen that produced one would
+ * be the green "Paid" against money nobody moved.
+ */
+export const DEMO_NO_BATCH_REASON =
+  "Preparing a payment needs the API — it draws on the company's own bank " +
+  "account, and one built here could never reach a bank.";
+
 export function usePayrollActions() {
   const { isConnected, displayName } = useSession();
   const { directory } = useEmployeeStore();
@@ -1427,6 +1457,13 @@ export function usePayrollActions() {
       return {
         id: runId,
         settled: { loans: settledLoans, claims: 0, overtime: 0 },
+        /* No batch, and the reason is the honest one rather than a failure.
+           Building a payment reads an approved run from the API and draws on a
+           real bank account; a batch assembled in browser storage would be a
+           payment instruction that can never reach a bank. Same rule as the
+           green "Paid" against money nobody moved. */
+        batch: null,
+        batchProblem: DEMO_NO_BATCH_REASON,
       };
     },
     [isConnected, people, settings],

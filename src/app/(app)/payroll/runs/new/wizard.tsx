@@ -80,6 +80,7 @@ import {
 import { useCan } from "@/lib/permissions";
 import { useOvertimePolicy } from "@/lib/store/overtime";
 import { SheetPanel } from "./sheet-panel";
+import { PayPanel, WalletStrip } from "./pay-panel";
 import type { SheetRowSource } from "@/lib/payroll/adjustment-sheet";
 import type { Employee } from "@/lib/types";
 import { usePayrollSettings } from "@/lib/payroll/use-settings";
@@ -286,6 +287,16 @@ export function PayrollRunWizard() {
 
   const [prepared, setPrepared] = useState<PreparedRun | null>(null);
   const [busy, setBusy] = useState<"prepare" | "approve" | null>(null);
+  /**
+   * Why approving produced no payment, when it produced none.
+   *
+   * Carried in state rather than derived from `run.batch === null`, because the
+   * two are different facts: a null batch says there is none, and this says
+   * what stopped it being built. A screen that could only see the absence would
+   * offer "prepare the payment" against a company with no bank account and let
+   * them press it until they gave up.
+   */
+  const [batchProblem, setBatchProblem] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
 
@@ -617,7 +628,21 @@ export function PayrollRunWizard() {
             ? `${result.settled.loans} loan instalment${result.settled.loans === 1 ? "" : "s"} and ${result.settled.claims} expense claim${result.settled.claims === 1 ? "" : "s"} settled.`
             : "Nothing else needed settling.",
       });
-      router.push("/payroll");
+
+      /* Stay here.
+         -------------------------------------------------------------------
+         This used to `router.push("/payroll")`, which ended the journey one
+         step before the point of it: the payroll is approved and nobody has
+         been paid. The reader was returned to a list and left to work out for
+         themselves that there was a payments screen somewhere carrying the
+         thing they actually came to do.
+
+         Reloading flips `settled` and the step renders `PayPanel` in place —
+         pay them, or take the file to the bank. Leaving is still one click
+         away and is now a decision rather than the only option. */
+      setBatchProblem(result.batchProblem);
+      reloadRuns();
+      detail.reload();
     } catch (caught) {
       setConfirming(false);
       toast.push({
@@ -966,6 +991,30 @@ export function PayrollRunWizard() {
       {stepper.index === 3 && run && (
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)]">
           <div className="flex flex-col gap-5">
+            {/* Paying leads once there is anything to pay.
+                ---------------------------------------------------------
+                An approved payroll's next act is paying it, and this used to
+                be a different screen somebody had to know existed. The totals
+                and the consequences drop below it: they are what somebody
+                reads *before* deciding, and after the decision the question is
+                only "how does the money leave". */}
+            {settled && (
+              <PayPanel
+                run={run}
+                problem={batchProblem}
+                onChanged={detail.reload}
+              />
+            )}
+
+            {/* Before the decision: the position, stated in advance.
+                ---------------------------------------------------------
+                A shortfall found at the provider is found after the run is
+                approved, the loans are settled and the figures are frozen.
+                This never blocks the approval — see `WalletStrip` — it only
+                makes sure nobody meets the number for the first time on the
+                far side of a one-way door. */}
+            {!settled && <WalletStrip run={run} />}
+
             <TotalsPanel run={run} />
 
             <Card>

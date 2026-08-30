@@ -494,11 +494,62 @@ export type RunTaxOverride = {
   setAt: string;
 };
 
+/**
+ * What the wallet holds against what this payroll costs.
+ *
+ * Four figures rather than one, because a balance alone would let two payrolls
+ * approved in a morning both look affordable. `committedKobo` is everything
+ * already approved or submitted and not yet gone; `availableKobo` is what a new
+ * payroll may actually draw on.
+ *
+ * **`afterKobo` is negative when the wallet is short, and is rendered as such.**
+ * "You cannot pay this" is not something somebody can act on. "You are
+ * ₦1,480,000 short" is — it is the figure they take to whoever funds the
+ * account. Clamping it at zero would make a ₦2m shortfall read exactly like an
+ * empty wallet.
+ */
+export type RunFunds = {
+  wallet: {
+    fundedKobo: number;
+    paidOutKobo: number;
+    balanceKobo: number;
+    committedKobo: number;
+    availableKobo: number;
+  };
+  /** This payroll's net. */
+  neededKobo: number;
+  /** What would be left. Negative is the shortfall. */
+  afterKobo: number;
+  enough: boolean;
+};
+
+/**
+ * The payment batch approval built, if it built one.
+ *
+ * **Null before approval, and null is not a failure.** Approval is what creates
+ * it, so a run in review has none — and a run that was approved before the
+ * wallet existed has none either. The screen reads the absence as "no batch
+ * yet" and offers to build one, never as an error.
+ */
+export type RunBatch = {
+  id: string;
+  reference: string;
+  status: string;
+};
+
 export type PayrollRunDetail = PayrollRun & {
   payslips: Payslip[];
   exceptions: RunException[];
   exclusions: RunExclusion[];
   taxOverrides: RunTaxOverride[];
+  /**
+   * Absent where the caller may not see salaries, and absent offline.
+   *
+   * Never zeroed. A wallet showing ₦0.00 to somebody who is not allowed to know
+   * the balance is a claim about the company's money, and the wrong one.
+   */
+  funds?: RunFunds;
+  batch: RunBatch | null;
 };
 
 /**
@@ -573,6 +624,18 @@ export type TaxOverrideChange = {
 export type ApprovedRun = {
   id: string;
   settled: { loans: number; claims: number; overtime: number };
+  /**
+   * The payment approval built, ready to pay or to download as a bank file.
+   *
+   * **Null is not a failure of the approval.** Approving is the one-way door —
+   * loans settled, claims settled, figures frozen — and it completed by the
+   * time the batch was attempted. A company with no bank account on file gets
+   * an approved payroll and no batch, which is exactly right: the payroll is
+   * correct, and there is nowhere to pay it from yet.
+   */
+  batch: { id: string; reference: string } | null;
+  /** Why there is no batch. Null when there is one. */
+  batchProblem: string | null;
 };
 
 /** `GET /preview`. Already kobo throughout — this is the engine's own shape. */
@@ -888,6 +951,11 @@ type ApiRunDetail = ApiRun & {
     employee: { employeeNo: string; firstName: string; lastName: string };
     setBy: { firstName: string; lastName: string } | null;
   }[];
+  /* Already integer kobo on the wire — `wallet.ts` works in whole kobo so that
+     exact comparison is a reasonable thing to demand of a figure that decides
+     whether a payroll goes out. No `koboFromDecimal` here, deliberately. */
+  funds?: RunFunds;
+  batch: RunBatch | null;
 };
 
 function toRun(row: ApiRun): PayrollRun {
@@ -1069,6 +1137,13 @@ export const payrollApi = {
           : null,
         setAt: row.setAt,
       })),
+      /* `compact`-style: present when the API sent it, absent otherwise.
+         Spreading `funds: row.funds` unconditionally would put an explicit
+         `undefined` on the object, which `exactOptionalPropertyTypes` refuses
+         and which reads on a screen as a figure that arrived empty rather than
+         one that never arrived. */
+      ...(row.funds ? { funds: row.funds } : {}),
+      batch: row.batch ?? null,
     };
   },
 
