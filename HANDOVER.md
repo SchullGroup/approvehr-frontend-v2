@@ -5769,3 +5769,77 @@ credentials should walk the Pay button and a real payslip send once.
 - **A PDF payslip attachment.** Needs a renderer and object storage, neither of
   which exists. The headline figure in the mail body works for the reader with
   no login, and the link rewards the one who has one.
+
+## Three more, after the wallet landed
+
+Written up separately because each closes something the entry above opened or
+walked past.
+
+**Recording a bank payment is on both surfaces, and is one dialog.** A person
+reaches "the bank paid this" from the run they took the file from *and* from the
+payment's own page, and both are the right place to be when the thought occurs.
+`components/payroll/record-paid-dialog.tsx` is the single copy: it records a
+**date** that a ledger line is stamped with and later reconciled against a
+statement, and two copies would drift until one stopped asking for it or started
+defaulting it to today.
+
+**A payroll can reach PAID, and the home screen says when it has not.**
+`PayrollRunStatus.PAID` was in the enum from the day the model was written, read
+by three modules, and **written by nothing** — so every payroll ever run sat at
+APPROVED for ever, including the ones whose money had demonstrably left. That is
+the third instance in this file of a state that is read and never reached; the
+other two are `Payslip.emailedAt` and the company logo. **The pattern is worth
+naming: a state nothing writes looks like a working feature, so nobody reports
+it.** `settleBatchIfDone` sets it now — only on COMPLETED, never
+PARTIALLY_SETTLED, because a payroll marked paid with one person still owed
+would then hide them behind every filter that reads the status.
+
+The payroll home had collapsed APPROVED and PAID into one sentence about frozen
+figures, which was the whole truth while PAID was unreachable. Three states now,
+and a callout carrying the amount and the way out — because approving is a
+decision with a satisfying click at the end of it that moves no money, and
+somebody who approves on the 25th and gets pulled away has nothing telling them
+thirty people are still waiting.
+
+**`?step=` on the run wizard**, matched by id and never by index, so that link
+lands on Approve rather than two Continues short of it. Reordering `STEPS` cannot
+silently send somebody somewhere else.
+
+### `paidPeopleLabel`, and the mistake that earned it
+
+`headcountLabel` returns `"9 of 10 — 1 excluded"`. Right in a `Stat`, where the
+label carries the noun. **Wrong inside a sentence**, where "approved for 9 of 10
+— 1 excluded" reads as though the money were being split with somebody who is not
+being paid.
+
+I made that mistake twice — on the run's pay button and again on the payroll home
+— which is once more than a local helper should be allowed to be rewritten. It is
+`paidPeopleLabel` in `lib/api/payroll.ts` now, sitting beside its opposite with
+the distinction written between them. This is the same family as
+`payslipCountLabel`, which exists for the identical reason one noun along.
+
+### One correction to the entry above
+
+That entry says the reserved-account provisioning surface does not exist and
+somebody has to decide between a script and an admin screen. **That is wrong.**
+`/admin/payments` lists every company with its provider and its collection
+account and has an "open account" button per company, calling
+`provisionReservedAccount` with the contract code and BVN from `monnifyConfig()`.
+It has been there the whole time. What it needs is Monnify credentials, not code.
+
+### The staleness defect this file predicted
+
+`payroll/pay-setup/pay-components-panel.tsx` debounced an amount into
+`usePayPreview` and rendered the answer without checking it was still an answer to
+what was typed — leaving **last keystroke's figure beside an input that had
+already moved**, on a panel whose entire job is "what does this do to their
+take-home".
+
+`usePayslipQuote` solves the same problem by matching the answer against the live
+key; this one cannot, because the request key *is* the debounced value. So it is
+reported instead: while the debounced and live values disagree the effect renders
+as loading, and `change` is passed as **null rather than the previous figure** —
+an absent number reads as "working it out", a stale one reads as the answer.
+
+`lib/use-debounced.ts` exists and this file has its own copy of `useDebounced` at
+the bottom. Left alone, but that is the next thing to tidy here.
