@@ -219,7 +219,6 @@ export function PayComponentsPanel({
                 ? "once a monthly salary is set"
                 : "after PAYE, pension and NHF"
             }
-            strong
           />
         </div>
 
@@ -374,24 +373,15 @@ function Figure({
   label,
   value,
   hint,
-  strong = false,
 }: {
   label: string;
   value: string;
   hint?: string;
-  strong?: boolean;
 }) {
   return (
     <div className="min-w-0">
       <p className="text-meta font-medium text-muted">{label}</p>
-      <p
-        className={cn(
-          "tabular mt-1 truncate text-ink",
-          strong ? "text-h4" : "text-body-sm font-semibold",
-        )}
-      >
-        {value}
-      </p>
+      <p className="tabular mt-1 truncate text-h4 text-ink">{value}</p>
       {hint && <p className="mt-0.5 text-meta text-faint">{hint}</p>}
     </div>
   );

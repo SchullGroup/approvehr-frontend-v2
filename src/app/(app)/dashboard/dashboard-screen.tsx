@@ -458,7 +458,7 @@ function CompanyOverview({
                 ) : (
                   <div className="flex flex-col gap-4">
                     <div className="flex flex-wrap items-baseline gap-3">
-                      <Money amount={naira(payroll.netKobo)} decimals className="text-h2" />
+                      <Money amount={naira(payroll.netKobo)} decimals size="xl" />
                       <Badge
                         tone={payroll.status === "APPROVED" ? "success" : "neutral"}
                         size="sm"
