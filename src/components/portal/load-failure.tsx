@@ -60,6 +60,32 @@ import { ApiError } from "@/lib/api/client";
  * mistake as rendering 0 for an absent figure.
  */
 
+/**
+ * The title, which is a different question from the advice.
+ *
+ * "Did not load" is a claim that something went wrong. A **403 is not that**:
+ * the read reached the server, the server understood it, and it said no. The
+ * body has always shown the API's own sentence for a refusal — it names the
+ * permission — while the title above it said the request had failed, so the
+ * two halves of one callout disagreed about what had happened.
+ *
+ * That mattered most where it fired: `/performance/history/[employeeId]` told
+ * a payroll analyst "This person's score history did not load" directly above
+ * "You can see your own record and the records of people who report to you."
+ * Every screen in this product that gates a whole page words this correctly
+ * already — "Attendance history is not part of your access", "You cannot view
+ * payroll" — and only the shared panel did not.
+ *
+ * Worded without a copula on purpose: `subject` may be singular or plural
+ * ("the audit log", "the article figures") and this has to read for both.
+ */
+function titleFor(error: unknown, subject: string): string {
+  if (error instanceof ApiError && error.status === 403) {
+    return `You cannot see ${subject}`;
+  }
+  return `${capitalise(subject)} did not load`;
+}
+
 /** True when the API wrote a sentence about this specific refusal. */
 function apiSentenceIsBetter(error: ApiError): boolean {
   if (error.status === 403) return true;
@@ -173,7 +199,7 @@ export function LoadFailure({
 }) {
   if (!error) return null;
   return (
-    <Callout tone="danger" title={`${capitalise(subject)} did not load`}>
+    <Callout tone="danger" title={titleFor(error, subject)}>
       <p>{adviceFor(error, subject)}</p>
       {children ? <div className="mt-2">{children}</div> : null}
       {onRetry && retryCouldHelp(error) && (

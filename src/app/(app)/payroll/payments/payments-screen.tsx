@@ -28,7 +28,11 @@ import {
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
-import { naira, type ApiPaymentBatch } from "@/lib/api/payments";
+import {
+  availableFigure,
+  naira,
+  type ApiPaymentBatch,
+} from "@/lib/api/payments";
 import { usePermissions } from "@/lib/permissions";
 import {
   BATCH_STATUS,
@@ -179,16 +183,27 @@ export function PaymentsScreen() {
             happens to be false. The ₦0 incident this codebase has a rule about
             was exactly this shape one module along. */}
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {/* Label and hint move with the sign — see `availableFigure`. A
+              company that has approved more than it holds is short by an
+              amount, not in possession of a negative one. */}
           <Stat
-            label="Available to pay with"
+            label={held ? availableFigure(held.availableKobo).label : "Available to pay with"}
             value={
               held ? (
-                <Money amount={naira(held.availableKobo)} decimals size="xl" />
+                <Money
+                  amount={naira(availableFigure(held.availableKobo).kobo)}
+                  decimals
+                  size="xl"
+                />
               ) : (
                 <Unknown />
               )
             }
-            hint="after everything already promised"
+            hint={
+              held
+                ? availableFigure(held.availableKobo).hint
+                : "after everything already promised"
+            }
           />
           <Stat
             label="In the account"

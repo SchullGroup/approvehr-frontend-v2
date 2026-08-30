@@ -16,6 +16,7 @@ import {
 import { ApiError } from "@/lib/api/client";
 import { excludedNote, formatKobo, paidPeopleLabel } from "@/lib/api/payroll";
 import type { PayrollRunDetail } from "@/lib/api/payroll";
+import { availableFigure } from "@/lib/api/payments";
 import type { PaymentDiscrepancy } from "@/lib/api/payments";
 import { usePaymentActions } from "@/lib/store/payments";
 import { RecordPaidDialog } from "@/components/payroll/record-paid-dialog";
@@ -597,7 +598,10 @@ export function WalletFigures({
 
   return (
     <dl className="grid gap-4 sm:grid-cols-3">
-      <Figure label="Available to pay with" kobo={wallet.availableKobo} />
+      <Figure
+        label={availableFigure(wallet.availableKobo).label}
+        kobo={availableFigure(wallet.availableKobo).kobo}
+      />
       <Figure label="In the account" kobo={wallet.balanceKobo} />
       <Figure label="Already promised" kobo={wallet.committedKobo} />
     </dl>
