@@ -57,6 +57,8 @@ import { NO_DEPARTMENT } from "@/lib/store/demo-structure";
 import { useDepartments } from "@/lib/store/departments";
 import { useOrgTaxState } from "@/lib/store/company";
 import { NIGERIAN_BANKS } from "@/lib/reference/banks";
+import { useAccountCheck } from "@/lib/store/account-check";
+import { AccountCheckLine } from "@/components/payments/account-check-line";
 import {
   NIGERIAN_STATES,
   PENSION_PROVIDER_OTHER,
@@ -314,6 +316,12 @@ export function NewEmployeeForm() {
     pensionSetup: false,
     bankDetails: false,
   });
+  /* Advisory, and deliberately compared against the person being added rather
+     than a typed account name: this form has no "name on the account" field,
+     and the question worth asking here is whether the number belongs to *them*.
+     A real account owned by somebody else is the failure this catches. */
+  const accountCheck = useAccountCheck(draft.bankName, draft.bankAccount);
+
   const [errors, setErrors] = useState<FormError[]>([]);
   const [busy, setBusy] = useState(false);
   /* Hidden once the person has resumed, discarded, or saved — after any of the
@@ -1332,6 +1340,10 @@ export function NewEmployeeForm() {
                             onChange={(e) => set("bankAccount", e.target.value)}
                             placeholder="0123456789"
                           />
+                          <AccountCheckLine
+                            check={accountCheck}
+                            typedName={`${draft.firstName} ${draft.lastName}`}
+                          />
                         </Field>
                       </div>
                     </OptionalGroup>
@@ -2106,7 +2118,7 @@ function Row({
       <span
         className={
           strong
-            ? "tabular text-body font-semibold text-ink"
+            ? "tabular text-body font-semibold"
             : "tabular text-body-sm text-body"
         }
       >
