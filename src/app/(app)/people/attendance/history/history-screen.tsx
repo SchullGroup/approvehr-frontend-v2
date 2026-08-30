@@ -242,9 +242,9 @@ export function HistoryScreen() {
             <CardHeader
               title="Who turned up"
               description={
-                turnout.untracked > 0
-                  ? `${String(turnout.untracked)} working ${turnout.untracked === 1 ? "day is" : "days are"} blank — attendance was not being recorded, which is not the same as nobody coming in.`
-                  : "Every working day this month."
+                turnout.untracked === 0
+                  ? "Every working day this month."
+                  : undefined
               }
             />
             <CardBody>
