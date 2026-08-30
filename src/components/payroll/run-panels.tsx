@@ -281,14 +281,24 @@ function ExceptionGroup({
   }
 
   return (
+    /**
+     * Shaped like the rows it sits among, because it is one of them.
+     *
+     * `ExceptionRow` is `rounded-md border-line bg-surface p-3`. This was
+     * `rounded-lg` at `px-4 py-3.5` with no background, so the one grouped
+     * notice in a stack of plain ones read as a different kind of object. It
+     * is not: it is the same notice, revealed rather than listed, and only
+     * because it has more than one person behind it.
+     *
+     * The count is gone from `meta` too. `groupTitle` already opens with it —
+     * "30 people have no pension PIN" beside a "30" badge says the number
+     * twice, and the badge is the half that does not say what it counts.
+     */
     <Disclosure
       title={groupTitle(group)}
       level={3}
-      meta={
-        <span className="text-meta font-semibold uppercase tracking-[0.08em] text-muted">
-          {group.rows.length}
-        </span>
-      }
+      dense
+      className="bg-surface"
     >
       <div className="flex flex-col gap-2">
         {group.rows.map((exception) => (
@@ -432,7 +442,7 @@ export function ExcludedList({
          */
         level={3}
         meta={
-          <span className="text-meta font-semibold uppercase tracking-[0.08em] text-muted">
+          <span className="text-meta font-semibold text-muted">
             {exclusions.length}{" "}
             {exclusions.length === 1 ? "person" : "people"}
           </span>

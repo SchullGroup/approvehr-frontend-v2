@@ -307,7 +307,7 @@ export default function HomePage() {
         <div className="container-page">
           <Reveal>
             <div className="rounded-3xl bg-night px-8 py-16 text-center lg:px-14">
-              <p className="mb-3 text-meta font-semibold uppercase tracking-widest text-white/40">
+              <p className="mb-3 text-meta font-semibold text-white/40">
                 Pricing
               </p>
               <h2 className="mx-auto max-w-2xl text-h1 text-white">

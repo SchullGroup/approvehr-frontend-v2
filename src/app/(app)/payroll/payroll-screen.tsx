@@ -151,18 +151,39 @@ export function PayrollScreen() {
       <PageHeader
         title="Payroll"
         action={
-          <ButtonLink
-            href={
-              hasCurrentPeriod
-                ? `/payroll/runs/new?period=${currentPeriod}`
-                : "/payroll/runs/new"
-            }
-            variant="accent"
-            size="sm"
-          >
-            <Play aria-hidden="true" className="size-3.5" />
-            {hasCurrentPeriod ? "Open this month's payroll" : "Run payroll"}
-          </ButtonLink>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Another month, and the reason this is a second control rather
+                than a wider first one.
+
+                The primary action carries `?period=`, which the wizard reads as
+                "somebody came here to look at a run that already exists" and so
+                opens on the Check step — past the month picker. That is right
+                for the ordinary case and it means the picker cannot be reached
+                from this screen at all: every route out of here named this
+                month, so next month's payroll looked like something the product
+                could not do.
+
+                No `?period=`, so the wizard opens on Period with the month
+                stepper on it. */}
+            {hasCurrentPeriod && (
+              <ButtonLink href="/payroll/runs/new" variant="secondary" size="sm">
+                <CalendarClock aria-hidden="true" className="size-3.5" />
+                Another month
+              </ButtonLink>
+            )}
+            <ButtonLink
+              href={
+                hasCurrentPeriod
+                  ? `/payroll/runs/new?period=${currentPeriod}`
+                  : "/payroll/runs/new"
+              }
+              variant="accent"
+              size="sm"
+            >
+              <Play aria-hidden="true" className="size-3.5" />
+              {hasCurrentPeriod ? "Open this month's payroll" : "Run payroll"}
+            </ButtonLink>
+          </div>
         }
       />
 
@@ -243,7 +264,10 @@ export function PayrollScreen() {
                     <span>
                       {counts.blockers > 0
                         ? `${counts.blockers} ${counts.blockers === 1 ? "thing" : "things"} to fix before this can be approved${counts.warnings > 0 ? `, ${counts.warnings} more worth a look` : ""}.`
-                        : `${counts.warnings} ${counts.warnings === 1 ? "thing" : "things"} worth a look before approving. Nothing stops the run.`}
+                        : /* "before approving" is false once it is approved,
+                             and this card is the first thing on the payroll
+                             screen for the rest of the month. */
+                          `${counts.warnings} ${counts.warnings === 1 ? "thing" : "things"} worth a look${current.status === "APPROVED" || current.status === "PAID" ? " on this run" : " before approving"}. Nothing stops the run.`}
                     </span>
                     <ButtonLink
                       href={`/payroll/runs/new?period=${current.period}`}

@@ -6,7 +6,7 @@ import { X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useFocusTrap } from "@/hooks/use-focus-trap";
 import { useIsClient } from "@/hooks/use-is-client";
-import { IconButton } from "./button";
+import { Button, IconButton } from "./button";
 
 /*
  * Modal and Drawer share the same overlay behaviour: focus trap, Escape to
@@ -279,7 +279,7 @@ export function DrawerSection({
   return (
     <section className={cn("min-w-0", className)}>
       <div className="flex items-baseline justify-between gap-3">
-        <h3 className="text-meta font-semibold tracking-wide text-muted">
+        <h3 className="text-meta font-semibold text-muted">
           {title}
         </h3>
         {action && <div className="shrink-0">{action}</div>}
@@ -319,13 +319,9 @@ export function ConfirmDialog({
       size="sm"
       footer={
         <>
-          <button
-            type="button"
-            onClick={onClose}
-            className="h-10 rounded-md border border-control-line bg-surface px-4 text-body-sm font-medium text-ink hover:bg-canvas"
-          >
+          <Button type="button" variant="ghost" onClick={onClose}>
             Cancel
-          </button>
+          </Button>
           <button
             type="button"
             onClick={onConfirm}

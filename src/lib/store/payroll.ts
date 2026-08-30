@@ -35,6 +35,8 @@ import {
   type OvertimeOverrideChange,
   type OvertimeOverrideKind,
   type TaxOverrideChange,
+  type DeductionKind,
+  type DeductionOverrideChange,
 } from "@/lib/api/payroll";
 import {
   DEMO_PAYSLIP_BASIS,
@@ -1727,6 +1729,55 @@ export function usePayrollActions() {
     [isConnected],
   );
 
+  /**
+   * A pension or NHF figure entered by hand.
+   *
+   * Refuses offline for the reason `setTaxOverride` does, and one more that is
+   * specific to these: the demo's payslips come from a fixture generated on
+   * fixed settings, so a deduction edited here would contradict the figures
+   * beside it with no engine to reconcile them.
+   */
+  const setDeductionOverride = useCallback(
+    async (
+      runId: string,
+      input: {
+        employeeId: string;
+        kind: DeductionKind;
+        amountKobo: number;
+        reason?: string;
+      },
+    ): Promise<DeductionOverrideChange> => {
+      if (isConnected) return payrollApi.setDeductionOverride(runId, input);
+      throw new ApiError(
+        0,
+        "offline",
+        "Editing a statutory deduction needs the API. A figure typed here " +
+          "would recompute tax and net pay with no engine to check it against, " +
+          "so the demo will not pretend it has.",
+      );
+    },
+    [isConnected],
+  );
+
+  /** Puts one deduction back to the engine's own figure for this period. */
+  const clearDeductionOverride = useCallback(
+    async (
+      runId: string,
+      employeeId: string,
+      kind: DeductionKind,
+    ): Promise<DeductionOverrideChange> => {
+      if (isConnected)
+        return payrollApi.clearDeductionOverride(runId, employeeId, kind);
+      throw new ApiError(
+        0,
+        "offline",
+        "Editing a statutory deduction needs the API, so there is nothing here " +
+          "for the demo to clear.",
+      );
+    },
+    [isConnected],
+  );
+
   /** Clears this period's hand-entered PAYE. Same reasoning as
    *  `setTaxOverride` for why demo mode refuses. */
   const clearTaxOverride = useCallback(
@@ -1750,6 +1801,8 @@ export function usePayrollActions() {
     putBack,
     setTaxOverride,
     clearTaxOverride,
+    setDeductionOverride,
+    clearDeductionOverride,
     setOvertimeOverride,
     clearOvertimeOverride,
     setBonus,

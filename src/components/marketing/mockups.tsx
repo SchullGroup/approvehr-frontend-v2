@@ -103,7 +103,7 @@ export function PayrollMockup({ className }: { className?: string }) {
       <div className="p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-meta uppercase tracking-[0.1em] text-white/40">
+            <p className="text-meta text-white/40">
               August payroll
             </p>
             <p className="mt-1.5 text-[1.75rem] font-medium tracking-tight text-white">
@@ -253,7 +253,7 @@ export function PayrollCardMockup({ className }: { className?: string }) {
     <DayFrame className={cn("p-3.5", className)}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-meta uppercase tracking-wide text-slate/40">
+          <p className="text-meta text-slate/40">
             August payroll
           </p>
           <p className="mt-0.5 text-body-lg font-medium tabular-nums text-slate">
@@ -406,7 +406,7 @@ export function RecordMockup({ className }: { className?: string }) {
           "Location",
         ].map((label, i) => (
           <div key={label}>
-            <p className="text-meta uppercase tracking-wide text-slate/35">
+            <p className="text-meta text-slate/35">
               {label}
             </p>
             <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-slate/6">
@@ -550,7 +550,7 @@ export function StatutoryMockup({ className }: { className?: string }) {
   return (
     <NightFrame className={className}>
       <div className="p-5">
-        <p className="text-meta uppercase tracking-[0.1em] text-white/40">
+        <p className="text-meta text-white/40">
           August remittances
         </p>
         <div className="mt-4 flex flex-col gap-3">

@@ -51,6 +51,7 @@ export function Disclosure({
   keepMounted = false,
   region = true,
   level = 3,
+  dense = false,
   className,
   panelClassName,
   children,
@@ -61,6 +62,20 @@ export function Disclosure({
   meta?: React.ReactNode;
   /** One line under the title. Say what closing this costs, if anything. */
   hint?: React.ReactNode;
+  /**
+   * Sized to sit in a list of rows rather than to head a section.
+   *
+   * The payroll exception list is the case: most entries are plain rows at
+   * `rounded-md p-3`, and one of them — the grouped kind, with several people
+   * behind it — is a Disclosure. At the default `rounded-lg` and `px-4 py-3.5`
+   * it read as a different kind of object in a stack of identical ones, which
+   * is exactly backwards: it is the *same* kind of notice, and the reveal is
+   * only there because it has more than one person behind it.
+   *
+   * Geometry only. It does not change the type scale, the colours or the
+   * behaviour — a dense disclosure is still a disclosure.
+   */
+  dense?: boolean;
   /** Replaces `hint` while open, for when the closed line is a consequence. */
   openHint?: React.ReactNode;
   /** Controlled open state. Omit to let the component hold its own. */
@@ -106,14 +121,24 @@ export function Disclosure({
   const line = open ? (openHint ?? hint) : hint;
 
   return (
-    <div className={cn("rounded-lg border border-line", className)}>
+    <div
+      className={cn(
+        "rounded-lg border border-line",
+        dense && "rounded-md",
+        className,
+      )}
+    >
       <Heading>
         <button
           type="button"
           aria-expanded={open}
           aria-controls={panelId}
           onClick={toggle}
-          className="flex w-full items-start justify-between gap-4 rounded-lg px-4 py-3.5 text-left transition-colors hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+          className={cn(
+            "flex w-full items-start justify-between gap-4 rounded-lg px-4 py-3.5 text-left transition-colors hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text",
+            /* Matches `ExceptionRow`'s own `rounded-md p-3`. */
+            dense && "rounded-md p-3",
+          )}
         >
           <span className="min-w-0">
             <span className="flex flex-wrap items-center gap-2">
@@ -192,7 +217,11 @@ export function Disclosure({
         role={region ? "region" : "group"}
         aria-labelledby={titleId}
         hidden={!open}
-        className={cn("border-t border-line px-4 py-4", panelClassName)}
+        className={cn(
+          "border-t border-line px-4 py-4",
+          dense && "p-3",
+          panelClassName,
+        )}
       >
         {(open || keepMounted) && children}
       </div>

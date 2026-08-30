@@ -183,7 +183,7 @@ export function MyRota({ className }: { className?: string }) {
                         )}
                       />
                       <div className="min-w-0 flex-1">
-                        <p className="text-meta font-semibold uppercase tracking-wide text-muted">
+                        <p className="text-meta font-semibold text-muted">
                           Next
                         </p>
                         <p className="text-body font-semibold text-ink">

@@ -113,7 +113,7 @@ export function MyExpenses({ className }: { className?: string }) {
                     )}
                   </span>
 
-                  <span className="tabular text-body font-medium text-ink">
+                  <span className="tabular text-body-sm font-medium text-ink">
                     <Money amount={claim.amount} decimals />
                   </span>
 

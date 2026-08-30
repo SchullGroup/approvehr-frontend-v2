@@ -561,10 +561,10 @@ function Row({
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line p-3">
       <div className="min-w-0">
-        <p className="text-body font-medium">
+        <p className="text-body-sm font-medium">
           {/* Urgency carries a word as well as a colour. */}
           {urgent && (
-            <span className="mr-2 text-meta font-semibold uppercase tracking-wide text-danger-text">
+            <span className="mr-2 text-meta font-semibold text-danger-text">
               Overdue
             </span>
           )}
@@ -617,7 +617,7 @@ function Owed({
       className="flex items-center justify-between gap-3 rounded-md px-1 py-1 transition-colors hover:bg-canvas"
     >
       <span className="text-body-sm text-body">{label}</span>
-      <Money amount={naira(kobo)} decimals className="text-body font-medium" />
+      <Money amount={naira(kobo)} decimals className="text-body-sm font-medium" />
     </Link>
   );
 }

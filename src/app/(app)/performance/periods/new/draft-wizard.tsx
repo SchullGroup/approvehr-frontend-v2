@@ -514,7 +514,7 @@ export function DraftPeriodWizard() {
 
                       {goal.measures.length > 0 && (
                         <div className="flex flex-col gap-2">
-                          <p className="text-meta font-semibold uppercase tracking-[0.08em] text-muted">
+                          <p className="text-meta font-semibold text-muted">
                             Measures
                           </p>
                           {goal.measures.map((measure, at) => (

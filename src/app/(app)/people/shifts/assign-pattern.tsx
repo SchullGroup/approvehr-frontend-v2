@@ -318,7 +318,7 @@ export function AssignPatternModal({
               ))}
 
             {shifts.filter((row) => row.active && !row.archived).length > 0 && (
-              <p className="mt-2 text-meta font-semibold uppercase tracking-wide text-muted">
+              <p className="mt-2 text-meta font-semibold text-muted">
                 Or the same shift every day
               </p>
             )}

@@ -17,6 +17,7 @@ import {
   Badge,
   Button,
   Callout,
+  ButtonLink,
   Card,
   CardBody,
   CardHeader,
@@ -139,6 +140,51 @@ export function RolesScreen({
       return false;
     }
   };
+
+  /*
+   * The access map is not a public register.
+   *
+   * `GET /permissions/roles` is deliberately ungated on the API — knowing that
+   * a role called "Finance approver" exists is not privileged — and this screen
+   * read that as licence to render the whole administrative surface to anybody
+   * who typed the URL. An Employee holding no permissions at all was shown
+   * which role carries `APPROVE_PAYROLL`, how many people are in each, an
+   * enabled "Add somebody" that the API then refuses, and the sentence "One
+   * person can manage access. If they leave, nobody can change these roles."
+   *
+   * That last line is the reconnaissance half of exactly the fraud this module
+   * is built to prevent: `modules/permissions` refuses to grant a permission
+   * the granter does not hold *because* somebody granting themselves payroll
+   * approval is how it usually starts. Publishing who to target, and that there
+   * is only one of them, is not something to hand out with the URL.
+   *
+   * Every sibling in Settings already refuses this way — webhooks, features,
+   * announcements, bank accounts. This was the one that did not.
+   */
+  if (roles.connected && !canManage) {
+    return (
+      <>
+        <PageHeader
+          title="Roles and permissions"
+          breadcrumb={[{ href: "/settings", label: "Settings" }]}
+        />
+        <PageBody>
+          <Card>
+            <EmptyState
+              icon={<ShieldCheck aria-hidden="true" />}
+              title="Roles are not part of your access"
+              description="Who can do what — and who can change it — is kept to the people who manage access, because it decides who is able to move money. Ask whoever set up your account if you need something you cannot reach."
+              action={
+                <ButtonLink href="/settings" variant="secondary">
+                  Back to settings
+                </ButtonLink>
+              }
+            />
+          </Card>
+        </PageBody>
+      </>
+    );
+  }
 
   return (
     <>
@@ -461,7 +507,7 @@ function RoleRow({
       </span>
 
       <div className="min-w-0 flex-1">
-        <p className="flex flex-wrap items-center gap-2 text-body font-medium text-ink">
+        <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
           <button
             type="button"
             onClick={onOpen}
@@ -495,8 +541,8 @@ function RoleRow({
       </div>
 
       <div className="shrink-0 text-right">
-        <p className="text-meta uppercase tracking-wide text-faint">People</p>
-        <p className="tabular text-body font-medium text-ink">
+        <p className="text-meta text-faint">People</p>
+        <p className="tabular text-body-sm font-medium text-ink">
           {role.memberCount}
         </p>
       </div>
@@ -562,6 +608,32 @@ function InvitationsCard({
           <p className="text-body-sm text-muted">
             Nothing here works without a server. Sign in against the real API
             to invite somebody to sign in.
+          </p>
+        </CardBody>
+      </Card>
+    );
+  }
+
+  /*
+   * Never looked, so never claim. `useInvites` no longer fetches without
+   * INVITE_STAFF, which stopped five of the six roles firing a doomed request
+   * — and left this panel about to fall through to "No pending invitations",
+   * which asserts a count nobody read. Absent is not zero, and it is not an
+   * error either: the old behaviour rendered the 403 through `LoadFailure` as
+   * "Invitations did not load" over the API's raw "You need the following to
+   * do that: INVITE_STAFF."
+   *
+   * A permission is named the way the rest of the app names one — in words,
+   * with who to ask — not as the enum the API sends.
+   */
+  if (!canInvite) {
+    return (
+      <Card>
+        <CardHeader title="Invitations" level={3} />
+        <CardBody>
+          <p className="text-body-sm text-muted">
+            Seeing who has been invited to sign in needs the “Invite staff”
+            permission. Ask somebody who manages roles.
           </p>
         </CardBody>
       </Card>

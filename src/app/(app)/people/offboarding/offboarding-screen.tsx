@@ -192,7 +192,7 @@ export function OffboardingScreen() {
                   className="flex flex-wrap items-center gap-4 rounded-md border border-line p-3 transition-colors hover:bg-canvas"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="flex flex-wrap items-center gap-2 text-body font-medium text-ink">
+                    <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
                       {row.employee.name}
                       <Badge tone={statusTone(row.status)} size="sm">
                         {row.statusLabel}
@@ -208,10 +208,10 @@ export function OffboardingScreen() {
                   </div>
 
                   <div className="shrink-0 text-right">
-                    <p className="text-meta uppercase tracking-wide text-faint">
+                    <p className="text-meta text-faint">
                       Last day
                     </p>
-                    <p className="tabular text-body font-medium text-ink">
+                    <p className="tabular text-body-sm font-medium text-ink">
                       {shortDate(row.lastWorkingDay)}
                     </p>
                   </div>

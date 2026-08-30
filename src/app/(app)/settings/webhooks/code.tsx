@@ -139,7 +139,7 @@ export function PayloadBlock({
 
       {money.length > 0 && (
         <dl className="flex flex-col gap-1 rounded-md border border-line bg-canvas p-3">
-          <p className="text-meta font-semibold uppercase tracking-[0.08em] text-muted">
+          <p className="text-meta font-semibold text-muted">
             Amounts are whole kobo
           </p>
           {money.map((field) => (

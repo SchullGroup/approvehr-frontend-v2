@@ -190,7 +190,7 @@ export function MarketingNav() {
       {/* Mobile sheet */}
       {open && (
         <div className="animate-scale-in mx-auto mt-2 max-w-5xl rounded-2xl bg-white p-3 shadow-[0_16px_40px_-12px_rgb(20_18_15/0.22)] lg:hidden">
-          <p className="px-3 pb-1.5 pt-2 text-meta uppercase tracking-[0.08em] text-slate-muted">
+          <p className="px-3 pb-1.5 pt-2 text-meta text-slate-muted">
             Product
           </p>
           {MODULES.map((m) => (
@@ -264,7 +264,7 @@ export function MarketingFooter() {
 
           {FOOTER_LINKS.map((group) => (
             <div key={group.heading}>
-              <h3 className="text-meta font-semibold uppercase tracking-[0.08em] text-slate-muted">
+              <h3 className="text-meta font-semibold text-slate-muted">
                 {group.heading}
               </h3>
               <ul className="mt-4 flex flex-col gap-2.5">

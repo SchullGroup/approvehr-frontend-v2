@@ -19,7 +19,7 @@ import { company as companyApi, type ApiCompanyProfile } from "@/lib/api/endpoin
 import { longDate, periodLabel } from "@/lib/api/payroll";
 import { usePayrollSettings } from "@/lib/payroll/use-settings";
 import { useCompanySettings, useLiveCompanyProfile } from "@/lib/store/company";
-import { useEmployeeDirectory } from "@/lib/store/employees-api";
+import { useEmployee, useEmployeeDirectory } from "@/lib/store/employees-api";
 import { usePayslipRecord } from "@/lib/store/payroll";
 
 /**
@@ -64,6 +64,9 @@ export function PayslipView({ id }: { id: string }) {
 
   const record = usePayslipRecord(id, runHint);
   const { employees } = useEmployeeDirectory({ pageSize: 200 });
+  /* The one person this payslip is about, for the statutory identifiers the
+     directory withholds. See the note on `identity` below. */
+  const onFile = useEmployee(record.payslip?.employeeId ?? "").employee;
   /* Quoting this browser's settings on a demo payslip cannot drift, and the
      reason changed: a demo payslip is now read from fixed illustrative figures
      rather than computed here, and the demo run **withholds** those figures
@@ -107,14 +110,36 @@ export function PayslipView({ id }: { id: string }) {
   const run = record.run;
   const person = employees.find((employee) => employee.id === slip.employeeId);
 
+  /*
+   * Three of these come from the employee's OWN record, not the directory row.
+   *
+   * `GET /employees` deliberately returns presence booleans — `hasPensionPin`,
+   * `hasBankAccount`, `hasTin` — and withholds the values, which is right: a
+   * directory listing has no business spraying two hundred people's pension
+   * PINs and account numbers across the wire. `GET /employees/:id` carries
+   * them. This screen read the list row for all seven fields, so `taxState`,
+   * `pensionPin` and `bankAccount` were `undefined` on every payslip and the
+   * document printed "—" for all three, for everybody, always. `jobTitle` and
+   * `department` ARE on the list row, which is why those two looked right and
+   * hid the other three.
+   *
+   * One extra request, on a page that shows one payslip. `useEmployee` is the
+   * same hook `/people/[id]` and `/profile` use; it no-ops offline and on a
+   * non-uuid id, so the demo path is unchanged.
+   *
+   * Still `?? null` rather than a fallback: absent must stay absent. An
+   * employee with no pension PIN has no pension PIN, and `Detail` renders that
+   * as "—" honestly. What was wrong was never the dash — it was that the value
+   * had no way of arriving.
+   */
   const identity: PayslipIdentity = {
     name: slip.name,
     employeeNo: slip.employeeNo,
     jobTitle: person?.jobTitle ?? null,
     department: person?.department ?? null,
-    taxState: person?.taxState ?? null,
-    pensionPin: person?.pensionPin ?? null,
-    bankAccount: person?.bankAccount ?? null,
+    taxState: onFile?.taxState ?? person?.taxState ?? null,
+    pensionPin: onFile?.pensionPin ?? person?.pensionPin ?? null,
+    bankAccount: onFile?.bankAccount ?? person?.bankAccount ?? null,
   };
 
   /* Projected, and labelled as projected, only where nothing better exists.

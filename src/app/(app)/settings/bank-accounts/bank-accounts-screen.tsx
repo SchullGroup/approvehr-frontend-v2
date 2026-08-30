@@ -162,11 +162,11 @@ export function BankAccountsScreen() {
             label="Salaries come from"
             value={
               primary ? (
-                <span className="text-body font-medium text-ink">
+                <span className="text-body-sm font-medium text-ink">
                   {primary.bankName}
                 </span>
               ) : (
-                <span className="text-body font-medium text-muted">Not set</span>
+                <span className="text-body-sm font-medium text-muted">Not set</span>
               )
             }
             hint={primary?.accountNumberMasked}

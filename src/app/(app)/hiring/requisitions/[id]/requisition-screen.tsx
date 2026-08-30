@@ -191,7 +191,7 @@ function RequisitionDetail({ id }: { id: string }) {
 
               <div className="grid gap-5 border-t border-line pt-4 sm:grid-cols-2">
                 <div>
-                  <h3 className="mb-2 text-meta font-semibold tracking-wide text-muted">
+                  <h3 className="mb-2 text-meta font-semibold text-muted">
                     Must have
                   </h3>
                   <ul className="flex flex-col gap-1.5">
@@ -210,7 +210,7 @@ function RequisitionDetail({ id }: { id: string }) {
                 </div>
                 {req.niceToHaves.length > 0 && (
                   <div>
-                    <h3 className="mb-2 text-meta font-semibold tracking-wide text-muted">
+                    <h3 className="mb-2 text-meta font-semibold text-muted">
                       Nice to have
                     </h3>
                     <ul className="flex flex-col gap-1.5">
@@ -234,7 +234,7 @@ function RequisitionDetail({ id }: { id: string }) {
 
           <Card>
             <CardBody className="flex flex-col gap-3.5">
-              <h3 className="text-meta font-semibold tracking-wide text-muted">
+              <h3 className="text-meta font-semibold text-muted">
                 Hiring team
               </h3>
               <Person label="Hiring manager" name={manager ? fullName(manager) : "—"} role={manager?.jobTitle} />
@@ -272,7 +272,7 @@ function Fact({
 }) {
   return (
     <div>
-      <dt className="text-meta uppercase tracking-wide text-faint">
+      <dt className="text-meta text-faint">
         {label}
       </dt>
       <dd className="mt-0.5 font-medium text-ink">{children}</dd>
@@ -291,7 +291,7 @@ function Person({
 }) {
   return (
     <div>
-      <p className="text-meta uppercase tracking-wide text-faint">
+      <p className="text-meta text-faint">
         {label}
       </p>
       <p className="mt-0.5 text-body-sm font-medium text-ink">{name}</p>

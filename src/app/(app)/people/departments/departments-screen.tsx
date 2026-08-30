@@ -550,7 +550,7 @@ function ArchivedRow({
       </span>
 
       <div className="min-w-0 flex-1">
-        <p className="flex flex-wrap items-center gap-2 text-body font-medium text-ink">
+        <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
           {unit.name}
           <Badge tone="neutral" size="sm">
             {unit.parentId ? "Sub-department" : "Department"}
@@ -651,7 +651,7 @@ function DepartmentRow({
         </span>
 
         <div className="min-w-0 flex-1">
-          <p className="flex flex-wrap items-center gap-2 text-body font-medium text-ink">
+          <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
             {/* The name is the way in. The row's own controls are all things to
                 *do* to a unit — assign, add a sub-unit, edit — and none of them
                 answered "who is in Procurement and what does it cost", which is
@@ -711,18 +711,18 @@ function DepartmentRow({
          */}
         <div className="flex shrink-0 items-center gap-6 text-right">
           <div>
-            <p className="text-meta uppercase tracking-wide text-faint">
+            <p className="text-meta text-faint">
               People
             </p>
-            <p className="tabular text-body font-medium text-ink">
+            <p className="tabular text-body-sm font-medium text-ink">
               {node.totalEmployees}
             </p>
           </div>
           <div className="hidden sm:block">
-            <p className="text-meta uppercase tracking-wide text-faint">
+            <p className="text-meta text-faint">
               Monthly
             </p>
-            <p className="tabular text-body font-medium text-ink">
+            <p className="tabular text-body-sm font-medium text-ink">
               {node.payrollKobo === null ? (
                 <span className="text-faint">—</span>
               ) : (
@@ -760,7 +760,7 @@ function DepartmentRow({
                 native hover tooltip (IconButton sets both `title` and
                 `aria-label`) so the row does not read as a wall of buttons. */}
             {canManage && (
-              <div className="flex items-center gap-0.5 border-l border-line pl-1.5">
+              <div className="flex items-center gap-0.5">
                 <IconButton
                   label={`Add a sub-department inside ${node.name}`}
                   variant="ghost"

@@ -116,7 +116,7 @@ function FetchedBandPosition(props: Common & { employeeId: string }) {
     return (
       <div className={cn("flex flex-col gap-2", props.className)}>
         {props.label && (
-          <p className="text-meta font-semibold tracking-wide text-faint">
+          <p className="text-meta font-semibold text-faint">
             {props.label}
           </p>
         )}
@@ -144,7 +144,7 @@ function FetchedBandPosition(props: Common & { employeeId: string }) {
     return (
       <div className={cn("flex flex-col gap-2", props.className)}>
         {props.label && (
-          <p className="text-meta font-semibold tracking-wide text-faint">
+          <p className="text-meta font-semibold text-faint">
             {props.label}
           </p>
         )}
@@ -204,7 +204,7 @@ export function BandMeter({
       {(label ?? gradeLabel) && (
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           {label && (
-            <p className="text-meta font-semibold tracking-wide text-faint">
+            <p className="text-meta font-semibold text-faint">
               {label}
             </p>
           )}

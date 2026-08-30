@@ -300,11 +300,24 @@ export function PayslipDocument({
   slip,
   period,
   payDate,
-  company = {
-    name: "Schull Technologies Ltd",
-    rc: "RC 1482930",
-    address: "12 Adeola Odeku Street, Victoria Island, Lagos",
-  },
+  /**
+   * No default, deliberately.
+   *
+   * This used to default to a fabricated company — "Schull Technologies Ltd",
+   * "RC 1482930", a registered address — so any caller that omitted it printed
+   * an invented statutory identity on a real person's payslip. There is one
+   * caller and it always passes a company, so the default was never reached
+   * and never noticed; it was a lie waiting for a second caller.
+   *
+   * `view.tsx` was fixed once already for exactly this, at the call site,
+   * while the component kept its own copy of the same fabrication with a
+   * *different* RC number. That is the shape worth remembering: fixing the
+   * caller leaves the trap set.
+   *
+   * Required now, so the compiler asks. What is genuinely unknown prints as a
+   * dash, which is what the rest of this document already does.
+   */
+  company,
   rates,
   ytd,
   className,
@@ -434,7 +447,7 @@ export function PayslipDocument({
           {/* The employer's mark, when they have one. `alt` is empty because
               the company name is the line directly under it, and a screen
               reader that announced both would say the name twice. */}
-          {company.logoUrl && (
+          {company?.logoUrl && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={company.logoUrl}
@@ -442,14 +455,14 @@ export function PayslipDocument({
               className="mb-2.5 max-h-12 max-w-[12rem] object-contain object-left"
             />
           )}
-          <p className="text-h4 text-ink">{company.name}</p>
-          <p className="mt-0.5 text-meta text-muted">{company.rc}</p>
+          <p className="text-h4 text-ink">{company?.name ?? "—"}</p>
+          <p className="mt-0.5 text-meta text-muted">{company?.rc ?? "—"}</p>
           <p className="mt-1 max-w-[18rem] text-meta leading-snug text-muted">
-            {company.address}
+            {company?.address ?? "—"}
           </p>
         </div>
         <div className="text-right">
-          <p className="text-meta font-semibold uppercase tracking-widest text-muted">
+          <p className="text-meta font-semibold text-muted">
             Payslip
           </p>
           <p className="mt-1 text-h4 text-ink">{period}</p>
@@ -546,7 +559,7 @@ export function PayslipDocument({
         <section className="mt-6 rounded-md border border-line bg-canvas p-4">
           <ColumnHead>Paid by your employer</ColumnHead>
           <p className="mt-1.5 text-meta leading-relaxed text-muted">
-            Paid by {company.name} on your behalf. These are not deducted from
+            Paid by {company?.name ?? "your employer"} on your behalf. These are not deducted from
             your pay and do not reduce the net figure above.
           </p>
           <dl className="mt-3 flex flex-col">
@@ -615,7 +628,7 @@ export function PayslipDocument({
                     <th
                       key={head}
                       scope="col"
-                      className="pb-2 text-meta font-semibold uppercase tracking-wide text-muted last:text-right"
+                      className="pb-2 text-meta font-semibold text-muted last:text-right"
                     >
                       {head}
                     </th>
@@ -660,27 +673,6 @@ export function PayslipDocument({
       )}
 
       <footer className="mt-8 border-t border-line pt-4">
-        {/* Named for the relief that actually applied, not for the one this
-            footer used to name. The Consolidated Relief Allowance was abolished
-            on 1 January 2026 and replaced by relief on rent — 20% of annual rent
-            declared, capped at ₦500,000 — so a 2026 payslip that says "after the
-            consolidated relief allowance" is describing a relief nobody
-            received. `slip.relief` says which regime ran; `reliefLine` above
-            turns it into the label and, where nothing has been declared, into
-            the sentence that says so. */}
-        <p className="text-meta leading-relaxed text-muted">
-          PAYE is calculated on annualised income under the Personal Income Tax
-          Act as amended, after pension and National Housing Fund relief and any
-          personal relief you are entitled to.{" "}
-          {/* Dropped where there is no scheme. A payslip with no pension on it
-              that closes by telling the reader their pension "is remitted to
-              your PFA" describes a remittance nobody made, and it is the
-              sentence an employee would quote back when asking where their
-              money went. */}
-          {wasDeducted(slip.operates, "pension") &&
-            "Pension is remitted to your PFA under the Pension Reform Act 2014. "}
-          Queries go to your HR help desk.
-        </p>
         {/* Both marks, and in this order. The employer's is the masthead — it
             is their document. This one says what produced it, which is a
             different claim and belongs at the foot in small type. */}
@@ -697,7 +689,7 @@ export function PayslipDocument({
 
 function ColumnHead({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="text-meta font-semibold uppercase tracking-widest text-muted">
+    <h2 className="text-meta font-semibold text-muted">
       {children}
     </h2>
   );

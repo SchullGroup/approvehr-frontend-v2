@@ -4,6 +4,12 @@ import { useRef, useState } from "react";
 import { ImageUp, Trash2 } from "lucide-react";
 import { Button, Card, CardBody, CardHeader, Spinner } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
+import {
+  ACCEPTED_LOGO_TYPES,
+  ACCEPTED_LOGO_WORDS,
+  LogoError,
+  prepareLogo,
+} from "@/lib/logo-file";
 import { useCompanyLogo } from "@/lib/store/company";
 
 /**
@@ -26,68 +32,47 @@ import { useCompanyLogo } from "@/lib/store/company";
  *
  * Not instead of. The server's refusals are the real ones and are rendered
  * verbatim when they arrive; these exist so the common mistakes — a
- * photograph, a PDF, an SVG — are answered before a 64KB round trip rather
- * than after one.
+ * photograph, a PDF, a file that is not an image at all — are answered before
+ * a 64KB round trip rather than after one.
  *
- * SVG is refused deliberately and is the one people ask about: an SVG is a
- * document that can carry script, and this value is rendered inside a
- * payslip. PNG, JPEG, GIF and WebP cannot execute anything.
+ * SVG is accepted, and it used to be refused. `lib/logo-file.ts` carries that
+ * whole argument — the short version is that both places this value renders
+ * are `<img>`, which cannot run script, and the markup is stripped before it
+ * is stored regardless of that.
+ *
+ * ## Too large is resized here rather than refused
+ *
+ * The old behaviour was a refusal telling somebody to go and export the file
+ * smaller, which sends a person who wanted a logo on their payslip off to
+ * find image software. `prepareLogo` brings it down and returns a sentence
+ * saying what it did, which is shown — a file quietly replaced by a different
+ * file is worse than a refusal, however convenient.
  */
-
-const ACCEPTED = ["image/png", "image/jpeg", "image/gif", "image/webp"];
-
-/** Matches the API's own cap. The data URI is what is measured, not the file. */
-const MAX_DATA_URI_BYTES = 64 * 1024;
-
-function readAsDataUri(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("That file could not be read."));
-    reader.onload = () => resolve(String(reader.result));
-    reader.readAsDataURL(file);
-  });
-}
 
 export function CompanyLogoCard() {
   const logo = useCompanyLogo();
   const input = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  const [preparing, setPreparing] = useState(false);
 
   async function choose(file: File) {
     setError(null);
-
-    if (!ACCEPTED.includes(file.type)) {
-      setError(
-        file.type === "image/svg+xml"
-          ? "SVG files are not accepted, because an SVG can carry script and this goes on a payslip. Export it as a PNG."
-          : "Use a PNG, JPEG, GIF or WebP.",
-      );
-      return;
-    }
-
-    let dataUri: string;
-    try {
-      dataUri = await readAsDataUri(file);
-    } catch {
-      setError("That file could not be read. Try another.");
-      return;
-    }
-
-    if (dataUri.length > MAX_DATA_URI_BYTES) {
-      setError(
-        "That image is too large. A logo needs well under 48KB — resize it, or export it smaller.",
-      );
-      return;
-    }
+    setNote(null);
+    setPreparing(true);
 
     try {
-      await logo.save(dataUri);
+      const prepared = await prepareLogo(file);
+      await logo.save(prepared.dataUri);
+      setNote(prepared.note);
     } catch (caught) {
       setError(
-        caught instanceof ApiError
+        caught instanceof LogoError || caught instanceof ApiError
           ? caught.message
           : "That did not save. Try again.",
       );
+    } finally {
+      setPreparing(false);
     }
   }
 
@@ -139,7 +124,7 @@ export function CompanyLogoCard() {
             <input
               ref={input}
               type="file"
-              accept={ACCEPTED.join(",")}
+              accept={ACCEPTED_LOGO_TYPES.join(",")}
               className="hidden"
               onChange={(event) => {
                 const file = event.target.files?.[0];
@@ -155,7 +140,7 @@ export function CompanyLogoCard() {
               <Button
                 variant="secondary"
                 size="sm"
-                loading={logo.saving}
+                loading={logo.saving || preparing}
                 disabled={!logo.available}
                 onClick={() => input.current?.click()}
               >
@@ -166,7 +151,7 @@ export function CompanyLogoCard() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  disabled={logo.saving || !logo.available}
+                  disabled={logo.saving || preparing || !logo.available}
                   onClick={() => void remove()}
                 >
                   <Trash2 aria-hidden="true" className="size-3.5" />
@@ -191,16 +176,31 @@ export function CompanyLogoCard() {
               </p>
             )}
 
-            {/* The formats and the size limit stay: both are refusals this
-                card will actually make, so saying them first saves somebody
-                choosing a file that gets rejected.
+            {/* Saved, but not as chosen. This is the whole reason resizing is
+                allowed to happen without asking: it is only acceptable if the
+                person is told, and told what to do if it was not what they
+                wanted. */}
+            {note && (
+              <p
+                role="status"
+                className="rounded-md border border-line bg-canvas px-3 py-2 text-body-sm text-body"
+              >
+                {note}
+              </p>
+            )}
+
+            {/* The formats stay, because the wrong format is still a refusal
+                this card will make. The size is stated differently now that
+                it is not one: saying "under 48KB" beside a control that
+                cheerfully accepts 2MB would have somebody resizing a file by
+                hand for no reason.
 
                 The shape advice — "a wide logo reads better than a tall one"
                 — is gone at the product owner's instruction. It was taste
                 rather than a constraint: nothing refuses a tall logo, and a
                 company's logo is whatever shape their logo is. */}
             <p className="text-meta leading-relaxed text-muted">
-              PNG, JPEG, GIF or WebP, under 48KB.
+              {ACCEPTED_LOGO_WORDS}. Anything over 48KB is resized to fit.
             </p>
           </>
         )}

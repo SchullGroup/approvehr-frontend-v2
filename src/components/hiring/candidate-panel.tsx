@@ -275,7 +275,7 @@ export function CandidatePanel({
               </div>
 
               <div>
-                <h4 className="mb-2 text-meta font-semibold tracking-wide text-muted">
+                <h4 className="mb-2 text-meta font-semibold text-muted">
                   Activity
                 </h4>
                 <Timeline entries={activityFor(card)} />

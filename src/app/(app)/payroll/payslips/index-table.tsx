@@ -411,7 +411,6 @@ function PayslipIndex() {
                 >
                   Opened
                 </SortableTH>
-                <TH align="right">Actions</TH>
               </THead>
               <TBody>
                 {page.payslips.map((slip) => {
@@ -420,12 +419,34 @@ function PayslipIndex() {
                     run ? `?run=${run.id}` : ""
                   }`;
                   return (
-                    <TR key={slip.id}>
+                    /**
+                     * The whole row opens the payslip, and it is still one
+                     * link.
+                     *
+                     * There was an Open button in an Actions column — a
+                     * seventh column, on every row, for the only thing this
+                     * table does. The row is the target now.
+                     *
+                     * `after:absolute after:inset-0` stretches the name's
+                     * existing link across the row rather than putting an
+                     * `onClick` on the `<tr>`. That keeps everything a link
+                     * gives free and a handler does not: middle-click and
+                     * ⌘-click open a payslip in a new tab, the status bar
+                     * shows where the row goes, Tab reaches it, and Enter
+                     * follows it. A clickable `<tr>` would need `role`,
+                     * `tabIndex` and a key handler to get halfway there.
+                     *
+                     * `relative` on the row is what the stretched link is
+                     * measured against — without it the overlay would size
+                     * itself to the nearest positioned ancestor, which is the
+                     * whole table.
+                     */
+                    <TR key={slip.id} interactive className="relative">
                       <TDPrimary
                         title={
                           <Link
                             href={href}
-                            className="hover:text-accent-text hover:underline underline-offset-4"
+                            className="after:absolute after:inset-0 hover:text-accent-text hover:underline underline-offset-4"
                           >
                             {slip.name}
                           </Link>
@@ -445,11 +466,6 @@ function PayslipIndex() {
                       </TD>
                       <TD className="tabular text-muted">{stamp(slip.emailedAt)}</TD>
                       <TD className="tabular text-muted">{stamp(slip.viewedAt)}</TD>
-                      <TD align="right">
-                        <ButtonLink href={href} size="sm" variant="secondary">
-                          Open
-                        </ButtonLink>
-                      </TD>
                     </TR>
                   );
                 })}

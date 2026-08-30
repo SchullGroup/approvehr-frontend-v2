@@ -407,7 +407,7 @@ function SeededRole({ card }: { card: PipelineCard }) {
     <Card>
       <CardBody className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-meta font-semibold tracking-wide text-muted">
+          <h2 className="text-meta font-semibold text-muted">
             Applying for
           </h2>
           <SourceBadge live={false} />
@@ -469,7 +469,7 @@ function LiveAdvert({
     <Card>
       <CardBody className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-meta font-semibold tracking-wide text-muted">
+          <h2 className="text-meta font-semibold text-muted">
             Applied through
           </h2>
           <SourceBadge live={live} />
@@ -559,7 +559,7 @@ function Application({
 
         {record.coverNote ? (
           <div>
-            <h3 className="mb-1.5 text-meta font-semibold tracking-wide text-muted">
+            <h3 className="mb-1.5 text-meta font-semibold text-muted">
               What they wrote
             </h3>
             <p className="whitespace-pre-line rounded-md bg-canvas p-3 text-body-sm leading-relaxed text-body">
@@ -593,7 +593,7 @@ function Application({
 
         {record.otherApplications.length > 0 && (
           <div>
-            <h3 className="mb-1.5 text-meta font-semibold tracking-wide text-muted">
+            <h3 className="mb-1.5 text-meta font-semibold text-muted">
               Also applied for
             </h3>
             <ul className="flex flex-col gap-1.5">

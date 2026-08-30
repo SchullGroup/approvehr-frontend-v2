@@ -244,7 +244,7 @@ export function Accordion({
                 onClick={() => setOpen(expanded ? null : item.id)}
                 className="flex w-full items-center justify-between gap-4 py-4 text-left"
               >
-                <span className="text-body font-medium text-ink">
+                <span className="text-body-md font-medium text-ink">
                   {item.question}
                 </span>
                 <span

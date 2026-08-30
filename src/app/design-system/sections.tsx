@@ -140,7 +140,7 @@ function Row({
 }) {
   return (
     <div>
-      <p className="mb-2.5 text-meta font-medium tracking-wide text-muted">
+      <p className="mb-2.5 text-meta font-medium text-muted">
         {label}
       </p>
       <div className="flex flex-wrap items-center gap-2.5">{children}</div>
@@ -683,7 +683,7 @@ export function NavigationDemo() {
   return (
     <div className="flex flex-col gap-7">
       <div>
-        <p className="mb-2.5 text-meta font-medium tracking-wide text-muted">
+        <p className="mb-2.5 text-meta font-medium text-muted">
           Tabs
         </p>
         <Tabs
@@ -702,7 +702,7 @@ export function NavigationDemo() {
       </div>
 
       <div>
-        <p className="mb-2.5 text-meta font-medium tracking-wide text-muted">
+        <p className="mb-2.5 text-meta font-medium text-muted">
           Segmented control
         </p>
         <SegmentedControl
@@ -717,7 +717,7 @@ export function NavigationDemo() {
       </div>
 
       <div>
-        <p className="mb-2.5 text-meta font-medium tracking-wide text-muted">
+        <p className="mb-2.5 text-meta font-medium text-muted">
           Stepper
         </p>
         <StepIndicator
@@ -734,7 +734,7 @@ export function NavigationDemo() {
       </div>
 
       <div>
-        <p className="mb-2.5 text-meta font-medium tracking-wide text-muted">
+        <p className="mb-2.5 text-meta font-medium text-muted">
           Accordion
         </p>
         <Accordion
@@ -765,7 +765,7 @@ export function PeopleDemo() {
     <div className="grid gap-6 lg:grid-cols-2">
       <div className="flex flex-col gap-6">
         <div>
-          <p className="mb-2.5 text-meta font-medium tracking-wide text-muted">
+          <p className="mb-2.5 text-meta font-medium text-muted">
             Avatars
           </p>
           <div className="flex items-center gap-3">
@@ -777,7 +777,7 @@ export function PeopleDemo() {
         </div>
 
         <div>
-          <p className="mb-2.5 text-meta font-medium tracking-wide text-muted">
+          <p className="mb-2.5 text-meta font-medium text-muted">
             Badges
           </p>
           <div className="flex flex-wrap gap-2">
@@ -792,7 +792,7 @@ export function PeopleDemo() {
         </div>
 
         <div>
-          <p className="mb-2.5 text-meta font-medium tracking-wide text-muted">
+          <p className="mb-2.5 text-meta font-medium text-muted">
             Description list
           </p>
           <Card>
@@ -814,7 +814,7 @@ export function PeopleDemo() {
       </div>
 
       <div>
-        <p className="mb-2.5 text-meta font-medium tracking-wide text-muted">
+        <p className="mb-2.5 text-meta font-medium text-muted">
           Timeline
         </p>
         <Card>

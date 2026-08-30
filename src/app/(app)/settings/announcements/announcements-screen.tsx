@@ -41,6 +41,7 @@ import {
   useAnnouncements,
 } from "@/lib/store/announcements";
 import { useDepartments } from "@/lib/store/departments";
+import { useSession } from "@/lib/store/session";
 import { AnnouncementForm, type Draft } from "./announcement-form";
 
 /**
@@ -80,6 +81,7 @@ import { AnnouncementForm, type Draft } from "./announcement-form";
 type Filter = "all" | "published" | "draft";
 
 export function AnnouncementsScreen() {
+  const { isConnected } = useSession();
   const canManage = useCan("MANAGE_SETTINGS");
   const toast = useToast();
 
@@ -149,6 +151,48 @@ export function AnnouncementsScreen() {
     .filter((department) => !department.archived)
     .map((department) => ({ id: department.id, name: department.name }));
 
+  /*
+   * Somebody who cannot post a notice cannot read this list either.
+   *
+   * `GET /announcements` is `MANAGE_SETTINGS`, so for an HR manager, a payroll
+   * analyst or an Employee this screen used to render four claims that were
+   * all untrue at once: "The noticeboard did not load" (nothing failed), the
+   * API's raw `MANAGE_SETTINGS` beneath it, three `Stat`s reading 0 against a
+   * board carrying two live notices, and "Nothing on the noticeboard yet".
+   *
+   * The callout it showed instead of this — "You can read this, not change
+   * it" — was the same mistake in one sentence. They cannot read it. What they
+   * can read is the board itself, which every signed-in person may see, so
+   * this says where that is rather than describing a permission.
+   *
+   * After the hooks, never before: a hook cannot be called conditionally, and
+   * the request is stopped in `useAnnouncements` for that reason.
+   */
+  if (isConnected && !canManage) {
+    return (
+      <>
+        <PageHeader
+          title="Noticeboard"
+          breadcrumb={[{ href: "/settings", label: "Settings" }]}
+        />
+        <PageBody>
+          <Card>
+            <EmptyState
+              icon={<Megaphone aria-hidden="true" />}
+              title="Managing the noticeboard is not part of your access"
+              description="A notice speaks for the whole company, so writing one and seeing the drafts behind it needs the settings permission. The notices themselves are on your home page — everybody can read those."
+              action={
+                <ButtonLink href="/dashboard" variant="accent">
+                  Read the noticeboard
+                </ButtonLink>
+              }
+            />
+          </Card>
+        </PageBody>
+      </>
+    );
+  }
+
   return (
     <>
       <PageHeader
@@ -176,13 +220,6 @@ export function AnnouncementsScreen() {
             database. Posting one needs the API — a notice written into this
             browser would reach nobody, which is the opposite of what a
             noticeboard is for.
-          </Callout>
-        )}
-
-        {board.editable && !canManage && (
-          <Callout tone="info" title="You can read this, not change it">
-            Posting a notice speaks for the whole company, so it needs the
-            settings permission. Ask whoever manages settings.
           </Callout>
         )}
 

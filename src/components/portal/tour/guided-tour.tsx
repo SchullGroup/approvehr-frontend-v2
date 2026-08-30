@@ -183,7 +183,7 @@ export function GuidedTour() {
 
   return (
     <Spotlight target={step.target} onDismiss={close}>
-      <p className="text-meta font-medium uppercase tracking-wide text-faint">
+      <p className="text-meta font-medium text-faint">
         {index + 1} of {steps.length}
       </p>
       <h2 className="mt-1.5 text-body font-semibold text-ink">{step.title}</h2>
