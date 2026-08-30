@@ -99,6 +99,7 @@ import {
   usePayrollRun,
   usePayrollRuns,
 } from "@/lib/store/payroll";
+import { useDeductionSwitches } from "@/lib/store/payroll-deductions";
 import { useSetupChecklist } from "@/lib/store/setup-checklist";
 import { fullName } from "@/lib/types";
 import { TODAY } from "@/lib/today";
@@ -2125,7 +2126,12 @@ function PayslipTable({
               payslip in full, and every column that is only read costs the ones
               that are worked in. What is left is the two figures somebody
               enters, the tax they may override, and the totals either side. */}
-          <TH align="right">PAYE</TH>
+          <TH align="right">
+            <span className="flex flex-col items-end gap-1">
+              PAYE
+              <PayeSwitch editable={editable} onChanged={onSaved} />
+            </span>
+          </TH>
           {/* Everything taken off besides PAYE, as one figure.
               -----------------------------------------------
               This was "Other", and it carried only the pre-tax and post-tax
@@ -2797,6 +2803,128 @@ function monthlyOf(
  * unknown operation as deducted, which is what every payslip written before the
  * switches existed actually was.
  */
+
+/**
+ * Whether this company deducts PAYE at all, right where the figure sits.
+ *
+ * ## Why this exists
+ *
+ * The PAYE cell already lets somebody type a figure over the engine's own —
+ * and does, whether or not the company deducts PAYE at all, because a
+ * hand-entered figure stands either way (`payroll/engine.ts`). What it cannot
+ * do is offer that control when nothing is operated: `wasDeducted` reads
+ * `NOT_OPERATED` and the cell renders the plain word "Not operated", with no
+ * button under it — there is nothing to click, because there is no figure to
+ * override yet. A company whose real tax situation is "we deduct it, just not
+ * through the bands" — Crafwell is the case this was built for — had no way
+ * to reach that control from this screen at all. The full explanation and the
+ * consequence of switching lives on `/settings/payroll`; this is the fast path
+ * to the one thing somebody actually came here to do.
+ *
+ * ## What it does, and does not, decide
+ *
+ * Toggling this writes `PayrollSettings.payeEnabled` for the **company**, not
+ * for this run alone — the same field `/settings/payroll` writes, through the
+ * same store. It is not a second copy of that switch; it is the same one,
+ * reachable from here because this is where the problem is noticed. Recalculates
+ * immediately (`onChanged`, the same callback the sheet upload and the lines
+ * modal already use to trigger it), so the cells below reflect the new setting
+ * without a second trip to Check.
+ *
+ * ## Absent, not disabled-and-silent
+ *
+ * Nothing renders in demo mode (`useDeductionSwitches` returns `available:
+ * false` with no API) and nothing renders while the read is still in flight —
+ * a switch that might be showing the wrong state is worse than no switch for
+ * the half-second it takes to answer.
+ */
+function PayeSwitch({
+  editable,
+  onChanged,
+}: {
+  /** `canPrepare && !settled` from the table. An approved run's tax policy is
+      history, not a decision still open — same reasoning as every other
+      control in this table. */
+  editable: boolean;
+  onChanged: () => void;
+}) {
+  const { settings: response, loading, available, save } = useDeductionSwitches();
+  const [saving, setSaving] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
+
+  /* `response.settings` is null until the company has a settings row at all —
+     which cannot be true here, since a run cannot have been prepared without
+     one existing. Guarded anyway rather than asserted, because "cannot happen"
+     is exactly the reasoning that produced the ₦0 payroll incident this
+     codebase does not repeat. */
+  if (!available || loading || !response?.settings) return null;
+
+  const on = response.settings.payeEnabled;
+
+  async function toggle() {
+    if (!editable || saving) return;
+    setSaving(true);
+    setFailed(null);
+    try {
+      await save({ payeEnabled: !on });
+      onChanged();
+    } catch (error) {
+      setFailed(error instanceof Error ? error.message : "Could not save that.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <span className="flex flex-col items-end gap-1">
+      <span className="flex items-center gap-1.5">
+        <span className="text-meta font-normal normal-case text-muted">
+          {on ? "On" : "Off"}
+        </span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={on}
+          aria-label={
+            on
+              ? "This company deducts PAYE. Switch it off."
+              : "This company does not deduct PAYE. Switch it on so the figure can be entered."
+          }
+          disabled={!editable || saving}
+          onClick={() => void toggle()}
+          title={
+            editable
+              ? "Changes what this company deducts, for every payroll — not just this one."
+              : "This run is settled, so its tax policy cannot change from here."
+          }
+          className={cn(
+            "relative h-4 w-7 shrink-0 rounded-full transition-colors duration-200",
+            on ? "bg-success-strong" : "bg-line-strong",
+            editable
+              ? "cursor-pointer"
+              : "cursor-not-allowed opacity-50",
+            "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text",
+          )}
+        >
+          <span
+            aria-hidden="true"
+            className={cn(
+              "pointer-events-none absolute left-0.5 top-0.5 size-3 rounded-full bg-white shadow-sm",
+              "transition-transform duration-200 ease-[var(--ease-out-soft)]",
+              on && "translate-x-3",
+            )}
+          />
+        </button>
+      </span>
+      {failed && (
+        <span className="max-w-32 whitespace-normal text-right text-meta font-normal normal-case text-danger-text">
+          {failed}
+        </span>
+      )}
+    </span>
+  );
+}
+
 /**
  * The deductions total, and what it is made of.
  *
