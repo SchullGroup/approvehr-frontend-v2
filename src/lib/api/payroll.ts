@@ -382,6 +382,43 @@ export type OvertimeOverrideChange = {
   run: PreparedRun;
 };
 
+/**
+ * One named line of a bonus or a deduction.
+ *
+ * The reason is optional and stays optional. A company recording "Bonus" and
+ * nothing else is doing something ordinary — the reason is what makes several
+ * lines legible, not what makes one line valid — and the API's own schema says
+ * the same, so refusing here would be the screen inventing a rule.
+ */
+export type AdjustmentLine = {
+  id: string;
+  amountKobo: number;
+  reason: string | null;
+  /** ISO instant. */
+  at: string;
+};
+
+/** Everything one person carries on this run, for the modal that edits it. */
+export type AdjustmentLines = {
+  bonuses: AdjustmentLine[];
+  deductions: AdjustmentLine[];
+};
+
+/**
+ * What a saved list came to.
+ *
+ * `total` is the figure the table cell shows. It comes back from the API rather
+ * than being summed here for the reason every other money figure in this file
+ * does: two implementations of one number are how two surfaces start disagreeing
+ * about the same person. The cell reads it; nothing on this side adds it up.
+ */
+export type LinesSaved = {
+  employeeId: string;
+  name: string;
+  totalKobo: number;
+  run: PreparedRun;
+};
+
 export type BonusChange = {
   employeeId: string;
   name: string;
@@ -1327,6 +1364,34 @@ export const payrollApi = {
     request<PreparedRun>(`/payroll/runs/${id}/bonuses/${employeeId}`, {
       method: "DELETE",
     }),
+
+  /** Every bonus and deduction line one person carries, for the modal. */
+  lines: (id: string, employeeId: string, signal?: AbortSignal) =>
+    request<AdjustmentLines>(`/payroll/runs/${id}/lines/${employeeId}`, {
+      ...(signal ? { signal } : {}),
+    }),
+
+  /**
+   * Replaces every line of one kind for one person, in one call.
+   *
+   * Whole-list rather than an add per row and a delete per removal, and the
+   * shape is the point: a modal where somebody adds two lines, edits a third
+   * and removes a fourth is **one** decision, and sending it as four requests
+   * makes four of them — any of which can fail on its own and leave the person
+   * carrying half of what somebody meant. It also means the table's total
+   * moves once instead of flickering through four intermediate figures.
+   *
+   * An empty list removes every line of that kind. That is the only way to
+   * clear them and it is deliberate: "no lines" is a list, not a missing one.
+   */
+  setLines: (
+    id: string,
+    body: {
+      employeeId: string;
+      kind: "bonus" | "deduction";
+      lines: readonly { amountKobo: number; reason?: string }[];
+    },
+  ) => request<LinesSaved>(`/payroll/runs/${id}/lines`, { method: "PUT", body }),
 
   /**
    * A whole payroll's figures, from one uploaded spreadsheet.

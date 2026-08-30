@@ -81,6 +81,7 @@ import { useCan } from "@/lib/permissions";
 import { useOvertimePolicy } from "@/lib/store/overtime";
 import { SheetPanel } from "./sheet-panel";
 import { PayPanel, WalletStrip } from "./pay-panel";
+import { LinesDialog } from "./lines-dialog";
 import type { SheetRowSource } from "@/lib/payroll/adjustment-sheet";
 import type { Employee } from "@/lib/types";
 import { usePayrollSettings } from "@/lib/payroll/use-settings";
@@ -968,6 +969,17 @@ export function PayrollRunWizard() {
                 employees={directory.employees}
                 editable={canPrepare && !settled}
                 onSaved={() => void prepare()}
+                onAdjusted={(summary) => {
+                  /* The toast, not a message inside the modal — saving
+                     rebuilds the run and unmounts the table, so anything held
+                     down there is gone before anybody reads it. Same
+                     arrangement as the spreadsheet panel above. */
+                  toast.push({
+                    title: "Saved",
+                    tone: "success",
+                    detail: `${summary}. The payroll has been worked out again.`,
+                  });
+                }}
                 onDirectoryReload={directory.reload}
               />
               <ExcludedList
@@ -1755,6 +1767,7 @@ function PayslipTable({
   employees,
   editable,
   onSaved,
+  onAdjusted,
   onDirectoryReload,
 }: {
   payslips: Payslip[];
@@ -1794,6 +1807,15 @@ function PayslipTable({
   editable: boolean;
   onSaved: () => void;
   /**
+   * What a modal did, for the wizard's toast.
+   *
+   * The same arrangement `SheetPanel` uses and for the same reason: saving
+   * rebuilds the run, which unmounts this whole subtree, so a confirmation
+   * held here is destroyed before it can be read. It belongs to the wizard,
+   * which survives.
+   */
+  onAdjusted: (summary: string) => void;
+  /**
    * Refetches `employees` after a save. Setting the "always" checkbox
    * changes the very list this component reads it from — without this, the
    * dialog would reopen showing the checkbox unticked immediately after
@@ -1829,6 +1851,21 @@ function PayslipTable({
    * moment anybody expanded it.
    */
   const [openDeductions, setOpenDeductions] = useState<string | null>(null);
+  /**
+   * Whose bonus or deduction lines are open in the modal.
+   *
+   * A modal rather than a cell for both, because a bonus is frequently more
+   * than one thing — ₦50,000 for the Lagos install and ₦20,000 for the weekend
+   * cover — and a single amount with a single reason forces two facts into one
+   * sentence nobody can reconcile a year later. The table still shows one
+   * figure, which is what a payroll table is for.
+   */
+  const [linesOpen, setLinesOpen] = useState<{
+    employeeId: string;
+    name: string;
+    kind: "bonus" | "deduction";
+  } | null>(null);
+
   const [editingDeduction, setEditingDeduction] = useState<{
     slipId: string;
     kind: DeductionKind;
@@ -1951,13 +1988,12 @@ function PayslipTable({
       return result;
     });
 
-  const saveBonus = (slip: Payslip, amountKobo: number) =>
-    adjust("bonus", () =>
-      actions.setBonus(runId, { employeeId: slip.employeeId, amountKobo }),
-    );
-
-  const clearBonusFor = (slip: Payslip) =>
-    adjust("bonus", () => actions.clearBonus(runId, slip.employeeId));
+  /* `saveBonus` and `clearBonusFor` were here and are gone with the inline
+     bonus cell. `setBonus`/`clearBonus` still exist on the store and on the
+     API — they are the single-figure route, which the spreadsheet upload and
+     the ETL both use — but nothing on this screen writes a bonus one amount at
+     a time any more. Deleted rather than left: a helper nobody calls is a
+     helper the next person wires a second entry point to. */
 
   const savePay = (
     slip: Payslip,
@@ -2187,29 +2223,32 @@ function PayslipTable({
                     )}
                   </TD>
 
-                  {/* Bonus: an amount, nothing else. */}
+                  {/* Bonus: one figure in the table, several named lines
+                      behind it.
+                      -------------------------------------------------------
+                      This was an inline amount, which could hold ₦70,000 and
+                      one reason — so "Lagos install" and "weekend cover" had
+                      to be typed into one sentence, and twelve months later
+                      nobody can say which project the ₦50,000 belonged to.
+                      The modal keeps the amounts apart; the cell keeps showing
+                      the total, because a payroll table is a column of totals.
+
+                      No inline clear beside it any more: an empty list saved
+                      from the modal is the removal, and the button there says
+                      so in words rather than a bin icon on a figure. */}
                   <TD align="right" className="tabular text-muted">
-                    {editingCell(slip, "bonus") ? (
-                      <InlineMoney
-                        valueKobo={bonusOn(slip)?.amountKobo ?? null}
-                        saving={adjustSaving === "bonus"}
-                        placeholder="amount"
-                        onSave={(kobo) => void saveBonus(slip, kobo)}
-                        onCancel={closeAdjust}
-                      />
-                    ) : (
-                      <CellValue
-                        amountKobo={bonusOn(slip)?.amountKobo ?? 0}
-                        editable={editable}
-                        addLabel="Add"
-                        onEdit={() => beginEdit(slip, "bonus")}
-                        onClear={
-                          bonusOn(slip)
-                            ? () => void clearBonusFor(slip)
-                            : undefined
-                        }
-                      />
-                    )}
+                    <CellValue
+                      amountKobo={bonusOn(slip)?.amountKobo ?? 0}
+                      editable={editable}
+                      addLabel="Add"
+                      onEdit={() =>
+                        setLinesOpen({
+                          employeeId: slip.employeeId,
+                          name: slip.name,
+                          kind: "bonus",
+                        })
+                      }
+                    />
                   </TD>
 
                   {/* PAYE: one input in the cell, and nothing else.
@@ -2309,6 +2348,13 @@ function PayslipTable({
                         void saveDeduction(slip, kind, amountKobo)
                       }
                       onClear={(kind) => void clearDeduction(slip, kind)}
+                      onEditLines={() =>
+                        setLinesOpen({
+                          employeeId: slip.employeeId,
+                          name: slip.name,
+                          kind: "deduction",
+                        })
+                      }
                     />
                   </TD>
                   <TD align="right" className="tabular font-medium text-ink">
@@ -2367,6 +2413,32 @@ function PayslipTable({
           Open the payslips
         </ButtonLink>
       </CardBody>
+
+      {/* Outside the table, deliberately.
+          -------------------------------------------------------------------
+          A dialog rendered inside a `<tbody>` is invalid HTML that browsers
+          silently reparent, which moves it out of the row it was written in
+          and takes its React portal boundary with it. Rendered here it is a
+          sibling of the table and its position is the one written down. */}
+      {linesOpen && (
+        <LinesDialog
+          runId={runId}
+          employeeId={linesOpen.employeeId}
+          name={linesOpen.name}
+          kind={linesOpen.kind}
+          onClose={() => {
+            setLinesOpen(null);
+          }}
+          onSaved={(summary) => {
+            /* Closed first, then the run is re-read. Saving rebuilds every
+               payslip, so leaving the modal open over a table that is about
+               to change under it shows somebody the figures they just left. */
+            setLinesOpen(null);
+            onAdjusted(summary);
+            onSaved();
+          }}
+        />
+      )}
     </Card>
   );
 }
@@ -2735,6 +2807,7 @@ function Deductions({
   onCancelEdit,
   onSave,
   onClear,
+  onEditLines,
 }: {
   slip: Payslip;
   lines: readonly { label: string }[];
@@ -2748,6 +2821,8 @@ function Deductions({
   onCancelEdit: () => void;
   onSave: (kind: DeductionKind, amountKobo: number) => void;
   onClear: (kind: DeductionKind) => void;
+  /** Open the modal that holds this person's hand-entered deduction lines. */
+  onEditLines: () => void;
 }) {
   const overridden = slip.overriddenDeductions ?? [];
   const parts: {
@@ -2866,6 +2941,26 @@ function Deductions({
               </span>
             );
           })}
+
+          {/* Hand-entered deductions live behind this, and only these.
+              -----------------------------------------------------------
+              "Other" above is loans, expense claims **and** anything typed
+              here, and the frontend cannot tell them apart in the total —
+              nor should it try, because a loan instalment belongs to the loan
+              and editing the sum of three things would be a figure with
+              nothing behind it. The modal reads the typed lines from the API,
+              so it shows exactly the ones somebody may change. */}
+          {editable && (
+            <span className="mt-1 block border-t border-line pt-1.5">
+              <button
+                type="button"
+                onClick={onEditLines}
+                className="text-meta font-normal text-accent-text underline-offset-2 hover:underline"
+              >
+                Add or edit a deduction
+              </button>
+            </span>
+          )}
         </span>
       )}
     </>
