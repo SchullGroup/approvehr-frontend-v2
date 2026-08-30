@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { CalendarClock, Play, Receipt, ShieldAlert } from "lucide-react";
 import type { Point } from "@/components/ui";
@@ -22,6 +23,7 @@ import {
   THead,
   TR,
   TableWrap,
+  rowClick,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -74,6 +76,7 @@ import { TODAY } from "@/lib/today";
  * company's gross and net.
  */
 export function PayrollScreen() {
+  const router = useRouter();
   const canView = useCan("VIEW_SALARIES");
   const { runs, loading, error, connected } = usePayrollRuns();
 
@@ -415,7 +418,13 @@ export function PayrollScreen() {
               </THead>
               <TBody>
                 {runs.map((run) => (
-                  <TR key={run.id}>
+                  <TR
+                    key={run.id}
+                    interactive
+                    onClick={rowClick(() =>
+                      router.push(`/payroll/runs/new?period=${run.period}`),
+                    )}
+                  >
                     <TDPrimary
                       title={
                         <Link
