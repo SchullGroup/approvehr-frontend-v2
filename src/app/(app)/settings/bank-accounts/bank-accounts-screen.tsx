@@ -9,6 +9,7 @@ import {
   Badge,
   Button,
   ButtonLink,
+  Callout,
   Card,
   CardBody,
   CardHeader,
@@ -125,6 +126,14 @@ export function BankAccountsScreen() {
     }
   }
 
+  /* `ApiError.code`, the API's own word for it — not a status match. A 403
+     here is a step-up challenge or a permission refusal and they are different
+     situations. */
+  const stepUpBlocked =
+    accounts.error instanceof ApiError && accounts.error.code === "step_up_required";
+  /** The read did not land, so nothing derived from it is a measurement. */
+  const unread = Boolean(accounts.error);
+
   const primary = accounts.accounts.find((account) => account.isPrimary);
 
   return (
@@ -152,12 +161,50 @@ export function BankAccountsScreen() {
       />
 
       <PageBody className="flex flex-col gap-6">
-        {accounts.error && (
-          <LoadFailure subject="the accounts" error={accounts.error}  onRetry={accounts.reload}/>
+        {/*
+          * A step-up refusal is not a failure, and must not be dressed as one.
+          *
+          * `GET /payments/accounts` sits behind `requireStepUp(BANK_DETAILS)`,
+          * so a company that ticks "Changing bank details" on
+          * /settings/security gets a 403 here — and this screen rendered "The
+          * accounts did not load" over it, then four zeros, then an empty
+          * state asserting there are none, then an Add button that the same
+          * gate refuses. Four wrong claims about a company that may have five
+          * accounts on file.
+          *
+          * The challenge itself is not implemented anywhere but the payroll
+          * wizard, and its code can only arrive by email, so there is nothing
+          * honest to offer here beyond saying what stands in the way and where
+          * the switch is.
+          */}
+        {stepUpBlocked ? (
+          <Callout tone="warning" title="This needs a confirmation code">
+            Your company asks for a code before bank details can be read or
+            changed. Entering one is not built into this screen yet, so the
+            list below cannot be shown — nothing here says a company has no
+            accounts, only that they cannot be read right now. Turn the
+            requirement off under{" "}
+            <Link
+              href="/settings/security"
+              className="text-accent-text underline underline-offset-4"
+            >
+              Security
+            </Link>{" "}
+            to use this screen.
+          </Callout>
+        ) : (
+          accounts.error && (
+            <LoadFailure subject="the accounts" error={accounts.error}  onRetry={accounts.reload}/>
+          )
         )}
 
         <div className="grid gap-4 sm:grid-cols-3">
-          <Stat label="Accounts in use" value={String(accounts.counts.active)} />
+          {/* Never a measured zero over a read that did not happen. */}
+          <Stat
+            label="Accounts in use"
+            value={unread ? "\u2014" : String(accounts.counts.active)}
+            {...(unread ? { hint: "not read" } : {})}
+          />
           <Stat
             label="Salaries come from"
             value={
@@ -171,7 +218,11 @@ export function BankAccountsScreen() {
             }
             hint={primary?.accountNumberMasked}
           />
-          <Stat label="Archived" value={String(accounts.counts.archived)} />
+          <Stat
+            label="Archived"
+            value={unread ? "\u2014" : String(accounts.counts.archived)}
+            {...(unread ? { hint: "not read" } : {})}
+          />
         </div>
 
         {!primary && accounts.accounts.length > 0 && (
@@ -215,8 +266,12 @@ export function BankAccountsScreen() {
           ) : accounts.accounts.length === 0 ? (
             <EmptyState
               icon={<Landmark aria-hidden="true" />}
-              title="No bank accounts yet"
-              description="Add the account salaries come out of. The first one you add becomes the one payment batches use."
+              title={unread ? "The accounts could not be read" : "No bank accounts yet"}
+              description={
+                unread
+                  ? "This is not a company with no accounts — it is a list that did not load. Nothing has been added or removed."
+                  : "Add the account salaries come out of. The first one you add becomes the one payment batches use."
+              }
               action={
                 <Button variant="accent" onClick={() => setAdding(true)}>
                   <Plus aria-hidden="true" className="size-4" />

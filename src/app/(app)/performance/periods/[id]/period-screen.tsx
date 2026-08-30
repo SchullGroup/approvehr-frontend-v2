@@ -950,19 +950,35 @@ function Outstanding({
         description="A form somebody has not got round to. Different from nobody being asked at all, which is above."
       />
       <CardBody className="flex flex-col gap-4">
+        {/* A period nobody is in yet has no ratio to state. "0 of 0" reads as
+            a measurement, and the tick below it read as a period that had gone
+            perfectly — over a set nobody had been added to. Same rule
+            `period-status.tsx` states beside its own `notYet`. */}
         <div className="grid gap-4 sm:grid-cols-3">
           <Stat
             label="Self-reviews in"
-            value={`${counts.selfDone} of ${counts.people}`}
+            value={
+              counts.people === 0
+                ? "Nobody has a form yet"
+                : `${counts.selfDone} of ${counts.people}`
+            }
           />
           <Stat
             label="Manager reviews in"
-            value={`${counts.managerDone} of ${counts.people}`}
+            value={
+              counts.people === 0
+                ? "No manager review is due yet"
+                : `${counts.managerDone} of ${counts.people}`
+            }
           />
           <Stat label="Forms outstanding" value={String(rows.length)} />
         </div>
 
-        {rows.length === 0 ? (
+        {counts.people === 0 ? (
+          <p className="text-body-sm text-muted">
+            Nobody is in this period yet, so nothing has been asked for.
+          </p>
+        ) : rows.length === 0 ? (
           <p className="flex items-center gap-2 text-body-sm text-body">
             <CheckCheck
               aria-hidden="true"
