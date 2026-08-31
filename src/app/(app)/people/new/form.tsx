@@ -2125,5 +2125,5 @@ function Row({
         <Money amount={Math.round(value)} />
       </span>
     </div>
-  );
+  )
 }
