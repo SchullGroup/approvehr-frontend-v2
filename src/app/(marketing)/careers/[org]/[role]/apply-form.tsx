@@ -123,7 +123,7 @@ export function ApplyForm({
           {sent.note}
         </p>
         <p className="mx-auto mt-4 max-w-sm text-body-sm leading-relaxed text-slate-muted">
-          No confirmation email will arrive — email is not connected. Your
+          No confirmation email will arrive, email is not connected. Your
           application is saved under {form.email}.
         </p>
       </div>

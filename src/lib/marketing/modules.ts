@@ -109,7 +109,7 @@ export const MODULES: ModuleDef[] = [
       {
         title: "Employee records",
         detail:
-          "Personal details, pay history, bank and pension identifiers, next of kin, and every document — attached to the person, not a folder.",
+          "Personal details, pay history, bank and pension identifiers, next of kin, and every document, attached to the person, not a folder.",
       },
       {
         title: "Employee self-service",
@@ -175,7 +175,7 @@ export const MODULES: ModuleDef[] = [
       {
         title: "Requisitions with approval",
         detail:
-          "A role opens with a band, a headcount and a hiring team — approved by the budget holder before it goes live.",
+          "A role opens with a band, a headcount and a hiring team, approved by the budget holder before it goes live.",
       },
       {
         title: "Pipelines you configure",
@@ -185,7 +185,7 @@ export const MODULES: ModuleDef[] = [
       {
         title: "Screening from your website",
         detail:
-          "Knockout questions and structured scorecards happen on the same application — no separate spreadsheet.",
+          "Knockout questions and structured scorecards happen on the same application, no separate spreadsheet.",
       },
       {
         title: "Offers",
@@ -275,7 +275,7 @@ export const MODULES: ModuleDef[] = [
     ],
     limits: {
       heading: "What the drafting will not do",
-      lead: "Three fields offer a draft — an objective under a company goal, a progress note from a headline you typed, and development areas behind a competency scored below its target. A language model writes it. You decide whether any of it survives.",
+      lead: "Three fields offer a draft, an objective under a company goal, a progress note from a headline you typed, and development areas behind a competency scored below its target. A language model writes it. You decide whether any of it survives.",
       points: [
         "Nothing it writes is saved. Every suggestion lands in a field you edit and submit yourself.",
         "It says what it was based on, and the exact facts it was given are one click away.",

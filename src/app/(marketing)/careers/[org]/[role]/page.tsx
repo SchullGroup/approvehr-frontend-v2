@@ -42,7 +42,7 @@ export async function generateMetadata({
   const result = await readRole(org, role);
   if (!result.ok) return { title: "Job" };
   return {
-    title: `${result.value.title} — ${result.value.company}`,
+    title: `${result.value.title}, ${result.value.company}`,
     description: result.value.summary,
   };
 }
