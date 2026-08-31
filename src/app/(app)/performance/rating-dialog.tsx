@@ -123,7 +123,7 @@ export function RecordLevelDialog({
             }}
           >
             {framework.groups.map((group) => (
-              <optgroup key={group.category} label={group.category}>
+              <optgroup key={group.sectionName} label={group.sectionName}>
                 {group.competencies.map((one) => (
                   <option key={one.id} value={one.id}>
                     {one.name}

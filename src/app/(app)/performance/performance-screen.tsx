@@ -18,6 +18,8 @@ import { AppraiserMapTab } from "./appraiser-map";
 import { KpisTab } from "./kpis";
 import { WhatNeedsYouTab } from "./now";
 import { PeriodsTab } from "./periods";
+import { ReviewTasksTab } from "./review-tasks";
+import { SkillsTab } from "./skills";
 import { StartPeriodButton } from "./start-period";
 import {
   PERFORMANCE_TABS,
@@ -28,42 +30,22 @@ import {
 /**
  * Performance, on one route.
  *
- * ## Four tabs, and the first one is where the period is
+ * ## Six tabs, named for what they are
  *
- * There were four nouns to begin with — *KPIs · Appraisals · Skills · Who
- * appraises whom* — and no path, which is exactly what a product owner hit: he
- * read the module and could not work out how to create an appraisal or where the
- * periods were.
+ * `tabs.ts` explains why this went from a single job-shaped landing back to
+ * explicit, always-visible tabs — the short version: "which tab is my task
+ * under" and "where do I manage a section, a competency, a cycle" turned out
+ * to be two different complaints, and only the first one was fixed by
+ * hiding everything behind Overview.
  *
  * | Tab | The question it answers |
  * |---|---|
- * | **Overview** | how far the running period has got, and what is waiting on you |
- * | **Appraisal periods** | what periods there are, and which needs something |
+ * | **Dashboard** | how far the running period has got, and what is waiting on you |
+ * | **Review Cycles** | what periods there are, and which needs something |
+ * | **Competency Ratings** | where people are against the levels the company set |
  * | **KPIs** | what people are aiming at, and how far along it is |
- * | *Who appraises whom* | only under `multiAppraiser` |
- *
- * Two things about the first one, both of which were complaints:
- *
- * **It was labelled "Approvals" and is not.** `/performance/approvals` is a
- * different screen — the objective agreement queue — so one word named two
- * things in one module, and a notification linking to one could land somebody on
- * the other. The label now matches what the tab has always been documented as.
- *
- * **It opens on the period's state, not on a list of periods.** `periods` used to
- * be the default, so arriving at `/performance` gave you a list and no answer to
- * "where is this up to" — that took two more clicks. `period-status.tsx` puts the
- * four figures on the landing for whoever is running the period, and is absent
- * rather than zeroed for everybody else.
- *
- * Skills left the tab strip entirely and is a closed disclosure on the first
- * tab. It is configuration-shaped — levels against a target the company set —
- * and a five-person business should never meet it. There is no `skills` flag to
- * hang that on, so the reveal is the mechanism, and because `Disclosure`
- * unmounts what it holds, nobody pays for it until they open it.
- *
- * **Appraisal periods** is itself gated: somebody who can neither run a period
- * nor read across the company has no use for a list of them, and the one fact
- * about the open period that *is* theirs is on the first tab.
+ * | **Review Tasks** | what still needs a manager's grade |
+ * | *Appraisers* | only under `multiAppraiser` |
  *
  * ## Who sees what, and where that is decided
  *
@@ -91,7 +73,8 @@ import {
  * A demo review found people look for that exact word. Every heading, tab and
  * empty state here says KPI, and the measures underneath are "measures", not
  * "key results" — the acronym is jargon and the thing is a number with a
- * target.
+ * target. Kept exactly as-is through this rename: the tab strip changed, that
+ * finding did not.
  */
 export function PerformanceScreen({
   initialTab,
@@ -124,33 +107,35 @@ export function PerformanceScreen({
   /**
    * Which tabs exist at all.
    *
-   * What-needs-you and KPIs always. **Appraisal periods** with the `appraisals`
-   * flag, and only for somebody who can run one or read across the company.
-   * **Who appraises whom only with `multiAppraiser` and `EDIT_RECORDS`** — the
-   * mapping is an aggregate over everybody, and a company that has not asked for
-   * several appraisers per person must never see a weighting table it did not ask
-   * for. That is the whole progressive-disclosure argument, applied one level
-   * deeper than a module.
+   * Dashboard, KPIs and Review Tasks always — a task log and a grading queue
+   * are about your own objectives and your own reports, not a company
+   * setting. **Review Cycles** and **Competency Ratings** need the
+   * `appraisals` flag, the former also gated on somebody who can run a
+   * period or read across the company. **Appraisers only with
+   * `multiAppraiser` and `EDIT_RECORDS`** — the mapping is an aggregate over
+   * everybody, and a company that has not asked for several appraisers per
+   * person must never see a weighting table it did not ask for.
    */
   const available = PERFORMANCE_TABS.filter((id) => {
-    if (id === "now" || id === "kpis") return true;
+    if (id === "dashboard" || id === "kpis" || id === "review-tasks") {
+      return true;
+    }
     if (!features.appraisals) return false;
-    if (id === "periods") return canManage || canSeeCompany;
+    if (id === "review-cycles") return canManage || canSeeCompany;
+    if (id === "competency-ratings") return true;
     return features.multiAppraiser && canSeeCompany;
   });
-  const activeTab = available.includes(tab) ? tab : "now";
+  const activeTab = available.includes(tab) ? tab : "dashboard";
 
-  const items: TabItem[] = available.map((id) => ({
-    id,
-    label:
-      id === "now"
-        ? "Overview"
-        : id === "kpis"
-          ? "KPIs"
-          : id === "periods"
-            ? "Appraisal periods"
-            : "Who appraises whom",
-  }));
+  const LABEL: Record<PerformanceTab, string> = {
+    dashboard: "Dashboard",
+    "review-cycles": "Review Cycles",
+    "competency-ratings": "Competency Ratings",
+    kpis: "KPIs",
+    "review-tasks": "Review Tasks",
+    appraisers: "Appraisers",
+  };
+  const items: TabItem[] = available.map((id) => ({ id, label: LABEL[id] }));
 
   /**
    * The tab is in the query string, so a link to the periods opens on them.
@@ -175,9 +160,15 @@ export function PerformanceScreen({
     );
   }
 
-  /* A link straight to the periods with the flag off gets a button that turns
-     them on, not a silent redirect. KPIs and what-needs-you work without it. */
-  if ((tab === "periods" || tab === "appraisers") && !features.appraisals) {
+  /* A link straight to a gated tab with the flag off gets a button that
+     turns it on, not a silent redirect. Dashboard, KPIs and Review Tasks
+     work without it. */
+  if (
+    (tab === "review-cycles" ||
+      tab === "competency-ratings" ||
+      tab === "appraisers") &&
+    !features.appraisals
+  ) {
     return (
       <>
         <PageHeader title="Performance" />
@@ -211,13 +202,15 @@ export function PerformanceScreen({
         /* The redundant entry point, on the module's own front page. Absent for
            anybody who cannot run a period — see `StartPeriodButton`. */
         action={
-          activeTab === "periods" ? undefined : <StartPeriodButton withIcon />
+          activeTab === "review-cycles" ? undefined : (
+            <StartPeriodButton withIcon />
+          )
         }
       />
 
       <PageBody>
         <Tabs items={items} value={activeTab} onChange={changeTab}>
-          {activeTab === "now" && (
+          {activeTab === "dashboard" && (
             <WhatNeedsYouTab
               canSeeCompany={canSeeCompany}
               isManager={isManager}
@@ -230,7 +223,11 @@ export function PerformanceScreen({
               onScopeChange={setChosenScope}
             />
           )}
-          {activeTab === "periods" && <PeriodsTab />}
+          {activeTab === "review-cycles" && <PeriodsTab />}
+          {activeTab === "competency-ratings" && (
+            <SkillsTab canSeeCompany={canSeeCompany} isManager={isManager} />
+          )}
+          {activeTab === "review-tasks" && <ReviewTasksTab />}
           {activeTab === "appraisers" && <AppraiserMapTab />}
         </Tabs>
       </PageBody>

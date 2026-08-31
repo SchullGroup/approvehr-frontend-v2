@@ -233,11 +233,21 @@ export type ApiKeyResultWritten = ApiKeyResult & {
   goalProgress: number | null;
 };
 
+/** A section of an appraisal — "Core competency", a company's own values. */
+export type ApiSection = {
+  id: string;
+  name: string;
+  order: number;
+  competencyCount: number;
+};
+
 export type ApiCompetency = {
   id: string;
   name: string;
+  /** The subsection this competency lives under, or null if unfiled. */
+  sectionId: string | null;
   /** "Core competency", "Behavioural competency", "Key result area", "Leadership". */
-  category: string | null;
+  sectionName: string | null;
   description: string | null;
   /** Expected of everybody, as against role-specific. */
   isCore: boolean;
@@ -258,7 +268,8 @@ export type ApiCompetency = {
 export type ApiCompetencyRow = {
   competencyId: string;
   name: string;
-  category: string | null;
+  sectionId: string | null;
+  sectionName: string | null;
   isCore: boolean;
   scaleMax: number;
   level: number | null;
@@ -282,7 +293,8 @@ export type ApiGap = {
   departmentId: string | null;
   competencyId: string;
   competencyName: string;
-  category: string | null;
+  sectionId: string | null;
+  sectionName: string | null;
   isCore: boolean;
   level: number;
   target: number;
@@ -350,6 +362,12 @@ export type ApiCycle = {
    * from a live one cannot tell whether the mark on screen is the one awarded.
    */
   scoringFrozen: boolean;
+  /** Empty means everybody — see `createCycle`'s own note. */
+  departmentIds: string[];
+  /** Null means no automatic reminder, which is the default. */
+  remindDaysBefore: number | null;
+  /** Off by default. Lets a manager add their own questions, scoped to their team. */
+  managersCanAddQuestions: boolean;
   createdAt: string;
 };
 
@@ -435,13 +453,21 @@ export type ApiCycleParticipants = {
 export type ApiQuestion = {
   id: string;
   reviewCycleId: string;
+  /** The subsection this sits under, or null for a cycle-wide question. */
+  competencyId: string | null;
   prompt: string;
   kind: ReviewQuestionKind;
   /** Empty means everybody. */
   askedOf: ReviewAudience[];
   required: boolean;
   options: string[];
+  /** For a CHOICE question: also accept a typed answer, not only the list. */
+  allowCustom: boolean;
   order: number;
+  /** Who wrote it — HR's standard set, or a manager's own addition. */
+  source: "HR" | "MANAGER";
+  /** Non-empty only for a MANAGER question. */
+  departmentIds: string[];
 };
 
 export type ApiAnswer = {
@@ -518,10 +544,14 @@ export type ApiReviewDisputed = ApiReview & { disputed: true; note: string };
 
 export type ApiFormQuestion = {
   id: string;
+  /** The subsection this sits under, or null for a cycle-wide question. */
+  competencyId: string | null;
   prompt: string;
   kind: ReviewQuestionKind;
   required: boolean;
   options: string[];
+  /** For a CHOICE question: also accept a typed answer, not only the list. */
+  allowCustom: boolean;
   order: number;
   answer: ApiAnswer | null;
 };
@@ -1148,6 +1178,47 @@ export type ApiMyReviews = {
   peerFeedback: ApiPeerFeedback[];
 };
 
+/**
+ * HR sending one person's review back for another pass.
+ *
+ * Reopens just that review — clears its submission and sign-off — without
+ * touching the cycle's stage or anyone else's review. Resolves itself the
+ * moment they resubmit.
+ */
+export type ApiRevisionRequest = {
+  id: string;
+  employeeId: string;
+  targetStage: "SELF" | "MANAGER";
+  reason: string;
+  requestedById: string;
+  requestedAt: string;
+};
+
+/** One task logged against an objective, within one open week. */
+export type ApiTask = {
+  id: string;
+  periodId: string;
+  goalId: string;
+  keyResultId: string | null;
+  employeeId: string;
+  description: string;
+  grade: "COMPLETED" | "PARTIALLY_COMPLETED" | "NOT_COMPLETED" | null;
+  gradedById: string | null;
+  gradedAt: string | null;
+  createdAt: string;
+};
+
+/** One row in a manager's or HR's grading queue — named, so no follow-up lookup. */
+export type ApiTaskForGrading = {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  goalId: string;
+  goalTitle: string;
+  description: string;
+  createdAt: string;
+};
+
 /* -------------------------------------------------------------------- bodies */
 
 export type GoalListParams = {
@@ -1226,7 +1297,7 @@ export type CompetencyListParams = {
   page?: number;
   pageSize?: number;
   q?: string;
-  category?: string;
+  sectionId?: string;
   isCore?: boolean;
   includeArchived?: boolean;
 };
@@ -1265,6 +1336,10 @@ export type CreateQuestionBody = {
   required?: boolean;
   /** Only a CHOICE question may carry these, and it needs at least two. */
   options?: string[];
+  /** Only a CHOICE question may set this. */
+  allowCustom?: boolean;
+  /** Files the question under this subsection. Absent: a cycle-wide question. */
+  competencyId?: string;
 };
 
 /**
@@ -1279,6 +1354,8 @@ export type UpdateQuestionBody = {
   askedOf?: ReviewAudience[];
   required?: boolean;
   options?: string[];
+  allowCustom?: boolean;
+  competencyId?: string | null;
 };
 
 export type AnswerBody = {
@@ -1530,10 +1607,13 @@ export const performanceApi = {
     departmentIds?: string[];
     /** Days before `dueDate` to nudge whoever still owes a form. */
     remindDaysBefore?: number;
+    /** Off by default. Lets a manager add their own questions, scoped to their team. */
+    managersCanAddQuestions?: boolean;
   }) => request<ApiCycle>("/performance/cycles", { method: "POST", body }),
 
   /**
-   * Change a draft period's scope or its reminder.
+   * Change a draft period's scope, its reminder, or whether managers may add
+   * their own questions.
    *
    * Separate from `advanceCycle`, which is the same endpoint carrying a stage.
    * Kept apart because they are different acts with different rules — a stage
@@ -1542,7 +1622,11 @@ export const performanceApi = {
    */
   updateCycle: (
     id: string,
-    body: { departmentIds?: string[]; remindDaysBefore?: number | null },
+    body: {
+      departmentIds?: string[];
+      remindDaysBefore?: number | null;
+      managersCanAddQuestions?: boolean;
+    },
   ) =>
     request<ApiCycle>(`/performance/cycles/${id}`, { method: "PATCH", body }),
 
@@ -1589,6 +1673,37 @@ export const performanceApi = {
       `/performance/cycles/${cycleId}/calibrations/${employeeId}`,
       { method: "DELETE" },
     ),
+
+  /**
+   * Sending one person's review back for revision.
+   *
+   * `MANAGE_SETTINGS`, same as calibration: reopening what somebody's review
+   * says is the same kind of act as moving what their mark is. The reason is
+   * required — a review sent back with no reason is not feedback.
+   */
+  revisionRequests: (cycleId: string, signal?: AbortSignal) =>
+    request<ApiRevisionRequest[]>(
+      `/performance/cycles/${cycleId}/revision-requests`,
+      signalOf(signal),
+    ),
+
+  requestRevision: (
+    cycleId: string,
+    body: {
+      employeeId: string;
+      targetStage: "SELF" | "MANAGER";
+      reason: string;
+    },
+  ) =>
+    request<{
+      cycleId: string;
+      employeeId: string;
+      targetStage: string;
+      reason: string;
+    }>(`/performance/cycles/${cycleId}/revision-requests`, {
+      method: "POST",
+      body,
+    }),
 
   /**
    * Move a running period on to its next stage.
@@ -1785,6 +1900,20 @@ export const performanceApi = {
       body,
     }),
 
+  /**
+   * A manager's own question, on top of HR's set.
+   *
+   * No permission needed on this call: the API checks the cycle's
+   * `managersCanAddQuestions` and scopes the question to the caller's own
+   * department, read from their own employee record rather than trusted from
+   * the request.
+   */
+  addManagerQuestion: (cycleId: string, body: CreateQuestionBody) =>
+    request<ApiQuestion>(`/performance/cycles/${cycleId}/questions/mine`, {
+      method: "POST",
+      body,
+    }),
+
   updateQuestion: (id: string, body: UpdateQuestionBody) =>
     request<ApiQuestion>(`/performance/questions/${id}`, {
       method: "PATCH",
@@ -1794,6 +1923,100 @@ export const performanceApi = {
   removeQuestion: (id: string) =>
     request<{ id: string; deleted: boolean }>(`/performance/questions/${id}`, {
       method: "DELETE",
+    }),
+
+  /* --------------------------------------------------------------- sections */
+
+  /* Reading needs nothing: a heading a rating is filed under is not something
+     to gate. */
+  sections: (signal?: AbortSignal) =>
+    request<ApiSection[]>("/performance/sections", signalOf(signal)),
+
+  createSection: (body: { name: string; order?: number }) =>
+    request<ApiSection>("/performance/sections", { method: "POST", body }),
+
+  updateSection: (id: string, body: { name?: string; order?: number }) =>
+    request<ApiSection>(`/performance/sections/${id}`, {
+      method: "PATCH",
+      body,
+    }),
+
+  /** The section goes; its competencies stay, just unfiled. */
+  deleteSection: (id: string) =>
+    request<{ id: string; deleted: boolean }>(`/performance/sections/${id}`, {
+      method: "DELETE",
+    }),
+
+  createCompetency: (body: {
+    name: string;
+    sectionId?: string;
+    description?: string;
+    isCore?: boolean;
+    scaleMax: number;
+  }) =>
+    request<ApiCompetency>("/performance/competencies", {
+      method: "POST",
+      body,
+    }),
+
+  updateCompetency: (
+    id: string,
+    body: {
+      name?: string;
+      sectionId?: string | null;
+      description?: string | null;
+      isCore?: boolean;
+      scaleMax?: number;
+      active?: boolean;
+    },
+  ) =>
+    request<ApiCompetency>(`/performance/competencies/${id}`, {
+      method: "PATCH",
+      body,
+    }),
+
+  /** Archive, not delete: past ratings are the evidence somebody improved. */
+  archiveCompetency: (id: string) =>
+    request<{
+      id: string;
+      archived: boolean;
+      ratingsKept: number;
+      note: string;
+    }>(`/performance/competencies/${id}`, { method: "DELETE" }),
+
+  /* ------------------------------------------------------------ weekly tasks */
+
+  tasks: (goalId: string, signal?: AbortSignal) =>
+    request<ApiTask[]>(`/performance/goals/${goalId}/tasks`, signalOf(signal)),
+
+  /**
+   * What still needs a grade. HR sees the company, a manager sees their
+   * reports, anybody else gets an empty queue rather than a refusal.
+   */
+  tasksForGrading: (signal?: AbortSignal) =>
+    request<ApiTaskForGrading[]>(
+      "/performance/tasks/for-grading",
+      signalOf(signal),
+    ),
+
+  /** Only the goal's own owner may log against it — see the API's own note. */
+  submitTask: (
+    goalId: string,
+    body: { keyResultId?: string; description: string },
+  ) =>
+    request<ApiTask>(`/performance/goals/${goalId}/tasks`, {
+      method: "POST",
+      body: { goalId, ...body },
+    }),
+
+  /** Their manager, or `EDIT_RECORDS`. */
+  gradeTask: (
+    id: string,
+    grade: "COMPLETED" | "PARTIALLY_COMPLETED" | "NOT_COMPLETED",
+  ) =>
+    request<ApiTask>(`/performance/tasks/${id}/grade`, {
+      method: "PATCH",
+      body: { grade },
     }),
 
   /* ---------------------------------------------------------------- reviews */
@@ -1894,6 +2117,23 @@ export const performanceApi = {
 };
 
 export type PagedGoals = Paged<ApiGoal>;
+
+/**
+ * What each point on the 1–5 scale is called, everywhere a rating renders:
+ * `Review.rating`, an answer's `ratingValue`, a competency `level`.
+ *
+ * One label set rather than each screen inventing its own. Matches the
+ * company's own Employee Performance Review Guide, and the API's
+ * `RATING_LABELS` in `scoring.ts` — if the two ever disagree, the API is
+ * right and this is the bug.
+ */
+export const RATING_LABELS: Record<number, string> = {
+  5: "Exceeds Expectations",
+  4: "Above Expectations",
+  3: "Meets Expectations",
+  2: "Needs Improvement",
+  1: "Unsatisfactory",
+};
 
 /* -------------------------------------------------------------- the measures */
 

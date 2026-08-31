@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Sparkles, Trash2 } from "lucide-react";
 import {
@@ -11,10 +11,12 @@ import {
   Card,
   CardBody,
   CardHeader,
+  CheckList,
   Disclosure,
   EmptyState,
   Field,
   Input,
+  ProgressMeter,
   Spinner,
   Textarea,
   useToast,
@@ -132,6 +134,92 @@ function measuresOf(
       },
     ];
   });
+}
+
+/**
+ * Rich loading panel shown while the AI requests are in flight.
+ *
+ * Goals and questions are drafted sequentially (goals first) to avoid hitting
+ * the provider's per-minute rate limit. Total estimated time is ~20 s.
+ * Ticks every 500 ms; the checklist items appear one at a time so the reader
+ * has something to follow rather than staring at a bar.
+ */
+function DraftingPanel({
+  periodName,
+  goalsLoading,
+}: {
+  periodName: string;
+  goalsLoading: boolean;
+}) {
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 500);
+    return () => clearInterval(id);
+  }, []);
+
+  /* ~20 s total (two sequential ~10 s calls). Hold at 90 until the
+     actual responses land, then the whole panel unmounts. */
+  const TOTAL_TICKS = 40;
+  const progress = Math.min(90, (tick / TOTAL_TICKS) * 100);
+  const secondsLeft = Math.max(0, Math.ceil((TOTAL_TICKS - tick) / 2));
+
+  const DATA_SOURCES = [
+    "Your period description",
+    "Department names and headcount",
+    "Company goals and objectives",
+    "Competency framework and scoring weights",
+  ];
+  /* Reveal one source every 5 ticks (~2.5 s), so all four show within 10 s. */
+  const visibleSources = DATA_SOURCES.slice(
+    0,
+    Math.min(DATA_SOURCES.length, Math.floor(tick / 5) + 1),
+  );
+
+  const INSIGHTS = [
+    "Writing questions in plain English — edit anything before you save.",
+    "Aligning review questions with your competency framework.",
+    "Every suggestion is a starting point, not a final decision.",
+    "Measures are left blank on purpose — targets are yours to set.",
+    "Goals are drafted to what the whole company could be held to.",
+  ];
+  const insightIndex = Math.floor(tick / 8) % INSIGHTS.length;
+
+  /* Which stage we are in — the phrasing shifts once goals complete. */
+  const stageLabel = goalsLoading
+    ? "Drafting company goals"
+    : "Drafting review questions";
+
+  return (
+    <div className="flex flex-col gap-5 py-1">
+      <div className="flex flex-col gap-1">
+        <p className="text-body-sm text-muted">
+          {stageLabel} for{" "}
+          <span className="font-medium text-body">
+            {periodName || "this period"}
+          </span>
+        </p>
+        <ProgressMeter
+          value={progress}
+          label={
+            secondsLeft > 0
+              ? `About ${String(secondsLeft)}s remaining`
+              : "Almost ready…"
+          }
+          tone="accent"
+        />
+      </div>
+
+      <div className="rounded-md border border-line bg-sunken p-4">
+        <p className="mb-2.5 text-meta font-semibold uppercase tracking-wide text-muted">
+          Reading
+        </p>
+        <CheckList items={visibleSources} />
+      </div>
+
+      <p className="text-body-sm italic text-muted">{INSIGHTS[insightIndex]}</p>
+    </div>
+  );
 }
 
 /** What the draft was built from, shown on request and never paraphrased. */
@@ -274,12 +362,14 @@ export function DraftPeriodWizard() {
   }
 
   const draft = async () => {
-    /* Both at once. They are independent calls and the wizard keeps whichever
-       arrives — see the header on why questions are a separate request. */
-    await Promise.all([
-      goalDraft.ask({ text }),
-      questionDraft.ask({ text }),
-    ]);
+    /* Sequential rather than parallel. Two simultaneous calls against the same
+       API key can hit the provider's per-minute rate limit, causing whichever
+       fires second to fail with a 429 that `provider.ts` converts into
+       "Could not reach the suggestion service". Goals first, then questions:
+       the goals answer is what the next step shows, so arriving first is right
+       even if questions takes a moment longer. */
+    await goalDraft.ask({ text });
+    await questionDraft.ask({ text });
     setStep("goals");
   };
 
@@ -386,65 +476,71 @@ export function DraftPeriodWizard() {
           <Card>
             <CardHeader title="Describe the period" />
             <CardBody className="flex flex-col gap-4">
-              <Field label="What to call it" required>
-                <Input
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  placeholder="H1 2027 appraisal"
+              {drafting ? (
+                <DraftingPanel
+                  periodName={name.trim()}
+                  goalsLoading={goalDraft.loading}
                 />
-              </Field>
+              ) : (
+                <>
+                  <Field label="What to call it" required>
+                    <Input
+                      value={name}
+                      onChange={(event) => setName(event.target.value)}
+                      placeholder="H1 2027 appraisal"
+                    />
+                  </Field>
 
-              <Field
-                label="Answers due"
-                help="Optional. It is what the reminders count back from."
-              >
-                <Input
-                  type="date"
-                  value={dueDate}
-                  onChange={(event) => setDueDate(event.target.value)}
-                />
-              </Field>
+                  <Field
+                    label="Answers due"
+                    help="Optional. It is what the reminders count back from."
+                  >
+                    <Input
+                      type="date"
+                      value={dueDate}
+                      onChange={(event) => setDueDate(event.target.value)}
+                    />
+                  </Field>
 
-              <Field
-                label="What the period is about"
-                required
-                help="Your own words. The assistant reads this as background, not as instructions."
-              >
-                <Textarea
-                  rows={4}
-                  value={text}
-                  onChange={(event) => setText(event.target.value)}
-                  placeholder="Half-year review for the Lagos sales team. Recurring revenue up, churn down, and I care about response time."
-                />
-              </Field>
+                  <Field
+                    label="What the period is about"
+                    required
+                    help="Your own words. The assistant reads this as background, not as instructions."
+                  >
+                    <Textarea
+                      rows={4}
+                      value={text}
+                      onChange={(event) => setText(event.target.value)}
+                      placeholder="Half-year review for the Lagos sales team. Recurring revenue up, churn down, and I care about response time."
+                    />
+                  </Field>
 
-              {goalDraft.error && (
-                <Callout tone="danger" title="That did not work">
-                  {goalDraft.error}
-                </Callout>
-              )}
+                  {goalDraft.error && (
+                    <Callout tone="danger" title="That did not work">
+                      {goalDraft.error}
+                    </Callout>
+                  )}
 
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  variant="accent"
-                  onClick={() => void draft()}
-                  disabled={
-                    drafting || name.trim() === "" || text.trim().length < 20
-                  }
-                >
-                  {drafting ? <Spinner size="sm" /> : null}
-                  {drafting ? "Drafting" : "Draft it"}
-                  {!drafting && <ArrowRight aria-hidden="true" className="size-3.5" />}
-                </Button>
-                <ButtonLink href="/performance" variant="ghost">
-                  Cancel
-                </ButtonLink>
-              </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      variant="accent"
+                      onClick={() => void draft()}
+                      disabled={name.trim() === "" || text.trim().length < 20}
+                    >
+                      Draft it
+                      <ArrowRight aria-hidden="true" className="size-3.5" />
+                    </Button>
+                    <ButtonLink href="/performance" variant="ghost">
+                      Cancel
+                    </ButtonLink>
+                  </div>
 
-              {text.trim() !== "" && text.trim().length < 20 && (
-                <p className="text-meta text-muted">
-                  Say a little more about the period — a sentence or two.
-                </p>
+                  {text.trim() !== "" && text.trim().length < 20 && (
+                    <p className="text-meta text-muted">
+                      Say a little more about the period — a sentence or two.
+                    </p>
+                  )}
+                </>
               )}
             </CardBody>
           </Card>

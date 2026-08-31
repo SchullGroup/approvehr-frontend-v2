@@ -29,6 +29,7 @@ import {
 } from "@/lib/api/helpdesk";
 import { useCan } from "@/lib/permissions";
 import { useSession } from "@/lib/store/session";
+import { useEmployeeDirectory } from "@/lib/store/employees-api";
 
 /**
  * Ticket categories, and the promises behind them.
@@ -456,8 +457,15 @@ function CategoryDialog({
   const [name, setName] = useState(category?.name ?? "");
   const [description, setDescription] = useState(category?.description ?? "");
   const [slaId, setSlaId] = useState(category?.sla?.id ?? "");
+  const [assigneeId, setAssigneeId] = useState(
+    category?.defaultAssignee?.id ?? "",
+  );
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
+
+  const { employees, loading: loadingPeople } = useEmployeeDirectory({
+    pageSize: 200,
+  });
 
   const save = async () => {
     if (name.trim().length < 2) {
@@ -474,12 +482,14 @@ function CategoryDialog({
              to send null rather than "". */
           description: description.trim() || null,
           slaPolicyId: slaId || null,
+          defaultAssigneeId: assigneeId || null,
         });
       } else {
         await helpdeskApi.createCategory({
           name: name.trim(),
           ...(description.trim() ? { description: description.trim() } : {}),
           ...(slaId ? { slaPolicyId: slaId } : {}),
+          ...(assigneeId ? { defaultAssigneeId: assigneeId } : {}),
         });
       }
       onSaved(name.trim());
@@ -532,6 +542,26 @@ function CategoryDialog({
             onChange={(event) => setDescription(event.target.value)}
             placeholder="Anything about a payslip, a deduction or a payment that has not arrived."
           />
+        </Field>
+
+        <Field
+          optional
+          label="Default assignee"
+          help="New requests in this category go straight to this person."
+        >
+          <Select
+            value={assigneeId}
+            onChange={(event) => setAssigneeId(event.target.value)}
+          >
+            <option value="">
+              {loadingPeople ? "Loading people…" : "Nobody by default"}
+            </option>
+            {employees.map((person) => (
+              <option key={person.id} value={person.id}>
+                {person.firstName} {person.lastName} · {person.jobTitle}
+              </option>
+            ))}
+          </Select>
         </Field>
 
         <Field

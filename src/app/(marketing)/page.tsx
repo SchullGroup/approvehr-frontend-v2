@@ -49,12 +49,12 @@ const INTELLIGENCE = [
   },
   {
     icon: Radar,
-    title: "Nothing is silently wrong",
+    title: "Accurate information assured",
     body: "Every payroll is checked against its own arithmetic before you ever see it. If a number could not be true (net pay above gross, tax above the top band), the run refuses itself and says exactly why.",
   },
   {
     icon: Sparkles,
-    title: "A head start, not a blank page",
+    title: "Start with our templates",
     body: "Draft objectives from a company goal, a first pass at a progress note, development areas grounded in real scores. Every draft is reviewed by a person before it means anything.",
   },
   {
@@ -147,6 +147,8 @@ export default function HomePage() {
         </div>
       </section>
 
+      <ClientLogos />
+
       {/* ------------------------------------------------------ Intelligence */}
       <section className="px-4 py-24">
         <div className="container-page">
@@ -219,8 +221,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
-      <ClientLogos />
 
       {/* -------------------------------------------------- Platform rail */}
       <section className="px-4 py-24">

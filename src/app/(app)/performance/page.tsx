@@ -22,13 +22,13 @@ export const metadata: Metadata = {
  * `useSearchParams` in the screen would force the whole page into a Suspense
  * boundary and a client-side read for one string.
  *
- * `now` is the default, and it used to be `periods`. A list of periods is not
- * what somebody arrives to find out — "where is this up to" is, and that was two
- * clicks away. The overview carries the running period's state for whoever is
+ * `dashboard` is the default, and it used to be `periods`. A list of periods is
+ * not what somebody arrives to find out — "where is this up to" is, and that was
+ * two clicks away. The overview carries the running period's state for whoever is
  * running it (`period-status.tsx`) and the work list for everybody, so it is the
  * right landing for every reader rather than for one of them.
  *
- * It is also the one tab nobody can be refused: `periods` is gated on
+ * It is also the one tab nobody can be refused: `review-cycles` is gated on
  * `canManage || canSeeCompany`, so defaulting there sent staff to a fallback on
  * every single load.
  */
@@ -41,7 +41,7 @@ export default async function PerformancePage({
   const single = Array.isArray(tab) ? tab[0] : tab;
   return (
     <PerformanceScreen
-      initialTab={isPerformanceTab(single) ? single : "now"}
+      initialTab={isPerformanceTab(single) ? single : "dashboard"}
     />
   );
 }

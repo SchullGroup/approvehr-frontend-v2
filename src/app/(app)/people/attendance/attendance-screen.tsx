@@ -57,6 +57,7 @@ import {
 } from "@/lib/store/attendance";
 import { useSession } from "@/lib/store/session";
 import { shortDate } from "@/lib/today";
+import { MyAttendanceHistoryPanel } from "./my-attendance-history";
 
 type View = "today" | "timesheet";
 
@@ -194,7 +195,10 @@ export function AttendanceScreen() {
             <LoadingPanel label="Loading the timesheet" />
           )
         ) : (
-          <MyAttendanceSummary sheet={sheet} employeeId={session.employeeId} />
+          <>
+            <MyAttendanceSummary sheet={sheet} employeeId={session.employeeId} />
+            <MyAttendanceHistoryPanel />
+          </>
         )}
       </PageBody>
 
