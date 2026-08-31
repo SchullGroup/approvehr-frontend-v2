@@ -816,6 +816,7 @@ function demoOptions(from?: string, to?: string) {
     const existing = actors.get(key);
     if (existing) {
       existing.events += 1;
+      if (!entry.isRead) existing.changes += 1;
       if (!existing.lastAt || entry.at > existing.lastAt) existing.lastAt = entry.at;
       continue;
     }
@@ -825,6 +826,7 @@ function demoOptions(from?: string, to?: string) {
       email: entry.actorEmail,
       isSystem: entry.actor.isSystem,
       events: 1,
+      changes: entry.isRead ? 0 : 1,
       lastAt: entry.at,
     });
   }
