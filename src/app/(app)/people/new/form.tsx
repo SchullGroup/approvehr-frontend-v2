@@ -56,6 +56,7 @@ import { useWorkLocations } from "@/lib/store/attendance";
 import { NO_DEPARTMENT } from "@/lib/store/demo-structure";
 import { useDepartments } from "@/lib/store/departments";
 import { useOrgTaxState } from "@/lib/store/company";
+import { AccountVerificationHint } from "@/components/payments/account-verification";
 import { NIGERIAN_BANKS } from "@/lib/reference/banks";
 import {
   NIGERIAN_STATES,
@@ -1333,6 +1334,12 @@ export function NewEmployeeForm() {
                             placeholder="0123456789"
                           />
                         </Field>
+                        <div className="sm:col-span-2">
+                          <AccountVerificationHint
+                            bankName={draft.bankName}
+                            accountNumber={draft.bankAccount}
+                          />
+                        </div>
                       </div>
                     </OptionalGroup>
                   )}

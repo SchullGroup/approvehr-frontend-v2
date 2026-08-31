@@ -156,6 +156,8 @@ const EXEMPT: Record<string, string> = {
     "the auth lifecycle, not data — re-running it on focus turns a token refresh into a sign-out",
   "ai.ts": "a capability check answered once, not shared state",
   "payslip-quote.ts": "a computation over what the reader is typing",
+  "account-verification.ts":
+    "a computation over what the reader is typing — BE-10's bank name and account number, same class as the payslip quote above",
 };
 
 const files = fs

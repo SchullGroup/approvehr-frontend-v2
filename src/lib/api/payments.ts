@@ -118,6 +118,24 @@ export type ApiAccountList = {
   counts: { active: number; archived: number };
 };
 
+/**
+ * The answer to "does this account exist, and whose name is on it" — BE-10.
+ *
+ * `checked` is the one to branch on, not `verified`: `checked: false` means
+ * nothing was actually asked (an unrecognised bank name, or no payment
+ * provider connected for this company), while `checked: true, verified:
+ * false` means a real bank looked and found nobody. Both are ordinary
+ * outcomes, `reason` explains either one in words, and neither blocks saving
+ * the account — the endpoint's own doc comment is explicit that being unable
+ * to check is not a failure.
+ */
+export type ApiAccountVerification = {
+  checked: boolean;
+  verified: boolean;
+  accountName: string | null;
+  reason: string | null;
+};
+
 /** `POST /accounts` answers with the account and whether it demoted another. */
 export type ApiAccountCreated = ApiBankAccount & { demotedPrevious: boolean };
 
@@ -751,6 +769,26 @@ export const paymentsApi = {
       `/payments/accounts/${id}`,
       { method: "DELETE" },
     ),
+
+  /* ---------------------------------------------------------- verification */
+
+  /**
+   * Confirms the name behind an account before it is saved.
+   *
+   * `bankName`, never a code — every picker in this product already collects
+   * one, and the API resolves it to whatever a provider needs
+   * (`banks.ts#bankByName` on that side). This never throws for "could not
+   * check"; see `ApiAccountVerification` for how to read a 200.
+   */
+  verifyAccount: (
+    body: { bankName: string; accountNumber: string },
+    signal?: AbortSignal,
+  ) =>
+    request<ApiAccountVerification>("/payments/account-verification", {
+      method: "POST",
+      body,
+      ...(signal ? { signal } : {}),
+    }),
 
   /* -------------------------------------------------------------- batches */
 
