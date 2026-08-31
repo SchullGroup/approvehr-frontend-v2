@@ -10,6 +10,7 @@ import {
   type ApiPreview,
   type ApiResolvedAssignment,
   type AssignBody,
+  type AssignToManyBody,
   type CreatePayComponentBody,
   type PayComponentListParams,
   type PreviewParams,
@@ -537,6 +538,12 @@ export function usePayComponentDetail(id: string | null) {
      and the demo path never enters it. */
   const wanted = isConnected && !isLoading ? id : null;
 
+  /* Bumped by `reload` below. In the effect's own dependency list for
+     exactly that reason — `wanted` alone has no reason to change after
+     somebody assigns a component to a fresh batch of people, and without
+     this the drawer would keep showing the list it opened with. */
+  const [tick, setTick] = useState(0);
+
   /* Re-ask when somebody comes back to the window. Not in the key below,
      so the answer is replaced without the screen flashing a skeleton. */
   const revalidation = useRevalidation();
@@ -562,7 +569,7 @@ export function usePayComponentDetail(id: string | null) {
     return () => {
       cancelled = true;
     };
-  }, [wanted, revalidation]);
+  }, [wanted, revalidation, tick]);
 
   const demo = useMemo<ApiPayComponentDetail | null>(() => {
     if (isConnected || !id) return null;
@@ -585,8 +592,10 @@ export function usePayComponentDetail(id: string | null) {
     return { ...row, liveAssignments: assignees.length, assignees };
   }, [isConnected, id]);
 
+  const reload = useCallback(() => setTick((n) => n + 1), []);
+
   if (!isConnected) {
-    return { detail: demo, error: null, loading: isLoading };
+    return { detail: demo, error: null, loading: isLoading, reload };
   }
 
   /* Matched on the id it was fetched for, so a slow answer for a row you have
@@ -596,6 +605,34 @@ export function usePayComponentDetail(id: string | null) {
     detail: matched ? fetched.detail : null,
     error: matched ? fetched.error : null,
     loading: wanted !== null && !matched,
+    reload,
+  };
+}
+
+/**
+ * One component, assigned to several people in one action.
+ *
+ * Separate from `usePayComponentDetail` above, which only ever reads — this
+ * is the write half, callable from the same drawer without tying the two
+ * together. No demo path, same rule as `usePayComponentsForEmployee`'s own
+ * `assign`: an allowance kept in this browser would never reach a payroll
+ * run, so this refuses rather than fabricate an assignment nothing can
+ * compute against.
+ */
+export function useAssignManyToComponent() {
+  const { isConnected, can } = useSession();
+
+  return {
+    /** Needs `EDIT_RECORDS` — the same permission as assigning one at a time. */
+    editable: isConnected && can("EDIT_RECORDS"),
+
+    assignToMany: useCallback(
+      (componentId: string, body: AssignToManyBody) => {
+        if (!isConnected) refuse("Assigning a pay component to several people");
+        return api.assignToMany(componentId, body);
+      },
+      [isConnected],
+    ),
   };
 }
 
