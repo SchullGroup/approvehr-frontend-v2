@@ -73,6 +73,7 @@ import { useSession } from "@/lib/store/session";
 import { fullName, payrollGapsFor, type Employee } from "@/lib/types";
 import { shortDate } from "@/lib/today";
 import { EditableSection } from "@/components/people/editable-section";
+import { AccountVerificationHint } from "@/components/payments/account-verification";
 import { NIGERIAN_STATES } from "@/lib/reference/lists";
 import { ConductPanel } from "./conduct";
 
@@ -1116,6 +1117,15 @@ export function EmployeeRecord({
                   digits: 10,
                   format: (v) => (
                     <Guarded value={String(v)} canReveal={canReveal} />
+                  ),
+                  /* BE-10: confirms the account once both bank fields have a
+                     value, off the in-progress draft rather than the saved
+                     record — the point is catching a typo before Save. */
+                  extraWhileEditing: (draft) => (
+                    <AccountVerificationHint
+                      bankName={String(draft.bankName ?? "")}
+                      accountNumber={String(draft.bankAccount ?? "")}
+                    />
                   ),
                 },
                 {

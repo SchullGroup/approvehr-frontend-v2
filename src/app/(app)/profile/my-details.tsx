@@ -25,6 +25,7 @@ import {
   useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
+import { AccountVerificationHint } from "@/components/payments/account-verification";
 import { NIGERIAN_STATES } from "@/lib/reference/lists";
 import { banksIncluding } from "@/lib/reference/banks";
 import {
@@ -403,51 +404,68 @@ export function MyDetails({
                 hint={TIER_NOTE[group.tier]}
               >
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {group.fields.map((key) => (
-                    <Field
-                      key={key}
-                      label={LABEL[key]}
-                      {...(waiting.has(key)
-                        ? {
-                            help: "A change to this is already with payroll. Saving again replaces it.",
-                          }
-                        : {})}
-                    >
-                      {key === "stateOfOrigin" ? (
-                        <Select
-                          value={draft[key]}
-                          disabled={!editable}
-                          onChange={(event) => set(key, event.target.value)}
-                        >
-                          <option value="">Not recorded</option>
-                          {NIGERIAN_STATES.map((state) => (
-                            <option key={state} value={state}>
-                              {state}
-                            </option>
-                          ))}
-                        </Select>
-                      ) : key === "bankName" ? (
-                        <Select
-                          value={draft[key]}
-                          disabled={!editable}
-                          onChange={(event) => set(key, event.target.value)}
-                        >
-                          <option value="">Not recorded</option>
-                          {banksIncluding(initial.bankName).map((bank) => (
-                            <option key={bank.label} value={bank.label}>
-                              {bank.label}
-                            </option>
-                          ))}
-                        </Select>
-                      ) : (
-                        <Input
-                          value={draft[key]}
-                          disabled={!editable}
-                          onChange={(event) => set(key, event.target.value)}
+                  {group.fields.flatMap((key) => {
+                    const field = (
+                      <Field
+                        key={key}
+                        label={LABEL[key]}
+                        {...(waiting.has(key)
+                          ? {
+                              help: "A change to this is already with payroll. Saving again replaces it.",
+                            }
+                          : {})}
+                      >
+                        {key === "stateOfOrigin" ? (
+                          <Select
+                            value={draft[key]}
+                            disabled={!editable}
+                            onChange={(event) => set(key, event.target.value)}
+                          >
+                            <option value="">Not recorded</option>
+                            {NIGERIAN_STATES.map((state) => (
+                              <option key={state} value={state}>
+                                {state}
+                              </option>
+                            ))}
+                          </Select>
+                        ) : key === "bankName" ? (
+                          <Select
+                            value={draft[key]}
+                            disabled={!editable}
+                            onChange={(event) => set(key, event.target.value)}
+                          >
+                            <option value="">Not recorded</option>
+                            {banksIncluding(initial.bankName).map((bank) => (
+                              <option key={bank.label} value={bank.label}>
+                                {bank.label}
+                              </option>
+                            ))}
+                          </Select>
+                        ) : (
+                          <Input
+                            value={draft[key]}
+                            disabled={!editable}
+                            onChange={(event) => set(key, event.target.value)}
+                          />
+                        )}
+                      </Field>
+                    );
+
+                    /* BE-10: confirms the account once both fields beside it
+                       are filled in. Placed after `bankAccount` rather than
+                       inside its `Field` — a live confirmation is not the
+                       field's own help text. */
+                    if (key !== "bankAccount") return [field];
+                    return [
+                      field,
+                      <div key={`${key}-verify`} className="sm:col-span-2">
+                        <AccountVerificationHint
+                          bankName={draft.bankName}
+                          accountNumber={draft.bankAccount}
                         />
-                      )}
-                    </Field>
-                  ))}
+                      </div>,
+                    ];
+                  })}
                 </div>
               </Disclosure>
             );

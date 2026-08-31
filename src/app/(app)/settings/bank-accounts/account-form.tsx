@@ -10,6 +10,7 @@ import {
   Picker,
   Select,
 } from "@/components/ui";
+import { AccountVerificationHint } from "@/components/payments/account-verification";
 import { NIGERIAN_BANKS } from "@/lib/reference/banks";
 import type {
   ApiBankAccount,
@@ -128,7 +129,10 @@ export function AccountForm({
            * explicit that "a wrong bank code routes money to the wrong
            * institution".
            *
-           * Now the NIBSS register, and choosing a bank fills its code in.
+           * Now the NIBSS register. It fills in a name, never a code — Nigeria's
+           * own convention, and `bankCode` stays unset here. The API resolves a
+           * name to what a provider needs on its own side (BE-10), which is what
+           * the confirmation under the account number field below is checking.
            */}
           <Picker
             value={bankName}
@@ -177,6 +181,8 @@ export function AccountForm({
             }}
           />
         </Field>
+
+        <AccountVerificationHint bankName={bankName} accountNumber={digits} />
 
         <Field label="Kind of account">
           <Select
