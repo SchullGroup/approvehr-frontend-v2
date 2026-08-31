@@ -16,6 +16,7 @@ import {
   TR,
   TableWrap,
 } from "@/components/ui";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import {
   fullName,
@@ -38,7 +39,7 @@ type Row = { employee: Employee; blocking: PayrollGap[]; advisory: PayrollGap[] 
  * reader to find it by hand.
  */
 export function IncompleteRecordsScreen() {
-  const { employees, loading, connected } = useEmployeeDirectory({
+  const { employees, loading, connected, error } = useEmployeeDirectory({
     pageSize: 200,
   });
 
@@ -76,7 +77,17 @@ export function IncompleteRecordsScreen() {
         {loading && <span className="text-meta text-muted">Loading…</span>}
       </div>
 
-      {rows.length === 0 && !loading ? (
+      {/* A read that failed is not a company with nothing missing.
+          ------------------------------------------------------------------
+          `rows` is empty whether the directory came back clean or did not
+          come back at all, and the empty state below states a *fact* about
+          every record in the company. Rendering it over a failed read is the
+          same wrong claim as a zero standing in for an absent figure — and
+          worse here than most, because this is the screen whose whole job is
+          to warn somebody that a payroll will not pay. */}
+      {error ? (
+        <LoadFailure subject="the incomplete records" error={error} />
+      ) : rows.length === 0 && !loading ? (
         <Card>
           <EmptyState
             icon={<ShieldAlert aria-hidden="true" />}

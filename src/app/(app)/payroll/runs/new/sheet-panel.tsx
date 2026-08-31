@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Download, Upload } from "lucide-react";
-import { Button, Callout, Disclosure, Spinner } from "@/components/ui";
+import { Button, Callout, Modal, Spinner } from "@/components/ui";
 import { downloadCsv } from "@/lib/csv";
 import { downloadXlsx } from "@/lib/xlsx";
 import { ApiError } from "@/lib/api/client";
@@ -29,7 +29,7 @@ import { usePayrollActions } from "@/lib/store/payroll";
  *
  * ## Downloaded filled in
  *
- * Staff number, name, email, phone, department, bank and account number are
+ * Staff number, name, email, phone, department and whether an account is on file are
  * already in it — enough for a person to be sure a row is about who they think
  * it is — plus the figures the run currently holds. A blank template for three
  * hundred staff is a spreadsheet somebody has to type three hundred names into,
@@ -41,12 +41,22 @@ import { usePayrollActions } from "@/lib/store/payroll";
  * waits. Nothing is sent until somebody presses the button that names the
  * count. A file picker that uploaded on selection would apply a payroll to the
  * wrong month on a misclick.
+ *
+ * ## A modal behind one button, not a disclosure in the flow
+ *
+ * This used to be an always-present, closed-by-default `Disclosure` sitting
+ * between the Calculate card and the exception list — visible, but one more
+ * thing on a page already asking somebody to read a list of what is wrong.
+ * The trigger is a single button now, and everything below — the templates,
+ * the upload, the read-back preview — lives behind it, open only when
+ * somebody has actually come here to do this.
  */
 export function SheetPanel({
   runId,
   period,
   sources,
   onApplied,
+  onClose,
   /** False on an approved run: the figures are frozen and so is this. */
   editable,
 }: {
@@ -65,6 +75,8 @@ export function SheetPanel({
    * the wizard, which survives.
    */
   onApplied: (summary: string) => void;
+  /** Closes the modal. Also called from inside `onApplied`'s caller. */
+  onClose: () => void;
   editable: boolean;
 }) {
   const actions = usePayrollActions();
@@ -141,200 +153,196 @@ export function SheetPanel({
   const total = summary ? summary.changing + summary.clearing : 0;
 
   return (
-    <div className="flex flex-col gap-3">
-      {/*
-        A refusal sits OUTSIDE the reveal, because a refusal changes nothing —
-        this component is still mounted and still open, and the message has to
-        be readable whether or not somebody has since collapsed the panel.
+    <Modal
+      open
+      onClose={onClose}
+      title="Work this payroll in a spreadsheet"
+      description={`${String(sources.length)} ${sources.length === 1 ? "person" : "people"} on this payroll.`}
+      size="lg"
+    >
+      <div className="flex flex-col gap-4">
+        {/*
+          A success is not shown here at all: it goes to the wizard's toast,
+          because applying rebuilds the run and this whole subtree — modal
+          included — is unmounted while it does. See `onApplied`.
+        */}
+        {refused && (
+          <Callout tone="danger" title="That sheet was not applied">
+            <p>{refused.message}</p>
+            {refused.problems.length > 0 && (
+              <ul className="mt-2 flex flex-col gap-1">
+                {refused.problems.map((problem) => (
+                  <li key={`${String(problem.row)}-${problem.column}`}>
+                    <strong className="text-ink">
+                      Row {problem.row}, {problem.column}
+                    </strong>{" "}
+                    — {problem.problem}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="mt-2">
+              Nothing in the file was applied, so the payroll is exactly as it
+              was. Fix those rows and upload it again.
+            </p>
+          </Callout>
+        )}
 
-        A *success* is not here at all: it goes to the wizard's toast, because
-        applying rebuilds the run and this whole subtree is unmounted while it
-        does. See `onApplied`.
-      */}
-      {refused && (
-        <Callout tone="danger" title="That sheet was not applied">
-          <p>{refused.message}</p>
-          {refused.problems.length > 0 && (
-            <ul className="mt-2 flex flex-col gap-1">
-              {refused.problems.map((problem) => (
-                <li key={`${String(problem.row)}-${problem.column}`}>
-                  <strong className="text-ink">
-                    Row {problem.row}, {problem.column}
-                  </strong>{" "}
-                  — {problem.problem}
-                </li>
-              ))}
-            </ul>
+        <p className="text-body-sm text-muted">
+          Downloads with everybody on this payroll already in it — staff number,
+          name, contact, department, whether an account is on file, plus the figures
+          the run holds now. Fill in overtime hours, a bonus, a tax figure or a
+          new monthly salary, and upload it back.
+        </p>
+
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => download("xlsx")}
+          >
+            <Download aria-hidden="true" className="size-4" />
+            Download for Excel
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => download("csv")}
+          >
+            <Download aria-hidden="true" className="size-4" />
+            Download as CSV
+          </Button>
+          {editable && (
+            <>
+              <input
+                ref={input}
+                type="file"
+                accept=".csv,.xlsx,.xls"
+                className="sr-only"
+                aria-label="Upload a filled-in payroll sheet"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) void read(file);
+                }}
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                disabled={reading || sending}
+                onClick={() => input.current?.click()}
+              >
+                {reading ? (
+                  <Spinner size="sm" />
+                ) : (
+                  <Upload aria-hidden="true" className="size-4" />
+                )}
+                Upload a filled-in sheet
+              </Button>
+            </>
           )}
-          <p className="mt-2">
-            Nothing in the file was applied, so the payroll is exactly as it
-            was. Fix those rows and upload it again.
-          </p>
-        </Callout>
-      )}
+        </div>
 
-      <Disclosure
-        level={2}
-        title="Work this payroll in a spreadsheet"
-        meta={`${String(sources.length)} ${sources.length === 1 ? "person" : "people"}, filled in`}
-      >
-        <div className="flex flex-col gap-4">
+        <p className="text-meta text-muted">{SHEET_BLANK_RULE}</p>
+
+        {!editable && (
           <p className="text-body-sm text-muted">
-            Downloads with everybody on this payroll already in it — staff
-            number, name, contact, department, bank and account number, plus the
-            figures the run holds now. Fill in overtime hours, a bonus, a tax
-            figure or a new monthly salary, and upload it back.
+            This payroll is settled, so its figures cannot be changed. The
+            download still works — it is a record of what was paid.
           </p>
+        )}
 
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => download("xlsx")}
-            >
-              <Download aria-hidden="true" className="size-4" />
-              Download for Excel
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => download("csv")}
-            >
-              <Download aria-hidden="true" className="size-4" />
-              Download as CSV
-            </Button>
-            {editable && (
+        {parsed && summary && (
+          <div className="flex flex-col gap-3 rounded-lg border border-line bg-canvas p-4">
+            <p className="text-body-sm font-medium text-ink">
+              {filename} — read, not yet applied
+            </p>
+
+            {parsed.problems.length > 0 ? (
               <>
-                <input
-                  ref={input}
-                  type="file"
-                  accept=".csv,.xlsx,.xls"
-                  className="sr-only"
-                  aria-label="Upload a filled-in payroll sheet"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    if (file) void read(file);
-                  }}
-                />
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  disabled={reading || sending}
-                  onClick={() => input.current?.click()}
-                >
-                  {reading ? (
-                    <Spinner size="sm" />
-                  ) : (
-                    <Upload aria-hidden="true" className="size-4" />
+                <ul className="flex flex-col gap-1 text-body-sm text-danger-text">
+                  {parsed.problems.map((problem) => (
+                    <li key={`${String(problem.row)}-${problem.column}`}>
+                      {problem.row > 0 ? `Row ${String(problem.row)}: ` : ""}
+                      {problem.problem}
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-body-sm text-muted">
+                  Fix those and choose the file again.
+                </p>
+              </>
+            ) : (
+              <>
+                <ul className="flex flex-col gap-1 text-body-sm text-body">
+                  <li>
+                    <strong className="tabular text-ink">
+                      {summary.changing}
+                    </strong>{" "}
+                    {summary.changing === 1 ? "person" : "people"} with a figure
+                    that moves
+                  </li>
+                  {summary.clearing > 0 && (
+                    <li>
+                      <strong className="tabular text-ink">
+                        {summary.clearing}
+                      </strong>{" "}
+                      with a figure taken off, from a cell left empty
+                    </li>
                   )}
-                  Upload a filled-in sheet
-                </Button>
+                  <li className="text-muted">
+                    <span className="tabular">{summary.unchanged}</span>{" "}
+                    unchanged
+                  </li>
+                </ul>
+
+                <p className="text-meta text-muted">
+                  Reading{" "}
+                  {parsed.carried.map((column, at) => (
+                    <span key={column}>
+                      {at > 0 ? ", " : ""}
+                      <code className="text-ink">{column}</code>
+                    </span>
+                  ))}
+                  .{" "}
+                  {parsed.ignored.length > 0 &&
+                    `Ignoring ${parsed.ignored.join(", ")}. `}
+                  Every other figure on the payroll is left alone.
+                </p>
+
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    disabled={sending || total === 0}
+                    onClick={() => void send()}
+                  >
+                    {sending && <Spinner size="sm" />}
+                    {total === 0
+                      ? "Nothing in this file changes anything"
+                      : `Apply to ${String(total)} ${total === 1 ? "person" : "people"}`}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={sending}
+                    onClick={() => {
+                      setParsed(null);
+                      setFilename(null);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
               </>
             )}
           </div>
-
-          <p className="text-meta text-muted">{SHEET_BLANK_RULE}</p>
-
-          {!editable && (
-            <p className="text-body-sm text-muted">
-              This payroll is settled, so its figures cannot be changed. The
-              download still works — it is a record of what was paid.
-            </p>
-          )}
-
-          {parsed && summary && (
-            <div className="flex flex-col gap-3 rounded-lg border border-line bg-canvas p-4">
-              <p className="text-body-sm font-medium text-ink">
-                {filename} — read, not yet applied
-              </p>
-
-              {parsed.problems.length > 0 ? (
-                <>
-                  <ul className="flex flex-col gap-1 text-body-sm text-danger-text">
-                    {parsed.problems.map((problem) => (
-                      <li key={`${String(problem.row)}-${problem.column}`}>
-                        {problem.row > 0 ? `Row ${String(problem.row)}: ` : ""}
-                        {problem.problem}
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="text-body-sm text-muted">
-                    Fix those and choose the file again.
-                  </p>
-                </>
-              ) : (
-                <>
-                  <ul className="flex flex-col gap-1 text-body-sm text-body">
-                    <li>
-                      <strong className="tabular text-ink">
-                        {summary.changing}
-                      </strong>{" "}
-                      {summary.changing === 1 ? "person" : "people"} with a
-                      figure that moves
-                    </li>
-                    {summary.clearing > 0 && (
-                      <li>
-                        <strong className="tabular text-ink">
-                          {summary.clearing}
-                        </strong>{" "}
-                        with a figure taken off, from a cell left empty
-                      </li>
-                    )}
-                    <li className="text-muted">
-                      <span className="tabular">{summary.unchanged}</span>{" "}
-                      unchanged
-                    </li>
-                  </ul>
-
-                  <p className="text-meta text-muted">
-                    Reading{" "}
-                    {parsed.carried.map((column, at) => (
-                      <span key={column}>
-                        {at > 0 ? ", " : ""}
-                        <code className="text-ink">{column}</code>
-                      </span>
-                    ))}
-                    .{" "}
-                    {parsed.ignored.length > 0 &&
-                      `Ignoring ${parsed.ignored.join(", ")}. `}
-                    Every other figure on the payroll is left alone.
-                  </p>
-
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      variant="primary"
-                      size="sm"
-                      disabled={sending || total === 0}
-                      onClick={() => void send()}
-                    >
-                      {sending && <Spinner size="sm" />}
-                      {total === 0
-                        ? "Nothing in this file changes anything"
-                        : `Apply to ${String(total)} ${total === 1 ? "person" : "people"}`}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      disabled={sending}
-                      onClick={() => {
-                        setParsed(null);
-                        setFilename(null);
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-        </div>
-      </Disclosure>
-    </div>
+        )}
+      </div>
+    </Modal>
   );
 }

@@ -22,7 +22,7 @@ export const EQUIPMENT_IMPORT_SURFACE: ImportSurface = {
   dictionary: EQUIPMENT,
   title: "Import your equipment register",
   breadcrumb: [
-    { href: "/people", label: "Directory" },
+    { href: "/people", label: "Employees" },
     { href: "/people/assets", label: "Equipment" },
   ],
   home: { href: "/people/assets", label: "See your equipment" },

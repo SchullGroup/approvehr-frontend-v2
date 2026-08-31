@@ -1,7 +1,13 @@
 "use client";
 
 import { sourceNote } from "@/lib/demo";
-import { AlertTriangle, Check, Scale, ShieldAlert, UserMinus } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  Scale,
+  ShieldAlert,
+  UserMinus,
+} from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useMoneyHidden } from "@/lib/store/money-privacy";
 import {
@@ -135,8 +141,8 @@ export function ExceptionList({
   if (exceptions.length === 0) {
     return (
       <Callout tone="success" title="Nothing to fix">
-        Every record has what payroll needs, and the figures add up. This run can
-        be approved.
+        Every record has what payroll needs, and the figures add up. This run
+        can be approved.
       </Callout>
     );
   }
@@ -148,13 +154,6 @@ export function ExceptionList({
           blockers.length > 0
             ? "Fix these before approving"
             : "Worth a look before approving"
-        }
-        description={
-          blockers.length > 0
-            ? `${blockers.length} ${blockers.length === 1 ? "stops" : "stop"} the run. ` +
-              `${warnings.length} ${warnings.length === 1 ? "does" : "do"} not.`
-            : `${warnings.length} ${warnings.length === 1 ? "thing" : "things"} to check. ` +
-              `None of them stops the run.`
         }
         action={onRecheck}
       />
@@ -224,19 +223,33 @@ function groupByCode(exceptions: RunException[]): ExceptionGroup[] {
  */
 const GROUP_TITLE: Record<string, (n: number) => string> = {
   excluded_from_payroll: (n) =>
-    n === 1 ? "1 person is not on this payroll" : `${String(n)} people are not on this payroll`,
+    n === 1
+      ? "1 person is not on this payroll"
+      : `${String(n)} people are not on this payroll`,
   missing_pension_pin: (n) =>
-    n === 1 ? "1 person has no pension PIN" : `${String(n)} people have no pension PIN`,
+    n === 1
+      ? "1 person has no pension PIN"
+      : `${String(n)} people have no pension PIN`,
   missing_tax_state: (n) =>
-    n === 1 ? "1 person has no PAYE state" : `${String(n)} people have no PAYE state`,
+    n === 1
+      ? "1 person has no PAYE state"
+      : `${String(n)} people have no PAYE state`,
   rent_relief_unclaimed: (n) =>
-    n === 1 ? "1 person has not declared rent" : `${String(n)} people have not declared rent`,
+    n === 1
+      ? "1 person has not declared rent"
+      : `${String(n)} people have not declared rent`,
   overtime_awaiting_approval: (n) =>
-    n === 1 ? "1 overtime entry is unapproved" : `${String(n)} overtime entries are unapproved`,
+    n === 1
+      ? "1 overtime entry is unapproved"
+      : `${String(n)} overtime entries are unapproved`,
   overtime_entered_by_hand: (n) =>
-    n === 1 ? "1 person's overtime was entered by hand" : `${String(n)} people's overtime was entered by hand`,
+    n === 1
+      ? "1 person's overtime was entered by hand"
+      : `${String(n)} people's overtime was entered by hand`,
   no_attendance_all_period: (n) =>
-    n === 1 ? "1 person has no attendance at all" : `${String(n)} people have no attendance at all`,
+    n === 1
+      ? "1 person has no attendance at all"
+      : `${String(n)} people have no attendance at all`,
 };
 
 function groupTitle(group: ExceptionGroup): string {
@@ -350,15 +363,15 @@ function ExceptionRow({
       )}
     >
       {!quiet && (
-      <span
-        aria-hidden="true"
-        className={cn(
-          "mt-0.5 shrink-0 [&>svg]:size-4",
-          blocking ? "text-danger-text" : "text-warning-text",
-        )}
-      >
-        {blocking ? <ShieldAlert /> : <AlertTriangle />}
-      </span>
+        <span
+          aria-hidden="true"
+          className={cn(
+            "mt-0.5 shrink-0 [&>svg]:size-4",
+            blocking ? "text-danger-text" : "text-warning-text",
+          )}
+        >
+          {blocking ? <ShieldAlert /> : <AlertTriangle />}
+        </span>
       )}
       <div className="min-w-0 flex-1">
         <p className="text-body-sm leading-relaxed text-ink">
@@ -443,50 +456,51 @@ export function ExcludedList({
         level={3}
         meta={
           <span className="text-meta font-semibold text-muted">
-            {exclusions.length}{" "}
-            {exclusions.length === 1 ? "person" : "people"}
+            {exclusions.length} {exclusions.length === 1 ? "person" : "people"}
           </span>
         }
         hint="Left off deliberately, with the reason recorded. Everybody here is back on next period's payroll automatically — nothing has to remember to put them there."
       >
-      <div className="flex flex-col gap-2.5">
-        {exclusions.map((exclusion) => (
-          <div
-            key={exclusion.id}
-            className="flex flex-wrap items-start gap-3 rounded-md border border-line p-3"
-          >
-            <span
-              aria-hidden="true"
-              className="mt-0.5 shrink-0 text-muted [&>svg]:size-4"
+        <div className="flex flex-col gap-2.5">
+          {exclusions.map((exclusion) => (
+            <div
+              key={exclusion.id}
+              className="flex flex-wrap items-start gap-3 rounded-md border border-line p-3"
             >
-              <UserMinus />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-body-sm font-medium text-ink">{exclusion.name}</p>
-              <p className="mt-0.5 text-body-sm leading-relaxed text-body">
-                {exclusion.reason}
-              </p>
-              <p className="mt-1 text-meta leading-relaxed text-muted">
-                {exclusion.decidedBy
-                  ? `Decided by ${exclusion.decidedBy}`
-                  : "Decided by somebody with no employee record"}{" "}
-                on {exclusion.excludedAt.slice(0, 10)}
-              </p>
-            </div>
-            {onPutBack && (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => onPutBack(exclusion)}
-                loading={busyFor === exclusion.employeeId}
-                disabled={busyFor !== null && busyFor !== undefined}
+              <span
+                aria-hidden="true"
+                className="mt-0.5 shrink-0 text-muted [&>svg]:size-4"
               >
-                Put back on this payroll
-              </Button>
-            )}
-          </div>
-        ))}
-      </div>
+                <UserMinus />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-body-sm font-medium text-ink">
+                  {exclusion.name}
+                </p>
+                <p className="mt-0.5 text-body-sm leading-relaxed text-body">
+                  {exclusion.reason}
+                </p>
+                <p className="mt-1 text-meta leading-relaxed text-muted">
+                  {exclusion.decidedBy
+                    ? `Decided by ${exclusion.decidedBy}`
+                    : "Decided by somebody with no employee record"}{" "}
+                  on {exclusion.excludedAt.slice(0, 10)}
+                </p>
+              </div>
+              {onPutBack && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => onPutBack(exclusion)}
+                  loading={busyFor === exclusion.employeeId}
+                  disabled={busyFor !== null && busyFor !== undefined}
+                >
+                  Put back on this payroll
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
       </Disclosure>
     </Card>
   );
@@ -604,10 +618,16 @@ export function TotalsPanel({ run }: { run: PayrollRun }) {
             it is one of the two ways the abolished-relief bug read. `notOperated`
             names them under the totals instead. */}
         {wasDeducted(run.operates, "paye") && (
-          <TotalRow label="PAYE to state revenue services" kobo={run.payeKobo} />
+          <TotalRow
+            label="PAYE to state revenue services"
+            kobo={run.payeKobo}
+          />
         )}
         {wasDeducted(run.operates, "pension") && (
-          <TotalRow label="Pension — employee share" kobo={run.pensionEmployeeKobo} />
+          <TotalRow
+            label="Pension — employee share"
+            kobo={run.pensionEmployeeKobo}
+          />
         )}
         {wasDeducted(run.operates, "nhf") && (
           <TotalRow label="National Housing Fund" kobo={run.nhfKobo} />
@@ -629,12 +649,16 @@ export function TotalsPanel({ run }: { run: PayrollRun }) {
               .join(", ")
               .replace(/, ([^,]*)$/, " or $1")}
             . This payroll did not deduct{" "}
-            {notOperated(run.operates).length === 1 ? "it" : "them"}, so there is
-            no schedule to file.
+            {notOperated(run.operates).length === 1 ? "it" : "them"}, so there
+            is no schedule to file.
           </p>
         )}
         <div className="mt-1 border-t border-line pt-3">
-          <TotalRow label="Total cost to the company" kobo={run.totalCostKobo} strong />
+          <TotalRow
+            label="Total cost to the company"
+            kobo={run.totalCostKobo}
+            strong
+          />
         </div>
       </CardBody>
     </Card>

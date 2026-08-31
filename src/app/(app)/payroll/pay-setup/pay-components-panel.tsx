@@ -219,7 +219,6 @@ export function PayComponentsPanel({
                 ? "once a monthly salary is set"
                 : "after PAYE, pension and NHF"
             }
-            strong
           />
         </div>
 
@@ -374,24 +373,15 @@ function Figure({
   label,
   value,
   hint,
-  strong = false,
 }: {
   label: string;
   value: string;
   hint?: string;
-  strong?: boolean;
 }) {
   return (
     <div className="min-w-0">
       <p className="text-meta font-medium text-muted">{label}</p>
-      <p
-        className={cn(
-          "tabular mt-1 truncate text-ink",
-          strong ? "text-h4" : "text-body-sm font-semibold",
-        )}
-      >
-        {value}
-      </p>
+      <p className="tabular mt-1 truncate text-h4 text-ink">{value}</p>
       {hint && <p className="mt-0.5 text-meta text-faint">{hint}</p>}
     </div>
   );
@@ -557,6 +547,22 @@ function AddLineDialog({
         }
       : {};
   const preview = usePayPreview(employeeId, change);
+
+  /**
+   * Whether the figure on screen is still an answer to what is typed.
+   *
+   * Debouncing alone leaves **last keystroke's answer sitting beside an input
+   * that has already moved** — a wrong number wearing a right number's label,
+   * on a panel whose entire job is "what does this do to their take-home".
+   * `usePayslipQuote` solves the same problem by matching the answer against
+   * the live key rather than the debounced one; this panel could not, because
+   * the request key *is* the debounced value.
+   *
+   * So it is reported instead: while the two disagree, the effect renders as
+   * loading. That is the honest state — a request either is in flight or is
+   * about to be, and neither is a figure worth reading.
+   */
+  const stale = settledAmount !== amountKobo || settledRate !== rate;
 
   /** The preview always prices a full month. Say so when the start is later. */
   const startsLater =
@@ -766,8 +772,12 @@ function AddLineDialog({
             {resolvable &&
               (preview.available ? (
                 <ChangeEffect
-                  change={preview.data?.change ?? null}
-                  loading={preview.loading}
+                  /* Withheld while it is not an answer to what is typed —
+                     see `stale`. Null rather than the previous figure: an
+                     absent number reads as "working it out", and a stale one
+                     reads as the answer. */
+                  change={stale ? null : (preview.data?.change ?? null)}
+                  loading={preview.loading || stale}
                   {...(startsLater
                     ? {
                         note: `It starts ${shortDate(draft.from)}, so this is the effect on a full month from then.`,

@@ -35,6 +35,8 @@ import {
   useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
+import { useCan } from "@/lib/permissions";
+import { useSession } from "@/lib/store/session";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import type { KbArticleListParams } from "@/lib/api/knowledge";
@@ -99,8 +101,20 @@ const SORTS: Record<Order, { sort: KbArticleListParams["sort"]; order: "asc" | "
 
 export function KnowledgeScreen() {
   const toast = useToast();
+  const { isConnected } = useSession();
+  /* `GET /knowledge/analytics` is MANAGE_SETTINGS on the API, and so is every
+     write this screen offers — publishing, hiding, editing. Without a gate the
+     four figures below came back 403 and rendered as four zeros above a list
+     of six articles that had plainly been read, and every write control was
+     offered to somebody the API would refuse. */
+  const canManage = useCan("MANAGE_SETTINGS");
   const sections = useKbCategories();
-  const { analytics, loading: analyticsLoading, unavailable } = useKbAnalytics();
+  const {
+    analytics,
+    loading: analyticsLoading,
+    unavailable,
+    error: analyticsError,
+  } = useKbAnalytics();
 
   const [filter, setFilter] = useState<Filter>("all");
   const [order, setOrder] = useState<Order>("views");
@@ -131,6 +145,40 @@ export function KnowledgeScreen() {
   const done = (title: string) => toast.push({ title, tone: "success" });
 
   const totals = analytics?.totals;
+
+  /**
+   * After the hooks, never before — a hook cannot be called conditionally, so
+   * the request itself is stopped inside `useKbAnalytics`. Same shape and same
+   * reasoning as `/settings/announcements`.
+   *
+   * The help centre is the right place to send somebody: `/help/kb` is
+   * readable by every signed-in person, and reading the articles is what they
+   * came for.
+   */
+  if (isConnected && !canManage) {
+    return (
+      <>
+        <PageHeader
+          title="Help articles"
+          breadcrumb={[{ href: "/settings", label: "Settings" }]}
+        />
+        <PageBody>
+          <Card>
+            <EmptyState
+              icon={<BookOpen aria-hidden="true" />}
+              title="Maintaining the help articles is not part of your access"
+              description="Writing an article, taking one down and seeing how often each is read needs the settings permission. The articles themselves are in the help centre — everybody can read those."
+              action={
+                <ButtonLink href="/help/kb" variant="accent">
+                  Open the help centre
+                </ButtonLink>
+              }
+            />
+          </Card>
+        </PageBody>
+      </>
+    );
+  }
 
   return (
     <>
@@ -164,18 +212,33 @@ export function KnowledgeScreen() {
           </Callout>
         )}
 
+        {/* A refusal here can no longer be a permission one — the gate above
+            catches that — so it is a genuine failure and says so, instead of
+            being swallowed into four dashes with no reason beside them. */}
+        {analyticsError && (
+          <LoadFailure subject="the article figures" error={analyticsError} />
+        )}
+
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Stat label="Articles" value={count(totals?.published ?? 0)} hint="live" />
+          {/* `?? 0` was a measurement claimed over a figure nobody read. A
+              refused or failed analytics call now says so rather than
+              publishing four zeros above a list of articles that contradicts
+              them. `count` still handles a genuine nought. */}
+          <Stat
+            label="Articles"
+            value={totals ? count(totals.published) : "\u2014"}
+            hint={totals ? "live" : "not counted"}
+          />
           <Stat
             label="Drafts"
-            value={count(totals?.drafts ?? 0)}
-            hint="not visible to staff"
+            value={totals ? count(totals.drafts) : "\u2014"}
+            hint={totals ? "not visible to staff" : "not counted"}
           />
-          <Stat label="Reads" value={count(totals?.views ?? 0)} />
+          <Stat label="Reads" value={totals ? count(totals.views) : "\u2014"} />
           <Stat
             label="Never opened"
-            value={count(totals?.neverRead ?? 0)}
-            hint="published, no reads"
+            value={totals ? count(totals.neverRead) : "\u2014"}
+            hint={totals ? "published, no reads" : "not counted"}
           />
         </div>
 

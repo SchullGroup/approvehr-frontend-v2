@@ -155,9 +155,13 @@ export function KpisTab({
   );
   const measures = kpis.goals.flatMap((goal) => goal.keyResults);
   const hit = measures.filter((measure) => measure.met).length;
+  /* Null, not 0. A mean over nothing is not zero progress — it is no progress
+     recorded, and the two read identically on a Stat while meaning opposite
+     things. Same rule the module's own `period-status.tsx` states with
+     `notYet`. */
   const average =
     tracked.length === 0
-      ? 0
+      ? null
       : Math.round(
           tracked.reduce(
             (sum, goal) => sum + (goal.measuredProgress ?? goal.progress),
@@ -203,12 +207,13 @@ export function KpisTab({
         <Stat label="KPIs being tracked" value={String(tracked.length)} />
         <Stat
           label="Average progress"
-          value={`${average}%`}
-          hint={
-            tracked.length === 1
-              ? "across 1 KPI"
-              : `across ${tracked.length} KPIs`
-          }
+          value={average === null ? "Nothing tracked yet" : `${average}%`}
+          {...(average === null
+            ? {}
+            : {
+                hint:
+                  tracked.length === 1 ? "across 1 KPI" : `across ${tracked.length} KPIs`,
+              })}
         />
         <Stat
           label="Needs attention"
@@ -219,7 +224,8 @@ export function KpisTab({
         />
         <Stat
           label="Measures at target"
-          value={`${hit} of ${measures.length}`}
+          /* "0 of 0" is a measurement of a set nobody has created. */
+          value={measures.length === 0 ? "None set yet" : `${hit} of ${measures.length}`}
         />
       </div>
 

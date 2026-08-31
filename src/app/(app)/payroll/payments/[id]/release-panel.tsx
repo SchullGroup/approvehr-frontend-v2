@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowDownToLine, Ban, Send } from "lucide-react";
+import { ArrowDownToLine, Ban, CheckCircle2, Send } from "lucide-react";
 import {
   Button,
   Card,
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui";
 import { naira, type ApiBatchDetail } from "@/lib/api/payments";
 import { BATCH_STATUS } from "@/lib/store/payments";
+import { RecordPaidDialog } from "@/components/payroll/record-paid-dialog";
 import { people } from "../format";
 
 /**
@@ -78,6 +79,7 @@ export function ReleasePanel({
 }) {
   const [confirming, setConfirming] = useState<"approve" | "release" | null>(null);
   const [stopping, setStopping] = useState(false);
+  const [recording, setRecording] = useState(false);
 
   const total = formatMoney(naira(batch.computedTotalKobo), "NGN", { decimals: true });
   const headcount = people(batch.itemCount);
@@ -176,6 +178,39 @@ export function ReleasePanel({
                   )}
                 </div>
               )}
+
+              {/* The other end of the file, and the only thing that ever takes
+                  this money out of the wallet while no provider is wired.
+                  ---------------------------------------------------------
+                  Downloading is not paying. The bank moves the money, outside
+                  this product and unobservable from it, so somebody has to say
+                  it happened — and this is one of the two places the thought
+                  occurs, the other being the run the file came from. Both open
+                  the same dialog, deliberately: a form that records a date a
+                  ledger line is stamped with must not exist twice.
+
+                  Quieter than both controls above and under a question about
+                  the past, because the one thing it must never look like is a
+                  third way to pay. `APPROVE_PAYROLL`, matching the API —
+                  saying money left the company is a finance act. */}
+              {canApprove && (
+                <div className="flex flex-col gap-2 border-t border-line pt-4">
+                  <p className="text-meta text-muted">
+                    Uploaded this file to your bank and watched it go through?
+                  </p>
+                  <div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={busy}
+                      onClick={() => setRecording(true)}
+                    >
+                      <CheckCircle2 aria-hidden="true" className="size-4" />
+                      Record that your bank paid this
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -259,6 +294,22 @@ export function ReleasePanel({
           onStop={async (reason) => {
             await onCancel(reason);
             setStopping(false);
+          }}
+        />
+      )}
+
+      {recording && (
+        <RecordPaidDialog
+          batchId={batch.id}
+          reference={batch.reference}
+          amountKobo={batch.computedTotalKobo}
+          people={headcount}
+          onClose={() => setRecording(false)}
+          onRecorded={() => {
+            /* Nothing to refetch by hand: `markPaid` bumps the store's
+               revision, so the batch this screen is rendering re-reads itself
+               and comes back COMPLETED. */
+            setRecording(false);
           }}
         />
       )}

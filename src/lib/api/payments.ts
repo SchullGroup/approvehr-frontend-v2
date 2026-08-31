@@ -112,6 +112,39 @@ export type ApiBankAccount = {
   addedOn: string;
 };
 
+/** One row of `GET /payments/banks`. */
+export type ApiDirectoryBank = {
+  /** NIBSS. Not what the account check wants. */
+  bankCode: string;
+  /** CBN. This is the one to send, and what `NIGERIAN_BANKS[].code` holds. */
+  cbnCode: string;
+  name: string;
+  shortName: string;
+};
+
+/**
+ * What came back from an account check — **three states, not two**.
+ *
+ * `checked: false` is the one that is easy to render as a failure and must not
+ * be. It means nobody was asked: no payment provider is connected for this
+ * company, which is the state this product ships in. The API says so itself and
+ * adds "It can still be saved" — an unverifiable account has to stay recordable,
+ * or a company with no provider could not pay anybody.
+ *
+ * So: confirmed, wrong, and *not checked*. Collapsing the third into either of
+ * the other two is a claim nobody made.
+ */
+export type AccountCheckResult = {
+  /** Whether anybody was actually asked. */
+  checked: boolean;
+  /** Only meaningful when `checked`. */
+  verified: boolean;
+  /** The name the bank holds. Null unless confirmed. */
+  accountName: string | null;
+  /** The API's own words for why. Rendered as sent. */
+  reason?: string | null;
+};
+
 export type ApiAccountList = {
   rows: ApiBankAccount[];
   primaryId: string | null;
@@ -265,6 +298,22 @@ export type ApiBatchApproved = {
   fileHref: string;
 };
 
+/**
+ * What recording a bank payment did.
+ *
+ * `settled` is what this call moved; `alreadySettled` is what it left alone.
+ * Kept apart so a screen can say "already recorded" rather than claiming it
+ * paid the same people twice.
+ */
+export type ApiBatchRecordedPaid = {
+  batchId: string;
+  reference: string;
+  settled: number;
+  alreadySettled: number;
+  status: PaymentBatchStatus;
+  totalKobo: number;
+};
+
 export type ApiBatchCancelled = {
   id: string;
   reference: string;
@@ -389,6 +438,48 @@ export type PaymentHistoryParams = {
  * "nothing has happened to this instruction" is exactly the state the bank-file
  * route leaves every row in.
  */
+/**
+ * The wallet's headline figure, worded for whichever side of zero it is on.
+ *
+ * `availableKobo` is the balance less what is already promised, and the API
+ * returns it **negative** when a company has approved more than it holds —
+ * deliberately, because "you cannot pay this" is not something anybody can act
+ * on while "you are ₦1,480,000 short" is a figure somebody takes to whoever
+ * funds the account.
+ *
+ * What the screens did with it was render it raw under the label "Available to
+ * pay with", so a company nine million short read **"Available to pay with
+ * −₦9,400,272.00"**. There is no such thing as a negative amount of money
+ * available: the fact is a shortfall, and a minus sign in front of a positive
+ * label is the reader's job to decode rather than the product's job to state.
+ *
+ * So the label moves with the sign and the amount is always rendered
+ * positive. Written here rather than in either screen because the run's pay
+ * panel and the wallet screen both show it, and two copies of a rule about
+ * money is how they come to disagree.
+ */
+export function availableFigure(availableKobo: number): {
+  label: string;
+  kobo: number;
+  hint: string;
+  short: boolean;
+} {
+  if (availableKobo < 0) {
+    return {
+      label: "Short by",
+      kobo: -availableKobo,
+      hint: "more is promised than the wallet holds",
+      short: true,
+    };
+  }
+  return {
+    label: "Available to pay with",
+    kobo: availableKobo,
+    hint: "after everything already promised",
+    short: false,
+  };
+}
+
 export function paymentOutcome(row: {
   status: PaymentInstructionStatus;
   batchStatus: PaymentBatchStatus;
@@ -522,6 +613,50 @@ export type ApiFundingRecorded = {
  * cached, because a stale copy of "can this company pay anybody" is the one
  * thing this payload must not carry. Render from it.
  */
+/**
+ * What the wallet holds, and where money goes into it.
+ *
+ * ## Derived from the ledger, never stored
+ *
+ * There is no balance column on the API and there must not be one. A stored
+ * total is a second copy of a fact, and the day it disagrees with the entries
+ * there is no way to tell which is wrong.
+ *
+ * ## Four figures, because a balance alone is not the question
+ *
+ * What matters before releasing a payroll is not what has left the account —
+ * it is what is left **after** everything already approved and not yet settled.
+ * Approving two payrolls in a morning is ordinary; if both asked only "is the
+ * balance enough", both would say yes and the second would fail at the
+ * provider, after the runs were approved and the figures frozen.
+ *
+ * `availableKobo` can be negative and is reported rather than clamped.
+ */
+export type ApiWallet = {
+  fundedKobo: number;
+  paidOutKobo: number;
+  /** Funded less paid out. What a bank statement would show. */
+  balanceKobo: number;
+  /** Approved or submitted and not yet settled. Promised, not gone. */
+  committedKobo: number;
+  /** Balance less commitments. What a new payroll may draw on. */
+  availableKobo: number;
+  /**
+   * The collection accounts this company was given, active ones only.
+   *
+   * **Empty is ordinary, not an error.** A company on the bank-file path has
+   * never needed one, and the screen says "no account yet" and who to ask. What
+   * it must never do is invent a number — money sent to a made-up account
+   * arrives somewhere real and is attributed to nobody.
+   */
+  fundingAccounts: {
+    provider: string;
+    accountNumber: string;
+    accountName: string;
+    bankName: string;
+  }[];
+};
+
 export type ApiPaymentsSummary = {
   provider: { connected: boolean; name: string | null; note: string | null };
   primaryAccount: ApiBankAccount | null;
@@ -672,6 +807,46 @@ const ledgerQuery = (params: LedgerListParams) => ({
 export const paymentsApi = {
   /* ------------------------------------------------------------- accounts */
 
+  /**
+   * The banks the API will accept a code for.
+   *
+   * NOT the picker's list. `lib/reference/banks.ts` holds 255 banks from
+   * Paystack's public register and stays the thing somebody chooses from —
+   * this one holds 48, and swapping the picker to it would mean staff banking
+   * with Moniepoint or PalmPay could not be selected at all.
+   *
+   * What this is for is the account check, which takes a `cbnCode` and refuses
+   * one it does not hold. So it answers exactly one question: *can this bank's
+   * account be confirmed?* Where the answer is no, the screen says so rather
+   * than pretending the check is unavailable generally.
+   */
+  banks: (signal?: AbortSignal) =>
+    request<ApiDirectoryBank[]>("/payments/banks", {
+      ...(signal ? { signal } : {}),
+    }),
+
+  /**
+   * Confirm an account number belongs to the name somebody typed.
+   *
+   * `bankCode` here is the **CBN** code, which is what `lib/reference/banks.ts`
+   * stores as `code` — the API's own refusal is explicit that it is
+   * "the `cbnCode` field, not `bankCode`", and the two look alike. Sending the
+   * wrong one returns a confirmation for an account at a different bank, which
+   * is worse than no check at all.
+   *
+   * Answers 200 in every ordinary case, including when it could not check.
+   * See `AccountCheckResult` for why that is three states rather than two.
+   */
+  verifyAccount: (
+    body: { bankCode: string; accountNumber: string },
+    signal?: AbortSignal,
+  ) =>
+    request<AccountCheckResult>("/payments/account-verification", {
+      method: "POST",
+      body,
+      ...(signal ? { signal } : {}),
+    }),
+
   accounts: (includeArchived = false, signal?: AbortSignal) =>
     request<ApiAccountList>("/payments/accounts", {
       query: { includeArchived: includeArchived ? "true" : "false" },
@@ -727,6 +902,24 @@ export const paymentsApi = {
    */
   release: (id: string) =>
     request<ApiBatchSubmitted>(`/payments/batches/${id}/submit`, { method: "POST" }),
+
+  /**
+   * Record that a bank paid this batch.
+   *
+   * **Moves no money and talks to no bank.** Somebody downloaded the file,
+   * uploaded it, watched it go, and is telling the product what happened —
+   * which is the only way the wallet's balance comes down on the path that
+   * actually ships, since nothing settles without a provider webhook.
+   *
+   * `paidOn` is the date the bank paid, not the date somebody typed this:
+   * recording on Monday what happened on Friday is the ordinary case, and the
+   * ledger line is one somebody later reconciles against a statement.
+   */
+  markPaid: (id: string, body: { paidOn?: string; reference?: string } = {}) =>
+    request<ApiBatchRecordedPaid>(`/payments/batches/${id}/mark-paid`, {
+      method: "POST",
+      body,
+    }),
 
   cancel: (id: string, reason?: string) =>
     request<ApiBatchCancelled>(`/payments/batches/${id}/cancel`, {
@@ -833,6 +1026,10 @@ export const paymentsApi = {
       method: "POST",
       body,
     }),
+
+  /** The wallet: what is in it, what is spoken for, and where money goes in. */
+  wallet: (signal?: AbortSignal) =>
+    request<ApiWallet>("/payments/wallet", { ...(signal ? { signal } : {}) }),
 
   summary: (signal?: AbortSignal) =>
     request<ApiPaymentsSummary>("/payments/summary", {

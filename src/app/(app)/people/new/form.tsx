@@ -57,6 +57,8 @@ import { NO_DEPARTMENT } from "@/lib/store/demo-structure";
 import { useDepartments } from "@/lib/store/departments";
 import { useOrgTaxState } from "@/lib/store/company";
 import { NIGERIAN_BANKS } from "@/lib/reference/banks";
+import { useAccountCheck } from "@/lib/store/account-check";
+import { AccountCheckLine } from "@/components/payments/account-check-line";
 import {
   NIGERIAN_STATES,
   PENSION_PROVIDER_OTHER,
@@ -314,6 +316,12 @@ export function NewEmployeeForm() {
     pensionSetup: false,
     bankDetails: false,
   });
+  /* Advisory, and deliberately compared against the person being added rather
+     than a typed account name: this form has no "name on the account" field,
+     and the question worth asking here is whether the number belongs to *them*.
+     A real account owned by somebody else is the failure this catches. */
+  const accountCheck = useAccountCheck(draft.bankName, draft.bankAccount);
+
   const [errors, setErrors] = useState<FormError[]>([]);
   const [busy, setBusy] = useState(false);
   /* Hidden once the person has resumed, discarded, or saved — after any of the
@@ -739,6 +747,19 @@ export function NewEmployeeForm() {
          with no email would otherwise fail on that refusal with no field on
          screen to explain it. */
       canLogin: draft.email.trim() !== "",
+      /* And send them the invitation, when there is somewhere to send it.
+         ------------------------------------------------------------------
+         Recording a work address on a staff form is the intent to give
+         somebody a login — there is no other reason to type one here — so
+         this stops making somebody ask twice, once on this form and again
+         from the directory.
+
+         Sent as an instruction rather than inferred by the API, which is why
+         there is a flag at all: `POST /employees` must not send mail as a side
+         effect for every other caller. The consequence is stated on the form
+         beside the email field, so it is a decision somebody can see and undo
+         before the click rather than find in a sent folder. */
+      invite: draft.email.trim() !== "",
       status: draft.status,
       employmentType: draft.employmentType,
       /* Omitted rather than defaulted: the API falls back to the company's own
@@ -991,7 +1012,21 @@ export function NewEmployeeForm() {
                       onChange={(e) => set("middleName", e.target.value)}
                     />
                   </Field>
-                  <Field label="Work email" error={errorFor("email")}>
+                  {/* The consequence of filling this in, on the field that
+                      causes it. An address here sends an invitation on save,
+                      and somebody should meet that before they type rather
+                      than in a sent folder — the same discipline the setup
+                      wizard uses, where every answer that can be "No" carries
+                      the cost of that answer on the option itself. */}
+                  <Field
+                    label="Work email"
+                    error={errorFor("email")}
+                    help={
+                      draft.email.trim()
+                        ? "They will be emailed an invitation to set a password and sign in. Clear this to add them without one."
+                        : "Optional. Fill it in and they are emailed an invitation to their own portal when you save."
+                    }
+                  >
                     <Input
                       data-employee-field="email"
                       type="email"
@@ -1304,6 +1339,10 @@ export function NewEmployeeForm() {
                             value={draft.bankAccount}
                             onChange={(e) => set("bankAccount", e.target.value)}
                             placeholder="0123456789"
+                          />
+                          <AccountCheckLine
+                            check={accountCheck}
+                            typedName={`${draft.firstName} ${draft.lastName}`}
                           />
                         </Field>
                       </div>
@@ -2079,7 +2118,7 @@ function Row({
       <span
         className={
           strong
-            ? "tabular text-body font-semibold text-ink"
+            ? "tabular text-body font-semibold"
             : "tabular text-body-sm text-body"
         }
       >

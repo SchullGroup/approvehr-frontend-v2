@@ -354,7 +354,15 @@ function TodayView({
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat
           label="In today"
-          value={String(count("PRESENT") + count("LATE"))}
+          /* Anybody with a clock-in, not `PRESENT + LATE`.
+             `resolveDayStatus` returns REST_DAY and HOLIDAY *before* it looks
+             at `clockIn` — correct, and shared with payroll's `unpaidDaysFor`,
+             so the precedence must not change — but it means somebody who
+             turned up on a rest day or a public holiday is in neither count.
+             The headline read "In today 0 of 11" on a table showing a
+             09:05–17:30 beside it. The status column still says what the
+             server said; only this derived figure changes. */
+          value={String(roster.rows.filter((row) => row.clockIn).length)}
           hint={`of ${roster.rows.length} on the roster`}
         />
         <Stat

@@ -6,7 +6,7 @@ import { Logo } from "@/components/brand/logo";
  * The setup wizard's own route group — full screen, no `AppShell`.
  *
  * Setup used to render inside `(app)/layout.tsx`, which meant the sidebar and
- * topbar painted around it: a company mid-wizard could click "Directory" and
+ * topbar painted around it: a company mid-wizard could click "Employees" and
  * simply leave, which defeated the whole point of asking these questions
  * before the product's size is visible. `AppShell` is furniture for
  * navigating a product you can already see; the wizard is the thing deciding

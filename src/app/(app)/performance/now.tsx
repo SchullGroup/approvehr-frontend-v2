@@ -679,9 +679,16 @@ export function WhatNeedsYouTab({
           hint={
             record.length === 0
               ? "A manager's review reaches you when your rating is made final, or when the period is published — whichever comes first."
-              : answered.length > 0
-                ? `${answered.length === 1 ? "1 has" : `${answered.length} have`} been answered. Nothing here needs you.`
-                : "Yours to read. Nothing here needs you."
+              : owesAnswer.length > 0
+                ? /* Before the two "nothing here needs you" wordings, because
+                     an unanswered final rating is precisely something that
+                     does. A closed reveal saying nothing needs you, over a
+                     mark waiting to be acknowledged, is the failure mode a
+                     reveal has. */
+                  `${owesAnswer.length === 1 ? "1 is" : `${owesAnswer.length} are`} final and not answered yet.`
+                : answered.length > 0
+                  ? `${answered.length === 1 ? "1 has" : `${answered.length} have`} been answered. Nothing here needs you.`
+                  : "Yours to read. Nothing here needs you."
           }
           level={2}
         >

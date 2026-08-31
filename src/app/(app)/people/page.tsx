@@ -6,7 +6,7 @@ import { PageBody, PageHeader } from "@/components/portal/shell";
 import { Directory } from "./directory";
 
 export const metadata: Metadata = {
-  title: "Directory",
+  title: "Employees",
   description: "Everyone on the payroll, and the state of their record.",
 };
 
@@ -27,7 +27,7 @@ export default async function PeoplePage({
   return (
     <>
       <PageHeader
-        title="Directory"
+        title="Employees"
         action={
           <div className="flex flex-wrap items-center gap-2">
             {/* Adding people one at a time is the exception, not the rule:

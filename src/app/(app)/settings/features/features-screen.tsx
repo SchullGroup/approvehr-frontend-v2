@@ -170,7 +170,11 @@ export function FeaturesScreen() {
     return (
       <div key={key} className="py-4">
         <Switch
-          label={FEATURE_COPY[key].label}
+          label={
+            FEATURE_COPY[key].soon
+              ? `${FEATURE_COPY[key].label} — coming soon`
+              : FEATURE_COPY[key].label
+          }
           description={
             blocked ? `${FEATURE_COPY[key].line} ${needs.why}` : FEATURE_COPY[key].line
           }

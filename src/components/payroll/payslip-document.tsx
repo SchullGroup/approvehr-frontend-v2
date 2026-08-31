@@ -265,6 +265,16 @@ export function overtimeWorking(label: string, amountKobo: number): string | nul
 }
 
 /**
+ * "Entered by hand" versus off the clock is the payroll clerk's own record of
+ * how a figure reached the run — not a distinction an employee reading their
+ * own payslip has any reason to parse. The hours and rate are still in the
+ * label, and `overtimeWorking` restates them in words directly underneath.
+ */
+function displayLabel(label: string): string {
+  return label.replace(", entered by hand", "");
+}
+
+/**
  * The statutory deductions this employer does not operate, named for a reader.
  *
  * One list, exported, so the payslip, the run's review table and the statutory
@@ -371,12 +381,25 @@ export function PayslipDocument({
   const carried = carriedForwardKobo(slip);
   const relief = reliefLine(slip);
 
+  /* A company that has not split gross into parts has 100% basic and 0%
+     housing and transport — the product's own default — and a payslip is not
+     the place to print "Housing allowance ₦0.00" for a component that was
+     never part of the salary structure. Same "absent is not zero" rule as
+     the statutory deductions below: the line is missing, not nil. Basic
+     salary is filtered the same way for consistency, even though a
+     configuration that zeroes it out is not one the settings form allows. */
   const earnings = [
-    { label: "Basic salary", kobo: slip.basicKobo },
-    { label: "Housing allowance", kobo: slip.housingKobo },
-    { label: "Transport allowance", kobo: slip.transportKobo },
+    ...(slip.basicKobo !== 0
+      ? [{ label: "Basic salary", kobo: slip.basicKobo }]
+      : []),
+    ...(slip.housingKobo !== 0
+      ? [{ label: "Housing allowance", kobo: slip.housingKobo }]
+      : []),
+    ...(slip.transportKobo !== 0
+      ? [{ label: "Transport allowance", kobo: slip.transportKobo }]
+      : []),
     ...allowances.map((line) => ({
-      label: line.label,
+      label: displayLabel(line.label),
       kobo: line.amountKobo,
       note: overtimeWorking(line.label, line.amountKobo),
     })),
@@ -466,7 +489,16 @@ export function PayslipDocument({
             Payslip
           </p>
           <p className="mt-1 text-h4 text-ink">{period}</p>
-          <p className="mt-0.5 text-meta text-muted">Paid {payDate}</p>
+          {/* The scheduled date, said as a schedule. `run.payDate` is when the
+              money is *due* — it is set at prepare time and nothing ever
+              revises it — so "Paid 28 July 2026" was a statement of fact about
+              a transfer that in most cases has not happened. The badge and the
+              not-approved callout that would have contradicted it are both
+              `.no-print`, so on the printed sheet this line stood alone. Use
+              the same words the Detail row below already uses. A genuine
+              "Paid" line needs the run's `paidAt` or a SETTLED batch behind
+              it — the rule `paymentOutcome` already follows. */}
+          <p className="mt-0.5 text-meta text-muted">Pay date {payDate}</p>
         </div>
       </header>
 

@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     template: "%s · ApproveHR",
   },
   description:
-    "One platform for people, payroll and hiring. Built for teams across Africa.",
+    "Your HR intelligence partner: one platform for people, payroll and hiring, built for teams across Africa.",
   icons: { icon: "/brand/mark.svg" },
 };
 

@@ -60,7 +60,7 @@ export function DepartmentDetailScreen({ id }: { id: string }) {
         <PageHeader
           title="Department"
           breadcrumb={[
-            { href: "/people", label: "Directory" },
+            { href: "/people", label: "Employees" },
             { href: "/people/departments", label: "Departments" },
           ]}
         />
@@ -98,7 +98,7 @@ export function DepartmentDetailScreen({ id }: { id: string }) {
       <PageHeader
         title={detail.name}
         breadcrumb={[
-          { href: "/people", label: "Directory" },
+          { href: "/people", label: "Employees" },
           { href: "/people/departments", label: "Departments" },
           /* Every ancestor, so a three-level structure is walkable both ways
              rather than only downwards from the list. */

@@ -278,6 +278,28 @@ export function SecurityScreen() {
                   why nothing happens. */}
               {features.flags.twoFactor && (
                 <div className="flex flex-col gap-3 border-t border-line pt-4">
+                  {/* The same fact the personal card states before somebody
+                      enrols, said again here — because it bites harder on this
+                      side. The switch above says "turning this on cannot lock
+                      anybody out", which is true of sign-in: it only affects
+                      people who enrolled, and they hold recovery codes.
+                      Neither is true of the actions below. Step-up does not
+                      check enrolment, and its code arrives by email only —
+                      there are no recovery codes for an action — so on a
+                      server that cannot send mail, ticking one of these makes
+                      that act impossible for everybody, including the person
+                      ticking it. */}
+                  {status !== null && !status.emailWorks && (
+                    <Callout
+                      tone="warning"
+                      title="This server cannot send email"
+                    >
+                      A code for one of these actions can only arrive by email,
+                      and there are no recovery codes for them. Tick one here
+                      and nobody will be able to do it — including you. Leave
+                      these off until mail is working.
+                    </Callout>
+                  )}
                   <span>
                     <span className="block text-body-sm font-medium text-ink">
                       Actions that also need a code

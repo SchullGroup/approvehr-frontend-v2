@@ -11,6 +11,8 @@ import {
   Select,
 } from "@/components/ui";
 import { NIGERIAN_BANKS } from "@/lib/reference/banks";
+import { useAccountCheck } from "@/lib/store/account-check";
+import { AccountCheckLine } from "@/components/payments/account-check-line";
 import type {
   ApiBankAccount,
   CreateAccountBody,
@@ -58,6 +60,12 @@ export function AccountForm({
   const [accountType, setAccountType] = useState(account?.accountType ?? "Current");
   const [isPrimary, setIsPrimary] = useState(!hasPrimary);
   const [busy, setBusy] = useState(false);
+
+  /* Advisory, never a gate. `canSave` below is untouched: the API confirms an
+     account where it can and says so where it cannot, and a company with no
+     payment provider connected — most of them today — must still be able to
+     record where its salaries come from. */
+  const check = useAccountCheck(bankName, accountNumber);
 
   const digits = accountNumber.replace(/[\s-]/g, "");
   const numberTouched = accountNumber.trim().length > 0;
@@ -176,6 +184,7 @@ export function AccountForm({
               setAccountNumber(value);
             }}
           />
+          <AccountCheckLine check={check} typedName={accountName} />
         </Field>
 
         <Field label="Kind of account">

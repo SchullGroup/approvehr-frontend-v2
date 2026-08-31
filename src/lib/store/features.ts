@@ -174,7 +174,20 @@ const LOADING: State = {
  */
 export const FEATURE_COPY: Record<
   FeatureKey,
-  { label: string; line: string }
+  {
+    label: string;
+    line: string;
+    /**
+     * The module has a flag and a nav item and is not built yet.
+     *
+     * Kept here rather than in the nav alone, because three surfaces read this
+     * record and only one of them knew: the sidebar said "Coming soon" while
+     * Settings and the wizard's summary counted the module among what a
+     * company has and described it in the present tense. Same meaning as
+     * `soon` in `nav.tsx`.
+     */
+    soon?: boolean;
+  }
 > = {
   departments: {
     label: "Departments and teams",
@@ -202,7 +215,10 @@ export const FEATURE_COPY: Record<
   },
   hiring: {
     label: "Hiring",
-    line: "Post a role, track candidates, send an offer.",
+    /* Out of the present tense until `app/(app)/hiring/layout.tsx` stops
+       returning `RecruitmentComingSoon` for every child. */
+    line: "Post a role, track candidates, send an offer. Not built yet.",
+    soon: true,
   },
   attendance: {
     label: "Attendance",
@@ -426,6 +442,25 @@ const DEMO_QUESTIONS: ApiWizardQuestion[] = DEMO_ENABLED ? [
       "Finance approver, Line manager and Employee are already set up.",
     options: [{ value: "continue", label: "Continue", sets: {} }],
   },
+  /* Appended last, matching the API's own question — see its header in
+     `setup/service.ts`. `nhfEnabled` defaults to `false` now, deliberately
+     unlike `payeEnabled`/`pensionEnabled`: deductions are sensitive, and this
+     one needs a "yes" rather than inheriting an "on" nobody agreed to. */
+  {
+    id: "nhf",
+    step: 10,
+    question: "Do you deduct a National Housing Fund contribution?",
+    help: "2.5% of basic salary, remitted to the Federal Mortgage Bank of Nigeria.",
+    options: [
+      { value: "yes", label: "Yes", sets: {}, payroll: { nhfEnabled: true } },
+      {
+        value: "no",
+        label: "No — we do not run this",
+        sets: {},
+        payroll: { nhfEnabled: false },
+      },
+    ],
+  },
 ] : [];
 
 const DEMO_KEY = "approvehr.features.demo";
@@ -515,9 +550,12 @@ function demoDefaults(): DemoState {
     headcountBand: "UNDER_10",
     setupStep: 0,
     setupCompletedAt: null,
-    /* All three on, the same default the API ships, for the same reason: a
-       company that has answered nothing deducts what the law expects. */
-    deductions: { payeEnabled: true, pensionEnabled: true, nhfEnabled: true },
+    /* PAYE and pension on, matching the API's own defaults — a company that
+       has answered nothing deducts what the law already expected of it. NHF
+       off, also matching the API: there is no equivalent history for NHF,
+       so a company that has answered nothing gets nothing deducted for it
+       until it says yes. */
+    deductions: { payeEnabled: true, pensionEnabled: true, nhfEnabled: false },
   };
   return demoApply(base, { headcountBand: seedBand() });
 }

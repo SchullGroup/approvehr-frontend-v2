@@ -107,7 +107,10 @@ export type QueueState = {
   ) => Promise<DecideOutcome>;
   reopen: (item: QueueItem) => Promise<void>;
   /** Everything with no deadline, waiting under five days. */
-  approveRoutine: () => Promise<{ decided: number; skipped: number }>;
+  approveRoutine: () => Promise<{
+    decided: number;
+    skipped: { id: string; reason: string }[];
+  }>;
   /** How many `approveRoutine` would take, so the button can say. */
   routineCount: number;
   reload: () => void;
@@ -298,7 +301,10 @@ export function useApprovalQueue(filter: QueueFilter = "all"): QueueState {
     if (isConnected) {
       const result = await approvalsApi.approveRoutine();
       await load();
-      return { decided: result.decided, skipped: result.skipped.length };
+      /* The array, not its length. The API says why each row was left —
+         "you raised this one yourself", "it needs somebody who can approve
+         payroll" — and a bare count made the screen invent a reason instead. */
+      return { decided: result.decided, skipped: result.skipped };
     }
     /* Split by destination rather than one at a time, so each store commits
        once and the list does not re-rank between decisions. */
@@ -309,7 +315,7 @@ export function useApprovalQueue(filter: QueueFilter = "all"): QueueState {
       routine.filter((item) => !item.ref).map((item) => item.id),
       "approved",
     );
-    return { decided: routine.length, skipped: 0 };
+    return { decided: routine.length, skipped: [] };
   }, [isConnected, load, routine, leave, approvals]);
 
   const demoCounts = useMemo<QueueCounts>(

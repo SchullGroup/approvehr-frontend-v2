@@ -52,7 +52,20 @@ export function ExcludeFromPayrollDialog({
 
   /* The same floor the API's schema enforces. Nothing shorter than this is a
      reason, and a `min(1)` would be satisfied by a full stop. */
-  const tooShort = reason.trim().length < 4;
+  /**
+   * Blank is allowed. A token answer is not.
+   *
+   * Optional at the product owner's instruction, matching the tax override
+   * one model along — a required paragraph is how a field fills up with full
+   * stops, and a coerced sentence is not evidence of anything.
+   *
+   * The floor survives for anybody who does start typing, because leaving it
+   * empty and typing "x" are different acts: the first is choosing not to
+   * explain, the second is defeating a dialog, and only the second is worth
+   * refusing. Same rule the API applies.
+   */
+  const typed = reason.trim();
+  const tooShort = typed.length > 0 && typed.length < 4;
   const firstName = name.split(" ")[0] ?? name;
 
   function close() {
@@ -65,7 +78,7 @@ export function ExcludeFromPayrollDialog({
       open={open}
       onClose={close}
       title={`Leave ${name} off ${periodLabel} payroll`}
-      description="Everybody else gets paid. This person does not, and the reason goes on the record."
+      description="Everybody else gets paid. This person does not, and who decided goes on the record either way."
       size="md"
       footer={
         <div className="flex w-full items-center justify-end gap-2">
@@ -74,7 +87,7 @@ export function ExcludeFromPayrollDialog({
           </Button>
           <Button
             variant="accent"
-            onClick={() => onConfirm(reason.trim())}
+            onClick={() => onConfirm(typed)}
             disabled={tooShort || loading}
             loading={loading}
           >
@@ -86,8 +99,8 @@ export function ExcludeFromPayrollDialog({
       <div className="flex flex-col gap-4">
         <Field
           label="Why are they not being paid this period?"
-          required
-          help="Whoever asks this question next year reads exactly what you type here. Say enough to answer them."
+          optional
+          help="Whoever asks this question next year reads exactly what you type here. Leave it blank and the run records that no reason was given."
           {...(error ? { error } : {})}
         >
           <Textarea
