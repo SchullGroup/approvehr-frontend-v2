@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { Pencil, X } from "lucide-react";
 import {
   Badge,
@@ -204,6 +204,15 @@ export type EditableField = {
    * those into `null` would be a second change nobody asked for.
    */
   clearsToNull?: boolean;
+  /**
+   * Rendered directly after this field, spanning the row, while editing only.
+   *
+   * For live, computed information no single field can hold on its own —
+   * BE-10's account-name confirmation is the one caller today, reading both
+   * bank fields off the in-progress `draft` once each has a value. Absent
+   * while read-only: there is nothing being typed to confirm.
+   */
+  extraWhileEditing?: (draft: EmployeePatch) => React.ReactNode;
 };
 
 export function EditableSection({
@@ -497,8 +506,8 @@ export function EditableSection({
     }
 
     return (
+      <Fragment key={String(f.key)}>
       <Field
-        key={String(f.key)}
         label={f.label}
         required={f.required}
         optional={f.optional}
@@ -596,6 +605,12 @@ export function EditableSection({
   />
         )}
       </Field>
+      {f.extraWhileEditing && (
+        <div className={columns === 2 ? "sm:col-span-2" : undefined}>
+          {f.extraWhileEditing(draft)}
+        </div>
+      )}
+      </Fragment>
     );
   };
 

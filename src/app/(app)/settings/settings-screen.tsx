@@ -13,13 +13,13 @@ import {
   FileText,
   Gauge,
   Megaphone,
-  Plug,
   ScrollText,
   Sparkles,
   Timer,
   TriangleAlert,
   Users,
-  Webhook,
+  /* Plug, Webhook — with the Integrations and Webhooks cards below, commented
+     out for now. */
 } from "lucide-react";
 import {
   Badge,
@@ -179,6 +179,7 @@ const ONGOING = [
       "Suggested objectives, drafted progress notes and development areas. Off until a key is set — and this is the only screen that says so, because a form with no assistant renders no button at all.",
     icon: <Sparkles aria-hidden="true" />,
   },
+  /* Commented out for now, not deleted — neither is ready to show yet.
   {
     href: "/settings/integrations",
     title: "Integrations",
@@ -192,6 +193,7 @@ const ONGOING = [
       "We POST signed JSON to a URL you control. The one integration that needs nobody else's credential.",
     icon: <Webhook aria-hidden="true" />,
   },
+  */
   {
     href: "/settings/audit",
     title: "Audit trail",

@@ -10,9 +10,8 @@ import {
   Picker,
   Select,
 } from "@/components/ui";
+import { AccountVerificationHint } from "@/components/payments/account-verification";
 import { NIGERIAN_BANKS } from "@/lib/reference/banks";
-import { useAccountCheck } from "@/lib/store/account-check";
-import { AccountCheckLine } from "@/components/payments/account-check-line";
 import type {
   ApiBankAccount,
   CreateAccountBody,
@@ -65,7 +64,6 @@ export function AccountForm({
      account where it can and says so where it cannot, and a company with no
      payment provider connected — most of them today — must still be able to
      record where its salaries come from. */
-  const check = useAccountCheck(bankName, accountNumber);
 
   const digits = accountNumber.replace(/[\s-]/g, "");
   const numberTouched = accountNumber.trim().length > 0;
@@ -136,7 +134,10 @@ export function AccountForm({
            * explicit that "a wrong bank code routes money to the wrong
            * institution".
            *
-           * Now the NIBSS register, and choosing a bank fills its code in.
+           * Now the NIBSS register. It fills in a name, never a code — Nigeria's
+           * own convention, and `bankCode` stays unset here. The API resolves a
+           * name to what a provider needs on its own side (BE-10), which is what
+           * the confirmation under the account number field below is checking.
            */}
           <Picker
             value={bankName}
@@ -184,8 +185,9 @@ export function AccountForm({
               setAccountNumber(value);
             }}
           />
-          <AccountCheckLine check={check} typedName={accountName} />
         </Field>
+
+        <AccountVerificationHint bankName={bankName} accountNumber={digits} />
 
         <Field label="Kind of account">
           <Select
