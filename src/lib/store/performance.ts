@@ -2253,6 +2253,58 @@ export function useFramework(): {
   };
 }
 
+/**
+ * Building the framework: sections and the competencies filed under them.
+ *
+ * Framework-level, not cycle-level — a section or a subsection is shared
+ * across every appraisal period, seeded once and then a company's own. No
+ * demo simulation, the same reasoning as `useKpiMutations`'s writes: this is
+ * a company's standing framework, not a figure this browser can hold for it.
+ */
+export function useFrameworkActions() {
+  const { isConnected } = useSession();
+
+  const guard = useCallback(
+    (what: string) => {
+      if (!isConnected) offline(what);
+    },
+    [isConnected],
+  );
+
+  return {
+    editable: isConnected,
+
+    createSection: useCallback(
+      async (body: { name: string; order?: number }) => {
+        guard(
+          "Adding a section needs the API — sections are shared across every " +
+            "appraisal period, and one kept in this browser would vanish the " +
+            "moment you closed it.",
+        );
+        return performanceApi.createSection(body);
+      },
+      [guard],
+    ),
+
+    createCompetency: useCallback(
+      async (body: {
+        name: string;
+        sectionId?: string;
+        description?: string;
+        isCore?: boolean;
+        scaleMax: number;
+      }) => {
+        guard(
+          "Adding a competency needs the API — the demo framework is fixed, " +
+            "but you can still rate anybody against it.",
+        );
+        return performanceApi.createCompetency(body);
+      },
+      [guard],
+    ),
+  };
+}
+
 /** One person's levels against their targets. Defaults to the signed-in person. */
 export function useSkills(employeeId: string | null): {
   skills: ApiEmployeeCompetencies | null;
