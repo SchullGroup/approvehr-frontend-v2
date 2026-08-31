@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
+  Ban,
   CalendarClock,
   Check,
   ChevronLeft,
@@ -308,7 +309,9 @@ export function PayrollRunWizard() {
   const standing = periodStanding(period);
 
   const [prepared, setPrepared] = useState<PreparedRun | null>(null);
-  const [busy, setBusy] = useState<"prepare" | "approve" | null>(null);
+  const [busy, setBusy] = useState<"prepare" | "approve" | "cancel" | null>(
+    null,
+  );
   /**
    * Why approving produced no payment, when it produced none.
    *
@@ -320,6 +323,7 @@ export function PayrollRunWizard() {
    */
   const [batchProblem, setBatchProblem] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
 
   /**
@@ -680,16 +684,74 @@ export function PayrollRunWizard() {
     }
   }
 
+  /**
+   * Backs out of a run before it is approved.
+   *
+   * `actions.cancel` and its refusals have existed since this file was
+   * written — tested at the API layer, wired all the way through the store
+   * — with nothing anywhere that ever called it. A run prepared by mistake,
+   * for the wrong month, or simply abandoned had no way out: nothing here
+   * moves money or settles anything, so there was never a reason for that.
+   *
+   * Nothing is lost that mattered. `cancel` only ever changes `status` —
+   * every payslip, exclusion and hand-entered figure stays on the row,
+   * and preparing this period again reopens it and rebuilds from scratch
+   * (`payroll/service.ts`'s own comment on `prepare`). So this is a real
+   * escape hatch, not a soft delete dressed up as one.
+   */
+  async function cancelRun() {
+    if (!runId) return;
+    setBusy("cancel");
+    try {
+      await actions.cancel(runId);
+      setCancelling(false);
+      toast.push({
+        title: `${periodLabel(period)} cancelled`,
+        tone: "info",
+        detail: "Prepare it again whenever you're ready to start over.",
+      });
+      router.push("/payroll");
+    } catch (caught) {
+      setCancelling(false);
+      toast.push({
+        title: "Could not cancel this run",
+        tone: "danger",
+        detail:
+          caught instanceof ApiError
+            ? caught.message
+            : "Something went wrong. Try again.",
+      });
+    } finally {
+      setBusy(null);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <SourceBadge connected={connected} loading={loading} error={error} />
 
-      <StepIndicator
-        steps={displaySteps}
-        index={stepper.index}
-        furthest={stepper.furthest}
-        onStepSelect={stepper.goTo}
-      />
+      <div className="flex items-start justify-between gap-3">
+        <StepIndicator
+          steps={displaySteps}
+          index={stepper.index}
+          furthest={stepper.furthest}
+          onStepSelect={stepper.goTo}
+        />
+        {/* Only while there is something to back out of. Gone once approved —
+            that door only opens forwards — and gone once already cancelled,
+            since pressing Calculate is what starts this period over. */}
+        {run && (run.status === "DRAFT" || run.status === "IN_REVIEW") && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="shrink-0 text-danger-text hover:bg-danger-soft"
+            onClick={() => setCancelling(true)}
+          >
+            <Ban aria-hidden="true" className="size-3.5" />
+            Cancel this payroll
+          </Button>
+        )}
+      </div>
 
       {/* --------------------------------------------------------- 1 Period */}
       {stepper.index === 0 && (
@@ -1208,6 +1270,26 @@ export function PayrollRunWizard() {
               </p>
               <ApprovalConsequences run={run} />
             </div>
+          }
+        />
+      )}
+
+      {run && (
+        <ConfirmDialog
+          open={cancelling}
+          onClose={() => setCancelling(false)}
+          onConfirm={() => void cancelRun()}
+          tone="danger"
+          confirmLabel="Cancel this payroll"
+          loading={busy === "cancel"}
+          title={`Cancel ${periodLabel(run.period)}?`}
+          body={
+            <p>
+              Nothing has been paid or approved for {periodLabel(run.period)},
+              so there is nothing to undo — this just marks it cancelled. You
+              can prepare this period again from scratch whenever you&rsquo;re
+              ready.
+            </p>
           }
         />
       )}
