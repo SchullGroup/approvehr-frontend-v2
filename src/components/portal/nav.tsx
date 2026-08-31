@@ -356,7 +356,7 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
     },
     {
       href: "/people/leave",
-      label: "Time off",
+      label: "Leave",
       icon: <CalendarDays aria-hidden="true" />,
       badgeSource: "pendingLeave",
       always: true,

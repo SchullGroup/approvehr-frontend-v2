@@ -274,7 +274,7 @@ export function LeaveScreen() {
   return (
     <>
       <PageHeader
-        title="Time off"
+        title="Leave"
         meta={
           sourceNote(connected) && (
             <Badge tone="warning" size="sm" dot>
