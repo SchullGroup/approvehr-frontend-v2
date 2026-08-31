@@ -1,4 +1,5 @@
 import { cn } from "@/lib/cn";
+import { PayrollRowFigures, PayrollTotalFigure } from "./payroll-figures";
 
 /*
  * Simplified renderings of real screens. Drawn in markup rather than exported
@@ -92,35 +93,44 @@ function DayFrame({
 /** The hero mockup. A payroll run mid-approval. */
 export function PayrollMockup({ className }: { className?: string }) {
   const rows = [
-    { name: "Chioma Aduba", amount: "₦1,850,000", delta: true },
-    { name: "Obinna Ezeh", amount: "₦1,650,000", delta: false },
-    { name: "Kemi Balogun", amount: "₦1,420,000", delta: true },
-    { name: "Zainab Yusuf", amount: "₦980,000", delta: false },
+    { name: "Chioma Aduba", amount: 1850000 },
+    { name: "Obinna Ezeh", amount: 1650000 },
+    { name: "Kemi Balogun", amount: 1420000 },
+    { name: "Zainab Yusuf", amount: 980000 },
   ];
 
   return (
     <NightFrame className={className}>
       <div className="p-5">
         <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-meta text-white/40">
-              August payroll
-            </p>
-            <p className="mt-1.5 text-[1.75rem] font-medium tracking-tight text-white">
-              ₦93,004,500
-            </p>
-          </div>
+          <PayrollTotalFigure label="August payroll" value={93004500} />
           <span className="rounded-full bg-success/20 px-2.5 py-1 text-meta font-medium text-success">
             Ready to approve
           </span>
         </div>
 
-        {/* Deduction split */}
+        {/* Deduction split. Fills in on load rather than sitting static — the
+            same "value arriving" language the module cards below use on
+            hover (see mockups.tsx's other cards), just looped on a timer
+            instead of gated on a cursor, since this is the one mockup on the
+            page nobody has hovered yet. */}
         <div className="mt-4 flex h-1.5 overflow-hidden rounded-full">
-          <span className="h-full bg-success" style={{ width: "73%" }} />
-          <span className="h-full bg-warning" style={{ width: "16%" }} />
-          <span className="h-full bg-info" style={{ width: "8%" }} />
-          <span className="h-full bg-white/20" style={{ width: "3%" }} />
+          <span
+            className="animate-mockup-fill h-full bg-success"
+            style={{ width: "73%" }}
+          />
+          <span
+            className="animate-mockup-fill h-full bg-warning"
+            style={{ width: "16%" }}
+          />
+          <span
+            className="animate-mockup-fill h-full bg-info"
+            style={{ width: "8%" }}
+          />
+          <span
+            className="animate-mockup-fill h-full bg-white/20"
+            style={{ width: "3%" }}
+          />
         </div>
         <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-meta text-white/50">
           <span className="flex items-center gap-1.5">
@@ -137,24 +147,7 @@ export function PayrollMockup({ className }: { className?: string }) {
           </span>
         </div>
 
-        <div className="mt-5 flex flex-col gap-2.5">
-          {rows.map((r) => (
-            <div key={r.name} className="flex items-center gap-3">
-              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-white/8 text-meta font-medium text-white/70">
-                {r.name
-                  .split(" ")
-                  .map((p) => p[0])
-                  .join("")}
-              </span>
-              <span className="min-w-0 flex-1 truncate text-meta text-white/70">
-                {r.name}
-              </span>
-              <span className="text-meta font-medium tabular-nums text-white">
-                {r.amount}
-              </span>
-            </div>
-          ))}
-        </div>
+        <PayrollRowFigures rows={rows} className="mt-5 flex flex-col gap-2.5" />
       </div>
 
       <div className="flex items-center gap-2 border-t border-night-line px-5 py-3.5">
@@ -541,9 +534,9 @@ export function DeskMockup({ className }: { className?: string }) {
 /** Used in the Nigeria section. A filing schedule, ticked off. */
 export function StatutoryMockup({ className }: { className?: string }) {
   const rows = [
-    { label: "PAYE — Lagos IRS", value: "₦14,203,880", done: true },
-    { label: "Pension — 4 PFAs", value: "₦8,140,200", done: true },
-    { label: "NHF — FMBN", value: "₦2,325,110", done: true },
+    { label: "PAYE, Lagos IRS", value: "₦14,203,880", done: true },
+    { label: "Pension, 4 PFAs", value: "₦8,140,200", done: true },
+    { label: "NHF, FMBN", value: "₦2,325,110", done: true },
     { label: "NSITF", value: "₦930,045", done: false },
   ];
 

@@ -38,7 +38,7 @@ const PLANS = [
     tagline: "Run payroll and hire without switching between systems.",
     features: [
       "Everything in Starter",
-      "Full payroll — PAYE, pension, NHF",
+      "Full payroll, PAYE, pension, NHF",
       "Remittance schedules per state IRS and PFA",
       "Attendance tracking & shifts",
       "Recruitment & applicant tracking",
@@ -110,7 +110,7 @@ const COMPARISON: TableSection[] = [
     module: "Payroll",
     rows: [
       { label: "Payslip generation", cells: [true, true, true, true] },
-      { label: "Full payroll — PAYE, pension, NHF", cells: [false, true, true, true] },
+      { label: "Full payroll, PAYE, pension, NHF", cells: [false, true, true, true] },
       { label: "Remittance schedules (state IRS & PFAs)", cells: [false, true, true, true] },
       { label: "Loans & salary advances", cells: [false, true, true, true] },
     ],
@@ -166,7 +166,7 @@ const COMPARISON: TableSection[] = [
 const FAQ = [
   {
     q: "How does pricing work?",
-    a: "We price per employee, per month, banded by headcount — the rate falls as your team grows. Tell us your headcount and we will give you an exact number in one conversation.",
+    a: "We price per employee, per month, banded by headcount, the rate falls as your team grows. Tell us your headcount and we will give you an exact number in one conversation.",
   },
   {
     q: "Is there an implementation fee?",
@@ -205,14 +205,14 @@ export default function PricingPage() {
               align="center"
               eyebrow="Pricing"
               title="Start free. Pay from month two."
-              lead="Your first month on us — run your first payroll, onboard your full team, and we migrate your existing data at no cost. After that, pricing is per employee, per month."
+              lead="Your first month on us, run your first payroll, onboard your full team, and we migrate your existing data at no cost. After that, pricing is per employee, per month."
             />
           </Reveal>
 
           <Reveal delay={100}>
             <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
               <Pill href="/demo" variant="solid" size="lg" arrow>
-                Start free — book a demo
+                Start free, book a demo
               </Pill>
               <Pill href="/demo" variant="quiet" size="lg">
                 Talk to sales
@@ -228,7 +228,7 @@ export default function PricingPage() {
           <Reveal>
             <h2 className="text-h2 text-slate">Find your plan</h2>
             <p className="mt-3 max-w-xl text-body-sm leading-relaxed text-slate-muted">
-              Four tiers, one price per head. Every plan starts with a free month and free migration — no module fees bolted on later.
+              Four tiers, one price per head. Every plan starts with a free month and free migration, no module fees bolted on later.
             </p>
           </Reveal>
 
@@ -396,7 +396,7 @@ export default function PricingPage() {
               </p>
               <div className="mt-9 flex flex-wrap justify-center gap-3">
                 <Pill href="/demo" variant="solid" size="lg" arrow>
-                  Start free — book a demo
+                  Start free, book a demo
                 </Pill>
               </div>
             </div>

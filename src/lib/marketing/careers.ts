@@ -270,4 +270,4 @@ export async function apply(
  * One line on the form, and the note field takes a link instead.
  */
 export const CV_LINE =
-  "You cannot attach a file yet — put a link to your CV in the note below.";
+  "You cannot attach a file yet, put a link to your CV in the note below.";
