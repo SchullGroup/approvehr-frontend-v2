@@ -33,6 +33,7 @@ import {
   type ApiAppraiserMapRow,
   type ApiReview,
   type ApiReviewDetail,
+  type ApiRevisionRequest,
   type ApiCycleReport,
   type ApiScoreHistory,
   type ApiScoreRegister,
@@ -2462,8 +2463,12 @@ export function useCycleMutations() {
       async (
         name: string,
         dueDate?: string,
-        /** Scope and reminder. Both optional, both read at activation. */
-        options?: { departmentIds?: string[]; remindDaysBefore?: number },
+        /** Scope, reminder and the manager-question toggle. All optional. */
+        options?: {
+          departmentIds?: string[];
+          remindDaysBefore?: number;
+          managersCanAddQuestions?: boolean;
+        },
       ) => {
         guard("Creating an appraisal period needs the API.");
         return performanceApi.createCycle({
@@ -2474,6 +2479,9 @@ export function useCycleMutations() {
             : {}),
           ...(options?.remindDaysBefore
             ? { remindDaysBefore: options.remindDaysBefore }
+            : {}),
+          ...(options?.managersCanAddQuestions
+            ? { managersCanAddQuestions: true }
             : {}),
         });
       },
@@ -2525,6 +2533,53 @@ export function useCycleMutations() {
       async (cycleId: string, body: CreateQuestionBody) => {
         guard("Adding a question needs the API.");
         return performanceApi.addQuestion(cycleId, body);
+      },
+      [guard],
+    ),
+
+    /** A manager's own question, scoped to their department by the API. */
+    addManagerQuestion: useCallback(
+      async (cycleId: string, body: CreateQuestionBody) => {
+        guard("Adding a question needs the API.");
+        return performanceApi.addManagerQuestion(cycleId, body);
+      },
+      [guard],
+    ),
+
+    /**
+     * Whether managers may add their own questions, and the period's scope
+     * and reminder — the three settings that only mean anything before a
+     * period starts. Kept apart from `advance`, which is the same endpoint
+     * carrying a stage: different acts, different rules.
+     */
+    updateCycle: useCallback(
+      async (
+        id: string,
+        body: {
+          departmentIds?: string[];
+          remindDaysBefore?: number | null;
+          managersCanAddQuestions?: boolean;
+        },
+      ) => {
+        guard("Changing a period's settings needs the API.");
+        return performanceApi.updateCycle(id, body);
+      },
+      [guard],
+    ),
+
+    /**
+     * Send one person's review back for another pass, with a reason.
+     *
+     * Reopens that review — clears its submission and sign-off — without
+     * touching the cycle's stage or anyone else's review.
+     */
+    requestRevision: useCallback(
+      async (
+        cycleId: string,
+        body: { employeeId: string; targetStage: "SELF" | "MANAGER"; reason: string },
+      ) => {
+        guard("Sending a review back needs the API.");
+        return performanceApi.requestRevision(cycleId, body);
       },
       [guard],
     ),
@@ -2839,6 +2894,8 @@ export type CycleRegister = {
    * company that will finish a cycle with somebody unmarked.
    */
   exceptions: ApiAppraiserMap | null;
+  /** Everybody currently sent back for another pass. Empty, never null, when there is none. */
+  revisionRequests: ApiRevisionRequest[];
   loading: boolean;
   error: ApiError | null;
   /** False in demo mode, and false without `EDIT_RECORDS`. */
@@ -2869,13 +2926,15 @@ export function useCycleRegister(
   const load = useCallback(
     async (signal: AbortSignal) => {
       const id = cycleId ?? "";
-      const [cycle, participants, register, exceptions] = await Promise.all([
-        performanceApi.cycle(id, signal),
-        performanceApi.participants(id, signal),
-        performanceApi.cycleScores(id, {}, signal),
-        performanceApi.appraiserMap(id, { exceptionsOnly: true }, signal),
-      ]);
-      return { cycle, participants, register, exceptions };
+      const [cycle, participants, register, exceptions, revisionRequests] =
+        await Promise.all([
+          performanceApi.cycle(id, signal),
+          performanceApi.participants(id, signal),
+          performanceApi.cycleScores(id, {}, signal),
+          performanceApi.appraiserMap(id, { exceptionsOnly: true }, signal),
+          performanceApi.revisionRequests(id, signal),
+        ]);
+      return { cycle, participants, register, exceptions, revisionRequests };
     },
     [cycleId],
   );
@@ -2885,6 +2944,7 @@ export function useCycleRegister(
     participants: ApiCycleParticipants;
     register: ApiScoreRegister;
     exceptions: ApiAppraiserMap;
+    revisionRequests: ApiRevisionRequest[];
   }>(`cycle-register|${cycleId ?? "none"}`, active, load);
 
   /* Nothing is derived offline — see the refusal above — so this is a stable
@@ -2895,6 +2955,7 @@ export function useCycleRegister(
       participants: null,
       register: null,
       exceptions: null,
+      revisionRequests: [],
       loading: false,
       error: null,
       available: false,
@@ -2911,6 +2972,7 @@ export function useCycleRegister(
     participants: fetched.data?.participants ?? null,
     register: fetched.data?.register ?? null,
     exceptions: fetched.data?.exceptions ?? null,
+    revisionRequests: fetched.data?.revisionRequests ?? [],
     loading: fetched.loading,
     error: fetched.error,
     available: enabled,

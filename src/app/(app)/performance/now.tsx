@@ -43,6 +43,7 @@ import {
 } from "@/lib/store/performance";
 import { AppraisersDialog } from "./appraiser-map";
 import { FrameworkDisclosure, HowItWorks } from "./how-it-works";
+import { ManagerQuestionButton } from "./manager-question";
 import { PeriodStatus } from "./period-status";
 import { ReviewFormModal } from "./review-form";
 import { StartPeriodButton } from "./start-period";
@@ -501,16 +502,33 @@ export function WhatNeedsYouTab({
                       outstanding are things a period's owner does; an employee's
                       own business with a period is the form, which is the work list
                       in the tab beside this one. Absent, not disabled. */}
-                  {canManagePeriods && (
+                  {(canManagePeriods ||
+                    (isManager &&
+                      openPeriod.managersCanAddQuestions &&
+                      openPeriod.stage === "DRAFT")) && (
                     <div className="flex flex-wrap gap-2">
-                      <ButtonLink
-                        size="sm"
-                        href={`/performance/periods/${openPeriod.id}`}
-                      >
-                        {openPeriod.stage === "DRAFT"
-                          ? "Set it up and start it"
-                          : "Who is outstanding"}
-                      </ButtonLink>
+                      {canManagePeriods && (
+                        <ButtonLink
+                          size="sm"
+                          href={`/performance/periods/${openPeriod.id}`}
+                        >
+                          {openPeriod.stage === "DRAFT"
+                            ? "Set it up and start it"
+                            : "Who is outstanding"}
+                        </ButtonLink>
+                      )}
+                      {/* HR turned this on for this period, and it is only
+                          worth showing while there is still time to use it —
+                          `addManagerQuestion` refuses once the cycle leaves
+                          DRAFT, same as HR's own question list does. */}
+                      {isManager &&
+                        openPeriod.managersCanAddQuestions &&
+                        openPeriod.stage === "DRAFT" && (
+                          <ManagerQuestionButton
+                            cycleId={openPeriod.id}
+                            onAdded={appraisals.reload}
+                          />
+                        )}
                     </div>
                   )}
                 </CardBody>

@@ -84,6 +84,9 @@ export function StartPeriodDialog({
   const [scope, setScope] = useState<string[]>([]);
   /** Days before the deadline to chase whoever still owes a form. */
   const [remind, setRemind] = useState("");
+  /** Off by default. Lets a manager add their own questions, scoped to their team. */
+  const [managersCanAddQuestions, setManagersCanAddQuestions] =
+    useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -101,6 +104,7 @@ export function StartPeriodDialog({
         {
           ...(scope.length > 0 ? { departmentIds: scope } : {}),
           ...(remind ? { remindDaysBefore: Number(remind) } : {}),
+          ...(managersCanAddQuestions ? { managersCanAddQuestions: true } : {}),
         },
       );
       onCreated({ id: created.id, name: created.name });
@@ -253,6 +257,25 @@ export function StartPeriodDialog({
                 : "Set a due date above first — there is nothing to count back from."}
             </p>
           </div>
+        </Disclosure>
+
+        <Disclosure
+          title="Let managers add their own questions"
+          meta={managersCanAddQuestions ? "On" : "Off"}
+          hint="On top of the standard questions, scoped to their own team."
+        >
+          <Checkbox
+            label="Managers can add role-specific questions to this period"
+            checked={managersCanAddQuestions}
+            onChange={(event) =>
+              setManagersCanAddQuestions(event.target.checked)
+            }
+          />
+          <p className="mt-2 text-meta text-muted">
+            A question a manager adds is only ever asked of their own
+            department — never the whole company. This can be changed later,
+            while the period is still a draft.
+          </p>
         </Disclosure>
       </div>
     </Modal>
