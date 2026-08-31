@@ -43,6 +43,7 @@ import {
 import { CreateRoleDialog } from "./create-role";
 import { RoleEditor } from "./role-editor";
 import { SendInviteDialog } from "./send-invite";
+import { UnlinkedAccountsPanel } from "./unlinked-accounts";
 
 /**
  * Roles and permissions.
@@ -330,6 +331,8 @@ export function RolesScreen({
           }
           onRevoke={(invite) => setRevoking(invite)}
         />
+
+        <UnlinkedAccountsPanel canManage={canManage} />
 
         <div className="grid gap-6 lg:grid-cols-2">
           <YourAccess access={access} catalogue={roles.catalogue} />
