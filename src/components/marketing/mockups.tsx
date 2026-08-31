@@ -52,7 +52,10 @@ function NightFrame({
     <div
       aria-hidden="true"
       className={cn(
-        "overflow-hidden rounded-2xl bg-night shadow-[0_24px_48px_-12px_rgb(20_18_15/0.28)]",
+        // `relative` only so a consumer (PayrollMockup's sheen) has a
+        // positioning root to clip against — this frame has no motion of
+        // its own.
+        "relative overflow-hidden rounded-2xl bg-night shadow-[0_24px_48px_-12px_rgb(20_18_15/0.28)]",
         className,
       )}
     >
@@ -100,6 +103,15 @@ export function PayrollMockup({ className }: { className?: string }) {
 
   return (
     <NightFrame className={className}>
+      {/* Light catching the surface, the way glass or a phone screen does —
+          not decoration for its own sake, but the one detail that reads as
+          "real object" rather than "flat illustration" on the card the whole
+          hero is built around. Slow and mostly idle; see the comment on
+          `ahr-sheen` for why. */}
+      <span
+        aria-hidden="true"
+        className="animate-sheen pointer-events-none absolute inset-y-0 left-0 z-10 w-1/5 bg-gradient-to-r from-transparent via-white/10 to-transparent"
+      />
       <div className="p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -541,9 +553,9 @@ export function DeskMockup({ className }: { className?: string }) {
 /** Used in the Nigeria section. A filing schedule, ticked off. */
 export function StatutoryMockup({ className }: { className?: string }) {
   const rows = [
-    { label: "PAYE — Lagos IRS", value: "₦14,203,880", done: true },
-    { label: "Pension — 4 PFAs", value: "₦8,140,200", done: true },
-    { label: "NHF — FMBN", value: "₦2,325,110", done: true },
+    { label: "PAYE, Lagos IRS", value: "₦14,203,880", done: true },
+    { label: "Pension, 4 PFAs", value: "₦8,140,200", done: true },
+    { label: "NHF, FMBN", value: "₦2,325,110", done: true },
     { label: "NSITF", value: "₦930,045", done: false },
   ];
 

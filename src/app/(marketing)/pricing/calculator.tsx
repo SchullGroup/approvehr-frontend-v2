@@ -175,7 +175,7 @@ export function PricingCalculator() {
             </p>
             <p className="mt-2 text-meta text-white/50">
               {annual
-                ? `per year — ${ANNUAL_MONTHS_CHARGED} months charged`
+                ? `per year, ${ANNUAL_MONTHS_CHARGED} months charged`
                 : "per month"}
             </p>
 

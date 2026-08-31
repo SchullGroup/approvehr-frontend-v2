@@ -315,7 +315,7 @@ function DeductionBreakdown() {
       <Row label="Net pay" value="₦1,308,003" strong />
       <div className="mt-auto rounded-lg bg-wash-green p-2">
         <p className="text-meta leading-snug text-success-text">
-          Pension and NHF come off before consolidated relief — the order most
+          Pension and NHF come off before consolidated relief, the order most
           spreadsheets get wrong. Employer pension of ₦185,000 sits on top of
           gross, not inside it.
         </p>
@@ -330,10 +330,10 @@ function FilingSchedule() {
       <Head title="August remittances" chip="3 of 4 filed" chipTone="amber" />
       <div className="flex flex-col gap-2">
         {[
-          ["PAYE — Lagos IRS", "₦14,203,880", true],
-          ["PAYE — Ogun IRS", "₦1,940,220", true],
-          ["Pension — 4 PFAs", "₦8,140,200", true],
-          ["NHF — FMBN", "₦2,325,110", false],
+          ["PAYE, Lagos IRS", "₦14,203,880", true],
+          ["PAYE, Ogun IRS", "₦1,940,220", true],
+          ["Pension, 4 PFAs", "₦8,140,200", true],
+          ["NHF, FMBN", "₦2,325,110", false],
         ].map(([label, amount, done]) => (
           <div key={label as string} className="flex items-center gap-2.5">
             <Tick on={done as boolean} />
@@ -568,7 +568,7 @@ function ScreeningAnswers() {
         ))}
       </div>
       <p className="mt-auto text-meta leading-snug text-slate/45">
-        Above the ₦1.8m band ceiling — flagged before anyone books a call.
+        Above the ₦1.8m band ceiling, flagged before anyone books a call.
       </p>
     </DayFrame>
   );
@@ -654,7 +654,7 @@ function LeavePolicy() {
         ))}
       </div>
       <p className="mt-auto text-meta leading-snug text-slate/45">
-        Balances recalculate the moment a rule changes — no reissuing
+        Balances recalculate the moment a rule changes, no reissuing
         spreadsheets.
       </p>
     </DayFrame>

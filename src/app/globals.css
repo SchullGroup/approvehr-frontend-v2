@@ -533,6 +533,28 @@
   animation: ahr-shimmer 1.4s linear infinite;
 }
 
+/* A gleam crossing a dark card, the way light catches glass. Distinct from
+   `ahr-shimmer` above: that one is a fast, mechanical loading placeholder;
+   this is slow and mostly idle, meant to be noticed only in passing. The hold
+   at 100% is most of the cycle — a sheen that is always sweeping reads as
+   nervous, not ambient. */
+@keyframes ahr-sheen {
+  0% {
+    transform: translateX(-120%) skewX(-12deg);
+  }
+  22% {
+    transform: translateX(420%) skewX(-12deg);
+  }
+  100% {
+    transform: translateX(420%) skewX(-12deg);
+  }
+}
+
+@utility animate-sheen {
+  animation: ahr-sheen var(--shimmer-duration, 7s) var(--ease-out-soft) infinite;
+  will-change: transform;
+}
+
 @utility animate-slide-from-right {
   animation: ahr-slide-from-right 0.24s var(--ease-out-soft) both;
 }
