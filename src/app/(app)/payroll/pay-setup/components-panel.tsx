@@ -29,6 +29,8 @@ import {
   useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
+import { AssignComponentToManyDialog } from "./assign-to-many-dialog";
+import { type AssignCandidate } from "@/app/(app)/people/departments/assign-people-dialog";
 import { ApiError } from "@/lib/api/client";
 import {
   kobo,
@@ -52,7 +54,9 @@ import {
   taxableSwitch,
 } from "@/lib/pay/flags";
 import { usePayrollSettings } from "@/lib/payroll/use-settings";
+import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import {
+  useAssignManyToComponent,
   usePayComponentDetail,
   usePayComponents,
 } from "@/lib/store/pay-components";
@@ -531,26 +535,62 @@ function AssigneesDrawer({
   onEdit: () => void;
   onToggle: () => void;
 }) {
-  const { detail, loading, error } = usePayComponentDetail(component.id);
+  const { detail, loading, error, reload } = usePayComponentDetail(component.id);
+  const assignMany = useAssignManyToComponent();
+  const { employees } = useEmployeeDirectory({ pageSize: 200 });
+  const toast = useToast();
   const chips = flagChips(component, rates);
   const assignees = detail?.assignees ?? [];
 
+  const [assigning, setAssigning] = useState(false);
+  const [assignBusy, setAssignBusy] = useState(false);
+  const [assignFailed, setAssignFailed] = useState<string | null>(null);
+
+  /* Who is already on it, keyed for the picker — `AssignPeopleDialog` shows
+     these ticked and disabled rather than filtering them out, which is most
+     of what somebody needs to see while choosing the rest. */
+  const onItAlready = new Set(assignees.map((person) => person.employeeId));
+  const candidates: AssignCandidate[] = employees.map((person) => ({
+    id: person.id,
+    name: `${person.firstName} ${person.lastName}`,
+    jobTitle: person.jobTitle,
+    currentLabel: person.department || null,
+    already: onItAlready.has(person.id),
+  }));
+
   return (
+    <>
     <Drawer
       open
       onClose={onClose}
       title={component.name}
       description={amountLine(component)}
       footer={
-        editable ? (
+        assignMany.editable || editable ? (
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="secondary" size="sm" onClick={onEdit}>
-              <Pencil aria-hidden="true" className="size-4" />
-              Edit
-            </Button>
-            <Button variant="secondary" size="sm" onClick={onToggle}>
-              {component.active ? "Turn off" : "Turn on"}
-            </Button>
+            {assignMany.editable && (
+              <Button
+                variant="accent"
+                size="sm"
+                onClick={() => {
+                  setAssignFailed(null);
+                  setAssigning(true);
+                }}
+              >
+                Assign people
+              </Button>
+            )}
+            {editable && (
+              <>
+                <Button variant="secondary" size="sm" onClick={onEdit}>
+                  <Pencil aria-hidden="true" className="size-4" />
+                  Edit
+                </Button>
+                <Button variant="secondary" size="sm" onClick={onToggle}>
+                  {component.active ? "Turn off" : "Turn on"}
+                </Button>
+              </>
+            )}
           </div>
         ) : undefined
       }
@@ -611,7 +651,9 @@ function AssigneesDrawer({
             <p className="mt-1.5 text-body-sm leading-relaxed text-muted">
               {loading
                 ? "Reading the assignments…"
-                : "Add it to somebody from their record, on the Pay tab."}
+                : assignMany.editable
+                  ? "Assign it to people above, or add it to somebody from their own record, on the Pay tab."
+                  : "Add it to somebody from their record, on the Pay tab."}
             </p>
           ) : (
             <ul className="mt-3 flex flex-col divide-y divide-line">
@@ -645,6 +687,56 @@ function AssigneesDrawer({
         </div>
       </div>
     </Drawer>
+
+    {assigning && (
+      <AssignComponentToManyDialog
+        component={component}
+        candidates={candidates}
+        busy={assignBusy}
+        failed={assignFailed}
+        onClose={() => {
+          setAssigning(false);
+          setAssignFailed(null);
+        }}
+        onAssign={(employeeIds, figures) => {
+          setAssignBusy(true);
+          setAssignFailed(null);
+          void (async () => {
+            try {
+              const result = await assignMany.assignToMany(component.id, {
+                employeeIds,
+                ...figures,
+              });
+              setAssigning(false);
+              reload();
+              toast.push({
+                title:
+                  result.assigned === 0
+                    ? `Nobody new to assign — everyone chosen already had ${component.name}.`
+                    : `${component.name} assigned to ${result.assigned} ${result.assigned === 1 ? "person" : "people"}.`,
+                tone: result.assigned === 0 ? "info" : "success",
+                ...(result.alreadyAssigned.length > 0
+                  ? {
+                      detail: `Already on it: ${result.alreadyAssigned
+                        .map((row) => row.name)
+                        .join(", ")}.`,
+                    }
+                  : {}),
+              });
+            } catch (error) {
+              setAssignFailed(
+                error instanceof ApiError
+                  ? error.message
+                  : "Something went wrong. Try again.",
+              );
+            } finally {
+              setAssignBusy(false);
+            }
+          })();
+        }}
+      />
+    )}
+    </>
   );
 }
 

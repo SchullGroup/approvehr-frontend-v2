@@ -387,6 +387,7 @@ function historyEntries(
     conditionOut: EquipmentItem["condition"];
     conditionBack: EquipmentItem["condition"] | null;
     note: string | null;
+    acknowledgedAt: string | null;
   }[],
 ): TimelineEntry[] {
   return history.map((entry) => ({
@@ -404,6 +405,9 @@ function historyEntries(
         {entry.employeeNo} · Out {CONDITION_LABEL[entry.conditionOut].toLowerCase()}
         {entry.conditionBack
           ? `, back ${CONDITION_LABEL[entry.conditionBack].toLowerCase()}`
+          : ""}
+        {entry.acknowledgedAt
+          ? `, received ${dayLabel(entry.acknowledgedAt)}`
           : ""}
         {entry.note ? `\n${entry.note}` : ""}
       </span>

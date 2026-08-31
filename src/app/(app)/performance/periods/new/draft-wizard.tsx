@@ -384,10 +384,7 @@ export function DraftPeriodWizard() {
         {/* ------------------------------------------------------- describe */}
         {step === "describe" && (
           <Card>
-            <CardHeader
-              title="Describe the period"
-              description="A sentence or two about what this half is asking of everybody. What comes back is a draft you edit — nothing is created until the last screen."
-            />
+            <CardHeader title="Describe the period" />
             <CardBody className="flex flex-col gap-4">
               <Field label="What to call it" required>
                 <Input

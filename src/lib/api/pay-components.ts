@@ -330,6 +330,37 @@ export type UpdateAssignmentBody = {
 };
 
 /**
+ * One component onto several people — the other axis from `bulkAssign`
+ * above, which is several components onto one person. One amount, one
+ * rate, one window, for the whole list.
+ */
+export type AssignToManyBody = {
+  employeeIds: string[];
+  /** Omit to fall back to the component's default. Same for everyone. */
+  amountKobo?: number;
+  rate?: number;
+  effectiveFrom?: string;
+  effectiveTo?: string | null;
+  note?: string;
+};
+
+/**
+ * Who was actually assigned, and who already had it.
+ *
+ * `alreadyAssigned` is not a failure list — the API skips rather than
+ * refuses whoever already has an overlapping window, which is the ordinary
+ * case for "assign this to the group" run a second time after somebody
+ * new joins it.
+ */
+export type ApiAssignToManyResult = {
+  componentId: string;
+  componentName: string;
+  assigned: number;
+  assignmentIds: string[];
+  alreadyAssigned: { employeeId: string; name: string }[];
+};
+
+/**
  * What to compute.
  *
  * With none of the change fields this is a report on what somebody gets today.
@@ -412,6 +443,13 @@ export const payComponentsApi = {
       `/pay-components/employees/${employeeId}/bulk`,
       { method: "POST", body: { assignments } },
     ),
+
+  /** "Assign specific people" from the component's own screen, not theirs. */
+  assignToMany: (componentId: string, body: AssignToManyBody) =>
+    request<ApiAssignToManyResult>(`/pay-components/${componentId}/assign`, {
+      method: "POST",
+      body,
+    }),
 
   updateAssignment: (id: string, body: UpdateAssignmentBody) =>
     request<ApiAssignment>(`/pay-components/assignments/${id}`, {

@@ -47,6 +47,8 @@ export function AssignPeopleDialog({
   title,
   description,
   effect,
+  extraContent,
+  countLabel,
   candidates,
   confirmLabel,
   busy = false,
@@ -58,6 +60,22 @@ export function AssignPeopleDialog({
   description?: string;
   /** What this does to pay reporting. Always rendered when present. */
   effect?: string;
+  /**
+   * Fields specific to one caller — an amount, a start date — that belong
+   * above the picker rather than beside it. Generic on purpose: this dialog
+   * stays the one place "search, tick, confirm" is implemented, and a caller
+   * with something extra to ask owns that state itself and reads it back in
+   * its own `onAssign`, the same way it already owns `candidates`.
+   */
+  extraContent?: React.ReactNode;
+  /**
+   * What the footer count says is about to happen. Defaults to "move" — the
+   * department and team case this was written for — because that default
+   * has to keep reading right for the three existing callers with no change
+   * on their part. A caller assigning something that is not a move, an
+   * allowance rather than a person's department, passes its own verb.
+   */
+  countLabel?: (count: number) => string;
   candidates: AssignCandidate[];
   confirmLabel: string;
   busy?: boolean;
@@ -106,9 +124,11 @@ export function AssignPeopleDialog({
           <p className="text-body-sm text-muted">
             {moving.length === 0
               ? "Nobody chosen yet"
-              : moving.length === 1
-                ? "1 person will move"
-                : `${moving.length} people will move`}
+              : (countLabel ??
+                  ((count) =>
+                    count === 1 ? "1 person will move" : `${count} people will move`))(
+                  moving.length,
+                )}
           </p>
           <div className="flex gap-2">
             <Button variant="secondary" onClick={onClose}>
@@ -141,6 +161,8 @@ export function AssignPeopleDialog({
             {failed}
           </p>
         )}
+
+        {extraContent}
 
         {/* `Input` has no `prefix` prop — wrapped by hand, the same way the
             directory's search box does it. */}

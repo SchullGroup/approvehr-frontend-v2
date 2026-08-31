@@ -142,6 +142,8 @@ export type ApiAssignmentEntry = {
   conditionOut: AssetCondition;
   conditionBack: AssetCondition | null;
   note: string | null;
+  /** Null means not yet confirmed, never a warning — see `assetsApi.acknowledge`. */
+  acknowledgedAt: string | null;
 };
 
 /** Mirrors `SerializedMaintenance`. */
@@ -189,6 +191,8 @@ export type ApiHeldAsset = {
   valueKobo: number | null;
   status: AssetStatus;
   note: string | null;
+  /** Null means not yet confirmed, never a warning — see `assetsApi.acknowledge`. */
+  acknowledgedAt: string | null;
 };
 
 /** `GET /employees/:id` — what one person has, and what they have handed back. */
@@ -440,6 +444,17 @@ export const assetsApi = {
   /** Closes exactly one assignment and says which. */
   returnAsset: (id: string, body: ReturnBody) =>
     request<ApiReturnResult>(`/assets/${id}/return`, { method: "POST", body }),
+
+  /**
+   * "I've received this." Self-only on the API side — refused for anyone but
+   * the assignment's own employee, HR included. There is no on-behalf-of path:
+   * see `assets/service.ts#acknowledge` for why.
+   */
+  acknowledge: (assignmentId: string) =>
+    request<{ assignmentId: string; assetId: string; acknowledgedAt: string }>(
+      `/assets/assignments/${assignmentId}/acknowledge`,
+      { method: "POST" },
+    ),
 
   /**
    * Log a repair. Moves the item to the workshop **only when nobody is holding

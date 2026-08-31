@@ -56,9 +56,8 @@ import { useWorkLocations } from "@/lib/store/attendance";
 import { NO_DEPARTMENT } from "@/lib/store/demo-structure";
 import { useDepartments } from "@/lib/store/departments";
 import { useOrgTaxState } from "@/lib/store/company";
+import { AccountVerificationHint } from "@/components/payments/account-verification";
 import { NIGERIAN_BANKS } from "@/lib/reference/banks";
-import { useAccountCheck } from "@/lib/store/account-check";
-import { AccountCheckLine } from "@/components/payments/account-check-line";
 import {
   NIGERIAN_STATES,
   PENSION_PROVIDER_OTHER,
@@ -320,7 +319,6 @@ export function NewEmployeeForm() {
      than a typed account name: this form has no "name on the account" field,
      and the question worth asking here is whether the number belongs to *them*.
      A real account owned by somebody else is the failure this catches. */
-  const accountCheck = useAccountCheck(draft.bankName, draft.bankAccount);
 
   const [errors, setErrors] = useState<FormError[]>([]);
   const [busy, setBusy] = useState(false);
@@ -1340,11 +1338,13 @@ export function NewEmployeeForm() {
                             onChange={(e) => set("bankAccount", e.target.value)}
                             placeholder="0123456789"
                           />
-                          <AccountCheckLine
-                            check={accountCheck}
-                            typedName={`${draft.firstName} ${draft.lastName}`}
-                          />
                         </Field>
+                        <div className="sm:col-span-2">
+                          <AccountVerificationHint
+                            bankName={draft.bankName}
+                            accountNumber={draft.bankAccount}
+                          />
+                        </div>
                       </div>
                     </OptionalGroup>
                   )}

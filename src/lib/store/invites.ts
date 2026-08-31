@@ -4,8 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import {
   invitesApi,
+  type CreateEmployeeForUserBody,
+  type LinkedAccount,
   type PendingInvite,
   type SentInvite,
+  type UnlinkedUser,
 } from "@/lib/api/invites";
 import { useSession } from "./session";
 import { usePermissions } from "@/lib/permissions";
@@ -119,5 +122,91 @@ export function useInvites(): InvitesState {
     send,
     resend,
     revoke,
+  };
+}
+
+/**
+ * Real sign-ins with no personnel record — `invitesApi.unlinked()`.
+ *
+ * No demo mirror, same reasoning as `useInvites`: these are real accounts
+ * that already exist, not something a browser with no server can honestly
+ * simulate. `link` and `createEmployee` are the two ways this list shrinks —
+ * see `unlinked-accounts.tsx` for where both are offered.
+ */
+export type UnlinkedAccountsState = {
+  accounts: UnlinkedUser[];
+  loading: boolean;
+  error: ApiError | null;
+  connected: boolean;
+  reload: () => void;
+  link: (userId: string, employeeId: string) => Promise<LinkedAccount>;
+  createEmployee: (
+    userId: string,
+    input: CreateEmployeeForUserBody,
+  ) => Promise<LinkedAccount>;
+};
+
+/**
+ * `enabled` should be the `MANAGE_ROLES` check — the same reasoning as
+ * `useRepairs`'s: skip the request rather than collect a predictable 403 from
+ * a screen somebody without the permission never should have called.
+ */
+export function useUnlinkedAccounts(enabled: boolean): UnlinkedAccountsState {
+  const { isConnected } = useSession();
+  const [state, setState] = useState<{
+    accounts: UnlinkedUser[];
+    loading: boolean;
+    error: ApiError | null;
+  }>({ accounts: [], loading: isConnected && enabled, error: null });
+
+  const load = useCallback(async () => {
+    if (!isConnected || !enabled) {
+      setState({ accounts: [], loading: false, error: null });
+      return;
+    }
+    setState((s) => ({ ...s, loading: true, error: null }));
+    try {
+      const rows = await invitesApi.unlinked();
+      setState({ accounts: rows, loading: false, error: null });
+    } catch (error) {
+      setState((s) => ({
+        ...s,
+        loading: false,
+        error: error instanceof ApiError ? error : null,
+      }));
+    }
+  }, [isConnected, enabled]);
+
+  const revalidation = useRevalidation();
+  useEffect(() => {
+    void load();
+  }, [load, revalidation]);
+
+  const link = useCallback(
+    async (userId: string, employeeId: string) => {
+      const linked = await invitesApi.linkEmployee(userId, employeeId);
+      await load();
+      return linked;
+    },
+    [load],
+  );
+
+  const createEmployee = useCallback(
+    async (userId: string, input: CreateEmployeeForUserBody) => {
+      const linked = await invitesApi.createEmployee(userId, input);
+      await load();
+      return linked;
+    },
+    [load],
+  );
+
+  return {
+    accounts: state.accounts,
+    loading: state.loading,
+    error: state.error,
+    connected: isConnected,
+    reload: load,
+    link,
+    createEmployee,
   };
 }

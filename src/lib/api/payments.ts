@@ -112,43 +112,28 @@ export type ApiBankAccount = {
   addedOn: string;
 };
 
-/** One row of `GET /payments/banks`. */
-export type ApiDirectoryBank = {
-  /** NIBSS. Not what the account check wants. */
-  bankCode: string;
-  /** CBN. This is the one to send, and what `NIGERIAN_BANKS[].code` holds. */
-  cbnCode: string;
-  name: string;
-  shortName: string;
-};
-
-/**
- * What came back from an account check — **three states, not two**.
- *
- * `checked: false` is the one that is easy to render as a failure and must not
- * be. It means nobody was asked: no payment provider is connected for this
- * company, which is the state this product ships in. The API says so itself and
- * adds "It can still be saved" — an unverifiable account has to stay recordable,
- * or a company with no provider could not pay anybody.
- *
- * So: confirmed, wrong, and *not checked*. Collapsing the third into either of
- * the other two is a claim nobody made.
- */
-export type AccountCheckResult = {
-  /** Whether anybody was actually asked. */
-  checked: boolean;
-  /** Only meaningful when `checked`. */
-  verified: boolean;
-  /** The name the bank holds. Null unless confirmed. */
-  accountName: string | null;
-  /** The API's own words for why. Rendered as sent. */
-  reason?: string | null;
-};
-
 export type ApiAccountList = {
   rows: ApiBankAccount[];
   primaryId: string | null;
   counts: { active: number; archived: number };
+};
+
+/**
+ * The answer to "does this account exist, and whose name is on it" — BE-10.
+ *
+ * `checked` is the one to branch on, not `verified`: `checked: false` means
+ * nothing was actually asked (an unrecognised bank name, or no payment
+ * provider connected for this company), while `checked: true, verified:
+ * false` means a real bank looked and found nobody. Both are ordinary
+ * outcomes, `reason` explains either one in words, and neither blocks saving
+ * the account — the endpoint's own doc comment is explicit that being unable
+ * to check is not a failure.
+ */
+export type ApiAccountVerification = {
+  checked: boolean;
+  verified: boolean;
+  accountName: string | null;
+  reason: string | null;
 };
 
 /** `POST /accounts` answers with the account and whether it demoted another. */
@@ -807,46 +792,6 @@ const ledgerQuery = (params: LedgerListParams) => ({
 export const paymentsApi = {
   /* ------------------------------------------------------------- accounts */
 
-  /**
-   * The banks the API will accept a code for.
-   *
-   * NOT the picker's list. `lib/reference/banks.ts` holds 255 banks from
-   * Paystack's public register and stays the thing somebody chooses from —
-   * this one holds 48, and swapping the picker to it would mean staff banking
-   * with Moniepoint or PalmPay could not be selected at all.
-   *
-   * What this is for is the account check, which takes a `cbnCode` and refuses
-   * one it does not hold. So it answers exactly one question: *can this bank's
-   * account be confirmed?* Where the answer is no, the screen says so rather
-   * than pretending the check is unavailable generally.
-   */
-  banks: (signal?: AbortSignal) =>
-    request<ApiDirectoryBank[]>("/payments/banks", {
-      ...(signal ? { signal } : {}),
-    }),
-
-  /**
-   * Confirm an account number belongs to the name somebody typed.
-   *
-   * `bankCode` here is the **CBN** code, which is what `lib/reference/banks.ts`
-   * stores as `code` — the API's own refusal is explicit that it is
-   * "the `cbnCode` field, not `bankCode`", and the two look alike. Sending the
-   * wrong one returns a confirmation for an account at a different bank, which
-   * is worse than no check at all.
-   *
-   * Answers 200 in every ordinary case, including when it could not check.
-   * See `AccountCheckResult` for why that is three states rather than two.
-   */
-  verifyAccount: (
-    body: { bankCode: string; accountNumber: string },
-    signal?: AbortSignal,
-  ) =>
-    request<AccountCheckResult>("/payments/account-verification", {
-      method: "POST",
-      body,
-      ...(signal ? { signal } : {}),
-    }),
-
   accounts: (includeArchived = false, signal?: AbortSignal) =>
     request<ApiAccountList>("/payments/accounts", {
       query: { includeArchived: includeArchived ? "true" : "false" },
@@ -866,6 +811,26 @@ export const paymentsApi = {
       `/payments/accounts/${id}`,
       { method: "DELETE" },
     ),
+
+  /* ---------------------------------------------------------- verification */
+
+  /**
+   * Confirms the name behind an account before it is saved.
+   *
+   * `bankName`, never a code — every picker in this product already collects
+   * one, and the API resolves it to whatever a provider needs
+   * (`banks.ts#bankByName` on that side). This never throws for "could not
+   * check"; see `ApiAccountVerification` for how to read a 200.
+   */
+  verifyAccount: (
+    body: { bankName: string; accountNumber: string },
+    signal?: AbortSignal,
+  ) =>
+    request<ApiAccountVerification>("/payments/account-verification", {
+      method: "POST",
+      body,
+      ...(signal ? { signal } : {}),
+    }),
 
   /* -------------------------------------------------------------- batches */
 
