@@ -209,6 +209,10 @@ export function useSetupChecklist(): ChecklistState {
         canApprovePayroll: company.settings.roles.filter((role) =>
           role.permissions.includes("approve_payroll"),
         ).length,
+        /* Same reasoning as `usersWithoutRole`: the demo has no bare `User`
+           row distinct from an employee, so it structurally cannot have one
+           with no personnel record either. A real zero, not a guessed one. */
+        unlinkedAccounts: 0,
       },
       payrollChecks: {
         employees: staff.length,
