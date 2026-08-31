@@ -33,11 +33,14 @@ import {
   type ApiAppraiserMapRow,
   type ApiReview,
   type ApiReviewDetail,
+  type ApiRevisionRequest,
   type ApiCycleReport,
   type ApiScoreHistory,
   type ApiScoreRegister,
   type ApiScoringWeights,
   type ApiScoringWeightsSaved,
+  type ApiTask,
+  type ApiTaskForGrading,
   type ScoreBand,
   type ScoreComponent,
   type AnswerBody,
@@ -523,85 +526,85 @@ const SEED_GOALS: readonly SeedGoal[] = DEMO_ENABLED
  */
 const SEED_COMPETENCIES: readonly {
   name: string;
-  category: string;
+  sectionName: string;
   description: string;
   isCore: boolean;
 }[] = [
   {
     name: "Job knowledge",
-    category: "Core competency",
+    sectionName: "Core competency",
     description: "Understands the work and keeps that understanding current.",
     isCore: true,
   },
   {
     name: "Quality of work",
-    category: "Core competency",
+    sectionName: "Core competency",
     description: "Output is accurate and needs little rework.",
     isCore: true,
   },
   {
     name: "Dependability",
-    category: "Core competency",
+    sectionName: "Core competency",
     description: "Commitments are met without being chased.",
     isCore: true,
   },
   {
     name: "Communication",
-    category: "Behavioural competency",
+    sectionName: "Behavioural competency",
     description: "Explains clearly, in writing and in person, and listens.",
     isCore: false,
   },
   {
     name: "Teamwork",
-    category: "Behavioural competency",
+    sectionName: "Behavioural competency",
     description: "Works with people outside their own function.",
     isCore: false,
   },
   {
     name: "Initiative",
-    category: "Behavioural competency",
+    sectionName: "Behavioural competency",
     description: "Acts without waiting to be told, within their remit.",
     isCore: false,
   },
   {
     name: "Adaptability",
-    category: "Behavioural competency",
+    sectionName: "Behavioural competency",
     description: "Handles a changed priority without losing the thread.",
     isCore: false,
   },
   {
     name: "Delivery against objectives",
-    category: "Key result area",
+    sectionName: "Key result area",
     description: "Progress on the goals set for the period.",
     isCore: true,
   },
   {
     name: "Customer or stakeholder outcomes",
-    category: "Key result area",
+    sectionName: "Key result area",
     description: "The effect of the work on whoever receives it.",
     isCore: false,
   },
   {
     name: "Process and compliance",
-    category: "Key result area",
+    sectionName: "Key result area",
     description: "Work done the way the company requires it to be done.",
     isCore: false,
   },
   {
     name: "Developing people",
-    category: "Leadership",
+    sectionName: "Leadership",
     description: "Grows the people who report to them, deliberately.",
     isCore: false,
   },
   {
     name: "Decision making",
-    category: "Leadership",
+    sectionName: "Leadership",
     description: "Decides with incomplete information and owns the outcome.",
     isCore: false,
   },
   {
     name: "Accountability for a team",
-    category: "Leadership",
+    sectionName: "Leadership",
     description: "Answers for the team's results rather than its individuals.",
     isCore: false,
   },
@@ -612,10 +615,14 @@ const SCALE_MAX = 5;
 const competencyId = (name: string) =>
   `demo-comp-${name.toLowerCase().replace(/[^a-z]+/g, "-")}`;
 
+const sectionId = (name: string) =>
+  `demo-section-${name.toLowerCase().replace(/[^a-z]+/g, "-")}`;
+
 const demoCompetencies: ApiCompetency[] = SEED_COMPETENCIES.map((seed) => ({
   id: competencyId(seed.name),
   name: seed.name,
-  category: seed.category,
+  sectionId: sectionId(seed.sectionName),
+  sectionName: seed.sectionName,
   description: seed.description,
   isCore: seed.isCore,
   scaleMax: SCALE_MAX,
@@ -693,6 +700,9 @@ const demoCycles: ApiCycle[] = [
        still be rewritten by a settings change, which is the property the
        snapshot exists to remove. */
     scoringFrozen: true,
+    departmentIds: [],
+    remindDaysBefore: null,
+    managersCanAddQuestions: false,
     createdAt: "2026-07-01T09:00:00.000Z",
   },
   {
@@ -704,6 +714,9 @@ const demoCycles: ApiCycle[] = [
     questionCount: 5,
     reviewCount: 18,
     scoringFrozen: true,
+    departmentIds: [],
+    remindDaysBefore: null,
+    managersCanAddQuestions: false,
     createdAt: "2026-01-08T09:00:00.000Z",
   },
 ];
@@ -977,7 +990,8 @@ function demoEmployeeCompetencies(employeeId: string): ApiEmployeeCompetencies {
     return {
       competencyId: competency.id,
       name: competency.name,
-      category: competency.category,
+      sectionId: competency.sectionId,
+      sectionName: competency.sectionName,
       isCore: competency.isCore,
       scaleMax: competency.scaleMax,
       level,
@@ -1015,7 +1029,8 @@ function demoGaps(): ApiGap[] {
         departmentId: person ? person.department : null,
         competencyId: competency?.id ?? competencyId(r.name),
         competencyName: r.name,
-        category: competency?.category ?? null,
+        sectionId: competency?.sectionId ?? null,
+        sectionName: competency?.sectionName ?? null,
         isCore: competency?.isCore ?? false,
         level: r.level,
         target: r.target as number,
@@ -1269,10 +1284,12 @@ function demoReviewDetail(
     (q) => q.audience === kind,
   ).map((q, index) => ({
     id: q.id,
+    competencyId: null,
     prompt: q.prompt,
     kind: q.kind,
     required: q.required,
     options: q.options ?? [],
+    allowCustom: false,
     order: index,
     answer: answers[q.id] ?? null,
   }));
@@ -2182,7 +2199,8 @@ export const CATEGORY_ORDER: readonly string[] = [
 ];
 
 export type FrameworkGroup = {
-  category: string;
+  sectionId: string | null;
+  sectionName: string;
   competencies: ApiCompetency[];
 };
 
@@ -2211,17 +2229,20 @@ export function useFramework(): {
 
   const groups = useMemo(() => {
     const bucket = new Map<string, ApiCompetency[]>();
+    const idOf = new Map<string, string | null>();
     for (const competency of competencies) {
-      const category = competency.category ?? "Other";
-      bucket.set(category, [...(bucket.get(category) ?? []), competency]);
+      const name = competency.sectionName ?? "Other";
+      bucket.set(name, [...(bucket.get(name) ?? []), competency]);
+      idOf.set(name, competency.sectionId);
     }
-    const known = CATEGORY_ORDER.filter((category) => bucket.has(category));
+    const known = CATEGORY_ORDER.filter((name) => bucket.has(name));
     const rest = [...bucket.keys()]
-      .filter((category) => !CATEGORY_ORDER.includes(category))
+      .filter((name) => !CATEGORY_ORDER.includes(name))
       .sort();
-    return [...known, ...rest].map((category) => ({
-      category,
-      competencies: bucket.get(category) ?? [],
+    return [...known, ...rest].map((name) => ({
+      sectionId: idOf.get(name) ?? null,
+      sectionName: name,
+      competencies: bucket.get(name) ?? [],
     }));
   }, [competencies]);
 
@@ -2231,6 +2252,58 @@ export function useFramework(): {
     loading: fetched.loading,
     error: fetched.error,
     source: isConnected ? "api" : "demo",
+  };
+}
+
+/**
+ * Building the framework: sections and the competencies filed under them.
+ *
+ * Framework-level, not cycle-level — a section or a subsection is shared
+ * across every appraisal period, seeded once and then a company's own. No
+ * demo simulation, the same reasoning as `useKpiMutations`'s writes: this is
+ * a company's standing framework, not a figure this browser can hold for it.
+ */
+export function useFrameworkActions() {
+  const { isConnected } = useSession();
+
+  const guard = useCallback(
+    (what: string) => {
+      if (!isConnected) offline(what);
+    },
+    [isConnected],
+  );
+
+  return {
+    editable: isConnected,
+
+    createSection: useCallback(
+      async (body: { name: string; order?: number }) => {
+        guard(
+          "Adding a section needs the API — sections are shared across every " +
+            "appraisal period, and one kept in this browser would vanish the " +
+            "moment you closed it.",
+        );
+        return performanceApi.createSection(body);
+      },
+      [guard],
+    ),
+
+    createCompetency: useCallback(
+      async (body: {
+        name: string;
+        sectionId?: string;
+        description?: string;
+        isCore?: boolean;
+        scaleMax: number;
+      }) => {
+        guard(
+          "Adding a competency needs the API — the demo framework is fixed, " +
+            "but you can still rate anybody against it.",
+        );
+        return performanceApi.createCompetency(body);
+      },
+      [guard],
+    ),
   };
 }
 
@@ -2344,12 +2417,16 @@ export function useCycleQuestions(cycleId: string | null): {
         : SEED_QUESTIONS.map((q, index) => ({
             id: q.id,
             reviewCycleId: cycleId,
+            competencyId: null,
             prompt: q.prompt,
             kind: q.kind,
             askedOf: [q.audience],
             required: q.required,
             options: q.options ?? [],
+            allowCustom: false,
             order: index,
+            source: "HR" as const,
+            departmentIds: [],
           })),
     [cycleId],
   );
@@ -2387,8 +2464,12 @@ export function useCycleMutations() {
       async (
         name: string,
         dueDate?: string,
-        /** Scope and reminder. Both optional, both read at activation. */
-        options?: { departmentIds?: string[]; remindDaysBefore?: number },
+        /** Scope, reminder and the manager-question toggle. All optional. */
+        options?: {
+          departmentIds?: string[];
+          remindDaysBefore?: number;
+          managersCanAddQuestions?: boolean;
+        },
       ) => {
         guard("Creating an appraisal period needs the API.");
         return performanceApi.createCycle({
@@ -2399,6 +2480,9 @@ export function useCycleMutations() {
             : {}),
           ...(options?.remindDaysBefore
             ? { remindDaysBefore: options.remindDaysBefore }
+            : {}),
+          ...(options?.managersCanAddQuestions
+            ? { managersCanAddQuestions: true }
             : {}),
         });
       },
@@ -2450,6 +2534,53 @@ export function useCycleMutations() {
       async (cycleId: string, body: CreateQuestionBody) => {
         guard("Adding a question needs the API.");
         return performanceApi.addQuestion(cycleId, body);
+      },
+      [guard],
+    ),
+
+    /** A manager's own question, scoped to their department by the API. */
+    addManagerQuestion: useCallback(
+      async (cycleId: string, body: CreateQuestionBody) => {
+        guard("Adding a question needs the API.");
+        return performanceApi.addManagerQuestion(cycleId, body);
+      },
+      [guard],
+    ),
+
+    /**
+     * Whether managers may add their own questions, and the period's scope
+     * and reminder — the three settings that only mean anything before a
+     * period starts. Kept apart from `advance`, which is the same endpoint
+     * carrying a stage: different acts, different rules.
+     */
+    updateCycle: useCallback(
+      async (
+        id: string,
+        body: {
+          departmentIds?: string[];
+          remindDaysBefore?: number | null;
+          managersCanAddQuestions?: boolean;
+        },
+      ) => {
+        guard("Changing a period's settings needs the API.");
+        return performanceApi.updateCycle(id, body);
+      },
+      [guard],
+    ),
+
+    /**
+     * Send one person's review back for another pass, with a reason.
+     *
+     * Reopens that review — clears its submission and sign-off — without
+     * touching the cycle's stage or anyone else's review.
+     */
+    requestRevision: useCallback(
+      async (
+        cycleId: string,
+        body: { employeeId: string; targetStage: "SELF" | "MANAGER"; reason: string },
+      ) => {
+        guard("Sending a review back needs the API.");
+        return performanceApi.requestRevision(cycleId, body);
       },
       [guard],
     ),
@@ -2538,6 +2669,110 @@ export function useRating() {
           );
         }
         return performanceApi.rate(competencyId, body);
+      },
+      [isConnected],
+    ),
+  };
+}
+
+/* ==========================================================================
+ * The weekly task log
+ *
+ * Grading writes state a manager and their report both then read, so — the
+ * same reasoning as `useRating` — there is no demo-mode simulation of it.
+ * `useTasksForGrading` reads an empty queue offline rather than a seeded
+ * one: a queue that claims something is waiting on you and can never
+ * actually be cleared is worse than an honest "needs the API".
+ * ======================================================================== */
+
+export function useTasksForGrading(): {
+  tasks: ApiTaskForGrading[];
+  loading: boolean;
+  error: ApiError | null;
+  reload: () => void;
+} {
+  const { isConnected } = useSession();
+
+  const load = useCallback(
+    async (signal: AbortSignal) => performanceApi.tasksForGrading(signal),
+    [],
+  );
+
+  const fetched = useFetched<ApiTaskForGrading[]>(
+    "tasks-for-grading",
+    isConnected,
+    load,
+  );
+
+  return {
+    tasks: isConnected ? (fetched.data ?? []) : [],
+    loading: isConnected ? fetched.loading : false,
+    error: isConnected ? fetched.error : null,
+    reload: fetched.reload,
+  };
+}
+
+/**
+ * Everything logged against one objective, newest first.
+ *
+ * No demo simulation for the same reason `useTasksForGrading` has none: a
+ * manager reads what their report logs here, so state one browser invented
+ * would never reach the person grading it.
+ */
+export function useGoalTasks(goalId: string | null): {
+  tasks: ApiTask[];
+  loading: boolean;
+  error: ApiError | null;
+  reload: () => void;
+} {
+  const { isConnected } = useSession();
+  const active = goalId !== null && isConnected;
+
+  const load = useCallback(
+    async (signal: AbortSignal) => performanceApi.tasks(goalId ?? "", signal),
+    [goalId],
+  );
+
+  const fetched = useFetched<ApiTask[]>(
+    `goal-tasks|${goalId ?? "none"}`,
+    active,
+    load,
+  );
+
+  return {
+    tasks: active ? (fetched.data ?? []) : [],
+    loading: active ? fetched.loading : false,
+    error: active ? fetched.error : null,
+    reload: fetched.reload,
+  };
+}
+
+const TASK_OFFLINE =
+  "The task log needs the API — a manager grading a report's task is " +
+  "state they both then read, and this browser cannot hold it for them.";
+
+export function useTaskActions() {
+  const { isConnected } = useSession();
+
+  return {
+    editable: isConnected,
+    submitTask: useCallback(
+      async (
+        goalId: string,
+        body: { keyResultId?: string; description: string },
+      ) => {
+        if (!isConnected) offline(TASK_OFFLINE);
+        return performanceApi.submitTask(goalId, body);
+      },
+      [isConnected],
+    ),
+    gradeTask: useCallback(
+      async (
+        id: string,
+        grade: "COMPLETED" | "PARTIALLY_COMPLETED" | "NOT_COMPLETED",
+      ) => {
+        if (!isConnected) offline(TASK_OFFLINE);
+        return performanceApi.gradeTask(id, grade);
       },
       [isConnected],
     ),
@@ -2695,6 +2930,8 @@ export type CycleRegister = {
    * company that will finish a cycle with somebody unmarked.
    */
   exceptions: ApiAppraiserMap | null;
+  /** Everybody currently sent back for another pass. Empty, never null, when there is none. */
+  revisionRequests: ApiRevisionRequest[];
   loading: boolean;
   error: ApiError | null;
   /** False in demo mode, and false without `EDIT_RECORDS`. */
@@ -2725,13 +2962,15 @@ export function useCycleRegister(
   const load = useCallback(
     async (signal: AbortSignal) => {
       const id = cycleId ?? "";
-      const [cycle, participants, register, exceptions] = await Promise.all([
-        performanceApi.cycle(id, signal),
-        performanceApi.participants(id, signal),
-        performanceApi.cycleScores(id, {}, signal),
-        performanceApi.appraiserMap(id, { exceptionsOnly: true }, signal),
-      ]);
-      return { cycle, participants, register, exceptions };
+      const [cycle, participants, register, exceptions, revisionRequests] =
+        await Promise.all([
+          performanceApi.cycle(id, signal),
+          performanceApi.participants(id, signal),
+          performanceApi.cycleScores(id, {}, signal),
+          performanceApi.appraiserMap(id, { exceptionsOnly: true }, signal),
+          performanceApi.revisionRequests(id, signal),
+        ]);
+      return { cycle, participants, register, exceptions, revisionRequests };
     },
     [cycleId],
   );
@@ -2741,6 +2980,7 @@ export function useCycleRegister(
     participants: ApiCycleParticipants;
     register: ApiScoreRegister;
     exceptions: ApiAppraiserMap;
+    revisionRequests: ApiRevisionRequest[];
   }>(`cycle-register|${cycleId ?? "none"}`, active, load);
 
   /* Nothing is derived offline — see the refusal above — so this is a stable
@@ -2751,6 +2991,7 @@ export function useCycleRegister(
       participants: null,
       register: null,
       exceptions: null,
+      revisionRequests: [],
       loading: false,
       error: null,
       available: false,
@@ -2767,6 +3008,7 @@ export function useCycleRegister(
     participants: fetched.data?.participants ?? null,
     register: fetched.data?.register ?? null,
     exceptions: fetched.data?.exceptions ?? null,
+    revisionRequests: fetched.data?.revisionRequests ?? [],
     loading: fetched.loading,
     error: fetched.error,
     available: enabled,
