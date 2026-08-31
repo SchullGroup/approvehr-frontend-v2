@@ -60,6 +60,11 @@ export function AccountForm({
   const [isPrimary, setIsPrimary] = useState(!hasPrimary);
   const [busy, setBusy] = useState(false);
 
+  /* Advisory, never a gate. `canSave` below is untouched: the API confirms an
+     account where it can and says so where it cannot, and a company with no
+     payment provider connected — most of them today — must still be able to
+     record where its salaries come from. */
+
   const digits = accountNumber.replace(/[\s-]/g, "");
   const numberTouched = accountNumber.trim().length > 0;
   const numberValid = /^\d{10}$/.test(digits);

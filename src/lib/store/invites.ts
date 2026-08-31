@@ -11,6 +11,7 @@ import {
   type UnlinkedUser,
 } from "@/lib/api/invites";
 import { useSession } from "./session";
+import { usePermissions } from "@/lib/permissions";
 import { useRevalidation } from "@/lib/revalidate";
 
 /**
@@ -36,6 +37,24 @@ export type InvitesState = {
 
 export function useInvites(): InvitesState {
   const { isConnected } = useSession();
+  const { can, loading: permissionsLoading } = usePermissions();
+  /*
+   * `GET /invites` needs INVITE_STAFF, and only the Administrator holds it. So
+   * five of the six seeded roles were firing a request that could only ever
+   * come back 403 — and the panel rendered that refusal through `LoadFailure`,
+   * which says "Invitations did not load" over the API's raw
+   * "You need the following to do that: INVITE_STAFF."
+   *
+   * Three separate wrongs in one panel: a request nobody could answer, a
+   * permission described as a breakage, and an enum name shown to a person.
+   * Gating the fetch removes all three at once — with nothing fetched there is
+   * no error to mis-render, and the panel falls through to its own empty state.
+   *
+   * A boolean, never `can` itself, in the dependency array: `can` is rebuilt
+   * every render and putting it there is an infinite request loop. Same rule as
+   * `store/grades.ts`, which carries the long version of this note.
+   */
+  const mayRead = can("INVITE_STAFF");
   const [state, setState] = useState<{
     invites: PendingInvite[];
     loading: boolean;
@@ -43,7 +62,7 @@ export function useInvites(): InvitesState {
   }>({ invites: [], loading: isConnected, error: null });
 
   const load = useCallback(async () => {
-    if (!isConnected) {
+    if (!isConnected || permissionsLoading || !mayRead) {
       setState({ invites: [], loading: false, error: null });
       return;
     }
@@ -58,7 +77,7 @@ export function useInvites(): InvitesState {
         error: error instanceof ApiError ? error : null,
       }));
     }
-  }, [isConnected]);
+  }, [isConnected, permissionsLoading, mayRead]);
 
   /* Re-ask when somebody comes back to the window. Not in the key below,
      so the answer is replaced without the screen flashing a skeleton. */

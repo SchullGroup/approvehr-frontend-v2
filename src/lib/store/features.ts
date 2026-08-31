@@ -174,7 +174,20 @@ const LOADING: State = {
  */
 export const FEATURE_COPY: Record<
   FeatureKey,
-  { label: string; line: string }
+  {
+    label: string;
+    line: string;
+    /**
+     * The module has a flag and a nav item and is not built yet.
+     *
+     * Kept here rather than in the nav alone, because three surfaces read this
+     * record and only one of them knew: the sidebar said "Coming soon" while
+     * Settings and the wizard's summary counted the module among what a
+     * company has and described it in the present tense. Same meaning as
+     * `soon` in `nav.tsx`.
+     */
+    soon?: boolean;
+  }
 > = {
   departments: {
     label: "Departments and teams",
@@ -202,7 +215,10 @@ export const FEATURE_COPY: Record<
   },
   hiring: {
     label: "Hiring",
-    line: "Post a role, track candidates, send an offer.",
+    /* Out of the present tense until `app/(app)/hiring/layout.tsx` stops
+       returning `RecruitmentComingSoon` for every child. */
+    line: "Post a role, track candidates, send an offer. Not built yet.",
+    soon: true,
   },
   attendance: {
     label: "Attendance",

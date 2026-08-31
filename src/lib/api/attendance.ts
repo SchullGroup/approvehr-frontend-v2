@@ -220,6 +220,13 @@ export type ApiRosterRow = {
   clockOut: string | null;
   /** Minutes past the grace period. Zero unless the status is `LATE`. */
   lateByMinutes: number;
+  /**
+   * Minutes clocked out before the shift's grace-adjusted end. Zero unless
+   * they left early — independent of `status`: somebody can be `LATE` and
+   * still leave early, the same way `lateByMinutes` sits beside `LATE`
+   * rather than being folded into a seventh status.
+   */
+  earlyByMinutes: number;
   /** The location's name, already resolved. There is no id on this row. */
   workLocation: string | null;
   /** The approved leave explaining an absence, where there is one. */
@@ -349,6 +356,7 @@ type WireTimesheetRow = {
   workingDays: number;
   daysPresent: number;
   daysLate: number;
+  daysEarly: number;
   daysOnLeave: number;
   daysUnexplained: number;
   hours: number;
@@ -479,6 +487,62 @@ export type ApiCorrection = {
   correctionNote: string | null;
 };
 
+/** What `HistoryQuery.status` may narrow a range down to. */
+export type HistoryStatusFilter = AttendanceStatus | "EARLY";
+
+/** One day of one person's own attendance. */
+export type ApiHistoryRow = {
+  /** `YYYY-MM-DD`. */
+  date: string;
+  status: AttendanceStatus;
+  clockIn: string | null;
+  clockOut: string | null;
+  lateByMinutes: number;
+  earlyByMinutes: number;
+  workLocation: string | null;
+  leave: { id: string; type: string } | null;
+  correctionNote: string | null;
+};
+
+export type ApiHistory = {
+  employeeId: string;
+  from: string;
+  to: string;
+  /** Newest first. A day before the organisation's first-ever clock-in, or
+      one that has not happened yet, is not in this list at all — not present,
+      not absent. See `ApiRoster.tracked` for the same discipline elsewhere. */
+  rows: ApiHistoryRow[];
+};
+
+/**
+ * An employee's own account of what a day's attendance should say, waiting
+ * on HR.
+ *
+ * Distinct from `ApiCorrection`, which is the *result* of an HR-typed fix
+ * applied immediately. This is a **proposal** — the same shape
+ * `EmployeeChangeRequest` uses for a bank account: held until somebody with
+ * `EDIT_RECORDS` agrees, and only then applied through the very function an
+ * HR-typed correction uses. `status` other than `PENDING` means it is
+ * settled; `WITHDRAWN` means a newer request for the same day replaced it.
+ */
+export type ApiCorrectionRequest = {
+  id: string;
+  employeeId: string;
+  /** `YYYY-MM-DD`. */
+  workDate: string;
+  requestedAt: string;
+  /** What the record said when this was raised — the snapshot, not a live read. */
+  clockInBefore: string | null;
+  clockOutBefore: string | null;
+  /** What was asked for. Null means "no change asked to this side". */
+  clockInAfter: string | null;
+  clockOutAfter: string | null;
+  reason: string;
+  status: "PENDING" | "APPROVED" | "DECLINED" | "WITHDRAWN";
+  decidedAt: string | null;
+  decisionNote: string | null;
+};
+
 /* ------------------------------------------------------------------- bodies */
 
 /**
@@ -549,6 +613,31 @@ export type TimesheetParams = {
   to?: string;
   /** One person's sheet, for a record page. */
   employeeId?: string;
+};
+
+export type HistoryParams = {
+  /** Omit for your own. Reading somebody else's needs the same company-wide
+      read `/roster` and `/timesheet` do — see `attendanceApi.history`. */
+  employeeId?: string;
+  /** `YYYY-MM-DD`. Omitted defaults to the last 30 days on the API. */
+  from?: string;
+  to?: string;
+  status?: HistoryStatusFilter;
+};
+
+/**
+ * At least one of `clockIn`/`clockOut` is required.
+ *
+ * Unlike `CorrectionBody`, neither side is nullable: this is a proposal, and
+ * an employee asking to *clear* their own clock-in is not a request this
+ * form expresses — only "it should have said something else".
+ */
+export type RequestCorrectionBody = {
+  /** `YYYY-MM-DD`. */
+  date: string;
+  clockIn?: string;
+  clockOut?: string;
+  reason: string;
 };
 
 /* ------------------------------------------------------------------- the seam */
@@ -743,6 +832,42 @@ export const attendanceApi = {
   correct: (employeeId: string, date: string, body: CorrectionBody) =>
     request<ApiCorrection>(`/attendance/entries/${employeeId}/${date}`, {
       method: "PATCH",
+      body,
+    }),
+
+  /**
+   * One person's own day-by-day record. Omit `employeeId` for yourself;
+   * naming somebody else needs the same company-wide read `/roster` and
+   * `/timesheet` need, and a scoped caller who tries anyway gets their own
+   * id back regardless of what they asked for — same as `/timesheet`.
+   */
+  history: (params: HistoryParams = {}, signal?: AbortSignal) =>
+    request<ApiHistory>("/attendance/history", {
+      query: {
+        employeeId: params.employeeId,
+        from: params.from,
+        to: params.to,
+        status: params.status,
+      },
+      ...(signal ? { signal } : {}),
+    }),
+
+  /** Your own pending or recently-decided correction requests, newest first. */
+  myCorrections: (signal?: AbortSignal) =>
+    request<ApiCorrectionRequest[]>("/attendance/corrections/mine", {
+      ...(signal ? { signal } : {}),
+    }),
+
+  /**
+   * Ask for your own attendance record to be put right.
+   *
+   * No permission beyond a staff record — the same door `/clock-in` and
+   * `/clock-out` already open for yourself. Deciding it is HR's action, via
+   * the shared `/approvals` queue, not this call.
+   */
+  requestCorrection: (body: RequestCorrectionBody) =>
+    request<ApiCorrectionRequest>("/attendance/corrections", {
+      method: "POST",
       body,
     }),
 };

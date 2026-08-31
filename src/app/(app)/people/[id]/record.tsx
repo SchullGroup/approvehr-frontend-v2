@@ -690,6 +690,13 @@ export function EmployeeRecord({
                 },
                 {
                   key: "gender",
+                  /* "Prefer not to say" is `value: ""`, and the API takes
+                     `z.enum([...]).nullable().optional()` — so `null` is how a
+                     person returns to undeclared and `""` is still refused.
+                     Until approvehr-backend#33 the field was not nullable and
+                     this choice could not be saved at all: a gender could be
+                     recorded and never removed. */
+                  clearsToNull: true,
                   group: "identity",
                   label: "Gender",
                   optional: true,

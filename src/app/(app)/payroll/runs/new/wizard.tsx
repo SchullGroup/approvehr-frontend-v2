@@ -1132,7 +1132,12 @@ export function PayrollRunWizard() {
                     label="Status"
                     value={<RunStatusBadge status={run.status} />}
                   />
-                  <SummaryRow label="People paid" value={headcountLabel(run)} />
+                  {/* Directly beneath a SummaryRow reading "Status: In
+                      review". */}
+                  <SummaryRow
+                    label="People on this payroll"
+                    value={headcountLabel(run)}
+                  />
                   <SummaryRow label="Pays on" value={run.payDate} />
                   <SummaryRow
                     label="Stops payroll"
@@ -1729,14 +1734,24 @@ function PreflightChecklist() {
 
   const rows: Row[] = [
     {
-      label: "What you deduct is decided",
+      label: facts.pay.settings
+        ? "What you deduct is decided"
+        : "What you deduct is not decided yet",
       ok: facts.pay.settings,
       detail: "PAYE, pension and NHF — each a switch, in payroll settings.",
       href: "/settings/payroll",
       linkLabel: "Decide it",
     },
     {
-      label: "A default PAYE state is set",
+      /* The label states what IS, never what should be. Three rows here used
+         to carry a fixed affirmative — "A default PAYE state is set" sat above
+         a "Set it" button on a company that had never set one, so the sentence
+         read as done and only the amber triangle disagreed with it. The two
+         payroll-checks rows below already flip their wording on `ok`; these
+         now do the same. */
+      label: facts.company.taxState
+        ? "A default PAYE state is set"
+        : "No default PAYE state yet",
       ok: facts.company.taxState,
       detail: "Falls back to this for anybody with no state of their own.",
       href: "/settings/company",
@@ -1781,7 +1796,9 @@ function PreflightChecklist() {
      exactly the wrong figure this product is sold against. */
   if (facts.pay.hasPrimaryBankAccount !== null) {
     rows.push({
-      label: "Your company has a payout account on file",
+      label: facts.pay.hasPrimaryBankAccount
+        ? "Your company has a payout account on file"
+        : "Your company has no payout account on file",
       ok: facts.pay.hasPrimaryBankAccount,
       detail: "Needed to build a payment batch once this run is approved.",
       href: `/settings/bank-accounts?from=${encodeURIComponent(here)}`,

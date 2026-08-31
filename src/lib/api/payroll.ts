@@ -965,6 +965,16 @@ type ApiPayslip = {
   /** Set once, at prepare time, from whichever `PayrollTaxOverride` existed
    *  for this person on this run. See `Payslip.payeOverridden`. */
   payeOverridden?: boolean;
+  /**
+   * Which statutory deductions were set by hand. See `Payslip
+   * .overriddenDeductions`, which this feeds.
+   *
+   * Optional for the same reason `relief` and `operates` are: an older API
+   * answers without it, and that silence has to survive as an absence. An
+   * empty array is a different claim — "nothing was overridden" — and only the
+   * API may make it.
+   */
+  overriddenDeductions?: DeductionKind[];
   payeOverrideReason?: string | null;
   otherDeductions: Decimalish;
   net: Decimalish;
@@ -998,6 +1008,12 @@ type ApiRunDetail = ApiRun & {
     excludedAt: string;
     employee: { employeeNo: string; firstName: string; lastName: string };
     excludedBy: { firstName: string; lastName: string } | null;
+    /**
+     * The account behind the decision, where `excludedBy` — the employee
+     * record — is null because the account has no staff record. BE-12's
+     * backend half records it; older deployments omit the key, so optional.
+     */
+    excludedByUser?: { firstName: string; lastName: string } | null;
   }[];
   taxOverrides: {
     id: string;
@@ -1007,6 +1023,8 @@ type ApiRunDetail = ApiRun & {
     setAt: string;
     employee: { employeeNo: string; firstName: string; lastName: string };
     setBy: { firstName: string; lastName: string } | null;
+    /** Same pair as `excludedByUser` above, for the same reason. */
+    setByUser?: { firstName: string; lastName: string } | null;
   }[];
   /* Already integer kobo on the wire — `wallet.ts` works in whole kobo so that
      exact comparison is a reasonable thing to demand of a figure that decides
@@ -1014,6 +1032,13 @@ type ApiRunDetail = ApiRun & {
   funds?: RunFunds;
   batch: RunBatch | null;
 };
+
+/** "First Last", or null — for the who-did-this pairs above. */
+function nameOf(
+  who: { firstName: string; lastName: string } | null | undefined,
+): string | null {
+  return who ? `${who.firstName} ${who.lastName}` : null;
+}
 
 function toRun(row: ApiRun): PayrollRun {
   const grossKobo = koboFromDecimal(row.totalGross);
@@ -1074,6 +1099,14 @@ function toPayslip(row: ApiPayslip): Payslip {
        claiming an absence nobody reported. */
     ...(row.operates ? { operates: row.operates } : {}),
     payeKobo: koboFromDecimal(row.paye),
+    /* Conditional, not `?? []`. An empty array says "nothing was set by hand",
+       which is a claim about the payslip; the absence of the field says the API
+       did not tell us. `adjustment-sheet.ts` reads this to decide whether a
+       pension cell is a hand-set figure being carried, and a fabricated `[]`
+       there is what made an overridden pension download blank. */
+    ...(row.overriddenDeductions
+      ? { overriddenDeductions: row.overriddenDeductions }
+      : {}),
     payeOverridden: row.payeOverridden ?? false,
     payeOverrideReason: row.payeOverrideReason ?? null,
     otherDeductionsKobo: koboFromDecimal(row.otherDeductions),
@@ -1177,9 +1210,11 @@ export const payrollApi = {
         employeeNo: row.employee.employeeNo,
         name: `${row.employee.firstName} ${row.employee.lastName}`,
         reason: row.reason,
-        decidedBy: row.excludedBy
-          ? `${row.excludedBy.firstName} ${row.excludedBy.lastName}`
-          : null,
+        /* The employee record where one exists, else the account — a decision
+           made by an administrator with no staff record is still a decision
+           with a name on it, and "Decided by" rendering nothing was the gap
+           BE-12 closed. Null only when the deployment recorded neither. */
+        decidedBy: nameOf(row.excludedBy ?? row.excludedByUser),
         excludedAt: row.excludedAt,
       })),
       taxOverrides: row.taxOverrides.map((row) => ({
@@ -1189,9 +1224,7 @@ export const payrollApi = {
         name: `${row.employee.firstName} ${row.employee.lastName}`,
         payeKobo: koboFromDecimal(row.paye),
         reason: row.reason,
-        setBy: row.setBy
-          ? `${row.setBy.firstName} ${row.setBy.lastName}`
-          : null,
+        setBy: nameOf(row.setBy ?? row.setByUser),
         setAt: row.setAt,
       })),
       /* `compact`-style: present when the API sent it, absent otherwise.

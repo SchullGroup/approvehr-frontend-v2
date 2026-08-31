@@ -97,11 +97,19 @@ const TABS: TabItem[] = SHIFT_TABS.map((id) => ({ id, label: LABELS[id] }));
  */
 export function ShiftsScreen({ initialTab }: { initialTab: ShiftTab }) {
   const features = useFeatures();
-  const { employeeId } = useSession();
+  const { employeeId, isConnected } = useSession();
   const canEdit = useCan("EDIT_RECORDS");
 
+  /* Connected, the data is real and so is the date. In demo mode the seed is a
+     fixed snapshot and `TODAY` is its "now". Mirrors `leave-screen.tsx`, which
+     already draws this distinction over the same clock — this screen used
+     `TODAY` in both modes, so a connected rota opened on the demo dataset's
+     week and "This week" reset to that same wrong week rather than to this
+     one, which made it a dead control. */
+  const anchor = isConnected ? new Date().toISOString().slice(0, 10) : TODAY;
+
   const [tab, setTab] = useState<ShiftTab>(initialTab);
-  const [weekOf, setWeekOf] = useState(() => weekStart(TODAY));
+  const [weekOf, setWeekOf] = useState(() => weekStart(anchor));
   const [span, setSpan] = useState<Span>("1");
   const [everybody, setEverybody] = useState(false);
 
@@ -257,7 +265,7 @@ export function ShiftsScreen({ initialTab }: { initialTab: ShiftTab }) {
                           <ChevronLeft aria-hidden="true" className="size-4" />
                           <span className="sr-only">Previous week</span>
                         </Button>
-                        <Button size="sm" onClick={() => setWeekOf(weekStart(TODAY))}>
+                        <Button size="sm" onClick={() => setWeekOf(weekStart(anchor))}>
                           This week
                         </Button>
                         <Button

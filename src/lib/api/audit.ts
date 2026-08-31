@@ -113,12 +113,17 @@ export type AuditActor = {
   /** Everything, reads included — unaffected by "Show who read the log". */
   events: number;
   /**
-   * `events` minus reads — the figure that matches the list under the
-   * dropdown while reads are hidden, which is the ordinary state of that
-   * toggle. Showing `events` there is how a dropdown reading "Amara (77)"
-   * sits above a list of 64 rows for the same person.
+   * `events` minus reads: the figure that matches the list under the dropdown
+   * while reads are hidden, which is the ordinary state of that toggle.
+   *
+   * **Optional, and that is not tidiness.** `actors()` on the API computes it
+   * only where the audit-actor-counts change has landed; on a deployment
+   * without it the field is simply absent from the row. Absent is not zero —
+   * `?? 0` here would render "Amara Nwachukwu (0)" for somebody with
+   * nineteen events, which is a wrong claim rather than a missing one. The
+   * screen falls back to `events` and says what it is counting instead.
    */
-  changes: number;
+  changes?: number;
   lastAt: string | null;
 };
 

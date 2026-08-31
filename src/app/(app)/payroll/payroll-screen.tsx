@@ -243,7 +243,10 @@ export function PayrollScreen() {
                 />
                 <CardBody className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                   <Stat
-                    label="People paid"
+                    /* Present tense. The card description directly above this
+                       says "Nothing has been paid and nothing has been settled"
+                       on an unapproved run, and this label contradicted it. */
+                    label="People on this payroll"
                     /* Not `employeeCount` on its own. That figure is payslips,
                        which is the right answer to "how many were paid" and a
                        wrong claim under this label the moment somebody has been
@@ -409,7 +412,9 @@ export function PayrollScreen() {
                 <TH>Period</TH>
                 <TH align="right">People</TH>
                 <TH align="right">Gross</TH>
-                <TH align="right">Net paid out</TH>
+                {/* The column spans runs of every status, most of which have
+                    paid nobody. */}
+                <TH align="right">Net</TH>
                 <TH>Status</TH>
                 <TH>Pays</TH>
               </THead>

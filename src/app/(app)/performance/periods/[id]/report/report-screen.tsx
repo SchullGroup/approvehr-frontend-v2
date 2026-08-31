@@ -41,6 +41,17 @@ import { useCan } from "@/lib/permissions";
 import { BAND_TONE, useCycleReport } from "@/lib/store/performance";
 
 /**
+ * "N of M", or what the absence is when there is no M.
+ *
+ * A zero denominator is never "0 of 0" — that reads as a measurement of a set
+ * that does not exist yet. The same rule `StatusCell` in `period-status.tsx`
+ * follows with its `notYet`, applied to the rows on this screen.
+ */
+function ratio(done: number, total: number, notYet: string): string {
+  return total === 0 ? notYet : `${done} of ${total}`;
+}
+
+/**
  * How a cycle came out.
  *
  * ## Every denominator is on screen beside its numerator
@@ -415,7 +426,7 @@ function WhatCameIn({ report }: { report: ApiCycleReport }) {
             items={[
               {
                 term: "Self-reviews in",
-                value: `${forms.selfIn} of ${forms.people}`,
+                value: ratio(forms.selfIn, forms.people, "Nobody has a form yet"),
               },
               {
                 term: "Self-reviews outstanding",
@@ -426,7 +437,17 @@ function WhatCameIn({ report }: { report: ApiCycleReport }) {
               },
               {
                 term: "Manager reviews in",
-                value: `${forms.managerIn} of ${forms.people}`,
+                /* Reviews, not people — somebody with two appraisers and one
+                   answer owes one more, so the denominator is the reviews due
+                   and not the headcount. `cellsFrom` in period-status.tsx says
+                   the same thing over the same payload; this row said
+                   `forms.people` and the two screens disagreed about one
+                   figure. */
+                value: ratio(
+                  forms.managerIn,
+                  forms.managerIn + forms.managerOutstanding,
+                  "No manager review is due yet",
+                ),
               },
               {
                 term: "Manager reviews outstanding",

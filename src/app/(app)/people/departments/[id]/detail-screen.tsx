@@ -235,7 +235,7 @@ export function DepartmentDetailScreen({ id }: { id: string }) {
                 },
                 {
                   term: "Rolled up",
-                  value: `${detail.totalEmployees} people including every unit inside it`,
+                  value: `${detail.totalEmployees} ${detail.totalEmployees === 1 ? "person" : "people"} including every unit inside it`,
                 },
               ]}
             />

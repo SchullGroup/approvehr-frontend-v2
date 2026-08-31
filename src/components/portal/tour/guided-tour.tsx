@@ -61,20 +61,35 @@ export function openTour(): void {
 type Step = {
   id: string;
   title: string;
-  body: string;
+  /**
+   * A function where the sentence has to know how many steps there are.
+   *
+   * Two of the five steps are dropped for somebody who approves nothing or
+   * manages no settings, so the total is 3, 4 or 5 depending on the role —
+   * and the welcome step used to say "Four things" directly under a counter
+   * reading "1 of 3". One screen, two counts, neither role ever seeing both
+   * agree.
+   */
+  body: string | ((total: number) => string);
   /** Tried in order — the first rendered and visible one is pointed at. */
   target: readonly string[];
   /** Left out entirely when false. Absent means always. */
   when?: (ctx: { canApprove: boolean; canSettings: boolean }) => boolean;
 };
 
+/* Spelled out, because the sentence reads as prose rather than as a count.
+   Only 3, 4 and 5 are reachable — the two conditional steps are the only
+   thing that varies — and the numeral is there so a sixth step cannot make
+   this render "undefined things". */
+const WORD: Record<number, string> = { 3: "Three", 4: "Four", 5: "Five" };
+
 const STEPS: readonly Step[] = [
   {
     id: "welcome",
     title: "A quick look round",
-    body:
-      "Four things, about half a minute. You can leave at any point and pick " +
-      "it up again from your account menu.",
+    body: (total) =>
+      `${WORD[total] ?? total} things, about half a minute. You can leave at ` +
+      "any point and pick it up again from your account menu.",
     target: [],
   },
   {
@@ -188,7 +203,7 @@ export function GuidedTour() {
       </p>
       <h2 className="mt-1.5 text-body font-semibold text-ink">{step.title}</h2>
       <p className="mt-1.5 text-body-sm leading-relaxed text-body">
-        {step.body}
+        {typeof step.body === "function" ? step.body(steps.length) : step.body}
       </p>
 
       <div className="mt-4 flex items-center justify-between gap-3">

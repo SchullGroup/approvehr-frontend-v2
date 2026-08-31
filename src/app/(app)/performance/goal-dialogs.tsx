@@ -197,8 +197,18 @@ export function NewKpiDialog({
                 The whole company — everyone sees it
               </option>
             )}
+            {/* The API's own rule, not a longer list than it will accept.
+                `assertMayApproveGoal` lets somebody set an objective for
+                themselves or a direct report, and anybody else only with
+                EDIT_RECORDS — which is exactly `canSetCompanyWide`. Offering
+                every colleague to a line manager or an employee put a name in
+                front of them that the save would refuse. */}
             {employees
-              .filter((person) => person.id !== employeeId)
+              .filter(
+                (person) =>
+                  person.id !== employeeId &&
+                  (canSetCompanyWide || person.managerId === employeeId),
+              )
               .map((person) => (
                 <option key={person.id} value={person.id}>
                   {person.firstName} {person.lastName} · {person.jobTitle}

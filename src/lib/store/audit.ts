@@ -816,7 +816,10 @@ function demoOptions(from?: string, to?: string) {
     const existing = actors.get(key);
     if (existing) {
       existing.events += 1;
-      if (!entry.isRead) existing.changes += 1;
+      /* `changes` is optional on the wire type because a deployment may not
+         send it; the demo always sets it below, so this only satisfies the
+         compiler rather than guarding a case that happens. */
+      if (!entry.isRead) existing.changes = (existing.changes ?? 0) + 1;
       if (!existing.lastAt || entry.at > existing.lastAt) existing.lastAt = entry.at;
       continue;
     }
@@ -826,6 +829,8 @@ function demoOptions(from?: string, to?: string) {
       email: entry.actorEmail,
       isSystem: entry.actor.isSystem,
       events: 1,
+      /* Demo computes this the same way the API does, so the dropdown reads
+         the same offline as on a deployment that sends it. */
       changes: entry.isRead ? 0 : 1,
       lastAt: entry.at,
     });

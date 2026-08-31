@@ -489,7 +489,16 @@ export function PayslipDocument({
             Payslip
           </p>
           <p className="mt-1 text-h4 text-ink">{period}</p>
-          <p className="mt-0.5 text-meta text-muted">Paid {payDate}</p>
+          {/* The scheduled date, said as a schedule. `run.payDate` is when the
+              money is *due* — it is set at prepare time and nothing ever
+              revises it — so "Paid 28 July 2026" was a statement of fact about
+              a transfer that in most cases has not happened. The badge and the
+              not-approved callout that would have contradicted it are both
+              `.no-print`, so on the printed sheet this line stood alone. Use
+              the same words the Detail row below already uses. A genuine
+              "Paid" line needs the run's `paidAt` or a SETTLED batch behind
+              it — the rule `paymentOutcome` already follows. */}
+          <p className="mt-0.5 text-meta text-muted">Pay date {payDate}</p>
         </div>
       </header>
 

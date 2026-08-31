@@ -20,11 +20,13 @@ import {
   useLeaveTypes,
 } from "@/lib/store/leave-api";
 import {
-  daysBetween,
+  workingDaysBetween,
   validateLeave,
   type LeaveError,
   type NewLeaveRequest,
 } from "@/lib/store/leave";
+import { useAttendancePolicy } from "@/lib/store/attendance";
+import { usePublicHolidays } from "@/lib/store/holidays";
 import { useSession } from "@/lib/store/session";
 import { useCan } from "@/lib/permissions";
 import { fullName } from "@/lib/types";
@@ -85,6 +87,16 @@ export function BookLeaveDialog({
   const { types } = useLeaveTypes();
   const mutations = useLeaveMutations();
   const toast = useToast();
+  const { policy: attendancePolicy } = useAttendancePolicy();
+  /* Load the current and next year's holidays so a leave range spanning
+     Dec–Jan still nets off public holidays correctly. */
+  const currentYear = new Date().getFullYear();
+  const cal0 = usePublicHolidays(currentYear);
+  const cal1 = usePublicHolidays(currentYear + 1);
+  const confirmedHolidays = [
+    ...cal0.holidays.filter((h) => h.confirmed).map((h) => h.date),
+    ...cal1.holidays.filter((h) => h.confirmed).map((h) => h.date),
+  ];
 
   /**
    * Whether this person may raise leave for somebody other than themselves.
@@ -125,7 +137,35 @@ export function BookLeaveDialog({
   const [errors, setErrors] = useState<LeaveError[]>([]);
   const [saving, setSaving] = useState(false);
 
-  const days = draft.from && draft.to ? daysBetween(draft.from, draft.to) : 0;
+  /**
+   * Who this request is routed to.
+   *
+   * Whoever is signed in, **unless they are the subject** — the API refuses a
+   * self-approval, so routing your own leave to yourself put a row in your own
+   * inbox counted as "Waiting on you", with an Approve button that could only
+   * ever fail. Your own request goes to your manager; somebody with no manager
+   * is raised unrouted, which reads as "Not routed" and is true.
+   *
+   * The comment this replaces was right about the case it described — an HR
+   * manager booking on somebody's behalf should get the request back — and
+   * that case still behaves exactly as it did.
+   */
+  const approverFor = (subjectId: string) => {
+    if (!session.employeeId) return {};
+    if (subjectId !== session.employeeId) return { approverId: session.employeeId };
+    const manager = employees.find((person) => person.id === subjectId)?.managerId;
+    return manager ? { approverId: manager } : {};
+  };
+
+  const days =
+    draft.from && draft.to
+      ? workingDaysBetween(
+          draft.from,
+          draft.to,
+          attendancePolicy.workingWeekdays,
+          confirmedHolidays,
+        )
+      : 0;
 
   const chosenType = types.find((type) => type.name === draft.type);
   const balances = useLeaveBalancesFor(
@@ -166,6 +206,7 @@ export function BookLeaveDialog({
       },
       requests,
       remaining,
+      days,
     );
     setErrors(found);
     if (found.length > 0) return;
@@ -188,7 +229,7 @@ export function BookLeaveDialog({
            No session employee means no approver. The request is raised
            unrouted and reads as "Not routed" — which is true, and better than
            attributing it to a seeded person who is not the one signed in. */
-        ...(session.employeeId ? { approverId: session.employeeId } : {}),
+        ...approverFor(draft.employeeId),
       });
 
       toast.push({

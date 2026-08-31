@@ -423,6 +423,48 @@ export type PaymentHistoryParams = {
  * "nothing has happened to this instruction" is exactly the state the bank-file
  * route leaves every row in.
  */
+/**
+ * The wallet's headline figure, worded for whichever side of zero it is on.
+ *
+ * `availableKobo` is the balance less what is already promised, and the API
+ * returns it **negative** when a company has approved more than it holds —
+ * deliberately, because "you cannot pay this" is not something anybody can act
+ * on while "you are ₦1,480,000 short" is a figure somebody takes to whoever
+ * funds the account.
+ *
+ * What the screens did with it was render it raw under the label "Available to
+ * pay with", so a company nine million short read **"Available to pay with
+ * −₦9,400,272.00"**. There is no such thing as a negative amount of money
+ * available: the fact is a shortfall, and a minus sign in front of a positive
+ * label is the reader's job to decode rather than the product's job to state.
+ *
+ * So the label moves with the sign and the amount is always rendered
+ * positive. Written here rather than in either screen because the run's pay
+ * panel and the wallet screen both show it, and two copies of a rule about
+ * money is how they come to disagree.
+ */
+export function availableFigure(availableKobo: number): {
+  label: string;
+  kobo: number;
+  hint: string;
+  short: boolean;
+} {
+  if (availableKobo < 0) {
+    return {
+      label: "Short by",
+      kobo: -availableKobo,
+      hint: "more is promised than the wallet holds",
+      short: true,
+    };
+  }
+  return {
+    label: "Available to pay with",
+    kobo: availableKobo,
+    hint: "after everything already promised",
+    short: false,
+  };
+}
+
 export function paymentOutcome(row: {
   status: PaymentInstructionStatus;
   batchStatus: PaymentBatchStatus;

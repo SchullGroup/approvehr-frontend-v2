@@ -1252,6 +1252,15 @@ function Done({
             <span className="min-w-0">
               <span className="block text-body-sm font-medium text-ink">
                 {FEATURE_COPY[key].label}
+                {/* The tick beside this list means "switched on", and for a
+                    module that is not built yet that reads as "here now".
+                    The sidebar has always said Coming soon; this said the
+                    opposite on the screen somebody sees first. */}
+                {FEATURE_COPY[key].soon && (
+                  <span className="ml-1.5 font-normal text-muted">
+                    — coming soon
+                  </span>
+                )}
               </span>
               <span className="mt-0.5 block text-body-sm text-muted">
                 {FEATURE_COPY[key].line}

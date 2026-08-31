@@ -304,7 +304,10 @@ function PayslipIndex() {
                   {excludedNote(run)}
                 </p>
               )}
-              <TotalRow label="Net paid out" kobo={run.netKobo} strong />
+              {/* `run-panels.tsx` already labels this same field "Net to
+                  employees" under "What leaves the account" — future tense,
+                  because on an approved run the money has not moved. */}
+              <TotalRow label="Net to employees" kobo={run.netKobo} strong />
               <TotalRow label="Gross" kobo={run.grossKobo} />
               <div className="flex items-center justify-between gap-3 border-t border-line pt-3 text-body-sm">
                 <span className="text-muted">Pays on</span>

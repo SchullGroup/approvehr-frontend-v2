@@ -23,6 +23,7 @@ import {
   type UpdateKbArticleBody,
   type UpdateKbCategoryBody,
 } from "@/lib/api/knowledge";
+import { useCan } from "../permissions";
 import { useSession } from "./session";
 import { createPersistedState } from "./persisted";
 import { useRevalidation } from "@/lib/revalidate";
@@ -1050,6 +1051,19 @@ export function useKbSearch({ pageSize = 8, minLength = 2 } = {}) {
  */
 export function useKbAnalytics() {
   const { isConnected } = useSession();
+  /**
+   * `GET /knowledge/analytics` is `MANAGE_SETTINGS` on the API, with no
+   * narrower reading for anybody else — so asking without it is a request that
+   * can only ever come back 403. Five of the six seeded roles hit that on
+   * every visit to `/settings/knowledge`, while the screen was already
+   * rendering the correct refusal from its own permission check: the panel
+   * knew it could not read this and asked anyway.
+   *
+   * Gated in the hook rather than at the one call site so a second caller
+   * cannot reintroduce it. The boolean goes in the dependency array, never
+   * `can` itself — that is rebuilt every render and would loop.
+   */
+  const mayRead = useCan("MANAGE_SETTINGS");
   const store = useLocal();
 
   const [fetched, setFetched] = useState<{
@@ -1062,7 +1076,7 @@ export function useKbAnalytics() {
      so the answer is replaced without the screen flashing a skeleton. */
   const revalidation = useRevalidation();
   useEffect(() => {
-    if (!isConnected) return;
+    if (!isConnected || !mayRead) return;
     let cancelled = false;
     const controller = new AbortController();
     void (async () => {
@@ -1082,7 +1096,7 @@ export function useKbAnalytics() {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, tick, revalidation]);
+  }, [isConnected, mayRead, tick, revalidation]);
 
   const demo = useMemo((): ApiKbAnalytics => {
     const published = DEMO_ARTICLES.filter((a) => a.published);
@@ -1144,7 +1158,7 @@ export function useKbAnalytics() {
 
   return {
     analytics,
-    loading: isConnected && fetched === null,
+    loading: isConnected && mayRead && fetched === null,
     error: isConnected ? (fetched?.error ?? null) : null,
     /**
      * The API's sentence when feedback and the miss log are not switched on.

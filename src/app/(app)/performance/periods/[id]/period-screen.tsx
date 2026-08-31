@@ -402,7 +402,13 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                     onClick={() => void start()}
                   >
                     <Play aria-hidden="true" className="size-3.5" />
-                    Start the period
+                    {/* The control says why it is dead, rather than leaving a
+                        grey button under copy that implies the competency
+                        groups alone are enough. Same shape the importer uses
+                        when its own primary action is blocked. */}
+                    {period.questionCount === 0
+                      ? "Add a question first"
+                      : "Start the period"}
                   </Button>
                 </div>
               </CardBody>
@@ -552,7 +558,18 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 hint={
                   period.scoringFrozen
                     ? "A later change to the company's weights cannot move these marks"
-                    : "This period started before weights were frozen onto a period"
+                    : /* Two different reasons weights are still live, and only
+                         one of them was being stated. Starting a period is what
+                         freezes them, so EVERY period that has not started yet
+                         is "Live" — and it was being told it "started before
+                         weights were frozen", two lines under a badge reading
+                         `not started`. The legacy case is real but rare; the
+                         not-started case is every new period there is, and the
+                         useful thing to say about it is that a change now
+                         still lands. */
+                      period.stage === "DRAFT"
+                      ? "Whatever they are when this period starts is what it keeps"
+                      : "This period started before weights were frozen onto a period"
                 }
               />
             </div>
@@ -933,19 +950,35 @@ function Outstanding({
         description="A form somebody has not got round to. Different from nobody being asked at all, which is above."
       />
       <CardBody className="flex flex-col gap-4">
+        {/* A period nobody is in yet has no ratio to state. "0 of 0" reads as
+            a measurement, and the tick below it read as a period that had gone
+            perfectly — over a set nobody had been added to. Same rule
+            `period-status.tsx` states beside its own `notYet`. */}
         <div className="grid gap-4 sm:grid-cols-3">
           <Stat
             label="Self-reviews in"
-            value={`${counts.selfDone} of ${counts.people}`}
+            value={
+              counts.people === 0
+                ? "Nobody has a form yet"
+                : `${counts.selfDone} of ${counts.people}`
+            }
           />
           <Stat
             label="Manager reviews in"
-            value={`${counts.managerDone} of ${counts.people}`}
+            value={
+              counts.people === 0
+                ? "No manager review is due yet"
+                : `${counts.managerDone} of ${counts.people}`
+            }
           />
           <Stat label="Forms outstanding" value={String(rows.length)} />
         </div>
 
-        {rows.length === 0 ? (
+        {counts.people === 0 ? (
+          <p className="text-body-sm text-muted">
+            Nobody is in this period yet, so nothing has been asked for.
+          </p>
+        ) : rows.length === 0 ? (
           <p className="flex items-center gap-2 text-body-sm text-body">
             <CheckCheck
               aria-hidden="true"

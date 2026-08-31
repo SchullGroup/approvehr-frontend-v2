@@ -181,12 +181,20 @@ export function ApprovalInbox() {
   const approveRoutine = async () => {
     try {
       const result = await queue.approveRoutine();
+      /* The API's own reasons, deduplicated, never a sentence composed here.
+         It knows which rows it left and why — one may be a request the caller
+         raised themselves, another may need a permission they do not hold —
+         and the screen used to answer a zero with a fixed claim about
+         deadlines and five-day waits that its own counters could disprove. */
+      const reasons = [...new Set(result.skipped.map((row) => row.reason))];
       if (result.decided === 0) {
         toast.push({
-          title: "Nothing routine to approve",
+          title: "Nothing was approved",
           tone: "info",
           detail:
-            "Everything waiting either has a deadline or has been sitting for five days. Those need you to look.",
+            reasons.length > 0
+              ? reasons.join(" ")
+              : "Nothing waiting counts as routine — anything with a deadline, or sitting five days, needs you to look at it.",
         });
         return;
       }
@@ -196,8 +204,8 @@ export function ApprovalInbox() {
         } approved`,
         tone: "success",
         detail:
-          result.skipped > 0
-            ? `${result.skipped} could not be approved and are still waiting.`
+          result.skipped.length > 0
+            ? `${result.skipped.length} still waiting. ${reasons.join(" ")}`
             : "Anything with a deadline was left for you to look at individually.",
       });
     } catch (failure) {

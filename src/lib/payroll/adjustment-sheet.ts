@@ -33,9 +33,10 @@ import type { Payslip } from "@/lib/api/payroll";
  *
  * A blank template for 300 staff is a spreadsheet somebody has to type 300
  * names into, in the right order, matching our spelling. This one downloads
- * with the staff number, name, email, phone, department, bank and account
- * number already in it — the details somebody needs in order to *check* they
- * are looking at the right person — plus the figures the run currently holds.
+ * with the staff number, name, email, phone and department already in it —
+ * the details somebody needs in order to *check* they are looking at the right
+ * person — plus whether an account is on file, plus the figures the run
+ * currently holds.
  *
  * That has a consequence the whole feature turns on: because the file arrives
  * carrying today's figures, **emptying a cell is a statement**. See
@@ -76,11 +77,22 @@ export const SHEET_COLUMNS: readonly SheetColumn[] = [
     note: "For reading. Not read back.",
     entered: false,
   },
-  { key: "bank", heading: "bank", note: "Where they are paid. Not read back.", entered: false },
+  /* One column saying whether an account is on file, not two carrying the
+     account itself.
+
+     `bank` and `account_number` used to be here and downloaded EMPTY on every
+     row: the sheet is built from the directory, and `serializeDirectory` on
+     the API redacts both to null by deliberate design — it closed an
+     account-number leak, and undoing that to fill a spreadsheet would reopen
+     it. Fetching each employee's detail record per row would too.
+
+     So the sheet answers the question the directory can actually answer, and
+     it is the more useful one while working a payroll: a missing account is a
+     BLOCKER on the run, and this is the column that finds those people. */
   {
-    key: "account_number",
-    heading: "account_number",
-    note: "Where they are paid. Not read back.",
+    key: "bank_account",
+    heading: "bank_account",
+    note: "Whether an account is on file. Not read back.",
     entered: false,
   },
   {
@@ -182,11 +194,11 @@ export function sheetRow(source: SheetRowSource): CsvRow {
     email: employee?.email ?? "",
     phone: employee?.phone ?? "",
     department: employee?.department ?? "",
-    bank: employee?.bankName ?? "",
-    /* Text, always. An account number is digits with a meaningful leading zero,
-       and every NUBAN starting 0 loses it the moment Excel reads it as a
-       number. The template formats every column as text for this reason. */
-    account_number: employee?.bankAccount ?? "",
+    /* `hasBankAccount` where the API sent it, the raw field's own presence
+       otherwise — the same fallback `payrollFieldsForDisplay` documents, and
+       the reason it is correct in both connected and demo mode. */
+    bank_account:
+      (employee?.hasBankAccount ?? employee?.bankAccount != null) ? "Yes" : "No",
     /* Null is nobody having recorded a salary, which the run already raises
        as a blocker. An empty cell here is the honest rendering of that, and
        it is also the cell somebody is about to fill in. */
@@ -494,6 +506,26 @@ export function summarise(
       const was = before?.payslip.payeOverridden ? (before.payslip.payeKobo ?? null) : null;
       if (row.payeKobo === null && was !== null) clears = true;
       else if (row.payeKobo !== null && row.payeKobo !== was) moves = true;
+    }
+    /* Pension and NHF are read exactly the way `payeKobo` is above: the
+       "before" figure counts only where the payslip records that deduction as
+       hand-set, because a computed figure is not something a blank cell is
+       clearing. Without these two branches an emptied pension cell fell
+       through to `unchanged`, so the panel offered "Apply to 1 person, 9
+       unchanged" over a sheet that would silently drop somebody's override. */
+    if ("pensionKobo" in row) {
+      const was = before?.payslip.overriddenDeductions?.includes("PENSION_EMPLOYEE")
+        ? (before.payslip.pensionEmployeeKobo ?? null)
+        : null;
+      if (row.pensionKobo === null && was !== null) clears = true;
+      else if (row.pensionKobo != null && row.pensionKobo !== was) moves = true;
+    }
+    if ("nhfKobo" in row) {
+      const was = before?.payslip.overriddenDeductions?.includes("NHF")
+        ? (before.payslip.nhfKobo ?? null)
+        : null;
+      if (row.nhfKobo === null && was !== null) clears = true;
+      else if (row.nhfKobo != null && row.nhfKobo !== was) moves = true;
     }
     if ("monthlyKobo" in row && row.monthlyKobo !== null) {
       const was = before?.employee?.grossMonthly;
