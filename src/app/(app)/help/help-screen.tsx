@@ -679,7 +679,14 @@ function RaiseRequestModal({
     try {
       await raise({
         subject: subject.trim(),
-        categoryId,
+        /* Omitted when nothing is picked, never sent as "". The label says
+           optional and the API agrees (`categoryId` is `.optional()` there) —
+           but it is an optional *UUID*, and an empty string fails that as
+           "Invalid UUID". Taking the offer the label makes then bounced the
+           whole request with "Some fields are not valid", naming nothing the
+           reader could see. Absent and empty are different facts on this
+           wire, the same as everywhere else in this product. */
+        ...(categoryId ? { categoryId } : {}),
         ...(body.trim() ? { body: body.trim() } : {}),
       });
       toast.push({
