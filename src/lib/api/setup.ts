@@ -282,6 +282,8 @@ export type ApiSetupChecklist = {
     usersWithoutRole: number;
     /** One is a single point of failure, which is why it is a number. */
     canApprovePayroll: number;
+    /** Real sign-ins with no personnel record — see `/settings/roles`. */
+    unlinkedAccounts: number;
   };
   /**
    * What would stop a payroll today — the same two conditions the run raises as

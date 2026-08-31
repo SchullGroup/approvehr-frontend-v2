@@ -71,6 +71,28 @@ export type LinkedAccount = {
   employeeName: string | null;
 };
 
+/**
+ * Backing a stray sign-in with a new personnel record — the other half of
+ * `linkEmployee`. Mirrors `createEmployeeForUserSchema` on the API: no
+ * `email`, `canLogin` or `invite` here, because the address is the one
+ * already on the account being linked and there is nothing left to invite.
+ */
+export type CreateEmployeeForUserBody = {
+  firstName: string;
+  lastName: string;
+  middleName?: string;
+  jobTitle: string;
+  /** `YYYY-MM-DD`. */
+  startDate: string;
+  grossMonthlyKobo?: number;
+  departmentId?: string | null;
+  managerId?: string | null;
+  legalEntityId?: string;
+  workLocationId?: string | null;
+  salaryGradeId?: string | null;
+  taxState?: string;
+};
+
 export const invitesApi = {
   send: (employeeId: string, roleIds: string[]): Promise<SentInvite> =>
     request<SentInvite>("/invites", {
@@ -179,5 +201,16 @@ export const invitesApi = {
     request<LinkedAccount>(`/invites/${userId}/employee`, {
       method: "PATCH",
       body: { employeeId },
+    }),
+
+  /** The other half of `linkEmployee` — create a record for them instead of
+   *  pointing them at one that already exists. */
+  createEmployee: (
+    userId: string,
+    input: CreateEmployeeForUserBody,
+  ): Promise<LinkedAccount> =>
+    request<LinkedAccount>(`/invites/${userId}/employee`, {
+      method: "POST",
+      body: input,
     }),
 };

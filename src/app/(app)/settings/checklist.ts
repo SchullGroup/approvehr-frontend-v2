@@ -320,7 +320,8 @@ function payRow(facts: SetupFacts): ChecklistRow {
 }
 
 function rolesRow(facts: SetupFacts): ChecklistRow {
-  const { roles, usersWithoutRole, canApprovePayroll } = facts.access;
+  const { roles, usersWithoutRole, canApprovePayroll, unlinkedAccounts } =
+    facts.access;
   const affects =
     "Who can see salaries, approve a payroll, change these settings, or export the directory.";
 
@@ -357,6 +358,18 @@ function rolesRow(facts: SetupFacts): ChecklistRow {
       detail: `${plural(usersWithoutRole, "account has", "accounts have")} no role, so ${usersWithoutRole === 1 ? "it" : "they"} can sign in and see nothing.`,
       href: "/settings/roles",
       linkLabel: "Give them a role",
+    };
+  }
+
+  if (unlinkedAccounts > 0) {
+    return {
+      id: "roles",
+      title: "Roles and access",
+      affects,
+      status: "attention",
+      detail: `${plural(unlinkedAccounts, "account can", "accounts can")} sign in with no personnel record, so nobody knows whose ${unlinkedAccounts === 1 ? "it is" : "these are"} until you say.`,
+      href: "/settings/roles",
+      linkLabel: "Link them",
     };
   }
 
