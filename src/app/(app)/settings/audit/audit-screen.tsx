@@ -135,6 +135,18 @@ function Trail({ initialEntityType = "", initialEntityId = "" }: ScreenProps) {
   const [to, setTo] = useState("");
   const [includeReads, setIncludeReads] = useState(false);
 
+  /**
+   * The number beside a name in the "Who" dropdown.
+   *
+   * With reads shown, every event counts. With them hidden, the list below
+   * counts only changes, so the dropdown has to as well — `changes` when the
+   * API sends it, and `events` rather than a fabricated nought when it does
+   * not. See the comment on the field itself for why that fallback is the
+   * honest one.
+   */
+  const countFor = (person: { events: number; changes?: number }) =>
+    includeReads ? person.events : (person.changes ?? person.events);
+
   /* One request per pause, not one per keystroke. Only matters when connected;
      in demo mode the filter runs over a fixture and is free. */
   useEffect(() => {
@@ -164,6 +176,19 @@ function Trail({ initialEntityType = "", initialEntityId = "" }: ScreenProps) {
 
   const trail = useAuditTrail(filters);
   const options = useAuditFilterOptions(range);
+
+  /**
+   * True only when the dropdown is counting something the list is not — reads
+   * are hidden, and no actor carries a `changes` figure to count instead.
+   *
+   * Checked across the rows rather than assumed from one, because an API
+   * either computes the field for every actor or for none; either way this
+   * asks the rows in front of it rather than the deployment behind them.
+   */
+  const countsIncludeReads =
+    !includeReads &&
+    options.actors.length > 0 &&
+    options.actors.every((person) => person.changes === undefined);
 
   const groups = useMemo(() => {
     const map = new Map<
@@ -260,16 +285,28 @@ function Trail({ initialEntityType = "", initialEntityId = "" }: ScreenProps) {
               />
             </Field>
 
-            {/* The count beside each name is every event that person has, and
-                the list below leaves record views out unless "Include views"
-                is ticked — so without this sentence "Grace Effiong (47)" reads
-                as a promise of 47 rows and delivers fewer. The API's
-                `actors()` counts reads unconditionally and takes no
-                `includeReads`, so the number cannot be made to follow the
-                toggle from here; saying what it counts is the honest half. */}
+            {/* The count beside each name has to match the list beneath it.
+                ------------------------------------------------------------
+                The list leaves record views out unless "Show who read the
+                log" is ticked, so a dropdown that always shows `events` sits
+                above a shorter list for the same person — "Grace Effiong
+                (47)" selecting to 31 rows.
+
+                `changes` is the figure that matches, and an API that computes
+                it sends it. One that does not omits the field entirely, and
+                **absent is not zero**: falling back to `events` shows a true
+                number that happens to count more than the list, which is
+                worth explaining; `?? 0` would show a false one. So the help
+                line appears in exactly the case where it is true — reads
+                hidden, and no `changes` to use — and retires itself the day
+                the API starts sending it. */}
             <Field
               label="Who"
-              {...(includeReads ? {} : { help: "Counts include record views, which the list leaves out until you tick Include views." })}
+              {...(countsIncludeReads
+                ? {
+                    help: "Counts include record views, which the list leaves out until you tick Show who read the log.",
+                  }
+                : {})}
             >
               <Select
                 value={actor}
@@ -281,7 +318,7 @@ function Trail({ initialEntityType = "", initialEntityId = "" }: ScreenProps) {
                     key={person.id ?? "system"}
                     value={person.isSystem ? "system" : person.id ?? ""}
                   >
-                    {person.name} ({person.events})
+                    {person.name} ({countFor(person)})
                   </option>
                 ))}
               </Select>
