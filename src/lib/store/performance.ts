@@ -523,85 +523,85 @@ const SEED_GOALS: readonly SeedGoal[] = DEMO_ENABLED
  */
 const SEED_COMPETENCIES: readonly {
   name: string;
-  category: string;
+  sectionName: string;
   description: string;
   isCore: boolean;
 }[] = [
   {
     name: "Job knowledge",
-    category: "Core competency",
+    sectionName: "Core competency",
     description: "Understands the work and keeps that understanding current.",
     isCore: true,
   },
   {
     name: "Quality of work",
-    category: "Core competency",
+    sectionName: "Core competency",
     description: "Output is accurate and needs little rework.",
     isCore: true,
   },
   {
     name: "Dependability",
-    category: "Core competency",
+    sectionName: "Core competency",
     description: "Commitments are met without being chased.",
     isCore: true,
   },
   {
     name: "Communication",
-    category: "Behavioural competency",
+    sectionName: "Behavioural competency",
     description: "Explains clearly, in writing and in person, and listens.",
     isCore: false,
   },
   {
     name: "Teamwork",
-    category: "Behavioural competency",
+    sectionName: "Behavioural competency",
     description: "Works with people outside their own function.",
     isCore: false,
   },
   {
     name: "Initiative",
-    category: "Behavioural competency",
+    sectionName: "Behavioural competency",
     description: "Acts without waiting to be told, within their remit.",
     isCore: false,
   },
   {
     name: "Adaptability",
-    category: "Behavioural competency",
+    sectionName: "Behavioural competency",
     description: "Handles a changed priority without losing the thread.",
     isCore: false,
   },
   {
     name: "Delivery against objectives",
-    category: "Key result area",
+    sectionName: "Key result area",
     description: "Progress on the goals set for the period.",
     isCore: true,
   },
   {
     name: "Customer or stakeholder outcomes",
-    category: "Key result area",
+    sectionName: "Key result area",
     description: "The effect of the work on whoever receives it.",
     isCore: false,
   },
   {
     name: "Process and compliance",
-    category: "Key result area",
+    sectionName: "Key result area",
     description: "Work done the way the company requires it to be done.",
     isCore: false,
   },
   {
     name: "Developing people",
-    category: "Leadership",
+    sectionName: "Leadership",
     description: "Grows the people who report to them, deliberately.",
     isCore: false,
   },
   {
     name: "Decision making",
-    category: "Leadership",
+    sectionName: "Leadership",
     description: "Decides with incomplete information and owns the outcome.",
     isCore: false,
   },
   {
     name: "Accountability for a team",
-    category: "Leadership",
+    sectionName: "Leadership",
     description: "Answers for the team's results rather than its individuals.",
     isCore: false,
   },
@@ -612,10 +612,14 @@ const SCALE_MAX = 5;
 const competencyId = (name: string) =>
   `demo-comp-${name.toLowerCase().replace(/[^a-z]+/g, "-")}`;
 
+const sectionId = (name: string) =>
+  `demo-section-${name.toLowerCase().replace(/[^a-z]+/g, "-")}`;
+
 const demoCompetencies: ApiCompetency[] = SEED_COMPETENCIES.map((seed) => ({
   id: competencyId(seed.name),
   name: seed.name,
-  category: seed.category,
+  sectionId: sectionId(seed.sectionName),
+  sectionName: seed.sectionName,
   description: seed.description,
   isCore: seed.isCore,
   scaleMax: SCALE_MAX,
@@ -693,6 +697,9 @@ const demoCycles: ApiCycle[] = [
        still be rewritten by a settings change, which is the property the
        snapshot exists to remove. */
     scoringFrozen: true,
+    departmentIds: [],
+    remindDaysBefore: null,
+    managersCanAddQuestions: false,
     createdAt: "2026-07-01T09:00:00.000Z",
   },
   {
@@ -704,6 +711,9 @@ const demoCycles: ApiCycle[] = [
     questionCount: 5,
     reviewCount: 18,
     scoringFrozen: true,
+    departmentIds: [],
+    remindDaysBefore: null,
+    managersCanAddQuestions: false,
     createdAt: "2026-01-08T09:00:00.000Z",
   },
 ];
@@ -977,7 +987,8 @@ function demoEmployeeCompetencies(employeeId: string): ApiEmployeeCompetencies {
     return {
       competencyId: competency.id,
       name: competency.name,
-      category: competency.category,
+      sectionId: competency.sectionId,
+      sectionName: competency.sectionName,
       isCore: competency.isCore,
       scaleMax: competency.scaleMax,
       level,
@@ -1015,7 +1026,8 @@ function demoGaps(): ApiGap[] {
         departmentId: person ? person.department : null,
         competencyId: competency?.id ?? competencyId(r.name),
         competencyName: r.name,
-        category: competency?.category ?? null,
+        sectionId: competency?.sectionId ?? null,
+        sectionName: competency?.sectionName ?? null,
         isCore: competency?.isCore ?? false,
         level: r.level,
         target: r.target as number,
@@ -1269,10 +1281,12 @@ function demoReviewDetail(
     (q) => q.audience === kind,
   ).map((q, index) => ({
     id: q.id,
+    competencyId: null,
     prompt: q.prompt,
     kind: q.kind,
     required: q.required,
     options: q.options ?? [],
+    allowCustom: false,
     order: index,
     answer: answers[q.id] ?? null,
   }));
@@ -2182,7 +2196,8 @@ export const CATEGORY_ORDER: readonly string[] = [
 ];
 
 export type FrameworkGroup = {
-  category: string;
+  sectionId: string | null;
+  sectionName: string;
   competencies: ApiCompetency[];
 };
 
@@ -2211,17 +2226,20 @@ export function useFramework(): {
 
   const groups = useMemo(() => {
     const bucket = new Map<string, ApiCompetency[]>();
+    const idOf = new Map<string, string | null>();
     for (const competency of competencies) {
-      const category = competency.category ?? "Other";
-      bucket.set(category, [...(bucket.get(category) ?? []), competency]);
+      const name = competency.sectionName ?? "Other";
+      bucket.set(name, [...(bucket.get(name) ?? []), competency]);
+      idOf.set(name, competency.sectionId);
     }
-    const known = CATEGORY_ORDER.filter((category) => bucket.has(category));
+    const known = CATEGORY_ORDER.filter((name) => bucket.has(name));
     const rest = [...bucket.keys()]
-      .filter((category) => !CATEGORY_ORDER.includes(category))
+      .filter((name) => !CATEGORY_ORDER.includes(name))
       .sort();
-    return [...known, ...rest].map((category) => ({
-      category,
-      competencies: bucket.get(category) ?? [],
+    return [...known, ...rest].map((name) => ({
+      sectionId: idOf.get(name) ?? null,
+      sectionName: name,
+      competencies: bucket.get(name) ?? [],
     }));
   }, [competencies]);
 
@@ -2344,12 +2362,16 @@ export function useCycleQuestions(cycleId: string | null): {
         : SEED_QUESTIONS.map((q, index) => ({
             id: q.id,
             reviewCycleId: cycleId,
+            competencyId: null,
             prompt: q.prompt,
             kind: q.kind,
             askedOf: [q.audience],
             required: q.required,
             options: q.options ?? [],
+            allowCustom: false,
             order: index,
+            source: "HR" as const,
+            departmentIds: [],
           })),
     [cycleId],
   );
