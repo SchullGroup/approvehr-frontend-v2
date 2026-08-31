@@ -35,10 +35,15 @@ import {
   type ApiBandCount,
   type ApiCycleReport,
   type ApiNamedOnList,
+  type ApiScoreRegister,
   type ScoreBand,
 } from "@/lib/api/performance";
 import { useCan } from "@/lib/permissions";
-import { BAND_TONE, useCycleReport } from "@/lib/store/performance";
+import {
+  BAND_TONE,
+  useCycleRegister,
+  useCycleReport,
+} from "@/lib/store/performance";
 
 /**
  * "N of M", or what the absence is when there is no M.
@@ -89,6 +94,13 @@ export function PeriodReportScreen({ cycleId }: { cycleId: string }) {
   const detail = useCycleReport(cycleId, canSeeCompany);
   const cycle = detail.cycle;
   const report = detail.report;
+  /* The report has every figure by headcount and none of it by department or
+     by name — `unscored`/`unfinalised`/etc are deliberately thin, name-only
+     lists. The register is the one read with a row per person, each already
+     carrying its own department and score, so department performance and a
+     top-performers ranking are grouped and sorted from it here rather than
+     computed a second way on the API. */
+  const register = useCycleRegister(cycleId, canSeeCompany);
 
   return (
     <>
@@ -181,6 +193,10 @@ export function PeriodReportScreen({ cycleId }: { cycleId: string }) {
         {report && report.marks.people > 0 && (
           <>
             <Headline report={report} />
+            <div className="grid gap-4 lg:grid-cols-2">
+              <DepartmentPerformance register={register.register} />
+              <TopPerformers register={register.register} />
+            </div>
             <Distribution report={report} />
             <WhatCameIn report={report} />
             <Parts report={report} />
@@ -267,6 +283,164 @@ function Headline({ report }: { report: ApiCycleReport }) {
         }
       />
     </div>
+  );
+}
+
+/**
+ * One department, added up from the register's own rows.
+ *
+ * Not a database aggregate — the register already carries `departmentName`
+ * and `scoreBp` per person, so grouping it here is a reduction over data this
+ * screen fetches anyway, not a second way of computing a score. `null` scores
+ * are excluded from the average and counted separately, the same absence
+ * rule every other figure on this screen follows: a department where nobody
+ * has a mark yet reads "No marks yet", never 0%.
+ */
+type DepartmentRollup = {
+  name: string;
+  people: number;
+  scored: number;
+  meanBp: number | null;
+};
+
+function departmentRollups(register: ApiScoreRegister): DepartmentRollup[] {
+  const groups = new Map<string, { people: number; scoredBp: number[] }>();
+  for (const row of register.rows) {
+    const name = row.departmentName ?? "No department";
+    const existing = groups.get(name) ?? { people: 0, scoredBp: [] };
+    existing.people += 1;
+    if (row.scoreBp !== null) existing.scoredBp.push(row.scoreBp);
+    groups.set(name, existing);
+  }
+  return Array.from(groups.entries())
+    .map(([name, { people, scoredBp }]) => ({
+      name,
+      people,
+      scored: scoredBp.length,
+      meanBp:
+        scoredBp.length === 0
+          ? null
+          : Math.round(
+              scoredBp.reduce((sum, bp) => sum + bp, 0) / scoredBp.length,
+            ),
+    }))
+    .sort((a, b) => (b.meanBp ?? -1) - (a.meanBp ?? -1));
+}
+
+function DepartmentPerformance({
+  register,
+}: {
+  register: ApiScoreRegister | null;
+}) {
+  if (!register) return null;
+  const rollups = departmentRollups(register);
+
+  return (
+    <Card>
+      <CardHeader
+        title="By department"
+        description="Average mark per department, over the people in each who have one."
+      />
+      <CardBody className="p-0">
+        {rollups.length === 0 ? (
+          <p className="p-4 text-body-sm text-muted">
+            Nobody is in this period.
+          </p>
+        ) : (
+          <TableWrap caption="Average mark, headcount and how many have one, by department">
+            <THead>
+              <TH>Department</TH>
+              <TH align="right">People</TH>
+              <TH align="right">With a mark</TH>
+              <TH align="right">Average</TH>
+            </THead>
+            <TBody>
+              {rollups.map((department) => (
+                <TR key={department.name}>
+                  <TD>{department.name}</TD>
+                  <TD align="right">
+                    <span className="tabular">{department.people}</span>
+                  </TD>
+                  <TD align="right">
+                    <span className="tabular">
+                      {department.scored} of {department.people}
+                    </span>
+                  </TD>
+                  <TD align="right">
+                    {department.meanBp === null ? (
+                      <span className="text-muted">No marks yet</span>
+                    ) : (
+                      <span className="tabular font-medium text-ink">
+                        {scoreLabel(department.meanBp)}
+                      </span>
+                    )}
+                  </TD>
+                </TR>
+              ))}
+            </TBody>
+          </TableWrap>
+        )}
+      </CardBody>
+    </Card>
+  );
+}
+
+/**
+ * The highest marks in this period, and nothing else.
+ *
+ * A ranking, not a judgement about anybody not on it — the same distinction
+ * `Distribution`'s unscored row draws for absence. Excluded entirely rather
+ * than shown at the bottom: nobody wants to be read as "last" on a list
+ * built for the other five names.
+ */
+function TopPerformers({ register }: { register: ApiScoreRegister | null }) {
+  if (!register) return null;
+  const ranked = register.rows
+    .filter((row) => row.scoreBp !== null)
+    .sort((a, b) => (b.scoreBp ?? 0) - (a.scoreBp ?? 0))
+    .slice(0, 5);
+
+  return (
+    <Card>
+      <CardHeader
+        title="Top performers"
+        description="The highest marks in this period so far."
+      />
+      <CardBody className="p-0">
+        {ranked.length === 0 ? (
+          <p className="p-4 text-body-sm text-muted">No marks yet.</p>
+        ) : (
+          <TableWrap caption="The five highest marks in this period">
+            <THead>
+              <TH>Person</TH>
+              <TH>Department</TH>
+              <TH align="right">Mark</TH>
+            </THead>
+            <TBody>
+              {ranked.map((row, index) => (
+                <TR key={row.employeeId}>
+                  <TD>
+                    <span className="tabular text-muted">{index + 1}.</span>{" "}
+                    <Link
+                      href={`/performance/history/${row.employeeId}`}
+                      className="font-medium text-ink underline-offset-2 hover:text-accent-text hover:underline"
+                    >
+                      {row.employeeName}
+                    </Link>
+                  </TD>
+                  <TD>{row.departmentName ?? "—"}</TD>
+                  <TD align="right">
+                    <span className="tabular font-medium text-ink">
+                      {scoreLabel(row.scoreBp ?? 0)}
+                    </span>
+                  </TD>
+                </TR>
+              ))}
+            </TBody>
+          </TableWrap>
+        )}
+      </CardBody>
+    </Card>
   );
 }
 
