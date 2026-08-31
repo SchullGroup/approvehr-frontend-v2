@@ -1,16 +1,20 @@
 "use client";
 
+import { useState } from "react";
 import { Laptop } from "lucide-react";
 import {
   Badge,
+  Button,
   Card,
   CardBody,
   CardHeader,
   Money,
   Spinner,
+  useToast,
   type BadgeTone,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
+import { ApiError } from "@/lib/api/client";
 import { useSession } from "@/lib/store/session";
 import {
   CONDITION_LABEL,
@@ -46,9 +50,16 @@ import {
  * - **Anything already handed back.** Two lines, because "I gave that back in
  *   March" is a claim, and this is where it is settled.
  *
- * No paragraph explaining custody, and no button: an employee cannot record
- * their own return, so offering one would be a lie. HR does that from
- * `/people/assets`, which is where the button lives.
+ * No paragraph explaining custody, and no *return* button: an employee cannot
+ * record their own return, so offering one would be a lie. HR does that from
+ * `/people/assets`, which is where that button lives.
+ *
+ * There is one button here, though: confirming *receipt*. Receiving something
+ * and returning it are different moments with different trust requirements —
+ * HR needs to inspect condition on the way back, nobody needs to inspect it on
+ * the way out. "I've received this" is self-only for the same reason
+ * `Resign` is self-only: it is the employee's own record of their own fact,
+ * and HR confirming it on their behalf would defeat the point of it.
  */
 
 /** A held item's own state, when it is not simply "you have it". */
@@ -68,11 +79,35 @@ export function MyAssets({
 }) {
   const session = useSession();
   const id = employeeId ?? session.employeeId;
-  const { kit, loading, error } = useMyEquipment(id);
+  const { kit, loading, error, acknowledge } = useMyEquipment(id);
+  const toast = useToast();
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  /* Self-only on the API too — an HR view of somebody else's page must not
+     offer a button that would only ever come back 403. */
+  const mine = id !== null && id === session.employeeId;
 
   const holding = kit?.holding ?? [];
   const returned = kit?.returned ?? [];
   const mustReturn = kit?.counts.mustReturn ?? 0;
+
+  async function onAcknowledge(assignmentId: string) {
+    setBusyId(assignmentId);
+    try {
+      await acknowledge(assignmentId);
+    } catch (caught) {
+      toast.push({
+        title: "That did not go through",
+        tone: "danger",
+        detail:
+          caught instanceof ApiError
+            ? caught.message
+            : "Try again in a moment.",
+      });
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   return (
     <Card className={className}>
@@ -144,6 +179,23 @@ export function MyAssets({
                       days · {CONDITION_LABEL[item.conditionOut].toLowerCase()}{" "}
                       when you got it
                     </p>
+                    {mine &&
+                      (item.acknowledgedAt ? (
+                        <p className="mt-1.5 text-body-sm text-muted">
+                          Received {dayLabel(item.acknowledgedAt)}
+                        </p>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          className="mt-1.5"
+                          loading={busyId === item.assignmentId}
+                          onClick={() => void onAcknowledge(item.assignmentId)}
+                        >
+                          I&apos;ve received this
+                        </Button>
+                      ))}
                   </div>
                   {item.value !== null && (
                     <Money amount={item.value} size="sm" className="shrink-0" />
