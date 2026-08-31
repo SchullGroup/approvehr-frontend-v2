@@ -38,6 +38,7 @@ import {
   type ApiScoreRegister,
   type ApiScoringWeights,
   type ApiScoringWeightsSaved,
+  type ApiTaskForGrading,
   type ScoreBand,
   type ScoreComponent,
   type AnswerBody,
@@ -2560,6 +2561,75 @@ export function useRating() {
           );
         }
         return performanceApi.rate(competencyId, body);
+      },
+      [isConnected],
+    ),
+  };
+}
+
+/* ==========================================================================
+ * The weekly task log
+ *
+ * Grading writes state a manager and their report both then read, so — the
+ * same reasoning as `useRating` — there is no demo-mode simulation of it.
+ * `useTasksForGrading` reads an empty queue offline rather than a seeded
+ * one: a queue that claims something is waiting on you and can never
+ * actually be cleared is worse than an honest "needs the API".
+ * ======================================================================== */
+
+export function useTasksForGrading(): {
+  tasks: ApiTaskForGrading[];
+  loading: boolean;
+  error: ApiError | null;
+  reload: () => void;
+} {
+  const { isConnected } = useSession();
+
+  const load = useCallback(
+    async (signal: AbortSignal) => performanceApi.tasksForGrading(signal),
+    [],
+  );
+
+  const fetched = useFetched<ApiTaskForGrading[]>(
+    "tasks-for-grading",
+    isConnected,
+    load,
+  );
+
+  return {
+    tasks: isConnected ? (fetched.data ?? []) : [],
+    loading: isConnected ? fetched.loading : false,
+    error: isConnected ? fetched.error : null,
+    reload: fetched.reload,
+  };
+}
+
+const TASK_OFFLINE =
+  "The task log needs the API — a manager grading a report's task is " +
+  "state they both then read, and this browser cannot hold it for them.";
+
+export function useTaskActions() {
+  const { isConnected } = useSession();
+
+  return {
+    editable: isConnected,
+    submitTask: useCallback(
+      async (
+        goalId: string,
+        body: { keyResultId?: string; description: string },
+      ) => {
+        if (!isConnected) offline(TASK_OFFLINE);
+        return performanceApi.submitTask(goalId, body);
+      },
+      [isConnected],
+    ),
+    gradeTask: useCallback(
+      async (
+        id: string,
+        grade: "COMPLETED" | "PARTIALLY_COMPLETED" | "NOT_COMPLETED",
+      ) => {
+        if (!isConnected) offline(TASK_OFFLINE);
+        return performanceApi.gradeTask(id, grade);
       },
       [isConnected],
     ),

@@ -45,7 +45,6 @@ import { AppraisersDialog } from "./appraiser-map";
 import { FrameworkDisclosure, HowItWorks } from "./how-it-works";
 import { PeriodStatus } from "./period-status";
 import { ReviewFormModal } from "./review-form";
-import { SkillsTab } from "./skills";
 import { StartPeriodButton } from "./start-period";
 
 /**
@@ -66,21 +65,22 @@ import { StartPeriodButton } from "./start-period";
  * | **What is waiting on you** | your forms, your ratings to answer, objectives to agree |
  * | **What is waiting on somebody else** | objectives you sent, the appraiser who has not finished |
  *
- * Everything reference-shaped — how an appraisal works, the framework, the
- * record of what was said about you, skills against their targets — is behind a
- * `Disclosure` with its count on the closed line. `PARITY.md` Rule 5, including
- * the half of it people skip: **a warning never goes behind a click**. The
- * no-appraiser exception and an unanswered final rating render above everything,
- * outside every reveal.
+ * Everything reference-shaped — how an appraisal works, and the framework —
+ * is behind a `Disclosure` with its count on the closed line. `PARITY.md`
+ * Rule 5, including the half of it people skip: **a warning never goes
+ * behind a click**. The no-appraiser exception and an unanswered final
+ * rating render above everything, outside every reveal.
  *
- * ## Skills is a disclosure and not a tab, deliberately
+ * ## Skills moved out to its own tab
  *
- * Levels against a target are configuration-shaped: a five-person company should
- * never meet them. There is no `skills` feature flag to hang that on, so the
- * mechanism is the reveal — and because `Disclosure` unmounts its children while
- * closed, a reader who never opens it never pays for the three requests behind
- * it. Who-appraises-whom stays a tab **only** under the `multiAppraiser` flag,
- * which is where that decision already lived.
+ * It used to be a disclosure here, on the grounds that levels against a
+ * target are configuration-shaped and a five-person company should never
+ * meet them. That held for "which tab is my task under" and did nothing for
+ * "where do I manage this" — the product owner's next complaint, once the
+ * first was fixed. It is Competency Ratings now, and `performance-screen.tsx`
+ * carries the reasoning for the tab strip as a whole. Who-appraises-whom
+ * stays a tab **only** under the `multiAppraiser` flag, which is where that
+ * decision already lived.
  *
  * ## Two lists, and they are not the same list
  *
@@ -366,7 +366,11 @@ export function WhatNeedsYouTab({
             }
             action={
               canManagePeriods ? (
-                <ButtonLink variant="accent" size="sm" href="/settings/features">
+                <ButtonLink
+                  variant="accent"
+                  size="sm"
+                  href="/settings/features"
+                >
                   Turn appraisals on
                 </ButtonLink>
               ) : undefined
@@ -745,18 +749,6 @@ export function WhatNeedsYouTab({
       )}
 
       {scored && <FrameworkDisclosure />}
-
-      {/* Configuration-shaped, and a five-person company never opens it. The
-          three requests behind it do not happen until somebody does. */}
-      {scored && (
-        <Disclosure
-          title="Skills and levels"
-          hint="Where people are against the levels the company set, and where the gaps are."
-          level={2}
-        >
-          <SkillsTab canSeeCompany={canSeeCompany} isManager={isManager} />
-        </Disclosure>
-      )}
 
       {opened && (
         <ReviewFormModal

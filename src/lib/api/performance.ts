@@ -1208,6 +1208,17 @@ export type ApiTask = {
   createdAt: string;
 };
 
+/** One row in a manager's or HR's grading queue — named, so no follow-up lookup. */
+export type ApiTaskForGrading = {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  goalId: string;
+  goalTitle: string;
+  description: string;
+  createdAt: string;
+};
+
 /* -------------------------------------------------------------------- bodies */
 
 export type GoalListParams = {
@@ -1977,6 +1988,16 @@ export const performanceApi = {
 
   tasks: (goalId: string, signal?: AbortSignal) =>
     request<ApiTask[]>(`/performance/goals/${goalId}/tasks`, signalOf(signal)),
+
+  /**
+   * What still needs a grade. HR sees the company, a manager sees their
+   * reports, anybody else gets an empty queue rather than a refusal.
+   */
+  tasksForGrading: (signal?: AbortSignal) =>
+    request<ApiTaskForGrading[]>(
+      "/performance/tasks/for-grading",
+      signalOf(signal),
+    ),
 
   /** Only the goal's own owner may log against it — see the API's own note. */
   submitTask: (
