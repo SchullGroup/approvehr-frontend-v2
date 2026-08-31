@@ -2,13 +2,15 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Info, Lock, Plus } from "lucide-react";
+import { ArchiveX, Info, Lock, Plus, RotateCcw } from "lucide-react";
 import {
+  Badge,
   Button,
   Callout,
   Card,
   CardBody,
   CardHeader,
+  ConfirmDialog,
   EmptyState,
   Field,
   Input,
@@ -161,6 +163,21 @@ function Policy() {
   } | null>(null);
   const [tick, setTick] = useState(0);
   const [adding, setAdding] = useState(false);
+  /** The row whose switch-off confirm is open. */
+  const [archiving, setArchiving] = useState<TypeRow | null>(null);
+  const [archiveBusy, setArchiveBusy] = useState(false);
+  /**
+   * Types switched off in this session — the only restore surface there can
+   * be, for now. `GET /leave/types` filters archived rows out with no way to
+   * ask for them, so once this page reloads a switched-off type is beyond the
+   * interface's reach until that endpoint grows an `includeArchived`. The
+   * card that renders this list says so in as many words, because a restore
+   * button that quietly stops existing on reload is the kind of surprise this
+   * product does not spring. On the register as a backend gap.
+   */
+  const [switchedOff, setSwitchedOff] = useState<
+    { id: string; name: string; total: number }[]
+  >([]);
 
   useEffect(() => {
     if (!isConnected) return;
@@ -257,6 +274,65 @@ function Policy() {
     setTick((t) => t + 1);
   }
 
+  /**
+   * Switch a type off. Archive, never delete — `LeaveRequest` and
+   * `LeaveBalance` both point at the row, so the API keeps it and the pickers
+   * drop it. The consequence the confirm states is the API's own reasoning,
+   * and the toast reports the count the API answers with, so what stays on
+   * the record is said with a figure rather than implied.
+   */
+  async function archiveType() {
+    if (!archiving?.id) return;
+    setArchiveBusy(true);
+    try {
+      const result = await leaveApi.archiveType(archiving.id);
+      const total = result.total ?? 0;
+      setSwitchedOff((rows) => [
+        ...rows,
+        { id: archiving.id as string, name: archiving.name, total },
+      ]);
+      setArchiving(null);
+      setTick((t) => t + 1);
+      toast.push({
+        title: `${result.name} switched off`,
+        tone: "success",
+        detail:
+          total > 0
+            ? `${total} request${total === 1 ? " stays" : "s stay"} on the books — history keeps resolving, nobody can book it again.`
+            : "Nobody had booked it, so nothing stays behind.",
+      });
+    } catch (error) {
+      toast.push({
+        title: "That did not switch off",
+        tone: "danger",
+        detail:
+          error instanceof ApiError ? error.message : "Something went wrong. Try again.",
+      });
+    } finally {
+      setArchiveBusy(false);
+    }
+  }
+
+  async function restoreType(row: { id: string; name: string }) {
+    try {
+      await leaveApi.restoreType(row.id);
+      setSwitchedOff((rows) => rows.filter((r) => r.id !== row.id));
+      setTick((t) => t + 1);
+      toast.push({
+        title: `${row.name} is back on`,
+        tone: "success",
+        detail: "It appears in the booking form again, entitlement unchanged.",
+      });
+    } catch (error) {
+      toast.push({
+        title: "That did not restore",
+        tone: "danger",
+        detail:
+          error instanceof ApiError ? error.message : "Something went wrong. Try again.",
+      });
+    }
+  }
+
   /* ------------------------------------------------------- the preview panel */
 
   /* Company-wide effect of the current policy, so the number above has a
@@ -320,6 +396,11 @@ function Policy() {
                 <TH align="right">Carry over</TH>
                 <TH align="right">Notice</TH>
                 <TH>Evidence</TH>
+                {isConnected && (
+                  <TH>
+                    <span className="sr-only">Actions</span>
+                  </TH>
+                )}
               </THead>
               <TBody>
                 {types.map((type) => (
@@ -396,6 +477,23 @@ function Policy() {
                         }
                       />
                     </TD>
+                    {/* Switch off, never delete. Requests and balances point
+                        at the row, so the API archives it: history keeps
+                        resolving, the booking form drops it. Absent in demo
+                        mode with the same reasoning as the Add button. */}
+                    {isConnected && (
+                      <TD align="right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={!type.id}
+                          onClick={() => setArchiving(type)}
+                        >
+                          <ArchiveX aria-hidden="true" className="size-3.5" />
+                          Switch off
+                        </Button>
+                      </TD>
+                    )}
                   </TR>
                 ))}
               </TBody>
@@ -410,6 +508,81 @@ function Policy() {
             </CardBody>
           )}
         </Card>
+
+        {/* Only rendered while it has rows: an empty "switched off" card would
+            be a claim about types this page cannot actually list. The API's
+            type list filters archived rows out with no way to ask for them, so
+            this is restore's whole reach — and the card says so rather than
+            letting the button's disappearance on reload read as a bug. */}
+        {switchedOff.length > 0 && (
+          <Card>
+            <CardHeader
+              title="Switched off just now"
+              level={3}
+              description="Off, not deleted — every request already raised keeps its record. Turn one back on and it reappears in the booking form with its entitlement unchanged."
+            />
+            <CardBody className="flex flex-col gap-3">
+              {switchedOff.map((row) => (
+                <div
+                  key={row.id}
+                  className="flex flex-wrap items-center justify-between gap-3"
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="text-body-sm font-medium text-ink">
+                      {row.name}
+                    </span>
+                    <Badge tone="neutral" size="sm">
+                      Switched off
+                    </Badge>
+                    {row.total > 0 && (
+                      <span className="text-meta text-muted">
+                        {row.total} request{row.total === 1 ? "" : "s"} kept on the
+                        books
+                      </span>
+                    )}
+                  </span>
+                  <Button variant="secondary" size="sm" onClick={() => void restoreType(row)}>
+                    <RotateCcw aria-hidden="true" className="size-3.5" />
+                    Turn it back on
+                  </Button>
+                </div>
+              ))}
+              <p className="text-meta leading-relaxed text-muted">
+                This list lasts as long as this page: the server does not yet let
+                the interface see switched-off types, so leaving here puts turning
+                one back on out of reach until it does.
+              </p>
+            </CardBody>
+          </Card>
+        )}
+
+        <ConfirmDialog
+          open={archiving !== null}
+          onClose={() => setArchiving(null)}
+          onConfirm={() => void archiveType()}
+          loading={archiveBusy}
+          title={`Switch off ${archiving?.name ?? "this leave type"}?`}
+          confirmLabel="Switch it off"
+          body={
+            <span className="flex flex-col gap-2.5">
+              <span>
+                Off, not deleted. Every request already raised against it keeps
+                its record, and reports about past years keep working.
+              </span>
+              <span>
+                It leaves the booking form the moment you confirm, so nobody can
+                raise new leave against it. Anything still pending stays pending
+                &mdash; switching the type off decides nothing about requests
+                already in flight.
+              </span>
+              <span>
+                The name stays taken: adding a type called{" "}
+                <strong>{archiving?.name}</strong> later is refused in favour of
+                turning this one back on.
+              </span>
+            </span>
+          }
+        />
 
         <div className="grid gap-6 lg:grid-cols-2">
           <Card>
