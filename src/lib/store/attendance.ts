@@ -13,10 +13,14 @@ import { ApiError } from "@/lib/api/client";
 import {
   attendanceApi,
   type ApiAttendancePolicy,
+  type ApiCorrectionRequest,
+  type ApiHistoryRow,
   type ApiRosterRow,
   type ApiTimesheetRow,
   type AttendanceStatus,
+  type HistoryParams,
   type PolicyBody,
+  type RequestCorrectionBody,
 } from "@/lib/api/attendance";
 import type { ApiRotaCell } from "@/lib/api/shifts";
 import { readPosition } from "@/lib/geolocation";
@@ -425,6 +429,7 @@ export function useAttendanceRoster(date?: string): RosterState {
       clockIn: row.entry?.clockIn ?? null,
       clockOut: row.entry?.clockOut ?? null,
       lateByMinutes: row.lateBy,
+      earlyByMinutes: row.earlyBy,
       workLocation: row.locationName ?? null,
       leave: row.leave
         ? { id: row.leave.id, type: row.leave.type, endDate: row.leave.to }
@@ -468,6 +473,260 @@ export function useAttendanceRoster(date?: string): RosterState {
     error: matched ? fetched.error : null,
     source: "api",
     reload,
+  };
+}
+
+/* --------------------------------------------------------------- history */
+
+export type HistoryState = {
+  employeeId: string;
+  from: string;
+  to: string;
+  /** Newest first. See `ApiHistory.rows` for what a day before the
+      organisation's tracked boundary, or one still ahead, does — it is not
+      in this list at all. */
+  rows: ApiHistoryRow[];
+  loading: boolean;
+  error: ApiError | null;
+  source: AttendanceSource;
+  reload: () => void;
+};
+
+/** One ISO date, `days` after another. Negative goes backwards. */
+function shiftDate(iso: string, days: number): string {
+  const d = new Date(`${iso}T00:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Every ISO date from `from` to `to`, inclusive, ascending. */
+function eachDate(from: string, to: string): string[] {
+  const dates: string[] = [];
+  let cursor = from;
+  while (cursor <= to) {
+    dates.push(cursor);
+    cursor = shiftDate(cursor, 1);
+  }
+  return dates;
+}
+
+/**
+ * One person's own day-by-day record, from whichever source is live.
+ *
+ * The demo answer walks the same days the API's `history()` does, resolving
+ * each through `rosterFor` — the demo's copy of the one precedence order —
+ * filtered to a single employee. Same discipline as `useAttendanceRoster`:
+ * a day before the organisation's first-ever clock-in, or one still ahead,
+ * is skipped rather than reported ABSENT.
+ */
+export function useAttendanceHistory(params: HistoryParams = {}): HistoryState {
+  const { isConnected, actingId } = useSession();
+  const local = useAttendanceStore();
+  const { directory } = useEmployeeStore();
+  const leave = useLeaveStore();
+
+  const targetId = params.employeeId ?? actingId;
+
+  const [tick, setTick] = useState(0);
+  const [fetched, setFetched] = useState<{
+    key: string;
+    employeeId: string;
+    from: string;
+    to: string;
+    rows: ApiHistoryRow[];
+    error: ApiError | null;
+  } | null>(null);
+
+  const key = `${targetId}|${params.from ?? ""}|${params.to ?? ""}|${params.status ?? ""}|${tick}`;
+  const latest = useRef(0);
+
+  const revalidation = useRevalidation();
+  useEffect(() => {
+    if (!isConnected) return;
+    const ticket = latest.current + 1;
+    latest.current = ticket;
+    let cancelled = false;
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const history = await attendanceApi.history(params, controller.signal);
+        if (!cancelled && ticket === latest.current) {
+          setFetched({ key, ...history, error: null });
+        }
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (!cancelled && ticket === latest.current) {
+          setFetched({
+            key,
+            employeeId: targetId,
+            from: params.from ?? "",
+            to: params.to ?? "",
+            rows: [],
+            error: error instanceof ApiError ? error : null,
+          });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `params` is a fresh object every render; `key` already carries every primitive field it contributes.
+  }, [isConnected, key, revalidation]);
+
+  const reload = useCallback(() => setTick((t) => t + 1), []);
+  const matched = fetched !== null && fetched.key === key;
+
+  if (!isConnected) {
+    const employee = directory.find((e) => e.id === targetId);
+    const to = params.to ?? TODAY;
+    const from = params.from ?? shiftDate(to, -29);
+    const firstRecorded = firstRecordedDate(local.entries);
+
+    const rows: ApiHistoryRow[] = [];
+    if (employee) {
+      for (const date of eachDate(from, to)) {
+        if (date > TODAY) continue;
+        if (firstRecorded === null || date < firstRecorded) continue;
+
+        const [row] = rosterFor({
+          date,
+          employees: [employee],
+          entries: local.entries,
+          leaveRequests: leave.requests,
+          policy: local.policy,
+        });
+        if (!row) continue;
+
+        const status = DEMO_STATUS[row.status];
+        if (params.status === "EARLY" && row.earlyBy === 0) continue;
+        if (
+          params.status !== undefined &&
+          params.status !== "EARLY" &&
+          params.status !== status
+        ) {
+          continue;
+        }
+
+        rows.push({
+          date,
+          status,
+          clockIn: row.entry?.clockIn ?? null,
+          clockOut: row.entry?.clockOut ?? null,
+          lateByMinutes: row.lateBy,
+          earlyByMinutes: row.earlyBy,
+          workLocation: row.locationName ?? null,
+          leave: row.leave ? { id: row.leave.id, type: row.leave.type } : null,
+          correctionNote: row.entry?.note ?? null,
+        });
+      }
+      rows.reverse();
+    }
+
+    return {
+      employeeId: targetId,
+      from,
+      to,
+      rows,
+      loading: false,
+      error: null,
+      source: "demo",
+      reload,
+    };
+  }
+
+  return {
+    employeeId: matched ? fetched.employeeId : targetId,
+    from: matched ? fetched.from : (params.from ?? ""),
+    to: matched ? fetched.to : (params.to ?? ""),
+    rows: matched ? fetched.rows : [],
+    loading: !matched,
+    error: matched ? fetched.error : null,
+    source: "api",
+    reload,
+  };
+}
+
+/** Thrown by every demo refusal in this file, so a screen shows one message shape. */
+function offline(message: string): never {
+  throw new ApiError(0, "offline", message);
+}
+
+const CORRECTIONS_OFFLINE =
+  "Attendance corrections need the API — HR reads and decides what you " +
+  "raise here, and a request kept only in this browser would never reach " +
+  "them.";
+
+export type CorrectionsState = {
+  requests: ApiCorrectionRequest[];
+  loading: boolean;
+  error: ApiError | null;
+  /** False in demo mode — see `CORRECTIONS_OFFLINE`. */
+  available: boolean;
+  reload: () => void;
+};
+
+/** Your own pending or recently-decided correction requests. */
+export function useMyCorrections(): CorrectionsState {
+  const { isConnected } = useSession();
+  const [tick, setTick] = useState(0);
+  const [fetched, setFetched] = useState<{
+    key: number;
+    requests: ApiCorrectionRequest[];
+    error: ApiError | null;
+  } | null>(null);
+
+  const revalidation = useRevalidation();
+  useEffect(() => {
+    if (!isConnected) return;
+    let cancelled = false;
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const requests = await attendanceApi.myCorrections(controller.signal);
+        if (!cancelled) setFetched({ key: tick, requests, error: null });
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (!cancelled) {
+          setFetched({
+            key: tick,
+            requests: [],
+            error: error instanceof ApiError ? error : null,
+          });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [isConnected, tick, revalidation]);
+
+  const reload = useCallback(() => setTick((t) => t + 1), []);
+  const matched = fetched !== null && fetched.key === tick;
+
+  return {
+    requests: isConnected && matched ? fetched.requests : [],
+    loading: isConnected && !matched,
+    error: isConnected && matched ? fetched.error : null,
+    available: isConnected,
+    reload,
+  };
+}
+
+/** Raising a correction request. No demo simulation — see `CORRECTIONS_OFFLINE`. */
+export function useCorrectionActions() {
+  const { isConnected } = useSession();
+
+  return {
+    editable: isConnected,
+    requestCorrection: useCallback(
+      async (body: RequestCorrectionBody): Promise<ApiCorrectionRequest> => {
+        if (!isConnected) offline(CORRECTIONS_OFFLINE);
+        return attendanceApi.requestCorrection(body);
+      },
+      [isConnected],
+    ),
   };
 }
 
@@ -704,6 +963,7 @@ export function useAttendanceTimesheet(days = 15): TimesheetState {
       workingDays: row.workingDays,
       daysPresent: row.daysPresent,
       daysLate: row.daysLate,
+      daysEarly: row.daysEarly,
       daysOnLeave: row.daysOnLeave,
       daysUnexplained: row.daysAbsent,
       hours: row.hours,
