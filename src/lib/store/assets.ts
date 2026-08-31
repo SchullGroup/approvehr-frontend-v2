@@ -156,6 +156,8 @@ export type HistoryEntry = {
   conditionOut: AssetCondition;
   conditionBack: AssetCondition | null;
   note: string | null;
+  /** Null means not yet confirmed, never a warning — see `acknowledge` below. */
+  acknowledgedAt: string | null;
 };
 
 export type Repair = {
@@ -193,6 +195,8 @@ export type HeldItem = {
   value: number | null;
   status: AssetStatus;
   note: string | null;
+  /** Null means not yet confirmed, never a warning — see `acknowledge` below. */
+  acknowledgedAt: string | null;
 };
 
 export type MyEquipment = {
@@ -413,6 +417,8 @@ type DemoAssignment = {
   conditionOut: AssetCondition;
   conditionBack: AssetCondition | null;
   note: string | null;
+  /** Optional so the seed array below did not need touching for every row. */
+  acknowledgedAt?: string | null;
 };
 
 type DemoState = {
@@ -815,6 +821,7 @@ function historyOf(state: DemoState, assetId: string): HistoryEntry[] {
         conditionOut: row.conditionOut,
         conditionBack: row.conditionBack,
         note: row.note,
+        acknowledgedAt: row.acknowledgedAt ?? null,
       };
     });
 }
@@ -2252,6 +2259,7 @@ export function useMyEquipment(employeeId: string | null) {
               value: row.valueKobo === null ? null : naira(row.valueKobo),
               status: row.status,
               note: row.note,
+              acknowledgedAt: row.acknowledgedAt,
             })),
             returned: result.returned.map((row) => ({
               assignmentId: row.assignmentId,
@@ -2324,6 +2332,7 @@ export function useMyEquipment(employeeId: string | null) {
                 : naira(asset.purchaseCostKobo),
             status: asset.status,
             note: row.note,
+            acknowledgedAt: row.acknowledgedAt ?? null,
           },
         ];
       });
@@ -2362,10 +2371,50 @@ export function useMyEquipment(employeeId: string | null) {
     };
   }, [demoState, employeeId]);
 
+  /**
+   * "I've received this." Self-only, which in practice means whichever
+   * assignment is on this same person's own list — this screen never shows
+   * anybody else's equipment to acknowledge.
+   */
+  const acknowledge = useCallback(
+    async (assignmentId: string): Promise<void> => {
+      if (isConnected) {
+        await api.acknowledge(assignmentId);
+        bumpRevision();
+        return;
+      }
+
+      const state = demo.current();
+      const row = state.assignments.find((entry) => entry.id === assignmentId);
+      if (!row) throw missing("That assignment");
+      if (row.acknowledgedAt) {
+        throw conflict(
+          `Already acknowledged on ${dayLabel(row.acknowledgedAt)}.`,
+        );
+      }
+      if (row.returnedOn) {
+        throw conflict(
+          "This has already been returned. There is nothing left to acknowledge.",
+        );
+      }
+
+      demo.commit({
+        ...state,
+        assignments: state.assignments.map((entry) =>
+          entry.id === assignmentId
+            ? { ...entry, acknowledgedAt: today() }
+            : entry,
+        ),
+      });
+    },
+    [isConnected],
+  );
+
   return {
     kit: employeeId === null ? null : isConnected ? (answered ? remote.kit : null) : demoKit,
     loading: Boolean(employeeId) && isConnected && !answered,
     error: isConnected && answered ? remote.error : null,
     connected: isConnected,
+    acknowledge,
   };
 }
