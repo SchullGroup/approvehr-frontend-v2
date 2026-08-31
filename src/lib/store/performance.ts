@@ -39,6 +39,7 @@ import {
   type ApiScoreRegister,
   type ApiScoringWeights,
   type ApiScoringWeightsSaved,
+  type ApiTask,
   type ApiTaskForGrading,
   type ScoreBand,
   type ScoreComponent,
@@ -2707,6 +2708,41 @@ export function useTasksForGrading(): {
     tasks: isConnected ? (fetched.data ?? []) : [],
     loading: isConnected ? fetched.loading : false,
     error: isConnected ? fetched.error : null,
+    reload: fetched.reload,
+  };
+}
+
+/**
+ * Everything logged against one objective, newest first.
+ *
+ * No demo simulation for the same reason `useTasksForGrading` has none: a
+ * manager reads what their report logs here, so state one browser invented
+ * would never reach the person grading it.
+ */
+export function useGoalTasks(goalId: string | null): {
+  tasks: ApiTask[];
+  loading: boolean;
+  error: ApiError | null;
+  reload: () => void;
+} {
+  const { isConnected } = useSession();
+  const active = goalId !== null && isConnected;
+
+  const load = useCallback(
+    async (signal: AbortSignal) => performanceApi.tasks(goalId ?? "", signal),
+    [goalId],
+  );
+
+  const fetched = useFetched<ApiTask[]>(
+    `goal-tasks|${goalId ?? "none"}`,
+    active,
+    load,
+  );
+
+  return {
+    tasks: active ? (fetched.data ?? []) : [],
+    loading: active ? fetched.loading : false,
+    error: active ? fetched.error : null,
     reload: fetched.reload,
   };
 }

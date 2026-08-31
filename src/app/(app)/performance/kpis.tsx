@@ -36,6 +36,7 @@ import {
 } from "@/components/performance/suggestions";
 import { ApiError } from "@/lib/api/client";
 import { useTaskSummarySuggestion } from "@/lib/store/ai";
+import { useSession } from "@/lib/store/session";
 import {
   formatMeasure,
   quarterLabel,
@@ -56,6 +57,7 @@ import {
 } from "@/lib/store/performance";
 import { ApprovalReasonDialog } from "./approval-dialogs";
 import { AddMeasureDialog, NewKpiDialog, StopKpiDialog } from "./goal-dialogs";
+import { TaskLogPanel } from "./task-log";
 
 /**
  * The KPI cascade.
@@ -116,6 +118,7 @@ export function KpisTab({
   const mutations = useKpiMutations();
   const objectives = useObjectiveMutations();
   const toast = useToast();
+  const { actingId } = useSession();
 
   const [creating, setCreating] = useState<{ parentId?: string } | null>(null);
   const [addingTo, setAddingTo] = useState<ApiGoal | null>(null);
@@ -284,6 +287,7 @@ export function KpisTab({
                 key={node.id}
                 node={node}
                 editable={mutations.editable}
+                actingId={actingId}
                 onAddMeasure={setAddingTo}
                 onAddChild={(parentId) => setCreating({ parentId })}
                 onComplete={setCompleting}
@@ -400,6 +404,7 @@ export function KpisTab({
 function GoalBranch({
   node,
   editable,
+  actingId,
   onAddMeasure,
   onAddChild,
   onComplete,
@@ -411,6 +416,8 @@ function GoalBranch({
 }: {
   node: GoalNode;
   editable: boolean;
+  /** Signed-in person's own employee id — decides who may log a task. */
+  actingId: string | null;
   onAddMeasure: (goal: ApiGoal) => void;
   onAddChild: (parentId: string) => void;
   onComplete: (goal: ApiGoal) => void;
@@ -430,6 +437,7 @@ function GoalBranch({
         goal={node}
         depth={node.depth}
         editable={editable}
+        actingId={actingId}
         onAddMeasure={onAddMeasure}
         onAddChild={onAddChild}
         onComplete={onComplete}
@@ -444,6 +452,7 @@ function GoalBranch({
           key={child.id}
           node={child}
           editable={editable}
+          actingId={actingId}
           onAddMeasure={onAddMeasure}
           onAddChild={onAddChild}
           onComplete={onComplete}
@@ -469,6 +478,7 @@ function GoalCard({
   goal,
   depth,
   editable,
+  actingId,
   onAddMeasure,
   onAddChild,
   onComplete,
@@ -481,6 +491,8 @@ function GoalCard({
   goal: ApiGoal;
   depth: number;
   editable: boolean;
+  /** Signed-in person's own employee id — decides who may log a task. */
+  actingId: string | null;
   onAddMeasure: (goal: ApiGoal) => void;
   onAddChild: (parentId: string) => void;
   onComplete: (goal: ApiGoal) => void;
@@ -498,6 +510,11 @@ function GoalCard({
   const done = goal.status === "DONE";
   const canShare = goal.dueQuarter !== null && goal.keyResults.length > 0;
   const rung = rungLabel(goal);
+  /* Only the goal's own owner may log a task against it — the API's own
+     rule (`submitTask` throws for anybody else) — and only once it is
+     agreed, matching the objective/delivery scoring it feeds. */
+  const canLogTasks =
+    !done && goal.approval === "AGREED" && actingId === goal.ownerId;
   /* Nothing to agree against: the API refuses to send an objective that belongs
      to no period, because one agreed for no period cannot be agreed before it. */
   const noPeriod = goal.reviewCycleId === null && goal.dueQuarter === null;
@@ -619,6 +636,10 @@ function GoalCard({
         <p className="mt-3 text-body-sm text-body">
           No measure yet, so nothing tracks itself.
         </p>
+      )}
+
+      {canLogTasks && (
+        <TaskLogPanel goalId={goal.id} keyResults={goal.keyResults} />
       )}
 
       {/* What the freeze actually costs, said before anything is refused. The
