@@ -331,7 +331,7 @@ export function ProfileScreen({ initialTab }: { initialTab: ProfileTab }) {
 const TAB_META: Record<ProfileTab, { label: string; icon: React.ReactNode }> = {
   details: { label: "Details", icon: <UserRound aria-hidden="true" /> },
   pay: { label: "Pay", icon: <Banknote aria-hidden="true" /> },
-  "time-off": { label: "Time off", icon: <CalendarClock aria-hidden="true" /> },
+  "time-off": { label: "Leave", icon: <CalendarClock aria-hidden="true" /> },
   equipment: { label: "Things I hold", icon: <Laptop aria-hidden="true" /> },
 };
 
@@ -471,7 +471,7 @@ function TimeOffCard({ employeeId }: { employeeId: string }) {
 
   return (
     <Card>
-      <CardHeader title="Time off" level={3} />
+      <CardHeader title="Leave" level={3} />
       <CardBody className="flex flex-col gap-3">
         {loading ? (
           <Skeleton className="h-14 w-full" />

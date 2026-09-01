@@ -26,6 +26,7 @@ import {
   SlidersHorizontal,
   Target,
   Timer,
+  UserRoundPlus,
   Users,
 } from "lucide-react";
 import type { PermissionKey } from "@/lib/permissions";
@@ -178,29 +179,15 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       permission: "EDIT_RECORDS",
       feature: "departments",
     },
-    /* Onboarding, parked.
-       -------------------
-       Taken out of the nav rather than deleted: the screen, its route and its
-       checklist all still exist under `app/(app)/people/onboarding/`, and this
-       block is the only thing that made them reachable.
-
-       The reason is complexity rather than fault. Staff arriving on the
-       platform now land as **Active** and nothing asks which of six statuses
-       they are — see `people/new/form.tsx`. A tab whose whole content is
-       "people whose status is Onboarding" is a tab that is always empty once
-       nothing sets that status, and an always-empty screen in the nav teaches
-       people to stop reading the nav.
-
-       To bring it back: uncomment this, re-add the `UserRoundPlus` import
-       above, and restore the status field on the create form so somebody can be
-       put into that state in the first place. One without the other gives you
-       the empty tab again. */
-    // {
-    //   href: "/people/onboarding",
-    //   label: "Onboarding",
-    //   icon: <UserRoundPlus aria-hidden="true" />,
-    //   permission: "EDIT_RECORDS",
-    // },
+    {
+      /* Restored alongside the status field on the create form (see
+         `people/new/form.tsx`) so a new hire can actually be put into
+         ONBOARDING and this tab has something to show. */
+      href: "/people/onboarding",
+      label: "Onboarding",
+      icon: <UserRoundPlus aria-hidden="true" />,
+      permission: "EDIT_RECORDS",
+    },
     {
       /* Was reachable only from a notification. `EDIT_RECORDS` matches the
          Directory beside it: a leavers list is the directory read backwards,
@@ -369,7 +356,7 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
     },
     {
       href: "/people/leave",
-      label: "Time off",
+      label: "Leave",
       icon: <CalendarDays aria-hidden="true" />,
       badgeSource: "pendingLeave",
       always: true,

@@ -679,6 +679,35 @@ export function useOrgTaxState() {
 }
 
 /**
+ * Module-level, shared across every mounted `useCompanyLogo()` — the sidebar
+ * badge and the settings card both hold one at once, and a save in the
+ * second must appear in the first immediately, not on the next window
+ * focus. `useRevalidation` solves a different problem (two separate
+ * *windows* drifting apart) and would still have made the settings card
+ * wait on a blur/focus cycle to see its own save reflected next to it. A
+ * plain module-level value, notified on write, is the whole fix — the same
+ * `useSyncExternalStore` shape `revalidate.ts` uses, one level narrower.
+ */
+let logoState: { logoUrl: string | null } | null = null;
+let logoFetchPromise: Promise<void> | null = null;
+const logoListeners = new Set<() => void>();
+
+function setLogoState(next: { logoUrl: string | null } | null): void {
+  logoState = next;
+  for (const listener of logoListeners) listener();
+}
+
+function subscribeToLogo(listener: () => void): () => void {
+  logoListeners.add(listener);
+  return () => {
+    logoListeners.delete(listener);
+  };
+}
+
+const getLogoSnapshot = () => logoState;
+const getLogoServerSnapshot = () => null;
+
+/**
  * The company's logo, which is a real API field rather than a demo one.
  *
  * Shaped on `useOrgTaxState` above, including its retry: this screen fires
@@ -694,7 +723,11 @@ export function useOrgTaxState() {
 export function useCompanyLogo() {
   const { isConnected } = useSession();
 
-  const [remote, setRemote] = useState<{ logoUrl: string | null } | null>(null);
+  const remote = useSyncExternalStore(
+    subscribeToLogo,
+    getLogoSnapshot,
+    getLogoServerSnapshot,
+  );
   const [saving, setSaving] = useState(false);
 
   /* Re-ask when somebody comes back to the window. Not in the key below,
@@ -702,25 +735,33 @@ export function useCompanyLogo() {
   const revalidation = useRevalidation();
   useEffect(() => {
     if (!isConnected) return;
-    let cancelled = false;
+    /* The badge and the card both mount `useCompanyLogo()` on a cold load of
+       `/settings/company`, and without this, both would fire the same read.
+       The shared promise, not a boolean, is what makes this safe under
+       StrictMode's double-invoke: the second invocation of this same effect
+       runs synchronously after the first assigns `logoFetchPromise`, before
+       any `await` inside it yields, so it always sees the first's promise
+       rather than a flag the first has not yet had a chance to set. A plain
+       boolean flipped back off in a `finally` cannot make that guarantee —
+       it briefly reads `false` again between the two invocations whenever
+       the fetch settles in that window, and the second invocation starts a
+       fetch of its own no cleanup ever cancels. */
+    if (logoState !== null || logoFetchPromise) return;
 
-    async function load() {
-      for (let attempt = 0; attempt < 3 && !cancelled; attempt++) {
+    logoFetchPromise = (async () => {
+      for (let attempt = 0; attempt < 3; attempt += 1) {
         try {
           const profile = await api.profile();
-          if (!cancelled) setRemote({ logoUrl: profile.logoUrl });
+          setLogoState({ logoUrl: profile.logoUrl });
           return;
         } catch {
           if (attempt < 2) await new Promise((r) => setTimeout(r, 400));
         }
       }
-      if (!cancelled) setRemote({ logoUrl: null });
-    }
-    void load();
-
-    return () => {
-      cancelled = true;
-    };
+      setLogoState({ logoUrl: null });
+    })().finally(() => {
+      logoFetchPromise = null;
+    });
   }, [isConnected, revalidation]);
 
   /**
@@ -742,7 +783,7 @@ export function useCompanyLogo() {
       setSaving(true);
       try {
         const profile = await api.updateProfile({ logoUrl });
-        setRemote({ logoUrl: profile.logoUrl });
+        setLogoState({ logoUrl: profile.logoUrl });
       } finally {
         setSaving(false);
       }

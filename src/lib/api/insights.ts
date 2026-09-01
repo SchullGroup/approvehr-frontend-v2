@@ -80,6 +80,19 @@ export type DashboardData = {
     /** Of `open`, how many still have a mandatory checklist line unticked. */
     withMandatoryOutstanding: number;
   };
+  /**
+   * Starters still working through their onboarding checklist.
+   *
+   * Absent for anybody without access to the onboarding register (same rule as
+   * `exits`). `{ open: 0 }` would tell a manager nobody is onboarding, which
+   * may be false.
+   *
+   * `withMandatoryOutstanding` counts people, not tasks.
+   */
+  onboarding?: {
+    open: number;
+    withMandatoryOutstanding: number;
+  };
   hiring?: {
     candidatesInPlay: number;
     stalledSevenDays: number;
