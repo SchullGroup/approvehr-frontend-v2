@@ -172,7 +172,7 @@ export default function HomePage() {
                     />
                   </span>
                   <h3 className="text-h4 text-slate">{item.title}</h3>
-                  <p className="text-body leading-relaxed text-slate-soft">
+                  <p className="text-body leading-relaxed">
                     {item.body}
                   </p>
                 </div>
