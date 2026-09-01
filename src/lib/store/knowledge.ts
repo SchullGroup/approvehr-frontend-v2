@@ -118,7 +118,7 @@ type DemoSection = { id: string; name: string; slug: string };
 
 const DEMO_SECTIONS: DemoSection[] = DEMO_ENABLED ? [
   { id: "kbc-pay", name: "Getting paid", slug: "getting-paid" },
-  { id: "kbc-time", name: "Time off", slug: "time-off" },
+  { id: "kbc-time", name: "Leave", slug: "time-off" },
   { id: "kbc-record", name: "Your record", slug: "your-record" },
 ] : [];
 

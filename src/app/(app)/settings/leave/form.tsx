@@ -360,9 +360,9 @@ function Policy() {
               instance across 31 screens read by a browser. Backticks are
               markup, and `/people/leave` is a path rather than anything the
               person reading this has ever seen: the screen calls itself
-              Time off, and so does the nav. */}
+              Leave, and so does the nav. */}
           Entitlement is the number every balance in the product is measured
-          against. Change it here and Time off, each employee record and the
+          against. Change it here and Leave, each employee record and the
           booking form all move at once — there is no separate copy to keep in
           step.
         </Callout>
