@@ -50,12 +50,19 @@ import type { ApprovalKind } from "@/lib/mock/workflows";
  * the boundary, so no screen multiplies or divides by 100. It is null for most
  * kinds — leave moves no money.
  *
- * ## A decision that changed nothing says so
+ * ## Two doors, not one — as of the payroll/loan/expense tracking rows
  *
- * Only `leave_requests` has an owning module today. For every other subject type
- * the API records the decision against the approval row and returns a `note`
- * saying nothing downstream moved. Show it. A green tick that moved nothing is
- * how a demo becomes a lie.
+ * `leave_requests` (and offboarding, and self-service record changes) are
+ * genuinely decided *through* `POST /:id/decide` — that call writes the
+ * subject and mirrors the row in one transaction. Payroll runs, loans and
+ * expense claims are different: they are **tracked** here so they show up in
+ * this inbox and in "sent by you", but they are still only ever *decided* on
+ * their own screens (`/payroll`, `/payroll/loans`, `/payroll/expenses`),
+ * because their permission checks — and, for payroll, a re-authentication
+ * step — live only at their own routes. Calling `decide()` on one of these
+ * now refuses outright (422) rather than silently recording a decision that
+ * moved nothing. `isDecidableHere` / `realScreenFor` below are how a screen
+ * tells the two apart — check before rendering an Approve/Decline pair.
  *
  * `lib/api/endpoints.ts` still carries a thinner `approvals` object from the
  * first cutover; nothing imports it now, and this module replaces it.
@@ -89,6 +96,11 @@ type WireApproval = {
   waitingDays: number;
   decidedAt: string | null;
   decisionNote: string | null;
+  /** Only present on `GET /approvals/sent` — who a row is currently waiting
+   *  on, resolved server-side. A name when it was routed to somebody
+   *  specific; a role sentence ("anyone who can approve payroll") when it
+   *  was not, which today is every payroll run, loan and expense claim. */
+  sentTo?: string;
 };
 
 type WireSummary = {
@@ -129,6 +141,9 @@ export type ApprovalRow = {
   waitingDays: number;
   decidedAt: string | null;
   decisionNote: string | null;
+  /** Present only on rows from `approvalsApi.sentByMe` — see the note on
+   *  the wire type this is copied from. */
+  sentTo?: string;
 };
 
 export type ApprovalSummary = {
@@ -188,6 +203,7 @@ function toRow(wire: WireApproval): ApprovalRow {
     waitingDays: wire.waitingDays,
     decidedAt: wire.decidedAt,
     decisionNote: wire.decisionNote,
+    ...(wire.sentTo ? { sentTo: wire.sentTo } : {}),
   };
 }
 
@@ -279,6 +295,27 @@ export const approvalsApi = {
     };
   },
 
+  /**
+   * Everything the caller themselves requested, newest first — the other
+   * half of the inbox from `list`. Each row carries `sentTo`: a name where
+   * one was chosen, a role sentence where it was not.
+   */
+  sentByMe: async (
+    params: ApprovalListParams = {},
+    signal?: AbortSignal,
+  ): Promise<{ rows: ApprovalRow[]; total: number }> => {
+    const page = await requestPaged<WireApproval>("/approvals/sent", {
+      query: {
+        page: params.page ?? 1,
+        pageSize: params.pageSize ?? 100,
+        kind: params.kind?.toUpperCase(),
+        status: params.status?.toUpperCase(),
+      },
+      ...(signal ? { signal } : {}),
+    });
+    return { rows: page.data.map(toRow), total: page.meta.total };
+  },
+
   /** Undo. Reopens the subject too, through the same registry. */
   reopen: async (id: string): Promise<ApprovalRow | null> => {
     const row = await request<WireApproval | null>(`/approvals/${id}/reopen`, {
@@ -358,4 +395,27 @@ export function isPastDeadline(iso: string | null): boolean {
   if (!iso) return false;
   const due = new Date(iso);
   return !Number.isNaN(due.getTime()) && due.getTime() < Date.now();
+}
+
+/**
+ * Where a kind is actually decided, for the three that cannot be decided
+ * from this inbox at all — see the module header. `/payroll` rather than a
+ * specific run's URL for `payroll_run`: a row here has no period on it, and
+ * the hub already opens on the current month with a picker for any other.
+ */
+const REAL_SCREEN: Partial<Record<ApprovalKind, string>> = {
+  payroll_run: "/payroll",
+  loan: "/payroll/loans",
+  expense: "/payroll/expenses",
+};
+
+/** False for the three kinds that `decide()` now refuses outright (422). */
+export function isDecidableHere(kind: ApprovalKind): boolean {
+  return !(kind in REAL_SCREEN);
+}
+
+/** The screen that can actually decide a row of this kind, or null when
+ *  this inbox already is that screen. */
+export function realScreenFor(kind: ApprovalKind): string | null {
+  return REAL_SCREEN[kind] ?? null;
 }

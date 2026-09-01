@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError } from "@/lib/api/client";
-import { approvalsApi, type ApprovalListParams } from "@/lib/api/approvals";
+import { approvalsApi, type ApprovalListParams, type ApprovalRow } from "@/lib/api/approvals";
 import type { ApprovalKind } from "@/lib/mock/workflows";
 import {
   buildApprovalQueue,
@@ -340,5 +340,70 @@ export function useApprovalQueue(filter: QueueFilter = "all"): QueueState {
     approveRoutine,
     routineCount: routine.length,
     reload: load,
+  };
+}
+
+export type SentApprovalsState = {
+  rows: readonly ApprovalRow[];
+  loading: boolean;
+  error: string | null;
+  connected: boolean;
+  reload: () => void;
+};
+
+/**
+ * Everything the signed-in person themselves requested — the other half of
+ * the inbox from `useApprovalQueue`. Connected only: `GET /approvals/sent`
+ * is a real, whole-company query with no demo-mode equivalent to derive it
+ * from, and an empty list here is the honest answer to "what did I send" in
+ * a browser with no server behind it — not a refusal, since nothing has
+ * been asked to write anything.
+ */
+export function useSentApprovals(): SentApprovalsState {
+  const { isConnected } = useSession();
+  const [state, setState] = useState<{
+    rows: ApprovalRow[];
+    loading: boolean;
+    error: string | null;
+  }>({ rows: [], loading: isConnected, error: null });
+  const [key, setKey] = useState(0);
+
+  useEffect(() => {
+    /* No synchronous reset here: the initial `useState` above already
+       starts in the right state for the common case (not connected from the
+       first render), and a manual reload leaving the previous rows on
+       screen until the new ones land is the acceptable cost of not calling
+       `setState` synchronously in the effect body — see the identical trade
+       in `wizard.tsx`'s sheet-line-summary effect. */
+    if (!isConnected) return;
+    let cancelled = false;
+    approvalsApi
+      .sentByMe({ pageSize: 100 })
+      .then((result) => {
+        if (!cancelled) setState({ rows: result.rows, loading: false, error: null });
+      })
+      .catch((failure: unknown) => {
+        if (!cancelled) {
+          setState({
+            rows: [],
+            loading: false,
+            error:
+              failure instanceof ApiError
+                ? failure.message
+                : "Something went wrong loading what you sent.",
+          });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isConnected, key]);
+
+  return {
+    rows: state.rows,
+    loading: state.loading,
+    error: state.error,
+    connected: isConnected,
+    reload: () => setKey((k) => k + 1),
   };
 }

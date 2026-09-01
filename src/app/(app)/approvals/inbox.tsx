@@ -21,6 +21,7 @@ import {
   Avatar,
   Badge,
   Button,
+  ButtonLink,
   Card,
   CardBody,
   EmptyState,
@@ -36,8 +37,10 @@ import { ApiError } from "@/lib/api/client";
 import { employeeById } from "@/lib/mock/people";
 import type { ApprovalKind } from "@/lib/mock/workflows";
 import { fullName } from "@/lib/types";
+import { isDecidableHere, type ApprovalRow as ApiApprovalRow } from "@/lib/api/approvals";
 import {
   useApprovalQueue,
+  useSentApprovals,
   type QueueFilter,
 } from "@/lib/store/approvals-api";
 import type { QueueItem } from "@/lib/workflows/queue";
@@ -115,9 +118,11 @@ const TONE: Record<ApprovalKind, BadgeTone> = {
  * this screen.
  */
 export function ApprovalInbox() {
+  const [view, setView] = useState<"waiting" | "sent">("waiting");
   const [filter, setFilter] = useState<QueueFilter>("all");
   const [declining, setDeclining] = useState<QueueItem | null>(null);
   const queue = useApprovalQueue(filter);
+  const sent = useSentApprovals();
   const toast = useToast();
   const isManager = useIsManager();
   const { permissions } = usePermissions();
@@ -237,7 +242,23 @@ export function ApprovalInbox() {
 
       <LoadFailure subject="your approvals" error={queue.error} onRetry={queue.reload} />
 
-      {canApprove ? (
+      {/* Two different questions, not two filters on one list: "what needs
+          me" and "what did I send off, and who is it sitting with now" have
+          different owners even for the same person, and conflating them
+          would mean one of the two never gets its own empty state. */}
+      <SegmentedControl
+        label="Which approvals to show"
+        value={view}
+        onChange={setView}
+        options={[
+          { value: "waiting", label: "Waiting on you" },
+          { value: "sent", label: "Sent by you" },
+        ]}
+      />
+
+      {view === "sent" && <SentApprovalsList state={sent} />}
+
+      {view === "waiting" && (canApprove ? (
         <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <Stat label="Waiting on you" value={String(queue.counts.pending)} />
@@ -368,7 +389,7 @@ export function ApprovalInbox() {
             description="Approving requests is not part of your role here. If that changes, anything routed to you will appear on this screen."
           />
         </Card>
-      )}
+      ))}
 
       <DeclineDialog
         open={declining !== null}
@@ -383,6 +404,133 @@ export function ApprovalInbox() {
 }
 
 /* -------------------------------------------------------------------------- */
+
+/**
+ * "What did I send off, and who is it sitting with now."
+ *
+ * Read-only, deliberately — a row here is never the viewer's to decide (it
+ * is the other side of the same request), so there is no Approve/Decline
+ * pair to get wrong here the way `ApprovalRow` has to guard against below.
+ */
+function SentApprovalsList({
+  state,
+}: {
+  state: ReturnType<typeof useSentApprovals>;
+}) {
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center gap-2">
+        {sourceNote(state.connected) && (
+          <Badge tone="warning" size="sm" dot>
+            {sourceNote(state.connected)}
+          </Badge>
+        )}
+        {state.loading && (
+          <span className="text-meta text-muted">Loading…</span>
+        )}
+      </div>
+
+      <LoadFailure
+        subject="what you've sent"
+        error={state.error}
+        onRetry={state.reload}
+      />
+
+      {!state.loading && !state.error && state.rows.length === 0 && (
+        <Card>
+          <EmptyState
+            icon={<ClipboardList aria-hidden="true" />}
+            title="Nothing sent yet"
+            description="A loan, an expense, a payroll run, leave — anything you raise that needs somebody else's decision appears here with its status, so you can see where it's sitting without having to ask."
+          />
+        </Card>
+      )}
+
+      {state.rows.length > 0 && (
+        <ul className="flex flex-col gap-3">
+          {state.rows.map((row) => (
+            <li key={row.id}>
+              <SentApprovalRow row={row} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+const STATUS_TONE: Record<ApiApprovalRow["status"], BadgeTone> = {
+  pending: "warning",
+  approved: "success",
+  declined: "danger",
+  withdrawn: "neutral",
+};
+
+const STATUS_LABEL: Record<ApiApprovalRow["status"], string> = {
+  pending: "Waiting",
+  approved: "Approved",
+  declined: "Declined",
+  withdrawn: "Withdrawn",
+};
+
+function SentApprovalRow({ row }: { row: ApiApprovalRow }) {
+  return (
+    <Card>
+      <CardBody className="flex flex-wrap items-start gap-4">
+        <span
+          aria-hidden="true"
+          className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent-text [&>svg]:size-[18px]"
+        >
+          {ICON[row.kind]}
+        </span>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge tone={TONE[row.kind]} size="sm">
+              {row.kindLabel}
+            </Badge>
+            <Badge tone={STATUS_TONE[row.status]} size="sm" dot>
+              {STATUS_LABEL[row.status]}
+            </Badge>
+          </div>
+
+          <h3 className="mt-1.5 text-body font-semibold text-ink">
+            {row.title}
+          </h3>
+          {row.summary && (
+            <p className="mt-0.5 text-body-sm leading-relaxed text-body">
+              {row.summary}
+            </p>
+          )}
+
+          <div className="mt-2.5 flex flex-wrap items-center gap-3 text-meta text-muted">
+            <span>Sent {row.requestedAt}</span>
+            {row.status === "pending" && row.sentTo && (
+              <span>Waiting on {row.sentTo}</span>
+            )}
+            {row.status !== "pending" && row.decidedAt && (
+              <span>Decided {row.decidedAt.slice(0, 10)}</span>
+            )}
+          </div>
+          {row.status === "declined" && row.decisionNote && (
+            <p className="mt-2 text-body-sm text-danger-text">
+              {row.decisionNote}
+            </p>
+          )}
+        </div>
+
+        {row.amount !== null && (
+          <div className="shrink-0 text-right">
+            <p className="text-meta text-faint">Value</p>
+            <p className="tabular text-body font-semibold text-ink">
+              <Money amount={row.amount} decimals />
+            </p>
+          </div>
+        )}
+      </CardBody>
+    </Card>
+  );
+}
 
 function ApprovalRow({
   item,
@@ -471,21 +619,40 @@ function ApprovalRow({
           </div>
         )}
 
-        <div className="flex w-full shrink-0 gap-2 sm:w-auto">
-          <Button
-            variant="approve"
-            size="sm"
-            onClick={onApprove}
-            className="flex-1 sm:flex-none"
-          >
-            <Check aria-hidden="true" className="size-3.5" />
-            Approve
-          </Button>
-          <Button variant="secondary" size="sm" onClick={onSendBack}>
-            <X aria-hidden="true" className="size-3.5" />
-            Send back
-          </Button>
-        </div>
+        {/* Payroll, loan and expense approvals cannot be decided from this
+            inbox — their permission checks (and, for payroll, a step-up
+            re-authentication) live only on their own screens, so `decide()`
+            now refuses these outright rather than pretend to act. A button
+            here would be one that always fails; the real one is one click
+            away. */}
+        {isDecidableHere(item.kind) ? (
+          <div className="flex w-full shrink-0 gap-2 sm:w-auto">
+            <Button
+              variant="approve"
+              size="sm"
+              onClick={onApprove}
+              className="flex-1 sm:flex-none"
+            >
+              <Check aria-hidden="true" className="size-3.5" />
+              Approve
+            </Button>
+            <Button variant="secondary" size="sm" onClick={onSendBack}>
+              <X aria-hidden="true" className="size-3.5" />
+              Send back
+            </Button>
+          </div>
+        ) : (
+          <div className="flex w-full shrink-0 sm:w-auto">
+            <ButtonLink
+              href={item.href}
+              variant="secondary"
+              size="sm"
+              className="flex-1 sm:flex-none"
+            >
+              Open {item.kindLabel.toLowerCase()}
+            </ButtonLink>
+          </div>
+        )}
       </CardBody>
     </Card>
   );
