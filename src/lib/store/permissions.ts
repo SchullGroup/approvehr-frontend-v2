@@ -73,7 +73,7 @@ import { useRevalidation } from "@/lib/revalidate";
 const DEMO_SECTIONS: { key: SectionKey; title: string }[] = [
   { key: "money", title: "Pay and money" },
   { key: "people", title: "People" },
-  { key: "timeOff", title: "Time off" },
+  { key: "timeOff", title: "Leave" },
   { key: "company", title: "Company" },
   { key: "records", title: "Records and reports" },
 ];
