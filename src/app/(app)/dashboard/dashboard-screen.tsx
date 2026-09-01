@@ -196,6 +196,7 @@ function CompanyOverview({
   today,
   announcements,
   exits,
+  onboarding,
   hiring,
   payroll,
   money,
@@ -222,6 +223,10 @@ function CompanyOverview({
      held up. Both render nothing, and the check is presence-then-value rather
      than truthiness so the two stay distinguishable in the code. */
   const exitsHeldUp = exits ? exits.withMandatoryOutstanding : 0;
+
+  /* Same rule as exits: absent means no permission, zero means nothing held up.
+     A starter whose checklist is complete needs no action. */
+  const onboardingHeldUp = onboarding ? onboarding.withMandatoryOutstanding : 0;
 
   /* A company that has never added anyone satisfies none of the other
      "Needs you" conditions — no approvals, no incomplete records (there is
@@ -355,6 +360,7 @@ function CompanyOverview({
         {(approvals.waiting > 0 ||
           headcount.incomplete > 0 ||
           exitsHeldUp > 0 ||
+          onboardingHeldUp > 0 ||
           (payroll && payroll.blockers > 0) ||
           (nobodyOnPayroll && canAddEmployee)) && (
           <Card>
@@ -412,6 +418,15 @@ function CompanyOverview({
                     `Equipment, access or final pay not signed off · ${exitsHeldUp} of ${exits.open} open ${exits.open === 1 ? "exit" : "exits"}`
                   }
                   action="Open exits"
+                />
+              )}
+
+              {onboarding && onboardingHeldUp > 0 && (
+                <Row
+                  href="/people/onboarding"
+                  label={`${onboardingHeldUp} ${onboardingHeldUp === 1 ? "starter has" : "starters have"} mandatory checklist items outstanding`}
+                  detail={`${onboardingHeldUp} of ${onboarding.open} active ${onboarding.open === 1 ? "starter" : "starters"} not yet complete`}
+                  action="Open onboarding"
                 />
               )}
 
