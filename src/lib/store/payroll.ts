@@ -577,13 +577,26 @@ function demoExceptions(
       continue;
     }
 
-    if (settings.exceptions.requireBankAccount && !person.bankAccount) {
+    /* Unconditional, matching the API's own blocker — approving now builds a
+       payment batch immediately, so a missing or malformed account number
+       stops a payroll whether or not this company setting is on. Demo mode
+       mirrors the rule the run actually enforces, not a softer local one. */
+    const digits = (person.bankAccount ?? "").replace(/\D/g, "");
+    if (digits.length === 0) {
       push(
         "BLOCKER",
         "missing_bank_account",
         person.id,
         `${person.name} has no account number. They cannot be paid. ` +
           `Add one, or exclude them from this payroll with a reason.`,
+      );
+    } else if (!/^\d{10}$/.test(digits)) {
+      push(
+        "BLOCKER",
+        "missing_bank_account",
+        person.id,
+        `${person.name}'s account number is ${digits.length} digits. A Nigerian ` +
+          `account number is ten. Fix it, or exclude them from this payroll with a reason.`,
       );
     }
     if (
