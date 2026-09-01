@@ -223,7 +223,7 @@ export default async function ModulePage({
               <div className="grid gap-10 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:gap-16">
                 <div>
                   <h2 className="text-h2 text-slate">{mod.limits.heading}</h2>
-                  <p className="mt-5 text-body leading-relaxed text-slate-muted">
+                  <p className="mt-5 text-body leading-relaxed">
                     {mod.limits.lead}
                   </p>
                 </div>
@@ -232,7 +232,7 @@ export default async function ModulePage({
                   {mod.limits.points.map((point) => (
                     <li
                       key={point}
-                      className="border-t border-sand-line py-5 text-body leading-relaxed text-slate-soft first:border-t-0 first:pt-0 lg:first:border-t lg:first:pt-5"
+                      className="border-t border-sand-line py-5 text-body leading-relaxed first:border-t-0 first:pt-0 lg:first:border-t lg:first:pt-5"
                     >
                       {point}
                     </li>
