@@ -66,8 +66,8 @@ export function HowItWorks() {
           the rating of record.
         </li>
         <li>
-          The mark comes from your agreed objectives and your competencies,
-          each carrying a set share.
+          The mark comes from your agreed objectives and your competencies, each
+          carrying a set share.
         </li>
         <li>
           When it is final you are told, and you either acknowledge it or say
@@ -272,10 +272,10 @@ function FrameworkBody() {
   return (
     <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
       {framework.groups.map((group) => (
-        <div key={group.category}>
+        <div key={group.sectionName}>
           <p className="flex flex-wrap items-center gap-2 text-body-sm font-semibold text-ink">
-            {group.category}
-            {group.category === "Leadership" && (
+            {group.sectionName}
+            {group.sectionName === "Leadership" && (
               <Badge tone="neutral" size="sm">
                 Managers only
               </Badge>

@@ -68,7 +68,7 @@ export const LEGAL_STATUS =
   "This is our working draft, published early so you can read it before we ask " +
   "you to agree to anything. It has not yet been reviewed by Nigerian counsel, " +
   "and the executed version attached to an order form is the one that governs. " +
-  "Tell us if something here would not work for you — it is easier to change now.";
+  "Tell us if something here would not work for you, it is easier to change now.";
 
 /* -------------------------------------------------------------------------- */
 /* Privacy                                                                    */
@@ -89,7 +89,7 @@ const PRIVACY: LegalDoc = {
       heading: "Who is responsible for your data",
       body: [
         `${COMPANY.product} is operated by ${COMPANY.legalName}, registered in ${COMPANY.country} and based in ${COMPANY.city}. We are the data controller for the account and billing information of the company that subscribes, and for the visitors of this website.`,
-        "For the employee records inside the product we are a data processor, not a controller. Your employer decides what goes in and how long it stays; we act on their instructions. If you are an employee asking about your own record, your employer's HR team is the right first stop — but write to us anyway if they cannot help, and we will tell you what we hold.",
+        "For the employee records inside the product we are a data processor, not a controller. Your employer decides what goes in and how long it stays; we act on their instructions. If you are an employee asking about your own record, your employer's HR team is the right first stop, but write to us anyway if they cannot help, and we will tell you what we hold.",
       ],
     },
     {
@@ -130,10 +130,10 @@ const PRIVACY: LegalDoc = {
         "Section 25 of the Nigeria Data Protection Act 2023 requires a lawful basis for every processing activity. Ours are:",
       ],
       list: [
-        "Performance of a contract — running the service your company pays for, including calculating and paying salaries.",
-        "Compliance with a legal obligation — retaining payroll records for the periods Nigerian tax and pension law require, and producing the returns those laws require.",
-        "Legitimate interest — keeping the service secure, preventing fraud, and understanding which parts of the product are used so we know what to fix. We do not rely on legitimate interest for anything a reasonable person would object to.",
-        "Consent — the demo form and any marketing email. Withdrawable at any time, with no effect on the service itself.",
+        "Performance of a contract, running the service your company pays for, including calculating and paying salaries.",
+        "Compliance with a legal obligation, retaining payroll records for the periods Nigerian tax and pension law require, and producing the returns those laws require.",
+        "Legitimate interest, keeping the service secure, preventing fraud, and understanding which parts of the product are used so we know what to fix. We do not rely on legitimate interest for anything a reasonable person would object to.",
+        "Consent, the demo form and any marketing email. Withdrawable at any time, with no effect on the service itself.",
       ],
     },
     {
@@ -144,7 +144,7 @@ const PRIVACY: LegalDoc = {
       ],
       list: [
         "Infrastructure providers who host and back up the service, under written contracts that bind them to the same obligations we carry.",
-        "Statutory bodies, where you have asked us to file on your behalf — the relevant state internal revenue service, your employees' pension fund administrators, and the Federal Mortgage Bank of Nigeria for NHF. Only what the filing requires.",
+        "Statutory bodies, where you have asked us to file on your behalf, the relevant state internal revenue service, your employees' pension fund administrators, and the Federal Mortgage Bank of Nigeria for NHF. Only what the filing requires.",
         "Payment providers, where you use the product to pay salaries and they need the account details to move the money.",
         "A lawful request from a court or regulator with authority over us. We will tell you it happened unless we are legally barred from doing so.",
       ],
@@ -154,14 +154,14 @@ const PRIVACY: LegalDoc = {
       heading: "Whether it leaves Nigeria",
       body: [
         "Part VIII of the NDPA restricts moving personal data out of Nigeria. Where a provider we depend on stores data outside the country, we rely on the conditions the Act allows and record which provider, which country and which condition in our processing register. That register is available to any customer who asks, and to the Nigeria Data Protection Commission.",
-        "If keeping all of your data resident in Nigeria is a requirement for you, say so before you sign — it is a configuration question, not a negotiation, and we would rather answer it up front.",
+        "If keeping all of your data resident in Nigeria is a requirement for you, say so before you sign, it is a configuration question, not a negotiation, and we would rather answer it up front.",
       ],
     },
     {
       id: "retention",
       heading: "How long we keep it",
       body: [
-        "Employment and payroll records are legal documents, so the product is built to archive rather than delete — a past payslip has to keep resolving years later, and an approval trail with a hole in it is worse than useless.",
+        "Employment and payroll records are legal documents, so the product is built to archive rather than delete, a past payslip has to keep resolving years later, and an approval trail with a hole in it is worse than useless.",
         "Account data is kept while your subscription is live. On termination we return or delete your data within 30 days of your written instruction, except where Nigerian tax, pension or company law requires us to retain a copy for longer, in which case we keep only what the law requires and only for as long as it requires it. Demo-form submissions are deleted after 12 months if you do not become a customer.",
       ],
     },
@@ -178,7 +178,7 @@ const PRIVACY: LegalDoc = {
       id: "cookies",
       heading: "Cookies",
       body: [
-        "This website sets no advertising or tracking cookies, and no third-party analytics runs on it. The product sets one cookie to keep you signed in. That is the whole list — which is why there is no consent banner in your way.",
+        "This website sets no advertising or tracking cookies, and no third-party analytics runs on it. The product sets one cookie to keep you signed in. That is the whole list, which is why there is no consent banner in your way.",
       ],
     },
     {
@@ -200,7 +200,7 @@ const TERMS: LegalDoc = {
   label: "Terms of service",
   title: "Terms of service",
   description:
-    "The terms on which Nigerian companies subscribe to ApproveHR — fees, uptime, statutory responsibility, liability and how either side ends the agreement.",
+    "The terms on which Nigerian companies subscribe to ApproveHR, fees, uptime, statutory responsibility, liability and how either side ends the agreement.",
   standfirst:
     "Written to be read once, in order, without a lawyer beside you. Where a term is genuinely in our favour, it says so rather than hiding in a subclause.",
   updated: "20 August 2026",
@@ -219,7 +219,7 @@ const TERMS: LegalDoc = {
       body: [
         "Pricing is per active employee per month, in Naira, at the tier on your order form. An employee counts as active in a month if they are on a payroll run in that month; an archived record does not count.",
         "Invoices are issued in advance of the period and payable within 14 days. Nigerian VAT at the prevailing rate is added where applicable. We will give 60 days' written notice before any price increase, and it will not take effect inside a term you have already paid for.",
-        "If an invoice is more than 30 days overdue we may suspend access after written notice. We will not delete data during a suspension, and we will not withhold a payroll run that is already in progress — cutting off a company mid-cycle punishes its employees, not its finance team.",
+        "If an invoice is more than 30 days overdue we may suspend access after written notice. We will not delete data during a suspension, and we will not withhold a payroll run that is already in progress, cutting off a company mid-cycle punishes its employees, not its finance team.",
       ],
     },
     {
@@ -229,7 +229,7 @@ const TERMS: LegalDoc = {
         "The accuracy of what you put in. We calculate on the figures you give us; a wrong salary, tax identification number or pension PIN produces a wrong result, correctly calculated.",
         "Keeping credentials under control, and removing access for people who leave.",
         "Having the right to hold the employee data you upload, and telling your employees that you use us to process it.",
-        "Your own statutory filings and payments. See the section below — this one matters.",
+        "Your own statutory filings and payments. See the section below, this one matters.",
       ],
     },
     {
@@ -237,7 +237,7 @@ const TERMS: LegalDoc = {
       heading: "Statutory responsibility stays with you",
       body: [
         "The product computes PAYE, pension and NHF against the Personal Income Tax Act, the Pension Reform Act 2014 and the NHF Act, and generates the schedules your state internal revenue service, pension fund administrators and the FMBN expect. We maintain those calculations against changes in the law and will tell you when a change affects your numbers.",
-        "But you remain the employer, and the statutory obligation to deduct, remit and file is yours. We are a tool you use to meet it, not a party that assumes it. If a figure looks wrong to you, do not remit it — tell us, and we will work it through with you and show our working.",
+        "But you remain the employer, and the statutory obligation to deduct, remit and file is yours. We are a tool you use to meet it, not a party that assumes it. If a figure looks wrong to you, do not remit it, tell us, and we will work it through with you and show our working.",
         "Nothing in the product is tax advice, and nothing on this website is either.",
       ],
     },
@@ -245,7 +245,7 @@ const TERMS: LegalDoc = {
       id: "availability",
       heading: "Availability",
       body: [
-        "We target 99.5% monthly availability outside announced maintenance, and we announce maintenance at least 48 hours ahead, scheduled away from month-end where we possibly can — the days around payroll are the days you cannot afford us to be down.",
+        "We target 99.5% monthly availability outside announced maintenance, and we announce maintenance at least 48 hours ahead, scheduled away from month-end where we possibly can, the days around payroll are the days you cannot afford us to be down.",
         "Where an order form includes a service credit for missed availability, that credit is your remedy for downtime. We are not offering a credit we have no measurement to support: if availability reporting matters to you commercially, ask for it in the order form and we will agree how it is measured before you sign.",
       ],
     },
@@ -265,7 +265,7 @@ const TERMS: LegalDoc = {
         "Do not use the product to process data you have no right to hold.",
         "Do not attempt to access another company's tenant, probe our infrastructure without written permission, or resell access without agreement.",
         "Do not upload malware, or use the product to send unlawful communications.",
-        "Security research is welcome — see the security page for how to report something rather than testing production and hoping.",
+        "Security research is welcome, see the security page for how to report something rather than testing production and hoping.",
       ],
     },
     {
@@ -304,12 +304,12 @@ const SECURITY: LegalDoc = {
   label: "Security",
   title: "Security",
   description:
-    "How ApproveHR protects payroll and employment data — and an honest list of the assurances we do not yet have.",
+    "How ApproveHR protects payroll and employment data, and an honest list of the assurances we do not yet have.",
   standfirst:
     "Most security pages are a wall of badges. We do not have badges yet, so this page is a description of what we actually do and a list of what we have not done. You can compare it to a competitor's page and draw your own conclusions.",
   updated: "20 August 2026",
   statusNote:
-    "The controls below describe how the service is operated. If you are evaluating us and need one of them evidenced rather than asserted, ask — we would rather show you than have you take a web page's word for it.",
+    "The controls below describe how the service is operated. If you are evaluating us and need one of them evidenced rather than asserted, ask, we would rather show you than have you take a web page's word for it.",
   sections: [
     {
       id: "not-yet",
@@ -321,7 +321,7 @@ const SECURITY: LegalDoc = {
         "No SOC 2 Type II report. We have not been audited.",
         "No ISO 27001 certificate.",
         "No third-party penetration test report to share yet.",
-        "No published bug bounty programme — though we will respond to anything you report, see below.",
+        "No published bug bounty programme, though we will respond to anything you report, see below.",
         "No 24/7 staffed security operations centre. We are a small team in Lagos and we will not pretend to be a large one.",
       ],
     },
@@ -365,7 +365,7 @@ const SECURITY: LegalDoc = {
         {
           term: "Change management",
           detail:
-            "Code review on every change. The Nigerian statutory calculations additionally carry a verification suite of hand-worked expected values that must pass before a release ships — a plausible-looking payroll figure is a defect here, not a rounding difference.",
+            "Code review on every change. The Nigerian statutory calculations additionally carry a verification suite of hand-worked expected values that must pass before a release ships, a plausible-looking payroll figure is a defect here, not a rounding difference.",
         },
         {
           term: "Dependencies",
@@ -375,7 +375,7 @@ const SECURITY: LegalDoc = {
         {
           term: "Drafting suggestions",
           detail:
-            "The performance module can draft text a person then edits — an objective, a progress note, a development area. A third-party language model writes the draft, and it is sent only the short list of facts shown on screen beside the suggestion. Nothing it returns is written to a record: a suggestion becomes data when somebody edits it and submits it themselves, and not before. Where no assistant is connected the button is simply absent.",
+            "The performance module can draft text a person then edits, an objective, a progress note, a development area. A third-party language model writes the draft, and it is sent only the short list of facts shown on screen beside the suggestion. Nothing it returns is written to a record: a suggestion becomes data when somebody edits it and submits it themselves, and not before. Where no assistant is connected the button is simply absent.",
         },
       ],
     },
@@ -384,7 +384,7 @@ const SECURITY: LegalDoc = {
       heading: "If something goes wrong",
       body: [
         "The NDPA requires notification to the Nigeria Data Protection Commission within 72 hours of becoming aware of a personal data breach. We will meet that, and we will tell affected customers directly within the same window rather than waiting for the regulator to do it for us.",
-        "You will get what we know, what we do not yet know, what we have done and what you need to do — even where that reflects badly on us. A notification that omits the cause is not a notification.",
+        "You will get what we know, what we do not yet know, what we have done and what you need to do, even where that reflects badly on us. A notification that omits the cause is not a notification.",
       ],
     },
     {
@@ -392,7 +392,7 @@ const SECURITY: LegalDoc = {
       heading: "Reporting a vulnerability",
       body: [
         `Write to ${COMPANY.securityEmail} with enough detail to reproduce it. We will acknowledge within 2 working days and keep you updated until it is closed.`,
-        "We will not pursue legal action against anyone who reports a genuine issue in good faith, does not access or modify other people's data, and gives us a reasonable window before publishing. Please do not test against production tenants — ask us for an environment.",
+        "We will not pursue legal action against anyone who reports a genuine issue in good faith, does not access or modify other people's data, and gives us a reasonable window before publishing. Please do not test against production tenants, ask us for an environment.",
       ],
     },
   ],
@@ -416,7 +416,7 @@ const DPA: LegalDoc = {
       id: "roles",
       heading: "Who is controller and who is processor",
       body: [
-        `For employee and payroll data in the product, you are the data controller and ${COMPANY.legalName} is the data processor. You decide what is collected, why, and for how long. We process only on your documented instruction — your configuration of the product and your written requests are that instruction.`,
+        `For employee and payroll data in the product, you are the data controller and ${COMPANY.legalName} is the data processor. You decide what is collected, why, and for how long. We process only on your documented instruction, your configuration of the product and your written requests are that instruction.`,
         "If we ever believe an instruction of yours would breach the NDPA, we will tell you rather than quietly carrying it out.",
       ],
     },
@@ -447,7 +447,7 @@ const DPA: LegalDoc = {
         {
           term: "Sensitive personal data",
           detail:
-            "Only where you choose to record it — for example medical evidence supporting sick leave, or disability information supporting an accommodation. We do not require any of it to run payroll.",
+            "Only where you choose to record it, for example medical evidence supporting sick leave, or disability information supporting an accommodation. We do not require any of it to run payroll.",
         },
       ],
     },
@@ -461,14 +461,14 @@ const DPA: LegalDoc = {
         "Help you respond to a data subject's request within the NDPA's timescales, and pass any request that reaches us directly on to you rather than answering it ourselves.",
         "Notify you of a personal data breach without undue delay and in any event within 72 hours of becoming aware of it.",
         "Assist with a data protection impact assessment where the processing warrants one.",
-        "Return or delete your data on termination, on your instruction, within 30 days — except the minimum the law obliges us to retain.",
+        "Return or delete your data on termination, on your instruction, within 30 days, except the minimum the law obliges us to retain.",
       ],
     },
     {
       id: "sub-processors",
       heading: "Sub-processors",
       body: [
-        "Each of these is under a written contract carrying the same obligations we carry to you, and we remain liable to you for what they do. We will give you 30 days' notice before adding one. If you reasonably object on data protection grounds, you may end the affected part of the subscription without penalty — that is a real right, not a formality.",
+        "Each of these is under a written contract carrying the same obligations we carry to you, and we remain liable to you for what they do. We will give you 30 days' notice before adding one. If you reasonably object on data protection grounds, you may end the affected part of the subscription without penalty, that is a real right, not a formality.",
       ],
       rows: [
         {
@@ -479,7 +479,7 @@ const DPA: LegalDoc = {
         {
           term: "Resend",
           detail:
-            "Email delivery, and the first provider tried. Receives the recipient's name and address and the contents of the message — which for a notification includes the subject of it, such as whose review is outstanding. United States.",
+            "Email delivery, and the first provider tried. Receives the recipient's name and address and the contents of the message, which for a notification includes the subject of it, such as whose review is outstanding. United States.",
         },
         {
           term: "Amazon SES",
@@ -489,12 +489,12 @@ const DPA: LegalDoc = {
         {
           term: "Google",
           detail:
-            "Suggested objectives, progress notes and development areas, through the Gemini API — and only where your company has switched suggestions on. Receives the facts a suggestion is built from: goal text and measures, the headline somebody typed, or competency names with their scores and the appraiser's written note. It is not sent names, staff numbers, salaries or any identifier, and nothing it returns is saved without somebody editing and submitting it themselves.",
+            "Suggested objectives, progress notes and development areas, through the Gemini API, and only where your company has switched suggestions on. Receives the facts a suggestion is built from: goal text and measures, the headline somebody typed, or competency names with their scores and the appraiser's written note. It is not sent names, staff numbers, salaries or any identifier, and nothing it returns is saved without somebody editing and submitting it themselves.",
         },
         {
           term: "Anthropic",
           detail:
-            "The same role as Google, and an alternative to it — one or the other answers, never both. Receives the same facts under the same limits.",
+            "The same role as Google, and an alternative to it, one or the other answers, never both. Receives the same facts under the same limits.",
         },
         {
           term: "9jaPay",
@@ -515,7 +515,7 @@ const DPA: LegalDoc = {
       heading: "Audit",
       body: [
         "You may audit our compliance with this agreement once in any 12-month period, on 30 days' notice, at your cost, without disrupting other customers. In practice most questions are answered faster by a documentation review, and we will answer a security questionnaire without charging you for it.",
-        "We have no third-party audit report to hand you instead — the security page says so directly.",
+        "We have no third-party audit report to hand you instead, the security page says so directly.",
       ],
     },
     {

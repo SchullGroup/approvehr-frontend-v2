@@ -49,12 +49,12 @@ const INTELLIGENCE = [
   },
   {
     icon: Radar,
-    title: "Nothing is silently wrong",
+    title: "Accurate information assured",
     body: "Every payroll is checked against its own arithmetic before you ever see it. If a number could not be true (net pay above gross, tax above the top band), the run refuses itself and says exactly why.",
   },
   {
     icon: Sparkles,
-    title: "A head start, not a blank page",
+    title: "Start with our templates",
     body: "Draft objectives from a company goal, a first pass at a progress note, development areas grounded in real scores. Every draft is reviewed by a person before it means anything.",
   },
   {
@@ -114,7 +114,7 @@ export default function HomePage() {
 
             <Reveal delay={120}>
               <p className="mx-auto mt-7 max-w-2xl text-lead text-slate-muted">
-                Employee records, payroll, recruitment, leave and approvals —
+                Employee records, payroll, recruitment, leave and approvals,
                 managed in one platform.
               </p>
             </Reveal>
@@ -122,7 +122,7 @@ export default function HomePage() {
             <Reveal delay={180}>
               <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
                 <Pill href="/demo" variant="solid" size="lg" arrow>
-                  Start free — book a demo
+                  Start free, book a demo
                 </Pill>
                 <Pill
                   href={heroCta.href}
@@ -146,6 +146,8 @@ export default function HomePage() {
           </Reveal>
         </div>
       </section>
+
+      <ClientLogos />
 
       {/* ------------------------------------------------------ Intelligence */}
       <section className="px-4 py-24">
@@ -220,8 +222,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      <ClientLogos />
-
       {/* -------------------------------------------------- Platform rail */}
       <section className="px-4 py-24">
         <div className="container-page">
@@ -254,7 +254,7 @@ export default function HomePage() {
             <SectionHeading
               eyebrow="Statutory compliance"
               title="Most global HR tools stop at salary."
-              lead="They store what someone earns. Then the real work starts — PAYE split by state, pension split by PFA, NHF, NSITF — and it lands back on your finance lead, a spreadsheet and a consultant on retainer. That is the part we built first."
+              lead="They store what someone earns. Then the real work starts, PAYE split by state, pension split by PFA, NHF, NSITF, and it lands back on your finance lead, a spreadsheet and a consultant on retainer. That is the part we built first."
             />
             <ul className="mt-9 flex flex-col gap-4">
               {[
@@ -293,7 +293,7 @@ export default function HomePage() {
             <SectionHeading
               eyebrow="What one payroll produces"
               title="Approve once. Every obligation follows."
-              lead="One month for a 264-person company, staff in two states, three pension providers. Everything below comes out of a single approved payroll — computed, not re-keyed."
+              lead="One month for a 264-person company, staff in two states, three pension providers. Everything below comes out of a single approved payroll, computed, not re-keyed."
             />
           </Reveal>
 
@@ -302,17 +302,17 @@ export default function HomePage() {
               {
                 value: <CountUp to={7} />,
                 label:
-                  "Remittance schedules — one per state IRS, one per PFA, plus NHF and NSITF. Each formatted the way that body asks for it.",
+                  "Remittance schedules, one per state IRS, one per PFA, plus NHF and NSITF. Each formatted the way that body asks for it.",
               },
               {
                 value: <CountUp to={264} />,
                 label:
-                  "Itemised payslips, sent. Gross, every deduction, net — with employer pension shown separately, so nobody thinks their pay was cut.",
+                  "Itemised payslips, sent. Gross, every deduction, net, with employer pension shown separately, so nobody thinks their pay was cut.",
               },
               {
                 value: <CountUp to={3} />,
                 label:
-                  "A named office approves before a payment file exists. Prepared, reviewed, released — each step timestamped.",
+                  "A named office approves before a payment file exists. Prepared, reviewed, released, each step timestamped.",
               },
             ].map((item, i) => (
               <Reveal key={i} as="div" delay={i * 70}>
@@ -338,7 +338,7 @@ export default function HomePage() {
                 Start free. Pay from month two.
               </h2>
               <p className="mx-auto mt-5 max-w-md leading-relaxed text-white/60">
-                Your first month on us. We migrate your existing employee records and payroll history at no cost. Pricing after that is per employee, per month — the rate falls as your team grows.
+                Your first month on us. We migrate your existing employee records and payroll history at no cost. Pricing after that is per employee, per month, the rate falls as your team grows.
               </p>
               <div className="mt-8 flex flex-wrap justify-center gap-3">
                 <Pill href="/demo" variant="solid" arrow>
@@ -365,7 +365,7 @@ export default function HomePage() {
               </p>
               <div className="mt-9 flex flex-wrap justify-center gap-3">
                 <Pill href="/demo" variant="solid" size="lg" arrow>
-                  Start free — book a demo
+                  Start free, book a demo
                 </Pill>
                 <Pill
                   href={closingCta.href}

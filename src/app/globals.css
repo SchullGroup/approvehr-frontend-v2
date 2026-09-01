@@ -533,6 +533,37 @@
   animation: ahr-shimmer 1.4s linear infinite;
 }
 
+/**
+ * The hero mockup's deduction bar, looping a fill from nothing. Same visual
+ * language as the `group-hover` reveals on the module cards below it on the
+ * page — a value arriving — just replayed on a timer instead of gated on
+ * hover, because the hero is the one mockup nobody's cursor has touched yet.
+ * The headline total and the row amounts run the matching Y-axis-plus-count
+ * version of this same cycle in JS (`payroll-figures.tsx`), since counting
+ * a number up isn't something a CSS keyframe can do.
+ *
+ * Spends most of the cycle held at 100% — see the note on `ahr-shimmer`
+ * above for why an always-moving loop reads as nervous rather than ambient —
+ * then eases back to nothing just before repeating, so the fill always reads
+ * as a fresh moment rather than a jump cut.
+ */
+@keyframes ahr-mockup-fill {
+  0%,
+  100% {
+    transform: scaleX(0);
+  }
+  17%,
+  86% {
+    transform: scaleX(1);
+  }
+}
+
+@utility animate-mockup-fill {
+  transform-origin: left;
+  animation: ahr-mockup-fill var(--reveal-duration, 9s) var(--ease-out-soft) infinite;
+  animation-delay: var(--reveal-delay, 0s);
+}
+
 @utility animate-slide-from-right {
   animation: ahr-slide-from-right 0.24s var(--ease-out-soft) both;
 }

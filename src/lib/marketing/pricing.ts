@@ -60,7 +60,7 @@ export const TIERS: Tier[] = [
       "Full payroll with PAYE, pension and NHF",
       "Statutory filing schedules",
       "Attendance and shifts",
-      "Applicant tracking — unlimited roles and candidates",
+      "Applicant tracking, unlimited roles and candidates",
       "Structured interview scorecards",
       "Approval workflows",
     ],

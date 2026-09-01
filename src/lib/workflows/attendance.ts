@@ -89,6 +89,9 @@ export type RosterRow = {
   entry?: AttendanceEntry;
   /** Minutes past the grace period. Zero unless status is "late". */
   lateBy: number;
+  /** Minutes clocked out before the grace-adjusted shift end. Independent of
+      status: someone can be late and still leave early. */
+  earlyBy: number;
   locationName?: string;
   /** The leave request explaining an absence, where there is one. */
   leave?: LeaveRequest;
@@ -123,6 +126,10 @@ export function rosterFor({
   policy: AttendancePolicy;
 }): RosterRow[] {
   const lateAfter = toMinutes(policy.shiftStart) + policy.graceMinutes;
+  /* Mirrors `lateAfter` on the other end of the shift, reusing the same
+     grace period rather than a second policy field — see the API's own
+     `earlyBeforeMinutes`. */
+  const earlyBefore = toMinutes(policy.shiftEnd) - policy.graceMinutes;
 
   return employees
     .map((employee): RosterRow => {
@@ -141,6 +148,7 @@ export function rosterFor({
           status: "holiday",
           entry,
           lateBy: 0,
+          earlyBy: 0,
           locationName,
           anomaly: worked,
         };
@@ -151,6 +159,7 @@ export function rosterFor({
           status: "rest_day",
           entry,
           lateBy: 0,
+          earlyBy: 0,
           locationName,
           anomaly: worked,
         };
@@ -163,6 +172,7 @@ export function rosterFor({
           status: "on_leave",
           entry,
           lateBy: 0,
+          earlyBy: 0,
           locationName,
           leave,
           anomaly: worked,
@@ -170,15 +180,26 @@ export function rosterFor({
       }
 
       if (!entry?.clockIn) {
-        return { employee, status: "absent", entry, lateBy: 0, locationName };
+        return {
+          employee,
+          status: "absent",
+          entry,
+          lateBy: 0,
+          earlyBy: 0,
+          locationName,
+        };
       }
 
       const lateBy = Math.max(0, toMinutes(entry.clockIn) - lateAfter);
+      const earlyBy = entry.clockOut
+        ? Math.max(0, earlyBefore - toMinutes(entry.clockOut))
+        : 0;
       return {
         employee,
         status: lateBy > 0 ? "late" : "present",
         entry,
         lateBy,
+        earlyBy,
         locationName,
       };
     })
@@ -202,6 +223,7 @@ export type TimesheetRow = {
   employee: Employee;
   daysPresent: number;
   daysLate: number;
+  daysEarly: number;
   daysOnLeave: number;
   daysAbsent: number;
   /** Working days in the window, excluding holidays. */
@@ -232,10 +254,12 @@ export function timesheet({
 }): TimesheetRow[] {
   const window = recentWorkingDays(days, policy).filter((d) => !isHoliday(d));
   const lateAfter = toMinutes(policy.shiftStart) + policy.graceMinutes;
+  const earlyBefore = toMinutes(policy.shiftEnd) - policy.graceMinutes;
 
   return employees.map((employee) => {
     let daysPresent = 0;
     let daysLate = 0;
+    let daysEarly = 0;
     let daysOnLeave = 0;
     let daysAbsent = 0;
     let hours = 0;
@@ -256,6 +280,7 @@ export function timesheet({
       if (toMinutes(entry.clockIn) > lateAfter) daysLate++;
       if (entry.clockOut) {
         hours += (toMinutes(entry.clockOut) - toMinutes(entry.clockIn)) / 60;
+        if (toMinutes(entry.clockOut) < earlyBefore) daysEarly++;
       }
     }
 
@@ -263,6 +288,7 @@ export function timesheet({
       employee,
       daysPresent,
       daysLate,
+      daysEarly,
       daysOnLeave,
       daysAbsent,
       workingDays: window.length,

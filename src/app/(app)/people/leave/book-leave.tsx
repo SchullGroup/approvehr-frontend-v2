@@ -20,11 +20,13 @@ import {
   useLeaveTypes,
 } from "@/lib/store/leave-api";
 import {
-  daysBetween,
+  workingDaysBetween,
   validateLeave,
   type LeaveError,
   type NewLeaveRequest,
 } from "@/lib/store/leave";
+import { useAttendancePolicy } from "@/lib/store/attendance";
+import { usePublicHolidays } from "@/lib/store/holidays";
 import { useSession } from "@/lib/store/session";
 import { useCan } from "@/lib/permissions";
 import { fullName } from "@/lib/types";
@@ -85,6 +87,16 @@ export function BookLeaveDialog({
   const { types } = useLeaveTypes();
   const mutations = useLeaveMutations();
   const toast = useToast();
+  const { policy: attendancePolicy } = useAttendancePolicy();
+  /* Load the current and next year's holidays so a leave range spanning
+     Dec–Jan still nets off public holidays correctly. */
+  const currentYear = new Date().getFullYear();
+  const cal0 = usePublicHolidays(currentYear);
+  const cal1 = usePublicHolidays(currentYear + 1);
+  const confirmedHolidays = [
+    ...cal0.holidays.filter((h) => h.confirmed).map((h) => h.date),
+    ...cal1.holidays.filter((h) => h.confirmed).map((h) => h.date),
+  ];
 
   /**
    * Whether this person may raise leave for somebody other than themselves.
@@ -145,7 +157,15 @@ export function BookLeaveDialog({
     return manager ? { approverId: manager } : {};
   };
 
-  const days = draft.from && draft.to ? daysBetween(draft.from, draft.to) : 0;
+  const days =
+    draft.from && draft.to
+      ? workingDaysBetween(
+          draft.from,
+          draft.to,
+          attendancePolicy.workingWeekdays,
+          confirmedHolidays,
+        )
+      : 0;
 
   const chosenType = types.find((type) => type.name === draft.type);
   const balances = useLeaveBalancesFor(
@@ -186,6 +206,7 @@ export function BookLeaveDialog({
       },
       requests,
       remaining,
+      days,
     );
     setErrors(found);
     if (found.length > 0) return;

@@ -61,9 +61,30 @@ function baseRequestById(
   return LEAVE_REQUESTS.find((r) => r.id === id) ?? s.created.find((r) => r.id === id);
 }
 
-/** Whole days inclusive of both ends. Weekends are not netted off — the company
-    leave policy decides that, and the working-week setting lives in payroll
-    settings, so a naive count here would contradict it. */
+/** Whole days inclusive of both ends, excluding weekends and confirmed public
+    holidays. `weekdays` is ISO (1=Mon … 7=Sun); defaults to Mon–Fri. */
+export function workingDaysBetween(
+  from: string,
+  to: string,
+  weekdays: readonly number[] = [1, 2, 3, 4, 5],
+  holidays: readonly string[] = [],
+): number {
+  const a = new Date(from + "T00:00:00Z");
+  const b = new Date(to + "T00:00:00Z");
+  if (isNaN(a.getTime()) || isNaN(b.getTime()) || b < a) return 0;
+  const holidaySet = new Set(holidays);
+  let count = 0;
+  const cur = new Date(a);
+  while (cur <= b) {
+    const iso = cur.getUTCDay() === 0 ? 7 : cur.getUTCDay();
+    const ymd = cur.toISOString().slice(0, 10);
+    if (weekdays.includes(iso) && !holidaySet.has(ymd)) count++;
+    cur.setUTCDate(cur.getUTCDate() + 1);
+  }
+  return count;
+}
+
+/** @deprecated Use workingDaysBetween — kept for shift-pattern callers only. */
 export function daysBetween(from: string, to: string): number {
   const a = new Date(from).getTime();
   const b = new Date(to).getTime();
@@ -174,7 +195,7 @@ export function useLeaveStore() {
       type: input.type,
       from: input.from,
       to: input.to,
-      days: daysBetween(input.from, input.to),
+      days: workingDaysBetween(input.from, input.to),
       status: "pending",
       reason: input.reason,
       approverId: input.approverId,
@@ -244,6 +265,7 @@ export function validateLeave(
   input: { employeeId?: string; type?: string; from?: string; to?: string },
   existing: readonly LeaveWindow[],
   remainingDays: number | undefined,
+  precomputedDays?: number,
 ): LeaveError[] {
   const errors: LeaveError[] = [];
 
@@ -261,7 +283,7 @@ export function validateLeave(
     if (input.to < input.from) {
       errors.push({ field: "to", message: "The end date is before the start date." });
     } else {
-      const days = daysBetween(input.from, input.to);
+      const days = precomputedDays ?? workingDaysBetween(input.from, input.to);
       if (input.type !== "Maternity" && input.type !== "Paternity" && days > 60) {
         errors.push({
           field: "to",
