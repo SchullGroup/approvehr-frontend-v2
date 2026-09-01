@@ -113,7 +113,7 @@ export function MarketingNav() {
             </button>
 
             {productOpen && (
-              <div className="absolute left-0 top-full w-[440px] pt-2">
+              <div className="absolute left-0 top-full w-110 pt-2">
                 <div className="animate-scale-in grid grid-cols-2 gap-1 rounded-2xl bg-white p-2 shadow-[0_8px_16px_-4px_rgb(20_18_15/0.08),0_24px_48px_-12px_rgb(20_18_15/0.18)]">
                   {MODULES.map((m) => (
                     <Link
@@ -186,7 +186,7 @@ export function MarketingNav() {
               key={m.id}
               href={`/product/${m.id}`}
               onClick={() => setOpen(false)}
-              className="block rounded-xl px-3 py-2 text-body text-slate transition-colors hover:bg-sand"
+              className="block rounded-xl px-3 py-2 text-body transition-colors hover:bg-sand"
             >
               {m.label}
             </Link>
@@ -203,7 +203,7 @@ export function MarketingNav() {
                 href={href}
                 onClick={() => setOpen(false)}
                 {...newTabIfApp(href)}
-                className="block rounded-xl px-3 py-2 text-body text-slate transition-colors hover:bg-sand"
+                className="block rounded-xl px-3 py-2 text-body transition-colors hover:bg-sand"
               >
                 {label}
               </Link>
