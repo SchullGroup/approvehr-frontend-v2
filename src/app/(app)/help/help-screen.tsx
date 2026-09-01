@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { AlertTriangle, Inbox, LifeBuoy, Search, Send, UserPlus } from "lucide-react";
 import {
   Avatar,
@@ -103,10 +104,13 @@ const QUEUE_VIEWS: { value: string; label: string }[] = [
 ];
 
 function QueueView() {
+  const search = useSearchParams();
   const [choice, setChoice] = useState("queue:open");
   const [q, setQ] = useState("");
   const [categoryId, setCategoryId] = useState("");
-  const [openId, setOpenId] = useState<string | null>(null);
+  /* Read once as the initial value — a notification carries `?ticket=<id>` and
+     we want it open immediately; subsequent opens/closes are the user's. */
+  const [openId, setOpenId] = useState<string | null>(() => search.get("ticket"));
   const [raising, setRaising] = useState(false);
   const [bump, setBump] = useState(0);
 
@@ -321,8 +325,9 @@ function QueueView() {
 /* ---------------------------------------------------------- a staff member's own */
 
 function MyRequestsView() {
+  const search = useSearchParams();
   const [view, setView] = useState<TicketView>("open");
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(() => search.get("ticket"));
   const [raising, setRaising] = useState(false);
   const [bump, setBump] = useState(0);
 

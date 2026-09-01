@@ -79,16 +79,16 @@ export function SkillsTab({
     const rows = mine.skills?.rows ?? [];
     const bucket = new Map<string, ApiCompetencyRow[]>();
     for (const row of rows) {
-      const category = row.category ?? "Other";
-      bucket.set(category, [...(bucket.get(category) ?? []), row]);
+      const section = row.sectionName ?? "Other";
+      bucket.set(section, [...(bucket.get(section) ?? []), row]);
     }
-    const known = CATEGORY_ORDER.filter((category) => bucket.has(category));
+    const known = CATEGORY_ORDER.filter((section) => bucket.has(section));
     const rest = [...bucket.keys()]
-      .filter((category) => !CATEGORY_ORDER.includes(category))
+      .filter((section) => !CATEGORY_ORDER.includes(section))
       .sort();
-    return [...known, ...rest].map((category) => ({
-      category,
-      rows: bucket.get(category) ?? [],
+    return [...known, ...rest].map((section) => ({
+      category: section,
+      rows: bucket.get(section) ?? [],
     }));
   }, [mine.skills]);
 
@@ -109,7 +109,11 @@ export function SkillsTab({
         )}
       </div>
 
-      <LoadFailure subject="your skills framework" error={mine.error}  onRetry={mine.reload}/>
+      <LoadFailure
+        subject="your skills framework"
+        error={mine.error}
+        onRetry={mine.reload}
+      />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Stat label="Skills on your framework" value={String(summary.total)} />
@@ -197,9 +201,9 @@ export function SkillsTab({
                     <TDPrimary title={gap.employeeName} />
                     <TD>
                       {gap.competencyName}
-                      {gap.category && (
+                      {gap.sectionName && (
                         <span className="mt-0.5 block text-meta text-muted">
-                          {gap.category}
+                          {gap.sectionName}
                         </span>
                       )}
                     </TD>

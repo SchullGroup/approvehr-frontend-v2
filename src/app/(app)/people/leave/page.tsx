@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { LeaveScreen } from "./leave-screen";
 
 export const metadata: Metadata = {
-  title: "Time off",
+  title: "Leave",
   description: "Requests, balances and who is away when.",
 };
 

@@ -19,11 +19,13 @@ import {
   CardBody,
   CardHeader,
   Callout,
+  Checkbox,
   ConfirmDialog,
   EmptyState,
   Field,
   Input,
   Modal,
+  Select,
   Spinner,
   Stat,
   TBody,
@@ -48,6 +50,7 @@ import {
   type ReviewCycleStage,
   type ApiAppraiserMapRow,
   type ApiCycleParticipants,
+  type ApiRevisionRequest,
   type ApiScoreRegister,
   type ApiScoreRow,
 } from "@/lib/api/performance";
@@ -411,6 +414,11 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                       : "Start the period"}
                   </Button>
                 </div>
+                <ManagerQuestionsToggle
+                  cycleId={period.id}
+                  value={period.managersCanAddQuestions}
+                  onChanged={() => detail.reload()}
+                />
               </CardBody>
             </Card>
           )}
@@ -607,6 +615,8 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 cycleId={cycleId}
                 canAskPeers={running && canSeeCompany}
                 canCalibrate={period?.stage === "CALIBRATION" && canManage}
+                canRequestRevision={running && canManage}
+                revisionRequests={detail.revisionRequests}
                 onAsked={() => detail.reload()}
               />
               <MultiAppraiserReviews participants={detail.participants} />
@@ -1095,6 +1105,8 @@ function Register({
   cycleId,
   canAskPeers,
   canCalibrate,
+  canRequestRevision,
+  revisionRequests,
   onAsked,
 }: {
   register: ApiScoreRegister | null;
@@ -1109,6 +1121,10 @@ function Register({
    * has finished writing.
    */
   canCalibrate: boolean;
+  /** The period is running (not DRAFT, not PUBLISHED) and the reader may change settings. */
+  canRequestRevision: boolean;
+  /** Everybody currently sent back for another pass, across the whole cycle. */
+  revisionRequests: ApiRevisionRequest[];
   onAsked: () => void;
 }) {
   if (!register) return null;
@@ -1165,6 +1181,7 @@ function Register({
             <TH>Sign-off</TH>
             {canAskPeers && <TH>Feedback</TH>}
             {canCalibrate && <TH>Calibration</TH>}
+            {canRequestRevision && <TH>Revision</TH>}
           </THead>
           <TBody>
             {register.rows.map((row) => (
@@ -1174,6 +1191,10 @@ function Register({
                 cycleId={cycleId}
                 canAskPeers={canAskPeers}
                 canCalibrate={canCalibrate}
+                canRequestRevision={canRequestRevision}
+                existingRevision={revisionRequests.find(
+                  (request) => request.employeeId === row.employeeId,
+                )}
                 onAsked={onAsked}
               />
             ))}
@@ -1189,6 +1210,8 @@ function RegisterRow({
   cycleId,
   canAskPeers,
   canCalibrate,
+  canRequestRevision,
+  existingRevision,
   onAsked,
 }: {
   row: ApiScoreRow;
@@ -1196,6 +1219,10 @@ function RegisterRow({
   canAskPeers: boolean;
   /** The period is at CALIBRATION and the reader may change settings. */
   canCalibrate: boolean;
+  /** The period is running and the reader may change settings. */
+  canRequestRevision: boolean;
+  /** This person's open revision request, or none. */
+  existingRevision: ApiRevisionRequest | undefined;
   onAsked: () => void;
 }) {
   return (
@@ -1283,6 +1310,19 @@ function RegisterRow({
           )}
         </TD>
       )}
+      {/* Same running window as calibration, but not restricted to it: a
+          review can need another pass at any stage while people are still
+          writing, not only once everybody has finished. */}
+      {canRequestRevision && (
+        <TD>
+          <RevisionButton
+            cycleId={cycleId}
+            row={row}
+            existing={existingRevision}
+            onChanged={onAsked}
+          />
+        </TD>
+      )}
     </TR>
   );
 }
@@ -1351,6 +1391,61 @@ function SignOffCell({ row }: { row: ApiScoreRow }) {
     <span className="text-body-sm text-muted">
       {signOff.reviewId === null ? "No manager review" : "Not written yet"}
     </span>
+  );
+}
+
+/**
+ * Whether managers may add their own questions to this draft.
+ *
+ * Lives on the setup card rather than its own settings screen because it is
+ * one fact about one draft, changed rarely — the same reasoning that keeps
+ * scope and the reminder as disclosures on `StartPeriodDialog` rather than a
+ * separate page. Saves immediately on change: there is nothing to confirm,
+ * only a boolean to flip, and `PATCH /cycles/:id` already refuses this once
+ * the period has started, so a stale toggle here would fail loudly rather
+ * than silently doing nothing.
+ */
+function ManagerQuestionsToggle({
+  cycleId,
+  value,
+  onChanged,
+}: {
+  cycleId: string;
+  value: boolean;
+  onChanged: () => void;
+}) {
+  const periods = useCycleMutations();
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+
+  const toggle = async (checked: boolean) => {
+    setBusy(true);
+    try {
+      await periods.updateCycle(cycleId, {
+        managersCanAddQuestions: checked,
+      });
+      onChanged();
+    } catch (caught) {
+      toast.push({
+        title: "That did not save",
+        tone: "danger",
+        detail:
+          caught instanceof ApiError
+            ? caught.message
+            : "Could not change that setting.",
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Checkbox
+      label="Let managers add their own questions, scoped to their team"
+      checked={value}
+      disabled={busy}
+      onChange={(event) => void toggle(event.target.checked)}
+    />
   );
 }
 
@@ -1557,6 +1652,169 @@ function CalibrateButton({
             <p className="text-meta text-muted">
               What the answers produced is kept beside this, not replaced.
             </p>
+          </div>
+        </Modal>
+      )}
+    </>
+  );
+}
+
+/**
+ * Sending one person's review back for another pass.
+ *
+ * ## A reopened review, not an edited one
+ *
+ * Opening a request clears that one review's submission and sign-off — the
+ * person sees it as unfinished again — without touching the cycle's stage or
+ * anyone else's review. It resolves itself the moment they resubmit; there
+ * is no separate "cancel" action here because there is nothing to undo once
+ * they have. `existing` is only ever an *open* request — the API's own list
+ * already drops resolved ones — so its presence alone is the whole state:
+ * requested and not yet answered.
+ *
+ * ## The reason is required, same as calibration
+ *
+ * A review sent back with no account of why is not feedback, and the API
+ * enforces the same ten-character floor `CalibrateButton` does — this checks
+ * it first so the refusal is immediate rather than a round trip.
+ *
+ * ## Which review
+ *
+ * The table's sign-off column is the *manager's* review, but the person
+ * being sent back to redo something might be the employee themself. Asked
+ * directly rather than guessed from the row, because a wrong guess here
+ * reopens the wrong person's work.
+ */
+function RevisionButton({
+  cycleId,
+  row,
+  existing,
+  onChanged,
+}: {
+  cycleId: string;
+  row: ApiScoreRow;
+  existing: ApiRevisionRequest | undefined;
+  onChanged: () => void;
+}) {
+  const periods = useCycleMutations();
+  const toast = useToast();
+
+  const [open, setOpen] = useState(false);
+  const [targetStage, setTargetStage] = useState<"SELF" | "MANAGER">(
+    "MANAGER",
+  );
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
+
+  const start = () => {
+    setTargetStage("MANAGER");
+    setReason("");
+    setFailed(null);
+    setOpen(true);
+  };
+
+  const save = async () => {
+    if (reason.trim().length < 10) {
+      setFailed("Say why in a sentence — this is the record of it.");
+      return;
+    }
+    setBusy(true);
+    setFailed(null);
+    try {
+      await periods.requestRevision(cycleId, {
+        employeeId: row.employeeId,
+        targetStage,
+        reason: reason.trim(),
+      });
+      toast.push({
+        title: `Sent back to ${row.employeeName}`,
+        tone: "success",
+        detail:
+          targetStage === "SELF"
+            ? "Their self-appraisal is open for another pass."
+            : "Their manager review is open for another pass.",
+      });
+      setOpen(false);
+      onChanged();
+    } catch (caught) {
+      setFailed(
+        caught instanceof ApiError
+          ? caught.message
+          : "Could not send that back.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (existing) {
+    return (
+      <span
+        className="text-meta text-muted"
+        title={`${existing.targetStage === "SELF" ? "Self-appraisal" : "Manager review"} — ${existing.reason}`}
+      >
+        Sent back, awaiting resubmission
+      </span>
+    );
+  }
+
+  return (
+    <>
+      <Button variant="secondary" size="sm" onClick={start}>
+        Send back
+      </Button>
+
+      {open && (
+        <Modal
+          open
+          onClose={() => setOpen(false)}
+          title={`Send ${row.employeeName}'s review back`}
+          description="Reopens that one review so they can redo it. Nobody else's review moves."
+          size="sm"
+          footer={
+            <div className="flex justify-end gap-2">
+              <Button disabled={busy} onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="accent"
+                loading={busy}
+                onClick={() => void save()}
+              >
+                Send it back
+              </Button>
+            </div>
+          }
+        >
+          <div className="flex flex-col gap-4">
+            <Field label="Which review" required>
+              <Select
+                value={targetStage}
+                disabled={busy}
+                onChange={(event) =>
+                  setTargetStage(event.target.value as "SELF" | "MANAGER")
+                }
+              >
+                <option value="MANAGER">Manager review</option>
+                <option value="SELF">Self-appraisal</option>
+              </Select>
+            </Field>
+
+            <Field
+              label="Why"
+              required
+              {...(failed ? { error: failed } : {})}
+              help="This is kept with the request and is what they see for it."
+            >
+              <Textarea
+                rows={3}
+                value={reason}
+                disabled={busy}
+                placeholder="The objectives section is missing answers for two of the agreed goals — please complete before resubmitting."
+                onChange={(event) => setReason(event.target.value)}
+              />
+            </Field>
           </div>
         </Modal>
       )}

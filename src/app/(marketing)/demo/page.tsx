@@ -18,7 +18,7 @@ const LOGOS = [
 export const metadata: Metadata = {
   title: "Book a demo",
   description:
-    "See the value of ApproveHR in ten minutes. No setup, no slides — just a focused look at what it can do for your organisation.",
+    "See the value of ApproveHR in ten minutes. No setup, no slides, just a focused look at what it can do for your organisation.",
 };
 
 export default function DemoPage() {
@@ -32,14 +32,14 @@ export default function DemoPage() {
             </h1>
             <p className="mt-6 text-lead text-slate-muted">
               In ten minutes you will see exactly what ApproveHR can do for
-              your team — no setup, no slides, just the value.
+              your team, no setup, no slides, just the value.
             </p>
 
             <ul className="mt-10 flex flex-col gap-5">
               {[
                 {
                   title: "You will see payroll done end to end",
-                  body: "PAYE and pension calculated, sent for approval, schedules generated — the whole thing, not a slide of it.",
+                  body: "PAYE and pension calculated, sent for approval, schedules generated, the whole thing, not a slide of it.",
                 },
                 {
                   title: "We will tell you if it does not fit",

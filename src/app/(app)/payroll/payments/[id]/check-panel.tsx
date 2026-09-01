@@ -4,6 +4,7 @@ import { AlertTriangle, Check, RefreshCw, TriangleAlert } from "lucide-react";
 import {
   Button,
   ButtonLink,
+  Callout,
   Card,
   CardBody,
   CardHeader,
@@ -43,6 +44,20 @@ import { people } from "../format";
  * two people sharing an account number is occasionally a real family
  * arrangement, and a gate that cannot be got past for a legitimate case is a
  * gate people learn to route around.
+ *
+ * ## Bank details are named once, not twice
+ *
+ * A missing bank name or a malformed account number now stops the payroll run
+ * itself from being approved (`payroll/service.ts`), before this batch ever
+ * exists — see the comment on that blocker for why. So the itemised, per-person
+ * red rows below are reserved for problems that are genuinely about *this
+ * batch*: a total that does not add up, two people sharing an account, a
+ * source account that has been switched off. A bank-detail problem is folded
+ * into one quiet line pointing back at the run instead, because by the time
+ * anybody is looking at this page it should not be possible to have one — and
+ * the rare batch that still does (built before this rule existed, most likely)
+ * should read as "go fix it at the source", not as eight more things wrong with
+ * this screen.
  */
 export function CheckPanel({
   batch,
@@ -53,8 +68,15 @@ export function CheckPanel({
   onRecheck: () => void;
   rechecking: boolean;
 }) {
-  const blockers = batch.check.discrepancies.filter((d) => d.severity === "BLOCKER");
+  const allBlockers = batch.check.discrepancies.filter((d) => d.severity === "BLOCKER");
   const warnings = batch.check.discrepancies.filter((d) => d.severity === "WARNING");
+
+  /* The two codes the payroll run's own check now catches first. Split out so
+     they render as one line pointing back at the run rather than a row each —
+     see the header comment on why this list should almost always be empty. */
+  const BANK_DETAIL_CODES = new Set(["missing_bank_name", "invalid_account_number"]);
+  const bankProblems = allBlockers.filter((d) => BANK_DETAIL_CODES.has(d.code));
+  const blockers = allBlockers.filter((d) => !BANK_DETAIL_CODES.has(d.code));
 
   /** Whose record to open for a finding about one person. */
   const employeeFor = (finding: PaymentDiscrepancy): string | null => {
@@ -64,7 +86,7 @@ export function CheckPanel({
   };
 
   const namedPeople = new Set(
-    blockers.map((finding) => finding.payeeName).filter(Boolean),
+    allBlockers.map((finding) => finding.payeeName).filter(Boolean),
   );
 
   return (
@@ -99,6 +121,36 @@ export function CheckPanel({
       />
 
       <CardBody className="flex flex-col gap-5">
+        {/* One quiet line, not a row per person — see the header comment.
+            This should be rare: the payroll run itself refuses to approve
+            anybody with a bank-detail problem, so a batch reaching this page
+            with one is almost always older than that rule. */}
+        {bankProblems.length > 0 && (
+          <Callout tone="warning" title="Bank details need fixing on the payroll">
+            <p>
+              {people(bankProblems.length)} on this batch{" "}
+              {bankProblems.length === 1 ? "has" : "have"} a bank detail that is
+              missing or does not add up. Fix it on their record, then rebuild
+              this batch — the details on it were copied in when it was built
+              and will not update on their own.
+            </p>
+            {batch.payrollRunId && (
+              <ButtonLink
+                href={
+                  batch.period
+                    ? `/payroll/runs/new?period=${batch.period.slice(0, 7)}`
+                    : "/payroll"
+                }
+                variant="secondary"
+                size="sm"
+                className="mt-3"
+              >
+                Open the payroll run
+              </ButtonLink>
+            )}
+          </Callout>
+        )}
+
         {blockers.length > 0 && (
           <ul className="flex flex-col gap-2.5">
             {blockers.map((finding, index) => {

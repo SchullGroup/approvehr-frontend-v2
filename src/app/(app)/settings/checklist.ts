@@ -388,13 +388,8 @@ function rolesRow(facts: SetupFacts): ChecklistRow {
 }
 
 function payrollChecksRow(facts: SetupFacts): ChecklistRow {
-  const {
-    employees,
-    requireBankAccount,
-    requirePensionPin,
-    missingBankAccount,
-    missingPensionPin,
-  } = facts.payrollChecks;
+  const { employees, requirePensionPin, missingBankAccount, missingPensionPin } =
+    facts.payrollChecks;
   const affects =
     "What stops a payroll before it goes out. These are the same checks the run itself raises.";
 
@@ -411,7 +406,12 @@ function payrollChecksRow(facts: SetupFacts): ChecklistRow {
     };
   }
 
-  const blockers = requireBankAccount ? missingBankAccount : 0;
+  /* Unconditional now, matching `payroll/service.ts`'s own blocker — approval
+     builds a payment batch immediately, so a missing or malformed account
+     number stops a payroll whether or not this switch is on. `requireBankAccount`
+     is read into `SetupFacts` still (other things may want it), it just no
+     longer decides whether this row is a problem. */
+  const blockers = missingBankAccount;
   const warnings = requirePensionPin ? missingPensionPin : 0;
 
   if (blockers > 0) {
@@ -420,7 +420,7 @@ function payrollChecksRow(facts: SetupFacts): ChecklistRow {
       title: "Payroll checks",
       affects,
       status: "attention",
-      detail: `${plural(blockers, "person has", "people have")} no account number, out of ${employees}. They cannot be paid, and a payroll will not go out until each one is fixed or deliberately left off.`,
+      detail: `${plural(blockers, "person has", "people have")} no usable bank details, out of ${employees}. They cannot be paid, and a payroll will not go out until each one is fixed or deliberately left off.`,
       href: "/people",
       linkLabel: "Fix the records",
       also: { href: "/settings/payroll", label: "The checks" },
