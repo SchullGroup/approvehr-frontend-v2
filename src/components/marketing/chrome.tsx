@@ -141,18 +141,6 @@ export function MarketingNav() {
           >
             Pricing
           </Link>
-          {appLinks
-            .filter(([, label]) => label === "Live demo")
-            .map(([href, label]) => (
-              <Link
-                key={label}
-                href={href}
-                {...newTabIfApp(href)}
-                className="rounded-full px-3 py-2 text-body-sm text-slate-soft transition-colors hover:text-slate"
-              >
-                {label}
-              </Link>
-            ))}
         </div>
 
         <div className="ml-auto flex items-center gap-2">
@@ -204,7 +192,12 @@ export function MarketingNav() {
             </Link>
           ))}
           <div className="mt-2 border-t border-sand-line pt-2">
-            {([["/pricing", "Pricing"], ...appLinks] as [string, string][]).map(([href, label], i) => (
+            {(
+              [
+                ["/pricing", "Pricing"],
+                ...appLinks.filter(([, label]) => label !== "Live demo"),
+              ] as [string, string][]
+            ).map(([href, label], i) => (
               <Link
                 key={i}
                 href={href}
