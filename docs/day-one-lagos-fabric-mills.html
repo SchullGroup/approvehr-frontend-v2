@@ -1,0 +1,1231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Day One at Lagos Fabric Mills</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;600&display=swap">
+
+<style>
+  /* ── indigo, because the company in this story dyes cloth ──────────────
+     The palette is adire: full-strength indigo, the resist-white of undyed
+     cotton, a warm ochre off the loom frame. The indigo happens to be
+     ApproveHR's own #2B3990, which is a coincidence worth keeping.        */
+  :root {
+    color-scheme: light;
+    --ground:      #FBFAF7;
+    --paper:       #FFFFFF;
+    --ink:         #14192B;
+    --body:        #3B4256;
+    --muted:       #6A7186;
+    --faint:       #8A90A2;
+    --rule:        #E2DFD7;
+    --rule-soft:   #EFEDE7;
+    --indigo:      #2B3990;
+    --indigo-text: #2B3990;
+    --indigo-pale: #E8EAF6;
+    --indigo-line: #C3C9E8;
+    --ochre:       #9A6414;
+    --ochre-pale:  #FBF2E2;
+    --ochre-line:  #E6D3AE;
+    --green:       #3F6B34;
+    --green-pale:  #EBF3E8;
+    --green-line:  #C4DBBC;
+    --shadow:      0 1px 2px rgba(20,25,43,.05), 0 8px 24px -12px rgba(20,25,43,.14);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ground:      #10131E;
+      --paper:       #171B29;
+      --ink:         #F2F3F7;
+      --body:        #C3C7D4;
+      --muted:       #939AAC;
+      --faint:       #767D91;
+      --rule:        #2C3243;
+      --rule-soft:   #232838;
+      --indigo:      #8E9BE8;
+      --indigo-text: #A8B3EE;
+      --indigo-pale: #1E2440;
+      --indigo-line: #39427A;
+      --ochre:       #DCA95C;
+      --ochre-pale:  #2A2317;
+      --ochre-line:  #4E4124;
+      --green:       #8DC47E;
+      --green-pale:  #1B2618;
+      --green-line:  #33492D;
+      --shadow:      0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.7);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ground:      #10131E;
+    --paper:       #171B29;
+    --ink:         #F2F3F7;
+    --body:        #C3C7D4;
+    --muted:       #939AAC;
+    --faint:       #767D91;
+    --rule:        #2C3243;
+    --rule-soft:   #232838;
+    --indigo:      #8E9BE8;
+    --indigo-text: #A8B3EE;
+    --indigo-pale: #1E2440;
+    --indigo-line: #39427A;
+    --ochre:       #DCA95C;
+    --ochre-pale:  #2A2317;
+    --ochre-line:  #4E4124;
+    --green:       #8DC47E;
+    --green-pale:  #1B2618;
+    --green-line:  #33492D;
+    --shadow:      0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.7);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--body);
+    font-family: "Source Serif 4", Georgia, "Times New Roman", serif;
+    font-size: 17px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 1.5rem 6rem; }
+  @media (min-width: 780px)  { .wrap { padding-left: 2rem; padding-right: 2rem; } }
+  @media (min-width: 1180px) { .wrap { padding-left: 3rem; padding-right: 3rem; } }
+
+  h1, h2, h3, h4, .ui {
+    font-family: Archivo, "Helvetica Neue", Arial, sans-serif;
+    color: var(--ink);
+    text-wrap: balance;
+  }
+  .mono, code, td.num, .fig {
+    font-family: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── masthead ───────────────────────────────────────────────────────── */
+  header.top { padding: 4.5rem 0 2.5rem; border-bottom: 2px solid var(--ink); }
+  .kicker {
+    font-family: Archivo, sans-serif; font-size: .72rem; font-weight: 600;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--indigo-text);
+    margin: 0 0 1.1rem;
+  }
+  h1 { font-size: clamp(2.4rem, 6.2vw, 4.1rem); font-weight: 700; letter-spacing: -.028em; line-height: 1.02; margin: 0; }
+  .standfirst { font-size: clamp(1.05rem, 2.1vw, 1.28rem); color: var(--body); margin: 1.5rem 0 0; max-width: 62ch; }
+  .byline {
+    display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; margin: 2.2rem 0 0;
+    font-family: Archivo, sans-serif; font-size: .78rem; color: var(--muted);
+  }
+  .byline b { color: var(--ink); font-weight: 600; }
+
+  /* ── the spine ──────────────────────────────────────────────────────── */
+  section.stage { display: grid; grid-template-columns: 1fr; gap: 0; padding: 3.4rem 0 0; }
+  @media (min-width: 900px) {
+    section.stage { grid-template-columns: 8.5rem 1fr; gap: 2.5rem; }
+    .spine { position: sticky; top: 2rem; align-self: start; }
+  }
+  .spine { padding-top: .3rem; }
+  .spine .n {
+    font-family: Archivo, sans-serif; font-weight: 700; font-size: 2.7rem;
+    line-height: 1; color: var(--indigo-text); letter-spacing: -.04em; display: block;
+  }
+  .spine .lbl {
+    font-family: Archivo, sans-serif; font-size: .68rem; font-weight: 600;
+    letter-spacing: .13em; text-transform: uppercase; color: var(--faint);
+    display: block; margin-top: .5rem;
+  }
+  .col { min-width: 0; max-width: 68ch; }
+  .col > h2 { font-size: clamp(1.5rem, 3.2vw, 2rem); font-weight: 700; letter-spacing: -.02em; margin: .1rem 0 1.1rem; }
+  .col > h3 { font-size: 1.06rem; font-weight: 600; margin: 2.3rem 0 .7rem; letter-spacing: -.005em; }
+  .col p { margin: 0 0 1.05rem; }
+  .col p:last-child { margin-bottom: 0; }
+  .lede { font-size: 1.08rem; color: var(--ink); }
+
+  /* ── the user flow, in full ──────────────────────────────────────────
+     One block per stage, each holding every real step inside it, numbered
+     straight through — a reading of the whole walk as a sequence rather
+     than the eight-headline version this replaced.                       */
+  .flow-overview {
+    margin: 3rem 0 0; padding: 1.8rem 1.9rem 2rem;
+    background: var(--paper); border: 1px solid var(--rule); border-radius: 14px;
+    box-shadow: var(--shadow);
+  }
+  .flow-overview > h2 { font-size: 1.32rem; font-weight: 700; letter-spacing: -.015em; margin: 0 0 .4rem; }
+  .flow-overview > .flow-lede { font-size: .92rem; color: var(--muted); margin: 0 0 1.6rem; max-width: 60ch; }
+  .flow-stage {
+    border: 1px solid var(--rule); border-radius: 10px; background: var(--ground);
+    padding: 1.05rem 1.25rem 1.15rem; margin-bottom: .85rem;
+  }
+  .flow-stage:last-of-type { margin-bottom: 0; }
+  .flow-stage-hd { display: flex; align-items: baseline; gap: .65rem; flex-wrap: wrap; margin-bottom: .3rem; }
+  .flow-stage-hd a { color: inherit; text-decoration: none; display: flex; align-items: baseline; gap: .65rem; }
+  .flow-stage-hd a:hover .ft { color: var(--indigo-text); }
+  .flow-stage .fn {
+    font-family: "JetBrains Mono", monospace; font-weight: 700; font-size: .72rem;
+    color: var(--indigo-text); letter-spacing: .06em;
+  }
+  .flow-stage .ft {
+    font-family: Archivo, sans-serif; font-weight: 700; font-size: 1.02rem; color: var(--ink);
+  }
+  .flow-stage .fctx { font-size: .82rem; color: var(--muted); margin: .3rem 0 .85rem; max-width: 58ch; }
+  .flow-sub { list-style: none; margin: 0; padding: 0; display: grid; gap: .48rem; }
+  .flow-sub li { position: relative; padding-left: 1.7rem; font-size: .87rem; color: var(--body); line-height: 1.55; }
+  .flow-sub li b { color: var(--ink); font-weight: 600; }
+  .flow-sub .sn {
+    position: absolute; left: 0; top: .05rem; font-family: "JetBrains Mono", monospace;
+    font-size: .72rem; font-weight: 700; color: var(--faint); min-width: 1.3rem;
+  }
+  .flow-note {
+    margin: 1.3rem 0 0; font-family: Archivo, sans-serif; font-size: .8rem; color: var(--faint);
+  }
+
+  /* ── quoted product copy: the words actually on screen ──────────────── */
+  .screen {
+    border-left: 3px solid var(--indigo-line);
+    background: var(--indigo-pale);
+    padding: .85rem 1.1rem; margin: 0 0 1.15rem; border-radius: 0 6px 6px 0;
+    font-family: "JetBrains Mono", monospace; font-size: .8rem; line-height: 1.72;
+    color: var(--ink); overflow-x: auto;
+  }
+  .screen b { font-weight: 600; }
+  .screen .who { color: var(--muted); font-style: normal; display: block; margin-bottom: .3rem;
+                 font-size: .68rem; letter-spacing: .09em; text-transform: uppercase; }
+
+  /* ── margin notes: friction, findings ───────────────────────────────── */
+  .note {
+    border: 1px solid var(--ochre-line); background: var(--ochre-pale);
+    border-radius: 8px; padding: 1rem 1.15rem; margin: 1.5rem 0;
+  }
+  .note .tag {
+    font-family: Archivo, sans-serif; font-size: .66rem; font-weight: 700;
+    letter-spacing: .13em; text-transform: uppercase; color: var(--ochre);
+    display: block; margin-bottom: .45rem;
+  }
+  .note p { margin: 0 0 .7rem; font-size: .95rem; }
+  .note p:last-child { margin-bottom: 0; }
+  .note.good { border-color: var(--green-line); background: var(--green-pale); }
+  .note.good .tag { color: var(--green); }
+
+  /* ── figures ────────────────────────────────────────────────────────── */
+  .scroll { overflow-x: auto; margin: 1.4rem 0; -webkit-overflow-scrolling: touch; }
+  table { border-collapse: collapse; width: 100%; min-width: 34rem; font-size: .84rem; }
+  caption {
+    text-align: left; font-family: Archivo, sans-serif; font-size: .7rem; font-weight: 600;
+    letter-spacing: .11em; text-transform: uppercase; color: var(--faint);
+    padding-bottom: .6rem;
+  }
+  th {
+    font-family: Archivo, sans-serif; font-size: .68rem; font-weight: 600;
+    letter-spacing: .09em; text-transform: uppercase; color: var(--muted);
+    text-align: left; padding: .5rem .8rem .5rem 0; border-bottom: 1px solid var(--rule);
+    white-space: nowrap;
+  }
+  td { padding: .55rem .8rem .55rem 0; border-bottom: 1px solid var(--rule-soft); vertical-align: top; color: var(--body); }
+  td.num, th.num { text-align: right; font-family: "JetBrains Mono", monospace; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr.total td { border-top: 2px solid var(--ink); border-bottom: none; font-weight: 600; color: var(--ink); padding-top: .7rem; }
+  td b { color: var(--ink); font-weight: 600; }
+
+  .working {
+    font-family: "JetBrains Mono", monospace; font-size: .78rem; line-height: 1.9;
+    background: var(--paper); border: 1px solid var(--rule); border-radius: 8px;
+    padding: 1rem 1.15rem; margin: 1.3rem 0; overflow-x: auto; color: var(--body);
+    box-shadow: var(--shadow);
+  }
+  .working .ok { color: var(--green); font-weight: 600; }
+  .working .hd { color: var(--ink); font-weight: 600; }
+
+  /* ── inline bits ────────────────────────────────────────────────────── */
+  code {
+    font-size: .84em; background: var(--rule-soft); padding: .1em .38em;
+    border-radius: 4px; color: var(--ink);
+  }
+  .money { font-family: "JetBrains Mono", monospace; font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 600; }
+  strong { color: var(--ink); font-weight: 600; }
+  em.sic { font-style: italic; color: var(--ink); }
+  hr.rule { border: 0; border-top: 1px solid var(--rule); margin: 3.6rem 0 0; }
+
+  /* ── the ledger of findings ─────────────────────────────────────────── */
+  .findings { display: grid; gap: .9rem; margin: 1.5rem 0; }
+  .finding {
+    border: 1px solid var(--rule); border-radius: 10px; background: var(--paper);
+    padding: 1.05rem 1.2rem; box-shadow: var(--shadow);
+  }
+  .finding .hd { display: flex; flex-wrap: wrap; align-items: baseline; gap: .55rem .8rem; margin-bottom: .5rem; }
+  .finding .id {
+    font-family: "JetBrains Mono", monospace; font-size: .72rem; font-weight: 600;
+    color: var(--paper); background: var(--indigo); padding: .12rem .48rem; border-radius: 4px;
+  }
+  .finding.be .id { background: var(--ochre); }
+  .finding .ttl { font-family: Archivo, sans-serif; font-weight: 600; font-size: .98rem; color: var(--ink); flex: 1 1 16rem; }
+  .finding .st {
+    font-family: Archivo, sans-serif; font-size: .66rem; font-weight: 600;
+    letter-spacing: .1em; text-transform: uppercase; padding: .16rem .5rem;
+    border-radius: 20px; white-space: nowrap;
+  }
+  .st.fixed { color: var(--green); background: var(--green-pale); border: 1px solid var(--green-line); }
+  .st.open  { color: var(--ochre); background: var(--ochre-pale); border: 1px solid var(--ochre-line); }
+  .finding p { margin: 0 0 .6rem; font-size: .92rem; }
+  .finding p:last-child { margin-bottom: 0; }
+  .finding .where { font-family: "JetBrains Mono", monospace; font-size: .75rem; color: var(--muted); }
+
+  ul.plain { margin: 0 0 1.05rem; padding-left: 1.15rem; }
+  ul.plain li { margin-bottom: .5rem; }
+  ul.plain li::marker { color: var(--indigo-text); }
+
+  .grid2 { display: grid; gap: 1rem; margin: 1.4rem 0; }
+  @media (min-width: 640px) { .grid2 { grid-template-columns: 1fr 1fr; } }
+  .box { border: 1px solid var(--rule); border-radius: 10px; padding: 1rem 1.15rem; background: var(--paper); }
+  .box h4 { font-size: .8rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0 0 .55rem; }
+  .box p { margin: 0; font-size: .92rem; }
+
+  footer.end {
+    margin-top: 4.5rem; padding-top: 2rem; border-top: 2px solid var(--ink);
+    font-family: Archivo, sans-serif; font-size: .8rem; color: var(--muted);
+  }
+  footer.end p { margin: 0 0 .6rem; max-width: 70ch; }
+
+  a { color: var(--indigo-text); text-underline-offset: 2px; }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--indigo); outline-offset: 3px; border-radius: 3px; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<header class="top">
+  <p class="kicker">A walk through the product, end to end</p>
+  <h1>Day One at Lagos&nbsp;Fabric&nbsp;Mills</h1>
+  <p class="standfirst">
+    Ifeoma Nwankwo has forty-one people on her weaving floor and a payroll she
+    has been running in a spreadsheet. This is everything she sees, in order,
+    from the moment she creates an account to the moment a payroll is approved
+    and she goes looking for the clock-in button.
+  </p>
+  <div class="byline">
+    <span><b>Walked in a browser</b> against the live API</span>
+    <span><b>29 August 2026</b></span>
+    <span><b>Company</b> created for this walk, not seeded</span>
+    <span><b>Scope</b> signup → Core HR → payroll → time</span>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════════════ THE USER FLOW, AT A GLANCE ══ -->
+<section class="flow-overview">
+  <p class="kicker" style="margin-bottom:.5rem;">The user flow, before the story</p>
+  <h2>Forty-eight steps, one sitting</h2>
+  <p class="flow-lede">
+    Every real action Ifeoma takes, in order, grouped under the eight stages
+    below — not eight headlines standing in for them.
+  </p>
+
+  <div class="flow-stage">
+    <div class="flow-stage-hd"><a href="#s01"><span class="fn">01</span><span class="ft">Signing up</span></a></div>
+    <p class="fctx">Five fields, one button, three refusals before the account exists.</p>
+    <ol class="flow-sub">
+      <li><span class="sn">1</span>Lands on <b>/register</b> with five required fields and nothing read yet.</li>
+      <li><span class="sn">2</span>Presses <b>Create account</b> first — disabled until the form is complete, so nothing happens.</li>
+      <li><span class="sn">3</span>Types a password and watches a live checklist tick — length, case, number, symbol — arguing for a passphrase over a jumble.</li>
+      <li><span class="sn">4</span>Types an email that already has an account — met with a <b>409</b> and a signposted fork, <em>Sign in instead</em>, not a red sentence.</li>
+      <li><span class="sn">5</span>Corrects the email — the account is created.</li>
+      <li><span class="sn">6</span>Lands on <b>/setup</b> in under a second, with a notice stating plainly that setup is not a gate.</li>
+    </ol>
+  </div>
+
+  <div class="flow-stage">
+    <div class="flow-stage-hd"><a href="#s02"><span class="fn">02</span><span class="ft">Nine questions</span></a></div>
+    <p class="fctx">A wizard that asks one question at a time, and states the cost of "No" on the option itself.</p>
+    <ol class="flow-sub">
+      <li><span class="sn">7</span>Meets Question 1 of 9 — <b>How many people do you pay?</b> — one question per screen, not a form of nine fields.</li>
+      <li><span class="sn">8</span>Reads later questions whose "No" option carries its own consequence and its own statute, before she clicks it.</li>
+      <li><span class="sn">9</span>Says yes to attendance and meets the one required follow-up — <b>Where do people clock in?</b> — and cannot continue without naming a location.</li>
+      <li><span class="sn">10</span>Reaches Question 9, the only one she may skip — <em>extra roles</em> — and skips it; eight roles already exist.</li>
+      <li><span class="sn">11</span>Finishes on a screen naming everything switched on, with three exits: add an employee, go to the dashboard, or open the settings the wizard just wrote to.</li>
+    </ol>
+  </div>
+
+  <div class="flow-stage">
+    <div class="flow-stage-hd"><a href="#s03"><span class="fn">03</span><span class="ft">An empty company</span></a></div>
+    <p class="fctx">Ten screens walked cold — the moment a product is usually at its worst.</p>
+    <ol class="flow-sub">
+      <li><span class="sn">12</span>Opens ten screens in a row and reads each empty state — <b>/payroll</b> says outright that running it pays nobody; <b>/settings</b> counts 2 of 6 done; shifts and holidays each name what's missing.</li>
+      <li><span class="sn">13</span>Notices the public-holiday calendar starts genuinely empty, on dates that already drive payroll proration, overtime rates and the help desk's clock.</li>
+      <li><span class="sn">14</span>Reaches the dashboard and reads its own honesty about the same emptiness — <b>On the payroll: 0</b> — alongside seven starting points.</li>
+      <li><span class="sn">15</span>Picks the one that matters first: <em>Add an employee — one person, on the payroll in a minute.</em></li>
+    </ol>
+  </div>
+
+  <div class="flow-stage">
+    <div class="flow-stage-hd"><a href="#s04"><span class="fn">04</span><span class="ft">First employee</span></a></div>
+    <p class="fctx">Five steps, and the one claim on the dashboard gets tested against a stopwatch.</p>
+    <ol class="flow-sub">
+      <li><span class="sn">16</span>Opens the wizard: <b>Who they are → Job and pay → Extras → Review → Done.</b></li>
+      <li><span class="sn">17</span>Presses Continue on an empty Step 1 — the refusal lands on the field itself, <em>First name is required.</em></li>
+      <li><span class="sn">18</span>Fills in a first and last name, then reaches Step 3's three collapsed groups — bank account, tax, pension &amp; NHF — each stating what skipping it costs.</li>
+      <li><span class="sn">19</span>Reads the live <b>Payroll readiness</b> panel beside them, which separates the one thing that stops pay from the two that don't.</li>
+      <li><span class="sn">20</span>Skips all three, arriving at Step 4 — <em>nothing has been saved yet</em> — with an Edit link back into each section.</li>
+      <li><span class="sn">21</span>Confirms — <b>Kelechi Umeh has been added</b> — and is offered <em>Add another</em> or <em>View their record</em>, form already cleared.</li>
+    </ol>
+  </div>
+
+  <div class="flow-stage">
+    <div class="flow-stage-hd"><a href="#s05"><span class="fn">05</span><span class="ft">The spreadsheet</span></a></div>
+    <p class="fctx">The rest of the floor arrives as a real, messy CSV with five deliberate problems in it.</p>
+    <ol class="flow-sub">
+      <li><span class="sn">22</span>Uploads a file with her own column headings — <b>Surname</b>, <b>Date of Employment</b>, <b>Monthly Salary</b> — none of them the product's own words.</li>
+      <li><span class="sn">23</span>Reaches Step 2, where the matcher has already guessed all ten headings, and corrects nothing because it guessed right.</li>
+      <li><span class="sn">24</span>Reads two rows refused by row number, name and reason — an unreadable date, a work email repeated across two people.</li>
+      <li><span class="sn">25</span>Presses the confirm button, which reads <b>Add 3 people, leave 2 out</b> — naming what it will not do as plainly as what it will.</li>
+      <li><span class="sn">26</span>Reads the list of quiet assumptions made on her behalf — which date format was read, which staff numbers were generated, who imports with no login.</li>
+      <li><span class="sn">27</span>Watches three people land, taking the directory to 4 employees, <b>₦1.3m</b> monthly gross, 4 records incomplete.</li>
+      <li><span class="sn">28</span>Reads the qualifier on that last figure — missing bank, PIN or TIN — and that only a missing bank account actually blocks pay.</li>
+    </ol>
+  </div>
+
+  <div class="flow-stage">
+    <div class="flow-stage-hd"><a href="#s06"><span class="fn">06</span><span class="ft">Payroll</span></a></div>
+    <p class="fctx">Period · Check · Review · Approve — the part the company is bought for.</p>
+    <ol class="flow-sub">
+      <li><span class="sn">29</span>Opens the Period step and reads a checklist of four things worth sorting first, none of which blocks the next button.</li>
+      <li><span class="sn">30</span>Presses <b>Calculate</b> — 3 payslips, <b>₦1,330,000.00</b> gross, computed from nothing she configured by hand.</li>
+      <li><span class="sn">31</span>Reads <em>Fix these before approving</em> — two people blocked for missing account numbers, three notes that don't stop the run.</li>
+      <li><span class="sn">32</span>Confirms, unprompted, that a company with attendance on and nobody ever clocked in still pays every contract in full — the guard that once failed silently elsewhere.</li>
+      <li><span class="sn">33</span>Excludes Kelechi with a required reason, reading both stated consequences — no payslip, nothing carried to next month — before the click.</li>
+      <li><span class="sn">34</span>Watches gross fall to <b>₦880,000</b> and <em>2 of 3 payslips — 1 excluded</em> propagate to every screen that shows a headcount.</li>
+      <li><span class="sn">35</span>Fixes Nnamdi's blocker in place — the <b>Add account number</b> link opens his record on the right tab with the field already focused.</li>
+      <li><span class="sn">36</span>Presses <b>Calculate again</b> and watches the heading fall back to a non-blocking <em>worth a look before approving.</em></li>
+    </ol>
+  </div>
+
+  <div class="flow-stage">
+    <div class="flow-stage-hd"><a href="#s07"><span class="fn">07</span><span class="ft">The arithmetic</span></a></div>
+    <p class="fctx">Two payslips, checked against statute rather than trusted because the screen looks right.</p>
+    <ol class="flow-sub">
+      <li><span class="sn">37</span>Opens the Review step's payslip table for the two people now on the run.</li>
+      <li><span class="sn">38</span>Re-derives Yetunde's PAYE from first principles — split, pension, NHF, annualised taxable pay, the 2025 Act's bands — and it matches the screen to the kobo.</li>
+      <li><span class="sn">39</span>Reads the Step 4 remittance breakdown — net, PAYE, both pension shares, NHF — with employer pension stated as a company cost, never a deduction.</li>
+      <li><span class="sn">40</span>Confirms every identity closes: gross less deductions equals net, and the remittance lines sum to exactly the difference.</li>
+      <li><span class="sn">41</span>Opens the Approve confirmation — itemised consequences, <em>this is the one step that cannot be undone from here</em>, the amount printed on the button itself.</li>
+      <li><span class="sn">42</span>Presses <b>Approve ₦687,607.00</b> — the batch stops at approved, instructions pending, nothing marked paid.</li>
+      <li><span class="sn">43</span>Prepares September a month later and watches both excluded people return automatically, blockers intact, gross back to <b>₦1,330,000</b>.</li>
+    </ol>
+  </div>
+
+  <div class="flow-stage">
+    <div class="flow-stage-hd"><a href="#s08"><span class="fn">08</span><span class="ft">Time</span></a></div>
+    <p class="fctx">Attendance, leave, shifts and overtime, on a company with none of it configured yet.</p>
+    <ol class="flow-sub">
+      <li><span class="sn">44</span>Opens Attendance on a Saturday and finds the roster has correctly marked all four employees a rest day with no configuration.</li>
+      <li><span class="sn">45</span>Finds her own personal clock-in card above the roster and presses it — met with a 403 a fixed card now explains rather than a dead button.</li>
+      <li><span class="sn">46</span>Opens the leave-booking dialog and reads the same gap a second time: <em>book your own</em> is a sentence she cannot act on either.</li>
+      <li><span class="sn">47</span>Opens Overtime, where a primary action that used to lead ahead of <em>Overtime is switched off</em> is now gated on the policy itself.</li>
+      <li><span class="sn">48</span>Opens Shifts and reads three separate emptinesses named on their own terms, rather than one blank page.</li>
+    </ol>
+  </div>
+
+  <p class="flow-note">
+    Sections 09–10 aren't steps Ifeoma takes — they're this walk's own findings
+    ledger and an honest account of what was and wasn't proven, kept apart from
+    her flow on purpose.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ 01 ══ -->
+<section class="stage" id="s01">
+  <div class="spine"><span class="n">01</span><span class="lbl">Signing up</span></div>
+  <div class="col">
+    <h2>Three refusals before the account exists</h2>
+    <p class="lede">
+      Ifeoma lands on <code>/register</code>. Five fields, all marked required,
+      one button. She has not read anything and she is not going to.
+    </p>
+
+    <h3>She presses the button first</h3>
+    <p>
+      Nothing happens, because <strong>Create account</strong> is disabled until
+      the form is complete. This is the right call and it is the one moment in
+      the whole signup where the product is quiet — a keyboard user tabbing the
+      form never reaches the button at all, because a disabled button is out of
+      the tab order. Every field carries its own <code>required</code> mark, so
+      the information is on screen; it just is not at the button.
+    </p>
+
+    <h3>She types a password like she types every password</h3>
+    <div class="screen">
+      <span class="who">while typing</span>
+      <b>Longer beats complicated:</b> a phrase like three ordinary words, with a
+      capital, a number and a symbol, is easier to remember and harder to guess
+      than a short jumble.<br><br>
+      ☐ 12 characters or more &nbsp; ☐ A lowercase letter &nbsp; ☐ An uppercase letter<br>
+      ☐ A number &nbsp; ☐ A special character
+    </div>
+    <p>
+      The checklist ticks live as she types. It argues for a passphrase rather
+      than demanding a jumble, which is the correct security advice and almost
+      nobody ships it.
+    </p>
+
+    <h3>She uses an email that already has an account</h3>
+    <div class="screen">
+      <span class="who">409 · POST /auth/register</span>
+      <b>That email already has an account</b><br>
+      [ Sign in instead ]
+    </div>
+    <p>
+      Not a red sentence under the field — a fork in the road with a button on
+      it. A person who has forgotten they signed up last month is one click from
+      where they meant to be.
+    </p>
+
+    <div class="note good">
+      <span class="tag">Held up</span>
+      <p>
+        Three refusals, three different shapes: a disabled control, a live
+        checklist, and a signposted fork. None of them is a generic
+        <em class="sic">Something went wrong</em>.
+      </p>
+    </div>
+
+    <p>
+      She corrects the email and the account is created. She is on
+      <code>/setup</code> in under a second, with a confirmation notice above the
+      first question that says plainly it is not a gate:
+      <em class="sic">Setup works either way — this is just so the link isn't lost.</em>
+    </p>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ═══════════════════════════════════════════════════════════ 02 ══ -->
+<section class="stage" id="s02">
+  <div class="spine"><span class="n">02</span><span class="lbl">Nine questions</span></div>
+  <div class="col">
+    <h2>The setup wizard asks, it does not present a form</h2>
+    <p class="lede">
+      One question per screen, a heading, a line of help, and buttons. Question
+      1 of 9: <strong>How many people do you pay?</strong>
+    </p>
+
+    <p>
+      The shape matters more than the content. A form of nine fields invites you
+      to study it; nine questions invite you to answer them. Every question that
+      can be answered <em class="sic">No</em> carries the cost of that answer on
+      the option itself, before the click:
+    </p>
+
+    <div class="screen">
+      <span class="who">question 7 of 9</span>
+      <b>Do you run a pension scheme for your staff?</b><br>
+      Contributions to a PFA — 8% from them, 10% from you, or more.<br><br>
+      [ Yes ]<br>
+      [ <b>No — we have no scheme</b><br>
+      &nbsp;&nbsp;Nothing is deducted for pension, nothing is added on top, and there is
+      no schedule for a fund<br>&nbsp;&nbsp;administrator. The Pension Reform Act 2014
+      requires a scheme once you employ 15 or more<br>&nbsp;&nbsp;people. You can switch
+      this on later. ]
+    </div>
+
+    <p>
+      That is a consequence, a statute and an escape hatch in one option label.
+      The same pattern runs through PAYE, leave, hiring and appraisals.
+    </p>
+
+    <h3>One question refuses to be answered on its own</h3>
+    <p>
+      Saying yes to attendance opens a follow-up on the same screen:
+      <strong>Where do people clock in?</strong> — with a required name field and
+      an optional address, because <em class="sic">staff pick a place when they
+      clock in, so there has to be at least one.</em> The wizard will not move on
+      until she has named a location. She types <em class="sic">Head office</em>.
+    </p>
+    <p>
+      This is the only place the wizard blocks, and it blocks on the one answer
+      that would otherwise produce a feature that cannot be used.
+    </p>
+
+    <h3>Question 9 is the only one she may skip</h3>
+    <p>
+      Extra roles, offered with <strong>Skip for now — I'll do this later</strong>
+      beside <strong>Add a role</strong>. She skips it. Eight roles already exist:
+      Owner, Administrator, HR manager, Payroll analyst, Payroll officer, Finance
+      approver, Line manager, Employee.
+    </p>
+
+    <div class="screen">
+      <span class="who">the end</span>
+      <b>That is it — you are set up</b><br>
+      Paying people, payslips and leave are on for everybody. You also have:
+      Departments and teams · Shifts and nights · Staff loans and advances ·
+      Expense claims · Appraisals · Hiring · Attendance<br><br>
+      [ Add your first employee ] &nbsp; [ Go to the dashboard ] &nbsp; [ Turn on more features ]
+    </div>
+
+    <p>
+      Three exits, and they are the three things a person actually wants next.
+      There is no <strong>Back</strong> on this screen — the answers are reviewed
+      and changed at <code>/settings/features</code>, which the third button goes
+      to, so nothing is lost.
+    </p>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ═══════════════════════════════════════════════════════════ 03 ══ -->
+<section class="stage" id="s03">
+  <div class="spine"><span class="n">03</span><span class="lbl">An empty company</span></div>
+  <div class="col">
+    <h2>Every screen is an empty state, and most of them are signposts</h2>
+    <p class="lede">
+      This is the moment a product is usually at its worst. Ten screens were
+      walked cold. The good ones state what is missing and offer the one thing
+      that fixes it.
+    </p>
+
+    <div class="grid2">
+      <div class="box">
+        <h4>/payroll</h4>
+        <p><em class="sic">No payroll run for August 2026 yet. Running payroll works out everybody's pay and lists anything wrong with their records. <b>It pays nobody</b>, and you can do it as many times as you like.</em></p>
+      </div>
+      <div class="box">
+        <h4>/settings</h4>
+        <p><em class="sic">Setting up your company — 2 of 6 done. Outstanding: Company profile, Leave types and holidays, Pay setup, Payroll checks.</em></p>
+      </div>
+      <div class="box">
+        <h4>/people/shifts</h4>
+        <p><em class="sic">No shifts defined yet. Add an early, a late and a night, then build a cycle out of them.</em></p>
+      </div>
+      <div class="box">
+        <h4>/people/leave</h4>
+        <p><em class="sic">Public holidays 2026 — <b>None on file.</b> Attendance, overtime, payroll proration and the help desk's response clock all read these dates.</em></p>
+      </div>
+    </div>
+
+    <p>
+      The payroll one is the best sentence in the product. The single largest
+      fear a person has about a payroll system they have not used is that
+      pressing the button will pay somebody, and it answers that fear before it
+      is asked.
+    </p>
+
+    <div class="note">
+      <span class="tag">Worth a product decision</span>
+      <p>
+        <strong>A new Nigerian company gets no public holidays.</strong> The
+        calendar starts empty, and the screen says so honestly — but every one of
+        those dates is already load-bearing: payroll proration and the overtime
+        rate read them, and so does the help desk's response clock. Ifeoma has to
+        hand-enter Nigeria's 2026 holidays before Christmas prorates as an
+        ordinary working day.
+      </p>
+      <p>
+        Not a bug — nothing lies. But Nigeria's public holidays are the same for
+        every customer, and asking each one to type them is asking each one to
+        get them wrong differently.
+      </p>
+    </div>
+
+    <p>
+      The dashboard is honest about the same emptiness — <strong>On the payroll:
+      0</strong> — and offers seven starting points, of which two are the ones
+      that matter: <em class="sic">Add an employee — one person, on the payroll in
+      a minute</em>, and <em class="sic">Import a staff list — a spreadsheet you
+      already keep</em>. She takes the first.
+    </p>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ═══════════════════════════════════════════════════════════ 04 ══ -->
+<section class="stage" id="s04">
+  <div class="spine"><span class="n">04</span><span class="lbl">First employee</span></div>
+  <div class="col">
+    <h2>"One person, on the payroll in a minute"</h2>
+    <p class="lede">
+      A claim on the dashboard is a promise. Five steps: Who they are · Job and
+      pay · Extras <span class="mono" style="font-size:.8em">(optional)</span> ·
+      Review · Done.
+    </p>
+
+    <p>
+      Step 1 asks for a first name and a last name and marks everything else
+      optional, with a line above the fields saying so:
+      <em class="sic">Fields marked * are required. Everything else can follow
+      later, and the record saves without it.</em> Pressing Continue on an empty
+      step puts <strong>First name is required.</strong> on the field itself, not
+      in a banner at the top.
+    </p>
+
+    <h3>Step 3 is where the product does its best work</h3>
+    <p>
+      Three collapsed groups, each labelled Optional, each stating what skipping
+      it costs:
+    </p>
+    <div class="screen">
+      <b>Bank account</b> <span style="color:var(--muted)">Optional</span><br>
+      Skip this and payroll has nowhere to send the money — you can add the account before the run.<br><br>
+      <b>Set up tax</b> <span style="color:var(--muted)">Optional</span><br>
+      Skip this and their payslip will not show PAYE, and nothing is filed to a state revenue service until you add it.<br><br>
+      <b>Pension and NHF</b> <span style="color:var(--muted)">Optional</span><br>
+      Skip this and no pension is deducted or remitted for them, and the payroll run will hold them back until an RSA PIN is added.
+    </div>
+    <p>
+      Beside them, a live <strong>Payroll readiness</strong> panel that separates
+      the one thing that stops pay from the two that do not:
+    </p>
+    <div class="screen">
+      <b>Bank account</b> — They cannot be paid until this is added, or they are excluded from the run.<br>
+      <b>Pension PIN</b> — Their pension remittance schedule will be incomplete. It does not hold back their pay.<br>
+      <b>TIN</b> — Recommended for filing their tax return. It does not affect this month's pay.
+    </div>
+
+    <p>
+      Ifeoma skips all three. She is adding her loom supervisor at eleven at night
+      and does not have his RSA PIN to hand.
+    </p>
+
+    <h3>Step 4 says nothing has happened yet</h3>
+    <p>
+      <em class="sic">Check this over. Nothing has been saved yet. Anything you
+      skipped can be added to their record afterwards.</em> Each section has its
+      own <strong>Edit</strong> link back to the step that owns it. Then:
+    </p>
+    <div class="screen">
+      <b>Kelechi Umeh has been added</b><br>
+      The form is clear and ready for the next person.<br><br>
+      [ Add another ] &nbsp; [ View their record ]
+    </div>
+
+    <div class="note good">
+      <span class="tag">The promise holds</span>
+      <p>
+        Kelechi Umeh, Loom Supervisor, <span class="money">₦450,000</span>, started
+        3 August. Arriving on the form to reaching the review step took
+        <strong>21 seconds</strong> of machine time. A person reading the
+        consequence sentences would take a minute or two. The claim is true.
+      </p>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ═══════════════════════════════════════════════════════════ 05 ══ -->
+<section class="stage" id="s05">
+  <div class="spine"><span class="n">05</span><span class="lbl">The spreadsheet</span></div>
+  <div class="col">
+    <h2>The rest of the floor arrives as a CSV, and it is a mess</h2>
+    <p class="lede">
+      Real spreadsheets are not clean. The file used here has five rows and five
+      deliberate problems: a missing salary, an unreadable date, a repeated
+      email, a person with no bank details, and a column the product does not
+      want.
+    </p>
+
+    <p>
+      The headings are hers, not ours — <code>Surname</code>,
+      <code>Date of Employment</code>, <code>Monthly Salary</code>,
+      <code>Email Address</code>, <code>RSA PIN</code> — and the matcher reads all
+      ten, leaving nothing unmatched. Step 2 says
+      <em class="sic">We read the headings in your file and guessed. Change
+      anything we got wrong.</em>
+    </p>
+
+    <h3>Two rows are refused, by name and by reason</h3>
+    <div class="scroll">
+      <table>
+        <caption>What the import would not take</caption>
+        <thead><tr><th>Row</th><th>Who</th><th>Why it did not import</th></tr></thead>
+        <tbody>
+          <tr><td class="num">3</td><td><b>Halima Musa</b></td>
+              <td><em class="sic">"not-a-date" is not a date we can read. Use DD/MM/YYYY or YYYY-MM-DD.</em></td></tr>
+          <tr><td class="num">4</td><td><b>Tunji Adebayo</b></td>
+              <td><em class="sic">yetunde.adebayo@lagosfabric.test is already on row 1 of this file. Two people cannot share a work email — merge the rows, or give each their own.</em></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      The row numbers are the ones Excel shows. The reason names the column, and
+      the column is called what <em>she</em> called it, not what we call it. The
+      confirm button reads <strong>Add 3 people, leave 2 out</strong> — it names
+      what it will not do as well as what it will.
+    </p>
+
+    <h3>And then it says what it quietly assumed</h3>
+    <div class="screen">
+      <span class="who">what we did with the awkward parts</span>
+      · <b>4 dates could be read two ways</b> — 03/04/2021 is either 3 April or 4 March. We read the day first, so that is 3 April.<br>
+      · <b>3 rows have no staff number</b>, so we generated one each (AHR-0001 and up). That is the key a second import matches on, so importing the same file twice would add those people again.<br>
+      · <b>3 people have a work email but no role</b>, so they will be added without a login.<br>
+      · <b>3 people import with something payroll will ask for later missing.</b> They are listed by name — nothing is blocked, and nothing is invented.
+    </div>
+
+    <p>
+      A Nigerian spreadsheet writes <code>03/08/2026</code> and means 3 August. An
+      American one means 8 March. The importer picks day-first, which is right
+      here, and then <em>tells her it made a choice</em>. That sentence is the
+      difference between a correct guess and a silent one.
+    </p>
+
+    <p>
+      Three people land. The directory now reads <strong>4 employees ·
+      <span class="money">₦1.3m</span> monthly gross · 4 records incomplete</strong>,
+      with the qualifier that matters:
+      <em class="sic">missing bank, PIN or TIN — only a missing bank account blocks pay.</em>
+    </p>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ═══════════════════════════════════════════════════════════ 06 ══ -->
+<section class="stage" id="s06">
+  <div class="spine"><span class="n">06</span><span class="lbl">Payroll</span></div>
+  <div class="col">
+    <h2>Four steps, two blockers, and a number that has to be right</h2>
+    <p class="lede">
+      Period · Check · Review · Approve. This is the part the company is bought
+      for, and the part where being plausible is not good enough.
+    </p>
+
+    <h3>Step 1 tells her what is not ready before she asks</h3>
+    <div class="screen">
+      <span class="who">before you run this</span>
+      <b>4 things worth sorting first.</b> None of this stops Calculate — whoever it is about is still named, on the next step, either way.<br><br>
+      ✓ What you deduct is decided<br>
+      ⚠ No default PAYE state yet &nbsp;<span style="color:var(--muted)">[ Set it ]</span><br>
+      ⚠ 2 of 4 have no bank account &nbsp;<span style="color:var(--muted)">[ Open the directory ]</span><br>
+      ⚠ 3 of 4 have no pension PIN &nbsp;<span style="color:var(--muted)">[ Open the directory ]</span><br>
+      ⚠ Your company has no payout account on file &nbsp;<span style="color:var(--muted)">[ Add one ]</span>
+    </div>
+
+    <div class="note">
+      <span class="tag">Found and fixed during this walk</span>
+      <p>
+        Two of those rows used to read <em class="sic">A default PAYE state
+        <b>is set</b></em> and <em class="sic">Your company <b>has</b> a payout
+        account on file</em> — the goal, not the state — while sitting above
+        <strong>Set it</strong> and <strong>Add one</strong>. On a company that
+        had done neither, the sentence said done and only an amber triangle
+        disagreed with it. Anybody scanning the list read four outstanding items
+        as two.
+      </p>
+    </div>
+
+    <h3>Calculate</h3>
+    <div class="screen">
+      <b>3 payslips · <span style="color:var(--ink)">₦1,330,000.00</span> gross</b><br><br>
+      <b>Fix these before approving</b> — 2 stop the run. 3 do not.<br>
+      · Kelechi Umeh has no account number. They cannot be paid. Add one, or exclude them from this payroll with a reason.<br>
+      · Nnamdi Eze has no account number. They cannot be paid. …<br>
+      · 3 people have no PAYE state set — tax is deducted correctly either way, this is only the state filing.<br>
+      · 3 people have not declared their annual rent, so they are paying more tax than they may need to.
+    </div>
+
+    <div class="note good">
+      <span class="tag">The failure that did not happen</span>
+      <p>
+        This company turned <strong>attendance on</strong> in the wizard and
+        <strong>nobody has ever clocked in</strong>. That exact state once
+        prorated every salary in a company to zero, and reconciled perfectly all
+        the way down — a wrong number that adds up is invisible to every check
+        that only asks whether the sums agree.
+      </p>
+      <p>
+        Here, everybody is paid their full contract. <span class="money">₦1,330,000</span>
+        is <span class="money">₦620,000</span> + <span class="money">₦450,000</span> +
+        <span class="money">₦260,000</span>, exactly. The guard holds on a company
+        one week old, which is the company most likely to be in that state.
+      </p>
+    </div>
+
+    <h3>Leaving somebody off, with a reason</h3>
+    <p>
+      Kelechi's account details have not come back from him. The dialog does not
+      ask <em class="sic">are you sure</em>:
+    </p>
+    <div class="screen">
+      <b>Leave Kelechi Umeh off August 2026 payroll</b><br>
+      Everybody else gets paid. This person does not, and the reason goes on the record.<br><br>
+      <b>Why are they not being paid this period?*</b><br>
+      Whoever asks this question next year reads exactly what you type here. Say enough to answer them.<br><br>
+      — Kelechi Umeh gets no payslip on this run — not a payslip for nothing, no payslip at all.<br>
+      — Nothing is owed to them by this run. Any loan instalment or expense claim of theirs waits for the next one.
+    </div>
+    <p>
+      The reason is required. The two consequences are stated before the click,
+      not discovered afterwards. Once recorded, the blocker becomes a warning that
+      quotes her own words back with the date, and offers
+      <strong>Put back on this payroll</strong>.
+    </p>
+    <p>
+      Gross falls to <span class="money">₦880,000</span> and the header reads
+      <strong>2 of 3 payslips — 1 excluded</strong> everywhere it appears: the
+      wizard, the payroll home, the runs table, the payslip index. A bare
+      <em class="sic">2</em> under a label reading <em class="sic">People</em>
+      would be a false claim about a company of four, and it is not made anywhere.
+    </p>
+
+    <h3>Fixing the other one in place</h3>
+    <p>
+      Nnamdi's blocker offers <strong>Add account number</strong>. It goes to
+      <code>/people/{id}?tab=pay&amp;field=bankAccount</code> — the right person,
+      the right tab, the edit form already open, and the account field already
+      focused. She types ten digits, picks Access Bank from a searchable list of
+      255, saves, returns, presses <strong>Calculate again</strong>, and the
+      heading changes with the count:
+    </p>
+    <div class="screen">
+      <b>Worth a look before approving</b> — 4 things to check. <b>None of them stops the run.</b>
+    </div>
+
+    <div class="note">
+      <span class="tag">Found and fixed during this walk</span>
+      <p>
+        While a blocker stood, the wizard's <strong>Continue</strong> button was
+        dead and said nothing. The reason sat in the exception list, several
+        screens above the footer. Somebody who had just excluded two people and
+        scrolled to the bottom found a grey button and nowhere to read why. It
+        now carries the count beside it: <strong>1 thing still stops this run.</strong>
+      </p>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ═══════════════════════════════════════════════════════════ 07 ══ -->
+<section class="stage" id="s07">
+  <div class="spine"><span class="n">07</span><span class="lbl">The arithmetic</span></div>
+  <div class="col">
+    <h2>Two payslips, worked by hand against the statute</h2>
+    <p class="lede">
+      Everything above is craft. This is the product. Every figure below was
+      re-derived independently from the Nigeria Tax Act 2025 bands, the Pension
+      Reform Act 2014 and the NHF Act, and compared with what the screen shows.
+    </p>
+
+    <div class="scroll">
+      <table>
+        <caption>Step 3 · Review · August 2026</caption>
+        <thead>
+          <tr><th>Employee</th><th class="num">Gross</th><th class="num">PAYE</th>
+              <th class="num">Pension + NHF</th><th class="num">Net</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><b>Yetunde Adebayo</b><br><span class="where mono" style="font-size:.72rem;color:var(--muted)">AHR-0002 · Weaving Manager</span></td>
+              <td class="num">620,000.00</td><td class="num">83,498.00</td><td class="num">58,900.00</td><td class="num"><b>477,602.00</b></td></tr>
+          <tr><td><b>Nnamdi Eze</b><br><span class="where mono" style="font-size:.72rem;color:var(--muted)">AHR-0004 · Store Keeper</span></td>
+              <td class="num">260,000.00</td><td class="num">25,295.00</td><td class="num">24,700.00</td><td class="num"><b>210,005.00</b></td></tr>
+          <tr class="total"><td>Two payslips</td><td class="num">880,000.00</td><td class="num">108,793.00</td><td class="num">83,600.00</td><td class="num">687,607.00</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Yetunde's PAYE, from first principles</h3>
+    <div class="working">
+<span class="hd">Salary split</span>          basic is 60% of gross      372,000.00 a month
+<span class="hd">Pension (employee)</span>    8% of monthly emoluments    49,600.00
+<span class="hd">NHF</span>                   2.5% of basic                9,300.00
+                       ────────────────────────────────────
+                       deductions                  58,900.00   <span class="ok">✓ matches the screen</span>
+
+<span class="hd">Annualised</span>            gross                    7,440,000.00
+                       less pension              -595,200.00
+                       less NHF                 -111,600.00
+                       no rent declared, so no relief
+                       ────────────────────────────────────
+                       taxable                 6,733,200.00
+
+<span class="hd">Nigeria Tax Act 2025</span>  first 800,000 @  0%              0.00
+                       next 2,200,000 @ 15%        330,000.00
+                       next 3,733,200 @ 18%        671,976.00
+                       ────────────────────────────────────
+                       annual PAYE               1,001,976.00
+                       ÷ 12                         83,498.00   <span class="ok">✓ to the kobo</span>
+    </div>
+
+    <h3>And what actually leaves the account</h3>
+    <div class="scroll">
+      <table>
+        <caption>Step 4 · Approve</caption>
+        <tbody>
+          <tr><td>Net to employees</td><td class="num"><b>687,607.00</b></td><td style="color:var(--muted)">477,602 + 210,005</td></tr>
+          <tr><td>PAYE to state revenue services</td><td class="num">108,793.00</td><td style="color:var(--muted)">83,498 + 25,295</td></tr>
+          <tr><td>Pension — employee share</td><td class="num">70,400.00</td><td style="color:var(--muted)">8% of 880,000</td></tr>
+          <tr><td>National Housing Fund</td><td class="num">13,200.00</td><td style="color:var(--muted)">2.5% of basic</td></tr>
+          <tr><td>Pension — employer share<br><span style="color:var(--muted);font-size:.85em">A company cost on top of gross. It does not reduce anyone's pay.</span></td>
+              <td class="num">88,000.00</td><td style="color:var(--muted)">10% of 880,000</td></tr>
+          <tr class="total"><td>Total cost to the company</td><td class="num">968,000.00</td><td style="color:var(--muted)">880,000 + 88,000</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note good">
+      <span class="tag">Every identity closes</span>
+      <p>
+        Gross less PAYE less deductions equals net, per person and in total. The
+        five remittance lines sum to the difference. Employer pension is stated
+        as a company cost in the same breath as its figure, and is excluded from
+        every net. Nothing is rounded into agreement — the arithmetic simply
+        agrees.
+      </p>
+    </div>
+
+    <h3>Approving</h3>
+    <div class="screen">
+      <b>Approve August 2026?</b><br>
+      This is the one step that cannot be undone from here. It will:<br>
+      · ₦687,607.00 becomes payable to 2 people on 2026-08-28.<br>
+      · 2 people on the payroll for this period are deliberately not on this run and are paid nothing by it. The reason is recorded against each of them.<br>
+      · Any loan instalment in this run is taken and the schedule moves to the next month.<br>
+      · Any expense claim in this run is marked paid.<br>
+      · The payroll settings used are frozen onto the run, so these payslips still explain themselves years from now.<br><br>
+      [ Cancel ] &nbsp; [ <b>Approve ₦687,607.00</b> ]
+    </div>
+    <p>
+      The amount is <em>on the button</em>. Nothing is marked paid — the batch
+      stops at approved with its instructions pending, which is exactly where a
+      real company stands the moment before somebody downloads the bank file.
+    </p>
+
+    <h3>One month later, without being asked</h3>
+    <p>
+      Preparing September brings both excluded people straight back, with their
+      original blockers, and gross returns to
+      <span class="money">₦1,330,000</span>. An exclusion is one month's decision
+      and it expires with the month — nothing has to remember to undo it, which
+      is the difference between leaving somebody off a payroll and quietly
+      unpaying them for a year.
+    </p>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ═══════════════════════════════════════════════════════════ 08 ══ -->
+<section class="stage" id="s08">
+  <div class="spine"><span class="n">08</span><span class="lbl">Time</span></div>
+  <div class="col">
+    <h2>She goes looking for the clock-in button</h2>
+    <p class="lede">
+      Attendance, leave, shifts and overtime, on a company that has four
+      employees, no rota, no entitlements and no holidays.
+    </p>
+
+    <h3>Attendance</h3>
+    <p>
+      Saturday 29 August. The roster lists all four by name and marks every one
+      of them <strong>Rest day</strong> — correct, and it took no configuration to
+      get right. The counters read <strong>In today 0 · Late 0 · On approved leave
+      0 · Not clocked in 0</strong>, which is the honest answer on a rest day and
+      not four zeroes standing in for an absent figure.
+    </p>
+
+    <div class="note">
+      <span class="tag">Found and fixed during this walk</span>
+      <p>
+        Above the roster sat a complete personal clock-in card — her name, her
+        expected hours <span class="mono" style="font-size:.85em">08:00–17:00</span>,
+        a location, and an enabled <strong>Clock in</strong> button. Pressing it
+        answered <span class="mono" style="font-size:.85em">403</span>:
+        <em class="sic">This account has no employee record to clock in.</em>
+      </p>
+      <p>
+        The refusal is correct and well written, and it arrives two clicks too
+        late. <strong>Registering a company creates a user, not an employee</strong>
+        — so the person this happens to is the owner, on day one, in every single
+        new company. The same screen already knew: the roster counted
+        <em class="sic">0 of 4</em> and did not list her. The card now states the
+        fact and names the one thing that changes it.
+      </p>
+    </div>
+
+    <h3>Time off</h3>
+    <p>
+      The booking dialog is the best form in the module. <strong>Who is this
+      for</strong> — <em class="sic">You can raise leave for anyone. Leave it on
+      yourself to book your own.</em> Type, with the entitlement written under it
+      (<em class="sic">20 days a year</em>). From, To, and a reason marked optional
+      with <em class="sic">Shown to the approver.</em>
+    </p>
+    <p>
+      The same root as the clock card shows here too: the person list holds her
+      four employees and not her, so the sentence about booking her own is one she
+      cannot act on. Nothing breaks; it is the second place the product forgets
+      that the person who signed up is not on their own payroll.
+    </p>
+
+    <h3>Overtime</h3>
+    <div class="note">
+      <span class="tag">Found and fixed during this walk</span>
+      <p>
+        The screen opened on a twelve-month picker and the primary button
+        <strong>Work out this month's overtime</strong> — rendered twice — and
+        only <em>then</em> the card saying <strong>Overtime is switched off.
+        Nothing is worked out from the clock, and nothing reaches payroll.</strong>
+        Pressing the primary action answered
+        <span class="mono" style="font-size:.85em">422</span> with exactly that
+        sentence. The action is now gated on the policy, not only on the
+        permission, so the card's own <strong>Turn on overtime</strong> is the
+        only thing offered.
+      </p>
+    </div>
+
+    <h3>Shifts</h3>
+    <p>
+      <em class="sic">No shifts defined yet. Add an early, a late and a night, then
+      build a cycle out of them.</em> A week view showing
+      <strong>Days with nobody on: 7</strong>, and a cover-request queue reading
+      <em class="sic">Nobody has asked to be covered.</em> Empty, and each emptiness
+      named separately rather than one blank page.
+    </p>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ═══════════════════════════════════════════════════════════ 09 ══ -->
+<section class="stage" id="s09">
+  <div class="spine"><span class="n">09</span><span class="lbl">The ledger</span></div>
+  <div class="col">
+    <h2>What was found</h2>
+    <p class="lede">
+      Five defects in the frontend, all fixed and verified on screen. One
+      belonging to the API. Two product decisions worth somebody's judgement.
+    </p>
+
+    <div class="findings">
+      <div class="finding">
+        <div class="hd"><span class="id">FE-1</span><span class="ttl">The pre-payroll checklist stated a goal as a fact</span><span class="st fixed">Fixed</span></div>
+        <p>Three of five rows carried a fixed affirmative label whatever their state. A company that had never set a PAYE state read <em class="sic">A default PAYE state is set</em> above a <strong>Set it</strong> button; one with no payout account read <em class="sic">Your company has a payout account on file</em> above <strong>Add one</strong>. Only an amber triangle disagreed. The two rows beside them already flipped their wording on state; these now do the same.</p>
+        <p class="where">src/app/(app)/payroll/runs/new/wizard.tsx</p>
+      </div>
+
+      <div class="finding">
+        <div class="hd"><span class="id">FE-2</span><span class="ttl">A run status that claimed a readiness the API refuses</span><span class="st fixed">Fixed</span></div>
+        <p><code>IN_REVIEW</code> was labelled <em class="sic">Ready to approve</em>. The wizard renders that badge at the top of the Check step while the exception list says <em class="sic">2 stop the run</em> further down, and the API refuses approval on a blocker. It also reached employees on their own payslip index, where it was a sentence about somebody else's inbox. A status label says where a thing <em>is</em>, never what may be done to it next. Now <em class="sic">In review</em>.</p>
+        <p class="where">src/lib/api/payroll.ts</p>
+      </div>
+
+      <div class="finding">
+        <div class="hd"><span class="id">FE-3</span><span class="ttl">Continue went dead on a blocker and said nothing</span><span class="st fixed">Fixed</span></div>
+        <p>The only explanation was the exception list, several screens above the footer. Now carries the count at the button: <strong>1 thing still stops this run.</strong></p>
+        <p class="where">src/app/(app)/payroll/runs/new/wizard.tsx</p>
+      </div>
+
+      <div class="finding">
+        <div class="hd"><span class="id">FE-4</span><span class="ttl">A clock-in card offered to an account that can never use it</span><span class="st fixed">Fixed</span></div>
+        <p>Registering creates a user, not an employee, so every new company begins with an owner holding a full clock-in card the API answers 403 to. The card now states the fact and names what changes it, rather than vanishing — somebody looking for a button they were told about needs to find out why it is not there.</p>
+        <p class="where">src/components/portal/my-clock-card.tsx</p>
+      </div>
+
+      <div class="finding">
+        <div class="hd"><span class="id">FE-5</span><span class="ttl">The overtime screen led with an action the API refuses</span><span class="st fixed">Fixed</span></div>
+        <p><strong>Work out this month's overtime</strong> was the primary action, rendered twice, above the card saying the feature is off. Gated on the policy now, not only on <code>RUN_PAYROLL</code>.</p>
+        <p class="where">src/app/(app)/people/overtime/overtime-screen.tsx</p>
+      </div>
+
+      <div class="finding">
+        <div class="hd"><span class="id">FE-6</span><span class="ttl">"Worth a look before approving" on a run already approved</span><span class="st fixed">Fixed</span></div>
+        <p>That card is the first thing on the payroll screen for the rest of the month, and it kept offering advice about a decision already taken.</p>
+        <p class="where">src/app/(app)/payroll/payroll-screen.tsx</p>
+      </div>
+
+      <div class="finding be">
+        <div class="hd"><span class="id">BE-1</span><span class="ttl">Who decided an exclusion resolves to "somebody"</span><span class="st open">For the API</span></div>
+        <p>The exclusion audit line reads <strong><em class="sic">Decided by somebody with no employee record on 2026-08-29</em></strong>. The decider was the company owner, a real account with a real name. <code>PayrollExclusion.excludedBy</code> joins to <strong>Employee</strong>, and the owner has none.</p>
+        <p>Every actor is a <code>User</code>; not every user is an employee. For a new company the owner is always the first person to run payroll, so this is the <em>default</em> case rather than an edge one. The sentence whose whole job is to answer <em class="sic">why was this person not paid in August?</em> currently answers it with a shrug. The frontend cannot invent a name it was not sent — the field wants the user's name, not the employee's.</p>
+      </div>
+    </div>
+
+    <h3>Two decisions, not defects</h3>
+    <div class="grid2">
+      <div class="box">
+        <h4>No public holidays for a new company</h4>
+        <p>Nigeria's dates are the same for every customer, and they already drive payroll proration, overtime rates, timesheet status and the SLA clock. Asking every customer to type them is asking every customer to get them wrong differently.</p>
+      </div>
+      <div class="box">
+        <h4>The owner is not on their own payroll</h4>
+        <p>Correct as a data model, and the root of two friction points above. Worth deciding whether signup should offer to create the owner's employee record, or whether the product should say plainly that it has not.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ═══════════════════════════════════════════════════════════ 10 ══ -->
+<section class="stage" id="s10">
+  <div class="spine"><span class="n">10</span><span class="lbl">Honesty</span></div>
+  <div class="col">
+    <h2>What this walk did not prove</h2>
+
+    <h3>Three things I reported to myself and had to withdraw</h3>
+    <p>
+      Worth recording, because each is a way a test can be wrong in a direction
+      that flatters the tester.
+    </p>
+    <ul class="plain">
+      <li><strong>"The clock-in fails silently."</strong> It does not. My script read <code>main</code>, and the toast renders outside it. Both refused writes show a specific, actionable message.</li>
+      <li><strong>"The record page has no bank-name field."</strong> It does. The field is a searchable Picker over 255 NIBSS banks, not a <code>&lt;select&gt;</code>, so my DOM query missed it.</li>
+      <li><strong>"Escape does not close the modal."</strong> It does. I had navigated away between opening and pressing.</li>
+    </ul>
+    <p>
+      A fourth: one script left a dialog open, and the next script's click was
+      eaten by the overlay. That looked exactly like a dead link. Every finding
+      above was re-derived from the source or re-run cleanly before it was
+      written down.
+    </p>
+
+    <h3>Not covered</h3>
+    <ul class="plain">
+      <li><strong>Any role but the owner.</strong> One person, holding everything. Nothing here tests what a Payroll analyst or a Line manager sees, and permission gates are where this codebase has previously drifted.</li>
+      <li><strong>The payment batch and the bank file</strong> — the run stops at approved, which is correct, but the file itself was not downloaded or checked.</li>
+      <li><strong>Payslip distribution</strong> — two payslips sit at <em class="sic">Not sent · Nobody has these yet</em>.</li>
+      <li><strong>The employee's own view of any of this.</strong> Nobody in this company has a login.</li>
+      <li><strong>Leave end to end</strong> — the booking dialog was opened and read, not submitted, and no request was approved.</li>
+      <li><strong>Editing an employee record</strong> beyond the one bank-account field, and archive/restore.</li>
+      <li><strong>Departments, teams, documents, equipment, loans and expenses</strong> — outside the agreed scope of this walk.</li>
+    </ul>
+
+    <h3>What was proved</h3>
+    <p>
+      A person with no training created a company, answered nine questions, added
+      four employees two different ways, ran a payroll that refused to be wrong,
+      left two people off it with reasons on the record, fixed a blocker from the
+      screen that named it, approved <span class="money">₦687,607.00</span>, and
+      found the Time module already correct about which day was a rest day.
+    </p>
+    <p>
+      Every figure on that payroll reconciles by hand against Nigerian statute.
+      That is the thing the whole product is sold on, and on this walk it was
+      true.
+    </p>
+  </div>
+</section>
+
+<footer class="end">
+  <p>
+    Walked 29 August 2026 in a headed browser driven over CDP, against the live
+    API, on a company registered during the walk rather than seeded. Screens
+    quoted verbatim. Figures re-derived independently before being called
+    correct.
+  </p>
+  <p>
+    Six frontend fixes committed and verified on screen. <span class="mono">npm run build</span>
+    exit 0 at 97 routes; <span class="mono">npm run check</span> exit 0 across all
+    fourteen gates.
+  </p>
+</footer>
+
+</div>
+
+</body></html>
