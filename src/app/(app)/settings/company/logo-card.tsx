@@ -44,27 +44,25 @@ import { useCompanyLogo } from "@/lib/store/company";
  *
  * The old behaviour was a refusal telling somebody to go and export the file
  * smaller, which sends a person who wanted a logo on their payslip off to
- * find image software. `prepareLogo` brings it down and returns a sentence
- * saying what it did, which is shown — a file quietly replaced by a different
- * file is worse than a refusal, however convenient.
+ * find image software. `prepareLogo` brings it down instead. It still
+ * returns a sentence describing what it did (`PreparedLogo.note`), at the
+ * product owner's instruction this card no longer shows it — the resized
+ * file speaks for itself in the preview above.
  */
 
 export function CompanyLogoCard() {
   const logo = useCompanyLogo();
   const input = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
-  const [note, setNote] = useState<string | null>(null);
   const [preparing, setPreparing] = useState(false);
 
   async function choose(file: File) {
     setError(null);
-    setNote(null);
     setPreparing(true);
 
     try {
       const prepared = await prepareLogo(file);
       await logo.save(prepared.dataUri);
-      setNote(prepared.note);
     } catch (caught) {
       setError(
         caught instanceof LogoError || caught instanceof ApiError
@@ -173,19 +171,6 @@ export function CompanyLogoCard() {
                 className="rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-body-sm text-ink"
               >
                 {error}
-              </p>
-            )}
-
-            {/* Saved, but not as chosen. This is the whole reason resizing is
-                allowed to happen without asking: it is only acceptable if the
-                person is told, and told what to do if it was not what they
-                wanted. */}
-            {note && (
-              <p
-                role="status"
-                className="rounded-md border border-line bg-canvas px-3 py-2 text-body-sm text-body"
-              >
-                {note}
               </p>
             )}
 

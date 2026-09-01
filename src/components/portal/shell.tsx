@@ -25,6 +25,7 @@ import { useLeaveRequests } from "@/lib/store/leave-api";
 import { useAttendanceRoster } from "@/lib/store/attendance";
 import { APPROVE_PERMISSIONS } from "@/app/(app)/approvals/inbox";
 import { useSession } from "@/lib/store/session";
+import { useCompanyLogo } from "@/lib/store/company";
 import { VerificationBanner } from "./verification-banner";
 
 /**
@@ -603,6 +604,7 @@ function UserMenu() {
  */
 function CompanySwitcher() {
   const { user } = useSession();
+  const logo = useCompanyLogo();
   const organization = user?.organization;
   if (!organization) return null;
 
@@ -624,9 +626,19 @@ function CompanySwitcher() {
           : undefined
       }
     >
-      <span className="flex size-5 items-center justify-center rounded-xs bg-accent text-meta font-bold text-white">
-        {initial}
-      </span>
+      {logo.logoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={logo.logoUrl}
+          alt=""
+          aria-hidden="true"
+          className="size-5 shrink-0 rounded-xs object-contain"
+        />
+      ) : (
+        <span className="flex size-5 shrink-0 items-center justify-center rounded-xs bg-accent text-meta font-bold text-white">
+          {initial}
+        </span>
+      )}
       <span className="max-w-[14rem] truncate">{name}</span>
     </span>
   );

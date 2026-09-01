@@ -469,19 +469,24 @@ export function WalletStrip({ run }: { run: PayrollRunDetail }) {
           </p>
         )}
 
+        {/* One line. This used to spend two paragraphs explaining that a
+            shortfall does not block approval — true, and not what somebody
+            glancing at this card needs first. The figure is already in the
+            stat row above (`Available now`); this exists only to say the
+            balance is low and point at the one place that fixes it. The bank
+            file is not linked from here — it is the other button on this
+            same screen once the run is approved. */}
         {short && (
-          <Callout tone="warning" title="Not enough to pay this from the wallet">
-            <p>
-              You are {formatKobo(Math.abs(funds.afterKobo))} short. That does
-              not stop you approving this payroll — approving is about whether
-              the figures are right, and they are a separate question from
-              whether the money has landed yet.
-            </p>
-            <p className="mt-2">
-              What it does stop is paying from the wallet. Fund it, or send the
-              bank file to your bank instead — both routes are offered once this
-              is approved.
-            </p>
+          <Callout tone="warning" title="Wallet balance is low">
+            <ButtonLink
+              href="/payroll/payments"
+              variant="ghost"
+              size="sm"
+              className="h-auto p-0 font-medium underline underline-offset-2"
+            >
+              Fund it
+            </ButtonLink>{" "}
+            to pay from here, or download the bank file below instead.
           </Callout>
         )}
       </CardBody>
