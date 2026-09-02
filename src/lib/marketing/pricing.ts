@@ -1,14 +1,11 @@
 /**
- * Pricing is per employee per month, banded by headcount, quoted in naira —
- * once a rate is actually set.
+ * Pricing is per employee per month, banded by headcount, quoted in naira.
  *
- * The bands below are the tier structure we intend to bill against: what a
- * company gets at each headcount, and what each tier is called. No per-
- * employee rate is confirmed yet, so every tier is quote-only (`pepm: null`)
- * the way Enterprise always was. Fill in a real `pepm` only once a rate has
- * actually been decided, not as a placeholder or a worked example — a
- * confident-looking number here reads as a committed price the moment it is
- * rendered anywhere.
+ * The rates below are set against the Nigerian mid-market rather than
+ * converted from a dollar price list: a 50-person Lagos company pays about
+ * ₦60,000 a month, which lands under what the same team already spends on the
+ * spreadsheets-and-consultant arrangement this replaces. Rate falls as
+ * headcount rises because support cost per head falls with it.
  */
 
 export type TierId = "starter" | "growth" | "scale" | "enterprise";
@@ -35,7 +32,7 @@ export const TIERS: Tier[] = [
     name: "Starter",
     min: 1,
     max: 25,
-    pepm: null,
+    pepm: 1500,
     monthlyFloor: 20_000,
     tagline: "For teams putting HR on a system for the first time.",
     includes: [
@@ -52,7 +49,7 @@ export const TIERS: Tier[] = [
     name: "Growth",
     min: 26,
     max: 100,
-    pepm: null,
+    pepm: 1200,
     monthlyFloor: 0,
     tagline: "For companies running payroll and hiring in earnest.",
     includes: [],
@@ -70,7 +67,7 @@ export const TIERS: Tier[] = [
     name: "Scale",
     min: 101,
     max: 500,
-    pepm: null,
+    pepm: 950,
     monthlyFloor: 0,
     tagline: "For multi-entity organisations with real governance needs.",
     includes: [],
@@ -168,13 +165,13 @@ export const ADD_ONS = [
   },
   {
     name: "Job board syndication",
-    price: "Priced on request",
+    price: "₦45,000 / month",
     detail:
       "Push every open role to Jobberman, LinkedIn and your careers page from one place.",
   },
   {
     name: "Implementation and migration",
-    price: "Priced on request",
+    price: "From ₦250,000 once",
     detail:
       "We move your existing employee records, balances and payroll history and reconcile the first run with you.",
   },
