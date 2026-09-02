@@ -45,6 +45,14 @@ export type PayComponentBasis =
   | "PERCENT_OF_BASIC";
 
 /**
+ * `PERMANENT` charges every active employee automatically, at the default
+ * amount or rate — an HMO premium, a levy the whole company carries. No one
+ * gets assigned to it; it just applies. `OPTIONAL` is the ordinary case:
+ * applies to nobody until somebody is assigned it.
+ */
+export type PayComponentApplyMode = "PERMANENT" | "OPTIONAL";
+
+/**
  * A component definition.
  *
  * The three flags are statutory claims, not display preferences. `taxable` and
@@ -73,6 +81,8 @@ export type ApiPayComponent = {
   /** Shipped by us. Cannot be archived, and its kind is fixed. */
   isSystem: boolean;
   archived: boolean;
+  /** PERMANENT means nobody needs assigning — see the type's own header. */
+  applyMode: PayComponentApplyMode;
   /** Assignments ever made, live or ended. What makes archiving refuse. */
   assignmentCount: number;
 };
@@ -294,6 +304,7 @@ export type CreatePayComponentBody = {
   defaultRate?: number;
   sortOrder?: number;
   active?: boolean;
+  applyMode?: PayComponentApplyMode;
 };
 
 /** `kind` and `code` are absent deliberately — the API will not change either. */
@@ -307,6 +318,7 @@ export type UpdatePayComponentBody = {
   defaultRate?: number | null;
   sortOrder?: number;
   active?: boolean;
+  applyMode?: PayComponentApplyMode;
 };
 
 export type AssignBody = {
