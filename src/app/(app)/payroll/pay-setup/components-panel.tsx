@@ -39,12 +39,14 @@ import {
   ratePercent,
   type ApiPayComponent,
   type CreatePayComponentBody,
+  type PayComponentApplyMode,
   type PayComponentBasis,
   type PayComponentKind,
   type UpdatePayComponentBody,
 } from "@/lib/api/pay-components";
 import {
   amountLine,
+  applyModeSwitch,
   basisOf,
   flagChips,
   money,
@@ -752,6 +754,7 @@ type Draft = {
   taxable: boolean;
   pensionable: boolean;
   preTax: boolean;
+  applyMode: PayComponentApplyMode;
 };
 
 const BASIS_OPTIONS: { value: PayComponentBasis; label: string }[] = [
@@ -799,6 +802,7 @@ function ComponentDialog({
     taxable: component?.taxable ?? true,
     pensionable: component?.pensionable ?? false,
     preTax: component?.preTax ?? false,
+    applyMode: component?.applyMode ?? "OPTIONAL",
   });
   const [saving, setSaving] = useState(false);
 
@@ -838,6 +842,7 @@ function ComponentDialog({
           basis: draft.basis,
           defaultAmountKobo: fixed ? amountKobo : null,
           defaultRate: fixed ? null : rate,
+          applyMode: draft.applyMode,
           ...(kind === "ALLOWANCE"
             ? { taxable: draft.taxable, pensionable: draft.pensionable }
             : { preTax: draft.preTax }),
@@ -850,6 +855,7 @@ function ComponentDialog({
           /* Omitted, never null: the create schema takes a number or nothing. */
           ...(fixed && amountKobo !== null ? { defaultAmountKobo: amountKobo } : {}),
           ...(!fixed && rate !== null ? { defaultRate: rate } : {}),
+          applyMode: draft.applyMode,
           ...(kind === "ALLOWANCE"
             ? { taxable: draft.taxable, pensionable: draft.pensionable }
             : { preTax: draft.preTax }),
@@ -863,6 +869,7 @@ function ComponentDialog({
   const taxable = taxableSwitch(draft.taxable);
   const pension = pensionSwitch(draft.pensionable, rates);
   const preTax = preTaxSwitch(draft.preTax);
+  const applyMode = applyModeSwitch(draft.applyMode === "PERMANENT");
 
   return (
     <Modal
@@ -1008,6 +1015,17 @@ function ComponentDialog({
               }}
             />
           )}
+        </div>
+
+        <div className="flex flex-col gap-4 rounded-lg border border-line bg-canvas p-4">
+          <Switch
+            label={applyMode.label}
+            description={applyMode.why}
+            checked={draft.applyMode === "PERMANENT"}
+            onChange={(e) => {
+              set("applyMode", e.target.checked ? "PERMANENT" : "OPTIONAL");
+            }}
+          />
         </div>
       </div>
     </Modal>

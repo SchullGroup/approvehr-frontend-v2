@@ -126,7 +126,7 @@ export function PlatformOverview() {
       <div
         id="platform-panel"
         role="tabpanel"
-        className="relative min-h-[280px] lg:min-h-[340px]"
+        className="relative min-h-70 lg:min-h-85"
       >
         {/* Keyed so the mockup animates in on each change. */}
         <div key={active} className="animate-scale-in">
@@ -137,7 +137,7 @@ export function PlatformOverview() {
       {/* Copy */}
       <div key={`${active}-copy`} className="animate-fade flex flex-col justify-center">
         <h3 className="text-h2 text-slate">{current.label}</h3>
-        <p className="mt-4 text-body leading-relaxed text-slate-muted">
+        <p className="mt-4 text-body leading-relaxed">
           {current.blurb}
         </p>
         {current.statutory && (

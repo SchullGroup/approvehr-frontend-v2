@@ -112,7 +112,7 @@ export function LinkCard({
       href={href}
       className={cn(
         "group flex flex-col gap-3 rounded-lg border border-line bg-surface p-5",
-        "transition-[border-color,box-shadow,transform] duration-200 ease-[var(--ease-out-soft)]",
+        "transition-[border-color,box-shadow,transform] duration-200 ease-out-soft",
         "hover:border-line-strong hover:shadow-md hover:-translate-y-0.5",
         className,
       )}
@@ -244,11 +244,7 @@ export function Callout({
 
   return (
     <div
-      className={cn(
-        "flex gap-3 rounded-lg border p-4",
-        tones[tone],
-        className,
-      )}
+      className={cn("flex gap-3 rounded-lg border p-4", tones[tone], className)}
     >
       {icon && (
         <span aria-hidden="true" className="shrink-0 mt-px [&>svg]:size-[18px]">
@@ -257,7 +253,9 @@ export function Callout({
       )}
       <div className="min-w-0 text-body-sm leading-relaxed">
         {title && <p className="font-semibold mb-1">{title}</p>}
-        <div className={tone === "neutral" ? "" : "text-ink/85"}>{children}</div>
+        <div className={tone === "neutral" ? "" : "text-ink/85"}>
+          {children}
+        </div>
       </div>
     </div>
   );

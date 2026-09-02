@@ -40,14 +40,12 @@ export function SectionHeading({
       )}
     >
       {eyebrow && (
-        <p className="mb-3 text-[0.75rem] font-semibold uppercase tracking-[0.1em] text-slate-muted">
+        <p className="mb-3 text-[0.75rem] font-semibold uppercase tracking-widest text-slate-muted">
           {eyebrow}
         </p>
       )}
       <h2 className="text-h1 text-slate">{title}</h2>
-      {lead && (
-        <p className="mt-5 text-lead text-slate-muted">{lead}</p>
-      )}
+      {lead && <p className="mt-5 text-lead text-slate-muted">{lead}</p>}
     </div>
   );
 }
@@ -89,7 +87,7 @@ export function ModuleCard({
   return (
     <article
       className={cn(
-        "group relative flex h-full flex-col overflow-hidden rounded-3xl transition-all duration-300 ease-[var(--ease-out-soft)]",
+        "group relative flex h-full flex-col overflow-hidden rounded-3xl transition-all duration-300 ease-out-soft",
         "hover:-translate-y-1 hover:shadow-[0_12px_28px_-8px_rgb(20_18_15/0.14)]",
         "focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-slate",
         WASH_CLASS[module.wash],
@@ -127,7 +125,7 @@ export function ModuleCard({
       </div>
 
       <div className="pointer-events-none mt-auto overflow-hidden px-7">
-        <div className="translate-y-4 transition-transform duration-500 ease-[var(--ease-out-soft)] group-hover:translate-y-1">
+        <div className="translate-y-4 transition-transform duration-500 ease-out-soft group-hover:translate-y-1">
           <Mockup />
         </div>
       </div>

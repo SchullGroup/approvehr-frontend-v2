@@ -36,7 +36,7 @@ export function StatusPage({
       {code && (
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute left-1/2 top-1/2 -z-0 -translate-x-1/2 -translate-y-1/2 select-none text-[min(48vw,26rem)] font-semibold leading-none tracking-tight text-slate/[0.05]"
+          className="pointer-events-none absolute left-1/2 top-1/2 z-0 -translate-x-1/2 -translate-y-1/2 select-none text-[min(48vw,26rem)] font-semibold leading-none tracking-tight text-slate/5"
         >
           {code}
         </span>

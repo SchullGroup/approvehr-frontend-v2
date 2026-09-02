@@ -4,6 +4,7 @@ import {
   ratePercent,
   type ApiPayComponent,
   type ApiPayComponentBasisSource,
+  type PayComponentApplyMode,
 } from "@/lib/api/pay-components";
 
 /**
@@ -97,17 +98,45 @@ export function preTaxChip(preTax: boolean): FlagChip {
       };
 }
 
-/** The chips for one component, in the order they should read. */
+/**
+ * Whether the component charges itself. `PERMANENT` is the one flag here that
+ * is not a tax rule but a distribution rule: it decides *who* is on the
+ * component, not what happens to the amount once they are.
+ */
+export function applyModeChip(applyMode: PayComponentApplyMode): FlagChip {
+  return applyMode === "PERMANENT"
+    ? {
+        label: "Everyone, automatically",
+        tone: "accent",
+        why: "Charged to every active employee on every run. Nobody needs to be assigned it.",
+      }
+    : {
+        label: "Assigned",
+        tone: "neutral",
+        why: "Applies to nobody until somebody is assigned it, one person or several at once.",
+      };
+}
+
+/**
+ * The chips for one component, in the order they should read.
+ *
+ * `applyMode` is optional: it describes the component's own definition, not
+ * any one person's line, so a resolved per-person assignment (which carries
+ * no such field) still gets a full chip set — just without that one, since
+ * there is nothing wrong to default it to.
+ */
 export function flagChips(
-  component: Pick<ApiPayComponent, "kind" | "taxable" | "pensionable" | "preTax">,
+  component: Pick<ApiPayComponent, "kind" | "taxable" | "pensionable" | "preTax"> & {
+    applyMode?: PayComponentApplyMode;
+  },
   rates: { employeeRate: number; employerRate: number },
 ): FlagChip[] {
-  return component.kind === "ALLOWANCE"
-    ? [
-        taxableChip(component.taxable),
-        pensionChip(component.pensionable, rates),
-      ]
-    : [preTaxChip(component.preTax)];
+  return [
+    ...(component.kind === "ALLOWANCE"
+      ? [taxableChip(component.taxable), pensionChip(component.pensionable, rates)]
+      : [preTaxChip(component.preTax)]),
+    ...(component.applyMode === undefined ? [] : [applyModeChip(component.applyMode)]),
+  ];
 }
 
 /* ------------------------------------------------------- how much, in words */
@@ -234,5 +263,14 @@ export function preTaxSwitch(on: boolean): SwitchCopy {
     why: on
       ? "Before tax — it lowers the PAYE bill too. Only for schemes the tax law recognises, like NHIS."
       : "After tax — PAYE is worked out first, then this comes off take-home pay.",
+  };
+}
+
+export function applyModeSwitch(on: boolean): SwitchCopy {
+  return {
+    label: "Charge every employee automatically",
+    why: on
+      ? "Permanent — every active employee carries it on every run, at the amount or rate above. Nobody needs assigning."
+      : "Optional — applies to nobody until you assign it, to one person or several at once.",
   };
 }

@@ -63,7 +63,9 @@ export function SheetPanel({
   runId: string;
   /** `YYYY-MM`, for the filename. */
   period: string;
-  sources: readonly SheetRowSource[];
+  /** `null` while the wizard is still reading everyone's current bonus and
+   *  deduction lines — see the note on `sheetLineSummary` there. */
+  sources: readonly SheetRowSource[] | null;
   /**
    * Told what happened, because this component will not be here to say it.
    *
@@ -90,6 +92,25 @@ export function SheetPanel({
     message: string;
     problems: readonly SheetProblem[];
   } | null>(null);
+
+  if (sources === null) {
+    return (
+      <Modal
+        open
+        onClose={onClose}
+        title="Work this payroll in a spreadsheet"
+        description="Reading everyone's current figures…"
+        size="lg"
+      >
+        <div className="flex items-center gap-3 py-6">
+          <Spinner />
+          <span className="text-body-sm text-muted">
+            Reading who already has a bonus or a deduction on this payroll…
+          </span>
+        </div>
+      </Modal>
+    );
+  }
 
   const byNumber = new Map(sources.map((s) => [s.payslip.employeeNo, s]));
 
@@ -191,8 +212,8 @@ export function SheetPanel({
         <p className="text-body-sm text-muted">
           Downloads with everybody on this payroll already in it — staff number,
           name, contact, department, whether an account is on file, plus the figures
-          the run holds now. Fill in overtime hours, a bonus, a tax figure or a
-          new monthly salary, and upload it back.
+          the run holds now. Fill in overtime hours, a bonus or a deduction (each
+          with a reason), a tax figure or a new monthly salary, and upload it back.
         </p>
 
         <div className="flex flex-wrap gap-2">
