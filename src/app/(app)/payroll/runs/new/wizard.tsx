@@ -2924,7 +2924,12 @@ function PayeSwitch({
   editable: boolean;
   onChanged: () => void;
 }) {
-  const { settings: response, loading, available, save } = useDeductionSwitches();
+  const {
+    settings: response,
+    loading,
+    available,
+    save,
+  } = useDeductionSwitches();
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
 
@@ -2945,7 +2950,9 @@ function PayeSwitch({
       await save({ payeEnabled: !on });
       onChanged();
     } catch (error) {
-      setFailed(error instanceof Error ? error.message : "Could not save that.");
+      setFailed(
+        error instanceof Error ? error.message : "Could not save that.",
+      );
     } finally {
       setSaving(false);
     }
@@ -2976,9 +2983,7 @@ function PayeSwitch({
           className={cn(
             "relative h-4 w-7 shrink-0 rounded-full transition-colors duration-200",
             on ? "bg-success-strong" : "bg-line-strong",
-            editable
-              ? "cursor-pointer"
-              : "cursor-not-allowed opacity-50",
+            editable ? "cursor-pointer" : "cursor-not-allowed opacity-50",
             "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text",
           )}
         >
@@ -2986,7 +2991,7 @@ function PayeSwitch({
             aria-hidden="true"
             className={cn(
               "pointer-events-none absolute left-0.5 top-0.5 size-3 rounded-full bg-white shadow-sm",
-              "transition-transform duration-200 ease-[var(--ease-out-soft)]",
+              "transition-transform duration-200 ease-out-soft",
               on && "translate-x-3",
             )}
           />

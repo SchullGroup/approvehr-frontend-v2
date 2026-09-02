@@ -145,7 +145,9 @@ export function AreaChart({
 
   const pathOf = (run: { x: number; y: number }[]) =>
     run
-      .map((c, i) => `${i === 0 ? "M" : "L"}${c.x.toFixed(1)},${c.y.toFixed(1)}`)
+      .map(
+        (c, i) => `${i === 0 ? "M" : "L"}${c.x.toFixed(1)},${c.y.toFixed(1)}`,
+      )
       .join(" ");
 
   /* A single reading has no line to draw, so it gets a dot. Without this a
@@ -165,8 +167,16 @@ export function AreaChart({
       >
         <defs>
           <linearGradient id="ahr-area" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--color-accent)" stopOpacity="0.18" />
-            <stop offset="100%" stopColor="var(--color-accent)" stopOpacity="0" />
+            <stop
+              offset="0%"
+              stopColor="var(--color-accent)"
+              stopOpacity="0.18"
+            />
+            <stop
+              offset="100%"
+              stopColor="var(--color-accent)"
+              stopOpacity="0"
+            />
           </linearGradient>
         </defs>
 
@@ -234,9 +244,7 @@ export function AreaChart({
         {points.map((p, i) => (
           <span
             key={p.label}
-            className={cn(
-              i > 0 && i < points.length - 1 && "hidden sm:inline",
-            )}
+            className={cn(i > 0 && i < points.length - 1 && "hidden sm:inline")}
           >
             {p.label}
           </span>
@@ -271,10 +279,11 @@ export function BarChart({
     <figure className={cn("min-w-0", className)}>
       <ul className="flex flex-col gap-3" aria-hidden="true">
         {points.map((p, i) => (
-          <li key={p.label} className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1">
-            <span className="truncate text-body-sm text-body">
-              {p.label}
-            </span>
+          <li
+            key={p.label}
+            className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1"
+          >
+            <span className="truncate text-body-sm text-body">{p.label}</span>
             <span
               className={cn(
                 "text-body-sm",
@@ -299,7 +308,7 @@ export function BarChart({
             >
               {p.value !== null && (
                 <span
-                  className="block h-full rounded-full transition-[width] duration-500 ease-[var(--ease-out-soft)]"
+                  className="block h-full rounded-full transition-[width] duration-500 ease-out-soft"
                   style={{
                     width: `${(p.value / max) * 100}%`,
                     backgroundColor:
@@ -383,8 +392,7 @@ export function ColumnChart({
                   ? { height: "100%" }
                   : {
                       height: `${Math.max((p.value / max) * 100, p.value > 0 ? 2 : 0)}%`,
-                      backgroundColor:
-                        tones?.[i] ?? "var(--color-accent)",
+                      backgroundColor: tones?.[i] ?? "var(--color-accent)",
                     }
               }
             />
@@ -506,7 +514,9 @@ export function StackedBar({
           >
             <span
               className="size-2 shrink-0 rounded-[2px]"
-              style={{ backgroundColor: seg.color ?? SERIES[i % SERIES.length] }}
+              style={{
+                backgroundColor: seg.color ?? SERIES[i % SERIES.length],
+              }}
             />
             {seg.label} {format(seg.value)}
           </li>
@@ -756,9 +766,7 @@ export function FunnelChart({
           return (
             <li key={stage.label}>
               <div className="mb-1 flex items-baseline justify-between gap-3">
-                <span className="text-body-sm text-body">
-                  {stage.label}
-                </span>
+                <span className="text-body-sm text-body">{stage.label}</span>
                 <span className="flex items-baseline gap-2">
                   <span className="tabular text-body-sm font-medium text-ink">
                     {stage.value}
@@ -772,7 +780,7 @@ export function FunnelChart({
               </div>
               <div className="h-6 overflow-hidden rounded-sm bg-sunken">
                 <div
-                  className="h-full rounded-sm transition-[width] duration-500 ease-[var(--ease-out-soft)]"
+                  className="h-full rounded-sm transition-[width] duration-500 ease-out-soft"
                   style={{
                     width: `${pct}%`,
                     backgroundColor: SERIES[i % SERIES.length],

@@ -36,12 +36,13 @@ import { ApiError } from "@/lib/api/client";
 import { employeeById } from "@/lib/mock/people";
 import type { ApprovalKind } from "@/lib/mock/workflows";
 import { fullName } from "@/lib/types";
-import {
-  useApprovalQueue,
-  type QueueFilter,
-} from "@/lib/store/approvals-api";
+import { useApprovalQueue, type QueueFilter } from "@/lib/store/approvals-api";
 import type { QueueItem } from "@/lib/workflows/queue";
-import { hasAnyPermission, useIsManager, usePermissions } from "@/lib/permissions";
+import {
+  hasAnyPermission,
+  useIsManager,
+  usePermissions,
+} from "@/lib/permissions";
 
 /**
  * Holding any one of these is what makes "waiting on you" a question that can
@@ -121,7 +122,8 @@ export function ApprovalInbox() {
   const toast = useToast();
   const isManager = useIsManager();
   const { permissions } = usePermissions();
-  const canApprove = isManager || hasAnyPermission(permissions, APPROVE_PERMISSIONS);
+  const canApprove =
+    isManager || hasAnyPermission(permissions, APPROVE_PERMISSIONS);
 
   const decide = async (
     item: QueueItem,
@@ -235,7 +237,11 @@ export function ApprovalInbox() {
         )}
       </div>
 
-      <LoadFailure subject="your approvals" error={queue.error} onRetry={queue.reload} />
+      <LoadFailure
+        subject="your approvals"
+        error={queue.error}
+        onRetry={queue.reload}
+      />
 
       {canApprove ? (
         <>
@@ -413,7 +419,7 @@ function ApprovalRow({
       <CardBody className="flex flex-wrap items-start gap-4">
         <span
           aria-hidden="true"
-          className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent-text transition-transform duration-300 ease-[var(--ease-out-soft)] group-hover:scale-105 [&>svg]:size-[18px]"
+          className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent-text transition-transform duration-300 ease-out-soft group-hover:scale-105 [&>svg]:size-[18px]"
         >
           {ICON[item.kind]}
         </span>
@@ -424,7 +430,11 @@ function ApprovalRow({
               {item.kindLabel}
             </Badge>
             {item.deadline && (
-              <Badge tone={item.pastDeadline ? "danger" : "warning"} size="sm" dot>
+              <Badge
+                tone={item.pastDeadline ? "danger" : "warning"}
+                size="sm"
+                dot
+              >
                 {item.deadline}
               </Badge>
             )}
@@ -460,9 +470,7 @@ function ApprovalRow({
 
         {item.amount !== undefined && (
           <div className="shrink-0 text-right">
-            <p className="text-meta text-faint">
-              Value
-            </p>
+            <p className="text-meta text-faint">Value</p>
             {/* Never abbreviated. This is a figure somebody reconciles against a
                 bank statement, and ₦93.0m is not that figure. */}
             <p className="tabular text-body font-semibold text-ink">

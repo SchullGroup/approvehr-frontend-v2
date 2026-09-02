@@ -134,7 +134,7 @@ const SIZES: Record<ButtonSize, string> = {
 const BASE =
   "inline-flex items-center justify-center font-medium whitespace-nowrap " +
   "transition-[background-color,color,box-shadow,transform] duration-150 " +
-  "ease-[var(--ease-out-soft)] active:translate-y-px " +
+  "ease-out-soft active:translate-y-px " +
   "disabled:opacity-50 disabled:cursor-not-allowed disabled:active:translate-y-0 " +
   "disabled:shadow-none";
 

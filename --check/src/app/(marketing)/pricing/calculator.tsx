@@ -83,7 +83,7 @@ export function PricingCalculator() {
           value={Math.min(headcount, 1000)}
           onChange={(e) => setHeadcount(Number(e.currentTarget.value))}
           aria-label="Headcount"
-          className="mt-6 w-full accent-[var(--color-accent)]"
+          className="mt-6 w-full accent-(--color-accent)"
         />
 
         {/* Tier ladder — shows where the number lands and what is next. */}
@@ -121,9 +121,7 @@ export function PricingCalculator() {
                       on ? "text-white" : "text-slate-muted",
                     )}
                   >
-                    {t.pepm === null
-                      ? "Custom"
-                      : `${naira(t.pepm)} / employee`}
+                    {t.pepm === null ? "Custom" : `${naira(t.pepm)} / employee`}
                   </span>
                 </button>
               </li>
@@ -225,7 +223,7 @@ export function PricingCalculator() {
 
       {/* What is included */}
       <div className="lg:col-span-2">
-        <h3 className="text-[0.75rem] font-semibold uppercase tracking-[0.1em] text-slate-muted">
+        <h3 className="text-[0.75rem] font-semibold uppercase tracking-widest text-slate-muted">
           Included on {q.tier.name}
         </h3>
         <ul className="mt-5 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
