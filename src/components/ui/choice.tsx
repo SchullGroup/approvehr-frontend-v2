@@ -173,12 +173,17 @@ export function RadioCard({
         )}
       >
         {icon && (
-          <span aria-hidden="true" className="shrink-0 text-accent-text [&>svg]:size-5">
+          <span
+            aria-hidden="true"
+            className="shrink-0 text-accent-text [&>svg]:size-5"
+          >
             {icon}
           </span>
         )}
         <span className="min-w-0">
-          <span className="block text-body-sm font-medium text-ink">{label}</span>
+          <span className="block text-body-sm font-medium text-ink">
+            {label}
+          </span>
           {description && (
             <span className="mt-1 block text-body-sm leading-relaxed text-body">
               {description}
@@ -244,7 +249,7 @@ export const Switch = forwardRef<HTMLInputElement, SwitchProps>(function Switch(
           aria-hidden="true"
           className={cn(
             "pointer-events-none absolute left-0.5 top-0.5 size-5 rounded-full bg-white shadow-sm",
-            "transition-transform duration-200 ease-[var(--ease-out-soft)]",
+            "transition-transform duration-200 ease-out-soft",
             "peer-checked:translate-x-5",
           )}
         />

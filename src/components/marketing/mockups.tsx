@@ -195,12 +195,12 @@ export function PipelineMockup({ className }: { className?: string }) {
 
               {/* The travelling card: leaves Screening, lands in Interview. */}
               {ci === 1 && (
-                <div className="transition-all duration-500 ease-[var(--ease-out-soft)] group-hover:-translate-y-1 group-hover:opacity-0">
+                <div className="transition-all duration-500 ease-out-soft group-hover:-translate-y-1 group-hover:opacity-0">
                   <MiniCard highlight />
                 </div>
               )}
               {ci === 2 && (
-                <div className="translate-y-1 opacity-0 transition-all delay-200 duration-500 ease-[var(--ease-out-soft)] group-hover:translate-y-0 group-hover:opacity-100">
+                <div className="translate-y-1 opacity-0 transition-all delay-200 duration-500 ease-out-soft group-hover:translate-y-0 group-hover:opacity-100">
                   <MiniCard highlight />
                 </div>
               )}
@@ -272,7 +272,7 @@ export function PayrollCardMockup({ className }: { className?: string }) {
         ].map(([tone, w]) => (
           <span
             key={tone}
-            className={cn("h-full transition-[width] duration-700 ease-[var(--ease-out-soft)]", tone)}
+            className={cn("h-full transition-[width] duration-700 ease-out-soft", tone)}
             style={{ width: w }}
           />
         ))}
@@ -286,7 +286,7 @@ export function PayrollCardMockup({ className }: { className?: string }) {
         ].map(([label, amount], i) => (
           <div
             key={label}
-            className="flex items-center justify-between transition-transform duration-300 ease-[var(--ease-out-soft)] group-hover:translate-x-0.5"
+            className="flex items-center justify-between transition-transform duration-300 ease-out-soft group-hover:translate-x-0.5"
             style={{ transitionDelay: `${i * 60}ms` }}
           >
             <span className="text-meta text-slate/55">{label}</span>
@@ -322,7 +322,7 @@ export function LeaveMockup({ className }: { className?: string }) {
         {[booked, booked2].map((set, row) => (
           <div key={row} className="flex items-center gap-2">
             <span className="size-5 shrink-0 rounded-full bg-slate/10" />
-            <div className="flex flex-1 gap-[3px]">
+            <div className="flex flex-1 gap-0.75">
               {Array.from({ length: 14 }).map((_, i) => {
                 const on = set.has(i);
                 const weekend = i % 7 === 5 || i % 7 === 6;
@@ -331,7 +331,7 @@ export function LeaveMockup({ className }: { className?: string }) {
                   <span
                     key={i}
                     className={cn(
-                      "h-5 flex-1 rounded-[3px] transition-colors duration-300 ease-[var(--ease-out-soft)]",
+                      "h-5 flex-1 rounded-[3px] transition-colors duration-300 ease-out-soft",
                       on
                         ? row === 0
                           ? "bg-success"
@@ -404,7 +404,7 @@ export function RecordMockup({ className }: { className?: string }) {
             </p>
             <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-slate/6">
               <span
-                className="block h-full w-0 rounded-full bg-slate/20 transition-[width] duration-500 ease-[var(--ease-out-soft)]"
+                className="block h-full w-0 rounded-full bg-slate/20 transition-[width] duration-500 ease-out-soft"
                 style={{
                   ["--w" as string]: label.length > 9 ? "80%" : "62%",
                   transitionDelay: `${i * 70}ms`,
@@ -447,7 +447,7 @@ export function ReviewMockup({ className }: { className?: string }) {
             </div>
             <span className="block h-1.5 overflow-hidden rounded-full bg-slate/8">
               <span
-                className="block h-full w-0 rounded-full bg-[#7c5cd6] transition-[width] duration-700 ease-[var(--ease-out-soft)]"
+                className="block h-full w-0 rounded-full bg-cat-4 transition-[width] duration-700 ease-out-soft"
                 style={{
                   ["--w" as string]: `${s.pct}%`,
                   transitionDelay: `${i * 90}ms`,
@@ -494,7 +494,7 @@ export function DeskMockup({ className }: { className?: string }) {
         {tickets.map((t, i) => (
           <div
             key={t.label}
-            className="flex items-center gap-2 rounded-lg border border-slate/8 p-2 transition-colors duration-300 ease-[var(--ease-out-soft)] group-hover:border-success-line group-hover:bg-wash-green"
+            className="flex items-center gap-2 rounded-lg border border-slate/8 p-2 transition-colors duration-300 ease-out-soft group-hover:border-success-line group-hover:bg-wash-green"
             style={{ transitionDelay: `${i * 120}ms` }}
           >
             <span

@@ -53,7 +53,10 @@ export function Pill({
   arrow?: boolean;
   className?: string;
   children: React.ReactNode;
-} & Omit<React.ComponentProps<typeof Link>, "href" | "className" | "children">) {
+} & Omit<
+  React.ComponentProps<typeof Link>,
+  "href" | "className" | "children"
+>) {
   return (
     <Link
       href={href}
@@ -70,7 +73,7 @@ export function Pill({
       {arrow && (
         <ArrowRight
           aria-hidden="true"
-          className="size-4 transition-transform duration-200 ease-[var(--ease-out-soft)] group-hover/pill:translate-x-1"
+          className="size-4 transition-transform duration-200 ease-out-soft group-hover/pill:translate-x-1"
         />
       )}
     </Link>
@@ -105,7 +108,7 @@ export function PillButton({
       {arrow && (
         <ArrowRight
           aria-hidden="true"
-          className="size-4 transition-transform duration-200 ease-[var(--ease-out-soft)] group-hover/pill:translate-x-1"
+          className="size-4 transition-transform duration-200 ease-out-soft group-hover/pill:translate-x-1"
         />
       )}
     </button>
@@ -133,7 +136,7 @@ export function LearnMore({
       )}
     >
       {children}
-      <span className="flex size-6 items-center justify-center rounded-full bg-slate/8 transition-all duration-200 ease-[var(--ease-out-soft)] group-hover/more:bg-slate group-hover/more:text-white">
+      <span className="flex size-6 items-center justify-center rounded-full bg-slate/8 transition-all duration-200 ease-out-soft group-hover/more:bg-slate group-hover/more:text-white">
         <ArrowRight aria-hidden="true" className="size-3.5" />
       </span>
     </Link>

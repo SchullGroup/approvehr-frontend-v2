@@ -27,7 +27,11 @@ import {
   type ApiShift,
 } from "@/lib/api/shifts";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
-import { previewPattern, previewShift, useShiftMutations } from "@/lib/store/shifts";
+import {
+  previewPattern,
+  previewShift,
+  useShiftMutations,
+} from "@/lib/store/shifts";
 import { colourFor, shiftColours } from "./palette";
 
 const STEPS: Step[] = [
@@ -113,11 +117,11 @@ export function AssignPatternModal({
 
   const pattern =
     choice?.kind === "pattern"
-      ? patterns.find((row) => row.id === choice.id) ?? null
+      ? (patterns.find((row) => row.id === choice.id) ?? null)
       : null;
   const shift =
     choice?.kind === "shift"
-      ? shifts.find((row) => row.id === choice.id) ?? null
+      ? (shifts.find((row) => row.id === choice.id) ?? null)
       : null;
 
   const span = daysBetween(from, to) + 1;
@@ -262,7 +266,7 @@ export function AssignPatternModal({
                   type="checkbox"
                   checked={chosen.includes(employee.id)}
                   onChange={() => toggle(employee.id)}
-                  className="size-4 shrink-0 accent-[var(--color-accent)]"
+                  className="size-4 shrink-0 accent-(--color-accent)"
                 />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-body-sm font-medium text-ink">
@@ -302,15 +306,20 @@ export function AssignPatternModal({
                     <input
                       type="radio"
                       name="what"
-                      checked={choice?.kind === "pattern" && choice.id === row.id}
-                      onChange={() => setChoice({ kind: "pattern", id: row.id })}
-                      className="size-4 shrink-0 accent-[var(--color-accent)]"
+                      checked={
+                        choice?.kind === "pattern" && choice.id === row.id
+                      }
+                      onChange={() =>
+                        setChoice({ kind: "pattern", id: row.id })
+                      }
+                      className="size-4 shrink-0 accent-(--color-accent)"
                     />
                     <span className="min-w-0 flex-1 text-body-sm font-medium text-ink">
                       {row.name}
                     </span>
                     <Badge tone="neutral" size="sm">
-                      {row.shiftDaysPerCycle} on, {row.cycleDays - row.shiftDaysPerCycle} off
+                      {row.shiftDaysPerCycle} on,{" "}
+                      {row.cycleDays - row.shiftDaysPerCycle} off
                     </Badge>
                   </span>
                   <CycleStrip pattern={row} colours={colours} />
@@ -339,7 +348,7 @@ export function AssignPatternModal({
                     name="what"
                     checked={choice?.kind === "shift" && choice.id === row.id}
                     onChange={() => setChoice({ kind: "shift", id: row.id })}
-                    className="size-4 shrink-0 accent-[var(--color-accent)]"
+                    className="size-4 shrink-0 accent-(--color-accent)"
                   />
                   <span className="min-w-0 flex-1 text-body-sm text-ink">
                     <span className="font-semibold">{row.shortName}</span>{" "}
@@ -397,7 +406,11 @@ export function AssignPatternModal({
                 size="sm"
                 onClick={() => setTo(addDays(from, days - 1))}
               >
-                {days === 7 ? "One week" : days === 28 ? "Four weeks" : "A quarter"}
+                {days === 7
+                  ? "One week"
+                  : days === 28
+                    ? "Four weeks"
+                    : "A quarter"}
               </Button>
             ))}
           </div>
@@ -415,7 +428,10 @@ export function AssignPatternModal({
               {preview.map((day) => {
                 const colour = colourFor(colours, day.shiftId);
                 return (
-                  <li key={day.date} className="w-[3.25rem] shrink-0 text-center">
+                  <li
+                    key={day.date}
+                    className="w-13 shrink-0 text-center"
+                  >
                     <span className="block text-meta text-muted">
                       {dayAbbrev(day.date)}
                     </span>
@@ -448,8 +464,8 @@ export function AssignPatternModal({
           </div>
           <p className="mt-4 text-body-sm text-body">
             {pattern ? pattern.name : shift ? shift.name : ""} from{" "}
-            {shortDay(from)} to {shortDay(to)}. Everybody selected works the same
-            days.
+            {shortDay(from)} to {shortDay(to)}. Everybody selected works the
+            same days.
           </p>
         </div>
       )}
@@ -486,7 +502,9 @@ export function CycleStrip({
             >
               {day.shortName ?? "·"}
               <span className="sr-only">
-                {day.name ? `Day ${day.day}, ${day.name}` : `Day ${day.day}, off`}
+                {day.name
+                  ? `Day ${day.day}, ${day.name}`
+                  : `Day ${day.day}, off`}
               </span>
             </span>
           </li>

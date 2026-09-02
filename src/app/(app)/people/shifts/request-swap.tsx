@@ -81,23 +81,25 @@ export function RequestSwapModal({
 
   const colleagues = useMemo(() => {
     const rows = rota?.rows ?? [];
-    return rows
-      .filter((row) => row.employeeId !== employeeId)
-      .map((row) => ({
-        employeeId: row.employeeId,
-        name: row.name,
-        employeeNo: row.employeeNo,
-        theirs: row.days[0] ?? null,
-      }))
-      /* Somebody already on the same shift that day is dropped: exchanging a
+    return (
+      rows
+        .filter((row) => row.employeeId !== employeeId)
+        .map((row) => ({
+          employeeId: row.employeeId,
+          name: row.name,
+          employeeNo: row.employeeNo,
+          theirs: row.days[0] ?? null,
+        }))
+        /* Somebody already on the same shift that day is dropped: exchanging a
          night for the same night changes nothing, so offering it is offering a
          no-op. Somebody on a *different* shift stays — that is a real swap. */
-      .filter((row) => row.theirs?.shiftId !== shift.shiftId)
-      .filter((row) =>
-        query.trim() === ""
-          ? true
-          : row.name.toLowerCase().includes(query.trim().toLowerCase()),
-      );
+        .filter((row) => row.theirs?.shiftId !== shift.shiftId)
+        .filter((row) =>
+          query.trim() === ""
+            ? true
+            : row.name.toLowerCase().includes(query.trim().toLowerCase()),
+        )
+    );
   }, [rota, employeeId, query, shift.shiftId]);
 
   const chosen = colleagues.find((row) => row.employeeId === picked) ?? null;
@@ -218,7 +220,7 @@ export function RequestSwapModal({
                     value={row.employeeId}
                     checked={selected}
                     onChange={() => setPicked(row.employeeId)}
-                    className="size-4 shrink-0 accent-[var(--color-accent)]"
+                    className="size-4 shrink-0 accent-(--color-accent)"
                   />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-body-sm font-medium text-ink">
@@ -243,10 +245,7 @@ export function RequestSwapModal({
           </fieldset>
         )}
 
-        <Field
-          label="Reason"
-          help="They will see this. One line is plenty."
-        >
+        <Field label="Reason" help="They will see this. One line is plenty.">
           <Textarea
             rows={2}
             maxLength={300}

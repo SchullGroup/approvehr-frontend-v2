@@ -475,7 +475,7 @@ export function PayslipDocument({
             <img
               src={company.logoUrl}
               alt=""
-              className="mb-2.5 max-h-12 max-w-[12rem] object-contain object-left"
+              className="mb-2.5 max-h-12 max-w-48 object-contain object-left"
             />
           )}
           <p className="text-h4 text-ink">{company?.name ?? "—"}</p>

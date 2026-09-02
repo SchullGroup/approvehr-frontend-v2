@@ -87,7 +87,7 @@ export function Marquee({
       className={cn(
         "group relative overflow-hidden",
         /* Fade the rail into the page rather than cutting it off. */
-        "[mask-image:linear-gradient(to_right,transparent,#000_8%,#000_92%,transparent)]",
+        "mask-[linear-gradient(to_right,transparent,#000_8%,#000_92%,transparent)]",
         className,
       )}
     >
