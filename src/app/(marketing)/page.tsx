@@ -17,6 +17,7 @@ import {
   StatutoryMockup,
 } from "@/components/marketing/mockups";
 import { liveProductCta, newTabIfApp } from "@/lib/marketing/links";
+import { quote } from "@/lib/marketing/pricing";
 
 /* Secondary CTAs. Both promise a running product, so both degrade to something
    that exists when the app isn't deployed alongside the site. */
@@ -94,6 +95,8 @@ const SHAPES = [
 ];
 
 export default function HomePage() {
+  const fifty = quote(50);
+
   return (
     <>
       {/* ------------------------------------------------------------ Hero */}
@@ -330,20 +333,47 @@ export default function HomePage() {
       <section className="px-4 pb-24">
         <div className="container-page">
           <Reveal>
-            <div className="rounded-3xl bg-night px-8 py-16 text-center lg:px-14">
-              <p className="mb-3 text-meta font-semibold text-white/40">
-                Pricing
-              </p>
-              <h2 className="mx-auto max-w-2xl text-h1 text-white">
-                Start free. Pay from month two.
-              </h2>
-              <p className="mx-auto mt-5 max-w-md leading-relaxed text-white/60">
-                Your first month on us. We migrate your existing employee records and payroll history at no cost. Pricing after that is per employee, per month, the rate falls as your team grows.
-              </p>
-              <div className="mt-8 flex flex-wrap justify-center gap-3">
-                <Pill href="/demo" variant="solid" arrow>
-                  Get started free
-                </Pill>
+            <div className="grid gap-10 rounded-3xl bg-night p-10 lg:grid-cols-2 lg:items-center lg:p-14">
+              <div>
+                <p className="mb-3 text-meta font-semibold text-white/40">
+                  Pricing
+                </p>
+                <h2 className="text-h1 text-white">
+                  Start free. Pay from month two.
+                </h2>
+                <p className="mt-5 max-w-md leading-relaxed text-white/60">
+                  Your first month on us. We migrate your existing employee records and payroll history at no cost. Pricing after that is per employee, per month, the rate falls as your team grows.
+                </p>
+                <div className="mt-8 flex flex-wrap gap-3">
+                  <Pill href="/demo" variant="solid" arrow>
+                    Get started free
+                  </Pill>
+                  <Pill href="/pricing" variant="quiet">
+                    See full pricing
+                  </Pill>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-night-line p-7">
+                <p className="text-meta text-white/50">
+                  A 50-person company on Growth
+                </p>
+                <p className="mt-3 text-[2.75rem] font-medium leading-none tracking-tight text-white">
+                  ₦{fifty.monthly!.toLocaleString("en-NG")}
+                </p>
+                <p className="mt-2 text-meta text-white/50">
+                  per month · ₦{fifty.tier.pepm!.toLocaleString("en-NG")} per
+                  employee
+                </p>
+                <div className="mt-6 border-t border-night-line pt-5">
+                  <p className="text-meta text-white/60">
+                    Paid annually you save{" "}
+                    <span className="font-medium text-success">
+                      ₦{fifty.annualSaving!.toLocaleString("en-NG")}
+                    </span>{" "}
+                    a year — two months free.
+                  </p>
+                </div>
               </div>
             </div>
           </Reveal>
