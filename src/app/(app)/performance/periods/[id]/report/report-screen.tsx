@@ -654,7 +654,17 @@ function WhatCameIn({ report }: { report: ApiCycleReport }) {
               },
               {
                 term: "Acknowledged",
-                value: `${marks.acknowledged} of ${marks.finalised} told`,
+                /* You can only answer a mark you have been told, so the
+                   denominator is what has been finalised rather than the
+                   headcount — and when nothing is final there is no ratio to
+                   state. This was rendering "0 of 0 told", which is the claim
+                   `ratio` exists to refuse and the one the incumbent's own
+                   dashboard was audited for. */
+                value: ratio(
+                  marks.acknowledged,
+                  marks.finalised,
+                  "No mark is final yet",
+                ),
               },
               {
                 term: "No answer yet",
