@@ -83,7 +83,7 @@ export function PricingCalculator() {
           value={Math.min(headcount, 1000)}
           onChange={(e) => setHeadcount(Number(e.currentTarget.value))}
           aria-label="Headcount"
-          className="mt-6 w-full accent-[var(--color-accent)]"
+          className="mt-6 w-full accent-(--color-accent)"
         />
 
         {/* Tier ladder — shows where the number lands and what is next. */}
@@ -121,9 +121,7 @@ export function PricingCalculator() {
                       on ? "text-white" : "text-slate-muted",
                     )}
                   >
-                    {t.pepm === null
-                      ? "Custom"
-                      : `${naira(t.pepm)} / employee`}
+                    {t.pepm === null ? "Custom" : `${naira(t.pepm)} / employee`}
                   </span>
                 </button>
               </li>

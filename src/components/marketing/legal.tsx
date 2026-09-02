@@ -139,7 +139,7 @@ export function LegalDocument({ doc }: { doc: LegalDoc }) {
               stand between the reader and the first clause. */}
           <nav
             aria-label="On this page"
-            className="order-first lg:order-none lg:sticky lg:top-28 lg:self-start"
+            className="order-first lg:order-0 lg:sticky lg:top-28 lg:self-start"
           >
             <h2 className="text-meta font-semibold text-slate-muted">
               On this page
@@ -171,7 +171,7 @@ export function LegalDocument({ doc }: { doc: LegalDoc }) {
                     {other.label}
                     <ArrowUpRight
                       aria-hidden="true"
-                      className="size-3.5 transition-transform duration-200 ease-[var(--ease-out-soft)] group-hover/doc:-translate-y-0.5 group-hover/doc:translate-x-0.5"
+                      className="size-3.5 transition-transform duration-200 ease-out-soft group-hover/doc:-translate-y-0.5 group-hover/doc:translate-x-0.5"
                     />
                   </Link>
                 </li>

@@ -29,6 +29,7 @@ import {
   type RunException,
   type RunExclusion,
   type AdjustmentLines,
+  type LineSummaryByEmployee,
   type BonusChange,
   type LinesSaved,
   type PayslipSendOutcome,
@@ -1771,6 +1772,25 @@ export function usePayrollActions() {
   );
 
   /**
+   * Every person's bonus and deduction summary for the whole run — what the
+   * adjustment sheet downloads into its `bonus` / `deduction` columns.
+   *
+   * Empty offline, same reasoning as `adjustmentLines` just above: the
+   * honest answer to "what does everyone carry" with no engine behind the
+   * demo is that nobody carries anything, not a refusal on a read nobody
+   * has asked to change yet.
+   */
+  const lineSummary = useCallback(
+    async (
+      runId: string,
+    ): Promise<{ bonuses: LineSummaryByEmployee; deductions: LineSummaryByEmployee }> => {
+      if (isConnected) return payrollApi.lineSummary(runId);
+      return { bonuses: {}, deductions: {} };
+    },
+    [isConnected],
+  );
+
+  /**
    * Replace every line of one kind for one person.
    *
    * Refused offline for the same reason as a single bonus: it moves gross and
@@ -1950,6 +1970,7 @@ export function usePayrollActions() {
     setBonus,
     clearBonus,
     adjustmentLines,
+    lineSummary,
     setLines,
     sendPayslips,
     uploadAdjustments,

@@ -405,6 +405,23 @@ export type AdjustmentLines = {
 };
 
 /**
+ * One person's bonus or deduction lines, reduced to what a spreadsheet cell
+ * can honestly say.
+ *
+ * `"many"` is not a number the sheet lost — it is the API refusing to guess.
+ * More than one line means more than one reason, and collapsing them into a
+ * single figure would either drop a reason or invent one. The adjustment
+ * sheet leaves that person's cell alone rather than show a total nobody
+ * actually recorded.
+ */
+export type LineSummary =
+  | { state: "none" }
+  | { state: "one"; amountKobo: number; reason: string | null }
+  | { state: "many"; count: number };
+
+export type LineSummaryByEmployee = Record<string, LineSummary>;
+
+/**
  * What a saved list came to.
  *
  * `total` is the figure the table cell shows. It comes back from the API rather
@@ -468,6 +485,13 @@ export type AdjustmentUploadRow = {
   payeKobo?: number | null;
   overtimeHours?: number | null;
   bonusKobo?: number | null;
+  /** A named deduction added by hand. Separate from the statutory pension/
+   *  NHF overrides — see the API schema's own note. */
+  deductionKobo?: number | null;
+  /** Per-row reason, present only when this row's cell carried one. Falls
+   *  back to `AdjustmentUpload.reason` on the API side when omitted. */
+  bonusReason?: string;
+  deductionReason?: string;
   monthlyKobo?: number | null;
 };
 
@@ -1441,6 +1465,18 @@ export const payrollApi = {
     request<AdjustmentLines>(`/payroll/runs/${id}/lines/${employeeId}`, {
       ...(signal ? { signal } : {}),
     }),
+
+  /**
+   * Every person's bonus and deduction summary, for the whole run in one
+   * call. What `adjustment-sheet.ts` downloads into the `bonus` / `deduction`
+   * columns — see `LineSummary`'s own note for why a payslip's rendered
+   * lines cannot answer this instead.
+   */
+  lineSummary: (id: string, signal?: AbortSignal) =>
+    request<{ bonuses: LineSummaryByEmployee; deductions: LineSummaryByEmployee }>(
+      `/payroll/runs/${id}/lines-summary`,
+      { ...(signal ? { signal } : {}) },
+    ),
 
   /**
    * Replaces every line of one kind for one person, in one call.

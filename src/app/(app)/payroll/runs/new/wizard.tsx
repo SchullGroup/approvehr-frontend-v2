@@ -77,6 +77,7 @@ import {
   type RunExclusion,
   wasDeducted,
   type DeductionKind,
+  type LineSummaryByEmployee,
 } from "@/lib/api/payroll";
 import { useCan } from "@/lib/permissions";
 import { useOvertimePolicy } from "@/lib/store/overtime";
@@ -362,6 +363,45 @@ export function PayrollRunWizard() {
   const runId = existing?.id ?? null;
   const detail = usePayrollRun(runId);
   const run = detail.run;
+
+  /**
+   * Fetched when the sheet panel opens, not before — it is one extra request
+   * on a screen most visits never open, and the whole reason it exists is to
+   * answer "what does everyone already carry" honestly (see `LineSummary`'s
+   * own note in `api/payroll.ts`). `null` while loading; the panel shows
+   * that as "reading the payroll" rather than starting every bonus and
+   * deduction cell blank and asking somebody to trust it.
+   */
+  const [sheetLineSummary, setSheetLineSummary] = useState<{
+    bonuses: LineSummaryByEmployee;
+    deductions: LineSummaryByEmployee;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!sheetOpen || !run) return;
+    /* No synchronous reset here: the panel is only mounted while `sheetOpen`
+       is true, so there is nothing stale on screen to clear when this effect
+       starts — closing and reopening unmounts and remounts it. The one gap
+       is switching `run.id` while the panel stays open, which the modal does
+       not allow to happen. */
+    let cancelled = false;
+    actions
+      .lineSummary(run.id)
+      .then((result) => {
+        if (!cancelled) setSheetLineSummary(result);
+      })
+      .catch(() => {
+        /* Same "empty is honest" fallback the action itself uses offline —
+           a failed read here should not stop the sheet from opening with
+           blank bonus/deduction cells, only from claiming to know more than
+           it does. */
+        if (!cancelled) setSheetLineSummary({ bonuses: {}, deductions: {} });
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sheetOpen, run?.id]);
 
   const allExceptions = useMemo(() => run?.exceptions ?? [], [run]);
   /* `missing_pay` and `missing_tax_state` each get a section of their own
@@ -954,7 +994,11 @@ export function PayrollRunWizard() {
             <SheetPanel
               runId={run.id}
               period={run.period.slice(0, 7)}
-              sources={sheetSources(run.payslips, directory.employees)}
+              sources={
+                sheetLineSummary
+                  ? sheetSources(run.payslips, directory.employees, sheetLineSummary)
+                  : null
+              }
               editable={canPrepare && !settled}
               onClose={() => setSheetOpen(false)}
               onApplied={(summary) => {
@@ -2737,10 +2781,21 @@ function isBonusLine(label: string): boolean {
  * one regex, and it fails to `null` rather than to a guess: a sheet that came
  * down with a blank overtime cell asks somebody to type the hours again, which
  * is recoverable. A sheet that came down with the *wrong* hours in it is not.
+ *
+ * Bonus and deduction come from `lineSummary`, not the payslip's own lines —
+ * deliberately, and not for the reason overtime uses a label regex at all.
+ * A bonus line is labelled `"Bonus"` or `"Bonus — {reason}"`, which is
+ * matchable; a deduction line is labelled `line.reason || "Deduction"`, so
+ * when a reason is given the label **is** the reason, indistinguishable from
+ * any other deduction line (a loan repayment, PAYE) that happens to share
+ * text. `payrollApi.lineSummary` answers both from the underlying
+ * `PayrollBonus` / `PayrollDeductionLine` rows directly, and says "many"
+ * rather than guess when a person carries more than one — see `LineSummary`.
  */
 function sheetSources(
   payslips: readonly Payslip[],
   employees: readonly Employee[],
+  lineSummary: { bonuses: LineSummaryByEmployee; deductions: LineSummaryByEmployee } | null,
 ): SheetRowSource[] {
   const byId = new Map(employees.map((e) => [e.id, e]));
   return payslips.map((payslip) => {
@@ -2750,14 +2805,12 @@ function sheetSources(
     const hours = overtime
       ? /\(([\d.]+)h/.exec(overtime.label)?.[1]
       : undefined;
-    const bonus = payslip.lines.find(
-      (l) => l.kind === "EARNING" && isBonusLine(l.label),
-    );
     return {
       payslip,
       employee: byId.get(payslip.employeeId),
       overtimeHours: hours === undefined ? null : Number(hours),
-      bonusKobo: bonus?.amountKobo ?? null,
+      bonus: lineSummary?.bonuses[payslip.employeeId] ?? { state: "none" },
+      deduction: lineSummary?.deductions[payslip.employeeId] ?? { state: "none" },
     };
   });
 }
@@ -2924,7 +2977,12 @@ function PayeSwitch({
   editable: boolean;
   onChanged: () => void;
 }) {
-  const { settings: response, loading, available, save } = useDeductionSwitches();
+  const {
+    settings: response,
+    loading,
+    available,
+    save,
+  } = useDeductionSwitches();
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
 
@@ -2945,7 +3003,9 @@ function PayeSwitch({
       await save({ payeEnabled: !on });
       onChanged();
     } catch (error) {
-      setFailed(error instanceof Error ? error.message : "Could not save that.");
+      setFailed(
+        error instanceof Error ? error.message : "Could not save that.",
+      );
     } finally {
       setSaving(false);
     }
@@ -2976,9 +3036,7 @@ function PayeSwitch({
           className={cn(
             "relative h-4 w-7 shrink-0 rounded-full transition-colors duration-200",
             on ? "bg-success-strong" : "bg-line-strong",
-            editable
-              ? "cursor-pointer"
-              : "cursor-not-allowed opacity-50",
+            editable ? "cursor-pointer" : "cursor-not-allowed opacity-50",
             "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text",
           )}
         >
@@ -2986,7 +3044,7 @@ function PayeSwitch({
             aria-hidden="true"
             className={cn(
               "pointer-events-none absolute left-0.5 top-0.5 size-3 rounded-full bg-white shadow-sm",
-              "transition-transform duration-200 ease-[var(--ease-out-soft)]",
+              "transition-transform duration-200 ease-out-soft",
               on && "translate-x-3",
             )}
           />

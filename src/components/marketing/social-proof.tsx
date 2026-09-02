@@ -26,7 +26,7 @@ export const CLIENTS = [
 export function ClientLogos() {
   return (
     <section className="border-y border-sand-line bg-sand-deep py-14">
-      <p className="container-page mb-9 text-center text-body text-slate-muted">
+      <p className="container-page mb-9 text-center text-body">
         Trusted by Nigerian teams in energy, logistics, education and technology
       </p>
       <Marquee duration={55}>
@@ -100,7 +100,7 @@ export function Testimonials() {
                     className="size-11 shrink-0 rounded-full object-cover"
                   />
                   <div className="min-w-0">
-                    <p className="truncate text-body font-medium text-slate">
+                    <p className="truncate text-body font-medium">
                       {t.name}
                     </p>
                     <p className="truncate text-meta text-slate-muted">

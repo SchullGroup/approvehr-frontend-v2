@@ -6,7 +6,9 @@ import { cn } from "@/lib/cn";
 import { PillButton } from "@/components/marketing/pill";
 import { MODULES } from "@/lib/marketing/modules";
 
-type Errors = Partial<Record<"name" | "email" | "company" | "headcount", string>>;
+type Errors = Partial<
+  Record<"name" | "email" | "company" | "headcount", string>
+>;
 
 const HEADCOUNTS = ["1–25", "26–100", "101–500", "501–2,000", "2,000+"];
 
@@ -74,7 +76,11 @@ export function DemoForm() {
     return (
       <div className="rounded-3xl border border-sand-line bg-white/70 p-10 text-center">
         <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-success">
-          <Check aria-hidden="true" className="size-6 text-slate" strokeWidth={3} />
+          <Check
+            aria-hidden="true"
+            className="size-6 text-slate"
+            strokeWidth={3}
+          />
         </span>
         <h2 className="mt-6 text-h3 text-slate">Request received</h2>
         <p className="mx-auto mt-3 max-w-sm text-[0.9375rem] leading-relaxed text-slate-muted">
@@ -335,7 +341,7 @@ function Chip({
       aria-pressed={selected}
       onClick={onClick}
       className={cn(
-        "rounded-full border px-3.5 py-2 text-[0.8125rem] transition-all duration-200 ease-[var(--ease-out-soft)]",
+        "rounded-full border px-3.5 py-2 text-[0.8125rem] transition-all duration-200 ease-out-soft",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate",
         selected
           ? "border-slate bg-slate text-white"

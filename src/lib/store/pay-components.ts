@@ -85,13 +85,15 @@ function refuse(what: string): never {
  *
  * ## `active` is the one field that is not a straight copy
  *
- * The API seeds all eight **off** — nobody chose them, so nothing is charged
+ * The API seeds all nine **off** — nobody chose them, so nothing is charged
  * until somebody switches one on. All four allowances arrive off here too,
  * exactly as a real new company finds them: an allowance is a discretionary
  * extra, and switching one on sight-unseen is not a decision this product
- * makes for anybody.
+ * makes for anybody. `HMO` stays off here too, for a second reason: it is
+ * PERMANENT, and this file has no simulation of the auto-apply that mode
+ * gets from the real API — see the note on it in `DEFAULTS` below.
  *
- * Two of the four deductions, `COOPERATIVE` and `NHIS`, are on in `DEFAULTS`
+ * Two of the five deductions, `COOPERATIVE` and `NHIS`, are on in `DEFAULTS`
  * and carry entries in `DEMO_PACKAGE` below, because the demo is also meant to
  * show what an *operating* company looks like and a screen with nothing ever
  * assigned reads as broken rather than new. The API refuses to put anybody on
@@ -118,6 +120,7 @@ const DEFAULTS: readonly Omit<ApiPayComponent, "id" | "assignmentCount">[] = [
     active: false,
     isSystem: true,
     archived: false,
+    applyMode: "OPTIONAL",
   },
   {
     code: "THIRTEENTH_MONTH",
@@ -136,6 +139,7 @@ const DEFAULTS: readonly Omit<ApiPayComponent, "id" | "assignmentCount">[] = [
     active: false,
     isSystem: true,
     archived: false,
+    applyMode: "OPTIONAL",
   },
   {
     code: "TRANSPORT_TOP_UP",
@@ -154,6 +158,7 @@ const DEFAULTS: readonly Omit<ApiPayComponent, "id" | "assignmentCount">[] = [
     active: false,
     isSystem: true,
     archived: false,
+    applyMode: "OPTIONAL",
   },
   {
     code: "HOUSING_TOP_UP",
@@ -172,6 +177,7 @@ const DEFAULTS: readonly Omit<ApiPayComponent, "id" | "assignmentCount">[] = [
     active: false,
     isSystem: true,
     archived: false,
+    applyMode: "OPTIONAL",
   },
   {
     code: "NHIS",
@@ -189,6 +195,29 @@ const DEFAULTS: readonly Omit<ApiPayComponent, "id" | "assignmentCount">[] = [
     active: true,
     isSystem: true,
     archived: false,
+    applyMode: "OPTIONAL",
+  },
+  {
+    code: "HMO",
+    name: "HMO premium",
+    kind: "DEDUCTION",
+    basis: "FIXED",
+    /* After tax — unlike NHIS above, a company's own HMO plan is not a scheme
+       recognised under the National Health Insurance legislation. Permanent:
+       switching it on is meant to be the whole setup, no per-person
+       assignment — see the API's own seed for the full reasoning. Off here,
+       same as most of the eight above: nobody has chosen it yet, and the demo
+       does not simulate the auto-apply itself, only the definition. */
+    taxable: true,
+    pensionable: false,
+    preTax: false,
+    defaultAmountKobo: null,
+    defaultRate: null,
+    sortOrder: 215,
+    active: false,
+    isSystem: true,
+    archived: false,
+    applyMode: "PERMANENT",
   },
   {
     code: "UNION_DUES",
@@ -207,6 +236,7 @@ const DEFAULTS: readonly Omit<ApiPayComponent, "id" | "assignmentCount">[] = [
     active: false,
     isSystem: true,
     archived: false,
+    applyMode: "OPTIONAL",
   },
   {
     code: "COOPERATIVE",
@@ -224,6 +254,7 @@ const DEFAULTS: readonly Omit<ApiPayComponent, "id" | "assignmentCount">[] = [
     active: true,
     isSystem: true,
     archived: false,
+    applyMode: "OPTIONAL",
   },
   {
     code: "SALARY_ADVANCE",
@@ -242,6 +273,7 @@ const DEFAULTS: readonly Omit<ApiPayComponent, "id" | "assignmentCount">[] = [
     active: false,
     isSystem: true,
     archived: false,
+    applyMode: "OPTIONAL",
   },
 ];
 

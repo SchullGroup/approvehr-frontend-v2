@@ -57,8 +57,9 @@ const headingOf = (key: string) =>
 
 const STAFF = headingOf("staff_no");
 /* Named explicitly rather than by position: the declaration order is
-   monthly_salary, overtime_hours, bonus, paye_tax, and indexing into it is how
-   a test ends up asserting about a different column than it names. */
+   monthly_salary, overtime_hours, bonus, bonus_reason, deduction,
+   deduction_reason, paye_tax, and indexing into it is how a test ends up
+   asserting about a different column than it names. */
 const PAYE_KEY = "paye_tax";
 const PAYE = headingOf(PAYE_KEY);
 const OTHER_ENTERED = entered.filter((c) => c.key !== PAYE_KEY);
@@ -71,7 +72,7 @@ async function main() {
   check(
     "entered columns",
     entered.map((c) => c.key).join(", "),
-    "monthly_salary, overtime_hours, bonus, paye_tax, pension, nhf",
+    "monthly_salary, overtime_hours, bonus, bonus_reason, deduction, deduction_reason, paye_tax, pension, nhf",
   );
   check(
     "the rule is one exported sentence",

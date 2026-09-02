@@ -68,7 +68,7 @@ export function ProgressMeter({
       >
         <div
           className={cn(
-            "h-full rounded-full transition-[width] duration-500 ease-[var(--ease-out-soft)]",
+            "h-full rounded-full transition-[width] duration-500 ease-out-soft",
             fills[tone],
           )}
           style={{ width: `${pct}%` }}
@@ -181,13 +181,14 @@ export function FactorBars({
       {factors.map((f) => {
         const pct = Math.max(0, Math.min(100, (f.value / f.max) * 100));
         return (
-          <li key={f.label} className="grid grid-cols-[9rem_1fr_3rem] items-center gap-3">
-            <span className="truncate text-body-sm text-body">
-              {f.label}
-            </span>
+          <li
+            key={f.label}
+            className="grid grid-cols-[9rem_1fr_3rem] items-center gap-3"
+          >
+            <span className="truncate text-body-sm text-body">{f.label}</span>
             <span className="h-1.5 overflow-hidden rounded-full bg-sunken">
               <span
-                className="block h-full rounded-full bg-accent transition-[width] duration-500 ease-[var(--ease-out-soft)]"
+                className="block h-full rounded-full bg-accent transition-[width] duration-500 ease-out-soft"
                 style={{ width: `${pct}%` }}
               />
             </span>
