@@ -115,6 +115,68 @@ function build(
 }
 
 /**
+ * A clock time out of whatever a device wrote. Returns `HH:MM`, 24-hour.
+ *
+ * The API's `parseTime` character for character — `verify-template.ts` asserts
+ * the two dictionaries agree about which columns are times, and this is the
+ * parser behind that declaration on the offline side. If the API's changes,
+ * change this with it.
+ *
+ * Accepts `08:03`, `8:03`, `08:03:47` (seconds read and dropped — a punch is a
+ * minute on a timesheet), `2026-09-01 08:03:12` and its `T` form (the date half
+ * ignored: the row's own date column is the authority on the day), `8.03` as a
+ * European separator, and `8:03 AM` / `8:03 pm`.
+ *
+ * A **bare number** is refused rather than guessed at. `830` could be 08:30,
+ * Excel hands over `0.3541` for a cell it decided was a time, and a device might
+ * write `83000` meaning 08:30:00 — three readings, all plausible, and the wrong
+ * one moves somebody's hours by hours. `parseImportDate` completes a two-digit
+ * year silently because every reading of `26` lands on one day; there is no
+ * equivalent here.
+ */
+export function parseImportTime(raw: string): Parsed<string> {
+  const text = raw.trim();
+  if (text === "") return { ok: false, problem: "This cell is empty." };
+
+  const meridiem = /\b([ap])\.?m\.?$/i.exec(text);
+  const body = meridiem ? text.slice(0, meridiem.index).trim() : text;
+
+  const withoutDate = /^\d{4}-\d{1,2}-\d{1,2}[T ](.+)$/.exec(body);
+  const clock = (withoutDate?.[1] ?? body).trim();
+
+  const parts = /^(\d{1,2})[:.](\d{2})(?:[:.](\d{2}))?$/.exec(clock);
+  if (!parts) {
+    return {
+      ok: false,
+      problem:
+        "This is not a time we can read. Use HH:MM on a 24-hour clock — 08:30, or 17:05.",
+    };
+  }
+
+  let hour = Number(parts[1]);
+  const minute = Number(parts[2]);
+
+  if (meridiem) {
+    const isPm = meridiem[1]?.toLowerCase() === "p";
+    if (hour < 1 || hour > 12) {
+      return { ok: false, problem: `${clock} is not an hour on a 12-hour clock.` };
+    }
+    if (hour === 12) hour = isPm ? 12 : 0;
+    else if (isPm) hour += 12;
+  }
+
+  if (hour > 23) return { ok: false, problem: `There is no ${String(hour)} o'clock.` };
+  if (minute > 59) {
+    return { ok: false, problem: `${String(minute)} is not a number of minutes.` };
+  }
+
+  return {
+    ok: true,
+    value: `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`,
+  };
+}
+
+/**
  * A written amount to integer kobo, without a float touching it.
  *
  * The naira sign, NGN, thousands separators and spaces are stripped, because
@@ -191,6 +253,18 @@ export function parseImportMoneyKobo(
  */
 export type CellKind =
   | { kind: "date" }
+  /**
+   * A clock time on the row's own day. `HH:MM`, 24-hour, once read.
+   *
+   * Mirrors the API's own kind. Separate from `date` rather than a flag on it,
+   * because `parseImportDate` **discards** any time it is handed and every
+   * caller depends on that — a cell holding `08:03` is not a date at all.
+   *
+   * The generic engine in `check.ts` has to branch on this explicitly. Without
+   * a branch a time cell falls through to the money parser and a customer is
+   * told their clock-in is not a valid amount.
+   */
+  | { kind: "time" }
   | { kind: "money"; zeroAllowed?: boolean; subject?: string };
 
 /**
