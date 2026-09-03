@@ -7,6 +7,7 @@ import type {
 import {
   parseImportDate,
   parseImportMoneyKobo,
+  parseImportTime,
   type Dictionary,
   type RowContext,
 } from "./spec";
@@ -50,7 +51,7 @@ import {
  */
 
 export type { Parsed } from "./spec";
-export { parseImportDate, parseImportMoneyKobo } from "./spec";
+export { parseImportDate, parseImportMoneyKobo, parseImportTime } from "./spec";
 
 export type LocalCheckResult = {
   totalRows: number;
@@ -141,6 +142,16 @@ export function checkMappedRows(
         else if (parsed.value.ambiguous) {
           counts["ambiguousDates"] = (counts["ambiguousDates"] ?? 0) + 1;
         }
+        continue;
+      }
+
+      /* A clock time. Its own branch rather than a flag on the date one,
+         because `parseImportDate` throws a time away by design — and without
+         this `continue` a time cell would fall through to the money parser
+         below and a customer would be told their clock-in is not an amount. */
+      if (cell.kind === "time") {
+        const parsed = parseImportTime(value);
+        if (!parsed.ok) error(spec.field, parsed.problem);
         continue;
       }
 

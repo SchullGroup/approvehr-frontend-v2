@@ -182,3 +182,176 @@ export type ApiAnswer = {
 
 export const ask = (question: string): Promise<ApiAnswer> =>
   request<ApiAnswer>("/ai/ask", { method: "POST", body: { question } });
+
+/* ------------------------------------------------------------------ the chat */
+
+/**
+ * A conversation, and the one thing in this module that can lead to a write.
+ *
+ * ## `/ai/chat` proposes. `/ai/actions/:name` performs. Never the same press.
+ *
+ * This is the whole safety model and it is not a convention — it is two
+ * endpoints. `chat()` can only ever come back with a `proposed` block, which is
+ * a description of a change and the arguments that would make it. Nothing is
+ * written until somebody presses a button, and that button calls
+ * `runAssistantAction` with `proposed.args` **posted back verbatim**.
+ *
+ * Three rules follow, and undoing any one of them undoes the model:
+ *
+ * 1. **Never call `runAssistantAction` except from an explicit click.** Not from
+ *    an effect, not on arrival, not because the proposal looked safe.
+ * 2. **Never edit `args`.** They are the server's own resolved ids. Rewriting
+ *    them here would mean the thing confirmed is not the thing described.
+ * 3. **Render `proposal.summary`, `proposal.details` and `proposal.irreversible`
+ *    verbatim, and never write a button label that describes the act.** Those
+ *    sentences were read out of the database by the API; a paraphrase is a
+ *    sentence the model wrote about a record nobody checked. The point of the
+ *    confirm step is that its words come from the data rather than from the
+ *    assistant.
+ *
+ * ## Nothing is stored, on either side
+ *
+ * The API keeps no transcript, deliberately — the whole conversation is sent
+ * again every turn. So the frontend must not keep one either: mirroring it into
+ * `localStorage` would quietly undo a privacy decision somebody made on purpose.
+ * See `lib/store/ai-chat.ts`, which holds the conversation in component state
+ * and says the same thing.
+ */
+
+export type ApiChatRole = "user" | "assistant";
+
+/** Exactly what goes on the wire. No ids, no timestamps — the API takes neither. */
+export type ApiChatMessage = { role: ApiChatRole; content: string };
+
+/**
+ * The API's limits, named here because the composer and the store both enforce
+ * them and neither should carry its own copy of a number the server owns.
+ *
+ * Enforced locally so somebody typing a long paragraph is told before they press
+ * send rather than by a 400 afterwards — the server still refuses, and that
+ * refusal is what is shown if these two ever drift.
+ */
+export const MAX_CHAT_MESSAGES = 40;
+export const MAX_CHAT_MESSAGE_CHARS = 4000;
+
+/**
+ * What a change would be, in the API's own words.
+ *
+ * `summary` is one sentence read from the database. `details` are the specifics
+ * somebody checks before agreeing. `irreversible` is present **only** when the
+ * act cannot be undone, so its presence is the signal and a screen should make
+ * it prominent rather than treating it as one more line.
+ */
+export type ApiProposalDetail = {
+  summary: string;
+  details: string[];
+  irreversible?: string;
+};
+
+export type ApiProposedAction = {
+  /** `"decide_leave_request"`. Matches a name from `assistantActions()`. */
+  action: string;
+  /** Opaque. Posted back exactly as received — never built, edited or filtered. */
+  args: Record<string, unknown>;
+  proposal: ApiProposalDetail;
+};
+
+/**
+ * One turn's answer.
+ *
+ * `text` is absent when a change is proposed, which is deliberate on the API's
+ * side: prose beside a proposal would be the assistant describing its own
+ * suggestion, and then two sentences on screen would compete to say what the
+ * button does. Read `proposed.proposal` in that case.
+ */
+export type ApiChatReply = {
+  available: boolean;
+  /** Prose. Absent when `proposed` is present. */
+  text?: string;
+  /** The lookups that ran this turn, by name — `["leave_requests"]`. */
+  used: string[];
+  proposed?: ApiProposedAction;
+  /** Why, when `available` is false. Never rendered as an answer. */
+  reason?: string;
+};
+
+/**
+ * Send the whole conversation and get the next turn.
+ *
+ * The last message must be `role: "user"` or the API answers 400. Every turn
+ * carries the transcript because the server holds none of it.
+ */
+export const chat = (
+  messages: ApiChatMessage[],
+  signal?: AbortSignal,
+): Promise<ApiChatReply> =>
+  request<ApiChatReply>("/ai/chat", {
+    method: "POST",
+    body: { messages },
+    ...(signal ? { signal } : {}),
+  });
+
+/**
+ * How an action is gated.
+ *
+ * `permission` is one this account either holds or does not. `service` means the
+ * capability itself is not wired on the server — a provider nobody has
+ * credentialed — which is a different fact and reads differently to a person.
+ */
+export type ApiActionGate =
+  | { kind: "permission"; permission: string }
+  | { kind: "service" };
+
+export type ApiAssistantAction = {
+  name: string;
+  description: string;
+  gate: ApiActionGate;
+};
+
+/**
+ * Everything the assistant can propose.
+ *
+ * Read-only, and worth rendering somewhere: "what can I ask it to do" has no
+ * other answer, and a chat box with an invisible set of capabilities is the
+ * findable-by-nobody defect this file's neighbours keep recording.
+ */
+export const assistantActions = (
+  signal?: AbortSignal,
+): Promise<{ actions: ApiAssistantAction[] }> =>
+  request<{ actions: ApiAssistantAction[] }>("/ai/actions", {
+    ...(signal ? { signal } : {}),
+  });
+
+/**
+ * What was actually done.
+ *
+ * `confirmed` is the proposal as the API re-read it at the moment of the write,
+ * not a copy of what was shown — so a record that moved between the proposal and
+ * the press is described by the sentence that is true now.
+ */
+export type ApiActionResult = {
+  action: string;
+  confirmed: ApiProposalDetail;
+  /** One sentence naming what happened. Shown verbatim; never paraphrased. */
+  outcome: string;
+  subjectId: string;
+};
+
+/**
+ * Perform a proposed action. **Only ever from an explicit press.**
+ *
+ * `args` is `proposed.args`, unchanged. This is the only function in the
+ * frontend that writes through the assistant, and everything the API can refuse
+ * — 401, 403 for a permission, 404 for a record that is not this company's, 409
+ * for something already decided, 422 for arguments it will not take — arrives as
+ * an `ApiError` carrying the API's own sentence. Show that sentence; it names
+ * the permission or the conflict, and nothing here can.
+ */
+export const runAssistantAction = (
+  name: string,
+  args: Record<string, unknown>,
+): Promise<ApiActionResult> =>
+  request<ApiActionResult>(`/ai/actions/${encodeURIComponent(name)}`, {
+    method: "POST",
+    body: args,
+  });

@@ -5843,3 +5843,453 @@ an absent number reads as "working it out", a stale one reads as the answer.
 
 `lib/use-debounced.ts` exists and this file has its own copy of `useDebounced` at
 the bottom. Left alone, but that is the next thing to tidy here.
+
+---
+
+# The assistant can be talked to, and it can only ever ask
+
+`POST /ai/chat`, `GET /ai/actions` and `POST /ai/actions/:name` landed on the API
+(`feat/ai-chat-actions`) with nothing in the product reaching any of them. This
+is that interface. The endpoints are the deliverable's whole shape and the two
+halves of the safety model are two separate requests, so most of the decisions
+below are about not collapsing them.
+
+## `/ai/chat` proposes. `/ai/actions/:name` performs. Never the same press.
+
+The chat endpoint cannot write. It answers with prose, or with a `proposed`
+block — an action name, an opaque `args`, and a `proposal` of `{ summary,
+details, irreversible? }` that the API read **out of the database** at the moment
+it offered. Nothing has happened at that point. `runAssistantAction` is the only
+function in the frontend that writes through the assistant, it is called from one
+click handler and nowhere else, and it posts `proposed.args` back byte for byte.
+
+Three rules follow, written into `lib/api/ai.ts`'s header because undoing any one
+of them undoes the feature rather than degrading it:
+
+1. **Never call the action endpoint except from an explicit press.** Not from an
+   effect, not on arrival, not because a proposal looked harmless.
+2. **Never edit `args`.** They are the server's own resolved ids. Rewriting them
+   here would mean the thing confirmed is not the thing described.
+3. **Render `summary`, `details` and `irreversible` verbatim, and never write a
+   button label that describes the act.** The button says **Confirm**, which
+   names the decision. The act is the sentence above it, and that sentence came
+   out of the company's own records rather than out of a model. If you ever find
+   yourself writing "Approve Grace's leave" on the button, the card above it has
+   stopped being the thing being agreed to.
+
+`irreversible` is present **only** when the act cannot be undone, so its presence
+is the signal: a "Cannot be undone" badge in the card's header and a warning
+callout carrying the API's sentence, both absent otherwise. Treating it as one
+more detail line would make the one fact nobody can fix afterwards read like the
+rest.
+
+## A new component beside `ask-panel.tsx`, not `ask-panel.tsx` with more in it
+
+`AskPanel` is the one-shot box on both dashboards, and its own header argues that
+a transcript there would *"imply a memory that does not exist"*. That is exactly
+right for `/ai/ask`, which takes one question and holds nothing between them.
+
+It is not an argument about `/ai/chat`, which takes the **whole conversation on
+every turn** — a transcript there is not an implied memory, it is the request
+body. And the chat can propose a write, which is a control with no business
+appearing on a dashboard between the headcount and the noticeboard. Two
+endpoints, two contracts, two surfaces.
+
+`ask-panel.tsx` is otherwise untouched. The one change to it is a link in its
+header, which is the other half of the same argument.
+
+## Nothing is persisted, on either side, and that is the decision
+
+`lib/store/ai-chat.ts` holds the conversation in component state. No
+`createPersistedState`, no `localStorage`, no module singleton.
+
+The API stores no transcript **deliberately** — that is why the whole exchange is
+re-sent every turn. Mirroring it into browser storage would quietly undo a
+privacy decision somebody made on purpose: a shared machine would carry the last
+person's questions about a colleague's leave, in a key nobody thinks to clear, on
+a product whose own DPA says the assistant keeps nothing. The screen says so in
+one line under the composer, and `/settings/ai` says it at length.
+
+If a conversation should ever survive a reload, that is a retention decision with
+a model, a migration and an answer to "who may read my chat history" in it — not
+a client-side convenience.
+
+## Absent, not disabled, in three places at once
+
+The rule the rest of this feature already follows, applied to a route:
+
+- **The component** returns `null` when no assistant is wired, like every other
+  suggestion surface.
+- **The nav item** is hidden by a third question on `NavItem` — `assistant: true`
+  — beside `permission` (about the person) and `feature` (about the company).
+  This one is about the **server**: whether a credential is set. `OrgFeatures`
+  has no flag for it and adding one is a migration plus a setup-wizard decision,
+  so `visibleNav` takes a fourth argument instead, defaulting to `false` so an
+  item appears late rather than appearing and vanishing.
+- **The page** answers for itself anyway, because somebody arrives on a bookmark
+  or on a link a colleague sent before the key was removed. Connected it shows
+  the API's own sentence and a link to `/settings/ai`; with no server it says
+  there is no server, which is a different fact — there is nothing switched off
+  and sending somebody to look for a setting would waste their afternoon.
+
+### `useAssistantAvailable` is a session singleton now
+
+It was a `useState` inside the hook, which was right while every reader was a
+form that mounts occasionally. It is not right once the **sidebar** reads it on
+every page: that would be a `/ai/status` request per page load, and `.env.example`
+records the rate limit as 300 in fifteen minutes, which "opening three screens
+spends". Same shape as `store/features.ts`, which the nav already reads for the
+same reason, keyed by session so signing into another company re-asks. The hook's
+public shape is unchanged and its five existing call sites needed no edit.
+
+## Two failures, kept apart
+
+`error` is about the conversation: the turn did not go through. A turn's
+`actionError` is about a refused **write**. They are fixed by different people
+and they render in different places — one in a callout above the composer with a
+"Send it again" button, the other inside the proposal card it belongs to.
+
+`actionRefused` splits the second one further, and it earns its place: a 400,
+403, 404, 409 or 422 will refuse identically however many times the button is
+pressed, so the Confirm button is **removed** and only Discard is left, with a
+line saying why. A timeout or a 5xx keeps the button, reading "Try again",
+because there the request was sound and the moment was wrong. Same rule
+`components/portal/load-failure.tsx` applies to its own retry. The first draft
+kept a live "Try again" beside a 409 that said the period was already running —
+the exact dead control this file keeps recording, found by pressing it.
+
+## Discarding is local, and the assistant is not told
+
+Nothing is written, so there is nothing for the server to hear about. The
+alternative — appending "they said no" to the transcript — would put a sentence
+nobody typed into the conversation under a person's own turn, which is the one
+thing this surface is arranged not to do. The card stays, struck through, so the
+record of what was offered survives, and the line says the assistant was not told
+so somebody can say so themselves if they want it to know.
+
+## Three things about the transcript that only matter once
+
+- **A proposing turn has no prose.** The API omits `text` whenever it proposes,
+  on purpose — two sentences competing to say what the button does is worse than
+  one. So the stored turn carries `proposal.summary` as its content, because the
+  wire needs a non-empty message and an empty one comes back 400 on the *next*
+  turn, about a message nobody typed. The card renders it; the bubble does not,
+  compared rather than gated on `proposed` so genuinely different prose would
+  still show. Rendering both put the same sentence on screen twice, which read as
+  the assistant talking to itself. Found by looking at it.
+- **A confirmation appends a receipt.** The API's `outcome`, verbatim, as an
+  assistant turn — so the transcript reads as one thing that happened, and so the
+  next turn carries the fact rather than leaving the model offering to do
+  something already done.
+- **Once done, the card shows `confirmed`, not the proposal.** They are two
+  fields for a reason: the API re-describes the change immediately before making
+  it, and a record can move between an offer and a press. The sentence that is
+  true now is the one to show.
+
+## The limits are the API's and are enforced twice
+
+40 messages, 4000 characters each, last message must be the person's. Named once
+in `lib/api/ai.ts` and read by both the store and the composer, so somebody is
+told before they press rather than by a 400 after. The server still refuses, and
+its refusal is what is shown if the two ever drift.
+
+## `used` is shown, not logged
+
+The lookups that ran, under each answer, in the same words `ask-panel.tsx`
+already uses. An answer whose working cannot be checked is an oracle, and this
+product is sold against one. `GET /ai/actions` is rendered for the same reason,
+in a closed disclosure: "what can I ask it to do" otherwise has no answer at all,
+and each row carries the API's own gate — a permission this account may not hold
+and a service nobody has wired are different problems with different fixes.
+
+## Verified
+
+`npm run check` exit **0** (typecheck, lint, 99 titles, demo, contrast, type
+scale, stores, revalidate, payroll 64, CSV 102, adjustment sheet 16, template 38,
+loans 28, review language 52). The 8 lint **warnings** are unused imports in
+`payslips/[id]/view.tsx`, `runs/new/wizard.tsx`, `settings/company/form.tsx` and
+`store/features.ts` — confirmed identical on a clean `origin/staging` worktree,
+so none of them is from here.
+
+`npm run build` exit **0** at **94 routes**, up from **93** — measured, not
+assumed: a second worktree was checked out at `origin/staging`, built with the
+same command, and the two route tables diffed. The only difference is
+`/assistant`, and it is prerendered. `npm run verify-demo:build` exit **0**, with
+`tsconfig.json` unchanged afterwards.
+
+**In a browser, with no API** — which is the thing that had to be checked rather
+than assumed: the sidebar has no Assistant item, `/assistant` reached by URL
+renders "The assistant is not switched on" with no chat box and no dead button,
+the dashboard's Ask panel renders nothing as before, and the console is clean on
+a fresh tab. No scripted conversation exists offline and none should: a fake chat
+that looks real is the fabricated proof this repo has a gate for.
+
+**The chat itself was exercised against a local harness, not against the API.**
+The three API functions were temporarily replaced with fixtures and
+`useAssistantAvailable` forced on, in the worktree, then reverted — the tree was
+restored from byte-for-byte copies and `grep` confirms no marker and no fixture
+string survives. What that proved is the rendering, which is the half no gate can
+see: a turn with prose and its `Read from:` line; a proposal card with four
+verbatim details, Confirm and Discard, and "Nothing has changed yet"; Confirm
+turning it green with the confirmed summary and appending the outcome receipt; a
+proposal with `irreversible` showing both the badge and the callout; a 409
+rendering the server's sentence verbatim, dropping the Confirm button and saying
+why; Discard striking it through; the actions disclosure with both gate kinds;
+and 375px with no horizontal overflow. Two copy defects and two real defects were
+found this way and fixed — see the duplicate summary and the live "Try again"
+above.
+
+**Connected mode was not exercised, at all.** The API on this machine is checked
+out on another branch and does not serve these three routes, and reaching the one
+that does needs a sign-in this session cannot perform. The wire shapes were read
+straight off `origin/feat/ai-chat-actions` instead — `router.ts` for the three
+routes and their responses, `schemas.ts` for the 40/4000/last-must-be-user rules,
+`agent.ts` for `ChatReply` — and they match field for field. **Somebody with
+credentials should walk one real proposal and one real Confirm before this is
+believed.** That is the one part of this change no gate and no harness covers.
+
+## Deliberately not done
+
+- **No demo conversation.** Named separately from the verification note above
+  because it is a standing rule, not a gap: canned turns under a label saying a
+  model produced them from this company's records is a false claim about where a
+  sentence came from. `store/ai.ts` already argues this for suggestions and the
+  same argument is sharper here, where the fake would end in a fake Confirm.
+- **No retry on the whole transcript after a refused action.** `retry` re-sends
+  only when the last turn is the person's, which is a failed send. A refused
+  write is not a failed turn and re-asking the model about it would be a second
+  charge for a question nobody asked.
+- **`useAssistantActions` does not revalidate on focus.** It is in
+  `verify-revalidate.ts`'s `EXEMPT` list with its reason: the catalogue changes
+  when the server is redeployed, and the conversation beside it must never be
+  re-sent on a window focus — that is a second answer, charged for, under
+  somebody who had merely tabbed away.
+- **No `assistant` flag on `OrgFeatures`.** A company cannot switch the chat off
+  separately from the assistant; the credential is the switch. A column would be
+  a migration plus a wizard decision, which is not a frontend change.
+- **Nothing was added to the command palette or the quick actions.** The nav
+  item, the page and the dashboard link are three doors already; a fourth is
+  furniture until somebody says the three are not enough.
+
+---
+
+# The ATS backend exists now, and the frontend has not been told
+
+The product owner's brief: *"Can we build out the full backend for the ats and
+recruitment module, we aren't pushing it yet but want it to be ready."* Backend
+only — `web/src/lib/mock/hiring.ts` is untouched, and nothing here is wired to
+staging. The branch is `feat/recruitment-backend`, pushed to `origin` and not
+opened as a PR.
+
+The schema had already modelled the whole pipeline — `Requisition`,
+`PipelineStage`, `Candidate`, `Application`, `Interview`, `Scorecard`,
+`ScorecardRating`, `Offer` — and one function used it: `careers/service.ts#advance`,
+which screens a public `JobApplication` into a `Candidate` and a pipeline
+`Application`. Nothing moved an `Application` through a stage once it existed,
+nothing scheduled an interview, nothing made an offer, and nothing could create
+a `Requisition` in the first place. `src/modules/recruitment/` is everything
+downstream of `advance()`, and the requisition CRUD that sits upstream of it.
+
+## The freeze rule on a requisition
+
+`jobTitle`, `employmentType`, `bandMin` and `bandMax` stop moving once a
+requisition is `OPEN` or later; `headcount`, `departmentId`, `location`,
+`description` and `hiringManagerId` stay editable throughout. The four frozen
+fields are what a candidate has already been screened and offered against —
+moving the band after somebody has an offer against it would make their
+`Offer.outsideBand` flag describe a range that no longer exists. There is no
+revision path back to draft, unlike an agreed performance objective: a
+requisition's terms are five fields, and cancelling one and opening a new one
+costs less than a "propose a revision" flow would.
+
+Reaching `OPEN` needs `APPROVE_HIRING`, a new permission — see below. `DRAFT`
+and `PENDING_APPROVAL` are both acceptable starting points for `approve`; the
+`submit` step exists for a company that wants the ceremony, not because the
+API requires it.
+
+## The `requiresScorecards` gate, and what the schema does not model
+
+The ask was "an application cannot leave a stage that requires scorecards
+until every scheduled interview in that stage has a submitted scorecard from
+every interviewer." The schema does not actually support that sentence as
+written, on two counts, and both are worth knowing before touching
+`assertScorecardGate` in `recruitment/service.ts`:
+
+- **`Interview` has no interviewer list.** There is no invited panel to check
+  against — only `Scorecard` rows, created the moment somebody actually
+  submits one. So "every interviewer" became "every scorecard that exists for
+  this interview is submitted, and at least one exists."
+- **`Interview` has no `stageId`.** There is no stored fact saying which stage
+  an interview belonged to, so "in that stage" became "in this application's
+  whole interview history." A candidate who moved back and forth between
+  stages (the schema does not forbid it) would have the gate look at
+  interviews from a stage they already left — the honest reading of what the
+  schema actually records, not a bug.
+
+The gate runs against the stage being **left**, not the one being entered, so
+a stage that starts requiring scorecards after somebody has already passed it
+does not retroactively trap them.
+
+## Offers: `outsideBand`, and why approval is never conditional on it
+
+`bandMin`/`bandMax` are optional columns on `Requisition` — plenty of small
+companies never set one. Gating offer approval on `outsideBand` alone would
+mean those companies get **no** second pair of eyes on a real salary
+commitment, because every offer computes `outsideBand: false` when there is no
+band to be outside of. So `submitOffer` always requires approval; `outsideBand`
+travels as a flag telling the approver to look harder, never as the gate
+itself.
+
+The enum (`DRAFT`, `PENDING_APPROVAL`, `SENT`, `ACCEPTED`, `DECLINED`,
+`WITHDRAWN`) has no separate `APPROVED` member, so `approveOffer` stamps
+`approvedById`/`approvedAt` and leaves the status at `PENDING_APPROVAL`;
+`sendOffer` refuses until `approvedAt` is set, then moves it to `SENT`. Two
+separate steps, matching the brief.
+
+`Offer.applicationId` is unique, so a second offer on the same application
+after a decline or a withdrawal is not a new row — it is `POST
+/offers/:id/redo`, which resets the same offer back to `DRAFT` with a new
+figure and a recomputed `outsideBand`, clearing `approvedAt`/`sentAt`/
+`respondedAt`. **Accepting converts to a real `Employee`** via
+`employees/service.ts#create`, called with `invite: false`
+(nobody gets an unsolicited portal-link email the moment a recruiter clicks
+Accept) and no `taxState` (falls back to the organisation default, same as
+every other hire). `invite` is stripped from the input before the call — it is
+an instruction to `employees/router.ts`'s own `POST /`, not a column on
+`Employee`, and passing it through reaches Prisma as an unknown field and
+turns the create into a 500. `employees/router.ts` already peels it off for
+exactly this reason, in a comment that says so; this file does the identical
+peel and cites it. First bug this session actually shipped and caught with its
+own test suite.
+
+**Every other still-`IN_PROGRESS` application in the same requisition's
+pipeline is rejected automatically** on accept, with a reason naming who got
+the job. The alternative — leaving them `IN_PROGRESS` against a requisition
+that just went `FILLED` — is the hiring equivalent of what this codebase
+already learned from the payroll exclusion table: an unresolved state nobody's
+screen ever surfaces as something to act on, because no queue shows "keep
+interviewing for a role that is already filled." Silent rot loses to an
+automatic, clearly-reasoned rejection.
+
+## `APPROVE_HIRING`, not `APPROVE_OFFERS`
+
+The brief suggested `APPROVE_OFFERS`. It is named `APPROVE_HIRING` instead,
+because it gates two approvals, not one: a requisition (`DRAFT`/
+`PENDING_APPROVAL` → `OPEN`, committing to a headcount and a band) and an
+offer (committing to a specific salary inside it). Both are "sign off before
+the company is on the hook for this," one step apart on the same object's
+lifecycle, and `Requisition` and `Offer` both already carry their own
+`approvedById`/`approvedAt` — the schema itself treats the two approvals as
+the same kind of act. `APPROVE_OFFERS` would have been a name that undersold
+half of what the permission actually does.
+
+It mirrors `RUN_PAYROLL`/`APPROVE_PAYROLL` exactly, including the maker/checker
+exception: `assertHiringSegregation` refuses an approval where the approver is
+also the requisition's own `hiringManagerId`, **unless nobody else could have
+approved it** — counted from the database at approval time (accounts holding
+`APPROVE_HIRING` with a password, so a pending invitation cannot silently
+break the check), not configured. A lone hiring manager can still approve
+their own requisition; the day a second person in the organisation holds
+`APPROVE_HIRING`, self-approval stops working for both of them. See
+HANDOVER's own "Maker and checker" section — this is that reasoning, applied
+to a schema with no `preparedById` to key on. The closest fact the schema
+does store is `hiringManagerId`, which is what the check uses instead: the
+person who will own the hire is the person with the clearest reason to wave
+their own requisition through, whether or not they typed the first draft of
+it.
+
+Neither built-in system role (`permissions/service.ts#SYSTEM_ROLES`) grants
+it to anyone but the Owner, by the same reasoning `payrollOfficer` does not
+hold `APPROVE_PAYROLL` — a real company that wants the split creates a role
+for it, the way the demo seed's "Finance approver" now also holds
+`APPROVE_HIRING` alongside the money it already releases (payroll, loans,
+expenses). `HR manager`, which holds `MANAGE_HIRING`, carries an explicit
+comment saying why it does not also hold the approval half.
+
+Reads (`GET /requisitions`, `/applications/:id`, `/offers`, …) are gated on
+**either** `MANAGE_HIRING` or `APPROVE_HIRING` — `requireAnyPermission` — for
+the identical reason `payments/router.ts` already gates its reads that way:
+an approver has to be able to see what they are approving, or the account
+whose whole job is releasing something gets a 403 on the thing it is trying
+to release.
+
+## Tenant scoping
+
+`Requisition` and `Candidate` already carried `organizationId` and were
+already in `SCOPED_MODELS`. `PipelineStage`, `Application`, `Interview`,
+`Scorecard`, `ScorecardRating` and `Offer` do not, and `src/db/tenant.ts` now
+says why each one is a deliberate omission rather than an oversight —
+`PipelineStage`/`Application` hang off `Requisition`, `Interview`/`Offer` off
+`Application`, `Scorecard`/`ScorecardRating` off `Interview`. Every write and
+read in `recruitment/service.ts` reaches one of these through a door
+(`requireRequisition`, `requireApplication`, `requireInterview`,
+`requireOffer`, `requireStage`) that resolves back to a **scoped**
+`Requisition` lookup before returning anything — the same shape
+`requireOpenRun` already uses for `PayrollExclusion`. An aggregate read like
+`analytics()` that has no single parent id to start from instead collects
+every requisition id this tenant owns first, and filters everything else
+through `requisitionId: { in: … }` or the equivalent relation filter — never
+a bare query against one of the six unscoped models.
+
+`tests/tenant-isolation.test.ts` gained a new block proving the hole is real
+for all six models (a bare `findFirst` on each one really does return another
+tenant's row — an interviewer's private scorecard notes included) and that
+every door closes it, the same discipline the existing `PayrollExclusion`
+block already models.
+
+## Verified
+
+`npm run check` green: lockstep, `tsc`, `eslint`, `prettier --check`, and the
+full test suite — **2467 passing, 123 files**. `tests/recruitment.test.ts` is
+new, 42 tests, covering the
+requisition lifecycle and its refusals; pipeline stages including the reorder
+and the occupied-stage delete refusal; the whole chain once, for real —
+`advance()` into a pipeline, through Screening (no gate) into Technical
+(`requiresScorecards`), refused at every intermediate state (scheduled,
+completed-but-unscored), scored, moved into an unattached Offer stage, offered
+inside the band, submitted, refused for the wrong permission, approved, sent,
+accepted — an `Employee` row created with the right name, email, job title,
+department and salary, the requisition reading `FILLED`, and the second
+candidate still `IN_PROGRESS` in the same pipeline automatically rejected with
+a reason naming the hire; `outsideBand` computed correctly above and below a
+band, and unaffected by whether it is checked (approval required either way);
+decline/redo and withdraw/redo, each leaving the application in the state the
+brief asked for; and the maker/checker segregation, both halves — a lone
+`APPROVE_HIRING` holder approving their own requisition, then refused the
+moment a second holder exists, with the second holder approving instead.
+`tests/tenant-isolation.test.ts` gained 6 more, described above. Every
+existing suite this touched — `tests/careers.test.ts` (`assertRequisitionUsable`
+now imported from `recruitment/service.ts` rather than duplicated),
+`tests/permissions.test.ts` — still green.
+
+Not run against a live database outside this session's own throwaway one, and
+not exercised from an actual signed-in browser session — there is no frontend
+screen yet for it to exercise.
+
+## Deliberately not done
+
+- **No frontend wiring.** `web/src/lib/mock/hiring.ts` is untouched, as asked.
+- **No email or notification on any offer or requisition event.** Nothing in
+  this module sends mail, the same as `careers/service.ts#decline` already
+  says plainly in its own response. `careers/router.ts`'s notification on a
+  new application is the only mail-adjacent thing recruitment does anywhere,
+  and it already existed.
+- **No `ApprovalRequest`/notifications-queue integration.** `careers/service.ts`
+  does not use it either for `advance`/`decline`; this module follows the same
+  precedent rather than inventing a new integration point unasked.
+- **No candidate creation endpoint.** `Candidate` rows are created by
+  `careers/service.ts#advance` alone, deliberately not duplicated — this module
+  only reads, lists and updates the screening fields (`noticeDays`,
+  `currentSalary`, `expectedSalary`, `rightToWork`, `cvStorageKey`) afterwards.
+- **No pre-assigned interview panel.** Covered above, under the scorecard gate
+  — the schema has nowhere to store one.
+- **No per-requisition time-to-hire in `analytics()`, only the org-wide
+  average.** Adding it needs nothing the schema doesn't already have
+  (`Application.createdAt` to `Offer.respondedAt`, grouped by requisition
+  instead of averaged across all of them); it was left out for time, not
+  because it's hard.
+- **`demo-company.ts` was not touched.** It already writes two requisitions
+  with a full pipeline directly via `prisma.*.create`, predating this module.
+  Rewriting it to go through `recruitment/service.ts` instead is a reasonable
+  follow-up but wasn't asked for and risks changing what the demo dataset
+  looks like.
