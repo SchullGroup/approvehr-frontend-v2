@@ -210,7 +210,7 @@ function Queue({ initialPostingId }: { initialPostingId: string }) {
 
         {cvNote && (
           <p className="text-body-sm text-muted">
-            Attached CVs cannot be opened — file upload is not connected. The
+            Attached CVs cannot be opened: file upload is not connected. The
             applicant&rsquo;s own note is below each row instead.
           </p>
         )}
@@ -566,7 +566,7 @@ function AdvanceDialog({
           <Field
             label="Approved role ID"
             required
-            help="They have to land on an approved role. There is no picker for this yet — paste the ID."
+            help="They have to land on an approved role. There is no picker for this yet. Paste the ID."
           >
             <Input
               autoFocus
@@ -644,7 +644,7 @@ function DeclineDialog({
     >
       <div className="flex flex-col gap-4">
         <p className="text-body-sm text-body">
-          Nothing is sent to them — email is not connected. Afterwards,
+          Nothing is sent to them: email is not connected. Afterwards,
           <span className="font-medium text-ink"> Copy message</span> gives you a
           short note to send from your own inbox.
         </p>

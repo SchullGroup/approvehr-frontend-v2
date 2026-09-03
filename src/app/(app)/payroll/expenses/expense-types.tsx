@@ -99,7 +99,7 @@ export function ExpenseTypes({
             description={
               loading
                 ? "Reading your types."
-                : "Add the first one — transport and fuel are what most companies start with."
+                : "Add the first one: transport and fuel are what most companies start with."
             }
             {...(canManage && !loading
               ? {
@@ -345,7 +345,7 @@ function TypeDialog({
 
         <Switch
           label="A receipt is needed"
-          description="Turn this off for things that produce no paper — a keke fare, a recharge card."
+          description="Turn this off for things that produce no paper: a keke fare, a recharge card."
           checked={requiresReceipt}
           onChange={(e) => setRequiresReceipt(e.target.checked)}
         />

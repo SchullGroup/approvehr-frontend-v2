@@ -104,7 +104,7 @@ const COPY = {
     add: "Add an allowance",
     empty: "No allowances yet",
     emptyHint:
-      "An allowance is anything paid on top of salary — a car allowance, a housing top-up, 13th month.",
+      "An allowance is anything paid on top of salary: a car allowance, a housing top-up, 13th month.",
     icon: <Coins aria-hidden="true" />,
   },
   DEDUCTION: {
@@ -116,7 +116,7 @@ const COPY = {
     add: "Add a deduction",
     empty: "No deductions yet",
     emptyHint:
-      "A deduction is anything taken off pay — union dues, a cooperative contribution, a salary advance being recovered.",
+      "A deduction is anything taken off pay: union dues, a cooperative contribution, a salary advance being recovered.",
     icon: <Scissors aria-hidden="true" />,
   },
 } as const;
@@ -171,7 +171,7 @@ export function ComponentsPanel({ kind }: { kind: PayComponentKind }) {
       {DEMO_ENABLED && !components.connected && !components.loading && (
         <Callout tone="warning" title="Demo data, this browser only">
           These are the {copy.plural} ApproveHR sets up for a new company. Adding
-          or changing one needs the API — a deduction kept in a browser would
+          or changing one needs the API: a deduction kept in a browser would
           never reach a payroll run.
         </Callout>
       )}
@@ -338,8 +338,7 @@ export function ComponentsPanel({ kind }: { kind: PayComponentKind }) {
                   {archiving.assignmentCount === 1
                     ? "One person has been on it."
                     : `${archiving.assignmentCount} people have been on it.`}{" "}
-                  If anyone still is, this will be refused and it will name them
-                  — take them off first, or turn it off instead.
+                  If anyone still is, this will be refused and it will name them. Take them off first, or turn it off instead.
                 </p>
               )}
             </>
@@ -418,7 +417,7 @@ function ComponentRow({
                  props, and the label already carries the meaning — the tooltip
                  is the extra sentence, not the only one. The drawer says the
                  same thing in full for anybody not using a mouse. */
-              <span title="Built in. It can be turned off but not removed — payslips already point at it.">
+              <span title="Built in. It can be turned off but not removed: payslips already point at it.">
                 <Badge size="sm" tone="neutral" className="cursor-help">
                   Built in
                 </Badge>
@@ -497,7 +496,7 @@ function ComponentRow({
               <IconButton
                 size="sm"
                 disabled
-                label="Built in — turn it off instead of removing it"
+                label="Built in. Turn it off instead of removing it"
               >
                 <Trash2 aria-hidden="true" className="size-4" />
               </IconButton>
@@ -672,7 +671,7 @@ function AssigneesDrawer({
                       From {shortDate(person.effectiveFrom)}
                       {person.effectiveTo
                         ? ` to ${shortDate(person.effectiveTo)}`
-                        : " — every month"}
+                        : ", every month"}
                     </span>
                   </span>
                   <span className="tabular shrink-0 text-body-sm text-body">
@@ -714,7 +713,7 @@ function AssigneesDrawer({
               toast.push({
                 title:
                   result.assigned === 0
-                    ? `Nobody new to assign — everyone chosen already had ${component.name}.`
+                    ? `Nobody new to assign: everyone chosen already had ${component.name}.`
                     : `${component.name} assigned to ${result.assigned} ${result.assigned === 1 ? "person" : "people"}.`,
                 tone: result.assigned === 0 ? "info" : "success",
                 ...(result.alreadyAssigned.length > 0
@@ -885,7 +884,7 @@ function ComponentDialog({
       }
       description={
         editing
-          ? "The code and the kind stay as they are — payslips already point at them."
+          ? "The code and the kind stay as they are: payslips already point at them."
           : "Name it the way it should read on a payslip. We work out the code."
       }
       footer={
@@ -942,7 +941,7 @@ function ComponentDialog({
           <Field
             optional
             label="Amount each month (₦)"
-            help="Leave it blank if the figure differs by person — most do."
+            help="Leave it blank if the figure differs by person. Most do."
             {...(amountError ? { error: amountError } : {})}>
             <Input
               type="number"
@@ -962,7 +961,7 @@ function ComponentDialog({
             label={`Percentage of ${basisOf(draft.basis)}`}
             help={
               draft.basis === "PERCENT_OF_GROSS"
-                ? "100 is one whole month's pay — which is what a 13th month is."
+                ? "100 is one whole month's pay, which is what a 13th month is."
                 : "Blank if it comes from an agreement that differs by person."
             }
             {...(rateError ? { error: rateError } : {})}

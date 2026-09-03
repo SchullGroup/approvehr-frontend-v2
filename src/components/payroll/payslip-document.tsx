@@ -572,8 +572,7 @@ export function PayslipDocument({
           )}
           {carried > 0 && (
             <p className="mt-2 text-meta leading-relaxed text-body">
-              {formatKobo(carried)} of the above could not be taken this month —
-              there was not enough pay left after tax. It carries over to next
+              {formatKobo(carried)} of the above could not be taken this month: there was not enough pay left after tax. It carries over to next
               month rather than being written off.
             </p>
           )}
@@ -627,7 +626,7 @@ export function PayslipDocument({
         {!wasDeducted(slip.operates, "paye") ? (
           <p className="mt-2 text-meta leading-relaxed text-body">
             No PAYE was deducted from this pay, so there is no tax working to
-            show. Your employer does not operate PAYE — you are responsible for
+            show. Your employer does not operate PAYE: you are responsible for
             filing your own return with your state tax authority.
           </p>
         ) : (
@@ -697,7 +696,7 @@ export function PayslipDocument({
               is what keeps its sentence out of a production bundle. */}
           {DEMO_ENABLED && ytd.projected && (
             <p className="mt-2 text-meta leading-relaxed text-muted">
-              Projected from this month, not summed from the runs — this browser
+              Projected from this month, not summed from the runs: this browser
               only has the one run.
             </p>
           )}

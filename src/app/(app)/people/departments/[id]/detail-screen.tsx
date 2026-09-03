@@ -164,7 +164,7 @@ export function DepartmentDetailScreen({ id }: { id: string }) {
             description={
               isSub
                 ? "Directly in this sub-department."
-                : "Directly in this department — not counting anybody in a unit inside it."
+                : "Directly in this department, not counting anybody in a unit inside it."
             }
           />
           {people.length === 0 ? (
@@ -231,7 +231,7 @@ export function DepartmentDetailScreen({ id }: { id: string }) {
                   value:
                     detail.ancestors.length > 0
                       ? detail.ancestors[detail.ancestors.length - 1]!.name
-                      : "Nothing — it is a top-level department",
+                      : "Nothing: it is a top-level department",
                 },
                 {
                   term: "Rolled up",

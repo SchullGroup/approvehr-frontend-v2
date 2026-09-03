@@ -518,7 +518,7 @@ export function paymentOutcome(row: {
     case "COMPLETED":
     case "PARTIALLY_SETTLED":
       return {
-        label: "Downloaded — paid at your bank",
+        label: "Downloaded (paid at your bank)",
         tone: "info",
         hint:
           "The batch was approved and the payment file produced. ApproveHR did " +

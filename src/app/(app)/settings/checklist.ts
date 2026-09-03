@@ -107,7 +107,7 @@ function companyRow(facts: SetupFacts): ChecklistRow {
      the feature does not exist. */
   const logoNote = logo
     ? ""
-    : " No logo yet — it goes on every payslip and on the emails the platform sends.";
+    : " No logo yet: it goes on every payslip and on the emails the platform sends.";
 
   return {
     id: "company",
@@ -117,7 +117,7 @@ function companyRow(facts: SetupFacts): ChecklistRow {
     status: missing.length === 0 ? "done" : "todo",
     detail:
       missing.length === 0
-        ? `Complete.${entityNote}${tin ? "" : " No TIN recorded yet — add it before your first filing."}${logoNote}`
+        ? `Complete.${entityNote}${tin ? "" : " No TIN recorded yet. Add it before your first filing."}${logoNote}`
         : `Still needs ${missing.join(", ")}.${logoNote}`,
     href: "/settings/company",
     linkLabel: missing.length === 0 ? "Review the profile" : "Finish the profile",
@@ -151,8 +151,8 @@ function locationsRow(facts: SetupFacts): ChecklistRow {
           : `${withGeofence} have a geofence, and each one is applied.`
         : inert === withGeofence
           ? withGeofence === 1
-            ? "One has a geofence, and it is not applied — staff there may clock in from anywhere."
-            : `${withGeofence} have a geofence, and none is applied — staff there may clock in from anywhere.`
+            ? "One has a geofence, and it is not applied: staff there may clock in from anywhere."
+            : `${withGeofence} have a geofence, and none is applied: staff there may clock in from anywhere.`
           : `${withGeofence} have a geofence, ${inert} of which ${inert === 1 ? "is" : "are"} not applied because staff there may clock in from anywhere.`;
 
   return {

@@ -258,11 +258,11 @@ function InterviewDialog({
                   onChange={(e) => setWouldRecommend(e.target.value)}
                 >
                   <option value="">They would not say</option>
-                  <option value="1">1 — definitely not</option>
+                  <option value="1">1: definitely not</option>
                   <option value="2">2</option>
                   <option value="3">3</option>
                   <option value="4">4</option>
-                  <option value="5">5 — definitely</option>
+                  <option value="5">5: definitely</option>
                 </Select>
               </Field>
 

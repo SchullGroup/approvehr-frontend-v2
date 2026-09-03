@@ -189,7 +189,7 @@ export function SwapPanel({
                     </p>
                     {swap.requesterShift && (
                       <p className="tabular mt-0.5 text-meta text-muted">
-                        {spokenDay(swap.requesterShift.date)} ·{" "}
+                        {spokenDay(swap.requesterShift.date)} · {" "}
                         {/* `ApiSwapSide` carries the times and not the flag. */}
                         {timesLabel({
                           ...swap.requesterShift,

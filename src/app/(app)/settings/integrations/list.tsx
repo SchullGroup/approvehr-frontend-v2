@@ -323,7 +323,7 @@ function Catalogue() {
           <CardBody className="flex flex-col gap-2.5 text-body-sm leading-relaxed text-body">
             <p>
               <strong className="text-ink">Statutory filing schedules.</strong>{" "}
-              PAYE per state IRS, pension per PFA, NHF and NSITF — generated from
+              PAYE per state IRS, pension per PFA, NHF and NSITF, generated from
               the payroll run, in the format each body asks for. No integration
               required because the output is a file you submit, not an API call.
             </p>

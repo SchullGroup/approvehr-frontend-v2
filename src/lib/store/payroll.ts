@@ -571,7 +571,7 @@ function demoExceptions(
         "demo_no_figures",
         person.id,
         `${person.name} has no payslip in this run. The demo holds illustrative ` +
-          `figures only for its own salaries, and theirs is not one of them — ` +
+          `figures only for its own salaries, and theirs is not one of them: ` +
           `statutory deductions are computed by the API and there is no second ` +
           `copy of that arithmetic here. Start the API to pay them.`,
       );
@@ -662,7 +662,7 @@ function demoExceptions(
         "WARNING",
         "exit_final_pay",
         person.id,
-        `${person.name} leaves this period. This is their last payslip — check ` +
+        `${person.name} leaves this period. This is their last payslip. Check ` +
           `the final figure and any loan balance before you approve, because ` +
           `there is no next month to correct it in.`,
       );
@@ -1380,7 +1380,7 @@ const DELIVERY_RANK: Record<PayslipDelivery, number> = {
  * be the green "Paid" against money nobody moved.
  */
 export const DEMO_NO_BATCH_REASON =
-  "Preparing a payment needs the API — it draws on the company's own bank " +
+  "Preparing a payment needs the API: it draws on the company's own bank " +
   "account, and one built here could never reach a bank.";
 
 export function usePayrollActions() {
@@ -1746,7 +1746,7 @@ export function usePayrollActions() {
         0,
         "offline",
         "Sending payslips needs the API. The demo is not connected to a mail " +
-          "provider, and it must not be — these figures are illustrative, and " +
+          "provider, and it must not be: these figures are illustrative, and " +
           "an email about them would reach a real person about a payroll that " +
           "never happened.",
       );

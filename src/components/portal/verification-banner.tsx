@@ -82,7 +82,7 @@ export function VerificationBanner() {
           <Mail aria-hidden="true" className="size-4 shrink-0" />
           <span className="min-w-0">
             {sent
-              ? `Sent — check ${user?.email ?? "your inbox"} for the link.`
+              ? `Sent. Check ${user?.email ?? "your inbox"} for the link.`
               : `Confirm ${user?.email ?? "your email"} to keep your account secure.`}
           </span>
         </span>

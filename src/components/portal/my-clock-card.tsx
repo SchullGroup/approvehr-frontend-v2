@@ -153,7 +153,7 @@ export function MyClockCard({
             </p>
             <p className="mt-0.5 text-body-sm text-muted">
               You are signed in to run this company, not as somebody on its
-              payroll — so there is nothing here to clock. Add yourself as an
+              payroll, so there is nothing here to clock. Add yourself as an
               employee and this becomes your own day.
             </p>
           </div>
@@ -182,7 +182,7 @@ export function MyClockCard({
                 ? `In at ${myRow.clockIn}, out at ${myRow.clockOut}.`
                 : `In at ${myRow.clockIn}.`
               : nothingToClock && myRow
-                ? `${STATUS_LABEL[myRow.status]} today — nothing to clock.`
+                ? `${STATUS_LABEL[myRow.status]} today: nothing to clock.`
                 : "You have not clocked in today."}
           </p>
 
@@ -252,7 +252,7 @@ export function MyClockCard({
                       ? undefined
                       : session.isConnected || !DEMO_ENABLED
                         ? `${selected.name} accepts clock-ins on site only, so your browser will ask for your location.`
-                        : `${selected.name} has a geofence, and demo mode does not apply it — nothing here asks where you are.`
+                        : `${selected.name} has a geofence, and demo mode does not apply it: nothing here asks where you are.`
                   }
                 >
                   <Select

@@ -298,7 +298,7 @@ function RecordFundingModal({
             {usable.map((account) => (
               <option key={account.id} value={account.id}>
                 {account.bankName} {account.accountNumberMasked}
-                {account.isPrimary ? " — salaries come from here" : ""}
+                {account.isPrimary ? " (salaries come from here)" : ""}
               </option>
             ))}
           </Select>
