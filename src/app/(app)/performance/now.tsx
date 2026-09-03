@@ -110,7 +110,19 @@ export function WhatNeedsYouTab({
   const appraisals = useAppraisals();
   const approvals = useObjectiveApprovals();
   const mineGoals = useKpis("mine");
-  const { actingId, employeeId } = useSession();
+  const { isConnected, actingId, employeeId } = useSession();
+
+  /**
+   * Who to ask the API about, which is not who to attribute an action to.
+   *
+   * `actingId` is for attribution and falls back to `""` when this sign-in has
+   * no staff record behind it. `employeeId` is the staff record itself, and is
+   * null for that same account — which is the honest answer to "whose reviews",
+   * because such an account owns none. Using the attribution value as a lookup
+   * key is what took this screen down in production. `skills.tsx` already draws
+   * the line this way; this is the same seam.
+   */
+  const meOrNobody = isConnected ? employeeId : actingId;
 
   /**
    * Whether any of the appraisal half of this screen exists at all.
@@ -160,11 +172,17 @@ export function WhatNeedsYouTab({
    */
   const mine = useMyAppraisers(
     openPeriod && openPeriod.stage !== "PUBLISHED" ? openPeriod.id : null,
-    actingId,
+    meOrNobody,
   );
+  /* Only the API saying "the list is empty" means nobody is appraising them.
+     A row with no `appraisers` field at all is a different fact — an answer to
+     a question we did not ask — and reading it as an empty list would put a
+     "nobody is appraising you" callout on somebody who has an appraiser, on
+     top of throwing on `.length`. Absent is not empty; the presence check is
+     the claim, not defensiveness. */
   const noAppraiser =
-    mine.row !== null && mine.row.appraisers.length === 0
-      ? mine.row.exceptions.find((issue) => issue.code === "NO_APPRAISER")
+    Array.isArray(mine.row?.appraisers) && mine.row.appraisers.length === 0
+      ? mine.row.exceptions?.find((issue) => issue.code === "NO_APPRAISER")
       : undefined;
   const appraisingMe = mine.row?.appraisers ?? [];
 
