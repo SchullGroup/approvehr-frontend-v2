@@ -3051,7 +3051,23 @@ export function useMyAppraisers(
   error: ApiError | null;
 } {
   const { isConnected } = useSession();
-  const active = cycleId !== null && employeeId !== null && isConnected;
+  /**
+   * An empty id is absent, not a person.
+   *
+   * `employeeId !== null` alone let `""` through, and `""` is a value the
+   * session deliberately produces: `actingId` falls back to it for an account
+   * with no staff record, precisely so it matches nobody. Passed here it did
+   * not match nobody — it built `/cycles/{id}/appraisers/`, and Express 5 with
+   * strict routing off matches that trailing slash to the **collection** route,
+   * `GET /cycles/:id/appraisers`. So the whole-cycle map came back 200 for
+   * anybody holding `EDIT_RECORDS`, a payload with `rows` and no `appraisers`,
+   * and the caller crashed reading `.length` of a field that was never there.
+   *
+   * Proved against the API's own express@5.2.1 rather than assumed. The caller
+   * now passes `employeeId`, which is null for such an account; this guard is
+   * the second lock, so no future caller can re-create it with `actingId`.
+   */
+  const active = cycleId !== null && !!employeeId && isConnected;
 
   const load = useCallback(
     async (signal: AbortSignal) =>
