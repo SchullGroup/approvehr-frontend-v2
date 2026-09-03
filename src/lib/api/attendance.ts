@@ -208,6 +208,120 @@ export type WorkLocationPatch = {
   radiusMetres?: number | null;
 };
 
+/* --------------------------------------------------- biometric terminals */
+
+/**
+ * A terminal registered against this company.
+ *
+ * The reading rules on this shape are the two this codebase keeps restating,
+ * and both are load-bearing here:
+ *
+ * - **`secret` is masked, and null offline.** The API always sends a masked
+ *   `whsec_…abcd`; the plaintext comes back exactly twice, from `registerDevice`
+ *   and `rotateDeviceSecret`, and never again. Demo mode sends **null** rather
+ *   than inventing one — a locally generated secret would look exactly like a
+ *   real credential and would sign deliveries nothing on earth would accept, so
+ *   somebody would hand it to a site engineer and lose an afternoon. Absent is
+ *   absent.
+ * - **`unmappedPunches` is null offline** for the same reason `assigned` is null
+ *   on a work location: there is no ingestion endpoint without a server, so no
+ *   tap can ever arrive, and a confident 0 would read as "everybody on this
+ *   device is mapped".
+ *
+ * `lastSeenAt` is null until a delivery is accepted, in both modes. A terminal
+ * that has gone quiet is the failure nobody notices, because no punches looks
+ * exactly like nobody clocking in.
+ */
+export type ApiAttendanceDevice = {
+  id: string;
+  /** The manufacturer's serial, as printed on the unit. The agent sends this. */
+  serialNumber: string;
+  label: string;
+  workLocationId: string | null;
+  workLocationName: string | null;
+  /** Switched off without archiving — a unit away for repair, say. */
+  active: boolean;
+  lastSeenAt: string | null;
+  /** Masked, or null in demo mode. Never the plaintext. See above. */
+  secret: string | null;
+  enrolments: number;
+  /** Taps attributed to nobody. Null in demo mode — no tap can arrive. */
+  unmappedPunches: number | null;
+  archivedAt: string | null;
+  createdAt: string;
+};
+
+/**
+ * The one response that carries a readable secret.
+ *
+ * Returned by registering and by rotating, and by nothing else. `secretNote` is
+ * the API's own sentence about what to do with it — rendered verbatim, because
+ * it is the only warning somebody gets that this will not be shown again.
+ */
+export type ApiDeviceSecret = ApiAttendanceDevice & {
+  /** The plaintext, this once. */
+  secret: string;
+  secretNote: string;
+};
+
+export type ApiDeviceEnrolment = {
+  id: string;
+  /** What the terminal calls them. A string: some devices write `0047`. */
+  deviceUserId: string;
+  employeeId: string;
+  employeeName: string;
+  employeeNo: string;
+  createdAt: string;
+};
+
+/**
+ * What mapping an enrolment number did, including what it went back for.
+ *
+ * `punches` and `days` are the backlog it claimed. Mapping a number is the
+ * moment a pile of unattributed taps becomes somebody's timesheet, and a screen
+ * that did not say how much it had just absorbed would be hiding a change to
+ * somebody's pay.
+ */
+export type ApiEnrolmentResult = {
+  deviceUserId: string;
+  employeeId: string;
+  employeeName: string;
+  punches: number;
+  days: number;
+  note: string;
+};
+
+export type NewDeviceInput = {
+  serialNumber: string;
+  label: string;
+  workLocationId?: string;
+};
+
+/** Sparse. Absent leaves a field alone; `null` detaches the office. */
+export type DevicePatch = {
+  label?: string;
+  workLocationId?: string | null;
+  active?: boolean;
+};
+
+/**
+ * What a device secret is for, in words somebody who has never met one can act
+ * on. Written once so the registration dialog and the rotation dialog cannot
+ * describe it differently.
+ */
+export const DEVICE_SECRET_EXPLANATION =
+  "The agent beside the terminal signs every delivery with this. It is shown once and stored in a form we cannot read back, so if it is lost you rotate it and update the agent rather than looking it up.";
+
+/**
+ * Why demo mode cannot issue one.
+ *
+ * Rendered wherever the plaintext would be. The reason matters more than the
+ * refusal: a locally generated string would be indistinguishable from a real
+ * credential.
+ */
+export const DEVICE_SECRET_NEEDS_API =
+  "A signing secret is issued by the server. One made up in this browser would look exactly like a real one and would sign deliveries nothing would accept, so none is shown here.";
+
 /** One person, one day. */
 export type ApiRosterRow = {
   employeeId: string;
@@ -737,6 +851,92 @@ export const attendanceApi = {
     request<{ id: string; name: string; alreadyOn: boolean }>(
       `/attendance/locations/${id}/restore`,
       { method: "POST" },
+    ),
+
+  /* ------------------------------------------------- biometric terminals */
+
+  /**
+   * Every registered terminal. `MANAGE_SETTINGS`.
+   *
+   * `includeArchived` is for this screen, which has to show a switched-off unit
+   * in order to offer turning it back on. Nothing else asks.
+   */
+  devices: (params: { includeArchived?: boolean } = {}, signal?: AbortSignal) =>
+    request<{ devices: ApiAttendanceDevice[] }>("/attendance/devices", {
+      query: params.includeArchived ? { includeArchived: true } : {},
+      ...(signal ? { signal } : {}),
+    }).then((res) => res.devices),
+
+  /**
+   * Register a terminal. `MANAGE_SETTINGS`.
+   *
+   * **The response carries the plaintext secret, once.** Show it before the
+   * dialog closes; there is no route that returns it again. 409 when the serial
+   * is already registered, and the message says whether the existing one is live
+   * or merely switched off.
+   */
+  registerDevice: (input: NewDeviceInput) =>
+    request<ApiDeviceSecret>("/attendance/devices", { method: "POST", body: input }),
+
+  updateDevice: (id: string, patch: DevicePatch) =>
+    request<ApiAttendanceDevice>(`/attendance/devices/${id}`, {
+      method: "PATCH",
+      body: patch,
+    }),
+
+  /**
+   * Off, not gone. An archived device is refused at ingestion, so a stolen
+   * terminal stops being believed the moment somebody says so — without erasing
+   * what it reported while it was trusted.
+   */
+  archiveDevice: (id: string) =>
+    request<ApiAttendanceDevice>(`/attendance/devices/${id}`, { method: "DELETE" }),
+
+  restoreDevice: (id: string) =>
+    request<ApiAttendanceDevice>(`/attendance/devices/${id}/restore`, {
+      method: "POST",
+    }),
+
+  /**
+   * A new secret, shown once. The old one stops working immediately.
+   *
+   * No grace period: a rotation is what somebody does when a secret has leaked,
+   * and a window would leave the leaked one signing valid deliveries for the
+   * length of it. Whatever the agent buffers meanwhile arrives when it is
+   * updated.
+   */
+  rotateDeviceSecret: (id: string) =>
+    request<ApiDeviceSecret>(`/attendance/devices/${id}/rotate-secret`, {
+      method: "POST",
+    }),
+
+  deviceEnrolments: (id: string, signal?: AbortSignal) =>
+    request<{ enrolments: ApiDeviceEnrolment[] }>(
+      `/attendance/devices/${id}/enrolments`,
+      { ...(signal ? { signal } : {}) },
+    ).then((res) => res.enrolments),
+
+  /**
+   * Say which person an enrolment number means, and go back for its backlog.
+   *
+   * 409 when that number already belongs to somebody: every tap it has sent is
+   * attributed to them, and moving the mapping would silently re-attribute
+   * their attendance. Unmap first.
+   */
+  mapDeviceEnrolment: (
+    id: string,
+    body: { deviceUserId: string; employeeId: string },
+  ) =>
+    request<ApiEnrolmentResult>(`/attendance/devices/${id}/enrolments`, {
+      method: "POST",
+      body,
+    }),
+
+  /** Taps already collected keep the person they were attributed to. */
+  unmapDeviceEnrolment: (deviceId: string, enrolmentId: string) =>
+    request<{ removed: string; note: string }>(
+      `/attendance/devices/${deviceId}/enrolments/${enrolmentId}`,
+      { method: "DELETE" },
     ),
 
   /** Defaults to the server's today, which is the date to display. */
