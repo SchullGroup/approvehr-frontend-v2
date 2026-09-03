@@ -2,7 +2,15 @@
 
 import { useState } from "react";
 import { Sparkles } from "lucide-react";
-import { Button, Card, CardBody, CardHeader, Input, Spinner } from "@/components/ui";
+import {
+  Button,
+  ButtonLink,
+  Card,
+  CardBody,
+  CardHeader,
+  Input,
+  Spinner,
+} from "@/components/ui";
 import { useAsk, useAssistantAvailable } from "@/lib/store/ai";
 
 /**
@@ -31,6 +39,13 @@ import { useAsk, useAssistantAvailable } from "@/lib/store/ai";
  * carries its own whole context — and a running transcript here would imply a
  * memory that does not exist, which is the kind of small lie that costs trust
  * the first time somebody says "as I mentioned above" and it means nothing.
+ *
+ * **That is still true of `/ai/ask`, and `/assistant` is a different endpoint.**
+ * `/ai/chat` takes the whole conversation on every turn and can offer a change
+ * to confirm, so a transcript there is the request body rather than an implied
+ * memory. This panel keeps its shape; the link in its header is the only thing
+ * that changed, and it is here because a chat findable only by knowing the URL
+ * is the discoverability defect this module has recorded four times.
  */
 export function AskPanel() {
   const assistant = useAssistantAvailable();
@@ -51,6 +66,11 @@ export function AskPanel() {
         level={3}
         title="Ask about your company"
         description="Your people, your payroll runs, and what you deduct. It reads your records — it does not change anything."
+        action={
+          <ButtonLink href="/assistant" variant="ghost" size="sm">
+            Open the assistant
+          </ButtonLink>
+        }
       />
       <CardBody className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">

@@ -155,6 +155,12 @@ const EXEMPT: Record<string, string> = {
   "session.ts":
     "the auth lifecycle, not data — re-running it on focus turns a token refresh into a sign-out",
   "ai.ts": "a capability check answered once, not shared state",
+  "ai-chat.ts":
+    "a conversation, and a capability list beside it. Re-asking on focus would " +
+    "send the whole transcript to the model again — a second answer to a " +
+    "question nobody re-asked, charged for, under somebody who had merely " +
+    "tabbed away. What it can propose is the same class as ai.ts above: it " +
+    "changes when the server is redeployed, not while a page is open",
   "payslip-quote.ts": "a computation over what the reader is typing",
   "account-verification.ts":
     "a computation over what the reader is typing — BE-10's bank name and account number, same class as the payslip quote above",
