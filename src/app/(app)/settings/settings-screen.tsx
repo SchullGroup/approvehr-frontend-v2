@@ -6,6 +6,7 @@ import {
   Bell,
   BookOpen,
   Clock,
+  Cpu,
   LifeBuoy,
   ShieldCheck,
   Check,
@@ -151,6 +152,13 @@ const ONGOING = [
     description:
       "The shift everybody's clock-in is measured against, the grace before it counts as late, and which weekdays are working days.",
     icon: <Clock aria-hidden="true" />,
+  },
+  {
+    href: "/settings/devices",
+    title: "Biometric terminals",
+    description:
+      "The clock-in machines on your walls, and which person each one's enrolment numbers mean. A tap from one beats a clock-in somebody typed themselves.",
+    icon: <Cpu aria-hidden="true" />,
   },
   {
     href: "/settings/overtime",
