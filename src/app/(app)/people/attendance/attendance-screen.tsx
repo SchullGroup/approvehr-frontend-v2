@@ -119,6 +119,11 @@ export function AttendanceScreen() {
   const isManager = useIsManager();
   const canEditRecords = useCan("EDIT_RECORDS");
   const canInvite = useCan("INVITE_STAFF");
+  /* The importer's own gate, and the reason the header offers it here: a month
+     off a biometric terminal is the shape attendance actually arrives in, and
+     `/people/attendance/import` reached only from the nav is the
+     "findable by nobody" defect HANDOVER records four times over. */
+  const canImport = useCan("IMPORT_DATA");
   const canSeeRoster = isManager || canEditRecords;
 
   const [view, setView] = useState<View>("today");
@@ -135,13 +140,22 @@ export function AttendanceScreen() {
       <PageHeader
         title="Attendance"
         action={
-          canInvite || canSeeRoster ? (
+          canInvite || canSeeRoster || canImport ? (
             <div className="flex flex-wrap items-center gap-2">
               {/* The same component the Directory mounts. This screen kept its
                   own eighty lines of orchestration around the same dialog, and
                   two copies drift until one stops defaulting to the right role
                   or stops filtering out people who already have an account. */}
               <BulkInviteButton />
+              {canImport && (
+                <ButtonLink
+                  href="/people/attendance/import"
+                  variant="secondary"
+                  size="sm"
+                >
+                  Import attendance
+                </ButtonLink>
+              )}
               {/* The view toggle chooses between two company-wide reads, so
                   it has no reason to exist for somebody who cannot see
                   either of them. */}

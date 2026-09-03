@@ -24,6 +24,7 @@ import {
   Settings,
   ShieldCheck,
   SlidersHorizontal,
+  Sparkles,
   Target,
   Timer,
   UserRoundPlus,
@@ -79,11 +80,32 @@ export type NavItem = {
   feature?: FeatureKey;
 
   /**
+   * Hidden unless an assistant is actually answering.
+   *
+   * A third question, and separate from the two above because it is about
+   * neither the person nor the company: it is whether a credential is set on the
+   * server. `OrgFeatures` has no flag for it and adding one would be a migration
+   * plus a setup-wizard decision, so this reads `useAssistantAvailable()` in the
+   * shell instead.
+   *
+   * It exists for one item, and it exists because of the rule the rest of this
+   * feature follows — **absent, not disabled**. A permanent "Assistant" row
+   * leading to a page that says "not switched on" is a control that is present
+   * and always refuses, which is what teaches people the product is broken.
+   * `/settings/ai` is where somebody finds out the capability exists; that is a
+   * different job and a different screen.
+   */
+  assistant?: true;
+
+  /**
    * Always visible, whatever the flags say.
    *
    * For the handful of items a company cannot function without. Kept explicit
    * so that "why is this still here" has an answer in the file rather than in
    * somebody's memory.
+   *
+   * Opts out of the **permission** check only. A `feature` still hides an item,
+   * and so does `assistant` — neither is a question about the reader.
    */
   always?: boolean;
 };
@@ -115,6 +137,21 @@ const PERSONAL: NavItem[] = [
     label: "My approvals",
     icon: <ClipboardCheck aria-hidden="true" />,
     badgeSource: "approvals",
+    always: true,
+  },
+  {
+    /* Here rather than under a module, and rather than beside Settings, for the
+       reason this block exists: it belongs to no module and it is not
+       configuration. Every lookup it makes runs as the person asking, with their
+       permissions, so a staff member asking how much leave they have left and an
+       administrator asking who has no bank account are the same screen — which
+       is why it carries no `permission` either.
+       `assistant: true` is what keeps it out of the sidebar of a company with no
+       key set; see the field on `NavItem`. */
+    href: "/assistant",
+    label: "Assistant",
+    icon: <Sparkles aria-hidden="true" />,
+    assistant: true,
     always: true,
   },
   /*
@@ -483,9 +520,15 @@ export const NAV: NavGroup[] = [
  *   "yes" to the loans question, because a business that does not lend to staff
  *   should not carry the concept around.
  *
- * An item needs to pass both. `always: true` opts out of the permission check
- * only — a feature flag still hides an item, because a capability the company
- * has switched off has no screen to show.
+ * - **Assistant** is about the server. Nobody sees the assistant until a
+ *   credential is set on the API, because until then there is nothing behind the
+ *   door. `assistantWired` is `useAssistantAvailable().available`, read from a
+ *   cache the shell already holds — see `lib/store/ai.ts`.
+ *
+ * An item needs to pass all three. `always: true` opts out of the permission
+ * check only — a feature flag still hides an item, because a capability the
+ * company has switched off has no screen to show, and neither of the other two
+ * questions is about the reader.
  *
  * A group whose every item is filtered out disappears with its heading. A
  * heading over nothing is worse than no heading, and with the groups now named
@@ -502,6 +545,14 @@ export function visibleNav(
   groups: readonly NavGroup[],
   permissions: ReadonlySet<PermissionKey>,
   features: Partial<Record<FeatureKey, boolean>>,
+  /**
+   * Whether an assistant is answering. **Defaults to false**, deliberately: the
+   * status arrives a moment after the sidebar does, and an item that appears
+   * late is better than one that appears and then vanishes under somebody's
+   * pointer. Same reasoning `useAssistantAvailable` gives for returning `false`
+   * while it is still loading.
+   */
+  assistantWired = false,
 ): NavGroup[] {
   return groups
     .map((group) => ({
@@ -510,6 +561,7 @@ export function visibleNav(
         if (item.feature !== undefined && features[item.feature] === false) {
           return false;
         }
+        if (item.assistant && !assistantWired) return false;
         if (item.always) return true;
         if (item.permission === undefined) return true;
         return permissions.has(item.permission);
