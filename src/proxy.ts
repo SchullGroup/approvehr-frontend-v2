@@ -15,6 +15,12 @@ import { NextResponse, type NextRequest } from "next/server";
  * else for local work (a `localhost:5173` landing dev server, a staging
  * landing deploy), never to turn the redirect off.
  *
+ * `/` is the exception to all of that and goes **inward**, to `/dashboard`.
+ * It used to leave with the rest, which meant this app's own front door threw
+ * whoever opened it — including somebody already signed in — out to read
+ * marketing copy. The pitch lives on the landing site and is reachable from
+ * there; the app's root belongs to the product.
+ *
  * `/careers/**` is deliberately excluded. It renders a real tenant's live
  * hiring data (`/careers/[org]/[role]`) — there is no equivalent in the
  * standalone repo, which ships no backend connection at all, and redirecting
@@ -36,8 +42,10 @@ const LANDING_URL =
   process.env.NEXT_PUBLIC_LANDING_URL?.trim().replace(/\/$/, "") ||
   "https://approvehr.io";
 
+/** Where the app's own root sends somebody: into the product. */
+const APP_ENTRY = "/dashboard";
+
 const REDIRECTED_PATHS = new Set([
-  "/",
   "/demo",
   "/privacy",
   "/terms",
@@ -49,6 +57,26 @@ const REDIRECTED_PREFIXES = ["/product"];
 
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
+
+  /* Inward, and deliberately 307 rather than the 308 used below.
+     ------------------------------------------------------------
+     A 308 is permanent and browsers cache it indefinitely, so it is right for
+     the marketing retirement — that decision is settled — and wrong here:
+     where this app's root points is a product decision, and a permanent
+     redirect would keep firing from every browser that ever saw it long after
+     somebody changed their mind.
+
+     No loop is possible: `/dashboard` is not in the matcher below. Signing in
+     is not a concern either — the auth gate renders in place rather than
+     redirecting, so a visitor with no session lands on `/dashboard` and is
+     asked to sign in there, keeping the deep link. */
+  if (pathname === "/") {
+    return NextResponse.redirect(
+      new URL(`${APP_ENTRY}${search}`, request.url),
+      307,
+    );
+  }
+
   const matches =
     REDIRECTED_PATHS.has(pathname) ||
     REDIRECTED_PREFIXES.some((prefix) => pathname.startsWith(`${prefix}/`));
