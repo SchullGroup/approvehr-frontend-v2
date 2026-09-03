@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { ApiError } from "@/lib/api/client";
 import {
   assistantStatus,
@@ -53,6 +59,78 @@ export const SUGGESTIONS_UNAVAILABLE =
   "Suggestions are switched off — no assistant is connected. " +
   "Everything here still works; you write it yourself.";
 
+/* --------------------------------------------------- the status, asked once */
+
+type Status = {
+  available: boolean;
+  assistant: string | null;
+  reason: string | null;
+};
+
+/**
+ * One request per session, not one per component.
+ *
+ * This used to be a `useState` inside the hook, which was right while the only
+ * reader was a form that mounted occasionally. It is not right now the
+ * **sidebar** reads it: `nav.tsx` hides the assistant's own nav item when no
+ * assistant is wired, so without a shared answer every page load would spend a
+ * request on `/ai/status` — and `.env.example` records that the rate limit is
+ * 300 in fifteen minutes, which "opening three screens spends".
+ *
+ * Same singleton shape as `store/features.ts`, which the nav already reads on
+ * every page for the same reason. Keyed by session so signing into another
+ * company re-asks rather than inheriting the last one's answer.
+ */
+let cache: Status | null = null;
+let loadedFor: string | null = null;
+let inflight: Promise<void> | null = null;
+const listeners = new Set<() => void>();
+
+const subscribeStatus = (listener: () => void): (() => void) => {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+};
+
+function setStatus(next: Status) {
+  cache = next;
+  listeners.forEach((listener) => listener());
+}
+
+async function ensureStatus(key: string): Promise<void> {
+  if (loadedFor === key) return;
+  if (inflight) return inflight;
+  loadedFor = key;
+
+  inflight = (async () => {
+    try {
+      const status = await assistantStatus();
+      setStatus({
+        available: status.available,
+        assistant: status.assistant,
+        reason: status.reason ?? null,
+      });
+    } catch {
+      /* A status call that fails is not worth a banner — it means no button,
+         which is the same outcome as no assistant. Swallowed on purpose; the
+         suggestion and chat calls report their own failures.
+         The settings screen is the one reader that wants to know it was the
+         call rather than the configuration, so it gets a sentence saying so
+         instead of the API's. */
+      setStatus({
+        available: false,
+        assistant: null,
+        reason: "Could not ask the server whether an assistant is wired.",
+      });
+    } finally {
+      inflight = null;
+    }
+  })();
+
+  return inflight;
+}
+
 /**
  * Whether to render a Suggest button at all.
  *
@@ -79,55 +157,29 @@ export function useAssistantAvailable(): {
    */
   reason: string | null;
 } {
-  const { isConnected, isLoading } = useSession();
+  const { isConnected, isLoading, user } = useSession();
   /**
-   * What the API said, or `undefined` until it has said anything.
+   * What the API said, or `null` until it has said anything.
    *
-   * Only the *fetch* lives in state. Offline and still-loading are **derived
-   * below** rather than written here, because setting state in an effect for a
+   * Only the *fetch* lives in the cache. Offline and still-loading are
+   * **derived below** rather than written into it, because setting state for a
    * fact already available during render is a cascading render — and the answer
    * offline never depended on a request in the first place.
    */
-  const [answer, setAnswer] = useState<
-    | { available: boolean; assistant: string | null; reason: string | null }
-    | undefined
-  >(undefined);
+  const answer = useSyncExternalStore(
+    subscribeStatus,
+    () => cache,
+    () => null,
+  );
+
+  const key = `api:${user?.organizationId ?? "self"}`;
 
   useEffect(() => {
     /* Nothing to ask offline, and nothing to fall back to — see the header: a
        canned suggestion is a fabricated one. */
     if (isLoading || !isConnected) return;
-
-    let cancelled = false;
-    void (async () => {
-      try {
-        const status = await assistantStatus();
-        if (cancelled) return;
-        setAnswer({
-          available: status.available,
-          assistant: status.assistant,
-          reason: status.reason ?? null,
-        });
-      } catch {
-        /* A status call that fails is not worth a banner — it means no button,
-           which is the same outcome as no assistant. Swallowed on purpose; the
-           three suggestion calls report their own failures.
-           The settings screen is the one reader that wants to know it was the
-           call rather than the configuration, so it gets a sentence saying so
-           instead of the API's. */
-        if (!cancelled)
-          setAnswer({
-            available: false,
-            assistant: null,
-            reason: "Could not ask the server whether an assistant is wired.",
-          });
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isConnected, isLoading]);
+    void ensureStatus(key);
+  }, [isConnected, isLoading, key]);
 
   if (isLoading)
     return { available: false, loading: true, assistant: null, reason: null };
