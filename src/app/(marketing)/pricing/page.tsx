@@ -4,12 +4,14 @@ import { Pill } from "@/components/marketing/pill";
 import { Reveal } from "@/components/marketing/motion";
 import { SectionHeading } from "@/components/marketing/sections";
 import { ClientLogos } from "@/components/marketing/social-proof";
+import { ADD_ONS, TIERS } from "@/lib/marketing/pricing";
 import { cn } from "@/lib/cn";
+import { PricingCalculator } from "./calculator";
 
 export const metadata: Metadata = {
   title: "Pricing",
   description:
-    "Headcount-based pricing for Nigerian businesses. Talk to us about what your company would pay.",
+    "Per employee, per month, in naira. The rate falls as your headcount rises. See exactly what your company would pay.",
 };
 
 /* -------------------------------------------------------------------------- */
@@ -222,6 +224,26 @@ export default function PricingPage() {
         </div>
       </section>
 
+      {/* Calculator */}
+      <section className="px-4 py-20">
+        <div className="container-page">
+          <Reveal>
+            <h2 className="text-h2 text-slate">
+              Work out what it costs your company
+            </h2>
+            <p className="mt-3 max-w-xl text-body-sm leading-relaxed text-slate-muted">
+              Move the number to your headcount — the tier and the price
+              follow it.
+            </p>
+          </Reveal>
+          <Reveal delay={80}>
+            <div className="mt-10">
+              <PricingCalculator />
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
       {/* Plan cards */}
       <section className="px-4 py-20">
         <div className="container-page">
@@ -233,7 +255,9 @@ export default function PricingPage() {
           </Reveal>
 
           <div className="mt-10 grid gap-5 lg:grid-cols-4">
-            {PLANS.map((plan, i) => (
+            {PLANS.map((plan, i) => {
+              const tier = TIERS.find((t) => t.id === plan.id)!;
+              return (
               <Reveal key={plan.id} as="div" delay={i * 60}>
                 <div
                   className={cn(
@@ -250,6 +274,16 @@ export default function PricingPage() {
                   )}
                   <h3 className="text-h4 text-slate">{plan.name}</h3>
                   <p className="mt-0.5 text-meta text-slate-muted">{plan.band}</p>
+                  <p className="mt-4 text-[1.5rem] font-medium tracking-tight text-slate">
+                    {tier.pepm === null
+                      ? "Custom"
+                      : `₦${tier.pepm.toLocaleString("en-NG")}`}
+                  </p>
+                  {tier.pepm !== null && (
+                    <p className="text-meta text-slate-muted">
+                      per employee / month
+                    </p>
+                  )}
                   <p className="mt-4 text-meta leading-relaxed text-slate-soft">
                     {plan.tagline}
                   </p>
@@ -277,7 +311,8 @@ export default function PricingPage() {
                   </div>
                 </div>
               </Reveal>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
@@ -359,6 +394,32 @@ export default function PricingPage() {
               </table>
             </div>
           </Reveal>
+        </div>
+      </section>
+
+      {/* Add-ons */}
+      <section className="border-y border-sand-line bg-sand-deep px-4 py-16">
+        <div className="container-page">
+          <Reveal>
+            <h2 className="text-h2 text-slate">Add-ons</h2>
+          </Reveal>
+          <div className="mt-9 grid gap-5 md:grid-cols-3">
+            {ADD_ONS.map((a, i) => (
+              <Reveal key={a.name} as="div" delay={i * 60}>
+                <div className="h-full rounded-2xl border border-sand-line bg-sand p-6">
+                  <h3 className="text-body-lg font-medium text-slate">
+                    {a.name}
+                  </h3>
+                  <p className="mt-1.5 text-body-sm font-medium text-success-text">
+                    {a.price}
+                  </p>
+                  <p className="mt-3 text-body-sm leading-relaxed text-slate-muted">
+                    {a.detail}
+                  </p>
+                </div>
+              </Reveal>
+            ))}
+          </div>
         </div>
       </section>
 

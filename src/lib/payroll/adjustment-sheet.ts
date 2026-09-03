@@ -1,7 +1,7 @@
 import { parseCsv, toCsv, type CsvRow } from "@/lib/csv";
 import { readXlsx, writeXlsx, type SheetSpec } from "@/lib/xlsx";
 import type { Employee } from "@/lib/types";
-import type { Payslip } from "@/lib/api/payroll";
+import type { LineSummary, Payslip } from "@/lib/api/payroll";
 
 /**
  * The payroll adjustment sheet: one row per person, downloaded already filled in.
@@ -46,10 +46,24 @@ import type { Payslip } from "@/lib/api/payroll";
 /* ------------------------------------------------------------------ columns */
 
 /**
+ * Written into a `bonus` / `deduction` cell (and its reason) when a person
+ * has more than one line of that kind — see `LineSummary` in `api/payroll.ts`
+ * for why the sheet cannot collapse two lines into one figure without either
+ * dropping a reason or inventing one.
+ *
+ * Shared, one constant, between the write side (`sheetRow`) and the read side
+ * (`parseSheet`): a cell that still holds exactly this text was never edited,
+ * so that row's bonus or deduction is left alone rather than read as "clear
+ * this". Anything else typed over it — a number, or genuinely emptying the
+ * cell — is treated as a real decision and applied normally.
+ */
+export const AMBIGUOUS_LINES_MARKER = "(several — edit in app)";
+
+/**
  * A column on the sheet.
  *
  * `entered` is the distinction that matters: the first seven columns are there
- * so a person can see who a row is about, and the last four are the ones the
+ * so a person can see who a row is about, and the rest are the ones the
  * upload reads. Nothing stops somebody editing a name in Excel — what stops it
  * mattering is that we never read it back.
  */
@@ -114,7 +128,33 @@ export const SHEET_COLUMNS: readonly SheetColumn[] = [
   {
     key: "bonus",
     heading: "bonus",
-    note: "Naira, this month only. Empty this cell to take a bonus off.",
+    note:
+      `Naira, this month only. Empty this cell to take a bonus off. If this ` +
+      `shows "${AMBIGUOUS_LINES_MARKER}", this person has more than one bonus — ` +
+      "leave the cell as it is and edit them individually in the app.",
+    entered: true,
+  },
+  {
+    key: "bonus_reason",
+    heading: "bonus_reason",
+    note: "What the bonus is for. Optional — the bonus still saves without one.",
+    entered: true,
+  },
+  {
+    key: "deduction",
+    heading: "deduction",
+    note:
+      "Naira, this month only. A staff purchase, a damaged tool, a salary " +
+      "advance settled outside the loans module — not a statutory deduction, " +
+      `which has its own columns below. Empty this cell to take it off. If ` +
+      `this shows "${AMBIGUOUS_LINES_MARKER}", this person has more than one ` +
+      "such deduction — leave the cell as it is and edit them in the app.",
+    entered: true,
+  },
+  {
+    key: "deduction_reason",
+    heading: "deduction_reason",
+    note: "What the deduction is for. Optional, and worth filling in — an unexplained deduction is the line an employee asks about first.",
     entered: true,
   },
   {
@@ -158,8 +198,8 @@ export const SHEET_BLANK_RULE =
 
 export const SHEET_LEGEND: readonly string[] = [
   SHEET_BLANK_RULE,
-  "Only the last four columns are read back. Everything before them is here so " +
-    "you can see who a row is about.",
+  "Only the columns marked \"Yes\" below are read back. Everything before " +
+    "them is here so you can see who a row is about.",
   "Do not add rows. Somebody who is not on this payroll cannot be adjusted on it.",
   "Amounts are naira. Do not type a currency symbol or a thousands separator.",
 ];
@@ -183,11 +223,27 @@ export type SheetRowSource = {
   employee: Employee | undefined;
   /** Hand-entered hours already on the run, if any. */
   overtimeHours: number | null;
-  bonusKobo: number | null;
+  /** From `payrollApi.lineSummary`, not the payslip — see `LineSummary`'s
+   *  own note for why the payslip's rendered lines cannot answer this. */
+  bonus: LineSummary;
+  deduction: LineSummary;
 };
+
+/** A `LineSummary` reduced to what one sheet cell (and its reason cell) show. */
+function lineCells(summary: LineSummary): { amount: string; reason: string } {
+  if (summary.state === "one") {
+    return { amount: naira(summary.amountKobo), reason: summary.reason ?? "" };
+  }
+  if (summary.state === "many") {
+    return { amount: AMBIGUOUS_LINES_MARKER, reason: AMBIGUOUS_LINES_MARKER };
+  }
+  return { amount: "", reason: "" };
+}
 
 export function sheetRow(source: SheetRowSource): CsvRow {
   const { payslip, employee } = source;
+  const bonus = lineCells(source.bonus);
+  const deduction = lineCells(source.deduction);
   return {
     staff_no: payslip.employeeNo,
     name: payslip.name,
@@ -205,7 +261,10 @@ export function sheetRow(source: SheetRowSource): CsvRow {
     monthly_salary:
       employee?.grossMonthly == null ? "" : employee.grossMonthly.toFixed(2),
     overtime_hours: source.overtimeHours === null ? "" : String(source.overtimeHours),
-    bonus: source.bonusKobo === null ? "" : naira(source.bonusKobo),
+    bonus: bonus.amount,
+    bonus_reason: bonus.reason,
+    deduction: deduction.amount,
+    deduction_reason: deduction.reason,
     /* Only pre-filled when somebody has already overridden it. Filling every
        row with the computed tax would make an untouched sheet look like three
        hundred hand-entered figures on the way back in, and would freeze the
@@ -287,6 +346,13 @@ export type ParsedRow = {
   nhfKobo?: number | null;
   overtimeHours?: number | null;
   bonusKobo?: number | null;
+  /** A named deduction added by hand. Absent — not present with `null` —
+   *  when the cell held `AMBIGUOUS_LINES_MARKER`: that means this person
+   *  has more than one such line already, and an untouched marker is not a
+   *  decision to clear them. */
+  deductionKobo?: number | null;
+  bonusReason?: string;
+  deductionReason?: string;
   monthlyKobo?: number | null;
 };
 
@@ -388,8 +454,9 @@ export async function parseSheet(file: File): Promise<ParsedSheet> {
       row: 0,
       column: "monthly_salary",
       problem:
-        "That file has none of the four columns this reads — monthly_salary, " +
-        "overtime_hours, bonus or paye_tax. Nothing in it can be applied.",
+        "That file has none of the columns this reads — monthly_salary, " +
+        "overtime_hours, bonus, deduction, paye_tax, pension or nhf. Nothing " +
+        "in it can be applied.",
     });
     return { rows: [], problems, ignored, carried };
   }
@@ -423,7 +490,7 @@ export async function parseSheet(file: File): Promise<ParsedSheet> {
     let broke = false;
 
     const money = (
-      key: "monthly_salary" | "bonus" | "paye_tax" | "pension" | "nhf",
+      key: "monthly_salary" | "paye_tax" | "pension" | "nhf",
       field: keyof ParsedRow,
     ) => {
       if (!index.has(key)) return;
@@ -440,8 +507,42 @@ export async function parseSheet(file: File): Promise<ParsedSheet> {
       Object.assign(parsed, { [field]: value });
     };
 
+    /**
+     * `bonus` and `deduction`, which can also hold `AMBIGUOUS_LINES_MARKER`.
+     *
+     * A cell still holding exactly that text was never edited, so this row's
+     * key is left off `parsed` entirely — the same as a column the file did
+     * not carry — rather than set to `null`, which would read as "clear it"
+     * and delete lines nobody asked to touch. Anything else that is not a
+     * number is a real mistake and refuses normally.
+     */
+    const moneyOrMarker = (key: "bonus" | "deduction", field: keyof ParsedRow) => {
+      if (!index.has(key)) return;
+      const raw = cell(key).trim();
+      if (raw === AMBIGUOUS_LINES_MARKER) return;
+      const value = moneyKobo(raw);
+      if (value === "bad") {
+        problems.push({ row: number, column: key, problem: `"${raw}" is not an amount.` });
+        broke = true;
+        return;
+      }
+      Object.assign(parsed, { [field]: value });
+    };
+
+    /** `bonus_reason` / `deduction_reason` — plain text, carried through only
+     *  when it is a real reason somebody typed. */
+    const reasonText = (key: "bonus_reason" | "deduction_reason", field: keyof ParsedRow) => {
+      if (!index.has(key)) return;
+      const raw = cell(key).trim();
+      if (raw === "" || raw === AMBIGUOUS_LINES_MARKER) return;
+      Object.assign(parsed, { [field]: raw });
+    };
+
     money("monthly_salary", "monthlyKobo");
-    money("bonus", "bonusKobo");
+    moneyOrMarker("bonus", "bonusKobo");
+    reasonText("bonus_reason", "bonusReason");
+    moneyOrMarker("deduction", "deductionKobo");
+    reasonText("deduction_reason", "deductionReason");
     money("paye_tax", "payeKobo");
     money("pension", "pensionKobo");
     money("nhf", "nhfKobo");
@@ -493,9 +594,14 @@ export function summarise(
     let clears = false;
 
     if ("bonusKobo" in row) {
-      const was = before?.bonusKobo ?? null;
+      const was = before?.bonus.state === "one" ? before.bonus.amountKobo : null;
       if (row.bonusKobo === null && was !== null) clears = true;
       else if (row.bonusKobo !== null && row.bonusKobo !== was) moves = true;
+    }
+    if ("deductionKobo" in row) {
+      const was = before?.deduction.state === "one" ? before.deduction.amountKobo : null;
+      if (row.deductionKobo === null && was !== null) clears = true;
+      else if (row.deductionKobo !== null && row.deductionKobo !== was) moves = true;
     }
     if ("overtimeHours" in row) {
       const was = before?.overtimeHours ?? null;

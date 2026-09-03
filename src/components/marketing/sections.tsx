@@ -89,7 +89,7 @@ export function ModuleCard({
   return (
     <article
       className={cn(
-        "group relative flex h-full flex-col overflow-hidden rounded-3xl transition-all duration-300 ease-[var(--ease-out-soft)]",
+        "group relative flex h-full flex-col overflow-hidden rounded-3xl transition-all duration-300 ease-out-soft",
         "hover:-translate-y-1 hover:shadow-[0_12px_28px_-8px_rgb(20_18_15/0.14)]",
         "focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-slate",
         WASH_CLASS[module.wash],
@@ -110,9 +110,9 @@ export function ModuleCard({
 
       {/* Copy block is a fixed proportion so every headline sits on the same
           baseline across a row, however long the blurb runs. */}
-      <div className="flex min-h-[13.5rem] flex-col px-7 pb-6 pt-5">
+      <div className="flex min-h-54 flex-col px-7 pb-6 pt-5">
         <h3 className="text-h4 text-slate">{module.headline}</h3>
-        <p className="mt-2.5 max-w-md text-body leading-relaxed text-slate-soft">
+        <p className="mt-2.5 max-w-md leading-relaxed text-slate-soft">
           {module.blurb}
         </p>
         <div className="mt-auto pt-5">
@@ -127,7 +127,7 @@ export function ModuleCard({
       </div>
 
       <div className="pointer-events-none mt-auto overflow-hidden px-7">
-        <div className="translate-y-4 transition-transform duration-500 ease-[var(--ease-out-soft)] group-hover:translate-y-1">
+        <div className="translate-y-4 transition-transform duration-500 ease-out-soft group-hover:translate-y-1">
           <Mockup />
         </div>
       </div>
@@ -162,7 +162,7 @@ export function ProofRow({
       {items.map((item, i) => (
         <Reveal key={item.label} as="div" delay={i * 70}>
           <dt className="text-mega text-slate">{item.value}</dt>
-          <dd className="mt-2 text-body leading-relaxed text-slate-muted">
+          <dd className="mt-2 text-body leading-relaxed">
             {item.label}
           </dd>
         </Reveal>

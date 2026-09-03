@@ -30,7 +30,7 @@ export function LegalDocument({ doc }: { doc: LegalDoc }) {
     <div className="px-4 pb-28 pt-16 sm:pt-24">
       <div className="container-page">
         <div className="grid gap-14 lg:grid-cols-[minmax(0,1fr)_15rem] lg:gap-16">
-          <article className="max-w-[42rem]">
+          <article className="max-w-2xl">
             <p className="text-[0.75rem] font-medium uppercase tracking-[0.08em] text-slate-muted">
               Legal
             </p>
@@ -92,7 +92,7 @@ export function LegalDocument({ doc }: { doc: LegalDoc }) {
                       >
                         <span
                           aria-hidden="true"
-                          className="mt-[0.6875rem] size-1.5 shrink-0 rounded-full bg-slate-muted"
+                          className="mt-2.75 size-1.5 shrink-0 rounded-full bg-slate-muted"
                         />
                         <span>{item}</span>
                       </li>
@@ -139,7 +139,7 @@ export function LegalDocument({ doc }: { doc: LegalDoc }) {
               stand between the reader and the first clause. */}
           <nav
             aria-label="On this page"
-            className="order-first lg:order-none lg:sticky lg:top-28 lg:self-start"
+            className="order-first lg:order-0 lg:sticky lg:top-28 lg:self-start"
           >
             <h2 className="text-[0.75rem] font-semibold uppercase tracking-[0.08em] text-slate-muted">
               On this page
@@ -171,7 +171,7 @@ export function LegalDocument({ doc }: { doc: LegalDoc }) {
                     {other.label}
                     <ArrowUpRight
                       aria-hidden="true"
-                      className="size-3.5 transition-transform duration-200 ease-[var(--ease-out-soft)] group-hover/doc:-translate-y-0.5 group-hover/doc:translate-x-0.5"
+                      className="size-3.5 transition-transform duration-200 ease-out-soft group-hover/doc:-translate-y-0.5 group-hover/doc:translate-x-0.5"
                     />
                   </Link>
                 </li>

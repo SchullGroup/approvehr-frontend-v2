@@ -19,6 +19,7 @@ import {
   usePermissions,
 } from "@/lib/permissions";
 import { useFeatures } from "@/lib/store/features";
+import { useAssistantAvailable } from "@/lib/store/ai";
 import { useUnreadCount } from "@/lib/store/notifications";
 import { useApprovalQueue } from "@/lib/store/approvals-api";
 import { useLeaveRequests } from "@/lib/store/leave-api";
@@ -63,14 +64,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  /* The sidebar is filtered by who is looking and what the company turned on.
-     Both hooks answer from a cache after first load, so this is not a request
-     per render — see their headers. */
+  /* The sidebar is filtered by who is looking, what the company turned on, and
+     whether an assistant is answering. All three hooks answer from a cache after
+     first load, so this is not a request per render — see their headers.
+     `useAssistantAvailable` was a per-component `useState` until the nav started
+     reading it; it is a session-wide singleton now for exactly this line. */
   const { permissions } = usePermissions();
   const features = useFeatures();
+  const { available: assistantWired } = useAssistantAvailable();
   const groups = useMemo(
-    () => visibleNav(NAV, permissions, features),
-    [permissions, features],
+    () => visibleNav(NAV, permissions, features, assistantWired),
+    [permissions, features, assistantWired],
   );
 
   const nav = (

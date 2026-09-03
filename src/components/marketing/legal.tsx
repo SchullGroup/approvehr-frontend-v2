@@ -30,7 +30,7 @@ export function LegalDocument({ doc }: { doc: LegalDoc }) {
     <div className="px-4 pb-28 pt-16 sm:pt-24">
       <div className="container-page">
         <div className="grid gap-14 lg:grid-cols-[minmax(0,1fr)_15rem] lg:gap-16">
-          <article className="max-w-[42rem]">
+          <article className="max-w-2xl">
             <p className="text-meta font-medium text-slate-muted">
               Legal
             </p>
@@ -77,7 +77,7 @@ export function LegalDocument({ doc }: { doc: LegalDoc }) {
                 {section.body?.map((para) => (
                   <p
                     key={para.slice(0, 40)}
-                    className="mt-4 text-body leading-[1.75] text-slate-soft"
+                    className="mt-4 text-body leading-[1.75]"
                   >
                     {para}
                   </p>
@@ -88,11 +88,11 @@ export function LegalDocument({ doc }: { doc: LegalDoc }) {
                     {section.list.map((item) => (
                       <li
                         key={item.slice(0, 40)}
-                        className="flex gap-3 text-body leading-[1.75] text-slate-soft"
+                        className="flex gap-3 text-body leading-[1.75]"
                       >
                         <span
                           aria-hidden="true"
-                          className="mt-[0.6875rem] size-1.5 shrink-0 rounded-full bg-slate-muted"
+                          className="mt-2.75 size-1.5 shrink-0 rounded-full bg-slate-muted"
                         />
                         <span>{item}</span>
                       </li>
@@ -110,7 +110,7 @@ export function LegalDocument({ doc }: { doc: LegalDoc }) {
                         <dt className="text-body-sm font-medium text-slate">
                           {row.term}
                         </dt>
-                        <dd className="text-body leading-[1.7] text-slate-soft">
+                        <dd className="text-body leading-[1.7]">
                           {row.detail}
                         </dd>
                       </div>
@@ -139,7 +139,7 @@ export function LegalDocument({ doc }: { doc: LegalDoc }) {
               stand between the reader and the first clause. */}
           <nav
             aria-label="On this page"
-            className="order-first lg:order-none lg:sticky lg:top-28 lg:self-start"
+            className="order-first lg:order-0 lg:sticky lg:top-28 lg:self-start"
           >
             <h2 className="text-meta font-semibold text-slate-muted">
               On this page
@@ -171,7 +171,7 @@ export function LegalDocument({ doc }: { doc: LegalDoc }) {
                     {other.label}
                     <ArrowUpRight
                       aria-hidden="true"
-                      className="size-3.5 transition-transform duration-200 ease-[var(--ease-out-soft)] group-hover/doc:-translate-y-0.5 group-hover/doc:translate-x-0.5"
+                      className="size-3.5 transition-transform duration-200 ease-out-soft group-hover/doc:-translate-y-0.5 group-hover/doc:translate-x-0.5"
                     />
                   </Link>
                 </li>

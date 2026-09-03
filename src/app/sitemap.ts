@@ -1,43 +1,35 @@
 import type { MetadataRoute } from "next";
-import { MODULES } from "@/lib/marketing/modules";
-import { LEGAL_DOCS, type LegalDocId } from "@/lib/marketing/legal";
 
 /**
- * Only the public marketing surface is listed. The signed-in app under `(app)`
- * is deliberately absent — those routes require a session and indexing them
- * would put "Payroll run — ApproveHR" in search results pointing at a sign-in
- * redirect. `robots.ts` disallows them separately, since a sitemap omission is
- * not itself an instruction.
+ * Every static page this sitemap used to list — home, pricing, demo, the
+ * module walkthroughs, the legal docs — is 308ed by `proxy.ts` out to the
+ * standalone landing repo unconditionally (it defaults
+ * `NEXT_PUBLIC_LANDING_URL` to `https://approvehr.io` rather than gating on
+ * it). Listing a redirect in a sitemap tells a crawler to index the *target*,
+ * not this URL, so there is nothing left here for this domain to claim — the
+ * standalone repo publishes its own sitemap for those routes.
  *
- * Routes are derived from the same content modules the pages render from, so a
- * new module or legal document appears here without anyone remembering to.
+ * `/pricing` is the one exception, and it mirrors `proxy.ts`'s own exception
+ * for it: the standalone site's `/pricing` 404s as of 2 September 2026, so
+ * this domain's own page is the one actually live, and it belongs in this
+ * domain's sitemap for exactly as long as that stays true. Remove this entry
+ * in the same change that removes `proxy.ts`'s `/pricing` exclusion.
+ *
+ * `/careers/[org]/**` is real content this domain still owns (a tenant's live
+ * hiring data), but it was never in this static list to begin with — it would
+ * need a dynamic sitemap querying which organisations have a published
+ * careers page, which nothing here builds yet.
  */
 const SITE_URL = (
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://approvehr.io"
 ).replace(/\/$/, "");
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const staticPages: { path: string; priority: number }[] = [
-    { path: "", priority: 1 },
-    { path: "/pricing", priority: 0.9 },
-    { path: "/demo", priority: 0.9 },
+  return [
+    {
+      url: `${SITE_URL}/pricing`,
+      changeFrequency: "weekly",
+      priority: 0.9,
+    },
   ];
-
-  const modulePages = MODULES.map((m) => ({
-    path: `/product/${m.id}`,
-    priority: 0.8,
-  }));
-
-  const legalPages = (Object.keys(LEGAL_DOCS) as LegalDocId[]).map((id) => ({
-    path: `/${id}`,
-    priority: 0.3,
-  }));
-
-  return [...staticPages, ...modulePages, ...legalPages].map(
-    ({ path, priority }) => ({
-      url: `${SITE_URL}${path}`,
-      changeFrequency: priority >= 0.8 ? "weekly" : "yearly",
-      priority,
-    }),
-  );
 }
