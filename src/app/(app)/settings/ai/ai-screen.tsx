@@ -4,6 +4,7 @@ import {
   CircleDashed,
   ListChecks,
   MessageSquareText,
+  MessagesSquare,
   Sparkles,
   TrendingUp,
 } from "lucide-react";
@@ -49,8 +50,17 @@ import { useAssistantAvailable } from "@/lib/store/ai";
  * So: the rule stays where it is, and discoverability lives here instead.
  */
 
-/** The three places a suggestion can appear, and what each is built from. */
+/** Everywhere it appears, and what each one is built from. */
 const USES = [
+  {
+    /* First, because it is the only one with an address of its own and the only
+       one that can lead to a change. The three below land inside a form. */
+    icon: <MessagesSquare aria-hidden="true" />,
+    title: "A conversation about your own records",
+    where: "Assistant, in the sidebar",
+    from: "Whatever the lookups it runs return — and they run as you, with your permissions. It can offer to make a change, described from your records; nothing happens until you press Confirm.",
+    href: "/assistant",
+  },
   {
     icon: <ListChecks aria-hidden="true" />,
     title: "Objectives under a company goal",
@@ -87,8 +97,10 @@ export function AiScreen() {
 
       <PageBody className="flex flex-col gap-6">
         <p className="max-w-prose text-body-sm text-body">
-          Suggested objectives, drafted progress notes and development areas.
-          Every one of them is a draft somebody edits and submits themselves.
+          A conversation about your own records, plus suggested objectives,
+          drafted progress notes and development areas. Every suggestion is a
+          draft somebody edits and submits themselves, and every change is one
+          somebody confirms.
         </p>
 
         <Card>
@@ -158,8 +170,8 @@ export function AiScreen() {
               Set <code className="text-ink">GEMINI_API_KEY</code> on the API and
               restart it. <code className="text-ink">ANTHROPIC_API_KEY</code> is
               read the same way; with both set, Gemini answers and the API logs a
-              warning saying so. The three places below start working
-              immediately — nothing else has to be configured.
+              warning saying so. Everything below starts working immediately —
+              nothing else has to be configured.
             </p>
           </Callout>
         )}
@@ -206,7 +218,7 @@ export function AiScreen() {
         <Disclosure
           title="What is sent, and what is not"
           level={2}
-          hint="Suggestions send no name, no salary, no written comment. Asking a question sends what you asked and the answer to it."
+          hint="Suggestions send no name, no salary, no written comment. Asking a question sends more, and a conversation is kept nowhere."
         >
           <div className="flex flex-col gap-3 text-body-sm text-body">
             <p>
@@ -250,6 +262,33 @@ export function AiScreen() {
               working can be checked. Account numbers, pension PINs and TINs are
               never sent at all — the assistant is told only whether each one is
               on file.
+            </p>
+
+            {/* The paragraph the chat had to add. The one above promises the
+                assistant only reads, which stays true of every lookup — a
+                proposal is not a write, and the write is a separate endpoint a
+                person calls by pressing a button. Saying "it only reads" and
+                leaving out the Confirm button would be the comfortable half. */}
+            <p>
+              <strong className="font-semibold text-ink">
+                It can also offer to make a change, and never make one.
+              </strong>{" "}
+              In a conversation it may propose something — deciding a leave
+              request, starting an appraisal period, posting an announcement. A
+              proposal is only a description: the summary and the details beside
+              the button are read out of your own records by the server, not
+              written by the model, and the change happens on your press and on
+              nothing else. The same permissions apply, so it can only ever offer
+              you something you could have done yourself.
+            </p>
+
+            {/* Retention, which is the question a conversation raises and a
+                one-shot answer does not. */}
+            <p>
+              A conversation is not stored anywhere. The whole exchange is sent
+              again on every turn so that no transcript has to be kept, and
+              closing the page ends it — there is nothing to go back to, by
+              design.
             </p>
             <p className="text-muted">
               Whichever provider is answering is named in the{" "}
