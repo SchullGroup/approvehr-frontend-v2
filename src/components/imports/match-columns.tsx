@@ -245,7 +245,7 @@ export function MatchColumns({
                             >
                               {option.label}
                               {option.required ? " (needed)" : ""}
-                              {taken ? ` — already ${holder}` : ""}
+                              {taken ? `, already ${holder}` : ""}
                             </option>
                           );
                         })}

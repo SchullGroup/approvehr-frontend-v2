@@ -86,8 +86,7 @@ export function MyOvertime({
 
             {approved.count > 0 && (
               <p className="text-body-sm text-body">
-                <Money amount={naira(approved.amountKobo)} decimals /> approved —
-                the next payroll run picks it up.
+                <Money amount={naira(approved.amountKobo)} decimals /> approved: the next payroll run picks it up.
               </p>
             )}
 

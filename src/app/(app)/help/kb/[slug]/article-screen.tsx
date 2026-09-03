@@ -138,7 +138,7 @@ export function ArticleScreen({ slug }: { slug: string }) {
           <>
             {article.status === "draft" && (
               <Badge tone="warning" size="sm" dot>
-                Draft — staff cannot see this yet
+                Draft: staff cannot see this yet
               </Badge>
             )}
             {article.section.map((section) => (
@@ -225,14 +225,14 @@ export function ArticleScreen({ slug }: { slug: string }) {
 
                 {yourVote === "helpful" && (
                   <p className="text-body-sm text-muted">
-                    Saved — you said yes.
+                    Saved: you said yes.
                   </p>
                 )}
 
                 {yourVote === "not-helpful" && (
                   <div className="flex flex-wrap items-center gap-3">
                     <p className="text-body-sm text-muted">
-                      Saved — you said no.
+                      Saved: you said no.
                     </p>
                     <ButtonLink href="/help" variant="accent" size="sm">
                       Ask the help desk

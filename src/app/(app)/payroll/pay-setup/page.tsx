@@ -5,7 +5,7 @@ import { isPaySetupTab } from "./tabs";
 export const metadata: Metadata = {
   title: "Pay setup",
   description:
-    "Allowances, deductions and salary grades in one place — with what each one does to tax, pension and take-home pay.",
+    "Allowances, deductions and salary grades in one place, with what each one does to tax, pension and take-home pay.",
 };
 
 /**

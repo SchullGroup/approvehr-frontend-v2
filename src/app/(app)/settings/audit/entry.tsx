@@ -309,7 +309,7 @@ export function Changes({ detail }: { detail: AuditEntryDetail }) {
 
       {nothing && (
         <p className="text-body-sm text-muted">
-          Nothing on the record changed — this is the action itself.
+          Nothing on the record changed: this is the action itself.
         </p>
       )}
 

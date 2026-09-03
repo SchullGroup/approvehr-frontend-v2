@@ -367,7 +367,7 @@ export function KpisTab({
           onConfirm={async (reason) => {
             const ok = await run(
               () => objectives.revise(reopening.id, reason),
-              `"${reopening.title}" reopened — it has to be agreed again`,
+              `"${reopening.title}" reopened: it has to be agreed again`,
             );
             if (ok) setReopening(null);
           }}
@@ -882,7 +882,7 @@ function MeasureRow({
             state={summary}
             onDismiss={summary.clear}
             useLabel="Use this wording"
-            emptyHint="Your words, expanded — check it before you save."
+            emptyHint="Your words, expanded. Check it before you save."
             /* Replaces the headline with the fuller version, in an editable box
                somebody still has to press Save under. The suggestion is built
                from what they typed and adds no achievement they did not

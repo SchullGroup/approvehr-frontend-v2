@@ -167,7 +167,7 @@ export function HowItWorksBody() {
                 {source === "demo"
                   ? "The shipped shares. A real company can change them in settings."
                   : weights.source === "default"
-                    ? "The shipped shares — nobody here has changed them."
+                    ? "The shipped shares, nobody here has changed them."
                     : "Your company set these."}{" "}
                 <Link
                   href="/settings/performance"

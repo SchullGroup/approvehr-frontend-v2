@@ -65,7 +65,7 @@ export function AskPanel() {
       <CardHeader
         level={3}
         title="Ask about your company"
-        description="Your people, your payroll runs, and what you deduct. It reads your records — it does not change anything."
+        description="Your people, your payroll runs, and what you deduct. It reads your records: it does not change anything."
         action={
           <ButtonLink href="/assistant" variant="ghost" size="sm">
             Open the assistant

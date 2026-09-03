@@ -626,7 +626,7 @@ export const daysLabel = (days: number): string =>
 export const HOLIDAY_DELETE_EFFECTS: readonly string[] = [
   "Nothing refuses it. No leave request, payslip or timesheet points at a holiday by id, so there is no reference to check and the API checks none.",
   "Leave already approved keeps its day count. A request stores the days it was granted and that figure does not move.",
-  "The date becomes an ordinary day again everywhere the calendar is read live — the attendance timesheet, overtime rates, the unpaid days payroll prorates against, and the help desk's response clock.",
+  "The date becomes an ordinary day again everywhere the calendar is read live: the attendance timesheet, overtime rates, the unpaid days payroll prorates against, and the help desk's response clock.",
   "A payroll run already approved keeps its own figures. A run not yet made will come out different.",
 ];
 

@@ -190,7 +190,7 @@ export function PoliciesScreen() {
               description={
                 query
                   ? "Try a shorter search."
-                  : "Working hours, expenses, company phones — write the first one and everybody is asked to accept it."
+                  : "Working hours, expenses, company phones. Write the first one and everybody is asked to accept it."
               }
               action={
                 canManage && policies.editable && !query ? (
@@ -309,7 +309,7 @@ export function PoliciesScreen() {
                     ? `, published ${dayLabel(reading.publishedAt.slice(0, 10))}`
                     : ""
                 }`
-              : "Draft — not published"
+              : "Draft (not published)"
           }
           onClose={() => setReading(null)}
         />
@@ -670,7 +670,7 @@ function EditSectionModal({
         {policy.published ? (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line bg-canvas p-4">
             <p className="text-body-sm text-body">
-              Wording — version {policy.version}
+              Wording · version {policy.version}
             </p>
             <Button variant="secondary" size="sm" onClick={onPublishInstead}>
               Change the wording

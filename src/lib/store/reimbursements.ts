@@ -393,7 +393,7 @@ const SEED_CLAIMS: ApiClaim[] = DEMO_ENABLED ? [
     typeName: "Travel and hotel",
     amount: 184_500,
     daysAgo: 21,
-    description: "Abuja trip for the Federal Ministry meeting — bus and one night",
+    description: "Abuja trip for the Federal Ministry meeting, bus and one night",
     receiptKey: "receipts/2026/abuja-hotel-folio.pdf",
     status: "APPROVED",
   }),

@@ -159,7 +159,7 @@ export function FeaturesScreen() {
   const REQUIRES: Partial<Record<FeatureKey, { key: FeatureKey; why: string }>> = {
     multiAppraiser: {
       key: "appraisals",
-      why: "Turn appraisals on first — this changes how an appraisal period works, and there are no appraisal periods without them.",
+      why: "Turn appraisals on first: this changes how an appraisal period works, and there are no appraisal periods without them.",
     },
   };
 
@@ -172,7 +172,7 @@ export function FeaturesScreen() {
         <Switch
           label={
             FEATURE_COPY[key].soon
-              ? `${FEATURE_COPY[key].label} — coming soon`
+              ? `${FEATURE_COPY[key].label} (coming soon)`
               : FEATURE_COPY[key].label
           }
           description={
@@ -287,7 +287,7 @@ export function FeaturesScreen() {
             <Callout tone="info" title="Turning one off does not change anybody's pay">
               A person who already has a TIN keeps it, payroll keeps filing with
               it, and their record still shows it. What stops is being asked for
-              it on new records — and the payroll run still holds back anybody it
+              it on new records, and the payroll run still holds back anybody it
               cannot pay, for the same reasons as before.
             </Callout>
             <div className="flex flex-col divide-y divide-line">

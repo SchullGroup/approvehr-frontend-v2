@@ -145,7 +145,7 @@ export function GradesPanel() {
       {DEMO_ENABLED && !grades.connected && !grades.loading && (
         <Callout tone="warning" title="Demo data, this browser only">
           You can price a rise here and see exactly what it would cost. Applying
-          one, and adding or editing a grade, needs the API — pay set in a
+          one, and adding or editing a grade, needs the API: pay set in a
           browser would never reach a payroll run.
         </Callout>
       )}
@@ -349,7 +349,7 @@ export function GradesPanel() {
         title={`Archive ${archiving?.code ?? ""} ${archiving?.name ?? ""}?`}
         confirmLabel="Archive"
         tone="danger"
-        body="Hidden, not deleted, and its level is freed for another grade. Move anyone still on it first — nobody's pay changes."
+        body="Hidden, not deleted, and its level is freed for another grade. Move anyone still on it first: nobody's pay changes."
         onConfirm={async () => {
           if (!archiving) return;
           const ok = await run(

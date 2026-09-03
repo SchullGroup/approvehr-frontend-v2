@@ -30,7 +30,7 @@ export const EQUIPMENT_IMPORT_SURFACE: ImportSurface = {
     equipmentKinds: {
       title: "Some equipment kinds have not been answered for yet",
       consequence:
-        "are new, and their rows do not say whether a leaver has to hand one back. Fill in must_be_returned_on_exit on those rows and check again — one answer makes somebody's clearance impossible and the other makes it meaningless, so we will not choose it.",
+        "are new, and their rows do not say whether a leaver has to hand one back. Fill in must_be_returned_on_exit on those rows and check again: one answer makes somebody's clearance impossible and the other makes it meaningless, so we will not choose it.",
       action: { href: "/people/assets", label: "See the kinds you already have" },
     },
     people: {

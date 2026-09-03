@@ -87,7 +87,7 @@ export function AssignComponentToManyDialog({
       effect={
         figure
           ? `Everybody chosen gets ${figure}${to ? `, until ${to}` : ""}. It shows on their next payslip that covers ${from || "this month"}.`
-          : `This component has no default ${fixed ? "amount" : "rate"}, so set one below — leaving it blank would ask to add ₦0.00 to every payslip, which is refused.`
+          : `This component has no default ${fixed ? "amount" : "rate"}, so set one below: leaving it blank would ask to add ₦0.00 to every payslip, which is refused.`
       }
       countLabel={(count) =>
         count === 1 ? "1 person will be assigned" : `${count} people will be assigned`
@@ -101,7 +101,7 @@ export function AssignComponentToManyDialog({
                 help={
                   component.defaultAmountKobo !== null
                     ? `Leave blank to use the default, ${money(component.defaultAmountKobo)}.`
-                    : "This component has no default — required."
+                    : "This component has no default, so a value is required."
                 }
               >
                 <Input
@@ -118,7 +118,7 @@ export function AssignComponentToManyDialog({
                 help={
                   component.defaultRate !== null
                     ? `Leave blank to use the default, ${ratePercent(component.defaultRate).toFixed(2)}% of ${basisOf(component.basis)}.`
-                    : "This component has no default — required."
+                    : "This component has no default, so a value is required."
                 }
               >
                 <Input

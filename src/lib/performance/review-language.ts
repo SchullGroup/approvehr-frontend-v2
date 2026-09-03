@@ -392,4 +392,4 @@ export function findingsHeadline(count: number): string {
  */
 export const FINDINGS_CAVEAT =
   "Nothing here stops you sending the review. This looks for four specific " +
-  "things and cannot tell whether what you wrote is fair — you can.";
+  "things and cannot tell whether what you wrote is fair, you can.";

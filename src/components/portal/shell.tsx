@@ -507,7 +507,7 @@ function UserMenu() {
                   live company's account, not merely quiet on it. */}
               {DEMO_ENABLED && mode !== "api" && (
                 <p className="mt-1.5 text-meta text-faint">
-                  Demo session — data is local to this browser
+                  Demo session: data is local to this browser
                 </p>
               )}
             </div>

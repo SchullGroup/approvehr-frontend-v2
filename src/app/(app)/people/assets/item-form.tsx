@@ -324,7 +324,7 @@ export function ItemForm({
               value: kind.id,
               label: kind.returnRequired
                 ? kind.name
-                : `${kind.name} — nobody has to hand it back`,
+                : `${kind.name} (nobody has to hand it back)`,
             }))}
             {...(onCreateKind
               ? { onCreate: { label: "Add a new kind", onSelect: onCreateKind } }
