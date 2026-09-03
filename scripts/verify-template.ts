@@ -43,12 +43,101 @@ import {
   exampleRow,
 } from "../src/lib/imports/template-file";
 import { EMPLOYEES } from "../src/lib/imports/employees";
+import { ATTENDANCE_COLUMNS } from "../src/lib/imports/attendance";
 import { columnIndex, columnName, readXlsx, serialToDate, writeXlsx } from "../src/lib/xlsx";
 
 type Check = { name: string; got: unknown; want: unknown };
 const checks: Check[] = [];
 const eq = (name: string, got: unknown, want: unknown) =>
   checks.push({ name, got, want });
+
+/** The only fields of a mirrored column this has an opinion about. */
+type MirrorColumn = {
+  column: string;
+  required?: boolean;
+  recommended?: unknown;
+  cell?: unknown;
+  dropdown?: unknown;
+};
+
+/**
+ * Assert one mirrored dictionary against the API's own declaration.
+ *
+ * The mirrors' headers say "if you change the API's dictionary, re-copy it
+ * here", and a sentence is not a gate. The API's copy is the one that answers,
+ * so drift shows up as a column the offline screen offers as "do not import".
+ *
+ * The API's source is parsed **as text**, the same trick `verify-payroll.ts`
+ * uses for the tax schedules, because this package cannot resolve that tree.
+ * Skips when the sibling repo is absent, because this repo's CI clones it alone.
+ */
+function gateMirror(
+  label: string,
+  apiFile: string,
+  exportName: string,
+  mirror: readonly MirrorColumn[],
+): void {
+  const apiDictionary = path.resolve(
+    import.meta.dirname,
+    `../../../approvehr-api/src/modules/imports/${apiFile}`,
+  );
+
+  if (!existsSync(apiDictionary)) {
+    console.log(
+      `  skip  the ${label} mirror vs the API's dictionary — approvehr-api is not checked out beside this repo`,
+    );
+    return;
+  }
+
+  const source = readFileSync(apiDictionary, "utf8");
+  const at = source.indexOf(`export const ${exportName}`);
+  const declaration = source.slice(at, source.indexOf("\n];", at));
+
+  /* One block per spec. Split on the object boundary rather than matching
+     across it — a lazy regex over the whole array reads one spec's `column`
+     against the next spec's `recommended`, which is a false pass in one
+     direction and a false failure in the other. */
+  const blocks = declaration
+    .split(/\n  \{\n/)
+    .slice(1)
+    .map((block) => block.split(/\n  \},?/)[0] ?? "");
+  const columnOf = (block: string): string =>
+    /\n    column: "([^"]+)"/.exec(block)?.[1] ?? "";
+
+  const apiSide = (pattern: RegExp): string[] =>
+    blocks.filter((block) => pattern.test(block)).map(columnOf).sort();
+  const mirrorSide = (has: (spec: MirrorColumn) => boolean): string[] =>
+    mirror
+      .filter(has)
+      .map((spec) => spec.column)
+      .sort();
+
+  eq(
+    `the API declares the same ${label} columns as the mirror`,
+    blocks.map(columnOf).sort(),
+    mirror.map((spec) => spec.column).sort(),
+  );
+  eq(
+    `and the same required set (${label})`,
+    apiSide(/\n    required: true,/),
+    mirrorSide((spec) => spec.required === true),
+  );
+  eq(
+    `and the same recommended set (${label})`,
+    apiSide(/\n    recommended: \{/),
+    mirrorSide((spec) => spec.recommended !== undefined),
+  );
+  eq(
+    `and the same declared cell types (${label})`,
+    apiSide(/\n    cell: \{/),
+    mirrorSide((spec) => spec.cell !== undefined),
+  );
+  eq(
+    `and the same columns get a dropdown (${label})`,
+    apiSide(/\n    dropdown: /),
+    mirrorSide((spec) => spec.dropdown !== undefined),
+  );
+}
 
 async function main(): Promise<void> {
   const columns = columnsFromDictionary(EMPLOYEES);
@@ -325,79 +414,12 @@ async function main(): Promise<void> {
      out of the API's source as text, the same way `verify-payroll.ts` reads the
      tax schedules, because this package cannot resolve that tree. */
 
-  const apiDictionary = path.resolve(
-    import.meta.dirname,
-    "../../../approvehr-api/src/modules/imports/employees.ts",
-  );
-
-  if (existsSync(apiDictionary)) {
-    const source = readFileSync(apiDictionary, "utf8");
-    const declaration = source.slice(
-      source.indexOf("export const EMPLOYEE_COLUMNS"),
-      source.indexOf("\n];", source.indexOf("export const EMPLOYEE_COLUMNS")),
-    );
-
-    /* One block per spec. Split on the object boundary rather than matching
-       across it — a lazy regex over the whole array reads one spec's `column`
-       against the next spec's `recommended`, which is a false pass in one
-       direction and a false failure in the other. */
-    const blocks = declaration
-      .split(/\n  \{\n/)
-      .slice(1)
-      .map((block) => block.split(/\n  \},?/)[0] ?? "");
-    const columnOf = (block: string): string =>
-      /\n    column: "([^"]+)"/.exec(block)?.[1] ?? "";
-
-    eq(
-      "the API declares the same columns as the mirror",
-      blocks.map(columnOf).sort(),
-      EMPLOYEE_COLUMNS.map((spec) => spec.column).sort(),
-    );
-    eq(
-      "and the same required set",
-      blocks
-        .filter((block) => /\n    required: true,/.test(block))
-        .map(columnOf)
-        .sort(),
-      EMPLOYEE_COLUMNS.filter((spec) => spec.required)
-        .map((spec) => spec.column)
-        .sort(),
-    );
-    eq(
-      "and the same recommended set",
-      blocks
-        .filter((block) => /\n    recommended: \{/.test(block))
-        .map(columnOf)
-        .sort(),
-      EMPLOYEE_COLUMNS.filter((spec) => spec.recommended !== undefined)
-        .map((spec) => spec.column)
-        .sort(),
-    );
-    eq(
-      "and the same date and money columns",
-      blocks
-        .filter((block) => /\n    cell: \{/.test(block))
-        .map(columnOf)
-        .sort(),
-      EMPLOYEE_COLUMNS.filter((spec) => spec.cell !== undefined)
-        .map((spec) => spec.column)
-        .sort(),
-    );
-    eq(
-      "and the same columns get a dropdown",
-      blocks
-        .filter((block) => /\n    dropdown: /.test(block))
-        .map(columnOf)
-        .sort(),
-      EMPLOYEE_COLUMNS.filter((spec) => spec.dropdown !== undefined)
-        .map((spec) => spec.column)
-        .sort(),
-    );
-  } else {
-    console.log(
-      "  skip  the mirror vs the API's dictionary — approvehr-api is not checked out beside this repo",
-    );
-  }
+  gateMirror("employee", "employees.ts", "EMPLOYEE_COLUMNS", EMPLOYEE_COLUMNS);
+  /* The attendance dictionary is the second mirror, which is why the five
+     assertions moved into `gateMirror` rather than being copied — a second copy
+     of a drift check is the drift this block exists to prevent, one level up.
+     A third entity is one line. */
+  gateMirror("attendance", "attendance.ts", "ATTENDANCE_COLUMNS", ATTENDANCE_COLUMNS);
 
   /* --- Report --------------------------------------------------------- */
 
