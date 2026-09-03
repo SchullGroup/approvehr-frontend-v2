@@ -201,7 +201,7 @@ export function AppraiserMapTab() {
            the period with no mark at all. */
         ...(result.withoutManager.length > 0
           ? {
-              detail: `Still nobody appraising: ${result.withoutManager.join(", ")}. They have no manager either — assign somebody by hand.`,
+              detail: `Still nobody appraising: ${result.withoutManager.join(", ")}. They have no manager either. Assign somebody by hand.`,
             }
           : {}),
       });
@@ -883,7 +883,7 @@ export function AppraisersDialog({
 
         {rows.length === 0 && (
           <Callout tone="warning" title="Nobody would appraise them">
-            Saving with an empty list is allowed and it is a real state — it is
+            Saving with an empty list is allowed and it is a real state: it is
             how you undo a mapping. They will finish the period with no mark,
             and the period will say so by name.
           </Callout>

@@ -238,8 +238,8 @@ export function taxableSwitch(on: boolean): SwitchCopy {
   return {
     label: "PAYE applies to it",
     why: on
-      ? "Taxed — it goes into the PAYE calculation with the rest of pay."
-      : "Tax-free — left out of the PAYE calculation entirely.",
+      ? "Taxed: it goes into the PAYE calculation with the rest of pay."
+      : "Tax-free: left out of the PAYE calculation entirely.",
   };
 }
 
@@ -250,10 +250,10 @@ export function pensionSwitch(
   return {
     label: "Counts for pension",
     why: on
-      ? `Counts for pension — adds ${percent(rates.employeeRate)} employee and ${percent(
+      ? `Counts for pension: adds ${percent(rates.employeeRate)} employee and ${percent(
           rates.employerRate,
         )} employer contribution on this amount.`
-      : "No pension — nothing is charged on it, so all of it reaches take-home pay. Right unless it is contractual monthly pay.",
+      : "No pension: nothing is charged on it, so all of it reaches take-home pay. Right unless it is contractual monthly pay.",
   };
 }
 
@@ -261,8 +261,8 @@ export function preTaxSwitch(on: boolean): SwitchCopy {
   return {
     label: "Comes off before tax",
     why: on
-      ? "Before tax — it lowers the PAYE bill too. Only for schemes the tax law recognises, like NHIS."
-      : "After tax — PAYE is worked out first, then this comes off take-home pay.",
+      ? "Before tax: it lowers the PAYE bill too. Only for schemes the tax law recognises, like NHIS."
+      : "After tax: PAYE is worked out first, then this comes off take-home pay.",
   };
 }
 
@@ -270,7 +270,7 @@ export function applyModeSwitch(on: boolean): SwitchCopy {
   return {
     label: "Charge every employee automatically",
     why: on
-      ? "Permanent — every active employee carries it on every run, at the amount or rate above. Nobody needs assigning."
-      : "Optional — applies to nobody until you assign it, to one person or several at once.",
+      ? "Permanent: every active employee carries it on every run, at the amount or rate above. Nobody needs assigning."
+      : "Optional: applies to nobody until you assign it, to one person or several at once.",
   };
 }

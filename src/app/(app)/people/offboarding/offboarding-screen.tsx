@@ -117,8 +117,7 @@ export function OffboardingScreen() {
             reader looking for that door on this screen alone would not find
             it, which is the whole reason this line exists. */}
         <p className="text-body-sm text-muted">
-          Staff can also hand in their own notice from their Profile page —
-          it shows up here the same way as one you start for them.
+          Staff can also hand in their own notice from their Profile page: it shows up here the same way as one you start for them.
         </p>
 
         <div className="flex flex-wrap items-center justify-between gap-3">

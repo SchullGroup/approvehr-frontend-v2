@@ -653,7 +653,7 @@ function offline(message: string): never {
 }
 
 const CORRECTIONS_OFFLINE =
-  "Attendance corrections need the API — HR reads and decides what you " +
+  "Attendance corrections need the API: HR reads and decides what you " +
   "raise here, and a request kept only in this browser would never reach " +
   "them.";
 

@@ -131,7 +131,7 @@ export function CheckPanel({
               {people(bankProblems.length)} on this batch{" "}
               {bankProblems.length === 1 ? "has" : "have"} a bank detail that is
               missing or does not add up. Fix it on their record, then rebuild
-              this batch — the details on it were copied in when it was built
+              this batch: the details on it were copied in when it was built
               and will not update on their own.
             </p>
             {batch.payrollRunId && (

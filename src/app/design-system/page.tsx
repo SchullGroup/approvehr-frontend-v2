@@ -107,7 +107,7 @@ export default function DesignSystemPage() {
           </h1>
           <p className="mt-4 max-w-2xl text-lead text-body">
             Every token, control and pattern the product is built from. Nothing
-            here is decorative — each decision below is recorded so a screen
+            here is decorative: each decision below is recorded so a screen
             never has to re-invent it.
           </p>
           <div className="mt-7 flex flex-wrap gap-2">
@@ -182,13 +182,13 @@ export default function DesignSystemPage() {
           <Section
             id="colour"
             title="Colour"
-            intro="Text colours carry a measured contrast ratio on white. Fills carry the ratio of the label that sits on them. Anything under 4.5:1 is restricted to icons, borders and large text — the restriction is stated on the swatch, not left to memory."
+            intro="Text colours carry a measured contrast ratio on white. Fills carry the ratio of the label that sits on them. Anything under 4.5:1 is restricted to icons, borders and large text: the restriction is stated on the swatch, not left to memory."
           >
             <SwatchGrid title="Brand" swatches={BRAND} />
             <SwatchGrid title="Neutrals" swatches={NEUTRALS} />
             <SwatchGrid title="Semantic" swatches={SEMANTIC} />
             <SwatchGrid
-              title="Categorical — charts only"
+              title="Categorical (charts only)"
               swatches={CATEGORICAL}
               note="Series colour never signals status. A bar is green because it is the second series, not because things are going well."
             />
@@ -311,7 +311,7 @@ export default function DesignSystemPage() {
           <Section
             id="forms"
             title="Forms"
-            intro="Label above, control, then help text or an error — never both, so the row height never shifts during validation. Every control is reachable by keyboard and announces its own error."
+            intro="Label above, control, then help text or an error, never both, so the row height never shifts during validation. Every control is reachable by keyboard and announces its own error."
           >
             <Card>
               <CardBody>
@@ -324,7 +324,7 @@ export default function DesignSystemPage() {
           <Section
             id="tables"
             title="Tables"
-            intro="The identifying cell is a row header, so screen readers announce which row a value belongs to. Money right-aligns with tabular figures. Wide tables scroll inside their own box — the page body never scrolls sideways."
+            intro="The identifying cell is a row header, so screen readers announce which row a value belongs to. Money right-aligns with tabular figures. Wide tables scroll inside their own box: the page body never scrolls sideways."
           >
             <TableDemo />
           </Section>

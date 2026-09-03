@@ -1554,7 +1554,7 @@ export function useKpiMutations() {
     addKeyResult: useCallback(
       async (goalId: string, body: CreateKeyResultBody) => {
         guard(
-          "Adding a measure needs the API — the demo book's measures are fixed, " +
+          "Adding a measure needs the API: the demo book's measures are fixed, " +
             "but you can move any of their numbers.",
         );
         return performanceApi.addKeyResult(goalId, body);
@@ -2279,7 +2279,7 @@ export function useFrameworkActions() {
     createSection: useCallback(
       async (body: { name: string; order?: number }) => {
         guard(
-          "Adding a section needs the API — sections are shared across every " +
+          "Adding a section needs the API: sections are shared across every " +
             "appraisal period, and one kept in this browser would vanish the " +
             "moment you closed it.",
         );
@@ -2297,7 +2297,7 @@ export function useFrameworkActions() {
         scaleMax: number;
       }) => {
         guard(
-          "Adding a competency needs the API — the demo framework is fixed, " +
+          "Adding a competency needs the API: the demo framework is fixed, " +
             "but you can still rate anybody against it.",
         );
         return performanceApi.createCompetency(body);
@@ -2664,7 +2664,7 @@ export function useRating() {
       async (competencyId: string, body: RateBody) => {
         if (!isConnected) {
           offline(
-            "Recording somebody's level needs the API — a rating is the " +
+            "Recording somebody's level needs the API: a rating is the " +
               "assessment of record, and it belongs where their reviews are.",
           );
         }
@@ -2748,7 +2748,7 @@ export function useGoalTasks(goalId: string | null): {
 }
 
 const TASK_OFFLINE =
-  "The task log needs the API — a manager grading a report's task is " +
+  "The task log needs the API: a manager grading a report's task is " +
   "state they both then read, and this browser cannot hold it for them.";
 
 export function useTaskActions() {
@@ -2908,9 +2908,9 @@ export function useAppraiserMutations() {
  * ======================================================================== */
 
 const REGISTER_OFFLINE =
-  "A period's register needs the API. It is an aggregate over everybody — who " +
+  "A period's register needs the API. It is an aggregate over everybody: who " +
   "owes a form, who has nobody appraising them, and what each person's mark is " +
-  "made of — and one assembled in this browser would describe a period nothing " +
+  "made of, and one assembled in this browser would describe a period nothing " +
   "else here is running.";
 
 export type CycleRegister = {
@@ -3284,7 +3284,7 @@ export const BAND_TONE: Record<ScoreBand, BadgeTone> = {
 
 const WEIGHTS_SAVE_OFFLINE =
   "Saving the weights needs the API. They decide how everybody's mark is put " +
-  "together, and a set kept in this browser would change no score anywhere — a " +
+  "together, and a set kept in this browser would change no score anywhere: a " +
   "settings screen that looks saved and moves nothing is worse than one that " +
   "says it cannot.";
 
@@ -3414,7 +3414,7 @@ const REPORT_OFFLINE =
 const HISTORY_OFFLINE =
   "A trend across periods needs the API. Every point on it is the same score " +
   "the period screen shows, read from the weights that period was frozen " +
-  "against — there is nothing in this browser to read it from.";
+  "against: there is nothing in this browser to read it from.";
 
 /**
  * The outcome of one cycle: the distribution, what came in, and who is left out.

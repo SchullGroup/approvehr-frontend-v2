@@ -211,7 +211,7 @@ function Endpoints() {
                   ? "Nothing matches that"
                   : "No endpoints yet"
               }
-              description="Give us a URL and we POST signed JSON to it when something happens. Unlike the other integrations, this one needs no credential of anybody else's — the server is yours."
+              description="Give us a URL and we POST signed JSON to it when something happens. Unlike the other integrations, this one needs no credential of anybody else's: the server is yours."
               action={
                 editable && !search && state === "all" ? (
                   <Button variant="accent" onClick={() => setAdding(true)}>
@@ -270,7 +270,7 @@ function Endpoints() {
             >
               Notifications
             </Link>
-            . Nothing is emailed — email delivery is not wired yet.
+            . Nothing is emailed: email delivery is not wired yet.
           </p>
         )}
       </PageBody>

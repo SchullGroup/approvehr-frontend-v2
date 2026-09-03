@@ -298,7 +298,7 @@ export function HolidayCalendarCard({
         }
         hint={
           DEMO_ENABLED && calendar.source === "demo"
-            ? "Demo calendar — Nigeria's 2026 dates, seeded into this browser. Not a company calendar."
+            ? "Demo calendar: Nigeria's 2026 dates, seeded into this browser. Not a company calendar."
             : "Attendance, overtime, payroll proration and the help desk's response clock all read these dates."
         }
         panelClassName="flex flex-col gap-5 p-5"

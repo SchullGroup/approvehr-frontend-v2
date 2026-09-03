@@ -258,8 +258,7 @@ export function StatutoryScreen() {
                       key={label}
                       className="text-body-sm leading-relaxed text-body"
                     >
-                      <strong className="font-medium text-ink">{label}</strong>{" "}
-                      — the schedule, the amount and the due date appear here
+                      <strong className="font-medium text-ink">{label}</strong>{" "}: the schedule, the amount and the due date appear here
                       once a payroll run for the period is approved.
                     </p>
                   ),
@@ -278,7 +277,7 @@ export function StatutoryScreen() {
                 </p>
                 <p className="text-body-sm leading-relaxed text-body">
                   A deduction your company does not operate produces no schedule
-                  at all — not an empty one. A nil return you had no obligation
+                  at all, not an empty one. A nil return you had no obligation
                   to make is worse than no return, so the reason is stated
                   instead. Change what you deduct under{" "}
                   <strong className="font-medium text-ink">

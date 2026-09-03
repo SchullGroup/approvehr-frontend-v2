@@ -232,7 +232,7 @@ function Form() {
       toast.push({
         title: "Company profile saved in this browser",
         tone: "success",
-        detail: "Demo mode — it does not reach a server or another device.",
+        detail: "Demo mode: it does not reach a server or another device.",
       });
       return;
     }
@@ -460,7 +460,7 @@ function Form() {
           </TableWrap>
           <CardBody className="border-t border-line">
             <p className="text-body-sm leading-relaxed text-muted">
-              Adding and removing entities is not wired up yet — it changes which
+              Adding and removing entities is not wired up yet: it changes which
               tax office each employee is filed to, so it needs the migration
               step that moves people across, not just a form. The button above is
               disabled rather than hidden so you can see it is coming.

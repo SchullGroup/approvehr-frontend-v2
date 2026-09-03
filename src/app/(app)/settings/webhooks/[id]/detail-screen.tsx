@@ -411,11 +411,11 @@ function Endpoint({ id }: { id: string }) {
                   term: "Retries",
                   value: catalogue
                     ? detail.delivery.retriesRunning
-                      ? `Automatic — ${catalogue.retries.attempts} attempts over ${retryWindowLabel(catalogue.retries.backoffMinutes)}`
-                      : "Manual only — press Retry on a delivery"
+                      ? `Automatic: ${catalogue.retries.attempts} attempts over ${retryWindowLabel(catalogue.retries.backoffMinutes)}`
+                      : "Manual only (press Retry on a delivery)"
                     : detail.delivery.retriesRunning
                       ? "Automatic"
-                      : "Manual only — press Retry on a delivery",
+                      : "Manual only (press Retry on a delivery)",
                 },
                 { term: "Added", value: fullStamp(detail.createdAt) },
               ]}
@@ -536,7 +536,7 @@ function Endpoint({ id }: { id: string }) {
         tone="danger"
         title="Delete this endpoint?"
         confirmLabel="Delete it"
-        body="The URL and its delivery log go with it. Nothing about your payroll or your people is affected — a webhook is only a line of configuration."
+        body="The URL and its delivery log go with it. Nothing about your payroll or your people is affected: a webhook is only a line of configuration."
       />
 
       <Modal

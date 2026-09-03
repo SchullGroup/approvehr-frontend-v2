@@ -83,11 +83,11 @@ function graceHelp(grace: number): string {
   if (grace === 0) {
     return "Every minute past the shift end counts as overtime.";
   }
-  return `Minutes past the shift end that do not count — and past the grace the whole overrun is paid, so ${grace + 25} minutes pays ${grace + 25}, not 25.`;
+  return `Minutes past the shift end that do not count, and past the grace the whole overrun is paid, so ${grace + 25} minutes pays ${grace + 25}, not 25.`;
 }
 
 function rateHelp(label: string, rate: number, when: string): string {
-  return `${label} ${rate}× — an hour ${when} pays ${multiplierWords(rate)} the normal hourly rate.`;
+  return `${label} ${rate}×: an hour ${when} pays ${multiplierWords(rate)} the normal hourly rate.`;
 }
 
 export function OvertimePolicyForm() {
@@ -249,7 +249,7 @@ export function OvertimePolicyForm() {
             <Card>
               <CardHeader
                 title="What it pays"
-                description="Multipliers on the normal hourly rate. None of these are statutory in Nigeria — they are what your contracts say."
+                description="Multipliers on the normal hourly rate. None of these are statutory in Nigeria: they are what your contracts say."
               />
               <CardBody className="grid gap-5 sm:grid-cols-2">
                 <Field
@@ -407,7 +407,7 @@ function RateSelect({
     >
       {choices.map((rate) => (
         <option key={rate} value={rate}>
-          {rate}&times; — {multiplierWords(rate)} normal
+          {rate}&times; · {multiplierWords(rate)} normal
         </option>
       ))}
     </Select>
@@ -457,7 +457,7 @@ function ExampleFigures({
           ),
         },
         {
-          term: `The most one weekday can pay — ${spokenHours(policy.dailyCapMinutes)}`,
+          term: `The most one weekday can pay · ${spokenHours(policy.dailyCapMinutes)}`,
           value: (
             <Money
               amount={naira(
@@ -499,7 +499,7 @@ function ReadOnlyPolicy({
                 term: "Grace",
                 value:
                   policy.graceMinutes === 0
-                    ? "None — every minute counts"
+                    ? "None (every minute counts)"
                     : spokenHours(policy.graceMinutes),
               },
               {

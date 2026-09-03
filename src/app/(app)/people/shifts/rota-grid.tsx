@@ -217,7 +217,7 @@ export function RotaGrid({
                   aria-label={
                     cell
                       ? `${row.name}, ${spokenDay(date)} — ${cell.shiftName}, ${timesLabel(cell)}`
-                      : `${row.name}, ${spokenDay(date)} — no shift`
+                      : `${row.name}, ${spokenDay(date)}: no shift`
                   }
                   onKeyDown={(event) => onKeyDown(event, r, c)}
                   onFocus={() => setAt({ row: r, col: c })}

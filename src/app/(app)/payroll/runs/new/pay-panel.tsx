@@ -207,7 +207,7 @@ export function PayPanel({
             {problem ??
               (actions.live
                 ? "A payment is normally prepared the moment a payroll is " +
-                  "approved. This one has none — most often because no bank " +
+                  "approved. This one has none, most often because no bank " +
                   "account was on file to pay it from at the time."
                 : DEMO_NO_BATCH_REASON)}
           </p>
@@ -464,7 +464,7 @@ export function WalletStrip({ run }: { run: PayrollRunDetail }) {
             {formatKobo(funds.wallet.balanceKobo)} is in the account, of which{" "}
             {formatKobo(funds.wallet.committedKobo)} is already promised to a
             payment that has not gone out. &ldquo;Available&rdquo; is what is
-            left after that — two payrolls approved in one morning must not both
+            left after that: two payrolls approved in one morning must not both
             be told the same money is theirs.
           </p>
         )}
@@ -544,7 +544,7 @@ export function FundingAccounts({
     return (
       <Callout tone="info" title="No funding account yet">
         This company has no collection account, so money cannot be paid into the
-        wallet. Ask your ApproveHR contact to open one — it takes minutes, and
+        wallet. Ask your ApproveHR contact to open one: it takes minutes, and
         transfers into it credit the wallet automatically.
       </Callout>
     );

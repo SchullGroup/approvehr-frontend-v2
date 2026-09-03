@@ -176,7 +176,7 @@ function Outcome({ outcome }: { outcome: PayslipSendOutcome }) {
           title={`${String(outcome.noEmail.length)} ${outcome.noEmail.length === 1 ? "person has" : "people have"} no email address`}
         >
           <p>
-            Nothing was attempted for them, and nothing went wrong — there is
+            Nothing was attempted for them, and nothing went wrong: there is
             nowhere to send it. Add an address on their record and send again.
           </p>
           <ul className="mt-2 flex flex-col gap-1">

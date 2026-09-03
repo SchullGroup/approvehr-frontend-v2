@@ -187,7 +187,7 @@ export function ProfileScreen({ initialTab }: { initialTab: ProfileTab }) {
   const advisoryGaps = gaps.filter((g) => !g.blocking);
   const gapSentence = [
     blockingGaps.length > 0
-      ? `${blockingGaps.map((g) => g.label).join(", ")} — you cannot be paid until ${
+      ? `${blockingGaps.map((g) => g.label).join(", ")}. You cannot be paid until ${
           blockingGaps.length > 1 ? "these are" : "this is"
         } added.`
       : null,

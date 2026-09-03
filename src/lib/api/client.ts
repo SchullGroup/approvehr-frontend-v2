@@ -232,7 +232,7 @@ function fallbackMessage(status: number): string {
   if (status === 403) {
     return "Your account does not have access to this. Ask an administrator if you need it.";
   }
-  if (status === 404) return "That is not here — it may have been removed.";
+  if (status === 404) return "That is not here, it may have been removed.";
   if (status === 408 || status === 504) {
     return "The server took too long to answer. Try again in a moment.";
   }
