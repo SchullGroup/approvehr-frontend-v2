@@ -367,7 +367,7 @@ export function ClaimForm({
         <Field
           label="Receipt reference"
           required={type?.requiresReceipt === true}
-          help="Attachments are not turned on yet, so there is nothing to upload to. Type where the receipt is — the file name, the folder, or the number printed on it."
+          help="Attachments are not turned on yet, so there is nothing to upload to. Type where the receipt is: the file name, the folder, or the number printed on it."
           {...(fieldError?.field === "receipt"
             ? { error: fieldError.message }
             : {})}

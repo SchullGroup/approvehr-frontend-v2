@@ -124,7 +124,7 @@ function adviceFor(error: unknown, subject: string): string {
     case error.status === 401:
       return "Your session has ended. Sign in again to carry on.";
     case error.status === 404:
-      return `${capitalise(subject)} is not here — it may have been removed.`;
+      return `${capitalise(subject)} is not here, it may have been removed.`;
     case error.status === 408 || error.status === 504:
       return `The server took too long to send ${subject}. Try again in a moment.`;
     case error.status === 429:

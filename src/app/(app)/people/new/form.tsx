@@ -632,7 +632,7 @@ export function NewEmployeeForm() {
       title: "Draft saved",
       tone: "success",
       detail:
-        "Come back to Add a new staff to pick it up. In this browser only — it will not be here on another device.",
+        "Come back to Add a new staff to pick it up. In this browser only. It will not be here on another device.",
     });
   }
 
@@ -900,7 +900,7 @@ export function NewEmployeeForm() {
         {!connected && DEMO_ENABLED && (
           <div className="flex flex-wrap items-center gap-2">
             <Badge tone="warning" size="sm" dot>
-              Saves in this browser only — demo data
+              Saves in this browser only: demo data
             </Badge>
             <span className="text-meta text-muted">
               No API is answering, so this record will not reach a payroll run
@@ -916,7 +916,7 @@ export function NewEmployeeForm() {
               {drafts.saved.draft.firstName.trim()
                 ? ` for ${drafts.saved.draft.firstName.trim()}`
                 : ""}
-              . Drafts live in this browser only — they are not on your other
+              . Drafts live in this browser only: they are not on your other
               devices and clearing site data removes them.
             </span>
             <span className="mt-3 flex flex-wrap gap-2">
@@ -1426,7 +1426,7 @@ export function NewEmployeeForm() {
                           label="Tax state"
                           help={
                             !orgTax.loading && !orgTax.taxState
-                              ? "Which state revenue service receives their PAYE. Your company has no default yet — set one below, or pick one for this person here."
+                              ? "Which state revenue service receives their PAYE. Your company has no default yet. Set one below, or pick one for this person here."
                               : "Which state revenue service receives their PAYE. Left blank, your company's own state is used."
                           }
                         >
@@ -1451,7 +1451,7 @@ export function NewEmployeeForm() {
                             </p>
                             <p className="mt-1 text-meta text-muted">
                               Nobody has to pick one for this person if the
-                              company has its own — set it once, here, and it
+                              company has its own. Set it once, here, and it
                               applies to everybody after this.
                             </p>
                             <div className="mt-3 flex flex-wrap items-end gap-2">
@@ -1504,7 +1504,7 @@ export function NewEmployeeForm() {
                           label="Yearly rent they pay"
                           className="sm:col-span-2"
                           error={errorFor("annualRent")}
-                          help="Since January 2026 there is no general tax-free allowance — relief is 20% of the rent they declare, up to ₦500,000 a year. Declaring nothing means they get no personal relief and pay more tax."
+                          help="Since January 2026 there is no general tax-free allowance: relief is 20% of the rent they declare, up to ₦500,000 a year. Declaring nothing means they get no personal relief and pay more tax."
                         >
                           <Input
                             data-employee-field="annualRent"
@@ -1675,7 +1675,7 @@ export function NewEmployeeForm() {
                                     amount={Number(money(draft.annualRent))}
                                   />
                                 ) : (
-                                  "Nothing declared — no personal relief"
+                                  "Nothing declared: no personal relief"
                                 ),
                               ],
                             ] as [string, React.ReactNode][])
@@ -1824,7 +1824,7 @@ export function NewEmployeeForm() {
                           mind. */}
                       {!done && !enabled[key] && (
                         <span className="block text-meta text-faint">
-                          Not asked for here — switched off in Settings
+                          Not asked for here: switched off in Settings
                         </span>
                       )}
                       {!done && enabled[key] && gap && (
@@ -2142,7 +2142,7 @@ function FirstPayslip({
         {!available ? (
           <p className="text-body-sm leading-relaxed text-muted">
             PAYE, pension and NHF are worked out by the payroll engine on the
-            server. There is no second copy of it in this browser — there was
+            server. There is no second copy of it in this browser: there was
             once, and it spent a while quoting the wrong year&rsquo;s tax. The
             record still saves; the figures appear once the API is reachable.
           </p>

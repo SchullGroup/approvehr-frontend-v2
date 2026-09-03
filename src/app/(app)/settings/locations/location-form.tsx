@@ -256,7 +256,7 @@ export function LocationForm({
             <>
               <p className="text-body-sm text-muted">
                 Stand at the entrance, open any maps app, and read the two
-                numbers off the pin — latitude first. Six decimal places is
+                numbers off the pin, latitude first. Six decimal places is
                 about a metre; four is about ten.
               </p>
 
@@ -305,7 +305,7 @@ export function LocationForm({
               {partial && (
                 <Callout tone="warning" title="The fence is not finished">
                   {GEOFENCE_ALL_OR_NOTHING} Fill all three in, or switch the
-                  check off — a fence with a piece missing decides nothing and
+                  check off: a fence with a piece missing decides nothing and
                   would turn clock-ins down with no visible cause.
                 </Callout>
               )}

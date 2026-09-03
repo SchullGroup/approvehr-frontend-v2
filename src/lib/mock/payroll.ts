@@ -123,7 +123,7 @@ export const DISTRIBUTION: Distribution[] = DEMO_ENABLED ? [
     email: "musa.ibrahim@schulltech.com",
     state: "bounced",
     sentAt: "28 Aug 09:02",
-    failureReason: "Mailbox full — the receiving server rejected the message.",
+    failureReason: "Mailbox full: the receiving server rejected the message.",
   },
   { employeeId: "p-08", email: null, state: "no_email" },
   { employeeId: "p-09", email: "emeka.anyanwu@schulltech.com", state: "ready" },

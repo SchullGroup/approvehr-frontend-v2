@@ -608,7 +608,7 @@ function ScorePanel({
             hint={
               score.appraiserMark.appraisers <= 1
                 ? "Deliberately not part of the score"
-                : `${weightLabel(score.appraiserMark.submittedWeightBp)} of ${score.appraiserMark.appraisers} appraisers in — deliberately not part of the score`
+                : `${weightLabel(score.appraiserMark.submittedWeightBp)} of ${score.appraiserMark.appraisers} appraisers in, deliberately not part of the score`
             }
           />
           <Stat

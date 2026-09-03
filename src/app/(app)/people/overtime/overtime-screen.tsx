@@ -304,8 +304,7 @@ function AllOvertime() {
                   {awaitingApproval.count === 1
                     ? "one day"
                     : `${awaitingApproval.count} days`}
-                  , this month and any other. Unapproved overtime is not paid —
-                  the payroll run raises it as a warning.
+                  , this month and any other. Unapproved overtime is not paid: the payroll run raises it as a warning.
                 </p>
               </div>
               {status !== "PENDING" && (
@@ -327,8 +326,8 @@ function AllOvertime() {
                 "Nothing worked out yet."
               ) : (
                 <>
-                  {shown.count} {shown.count === 1 ? "day" : "days"} ·{" "}
-                  {hoursLabel(shown.minutes)} ·{" "}
+                  {shown.count} {shown.count === 1 ? "day" : "days"} · {" "}
+                  {hoursLabel(shown.minutes)} · {" "}
                   <Money amount={naira(shown.amountKobo)} decimals />
                 </>
               )
@@ -518,7 +517,7 @@ function OvertimeTableRow({
                  answers "you cannot approve your own overtime" was a design
                  failure one click earlier. */
               <span className="text-body-sm text-muted">
-                Yours — somebody else approves it
+                Yours: somebody else approves it
               </span>
             ) : !canDecide ? null : (
               <>

@@ -115,7 +115,7 @@ export function LanguageCheck({
       tone={acknowledged ? "warning" : "info"}
       title={
         acknowledged
-          ? `${findingsHeadline(findings.length)} — press Send again to send it anyway`
+          ? `${findingsHeadline(findings.length)}. Press Send again to send it anyway`
           : findingsHeadline(findings.length)
       }
     >

@@ -204,7 +204,7 @@ export function ApprovalInbox() {
           detail:
             reasons.length > 0
               ? reasons.join(" ")
-              : "Nothing waiting counts as routine — anything with a deadline, or sitting five days, needs you to look at it.",
+              : "Nothing waiting counts as routine. Anything with a deadline, or sitting five days, needs you to look at it.",
         });
         return;
       }
@@ -450,7 +450,7 @@ function SentApprovalsList({
           <EmptyState
             icon={<ClipboardList aria-hidden="true" />}
             title="Nothing sent yet"
-            description="A loan, an expense, a payroll run, leave — anything you raise that needs somebody else's decision appears here with its status, so you can see where it's sitting without having to ask."
+            description="A loan, an expense, a payroll run, leave: anything you raise that needs somebody else's decision appears here with its status, so you can see where it's sitting without having to ask."
           />
         </Card>
       )}

@@ -204,7 +204,7 @@ function periodStanding(period: string): {
   const thisMonth = new Date().toISOString().slice(0, 7);
 
   if (period < thisMonth) {
-    return { tone: "finished", line: "This month is over — the usual case." };
+    return { tone: "finished", line: "This month is over: the usual case." };
   }
   if (period > thisMonth) {
     return {
@@ -218,7 +218,7 @@ function periodStanding(period: string): {
     tone: "running",
     line:
       "This month is still running. The figures cover it as worked so far and " +
-      "nobody is docked for a day that has not happened — calculate again once " +
+      "nobody is docked for a day that has not happened. Calculate again once " +
       "it ends to pick up the rest.",
   };
 }
@@ -602,7 +602,7 @@ export function PayrollRunWizard() {
         tone: "success",
         detail:
           result.run.blockers > 0
-            ? `${result.run.blockers} to fix before this can be approved — whatever stopped them is still there.`
+            ? `${result.run.blockers} to fix before this can be approved: whatever stopped them is still there.`
             : `${result.run.headcount} ${result.run.headcount === 1 ? "person" : "people"} to be paid.`,
       });
     } catch (caught) {
@@ -894,7 +894,7 @@ export function PayrollRunWizard() {
                   It has {payslipCountLabel(existing)}.{" "}
                   {existing.status === "APPROVED" || existing.status === "PAID"
                     ? "It is approved, so its figures are frozen."
-                    : "It is still a draft — you can prepare it again from the next step."}
+                    : "It is still a draft: you can prepare it again from the next step."}
                 </Callout>
               </div>
             )}
@@ -1209,7 +1209,7 @@ export function PayrollRunWizard() {
             {!canApprove && (
               <Callout tone="warning" title="Somebody else approves this">
                 Approving payroll is a separate permission from preparing it, on
-                purpose — the person who works out the pay is not the person who
+                purpose: the person who works out the pay is not the person who
                 releases it.
               </Callout>
             )}
@@ -1335,7 +1335,7 @@ export function PayrollRunWizard() {
           body={
             <p>
               Nothing has been paid or approved for {periodLabel(run.period)},
-              so there is nothing to undo — this just marks it cancelled. You
+              so there is nothing to undo: this just marks it cancelled. You
               can prepare this period again from scratch whenever you&rsquo;re
               ready.
             </p>
@@ -1521,7 +1521,7 @@ const MissingPayTable = forwardRef<
     <Card>
       <CardHeader
         title={`${rows.length} ${rows.length === 1 ? "person has" : "people have"} no pay set`}
-        description="Ticked people are paid what you enter below. Untick anyone who should not be on this payroll — they come off with a reason recorded, same as excluding them anywhere else."
+        description="Ticked people are paid what you enter below. Untick anyone who should not be on this payroll: they come off with a reason recorded, same as excluding them anywhere else."
       />
       {!grades.loading && grades.rows.length === 0 && (
         <p className="px-5 pb-3 text-meta text-muted">
@@ -1682,7 +1682,7 @@ function MissingTaxStateSection({
   return (
     <Disclosure
       title={`${rows.length} ${rows.length === 1 ? "person has" : "people have"} no PAYE state set`}
-      hint="Tax is deducted correctly either way — this is only the state filing."
+      hint="Tax is deducted correctly either way: this is only the state filing."
       level={4}
       region={false}
     >
@@ -1782,7 +1782,7 @@ function PreflightChecklist() {
         ? "What you deduct is decided"
         : "What you deduct is not decided yet",
       ok: facts.pay.settings,
-      detail: "PAYE, pension and NHF — each a switch, in payroll settings.",
+      detail: "PAYE, pension and NHF, each a switch, in payroll settings.",
       href: "/settings/payroll",
       linkLabel: "Decide it",
     },
@@ -1828,7 +1828,7 @@ function PreflightChecklist() {
             : `${missingPensionPin} of ${employees} have no pension PIN`,
         ok: missingPensionPin === 0,
         detail:
-          "Recorded, not pay-blocking — only the remittance schedule is incomplete without it.",
+          "Recorded, not pay-blocking: only the remittance schedule is incomplete without it.",
         href: "/people",
         linkLabel: "Open the directory",
       });
@@ -1859,7 +1859,7 @@ function PreflightChecklist() {
         description={
           outstanding === 0
             ? "Nothing here would stop or surprise this payroll today."
-            : `${outstanding} ${outstanding === 1 ? "thing" : "things"} worth sorting first. None of this stops Calculate — whoever it is about is still named, on the next step, either way.`
+            : `${outstanding} ${outstanding === 1 ? "thing" : "things"} worth sorting first. None of this stops Calculate: whoever it is about is still named, on the next step, either way.`
         }
       />
       <CardBody className="flex flex-col gap-2.5">
@@ -2550,7 +2550,7 @@ function PayslipTable({
       <CardBody className="border-t border-line">
         <p className="text-meta leading-relaxed text-muted">
           Employer pension is not in any column here. It is a company cost on
-          top of gross and does not reduce anybody&apos;s pay — the totals on
+          top of gross and does not reduce anybody&apos;s pay: the totals on
           the next step show it separately.
         </p>
       </CardBody>
@@ -2732,9 +2732,7 @@ function PayeByHand({
             onClick={onClear}
             disabled={saving}
             className="ml-auto"
-          >
-            Clear — use the bands instead
-          </Button>
+          >Clear (use the bands instead)</Button>
         )}
       </div>
     </div>
@@ -3030,7 +3028,7 @@ function PayeSwitch({
           onClick={() => void toggle()}
           title={
             editable
-              ? "Changes what this company deducts, for every payroll — not just this one."
+              ? "Changes what this company deducts, for every payroll, not just this one."
               : "This run is settled, so its tax policy cannot change from here."
           }
           className={cn(

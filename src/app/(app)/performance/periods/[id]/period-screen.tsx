@@ -379,7 +379,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
             <Card>
               <CardHeader
                 title="Set it up, then start it"
-                description="Nobody is asked anything until you start it. Add your own questions on top of the four competency groups, which are asked either way — once it has started the form is fixed."
+                description="Nobody is asked anything until you start it. Add your own questions on top of the four competency groups, which are asked either way: once it has started the form is fixed."
                 action={
                   <Badge
                     tone={period.questionCount > 0 ? "neutral" : "warning"}
@@ -480,7 +480,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 {noObjectives.length === 1 ? "has" : "have"} no agreed objective
                 in this period. Delivery against objectives is one of the four
                 parts an appraisal is made of, so that part of their mark cannot
-                be worked out — it is left out rather than scored zero, and the
+                be worked out: it is left out rather than scored zero, and the
                 rest of their score carries the difference.
               </p>
               <p className="mt-2 flex flex-wrap items-center gap-3">
@@ -1514,7 +1514,7 @@ function CalibrateButton({
       return;
     }
     if (reason.trim().length < 10) {
-      setFailed("Say why in a few more words — this is the record of it.");
+      setFailed("Say why in a few more words: this is the record of it.");
       return;
     }
     setBusy(true);
@@ -1644,7 +1644,7 @@ function CalibrateButton({
                 rows={3}
                 value={reason}
                 disabled={busy}
-                placeholder="Moderated at the calibration meeting — the team's targets were set higher than the rest of the department."
+                placeholder="Moderated at the calibration meeting: the team's targets were set higher than the rest of the department."
                 onChange={(event) => setReason(event.target.value)}
               />
             </Field>
@@ -1716,7 +1716,7 @@ function RevisionButton({
 
   const save = async () => {
     if (reason.trim().length < 10) {
-      setFailed("Say why in a sentence — this is the record of it.");
+      setFailed("Say why in a sentence: this is the record of it.");
       return;
     }
     setBusy(true);
@@ -1811,7 +1811,7 @@ function RevisionButton({
                 rows={3}
                 value={reason}
                 disabled={busy}
-                placeholder="The objectives section is missing answers for two of the agreed goals — please complete before resubmitting."
+                placeholder="The objectives section is missing answers for two of the agreed goals. Please complete before resubmitting."
                 onChange={(event) => setReason(event.target.value)}
               />
             </Field>

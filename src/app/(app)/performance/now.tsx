@@ -718,7 +718,7 @@ export function WhatNeedsYouTab({
           }
           hint={
             record.length === 0
-              ? "A manager's review reaches you when your rating is made final, or when the period is published — whichever comes first."
+              ? "A manager's review reaches you when your rating is made final, or when the period is published, whichever comes first."
               : owesAnswer.length > 0
                 ? /* Before the two "nothing here needs you" wordings, because
                      an unanswered final rating is precisely something that

@@ -181,7 +181,7 @@ export function BankAccountsScreen() {
           <Callout tone="warning" title="This needs a confirmation code">
             Your company asks for a code before bank details can be read or
             changed. Entering one is not built into this screen yet, so the
-            list below cannot be shown — nothing here says a company has no
+            list below cannot be shown: nothing here says a company has no
             accounts, only that they cannot be read right now. Turn the
             requirement off under{" "}
             <Link
@@ -269,7 +269,7 @@ export function BankAccountsScreen() {
               title={unread ? "The accounts could not be read" : "No bank accounts yet"}
               description={
                 unread
-                  ? "This is not a company with no accounts — it is a list that did not load. Nothing has been added or removed."
+                  ? "This is not a company with no accounts: it is a list that did not load. Nothing has been added or removed."
                   : "Add the account salaries come out of. The first one you add becomes the one payment batches use."
               }
               action={
@@ -492,7 +492,7 @@ export function BankAccountsScreen() {
           );
           if (ok) setArchiving(null);
         }}
-        body="Hidden, not deleted — past payment batches still point at it."
+        body="Hidden, not deleted: past payment batches still point at it."
       />
     </>
   );

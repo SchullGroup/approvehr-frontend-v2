@@ -185,7 +185,7 @@ export function MyLoans({ className }: { className?: string }) {
           {past.length > 0 && live && (
             <p className="text-meta text-muted">
               {past.length} earlier {past.length === 1 ? "loan" : "loans"} repaid
-              in full ·{" "}
+              in full · {" "}
               <Link
                 href="/payroll/loans"
                 className="text-accent-text hover:underline"

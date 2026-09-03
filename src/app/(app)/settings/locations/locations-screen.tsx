@@ -170,7 +170,7 @@ export function LocationsScreen() {
             browser. One thing does not:{" "}
             <strong>a fence set here is never applied</strong>, because clocking
             in offline does not ask the device where it is. Connected, the
-            clock-in is the only thing that judges a fence — and it judges every
+            clock-in is the only thing that judges a fence, and it judges every
             one of them.
           </Callout>
         )}
@@ -289,9 +289,7 @@ export function LocationsScreen() {
                             On site only
                           </span>
                         ) : (
-                          <span className="text-body-sm text-body">
-                            Anywhere — no fence set
-                          </span>
+                          <span className="text-body-sm text-body">Anywhere (no fence set)</span>
                         )}
                       </TD>
                       <TD>
@@ -472,7 +470,7 @@ export function LocationsScreen() {
                 {archiving.assigned === 1
                   ? "One person still has this as their location"
                   : `${archiving.assigned} people still have this as their location`}
-                . They are not moved and nothing refuses the change — reassign
+                . They are not moved and nothing refuses the change. Reassign
                 them when you know where they should be.
               </span>
             )}

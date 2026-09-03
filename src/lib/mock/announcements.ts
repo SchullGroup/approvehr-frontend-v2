@@ -103,7 +103,7 @@ export const DEMO_ANNOUNCEMENTS: ApiAnnouncement[] = DEMO_ENABLED ? [
   {
     /* Published and invisible at once. The state the `expired` flag exists for. */
     id: "an-health-cover",
-    title: "Health cover renewal — send your dependants by the 14th",
+    title: "Health cover renewal: send your dependants by the 14th",
     body:
       "The renewal window has closed. Anybody who missed it is on last year's " +
       "cover until the next renewal.",

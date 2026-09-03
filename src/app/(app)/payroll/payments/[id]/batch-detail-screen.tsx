@@ -123,7 +123,7 @@ export function BatchDetailScreen({ id }: { id: string }) {
                   ? error.message
                   : live || !DEMO_ENABLED
                     ? "It may have been cancelled, or it belongs to another company."
-                    : "Batches created in another browser are not in this one — demo data is per-browser."
+                    : "Batches created in another browser are not in this one: demo data is per-browser."
               }
               action={
                 <ButtonLink href="/payroll/payments" variant="accent">
@@ -341,7 +341,7 @@ export function BatchDetailScreen({ id }: { id: string }) {
                         <TriangleAlert aria-hidden="true" className="size-3.5" />
                         {row.accountNumberMasked === ""
                           ? "None on file"
-                          : `${row.accountNumberMasked} — not ten digits`}
+                          : `${row.accountNumberMasked} (not ten digits)`}
                       </span>
                     )}
                   </TD>

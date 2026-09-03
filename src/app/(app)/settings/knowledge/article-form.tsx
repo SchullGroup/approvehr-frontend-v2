@@ -208,7 +208,7 @@ export function ArticleForm({
         <Field
           label="The answer"
           required
-          help="Short paragraphs, plain words. Text only — you cannot attach a file here yet, so write the steps out."
+          help="Short paragraphs, plain words. Text only: you cannot attach a file here yet, so write the steps out."
         >
           <Textarea
             rows={12}

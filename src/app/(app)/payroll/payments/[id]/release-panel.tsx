@@ -255,7 +255,7 @@ export function ReleasePanel({
               {batch.sourceAccountMasked}.
             </span>
             <span>
-              Your name goes on this approval. No money moves — the payment file
+              Your name goes on this approval. No money moves: the payment file
               is the next step.
             </span>
           </span>

@@ -87,7 +87,7 @@ export function MyDocuments({
               compact
               icon={<UserRound aria-hidden="true" />}
               title="Not linked to a staff record"
-              description="This sign-in has no personnel file yet. An administrator can link it from that person's record page — Link an existing sign-in."
+              description="This sign-in has no personnel file yet. An administrator can link it from that person's record page, using “Link an existing sign-in”."
             />
           ) : (
             <>
@@ -124,7 +124,7 @@ export function MyDocuments({
                   ))}
                   {!mine.editable && (
                     <p className="text-body-sm text-muted">
-                      Attaching needs the API — a reference kept in this browser
+                      Attaching needs the API: a reference kept in this browser
                       is on nobody&rsquo;s record.
                     </p>
                   )}

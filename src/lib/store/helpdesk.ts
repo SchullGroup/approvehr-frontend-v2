@@ -295,7 +295,7 @@ const DEMO_SEED: DemoBook = {
         comment(
           "c-1",
           "p-05",
-          "Found it — the July run was approved after you moved onto the new grade, so it filed under your old employee number. Reissuing it now.",
+          "Found it: the July run was approved after you moved onto the new grade, so it filed under your old employee number. Reissuing it now.",
           "2026-08-18T10:05:00.000Z",
         ),
         comment(
