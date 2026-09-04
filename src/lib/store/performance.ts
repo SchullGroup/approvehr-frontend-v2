@@ -2932,6 +2932,15 @@ export type CycleRegister = {
   exceptions: ApiAppraiserMap | null;
   /** Everybody currently sent back for another pass. Empty, never null, when there is none. */
   revisionRequests: ApiRevisionRequest[];
+  /**
+   * True when the revision-request read itself failed, so `revisionRequests`
+   * being empty means "could not ask" rather than "there are none".
+   *
+   * Absent is not zero, one read along: an empty list and an unreadable list are
+   * opposite facts, and the screen offers "ask for a revision" off the back of
+   * this. Conflating them would offer it to somebody who already has one.
+   */
+  revisionsUnavailable: boolean;
   loading: boolean;
   error: ApiError | null;
   /** False in demo mode, and false without `EDIT_RECORDS`. */
@@ -2949,6 +2958,18 @@ export type CycleRegister = {
  * store does not reach for `useCan` itself, which would make every consumer pay
  * for the permissions fetch whether or not it renders this.
  *
+ * **The fifth read is deliberately outside that bargain.** "They fail together"
+ * is an argument about a permission: one 403 hits all four, so one sentence
+ * beats four. It says nothing about a read that can fail on its own — and
+ * `revisionRequests` did exactly that on a deployment whose API predated the
+ * route, where a single 404 went through `Promise.all` and threw away four
+ * successful reads. The whole period screen rendered one error and nothing else.
+ *
+ * So it is awaited separately and its failure is reported rather than raised.
+ * If you add a sixth read, the question to ask is not "is it on this screen" but
+ * **"can this fail while the others succeed"** — and if it can, it does not
+ * belong in the `Promise.all`.
+ *
  * Offline it refuses, for the reason `useAppraiserMap` already refuses: this is
  * the record a mark is defended with months later.
  */
@@ -2962,15 +2983,36 @@ export function useCycleRegister(
   const load = useCallback(
     async (signal: AbortSignal) => {
       const id = cycleId ?? "";
-      const [cycle, participants, register, exceptions, revisionRequests] =
-        await Promise.all([
-          performanceApi.cycle(id, signal),
-          performanceApi.participants(id, signal),
-          performanceApi.cycleScores(id, {}, signal),
-          performanceApi.appraiserMap(id, { exceptionsOnly: true }, signal),
-          performanceApi.revisionRequests(id, signal),
-        ]);
-      return { cycle, participants, register, exceptions, revisionRequests };
+      /* The four that share one permission, and therefore one failure. */
+      const core = Promise.all([
+        performanceApi.cycle(id, signal),
+        performanceApi.participants(id, signal),
+        performanceApi.cycleScores(id, {}, signal),
+        performanceApi.appraiserMap(id, { exceptionsOnly: true }, signal),
+      ]);
+      /* And the one that can fail alone. Settled rather than awaited, so it
+         cannot take the other four with it. An abort is not a failure — the
+         key changed or the screen went away, and `useFetched` discards the
+         answer anyway — so it is re-thrown to keep that path unchanged. */
+      const extra = performanceApi.revisionRequests(id, signal).then(
+        (rows) => ({ rows, failed: false }),
+        (error: unknown) => {
+          if (error instanceof DOMException && error.name === "AbortError") {
+            throw error;
+          }
+          return { rows: [] as ApiRevisionRequest[], failed: true };
+        },
+      );
+      const [[cycle, participants, register, exceptions], revisions] =
+        await Promise.all([core, extra]);
+      return {
+        cycle,
+        participants,
+        register,
+        exceptions,
+        revisionRequests: revisions.rows,
+        revisionsUnavailable: revisions.failed,
+      };
     },
     [cycleId],
   );
@@ -2981,6 +3023,7 @@ export function useCycleRegister(
     register: ApiScoreRegister;
     exceptions: ApiAppraiserMap;
     revisionRequests: ApiRevisionRequest[];
+    revisionsUnavailable: boolean;
   }>(`cycle-register|${cycleId ?? "none"}`, active, load);
 
   /* Nothing is derived offline — see the refusal above — so this is a stable
@@ -2992,6 +3035,7 @@ export function useCycleRegister(
       register: null,
       exceptions: null,
       revisionRequests: [],
+      revisionsUnavailable: false,
       loading: false,
       error: null,
       available: false,
@@ -3009,6 +3053,7 @@ export function useCycleRegister(
     register: fetched.data?.register ?? null,
     exceptions: fetched.data?.exceptions ?? null,
     revisionRequests: fetched.data?.revisionRequests ?? [],
+    revisionsUnavailable: fetched.data?.revisionsUnavailable ?? false,
     loading: fetched.loading,
     error: fetched.error,
     available: enabled,

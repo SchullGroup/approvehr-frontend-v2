@@ -38,6 +38,7 @@ import {
   useToast,
 } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -531,10 +532,22 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
             </Callout>
           ) : null}
 
+          {/* `LoadFailure`, not `error.message`.
+              -------------------------------------
+              This rendered the server's string raw, and the string is not
+              always a sentence about a refusal. A route the deployed API does
+              not have comes back from the API's own not-found handler as
+              `GET /api/v1/performance/cycles/<uuid>/revision-requests could
+              not be found.` — a method and a path, on screen, to an HR
+              manager. `LoadFailure` supplies its own sentence for a 404 and
+              shows the API's only where the API wrote one about the refusal
+              itself. See the note at the top of that component. */}
           {detail.error && (
-            <p className="rounded-md border border-danger-line bg-danger-soft px-3.5 py-2.5 text-body-sm text-ink">
-              {detail.error.message}
-            </p>
+            <LoadFailure
+              subject="this appraisal period"
+              error={detail.error}
+              onRetry={detail.reload}
+            />
           )}
 
           {period && (
@@ -617,6 +630,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 canCalibrate={period?.stage === "CALIBRATION" && canManage}
                 canRequestRevision={running && canManage}
                 revisionRequests={detail.revisionRequests}
+                revisionsUnavailable={detail.revisionsUnavailable}
                 onAsked={() => detail.reload()}
               />
               <MultiAppraiserReviews participants={detail.participants} />
@@ -1107,6 +1121,7 @@ function Register({
   canCalibrate,
   canRequestRevision,
   revisionRequests,
+  revisionsUnavailable,
   onAsked,
 }: {
   register: ApiScoreRegister | null;
@@ -1125,6 +1140,7 @@ function Register({
   canRequestRevision: boolean;
   /** Everybody currently sent back for another pass, across the whole cycle. */
   revisionRequests: ApiRevisionRequest[];
+  revisionsUnavailable: boolean;
   onAsked: () => void;
 }) {
   if (!register) return null;
@@ -1181,7 +1197,7 @@ function Register({
             <TH>Sign-off</TH>
             {canAskPeers && <TH>Feedback</TH>}
             {canCalibrate && <TH>Calibration</TH>}
-            {canRequestRevision && <TH>Revision</TH>}
+            {canRequestRevision && !revisionsUnavailable && <TH>Revision</TH>}
           </THead>
           <TBody>
             {register.rows.map((row) => (
@@ -1191,7 +1207,7 @@ function Register({
                 cycleId={cycleId}
                 canAskPeers={canAskPeers}
                 canCalibrate={canCalibrate}
-                canRequestRevision={canRequestRevision}
+                canRequestRevision={canRequestRevision && !revisionsUnavailable}
                 existingRevision={revisionRequests.find(
                   (request) => request.employeeId === row.employeeId,
                 )}
