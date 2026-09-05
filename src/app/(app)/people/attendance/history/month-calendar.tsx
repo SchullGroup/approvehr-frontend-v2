@@ -296,7 +296,7 @@ export function MonthCalendar({
                       : holiday
                         ? "border border-dashed border-warning-text font-semibold text-warning-text"
                         : isToday
-                          ? "bg-ink font-semibold text-white"
+                          ? "bg-fill-strong font-semibold text-white"
                           : day.future
                             ? "text-faint"
                             : "font-medium text-ink",
@@ -358,7 +358,7 @@ export function CalendarLegend({
       <span className="flex items-center gap-2 text-meta text-body">
         <span
           aria-hidden="true"
-          className="inline-flex size-5 items-center justify-center rounded-full bg-ink text-meta font-semibold text-white"
+          className="inline-flex size-5 items-center justify-center rounded-full bg-fill-strong text-meta font-semibold text-white"
         >
           1
         </span>

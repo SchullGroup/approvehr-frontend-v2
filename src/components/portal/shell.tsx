@@ -186,7 +186,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {open && (
           <div className="fixed inset-0 z-40 lg:hidden">
             <div
-              className="absolute inset-0 bg-ink/40"
+              className="absolute inset-0 bg-scrim/40"
               onClick={() => setOpen(false)}
               aria-hidden="true"
             />

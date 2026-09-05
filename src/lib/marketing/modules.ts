@@ -233,13 +233,15 @@ export const MODULES: ModuleDef[] = [
   {
     id: "performance",
     label: "Performance",
-    headline: "Trackable objectives and reviews",
-    /* The one AI mention outside the module page's own section. "Assisted", and
-       attached to *drafting* rather than to reviews — this blurb is quoted in
-       five places, so an over-reaching word here becomes an AI claim over the
+    headline: "Performance without bias",
+    /* Leads with the review-language check, at the product owner's
+       instruction — it's the headline's whole argument, and the one
+       differentiator no incumbent ships. Deliberately not called AI: no
+       model call, nothing leaves the browser, checked before Send. Quoted in
+       five places, so an over-reaching word here becomes a claim over the
        homepage grid and the platform rail as well. */
     blurb:
-      "Set objectives that ladder up to company goals and run review cycles on a schedule. AI-assisted drafting where a blank page slows people down, and every rating carries the evidence behind it.",
+      "A built-in language check flags biased wording — comparisons, absolutes, protected characteristics — before a review is sent. Objectives ladder up to company goals, and every rating carries its evidence.",
     wash: "violet",
     capabilities: [
       {
@@ -251,6 +253,11 @@ export const MODULES: ModuleDef[] = [
         title: "Review cycles",
         detail:
           "Self, manager and peer review on a schedule you set, with reminders that go out without you chasing.",
+      },
+      {
+        title: "Review-language check",
+        detail:
+          "Flags comparisons, absolute language, and mentions of a protected characteristic before a review is sent.",
       },
       {
         title: "KPI measuring",
@@ -274,14 +281,14 @@ export const MODULES: ModuleDef[] = [
       },
     ],
     limits: {
-      heading: "What the drafting will not do",
-      lead: "Three fields offer a draft, an objective under a company goal, a progress note from a headline you typed, and development areas behind a competency scored below its target. A language model writes it. You decide whether any of it survives.",
+      heading: "A draft, never a decision",
+      lead: "Three fields offer a draft: an objective under a company goal, a progress note from a headline you type, or development areas behind a competency scored below target. A language model writes the first pass. You decide whether any of it survives.",
       points: [
-        "Nothing it writes is saved. Every suggestion lands in a field you edit and submit yourself.",
-        "It says what it was based on, and the exact facts it was given are one click away.",
-        "It puts no figure on a suggested measure. The target is yours to set.",
-        "It never rates anybody and never writes about what a person is like. It has competency scores; the judgement stays the manager's.",
-        "Where somebody is at or above target on everything, it says there is no gap rather than inventing one.",
+        "Every suggestion lands in a field you edit and submit yourself — nothing is saved until you do.",
+        "Every draft says what it was based on, and the exact facts behind it are one click away.",
+        "The target is yours to set. A suggested measure carries no figure of its own.",
+        "The judgement stays the manager's: it works from competency scores, not from an opinion about what someone is like.",
+        "Where someone is already meeting every target, it says so plainly, rather than inventing a gap to fill.",
       ],
     },
   },

@@ -167,7 +167,7 @@ export default function DesignSystemPage() {
                   <p className="text-meta text-muted">Lockup on light</p>
                 </CardBody>
               </Card>
-              <Card className="overflow-hidden border-ink bg-ink">
+              <Card className="overflow-hidden border-fill-strong bg-fill-strong">
                 <div className="flex flex-col items-center gap-4 py-9">
                   <Logo size={28} className="text-white" />
                   <p className="text-meta text-white/60">

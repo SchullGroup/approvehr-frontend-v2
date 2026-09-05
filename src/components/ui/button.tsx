@@ -82,7 +82,7 @@ export type ButtonSize = "sm" | "md" | "lg";
  */
 const SECONDARY_GREEN =
   "bg-success-soft text-success-text border border-success-line shadow-xs " +
-  "hover:bg-success hover:text-ink active:bg-success-line " +
+  "hover:bg-success hover:text-fill-strong active:bg-success-line " +
   "disabled:hover:bg-success-soft disabled:hover:text-success-text";
 
 /** The brand blue. One string, so the two names cannot drift apart. */
@@ -115,7 +115,7 @@ const VARIANTS: Record<ButtonVariant, string> = {
   secondary: GHOST_TREATMENT,
   ghost: GHOST_TREATMENT,
   danger:
-    "bg-danger-text text-white shadow-sm hover:brightness-110 active:brightness-95",
+    "bg-danger-fill text-white shadow-sm hover:brightness-110 active:brightness-95",
 };
 
 /**

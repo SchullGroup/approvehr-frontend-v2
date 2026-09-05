@@ -16,6 +16,7 @@ import {
   Megaphone,
   ScrollText,
   Sparkles,
+  SunMoon,
   Timer,
   TriangleAlert,
   Users,
@@ -179,6 +180,13 @@ const ONGOING = [
     title: "Notifications",
     description: "What triggers an email, and who receives approval reminders.",
     icon: <Bell aria-hidden="true" />,
+  },
+  {
+    href: "/settings/appearance",
+    title: "Appearance",
+    description:
+      "Light or dark, or match your device. Does not follow you to another one.",
+    icon: <SunMoon aria-hidden="true" />,
   },
   {
     href: "/settings/ai",

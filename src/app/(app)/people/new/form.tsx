@@ -1722,7 +1722,7 @@ export function NewEmployeeForm() {
                       className={cn(
                         "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full",
                         done
-                          ? "bg-success text-ink"
+                          ? "bg-success text-fill-strong"
                           : "border border-line-strong",
                       )}
                     >

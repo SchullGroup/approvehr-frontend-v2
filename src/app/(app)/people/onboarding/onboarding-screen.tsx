@@ -394,7 +394,7 @@ function StepRow({
             aria-hidden="true"
             className={cn(
               "flex size-4 shrink-0 items-center justify-center rounded-full",
-              done ? "bg-success text-ink" : "border border-line-strong",
+              done ? "bg-success text-fill-strong" : "border border-line-strong",
             )}
           >
             {done && <Check aria-hidden="true" className="size-2.5" strokeWidth={3} />}
