@@ -73,7 +73,7 @@ function refuse(message: string): never {
 
 const WRITE_REFUSAL =
   "Publishing an article tells your staff what the rules are. That needs the " +
-  "API — an article written into this browser would reach nobody.";
+  "API: an article written into this browser would reach nobody.";
 
 const SECTION_REFUSAL =
   "Sections are the shape of the help centre everyone else sees. Changing them " +
@@ -160,7 +160,7 @@ const DEMO_ARTICLES: DemoArticle[] = DEMO_ENABLED ? [
       "The middle is what came out: tax (PAYE), your 8% pension, and NHF if you " +
       "are on it. Loan repayments show here too, one line each.\n\n" +
       "The bottom line is what reaches your bank. If that number is not what you " +
-      "expected, open the payslip and compare it with last month — the line that " +
+      "expected, open the payslip and compare it with last month: the line that " +
       "changed is nearly always the answer. If you still cannot see why, ask " +
       "whoever runs payroll and give them the month.",
   },
@@ -213,7 +213,7 @@ const DEMO_ARTICLES: DemoArticle[] = DEMO_ENABLED ? [
     body:
       "Ask for the days in the app. Your manager gets it straight away and you " +
       "get an answer in the same place.\n\n" +
-      "Two things worth knowing. Days you have not earned yet cannot be booked — " +
+      "Two things worth knowing. Days you have not earned yet cannot be booked: " +
       "the balance on the screen is what you actually have. And a day you take " +
       "without an approved request behind it is an unpaid day, which comes off " +
       "that month's pay.\n\n" +
@@ -247,7 +247,7 @@ const DEMO_ARTICLES: DemoArticle[] = DEMO_ENABLED ? [
     published: false,
     updated: "2026-08-18",
     body:
-      "Draft. The 2027 dates are not gazetted yet — this goes live when they are.",
+      "Draft. The 2027 dates are not gazetted yet: this goes live when they are.",
   },
 ] : [];
 

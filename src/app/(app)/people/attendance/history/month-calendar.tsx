@@ -138,17 +138,17 @@ function cellClaim(day: ApiAttendanceDay): {
       : "";
 
   if (day.future) {
-    return { ...none, filler: "", label: `${date} — still to come${expected}` };
+    return { ...none, filler: "", label: `${date}, still to come${expected}` };
   }
   if (day.kind === "HOLIDAY") {
     return {
       ...none,
       filler: "Holiday",
-      label: `${date} — public holiday${day.holiday ? `, ${day.holiday.name}` : ""}`,
+      label: `${date}, public holiday${day.holiday ? `, ${day.holiday.name}` : ""}`,
     };
   }
   if (day.kind === "REST_DAY") {
-    return { ...none, filler: "Rest", label: `${date} — rest day${expected}` };
+    return { ...none, filler: "Rest", label: `${date}, rest day${expected}` };
   }
 
   /* The honest gap. Not "0 in, 10 out": nothing here said anybody was out, so an
@@ -158,7 +158,7 @@ function cellClaim(day: ApiAttendanceDay): {
     return {
       ...none,
       filler: "—",
-      label: `${date} — no attendance recorded${expected}`,
+      label: `${date}, no attendance recorded${expected}`,
     };
   }
 
@@ -296,7 +296,7 @@ export function MonthCalendar({
                       : holiday
                         ? "border border-dashed border-warning-text font-semibold text-warning-text"
                         : isToday
-                          ? "bg-ink font-semibold text-white"
+                          ? "bg-fill-strong font-semibold text-white"
                           : day.future
                             ? "text-faint"
                             : "font-medium text-ink",
@@ -358,7 +358,7 @@ export function CalendarLegend({
       <span className="flex items-center gap-2 text-meta text-body">
         <span
           aria-hidden="true"
-          className="inline-flex size-5 items-center justify-center rounded-full bg-ink text-meta font-semibold text-white"
+          className="inline-flex size-5 items-center justify-center rounded-full bg-fill-strong text-meta font-semibold text-white"
         >
           1
         </span>
@@ -381,7 +381,7 @@ export function CalendarLegend({
           >
             1
           </span>
-          Awaiting proclamation — still a working day here
+          Awaiting proclamation: still a working day here
         </span>
       )}
       <span className="flex items-center gap-2 text-meta text-body">

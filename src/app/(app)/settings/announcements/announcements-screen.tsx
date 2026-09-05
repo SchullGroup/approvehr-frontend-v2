@@ -180,7 +180,7 @@ export function AnnouncementsScreen() {
             <EmptyState
               icon={<Megaphone aria-hidden="true" />}
               title="Managing the noticeboard is not part of your access"
-              description="A notice speaks for the whole company, so writing one and seeing the drafts behind it needs the settings permission. The notices themselves are on your home page — everybody can read those."
+              description="A notice speaks for the whole company, so writing one and seeing the drafts behind it needs the settings permission. The notices themselves are on your home page: everybody can read those."
               action={
                 <ButtonLink href="/dashboard" variant="accent">
                   Read the noticeboard
@@ -217,7 +217,7 @@ export function AnnouncementsScreen() {
         {board.source === "demo" && (
           <Callout tone="warning" title="Demo noticeboard, read-only">
             These notices are seeded so the product can be shown without a
-            database. Posting one needs the API — a notice written into this
+            database. Posting one needs the API: a notice written into this
             browser would reach nobody, which is the opposite of what a
             noticeboard is for.
           </Callout>
@@ -243,7 +243,7 @@ export function AnnouncementsScreen() {
         <Card>
           <CardHeader
             title="Every notice"
-            description="Newest first. Pinning changes the order staff see, not this one — this is a work list."
+            description="Newest first. Pinning changes the order staff see, not this one: this is a work list."
           />
 
           <CardBody className="flex flex-wrap items-center gap-3">
@@ -288,7 +288,7 @@ export function AnnouncementsScreen() {
               description={
                 search.trim()
                   ? "This searches the title and the wording."
-                  : "The first one is usually the thing people keep asking about — when payday lands, or what happens over Christmas."
+                  : "The first one is usually the thing people keep asking about: when payday lands, or what happens over Christmas."
               }
               action={
                 canManage && board.editable && !search.trim() ? (

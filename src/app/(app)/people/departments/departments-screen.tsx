@@ -982,7 +982,7 @@ function EditDialog({
               setParentId(v);
             }}
           >
-            <option value="">Top level — a department</option>
+            <option value="">Top level (a department)</option>
             {options
               .filter((option) => !descendantIds.has(option.id) && !option.archived)
               .map((option) => (

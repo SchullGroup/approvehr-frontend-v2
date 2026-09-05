@@ -106,7 +106,7 @@ export function SignOffDialog({
       <div className="flex flex-col gap-4">
         <p className="text-body-sm leading-relaxed text-body">
           {disputing
-            ? "The mark does not change. Whoever finalised it and whoever wrote it are both told, and somebody has to answer what you say here — that is what makes it a dispute rather than an argument."
+            ? "The mark does not change. Whoever finalised it and whoever wrote it are both told, and somebody has to answer what you say here: that is what makes it a dispute rather than an argument."
             : "This records that you have seen this rating and when. It is not a record that you agree with it, and nothing here says it is."}
         </p>
 

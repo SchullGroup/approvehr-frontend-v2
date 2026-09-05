@@ -202,7 +202,7 @@ export function PeriodReportScreen({ cycleId }: { cycleId: string }) {
             <Parts report={report} />
             <NamedList
               title="Nobody marked them"
-              description="They finish this period with no mark. Not a mark of nought — nothing was recorded that counts."
+              description="They finish this period with no mark. Not a mark of nought: nothing was recorded that counts."
               empty="Everybody in this period has a mark."
               rows={report.unscored}
               tone="danger"
@@ -519,7 +519,7 @@ function Distribution({ report }: { report: ApiCycleReport }) {
           <div className="border-t border-line pt-4">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <span className="text-body-sm font-medium text-ink">
-                No mark — {distribution.unscored}{" "}
+                No mark · {distribution.unscored}{" "}
                 {distribution.unscored === 1 ? "person" : "people"}
               </span>
               <Badge tone="neutral" size="sm">
@@ -649,12 +649,22 @@ function WhatCameIn({ report }: { report: ApiCycleReport }) {
                 value: `${marks.written} of ${marks.people}`,
               },
               {
-                term: "Finalised — the person was told",
+                term: "Finalised (the person was told)",
                 value: `${marks.finalised} of ${marks.people}`,
               },
               {
                 term: "Acknowledged",
-                value: `${marks.acknowledged} of ${marks.finalised} told`,
+                /* You can only answer a mark you have been told, so the
+                   denominator is what has been finalised rather than the
+                   headcount — and when nothing is final there is no ratio to
+                   state. This was rendering "0 of 0 told", which is the claim
+                   `ratio` exists to refuse and the one the incumbent's own
+                   dashboard was audited for. */
+                value: ratio(
+                  marks.acknowledged,
+                  marks.finalised,
+                  "No mark is final yet",
+                ),
               },
               {
                 term: "No answer yet",
@@ -675,7 +685,7 @@ function WhatCameIn({ report }: { report: ApiCycleReport }) {
                 value:
                   marks.noReview === 0
                     ? "None"
-                    : `${marks.noReview} — nobody was asked, which is a different problem`,
+                    : `${marks.noReview} (nobody was asked, which is a different problem)`,
               },
             ]}
           />
@@ -697,7 +707,7 @@ function Parts({ report }: { report: ApiCycleReport }) {
     <Card>
       <CardHeader
         title="The parts of the mark"
-        description="Each part, the weight it carried, and every reason it was left out — with the API's own wording."
+        description="Each part, the weight it carried, and every reason it was left out, with the API's own wording."
         action={
           <ButtonLink size="sm" href="/settings/performance">
             Change the weights

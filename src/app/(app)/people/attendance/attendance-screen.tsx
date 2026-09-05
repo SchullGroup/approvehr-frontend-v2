@@ -281,7 +281,7 @@ function MyAttendanceSummary({
   return (
     <Card>
       <CardHeader
-        title={`Your attendance — ${shortDate(sheet.from)} to ${shortDate(sheet.to)}`}
+        title={`Your attendance · ${shortDate(sheet.from)} to ${shortDate(sheet.to)}`}
         action={
           <ButtonLink href="/people/overtime" variant="secondary" size="sm">
             <Timer aria-hidden="true" className="size-4" />
@@ -407,7 +407,7 @@ function TodayView({
       </div>
 
       <Card>
-        <CardHeader title={`Roster — ${shortDate(roster.date)}`} />
+        <CardHeader title={`Roster · ${shortDate(roster.date)}`} />
         <TableWrap className="rounded-none border-0">
           <THead>
             <TH>Employee</TH>
@@ -467,7 +467,7 @@ function TodayView({
                     ) : off ? (
                       row.clockIn ? (
                         <span className="mt-0.5 block text-meta text-muted">
-                          Worked a rest day on their rota —{" "}
+                          Worked a rest day on their rota,{" "}
                           <Link
                             href="/people/overtime"
                             className="font-medium text-accent-text underline underline-offset-4"
@@ -477,7 +477,7 @@ function TodayView({
                         </span>
                       ) : (
                         <span className="mt-0.5 block text-meta text-muted">
-                          Rest day on their rota — no pay is held back
+                          Rest day on their rota: no pay is held back
                         </span>
                       )
                     ) : null}
@@ -608,7 +608,7 @@ function TimesheetView({ sheet }: { sheet: TimesheetState }) {
   return (
     <Card>
       <CardHeader
-        title={`Timesheet — ${shortDate(sheet.from)} to ${shortDate(sheet.to)}`}
+        title={`Timesheet · ${shortDate(sheet.from)} to ${shortDate(sheet.to)}`}
         description={`${sheet.workingDays} working days, public holidays excluded. Hours are clocked time; anyone on a rota is measured against their rota.`}
         action={
           <ButtonLink href="/people/overtime" variant="secondary" size="sm">

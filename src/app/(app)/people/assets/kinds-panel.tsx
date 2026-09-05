@@ -264,7 +264,7 @@ export function AddKindDialog({
 
         <Switch
           label="Must be handed back on exit"
-          description="Off for things you give away — a branded backpack, a T-shirt."
+          description="Off for things you give away: a branded backpack, a T-shirt."
           checked={returnRequired}
           onChange={(e) => {
             const value = e.target.checked;

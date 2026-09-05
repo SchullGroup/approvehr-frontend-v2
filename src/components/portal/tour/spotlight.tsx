@@ -173,7 +173,7 @@ export function Spotlight({
       <div
         ref={backdropRef}
         aria-hidden="true"
-        className="pointer-events-none fixed inset-0 bg-ink/60 opacity-0 transition-opacity duration-150"
+        className="pointer-events-none fixed inset-0 bg-scrim/60 opacity-0 transition-opacity duration-150"
       />
 
       {/* The dim and the cut-out are one element: an enormous spread shadow

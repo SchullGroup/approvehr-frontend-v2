@@ -156,7 +156,7 @@ export function PasswordField({
                   className={cn(
                     "flex size-4 shrink-0 items-center justify-center rounded-full border transition-colors",
                     rule.met
-                      ? "border-success-strong bg-success text-ink"
+                      ? "border-success-strong bg-success text-fill-strong"
                       : "border-control-line text-transparent",
                   )}
                 >

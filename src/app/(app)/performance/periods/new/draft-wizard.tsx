@@ -177,10 +177,10 @@ function DraftingPanel({
   );
 
   const INSIGHTS = [
-    "Writing questions in plain English — edit anything before you save.",
+    "Writing questions in plain English. Edit anything before you save.",
     "Aligning review questions with your competency framework.",
     "Every suggestion is a starting point, not a final decision.",
-    "Measures are left blank on purpose — targets are yours to set.",
+    "Measures are left blank on purpose: targets are yours to set.",
     "Goals are drafted to what the whole company could be held to.",
   ];
   const insightIndex = Math.floor(tick / 8) % INSIGHTS.length;
@@ -430,7 +430,7 @@ export function DraftPeriodWizard() {
         title: `${name.trim()} is ready to set up`,
         tone: "success",
         detail:
-          "Nobody has been asked anything yet — starting it is the next screen.",
+          "Nobody has been asked anything yet: starting it is the next screen.",
       });
       router.push(`/performance/periods/${cycle.id}`);
     } catch (caught) {
@@ -551,7 +551,7 @@ export function DraftPeriodWizard() {
           <Card>
               <CardHeader
                 title="The company goals"
-                description="Edit anything. Delete what you would not have written. Each measure needs a target from you — one without a figure is not created, because a target nobody set is not a target."
+                description="Edit anything. Delete what you would not have written. Each measure needs a target from you: one without a figure is not created, because a target nobody set is not a target."
               />
               <CardBody className="flex flex-col gap-4">
                 {goalDraft.outcome?.available === false ? (

@@ -490,7 +490,7 @@ function netHint(history: {
     if (history.pageUnpaidCount === 0) {
       return history.total === 1 ? "the only payment" : `all ${history.total} payments`;
     }
-    return `${counted} of ${history.total} payments — the other ${
+    return `${counted} of ${history.total} payments: the other ${
       history.pageUnpaidCount
     } ${history.pageUnpaidCount === 1 ? "has" : "have"} not been paid`;
   }
@@ -499,7 +499,7 @@ function netHint(history: {
     return `none of the ${shown} on this page have been paid, and later pages are not counted`;
   }
   if (history.pageUnpaidCount === 0) {
-    return `the ${shown} on this page, of ${history.total} — later pages are not counted`;
+    return `the ${shown} on this page, of ${history.total}, later pages are not counted`;
   }
-  return `${counted} of the ${shown} on this page — ${history.pageUnpaidCount} not paid, and later pages are not counted`;
+  return `${counted} of the ${shown} on this page: ${history.pageUnpaidCount} not paid, and later pages are not counted`;
 }

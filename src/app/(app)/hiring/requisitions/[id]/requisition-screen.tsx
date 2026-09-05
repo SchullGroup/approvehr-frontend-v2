@@ -57,7 +57,7 @@ export function RequisitionScreen({ id }: { id: string }) {
             <EmptyState
               icon={<Lock aria-hidden="true" />}
               title="You cannot see this requisition"
-              description="A requisition holds the salary band, the hiring team and every candidate's pipeline record — including their expected salary — so it is kept to whoever hires. Ask whoever manages access to add hiring to your role."
+              description="A requisition holds the salary band, the hiring team and every candidate's pipeline record, including their expected salary, so it is kept to whoever hires. Ask whoever manages access to add hiring to your role."
               action={
                 <ButtonLink href="/hiring" variant="secondary" size="sm">
                   Back to hiring

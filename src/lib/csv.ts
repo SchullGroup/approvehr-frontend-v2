@@ -265,7 +265,7 @@ export function fileFromRecords(
   const namedByPosition = unlabelled.size - separators.length;
   if (namedByPosition > 0) {
     notes.push(
-      `${namedByPosition} ${namedByPosition === 1 ? "column has" : "columns have"} no heading but ${namedByPosition === 1 ? "does" : "do"} have values. We named ${namedByPosition === 1 ? "it" : "them"} after ${namedByPosition === 1 ? "its" : "their"} position — column_3 is the third column.`,
+      `${namedByPosition} ${namedByPosition === 1 ? "column has" : "columns have"} no heading but ${namedByPosition === 1 ? "does" : "do"} have values. We named ${namedByPosition === 1 ? "it" : "them"} after ${namedByPosition === 1 ? "its" : "their"} position: column_3 is the third column.`,
     );
   }
   if (separators.length > 0) {

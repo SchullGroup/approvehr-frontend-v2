@@ -116,7 +116,7 @@ export function RepairDialog({
             rows={2}
             autoFocus
             value={description}
-            placeholder="Cracked screen — panel replacement"
+            placeholder="Cracked screen, panel replacement"
             onChange={(e) => {
               const value = e.target.value;
               setDescription(value);

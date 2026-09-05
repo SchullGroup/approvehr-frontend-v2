@@ -193,7 +193,7 @@ export function OnboardingScreen() {
               <Stat
                 label="Cannot be paid yet"
                 value={String(blocked.length)}
-                hint="missing a bank account — open the list"
+                hint="missing a bank account. Open the list"
                 className="h-full transition-colors hover:border-accent-line"
                 trend={{
                   direction: "down" as const,
@@ -394,7 +394,7 @@ function StepRow({
             aria-hidden="true"
             className={cn(
               "flex size-4 shrink-0 items-center justify-center rounded-full",
-              done ? "bg-success text-ink" : "border border-line-strong",
+              done ? "bg-success text-fill-strong" : "border border-line-strong",
             )}
           >
             {done && <Check aria-hidden="true" className="size-2.5" strokeWidth={3} />}
@@ -416,7 +416,7 @@ function StepRow({
               </Link>
             )}
             <span className="sr-only">
-              {done ? " — done, from their record" : " — outstanding on their record"}
+              {done ? ", done, from their record" : ", outstanding on their record"}
             </span>
           </span>
           <span className="shrink-0 rounded-full bg-sunken px-1.5 py-0.5 text-meta font-medium text-muted">

@@ -29,7 +29,7 @@ export function ProgressMeter({
     info: "bg-info",
     warning: "bg-warning",
     danger: "bg-danger",
-    ink: "bg-ink",
+    ink: "bg-fill-strong",
   } as const;
 
   /*

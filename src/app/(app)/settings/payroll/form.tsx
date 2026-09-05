@@ -967,7 +967,7 @@ function Preview({
         {!available ? (
           <p className="text-body-sm leading-relaxed text-muted">
             A payslip is worked out by the payroll engine on the server, and
-            there is no second copy of it in this browser — there was once, and
+            there is no second copy of it in this browser: there was once, and
             it spent a while quoting the wrong year&rsquo;s tax. Start the API to
             see what these settings pay.
           </p>
@@ -1042,7 +1042,7 @@ function Preview({
                 <p className="text-meta leading-relaxed text-muted">
                   PAYE on {quote?.taxSchedule.citation.split("(")[0]?.trim()}
                   {quote?.taxSchedule.stale
-                    ? " — nobody has confirmed these bands cover this period."
+                    ? ". Nobody has confirmed these bands cover this period."
                     : "."}
                 </p>
               )}

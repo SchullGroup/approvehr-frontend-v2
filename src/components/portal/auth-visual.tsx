@@ -63,8 +63,7 @@ export function AuthVisual() {
           A smarter way to manage staff.
         </p>
         <p className="max-w-sm text-body leading-relaxed text-white/70">
-          Employee records, payroll, recruitment, leave and approvals —
-          managed in one platform.
+          Employee records, payroll, recruitment, leave and approvals, managed in one platform.
         </p>
       </div>
 

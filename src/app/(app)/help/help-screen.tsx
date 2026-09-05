@@ -740,7 +740,7 @@ function RaiseRequestModal({
       <div className="flex flex-col gap-4">
         {/* The best request is the one nobody had to raise. */}
         <KbSearch
-          label="Search first — this may already be answered"
+          label="Search first: this may already be answered"
           limit={4}
         />
 
@@ -802,7 +802,7 @@ function RaiseRequestModal({
         */}
         <Field
           label="What is happening"
-          help="You cannot attach a file yet — type the details, and whoever picks it up will ask for anything else in the replies."
+          help="You cannot attach a file yet. Type the details, and whoever picks it up will ask for anything else in the replies."
         >
           <Textarea
             value={body}

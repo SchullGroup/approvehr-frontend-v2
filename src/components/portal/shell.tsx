@@ -186,7 +186,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {open && (
           <div className="fixed inset-0 z-40 lg:hidden">
             <div
-              className="absolute inset-0 bg-ink/40"
+              className="absolute inset-0 bg-scrim/40"
               onClick={() => setOpen(false)}
               aria-hidden="true"
             />
@@ -507,7 +507,7 @@ function UserMenu() {
                   live company's account, not merely quiet on it. */}
               {DEMO_ENABLED && mode !== "api" && (
                 <p className="mt-1.5 text-meta text-faint">
-                  Demo session — data is local to this browser
+                  Demo session: data is local to this browser
                 </p>
               )}
             </div>
