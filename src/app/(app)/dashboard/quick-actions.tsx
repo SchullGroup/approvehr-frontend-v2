@@ -103,7 +103,6 @@ const ACTIONS: readonly Action[] = [
     icon: <Megaphone aria-hidden="true" />,
     permission: "MANAGE_HIRING",
     feature: "hiring",
-    soon: true,
   },
   {
     href: "/people/departments",

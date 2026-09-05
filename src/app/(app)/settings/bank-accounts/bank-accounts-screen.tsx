@@ -33,6 +33,8 @@ import { ApiError } from "@/lib/api/client";
 import type { ApiBankAccount } from "@/lib/api/payments";
 import { usePermissions } from "@/lib/permissions";
 import { useBankAccounts } from "@/lib/store/payments";
+import { useStepUp } from "@/components/portal/step-up";
+import { paymentsApi } from "@/lib/api/payments";
 import { longDate } from "../../payroll/payments/format";
 import { AccountForm } from "./account-form";
 
@@ -68,6 +70,12 @@ export function BankAccountsScreen() {
   const from = useSearchParams().get("from");
   const [showArchived, setShowArchived] = useState(false);
   const accounts = useBankAccounts(showArchived);
+  /* The same hook the payroll wizard uses, and it was always general — the
+     comment below used to say the challenge "is not implemented anywhere but
+     the payroll wizard", which was true of the *screen* and never of
+     `useStepUp`. Nothing had to be extracted; this screen simply had to call
+     it. */
+  const stepUp = useStepUp();
   const toast = useToast();
 
   const [adding, setAdding] = useState(false);
@@ -172,10 +180,13 @@ export function BankAccountsScreen() {
           * gate refuses. Four wrong claims about a company that may have five
           * accounts on file.
           *
-          * The challenge itself is not implemented anywhere but the payroll
-          * wizard, and its code can only arrive by email, so there is nothing
-          * honest to offer here beyond saying what stands in the way and where
-          * the switch is.
+          * It now offers the challenge rather than only describing it.
+          * `useStepUp` takes a thunk, catches the refusal, collects the code
+          * and retries — so the button below asks for the accounts, and the
+          * store's own reload picks them up once the grant exists. Turning the
+          * requirement off is still offered, because somebody with no
+          * two-factor set up has no way to receive a code and needs the other
+          * door.
           */}
         {stepUpBlocked ? (
           <Callout tone="warning" title="This needs a confirmation code">
@@ -190,13 +201,39 @@ export function BankAccountsScreen() {
             >
               Security
             </Link>{" "}
-            to use this screen.
+            if nobody here can receive one.
+            <div className="mt-3">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  void (async () => {
+                    try {
+                      await stepUp.run(() => paymentsApi.accounts(showArchived), {
+                        action: "BANK_DETAILS",
+                      });
+                      /* The grant is what the retry needed, not the payload:
+                         the store owns this data and re-asks for it itself. */
+                      accounts.reload();
+                    } catch {
+                      /* Cancelled, or the code was never verified. The callout
+                         is still on screen saying what stands in the way, so
+                         there is nothing further to report. */
+                    }
+                  })();
+                }}
+              >
+                Enter a code and show the accounts
+              </Button>
+            </div>
           </Callout>
         ) : (
           accounts.error && (
             <LoadFailure subject="the accounts" error={accounts.error}  onRetry={accounts.reload}/>
           )
         )}
+
+        {stepUp.dialog}
 
         <div className="grid gap-4 sm:grid-cols-3">
           {/* Never a measured zero over a read that did not happen. */}

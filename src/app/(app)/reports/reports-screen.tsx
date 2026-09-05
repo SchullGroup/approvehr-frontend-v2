@@ -18,6 +18,22 @@ import { PageBody, PageHeader } from "@/components/portal/shell";
 import { usePermissions } from "@/lib/permissions";
 import { useReports } from "@/lib/store/insights";
 import { employmentTypeLabel, naira } from "@/lib/api/insights";
+import { monthLabel } from "@/lib/api/overtime";
+import { Field, Select } from "@/components/ui";
+import { useMemo, useState } from "react";
+
+/** `2026-08`, in UTC — the same key the API's `period` query parameter takes. */
+function monthKey(date: Date): string {
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+/** This month first, then back a year. Anything older is a different feature. */
+function recentMonths(count = 13): string[] {
+  const now = new Date();
+  return Array.from({ length: count }, (_, i) =>
+    monthKey(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1))),
+  );
+}
 
 /**
  * Reports, from `/insights/reports`.
@@ -94,7 +110,36 @@ export function ReportsScreen() {
 }
 
 function Reports() {
-  const { data, loading, error, reload } = useReports();
+  /**
+   * The period this report is about.
+   *
+   * `useReports()` was called with no argument at all, though the hook has
+   * always accepted one — so every payroll panel resolved against the current
+   * month and rendered "No payroll has been run for this period" while a run
+   * sat in review for the month before. The figures were never wrong; the
+   * report had no way to be asked about the month somebody wanted.
+   *
+   * The picker is on the loaded header only. A month control above a spinner
+   * or an error is a control that cannot answer, and this screen already has
+   * three states that render neither figure nor filter.
+   */
+  const months = useMemo(() => recentMonths(), []);
+  const [period, setPeriod] = useState<string>(() => months[0] ?? "");
+  const { data, loading, error, reload } = useReports(period);
+
+  const monthPicker = (
+    <div className="min-w-44">
+      <Field label="Month">
+        <Select value={period} onChange={(event) => setPeriod(event.target.value)}>
+          {months.map((month) => (
+            <option key={month} value={month}>
+              {monthLabel(month)}
+            </option>
+          ))}
+        </Select>
+      </Field>
+    </div>
+  );
 
   if (loading) {
     return (
@@ -150,7 +195,7 @@ function Reports() {
 
   return (
     <>
-      <PageHeader title="Reports" />
+      <PageHeader title="Reports" action={monthPicker} />
 
       <PageBody className="flex flex-col gap-6">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
