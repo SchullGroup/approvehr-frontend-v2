@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { PERMISSION_KEYS, type PermissionKey } from "@/lib/permission-keys";
 import { permissionsApi, type Catalogue, type UserAccess } from "@/lib/api/permissions";
 import { useEmployeeStore } from "@/lib/store/employees";
 import { useRolePreview } from "@/lib/store/permissions";
 import { useSession } from "@/lib/store/session";
+import { createSharedResource } from "@/lib/shared-resource";
 
 /**
  * What the signed-in person is allowed to do.
@@ -160,6 +161,33 @@ export function can(permission: PermissionKey): boolean {
   return snapshot.has(permission);
 }
 
+/* ----------------------------------------------------- the shared requests */
+
+/**
+ * One `GET /permissions/users/:id/permissions` per signed-in account, shared by
+ * every component that asks.
+ *
+ * This used to be a `useState` inside `usePermissions`, which meant one request
+ * per *component* rather than per account: twenty-two on `/people/leave`, in
+ * parallel, for one answer. `lib/shared-resource.ts` carries the measurements
+ * and the reasoning; the short version is that a permission set belongs to the
+ * session, not to whichever card happens to be asking about it.
+ */
+const userAccess = createSharedResource<UserAccess>((userId) =>
+  permissionsApi.userAccess(userId),
+);
+
+/**
+ * How many people report to somebody. Shared for the same reason.
+ *
+ * The count rather than a boolean, because the API answers with a count and
+ * narrowing it here would mean a second reader that wanted the number could not
+ * have it without a second request.
+ */
+const directReports = createSharedResource<number>((employeeId) =>
+  permissionsApi.directReportCount(employeeId),
+);
+
 /* ---------------------------------------------------------------- the hook */
 
 export type Access = {
@@ -193,40 +221,18 @@ export function usePermissions(): Access {
    * Keyed by the account it belongs to, not a bare value.
    *
    * Signing out and back in as somebody else must not inherit the first
-   * person's permissions, and the reset on sign-out is the thing that gets
-   * forgotten. Comparing the key during render is also what lets the effect
-   * avoid a synchronous `setState`, which cascades a render for nothing.
+   * person's permissions. That used to be a `forUser` field compared during
+   * render, guarding a `useState` this hook filled from its own effect; it is
+   * now the cache key itself, which closes the same hole one layer down —
+   * asking for user B cannot return user A's entry, because they are different
+   * entries.
+   *
+   * A failed read leaves this `null` and the token's own claims stand. Losing
+   * the "why" is a smaller failure than blanking the interface, and the claims
+   * are the same set in all but the minutes after a role changed.
    */
-  const [loaded, setLoaded] = useState<{ forUser: string; access: UserAccess } | null>(
-    null,
-  );
-
-  const userId = user?.id ?? null;
-
-  useEffect(() => {
-    if (!isConnected || !userId) return;
-    let cancelled = false;
-    const controller = new AbortController();
-    void (async () => {
-      try {
-        const access = await permissionsApi.userAccess(userId, controller.signal);
-        if (!cancelled) setLoaded({ forUser: userId, access });
-      } catch {
-        /* Keep the token's claims. Losing the "why" is a smaller failure than
-           blanking the interface, and the claims are the same set in all but
-           the minutes after a change. */
-      }
-    })();
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [isConnected, userId]);
-
-  const detail =
-    isConnected && loaded && userId !== null && loaded.forUser === userId
-      ? loaded.access
-      : null;
+  const userId = isConnected ? (user?.id ?? null) : null;
+  const detail = userAccess.use(userId);
 
   const claimed = useMemo(
     () => (user ? toPermissionSet(user.permissions) : NO_PERMISSIONS),
@@ -342,36 +348,20 @@ export function Can({
 export function useIsManager(): boolean {
   const { isConnected, employeeId } = useSession();
   const local = useEmployeeStore();
-  /* Keyed by the employee, for the same reason `usePermissions` keys its detail. */
-  const [reports, setReports] = useState<{ forEmployee: string; count: number } | null>(
-    null,
-  );
-
-  useEffect(() => {
-    if (!isConnected || !employeeId) return;
-    let cancelled = false;
-    const controller = new AbortController();
-    void (async () => {
-      try {
-        const count = await permissionsApi.directReportCount(
-          employeeId,
-          controller.signal,
-        );
-        if (!cancelled) setReports({ forEmployee: employeeId, count });
-      } catch {
-        /* Treated as "not a manager" rather than crashing a layout. */
-        if (!cancelled) setReports({ forEmployee: employeeId, count: 0 });
-      }
-    })();
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [isConnected, employeeId]);
+  /* Keyed by the employee, for the same reason `usePermissions` keys its
+     detail — and shared, for the same reason too: this is asked by the shell,
+     the nav, the approvals badge and half a dozen screens at once, and it is
+     one fact about one person however many of them ask. */
+  const count = directReports.use(isConnected ? employeeId : null);
 
   if (!employeeId) return false;
   if (isConnected) {
-    return reports !== null && reports.forEmployee === employeeId && reports.count > 0;
+    /* `null` is "not answered yet" and reads as not a manager, which is the
+       right direction while it is unknown: a nav item that appears a moment
+       late is better than one that appears and is taken away. A resolved `0` is
+       a different fact and the cache keeps them apart — see the `loaded` flag
+       in `lib/shared-resource.ts`. */
+    return count !== null && count > 0;
   }
   return local.directory.some((person) => person.managerId === employeeId);
 }

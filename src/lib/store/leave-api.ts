@@ -415,17 +415,25 @@ export function useLeaveBalancesFor(
     if (!isConnected || key === "") return;
     let cancelled = false;
     void (async () => {
-      const results = await Promise.all(
-        key.split(",").map(async (id) => {
-          try {
-            return [id, await leaveApi.balances(id)] as const;
-          } catch {
-            /* One person's balance failing must not blank the whole card. */
-            return [id, [] as LeaveBalanceRow[]] as const;
-          }
-        }),
-      );
-      if (!cancelled) setFetched({ key, rows: Object.fromEntries(results) });
+      const ids = key.split(",");
+      try {
+        /* One request for everybody on screen, not one per row. This used to
+           be a `Promise.all` over `leaveApi.balances(id)`, which is the same
+           answer at eleven people and a request per employee at eleven
+           thousand — see the header of `balancesForMany`. */
+        const rows = await leaveApi.balancesForMany(ids);
+        if (!cancelled) setFetched({ key, rows });
+      } catch {
+        /* The read failing must not blank the whole card. Every id resolves to
+           an empty list, which the `of` below already treats as "no balance to
+           show" rather than as a balance of nothing. */
+        if (!cancelled) {
+          setFetched({
+            key,
+            rows: Object.fromEntries(ids.map((id) => [id, [] as LeaveBalanceRow[]])),
+          });
+        }
+      }
     })();
     return () => {
       cancelled = true;

@@ -600,6 +600,35 @@ export const leaveApi = {
         ...(signal ? { signal } : {}),
       })
     ).map(toBalance),
+
+  /**
+   * Several people's balances, in one request.
+   *
+   * `balances` above, called once per row, is what a leave screen showing
+   * eleven people did — seven of the sixty requests a single load of
+   * `/people/leave` made, and one per employee at any headcount. This asks
+   * once. `GET /leave/balances?employeeIds=` needs `VIEW_SALARIES` outright,
+   * with no "or your own" exemption; a caller reading only their own balance
+   * still has the single-id route.
+   *
+   * An id the API answers nothing for comes back as an empty array rather than
+   * a missing key, so a caller never has to tell "no balance" from "not asked".
+   */
+  balancesForMany: async (
+    employeeIds: readonly string[],
+    year?: number,
+    signal?: AbortSignal,
+  ): Promise<Record<string, LeaveBalanceRow[]>> => {
+    const ids = [...new Set(employeeIds)];
+    if (ids.length === 0) return {};
+    const wire = await request<Record<string, WireBalance[]>>("/leave/balances", {
+      query: { employeeIds: ids.join(","), ...(year ? { year } : {}) },
+      ...(signal ? { signal } : {}),
+    });
+    const out: Record<string, LeaveBalanceRow[]> = {};
+    for (const id of ids) out[id] = (wire[id] ?? []).map(toBalance);
+    return out;
+  },
 };
 
 /* ---------------------------------------------------------------- for screens */
