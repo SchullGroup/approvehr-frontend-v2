@@ -29,7 +29,7 @@ export function HowAppraisalsWorkScreen() {
     <>
       <PageHeader
         title="How appraisals work"
-        breadcrumb={[{ href: "/performance", label: "KPIs & appraisals" }]}
+        breadcrumb={[{ href: "/performance", label: "Performance" }]}
       />
       <PageBody>
         <Card>
