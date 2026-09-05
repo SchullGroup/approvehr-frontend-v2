@@ -8,7 +8,9 @@ import {
   CalendarRange,
   CalendarSearch,
   ChartNoAxesColumn,
+  CheckCheck,
   ClipboardCheck,
+  ClipboardList,
   Clock,
   CreditCard,
   DoorOpen,
@@ -16,6 +18,7 @@ import {
   FileText,
   FileUp,
   FolderOpen,
+  GraduationCap,
   History,
   Inbox,
   Wallet,
@@ -23,6 +26,7 @@ import {
   LayoutDashboard,
   LifeBuoy,
   Megaphone,
+  Network,
   Receipt,
   ReceiptText,
   Settings,
@@ -31,6 +35,7 @@ import {
   Sparkles,
   Target,
   Timer,
+  TrendingUp,
   UserRoundPlus,
   Users,
 } from "lucide-react";
@@ -460,14 +465,68 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
     },
   ],
 
-  /* One route, rendered by role — PARITY.md Rule 1. The label names what is
-     inside it rather than repeating the heading. */
+  /* Seven real routes, not one page with a tab strip inside it — the same
+     move made for hiring above, and for the same reason: a tab strip is
+     invisible to anybody who has not already opened the page, and "where do
+     I manage a section, a competency, a cycle" was a discoverability
+     complaint about exactly that invisibility. Each item below used to be a
+     `?tab=` value on `/performance`; the ids are unchanged; only the door is
+     new. */
   performance: [
     {
       href: "/performance",
-      label: "KPIs & appraisals",
+      label: "Overview",
       icon: <Target aria-hidden="true" />,
       always: true,
+    },
+    {
+      href: "/performance/kpis",
+      label: "KPIs",
+      icon: <TrendingUp aria-hidden="true" />,
+      always: true,
+    },
+    {
+      href: "/performance/review-tasks",
+      label: "Review tasks",
+      icon: <ClipboardList aria-hidden="true" />,
+      always: true,
+    },
+    {
+      /* `SkillsTab` itself decides mine/team/company; the nav only asks
+         whether the company scores competencies at all. */
+      href: "/performance/skills",
+      label: "Competency ratings",
+      icon: <GraduationCap aria-hidden="true" />,
+      feature: "appraisals",
+    },
+    {
+      /* Matches the old tab's own gate exactly: appraisals on, and either
+         runs a period (`MANAGE_SETTINGS`) or reads across the company
+         (`EDIT_RECORDS`). Staff with neither never had this tab either. */
+      href: "/performance/periods",
+      label: "Appraisal periods",
+      icon: <CalendarRange aria-hidden="true" />,
+      feature: "appraisals",
+      anyPermission: ["MANAGE_SETTINGS", "EDIT_RECORDS"],
+    },
+    {
+      /* Was reachable only from a notification. It is a queue with one job,
+         same shape as Hiring's Applications, and it deserves the same
+         permanent door. */
+      href: "/performance/approvals",
+      label: "Objectives to agree",
+      icon: <CheckCheck aria-hidden="true" />,
+      feature: "appraisals",
+    },
+    {
+      /* `multiAppraiser` cannot be on while `appraisals` is off — the setup
+         module refuses that combination — so one feature flag is enough to
+         carry both. */
+      href: "/performance/appraisers",
+      label: "Who appraises whom",
+      icon: <Network aria-hidden="true" />,
+      feature: "multiAppraiser",
+      permission: "EDIT_RECORDS",
     },
   ],
 

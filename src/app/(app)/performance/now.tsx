@@ -610,7 +610,7 @@ export function WhatNeedsYouTab({
                         : `${toSend.length} objectives of yours have not been sent for approval`
                     }
                     detail={objectiveNames(toSend)}
-                    href="/performance?tab=kpis"
+                    href="/performance/kpis"
                     action="Open your KPIs"
                   />
                 )}
@@ -650,7 +650,7 @@ export function WhatNeedsYouTab({
                         : `${sentForApproval.length} objectives of yours are waiting to be agreed`
                     }
                     detail={objectiveNames(sentForApproval)}
-                    href="/performance?tab=kpis"
+                    href="/performance/kpis"
                     action="See them"
                   />
                 )}
