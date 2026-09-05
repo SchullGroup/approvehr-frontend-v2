@@ -23,6 +23,8 @@ import { pipelineSnapshot, useScreeningBacklog } from "@/lib/store/hiring";
 import { cardById } from "@/lib/mock/hiring";
 import { employeeById } from "@/lib/mock/people";
 import { fullName } from "@/lib/types";
+import { useSession } from "@/lib/store/session";
+import { RealDiary } from "./real-diary";
 
 /**
  * Interviews.
@@ -63,7 +65,7 @@ export function InterviewsScreen() {
     );
   }
 
-  if (!can("MANAGE_HIRING")) {
+  if (!can("MANAGE_HIRING") && !can("APPROVE_HIRING")) {
     return (
       <>
         <PageHeader title="Interviews" />
@@ -72,7 +74,7 @@ export function InterviewsScreen() {
             <EmptyState
               icon={<Lock aria-hidden="true" />}
               title="You cannot see interviews"
-              description="An interview record names a candidate and what was said about them, so it is kept to whoever hires. Ask whoever manages access to add hiring to your role."
+              description="An interview record names a candidate and what was said about them, so it is kept to whoever hires or approves hiring. Ask whoever manages access to add one of those to your role."
               action={
                 <ButtonLink href="/dashboard" variant="secondary" size="sm">
                   Back to your dashboard
@@ -99,6 +101,7 @@ const KIND_LABEL: Record<string, string> = {
 
 function Diary() {
   const backlog = useScreeningBacklog();
+  const { isConnected } = useSession();
   const pipeline = pipelineSnapshot();
   const toast = useToast();
 
@@ -182,136 +185,142 @@ function Diary() {
           </CardBody>
         </Card>
 
-        {owed.length > 0 && (
-          <Card>
-            <CardHeader
-              title="Scorecards owed"
-              description="A candidate cannot leave the interview stage until these are in."
-              action={<SourceBadge live={false} />}
-            />
-            <CardBody className="flex flex-col gap-2.5">
-              {owed.map(({ interview, card, scorecard }) => {
-                const who = employeeById(scorecard.interviewerId);
-                const name = who ? fullName(who) : "Unknown";
-                return (
-                  <div
-                    key={scorecard.id}
-                    className="flex flex-wrap items-center gap-3 rounded-lg border border-warning-line bg-warning-soft p-3"
-                  >
-                    <Avatar name={name} size="sm" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-body-sm font-medium text-ink">
-                        {name} owes a scorecard
-                      </p>
-                      <p className="text-meta text-body">
-                        {KIND_LABEL[interview.kind] ?? interview.kind} with{" "}
-                        {fullName(card.candidate)} · {card.requisition.title}
-                      </p>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() =>
-                        toast.push({
-                          title: "Nothing was sent",
-                          tone: "info",
-                          detail:
-                            "Interviews and scorecards have no endpoint yet, so there is nobody to remind. Ask " +
-                            `${name.split(" ")[0]} directly.`,
-                        })
-                      }
-                    >
-                      Send reminder
-                    </Button>
-                  </div>
-                );
-              })}
-            </CardBody>
-          </Card>
-        )}
-
-        <Card>
-          <CardHeader title="Upcoming" action={<SourceBadge live={false} />} />
-          <CardBody className="flex flex-col gap-2.5">
-            {scheduled.length === 0 && (
-              <EmptyState
-                compact
-                icon={<CalendarClock aria-hidden="true" />}
-                title="Nothing scheduled"
-                description="Interviews you book will appear here."
-              />
+        {isConnected ? (
+          <RealDiary />
+        ) : (
+          <>
+            {owed.length > 0 && (
+              <Card>
+                <CardHeader
+                  title="Scorecards owed"
+                  description="A candidate cannot leave the interview stage until these are in."
+                  action={<SourceBadge live={false} />}
+                />
+                <CardBody className="flex flex-col gap-2.5">
+                  {owed.map(({ interview, card, scorecard }) => {
+                    const who = employeeById(scorecard.interviewerId);
+                    const name = who ? fullName(who) : "Unknown";
+                    return (
+                      <div
+                        key={scorecard.id}
+                        className="flex flex-wrap items-center gap-3 rounded-lg border border-warning-line bg-warning-soft p-3"
+                      >
+                        <Avatar name={name} size="sm" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-body-sm font-medium text-ink">
+                            {name} owes a scorecard
+                          </p>
+                          <p className="text-meta text-body">
+                            {KIND_LABEL[interview.kind] ?? interview.kind} with{" "}
+                            {fullName(card.candidate)} · {card.requisition.title}
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() =>
+                            toast.push({
+                              title: "Nothing was sent",
+                              tone: "info",
+                              detail:
+                                "Interviews and scorecards have no endpoint yet, so there is nobody to remind. Ask " +
+                                `${name.split(" ")[0]} directly.`,
+                            })
+                          }
+                        >
+                          Send reminder
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </CardBody>
+              </Card>
             )}
 
-            {scheduled.map((iv) => {
-              const card = cardById(iv.applicationId);
-              if (!card) return null;
-              const when = new Date(iv.scheduledFor);
-              return (
-                /* A plain wrapper. The two links are siblings, never nested —
-                   an outer link wrapping an inner one breaks hydration and
-                   renders the page blank with nothing useful in the console. */
-                <div
-                  key={iv.id}
-                  className="flex flex-wrap items-center gap-3 rounded-lg border border-line p-3 transition-colors hover:bg-canvas"
-                >
-                  <div className="flex w-16 shrink-0 flex-col items-center rounded-md bg-sunken px-2 py-1.5">
-                    <span className="text-meta text-muted">
-                      {when.toLocaleDateString("en-NG", { month: "short" })}
-                    </span>
-                    <span className="tabular text-h4 leading-none text-ink">
-                      {when.getDate()}
-                    </span>
-                  </div>
+            <Card>
+              <CardHeader title="Upcoming" action={<SourceBadge live={false} />} />
+              <CardBody className="flex flex-col gap-2.5">
+                {scheduled.length === 0 && (
+                  <EmptyState
+                    compact
+                    icon={<CalendarClock aria-hidden="true" />}
+                    title="Nothing scheduled"
+                    description="Interviews you book will appear here."
+                  />
+                )}
 
-                  <div className="min-w-0 flex-1">
-                    <p className="text-body-sm font-medium text-ink">
-                      <Link
+                {scheduled.map((iv) => {
+                  const card = cardById(iv.applicationId);
+                  if (!card) return null;
+                  const when = new Date(iv.scheduledFor);
+                  return (
+                    /* A plain wrapper. The two links are siblings, never nested —
+                       an outer link wrapping an inner one breaks hydration and
+                       renders the page blank with nothing useful in the console. */
+                    <div
+                      key={iv.id}
+                      className="flex flex-wrap items-center gap-3 rounded-lg border border-line p-3 transition-colors hover:bg-canvas"
+                    >
+                      <div className="flex w-16 shrink-0 flex-col items-center rounded-md bg-sunken px-2 py-1.5">
+                        <span className="text-meta text-muted">
+                          {when.toLocaleDateString("en-NG", { month: "short" })}
+                        </span>
+                        <span className="tabular text-h4 leading-none text-ink">
+                          {when.getDate()}
+                        </span>
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <p className="text-body-sm font-medium text-ink">
+                          <Link
+                            href={`/hiring/candidates/${card.id}`}
+                            className="hover:text-accent-text hover:underline underline-offset-4"
+                          >
+                            {fullName(card.candidate)}
+                          </Link>
+                        </p>
+                        <p className="text-meta text-muted">
+                          {KIND_LABEL[iv.kind] ?? iv.kind} · {" "}
+                          <Link
+                            href={`/hiring/requisitions/${card.requisitionId}`}
+                            className="hover:text-accent-text hover:underline underline-offset-4"
+                          >
+                            {card.requisition.title}
+                          </Link>
+                        </p>
+                        <p className="tabular mt-0.5 text-meta text-muted">
+                          {when.toLocaleTimeString("en-NG", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}{" "}
+                          · {iv.durationMins} mins · {" "}
+                          {iv.interviewerIds
+                            .map((id) => {
+                              const person = employeeById(id);
+                              return person ? fullName(person) : "Unknown";
+                            })
+                            .join(", ")}
+                        </p>
+                      </div>
+
+                      <Badge tone="info" size="sm" dot>
+                        Scheduled
+                      </Badge>
+
+                      <ButtonLink
                         href={`/hiring/candidates/${card.id}`}
-                        className="hover:text-accent-text hover:underline underline-offset-4"
+                        size="sm"
+                        variant="secondary"
                       >
-                        {fullName(card.candidate)}
-                      </Link>
-                    </p>
-                    <p className="text-meta text-muted">
-                      {KIND_LABEL[iv.kind] ?? iv.kind} · {" "}
-                      <Link
-                        href={`/hiring/requisitions/${card.requisitionId}`}
-                        className="hover:text-accent-text hover:underline underline-offset-4"
-                      >
-                        {card.requisition.title}
-                      </Link>
-                    </p>
-                    <p className="tabular mt-0.5 text-meta text-muted">
-                      {when.toLocaleTimeString("en-NG", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}{" "}
-                      · {iv.durationMins} mins · {" "}
-                      {iv.interviewerIds
-                        .map((id) => {
-                          const person = employeeById(id);
-                          return person ? fullName(person) : "Unknown";
-                        })
-                        .join(", ")}
-                    </p>
-                  </div>
-
-                  <Badge tone="info" size="sm" dot>
-                    Scheduled
-                  </Badge>
-
-                  <ButtonLink
-                    href={`/hiring/candidates/${card.id}`}
-                    size="sm"
-                    variant="secondary"
-                  >
-                    Open record
-                  </ButtonLink>
-                </div>
-              );
-            })}
-          </CardBody>
-        </Card>
+                        Open record
+                      </ButtonLink>
+                    </div>
+                  );
+                })}
+              </CardBody>
+            </Card>
+          </>
+        )}
       </PageBody>
     </>
   );

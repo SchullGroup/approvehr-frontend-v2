@@ -29,6 +29,8 @@ import type { OfferBand } from "@/lib/api/hiring";
 import { usePermissions } from "@/lib/permissions";
 import { pipelineSnapshot, useOfferBands, type OfferBands } from "@/lib/store/hiring";
 import { fullName, type PipelineCard } from "@/lib/types";
+import { useSession } from "@/lib/store/session";
+import { RealApprovals } from "./real-approvals";
 
 const BREADCRUMB = [
   { href: "/hiring", label: "Pipeline" },
@@ -85,7 +87,7 @@ export function OfferApprovals() {
     );
   }
 
-  if (!can("MANAGE_HIRING")) {
+  if (!can("MANAGE_HIRING") && !can("APPROVE_HIRING")) {
     return (
       <>
         <PageHeader breadcrumb={BREADCRUMB} title="Offer approvals" />
@@ -94,7 +96,7 @@ export function OfferApprovals() {
             <EmptyState
               icon={<Lock aria-hidden="true" />}
               title="You cannot see offers"
-              description="An offer names the candidate and states their exact salary and notice period, so it is kept to whoever hires. Ask whoever manages access to add hiring to your role."
+              description="An offer names the candidate and states their exact salary and notice period, so it is kept to whoever hires or approves hiring. Ask whoever manages access to add one of those to your role."
               action={
                 <ButtonLink href="/hiring" variant="secondary" size="sm">
                   Back to hiring
@@ -107,16 +109,19 @@ export function OfferApprovals() {
     );
   }
 
+  return <OfferApprovalsBody />;
+}
+
+function OfferApprovalsBody() {
+  const { isConnected } = useSession();
   return (
     <>
       <PageHeader
         breadcrumb={BREADCRUMB}
         title="Offer approvals"
-        meta={<SourceBadge live={false} note="The offers themselves." />}
+        meta={!isConnected && <SourceBadge live={false} note="The offers themselves." />}
       />
-      <PageBody>
-        <Approvals />
-      </PageBody>
+      <PageBody>{isConnected ? <RealApprovals /> : <Approvals />}</PageBody>
     </>
   );
 }

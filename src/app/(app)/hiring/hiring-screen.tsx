@@ -76,7 +76,7 @@ export function HiringScreen() {
     );
   }
 
-  if (!can("MANAGE_HIRING")) {
+  if (!can("MANAGE_HIRING") && !can("APPROVE_HIRING")) {
     return (
       <>
         <PageHeader title="Hiring" />
@@ -85,7 +85,7 @@ export function HiringScreen() {
             <EmptyState
               icon={<Lock aria-hidden="true" />}
               title="You cannot see hiring"
-              description="Applications hold a stranger's phone number and salary expectation, so they are kept to whoever hires. Ask whoever manages access to add hiring to your role."
+              description="Applications hold a stranger's phone number and salary expectation, so they are kept to whoever hires or approves hiring. Ask whoever manages access to add one of those to your role."
             />
           </Card>
         </PageBody>
