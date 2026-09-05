@@ -31,11 +31,11 @@ import {
  * `submitReviewSchema`, which refuses anything outside it.
  */
 export const RATING_LABELS: Record<string, string> = {
-  "1": "1 — Well below what was needed",
-  "2": "2 — Below what was needed",
-  "3": "3 — Did what was needed",
-  "4": "4 — Above what was needed",
-  "5": "5 — Far above what was needed",
+  "1": "1: Well below what was needed",
+  "2": "2: Below what was needed",
+  "3": "3: Did what was needed",
+  "4": "4: Above what was needed",
+  "5": "5: Far above what was needed",
 };
 
 export const RATING_OPTIONS = ["1", "2", "3", "4", "5"] as const;

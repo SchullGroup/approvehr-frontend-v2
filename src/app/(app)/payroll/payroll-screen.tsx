@@ -479,7 +479,7 @@ export function PayrollScreen() {
             <Receipt aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
             <span>
               These figures are illustrative. Nothing in this browser computes
-              PAYE — they were produced by the payroll engine on the API for the
+              PAYE: they were produced by the payroll engine on the API for the
               demo salaries and are fixed, so a demo run shows salary, statutory
               deductions and any scheduled repayment and nothing else.
               Allowances, loans and expense claims come from the database, and a

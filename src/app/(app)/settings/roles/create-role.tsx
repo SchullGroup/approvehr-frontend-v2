@@ -186,7 +186,7 @@ export function CreateRoleDialog({
               setSourceId(value);
             }}
           >
-            <option value="">Nothing — start empty</option>
+            <option value="">Nothing (start empty)</option>
             {roles.map((role) => (
               <option key={role.id} value={role.id}>
                 {role.name}
@@ -213,7 +213,7 @@ export function CreateRoleDialog({
             </p>
             <p className="mt-0.5 text-body-sm leading-relaxed text-muted">
               Each one gets an email with a link to set their own password. They
-              do not need a staff record — add that later if they are on the
+              do not need a staff record. Add that later if they are on the
               payroll.
             </p>
           </div>

@@ -192,7 +192,7 @@ const ONGOING = [
     href: "/settings/ai",
     title: "Assistant",
     description:
-      "Suggested objectives, drafted progress notes and development areas. Off until a key is set — and this is the only screen that says so, because a form with no assistant renders no button at all.",
+      "Suggested objectives, drafted progress notes and development areas. Off until a key is set, and this is the only screen that says so, because a form with no assistant renders no button at all.",
     icon: <Sparkles aria-hidden="true" />,
   },
   /* Commented out for now, not deleted — neither is ready to show yet.
@@ -300,7 +300,7 @@ export function SettingsScreen() {
             tone="danger"
             title="Could not work out what is still to be set up"
           >
-            {error.message} The pages below all still work — only the checklist
+            {error.message} The pages below all still work: only the checklist
             needs this read.{" "}
             <button
               type="button"
@@ -392,7 +392,7 @@ export function SettingsScreen() {
                   facts && !facts.company.logo
                   ? (
                       <>
-                        Everything a payroll needs is in place. No logo yet — it
+                        Everything a payroll needs is in place. No logo yet: it
                         goes on every payslip and on the emails the platform
                         sends.{" "}
                         <Link
@@ -429,12 +429,7 @@ export function SettingsScreen() {
         </Disclosure>
 
         {DEMO_ENABLED && source === "demo" && (
-          <Callout tone="warning" title="Demo data, this browser only">
-            This checklist is worked out from the seeded company in this
-            browser. Two rows cannot be answered offline at all — whether a bank
-            account is on file, and how many pay components and salary bands
-            exist — and they say so rather than reporting nothing as zero.
-          </Callout>
+          <Callout tone="warning" title="Demo data, this browser only">This checklist is worked out from the seeded company in this browser. Two rows cannot be answered offline at all (whether a bank account is on file, and how many pay components and salary bands exist) and they say so rather than reporting nothing as zero.</Callout>
         )}
 
         <section>

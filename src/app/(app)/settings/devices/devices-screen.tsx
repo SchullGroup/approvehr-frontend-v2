@@ -184,7 +184,13 @@ export function DevicesScreen() {
   const live = list.devices.filter((row) => row.archivedAt === null);
   const listening = live.filter((row) => row.active);
   const unmapped = live.reduce((total, row) => total + (row.unmappedPunches ?? 0), 0);
-  const anyUnmappedKnown = live.some((row) => row.unmappedPunches !== null);
+  /* Whether the figure is knowable is a property of the source, not of whether
+     any row happens to carry one. Read off the rows, a company with no terminal
+     registered yet answered `false` — so a connected screen told somebody a tap
+     "needs a server" while it was talking to one. The two stats beside this one
+     both special-case an empty list rather than letting it fall through; this
+     one did not. */
+  const unmappedKnown = list.source === "api";
   /* Over every registered terminal, not only the ones currently accepting.
      Counted over `listening` this read "Every terminal has delivered at least
      once" while the only terminal in the company had delivered nothing — it had
@@ -268,14 +274,22 @@ export function DevicesScreen() {
             label="Taps nobody is mapped to"
             /* Absent, not zero: no tap can reach a browser, so a confident 0
                would read as "everybody is mapped". */
-            value={list.loading ? "—" : anyUnmappedKnown ? String(unmapped) : "—"}
+            value={list.loading || !unmappedKnown ? "—" : String(unmapped)}
             hint={
-              anyUnmappedKnown
-                ? "Stored and waiting for somebody to say whose they are. Nothing is lost."
+              !unmappedKnown
                   /* True wherever it renders, rather than a sentence naming a
                      mode — `verify-demo` only checks this file mentions
                      DEMO_ENABLED somewhere, so the guard is the wording. */
-                : "A tap is delivered over the network, so this needs a server."
+                ? "A tap is delivered over the network, so this needs a server."
+                : live.length === 0
+                  ? "Nothing to map yet: no terminal has been registered."
+                  : unmapped === 0
+                    /* Not "every tap has somebody's name on it": over a terminal
+                       that has never delivered that is a vacuous truth reading as
+                       a reassurance, which is the defect the first stat's comment
+                       describes. State the nought. */
+                    ? "Nothing is waiting to be identified."
+                    : "Stored and waiting for somebody to say whose they are. Nothing is lost."
             }
           />
         </div>

@@ -257,7 +257,7 @@ export function EventPicker({
       />
       <EventGroup
         heading="Defined, nothing raises them yet"
-        note="Subscribe now if you like — your endpoint stays quiet until the module that raises it ships."
+        note="Subscribe now if you like: your endpoint stays quiet until the module that raises it ships."
         events={catalogue.events.filter((event) => !event.wired)}
         chosen={chosen}
         onToggle={onToggle}

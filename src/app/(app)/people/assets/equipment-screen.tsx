@@ -334,7 +334,7 @@ function Register() {
               Demo
             </Badge>
             This register lives in this browser only, and refuses exactly what
-            the real one refuses — including handing out a laptop somebody
+            the real one refuses, including handing out a laptop somebody
             already has.
           </p>
         )}
@@ -610,7 +610,7 @@ function Register() {
             toast.push({
               title:
                 input.outcome === "DAMAGED"
-                  ? `${takingBack.name} came back broken — it is in the workshop`
+                  ? `${takingBack.name} came back broken: it is in the workshop`
                   : `${takingBack.name} is back in the store`,
               tone: "success",
             });

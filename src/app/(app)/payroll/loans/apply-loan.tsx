@@ -346,7 +346,7 @@ export function ApplyLoanModal({
           label="How much do you need?"
           required
           error={failure?.messageFor("principalKobo")}
-          help="In naira. Type it however you like — 500000 or 500,000."
+          help="In naira. Type it however you like: 500000 or 500,000."
         >
           <Input
             value={amount}
@@ -457,7 +457,7 @@ export function ApplyLoanModal({
                   value:
                     priced.finalInstalmentKobo === priced.instalmentKobo
                       ? money(priced.instalmentKobo)
-                      : `${money(priced.finalInstalmentKobo)} — the balancing figure`,
+                      : `${money(priced.finalInstalmentKobo)} (the balancing figure)`,
                 },
               ]}
             />
@@ -525,8 +525,7 @@ export function ApplyLoanModal({
                 }
               >
                 <option value="0">
-                  {monthLabel(addMonths(TODAY, 0))} — this month&rsquo;s payroll
-                </option>
+                  {monthLabel(addMonths(TODAY, 0))} (this month&rsquo;s payroll)</option>
                 <option value="1">{monthLabel(addMonths(TODAY, 1))}</option>
                 <option value="2">{monthLabel(addMonths(TODAY, 2))}</option>
               </Select>

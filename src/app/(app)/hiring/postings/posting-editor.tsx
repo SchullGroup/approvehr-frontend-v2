@@ -348,7 +348,7 @@ export function PostingEditor({
 
           <Field
             label="Approved role ID"
-            help="Needed to screen anyone in. There is no picker for this yet — paste the ID."
+            help="Needed to screen anyone in. There is no picker for this yet. Paste the ID."
           >
             <Input
               value={draft.requisitionId}

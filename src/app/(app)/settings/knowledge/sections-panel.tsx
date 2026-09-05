@@ -193,7 +193,7 @@ export function SectionsPanel({
         title={`Delete ${deleting?.name ?? ""}?`}
         confirmLabel="Delete section"
         tone="danger"
-        body="It has to be empty first — move the articles somewhere else and this will go. The articles themselves are never deleted."
+        body="It has to be empty first. Move the articles somewhere else and this will go. The articles themselves are never deleted."
         onConfirm={async () => {
           if (!deleting) return;
           const ok = await run(

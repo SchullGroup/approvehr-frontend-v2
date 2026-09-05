@@ -29,7 +29,7 @@ import { useKbSearch } from "@/lib/store/knowledge";
 export function KbSearch({
   className,
   label = "Search help articles",
-  placeholder = "Search help articles — try “payslip”",
+  placeholder = "Search help articles, e.g. “payslip”",
   limit = 6,
 }: {
   className?: string;
@@ -90,7 +90,7 @@ export function KbSearch({
             <p className="text-meta text-muted">
               {search.total === 1 ? "1 article" : `${search.total} articles`}
               {search.total > search.hits.length &&
-                ` — showing the top ${search.hits.length}`}
+                `, showing the top ${search.hits.length}`}
             </p>
             <ul className="flex flex-col gap-1.5">
               {search.hits.map((hit) => (

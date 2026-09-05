@@ -314,7 +314,7 @@ const SEED: Seed[] = DEMO_ENABLED ? [
     entity: {
       type: "attendance_entries",
       id: "at-77",
-      label: "Musa Ibrahim — 2026-08-11",
+      label: "Musa Ibrahim · 2026-08-11",
       noun: "attendance entry",
     },
     changes: [{ field: "clockIn", label: "Clock in", from: null, to: "08:12" }],

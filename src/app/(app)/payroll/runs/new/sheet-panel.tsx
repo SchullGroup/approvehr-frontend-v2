@@ -131,7 +131,7 @@ export function SheetPanel({
       setRefused({
         message:
           "That file could not be read. It needs to be the spreadsheet this " +
-          "page downloads — .xlsx or .csv.",
+          "page downloads, .xlsx or .csv.",
         problems: [],
       });
       setParsed(null);
@@ -210,7 +210,7 @@ export function SheetPanel({
         )}
 
         <p className="text-body-sm text-muted">
-          Downloads with everybody on this payroll already in it — staff number,
+          Downloads with everybody on this payroll already in it: staff number,
           name, contact, department, whether an account is on file, plus the figures
           the run holds now. Fill in overtime hours, a bonus or a deduction (each
           with a reason), a tax figure or a new monthly salary, and upload it back.
@@ -271,14 +271,14 @@ export function SheetPanel({
         {!editable && (
           <p className="text-body-sm text-muted">
             This payroll is settled, so its figures cannot be changed. The
-            download still works — it is a record of what was paid.
+            download still works: it is a record of what was paid.
           </p>
         )}
 
         {parsed && summary && (
           <div className="flex flex-col gap-3 rounded-lg border border-line bg-canvas p-4">
             <p className="text-body-sm font-medium text-ink">
-              {filename} — read, not yet applied
+              {filename}: read, not yet applied
             </p>
 
             {parsed.problems.length > 0 ? (

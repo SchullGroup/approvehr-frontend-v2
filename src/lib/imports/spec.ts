@@ -92,10 +92,10 @@ function build(
   text: string,
 ): Parsed<{ iso: string; ambiguous: boolean }> {
   if (month < 1 || month > 12) {
-    return bad(`"${text}" — there is no month ${month}. ${DATE_FORMATS}`);
+    return bad(`"${text}": there is no month ${month}. ${DATE_FORMATS}`);
   }
   if (day < 1 || day > 31) {
-    return bad(`"${text}" — there is no day ${day}. ${DATE_FORMATS}`);
+    return bad(`"${text}": there is no day ${day}. ${DATE_FORMATS}`);
   }
   /* UTC, because a date of birth is a calendar fact rather than an instant. */
   const date = new Date(Date.UTC(year, month - 1, day));
@@ -106,7 +106,7 @@ function build(
   ) {
     /* 31/02 parses arithmetically and rolls into March. Catching the rollover is
        the only way to refuse a day that does not exist. */
-    return bad(`"${text}" is not a real date — that month has no day ${day}.`);
+    return bad(`"${text}" is not a real date: that month has no day ${day}.`);
   }
   return {
     ok: true,
@@ -149,7 +149,7 @@ export function parseImportTime(raw: string): Parsed<string> {
     return {
       ok: false,
       problem:
-        "This is not a time we can read. Use HH:MM on a 24-hour clock — 08:30, or 17:05.",
+        "This is not a time we can read. Use HH:MM on a 24-hour clock: 08:30, or 17:05.",
     };
   }
 

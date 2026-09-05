@@ -152,7 +152,7 @@ export type UpdateAnnouncementBody = {
  */
 export const DELETE_EFFECT =
   "Deleted, not archived. Nothing else in the system referenced it, so there " +
-  "is nothing left to read afterwards — not for you and not in a report. To " +
+  "is nothing left to read afterwards, not for you and not in a report. To " +
   "take a notice off the board and keep the wording, take it down instead.";
 
 /** Why a draft is not a dimmed notice. Used wherever drafts are listed. */

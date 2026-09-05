@@ -298,7 +298,7 @@ function Policy() {
         tone: "success",
         detail:
           total > 0
-            ? `${total} request${total === 1 ? " stays" : "s stay"} on the books — history keeps resolving, nobody can book it again.`
+            ? `${total} request${total === 1 ? " stays" : "s stay"} on the books: history keeps resolving, nobody can book it again.`
             : "Nobody had booked it, so nothing stays behind.",
       });
     } catch (error) {
@@ -363,14 +363,14 @@ function Policy() {
               Leave, and so does the nav. */}
           Entitlement is the number every balance in the product is measured
           against. Change it here and Leave, each employee record and the
-          booking form all move at once — there is no separate copy to keep in
+          booking form all move at once: there is no separate copy to keep in
           step.
         </Callout>
 
         <Card>
           <CardHeader
             title="Leave types"
-            description="Statutory minimums in Nigeria are a floor, not a ceiling — a company may grant more."
+            description="Statutory minimums in Nigeria are a floor, not a ceiling: a company may grant more."
             action={
               <Button
                 variant="secondary"
@@ -519,7 +519,7 @@ function Policy() {
             <CardHeader
               title="Switched off just now"
               level={3}
-              description="Off, not deleted — every request already raised keeps its record. Turn one back on and it reappears in the booking form with its entitlement unchanged."
+              description="Off, not deleted: every request already raised keeps its record. Turn one back on and it reappears in the booking form with its entitlement unchanged."
             />
             <CardBody className="flex flex-col gap-3">
               {switchedOff.map((row) => (
@@ -634,13 +634,7 @@ function Policy() {
                 level={3}
               />
               <CardBody className="flex flex-col gap-3 text-body-sm leading-relaxed text-body">
-                <p>
-                  The table above edits this company&rsquo;s real leave types, so a
-                  change here moves everybody&rsquo;s balance immediately. This card
-                  cannot show a live roster of who that affects — that is a
-                  per-employee read, not a company-wide one — without fetching
-                  every employee&rsquo;s balance individually.
-                </p>
+                <p>The table above edits this company&rsquo;s real leave types, so a change here moves everybody&rsquo;s balance immediately. This card cannot show a live roster of who that affects (that is a per-employee read, not a company-wide one) without fetching every employee&rsquo;s balance individually.</p>
                 <p>
                   See a real person&rsquo;s balance move on{" "}
                   <Link href="/people/leave" className="font-medium text-accent-text underline">

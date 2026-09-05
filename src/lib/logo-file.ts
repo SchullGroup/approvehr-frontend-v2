@@ -337,7 +337,7 @@ export async function prepareLogo(file: File): Promise<PreparedLogo> {
       dataUri: drawn.dataUri,
       note:
         `That SVG is ${kb(file.size)}, which is over the limit, and an SVG ` +
-        `cannot be made smaller by resizing it — its size is the drawing ` +
+        `cannot be made smaller by resizing it: its size is the drawing ` +
         `instructions, not the pixels. It has been saved as an image instead. ` +
         drawn.note!.slice(drawn.note!.indexOf("resized to")),
     };

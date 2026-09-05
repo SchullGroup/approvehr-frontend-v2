@@ -46,7 +46,7 @@ export default function Error({
         <StatusPage
           eyebrow="Something went wrong"
           title="That didn't load right."
-          description="Something on this page failed to render. Trying again usually clears it — if it keeps happening, the fault is ours, not yours."
+          description="Something on this page failed to render. Trying again usually clears it. If it keeps happening, the fault is ours, not yours."
           actions={
             <>
               <PillButton type="button" variant="dark" arrow onClick={() => retry()}>
