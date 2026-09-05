@@ -215,10 +215,7 @@ export const FEATURE_COPY: Record<
   },
   hiring: {
     label: "Hiring",
-    /* Out of the present tense until `app/(app)/hiring/layout.tsx` stops
-       returning `RecruitmentComingSoon` for every child. */
-    line: "Post a role, track candidates, send an offer. Not built yet.",
-    soon: true,
+    line: "Post a role, track candidates through a pipeline, send an offer.",
   },
   attendance: {
     label: "Attendance",

@@ -3,6 +3,7 @@ import {
   BookOpen,
   BriefcaseBusiness,
   Building2,
+  CalendarClock,
   CalendarDays,
   CalendarRange,
   CalendarSearch,
@@ -11,14 +12,17 @@ import {
   Clock,
   CreditCard,
   DoorOpen,
+  FileCheck,
   FileText,
   FileUp,
   FolderOpen,
   History,
+  Inbox,
   Wallet,
   Laptop,
   LayoutDashboard,
   LifeBuoy,
+  Megaphone,
   Receipt,
   ReceiptText,
   Settings,
@@ -68,6 +72,18 @@ export type NavItem = {
    * should not have been shown a door they cannot open.
    */
   permission?: PermissionKey;
+
+  /**
+   * Hidden unless the signed-in person holds at least one of these.
+   *
+   * For the rare item two different permissions each independently justify
+   * seeing — approving hiring is not managing it, but both need to reach the
+   * same screens to have anything to approve. `permission` stays the field
+   * for the ordinary case of exactly one gate; add this one rather than
+   * making `permission` accept an array; a call site that means "any of
+   * these" should read differently from one that means "this one."
+   */
+  anyPermission?: PermissionKey[];
 
   /**
    * Hidden unless the company has this capability switched on.
@@ -343,11 +359,45 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
   hiring: [
     {
       href: "/hiring",
-      label: "Recruitment",
+      label: "Overview",
       icon: <BriefcaseBusiness aria-hidden="true" />,
+      anyPermission: ["MANAGE_HIRING", "APPROVE_HIRING"],
+      feature: "hiring",
+    },
+    {
+      href: "/hiring/requisitions/new",
+      label: "New role",
+      icon: <UserRoundPlus aria-hidden="true" />,
       permission: "MANAGE_HIRING",
       feature: "hiring",
-      soon: true,
+    },
+    {
+      href: "/hiring/postings",
+      label: "Job adverts",
+      icon: <Megaphone aria-hidden="true" />,
+      permission: "MANAGE_HIRING",
+      feature: "hiring",
+    },
+    {
+      href: "/hiring/postings/applications",
+      label: "Applications",
+      icon: <Inbox aria-hidden="true" />,
+      permission: "MANAGE_HIRING",
+      feature: "hiring",
+    },
+    {
+      href: "/hiring/interviews",
+      label: "Interviews",
+      icon: <CalendarClock aria-hidden="true" />,
+      anyPermission: ["MANAGE_HIRING", "APPROVE_HIRING"],
+      feature: "hiring",
+    },
+    {
+      href: "/hiring/offers",
+      label: "Offers",
+      icon: <FileCheck aria-hidden="true" />,
+      anyPermission: ["MANAGE_HIRING", "APPROVE_HIRING"],
+      feature: "hiring",
     },
   ],
 
@@ -563,6 +613,9 @@ export function visibleNav(
         }
         if (item.assistant && !assistantWired) return false;
         if (item.always) return true;
+        if (item.anyPermission) {
+          return item.anyPermission.some((p) => permissions.has(p));
+        }
         if (item.permission === undefined) return true;
         return permissions.has(item.permission);
       }),
