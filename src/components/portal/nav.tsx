@@ -20,6 +20,7 @@ import {
   FileUp,
   FolderOpen,
   GraduationCap,
+  HeartPulse,
   History,
   Inbox,
   Laptop,
@@ -325,6 +326,17 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       feature: "loans",
     },
     {
+      /* No permission and `always`: drawing your own earned pay is a
+         self-service act, and gating it behind a role would hide it from
+         exactly the people it exists for. Whether they *can* is decided by the
+         company's policy and by what they have earned — the screen asks the
+         API and renders its refusal. */
+      href: "/payroll/advances",
+      label: "Pay early",
+      icon: <Banknote aria-hidden="true" />,
+      always: true,
+    },
+    {
       href: "/payroll/expenses",
       label: "Expenses",
       icon: <ReceiptText aria-hidden="true" />,
@@ -516,6 +528,14 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       label: "Signatures",
       icon: <FileSignature aria-hidden="true" />,
       always: true,
+    },
+    {
+      /* Reading is either permission, so the nav asks for the wider one: an
+         approver who can enrol somebody has to be able to find the screen. */
+      href: "/people/benefits",
+      label: "Benefits",
+      icon: <HeartPulse aria-hidden="true" />,
+      anyPermission: ["MANAGE_PAY_STRUCTURE", "EDIT_RECORDS"],
     },
     {
       href: "/performance/review-tasks",
