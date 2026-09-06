@@ -28,9 +28,12 @@ import {
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { SourceBadge } from "@/components/hiring/source-badge";
 import { ApiError } from "@/lib/api/client";
+import { kobo } from "@/lib/api/recruitment";
 import { usePermissions } from "@/lib/permissions";
 import { useAdvertCreation } from "@/lib/store/hiring";
-import { EMPLOYEES } from "@/lib/mock/people";
+import { useRequisitionMutations, useStageMutations } from "@/lib/store/recruitment";
+import { useEmployeeDirectory } from "@/lib/store/employees-api";
+import { useSession } from "@/lib/store/session";
 import { STAGES, fullName, type StageId } from "@/lib/types";
 
 const BREADCRUMB = [
@@ -125,7 +128,7 @@ function advertText(draft: Draft): { summary: string; description: string } {
     .join(" ");
 
   const description = [
-    `We are hiring ${draft.openings === 1 ? "one" : draft.openings} for this role${draft.department ? ` in ${draft.department}` : ""}.`,
+    `We are hiring ${draft.openings === 1 ? "one" : draft.openings} for this role${draft.department ? ` in ${draft.department}` : ""}, reporting into the hiring manager.`,
     ...(musts.length > 0
       ? ["", "What you need:", ...musts.map((line) => `- ${line}`)]
       : []),
@@ -201,6 +204,10 @@ function Wizard() {
   const router = useRouter();
   const toast = useToast();
   const adverts = useAdvertCreation();
+  const { isConnected } = useSession();
+  const requisitions = useRequisitionMutations();
+  const stages = useStageMutations();
+  const directory = useEmployeeDirectory({ pageSize: 200 });
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [busy, setBusy] = useState(false);
 
@@ -245,19 +252,44 @@ function Wizard() {
   ][stepper.index];
 
   /**
-   * Save the advert.
+   * Save the role.
    *
-   * This used to be a `setTimeout` and a success toast saying the role had been
-   * "sent for approval". Nothing was sent and nothing was stored — the screen
-   * looked connected while doing nothing at all, which is the one thing the two
-   * modes exist to prevent. It now writes a real draft advert through the API,
-   * and in demo mode the careers store refuses and says why, which is shown as
-   * it arrives rather than swallowed.
+   * Connected, this now writes a real `Requisition` first — with a stage per
+   * active pipeline step, in order, the Interview stage requiring scorecards
+   * — and links the advert to it, so `careersApi.advance()` has somewhere
+   * real to screen a candidate into. Disconnected, only the advert half ever
+   * existed; the requisition, its stages, and the hiring team are collected
+   * and shown on the review step but sent nowhere, same as before.
    */
   async function submit() {
     setBusy(true);
     const { summary, description } = advertText(draft);
     try {
+      let requisitionId: string | undefined;
+
+      if (isConnected) {
+        const requisition = await requisitions.create({
+          jobTitle: draft.title,
+          employmentType: ADVERT_TYPE[draft.employmentType],
+          headcount: draft.openings,
+          ...(draft.location.trim() ? { location: draft.location.trim() } : {}),
+          ...(min > 0 ? { bandMinKobo: kobo(min) } : {}),
+          ...(max > 0 ? { bandMaxKobo: kobo(max) } : {}),
+          description,
+          ...(draft.hiringManagerId ? { hiringManagerId: draft.hiringManagerId } : {}),
+        });
+        requisitionId = requisition.id;
+
+        const active = STAGES.filter((s) => draft.activeStages.includes(s.id));
+        for (const [index, s] of active.entries()) {
+          await stages.create(requisition.id, {
+            name: s.label,
+            order: index,
+            requiresScorecards: s.id === "interview",
+          });
+        }
+      }
+
       const created = await adverts.create({
         title: draft.title,
         summary,
@@ -267,13 +299,24 @@ function Wizard() {
         ...(draft.location.trim() ? { location: draft.location.trim() } : {}),
         ...(min > 0 ? { salaryMin: min } : {}),
         ...(max > 0 ? { salaryMax: max } : {}),
+        ...(requisitionId ? { requisitionId } : {}),
       });
-      toast.push({
-        title: `${created.title} saved as a draft advert`,
-        tone: "success",
-        detail: "Publish it when you are ready and candidates can apply.",
-      });
-      router.push("/hiring/postings");
+
+      if (requisitionId) {
+        toast.push({
+          title: `${draft.title} opened`,
+          tone: "success",
+          detail: "The role, its pipeline and its draft advert are all real. Publish the advert when you are ready.",
+        });
+        router.push(`/hiring/requisitions/${requisitionId}`);
+      } else {
+        toast.push({
+          title: `${created.title} saved as a draft advert`,
+          tone: "success",
+          detail: "Publish it when you are ready and candidates can apply.",
+        });
+        router.push("/hiring/postings");
+      }
     } catch (error) {
       toast.push({
         title: "Not saved",
@@ -582,7 +625,7 @@ function Wizard() {
                     onChange={(e) => set("hiringManagerId", e.currentTarget.value)}
                     placeholder="Select a hiring manager"
                   >
-                    {EMPLOYEES.map((e) => (
+                    {directory.employees.map((e) => (
                       <option key={e.id} value={e.id}>
                         {fullName(e)} — {e.jobTitle}
                       </option>
@@ -595,7 +638,7 @@ function Wizard() {
                     value={draft.recruiterId}
                     onChange={(e) => set("recruiterId", e.currentTarget.value)}
                   >
-                    {EMPLOYEES.map((e) => (
+                    {directory.employees.map((e) => (
                       <option key={e.id} value={e.id}>
                         {fullName(e)} — {e.jobTitle}
                       </option>
@@ -686,14 +729,14 @@ function Wizard() {
                   rows={[
                     [
                       "Hiring manager",
-                      EMPLOYEES.find((e) => e.id === draft.hiringManagerId)
-                        ? fullName(EMPLOYEES.find((e) => e.id === draft.hiringManagerId)!)
+                      directory.employees.find((e) => e.id === draft.hiringManagerId)
+                        ? fullName(directory.employees.find((e) => e.id === draft.hiringManagerId)!)
                         : "—",
                     ],
                     [
                       "Recruiter",
-                      EMPLOYEES.find((e) => e.id === draft.recruiterId)
-                        ? fullName(EMPLOYEES.find((e) => e.id === draft.recruiterId)!)
+                      directory.employees.find((e) => e.id === draft.recruiterId)
+                        ? fullName(directory.employees.find((e) => e.id === draft.recruiterId)!)
                         : "—",
                     ],
                   ]}

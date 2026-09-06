@@ -128,6 +128,11 @@ const DEMO_COPY: Record<
     description: "Post roles, move candidates along, and make offers.",
     section: "people",
   },
+  APPROVE_HIRING: {
+    label: "Approve hiring",
+    description: "Approve a requisition before it opens, and an offer before it goes out.",
+    section: "people",
+  },
   APPROVE_LEAVE: {
     label: "Approve leave for their team",
     description: "Decide requests from the people who report to them.",

@@ -1,23 +1,35 @@
 "use client";
 
-import { Lock, MapPin, Megaphone, Users } from "lucide-react";
+import { useState } from "react";
+import { Lock, MapPin, Megaphone, Plus, Users } from "lucide-react";
 import {
   Badge,
+  Button,
   ButtonLink,
   Card,
   CardBody,
+  CardHeader,
+  Checkbox,
   EmptyState,
+  Field,
+  Input,
   Skeleton,
+  useToast,
   formatMoney,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { SourceBadge } from "@/components/hiring/source-badge";
-import { usePermissions } from "@/lib/permissions";
+import { ApiError } from "@/lib/api/client";
+import { naira, type ApiRequisitionDetail, type RequisitionStatus as RealStatus } from "@/lib/api/recruitment";
+import { usePermissions, useCan } from "@/lib/permissions";
 import { pipelineCards, requisitionById } from "@/lib/mock/hiring";
 import { employeeById } from "@/lib/mock/people";
 import { fullName } from "@/lib/types";
+import { useRequisitionDetail, useRequisitionMutations, useStageMutations } from "@/lib/store/recruitment";
+import { useSession } from "@/lib/store/session";
 import { RequisitionScreening, UnknownRequisition } from "./screening";
 import { RequisitionWorkspace } from "./workspace";
+import { RealRequisitionWorkspace } from "./real-workspace";
 
 /**
  * One role — gated.
@@ -45,7 +57,7 @@ export function RequisitionScreen({ id }: { id: string }) {
     );
   }
 
-  if (!can("MANAGE_HIRING")) {
+  if (!can("MANAGE_HIRING") && !can("APPROVE_HIRING")) {
     return (
       <>
         <PageHeader
@@ -57,7 +69,7 @@ export function RequisitionScreen({ id }: { id: string }) {
             <EmptyState
               icon={<Lock aria-hidden="true" />}
               title="You cannot see this requisition"
-              description="A requisition holds the salary band, the hiring team and every candidate's pipeline record, including their expected salary, so it is kept to whoever hires. Ask whoever manages access to add hiring to your role."
+              description="A requisition holds the salary band, the hiring team and every candidate's pipeline record, including their expected salary, so it is kept to whoever hires or approves hiring. Ask whoever manages access to add one of those to your role."
               action={
                 <ButtonLink href="/hiring" variant="secondary" size="sm">
                   Back to hiring
@@ -74,6 +86,24 @@ export function RequisitionScreen({ id }: { id: string }) {
 }
 
 /* -------------------------------------------------------------------------- */
+
+const REAL_STATUS_TONE = {
+  DRAFT: "neutral",
+  PENDING_APPROVAL: "warning",
+  OPEN: "success",
+  ON_HOLD: "warning",
+  FILLED: "info",
+  CANCELLED: "neutral",
+} as const;
+
+const REAL_STATUS_LABEL: Record<RealStatus, string> = {
+  DRAFT: "Draft",
+  PENDING_APPROVAL: "Pending approval",
+  OPEN: "Open",
+  ON_HOLD: "On hold",
+  FILLED: "Filled",
+  CANCELLED: "Cancelled",
+};
 
 const STATUS_TONE = {
   draft: "neutral",
@@ -127,6 +157,266 @@ const band = (min: number, max: number) =>
  * itself drew — so an unrecognised id renders the half that *is* live.
  */
 function RequisitionDetail({ id }: { id: string }) {
+  const { isConnected } = useSession();
+  if (isConnected) return <RealRequisitionDetail id={id} />;
+  return <SeededRequisitionDetail id={id} />;
+}
+
+/**
+ * A real requisition — facts, lifecycle, stages and the real pipeline board.
+ *
+ * Nothing here is seeded, unlike the rest of this file: a company that has
+ * never opened a role connected has no mock to fall back to, so an unknown
+ * id is a genuine 404 rather than `UnknownRequisition`'s "the screening queue
+ * still works" compromise, which exists only for the demo's own drift.
+ */
+function RealRequisitionDetail({ id }: { id: string }) {
+  const { requisition, loading, error, notFound, reload } = useRequisitionDetail(id);
+  const mutations = useRequisitionMutations();
+  const stageMutations = useStageMutations();
+  const canApprove = useCan("APPROVE_HIRING");
+  const toast = useToast();
+  const [addingStage, setAddingStage] = useState(false);
+  const [stageName, setStageName] = useState("");
+  const [stageScored, setStageScored] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  if (loading) {
+    return (
+      <PageBody>
+        <Skeleton className="h-40 w-full" />
+        <span className="sr-only-focusable">Loading this requisition</span>
+      </PageBody>
+    );
+  }
+
+  if (notFound || !requisition) {
+    return (
+      <PageBody>
+        <Card>
+          <EmptyState
+            title="That requisition is not here"
+            description={error?.message ?? "It may have been removed, or this id belongs to another company."}
+            action={
+              <ButtonLink href="/hiring" variant="secondary" size="sm">
+                Back to hiring
+              </ButtonLink>
+            }
+          />
+        </Card>
+      </PageBody>
+    );
+  }
+
+  const fail = (err: unknown) =>
+    toast.push({
+      title: "Not done",
+      tone: "danger",
+      detail: err instanceof ApiError ? err.message : "Something went wrong. Try again.",
+    });
+
+  async function run(action: () => Promise<ApiRequisitionDetail>) {
+    setBusy(true);
+    try {
+      await action();
+      reload();
+    } catch (err) {
+      fail(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function addStage() {
+    if (!stageName.trim() || !requisition) return;
+    setBusy(true);
+    try {
+      await stageMutations.create(id, {
+        name: stageName.trim(),
+        requiresScorecards: stageScored,
+        order: requisition.stages.length,
+      });
+      setStageName("");
+      setStageScored(false);
+      setAddingStage(false);
+      reload();
+    } catch (err) {
+      fail(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <PageHeader
+        breadcrumb={[
+          { href: "/hiring", label: "Pipeline" },
+          { href: `/hiring/requisitions/${requisition.id}`, label: requisition.reference },
+        ]}
+        title={requisition.jobTitle}
+        meta={
+          <>
+            <Badge tone={REAL_STATUS_TONE[requisition.status]} dot>
+              {REAL_STATUS_LABEL[requisition.status]}
+            </Badge>
+            <Badge tone="neutral" size="sm">
+              {requisition.reference}
+            </Badge>
+          </>
+        }
+      />
+
+      <PageBody className="flex flex-col gap-6">
+        <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+          <Card>
+            <CardBody className="flex flex-col gap-4">
+              <div className="flex flex-wrap gap-x-6 gap-y-3 text-body-sm">
+                <Fact label="Salary band">
+                  <span className="tabular whitespace-nowrap">
+                    {requisition.bandMinKobo != null && requisition.bandMaxKobo != null
+                      ? band(naira(requisition.bandMinKobo), naira(requisition.bandMaxKobo))
+                      : "Not set"}
+                  </span>
+                </Fact>
+                <Fact label="Location">
+                  {requisition.location ? (
+                    <span className="inline-flex items-center gap-1">
+                      <MapPin aria-hidden="true" className="size-3.5 text-faint" />
+                      {requisition.location}
+                    </span>
+                  ) : (
+                    "Not set"
+                  )}
+                </Fact>
+                <Fact label="Type">{EMPLOYMENT_TYPE_LABELS[requisition.employmentType]}</Fact>
+                <Fact label="Headcount">{requisition.headcount}</Fact>
+                {requisition.departmentName && (
+                  <Fact label="Department">{requisition.departmentName}</Fact>
+                )}
+              </div>
+              {requisition.description && (
+                <p className="whitespace-pre-line border-t border-line pt-4 text-body-sm text-body">
+                  {requisition.description}
+                </p>
+              )}
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardBody className="flex flex-col gap-3.5">
+              <h3 className="text-meta font-semibold text-muted">Lifecycle</h3>
+              <Person
+                label="Hiring manager"
+                name={requisition.hiringManagerName ?? "Not set"}
+              />
+              {requisition.approvedByName && (
+                <Person label="Approved by" name={requisition.approvedByName} />
+              )}
+              <div className="flex flex-wrap items-center gap-2 border-t border-line pt-3">
+                {(requisition.status === "DRAFT" || requisition.status === "PENDING_APPROVAL") && (
+                  <>
+                    {requisition.status === "DRAFT" && (
+                      <Button size="sm" variant="secondary" loading={busy} onClick={() => void run(() => mutations.submit(id))}>
+                        Submit
+                      </Button>
+                    )}
+                    {canApprove && (
+                      <Button size="sm" variant="approve" loading={busy} onClick={() => void run(() => mutations.approve(id))}>
+                        Approve
+                      </Button>
+                    )}
+                  </>
+                )}
+                {requisition.status === "OPEN" && (
+                  <>
+                    <Button size="sm" variant="secondary" loading={busy} onClick={() => void run(() => mutations.hold(id))}>
+                      Put on hold
+                    </Button>
+                    <Button size="sm" variant="secondary" loading={busy} onClick={() => void run(() => mutations.fill(id))}>
+                      Mark filled
+                    </Button>
+                  </>
+                )}
+                {requisition.status === "ON_HOLD" && (
+                  <Button size="sm" variant="secondary" loading={busy} onClick={() => void run(() => mutations.reopen(id))}>
+                    Reopen
+                  </Button>
+                )}
+                {requisition.status !== "FILLED" && requisition.status !== "CANCELLED" && (
+                  <Button size="sm" variant="ghost" loading={busy} onClick={() => void run(() => mutations.cancel(id))}>
+                    Cancel
+                  </Button>
+                )}
+              </div>
+              <div className="border-t border-line pt-3 text-body-sm">
+                <p className="tabular flex flex-wrap gap-x-3 gap-y-1 text-meta text-muted">
+                  <span>{requisition.applications.inProgress} in progress</span>
+                  <span>{requisition.applications.offerMade} offered</span>
+                  <span>{requisition.applications.hired} hired</span>
+                </p>
+              </div>
+            </CardBody>
+          </Card>
+        </div>
+
+        <RequisitionScreening requisitionId={requisition.id} roleName={requisition.jobTitle} />
+
+        <Card>
+          <CardHeader
+            title="Pipeline stages"
+            action={
+              <Button size="sm" variant="secondary" onClick={() => setAddingStage((v) => !v)}>
+                <Plus aria-hidden="true" className="size-3.5" />
+                Add stage
+              </Button>
+            }
+          />
+          {addingStage && (
+            <CardBody className="flex flex-wrap items-end gap-3 border-b border-line">
+              <Field label="Stage name" className="flex-1">
+                <Input value={stageName} onChange={(e) => setStageName(e.currentTarget.value)} placeholder="Technical interview" />
+              </Field>
+              <Checkbox
+                label="Requires scorecards to leave"
+                checked={stageScored}
+                onChange={(e) => setStageScored(e.currentTarget.checked)}
+              />
+              <Button variant="accent" size="sm" loading={busy} disabled={!stageName.trim()} onClick={() => void addStage()}>
+                Add
+              </Button>
+            </CardBody>
+          )}
+          <CardBody className="flex flex-wrap gap-2">
+            {[...requisition.stages]
+              .sort((a, b) => a.order - b.order)
+              .map((s) => (
+                <Badge key={s.id} tone="neutral">
+                  {s.name}
+                  {s.requiresScorecards && " · scored"}
+                </Badge>
+              ))}
+          </CardBody>
+        </Card>
+
+        <div className="flex flex-col gap-4">
+          <RealRequisitionWorkspace requisitionId={requisition.id} stages={requisition.stages} />
+        </div>
+      </PageBody>
+    </>
+  );
+}
+
+const EMPLOYMENT_TYPE_LABELS: Record<string, string> = {
+  FULL_TIME: "Full time",
+  PART_TIME: "Part time",
+  CONTRACT: "Contract",
+  INTERN: "Intern",
+  NYSC: "NYSC",
+};
+
+/** The seeded requisition, exactly as before this cutover. */
+function SeededRequisitionDetail({ id }: { id: string }) {
   const req = requisitionById(id);
   if (!req) return <UnknownRequisition id={id} />;
 
