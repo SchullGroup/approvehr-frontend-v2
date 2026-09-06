@@ -204,7 +204,15 @@ export type Paged<T, Extra = unknown> = {
   meta: PageMeta & Extra;
 };
 
-function buildUrl(path: string, query?: RequestOptions["query"]): string {
+/**
+ * The one place a query string is built.
+ *
+ * Exported so `api/download.ts` can send a file request under exactly the query
+ * the JSON request would have used. An export whose filter is serialised by a
+ * second function is an export that can disagree with the table it came from —
+ * the same argument `employees.summary` makes for sending the list's own object.
+ */
+export function buildUrl(path: string, query?: RequestOptions["query"]): string {
   const url = new URL(`${BASE_URL}${path}`);
   for (const [key, value] of Object.entries(query ?? {})) {
     if (value === undefined || value === null || value === "") continue;

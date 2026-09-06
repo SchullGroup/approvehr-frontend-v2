@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { payslipsCsv } from "@/lib/api/exports";
+import { useCan } from "@/lib/permissions";
+import { ExportButton } from "@/components/portal/export-button";
 import Link from "next/link";
 import { CalendarClock, Mail } from "lucide-react";
 import {
@@ -130,14 +133,31 @@ export function PayslipRoute() {
     );
   }
 
-  return permissions.has("VIEW_SALARIES") ? <PayslipIndex /> : <MyPayslipIndex />;
+  return permissions.has("VIEW_SALARIES") ? (
+    <PayslipIndex />
+  ) : (
+    <MyPayslipIndex />
+  );
 }
 
 function PayslipIndex() {
   const { runs, loading, error, connected } = usePayrollRuns();
+  /* Both, matching the API's own gate exactly. `EXPORT_DATA` alone gets the
+     staff register; a payslip file is money and needs the money permission
+     too. */
+  /* Two calls on their own lines, then combined. `useCan(a) && useCan(b)`
+     short-circuits, which makes the second one a conditional hook — the rule
+     exists because on the render where the first is false React sees a
+     different hook order. Caught by eslint rather than by a symptom. */
+  const mayExport = useCan("EXPORT_DATA");
+  const maySeePay = useCan("VIEW_SALARIES");
+  const mayExportPay = mayExport && maySeePay;
   const [chosen, setChosen] = useState<string | null>(null);
 
-  const list = useListQuery<Filters>({ filters: { delivery: "" }, pageSize: 25 });
+  const list = useListQuery<Filters>({
+    filters: { delivery: "" },
+    pageSize: 25,
+  });
 
   /* Derived rather than stored: the newest run until somebody picks another,
      which needs no effect and cannot go stale when the list reloads. */
@@ -155,7 +175,11 @@ function PayslipIndex() {
       ? { delivery: list.filters.delivery as PayslipDelivery }
       : {}),
     ...(list.sort
-      ? { sort: list.sort as NonNullable<Parameters<typeof useRunPayslips>[1]>["sort"] }
+      ? {
+          sort: list.sort as NonNullable<
+            Parameters<typeof useRunPayslips>[1]
+          >["sort"],
+        }
       : {}),
     order: list.order,
   });
@@ -175,8 +199,9 @@ function PayslipIndex() {
           {
             label: "Delivery",
             value:
-              DELIVERY_FILTERS.find(([value]) => value === list.filters.delivery)?.[1] ??
-              list.filters.delivery,
+              DELIVERY_FILTERS.find(
+                ([value]) => value === list.filters.delivery,
+              )?.[1] ?? list.filters.delivery,
             onClear: () => list.setFilter("delivery", ""),
           },
         ]
@@ -277,7 +302,9 @@ function PayslipIndex() {
                 ? {}
                 : {
                     hint:
-                      counts.notSent === 0 ? "All sent" : "Nobody has these yet",
+                      counts.notSent === 0
+                        ? "All sent"
+                        : "Nobody has these yet",
                   })}
             />
             <Stat
@@ -313,6 +340,31 @@ function PayslipIndex() {
                 <span className="text-muted">Pays on</span>
                 <span className="font-medium text-ink">{run.payDate}</span>
               </div>
+
+              {/* Both permissions, and only connected. A payslip file with the
+                  money columns blank is not a smaller version of this file, it
+                  is a list of names — so the API refuses it outright and the
+                  button is absent rather than present and refused.
+
+                  The file the API sends is also refused if its own net column
+                  does not equal this run's stored total, which is why there is
+                  no offline version: nothing in a browser can make that check,
+                  and an unreconciled pay spreadsheet is the copy an accountant
+                  works from. */}
+              {connected && mayExportPay && (
+                <div className="flex flex-col gap-2 border-t border-line pt-3">
+                  <ExportButton
+                    label="Download payslips"
+                    download={() => payslipsCsv(run.id, run.period.slice(0, 7))}
+                  />
+                  <p className="text-meta text-muted">
+                    Every payslip on this payroll as a spreadsheet. A deduction
+                    this company does not operate is left blank rather than
+                    written as ₦0.00 — the two are different facts and only one
+                    of them is a figure.
+                  </p>
+                </div>
+              )}
             </CardBody>
           </Card>
         )}
@@ -483,8 +535,12 @@ function PayslipIndex() {
                           {state.label}
                         </Badge>
                       </TD>
-                      <TD className="tabular text-muted">{stamp(slip.emailedAt)}</TD>
-                      <TD className="tabular text-muted">{stamp(slip.viewedAt)}</TD>
+                      <TD className="tabular text-muted">
+                        {stamp(slip.emailedAt)}
+                      </TD>
+                      <TD className="tabular text-muted">
+                        {stamp(slip.viewedAt)}
+                      </TD>
                     </TR>
                   );
                 })}
@@ -512,8 +568,9 @@ function PayslipIndex() {
           still asked. */}
       <p className="text-meta leading-relaxed text-muted">
         &ldquo;Sent&rdquo; means a mail provider accepted it, and
-        &ldquo;Opened&rdquo; means somebody opened the payslip in ApproveHR, not that they read the email. A payslip can also be opened and printed
-        from its own page.
+        &ldquo;Opened&rdquo; means somebody opened the payslip in ApproveHR, not
+        that they read the email. A payslip can also be opened and printed from
+        its own page.
       </p>
     </div>
   );

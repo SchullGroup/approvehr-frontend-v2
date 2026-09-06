@@ -6293,3 +6293,167 @@ screen yet for it to exercise.
   Rewriting it to go through `recruitment/service.ts` instead is a reasonable
   follow-up but wasn't asked for and risks changing what the demo dataset
   looks like.
+
+---
+
+# A permission that was administered for months and did nothing
+
+`Permission.EXPORT_DATA` has been in the enum, in both catalogues, and granted
+to two seeded roles since permissions were built. It read, on the roles screen,
+*"Export — Download staff, pay and attendance as a spreadsheet."* It was **wired
+to no route on either side**, and `grep EXPORT_DATA src/` on the API returned
+three hits, all of them the catalogue and the seed.
+
+That is worse than the four instances of "findable by nobody" this file already
+records, and worth separating from them. A hidden feature is a feature nobody
+uses. **A permission is a promise somebody has already administered** — an
+owner had gone into Settings, decided their office manager should not be able to
+download the staff register, saved it, and been told nothing had changed. There
+was nothing to withhold.
+
+## The scope was already decided, by the sentence next to the switch
+
+Three exports, because the permission's own description names three things. If
+a fourth is added, that sentence changes in the same commit, in
+`permissions/service.ts` **and** `lib/store/permissions.ts`.
+
+| | Route | Gate |
+|---|---|---|
+| Staff | `GET /exports/staff.csv` | `EXPORT_DATA` |
+| Pay | `GET /exports/payroll-runs/:id/payslips.csv` | `EXPORT_DATA` **and** `VIEW_SALARIES` |
+| Attendance | `GET /exports/attendance.csv` | `EXPORT_DATA` |
+
+## Every export is a serialiser over the read the screen already uses
+
+`employees.list`, `payroll.payslips`, `attendance.timesheet`. Not one builds its
+own query, and that is the load-bearing decision rather than a convenience: a
+second definition of "who is in this list" is how a downloaded file comes to
+disagree with the screen it was downloaded from — and the file is the copy that
+gets emailed to an accountant, printed, and argued over months later. Same
+argument as never re-implementing a score.
+
+It goes one level further on the frontend. `staffCsv` takes the directory's
+**own** `EmployeeListParams` and serialises them with the directory's **own**
+`employeeQuery`, and `api/client.ts#buildUrl` is exported so one function builds
+both query strings. Verified on the wire: typing "Musa" into the directory
+search sent `?q=Musa&sort=lastName&order=asc` to the export, matching the single
+row on screen.
+
+The cost is accepted and stated: these reads page, so an export asks for one
+large page rather than streaming, and `MAX_EXPORT_ROWS` (10,000) is where that
+stops. The refusal names the figure and how to narrow it — and it is tested
+directly, because no seeded dataset comes near it and an untested refusal is a
+path nobody has ever taken.
+
+## `EXPORT_DATA` is the gate. `VIEW_SALARIES` decides the columns.
+
+Different questions, and collapsing them is how the departments salary leak
+happened — pay travelling alongside a read nobody thought of as a pay read.
+
+- The staff file has **no `gross_monthly` column at all** without
+  `VIEW_SALARIES`. Absent, not blank: a column of empty cells is a claim that
+  nobody has a salary, and it invites somebody to sum it.
+- The payslip file is **refused outright** rather than served with its money
+  columns blank. A payslip file with no pay in it is a list of names, and
+  handing one over under that label misdescribes what the reader is holding.
+- The attendance file has no `VIEW_SALARIES` branch because it carries days.
+  `attendance.timesheet` computes a proration **amount** as well, and it is
+  deliberately not a column: that is a salary figure wearing an attendance
+  label, on the one export that does not need the pay permission.
+
+**Neither seeded role exercises this.** Both roles that grant `EXPORT_DATA` also
+grant `VIEW_SALARIES`, so the column gate only fires for a custom role — which
+the roles screen fully supports and which `tests/exports.test.ts` constructs by
+hand. It is not dead code; it is code no seed reaches.
+
+## Absent is not zero, in the one artefact where it gets summed
+
+`operates: NOT_OPERATED` writes an **empty cell**, never `0.00`. Confirmed on
+the live demo, whose company has `deductsNhf: false`: every NHF cell is blank
+while PAYE carries its figure.
+
+A `0.00` under a column headed PAYE claims tax was computed and came to nothing
+— lawful and common under the ₦800,000 exemption, and a completely different
+fact from an employer who does not operate PAYE at all. This is the ₦0 defect
+wearing a spreadsheet, and a spreadsheet is exactly where it would be summed by
+somebody who never read the row. The timesheet's `daysUnexplained` and
+`proration.unpaidDays` are null-able for the same reason and get the same
+treatment.
+
+## The pay file reconciles or it is refused
+
+The sum of the `net` column is compared with the run's stored `totalNet`, exact
+integers, no tolerance, and a mismatch **refuses the download**. That is
+`reconcile.ts`'s discipline carried to the one artefact that leaves the
+building: a spreadsheet that does not add up is worse than no spreadsheet,
+because it is the copy an accountant works from and the product is not there to
+be asked. Verified against two live runs — ₦8,669,312.97 and ₦9,400,272.00, both
+matching to the kobo.
+
+## What is deliberately NOT in any of these files
+
+Bank account numbers, TIN, NIN and pension PINs. `serializeDirectory` publishes
+**whether** each is on file and never the value, and an export is the worst
+possible place to reverse that: three hundred account numbers leave in one click
+and cannot be recalled. Filing a pension schedule genuinely needs those values,
+and that is a separate decision with an NDPR conversation in it — not something
+to slip in behind a permission whose description says "staff, pay and
+attendance". Asserted, so adding one is a deliberate act rather than a passing
+convenience.
+
+## The one export that already existed was not gated at all
+
+`/people`'s "Export directory" built a CSV in the browser and **anybody who
+could see the directory could press it**. Salary was safe by accident —
+`serializeDirectory` had already nulled it — but the export itself, the thing
+the permission names, was ungated.
+
+It is `EXPORT_DATA` now, and absent rather than present-and-refused. Connected
+it downloads the whole filtered set from the API; **offline it still builds the
+page on screen**, because demo mode has no server to ask and that is honest —
+the copy says so in each mode and the two sentences are different.
+
+## Two things lifted rather than copied
+
+- **`csvCell`** moved from `payments/file.ts` to `lib/csv.ts`. It is the
+  formula-injection guard (`=`, `+`, `@`), and a second copy is a second place
+  for it to be subtly weaker — the weaker one always being the one somebody
+  opens. `payments/file.ts` imports and re-exports it.
+- **The file fetch** moved from `payments.bankFile` to `lib/api/download.ts`.
+  Four things: bearer token, a session-expiry sentence, **the server's own
+  refusal read out of the error envelope**, and the filename off
+  `Content-Disposition`. The third is the one worth having exactly once — "this
+  batch no longer adds up" and "this file does not add up" are the useful part
+  of the response, and a copy that replaced them with "download failed" would
+  look like it worked.
+
+`components/portal/export-button.tsx` is the shared button. It is **not** gated
+inside itself: whether a button should exist is a question about the screen, and
+hiding a permission decision in a shared component puts it where nobody
+reviewing the screen would look.
+
+## One bug eslint caught that nothing else would
+
+`useCan("EXPORT_DATA") && useCan("VIEW_SALARIES")` short-circuits, which makes
+the second call a **conditional hook** — on any render where the first is false
+React sees a different hook order. Two calls on their own lines, then combined.
+`attendance-screen.tsx` already had a comment warning about exactly this for
+`useIsManager`; it is easy to write anyway.
+
+## Verified
+
+API `npm run check` — 21 new assertions in `tests/exports.test.ts`. Web
+`npm run check` exit 0 (the 8 warnings are the pre-existing ones).
+
+Against the live API, signed in as the seeded administrator: all three files
+downloaded from their screens; the staff export carrying the directory's own
+`?q=` filter; both payroll runs reconciling to the kobo; NHF blank throughout;
+and the audit entry recording `{rows: 1, columns: ["identity","employment","pay"],
+filename: "staff.csv"}` — the question a data protection officer actually asks,
+which a web log cannot answer.
+
+**Not exercised: demo mode.** The API was up and `useApiReachable` correctly
+reported connected, so the offline branch of the directory button — which now
+returns a `FileDownload` instead of saving one itself — was only typechecked.
+It is one function's return type and the same shared button, but somebody in a
+room with no database should press it once.

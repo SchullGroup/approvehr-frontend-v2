@@ -1,13 +1,7 @@
 "use client";
 
-import {
-  ApiError,
-  apiBaseUrl,
-  request,
-  requestPaged,
-  tokens,
-  type Paged,
-} from "@/lib/api/client";
+import { request, requestPaged, type Paged } from "@/lib/api/client";
+import { fetchFile } from "@/lib/api/download";
 
 /**
  * Payments — `/api/v1/payments`.
@@ -904,53 +898,19 @@ export const paymentsApi = {
    * back to the reference, so a saved file is still identifiable.
    */
   async bankFile(id: string, reference?: string): Promise<BankFileDownload> {
-    const access = tokens.access();
-    let response: Response;
-    try {
-      response = await fetch(`${apiBaseUrl}/payments/batches/${id}/file`, {
-        headers: access ? { Authorization: `Bearer ${access}` } : {},
-      });
-    } catch {
-      throw new ApiError(
-        0,
-        "network_error",
-        "Could not reach the server, so no file was produced.",
-      );
-    }
-
-    if (response.status === 401) {
-      throw new ApiError(
-        401,
-        "session_expired",
-        "Your session has ended. Sign in again, then download the file.",
-      );
-    }
-
-    if (!response.ok) {
-      /* The refusals here are the useful part — "this batch has not been
-         approved yet", "this batch no longer adds up" — so they are read out of
-         the error envelope rather than replaced with a generic failure. */
-      let message = "No file was produced.";
-      let code = "http_error";
-      try {
-        const body = (await response.json()) as {
-          error?: { code?: string; message?: string };
-        };
-        message = body.error?.message ?? message;
-        code = body.error?.code ?? code;
-      } catch {
-        /* Not JSON. Keep the default. */
-      }
-      throw new ApiError(response.status, code, message);
-    }
-
-    return {
-      filename: filenameFrom(
-        response.headers.get("content-disposition"),
-        reference,
-      ),
-      csv: await response.text(),
-    };
+    /* `fetchFile` is this call's own body, lifted to `api/download.ts` when the
+       export routes needed the identical four things — bearer token, a
+       session-expiry sentence, the server's refusal read out of the error
+       envelope, and the filename off `Content-Disposition`. The third is the
+       one worth having exactly once: "this batch has not been approved yet" and
+       "this batch no longer adds up" are the useful part of the response, and a
+       second copy that replaced them with "download failed" would look like it
+       worked. */
+    const file = await fetchFile(
+      `/payments/batches/${id}/file`,
+      `payments-${reference ?? "batch"}`,
+    );
+    return { filename: file.filename, csv: file.body };
   },
 
   /* -------------------------------------------------------------- history */
@@ -1116,9 +1076,3 @@ export const BANK_FILE_COLUMNS = [
 ] as const;
 
 /** `attachment; filename="payments-PAY-202608-1.csv"` → the filename. */
-function filenameFrom(header: string | null, reference?: string): string {
-  const match = header?.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i);
-  if (match?.[1]) return match[1];
-  const stem = (reference ?? "payments").replace(/[^A-Za-z0-9._-]/g, "-");
-  return `payments-${stem}.csv`;
-}

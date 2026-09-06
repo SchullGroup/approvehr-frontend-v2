@@ -375,7 +375,15 @@ export type EmployeeSummary = {
  * filter that means "only the ready ones". Dropping a false here would silently
  * turn "show me who is ready" into "show me everybody".
  */
-function employeeQuery(params: EmployeeListParams) {
+/**
+ * The directory filter, as query parameters.
+ *
+ * Exported so the staff export sends **this** object rather than building its
+ * own. Two serialisations of one filter is how a downloaded file comes to cover
+ * a different set of people than the table it was downloaded from, and the file
+ * is the copy that gets emailed.
+ */
+export function employeeQuery(params: EmployeeListParams) {
   return {
     ...params,
     includeArchived: params.includeArchived ? "true" : undefined,
@@ -440,7 +448,9 @@ export const employees = {
    * it properly.
    */
   orgChart: (signal?: AbortSignal) =>
-    request<ApiOrgChart>("/employees/org-chart", { ...(signal ? { signal } : {}) }),
+    request<ApiOrgChart>("/employees/org-chart", {
+      ...(signal ? { signal } : {}),
+    }),
 
   get: (id: string, signal?: AbortSignal) =>
     request<ApiEmployee>(`/employees/${id}`, { ...(signal ? { signal } : {}) }),
