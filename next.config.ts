@@ -98,7 +98,12 @@ const CSP = [
   "object-src 'none'",
   "frame-ancestors 'none'",
   "form-action 'self'",
-  "script-src 'self' 'unsafe-inline'",
+  /* `'unsafe-eval'` in development only. React's development build uses
+     `eval()` to reconstruct callstacks across the server/client boundary, and
+     without it every page logs a CSP error that reads as a bug in the app.
+     React never uses `eval()` in a production build, so production keeps the
+     stricter policy — which is the half that faces a real reader. */
+  `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "production" ? "" : " 'unsafe-eval'"}`,
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   "img-src 'self' data: blob:",

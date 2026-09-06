@@ -238,6 +238,16 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       feature: "departments",
     },
     {
+      /* No permission and no feature flag: who reports to whom is not
+         privileged — the directory already publishes it — and a company that
+         has never opened Settings still has a reporting line. Gating it would
+         reproduce the defect it was built to close, which was a chart nobody
+         could find rather than a chart nobody could read. */
+      href: "/people/org-chart",
+      label: "Org chart",
+      icon: <Network aria-hidden="true" />,
+    },
+    {
       /* Restored alongside the status field on the create form (see
          `people/new/form.tsx`) so a new hire can actually be put into
          ONBOARDING and this tab has something to show. */

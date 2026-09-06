@@ -327,6 +327,26 @@ export type EmployeeListParams = {
   order?: "asc" | "desc";
 };
 
+export type ApiOrgNode = {
+  id: string;
+  employeeNo: string;
+  name: string;
+  jobTitle: string;
+  department: string | null;
+  workLocation: string | null;
+  status: string;
+  reports: ApiOrgNode[];
+  /** Everybody below them at any depth, not only their direct reports. */
+  totalBelow: number;
+};
+
+export type ApiOrgChart = {
+  roots: ApiOrgNode[];
+  covered: number;
+  /** People whose reporting line loops. Rendered as roots and named, never dropped. */
+  detached: { id: string; name: string }[];
+};
+
 /**
  * The directory's header counts, from the API, under the caller's own filter.
  *
@@ -409,6 +429,18 @@ export const employees = {
       query: employeeQuery(params),
       ...(signal ? { signal } : {}),
     }),
+
+  /**
+   * The reporting line, as a tree.
+   *
+   * Assembled on the API rather than walked here — a second implementation is
+   * how two screens come to disagree about who somebody reports to, and it is
+   * one request rather than one per level. **No salary is in this payload at
+   * any permission**; a caller wanting pay asks the directory, which withholds
+   * it properly.
+   */
+  orgChart: (signal?: AbortSignal) =>
+    request<ApiOrgChart>("/employees/org-chart", { ...(signal ? { signal } : {}) }),
 
   get: (id: string, signal?: AbortSignal) =>
     request<ApiEmployee>(`/employees/${id}`, { ...(signal ? { signal } : {}) }),
