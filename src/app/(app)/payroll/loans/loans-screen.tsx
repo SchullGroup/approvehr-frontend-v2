@@ -7,26 +7,32 @@ import { CreditCard, Plus, Wallet } from "lucide-react";
 import {
   Badge,
   Button,
-  Pagination,
   EmptyState,
+  formatMoney,
   Money,
+  Pagination,
+  SortableTH,
   Spinner,
   Stat,
+  TableWrap,
+  Tabs,
   TBody,
   TD,
   TDPrimary,
   TH,
   THead,
   TR,
-  TableWrap,
-  Tabs,
-  formatMoney,
   useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
-import { naira, type ApiLoan, type LoanStatus } from "@/lib/api/loans";
+import {
+  naira,
+  type ApiLoan,
+  type LoanListParams,
+  type LoanStatus,
+} from "@/lib/api/loans";
 import { monthLabel } from "@/lib/loans/schedule";
 import {
   LOAN_STATUS_LABEL,
@@ -87,6 +93,9 @@ const FILTERS: { id: Filter; label: string }[] = [
 ];
 
 
+/** The API's own allow-list, taken from its params rather than re-typed. */
+type LoanSort = NonNullable<LoanListParams["sort"]>;
+
 export function LoansScreen() {
   const { can, loading: permissionsLoading } = usePermissions();
   const { employeeId, isConnected } = useSession();
@@ -116,13 +125,37 @@ export function LoansScreen() {
   const scope =
     filter === "PENDING" && canDecide ? "pending" : seeEverybody ? "all" : "mine";
 
+  /**
+   * The column the **server** orders by.
+   *
+   * Server-side, which is the only kind that is not a lie on a paged table:
+   * reordering the 25 rows in hand would present the top of a page as the top
+   * of the list. `SortableTH`'s own header says the same.
+   *
+   * Newest first is the default, which is what the screen has always done.
+   */
+  const [sort, setSort] = useState<LoanSort>("createdAt");
+  const [order, setOrder] = useState<"asc" | "desc">("desc");
+  const toggleSort = (column: string, startDescending = false) => {
+    const next = column as LoanSort;
+    if (sort !== next) {
+      setSort(next);
+      setOrder(startDescending ? "desc" : "asc");
+    } else {
+      setOrder(order === "asc" ? "desc" : "asc");
+    }
+    /* Back to page one. Somebody on page 3 who re-sorts is asking a different
+       question, and page 3 of the new answer is not where they were. */
+    setPage(1);
+  };
+
   const list = useLoans({
     scope,
     page,
     pageSize,
-    ...(scope === "pending"
-      ? {}
-      : { sort: "createdAt", order: "desc", ...(filter === "ALL" ? {} : { status: filter }) }),
+    sort,
+    order,
+    ...(scope === "pending" || filter === "ALL" ? {} : { status: filter }),
   });
   const { summary } = useLoanSummary(seeEverybody);
   const { approve } = useLoanActions();
@@ -287,11 +320,41 @@ export function LoansScreen() {
             <TableWrap caption="Staff loans, with what is left to repay on each">
               <THead>
                 <TH>{seeEverybody ? "Who" : "What for"}</TH>
-                <TH align="right">Borrowed</TH>
-                <TH align="right">Left to pay</TH>
+                {/* Only the columns the API's own allow-list accepts:
+                    `createdAt | principal | outstanding | status | startPeriod`.
+                    A header offering a column it refuses is one that appears to
+                    do nothing. "A month" and "Finishes" are derived from the
+                    schedule and are not among them. */}
+                <SortableTH
+                  column="principal"
+                  active={sort}
+                  order={order}
+                  onSort={(column) => toggleSort(column, true)}
+                  align="right"
+                  startDescending
+                >
+                  Borrowed
+                </SortableTH>
+                <SortableTH
+                  column="outstanding"
+                  active={sort}
+                  order={order}
+                  onSort={(column) => toggleSort(column, true)}
+                  align="right"
+                  startDescending
+                >
+                  Left to pay
+                </SortableTH>
                 <TH align="right">A month</TH>
                 <TH>Finishes</TH>
-                <TH>Status</TH>
+                <SortableTH
+                  column="status"
+                  active={sort}
+                  order={order}
+                  onSort={(column) => toggleSort(column)}
+                >
+                  Status
+                </SortableTH>
                 <TH>
                   <span className="sr-only">Decide</span>
                 </TH>

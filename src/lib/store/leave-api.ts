@@ -109,6 +109,52 @@ const inApiOrder = (rows: LeaveRow[]): LeaveRow[] =>
     (a, b) => RANK[a.status] - RANK[b.status] || a.from.localeCompare(b.from),
   );
 
+/**
+ * An explicit sort, offline.
+ *
+ * **Sorting in the browser is a lie when you hold a page of a larger set, and
+ * the truth when you hold the whole thing.** Connected, the table holds at most
+ * 200 rows out of however many the company has, so the order has to come from
+ * the server — `SortableTH`'s own header says exactly that. Offline the store
+ * *is* the whole set, so ordering it here produces the same answer the API
+ * would, and the alternative is a column header that does nothing in demo mode.
+ *
+ * The column names are the API's allow-list, so a header cannot work in one
+ * mode and silently fall through in the other. Anything else returns the
+ * queue's own order, which is what the API does with an unrecognised sort.
+ */
+function inChosenOrder(
+  rows: LeaveRow[],
+  sort: string | undefined,
+  order: "asc" | "desc" | undefined,
+): LeaveRow[] {
+  const direction = order === "desc" ? -1 : 1;
+  const by: Record<string, (a: LeaveRow, b: LeaveRow) => number> = {
+    startDate: (a, b) => a.from.localeCompare(b.from),
+    endDate: (a, b) => a.to.localeCompare(b.to),
+    days: (a, b) => a.days - b.days,
+    /* `requestedAt` is nullable on a demo row. An absence sorts **last** in
+       both directions rather than being coerced to an empty string, which
+       would put "we do not know when this was asked for" above the earliest
+       real request. */
+    requestedAt: (a, b) =>
+      a.requestedAt === null
+        ? 1
+        : b.requestedAt === null
+          ? -1
+          : a.requestedAt.localeCompare(b.requestedAt),
+    status: (a, b) => RANK[a.status] - RANK[b.status],
+  };
+  const compare = sort === undefined ? undefined : by[sort];
+  if (!compare) return inApiOrder(rows);
+  /* A stable tiebreak, so two requests of the same length do not swap places
+     between renders — the same reason `orderBy` on the API always ends on a
+     unique column. */
+  return [...rows].sort(
+    (a, b) => compare(a, b) * direction || a.id.localeCompare(b.id),
+  );
+}
+
 /* --------------------------------------------------------------- the requests */
 
 export type LeaveListState = {
@@ -181,7 +227,7 @@ export function useLeaveRequests(params: LeaveListParams = {}): LeaveListState {
        API: the question is "overlaps this window", not "starts in it". */
     if (parsed.from) rows = rows.filter((r) => r.to >= parsed.from!);
     if (parsed.to) rows = rows.filter((r) => r.from <= parsed.to!);
-    const ordered = inApiOrder(rows);
+    const ordered = inChosenOrder(rows, parsed.sort, parsed.order);
     return {
       requests: ordered,
       total: ordered.length,

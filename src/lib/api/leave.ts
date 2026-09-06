@@ -327,6 +327,15 @@ export type LeaveListParams = {
   to?: string;
   page?: number;
   pageSize?: number;
+  /**
+   * A column the API's own allow-list accepts:
+   * `startDate`, `endDate`, `days`, `requestedAt`, `status`.
+   *
+   * Not checked here — the API refuses anything it does not recognise and falls
+   * back to its default, so a typo is a header that appears to do nothing.
+   */
+  sort?: string;
+  order?: "asc" | "desc";
 };
 
 export type NewLeaveInput = {
@@ -480,6 +489,8 @@ export const leaveApi = {
         status: params.status?.toUpperCase(),
         from: params.from,
         to: params.to,
+        sort: params.sort,
+        order: params.order,
       },
       ...(signal ? { signal } : {}),
     });
