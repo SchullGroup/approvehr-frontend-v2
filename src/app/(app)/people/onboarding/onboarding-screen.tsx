@@ -156,9 +156,11 @@ export function OnboardingScreen() {
               {sourceNote(connected)}
             </Badge>
           )}
-          <Badge tone="neutral" size="sm">
-            Ticks you make here are saved in this browser
-          </Badge>
+          {!connected && (
+            <Badge tone="neutral" size="sm">
+              Ticks you make here are saved in this browser
+            </Badge>
+          )}
           {loading && <span className="text-meta text-muted">Loading…</span>}
         </div>
 
