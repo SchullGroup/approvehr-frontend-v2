@@ -45,7 +45,7 @@ export function HolidayForm({
 
   const dateValid = /^\d{4}-\d{2}-\d{2}$/.test(date);
   const dateError =
-    date.length > 0 && !dateValid ? "Use a full date — day, month and year." : undefined;
+    date.length > 0 && !dateValid ? "Use a full date: day, month and year." : undefined;
 
   const trimmed = name.trim();
   const canSave = dateValid && trimmed.length >= 2 && !busy;
@@ -99,7 +99,7 @@ export function HolidayForm({
           />
         </Field>
 
-        <Field label="Holiday" required help="As it is proclaimed — people search for it by name.">
+        <Field label="Holiday" required help="As it is proclaimed: people search for it by name.">
           <Input
             value={name}
             placeholder="Eid al-Fitr"

@@ -404,7 +404,7 @@ export function Directory({
                PIN only leaves the remittance schedule incomplete, and a missing
                TIN does not affect the run at all. This count is every field that
                is unfilled, not every record that will miss pay. */
-            hint="missing bank, PIN or TIN — only a missing bank account blocks pay"
+            hint="missing bank, PIN or TIN: only a missing bank account blocks pay"
           />
         </Link>
       </div>
@@ -683,7 +683,7 @@ export function Directory({
           </Button>
           <p className="text-meta text-muted">
             Exports the {rows.length} {rows.length === 1 ? "row" : "rows"}{" "}
-            shown below — this page, under whatever is filtered above, not the
+            shown below: this page, under whatever is filtered above, not the
             whole company. Archived records are hidden from the directory and
             the payroll run, but stay resolvable so past payslips keep
             working.

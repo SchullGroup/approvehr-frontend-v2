@@ -170,7 +170,7 @@ export function ImportOutcome({
         >
           <p className="mb-3">
             {count(landed)} {people(landed)} {landed === 1 ? "was" : "were"} imported
-            before it stopped. {count(missed)} rows were not — they are unchanged
+            before it stopped. {count(missed)} rows were not: they are unchanged
             in your file. {result.failure.message}
           </p>
           <div className="flex flex-wrap items-center gap-2">

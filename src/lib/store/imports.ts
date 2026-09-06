@@ -576,7 +576,7 @@ export function useImport(dictionary: Dictionary<string>) {
 
     if (chosen.size > 25_000_000) {
       setError(
-        "That file is bigger than 25MB. Split it in two and import each half — each one reports its own numbers.",
+        "That file is bigger than 25MB. Split it in two and import each half: each one reports its own numbers.",
       );
       return false;
     }
@@ -586,7 +586,7 @@ export function useImport(dictionary: Dictionary<string>) {
        is a package; both convert in one menu item, and the message says which. */
     if (/\.(xls|xlsm|xlsb|numbers|ods)$/i.test(chosen.name)) {
       setError(
-        "We can read .xlsx and .csv. In Excel or Numbers: File, then Save As or Export, and choose Excel Workbook (.xlsx) or CSV — then upload that.",
+        "We can read .xlsx and .csv. In Excel or Numbers: File, then Save As or Export, and choose Excel Workbook (.xlsx) or CSV, then upload that.",
       );
       return false;
     }
@@ -610,13 +610,13 @@ export function useImport(dictionary: Dictionary<string>) {
         const notes = [...workbook.notes];
         if (workbook.sheets.length > 1) {
           notes.push(
-            `That workbook has ${workbook.sheets.length} sheets. We read "${useful.name}" — the first one with rows in it.`,
+            `That workbook has ${workbook.sheets.length} sheets. We read "${useful.name}", the first one with rows in it.`,
           );
         }
         csv = fileFromRecords(useful.grid, { notes });
       } catch {
         setError(
-          "That .xlsx could not be opened. If it came from another system, open it in Excel and save it again — or save it as CSV and upload that.",
+          "That .xlsx could not be opened. If it came from another system, open it in Excel and save it again, or save it as CSV and upload that.",
         );
         return false;
       }
@@ -632,7 +632,7 @@ export function useImport(dictionary: Dictionary<string>) {
     }
 
     if (csv.headers.length === 0) {
-      setError("That file is empty — there is no heading row in it.");
+      setError("That file is empty: there is no heading row in it.");
       return false;
     }
     if (csv.rows.length === 0) {
@@ -915,7 +915,7 @@ export function useImport(dictionary: Dictionary<string>) {
     }
     if (payload.length < rows.length) {
       notes.add(
-        `This check covered ${payload.length} of the ${rows.length} rows in the file — the ones that did not import last time. The rest are already in.`,
+        `This check covered ${payload.length} of the ${rows.length} rows in the file: the ones that did not import last time. The rest are already in.`,
       );
     }
 

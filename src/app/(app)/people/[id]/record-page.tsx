@@ -148,7 +148,7 @@ export function EmployeeRecordPage({ id }: { id: string }) {
               title: "No such employee",
               detail: record.connected || !DEMO_ENABLED
                 ? "This record does not exist, or it belongs to another company."
-                : "This record does not exist, or it was created in another browser — demo data is not shared between devices.",
+                : "This record does not exist, or it was created in another browser: demo data is not shared between devices.",
             };
 
     return (
@@ -321,7 +321,7 @@ export function EmployeeRecordPage({ id }: { id: string }) {
             </p>
             <p>
               Nothing is deleted. An employment record is a legal document, and
-              past payslips have to keep pointing at something — you can
+              past payslips have to keep pointing at something: you can
               restore them at any time.
             </p>
           </div>

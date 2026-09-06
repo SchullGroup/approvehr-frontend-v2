@@ -303,7 +303,7 @@ function RequestCorrectionDialog({
     <Modal
       open
       onClose={onClose}
-      title={`${shortDate(row.date)} — something wrong?`}
+      title={`${shortDate(row.date)} · something wrong?`}
       description="Say what it should say instead. HR sees this and decides; nothing changes until they agree."
       size="sm"
       footer={
@@ -344,7 +344,7 @@ function RequestCorrectionDialog({
           label="Why"
           required
           {...(error ? { error } : {})}
-          help="A sentence is enough — this is the record of what happened."
+          help="A sentence is enough: this is the record of what happened."
         >
           <Textarea
             rows={3}

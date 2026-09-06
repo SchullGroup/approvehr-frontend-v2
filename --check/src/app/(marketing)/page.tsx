@@ -157,7 +157,7 @@ export default function HomePage() {
             <SectionHeading
               eyebrow="Built for how your company runs"
               title="One payroll run. Three sets of rules."
-              lead="A site crew on rotating shifts. A head office on salary. A contractor on withholding tax. Your working month, salary structure and pensionable components are settings you control — not assumptions we make."
+              lead="A site crew on rotating shifts. A head office on salary. A contractor on withholding tax. Your working month, salary structure and pensionable components are settings you control, not assumptions we make."
             />
           </Reveal>
 

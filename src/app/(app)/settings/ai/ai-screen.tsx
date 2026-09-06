@@ -58,7 +58,7 @@ const USES = [
     icon: <MessagesSquare aria-hidden="true" />,
     title: "A conversation about your own records",
     where: "Assistant, in the sidebar",
-    from: "Whatever the lookups it runs return — and they run as you, with your permissions. It can offer to make a change, described from your records; nothing happens until you press Confirm.",
+    from: "Whatever the lookups it runs return, and they run as you, with your permissions. It can offer to make a change, described from your records; nothing happens until you press Confirm.",
     href: "/assistant",
   },
   {
@@ -72,7 +72,7 @@ const USES = [
     icon: <MessageSquareText aria-hidden="true" />,
     title: "A progress note from a headline",
     where: "KPIs → a measure → record progress",
-    from: "The headline you type. Fewer than ten characters is refused — a note written from “did work” would be entirely invention.",
+    from: "The headline you type. Fewer than ten characters is refused: a note written from “did work” would be entirely invention.",
     href: "/performance?tab=kpis",
   },
   {
@@ -162,7 +162,7 @@ export function AiScreen() {
           <Callout tone="info" title="Switching it on">
             <p>
               The credential is an environment variable on the API, read once at
-              boot — there is deliberately no field for it on this page, because
+              boot: there is deliberately no field for it on this page, because
               a box that looks like it saves a key and does not is worse than no
               box.
             </p>
@@ -170,8 +170,7 @@ export function AiScreen() {
               Set <code className="text-ink">GEMINI_API_KEY</code> on the API and
               restart it. <code className="text-ink">ANTHROPIC_API_KEY</code> is
               read the same way; with both set, Gemini answers and the API logs a
-              warning saying so. Everything below starts working immediately —
-              nothing else has to be configured.
+              warning saying so. Everything below starts working immediately: nothing else has to be configured.
             </p>
           </Callout>
         )}
@@ -224,7 +223,7 @@ export function AiScreen() {
             <p>
               A suggestion request carries a short list of stated facts and the
               instruction. It does not carry the summary sentence that names the
-              person — that is assembled here, shown to you beside the
+              person: that is assembled here, shown to you beside the
               suggestion, and never put in the request.
             </p>
             <p>
@@ -236,7 +235,7 @@ export function AiScreen() {
             <p>
               Nothing a suggestion produces is ever saved on its own. It lands in
               a field, somebody edits it, and the ordinary Save writes it under
-              their name — there is no endpoint that accepts a suggestion
+              their name: there is no endpoint that accepts a suggestion
               directly, on purpose.
             </p>
 
@@ -252,7 +251,7 @@ export function AiScreen() {
               To answer &ldquo;who has no bank account&rdquo; the assistant is
               sent the names it found. To answer a question about pay, it is
               sent the figures. Only ever what the person asking could already
-              see on a screen — the lookups run as them, with their permissions,
+              see on a screen: the lookups run as them, with their permissions,
               and a salary is withheld from somebody who may not view salaries
               rather than sent and then hidden.
             </p>
@@ -260,7 +259,7 @@ export function AiScreen() {
               It reads. There is no lookup that writes, changes or approves
               anything, and every answer names the records it came from so the
               working can be checked. Account numbers, pension PINs and TINs are
-              never sent at all — the assistant is told only whether each one is
+              never sent at all: the assistant is told only whether each one is
               on file.
             </p>
 
@@ -273,7 +272,7 @@ export function AiScreen() {
               <strong className="font-semibold text-ink">
                 It can also offer to make a change, and never make one.
               </strong>{" "}
-              In a conversation it may propose something — deciding a leave
+              In a conversation it may propose something: deciding a leave
               request, starting an appraisal period, posting an announcement. A
               proposal is only a description: the summary and the details beside
               the button are read out of your own records by the server, not
@@ -287,7 +286,7 @@ export function AiScreen() {
             <p>
               A conversation is not stored anywhere. The whole exchange is sent
               again on every turn so that no transcript has to be kept, and
-              closing the page ends it — there is nothing to go back to, by
+              closing the page ends it: there is nothing to go back to, by
               design.
             </p>
             <p className="text-muted">

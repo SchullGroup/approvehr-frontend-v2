@@ -55,7 +55,7 @@ import { useRevalidation } from "@/lib/revalidate";
 
 const DEMO_REFUSAL =
   "This needs the API. An advert is a public statement in the company's name, " +
-  "and screening somebody in creates a candidate in the hiring pipeline — " +
+  "and screening somebody in creates a candidate in the hiring pipeline: " +
   "neither can happen in a browser with no database behind it.";
 
 const demoError = () => new ApiError(0, "offline", DEMO_REFUSAL);

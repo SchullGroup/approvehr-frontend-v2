@@ -280,7 +280,7 @@ function DeclineDialog({
       onClose={onClose}
       size="sm"
       title={`Decline ${claim.employeeName}'s claim?`}
-      description={`${claim.description} — they will read your reason.`}
+      description={`${claim.description}. They will read your reason.`}
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={onClose} disabled={busy}>
@@ -310,7 +310,7 @@ function DeclineDialog({
           rows={3}
           value={reason}
           maxLength={500}
-          placeholder="This one goes on the client's invoice — send it to me and I will bill it."
+          placeholder="This one goes on the client's invoice. Send it to me and I will bill it."
           onChange={(e) => setReason(e.target.value)}
         />
       </Field>

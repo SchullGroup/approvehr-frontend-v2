@@ -60,7 +60,7 @@ function ReferenceField({
     <Field
       label="Where the file is kept"
       required
-      help="We cannot hold the file itself yet — put the folder path or file name. Not a web link."
+      help="We cannot hold the file itself yet. Put the folder path or file name. Not a web link."
       {...(error ? { error } : {})}
     >
       <Input

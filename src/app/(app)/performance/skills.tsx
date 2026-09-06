@@ -387,7 +387,7 @@ function Pips({
             key={step}
             className={cn(
               "h-4 w-2.5 rounded-xs border",
-              filled ? "bg-ink border-ink" : "bg-sunken border-line-strong",
+              filled ? "bg-fill-strong border-fill-strong" : "bg-sunken border-line-strong",
               isTarget && "outline-2 outline-offset-1 outline-accent-text",
             )}
           />

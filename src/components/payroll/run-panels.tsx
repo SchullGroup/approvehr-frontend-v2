@@ -459,7 +459,7 @@ export function ExcludedList({
             {exclusions.length} {exclusions.length === 1 ? "person" : "people"}
           </span>
         }
-        hint="Left off deliberately, with the reason recorded. Everybody here is back on next period's payroll automatically — nothing has to remember to put them there."
+        hint="Left off deliberately, with the reason recorded. Everybody here is back on next period's payroll automatically: nothing has to remember to put them there."
       >
         <div className="flex flex-col gap-2.5">
           {exclusions.map((exclusion) => (
@@ -625,7 +625,7 @@ export function TotalsPanel({ run }: { run: PayrollRun }) {
         )}
         {wasDeducted(run.operates, "pension") && (
           <TotalRow
-            label="Pension — employee share"
+            label="Pension (employee share)"
             kobo={run.pensionEmployeeKobo}
           />
         )}
@@ -635,7 +635,7 @@ export function TotalsPanel({ run }: { run: PayrollRun }) {
         {wasDeducted(run.operates, "pension") && (
           <div className="mt-1 border-t border-line pt-3">
             <TotalRow
-              label="Pension — employer share"
+              label="Pension (employer share)"
               kobo={run.pensionEmployerKobo}
               note="A company cost on top of gross. It does not reduce anyone's pay."
             />

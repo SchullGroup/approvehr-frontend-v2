@@ -201,7 +201,7 @@ export function ExitDetailScreen({ id }: { id: string }) {
         {exit.status === "CANCELLED" && (
           <Callout tone="info" title={`${firstName} is staying`}>
             {exit.declinedReason ?? "The exit was cancelled."} Nothing was
-            archived and nothing was closed — they are still on the payroll. If
+            archived and nothing was closed: they are still on the payroll. If
             they change their mind again, start a new one.
           </Callout>
         )}
@@ -595,7 +595,7 @@ function FinalPayCard({
       icon: <CreditCard aria-hidden="true" />,
       label: `${formatKobo(finalPay.outstandingLoanKobo)} still owed on a loan`,
       detail:
-        "Payroll takes one instalment. Recover the rest from the final pay or write it off — there is no next month.",
+        "Payroll takes one instalment. Recover the rest from the final pay or write it off: there is no next month.",
     });
   }
 

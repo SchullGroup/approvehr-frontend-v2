@@ -313,7 +313,7 @@ function NoMark({ cycles }: { cycles: string[] }) {
       title={`${cycles.length === 1 ? "One period" : `${cycles.length} periods`} with no mark`}
     >
       <p>
-        {cycles.join(", ")} recorded nothing that counts towards a mark — no
+        {cycles.join(", ")} recorded nothing that counts towards a mark: no
         agreed objective, no competency rating against a weighted part. That is
         not a mark of nought and it is not on the chart, because the two say
         opposite things about the person.
@@ -532,7 +532,7 @@ function SignOff({ point }: { point: ApiHistoryPoint }) {
           value:
             point.appraiserMark.ratingBp === null
               ? "None in yet"
-              : `${scoreLabel(point.appraiserMark.ratingBp)} across ${point.appraiserMark.appraisers} ${point.appraiserMark.appraisers === 1 ? "appraiser" : "appraisers"}, weighted over the ${weightLabel(point.appraiserMark.submittedWeightBp)} that has come in — not scored`,
+              : `${scoreLabel(point.appraiserMark.ratingBp)} across ${point.appraiserMark.appraisers} ${point.appraiserMark.appraisers === 1 ? "appraiser" : "appraisers"}, weighted over the ${weightLabel(point.appraiserMark.submittedWeightBp)} that has come in, not scored`,
         },
       ]}
     />

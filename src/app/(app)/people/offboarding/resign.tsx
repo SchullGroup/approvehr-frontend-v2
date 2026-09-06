@@ -135,7 +135,7 @@ export function Resign() {
       >
         <div className="flex flex-wrap items-center justify-between gap-4">
           <p className="min-w-0 flex-1 text-body-sm text-body">
-            Three questions — your last day, why, and anything you want to say.
+            Three questions: your last day, why, and anything you want to say.
             Your manager and your people team are told when you send it.
           </p>
           <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>

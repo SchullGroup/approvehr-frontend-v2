@@ -273,7 +273,7 @@ function Diary() {
                       </Link>
                     </p>
                     <p className="text-meta text-muted">
-                      {KIND_LABEL[iv.kind] ?? iv.kind} ·{" "}
+                      {KIND_LABEL[iv.kind] ?? iv.kind} · {" "}
                       <Link
                         href={`/hiring/requisitions/${card.requisitionId}`}
                         className="hover:text-accent-text hover:underline underline-offset-4"
@@ -286,7 +286,7 @@ function Diary() {
                         hour: "2-digit",
                         minute: "2-digit",
                       })}{" "}
-                      · {iv.durationMins} mins ·{" "}
+                      · {iv.durationMins} mins · {" "}
                       {iv.interviewerIds
                         .map((id) => {
                           const person = employeeById(id);

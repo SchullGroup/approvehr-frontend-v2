@@ -57,7 +57,7 @@ import type { LineSummary, Payslip } from "@/lib/api/payroll";
  * this". Anything else typed over it — a number, or genuinely emptying the
  * cell — is treated as a real decision and applied normally.
  */
-export const AMBIGUOUS_LINES_MARKER = "(several — edit in app)";
+export const AMBIGUOUS_LINES_MARKER = "(several, edit in app)";
 
 /**
  * A column on the sheet.
@@ -79,7 +79,7 @@ export const SHEET_COLUMNS: readonly SheetColumn[] = [
   {
     key: "staff_no",
     heading: "staff_no",
-    note: "Who the row is about. Do not change it — it is how the upload finds them.",
+    note: "Who the row is about. Do not change it: it is how the upload finds them.",
     entered: false,
   },
   { key: "name", heading: "name", note: "For reading. Not read back.", entered: false },
@@ -114,7 +114,7 @@ export const SHEET_COLUMNS: readonly SheetColumn[] = [
     heading: "monthly_salary",
     note:
       "Naira. Changes their record from now on, not just this payroll. " +
-      "Leaving it blank changes nothing — there is no such thing as no salary.",
+      "Leaving it blank changes nothing: there is no such thing as no salary.",
     entered: true,
   },
   {
@@ -130,14 +130,14 @@ export const SHEET_COLUMNS: readonly SheetColumn[] = [
     heading: "bonus",
     note:
       `Naira, this month only. Empty this cell to take a bonus off. If this ` +
-      `shows "${AMBIGUOUS_LINES_MARKER}", this person has more than one bonus — ` +
+      `shows "${AMBIGUOUS_LINES_MARKER}", this person has more than one bonus: ` +
       "leave the cell as it is and edit them individually in the app.",
     entered: true,
   },
   {
     key: "bonus_reason",
     heading: "bonus_reason",
-    note: "What the bonus is for. Optional — the bonus still saves without one.",
+    note: "What the bonus is for. Optional: the bonus still saves without one.",
     entered: true,
   },
   {
@@ -148,13 +148,13 @@ export const SHEET_COLUMNS: readonly SheetColumn[] = [
       "advance settled outside the loans module — not a statutory deduction, " +
       `which has its own columns below. Empty this cell to take it off. If ` +
       `this shows "${AMBIGUOUS_LINES_MARKER}", this person has more than one ` +
-      "such deduction — leave the cell as it is and edit them in the app.",
+      "such deduction. Leave the cell as it is and edit them in the app.",
     entered: true,
   },
   {
     key: "deduction_reason",
     heading: "deduction_reason",
-    note: "What the deduction is for. Optional, and worth filling in — an unexplained deduction is the line an employee asks about first.",
+    note: "What the deduction is for. Optional, and worth filling in: an unexplained deduction is the line an employee asks about first.",
     entered: true,
   },
   {
@@ -170,7 +170,7 @@ export const SHEET_COLUMNS: readonly SheetColumn[] = [
     heading: "pension",
     note:
       "Naira, this month only. Fill this in to deduct a different amount from " +
-      "this person — 0 deducts nothing from them. That is not the same as your " +
+      "this person: 0 deducts nothing from them. That is not the same as your " +
       "company having no scheme, which is a switch in Settings. Empty this " +
       "cell to go back to the computed figure.",
     entered: true,
@@ -194,7 +194,7 @@ export const SHEET_COLUMNS: readonly SheetColumn[] = [
 export const SHEET_BLANK_RULE =
   "This sheet comes filled in with what is on the payroll now. Emptying a cell " +
   "takes that figure off; deleting a whole column leaves it alone. Monthly " +
-  "salary is the exception — an empty cell there changes nothing.";
+  "salary is the exception: an empty cell there changes nothing.";
 
 export const SHEET_LEGEND: readonly string[] = [
   SHEET_BLANK_RULE,
@@ -454,7 +454,7 @@ export async function parseSheet(file: File): Promise<ParsedSheet> {
       row: 0,
       column: "monthly_salary",
       problem:
-        "That file has none of the columns this reads — monthly_salary, " +
+        "That file has none of the columns this reads: monthly_salary, " +
         "overtime_hours, bonus, deduction, paye_tax, pension or nhf. Nothing " +
         "in it can be applied.",
     });

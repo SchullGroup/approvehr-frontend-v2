@@ -223,7 +223,7 @@ export function MyPolicies({ className }: { className?: string }) {
 
               {!mine.onTheRecord && (
                 <p className="text-meta text-muted">
-                  Demo — an acceptance here stays in this browser.
+                  Demo: an acceptance here stays in this browser.
                 </p>
               )}
             </>

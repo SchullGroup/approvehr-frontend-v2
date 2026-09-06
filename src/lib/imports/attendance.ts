@@ -131,7 +131,7 @@ const COLUMNS: readonly ColumnSpec<AttendanceField>[] = [
     example: "08:05",
     note: "When they arrived, 24-hour. Leave blank if the device recorded none.",
     recommended: {
-      why: "no clock-in — payroll counts a working day with nothing against it as unpaid, so this day may dock their pay",
+      why: "no clock-in: payroll counts a working day with nothing against it as unpaid, so this day may dock their pay",
       /* The one recommended field here that reaches pay, so the one that lands
          in the "needed to pay them" tier of the fixes step. */
       important: true,
@@ -159,7 +159,7 @@ const COLUMNS: readonly ColumnSpec<AttendanceField>[] = [
       /* Not `important`: `unpaidDaysFor` counts a working day with no
          *clock-in* as unpaid and never reads the clock-out, so an open shift is
          a timesheet to close rather than a day that pays wrongly. */
-      why: "no clock-out — the day shows as an open shift on the timesheet and nobody's hours can be totalled from it",
+      why: "no clock-out: the day shows as an open shift on the timesheet and nobody's hours can be totalled from it",
     },
   },
   {
@@ -168,7 +168,7 @@ const COLUMNS: readonly ColumnSpec<AttendanceField>[] = [
     aliases: ["location", "site", "office", "branch", "terminal", "device_location"],
     required: false,
     example: "Ikeja Head Office",
-    note: "One of your offices, by name. Must already exist — this never creates one.",
+    note: "One of your offices, by name. Must already exist: this never creates one.",
   },
   {
     field: "note",
@@ -279,7 +279,7 @@ function attendanceRowRules({
       if (first !== undefined) {
         error(
           "date",
-          `${who} already has ${day} on row ${first}. One row per person per day — merge them.`,
+          `${who} already has ${day} on row ${first}. One row per person per day. Merge them.`,
         );
       }
     }
@@ -306,7 +306,7 @@ function attendanceFileNotes(counts: Readonly<Record<string, number>>): string[]
      a clean report. Every one of them is a question about the database, and
      three of them change what a row *does* rather than whether it lands. */
   notes.push(
-    "Whether each staff number is somebody on your list is checked when you connect — a device's own user numbers will not match, and those rows are refused with the reason.",
+    "Whether each staff number is somebody on your list is checked when you connect: a device's own user numbers will not match, and those rows are refused with the reason.",
     "Whether a day is already on file is also checked then. A day that is changes from being added to being corrected, recorded against your name with a note.",
     "A month whose payroll is already approved or paid will import and will not change anybody's pay for it. You are told which months those are before anything is written.",
   );

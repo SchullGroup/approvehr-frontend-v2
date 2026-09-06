@@ -79,12 +79,12 @@ export const APPROVALS: ApprovalItem[] = DEMO_ENABLED ? [
     waitingDays: 2,
     amount: 93_004_500,
     href: "/payroll",
-    deadline: "26 Aug — bank cut-off",
+    deadline: "26 Aug · bank cut-off",
   },
   {
     id: "ap-02",
     kind: "offer",
-    title: "Offer — Zainab Yusuf",
+    title: "Offer · Zainab Yusuf",
     summary: "Senior Backend Engineer · ₦1,750,000 · within band",
     requestedById: "p-06",
     requestedAt: "25 Aug",
@@ -106,7 +106,7 @@ export const APPROVALS: ApprovalItem[] = DEMO_ENABLED ? [
   {
     id: "ap-05",
     kind: "record_change",
-    title: "Bank account change — Chidi Nwosu",
+    title: "Bank account change · Chidi Nwosu",
     summary: "Zenith ····8820 → GTBank ····4471",
     requestedById: "p-03",
     requestedAt: "26 Aug",
@@ -128,7 +128,7 @@ export const APPROVALS: ApprovalItem[] = DEMO_ENABLED ? [
   {
     id: "ap-07",
     kind: "loan",
-    title: "Salary advance — Halima Sani",
+    title: "Salary advance · Halima Sani",
     summary: "₦200,000 over 4 months · leaving 31 Aug",
     requestedById: "p-10",
     requestedAt: "20 Aug",
@@ -181,7 +181,7 @@ export const LEAVE_REQUESTS: LeaveRequest[] = DEMO_ENABLED ? [
   { id: "lv-03", employeeId: "p-07", type: "Sick", from: "2026-08-18", to: "2026-08-19", days: 2, status: "approved", approverId: "p-02", requestedAt: "2026-08-17", decidedAt: "2026-08-17", decidedById: "p-02" },
   { id: "lv-04", employeeId: "p-05", type: "Annual", from: "2026-08-04", to: "2026-08-08", days: 5, status: "approved", approverId: "p-02", requestedAt: "2026-07-20", decidedAt: "2026-07-22", decidedById: "p-02" },
   { id: "lv-05", employeeId: "p-06", type: "Compassionate", from: "2026-07-21", to: "2026-07-23", days: 3, status: "approved", approverId: "p-05", requestedAt: "2026-07-20", decidedAt: "2026-07-20", decidedById: "p-05" },
-  { id: "lv-06", employeeId: "p-09", type: "Annual", from: "2026-09-01", to: "2026-09-05", days: 5, status: "declined", reason: "Still in probation", approverId: "p-01", requestedAt: "2026-08-05", decidedAt: "2026-08-07", decidedById: "p-01", decisionNote: "Still in probation — revisit after confirmation." },
+  { id: "lv-06", employeeId: "p-09", type: "Annual", from: "2026-09-01", to: "2026-09-05", days: 5, status: "declined", reason: "Still in probation", approverId: "p-01", requestedAt: "2026-08-05", decidedAt: "2026-08-07", decidedById: "p-01", decisionNote: "Still in probation: revisit after confirmation." },
   { id: "lv-07", employeeId: "p-01", type: "Annual", from: "2026-10-06", to: "2026-10-17", days: 10, status: "pending", approverId: "p-02", requestedAt: "2026-08-14" },
 ] : [];
 

@@ -469,7 +469,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
                           <TD colSpan={columns} className="text-body-sm text-body">
                             {money(row.paidAmountKobo)} of{" "}
                             {money(row.amountKobo)} came out in{" "}
-                            {monthLabel(row.dueDate)} — that month&rsquo;s pay
+                            {monthLabel(row.dueDate)}. That month&rsquo;s pay
                             could not carry the rest. The remaining{" "}
                             <strong className="font-semibold text-ink">
                               {money(row.remainingKobo)}
@@ -552,7 +552,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
           <p className="flex items-start gap-2 text-body-sm text-muted">
             <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
             <span>
-              Deductions come off net pay, after tax — a loan repayment is not
+              Deductions come off net pay, after tax: a loan repayment is not
               tax-deductible, so it does not change the PAYE on this salary.
             </span>
           </p>

@@ -242,7 +242,7 @@ export function AttendancePolicyForm() {
                 </div>
                 {noWorkingDays && (
                   <p className="mt-3 text-body-sm text-danger-text">
-                    No working days chosen — every day would count as a day
+                    No working days chosen: every day would count as a day
                     off, and attendance would have nothing to measure.
                   </p>
                 )}
@@ -253,7 +253,7 @@ export function AttendancePolicyForm() {
               <CardBody>
                 <Switch
                   label="Staff clock themselves in"
-                  description="Off means only HR records attendance, and the clock-in button on everybody's own screen disappears — attendance itself stays on."
+                  description="Off means only HR records attendance, and the clock-in button on everybody's own screen disappears: attendance itself stays on."
                   checked={value.selfServiceClockIn}
                   onChange={(event) => {
                     const next = event.target.checked;
@@ -314,7 +314,7 @@ function ReadOnlyPolicy({ policy }: { policy: ApiAttendancePolicy }) {
               term: "Grace",
               value:
                 policy.graceMinutes === 0
-                  ? "None — late from the first minute"
+                  ? "None (late from the first minute)"
                   : `${policy.graceMinutes} minutes`,
             },
             {

@@ -416,7 +416,7 @@ function TriageRow({
             onAssign(value === "" ? null : value);
           }}
         >
-          <option value="">Nobody — back in the queue</option>
+          <option value="">Nobody (back in the queue)</option>
           {employees.map((employee) => (
             <option key={employee.id} value={employee.id}>
               {employee.firstName} {employee.lastName}
@@ -537,8 +537,8 @@ function Composer({
           note
             ? INTERNAL_LABEL
             : iRaisedIt
-              ? "No email goes out — whoever is on it sees this in their ApproveHR notifications."
-              : "No email goes out — they see this in their ApproveHR notifications."
+              ? "No email goes out: whoever is on it sees this in their ApproveHR notifications."
+              : "No email goes out: they see this in their ApproveHR notifications."
         }
       >
         <Textarea

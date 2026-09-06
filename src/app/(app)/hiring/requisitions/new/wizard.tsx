@@ -621,9 +621,7 @@ function Wizard() {
               <div className="flex flex-col gap-5">
                 <div className="flex flex-col gap-2">
                   <SourceBadge live={adverts.editable} />
-                  <p className="text-body-sm text-body">
-                    This saves the job — title, location, type, pay range and
-                    the text below — as a <strong>draft advert</strong>. Nothing
+                  <p className="text-body-sm text-body">This saves the job (title, location, type, pay range and the text below) as a<strong>draft advert</strong>. Nothing
                     is public until you publish it. Stages, screening questions
                     and the hiring team stay on this screen; there is no endpoint
                     for them yet.

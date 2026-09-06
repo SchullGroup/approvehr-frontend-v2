@@ -26,7 +26,7 @@ export const ATTENDANCE_IMPORT_SURFACE: ImportSurface = {
     people: {
       title: "Some staff numbers match nobody",
       consequence:
-        "will be skipped. If these are your terminal's own user numbers, they have to be mapped to people first — a staff number is the only id this import can match on.",
+        "will be skipped. If these are your terminal's own user numbers, they have to be mapped to people first: a staff number is the only id this import can match on.",
       action: { href: "/people", label: "Check your staff list" },
     },
     workLocations: {

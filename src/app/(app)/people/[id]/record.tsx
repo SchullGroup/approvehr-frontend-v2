@@ -735,7 +735,7 @@ export function EmployeeRecord({
                   /* Not the tax state. Origin is where somebody is from; the
                      tax state on Pay & statutory is which revenue service
                      their PAYE goes to, and they are frequently different. */
-                  help: "Where they are from — not where their PAYE is filed.",
+                  help: "Where they are from, not where their PAYE is filed.",
                   options: [
                     { value: "", label: "Not recorded" },
                     ...NIGERIAN_STATES.map((state) => ({
@@ -750,7 +750,7 @@ export function EmployeeRecord({
                   label: "Local government area",
                   optional: true,
                   emptyLabel: "Not recorded",
-                  help: "Free text — there are 774, and we will not refuse a real one.",
+                  help: "Free text: there are 774, and we will not refuse a real one.",
                 },
                 {
                   key: "religion",
@@ -878,7 +878,7 @@ export function EmployeeRecord({
                   label: "Gross monthly",
                   optional: true,
                   type: "number",
-                  help: "Changing this changes their next payslip. Clear it if pay is no longer agreed — payroll will name them until it is set again.",
+                  help: "Changing this changes their next payslip. Clear it if pay is no longer agreed: payroll will name them until it is set again.",
                   /* Two decimals, never abbreviated: this is a figure somebody
                      reconciles against a bank statement. Absent, never zero:
                      `Money` renders "Not set yet" rather than ₦0.00. */
@@ -930,7 +930,7 @@ export function EmployeeRecord({
                 <CardHeader
                   level={4}
                   title="Where this sits in the band"
-                  description="The grade is a range, not a figure — this person's own pay stays whatever is set above, anywhere in it or outside it."
+                  description="The grade is a range, not a figure: this person's own pay stays whatever is set above, anywhere in it or outside it."
                 />
                 <CardBody>
                   <BandPosition
@@ -970,9 +970,9 @@ export function EmployeeRecord({
                   clearsToNull: true,
                   label: "Reports to",
                   type: "picker",
-                  placeholder: "No manager — reports to the board",
+                  placeholder: "No manager (reports to the board)",
                   value: employee.managerId ?? "",
-                  emptyLabel: "No manager — reports to the board.",
+                  emptyLabel: "No manager (reports to the board).",
                   /* The one person at the top of a company has no manager,
                      which is the ordinary state of a head of the org chart,
                      not a gap the way an unset bank account is. */
@@ -984,7 +984,7 @@ export function EmployeeRecord({
                       (managerName ?? "—")
                     ),
                   options: [
-                    { value: "", label: "No manager — reports to the board" },
+                    { value: "", label: "No manager (reports to the board)" },
                     /* Belt and braces: the picker's options come from the first
                        200 employees, connected. A company past that size could
                        have a manager sitting outside the slice, and without
@@ -1118,8 +1118,8 @@ export function EmployeeRecord({
                   group: "bank",
                   label: "Account",
                   emptyLabel: isSelf
-                    ? "Not on file — your salary has nowhere to go"
-                    : "No bank account — payroll blocked",
+                    ? "Not on file: your salary has nowhere to go"
+                    : "No bank account · payroll blocked",
                   help: "Ten digits. Payroll cannot pay without this.",
                   digits: 10,
                   format: (v) => (
@@ -1140,8 +1140,8 @@ export function EmployeeRecord({
                   group: "pension",
                   label: "Pension PIN",
                   emptyLabel: isSelf
-                    ? "Not on file — your pension cannot be paid in"
-                    : "No pension PIN — payroll blocked",
+                    ? "Not on file: your pension cannot be paid in"
+                    : "No pension PIN · payroll blocked",
                   help: "PEN followed by 9 to 12 digits.",
                   format: (v) => (
                     <Guarded value={String(v)} canReveal={canReveal} />
@@ -1196,8 +1196,8 @@ export function EmployeeRecord({
                   group: "tax",
                   label: "TIN",
                   emptyLabel: isSelf
-                    ? "Not on file — your tax cannot be filed against you"
-                    : "No TIN — payroll blocked",
+                    ? "Not on file: your tax cannot be filed against you"
+                    : "No TIN · payroll blocked",
                   help: "Ten digits.",
                   digits: 10,
                   format: (v) => (
@@ -1232,7 +1232,7 @@ export function EmployeeRecord({
                   group: "tax",
                   label: "Yearly rent declared",
                   type: "money",
-                  emptyLabel: "Nothing declared — no personal relief",
+                  emptyLabel: "Nothing declared: no personal relief",
                   help: "Since January 2026 there is no general tax-free allowance. Relief is 20% of the rent they declare, capped at ₦500,000 a year, so declaring nothing means they get no personal relief and pay more tax.",
                 },
               ]}
@@ -1252,7 +1252,7 @@ export function EmployeeRecord({
                 title="Leave balances"
                 description={
                   connected
-                    ? "Entitlement, taken and pending as the leave module computes them — the same figures a booking is checked against."
+                    ? "Entitlement, taken and pending as the leave module computes them, the same figures a booking is checked against."
                     : "Taken and pending are counted from their actual requests, so a decision made in the approvals inbox shows here immediately."
                 }
               />
@@ -1526,7 +1526,7 @@ function Compensation({
             {connected && preview.error
               ? isSelf
                 ? "Your monthly pay has not been set yet, so this month’s " +
-                  "figures cannot be worked out. Payroll sets it — ask them, " +
+                  "figures cannot be worked out. Payroll sets it. Ask them, " +
                   "or raise it on the help desk."
                 : preview.error.message
               : "PAYE, pension and NHF are worked out by the payroll engine on " +
@@ -1618,8 +1618,7 @@ function Guarded({
     <span className="inline-flex items-center gap-2">
       <span className="tabular">{revealed ? value : masked}</span>
       {!revealed && (
-        <span className="sr-only">
-          — hidden. Only the last four characters are shown.
+        <span className="sr-only">, hidden. Only the last four characters are shown.
         </span>
       )}
       {canReveal && (

@@ -207,7 +207,7 @@ function departmentRowRules(ctx: RowContext<DepartmentField>): void {
     tally("namedHeads");
     warn(
       "head",
-      `"${head}" looks like a person's name. This column takes a work email or a staff number — two people can share a name, and a department has one head.`,
+      `"${head}" looks like a person's name. This column takes a work email or a staff number: two people can share a name, and a department has one head.`,
     );
   }
 }
@@ -220,7 +220,7 @@ function departmentFileNotes(counts: Readonly<Record<string, number>>): string[]
 
   if (nested > 0) {
     notes.push(
-      `${nested} ${nested === 1 ? "row names a parent" : "rows name parents"}. Whether ${nested === 1 ? "it exists" : "they exist"} — here or already on your list — is checked when you connect, and so is whether any of them closes a loop.`,
+      `${nested} ${nested === 1 ? "row names a parent" : "rows name parents"}. Whether ${nested === 1 ? "it exists" : "they exist"} (here or already on your list) is checked when you connect, and so is whether any of them closes a loop.`,
     );
   }
   if (namedHeads > 0) {

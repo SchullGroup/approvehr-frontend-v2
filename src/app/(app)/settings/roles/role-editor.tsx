@@ -358,7 +358,7 @@ function GrantedPermissions({
     return (
       <Callout tone="neutral">
         {role.name} holds no permission at all. Access here is entirely
-        self-service — reaching your own record, payslips and requests by being
+        self-service: reaching your own record, payslips and requests by being
         who they belong to, not by anything this role grants.
       </Callout>
     );
@@ -519,7 +519,7 @@ function PeopleTab({
 
       {missing.length > 0 && canManage && (
         <Callout tone="neutral">
-          You cannot add people to {role.name} — it can do things you cannot:{" "}
+          You cannot add people to {role.name}. It can do things you cannot:{" "}
           {nameSome(missing.map((entry) => entry.label))}. Ask somebody who can.
         </Callout>
       )}

@@ -210,7 +210,7 @@ function PayslipIndex() {
            * So: say what a payslip is, in whose words, and say what this does
            * not do.
            */
-          description="Payslips are created when you run payroll for a month — one for each person. Nothing is paid until you approve it."
+          description="Payslips are created when you run payroll for a month, one for each person. Nothing is paid until you approve it."
           action={
             <ButtonLink href="/payroll/runs/new" variant="accent">
               Run payroll
@@ -512,8 +512,7 @@ function PayslipIndex() {
           still asked. */}
       <p className="text-meta leading-relaxed text-muted">
         &ldquo;Sent&rdquo; means a mail provider accepted it, and
-        &ldquo;Opened&rdquo; means somebody opened the payslip in ApproveHR —
-        not that they read the email. A payslip can also be opened and printed
+        &ldquo;Opened&rdquo; means somebody opened the payslip in ApproveHR, not that they read the email. A payslip can also be opened and printed
         from its own page.
       </p>
     </div>

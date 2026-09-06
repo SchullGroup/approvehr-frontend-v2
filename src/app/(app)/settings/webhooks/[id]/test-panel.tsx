@@ -99,7 +99,7 @@ export function TestPanel({
                         .filter((name) => events.includes(name))}
                     />
                     <Group
-                      label="Other samples — sent once, changes nothing"
+                      label="Other samples (sent once, changes nothing)"
                       names={catalogue.events
                         .map((option) => option.name)
                         .filter((name) => !events.includes(name))}
@@ -121,7 +121,7 @@ export function TestPanel({
           </div>
         ) : (
           <p className="text-body-sm text-body">
-            Sending needs the API — nothing in this browser can post to your
+            Sending needs the API: nothing in this browser can post to your
             server.
           </p>
         )}
@@ -199,7 +199,7 @@ function TestResult({ result }: { result: ApiTestResult }) {
         ) : (
           <p className="text-body-sm text-body">
             {result.statusCode === null
-              ? "Nothing — the request never reached a server."
+              ? "Nothing: the request never reached a server."
               : "An empty body, which is the right answer for a webhook receiver."}
           </p>
         )}

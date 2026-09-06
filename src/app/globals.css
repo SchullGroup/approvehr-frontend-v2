@@ -31,6 +31,15 @@
      which is the arithmetic of fitting five text weights above 4.5:1. */
   --color-faint: #616d76; /*  5.3:1  Tertiary text and icons        */
 
+  /* Fixed. Never redefined under [data-theme="dark"] below — these are opaque
+     fills that carry white text (a checkbox's checked state, a dialog's
+     primary button, a badge tone) or a dimming overlay, none of which invert
+     with the theme the way ink-as-TEXT must. Keeping them equal to ink's
+     current value means this split is invisible in light mode. */
+  --color-scrim: #0a1f2d;
+  --color-fill-strong: #0a1f2d;
+  --color-fill-strong-hover: #16334a;
+
   --color-canvas: #f7f9fb;
   --color-surface: #ffffff;
   --color-sunken: #f1f5f8;
@@ -66,6 +75,10 @@
   --color-danger-text: #b3261e; /* 6.5:1 */
   --color-danger-soft: #fdf2f1;
   --color-danger-line: #f5cdc9;
+  /* Fixed, same reasoning as --color-fill-strong above: danger-text is both
+     error COPY (must invert for dark mode) and a destructive button's FILL
+     (must not). This is the fill half, equal to danger-text's current value. */
+  --color-danger-fill: #b3261e;
 
   --color-info: #2b87c4;
   --color-info-text: #1a5f8a; /* 6.9:1 */
@@ -75,10 +88,16 @@
   /* ---- Categorical. Charts and pipeline stages only, never status. --- */
   --color-cat-1: #2b3990;
   --color-cat-2: #12a374;
-  --color-cat-3: #d99400;
+  /* #d99400 (== --color-warning) and #c8873c were both below the 3:1 non-text
+     minimum against canvas — 2.43:1 and 2.85:1 — with nothing checking a
+     categorical colour until scripts/verify-contrast.ts gained that matrix.
+     Darkened just enough to clear it; --color-warning itself is untouched,
+     since a chart series needing its own contrast guarantee is a different
+     question from a status dot's. */
+  --color-cat-3: #bf8200;
   --color-cat-4: #7c5cd6;
   --color-cat-5: #2b87c4;
-  --color-cat-6: #c8873c;
+  --color-cat-6: #c0823a;
 
   /* ---- Typography ---------------------------------------------------- */
   /* Geist is a neo grotesque in the same lineage as Stripe's Sohne. */
@@ -218,6 +237,93 @@
   --text-mega--line-height: 0.94;
   --text-mega--letter-spacing: -0.04em;
   --text-mega--font-weight: 500;
+}
+
+/* ==========================================================================
+   DARK MODE — the signed-in app only.
+
+   The marketing surface (--color-sand/slate/night/wash-*, above) is never
+   redefined here and stays permanently light — it is a different product
+   with its own job, per the header note on that block.
+
+   Every value below is verified in scripts/verify-contrast.ts against the
+   same WCAG 2.1 AA matrix the light palette already passes: every text token
+   against all eight backgrounds (surface, canvas, sunken, and the four
+   *-soft tints), not just its "main" one. `--color-faint` was the tight one
+   here too, exactly like its light-mode history above — retuned until the
+   softest background (accent-soft) cleared, not just surface.
+
+   Elevation inverts on purpose: a shadow cannot darken an already-dark
+   ground, so "elevated" reads as *lighter* here — sunken (darkest) → canvas
+   (base) → surface (lightest, elevated), the reverse of the light-mode order.
+
+   --color-scrim, --color-fill-strong(-hover) and --color-danger-fill are
+   fixed tokens declared in the @theme block above and deliberately absent
+   from this override — see the comments where they're declared for why they
+   must never invert with the theme.
+
+   accent/success/warning/danger/info's own BASE hue is unchanged in both
+   themes — each is a brand or semantic fill, verified nowhere to sit under
+   overlaid text — only the paired `-text` variant (used for copy/links) and
+   `-soft` tint (used as a background) actually need new values, because
+   pairing a *dark* colour as text on a *dark* canvas fails on luminance
+   regardless of hue.
+   ========================================================================== */
+
+:root[data-theme="dark"] {
+  --color-ink: #edf1f4;
+  --color-ink-soft: #c7d1da;
+  --color-body: #9ba9b5;
+  --color-muted: #8996a3;
+  --color-faint: #848fa0;
+
+  --color-canvas: #0b121b;
+  --color-surface: #141e2a;
+  --color-sunken: #070c12;
+
+  --color-line: #202b38;
+  --color-line-strong: #354458;
+  --color-control-line: #728599;
+  --color-field-line: #5b6d80;
+
+  --color-accent-text: #aab8f5;
+  --color-accent-hover: #3b4aae; /* lightens on hover — the fill is already dark */
+  --color-accent-soft: #1b2242;
+  --color-accent-line: #3d4a78;
+
+  --color-success-text: #8fd67f;
+  --color-success-soft: #142a16;
+  --color-success-line: #335a30;
+
+  --color-warning-text: #f0b33e;
+  --color-warning-soft: #2e2308;
+  --color-warning-line: #5c4519;
+
+  --color-danger-text: #f1857b;
+  --color-danger-soft: #301512;
+  --color-danger-line: #5c2a24;
+
+  --color-info-text: #7ec1ee;
+  --color-info-soft: #10222c;
+  --color-info-line: #295068;
+
+  --color-cat-1: #8c99ee;
+  --color-cat-2: #3adaa5;
+  --color-cat-3: #f0b33e; /* = warning-text, same reuse light mode already makes */
+  --color-cat-4: #b39cfb;
+  --color-cat-5: #7ec1ee; /* = info-text, same reuse light mode already makes */
+  --color-cat-6: #e2ac71;
+
+  /* An ink-tinted shadow at 4-9% opacity is invisible on a near-black ground.
+     Every Card/Modal/Drawer already carries `border border-line` unconditionally,
+     and `line` is lighter than `surface` above — that hairline becomes a real
+     "catches light" edge on its own, which is most of the elevation cue here;
+     these just carry the rest. */
+  --shadow-xs: 0 1px 1px rgb(0 0 0 / 0.12);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.16), 0 1px 1px rgb(0 0 0 / 0.1);
+  --shadow-md: 0 2px 4px rgb(0 0 0 / 0.16), 0 4px 12px rgb(0 0 0 / 0.2);
+  --shadow-lg: 0 4px 8px rgb(0 0 0 / 0.2), 0 12px 28px rgb(0 0 0 / 0.28);
+  --shadow-xl: 0 8px 16px rgb(0 0 0 / 0.24), 0 24px 48px rgb(0 0 0 / 0.36);
 }
 
 /* ==========================================================================

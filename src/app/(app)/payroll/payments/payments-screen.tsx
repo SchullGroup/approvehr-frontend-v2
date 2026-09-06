@@ -250,7 +250,7 @@ export function PaymentsScreen() {
           <p className="text-body-sm text-muted">
             &ldquo;Available&rdquo; is the balance less what is already
             promised. Two payrolls approved in one morning must not both be told
-            the same money is theirs — which is what a single balance figure
+            the same money is theirs, which is what a single balance figure
             would do.
           </p>
         )}

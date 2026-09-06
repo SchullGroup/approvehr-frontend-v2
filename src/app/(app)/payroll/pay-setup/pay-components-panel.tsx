@@ -142,7 +142,7 @@ export function PayComponentsPanel({
         {DEMO_ENABLED && !lines.connected && !lines.loading && (
           <Callout tone="warning" title="Demo data, this browser only">
             The take-home figure runs the real payroll engine, which lives on the
-            server — offline this panel shows the lines and totals only.
+            server: offline this panel shows the lines and totals only.
           </Callout>
         )}
 
@@ -238,11 +238,11 @@ export function PayComponentsPanel({
               lines.loading
                 ? undefined
                 : lines.editable
-                  ? "Add a car allowance, a cooperative deduction, a salary advance being recovered — anything that is not the base salary."
+                  ? "Add anything that is not the base salary: a car allowance, a cooperative deduction, a salary advance being recovered."
                   : /* Without `MANAGE_PAY_STRUCTURE` there is no Add button, so
                        an instruction to add one is an instruction to nobody.
                        State what the emptiness means instead. */
-                    "Nothing is added to or taken off this salary — no car allowance, no cooperative deduction, no advance being recovered."
+                    "Nothing is added to or taken off this salary: no car allowance, no cooperative deduction, no advance being recovered."
             }
             action={
               !lines.loading && lines.editable ? (
@@ -460,8 +460,7 @@ function ChangeEffect({
           {change.employerCostKobo === 0
             ? "nothing more"
             : `${signedMoney(change.employerCostKobo)} a month`}
-        </span>{" "}
-        — salary plus the employer pension on it.
+        </span>{" "}: salary plus the employer pension on it.
       </p>
 
       {note && <p className="mt-2 text-body-sm text-body">{note}</p>}
@@ -616,7 +615,7 @@ function AddLineDialog({
       <div className="flex flex-col gap-5">
         {DEMO_ENABLED && !library.connected && !library.loading && (
           <Callout tone="warning" title="Demo data, this browser only">
-            Adding a line needs the API — pay set in a browser would never reach
+            Adding a line needs the API: pay set in a browser would never reach
             a payroll run.
           </Callout>
         )}
@@ -654,14 +653,14 @@ function AddLineDialog({
               }));
             }}
           >
-            <optgroup label="Allowances — added to pay">
+            <optgroup label="Allowances (added to pay)">
               {allowances.map((row) => (
                 <option key={row.id} value={row.id}>
                   {row.name}
                 </option>
               ))}
             </optgroup>
-            <optgroup label="Deductions — taken off pay">
+            <optgroup label="Deductions (taken off pay)">
               {deductions.map((row) => (
                 <option key={row.id} value={row.id}>
                   {row.name}
@@ -885,14 +884,13 @@ function OfflineEffect({
         <p className="text-body-sm leading-relaxed text-body">
           The take-home figure needs the API. It recomputes PAYE, pension and NHF
           with this line&apos;s tax and pension settings, and there is one
-          implementation of that — on the server, the same one the payroll run
+          implementation of that, on the server, the same one the payroll run
           uses.
         </p>
       ) : (
         <p className="text-body-sm text-ink">
           Take-home {exact < 0 ? "falls" : "rises"} by exactly{" "}
-          <span className="tabular font-semibold">{money(Math.abs(exact))}</span>{" "}
-          — an after-tax deduction does not change PAYE, pension or NHF, so
+          <span className="tabular font-semibold">{money(Math.abs(exact))}</span>{" "}: an after-tax deduction does not change PAYE, pension or NHF, so
           adding or stopping one moves take-home by its own amount and nothing
           else.
         </p>

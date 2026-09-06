@@ -89,7 +89,7 @@ const FAILURES: Record<
   unavailable: {
     title: "Your device could not find its position",
     message:
-      "The location request went through but came back empty — usually indoors, or on a machine with no GPS or wifi. Try again near a window or outside, or ask your HR team to record it for you.",
+      "The location request went through but came back empty: usually indoors, or on a machine with no GPS or wifi. Try again near a window or outside, or ask your HR team to record it for you.",
   },
   timeout: {
     title: "Finding your location took too long",

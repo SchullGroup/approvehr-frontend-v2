@@ -124,7 +124,7 @@ export function StepIndicator({
                   "flex size-7 shrink-0 items-center justify-center rounded-full border text-meta font-semibold tabular transition-colors duration-200",
                   isCurrent &&
                     "border-accent bg-accent text-white ring-4 ring-accent/20",
-                  isDone && !isCurrent && "border-success bg-success text-ink",
+                  isDone && !isCurrent && "border-success bg-success text-fill-strong",
                   !isDone &&
                     !isCurrent &&
                     "border-line-strong bg-surface text-muted",

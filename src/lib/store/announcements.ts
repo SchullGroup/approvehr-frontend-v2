@@ -54,7 +54,7 @@ function refuse(message: string): never {
 }
 
 const WRITE_REFUSAL =
-  "Posting a notice is the company speaking to its staff. That needs the API — " +
+  "Posting a notice is the company speaking to its staff. That needs the API: " +
   "a notice written into this browser would reach nobody.";
 
 /* ------------------------------------------------------------------ reading */

@@ -169,7 +169,7 @@ export function HelpdeskSettingsScreen() {
                 compact
                 icon={<Tag aria-hidden="true" />}
                 title="No categories yet"
-                description="Requests still reach the help desk without one — they arrive unsorted, and nothing routes them."
+                description="Requests still reach the help desk without one: they arrive unsorted, and nothing routes them."
                 {...(canManage
                   ? {
                       action: (
@@ -226,7 +226,7 @@ export function HelpdeskSettingsScreen() {
                 compact
                 icon={<Timer aria-hidden="true" />}
                 title="No targets set"
-                description="Without one, nothing is ever late — a ticket has no promise to measure against."
+                description="Without one, nothing is ever late: a ticket has no promise to measure against."
                 /* The categories block sixty lines up does exactly this and
                    this one simply omitted it: same screen, same permission,
                    same dialog. */
@@ -745,7 +745,7 @@ function SlaDialog({
 
         <p className="text-meta text-muted">
           Both are <strong>working</strong> hours. The clock stops overnight, at
-          the weekend and on your public holidays — so eight hours is the next
+          the weekend and on your public holidays, so eight hours is the next
           working day, not tomorrow morning.
         </p>
       </div>

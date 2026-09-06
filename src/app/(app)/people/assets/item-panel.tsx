@@ -222,9 +222,7 @@ export function ItemPanel({
                     variant="secondary"
                     size="sm"
                     onClick={() => onFixed(detail)}
-                  >
-                    It is fixed — back in the store
-                  </Button>
+                  >It is fixed (back in the store)</Button>
                 )}
 
               {detail.status === "RETIRED" ? (

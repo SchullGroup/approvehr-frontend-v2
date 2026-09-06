@@ -329,7 +329,7 @@ export function InviteToSignIn({
         {revoked && (
           <Callout tone="info" title="That invitation is cancelled">
             The old link no longer works. If the address was wrong, fix it on
-            their record first — an invitation always goes to the address on
+            their record first: an invitation always goes to the address on
             file.
           </Callout>
         )}
@@ -378,7 +378,7 @@ export function InviteToSignIn({
               <Callout tone="warning" title="Their record says something else">
                 The record now reads{" "}
                 <span className="font-medium">{email}</span>. Sending it again
-                still goes to {pending.email} — cancel the invitation and send a
+                still goes to {pending.email}. Cancel the invitation and send a
                 new one to use the address on the record.
               </Callout>
             )}

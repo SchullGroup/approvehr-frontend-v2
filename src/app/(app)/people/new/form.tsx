@@ -151,10 +151,7 @@ const BANKS = NIGERIAN_BANKS;
 const PFAS = PENSION_PROVIDERS;
 
 /** Titles and one-line purposes for the three opt-in groups. */
-const GROUP_COPY: Record<
-  RecordFieldKey,
-  { title: string; purpose: string }
-> = {
+const GROUP_COPY: Record<RecordFieldKey, { title: string; purpose: string }> = {
   taxSetup: {
     title: "Set up tax",
     purpose: "Which state gets their PAYE, their TIN, and the rent they pay.",
@@ -259,7 +256,9 @@ export function NewEmployeeForm() {
    * and starting the form again — so in practice people left the field blank and
    * the record went in incomplete.
    */
-  const [creating, setCreating] = useState<null | "department" | "location">(null);
+  const [creating, setCreating] = useState<null | "department" | "location">(
+    null,
+  );
   const [newName, setNewName] = useState("");
   const [creatingBusy, setCreatingBusy] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -285,7 +284,9 @@ export function NewEmployeeForm() {
       /* The API's own words: it names a clash by the name that clashed, and says
          when the thing exists but is switched off — which is a different fix. */
       setCreateError(
-        failure instanceof Error ? failure.message : "That could not be created.",
+        failure instanceof Error
+          ? failure.message
+          : "That could not be created.",
       );
     } finally {
       setCreatingBusy(false);
@@ -340,7 +341,10 @@ export function NewEmployeeForm() {
     advisory: string[];
   } | null>(null);
 
-  const set = <K extends keyof EmployeeDraft>(key: K, value: EmployeeDraft[K]) => {
+  const set = <K extends keyof EmployeeDraft>(
+    key: K,
+    value: EmployeeDraft[K],
+  ) => {
     setDraft((d) => ({ ...d, [key]: value }));
     setErrors((x) => x.filter((e) => e.field !== key));
   };
@@ -426,7 +430,8 @@ export function NewEmployeeForm() {
   const departmentName =
     departments.flat.find((d) => d.id === draft.departmentId)?.name ?? null;
   const locationName =
-    locations.locations.find((l) => l.id === draft.workLocationId)?.name ?? null;
+    locations.locations.find((l) => l.id === draft.workLocationId)?.name ??
+    null;
 
   /**
    * Which statuses and employment types may be *set*.
@@ -473,7 +478,9 @@ export function NewEmployeeForm() {
     tin: draft.tin || null,
   });
   const wouldBlock = payrollGaps.filter((g) => g.blocking).map((g) => g.label);
-  const wouldAdvise = payrollGaps.filter((g) => !g.blocking).map((g) => g.label);
+  const wouldAdvise = payrollGaps
+    .filter((g) => !g.blocking)
+    .map((g) => g.label);
 
   /* ---------------------------------------------------------- validation */
 
@@ -532,7 +539,8 @@ export function NewEmployeeForm() {
       if (draft.grossMonthly.trim() && (gross === null || gross <= 0))
         found.push({
           field: "grossMonthly",
-          message: "That is not an amount. Leave it blank if it is not agreed yet.",
+          message:
+            "That is not an amount. Leave it blank if it is not agreed yet.",
         });
     };
     const optional = () => {
@@ -624,7 +632,7 @@ export function NewEmployeeForm() {
       title: "Draft saved",
       tone: "success",
       detail:
-        "Come back to Add a new staff to pick it up. In this browser only — it will not be here on another device.",
+        "Come back to Add a new staff to pick it up. In this browser only. It will not be here on another device.",
     });
   }
 
@@ -766,7 +774,9 @@ export function NewEmployeeForm() {
       ...(draft.email.trim() ? { email: draft.email.trim() } : {}),
       ...(draft.phone.trim() ? { phone: draft.phone.trim() } : {}),
       ...(draft.dateOfBirth ? { dateOfBirth: draft.dateOfBirth } : {}),
-      ...(draft.middleName.trim() ? { middleName: draft.middleName.trim() } : {}),
+      ...(draft.middleName.trim()
+        ? { middleName: draft.middleName.trim() }
+        : {}),
       ...(draft.departmentId ? { departmentId: draft.departmentId } : {}),
       ...(draft.workLocationId ? { workLocationId: draft.workLocationId } : {}),
       ...(draft.managerId ? { managerId: draft.managerId } : {}),
@@ -774,7 +784,9 @@ export function NewEmployeeForm() {
       ...(draft.bankAccount.trim()
         ? { bankAccount: draft.bankAccount.trim() }
         : {}),
-      ...(draft.pensionPin.trim() ? { pensionPin: draft.pensionPin.trim() } : {}),
+      ...(draft.pensionPin.trim()
+        ? { pensionPin: draft.pensionPin.trim() }
+        : {}),
       ...(draft.pensionProvider
         ? { pensionProvider: draft.pensionProvider }
         : {}),
@@ -782,10 +794,14 @@ export function NewEmployeeForm() {
       ...(draft.nhfNumber.trim() ? { nhfNumber: draft.nhfNumber.trim() } : {}),
       /* Omitted rather than sent empty: the API's schemas treat an absent field
          as "leave it alone" and an empty string as a value. */
-      ...(draft.addressLine.trim() ? { addressLine: draft.addressLine.trim() } : {}),
+      ...(draft.addressLine.trim()
+        ? { addressLine: draft.addressLine.trim() }
+        : {}),
       ...(draft.nin.trim() ? { nin: draft.nin.trim() } : {}),
       ...(draft.stateOfOrigin ? { stateOfOrigin: draft.stateOfOrigin } : {}),
-      ...(draft.lgaOfOrigin.trim() ? { lgaOfOrigin: draft.lgaOfOrigin.trim() } : {}),
+      ...(draft.lgaOfOrigin.trim()
+        ? { lgaOfOrigin: draft.lgaOfOrigin.trim() }
+        : {}),
       ...(draft.religion.trim() ? { religion: draft.religion.trim() } : {}),
       ...(annualRentKobo === null ? {} : { annualRentKobo }),
     });
@@ -884,11 +900,11 @@ export function NewEmployeeForm() {
         {!connected && DEMO_ENABLED && (
           <div className="flex flex-wrap items-center gap-2">
             <Badge tone="warning" size="sm" dot>
-              Saves in this browser only — demo data
+              Saves in this browser only: demo data
             </Badge>
             <span className="text-meta text-muted">
-              No API is answering, so this record will not reach a payroll run or
-              another device.
+              No API is answering, so this record will not reach a payroll run
+              or another device.
             </span>
           </div>
         )}
@@ -900,14 +916,24 @@ export function NewEmployeeForm() {
               {drafts.saved.draft.firstName.trim()
                 ? ` for ${drafts.saved.draft.firstName.trim()}`
                 : ""}
-              . Drafts live in this browser only — they are not on your other
+              . Drafts live in this browser only: they are not on your other
               devices and clearing site data removes them.
             </span>
             <span className="mt-3 flex flex-wrap gap-2">
-              <Button type="button" variant="accent" size="sm" onClick={resumeDraft}>
+              <Button
+                type="button"
+                variant="accent"
+                size="sm"
+                onClick={resumeDraft}
+              >
                 Carry on with it
               </Button>
-              <Button type="button" variant="ghost" size="sm" onClick={discardDraft}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={discardDraft}
+              >
                 <Trash2 aria-hidden="true" className="size-3.5" />
                 Discard
               </Button>
@@ -931,9 +957,10 @@ export function NewEmployeeForm() {
               /* The legend, once, near the top. Not repeated per field — the
                  asterisk is the reminder and this is the explanation. */
               <p className="border-t border-line pt-4 text-meta text-muted">
-                Fields marked <span className="font-semibold text-danger-text">*</span>{" "}
-                are required. Everything else can follow later, and the record
-                saves without it.
+                Fields marked{" "}
+                <span className="font-semibold text-danger-text">*</span> are
+                required. Everything else can follow later, and the record saves
+                without it.
               </p>
             )}
           </CardBody>
@@ -988,7 +1015,11 @@ export function NewEmployeeForm() {
                   description="Their name is the only thing needed here. The rest helps them get their payslip."
                 />
                 <CardBody className="grid gap-5 sm:grid-cols-2">
-                  <Field label="First name" required error={errorFor("firstName")}>
+                  <Field
+                    label="First name"
+                    required
+                    error={errorFor("firstName")}
+                  >
                     <Input
                       data-employee-field="firstName"
                       value={draft.firstName}
@@ -996,14 +1027,22 @@ export function NewEmployeeForm() {
                       autoFocus
                     />
                   </Field>
-                  <Field label="Last name" required error={errorFor("lastName")}>
+                  <Field
+                    label="Last name"
+                    required
+                    error={errorFor("lastName")}
+                  >
                     <Input
                       data-employee-field="lastName"
                       value={draft.lastName}
                       onChange={(e) => set("lastName", e.target.value)}
                     />
                   </Field>
-                  <Field label="Middle name" optional error={errorFor("middleName")}>
+                  <Field
+                    label="Middle name"
+                    optional
+                    error={errorFor("middleName")}
+                  >
                     <Input
                       data-employee-field="middleName"
                       value={draft.middleName}
@@ -1042,7 +1081,11 @@ export function NewEmployeeForm() {
                       placeholder="+234 803 000 0000"
                     />
                   </Field>
-                  <Field label="Date of birth" optional error={errorFor("dateOfBirth")}>
+                  <Field
+                    label="Date of birth"
+                    optional
+                    error={errorFor("dateOfBirth")}
+                  >
                     <Input
                       data-employee-field="dateOfBirth"
                       type="date"
@@ -1050,7 +1093,11 @@ export function NewEmployeeForm() {
                       onChange={(e) => set("dateOfBirth", e.target.value)}
                     />
                   </Field>
-                  <Field label="Home address" optional error={errorFor("addressLine")}>
+                  <Field
+                    label="Home address"
+                    optional
+                    error={errorFor("addressLine")}
+                  >
                     <Input
                       data-employee-field="addressLine"
                       value={draft.addressLine}
@@ -1068,7 +1115,11 @@ export function NewEmployeeForm() {
                       placeholder="12345678901"
                     />
                   </Field>
-                  <Field label="State of origin" optional error={errorFor("stateOfOrigin")}>
+                  <Field
+                    label="State of origin"
+                    optional
+                    error={errorFor("stateOfOrigin")}
+                  >
                     <Picker
                       data-employee-field="stateOfOrigin"
                       value={draft.stateOfOrigin}
@@ -1146,7 +1197,11 @@ export function NewEmployeeForm() {
                   description="With this and their name, payroll can pay them. Everything after this step is optional."
                 />
                 <CardBody className="grid gap-5 sm:grid-cols-2">
-                  <Field label="Job title" required error={errorFor("jobTitle")}>
+                  <Field
+                    label="Job title"
+                    required
+                    error={errorFor("jobTitle")}
+                  >
                     <Input
                       data-employee-field="jobTitle"
                       value={draft.jobTitle}
@@ -1155,7 +1210,11 @@ export function NewEmployeeForm() {
                       autoFocus
                     />
                   </Field>
-                  <Field label="Start date" required error={errorFor("startDate")}>
+                  <Field
+                    label="Start date"
+                    required
+                    error={errorFor("startDate")}
+                  >
                     <Input
                       data-employee-field="startDate"
                       type="date"
@@ -1367,7 +1426,7 @@ export function NewEmployeeForm() {
                           label="Tax state"
                           help={
                             !orgTax.loading && !orgTax.taxState
-                              ? "Which state revenue service receives their PAYE. Your company has no default yet — set one below, or pick one for this person here."
+                              ? "Which state revenue service receives their PAYE. Your company has no default yet. Set one below, or pick one for this person here."
                               : "Which state revenue service receives their PAYE. Left blank, your company's own state is used."
                           }
                         >
@@ -1375,7 +1434,9 @@ export function NewEmployeeForm() {
                             value={draft.taxState}
                             onChange={(e) => set("taxState", e.target.value)}
                           >
-                            <option value="">Use the company&rsquo;s state</option>
+                            <option value="">
+                              Use the company&rsquo;s state
+                            </option>
                             {TAX_STATES.map((s) => (
                               <option key={s} value={s}>
                                 {s}
@@ -1390,13 +1451,15 @@ export function NewEmployeeForm() {
                             </p>
                             <p className="mt-1 text-meta text-muted">
                               Nobody has to pick one for this person if the
-                              company has its own — set it once, here, and it
+                              company has its own. Set it once, here, and it
                               applies to everybody after this.
                             </p>
                             <div className="mt-3 flex flex-wrap items-end gap-2">
                               <Select
                                 value={settingOrgTax}
-                                onChange={(e) => setSettingOrgTax(e.target.value)}
+                                onChange={(e) =>
+                                  setSettingOrgTax(e.target.value)
+                                }
                                 className="max-w-xs"
                               >
                                 <option value="">Choose a state</option>
@@ -1441,7 +1504,7 @@ export function NewEmployeeForm() {
                           label="Yearly rent they pay"
                           className="sm:col-span-2"
                           error={errorFor("annualRent")}
-                          help="Since January 2026 there is no general tax-free allowance — relief is 20% of the rent they declare, up to ₦500,000 a year. Declaring nothing means they get no personal relief and pay more tax."
+                          help="Since January 2026 there is no general tax-free allowance: relief is 20% of the rent they declare, up to ₦500,000 a year. Declaring nothing means they get no personal relief and pay more tax."
                         >
                           <Input
                             data-employee-field="annualRent"
@@ -1460,7 +1523,10 @@ export function NewEmployeeForm() {
                       id="pensionSetup"
                       open={open.pensionSetup}
                       onToggle={() =>
-                        setOpen((o) => ({ ...o, pensionSetup: !o.pensionSetup }))
+                        setOpen((o) => ({
+                          ...o,
+                          pensionSetup: !o.pensionSetup,
+                        }))
                       }
                       filled={
                         [
@@ -1546,7 +1612,6 @@ export function NewEmployeeForm() {
                       </div>
                     </OptionalGroup>
                   )}
-
                 </CardBody>
               </Card>
             )}
@@ -1606,9 +1671,11 @@ export function NewEmployeeForm() {
                               [
                                 "Yearly rent declared",
                                 rentDeclared ? (
-                                  <Money amount={Number(money(draft.annualRent))} />
+                                  <Money
+                                    amount={Number(money(draft.annualRent))}
+                                  />
                                 ) : (
-                                  "Nothing declared — no personal relief"
+                                  "Nothing declared: no personal relief"
                                 ),
                               ],
                             ] as [string, React.ReactNode][])
@@ -1706,8 +1773,18 @@ export function NewEmployeeForm() {
             <ul className="flex flex-col gap-2">
               {(
                 [
-                  ["Bank account", Boolean(draft.bankAccount), "bankDetails", "bankAccount"],
-                  ["Pension PIN", Boolean(draft.pensionPin), "pensionSetup", "pensionPin"],
+                  [
+                    "Bank account",
+                    Boolean(draft.bankAccount),
+                    "bankDetails",
+                    "bankAccount",
+                  ],
+                  [
+                    "Pension PIN",
+                    Boolean(draft.pensionPin),
+                    "pensionSetup",
+                    "pensionPin",
+                  ],
                   ["TIN", Boolean(draft.tin), "taxSetup", "tin"],
                 ] as [string, boolean, RecordFieldKey, PayrollGap["field"]][]
               ).map(([label, done, key, field]) => {
@@ -1717,17 +1794,24 @@ export function NewEmployeeForm() {
                    all three in the same voice. */
                 const gap = payrollGaps.find((g) => g.field === field);
                 return (
-                  <li key={label} className="flex items-start gap-2.5 text-body-sm">
+                  <li
+                    key={label}
+                    className="flex items-start gap-2.5 text-body-sm"
+                  >
                     <span
                       className={cn(
                         "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full",
                         done
-                          ? "bg-success text-ink"
+                          ? "bg-success text-fill-strong"
                           : "border border-line-strong",
                       )}
                     >
                       {done ? (
-                        <Check aria-hidden="true" className="size-2.5" strokeWidth={3} />
+                        <Check
+                          aria-hidden="true"
+                          className="size-2.5"
+                          strokeWidth={3}
+                        />
                       ) : null}
                     </span>
                     <span className={done ? "text-body" : "text-muted"}>
@@ -1740,7 +1824,7 @@ export function NewEmployeeForm() {
                           mind. */}
                       {!done && !enabled[key] && (
                         <span className="block text-meta text-faint">
-                          Not asked for here — switched off in Settings
+                          Not asked for here: switched off in Settings
                         </span>
                       )}
                       {!done && enabled[key] && gap && (
@@ -1775,8 +1859,8 @@ export function NewEmployeeForm() {
               <Badge tone="success" size="sm">
                 Active
               </Badge>
-              , so they appear in the directory and on the next payroll
-              straight away.
+              , so they appear in the directory and on the next payroll straight
+              away.
             </p>
           </CardBody>
         </Card>
@@ -1798,9 +1882,7 @@ export function NewEmployeeForm() {
         onClose={() => setCreating(null)}
         size="sm"
         title={
-          creating === "department"
-            ? "New department"
-            : "New work location"
+          creating === "department" ? "New department" : "New work location"
         }
         footer={
           <div className="flex justify-end gap-2">
@@ -1818,7 +1900,9 @@ export function NewEmployeeForm() {
         }
       >
         <Field
-          label={creating === "department" ? "Department name" : "Location name"}
+          label={
+            creating === "department" ? "Department name" : "Location name"
+          }
           required
           {...(createError ? { error: createError } : {})}
         >
@@ -1837,9 +1921,7 @@ export function NewEmployeeForm() {
                 void commitCreate();
               }
             }}
-            placeholder={
-              creating === "department" ? "Finance" : "Head office"
-            }
+            placeholder={creating === "department" ? "Finance" : "Head office"}
           />
         </Field>
       </Modal>
@@ -1860,38 +1942,39 @@ export function NewEmployeeForm() {
               : "Their record is saved in this browser. It will not reach payroll or another device."}
           </p>
 
-          {added && (added.blocking.length > 0 || added.advisory.length > 0) && (
-            <div className="flex w-full flex-col gap-2 text-left text-meta leading-relaxed">
-              {added.blocking.length > 0 && (
-                <p className="rounded-md bg-canvas p-3 text-muted">
-                  Still needed to pay them: {added.blocking.join(", ")}. Payroll
-                  will hold them back until{" "}
-                  {added.blocking.length > 1 ? "these are" : "this is"} on the
-                  record —{" "}
-                  <Link
-                    href={`/people/${added.id}`}
-                    className="font-medium text-accent-text underline decoration-accent-line underline-offset-4 hover:decoration-accent"
-                  >
-                    add {added.blocking.length > 1 ? "them" : "it"} now
-                  </Link>
-                  .
-                </p>
-              )}
-              {added.advisory.length > 0 && (
-                <p className="rounded-md bg-canvas p-3 text-muted">
-                  Also worth adding: {added.advisory.join(", ")}. This does not
-                  hold their pay back —{" "}
-                  <Link
-                    href={`/people/${added.id}`}
-                    className="font-medium text-accent-text underline decoration-accent-line underline-offset-4 hover:decoration-accent"
-                  >
-                    add {added.advisory.length > 1 ? "them" : "it"} now
-                  </Link>
-                  .
-                </p>
-              )}
-            </div>
-          )}
+          {added &&
+            (added.blocking.length > 0 || added.advisory.length > 0) && (
+              <div className="flex w-full flex-col gap-2 text-left text-meta leading-relaxed">
+                {added.blocking.length > 0 && (
+                  <p className="rounded-md bg-canvas p-3 text-muted">
+                    Still needed to pay them: {added.blocking.join(", ")}.
+                    Payroll will hold them back until{" "}
+                    {added.blocking.length > 1 ? "these are" : "this is"} on the
+                    record —{" "}
+                    <Link
+                      href={`/people/${added.id}`}
+                      className="font-medium text-accent-text underline decoration-accent-line underline-offset-4 hover:decoration-accent"
+                    >
+                      add {added.blocking.length > 1 ? "them" : "it"} now
+                    </Link>
+                    .
+                  </p>
+                )}
+                {added.advisory.length > 0 && (
+                  <p className="rounded-md bg-canvas p-3 text-muted">
+                    Also worth adding: {added.advisory.join(", ")}. This does
+                    not hold their pay back —{" "}
+                    <Link
+                      href={`/people/${added.id}`}
+                      className="font-medium text-accent-text underline decoration-accent-line underline-offset-4 hover:decoration-accent"
+                    >
+                      add {added.advisory.length > 1 ? "them" : "it"} now
+                    </Link>
+                    .
+                  </p>
+                )}
+              </div>
+            )}
 
           <div className="flex w-full flex-col gap-2 sm:flex-row">
             <Button
@@ -1907,7 +1990,11 @@ export function NewEmployeeForm() {
               Add another
             </Button>
             {added && (
-              <ButtonLink href={`/people/${added.id}`} variant="secondary" block>
+              <ButtonLink
+                href={`/people/${added.id}`}
+                variant="secondary"
+                block
+              >
                 View their record
               </ButtonLink>
             )}
@@ -2055,7 +2142,7 @@ function FirstPayslip({
         {!available ? (
           <p className="text-body-sm leading-relaxed text-muted">
             PAYE, pension and NHF are worked out by the payroll engine on the
-            server. There is no second copy of it in this browser — there was
+            server. There is no second copy of it in this browser: there was
             once, and it spent a while quoting the wrong year&rsquo;s tax. The
             record still saves; the figures appear once the API is reachable.
           </p>

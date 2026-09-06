@@ -634,7 +634,7 @@ function employeeRowRules(ctx: RowContext<EmployeeField>): void {
     if (first !== undefined) {
       error(
         "employeeNo",
-        `${employeeNo} is already used on row ${first}. Two people cannot share a staff number — change one of them.`,
+        `${employeeNo} is already used on row ${first}. Two people cannot share a staff number. Change one of them.`,
       );
     }
   }
@@ -646,7 +646,7 @@ function employeeRowRules(ctx: RowContext<EmployeeField>): void {
   ) {
     error(
       "payFrequency",
-      `This says "${frequency}". The pay column has to be a monthly figure — we will not divide a yearly one by twelve and guess.`,
+      `This says "${frequency}". The pay column has to be a monthly figure: we will not divide a yearly one by twelve and guess.`,
     );
   }
 
@@ -717,7 +717,7 @@ function employeeRowRules(ctx: RowContext<EmployeeField>): void {
   if (pin !== "" && !/^pen\d{9,12}$/i.test(pin.replace(/[\s-]/g, ""))) {
     warn(
       "pensionPin",
-      `"${pin}" is not in PenCom's format — PEN then 9 to 12 digits. They will import, but the pension schedule will be refused.`,
+      `"${pin}" is not in PenCom's format: PEN then 9 to 12 digits. They will import, but the pension schedule will be refused.`,
     );
   }
 
@@ -760,12 +760,12 @@ function employeeFileNotes(counts: Readonly<Record<string, number>>): string[] {
 
   if (ambiguousDates > 0) {
     notes.push(
-      `${ambiguousDates} ${ambiguousDates === 1 ? "date could" : "dates could"} be read two ways — 03/04/2021 is either 3 April or 4 March. We read the day first.`,
+      `${ambiguousDates} ${ambiguousDates === 1 ? "date could" : "dates could"} be read two ways: 03/04/2021 is either 3 April or 4 March. We read the day first.`,
     );
   }
   if (inactiveRows > 0) {
     notes.push(
-      `${inactiveRows} ${inactiveRows === 1 ? "person is" : "people are"} marked "inactive". We record that as suspended, not as having left — nobody gave a leaving date.`,
+      `${inactiveRows} ${inactiveRows === 1 ? "person is" : "people are"} marked "inactive". We record that as suspended, not as having left: nobody gave a leaving date.`,
     );
   }
   if (typeDisagreements > 0) {

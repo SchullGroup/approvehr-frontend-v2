@@ -970,7 +970,7 @@ function demoComplete(id: string): DemoExit {
     throw refuse(
       422,
       "not_ready",
-      `${person?.firstName ?? "This"}'s exit cannot close yet — ${count} ` +
+      `${person?.firstName ?? "This"}'s exit cannot close yet, ${count} ` +
         `${count === 1 ? "thing" : "things"} outstanding: ${ready.blockers.join("; ")}.`,
       { blockers: ready.blockers },
     );

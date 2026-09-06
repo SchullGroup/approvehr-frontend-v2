@@ -97,7 +97,7 @@ export function SignatureDoc({ catalogue }: { catalogue: CatalogueView }) {
               <p className="text-body-sm text-body">
                 If your own digest of the signed string matches the signature
                 below, your verification code is right and you are hashing the
-                wrong bytes — almost always a re-serialised body instead of the
+                wrong bytes, almost always a re-serialised body instead of the
                 raw one.
               </p>
               <Example label="Secret" value={signature.example.secret} />

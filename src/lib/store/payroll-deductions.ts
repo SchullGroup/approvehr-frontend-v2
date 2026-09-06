@@ -105,7 +105,7 @@ const DEMO_SETTINGS: ApiPayrollSettings = {
 export const DEMO_REFUSAL =
   "Switching a statutory deduction off changes what every payslip in the " +
   "company deducts, so it needs the API. The payslips in this demo are fixed " +
-  "illustrative figures and a switch here would move none of them \u2014 the " +
+  "illustrative figures and a switch here would move none of them: the " +
   "demo payroll run refuses instead of showing figures that contradict this " +
   "screen. What each answer commits you to under Nigerian law is written on " +
   "the server, beside the engine that reads it, so it is not repeated here.";

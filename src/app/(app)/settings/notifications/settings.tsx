@@ -273,7 +273,7 @@ function Rules() {
 
         {silenced.length > 0 && protectedOff.length === 0 && (
           <Callout tone="info" title={`${silenced.length} events are silent`}>
-            Nothing is sent for these. They still happen and are still recorded —
+            Nothing is sent for these. They still happen and are still recorded:
             people just have to come looking.
           </Callout>
         )}
@@ -388,7 +388,7 @@ function Rules() {
                   className="mt-0.5 size-4 shrink-0 text-faint"
                 />
                 <span>
-                  Sending is not wired up in this prototype — there is no mail
+                  Sending is not wired up in this prototype: there is no mail
                   server behind it. These are the rules the product will send on,
                   recorded honestly rather than demonstrated with a fake inbox.
                 </span>

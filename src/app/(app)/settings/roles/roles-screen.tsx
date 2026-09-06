@@ -174,7 +174,7 @@ export function RolesScreen({
             <EmptyState
               icon={<ShieldCheck aria-hidden="true" />}
               title="Roles are not part of your access"
-              description="Who can do what — and who can change it — is kept to the people who manage access, because it decides who is able to move money. Ask whoever set up your account if you need something you cannot reach."
+              description="Who can do what (and who can change it) is kept to the people who manage access, because it decides who is able to move money. Ask whoever set up your account if you need something you cannot reach."
               action={
                 <ButtonLink href="/settings" variant="secondary">
                   Back to settings
@@ -426,7 +426,7 @@ export function RolesScreen({
         loading={removing}
         body={
           deleting && deleting.memberCount > 0
-            ? `${deleting.memberCount} ${deleting.memberCount === 1 ? "person is" : "people are"} in it. Move them to another role first — this will refuse until you do.`
+            ? `${deleting.memberCount} ${deleting.memberCount === 1 ? "person is" : "people are"} in it. Move them to another role first: this will refuse until you do.`
             : "A role is not referenced by a past payslip, so this is a real delete rather than an archive. Nothing else changes."
         }
         onConfirm={() => {
@@ -458,7 +458,7 @@ export function RolesScreen({
         confirmLabel="Revoke"
         tone="danger"
         loading={revokingBusy}
-        body="An invitation emailed to a work address is a live key to your company's payroll until somebody opens it. Revoking deletes it — inviting them again starts fresh."
+        body="An invitation emailed to a work address is a live key to your company's payroll until somebody opens it. Revoking deletes it: inviting them again starts fresh."
         onConfirm={() => {
           if (!revoking) return;
           setRevokingBusy(true);
@@ -762,7 +762,7 @@ function YourAccess({
 
         {held.length === 0 ? (
           <p className="text-body-sm leading-relaxed text-muted">
-            Nothing yet — you can see your own record, your own payslips and
+            Nothing yet: you can see your own record, your own payslips and
             your own requests.
           </p>
         ) : (
@@ -775,7 +775,7 @@ function YourAccess({
                     {labels.get(permission) ?? permission}
                   </span>
                   {via.length > 0 && (
-                    <span className="text-muted"> — via {via.join(", ")}</span>
+                    <span className="text-muted">, via {via.join(", ")}</span>
                   )}
                 </li>
               );
@@ -820,7 +820,7 @@ function PreviewCard({
             onChange(value === "" ? null : value);
           }}
         >
-          <option value="">Yourself — everything switched on</option>
+          <option value="">Yourself (everything switched on)</option>
           {roles.map((role) => (
             <option key={role.id} value={role.id}>
               {role.name}

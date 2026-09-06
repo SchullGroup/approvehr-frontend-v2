@@ -270,8 +270,7 @@ export function ReviewFormModal({
             className="font-medium text-accent-text underline-offset-2 hover:underline"
           >
             See what came of this
-          </Link>{" "}
-          — the mark, and whether it has been signed off.
+          </Link>{" "}, the mark, and whether it has been signed off.
         </p>
       )}
       <div className="flex flex-col gap-5">
@@ -419,7 +418,7 @@ export function ReviewFormModal({
                   state={development}
                   onDismiss={development.clear}
                   useLabel="Add to my notes"
-                  emptyHint={`${review.subjectName} never sees this — it is a note for you.`}
+                  emptyHint={`${review.subjectName} never sees this: it is a note for you.`}
                   /* Appended rather than replacing: an appraiser has usually
                      already written something, and a suggestion that wiped it
                      would lose the only part of this form nobody can regenerate. */

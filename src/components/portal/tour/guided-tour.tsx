@@ -106,7 +106,7 @@ const STEPS: readonly Step[] = [
     title: "Anything waiting on you",
     body:
       "Leave, expenses, staff loans and payroll all put what needs a decision " +
-      "in this one queue, oldest deadline first — so there is no module to " +
+      "in this one queue, oldest deadline first, so there is no module to " +
       "remember to check.",
     target: ['[data-tour="nav-item:/approvals"]', '[data-tour="nav"]'],
     when: ({ canApprove }) => canApprove,
@@ -126,8 +126,8 @@ const STEPS: readonly Step[] = [
     id: "settings",
     title: "What is still to set up",
     body:
-      "Settings keeps a checklist of what a payroll needs before it can run — " +
-      "work locations, leave, pay, who can approve — and marks off what you " +
+      "Settings keeps a checklist of what a payroll needs before it can run: " +
+      "work locations, leave, pay, who can approve, and marks off what you " +
       "have already done.",
     target: ['[data-tour="nav-item:/settings"]', '[data-tour="nav"]'],
     when: ({ canSettings }) => canSettings,

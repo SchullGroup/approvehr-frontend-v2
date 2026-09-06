@@ -36,7 +36,7 @@ export function Avatar({
   const tones = {
     neutral: "bg-sunken text-body",
     accent: "bg-accent-soft text-accent-text",
-    ink: "bg-ink text-white",
+    ink: "bg-fill-strong text-white",
   } as const;
 
   if (src) {

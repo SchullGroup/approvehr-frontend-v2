@@ -54,7 +54,7 @@ export function Modal({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       <div
-        className="absolute inset-0 bg-ink/45 backdrop-blur-[2px] animate-fade"
+        className="absolute inset-0 bg-scrim/45 backdrop-blur-[2px] animate-fade"
         onClick={dismissible ? onClose : undefined}
         aria-hidden="true"
       />
@@ -194,7 +194,7 @@ export function Drawer({
       )}
     >
       <div
-        className="absolute inset-0 bg-ink/45 backdrop-blur-[2px] animate-fade"
+        className="absolute inset-0 bg-scrim/45 backdrop-blur-[2px] animate-fade"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -329,8 +329,8 @@ export function ConfirmDialog({
             className={cn(
               "h-10 rounded-md px-4 text-body-sm font-medium text-white disabled:opacity-50",
               tone === "danger"
-                ? "bg-danger-text hover:brightness-110"
-                : "bg-ink hover:bg-ink-soft",
+                ? "bg-danger-fill hover:brightness-110"
+                : "bg-fill-strong hover:bg-fill-strong-hover",
             )}
           >
             {confirmLabel}

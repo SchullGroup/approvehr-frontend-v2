@@ -170,7 +170,7 @@ const LABEL: Record<keyof Draft, string> = {
 const TIER_NOTE = {
   immediate: "Saved as soon as you press save.",
   approval:
-    "Payroll checks these before they change — your salary is paid on them.",
+    "Payroll checks these before they change: your salary is paid on them.",
 };
 
 export function MyDetails({

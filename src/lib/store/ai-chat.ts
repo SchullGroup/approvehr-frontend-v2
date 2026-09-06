@@ -160,12 +160,12 @@ function localRefusal(text: string, turns: readonly ChatTurn[]): string | null {
   if (text.length > MAX_CHAT_MESSAGE_CHARS) {
     return (
       `That message is ${text.length.toLocaleString()} characters. The limit is ` +
-      `${MAX_CHAT_MESSAGE_CHARS.toLocaleString()} — shorten it, or ask in two parts.`
+      `${MAX_CHAT_MESSAGE_CHARS.toLocaleString()}. Shorten it, or ask in two parts.`
     );
   }
   if (turns.length + 1 > MAX_CHAT_MESSAGES) {
     return (
-      "This conversation has reached its length limit. Start a new one — " +
+      "This conversation has reached its length limit. Start a new one: " +
       "nothing here is saved either way."
     );
   }

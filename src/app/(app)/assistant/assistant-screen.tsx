@@ -196,11 +196,7 @@ function WhatItCanDo() {
         </ul>
       )}
 
-      <Callout tone="neutral" title="Nothing happens on its own" className="mt-4">
-        Asking cannot change anything. When a change is worth making the
-        assistant describes it — read out of your own records, not written by
-        it — and it is made only when you press Confirm.
-      </Callout>
+      <Callout tone="neutral" title="Nothing happens on its own" className="mt-4">Asking cannot change anything. When a change is worth making the assistant describes it (read out of your own records, not written by it) and it is made only when you press Confirm.</Callout>
     </Disclosure>
   );
 }

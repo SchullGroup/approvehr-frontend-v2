@@ -259,7 +259,7 @@ function Record({ id }: { id: string }) {
                 />
                 <CardBody>
                   <p className="text-body-sm text-body">
-                    Nobody filled a form in for this person — a recruiter added
+                    Nobody filled a form in for this person: a recruiter added
                     them. There is no application record to read, so everything
                     below is the seeded pipeline.
                   </p>
@@ -278,8 +278,7 @@ function Record({ id }: { id: string }) {
                 <CardBody className="flex flex-col items-start gap-3">
                   <p className="text-body-sm text-body">
                     The stage they are in, their interviews, their scorecards and
-                    any offer were written by the API and cannot be read back —
-                    the pipeline has no endpoint yet. The application above is
+                    any offer were written by the API and cannot be read back: the pipeline has no endpoint yet. The application above is
                     everything this page can show for certain.
                   </p>
                   <ButtonLink href="/hiring" variant="secondary" size="sm">
@@ -872,7 +871,7 @@ function Pipeline({ card }: { card: PipelineCard }) {
                     hour: "2-digit",
                     minute: "2-digit",
                   })}{" "}
-                  · {iv.durationMins} mins ·{" "}
+                  · {iv.durationMins} mins · {" "}
                   {iv.interviewerIds
                     .map((x) => employeeById(x)?.firstName ?? "?")
                     .join(", ")}

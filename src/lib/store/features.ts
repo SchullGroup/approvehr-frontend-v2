@@ -273,7 +273,7 @@ export const SKIP_CONSEQUENCE: Record<
   pensionSetup:
     "Skip this and no pension is deducted or remitted for them, and the payroll run will hold them back until an RSA PIN is added.",
   bankDetails:
-    "Skip this and payroll has nowhere to send the money — you can add the account before the run.",
+    "Skip this and payroll has nowhere to send the money: you can add the account before the run.",
 };
 
 /** Every band, with the wording the wizard uses, for the settings page select. */
@@ -403,7 +403,7 @@ const DEMO_QUESTIONS: ApiWizardQuestion[] = DEMO_ENABLED ? [
       { value: "yes", label: "Yes", sets: {}, payroll: { pensionEnabled: true } },
       {
         value: "no",
-        label: "No \u2014 we have no scheme",
+        label: "No (we have no scheme)",
         sets: {},
         payroll: { pensionEnabled: false },
         consequence:
@@ -455,7 +455,7 @@ const DEMO_QUESTIONS: ApiWizardQuestion[] = DEMO_ENABLED ? [
       { value: "yes", label: "Yes", sets: {}, payroll: { nhfEnabled: true } },
       {
         value: "no",
-        label: "No — we do not run this",
+        label: "No (we do not run this)",
         sets: {},
         payroll: { nhfEnabled: false },
       },

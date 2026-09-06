@@ -171,7 +171,7 @@ export function EmployeeFileDrawer({
                   compact
                   icon={<FileText aria-hidden="true" />}
                   title="Nothing on file"
-                  description="Add a contract, an ID, a certificate — or ask them for one."
+                  description="Add a contract, an ID, a certificate, or ask them for one."
                 />
               ) : (
                 documents.map((document) => (
@@ -278,7 +278,7 @@ export function EmployeeFileDrawer({
         confirmLabel="Remove"
         tone="danger"
         loading={busy}
-        body="Archived, not deleted — it stays under past documents. Refused if it is the answer to a request that was received."
+        body="Archived, not deleted: it stays under past documents. Refused if it is the answer to a request that was received."
         onConfirm={() => {
           if (!removing) return;
           setBusy(true);

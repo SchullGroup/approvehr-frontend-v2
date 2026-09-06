@@ -259,7 +259,7 @@ export function DocumentsScreen() {
             <Field label="Search by document" hideLabel>
               <Input
                 value={q}
-                placeholder="Search by document — work permit, certificate"
+                placeholder="Search by document: work permit, certificate"
                 icon={<Search aria-hidden="true" />}
                 onChange={(e) => {
                   const next = e.target.value;
@@ -346,7 +346,7 @@ export function DocumentsScreen() {
 
             {!register.editable && (
               <p className="text-body-sm text-muted">
-                Asking and dropping need the API — the person is notified when you
+                Asking and dropping need the API: the person is notified when you
                 ask, and a request kept in this browser reaches nobody.
               </p>
             )}

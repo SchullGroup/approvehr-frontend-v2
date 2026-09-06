@@ -159,7 +159,7 @@ export function TeamsPanel({
       <Card>
         <CardHeader
           title="Teams"
-          description="Joining one does not move anybody's pay — unless the team belongs to a department."
+          description="Joining one does not move anybody's pay, unless the team belongs to a department."
           {...(canManage
             ? {
                 action: (
@@ -180,7 +180,7 @@ export function TeamsPanel({
           <EmptyState
             icon={<UsersRound aria-hidden="true" />}
             title="No teams yet"
-            description="A team is for the group that actually works together — which is not always a department. Somebody can be on two."
+            description="A team is for the group that actually works together, which is not always a department. Somebody can be on two."
             action={
               canManage ? (
                 <Button variant="accent" onClick={() => setCreating(true)}>
@@ -314,7 +314,7 @@ export function TeamsPanel({
           );
           if (ok) setArchiving(null);
         }}
-        body="Hidden, not deleted — an appraiser mapping made through this team still resolves afterwards. Everybody has to be taken off it first, and nobody's department changes when they are."
+        body="Hidden, not deleted: an appraiser mapping made through this team still resolves afterwards. Everybody has to be taken off it first, and nobody's department changes when they are."
       />
     </div>
   );
@@ -463,7 +463,7 @@ function TeamDrawer({
         {...(team
           ? {
               description: team.crossFunctional
-                ? "Cross-functional — belongs to no department, so membership implies nothing about pay."
+                ? "Cross-functional: belongs to no department, so membership implies nothing about pay."
                 : `Part of ${team.departmentName}. Anybody on it is reported under that department.`,
             }
           : {})}
@@ -536,8 +536,7 @@ function TeamDrawer({
               <Callout tone="warning" title="Somebody's department disagrees">
                 {mismatches.map((member) => member.name).join(", ")}{" "}
                 {mismatches.length === 1 ? "is" : "are"} on this team but recorded
-                under a different department. Nothing has been changed for them —
-                moving a cost centre is not a repair. Fix it on their record, or move
+                under a different department. Nothing has been changed for them: moving a cost centre is not a repair. Fix it on their record, or move
                 the team.
               </Callout>
             )}
@@ -739,7 +738,7 @@ function TeamDialog({
               setDraft((current) => ({ ...current, departmentId: value }));
             }}
           >
-            <option value="">No department — cross-functional</option>
+            <option value="">No department (cross-functional)</option>
             {departments
               .filter((one) => !one.archived)
               .map((one) => (
@@ -754,7 +753,7 @@ function TeamDialog({
         {departmentChanged && (
           <Callout tone="warning" title="This moves people">
             {draft.departmentId === ""
-              ? "Everybody on the team keeps the department they have now. Nothing moves — but new members will stop being moved."
+              ? "Everybody on the team keeps the department they have now. Nothing moves, but new members will stop being moved."
               : `Everybody on the team moves into ${targetName ?? "that department"}, which is where their pay will be reported. You will be told who.`}
           </Callout>
         )}

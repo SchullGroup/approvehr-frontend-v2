@@ -46,7 +46,7 @@ export const PRIORITY: Record<TicketPriority, { tone: BadgeTone; label: string }
 };
 
 /** The label an internal note carries. One string, so it cannot drift. */
-export const INTERNAL_LABEL = "Internal — the requester cannot see this";
+export const INTERNAL_LABEL = "Internal: the requester cannot see this";
 
 const TONES: Record<TicketClockState, BadgeTone> = {
   overdue: "danger",

@@ -164,7 +164,7 @@ export function DeclineLoanModal({
             placeholder={
               own
                 ? "Sorted it another way."
-                : "Twelve months instead of four keeps the deduction under a third of your pay — reapply and I will approve it."
+                : "Twelve months instead of four keeps the deduction under a third of your pay. Reapply and I will approve it."
             }
           />
         </Field>
@@ -410,7 +410,7 @@ export function PayInstalmentModal({
           label="How much came in?"
           required
           error={failure?.messageFor("amountKobo")}
-          help="Less than the full instalment is fine — the rest stays owing."
+          help="Less than the full instalment is fine: the rest stays owing."
         >
           <Input
             value={amount}

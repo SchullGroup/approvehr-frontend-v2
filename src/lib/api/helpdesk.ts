@@ -586,7 +586,7 @@ export function ticketClock(
     return ticket.resolutionBreached
       ? {
           state: "resolved_late",
-          label: `${sorted} — past target`,
+          label: `${sorted} (past target)`,
           waited,
           against: "resolution",
         }

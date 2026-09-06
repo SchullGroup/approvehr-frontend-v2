@@ -93,7 +93,7 @@ export function SendInviteDialog({
         <Field
           label="Who"
           required
-          help="Only people entitled to sign in appear here — see Login access on their record."
+          help="Only people entitled to sign in appear here. See Login access on their record."
         >
           <Picker
             value={employeeId}

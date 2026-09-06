@@ -73,7 +73,7 @@ export function ChecklistSettingsScreen() {
     try {
       await run(
         () => templates.adoptDefaults(),
-        "Suggested checklist added — edit or remove any line",
+        "Suggested checklist added. Edit or remove any line",
       );
     } finally {
       setAdopting(false);
@@ -141,7 +141,7 @@ export function ChecklistSettingsScreen() {
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-body-sm text-muted">
-            {templates.counts.active} on the list ·{" "}
+            {templates.counts.active} on the list · {" "}
             {templates.counts.mandatory} must be done before an exit can close
           </p>
           <Switch
@@ -164,7 +164,7 @@ export function ChecklistSettingsScreen() {
             <EmptyState
               icon={<ListChecks aria-hidden="true" />}
               title="Nothing on the checklist yet"
-              description="What somebody has to do before they leave — hand back a laptop, agree the final pay, notify the pension provider. Write your own, or start from the seven most companies need and edit from there."
+              description="What somebody has to do before they leave: hand back a laptop, agree the final pay, notify the pension provider. Write your own, or start from the seven most companies need and edit from there."
               action={
                 canEdit ? (
                   <span className="flex flex-wrap items-center justify-center gap-2">
@@ -414,7 +414,7 @@ function LineDialog({
           checked={mandatory}
           onChange={(e) => setMandatory(e.target.checked)}
           label="An exit cannot close until this is done"
-          description="Leave it off for something that would be good to do but should never hold up somebody's last day — a reference letter, for instance."
+          description="Leave it off for something that would be good to do but should never hold up somebody's last day, a reference letter, for instance."
         />
 
         <Checkbox

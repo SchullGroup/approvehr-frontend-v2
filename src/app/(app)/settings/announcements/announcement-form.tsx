@@ -278,7 +278,7 @@ export function AnnouncementForm({
 
         <Field
           label="Take it down on"
-          help="Optional, and inclusive — it stays up all of that day. Leave it empty and it stays until somebody takes it down."
+          help="Optional, and inclusive: it stays up all of that day. Leave it empty and it stays until somebody takes it down."
         >
           <Input
             type="date"

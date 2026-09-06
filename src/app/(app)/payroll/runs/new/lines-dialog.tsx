@@ -328,7 +328,7 @@ export function LinesDialog({
 
           <p className="text-meta text-muted">
             {kind === "bonus"
-              ? "A bonus belongs to this payroll only — next month starts with none. " +
+              ? "A bonus belongs to this payroll only: next month starts with none. " +
                 "Something paid every month is a pay component on their record."
               : "This is on top of pension, tax and anything the payroll works out " +
                 "itself. It comes off after tax, and it cannot take somebody below nothing."}

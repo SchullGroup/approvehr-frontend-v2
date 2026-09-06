@@ -101,7 +101,7 @@ export function AssistantChat() {
       <CardHeader
         level={2}
         title="Ask the assistant"
-        description="It reads your records to answer, and it can offer to make a change — which only happens if you confirm it."
+        description="It reads your records to answer, and it can offer to make a change, which only happens if you confirm it."
         action={
           chat.turns.length > 0 ? (
             <Button variant="ghost" size="sm" onClick={chat.reset}>
@@ -230,7 +230,7 @@ export function AssistantChat() {
           {chat.full && (
             <p className="text-body-sm text-muted">
               This conversation has reached its length limit. Start again to
-              carry on — nothing here was saved either way.
+              carry on: nothing here was saved either way.
             </p>
           )}
         </div>
@@ -473,7 +473,7 @@ function Proposal({
             className="mt-0.5 size-3.5 shrink-0"
           />
           <span>
-            There is nothing to press again — it will refuse the same way until
+            There is nothing to press again: it will refuse the same way until
             whatever it names above is dealt with. Set this aside, or sort that
             out and ask again.
           </span>
@@ -484,7 +484,7 @@ function Proposal({
         <p className="mt-2 flex items-center gap-2 text-meta text-muted">
           <CircleSlash aria-hidden="true" className="size-3.5" />
           You set this aside. Nothing was changed, and the assistant was not
-          told — say so if you want it to know.
+          told. Say so if you want it to know.
         </p>
       )}
 

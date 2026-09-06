@@ -371,7 +371,7 @@ export default function HomePage() {
                     <span className="font-medium text-success">
                       ₦{fifty.annualSaving!.toLocaleString("en-NG")}
                     </span>{" "}
-                    a year — two months free.
+                    a year, two months free.
                   </p>
                 </div>
               </div>

@@ -1,4 +1,6 @@
 import { AuthShell } from "@/components/portal/auth-shell";
+import { ThemeEffect } from "@/components/portal/theme-effect";
+import { THEME_INIT_SCRIPT } from "@/lib/theme-init-script";
 
 /**
  * The account screens: register, verify email, forgot and reset password.
@@ -18,5 +20,12 @@ export default function AuthLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <AuthShell>{children}</AuthShell>;
+  return (
+    <>
+      {/* Same theme mechanism as (app)/layout.tsx — see that file's note. */}
+      <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      <ThemeEffect />
+      <AuthShell>{children}</AuthShell>
+    </>
+  );
 }

@@ -300,7 +300,7 @@ const SEED_BOOK: DemoBook = DEMO_ENABLED ? {
       "CANCELLED",
       "Salary June 2026",
       JULY_PAYEES.map((id) => demoInstruction(id, "Salary June 2026")),
-      { failureReason: "Built against the wrong account — rebuilt as PAY-202606-2" },
+      { failureReason: "Built against the wrong account: rebuilt as PAY-202606-2" },
     ),
   ],
   /**
@@ -2241,7 +2241,7 @@ export const BATCH_STATUS: Record<
     hint: "Everything adds up. Nothing leaves the account until somebody approves it.",
   },
   APPROVED: {
-    label: "Approved — not yet paid",
+    label: "Approved (not yet paid)",
     tone: "accent",
     hint: "Download the payment file and upload it to your bank.",
   },

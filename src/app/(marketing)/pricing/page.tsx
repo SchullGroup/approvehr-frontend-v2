@@ -232,7 +232,7 @@ export default function PricingPage() {
               Work out what it costs your company
             </h2>
             <p className="mt-3 max-w-xl text-body-sm leading-relaxed text-slate-muted">
-              Move the number to your headcount — the tier and the price
+              Move the number to your headcount: the tier and the price
               follow it.
             </p>
           </Reveal>

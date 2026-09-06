@@ -499,7 +499,7 @@ function assetFileNotes(counts: Readonly<Record<string, number>>): string[] {
 
   if (ambiguousDates > 0) {
     notes.push(
-      `${ambiguousDates} ${ambiguousDates === 1 ? "date could" : "dates could"} be read two ways — 03/04/2024 is either 3 April or 4 March. We read the day first.`,
+      `${ambiguousDates} ${ambiguousDates === 1 ? "date could" : "dates could"} be read two ways: 03/04/2024 is either 3 April or 4 March. We read the day first.`,
     );
   }
   if (holderRows > 0) {

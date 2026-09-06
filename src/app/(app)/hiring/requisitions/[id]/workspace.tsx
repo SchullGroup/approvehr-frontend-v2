@@ -93,7 +93,7 @@ export function RequisitionWorkspace({
       tone: goingBack ? "warning" : "success",
       detail:
         (goingBack ? "Moved back a stage. " : "") +
-        "Not saved anywhere — the pipeline has no endpoint yet.",
+        "Not saved anywhere: the pipeline has no endpoint yet.",
     });
   }
 
@@ -110,7 +110,7 @@ export function RequisitionWorkspace({
       toast.push({
         title: `${fullName(card.candidate)} rejected`,
         tone: "info",
-        detail: `${reason} — recorded on this screen only, and nothing was sent to them.`,
+        detail: `${reason}. Recorded on this screen only, and nothing was sent to them.`,
       });
     }
   }

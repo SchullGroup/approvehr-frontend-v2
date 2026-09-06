@@ -196,7 +196,7 @@ export function HolidaysPanel({ defaultYear }: { defaultYear: number }) {
               These are Nigeria&rsquo;s 2026 dates, seeded so the product can be
               shown without a database. Edits stay in this browser, and the demo
               attendance timesheet keeps reading the seeded dates rather than
-              these — so a date you add here will not appear on it. Connected
+              these, so a date you add here will not appear on it. Connected
               there is no such gap: attendance, overtime, payroll and the help
               desk all read the one table this screen writes to.
             </Callout>
@@ -365,7 +365,7 @@ export function HolidaysPanel({ defaultYear }: { defaultYear: number }) {
         body={
           <span className="flex flex-col gap-2.5">
             <span>
-              This is a hard delete — the row goes and nothing keeps a trace of
+              This is a hard delete: the row goes and nothing keeps a trace of
               it. Four things follow, and none of them is a refusal:
             </span>
             <span className="flex flex-col gap-1.5">

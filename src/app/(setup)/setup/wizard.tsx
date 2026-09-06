@@ -727,7 +727,7 @@ export function SetupWizard() {
             </p>
             <p className="mt-1 text-body-sm leading-relaxed text-body">
               {editingLocationId
-                ? "This updates the office already on file — it does not add a second one."
+                ? "This updates the office already on file: it does not add a second one."
                 : "Staff pick a place when they clock in, so there has to be at least one. You can add branches later."}
             </p>
           </div>
@@ -857,7 +857,7 @@ export function SetupWizard() {
               </div>
               <p className="text-body-sm leading-relaxed text-body">
                 Pension and the National Housing Fund are charged on whichever
-                parts you use — NHF on basic by default, so a bigger basic share
+                parts you use: NHF on basic by default, so a bigger basic share
                 means more NHF on the same gross.
               </p>
 
@@ -1150,7 +1150,7 @@ function RolesStep({
 
       <div className="mt-3 border-t border-line pt-5">
         <Button variant="accent" disabled={disabled} onClick={onContinue}>
-          {custom.length > 0 ? "Continue" : "Skip for now — I'll do this later"}
+          {custom.length > 0 ? "Continue" : "Skip for now (I'll do this later)"}
         </Button>
       </div>
 
@@ -1235,7 +1235,7 @@ function Done({
       </span>
 
       <h1 className="mt-5 text-h3 text-ink sm:text-h2">
-        {returning ? "You are set up" : "That is it — you are set up"}
+        {returning ? "You are set up" : "That is it: you are set up"}
       </h1>
       <p className="mt-3 text-lead text-body">
         Paying people, payslips and leave are on for everybody. You also have:
@@ -1257,9 +1257,7 @@ function Done({
                     The sidebar has always said Coming soon; this said the
                     opposite on the screen somebody sees first. */}
                 {FEATURE_COPY[key].soon && (
-                  <span className="ml-1.5 font-normal text-muted">
-                    — coming soon
-                  </span>
+                  <span className="ml-1.5 font-normal text-muted">(coming soon)</span>
                 )}
               </span>
               <span className="mt-0.5 block text-body-sm text-muted">

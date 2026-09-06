@@ -1554,7 +1554,7 @@ export function useKpiMutations() {
     addKeyResult: useCallback(
       async (goalId: string, body: CreateKeyResultBody) => {
         guard(
-          "Adding a measure needs the API — the demo book's measures are fixed, " +
+          "Adding a measure needs the API: the demo book's measures are fixed, " +
             "but you can move any of their numbers.",
         );
         return performanceApi.addKeyResult(goalId, body);
@@ -2279,7 +2279,7 @@ export function useFrameworkActions() {
     createSection: useCallback(
       async (body: { name: string; order?: number }) => {
         guard(
-          "Adding a section needs the API — sections are shared across every " +
+          "Adding a section needs the API: sections are shared across every " +
             "appraisal period, and one kept in this browser would vanish the " +
             "moment you closed it.",
         );
@@ -2297,7 +2297,7 @@ export function useFrameworkActions() {
         scaleMax: number;
       }) => {
         guard(
-          "Adding a competency needs the API — the demo framework is fixed, " +
+          "Adding a competency needs the API: the demo framework is fixed, " +
             "but you can still rate anybody against it.",
         );
         return performanceApi.createCompetency(body);
@@ -2664,7 +2664,7 @@ export function useRating() {
       async (competencyId: string, body: RateBody) => {
         if (!isConnected) {
           offline(
-            "Recording somebody's level needs the API — a rating is the " +
+            "Recording somebody's level needs the API: a rating is the " +
               "assessment of record, and it belongs where their reviews are.",
           );
         }
@@ -2748,7 +2748,7 @@ export function useGoalTasks(goalId: string | null): {
 }
 
 const TASK_OFFLINE =
-  "The task log needs the API — a manager grading a report's task is " +
+  "The task log needs the API: a manager grading a report's task is " +
   "state they both then read, and this browser cannot hold it for them.";
 
 export function useTaskActions() {
@@ -2908,9 +2908,9 @@ export function useAppraiserMutations() {
  * ======================================================================== */
 
 const REGISTER_OFFLINE =
-  "A period's register needs the API. It is an aggregate over everybody — who " +
+  "A period's register needs the API. It is an aggregate over everybody: who " +
   "owes a form, who has nobody appraising them, and what each person's mark is " +
-  "made of — and one assembled in this browser would describe a period nothing " +
+  "made of, and one assembled in this browser would describe a period nothing " +
   "else here is running.";
 
 export type CycleRegister = {
@@ -2932,6 +2932,15 @@ export type CycleRegister = {
   exceptions: ApiAppraiserMap | null;
   /** Everybody currently sent back for another pass. Empty, never null, when there is none. */
   revisionRequests: ApiRevisionRequest[];
+  /**
+   * True when the revision-request read itself failed, so `revisionRequests`
+   * being empty means "could not ask" rather than "there are none".
+   *
+   * Absent is not zero, one read along: an empty list and an unreadable list are
+   * opposite facts, and the screen offers "ask for a revision" off the back of
+   * this. Conflating them would offer it to somebody who already has one.
+   */
+  revisionsUnavailable: boolean;
   loading: boolean;
   error: ApiError | null;
   /** False in demo mode, and false without `EDIT_RECORDS`. */
@@ -2949,6 +2958,18 @@ export type CycleRegister = {
  * store does not reach for `useCan` itself, which would make every consumer pay
  * for the permissions fetch whether or not it renders this.
  *
+ * **The fifth read is deliberately outside that bargain.** "They fail together"
+ * is an argument about a permission: one 403 hits all four, so one sentence
+ * beats four. It says nothing about a read that can fail on its own — and
+ * `revisionRequests` did exactly that on a deployment whose API predated the
+ * route, where a single 404 went through `Promise.all` and threw away four
+ * successful reads. The whole period screen rendered one error and nothing else.
+ *
+ * So it is awaited separately and its failure is reported rather than raised.
+ * If you add a sixth read, the question to ask is not "is it on this screen" but
+ * **"can this fail while the others succeed"** — and if it can, it does not
+ * belong in the `Promise.all`.
+ *
  * Offline it refuses, for the reason `useAppraiserMap` already refuses: this is
  * the record a mark is defended with months later.
  */
@@ -2962,15 +2983,36 @@ export function useCycleRegister(
   const load = useCallback(
     async (signal: AbortSignal) => {
       const id = cycleId ?? "";
-      const [cycle, participants, register, exceptions, revisionRequests] =
-        await Promise.all([
-          performanceApi.cycle(id, signal),
-          performanceApi.participants(id, signal),
-          performanceApi.cycleScores(id, {}, signal),
-          performanceApi.appraiserMap(id, { exceptionsOnly: true }, signal),
-          performanceApi.revisionRequests(id, signal),
-        ]);
-      return { cycle, participants, register, exceptions, revisionRequests };
+      /* The four that share one permission, and therefore one failure. */
+      const core = Promise.all([
+        performanceApi.cycle(id, signal),
+        performanceApi.participants(id, signal),
+        performanceApi.cycleScores(id, {}, signal),
+        performanceApi.appraiserMap(id, { exceptionsOnly: true }, signal),
+      ]);
+      /* And the one that can fail alone. Settled rather than awaited, so it
+         cannot take the other four with it. An abort is not a failure — the
+         key changed or the screen went away, and `useFetched` discards the
+         answer anyway — so it is re-thrown to keep that path unchanged. */
+      const extra = performanceApi.revisionRequests(id, signal).then(
+        (rows) => ({ rows, failed: false }),
+        (error: unknown) => {
+          if (error instanceof DOMException && error.name === "AbortError") {
+            throw error;
+          }
+          return { rows: [] as ApiRevisionRequest[], failed: true };
+        },
+      );
+      const [[cycle, participants, register, exceptions], revisions] =
+        await Promise.all([core, extra]);
+      return {
+        cycle,
+        participants,
+        register,
+        exceptions,
+        revisionRequests: revisions.rows,
+        revisionsUnavailable: revisions.failed,
+      };
     },
     [cycleId],
   );
@@ -2981,6 +3023,7 @@ export function useCycleRegister(
     register: ApiScoreRegister;
     exceptions: ApiAppraiserMap;
     revisionRequests: ApiRevisionRequest[];
+    revisionsUnavailable: boolean;
   }>(`cycle-register|${cycleId ?? "none"}`, active, load);
 
   /* Nothing is derived offline — see the refusal above — so this is a stable
@@ -2992,6 +3035,7 @@ export function useCycleRegister(
       register: null,
       exceptions: null,
       revisionRequests: [],
+      revisionsUnavailable: false,
       loading: false,
       error: null,
       available: false,
@@ -3009,6 +3053,7 @@ export function useCycleRegister(
     register: fetched.data?.register ?? null,
     exceptions: fetched.data?.exceptions ?? null,
     revisionRequests: fetched.data?.revisionRequests ?? [],
+    revisionsUnavailable: fetched.data?.revisionsUnavailable ?? false,
     loading: fetched.loading,
     error: fetched.error,
     available: enabled,
@@ -3051,7 +3096,23 @@ export function useMyAppraisers(
   error: ApiError | null;
 } {
   const { isConnected } = useSession();
-  const active = cycleId !== null && employeeId !== null && isConnected;
+  /**
+   * An empty id is absent, not a person.
+   *
+   * `employeeId !== null` alone let `""` through, and `""` is a value the
+   * session deliberately produces: `actingId` falls back to it for an account
+   * with no staff record, precisely so it matches nobody. Passed here it did
+   * not match nobody — it built `/cycles/{id}/appraisers/`, and Express 5 with
+   * strict routing off matches that trailing slash to the **collection** route,
+   * `GET /cycles/:id/appraisers`. So the whole-cycle map came back 200 for
+   * anybody holding `EDIT_RECORDS`, a payload with `rows` and no `appraisers`,
+   * and the caller crashed reading `.length` of a field that was never there.
+   *
+   * Proved against the API's own express@5.2.1 rather than assumed. The caller
+   * now passes `employeeId`, which is null for such an account; this guard is
+   * the second lock, so no future caller can re-create it with `actingId`.
+   */
+  const active = cycleId !== null && !!employeeId && isConnected;
 
   const load = useCallback(
     async (signal: AbortSignal) =>
@@ -3268,7 +3329,7 @@ export const BAND_TONE: Record<ScoreBand, BadgeTone> = {
 
 const WEIGHTS_SAVE_OFFLINE =
   "Saving the weights needs the API. They decide how everybody's mark is put " +
-  "together, and a set kept in this browser would change no score anywhere — a " +
+  "together, and a set kept in this browser would change no score anywhere: a " +
   "settings screen that looks saved and moves nothing is worse than one that " +
   "says it cannot.";
 
@@ -3398,7 +3459,7 @@ const REPORT_OFFLINE =
 const HISTORY_OFFLINE =
   "A trend across periods needs the API. Every point on it is the same score " +
   "the period screen shows, read from the weights that period was frozen " +
-  "against — there is nothing in this browser to read it from.";
+  "against: there is nothing in this browser to read it from.";
 
 /**
  * The outcome of one cycle: the distribution, what came in, and who is left out.

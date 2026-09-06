@@ -255,7 +255,7 @@ export function ScoringWeightsForm() {
                 A part with <strong>nothing recorded against it is left out</strong>{" "}
                 and the rest are spread over the whole mark. Somebody who manages
                 nobody is not rated on leadership, and they are not scored nought
-                for it either — those are different claims about a person.
+                for it either: those are different claims about a person.
               </p>
             </Callout>
 
@@ -269,7 +269,7 @@ export function ScoringWeightsForm() {
                 <p>
                   How much each part counts decides pay, so it sits behind the
                   same permission as the rest of company configuration. You can
-                  read the set — a scale you are measured against and not allowed
+                  read the set: a scale you are measured against and not allowed
                   to read would be an odd thing to ship.
                 </p>
               </Callout>
@@ -346,7 +346,7 @@ export function ScoringWeightsForm() {
                 <p>
                   When a period starts, the weights are copied onto it. Changing
                   them afterwards cannot move a mark that has already been
-                  awarded — a rating from this quarter has to keep explaining
+                  awarded: a rating from this quarter has to keep explaining
                   itself against the weights that produced it, years later.
                 </p>
                 <p className="flex items-start gap-2 text-body-sm text-body">
@@ -493,7 +493,7 @@ function SelfAssessment({
           <p className="rounded-md border border-warning-line bg-warning-soft px-3.5 py-2.5 text-body-sm text-ink">
             {changed ? "If you save this: at" : "At"} {weightLabel(weightBp)},
             somebody who rates themselves 5 out of 5 rather than 3 out of 5 moves
-            their own final mark by {weightLabel(swingBp)} — more if any other
+            their own final mark by {weightLabel(swingBp)}, more if any other
             part has nothing recorded against it, because the remaining weights
             are spread over the whole mark. Two people who delivered identically
             will not get the same mark.

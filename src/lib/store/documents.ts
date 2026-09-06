@@ -148,10 +148,10 @@ const OFFLINE = {
   waive:
     "Waiving a request needs the API. The employee is told to stop looking for it, and that message has to come from the server.",
   remind:
-    "Reminding needs the API — this browser has no inbox to put it in. Copy the message below instead.",
+    "Reminding needs the API: this browser has no inbox to put it in. Copy the message below instead.",
   remove: "Removing a document needs the API.",
   verify:
-    "Marking a document as checked needs the API — there is no verifier behind this browser to record who confirmed it.",
+    "Marking a document as checked needs the API: there is no verifier behind this browser to record who confirmed it.",
 } as const;
 
 /* ------------------------------------------------------------- demo dataset */

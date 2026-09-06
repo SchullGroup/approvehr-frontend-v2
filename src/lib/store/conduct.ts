@@ -150,7 +150,7 @@ export function dayLabel(iso: string | null): string {
  * each decide differently.
  */
 export function acceptanceLabel(policy: ApiPolicy): string {
-  if (!policy.requiresAcknowledgement) return "Read only — no acceptance needed";
+  if (!policy.requiresAcknowledgement) return "Read only: no acceptance needed";
   if (!policy.published) return "Not published yet";
   if (policy.archived) return "Withdrawn";
   const staff = policy.acceptedCount + policy.outstandingCount;
@@ -230,7 +230,7 @@ const DEMO_POLICIES: DemoPolicy[] = DEMO_ENABLED ? [
     acceptedBase: 8,
     body:
       "Working hours are 8:30am to 5:00pm, Monday to Friday, with an hour for lunch. " +
-      "If you cannot get in, tell your manager before 9:00am — a message is fine.\n\n" +
+      "If you cannot get in, tell your manager before 9:00am: a message is fine.\n\n" +
       "Salaries are paid on the 25th of each month, or the last working day before " +
       "it when the 25th falls on a weekend or a public holiday.\n\n" +
       "You are entitled to 20 working days of annual leave a year, booked through " +
@@ -279,8 +279,8 @@ const DEMO_POLICIES: DemoPolicy[] = DEMO_ENABLED ? [
     body:
       "Treat colleagues, customers and suppliers with respect. Harassment, " +
       "discrimination and bullying are grounds for dismissal.\n\n" +
-      "Declare anything that could look like a conflict of interest — a supplier " +
-      "you are related to, a second job with a competitor — in writing, to your " +
+      "Declare anything that could look like a conflict of interest (a supplier" +
+      "you are related to, a second job with a competitor) in writing, to your" +
       "manager.\n\n" +
       "This section is here to read. There is nothing to accept.",
   },
@@ -456,7 +456,7 @@ function refuse(what: string): never {
 }
 
 const PUBLISH_REFUSAL =
-  "Publishing a section asks everyone in the company to accept it. That needs the API — a handbook written into this browser would reach nobody.";
+  "Publishing a section asks everyone in the company to accept it. That needs the API: a handbook written into this browser would reach nobody.";
 
 const RECORD_REFUSAL =
   "A warning is a legal record. Saving one needs the API, so it lands somewhere other than this browser.";

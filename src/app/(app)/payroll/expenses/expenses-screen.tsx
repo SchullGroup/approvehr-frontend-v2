@@ -269,7 +269,7 @@ export function ExpensesScreen() {
               Demo
             </Badge>
             Claims live in this browser only, and refuse exactly what the real
-            thing refuses — including approving your own.
+            thing refuses, including approving your own.
           </p>
         )}
 

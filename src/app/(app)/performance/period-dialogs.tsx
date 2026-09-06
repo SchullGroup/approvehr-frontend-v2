@@ -507,7 +507,7 @@ function SubsectionPicker({
                 }
               }}
             >
-              <option value="">No section — unfiled</option>
+              <option value="">No section (unfiled)</option>
               {framework.groups
                 .filter((g) => g.sectionId)
                 .map((g) => (
@@ -635,9 +635,7 @@ function ChoiceEditor({
 
       {suggestions.length > 0 && (
         <div className="flex flex-col gap-1.5 border-t border-line pt-3">
-          <span className="text-meta text-muted">
-            Suggested phrasing — click to add
-          </span>
+          <span className="text-meta text-muted">Suggested phrasing (click to add)</span>
           <div className="flex flex-wrap gap-1.5">
             {suggestions.slice(0, 8).map((phrase) => (
               <button
@@ -720,7 +718,7 @@ function CopyFromPeriod({
         </span>
         <span className="mt-0.5 block text-meta text-muted">
           Copies its questions onto this one. They become this period&rsquo;s
-          own — editing them here changes nothing about the period they came
+          own: editing them here changes nothing about the period they came
           from.
         </span>
       </span>

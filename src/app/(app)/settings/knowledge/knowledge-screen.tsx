@@ -167,7 +167,7 @@ export function KnowledgeScreen() {
             <EmptyState
               icon={<BookOpen aria-hidden="true" />}
               title="Maintaining the help articles is not part of your access"
-              description="Writing an article, taking one down and seeing how often each is read needs the settings permission. The articles themselves are in the help centre — everybody can read those."
+              description="Writing an article, taking one down and seeing how often each is read needs the settings permission. The articles themselves are in the help centre: everybody can read those."
               action={
                 <ButtonLink href="/help/kb" variant="accent">
                   Open the help centre
@@ -408,7 +408,7 @@ export function KnowledgeScreen() {
               title={search.trim() ? "No article with that title" : "No articles yet"}
               description={
                 search.trim()
-                  ? "Try fewer words — this searches titles only."
+                  ? "Try fewer words: this searches titles only."
                   : "Start with the question people ask most."
               }
               action={

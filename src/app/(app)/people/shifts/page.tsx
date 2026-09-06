@@ -5,7 +5,7 @@ import { isShiftTab } from "./tabs";
 export const metadata: Metadata = {
   title: "Shifts",
   description:
-    "Who works when — nights, earlies and weekend cover, and the cover requests waiting on an answer.",
+    "Who works when: nights, earlies and weekend cover, and the cover requests waiting on an answer.",
 };
 
 /**

@@ -420,7 +420,7 @@ function ChooseFile({
                 Drag your file here
               </p>
               <p className="mt-1.5 max-w-sm text-meta leading-relaxed text-muted">
-                Excel or CSV. Your headings can be called anything — you match
+                Excel or CSV. Your headings can be called anything: you match
                 them to ours on the next step.
               </p>
               <Button
@@ -514,7 +514,7 @@ function ChooseFile({
           />
           <TableWrap
             className="rounded-none border-0 border-t border-line"
-            caption="Past imports — click a resumable one to carry on, or one with rows skipped to see what went wrong"
+            caption="Past imports: click a resumable one to carry on, or one with rows skipped to see what went wrong"
           >
             <THead>
               <TH>File</TH>
@@ -641,7 +641,7 @@ function ChooseFile({
                               </ul>
                               <div className="flex flex-wrap items-center gap-3 border-t border-line pt-3">
                                 <p className="flex-1 text-meta text-muted">
-                                  This one did not keep its rows — it ran
+                                  This one did not keep its rows: it ran
                                   before we started keeping them, or
                                   everything in it imported. Upload the file
                                   again to carry on.

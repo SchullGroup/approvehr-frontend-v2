@@ -231,7 +231,7 @@ export function ApprovalsScreen() {
             {agreeing?.ownerName ?? "The owner"} will be judged on this for{" "}
             {agreeing?.reviewCycleName ??
               quarterLabel(agreeing?.dueQuarter ?? null)}
-            . The target is frozen from now on — progress still moves, and
+            . The target is frozen from now on: progress still moves, and
             changing what was asked for needs a revision that records who
             changed it and why.
           </span>

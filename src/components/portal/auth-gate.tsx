@@ -240,12 +240,12 @@ function SignIn() {
         <>
           <p className="mt-2 text-body leading-relaxed">
             The API is not running, so this is the demo. Choose whose account to
-            open — every screen then behaves as that person.
+            open: every screen then behaves as that person.
           </p>
 
           <Callout
             tone="warning"
-            title="Demo mode — not connected to a server"
+            title="Demo mode: not connected to a server"
             className="mt-5"
           >
             There is no password and nothing is secured. Data you change stays

@@ -107,13 +107,13 @@ export function ExcludeFromPayrollDialog({
             rows={3}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            placeholder="No account number yet — being paid by hand this month."
+            placeholder="No account number yet: being paid by hand this month."
           />
         </Field>
 
         <ul className="flex flex-col gap-1.5 rounded-md border border-line bg-canvas p-3">
           {[
-            `${name} gets no payslip on this run — not a payslip for nothing, no payslip at all.`,
+            `${name} gets no payslip on this run, not a payslip for nothing, no payslip at all.`,
             "Nothing is owed to them by this run. Any loan instalment or expense claim of theirs waits for the next one.",
             "They are back on next period's payroll automatically. Nothing has to remember to put them there.",
           ].map((line) => (

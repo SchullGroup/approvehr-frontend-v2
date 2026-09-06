@@ -21,7 +21,7 @@ const TONES: Record<BadgeTone, string> = {
   warning: "bg-warning-soft text-warning-text border-warning-line",
   danger: "bg-danger-soft text-danger-text border-danger-line",
   info: "bg-info-soft text-info-text border-info-line",
-  ink: "bg-ink text-white border-ink",
+  ink: "bg-fill-strong text-white border-fill-strong",
 };
 
 const DOTS: Record<BadgeTone, string> = {

@@ -673,7 +673,7 @@ function RequestPanel({
       onClose={onClose}
       title={
         request
-          ? `${request.leaveType} leave — ${request.employeeName}`
+          ? `${request.leaveType} leave · ${request.employeeName}`
           : "Request"
       }
       description={

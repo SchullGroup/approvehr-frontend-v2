@@ -437,7 +437,7 @@ function DayTable({
     return (
       <Card>
         <CardHeader
-          title={`${shortDate(roster.date)} — no attendance recorded`}
+          title={`${shortDate(roster.date)} · no attendance recorded`}
         />
         <CardBody className="flex flex-col gap-4">
           <Callout
@@ -449,7 +449,7 @@ function DayTable({
                 No attendance exists for this date, so there is nothing here
                 that says anybody was missing. A day nobody came in and a day
                 nothing was recorded look the same in the data and are not the
-                same claim — reading the second as the first is what once
+                same claim: reading the second as the first is what once
                 prorated a whole company&apos;s pay to nothing.
               </span>
               {firstRecordedDate ? (
@@ -545,7 +545,7 @@ function DayTable({
                 ? "One person"
                 : `${cameInAnyway.length} people`}{" "}
               clocked in anyway. That is either leave nobody cancelled on the
-              record or work somebody is owed extra for — one of them needs
+              record or work somebody is owed extra for: one of them needs
               fixing and the other needs paying.
             </p>
             <ul className="flex flex-col gap-1.5">
@@ -589,7 +589,7 @@ function DayTable({
   return (
     <Card>
       <CardHeader
-        title={`Roster — ${shortDate(roster.date)}`}
+        title={`Roster · ${shortDate(roster.date)}`}
         /* No reference to today's date here on purpose. `TODAY` is the demo's
            clock and the browser's is not the one these records were written
            against, so a sentence that branches on either would be wrong in one
@@ -597,7 +597,7 @@ function DayTable({
         description={
           roster.recorded === 0
             ? "Exceptions first. Anyone on approved leave is shown as on leave, never as a no-show."
-            : `${roster.recorded} ${roster.recorded === 1 ? "clock-in" : "clock-ins"} on file. Exceptions first — anyone on approved leave is shown as on leave, never as a no-show.`
+            : `${roster.recorded} ${roster.recorded === 1 ? "clock-in" : "clock-ins"} on file. Exceptions first: anyone on approved leave is shown as on leave, never as a no-show.`
         }
       />
       <TableWrap className="rounded-none border-0">
@@ -656,7 +656,7 @@ function DayTable({
                     <span className="mt-0.5 block text-meta text-muted">
                       {row.clockIn
                         ? "Worked a rest day on their rota"
-                        : "Rest day on their rota — no pay is held back"}
+                        : "Rest day on their rota: no pay is held back"}
                     </span>
                   ) : null}
                   {row.correctionNote && (

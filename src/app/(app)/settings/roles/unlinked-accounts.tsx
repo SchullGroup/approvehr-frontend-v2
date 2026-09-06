@@ -305,7 +305,7 @@ function CreateRecord({
       <div className="flex flex-col gap-4">
         {error && <Callout tone="danger">{error}</Callout>}
         <p className="text-body-sm leading-relaxed text-muted">
-          The work email stays {account.email} — that is what this account signs
+          The work email stays {account.email}: that is what this account signs
           in with, and this form does not change it.
         </p>
         <div className="grid grid-cols-2 gap-3">

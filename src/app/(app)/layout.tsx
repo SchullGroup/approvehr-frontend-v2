@@ -2,6 +2,8 @@ import { ToastProvider } from "@/components/ui";
 import { AuthGate } from "@/components/portal/auth-gate";
 import { SetupGate } from "@/components/portal/setup-gate";
 import { AppShell } from "@/components/portal/shell";
+import { ThemeEffect } from "@/components/portal/theme-effect";
+import { THEME_INIT_SCRIPT } from "@/lib/theme-init-script";
 
 /* The gate sits inside the toast provider so a sign-out can raise a toast, and
    outside the shell so the sign-in screen gets its own chrome rather than
@@ -16,12 +18,18 @@ export default function AppLayout({
   children: React.ReactNode;
 }) {
   return (
-    <ToastProvider>
-      <AuthGate>
-        <SetupGate>
-          <AppShell>{children}</AppShell>
-        </SetupGate>
-      </AuthGate>
-    </ToastProvider>
+    <>
+      {/* Sets data-theme on <html> before first paint. Bypasses React on
+          purpose — see lib/theme-init-script.ts's own header. */}
+      <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      <ThemeEffect />
+      <ToastProvider>
+        <AuthGate>
+          <SetupGate>
+            <AppShell>{children}</AppShell>
+          </SetupGate>
+        </AuthGate>
+      </ToastProvider>
+    </>
   );
 }

@@ -63,7 +63,7 @@ export function VerificationNudge({
       className="mb-6"
     >
       <p>
-        We sent a confirmation link to {email}. Setup works either way — this
+        We sent a confirmation link to {email}. Setup works either way: this
         is just so the link isn&apos;t lost.
       </p>
 

@@ -74,7 +74,7 @@ export function DeclineOvertimeModal({
             autoFocus
             rows={3}
             maxLength={500}
-            placeholder="Forgot to clock out — was not on site after 17:30."
+            placeholder="Forgot to clock out: was not on site after 17:30."
             onChange={(e) => {
               const next = e.target.value;
               setReason(next);

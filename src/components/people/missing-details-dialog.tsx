@@ -107,7 +107,7 @@ export function MissingDetailsDialog({
       open
       onClose={onClose}
       title={`Missing for ${fullName(employee)}`}
-      description="Only what's needed to pay them — everything else stays on their full record."
+      description="Only what's needed to pay them: everything else stays on their full record."
       size="sm"
       footer={
         <>

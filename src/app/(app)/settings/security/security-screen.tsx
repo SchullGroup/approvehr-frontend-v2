@@ -237,7 +237,7 @@ export function SecurityScreen() {
                   <Callout tone="warning" title="This server cannot send email">
                     Codes will not arrive in your inbox. The ten recovery codes
                     you are about to be shown would be your <strong>only</strong>{" "}
-                    way to sign in — save them somewhere safe before you close
+                    way to sign in. Save them somewhere safe before you close
                     that dialog.
                   </Callout>
                 )}
@@ -296,7 +296,7 @@ export function SecurityScreen() {
                     >
                       A code for one of these actions can only arrive by email,
                       and there are no recovery codes for them. Tick one here
-                      and nobody will be able to do it — including you. Leave
+                      and nobody will be able to do it, including you. Leave
                       these off until mail is working.
                     </Callout>
                   )}
@@ -306,7 +306,7 @@ export function SecurityScreen() {
                     </span>
                     <span className="mt-0.5 block text-meta text-muted">
                       None of these is required. Sign-in alone is a reasonable
-                      choice — every one you add is a code somebody types under
+                      choice: every one you add is a code somebody types under
                       time pressure.
                     </span>
                   </span>
@@ -406,7 +406,7 @@ function RecoveryCodesDialog({
       <div className="flex flex-col gap-4">
         <p className="text-body-sm text-body">
           Each one works once, in place of the emailed code. This is the only
-          time they are shown — they are stored scrambled and cannot be looked
+          time they are shown: they are stored scrambled and cannot be looked
           up again.
         </p>
 

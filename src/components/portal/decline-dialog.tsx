@@ -79,7 +79,7 @@ export function DeclineDialog({
         <Textarea
           rows={3}
           value={note}
-          placeholder="Two people are already off that week — can you move it?"
+          placeholder="Two people are already off that week. Can you move it?"
           onChange={(e) => {
             const next = e.target.value;
             setNote(next);

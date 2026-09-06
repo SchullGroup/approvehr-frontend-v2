@@ -92,7 +92,7 @@ export function StartPeriodDialog({
 
   const submit = async () => {
     if (name.trim().length < 3) {
-      setError("Name it — people will see this in their inbox.");
+      setError("Name it: people will see this in their inbox.");
       return;
     }
     setError(null);
@@ -253,8 +253,8 @@ export function StartPeriodDialog({
             </Field>
             <p className="text-meta text-muted">
               {dueDate
-                ? "It goes once, to the people who still owe a form — never to anybody who has already sent theirs. One reminder, not one a day: a nudge people learn to ignore takes the real notifications with it."
-                : "Set a due date above first — there is nothing to count back from."}
+                ? "It goes once, to the people who still owe a form, never to anybody who has already sent theirs. One reminder, not one a day: a nudge people learn to ignore takes the real notifications with it."
+                : "Set a due date above first: there is nothing to count back from."}
             </p>
           </div>
         </Disclosure>
@@ -273,7 +273,7 @@ export function StartPeriodDialog({
           />
           <p className="mt-2 text-meta text-muted">
             A question a manager adds is only ever asked of their own
-            department — never the whole company. This can be changed later,
+            department, never the whole company. This can be changed later,
             while the period is still a draft.
           </p>
         </Disclosure>

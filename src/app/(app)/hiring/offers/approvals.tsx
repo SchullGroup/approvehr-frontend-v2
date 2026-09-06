@@ -152,7 +152,7 @@ function Approvals() {
           ? `Offer approved for ${fullName(card.candidate)}`
           : `Offer declined for ${fullName(card.candidate)}`,
       tone: decision === "approved" ? "success" : "info",
-      detail: "Shown on this screen only — offers have no endpoint yet.",
+      detail: "Shown on this screen only: offers have no endpoint yet.",
     });
   }
 
@@ -254,7 +254,7 @@ function Approvals() {
                 rows={3}
                 value={note}
                 onChange={(e) => setNote(e.currentTarget.value)}
-                placeholder="Above band for this level — bring it under the top of the grade or re-grade the role."
+                placeholder="Above band for this level. Bring it under the top of the grade or re-grade the role."
               />
             </Field>
           </div>
@@ -413,7 +413,7 @@ function OutsideBandNote({ placement }: { placement: OfferBand }) {
     return (
       <Callout tone="info" title="Below the bottom of the grade">
         They would start under what {placement.label} pays. That is usually a
-        first-year rate rather than a saving — it corrects itself at the first
+        first-year rate rather than a saving: it corrects itself at the first
         review.
       </Callout>
     );
