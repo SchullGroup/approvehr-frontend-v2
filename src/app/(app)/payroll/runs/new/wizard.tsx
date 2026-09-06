@@ -101,7 +101,6 @@ import {
   usePayrollRun,
   usePayrollRuns,
 } from "@/lib/store/payroll";
-import { useDeductionSwitches } from "@/lib/store/payroll-deductions";
 import { useSetupChecklist } from "@/lib/store/setup-checklist";
 import { fullName } from "@/lib/types";
 import { TODAY } from "@/lib/today";
@@ -2085,6 +2084,52 @@ function PayslipTable({
   const { settings: paySettings } = usePayrollSettings();
   const workingDays = paySettings.workingDaysPerMonth;
 
+  /**
+   * Which of the two optional columns this company actually works in.
+   *
+   * ## The complaint this answers
+   *
+   * Every company got an Overtime column and a Bonus column, on every row,
+   * every month, whether or not it has ever paid either. On a five-person
+   * shop that is two columns of "Add hours" and "Add" nobody will ever press,
+   * beside the three figures they came here for — and the incumbent this
+   * product is sold against is precisely the product that shows a small
+   * business everything it has.
+   *
+   * Both switches already existed or now exist as company settings, in Pay
+   * setup, where a decision belongs: `OvertimePolicy.enabled` (which has
+   * always defaulted **off**, and which this table ignored) and
+   * `PayrollSettings.bonusEnabled`. The endpoints refuse an addition when
+   * either is off, so this is not the only thing holding the line — see
+   * `payroll/switches.ts` on the API.
+   *
+   * ## A switched-off column still appears when it carries money
+   *
+   * `overtimeEnabled` governs what this screen **offers**, never what the
+   * payroll **pays**. Overtime approved in the overtime module is still
+   * detected, valued and paid, and a run that carries any is shown its
+   * column whatever the switch says — hiding a figure that is in the net pay
+   * is the "absent is not zero" rule inverted into something worse: money on
+   * the payslip and nothing on the table to account for it. The same goes for
+   * a bonus already sitting on an open run when somebody switches bonuses
+   * off, which is exactly why the API refuses the *addition* and never the
+   * removal.
+   */
+  const showOvertime =
+    overtimePolicy.policy.enabled ||
+    payslips.some((slip) => overtimeOn(slip) > 0);
+  const showBonus =
+    paySettings.bonus.enabled ||
+    payslips.some((slip) => (bonusOn(slip)?.amountKobo ?? 0) > 0);
+
+  /**
+   * Employee, Gross, PAYE, Deductions, Net — plus whichever optional columns
+   * are showing. Written once rather than as three `? :` in two `colSpan`s
+   * that were already one apart from each other.
+   */
+  const columnCount =
+    5 + (anyUnpaid ? 1 : 0) + (showOvertime ? 1 : 0) + (showBonus ? 1 : 0);
+
   const closeAdjust = () => {
     setEditing(null);
     setAdjustError(null);
@@ -2289,19 +2334,23 @@ function PayslipTable({
               Housing fund came out to make room: it is a computed statutory
               line nobody edits from this screen, it is on the payslip, and a
               column somebody only reads is worth less than one they work in. */}
-          <TH align="right">Overtime</TH>
-          <TH align="right">Bonus</TH>
+          {showOvertime && <TH align="right">Overtime</TH>}
+          {showBonus && <TH align="right">Bonus</TH>}
           {/* Pension came out with Housing fund, and for the same reason: it is
               a statutory figure nobody edits from this screen, it is on the
               payslip in full, and every column that is only read costs the ones
               that are worked in. What is left is the two figures somebody
               enters, the tax they may override, and the totals either side. */}
-          <TH align="right">
-            <span className="flex flex-col items-end gap-1">
-              PAYE
-              <PayeSwitch editable={editable} onChanged={onSaved} />
-            </span>
-          </TH>
+          {/* PAYE, with no switch under it any more.
+              ------------------------------------------------------------
+              A toggle writing `PayrollSettings.payeEnabled` — the company's
+              tax policy, for every payroll — used to sit in this header. A
+              setting living inside a data table is a setting somebody
+              changes while working a month up, and it made the narrowest
+              column carry the widest decision on the screen. It is on
+              `/settings/payroll` and in Pay setup → Extras, both of which
+              have room for what switching it off means. */}
+          <TH align="right">PAYE</TH>
           {/* Everything taken off besides PAYE, as one figure.
               -----------------------------------------------
               This was "Other", and it carried only the pre-tax and post-tax
@@ -2385,39 +2434,42 @@ function PayslipTable({
                     </span>
                   </TD>
                   {/* Overtime: hours in, money out, in the cell. */}
-                  <TD align="right" className="tabular text-muted">
-                    {editingCell(slip, "overtime") ? (
-                      <InlineHours
-                        hourlyKobo={hourlyFor(
-                          monthlyOf(slip, employees),
-                          overtimePolicy.policy.hoursPerDay,
-                          workingDays,
-                          overtimePolicy.policy.hourlyBasis,
-                        )}
-                        rate={overtimePolicy.policy.weekdayRate}
-                        saving={adjustSaving === "overtime"}
-                        onSave={(hours) => void saveOvertime(slip, hours)}
-                        onCancel={closeAdjust}
-                      />
-                    ) : (
-                      <CellValue
-                        amountKobo={overtimeOn(slip)}
-                        editable={editable}
-                        /* Names the unit: hours is what goes in the box and
+                  {showOvertime && (
+                    <TD align="right" className="tabular text-muted">
+                      {editingCell(slip, "overtime") ? (
+                        <InlineHours
+                          hourlyKobo={hourlyFor(
+                            monthlyOf(slip, employees),
+                            overtimePolicy.policy.hoursPerDay,
+                            workingDays,
+                            overtimePolicy.policy.hourlyBasis,
+                          )}
+                          rate={overtimePolicy.policy.weekdayRate}
+                          saving={adjustSaving === "overtime"}
+                          onSave={(hours) => void saveOvertime(slip, hours)}
+                          onCancel={closeAdjust}
+                        />
+                      ) : (
+                        <CellValue
+                          amountKobo={overtimeOn(slip)}
+                          editable={editable}
+                          addable={editable && overtimePolicy.policy.enabled}
+                          /* Names the unit: hours is what goes in the box and
                            money is what comes out of it, which the column
                            heading alone does not say. The bonus cell just
                            reads "Add" — its heading already names the thing,
                            and two words wrap in a column this narrow. */
-                        addLabel="Add hours"
-                        onEdit={() => beginEdit(slip, "overtime")}
-                        onClear={
-                          hasManualOvertime(slip)
-                            ? () => void clearOvertime(slip)
-                            : undefined
-                        }
-                      />
-                    )}
-                  </TD>
+                          addLabel="Add hours"
+                          onEdit={() => beginEdit(slip, "overtime")}
+                          onClear={
+                            hasManualOvertime(slip)
+                              ? () => void clearOvertime(slip)
+                              : undefined
+                          }
+                        />
+                      )}
+                    </TD>
+                  )}
 
                   {/* Bonus: one figure in the table, several named lines
                       behind it.
@@ -2432,20 +2484,32 @@ function PayslipTable({
                       No inline clear beside it any more: an empty list saved
                       from the modal is the removal, and the button there says
                       so in words rather than a bin icon on a figure. */}
-                  <TD align="right" className="tabular text-muted">
-                    <CellValue
-                      amountKobo={bonusOn(slip)?.amountKobo ?? 0}
-                      editable={editable}
-                      addLabel="Add"
-                      onEdit={() =>
-                        setLinesOpen({
-                          employeeId: slip.employeeId,
-                          name: slip.name,
-                          kind: "bonus",
-                        })
-                      }
-                    />
-                  </TD>
+                  {showBonus && (
+                    <TD align="right" className="tabular text-muted">
+                      <CellValue
+                        amountKobo={bonusOn(slip)?.amountKobo ?? 0}
+                        editable={editable}
+                        /* A bonus already on this person can still be opened with
+                           bonuses switched off — the modal is the only way to take
+                           one off, and saving an empty list is a removal the API
+                           allows. Somebody with none gets a dash instead of an
+                           offer it would refuse. */
+                        addable={
+                          editable &&
+                          (paySettings.bonus.enabled ||
+                            (bonusOn(slip)?.amountKobo ?? 0) > 0)
+                        }
+                        addLabel="Add"
+                        onEdit={() =>
+                          setLinesOpen({
+                            employeeId: slip.employeeId,
+                            name: slip.name,
+                            kind: "bonus",
+                          })
+                        }
+                      />
+                    </TD>
+                  )}
 
                   {/* PAYE: one input in the cell, and nothing else.
                       The expanding form that used to open here was the size of
@@ -2555,10 +2619,7 @@ function PayslipTable({
                     The forms themselves are in the cells; nothing expands. */}
                 {adjustError && editing?.slipId === slip.id && (
                   <TR>
-                    <TD
-                      colSpan={anyUnpaid ? 9 : 8}
-                      className="bg-danger-soft py-2"
-                    >
+                    <TD colSpan={columnCount} className="bg-danger-soft py-2">
                       <span className="text-body-sm text-ink">
                         {adjustError}
                       </span>
@@ -2567,7 +2628,7 @@ function PayslipTable({
                 )}
                 {open && (
                   <TR>
-                    <TD colSpan={anyUnpaid ? 8 : 7} className="bg-canvas p-0">
+                    <TD colSpan={columnCount} className="bg-canvas p-0">
                       <PayeByHand
                         slip={slip}
                         periodLabel={period}
@@ -2983,132 +3044,6 @@ function monthlyOf(
  */
 
 /**
- * Whether this company deducts PAYE at all, right where the figure sits.
- *
- * ## Why this exists
- *
- * The PAYE cell already lets somebody type a figure over the engine's own —
- * and does, whether or not the company deducts PAYE at all, because a
- * hand-entered figure stands either way (`payroll/engine.ts`). What it cannot
- * do is offer that control when nothing is operated: `wasDeducted` reads
- * `NOT_OPERATED` and the cell renders the plain word "Not operated", with no
- * button under it — there is nothing to click, because there is no figure to
- * override yet. A company whose real tax situation is "we deduct it, just not
- * through the bands" — Crafwell is the case this was built for — had no way
- * to reach that control from this screen at all. The full explanation and the
- * consequence of switching lives on `/settings/payroll`; this is the fast path
- * to the one thing somebody actually came here to do.
- *
- * ## What it does, and does not, decide
- *
- * Toggling this writes `PayrollSettings.payeEnabled` for the **company**, not
- * for this run alone — the same field `/settings/payroll` writes, through the
- * same store. It is not a second copy of that switch; it is the same one,
- * reachable from here because this is where the problem is noticed. Recalculates
- * immediately (`onChanged`, the same callback the sheet upload and the lines
- * modal already use to trigger it), so the cells below reflect the new setting
- * without a second trip to Check.
- *
- * ## Absent, not disabled-and-silent
- *
- * Nothing renders in demo mode (`useDeductionSwitches` returns `available:
- * false` with no API) and nothing renders while the read is still in flight —
- * a switch that might be showing the wrong state is worse than no switch for
- * the half-second it takes to answer.
- */
-function PayeSwitch({
-  editable,
-  onChanged,
-}: {
-  /** `canPrepare && !settled` from the table. An approved run's tax policy is
-      history, not a decision still open — same reasoning as every other
-      control in this table. */
-  editable: boolean;
-  onChanged: () => void;
-}) {
-  const {
-    settings: response,
-    loading,
-    available,
-    save,
-  } = useDeductionSwitches();
-  const [saving, setSaving] = useState(false);
-  const [failed, setFailed] = useState<string | null>(null);
-
-  /* `response.settings` is null until the company has a settings row at all —
-     which cannot be true here, since a run cannot have been prepared without
-     one existing. Guarded anyway rather than asserted, because "cannot happen"
-     is exactly the reasoning that produced the ₦0 payroll incident this
-     codebase does not repeat. */
-  if (!available || loading || !response?.settings) return null;
-
-  const on = response.settings.payeEnabled;
-
-  async function toggle() {
-    if (!editable || saving) return;
-    setSaving(true);
-    setFailed(null);
-    try {
-      await save({ payeEnabled: !on });
-      onChanged();
-    } catch (error) {
-      setFailed(
-        error instanceof Error ? error.message : "Could not save that.",
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <span className="flex flex-col items-end gap-1">
-      <span className="flex items-center gap-1.5">
-        <span className="text-meta font-normal normal-case text-muted">
-          {on ? "On" : "Off"}
-        </span>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={on}
-          aria-label={
-            on
-              ? "This company deducts PAYE. Switch it off."
-              : "This company does not deduct PAYE. Switch it on so the figure can be entered."
-          }
-          disabled={!editable || saving}
-          onClick={() => void toggle()}
-          title={
-            editable
-              ? "Changes what this company deducts, for every payroll, not just this one."
-              : "This run is settled, so its tax policy cannot change from here."
-          }
-          className={cn(
-            "relative h-4 w-7 shrink-0 rounded-full transition-colors duration-200",
-            on ? "bg-success-strong" : "bg-line-strong",
-            editable ? "cursor-pointer" : "cursor-not-allowed opacity-50",
-            "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text",
-          )}
-        >
-          <span
-            aria-hidden="true"
-            className={cn(
-              "pointer-events-none absolute left-0.5 top-0.5 size-3 rounded-full bg-white shadow-sm",
-              "transition-transform duration-200 ease-out-soft",
-              on && "translate-x-3",
-            )}
-          />
-        </button>
-      </span>
-      {failed && (
-        <span className="max-w-32 whitespace-normal text-right text-meta font-normal normal-case text-danger-text">
-          {failed}
-        </span>
-      )}
-    </span>
-  );
-}
-
-/**
  * The deductions total, and what it is made of.
  *
  * Pension had its own column once and was removed, on the grounds that a
@@ -3281,6 +3216,21 @@ function Deductions({
 function CellValue({
   amountKobo,
   editable,
+  /**
+   * Whether a figure may be **put on** this cell, as opposed to taken off it.
+   *
+   * Defaults to `editable`, which is every caller with no such distinction. It
+   * exists for the two columns a company can switch off in Pay setup: with
+   * overtime or bonuses off, the column still appears on a run that already
+   * carries some — hiding money that is in the net pay is worse than showing a
+   * column nobody wanted — and on that run every *other* person's cell would
+   * otherwise offer an "Add hours" the API refuses.
+   *
+   * Removing is never gated, here or on the API. A figure already on an open
+   * payroll when somebody switches the column off has to come off it, or it is
+   * trapped there with no control left to reach it.
+   */
+  addable = editable,
   onEdit,
   onClear,
   /** What clicking an empty cell would do. Shown in place of a dash. */
@@ -3288,12 +3238,32 @@ function CellValue({
 }: {
   amountKobo: number;
   editable: boolean;
+  addable?: boolean;
   onEdit: () => void;
   onClear?: () => void;
   addLabel?: string;
 }) {
   if (!editable) {
     return amountKobo > 0 ? <>{formatKobo(amountKobo)}</> : <>—</>;
+  }
+  if (!addable) {
+    /* Nothing here and nothing may be added: a plain dash rather than an offer
+       that would come back refused. */
+    if (amountKobo === 0) return <>—</>;
+    return (
+      <span className="flex flex-col items-end gap-0.5">
+        {formatKobo(amountKobo)}
+        {onClear && (
+          <button
+            type="button"
+            onClick={onClear}
+            className="text-meta font-normal text-muted underline-offset-2 hover:text-danger-text hover:underline"
+          >
+            Remove
+          </button>
+        )}
+      </span>
+    );
   }
   return (
     <span className="group flex flex-col items-end gap-0.5">

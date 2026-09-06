@@ -12,7 +12,12 @@
  * and therefore client-only — stay in the screen. The order of the tabs comes
  * from this array in both places, so they cannot drift apart.
  */
-export const PAY_SETUP_TABS = ["allowances", "deductions", "grades"] as const;
+export const PAY_SETUP_TABS = [
+  "allowances",
+  "deductions",
+  "extras",
+  "grades",
+] as const;
 
 export type PaySetupTab = (typeof PAY_SETUP_TABS)[number];
 

@@ -49,8 +49,8 @@ import { DEFAULT_SETTINGS, type PayrollSettings } from "./settings";
  * ## `save` never touches the three switches
  *
  * `settingsToPatch` deliberately omits `payeEnabled` / `pensionEnabled` /
- * `nhfEnabled` — the PATCH endpoint treats an absent field as "leave it
- * alone". Bundling them into the batched Save button is exactly the bug
+ * `nhfEnabled` / `bonusEnabled` — the PATCH endpoint treats an absent field as
+ * "leave it alone". Bundling them into the batched Save button is exactly the bug
  * `payroll-deductions.ts`'s own header warns about: pressing "Reset to
  * defaults" would quietly put PAYE back on for a company that had switched
  * it off. `saveDeduction` is the only path that ever changes them, and it
@@ -165,6 +165,7 @@ function rowToSettings(row: PayrollSettingsRow): PayrollSettings {
       rate: Number(row.nhfRate),
       basis: row.nhfOnGross ? "gross" : "basic",
     },
+    bonus: { enabled: row.bonusEnabled },
     exceptions: {
       netSwingThreshold: Number(row.netSwingThreshold),
       requireBankAccount: row.requireBankAccount,
@@ -174,7 +175,7 @@ function rowToSettings(row: PayrollSettingsRow): PayrollSettings {
   };
 }
 
-/** Everything `save`/`reset` may change. Never the three switches — see the header. */
+/** Everything `save`/`reset` may change. Never a `SwitchKey` — see the header. */
 function settingsToPatch(s: PayrollSettings): PayrollSettingsPatch {
   return {
     workingDaysPerMonth: s.workingDaysPerMonth,
@@ -197,6 +198,18 @@ function settingsToPatch(s: PayrollSettings): PayrollSettingsPatch {
 
 export type DeductionKey = "payeEnabled" | "pensionEnabled" | "nhfEnabled";
 
+/**
+ * Every boolean on this row that saves on its own press.
+ *
+ * `bonusEnabled` is not a deduction and not statutory, but it shares the one
+ * property that made those three their own path: pressing it *is* the save.
+ * Bundling it into the batched Save button would mean "Reset to defaults" put
+ * the Bonus column back for a company that had switched it off — the same bug
+ * `payroll-deductions.ts` warns about for PAYE, so it gets the same treatment
+ * and `settingsToPatch` deliberately omits it.
+ */
+export type SwitchKey = DeductionKey | "bonusEnabled";
+
 export type PayrollSettingsState = {
   settings: PayrollSettings;
   /** True only while the connected fetch's first request is in flight. */
@@ -213,8 +226,8 @@ export type PayrollSettingsState = {
   save: (next: PayrollSettings) => Promise<void> | void;
   /** Same fields, back to the engine's defaults. Never the three switches. */
   reset: () => Promise<void> | void;
-  /** One statutory switch, saved immediately, never batched with `save`. */
-  saveDeduction: (key: DeductionKey, value: boolean) => Promise<void>;
+  /** One switch, saved immediately, never batched with `save`. */
+  saveDeduction: (key: SwitchKey, value: boolean) => Promise<void>;
   /** Re-fetches the connected row from scratch. A no-op offline. */
   reload: () => void;
 };

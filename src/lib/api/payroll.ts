@@ -811,6 +811,15 @@ export type PayrollSettingsRow = {
   nhfEnabled: boolean;
   nhfRate: Decimalish;
   nhfOnGross: boolean;
+  /**
+   * Whether this company awards bonuses through payroll at all.
+   *
+   * Not a statutory switch and not part of the arithmetic — off, the payroll
+   * run drops its Bonus column and the endpoints behind it refuse. `QuoteSettings`
+   * deliberately has no twin: a quote is a payslip for a salary figure, and a
+   * bonus is not part of one.
+   */
+  bonusEnabled: boolean;
   netSwingThreshold: Decimalish;
   requireBankAccount: boolean;
   requirePensionPin: boolean;
@@ -851,6 +860,7 @@ export type PayrollSettingsPatch = Partial<{
   nhfEnabled: boolean;
   nhfRate: number;
   nhfOnGross: boolean;
+  bonusEnabled: boolean;
   netSwingThreshold: number;
   requireBankAccount: boolean;
   requirePensionPin: boolean;

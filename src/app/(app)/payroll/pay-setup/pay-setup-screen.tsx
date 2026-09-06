@@ -1,16 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { Coins, Layers, Scissors, ShieldAlert } from "lucide-react";
+import { Coins, Layers, Scissors, ShieldAlert, SlidersHorizontal } from "lucide-react";
 import { EmptyState, Tabs } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { GradesPanel } from "@/app/(app)/payroll/pay-setup/grades-panel";
 import { useCan } from "@/lib/permissions";
 import { ComponentsPanel } from "./components-panel";
+import { ExtrasPanel } from "./extras-panel";
 import { PAY_SETUP_TABS, isPaySetupTab, type PaySetupTab } from "./tabs";
 
 /**
- * Pay setup — one route, three tabs.
+ * Pay setup — one route, four tabs.
  *
  * This is Rule 1 from `PARITY.md` applied to the thing that made the rule
  * necessary. The incumbent has three separate pages here — allowance types,
@@ -47,6 +48,10 @@ import { PAY_SETUP_TABS, isPaySetupTab, type PaySetupTab } from "./tabs";
 const META: Record<PaySetupTab, { label: string; icon: React.ReactNode }> = {
   allowances: { label: "Allowances", icon: <Coins aria-hidden="true" /> },
   deductions: { label: "Deductions", icon: <Scissors aria-hidden="true" /> },
+  extras: {
+    label: "Extras",
+    icon: <SlidersHorizontal aria-hidden="true" />,
+  },
   grades: { label: "Grades", icon: <Layers aria-hidden="true" /> },
 };
 
@@ -94,6 +99,10 @@ export function PaySetupScreen({ initialTab }: { initialTab: PaySetupTab }) {
         <Tabs items={ITEMS} value={tab} onChange={change}>
           {tab === "allowances" && <ComponentsPanel kind="ALLOWANCE" />}
           {tab === "deductions" && <ComponentsPanel kind="DEDUCTION" />}
+          {/* Overtime and bonuses: the two things a payroll run can carry that
+              nobody had ever decided, offered to every company on every row of
+              every month. See `extras-panel.tsx`. */}
+          {tab === "extras" && <ExtrasPanel />}
           {/* Slot: owned by the grades agent. Do not edit grades-panel.tsx here. */}
           {tab === "grades" && <GradesPanel />}
         </Tabs>
