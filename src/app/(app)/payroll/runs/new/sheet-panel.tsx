@@ -6,10 +6,15 @@ import { Button, Callout, Modal, Spinner } from "@/components/ui";
 import { downloadCsv } from "@/lib/csv";
 import { downloadXlsx } from "@/lib/xlsx";
 import { ApiError } from "@/lib/api/client";
-import { sheetProblems, type SheetProblem } from "@/lib/api/payroll";
+import {
+  overtimeOn,
+  sheetProblems,
+  type SheetProblem,
+} from "@/lib/api/payroll";
 import {
   SHEET_BLANK_RULE,
   buildSheet,
+  type SheetCarries,
   parseSheet,
   sheetRow,
   summarise,
@@ -17,6 +22,8 @@ import {
   type SheetRowSource,
 } from "@/lib/payroll/adjustment-sheet";
 import { usePayrollActions } from "@/lib/store/payroll";
+import { usePayrollSettings } from "@/lib/payroll/use-settings";
+import { useOvertimePolicy } from "@/lib/store/overtime";
 
 /**
  * The whole payroll, out to a spreadsheet and back.
@@ -83,6 +90,8 @@ export function SheetPanel({
 }) {
   const actions = usePayrollActions();
   const input = useRef<HTMLInputElement>(null);
+  const overtimePolicy = useOvertimePolicy();
+  const { settings: paySettings } = usePayrollSettings();
 
   const [parsed, setParsed] = useState<ParsedSheet | null>(null);
   const [filename, setFilename] = useState<string | null>(null);
@@ -114,8 +123,54 @@ export function SheetPanel({
 
   const byNumber = new Map(sources.map((s) => [s.payslip.employeeNo, s]));
 
+  /**
+   * Which of the two optional columns this sheet is written with.
+   *
+   * The same rule the run's table keeps, and it has to be the same rule or the
+   * sheet and the screen it was downloaded from disagree about what this
+   * payroll has on it: a company switch decides what is **offered**, and a
+   * column comes back anyway on a run that already carries the money. A sheet
+   * that dropped a bonus somebody is being paid would be describing the
+   * payroll wrongly by omission, on the one artefact that leaves the building.
+   *
+   * Reading is not narrowed — see `sheetColumnsFor`. A sheet downloaded before
+   * the switch moved still uploads, and the API refuses it in words naming the
+   * setting rather than dropping the figure.
+   */
+  const carries: SheetCarries = {
+    overtime:
+      overtimePolicy.policy.enabled ||
+      sources.some((source) => overtimeOn(source.payslip) > 0),
+    bonus:
+      paySettings.bonus.enabled ||
+      sources.some((source) => source.bonus.state !== "none"),
+  };
+
+  /**
+   * What the sheet lets somebody fill in, in a sentence, matching its columns.
+   *
+   * Built rather than written out because a company with overtime switched off
+   * is handed a file with no `overtime_hours` column in it, and a paragraph
+   * offering to fill one in would be describing a different spreadsheet.
+   */
+  const fillable = [
+    ...(carries.overtime ? ["overtime hours"] : []),
+    ...(carries.bonus ? ["a bonus"] : []),
+    "a deduction (each with a reason)",
+    "a tax figure",
+    "a new monthly salary",
+  ].reduce(
+    (sentence, part, at, all) =>
+      at === 0
+        ? part
+        : at === all.length - 1
+          ? `${sentence} or ${part}`
+          : `${sentence}, ${part}`,
+    "",
+  );
+
   const download = (kind: "csv" | "xlsx") => {
-    const files = buildSheet(sources.map(sheetRow), period);
+    const files = buildSheet(sources.map(sheetRow), period, carries);
     if (kind === "csv") downloadCsv(files.csvFilename, files.csv);
     else downloadXlsx(files.xlsxFilename, files.xlsx);
   };
@@ -209,11 +264,13 @@ export function SheetPanel({
           </Callout>
         )}
 
+        {/* The list has to follow `carries` or it names a column the file
+            does not have — a sentence describing a spreadsheet the reader is
+            about to open and find different. */}
         <p className="text-body-sm text-muted">
           Downloads with everybody on this payroll already in it: staff number,
-          name, contact, department, whether an account is on file, plus the figures
-          the run holds now. Fill in overtime hours, a bonus or a deduction (each
-          with a reason), a tax figure or a new monthly salary, and upload it back.
+          name, contact, department, whether an account is on file, plus the
+          figures the run holds now. Fill in {fillable}, and upload it back.
         </p>
 
         <div className="flex flex-wrap gap-2">

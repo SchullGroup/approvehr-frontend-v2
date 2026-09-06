@@ -7085,13 +7085,62 @@ exactly as found — `bonusEnabled: t`, `payeEnabled: t`, overtime `enabled: t`.
 
 ## Deliberately not done
 
-- **The adjustment sheet still carries an `overtime_hours` and a `bonus`
-  column** whatever the switches say. Gating them means threading the settings
-  through the builder *and* the reader, which matches headings — and a company
-  with overtime off downloads those columns blank, leaves them blank, and blank
-  is a no-op. Typing into one is refused by the API in words naming Pay setup.
 - **PAYE, pension and NHF are not repeated on the Extras tab.** Two places to
   change one field is how they come to disagree; the tab links to
   `/settings/payroll`, which has room for what each one means.
 - **No `bonusEnabled` on `QuoteSettings`.** A quote is a payslip for a salary
   figure and a bonus is not part of one.
+
+## The sheet follows the switches too, and the reader deliberately does not
+
+This entry originally left the adjustment sheet alone and said so. It is done
+now, and the asymmetry is the whole of it:
+
+> **The writer asks. The reader must not.**
+
+`sheetColumnsFor(carries)` narrows what goes **out**: a company with overtime
+off downloads a file with no `overtime_hours` column, and one with bonuses off
+gets neither `bonus` nor `bonus_reason`. The identity columns and the other
+four figures are untouched, and `verify-adjustment-sheet` asserts that
+explicitly — a switch that took `staff_no` with it would make the file
+unapplicable, and one that took `deduction` would be hiding a column nobody
+switched off.
+
+`parseSheet` still reads every column there has ever been. A sheet downloaded
+in March and uploaded in April with bonuses switched off in between **is read**,
+sent, and refused whole by the API in words naming the setting. Filtering on the
+way in would silently drop a figure somebody typed and then report a clean
+apply, which is the failure this codebase spends most of its comments refusing.
+
+Two other things follow from the same rule as the table:
+
+- **A column comes back when the run carries the money.** `carries` is
+  `switch || anybody already has some`, computed in `sheet-panel.tsx` from
+  `overtimeOn(payslip)` and the bonus `LineSummary`. A sheet that dropped a
+  bonus somebody is being paid would be describing the payroll wrongly by
+  omission, on the artefact that leaves the building.
+- **The modal's own sentence is built from `carries`**, not written out. It
+  used to read "Fill in overtime hours, a bonus or a deduction…" — a paragraph
+  describing a spreadsheet the reader is about to open and find different.
+
+`overtimeOn` moved from `wizard.tsx` to `lib/api/payroll.ts`, because two
+surfaces now ask it and a second copy of the test is how the sheet comes to
+disagree with the table it was downloaded from.
+
+### Verified
+
+`verify-adjustment-sheet` is **28 assertions**, up from 16, and was
+tamper-tested in both directions separately: making the writer ignore the
+switches fails 3, and making the reader honour them fails a different 3. Both
+restored to green.
+
+In the browser, connected, on the demo company's August run: both switches on →
+all 15 columns; bonuses off → 13, with `bonus` and `bonus_reason` gone and
+`overtime_hours` **kept** because the run carries approved overtime; the
+sentence following in both cases. Then an "old" sheet carrying a bonus was
+uploaded with bonuses off — read as *"1 person with a figure that moves"*,
+applied, and refused: *"This company does not award bonuses through payroll, so
+one cannot be added here. Switch bonuses on under Pay setup → Extras first.
+Nothing in the file was applied, so the payroll is exactly as it was."*
+Confirmed in the database that no bonus row and no payslip line were written.
+

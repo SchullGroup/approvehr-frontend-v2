@@ -67,6 +67,7 @@ import { ApiError } from "@/lib/api/client";
 import {
   excludedNote,
   formatKobo,
+  overtimeOn,
   headcountLabel,
   naira,
   payslipCountLabel,
@@ -3291,15 +3292,6 @@ function CellValue({
       )}
     </span>
   );
-}
-
-/** What this run is paying them in hand-entered or clocked overtime. */
-function overtimeOn(slip: Payslip): number {
-  return slip.lines
-    .filter(
-      (line) => line.kind === "EARNING" && line.label.startsWith("Overtime"),
-    )
-    .reduce((total, line) => total + line.amountKobo, 0);
 }
 
 /**
