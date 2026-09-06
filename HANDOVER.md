@@ -6892,3 +6892,68 @@ during it.
 It is a floor. There is no network in it, the rows are uniform, and one process
 has the database to itself. Take the shape — flat, linear, no cliff — rather
 than the milliseconds.
+
+---
+
+# The frontend has tests now, and what they are for
+
+`component-tests` in the backlog. The API has ~2,600 assertions; `web/` had
+**none** — thirteen bespoke `verify-*` scripts and nothing that opened a page.
+
+## The verifier scripts are staying, and this does not overlap them
+
+Each `verify-*` answers a question a component test cannot: does a built chunk
+carry a seeded persona, does every store write through `current()`, do the two
+import dictionaries agree, does `sw.js` intercept only navigations. They are
+static or bundle-level checks and they are the right tool for those jobs.
+
+What none of them can do is **render something and press it**. Every defect this
+file records as "found in the browser, not by `tsc`" is that shape:
+
+- a count true of the wrong noun — *"Apply to 1 person"* over *"4 people's
+  figures changed"*;
+- a live "Try again" beside a 409 that will refuse identically forever;
+- *"Counting for 20%"* directly above *"weighted at 0%"*;
+- `₦0.00` where a figure does not belong.
+
+Every one satisfied every type in the codebase. `netKobo: number` is satisfied
+by a zero, and so is the type of every wrong claim.
+
+## What the first two suites cover, and why those
+
+**`my-overview.test.tsx`** — absent-is-not-zero, which is the rule this file
+states in a dozen places and enforces nowhere. The card is the right first
+subject because it puts all three shapes on one screen: an absence that must
+draw nothing, a *nil* that must draw `₦0.00` because a payroll really did run,
+and a zero queue that is a real and useful answer.
+
+**`export-button.test.tsx`** — "the server's refusal, verbatim", which is prose
+in four files and enforced nowhere. A well-meaning
+`catch { toast("Download failed") }` satisfies every type in the repo and throws
+away the only sentence anybody can act on — and it is invisible until somebody
+without a permission presses the button.
+
+Both were **tamper-tested**. Replacing the refusal with a generic string fails
+three assertions; rendering `₦0.00` for an absent payslip fails one. A suite
+that cannot fail proves nothing.
+
+## `jsdom`, not a browser
+
+A real browser is `e2e`'s job and needs Playwright, a download and a running
+server. These mount, assert, press, assert — milliseconds, which is what makes
+them a thing people actually run.
+
+## Not in `npm run check` yet, deliberately
+
+`check` is what CI enforces and it is thirteen scripts finishing in under a
+minute. `npm test` is separate until the suite is load-bearing rather than
+illustrative — wire it in when it is. **That is the next person's call and it is
+the right one to make soon**: two files is a demonstration, not a safety net.
+
+## What to write next, in order
+
+The helpers that have already produced a defect once, because each is a rule
+somebody will re-break: `headcountLabel` versus `paidPeopleLabel` (a number
+under a label has to be true of the thing the label names), `fixFor`'s links,
+`weightProblem` and `scoringWeightProblem` being the server's sentence
+character-for-character, and `dueIn` on the statutory table.
