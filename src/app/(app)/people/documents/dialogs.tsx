@@ -11,6 +11,7 @@ import {
   Select,
   Textarea,
   useToast,
+  FileField,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -39,41 +40,21 @@ import { chaseMessage, firstNameOf } from "@/lib/store/documents";
  * is kept: a folder path, a file name, a document reference. One short line
  * says so, and the field is usable today.
  *
- * When `POST /api/v1/documents/upload-url` exists (named in a TODO at the top
- * of the API's `src/modules/documents/router.ts`), `ReferenceField` is the one
- * place that changes: it presigns, uploads, and passes on the key it got back.
+ * `POST /api/v1/documents/employees/:id/upload-url` exists now, so
+ * `ReferenceField` is gone and `FileField` takes its place: it presigns,
+ * uploads to storage, and hands back the key only once the bytes are actually
+ * there. The order is the point — a row recorded beside the request rather than
+ * after it is a personnel file listing a certificate nobody uploaded.
+ *
+ * A deployment with no bucket configured still refuses honestly, in the API's
+ * own sentence, at the moment somebody picks a file.
  */
 
 /* --------------------------------------------------------------- the field */
 
-/** The seam. One line of honesty, and a field that works. */
-function ReferenceField({
-  value,
-  onChange,
-  error,
-}: {
-  value: string;
-  onChange: (next: string) => void;
-  error?: string | undefined;
-}) {
-  return (
-    <Field
-      label="Where the file is kept"
-      required
-      help="We cannot hold the file itself yet. Put the folder path or file name. Not a web link."
-      {...(error ? { error } : {})}
-    >
-      <Input
-        value={value}
-        placeholder="hr/contracts/adaeze-okonkwo-2026.pdf"
-        onChange={(e) => {
-          const next = e.target.value;
-          onChange(next);
-        }}
-      />
-    </Field>
-  );
-}
+/* `ReferenceField` used to live here — a text input for a folder path, with a
+   line of honesty saying the product could not hold the file. Storage exists
+   now, so it is `FileField` from the design system instead. */
 
 function CategoryField({
   value,
@@ -262,10 +243,13 @@ export function AttachDocumentModal({
   const [storageKey, setStorageKey] = useState("");
   const [name, setName] = useState(request.name);
   const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  /* Same rule as the add dialog: a key exists only once the upload finished,
+     and `uploading` keeps the button shut while bytes are still moving. */
   const ready =
-    mode === "existing" ? documentId !== "" : storageKey.trim().length > 0;
+    mode === "existing" ? documentId !== "" : storageKey !== "" && !uploading;
 
   const who =
     subject === "self" ? "your" : `${firstNameOf(request.employeeName)}’s`;
@@ -290,7 +274,7 @@ export function AttachDocumentModal({
                 mode === "existing"
                   ? { documentId }
                   : {
-                      storageKey: storageKey.trim(),
+                      storageKey,
                       name: name.trim() || request.name,
                       category: request.category,
                     };
@@ -350,7 +334,14 @@ export function AttachDocumentModal({
                 }}
               />
             </Field>
-            <ReferenceField value={storageKey} onChange={setStorageKey} />
+            <FileField
+              label="The file"
+              required
+              help="A PDF, an image, or an Office document. Up to 25MB."
+              scope={{ kind: "employee-document", employeeId: request.employeeId }}
+              onBusyChange={setUploading}
+              onUploaded={(key) => setStorageKey(key ?? "")}
+            />
           </>
         )}
       </div>
@@ -363,11 +354,14 @@ export function AttachDocumentModal({
 /** A document nobody asked for: a contract, an ID, whatever arrives. */
 export function AddDocumentModal({
   whose,
+  employeeId,
   onClose,
   onAdd,
 }: {
   /** Already possessive: `your`, or `Adaeze’s`. */
   whose: string;
+  /** Whose file this attaches to — the upload is gated on it, same as the save. */
+  employeeId: string;
   onClose: () => void;
   onAdd: (body: {
     name: string;
@@ -379,9 +373,13 @@ export function AddDocumentModal({
   const [category, setCategory] = useState<DocumentCategory>("OTHER");
   const [storageKey, setStorageKey] = useState("");
   const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const ready = name.trim().length >= 2 && storageKey.trim().length > 0;
+  /* `storageKey` is only ever set by a finished upload, so a non-empty one
+     means the bytes are in storage. `uploading` keeps the save shut while they
+     are still moving. */
+  const ready = name.trim().length >= 2 && storageKey !== "" && !uploading;
 
   return (
     <Modal
@@ -431,7 +429,21 @@ export function AddDocumentModal({
           />
         </Field>
         <CategoryField value={category} onChange={setCategory} />
-        <ReferenceField value={storageKey} onChange={setStorageKey} />
+        <FileField
+          label="The file"
+          required
+          help="A PDF, an image, or an Office document. Up to 25MB."
+          scope={{ kind: "employee-document", employeeId }}
+          onBusyChange={setUploading}
+          onUploaded={(key, filename) => {
+            setStorageKey(key ?? "");
+            /* Name it after the file if nobody has typed a name — the common
+               case is a contract called exactly what the file is called. */
+            if (key && filename && name.trim() === "") {
+              setName(filename.replace(/\.[^.]+$/, ""));
+            }
+          }}
+        />
       </div>
     </Modal>
   );
