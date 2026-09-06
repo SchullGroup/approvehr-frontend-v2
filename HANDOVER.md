@@ -6656,3 +6656,85 @@ page with no React running and a control needing JavaScript would be dead.
 **Not verified: registration itself, and therefore the offline page actually
 being served by the worker.** Somebody with a real browser should install the
 app, turn off the network, and open it once.
+
+---
+
+# One endpoint, two caches, two answers
+
+`rate-limit-headroom` in the backlog, which turned out to be half a request-count
+problem and half a correctness one.
+
+## The measurement, after the permissions fix
+
+Ten employees, development (React's double-invoke doubles everything, so halve
+these for production):
+
+| | before | after |
+|---|---|---|
+| `/people/leave` | 30, `leave/holidays` **×6** | 26, holidays **×2** |
+| `/payroll` | 22, `payroll/settings` **×4** | 19, settings **×1** |
+
+`shared-resource.ts` already existed — `072c8a0` built it for the permissions
+storm and its header asks callers to reach for it. These are two callers that
+had not.
+
+## The holidays case is ordinary. The payroll one is not.
+
+Nine components call `usePublicHolidays`, three of them on `/people/leave` (the
+calendar, and the booking form asking for two years). Each had its own effect.
+Keyed by year, the resource collapses that to one request per year.
+
+`payroll/settings` was worse, and the request count was the least of it.
+**Two different hooks were reading the same endpoint independently** —
+`store/payroll-deductions.ts` for what the company deducts, and
+`payroll/use-settings.ts` for the rates and the working month — each with its
+own `useState`, and **each writing its own PATCH response back into itself**. So
+saving the rates left the deduction switches rendering the previous answer, and
+saving a switch left the rates screen stale. Two caches of one row is two
+answers about a company's payroll, which is the thing this product is sold
+against.
+
+`lib/store/payroll-settings.ts` is now the one cache, and both hooks read it.
+
+## `SharedResource.set`, and why `refresh` was wrong for a save
+
+The first version called `refresh` after a PATCH. That is wrong twice: `refresh`
+blanks the value before re-fetching, so the person who pressed Save watches the
+screen flash a loading state at them — and it spends a round trip re-reading
+something the server has already handed back.
+
+`set(key, value)` publishes an answer somebody already holds to everybody
+rendering that key. Measured on a real save: no loading flash, and one GET plus
+one PATCH rather than one GET, one PATCH and a second GET.
+
+**Only ever call `set` with a server's own response.** Writing a locally
+assembled object there puts a guess in front of every screen reading the key,
+which is the failure the shared cache exists to prevent rather than to spread.
+
+## The outcome-not-value pattern, now in three places
+
+Both new resources resolve `{ value, error }` rather than rejecting, because a
+shared resource caches what its fetcher resolves and a rejection arrives as
+`null`. `null` is not read as "the request failed" by either caller — it is read
+as "no holidays this year" and "nothing is deducted", and the second is a false
+claim about a company's payroll rather than an empty state. The API's own
+sentence has to survive, so it travels in the value.
+
+An `AbortError` is the exception and is rethrown: it is the resource dropping
+its own request, not an answer, and caching it would hand a failure nobody
+experienced to the next subscriber.
+
+## Verified
+
+`npm run check` exit 0. Counts above measured in the browser against the live
+API. The save path walked end to end on `/settings/payroll`: NHF switched on, no
+loading flash, the page's own sentence updating — then **switched back off**, so
+the demo company is as it was.
+
+## Still duplicated, and left alone
+
+`/people/leave` still asks `leave/requests` ×4 and `employees` ×3. Those are
+different *queries* against one endpoint rather than the same read repeated —
+the balances panel, the request table and the booking form want different rows —
+so a keyed cache would not collapse them and pretending otherwise would mean one
+of the three rendering somebody else's filter.

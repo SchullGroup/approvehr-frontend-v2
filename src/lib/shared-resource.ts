@@ -142,6 +142,21 @@ export type SharedResource<T> = {
   use: (key: string | null) => T | null;
   /** Drop a key and re-fetch it for everybody currently rendering it. */
   refresh: (key: string) => void;
+  /**
+   * Publish an answer somebody already has, to everybody rendering that key.
+   *
+   * For a mutation whose response **is** the new value — a PATCH that returns
+   * the row it just wrote. `refresh` would be wrong there twice over: it blanks
+   * the value first, so the screen that just saved flashes a loading state at
+   * the person who pressed the button, and it spends a round trip re-reading
+   * something the server has already handed over.
+   *
+   * Only ever call this with a server's own response. Writing a locally
+   * assembled object here would put a guess in front of every other screen
+   * reading the same key, which is the failure the shared cache exists to
+   * prevent rather than to spread.
+   */
+  set: (key: string, value: T) => void;
   /** Forget everything. Called on sign-out so the next account starts clean. */
   clear: () => void;
 };
@@ -173,7 +188,8 @@ export function createSharedResource<T>(
   function load(key: string) {
     const entry = entryFor(key);
     if (entry.loaded || entry.pending) return;
-    if (entry.failedAt !== null && Date.now() - entry.failedAt < RETRY_AFTER_MS) return;
+    if (entry.failedAt !== null && Date.now() - entry.failedAt < RETRY_AFTER_MS)
+      return;
 
     entry.pending = (async () => {
       try {
@@ -210,14 +226,11 @@ export function createSharedResource<T>(
         [key],
       );
 
-      const getSnapshot = useCallback(
-        () => {
-          if (key === null) return null;
-          const entry = entries.get(key);
-          return entry && entry.loaded ? entry.value : null;
-        },
-        [key],
-      );
+      const getSnapshot = useCallback(() => {
+        if (key === null) return null;
+        const entry = entries.get(key);
+        return entry && entry.loaded ? entry.value : null;
+      }, [key]);
 
       /* The server has no cache and must not pretend to: rendering a value here
          that the client's first pass cannot match is the hydration mismatch
@@ -225,6 +238,18 @@ export function createSharedResource<T>(
       const getServerSnapshot = useCallback(() => null, []);
 
       return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+    },
+
+    set(key: string, value: T) {
+      const entry = entryFor(key);
+      entry.loaded = true;
+      entry.value = value;
+      entry.failedAt = null;
+      /* Any request still in flight will overwrite this when it lands, which is
+         correct: it was issued later than whatever produced this value only if
+         it also finishes later, and a read that finishes after a write reflects
+         the write. */
+      emit(entry);
     },
 
     refresh(key: string) {

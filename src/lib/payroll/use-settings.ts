@@ -1,15 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useMemo, useSyncExternalStore } from "react";
 import { ApiError } from "@/lib/api/client";
 import {
   payrollApi,
-  type ApiPayrollSettings,
   type PayrollSettingsPatch,
   type PayrollSettingsRow,
   type StatutoryNotice,
 } from "@/lib/api/payroll";
 import { DEMO_REFUSAL } from "@/lib/store/payroll-deductions";
+import {
+  PAYROLL_SETTINGS_KEY,
+  payrollSettingsResource,
+  publishPayrollSettings,
+  refreshPayrollSettings,
+} from "@/lib/store/payroll-settings";
 import { useSession } from "@/lib/store/session";
 import { DEFAULT_SETTINGS, type PayrollSettings } from "./settings";
 
@@ -224,58 +229,35 @@ export function usePayrollSettings(): PayrollSettingsState {
      reader who cannot see pay. */
   const maySeePay = can("VIEW_SALARIES");
 
-  const [tick, setTick] = useState(0);
-  const [fetched, setFetched] = useState<{
-    key: string;
-    row: ApiPayrollSettings | null;
-    error: ApiError | null;
-  } | null>(null);
-
   /* `isLoading` matters: the session restores asynchronously, and firing this
      read before it resolves would send an unauthenticated request that comes
      back 401 and looks like a permission problem. */
   const active = isConnected && !isLoading && maySeePay;
-  const key = `${String(active)}|${tick}`;
 
-  useEffect(() => {
-    if (!active) return;
-    const controller = new AbortController();
-    let cancelled = false;
-
-    void (async () => {
-      try {
-        const row = await payrollApi.settings(controller.signal);
-        if (!cancelled) setFetched({ key, row, error: null });
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        if (!cancelled) {
-          setFetched({
-            key,
-            row: null,
-            error: error instanceof ApiError ? error : null,
-          });
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [key, active]);
-
-  const reload = useCallback(() => setTick((n) => n + 1), []);
-
-  const patch = useCallback(
-    async (body: PayrollSettingsPatch) => {
-      const row = await payrollApi.updateSettings(body);
-      setFetched({ key, row, error: null });
-    },
-    [key],
+  /**
+   * The same cache `useDeductionSwitches` reads.
+   *
+   * These two hooks used to hold separate `useState` copies of one row, each
+   * with its own effect and each writing its own PATCH response back into
+   * itself — so saving the rates here left the deduction switches rendering the
+   * previous answer, and vice versa. One row, one cache, and a save refreshes it
+   * for both. See `lib/store/payroll-settings.ts`.
+   */
+  const outcome = payrollSettingsResource.use(
+    active ? PAYROLL_SETTINGS_KEY : null,
   );
 
-  const current = fetched?.key === key ? fetched : null;
-  const row = current?.row?.settings ?? null;
+  const reload = useCallback(() => {
+    refreshPayrollSettings();
+  }, []);
+
+  const patch = useCallback(async (body: PayrollSettingsPatch) => {
+    /* The PATCH's answer belongs to every reader of this row, not just this
+       one, so it is published rather than kept. */
+    publishPayrollSettings(await payrollApi.updateSettings(body));
+  }, []);
+
+  const row = outcome?.settings?.settings ?? null;
   /**
    * Memoised on the row itself, not recomputed inline every render.
    *
@@ -310,12 +292,12 @@ export function usePayrollSettings(): PayrollSettingsState {
 
   return {
     settings,
-    loading: current === null,
-    error: current?.error ?? null,
+    loading: outcome === null,
+    error: outcome?.error ?? null,
     available: true,
-    defaults: current?.row?.defaults ?? true,
-    headcount: current?.row?.headcount ?? 0,
-    notices: current?.row?.notices ?? [],
+    defaults: outcome?.settings?.defaults ?? true,
+    headcount: outcome?.settings?.headcount ?? 0,
+    notices: outcome?.settings?.notices ?? [],
     save: (next) => patch(settingsToPatch(next)),
     reset: () => patch(settingsToPatch(DEFAULT_SETTINGS)),
     saveDeduction: (deductionKey, value) => patch({ [deductionKey]: value }),
