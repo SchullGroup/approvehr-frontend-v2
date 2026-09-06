@@ -257,7 +257,8 @@ function useNavBadges(): Record<BadgeSource, number> {
   const isManager = useIsManager();
   const { permissions } = usePermissions();
   const { employeeId } = useSession();
-  const canApprove = isManager || hasAnyPermission(permissions, APPROVE_PERMISSIONS);
+  const canApprove =
+    isManager || hasAnyPermission(permissions, APPROVE_PERMISSIONS);
   /* The nearest static permission to the "Attendance history" nav item's own
      `useIsManager() || useCan("EDIT_RECORDS")` gate — a plain employee has no
      business seeing how many of their colleagues have not clocked in today. */
@@ -625,7 +626,8 @@ function CompanySwitcher() {
         "text-body-sm font-medium text-ink sm:flex",
       )}
       title={
-        organization.tradingName && organization.tradingName !== organization.legalName
+        organization.tradingName &&
+        organization.tradingName !== organization.legalName
           ? organization.legalName
           : undefined
       }
@@ -771,7 +773,21 @@ export function PageHeader({
             </div>
           </div>
           {action && (
-            <div className="flex shrink-0 items-center gap-2">{action}</div>
+            /* Wraps, and is allowed to shrink.
+               ---------------------------------------------------------------
+               `shrink-0` with no wrap made this an unbreakable block as wide as
+               the sum of its buttons. On `/people` that is three buttons at
+               501px, on a 375px phone, and it gave every such screen a sideways
+               scroll — the page header being shared meant one class did it to
+               all of them.
+
+               Dropping `shrink-0` does not squash the buttons on a desktop: the
+               parent is `flex-wrap`, so a row that will not fit moves to its own
+               line before anything inside it is compressed. Only when the action
+               row *alone* exceeds the width — the phone case — does it wrap
+               internally, which is what we want. Measured on `/people` at 375px:
+               501px -> 335px. */
+            <div className="flex flex-wrap items-center gap-2">{action}</div>
           )}
         </div>
 

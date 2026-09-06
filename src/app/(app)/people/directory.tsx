@@ -419,7 +419,13 @@ export function Directory({
             other clickable-stat pattern exists yet in this app to follow. */}
         <Link
           href="/people/incomplete"
-          className="block h-full rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+          /* `min-w-0` because this link is the GRID ITEM and `Stat` inside it is
+                 not. A `1fr` track floors at the widest item's min-content, and a
+                 grid track is shared — so this one wrapper without the class made
+                 all four stat cards 489px wide inside a 335px row and gave the
+                 whole page a sideways scroll at 375px. The three bare `Stat`s
+                 beside it already carried it; only the clickable one did not. */
+          className="block h-full min-w-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
         >
           <Stat
             label="Records incomplete"

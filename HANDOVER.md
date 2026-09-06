@@ -6457,3 +6457,98 @@ reported connected, so the offline branch of the directory button — which now
 returns a `FileDownload` instead of saving one itself — was only typechecked.
 It is one function's return type and the same shared button, but somebody in a
 room with no database should press it once.
+
+---
+
+# The dashboard scrolled sideways on a phone, and three classes caused it
+
+`responsive-pass` in the audit backlog, and the finding is narrower and more
+useful than "~55 screens have no breakpoint utilities". Measured at 375px across
+ten routes: **three shared causes**, each one class, each fixed in one place, and
+between them every route measured now sits at exactly the viewport width with no
+horizontal scroll.
+
+## First, the metric — because the obvious one is wrong
+
+`document.documentElement.scrollWidth` **over-reports**. It counts content inside
+`overflow-x: auto` containers, so `/people/leave` read 1035px purely because
+`TableWrap` was doing its job around a 1030px table. The honest test is
+`document.body.scrollWidth` against `clientWidth`, confirmed by actually calling
+`window.scrollTo(600, 0)` and reading `window.scrollX` back. If it stays 0 there
+is no horizontal scroll, whatever `scrollWidth` says.
+
+I got this wrong first and it sent me looking at a table that was already
+correct. Use the scroll test.
+
+## 1. `sr-only` does not work on a `<table>`
+
+`components/ui/chart.tsx` renders every chart's accessible data table with
+`sr-only-focusable`, which sets `width: 1px`. **A table does not honour it**:
+under automatic table layout the used width is at least the min-content width,
+so it laid out at 545px. `clip` still hid it, and because it is absolutely
+positioned it extended the document's scrollable overflow anyway — the dashboard
+scrolled to 585px on a 375px screen because of an accessibility affordance.
+
+The clip lives on a wrapping `<div>` now, which does honour `width: 1px`.
+Measured: 585px → 420px. `table-layout: fixed` was tried first and changed
+nothing.
+
+## 2. A grid item's `min-width: auto` floors the whole track
+
+`1fr` is `minmax(auto, 1fr)`, and that automatic minimum is the item's
+min-content width. So one grid item that cannot compress sets a floor the
+*container* cannot go below — and because a track is shared, one item does it to
+every sibling.
+
+Two instances, and the second is the instructive one:
+
+- **`dashboard/quick-actions.tsx`** — the `min-w-0` was on the text span inside
+  the card. The floor is set by the **item**, one level up. Track 379px → 293px,
+  document 420px → 375px.
+- **`people/directory.tsx` and `people/onboarding`** — three `Stat` cards
+  carried `min-w-0` and the fourth grid child, a link wrapping a `Stat` to make
+  it clickable, did not. That one wrapper made all four cards 489px wide inside
+  a 335px row. Track 489px → 335px.
+
+**If you put a grid item inside a wrapper, the wrapper needs the class.** The
+component inside it having `min-w-0` does nothing.
+
+## 3. The page header's action row could not wrap
+
+`PageHeader` in `components/portal/shell.tsx` rendered its actions as
+`flex shrink-0 items-center gap-2` — an unbreakable block as wide as the sum of
+its buttons. On `/people` that is three buttons at 501px. The header is shared,
+so one class did it to every screen with more than one header action.
+
+It is `flex flex-wrap items-center gap-2` now. **Dropping `shrink-0` does not
+squash the buttons on a desktop**: the parent is `flex-wrap`, so a row that will
+not fit moves to its own line before anything inside it is compressed, and only
+when the action row alone exceeds the width — the phone case — does it wrap
+internally. Verified at desktop width: the three buttons are still on one line.
+
+Adding `flex-wrap` while keeping `shrink-0` changes nothing, which is worth
+knowing: the container's base size is still max-content, so there is nothing to
+wrap against.
+
+## Verified
+
+Ten routes at 375×812, each with `body.scrollWidth === clientWidth` and
+`window.scrollX` staying 0 after a scroll attempt: `/dashboard`, `/people`,
+`/people/attendance`, `/people/leave`, `/people/org-chart`, `/payroll`,
+`/payroll/payslips`, `/performance`, `/approvals`, `/settings`. `npm run check`
+exit 0, and desktop screenshotted to confirm the header is unchanged.
+
+## Deliberately not done
+
+- **A gate.** Every other invariant in this repo has one, and this one needs a
+  headless browser to measure — a Playwright dependency is a decision rather
+  than a fix, and adding it inside a responsive pass would be the wrong order.
+  The probe is eight lines of JavaScript; it is in this entry rather than in
+  `scripts/` because there is nothing to run it in.
+- **The remaining ~45 routes.** Ten were measured, chosen as the ones an
+  employee or an administrator actually opens. The three causes are shared
+  components and shared classes, so the fixes reach further than the ten — but
+  "every route is clean" is a claim I have not measured and am not making.
+- **Card-per-row tables.** `TableWrap`'s horizontal scroll is doing its job and
+  is a legitimate answer; replacing a dense payroll table with stacked cards on
+  a phone is a design decision, not a defect fix.

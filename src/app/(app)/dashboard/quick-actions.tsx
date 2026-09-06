@@ -151,7 +151,16 @@ export function QuickActions() {
           <Link
             key={action.href}
             href={action.href}
-            className="group flex items-center gap-3 rounded-lg border border-line bg-surface px-3.5 py-3 transition-colors hover:border-control-line hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+            /* `min-w-0` on the grid ITEM, not only on the text inside it.
+               A `1fr` track is `minmax(auto, 1fr)`, and that automatic minimum
+               is the item's min-content width — so a grid item whose own
+               `min-width` is `auto` sets a floor the container cannot go below.
+               At 375px this single column resolved to 379px inside a 333px
+               card and gave the whole dashboard a sideways scroll. The
+               `min-w-0` already on the inner span could not help: the floor is
+               set by the item, one level up. Measured: track 379px -> 293px,
+               document 420px -> 375px. */
+            className="group flex min-w-0 items-center gap-3 rounded-lg border border-line bg-surface px-3.5 py-3 transition-colors hover:border-control-line hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
           >
             <span
               aria-hidden="true"
