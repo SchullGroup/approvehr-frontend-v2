@@ -6836,3 +6836,59 @@ local collector:
 
 `npm run check` exit 0 with both new gates. The redaction gate was tamper-tested
 by deleting the account-number rule: 14/16, naming both cases.
+
+---
+
+# It does work at a thousand employees, and the audit was wrong about that
+
+`loadtest` in the backlog. The audit said the product *"works at 10 employees;
+it will not work at 1,000"* — a reasonable inference from reading the code, and
+**nobody had run it**. An inference about performance is a guess with a citation.
+
+`npm run load-test` in `approvehr-api` builds its own tenant, measures, and
+tears it down in a `finally`. Measured, local Postgres, no network between the
+API and the database:
+
+| | 1,000 | 5,000 |
+|---|---|---|
+| directory, page 1 of 25 | 31ms | 43ms |
+| directory, page 40 (deep paging) | 9ms | 20ms |
+| directory summary | 10ms | 11ms |
+| org chart, whole company | 13ms | 47ms |
+| `staff.csv` export | 41ms (107KB) | 143ms (536KB) |
+| **payroll prepare** | **1,207ms** | **6,522ms** |
+| payslip list, page 1 | 10ms | 36ms |
+| `payslips.csv` export | 40ms (112KB) | 170ms (562KB) |
+
+**Everything paged is flat and `prepare` is linear** — five times the people for
+5.4 times the time, not 25. There is no quadratic term hiding in the run.
+
+## Where the ceiling actually is
+
+`prepare` holds an interactive transaction, and its timeout is already
+`120_000` — raised deliberately, from Prisma's five-second default, by whoever
+found a three-hundred-person payroll failing on the very last statement. At the
+measured rate that puts the ceiling near **90,000 employees on one payroll**,
+which is not a number any customer of this product has.
+
+So the honest reading is: nothing here needs optimising for scale. What the
+audit was right about is the **distance** — the API runs in us-east-1 with users
+in Nigeria, and a warm no-op `/health` costs 197–321ms from Lagos. A 31ms
+directory read behind a 300ms round trip is a 331ms directory read, and that is
+where the second is spent. Moving the region, or putting the API behind the CDN
+the frontend already uses, is worth more than any query in this table.
+
+## One thing the run surfaced and this did not chase
+
+At 5,000 the pg driver logs *"Calling client.query() when the client is already
+executing a query is deprecated and will be removed in pg@9.0"*. That is the
+class HANDOVER already records under "writes return ids, reads return shapes" —
+Prisma loading relations in parallel inside a transaction. It is a warning today
+and a breakage at pg 9, so it is worth finding before the upgrade rather than
+during it.
+
+## Reading a number from this table
+
+It is a floor. There is no network in it, the rows are uniform, and one process
+has the database to itself. Take the shape — flat, linear, no cliff — rather
+than the milliseconds.
