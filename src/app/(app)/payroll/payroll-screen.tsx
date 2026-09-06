@@ -133,7 +133,14 @@ export function PayrollScreen() {
   const current = runs[0] ?? null;
   const detail = usePayrollRun(current?.id ?? null);
 
-  const currentPeriod = TODAY.slice(0, 7);
+  /* `TODAY` is pinned to the demo dataset's day, not a question about a real
+     company's calendar — same reasoning `periodStanding` in the run wizard
+     gives for reading `new Date()` instead. Connected, the real clock decides
+     what "no run yet" means; demo mode keeps the fixture's own day so the
+     seed stays coherent. */
+  const currentPeriod = connected
+    ? new Date().toISOString().slice(0, 7)
+    : TODAY.slice(0, 7);
   const hasCurrentPeriod = runs.some((run) => run.period === currentPeriod);
   const counts = countBySeverity(detail.run?.exceptions ?? []);
 
