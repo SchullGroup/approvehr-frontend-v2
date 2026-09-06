@@ -15,6 +15,8 @@ import {
   Skeleton,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
+import { offerLetter } from "@/lib/api/exports";
+import { ExportButton } from "@/components/portal/export-button";
 import { naira } from "@/lib/api/recruitment";
 import { useCan } from "@/lib/permissions";
 import {
@@ -182,7 +184,26 @@ function RealOfferCard({
               Send offer
             </Button>
           )}
-          {!offer.approvedAt && (
+          {/* Only once approved, which is the API's own gate — see
+              `lib/api/exports.ts#offerLetter`. Rendering it earlier would be a
+              button whose only outcome is a refusal. */}
+          {offer.approvedAt && (
+            <ExportButton
+              label="Offer letter"
+              download={() =>
+                offerLetter(
+                  offer.id,
+                  `offer-${application.candidateName.replace(/\s+/g, "-")}`,
+                )
+              }
+            />
+          )}
+          {/* `canManage`, not `canApprove`: `POST /offers/:id/decline` is gated
+              on `MANAGE_HIRING`. Without this the screen offered Decline to
+              somebody holding only `APPROVE_HIRING` — who can read this page
+              and would get a 403 on the press. If declining should be an
+              approver's act, that is a change to the route, not to this line. */}
+          {!offer.approvedAt && canManage && (
             <Button
               variant="secondary"
               loading={busy}

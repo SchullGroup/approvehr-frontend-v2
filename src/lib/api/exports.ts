@@ -81,6 +81,27 @@ export const attendanceCsv = (
  * and audited, because producing a file of somebody's pay is the act a question
  * gets asked about later.
  */
+/**
+ * The offer letter for one offer.
+ *
+ * **Only for an approved offer**, and that gate is the API's: it refuses one
+ * with no `approvedAt` and says so, because the letter quotes a salary and an
+ * unapproved one is a figure nobody has signed off. The caller renders the
+ * button on the same condition rather than catching the refusal, so nobody
+ * presses a control whose only outcome is a No — but the server check is what
+ * makes it true, not the button.
+ *
+ * Gated as the JSON read is, `MANAGE_HIRING` or `APPROVE_HIRING`. Deliberately
+ * not also `EXPORT_DATA`: that permission's own description names staff, pay
+ * and attendance, and an offer letter is none of the three — it is one
+ * document about one person, produced as part of hiring them.
+ */
+export const offerLetter = (
+  offerId: string,
+  stem?: string,
+): Promise<BinaryDownload> =>
+  fetchBinary(`/recruitment/offers/${offerId}/letter.pdf`, stem ?? "offer");
+
 export const payslipPdf = (
   payslipId: string,
   stem?: string,
