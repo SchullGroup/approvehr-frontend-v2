@@ -21,11 +21,11 @@ import {
   GraduationCap,
   History,
   Inbox,
-  Wallet,
   Laptop,
   LayoutDashboard,
   LifeBuoy,
   Megaphone,
+  MessagesSquare,
   Network,
   Receipt,
   ReceiptText,
@@ -38,6 +38,7 @@ import {
   TrendingUp,
   UserRoundPlus,
   Users,
+  Wallet,
 } from "lucide-react";
 import type { PermissionKey } from "@/lib/permissions";
 import type { FeatureKey } from "@/lib/api/setup";
@@ -493,6 +494,17 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       href: "/performance/kpis",
       label: "KPIs",
       icon: <TrendingUp aria-hidden="true" />,
+      always: true,
+    },
+    {
+      /* `always`, and no permission: a one-to-one is between two people, so
+         "may I see this" is a property of the rows rather than of the caller
+         — the API answers it and no `useCan` here can. Somebody in none at
+         all gets an empty screen offering to start one with their reports,
+         which is the honest answer and is also how the feature is found. */
+      href: "/people/one-on-ones",
+      label: "One-to-ones",
+      icon: <MessagesSquare aria-hidden="true" />,
       always: true,
     },
     {
