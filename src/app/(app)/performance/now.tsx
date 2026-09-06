@@ -20,7 +20,6 @@ import {
   Disclosure,
   EmptyState,
   Spinner,
-  Stat,
   Tabs,
   type TabItem,
 } from "@/components/ui";
@@ -42,7 +41,6 @@ import {
   useObjectiveApprovals,
 } from "@/lib/store/performance";
 import { AppraisersDialog } from "./appraiser-map";
-import { FrameworkDisclosure, HowItWorks } from "./how-it-works";
 import { ManagerQuestionButton } from "./manager-question";
 import { PeriodStatus } from "./period-status";
 import { ReviewFormModal } from "./review-form";
@@ -67,10 +65,16 @@ import { StartPeriodButton } from "./start-period";
  * | **What is waiting on somebody else** | objectives you sent, the appraiser who has not finished |
  *
  * Everything reference-shaped — how an appraisal works, and the framework —
- * is behind a `Disclosure` with its count on the closed line. `PARITY.md`
- * Rule 5, including the half of it people skip: **a warning never goes
- * behind a click**. The no-appraiser exception and an unanswered final
- * rating render above everything, outside every reveal.
+ * has **left this screen** for `/performance/how-it-works`. It was behind a
+ * `Disclosure` here, which was better than printing it inline and still put a
+ * manual on the page somebody opens to do a task. `PeriodStatus`'s rail draws
+ * the shape those four lines described, and carries the link for the rest.
+ *
+ * What stays behind a reveal is this person's own record — what was said about
+ * them, and peer feedback — which is data rather than explanation. `PARITY.md`
+ * Rule 5, including the half people skip: **a warning never goes behind a
+ * click**. The no-appraiser exception and an unanswered final rating render
+ * above everything, outside every reveal.
  *
  * ## Skills moved out to its own tab
  *
@@ -222,6 +226,63 @@ export function WhatNeedsYouTab({
   const waitingOnOthers =
     sentForApproval.length + (scored ? appraisingMe.length : 0);
 
+  /**
+   * The whole of what used to be three stat tiles, as one sentence.
+   *
+   * Built from clauses so a nought is never printed as a figure: what is
+   * waiting on you breaks down only when there is something to break down,
+   * and "nothing else is waiting on you" is a clause rather than a tile
+   * showing 0. The order is the same order the tabs below run in.
+   */
+  const needsYouLine = (() => {
+    const parts: string[] = [];
+    if (owedNow.length > 0) {
+      parts.push(
+        owedNow.length === 1 ? "1 review to write" : `${owedNow.length} reviews to write`,
+      );
+    }
+    if (scored && owesAnswer.length > 0) {
+      parts.push(
+        owesAnswer.length === 1
+          ? "1 rating to answer"
+          : `${owesAnswer.length} ratings to answer`,
+      );
+    }
+    if (queue.length > 0) {
+      parts.push(
+        queue.length === 1
+          ? "1 objective to agree"
+          : `${queue.length} objectives to agree`,
+      );
+    }
+    if (toSend.length > 0) {
+      parts.push(
+        toSend.length === 1
+          ? "1 of yours to send"
+          : `${toSend.length} of yours to send`,
+      );
+    }
+
+    const mine =
+      parts.length === 0
+        ? ""
+        : parts.length === 1
+          ? parts[0]!
+          : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]!}`;
+
+    const theirs =
+      waitingOnOthers === 0
+        ? "nothing is waiting on anybody else"
+        : waitingOnOthers === 1
+          ? "1 thing is waiting on somebody else"
+          : `${waitingOnOthers} things are waiting on somebody else`;
+
+    if (mine === "") {
+      return `Nothing is waiting on you, and ${theirs}.`;
+    }
+    return `${mine.charAt(0).toUpperCase()}${mine.slice(1)} — and ${theirs}.`;
+  })();
+
   /* A manager's third question is "who has not sent theirs in", and the honest
      answer is an aggregate over the period — one register read, on the period's
      own screen. So this is a link and not a count: a number here would either be
@@ -336,40 +397,44 @@ export function WhatNeedsYouTab({
         </Callout>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat
-          label="Waiting on you"
-          value={String(waitingOnMe)}
-          {...(waitingOnMe > 0
-            ? { hint: "Everything below with a button beside it" }
-            : { hint: "Nothing needs you here" })}
-        />
-        <Stat
-          label="Waiting on somebody else"
-          value={String(waitingOnOthers)}
-          {...(waitingOnOthers > 0
-            ? { hint: "Sent, and not answered yet" }
-            : {})}
-        />
-        {scored && (
-          <Stat
-            label="Ratings to answer"
-            value={String(owesAnswer.length)}
-            {...(owesAnswer.length > 0
-              ? { hint: "Acknowledge it or say you disagree" }
-              : {})}
-          />
-        )}
-        {scored && (
-          <Stat
-            label="Appraisal period"
-            value={openPeriod ? openPeriod.name : "None running"}
-            {...(openPeriod
-              ? { hint: `At ${openPeriod.stageLabel}` }
-              : { hint: "Nothing is open, so nobody owes a form" })}
-          />
-        )}
-      </div>
+      {/*
+       * One figure, not four tiles.
+       *
+       * This was `Waiting on you` / `Waiting on somebody else` / `Ratings to
+       * answer` / `Appraisal period`, all the same size. Three of the four are
+       * usually zero or a label, so the one number that means work competed
+       * with two noughts and a piece of text — and a nought rendered as a
+       * headline figure reads as a result rather than as an absence.
+       *
+       * The zeroes are still said. They are the second half of one sentence
+       * now, where "nothing else is waiting on you" costs a glance instead of
+       * two tiles. The period moved to the rail below, which says what stage it
+       * is at rather than only naming it.
+       */}
+      <Card>
+        <CardBody className="flex flex-col gap-1">
+          {waitingOnMe > 0 ? (
+            <>
+              <p className="flex flex-wrap items-baseline gap-2">
+                <span className="tabular text-h2 font-semibold text-ink">
+                  {waitingOnMe}
+                </span>
+                <span className="text-body font-semibold text-ink">
+                  {waitingOnMe === 1 ? "thing needs you" : "things need you"}
+                </span>
+              </p>
+              <p className="text-body-sm text-muted">{needsYouLine}</p>
+            </>
+          ) : (
+            <>
+              <p className="text-body font-semibold text-ink">
+                Nothing needs you here
+              </p>
+              <p className="text-body-sm text-muted">{needsYouLine}</p>
+            </>
+          )}
+        </CardBody>
+      </Card>
 
       {/* Switched off, and the way to switch it on. The one appraisal thing a
           company that said "no formal appraisals" is shown, because the answer
@@ -557,7 +622,7 @@ export function WhatNeedsYouTab({
                     state, so "where is this up to" was two clicks from the screen
                     that asked it. */}
                 <PeriodStatus
-                  cycleId={openPeriod.id}
+                  cycle={openPeriod}
                   canSeeCompany={canSeeCompany}
                 />
               </>
@@ -704,7 +769,18 @@ export function WhatNeedsYouTab({
       </Tabs>
 
       {/* ------------------------------------------------------- the reference */}
-      {scored && <HowItWorks />}
+      {/*
+       * `HowItWorks` used to render here — four lines explaining what a period
+       * is, what you do inside it, what your mark is made of and what happens
+       * at the end. It was already the trimmed remainder of a longer piece that
+       * moved to `/performance/how-it-works`, and it is gone from this screen
+       * now for the same reason the rest went: the rail above draws the shape
+       * those four lines described. A product that has to print its own manual
+       * on the landing page has not shown you the thing.
+       *
+       * Nothing is lost. The whole explanation is still one link away, and
+       * `PeriodStatus` carries the link.
+       */}
 
       {scored && (
         <Disclosure
@@ -784,7 +860,12 @@ export function WhatNeedsYouTab({
         </Disclosure>
       )}
 
-      {scored && <FrameworkDisclosure />}
+      {/* `FrameworkDisclosure` — the four competency groups, as reference —
+          moved to `/performance/how-it-works` with the rest of the explanation.
+          Somebody who wants to know what an appraisal is made of is asking a
+          question about the model, not doing a task, and this screen is for the
+          task. `/performance/skills` shows them their own actual levels, which
+          is the version of that question with an answer in it. */}
 
       {opened && (
         <ReviewFormModal
