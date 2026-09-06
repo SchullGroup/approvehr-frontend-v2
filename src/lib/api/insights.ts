@@ -28,8 +28,42 @@ import type { ApiBoard } from "@/lib/api/announcements";
 /** Money crosses as integer kobo. Naira is a display concern. */
 export const naira = (kobo: number): number => kobo / 100;
 
+/**
+ * The signed-in person's own three facts. Absent when the account has no
+ * employee record behind it — an external administrator has no pay and no
+ * leave, and three zeroes would say otherwise.
+ */
+export type MyOverview = {
+  /** Absent when no payroll has ever included them. Never a zero. */
+  pay?: {
+    /** `YYYY-MM`. */
+    period: string;
+    netKobo: number;
+    /** `PAID`, not `APPROVED`. Approving is a decision; paying moved money. */
+    paid: boolean;
+  };
+  /**
+   * Every type they have an entitlement in, biggest first.
+   *
+   * Deliberately not one headline figure: nothing on a leave type says which
+   * is the ordinary annual one, so picking would be a guess — and the guess
+   * the API first made showed a man 84 days of maternity leave. Empty is a
+   * company that has configured no leave, which is not "no days left".
+   */
+  leave: {
+    leaveType: string;
+    entitled: number;
+    taken: number;
+    remaining: number;
+  }[];
+  /** Approvals addressed to them and still open. Zero is a real answer here. */
+  waitingOnMe: number;
+};
+
 export type DashboardData = {
   asOf: string;
+  /** The caller's own facts. See `MyOverview`. */
+  me?: MyOverview;
   /**
    * Absent for a plain employee — the same rule as `hiring`, `payroll` and
    * `money` below. Headcount, the company-wide approval backlog and who has

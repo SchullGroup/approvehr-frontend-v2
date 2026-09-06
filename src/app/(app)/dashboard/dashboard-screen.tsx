@@ -24,9 +24,15 @@ import { AskPanel } from "@/components/portal/ask-panel";
 import { MyClockCard } from "@/components/portal/my-clock-card";
 import { DashboardHeader } from "./header";
 import { AnnouncementsPanel } from "./announcements-panel";
+import { MyOverview } from "./my-overview";
 import { useDashboard } from "@/lib/store/insights";
 import { StartPeriodButton } from "@/app/(app)/performance";
-import { naira, runStatusLabel, type DashboardData } from "@/lib/api/insights";
+import {
+  naira,
+  runStatusLabel,
+  type DashboardData,
+  type MyOverview as MyOverviewData,
+} from "@/lib/api/insights";
 import { useCan } from "@/lib/permissions";
 import type { ApiBoard } from "@/lib/api/announcements";
 import { QuickActions } from "./quick-actions";
@@ -118,8 +124,7 @@ export function DashboardScreen() {
           <Card>
             <CardBody className="flex flex-col items-start gap-3">
               <p className="text-body">
-                {error ??
-                  "Your dashboard did not load. Try again in a moment."}
+                {error ?? "Your dashboard did not load. Try again in a moment."}
               </p>
               <button
                 type="button"
@@ -149,7 +154,7 @@ export function DashboardScreen() {
     );
   }
 
-  return <EmployeeOverview announcements={data.announcements} />;
+  return <EmployeeOverview announcements={data.announcements} me={data.me} />;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -161,12 +166,21 @@ export function DashboardScreen() {
  * different, honest question ("what is my day") rather than the company's
  * question answered badly.
  */
-function EmployeeOverview({ announcements }: { announcements: ApiBoard }) {
+function EmployeeOverview({
+  announcements,
+  me,
+}: {
+  announcements: ApiBoard;
+  me: MyOverviewData | undefined;
+}) {
   return (
     <>
       <DashboardHeader action={<StartPeriodButton withIcon />} />
       <PageBody className="flex flex-col gap-6">
         <MyClockCard />
+        {/* Their own pay, leave and queue. Absent for an account with no
+            employee record behind it — see `MyOverview`. */}
+        {me && <MyOverview me={me} />}
         {/* Renders nothing when no assistant is wired — see `AskPanel`. It is
             offered on both dashboards rather than only the company one:
             "how many days leave do I have" is a staff question, and the
@@ -195,6 +209,7 @@ function CompanyOverview({
   approvals,
   today,
   announcements,
+  me,
   exits,
   onboarding,
   hiring,
@@ -241,6 +256,12 @@ function CompanyOverview({
 
       <PageBody className="flex flex-col gap-6">
         <AskPanel />
+
+        {/* An administrator is also somebody with leave and a payslip, and the
+            company's headcount is not an answer to "have I been paid". Above
+            the company figures on purpose: the first question anybody has on
+            their own dashboard is about themselves. */}
+        {me && <MyOverview me={me} />}
 
         {/* ---- The row that answers "is anything waiting for me" ---------- */}
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -464,7 +485,11 @@ function CompanyOverview({
                       No run has been prepared for this month yet.
                     </p>
                     {canRunPayroll && (
-                      <ButtonLink href="/payroll/runs/new" variant="accent" size="sm">
+                      <ButtonLink
+                        href="/payroll/runs/new"
+                        variant="accent"
+                        size="sm"
+                      >
                         Start this month&rsquo;s payroll
                         <ArrowRight aria-hidden="true" className="size-4" />
                       </ButtonLink>
@@ -473,9 +498,15 @@ function CompanyOverview({
                 ) : (
                   <div className="flex flex-col gap-4">
                     <div className="flex flex-wrap items-baseline gap-3">
-                      <Money amount={naira(payroll.netKobo)} decimals size="xl" />
+                      <Money
+                        amount={naira(payroll.netKobo)}
+                        decimals
+                        size="xl"
+                      />
                       <Badge
-                        tone={payroll.status === "APPROVED" ? "success" : "neutral"}
+                        tone={
+                          payroll.status === "APPROVED" ? "success" : "neutral"
+                        }
                         size="sm"
                       >
                         {runStatusLabel(payroll.status)}
@@ -491,20 +522,24 @@ function CompanyOverview({
                       {payroll.excludedCount > 0
                         ? ` of ${payroll.employeeCount + payroll.excludedCount}`
                         : ""}{" "}
-                      · gross <Money amount={naira(payroll.grossKobo)} decimals />
+                      · gross{" "}
+                      <Money amount={naira(payroll.grossKobo)} decimals />
                     </p>
                     {payroll.excludedCount > 0 && (
                       <p className="text-body-sm text-warning-text">
                         {payroll.excludedCount}{" "}
-                        {payroll.excludedCount === 1 ? "person is" : "people are"}{" "}
-                        deliberately not on this payroll, with the reason recorded
+                        {payroll.excludedCount === 1
+                          ? "person is"
+                          : "people are"}{" "}
+                        deliberately not on this payroll, with the reason
+                        recorded
                       </p>
                     )}
                     {payroll.warnings > 0 && (
                       <p className="text-body-sm text-warning-text">
                         {payroll.warnings}{" "}
-                        {payroll.warnings === 1 ? "thing" : "things"} worth checking
-                        before you approve
+                        {payroll.warnings === 1 ? "thing" : "things"} worth
+                        checking before you approve
                       </p>
                     )}
                     <ButtonLink href="/payroll" variant="secondary" size="sm">
@@ -521,13 +556,19 @@ function CompanyOverview({
             <Card>
               <CardHeader title="Hiring" level={3} />
               <CardBody className="grid grid-cols-2 gap-4">
-                <Figure label="In the pipeline" value={hiring.candidatesInPlay} />
+                <Figure
+                  label="In the pipeline"
+                  value={hiring.candidatesInPlay}
+                />
                 <Figure
                   label="Stalled a week or more"
                   value={hiring.stalledSevenDays}
                   warn={hiring.stalledSevenDays > 0}
                 />
-                <Figure label="Interviews this week" value={hiring.interviewsNextSevenDays} />
+                <Figure
+                  label="Interviews this week"
+                  value={hiring.interviewsNextSevenDays}
+                />
                 <Figure label="Offers out" value={hiring.offersOut} />
               </CardBody>
             </Card>
@@ -613,11 +654,7 @@ function Figure({
 }) {
   return (
     <div>
-      <p
-        className={
-          warn ? "text-h3 text-warning-text" : "text-h3 text-ink"
-        }
-      >
+      <p className={warn ? "text-h3 text-warning-text" : "text-h3 text-ink"}>
         {value.toLocaleString()}
       </p>
       <p className="mt-0.5 text-body-sm text-muted">{label}</p>
@@ -640,7 +677,11 @@ function Owed({
       className="flex items-center justify-between gap-3 rounded-md px-1 py-1 transition-colors hover:bg-canvas"
     >
       <span className="text-body-sm text-body">{label}</span>
-      <Money amount={naira(kobo)} decimals className="text-body-sm font-medium" />
+      <Money
+        amount={naira(kobo)}
+        decimals
+        className="text-body-sm font-medium"
+      />
     </Link>
   );
 }
