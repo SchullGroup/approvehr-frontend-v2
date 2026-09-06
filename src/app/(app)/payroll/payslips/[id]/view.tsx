@@ -3,19 +3,19 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { FileQuestion, Printer } from "lucide-react";
-import {
-  Button,
-  ButtonLink,
-  Callout,
-  EmptyState,
-} from "@/components/ui";
+import { ExportButton } from "@/components/portal/export-button";
+import { payslipPdf } from "@/lib/api/exports";
+import { Button, ButtonLink, Callout, EmptyState } from "@/components/ui";
 import {
   PayslipDocument,
   type PayslipIdentity,
   type YearToDateKobo,
 } from "@/components/payroll/payslip-document";
 import { RunStatusBadge, SourceBadge } from "@/components/payroll/run-panels";
-import { company as companyApi, type ApiCompanyProfile } from "@/lib/api/endpoints";
+import {
+  company as companyApi,
+  type ApiCompanyProfile,
+} from "@/lib/api/endpoints";
 import { longDate, periodLabel } from "@/lib/api/payroll";
 import { usePayrollSettings } from "@/lib/payroll/use-settings";
 import { useCompanySettings, useLiveCompanyProfile } from "@/lib/store/company";
@@ -36,13 +36,20 @@ import { usePayslipRecord } from "@/lib/store/payroll";
 /**
  * One payslip.
  *
- * ## Why the actions are only Print
+ * ## The actions, and how they got here
  *
- * There were three buttons: Print, Download PDF, Email to employee. Print
- * works. The other two did nothing at all — there is no PDF renderer and no
- * mail transport — and a control that looks like it sends a payslip and does
- * not is worse than no control. The browser's print dialogue writes a PDF on
- * every platform this runs on, which is the honest route to the same result.
+ * There were three buttons: Print, Download PDF, Email to employee. Two of them
+ * did nothing at all — there was no PDF renderer and no mail transport — and a
+ * control that looks like it sends a payslip and does not is worse than no
+ * control, so both were removed and Print was left.
+ *
+ * **Download PDF is back, because the renderer exists now** (`lib/pdf.ts` and
+ * `modules/payroll/payslip-pdf.ts` on the API). It is connected-only: offline
+ * there is no server to render it, and Print is right beside it as the honest
+ * route to the same result. Emailing a payslip *as an attachment* is still not
+ * offered — `Letter` carries no attachments and giving it some means raw MIME
+ * for SES, which is a separate decision. The send that does exist is on the run,
+ * and it carries the figure and a link to this page.
  *
  * ## Where the identity block comes from
  *
@@ -82,9 +89,7 @@ export function PayslipView({ id }: { id: string }) {
   const liveCompany = useLiveCompanyProfile().profile;
 
   if (record.loading) {
-    return (
-      <p className="text-body-sm text-muted">Finding this payslip…</p>
-    );
+    return <p className="text-body-sm text-muted">Finding this payslip…</p>;
   }
 
   if (!record.payslip || !record.run) {
@@ -166,8 +171,18 @@ export function PayslipView({ id }: { id: string }) {
         <RunStatusBadge status={run.status} />
         <Button variant="secondary" size="sm" onClick={() => window.print()}>
           <Printer aria-hidden="true" className="size-3.5" />
-          Print or save as PDF
+          Print
         </Button>
+        {/* Connected only. Offline there is no server to render it, and a
+            button whose only outcome is a refusal teaches people the product is
+            broken — the browser's print dialogue is the honest route to the
+            same result and is right there beside it. */}
+        {record.connected && (
+          <ExportButton
+            label="Download PDF"
+            download={() => payslipPdf(slip.id)}
+          />
+        )}
       </div>
 
       <PayslipDocument
@@ -181,8 +196,9 @@ export function PayslipView({ id }: { id: string }) {
                 name: liveCompany?.legalName ?? "—",
                 rc: liveCompany?.rcNumber ?? "—",
                 address: liveCompany
-                  ? [liveCompany.addressLine, liveCompany.city].filter(Boolean).join(", ") ||
-                    "—"
+                  ? [liveCompany.addressLine, liveCompany.city]
+                      .filter(Boolean)
+                      .join(", ") || "—"
                   : "—",
                 logoUrl: liveCompany?.logoUrl ?? null,
               }
@@ -206,9 +222,13 @@ export function PayslipView({ id }: { id: string }) {
       />
 
       {run.status !== "APPROVED" && run.status !== "PAID" && (
-        <Callout tone="warning" title="This run has not been approved" className="no-print">
-          The figures can still change. Do not hand this to an employee until the
-          run is approved.
+        <Callout
+          tone="warning"
+          title="This run has not been approved"
+          className="no-print"
+        >
+          The figures can still change. Do not hand this to an employee until
+          the run is approved.
         </Callout>
       )}
     </div>

@@ -1,4 +1,9 @@
-import { fetchFile, type FileDownload } from "./download";
+import {
+  fetchBinary,
+  fetchFile,
+  type BinaryDownload,
+  type FileDownload,
+} from "./download";
 import { employeeQuery, type EmployeeListParams } from "./endpoints";
 
 /**
@@ -68,3 +73,16 @@ export const attendanceCsv = (
   query: Record<string, string | number | boolean | undefined> = {},
 ): Promise<FileDownload> =>
   fetchFile("/exports/attendance.csv", "attendance", query);
+
+/**
+ * One payslip as a PDF.
+ *
+ * Gated on the API exactly as the JSON read is — your own, or `VIEW_SALARIES` —
+ * and audited, because producing a file of somebody's pay is the act a question
+ * gets asked about later.
+ */
+export const payslipPdf = (
+  payslipId: string,
+  stem?: string,
+): Promise<BinaryDownload> =>
+  fetchBinary(`/payroll/payslips/${payslipId}/pdf`, stem ?? "payslip");

@@ -5,7 +5,11 @@ import { Download } from "lucide-react";
 import { Button, useToast } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { downloadCsv } from "@/lib/csv";
-import type { FileDownload } from "@/lib/api/download";
+import {
+  downloadBlob,
+  type BinaryDownload,
+  type FileDownload,
+} from "@/lib/api/download";
 
 /**
  * One button that turns a file into a saved download.
@@ -38,10 +42,17 @@ export function ExportButton({
 }: {
   label: string;
   busyLabel?: string;
-  /** Produces the file. Anything it throws is shown as the reason. */
-  download: () => Promise<FileDownload>;
+  /**
+   * Produces the file. Anything it throws is shown as the reason.
+   *
+   * Text or binary — a `FileDownload` is saved as text and a `BinaryDownload`
+   * as a blob. Two shapes rather than a flag, because a PDF read as text is a
+   * corrupted PDF and a boolean would put that decision at the call site with
+   * nothing to check it.
+   */
+  download: () => Promise<FileDownload | BinaryDownload>;
   disabled?: boolean;
-  onDone?: (file: FileDownload) => void;
+  onDone?: (file: FileDownload | BinaryDownload) => void;
 }) {
   const toast = useToast();
   const [busy, setBusy] = useState(false);
@@ -50,7 +61,8 @@ export function ExportButton({
     setBusy(true);
     try {
       const file = await download();
-      downloadCsv(file.filename, file.body);
+      if ("blob" in file) downloadBlob(file.filename, file.blob);
+      else downloadCsv(file.filename, file.body);
       toast.push({ title: `Downloaded ${file.filename}`, tone: "success" });
       onDone?.(file);
     } catch (caught) {
