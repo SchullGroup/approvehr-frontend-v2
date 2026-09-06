@@ -104,6 +104,13 @@ const CSP = [
      React never uses `eval()` in a production build, so production keeps the
      stricter policy — which is the half that faces a real reader. */
   `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "production" ? "" : " 'unsafe-eval'"}`,
+  /* Explicit rather than left to the fallback chain. `worker-src` falls back to
+     `child-src` and then `script-src`, so `'self'` was already reaching it —
+     but a directive a reader has to derive is one somebody tightens `script-src`
+     and silently breaks. The service worker (`public/sw.js`) is same-origin and
+     is the only worker this app registers. */
+  "worker-src 'self'",
+  "manifest-src 'self'",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   "img-src 'self' data: blob:",

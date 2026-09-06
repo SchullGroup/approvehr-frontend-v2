@@ -6552,3 +6552,107 @@ exit 0, and desktop screenshotted to confirm the header is unchanged.
 - **Card-per-row tables.** `TableWrap`'s horizontal scroll is doing its job and
   is a legitimate answer; replacing a dense payroll table with stacked cards on
   a phone is a design decision, not a defect fix.
+
+---
+
+# ApproveHR installs on a phone, and refuses to lie when the phone has no signal
+
+`pwa` in the audit backlog. Two halves, and the second one is the reason the
+first is defensible.
+
+## The manifest, and one decision in it worth not undoing
+
+`app/manifest.ts` (the file convention in this Next — checked in
+`node_modules/next/dist/docs`, not assumed). `start_url` is **`/dashboard`, not
+`/`**: both surfaces are route groups in one app so this manifest is served on
+the marketing site too, and somebody who installs from a sales page means "give
+me ApproveHR", not "give me the page I just read".
+
+Icons are generated from `public/brand/mark.svg` with `sharp` — the mark is
+697×444 and an app icon is square, so it is **fitted inside a brand-indigo plate
+with 18% padding** rather than stretched. The padding is what makes `maskable`
+safe: Android crops to whatever shape the launcher uses, and a mark drawn to the
+edges loses its corners. Each size is listed twice, `any` and `maskable`,
+because the spec's `purpose: "any maskable"` is one string and Next's type
+rejects it.
+
+**`maximumScale` and `userScalable` are deliberately unset.** Locking zoom is
+the commonest mobile accessibility mistake, and this product's readers are
+frequently over fifty — the same argument that put a 14px floor under the type
+scale. A payroll figure somebody cannot enlarge is one they misread.
+
+## The offline half, and why it is not optional
+
+`display: standalone` removes the address bar. A failed navigation then shows
+the *browser's* offline page inside what the reader believes is an app: no
+ApproveHR name, a reload control that is not there, and it reads as the product
+being broken rather than the connection being down. Shipping installability
+without this would have been shipping the label without the thing.
+
+`public/sw.js` caches **one document** — `/offline` — and serves it when a
+**navigation** fails. That is all of it. No pages, no JavaScript, no CSS, no
+images, no API responses, and it never answers from cache while the network is
+up.
+
+That restraint is the feature. A worker that caches application chunks can serve
+a build older than the one deployed, and in a payroll product an old chunk is an
+old tax table — `TAX_SCHEDULES` is versioned by date precisely because the wrong
+bands cost real money. **A stale figure rendered confidently is the failure this
+whole codebase is arranged to refuse, and a cache is the easiest way to
+introduce it.**
+
+`skipWaiting` and `clients.claim` both fire immediately, so a deploy that
+changes the file wins on the next load rather than waiting for every tab to
+close. Since nothing versioned is cached there is no consistency argument for
+waiting, and a stuck old worker is the nightmare here.
+
+**To withdraw it**: replace the body of `public/sw.js` with
+`self.registration.unregister()` in an `activate` handler and deploy. Every
+client that fetches the new file removes it. That path is written down because a
+worker you cannot withdraw is a worker you should not ship.
+
+`components/portal/service-worker.tsx` registers it, and **unregisters any
+worker it finds in development** — somebody who ran a production build on
+`localhost:3000` once otherwise has a worker answering for every other project
+on that port for good. Mounted in `(app)`, never the root: nobody installs a
+sales page.
+
+## `npm run verify-service-worker`, and the tamper that got through
+
+Registration could not be exercised here **at all** — neither the embedded
+preview browser nor `next start` in this environment permits
+`serviceWorker.register` (it fails with "an unknown error occurred when fetching
+the script" while the script itself serves 200 with the right content type, and
+no CSP violation is reported; `worker-src 'self'` was added explicitly and
+changed nothing). No Chrome was connected either.
+
+So everything the worker *decides* is asserted instead, by running `public/sw.js`
+inside a `vm` context against a fake `ServiceWorkerGlobalScope`. Ten behaviours,
+in `npm run check`.
+
+The two that matter: **a non-navigation request is never intercepted** even with
+the network down, and **a 500 is passed through** rather than becoming "no
+connection" — a server error is a `Response`, not a thrown fetch, and telling
+somebody to check their Wi-Fi about a problem on our side is a wrong claim.
+
+Tamper-tested, and this is the part worth reading: rewriting the worker to
+intercept *everything* failed the gate immediately, and rewriting it to be
+**cache-first failed to fail** — 10/10, on the single most dangerous change
+possible. The "network works" case had an empty cache, so a cache-first worker
+passed it by falling through. Installing first, so the cache is populated *and*
+the network works, is the assertion that catches it. A model that omits a case
+cannot catch a failure on it; this one omitted the case it existed for.
+
+## Verified
+
+`npm run check` exit 0 with the new gate. Production build into `.next-verify`
+served on port 3100: `manifest.webmanifest` complete and `application/manifest+json`,
+all three icons 200, and the head carrying `theme-color` for both schemes,
+`apple-touch-icon`, `mobile-web-app-capable` and a viewport that permits zoom.
+`/offline` renders as a normal route with its copy and a plain `<a>` — not a
+button with an `onClick`, because a service worker serves that document to a
+page with no React running and a control needing JavaScript would be dead.
+
+**Not verified: registration itself, and therefore the offline page actually
+being served by the worker.** Somebody with a real browser should install the
+app, turn off the network, and open it once.
