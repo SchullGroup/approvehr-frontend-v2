@@ -79,7 +79,11 @@ export type DashboardData = {
     leavingThisMonth: number;
     incomplete: number;
   };
-  approvals?: { waiting: number; overdue: number; oldestWaitingDays: number | null };
+  approvals?: {
+    waiting: number;
+    overdue: number;
+    oldestWaitingDays: number | null;
+  };
   today?: {
     expected: number;
     clockedIn: number;
@@ -163,7 +167,12 @@ export type DashboardData = {
 export type ReportsData = {
   period: string;
   payrollByDepartment:
-    | { department: string; headcount: number; grossKobo: number; netKobo: number }[]
+    | {
+        department: string;
+        headcount: number;
+        grossKobo: number;
+        netKobo: number;
+      }[]
     | null;
   grossBreakdown: {
     basicKobo: number;
@@ -181,6 +190,37 @@ export type ReportsData = {
     ticketsOpen: number;
     approvalsPending: number;
     attendanceCorrections: number;
+  };
+  /**
+   * Headcount over time, turnover and tenure.
+   *
+   * Derived on the API from `startDate` and `endDate`, which **are** the
+   * historical record — not a snapshot table, and not the invented `Feb: 182 …
+   * Aug: 264` array this product once drew on the dashboard.
+   *
+   * Needs no `VIEW_SALARIES`, unlike everything else on this report: how many
+   * people work here and how long they stay carries no money.
+   */
+  workforce: {
+    /** Oldest first, one per month. */
+    trend: {
+      month: string;
+      headcount: number;
+      joiners: number;
+      leavers: number;
+    }[];
+    /**
+     * Leavers against average headcount, in basis points.
+     *
+     * **Null, never 0**, for a company with nobody in it — 0% would claim it
+     * retains everybody, which is a statement about a workforce that does not
+     * exist.
+     */
+    turnoverBp: number | null;
+    turnoverWindowMonths: number;
+    /** Null for a company with nobody. Over current staff, not leavers. */
+    averageTenureMonths: number | null;
+    headcountNow: number;
   };
 };
 

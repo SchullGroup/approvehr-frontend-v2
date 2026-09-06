@@ -2,6 +2,7 @@
 
 import { Lock } from "lucide-react";
 import {
+  AreaChart,
   BarChart,
   Card,
   CardBody,
@@ -31,7 +32,9 @@ function monthKey(date: Date): string {
 function recentMonths(count = 13): string[] {
   const now = new Date();
   return Array.from({ length: count }, (_, i) =>
-    monthKey(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1))),
+    monthKey(
+      new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1)),
+    ),
   );
 }
 
@@ -130,7 +133,10 @@ function Reports() {
   const monthPicker = (
     <div className="min-w-44">
       <Field label="Month">
-        <Select value={period} onChange={(event) => setPeriod(event.target.value)}>
+        <Select
+          value={period}
+          onChange={(event) => setPeriod(event.target.value)}
+        >
           {months.map((month) => (
             <option key={month} value={month}>
               {monthLabel(month)}
@@ -181,8 +187,13 @@ function Reports() {
     );
   }
 
-  const { payrollByDepartment, grossBreakdown, headcount, operationalLoad } =
-    data;
+  const {
+    payrollByDepartment,
+    grossBreakdown,
+    headcount,
+    operationalLoad,
+    workforce,
+  } = data;
   const totalPeople = headcount.byDepartment.reduce((s, d) => s + d.count, 0);
   /* The employment-mix whole, which is not necessarily `totalPeople` — see the
      donut below. */
@@ -215,6 +226,69 @@ function Reports() {
             value={operationalLoad.approvalsPending.toLocaleString()}
           />
         </div>
+
+        {/* ---- Who works here, over time --------------------------------- */}
+        <Card>
+          <CardHeader
+            title="Headcount over time"
+            level={3}
+            description={
+              workforce.trend.length > 0
+                ? `Employed at each month end, and who joined or left. Derived from everybody's start and end dates — this is what happened, not a snapshot taken later.`
+                : undefined
+            }
+          />
+          <CardBody className="flex flex-col gap-5">
+            {workforce.trend.length === 0 ? (
+              /* Offline. An invented shape here would be the `Feb: 182 … Aug:
+                 264` chart this product already removed once, on a screen an
+                 owner would quote in a board meeting. */
+              <p className="text-body-sm leading-relaxed text-muted">
+                A trend needs everybody&rsquo;s start and end dates from the
+                server. There is nothing here to draw one from that would be
+                true of any company.
+              </p>
+            ) : (
+              <>
+                <AreaChart
+                  caption="Headcount at each month end"
+                  height={160}
+                  format={(n: number) => n.toLocaleString()}
+                  points={workforce.trend.map((row) => ({
+                    label: row.month,
+                    value: row.headcount,
+                  }))}
+                />
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <Stat
+                    label="Employed now"
+                    value={workforce.headcountNow.toLocaleString()}
+                  />
+                  <Stat
+                    label="Turnover"
+                    /* Null, not zero. A company with nobody has no turnover
+                       rate, and 0% would claim it retains everybody. */
+                    value={
+                      workforce.turnoverBp === null
+                        ? "—"
+                        : `${(workforce.turnoverBp / 100).toFixed(1)}%`
+                    }
+                    hint={`over ${String(workforce.turnoverWindowMonths)} months`}
+                  />
+                  <Stat
+                    label="Average time here"
+                    value={
+                      workforce.averageTenureMonths === null
+                        ? "—"
+                        : tenure(workforce.averageTenureMonths)
+                    }
+                    hint="people employed now"
+                  />
+                </div>
+              </>
+            )}
+          </CardBody>
+        </Card>
 
         <div className="grid gap-6 lg:grid-cols-2">
           {/* ---- Payroll cost by department ------------------------------- */}
@@ -336,7 +410,9 @@ function Reports() {
                          as an empty dashed track rather than a bar at the
                          floor. */
                       value:
-                        d.headcount > 0 ? naira(d.grossKobo) / d.headcount : null,
+                        d.headcount > 0
+                          ? naira(d.grossKobo) / d.headcount
+                          : null,
                     }))
                     .sort((a, b) => (b.value ?? -1) - (a.value ?? -1))}
                 />
@@ -457,4 +533,19 @@ function Load({ label, value }: { label: string; value: number }) {
       <p className="mt-0.5 text-body-sm text-muted">{label}</p>
     </div>
   );
+}
+
+/**
+ * Months as something a person says out loud.
+ *
+ * "31 months" is arithmetic; "2 yr 7 mo" is how long somebody has been here.
+ * Under a year stays in months, because "0 yr 7 mo" reads as a rounding error.
+ */
+function tenure(months: number): string {
+  if (months < 12) return `${String(months)} mo`;
+  const years = Math.floor(months / 12);
+  const rest = months % 12;
+  return rest === 0
+    ? `${String(years)} yr`
+    : `${String(years)} yr ${String(rest)} mo`;
 }
