@@ -1,4 +1,5 @@
 import { ToastProvider } from "@/components/ui";
+import { ErrorReporting } from "@/components/portal/error-reporting";
 import { ServiceWorker } from "@/components/portal/service-worker";
 import { AuthGate } from "@/components/portal/auth-gate";
 import { SetupGate } from "@/components/portal/setup-gate";
@@ -25,6 +26,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           installs a sales page, and the offline document it would cache talks
           about payroll. */}
       <ServiceWorker />
+      {/* Uncaught errors and rejected promises reached nothing before this —
+          only React's boundaries called `reportError`, and those see neither. */}
+      <ErrorReporting />
       <ToastProvider>
         <AuthGate>
           <SetupGate>

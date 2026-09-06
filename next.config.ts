@@ -85,7 +85,34 @@ const SALES_SCRIPT_ENABLED =
  */
 const apiOrigin = (() => {
   try {
-    return new URL(process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:8000").origin;
+    return new URL(
+      process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:8000",
+    ).origin;
+  } catch {
+    /* A malformed value must not take the build down over a header. */
+    return "";
+  }
+})();
+
+/**
+ * Where crash reports go, if anywhere.
+ *
+ * `connect-src` has to name it or the reporter is blocked and **says nothing** —
+ * which is the worst possible failure for error reporting: it looks configured,
+ * it never delivers, and the one signal that would have told you is the thing
+ * being blocked. Found by pointing a real build at a real collector and getting
+ * nothing; the browser refused it against `connect-src 'self' <api>`.
+ *
+ * The same clause is what a hosted service needs. Pointing this at Sentry means
+ * putting Sentry's ingest origin here too — that is not an oversight to work
+ * around, it is the allowlist doing its job.
+ */
+const errorReportOrigin = (() => {
+  const raw = process.env["NEXT_PUBLIC_ERROR_REPORT_URL"];
+  if (!raw) return "";
+  try {
+    const { origin } = new URL(raw);
+    return origin === apiOrigin ? "" : origin;
   } catch {
     /* A malformed value must not take the build down over a header. */
     return "";
@@ -114,7 +141,9 @@ const CSP = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   "img-src 'self' data: blob:",
-  `connect-src 'self'${apiOrigin ? ` ${apiOrigin}` : ""}`,
+  `connect-src 'self'${apiOrigin ? ` ${apiOrigin}` : ""}${
+    errorReportOrigin ? ` ${errorReportOrigin}` : ""
+  }`,
   "upgrade-insecure-requests",
 ].join("; ");
 

@@ -6738,3 +6738,101 @@ different *queries* against one endpoint rather than the same read repeated —
 the balances panel, the request table and the booking form want different rows —
 so a keyed cache would not collapse them and pretending otherwise would mean one
 of the three rendering somebody else's filter.
+
+---
+
+# A crash in production reached nothing, and the CSP would have hidden that
+
+`sentry` in the backlog. Two gaps, and the second was bigger than the one the
+item names.
+
+## `registerErrorReporter` had no callers, and boundaries were not the gap
+
+`lib/report-error.ts` was written as a seam — one registration function, one
+accessor, honest behaviour when nothing is registered — and **nothing ever
+registered.** `reportError` logged to the console and stopped.
+
+Worse: only React's error boundaries called it at all. An uncaught `TypeError`
+in an event handler and a rejected promise nobody awaited reached **nothing** —
+and those are the majority of what actually breaks in a browser.
+`window.addEventListener("error")` and `"unhandledrejection"` now feed the same
+seam.
+
+## Why this is not `@sentry/nextjs`
+
+Deliberate, and not an avoidance:
+
+- a vendor SDK **cannot be verified here**. It needs a real DSN and a real
+  project, and shipping an unconfigured one is the seam's own warning about a
+  green Paid button that moved no money;
+- `@sentry/nextjs` brings a build plugin, source-map upload and a wrapped
+  config. That is a deployment decision with a bill attached and it is the
+  user's;
+- **the seam takes a vendor adapter just as easily.** `registerErrorReporter`
+  accepts any function; swapping this for `Sentry.captureException` is one line
+  and nothing else in the app moves. That was the whole point of the seam and it
+  stays true.
+
+So `NEXT_PUBLIC_ERROR_REPORT_URL` names any endpoint that accepts a JSON POST —
+a Sentry tunnel, a collector, a Lambda. Unset, nothing registers.
+
+## The finding: the CSP silently blocked it
+
+Pointed a real production build at a real collector and **nothing arrived**. The
+`connect-src` added in `32e06d6` is `'self' <apiOrigin>`, and the browser
+refused the report against it — logging the refusal to the console, which is the
+one channel error reporting exists to replace.
+
+That is the worst possible failure mode for this feature: it looks configured,
+it never delivers, and the signal that would tell you is the thing being
+blocked. `next.config.ts` derives the origin from the same variable now and adds
+it. **The same clause is what a hosted service needs** — pointing this at Sentry
+means putting Sentry's ingest origin in `connect-src` too. That is not an
+oversight to route around, it is the allowlist doing its job.
+
+It also means changing the endpoint needs a **rebuild**, not a restart: both the
+reporter and the CSP read it at build time.
+
+## Redaction is a gate, not a rule somebody remembers
+
+`report-error.ts` says in prose that a report must not carry a salary, a bank
+account or a name. Prose is not a check — and the thing that carries them is not
+the `context` a developer fills in deliberately, it is the **error message**,
+which frequently contains whatever was being processed when it threw.
+`Cannot read properties of undefined … on 0123456789` is an account number in a
+stack trace nobody decided to send.
+
+Four shapes are stripped from the message *and the stack*: a work email, a
+`PEN`+9-digit pension PIN, a bare ten-digit NUBAN, and a JWT.
+`npm run verify-error-reporting` asserts them — and asserts just as hard that
+ordinary text **survives**, because a redaction that strips anything which might
+be personal leaves a report nobody can act on, and then the reporting is worse
+than none. An ISO timestamp, a kobo figure, a sixteen-digit id and a route with
+a uuid in it are all left alone.
+
+**The console keeps the unredacted error, deliberately.** A developer with the
+tab open needs the real value; redaction is about what leaves the machine.
+
+## Two rules kept from the seam
+
+No queue, no retry, no persistence — a reporter that cannot deliver drops the
+report and the console kept it either way. And a cap of **five per page**: a
+render loop produces thousands of identical errors a second, and without the cap
+the first customer to hit one turns their bad afternoon into an outage of the
+collector.
+
+## Verified end to end
+
+A production build with the endpoint compiled in, served on 3100, against a
+local collector:
+
+- an uncaught throw and an unhandled rejection both arrived — two reports, from
+  two paths that previously reached nothing;
+- **on the wire**, `grace.effiong@schull.io`, `PEN100482913` and `0123456789`
+  were all absent, replaced by their labels, while the stack frames survived
+  intact;
+- the context carried `{route, kind: "unhandled-rejection"}`;
+- 20 errors thrown in a loop delivered exactly **5**.
+
+`npm run check` exit 0 with both new gates. The redaction gate was tamper-tested
+by deleting the account-number rule: 14/16, naming both cases.
