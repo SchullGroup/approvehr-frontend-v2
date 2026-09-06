@@ -455,6 +455,27 @@ export const employees = {
   get: (id: string, signal?: AbortSignal) =>
     request<ApiEmployee>(`/employees/${id}`, { ...(signal ? { signal } : {}) }),
 
+  /**
+   * Move several people into a department or an office at once.
+   *
+   * One request, not one per person: two hundred `PATCH`es is two hundred round
+   * trips and a partial state if the twelfth fails — the lesson
+   * `payroll/adjustments` already paid for.
+   *
+   * The result counts what actually **moved**, which is not the number of ids
+   * sent: somebody already in that department is not a move, and the sentence
+   * under the button has to be true of what happened.
+   */
+  bulkAssign: (input: {
+    employeeIds: string[];
+    departmentId?: string | null;
+    workLocationId?: string | null;
+  }) =>
+    request<{ requested: number; moved: number; alreadyThere: number }>(
+      "/employees/bulk-assign",
+      { method: "POST", body: input },
+    ),
+
   create: (body: Record<string, unknown>) =>
     request<ApiEmployee>("/employees", { method: "POST", body }),
 

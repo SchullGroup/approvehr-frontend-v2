@@ -8,6 +8,8 @@ import { toCsv, type CsvRow } from "@/lib/csv";
 import { staffCsv } from "@/lib/api/exports";
 import type { FileDownload } from "@/lib/api/download";
 import { useCan } from "@/lib/permissions";
+import { useRowSelection } from "@/lib/use-row-selection";
+import { BulkAssignBar } from "@/components/people/bulk-assign-bar";
 import { ExportButton } from "@/components/portal/export-button";
 import {
   Banknote,
@@ -20,6 +22,7 @@ import {
   Users,
 } from "lucide-react";
 import {
+  Checkbox,
   Badge,
   ButtonLink,
   Button,
@@ -292,6 +295,15 @@ export function Directory({
    * withhold something.
    */
   const mayExport = useCan("EXPORT_DATA");
+  /* The same permission a single record edit needs — a bulk assignment changes
+     the same two fields, not more. Without it the column is absent rather than
+     present and refused. */
+  const mayEdit = useCan("EDIT_RECORDS");
+  const selection = useRowSelection();
+  /* The rows on screen, never the whole filtered set: "select all" that
+     silently ticks 300 people when 25 are visible is a control saying one thing
+     and doing another. */
+  const pageIds = useMemo(() => rows.map((row) => row.id), [rows]);
 
   /**
    * The offline file: the page on screen, built here because there is no server
@@ -556,11 +568,49 @@ export function Directory({
         </Card>
       ) : (
         <div className="rounded-lg border border-line bg-surface">
+          {/* Above the table, and only when something is ticked. A permanently
+              visible bar with disabled controls is furniture. */}
+          {mayEdit && selection.count > 0 && (
+            <div className="p-3 pb-0">
+              <BulkAssignBar
+                ids={[...selection.selected]}
+                departments={departments.flat.map((d) => ({
+                  id: d.id,
+                  name: d.name,
+                }))}
+                locations={locations.locations.map((l) => ({
+                  id: l.id,
+                  name: l.name,
+                }))}
+                onDone={reload}
+                onClear={selection.clear}
+              />
+            </div>
+          )}
           <TableWrap
             className="rounded-b-none border-0"
             caption="Employee directory with role, department, salary and status"
           >
             <THead>
+              {mayEdit && (
+                <TH>
+                  <Checkbox
+                    /* A visually hidden label rather than `aria-label`:
+                       `Checkbox` renders its label in a `<label>` tied to the
+                       input, which is what makes the tick itself clickable and
+                       is stronger than an attribute. In a table cell it must
+                       not be drawn. */
+                    label={
+                      <span className="sr-only-focusable">
+                        Select every row on this page
+                      </span>
+                    }
+                    checked={selection.allSelected(pageIds)}
+                    indeterminate={selection.someSelected(pageIds)}
+                    onChange={() => selection.toggleAll(pageIds)}
+                  />
+                </TH>
+              )}
               <SortableTH
                 column="lastName"
                 active={list.sort}
@@ -603,6 +653,27 @@ export function Directory({
                     interactive
                     onClick={rowClick(() => router.push(`/people/${e.id}`))}
                   >
+                    {mayEdit && (
+                      <TD>
+                        {/* The row navigates; the checkbox must not. Without
+                            this, ticking somebody opens their record and the
+                            selection is lost on the way. */}
+                        <span
+                          onClick={(event) => event.stopPropagation()}
+                          role="presentation"
+                        >
+                          <Checkbox
+                            label={
+                              <span className="sr-only-focusable">
+                                Select {fullName(e)}
+                              </span>
+                            }
+                            checked={selection.isSelected(e.id)}
+                            onChange={() => selection.toggle(e.id)}
+                          />
+                        </span>
+                      </TD>
+                    )}
                     <TDPrimary
                       title={
                         <Link
