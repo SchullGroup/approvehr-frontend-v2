@@ -15,6 +15,7 @@ import {
   CreditCard,
   DoorOpen,
   FileCheck,
+  FileSignature,
   FileText,
   FileUp,
   FolderOpen,
@@ -505,6 +506,15 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       href: "/people/one-on-ones",
       label: "One-to-ones",
       icon: <MessagesSquare aria-hidden="true" />,
+      always: true,
+    },
+    {
+      /* `always`, no permission: whether somebody has a document to sign is a
+         property of the rows, and the API is the only thing that can answer it
+         — an administrator holding every permission is refused the button. */
+      href: "/people/signatures",
+      label: "Signatures",
+      icon: <FileSignature aria-hidden="true" />,
       always: true,
     },
     {
