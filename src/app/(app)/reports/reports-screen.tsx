@@ -4,6 +4,7 @@ import { Lock } from "lucide-react";
 import {
   AreaChart,
   BarChart,
+  ButtonLink,
   Card,
   CardBody,
   CardHeader,
@@ -14,7 +15,6 @@ import {
   Spinner,
   Stat,
 } from "@/components/ui";
-import { ButtonLink } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { usePermissions } from "@/lib/permissions";
 import { useReports } from "@/lib/store/insights";
@@ -206,7 +206,20 @@ function Reports() {
 
   return (
     <>
-      <PageHeader title="Reports" action={monthPicker} />
+      <PageHeader
+        title="Reports"
+        action={
+          <>
+            {/* These charts answer a fixed set of questions about one month.
+                Anything else is the builder's job, and a screen nobody can
+                find is a screen nobody has. */}
+            <ButtonLink size="sm" variant="secondary" href="/reports/builder">
+              Build a report
+            </ButtonLink>
+            {monthPicker}
+          </>
+        }
+      />
 
       <PageBody className="flex flex-col gap-6">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
