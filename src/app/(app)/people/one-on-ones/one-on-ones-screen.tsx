@@ -96,6 +96,7 @@ export function OneOnOnesScreen() {
   const [tab, setTab] = useState<"mine" | "coverage">("mine");
   const [starting, setStarting] = useState(false);
 
+  const mutations = useOneOnOneMutations();
   const mine = useMyOneOnOnes();
   /* Only fetched when the tab is open *and* the permission is held — a
      company-wide read nobody is looking at is a request nobody asked for. */
@@ -113,10 +114,17 @@ export function OneOnOnesScreen() {
           </span>
         }
         action={
-          <Button size="sm" variant="accent" onClick={() => setStarting(true)}>
-            <Plus aria-hidden="true" className="size-4" />
-            Start one
-          </Button>
+          /* Absent, not present-and-refusing. With no API `mutations.start`
+             can only ever throw the offline refusal, and a button whose sole
+             outcome is "that is refused" is a design failure two clicks
+             earlier. Found by the e2e suite, which runs in exactly the state a
+             developer never does: no API. */
+          mutations.available ? (
+            <Button size="sm" variant="accent" onClick={() => setStarting(true)}>
+              <Plus aria-hidden="true" className="size-4" />
+              Start one
+            </Button>
+          ) : undefined
         }
         tabs={
           canSeeCompany ? (
