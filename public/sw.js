@@ -95,3 +95,73 @@ self.addEventListener("fetch", (event) => {
     })(),
   );
 });
+
+/**
+ * A push arrived.
+ *
+ * The payload is JSON the API encrypted to this browser's own key — see
+ * `approvehr-api/src/lib/web-push.ts`. It carries a title, an optional body and
+ * an optional relative href, and **nothing sensitive**: a notification is
+ * rendered by the operating system, on a screen that may be locked and visible
+ * to whoever is holding the phone. What it says is "a payroll needs approving",
+ * not the figure.
+ *
+ * `tag` collapses an earlier notification about the same thing, so five updates
+ * on one leave request do not stack five buzzes.
+ *
+ * A push with no readable payload still shows something. A silent push is worse
+ * than a vague one: the browser has already woken this worker, and on some
+ * platforms a push that displays nothing costs the site its permission.
+ */
+self.addEventListener("push", (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    /* Not JSON. Fall through to the generic notification below rather than
+       throwing, which would show nothing at all. */
+    payload = {};
+  }
+
+  const title = typeof payload.title === "string" ? payload.title : "ApproveHR";
+  const options = {
+    body: typeof payload.body === "string" ? payload.body : undefined,
+    tag: typeof payload.tag === "string" ? payload.tag : undefined,
+    /* The badge and icon are the app's own mark; both are already in the
+       manifest and cached by the browser, so this costs no extra fetch. */
+    icon: "/icons/icon-192.png",
+    badge: "/icons/icon-192.png",
+    data: { href: typeof payload.href === "string" ? payload.href : "/dashboard" },
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+/**
+ * Somebody tapped a notification.
+ *
+ * Focuses a tab that is already open on this origin rather than opening a
+ * second one — somebody with the app open and a notification tapped expects to
+ * arrive in the app they have, with whatever they had typed still there.
+ */
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const href = (event.notification.data && event.notification.data.href) || "/dashboard";
+
+  event.waitUntil(
+    (async () => {
+      const clients = await self.clients.matchAll({
+        type: "window",
+        includeUncontrolled: true,
+      });
+      for (const client of clients) {
+        if (new URL(client.url).origin === self.location.origin) {
+          await client.focus();
+          if ("navigate" in client) await client.navigate(href);
+          return;
+        }
+      }
+      await self.clients.openWindow(href);
+    })(),
+  );
+});

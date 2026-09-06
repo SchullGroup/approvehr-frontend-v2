@@ -21,6 +21,7 @@ import {
   useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
+import { PushPanel } from "./push-panel";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import { company } from "@/lib/api/endpoints";
@@ -256,6 +257,8 @@ function Rules() {
       <Header />
 
       <PageBody className="flex flex-col gap-6">
+        <PushPanel />
+
         {isConnected && fetched?.error && (
           <LoadFailure subject="your notification settings" error={fetched.error}/>
         )}

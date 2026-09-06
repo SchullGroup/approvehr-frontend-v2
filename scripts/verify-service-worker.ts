@@ -30,6 +30,16 @@ import vm from "node:vm";
  * - **A 500 is passed through.** A server error is a `Response`, not a thrown
  *   fetch, and turning it into "no connection" would tell somebody to check
  *   their Wi-Fi about a problem on our side.
+ *
+ * And, since push landed:
+ *
+ * - **A push always shows something.** A payload that is not JSON, or carries
+ *   no title, still produces a notification. On some platforms a push that
+ *   displays nothing costs the site its permission, so a silent push is worse
+ *   than a vague one.
+ * - **Tapping focuses a tab that is already open** rather than opening a
+ *   second. Somebody with the app open expects to arrive in the app they have,
+ *   with whatever they had typed still in it.
  */
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -44,6 +54,15 @@ function makeScope(fetchImpl: () => Promise<unknown>) {
     deleted: [] as string[],
     claimed: false,
     skipped: false,
+    notifications: [] as { title: string; options: Record<string, unknown> }[],
+    windows: [] as {
+      url: string;
+      focus: () => Promise<void>;
+      navigate: (href: string) => Promise<void>;
+    }[],
+    focused: [] as string[],
+    navigated: [] as string[],
+    opened: [] as string[],
   };
   const scope: Record<string, unknown> = {
     addEventListener: (type: string, fn: Listener) => {
@@ -56,7 +75,17 @@ function makeScope(fetchImpl: () => Promise<unknown>) {
       claim: async () => {
         state.claimed = true;
       },
+      matchAll: async () => state.windows,
+      openWindow: async (url: string) => {
+        state.opened.push(url);
+      },
     },
+    registration: {
+      showNotification: async (title: string, options: Record<string, unknown>) => {
+        state.notifications.push({ title, options });
+      },
+    },
+    location: { origin: "https://app.approvehr.io" },
     caches: {
       open: async () => ({
         add: async (req: { url?: string } | string) => {
@@ -240,6 +269,111 @@ async function main(): Promise<void> {
     check(
       "navigation preload is preferred over a second fetch",
       out?.from === "preload",
+    );
+  }
+
+  /* push */
+  {
+    const { listeners, state } = load(working);
+    await fire(listeners, "push", {
+      data: {
+        json: () => ({
+          title: "A payroll needs approving",
+          body: "August 2026",
+          href: "/payroll/runs/abc",
+          tag: "PayrollRun:abc",
+        }),
+      },
+    });
+    const shown = state.notifications[0];
+    check("a push shows a notification with its title", shown?.title === "A payroll needs approving");
+    check(
+      "the href travels on the notification, for the tap to use",
+      (shown?.options["data"] as { href?: string } | undefined)?.href ===
+        "/payroll/runs/abc",
+    );
+    check(
+      "the tag travels, so five updates about one thing do not stack",
+      shown?.options["tag"] === "PayrollRun:abc",
+    );
+  }
+  {
+    /* A payload that is not JSON at all. The browser has already woken the
+       worker; showing nothing costs the site its permission on some platforms. */
+    const { listeners, state } = load(working);
+    await fire(listeners, "push", {
+      data: {
+        json: () => {
+          throw new Error("not json");
+        },
+      },
+    });
+    check(
+      "an unreadable push still shows something rather than nothing",
+      state.notifications.length === 1 &&
+        state.notifications[0]?.title === "ApproveHR",
+    );
+  }
+  {
+    const { listeners, state } = load(working);
+    await fire(listeners, "push", { data: undefined });
+    check(
+      "a push with no payload at all still shows something",
+      state.notifications.length === 1,
+    );
+  }
+
+  /* notificationclick */
+  {
+    const { listeners, state } = load(working);
+    state.windows = [
+      {
+        url: "https://app.approvehr.io/people",
+        focus: async () => {
+          state.focused.push("app");
+        },
+        navigate: async (href: string) => {
+          state.navigated.push(href);
+        },
+      },
+    ];
+    let closed = false;
+    await fire(listeners, "notificationclick", {
+      notification: {
+        close: () => {
+          closed = true;
+        },
+        data: { href: "/approvals/xyz" },
+      },
+    });
+    check("tapping closes the notification", closed);
+    check(
+      "tapping focuses the tab already open rather than opening a second",
+      state.focused.length === 1 && state.opened.length === 0,
+    );
+    check(
+      "and navigates that tab to where the notification points",
+      state.navigated[0] === "/approvals/xyz",
+    );
+  }
+  {
+    const { listeners, state } = load(working);
+    /* No tab open on this origin — one somewhere else must not be hijacked. */
+    state.windows = [
+      {
+        url: "https://example.test/anything",
+        focus: async () => {
+          state.focused.push("other");
+        },
+        navigate: async () => undefined,
+      },
+    ];
+    await fire(listeners, "notificationclick", {
+      notification: { close: () => undefined, data: { href: "/leave" } },
+    });
+    check(
+      "with no tab of ours open, a new window is opened and nobody else's is taken",
+      state.opened[0] === "/leave" && state.focused.length === 0,
     );
   }
 
