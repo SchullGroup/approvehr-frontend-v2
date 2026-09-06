@@ -66,14 +66,14 @@ const USES = [
     title: "Objectives under a company goal",
     where: "KPIs → a company goal → Suggest objectives",
     from: "The goal's own title and description, and nothing else.",
-    href: "/performance?tab=kpis",
+    href: "/performance/kpis",
   },
   {
     icon: <MessageSquareText aria-hidden="true" />,
     title: "A progress note from a headline",
     where: "KPIs → a measure → record progress",
     from: "The headline you type. Fewer than ten characters is refused: a note written from “did work” would be entirely invention.",
-    href: "/performance?tab=kpis",
+    href: "/performance/kpis",
   },
   {
     icon: <TrendingUp aria-hidden="true" />,
