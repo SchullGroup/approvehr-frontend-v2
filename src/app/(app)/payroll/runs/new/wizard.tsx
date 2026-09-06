@@ -310,6 +310,15 @@ export function PayrollRunWizard() {
   const standing = periodStanding(period);
 
   const [prepared, setPrepared] = useState<PreparedRun | null>(null);
+  /**
+   * Whether this is an extra payroll beside a month that already has one.
+   *
+   * A terminal settlement for somebody who left on the 12th, a bonus paid on
+   * its own, a correction to a month already approved. Until `PayrollRun.
+   * sequence` existed there was one row per month and an approved run could not
+   * be re-prepared, so the callout below was a dead end rather than a choice.
+   */
+  const [offCycle, setOffCycle] = useState(false);
   const [busy, setBusy] = useState<"prepare" | "approve" | "cancel" | null>(
     null,
   );
@@ -430,7 +439,17 @@ export function PayrollRunWizard() {
   );
   const counts = countBySeverity(allExceptions);
   const discrepancies = prepared?.discrepancies ?? [];
-  const settled = run?.status === "APPROVED" || run?.status === "PAID";
+  /**
+   * Whether this period is closed to further preparation.
+   *
+   * An approved run's figures are frozen and `prepare` refuses it, correctly.
+   * **An off-cycle run is the way past that** — it makes a *new* run beside the
+   * approved one rather than reopening it — so ticking that box has to unfreeze
+   * the button. Without this the checkbox is present and does nothing, which is
+   * the dead control this codebase keeps recording.
+   */
+  const approvedAlready = run?.status === "APPROVED" || run?.status === "PAID";
+  const settled = approvedAlready && !offCycle;
   /* Names and departments for the missing-pay table — the exception itself
      carries only an id. 200 is the API's own cap on a list request (see
      `lib/http.ts`) — asking for more refuses the whole request with a 400
@@ -507,6 +526,7 @@ export function PayrollRunWizard() {
         period,
         payDate,
         ...(label.trim() ? { label: label.trim() } : {}),
+        ...(offCycle ? { offCycle: true } : {}),
       });
       setPrepared(result);
       reloadRuns();
@@ -895,6 +915,17 @@ export function PayrollRunWizard() {
                   {existing.status === "APPROVED" || existing.status === "PAID"
                     ? "It is approved, so its figures are frozen."
                     : "It is still a draft: you can prepare it again from the next step."}
+                  {/* The way out of what used to be a dead end. An approved
+                      payroll cannot be re-prepared — correctly — and before
+                      `sequence` a leaver's final pay had nowhere to go. */}
+                  <span className="mt-3 flex">
+                    <Checkbox
+                      checked={offCycle}
+                      onChange={(event) => setOffCycle(event.target.checked)}
+                      label="Pay somebody outside this payroll"
+                      description="A final settlement, a bonus, or a correction. It becomes a separate run in the same month and leaves the one above untouched."
+                    />
+                  </span>
                 </Callout>
               </div>
             )}
@@ -972,7 +1003,16 @@ export function PayrollRunWizard() {
               {settled && (
                 <p className="text-meta leading-relaxed text-muted">
                   This run is approved. Its figures are frozen and cannot be
-                  prepared again.
+                  prepared again. To pay somebody outside it — a final
+                  settlement, a bonus, a correction — go back to Period and tick
+                  &ldquo;Pay somebody outside this payroll&rdquo;.
+                </p>
+              )}
+              {approvedAlready && offCycle && (
+                <p className="text-meta leading-relaxed text-warning-text">
+                  This will make a <strong>separate</strong> payroll for{" "}
+                  {periodLabel(period)}, beside the approved one. Nothing about
+                  the approved run changes.
                 </p>
               )}
             </CardBody>
@@ -996,7 +1036,11 @@ export function PayrollRunWizard() {
               period={run.period.slice(0, 7)}
               sources={
                 sheetLineSummary
-                  ? sheetSources(run.payslips, directory.employees, sheetLineSummary)
+                  ? sheetSources(
+                      run.payslips,
+                      directory.employees,
+                      sheetLineSummary,
+                    )
                   : null
               }
               editable={canPrepare && !settled}
@@ -1335,8 +1379,8 @@ export function PayrollRunWizard() {
           body={
             <p>
               Nothing has been paid or approved for {periodLabel(run.period)},
-              so there is nothing to undo: this just marks it cancelled. You
-              can prepare this period again from scratch whenever you&rsquo;re
+              so there is nothing to undo: this just marks it cancelled. You can
+              prepare this period again from scratch whenever you&rsquo;re
               ready.
             </p>
           }
@@ -2550,8 +2594,8 @@ function PayslipTable({
       <CardBody className="border-t border-line">
         <p className="text-meta leading-relaxed text-muted">
           Employer pension is not in any column here. It is a company cost on
-          top of gross and does not reduce anybody&apos;s pay: the totals on
-          the next step show it separately.
+          top of gross and does not reduce anybody&apos;s pay: the totals on the
+          next step show it separately.
         </p>
       </CardBody>
       <CardBody className="border-t border-line">
@@ -2732,7 +2776,9 @@ function PayeByHand({
             onClick={onClear}
             disabled={saving}
             className="ml-auto"
-          >Clear (use the bands instead)</Button>
+          >
+            Clear (use the bands instead)
+          </Button>
         )}
       </div>
     </div>
@@ -2793,7 +2839,10 @@ function isBonusLine(label: string): boolean {
 function sheetSources(
   payslips: readonly Payslip[],
   employees: readonly Employee[],
-  lineSummary: { bonuses: LineSummaryByEmployee; deductions: LineSummaryByEmployee } | null,
+  lineSummary: {
+    bonuses: LineSummaryByEmployee;
+    deductions: LineSummaryByEmployee;
+  } | null,
 ): SheetRowSource[] {
   const byId = new Map(employees.map((e) => [e.id, e]));
   return payslips.map((payslip) => {
@@ -2808,7 +2857,9 @@ function sheetSources(
       employee: byId.get(payslip.employeeId),
       overtimeHours: hours === undefined ? null : Number(hours),
       bonus: lineSummary?.bonuses[payslip.employeeId] ?? { state: "none" },
-      deduction: lineSummary?.deductions[payslip.employeeId] ?? { state: "none" },
+      deduction: lineSummary?.deductions[payslip.employeeId] ?? {
+        state: "none",
+      },
     };
   });
 }
