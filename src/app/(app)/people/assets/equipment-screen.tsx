@@ -44,6 +44,7 @@ import { MyAssets } from "./my-equipment";
 import { useListQuery } from "@/lib/use-list-query";
 import { RegisterTable } from "./register-table";
 import { RepairDialog } from "./repair-dialog";
+import { FaultQueuePanel } from "./fault-queue";
 import { RepairsPanel, type RepairFilter } from "./repairs-panel";
 import { TakeBackDialog } from "./take-back-dialog";
 
@@ -469,14 +470,22 @@ function Register() {
           )}
 
           {tab === "repairs" && (
-            <RepairsPanel
-              repairs={repairs.repairs}
-              loading={repairs.loading}
-              canEdit
-              filter={repairFilter}
-              onFilterChange={setRepairFilter}
-              onFinish={(repair) => void finishRepair(repair)}
-            />
+            <div className="flex flex-col gap-4">
+              {/* The queue of faults people have reported, above the workshop
+                  record below it — a reported fault is something to act on,
+                  and a completed repair is something to look up. The feedback
+                  found neither side of this existed. */}
+              <FaultQueuePanel />
+
+              <RepairsPanel
+                repairs={repairs.repairs}
+                loading={repairs.loading}
+                canEdit
+                filter={repairFilter}
+                onFilterChange={setRepairFilter}
+                onFinish={(repair) => void finishRepair(repair)}
+              />
+            </div>
           )}
 
           {tab === "kinds" && (
