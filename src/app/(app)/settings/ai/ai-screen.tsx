@@ -66,14 +66,14 @@ const USES = [
     title: "Objectives under a company goal",
     where: "KPIs → a company goal → Suggest objectives",
     from: "The goal's own title and description, and nothing else.",
-    href: "/performance?tab=kpis",
+    href: "/performance/kpis",
   },
   {
     icon: <MessageSquareText aria-hidden="true" />,
     title: "A progress note from a headline",
     where: "KPIs → a measure → record progress",
     from: "The headline you type. Fewer than ten characters is refused: a note written from “did work” would be entirely invention.",
-    href: "/performance?tab=kpis",
+    href: "/performance/kpis",
   },
   {
     icon: <TrendingUp aria-hidden="true" />,
@@ -167,10 +167,12 @@ export function AiScreen() {
               box.
             </p>
             <p className="mt-2">
-              Set <code className="text-ink">GEMINI_API_KEY</code> on the API and
-              restart it. <code className="text-ink">ANTHROPIC_API_KEY</code> is
-              read the same way; with both set, Gemini answers and the API logs a
-              warning saying so. Everything below starts working immediately: nothing else has to be configured.
+              Set <code className="text-ink">GEMINI_API_KEY</code> on the API
+              and restart it.{" "}
+              <code className="text-ink">ANTHROPIC_API_KEY</code> is read the
+              same way; with both set, Gemini answers and the API logs a warning
+              saying so. Everything below starts working immediately: nothing
+              else has to be configured.
             </p>
           </Callout>
         )}
@@ -183,9 +185,7 @@ export function AiScreen() {
         )}
 
         <section className="flex flex-col gap-3">
-          <h2 className="text-meta font-semibold text-muted">
-            What it does
-          </h2>
+          <h2 className="text-meta font-semibold text-muted">What it does</h2>
 
           {USES.map((use) => (
             <Card key={use.title}>
@@ -233,9 +233,9 @@ export function AiScreen() {
               anybody else.
             </p>
             <p>
-              Nothing a suggestion produces is ever saved on its own. It lands in
-              a field, somebody edits it, and the ordinary Save writes it under
-              their name: there is no endpoint that accepts a suggestion
+              Nothing a suggestion produces is ever saved on its own. It lands
+              in a field, somebody edits it, and the ordinary Save writes it
+              under their name: there is no endpoint that accepts a suggestion
               directly, on purpose.
             </p>
 
@@ -277,8 +277,8 @@ export function AiScreen() {
               proposal is only a description: the summary and the details beside
               the button are read out of your own records by the server, not
               written by the model, and the change happens on your press and on
-              nothing else. The same permissions apply, so it can only ever offer
-              you something you could have done yourself.
+              nothing else. The same permissions apply, so it can only ever
+              offer you something you could have done yourself.
             </p>
 
             {/* Retention, which is the question a conversation raises and a

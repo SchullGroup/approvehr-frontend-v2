@@ -112,9 +112,7 @@ export function ItemPanel({
         </div>
       )}
 
-      {error && (
-        <LoadFailure subject="this item" error={error} />
-      )}
+      {error && <LoadFailure subject="this item" error={error} />}
 
       {detail && (
         <div className="flex flex-col gap-6">
@@ -183,7 +181,11 @@ export function ItemPanel({
                   Log a repair
                 </Button>
               )}
-              <Button variant="secondary" size="sm" onClick={() => onEdit(detail)}>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => onEdit(detail)}
+              >
                 <Pencil aria-hidden="true" className="size-3.5" />
                 Edit
               </Button>
@@ -222,7 +224,9 @@ export function ItemPanel({
                     variant="secondary"
                     size="sm"
                     onClick={() => onFixed(detail)}
-                  >It is fixed (back in the store)</Button>
+                  >
+                    It is fixed (back in the store)
+                  </Button>
                 )}
 
               {detail.status === "RETIRED" ? (
@@ -270,8 +274,14 @@ export function ItemPanel({
           <DescriptionList
             items={[
               { term: "Kind", value: detail.kind ?? "Not sorted into a kind" },
-              { term: "Work location", value: detail.workLocation ?? "Not set" },
-              { term: "Department", value: detail.department ?? "Not assigned" },
+              {
+                term: "Work location",
+                value: detail.workLocation ?? "Not set",
+              },
+              {
+                term: "Department",
+                value: detail.department ?? "Not assigned",
+              },
               {
                 term: "Make and model",
                 value:
@@ -302,15 +312,16 @@ export function ItemPanel({
           )}
 
           <section>
-            <h3 className="font-semibold text-ink">
-              Who has had it
-            </h3>
+            <h3 className="font-semibold text-ink">Who has had it</h3>
             {detail.history.length === 0 ? (
               <p className="mt-2 text-body-sm text-muted">
                 Nobody has been given this yet.
               </p>
             ) : (
-              <Timeline className="mt-4" entries={historyEntries(detail.history)} />
+              <Timeline
+                className="mt-4"
+                entries={historyEntries(detail.history)}
+              />
             )}
           </section>
 
@@ -400,7 +411,8 @@ function historyEntries(
     tone: entry.returnedOn === null ? "accent" : "neutral",
     detail: (
       <span className="block whitespace-pre-line">
-        {entry.employeeNo} · Out {CONDITION_LABEL[entry.conditionOut].toLowerCase()}
+        {entry.employeeNo} · Out{" "}
+        {CONDITION_LABEL[entry.conditionOut].toLowerCase()}
         {entry.conditionBack
           ? `, back ${CONDITION_LABEL[entry.conditionBack].toLowerCase()}`
           : ""}

@@ -6,13 +6,7 @@ import { cn } from "@/lib/cn";
  */
 
 export type BadgeTone =
-  | "neutral"
-  | "accent"
-  | "success"
-  | "warning"
-  | "danger"
-  | "info"
-  | "ink";
+  "neutral" | "accent" | "success" | "warning" | "danger" | "info" | "ink";
 
 const TONES: Record<BadgeTone, string> = {
   neutral: "bg-sunken text-body border-line",
@@ -21,7 +15,7 @@ const TONES: Record<BadgeTone, string> = {
   warning: "bg-warning-soft text-warning-text border-warning-line",
   danger: "bg-danger-soft text-danger-text border-danger-line",
   info: "bg-info-soft text-info-text border-info-line",
-  ink: "bg-ink text-white border-ink",
+  ink: "bg-fill-strong text-white border-fill-strong",
 };
 
 const DOTS: Record<BadgeTone, string> = {
@@ -54,9 +48,7 @@ export function Badge({
     <span
       className={cn(
         "inline-flex items-center gap-1.5 rounded-full border font-medium whitespace-nowrap",
-        size === "sm"
-          ? "px-2 py-0.5 text-meta"
-          : "px-2.5 py-1 text-meta",
+        size === "sm" ? "px-2 py-0.5 text-meta" : "px-2.5 py-1 text-meta",
         TONES[tone],
         className,
       )}
@@ -128,7 +120,11 @@ export function TierBadge({
     Platinum: "ink",
   };
   return (
-    <Badge tone={tone[tier]} size={size} className={cn("rounded-sm", className)}>
+    <Badge
+      tone={tone[tier]}
+      size={size}
+      className={cn("rounded-sm", className)}
+    >
       {tier}
     </Badge>
   );

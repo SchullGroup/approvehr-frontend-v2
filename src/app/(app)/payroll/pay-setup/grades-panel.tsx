@@ -151,7 +151,11 @@ export function GradesPanel() {
       )}
 
       {grades.error && (
-        <LoadFailure subject="the salary bands" error={grades.error}  onRetry={grades.reload}/>
+        <LoadFailure
+          subject="the salary bands"
+          error={grades.error}
+          onRetry={grades.reload}
+        />
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -681,17 +685,13 @@ function GradeDialog({
         {/* Facts about what will be saved, not a form. */}
         <dl className="grid gap-3 rounded-lg border border-line bg-canvas p-4 sm:grid-cols-2">
           <div>
-            <dt className="text-meta font-semibold text-faint">
-              Level
-            </dt>
+            <dt className="text-meta font-semibold text-faint">Level</dt>
             <dd className="tabular text-body-sm font-medium text-ink">
               {Number.isInteger(levelValue) ? levelValue : "—"}
             </dd>
           </div>
           <div>
-            <dt className="text-meta font-semibold text-faint">
-              Mid-point
-            </dt>
+            <dt className="text-meta font-semibold text-faint">Mid-point</dt>
             <dd className="text-body-sm font-medium text-ink">
               {midValue === null ? "—" : <Money amount={midValue} decimals />}
             </dd>

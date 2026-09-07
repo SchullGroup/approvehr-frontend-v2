@@ -97,10 +97,16 @@ export function Spinner({
 }) {
   const sizes = { sm: "size-4", md: "size-5", lg: "size-7" } as const;
   return (
-    <span role="status" className={cn("inline-flex items-center gap-2", className)}>
+    <span
+      role="status"
+      className={cn("inline-flex items-center gap-2", className)}
+    >
       <Loader2
         aria-hidden="true"
-        className={cn("animate-spin text-accent-text motion-reduce:animate-none", sizes[size])}
+        className={cn(
+          "animate-spin text-accent-text motion-reduce:animate-none",
+          sizes[size],
+        )}
       />
       <span className="sr-only-focusable">{label}</span>
     </span>
@@ -136,12 +142,8 @@ export function ThinkingState({
         <span className="relative inline-flex size-2.5 rounded-full bg-accent" />
       </span>
       <span className="min-w-0">
-        <span className="block text-body-sm font-medium text-ink">
-          {label}
-        </span>
-        {detail && (
-          <span className="block text-meta text-body">{detail}</span>
-        )}
+        <span className="block text-body-sm font-medium text-ink">{label}</span>
+        {detail && <span className="block text-meta text-body">{detail}</span>}
       </span>
     </div>
   );

@@ -236,7 +236,11 @@ export type AddDocumentBody = {
 export const documentsApi = {
   /** What is being asked of me. Takes no employee id, so there is nothing to tamper with. */
   myRequests(
-    params: { page?: number; pageSize?: number; status?: DocumentRequestStatus } = {},
+    params: {
+      page?: number;
+      pageSize?: number;
+      status?: DocumentRequestStatus;
+    } = {},
     signal?: AbortSignal,
   ): Promise<Paged<ApiDocumentRequest>> {
     return requestPaged<ApiDocumentRequest>("/documents/me/requests", {
@@ -324,7 +328,9 @@ export const documentsApi = {
   },
 
   /** Archive, not delete. Refused while it answers a fulfilled request. */
-  archive(id: string): Promise<{ id: string; employeeId: string; archived: boolean }> {
+  archive(
+    id: string,
+  ): Promise<{ id: string; employeeId: string; archived: boolean }> {
     return request<{ id: string; employeeId: string; archived: boolean }>(
       `/documents/${id}`,
       { method: "DELETE" },
@@ -336,7 +342,9 @@ export const documentsApi = {
    * subject's own file — the point of checking is that somebody other than
    * whoever attached it looks it over.
    */
-  verify(id: string): Promise<{ id: string; employeeId: string; verified: boolean }> {
+  verify(
+    id: string,
+  ): Promise<{ id: string; employeeId: string; verified: boolean }> {
     return request<{ id: string; employeeId: string; verified: boolean }>(
       `/documents/${id}/verify`,
       { method: "POST" },

@@ -60,7 +60,8 @@ export function parseAmount(text: string): number | null {
   return Number.isFinite(value) && value > 0 ? value : null;
 }
 
-const money = (amount: number) => formatMoney(amount, "NGN", { decimals: true });
+const money = (amount: number) =>
+  formatMoney(amount, "NGN", { decimals: true });
 
 export function ClaimForm({
   open,
@@ -93,12 +94,15 @@ export function ClaimForm({
   const [incurredOn, setIncurredOn] = useState(claim?.incurredOn ?? today());
   const [description, setDescription] = useState(claim?.description ?? "");
   const [receiptKey, setReceiptKey] = useState(claim?.receiptKey ?? "");
-  const [forWhom, setForWhom] = useState(claim?.employeeId ?? myEmployeeId ?? "");
+  const [forWhom, setForWhom] = useState(
+    claim?.employeeId ?? myEmployeeId ?? "",
+  );
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
-  const [fieldError, setFieldError] = useState<{ field: string; message: string } | null>(
-    null,
-  );
+  const [fieldError, setFieldError] = useState<{
+    field: string;
+    message: string;
+  } | null>(null);
 
   /* An edited claim keeps its own type in the picker even if that type has
      since been switched off, so the picker never silently rewrites the claim. */
@@ -118,7 +122,8 @@ export function ClaimForm({
       ? amount > type.cap
       : false;
 
-  const needsReceipt = type?.requiresReceipt === true && receiptKey.trim() === "";
+  const needsReceipt =
+    type?.requiresReceipt === true && receiptKey.trim() === "";
   const futureDated = incurredOn > today();
 
   /* The one reason the button is dead, in words, shown beside it. Ordered so
@@ -184,7 +189,9 @@ export function ClaimForm({
           incurredOn,
           description: description.trim(),
           ...(reference ? { receiptKey: reference } : {}),
-          ...(forWhom && forWhom !== myEmployeeId ? { employeeId: forWhom } : {}),
+          ...(forWhom && forWhom !== myEmployeeId
+            ? { employeeId: forWhom }
+            : {}),
         });
       }
       onClose();
@@ -259,10 +266,15 @@ export function ClaimForm({
             label="Who is claiming"
             help="Yourself by default. Filing for somebody else is an HR action and is recorded as one."
           >
-            <Select value={forWhom} onChange={(e) => setForWhom(e.target.value)}>
+            <Select
+              value={forWhom}
+              onChange={(e) => setForWhom(e.target.value)}
+            >
               {colleagues.map((person) => (
                 <option key={person.id} value={person.id}>
-                  {person.id === myEmployeeId ? `${person.name} (you)` : person.name}
+                  {person.id === myEmployeeId
+                    ? `${person.name} (you)`
+                    : person.name}
                 </option>
               ))}
             </Select>
@@ -352,7 +364,10 @@ export function ClaimForm({
           required
           help="The day you spent it, not today."
           {...(futureDated
-            ? { error: "That date is in the future. Claim it once the money has gone out." }
+            ? {
+                error:
+                  "That date is in the future. Claim it once the money has gone out.",
+              }
             : {})}
         >
           <Input

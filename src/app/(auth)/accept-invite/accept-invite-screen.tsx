@@ -101,7 +101,11 @@ export function AcceptInviteScreen({ token }: { token: string | null }) {
       </p>
 
       {deadLink && (
-        <Callout tone="danger" title="This link no longer works" className="mt-5">
+        <Callout
+          tone="danger"
+          title="This link no longer works"
+          className="mt-5"
+        >
           <p>{deadLink.message}</p>
         </Callout>
       )}
@@ -110,7 +114,9 @@ export function AcceptInviteScreen({ token }: { token: string | null }) {
         <Callout
           tone="danger"
           title={
-            error.code === "rate_limited" ? "Too many attempts" : "That did not work"
+            error.code === "rate_limited"
+              ? "Too many attempts"
+              : "That did not work"
           }
           className="mt-5"
         >

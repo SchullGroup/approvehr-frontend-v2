@@ -422,6 +422,23 @@ export type LineSummary =
 export type LineSummaryByEmployee = Record<string, LineSummary>;
 
 /**
+ * What this run is paying somebody in overtime — hand-entered or clocked.
+ *
+ * Here rather than in the run wizard because two surfaces ask it: the table,
+ * to decide whether to show an Overtime column a company has switched off, and
+ * the adjustment sheet, to decide whether to write one. A second copy of the
+ * test is how the sheet comes to disagree with the table it was downloaded
+ * from — see every other note in this file about one figure, one definition.
+ */
+export function overtimeOn(slip: Payslip): number {
+  return slip.lines
+    .filter(
+      (line) => line.kind === "EARNING" && line.label.startsWith("Overtime"),
+    )
+    .reduce((total, line) => total + line.amountKobo, 0);
+}
+
+/**
  * What a saved list came to.
  *
  * `total` is the figure the table cell shows. It comes back from the API rather
@@ -811,6 +828,15 @@ export type PayrollSettingsRow = {
   nhfEnabled: boolean;
   nhfRate: Decimalish;
   nhfOnGross: boolean;
+  /**
+   * Whether this company awards bonuses through payroll at all.
+   *
+   * Not a statutory switch and not part of the arithmetic — off, the payroll
+   * run drops its Bonus column and the endpoints behind it refuse. `QuoteSettings`
+   * deliberately has no twin: a quote is a payslip for a salary figure, and a
+   * bonus is not part of one.
+   */
+  bonusEnabled: boolean;
   netSwingThreshold: Decimalish;
   requireBankAccount: boolean;
   requirePensionPin: boolean;
@@ -851,6 +877,7 @@ export type PayrollSettingsPatch = Partial<{
   nhfEnabled: boolean;
   nhfRate: number;
   nhfOnGross: boolean;
+  bonusEnabled: boolean;
   netSwingThreshold: number;
   requireBankAccount: boolean;
   requirePensionPin: boolean;
@@ -1301,8 +1328,22 @@ export const payrollApi = {
    * "run it, read the exceptions, fix a bank account, run it again" the normal
    * loop rather than something to be nervous about.
    */
-  prepare: (body: { period: string; payDate: string; label?: string }) =>
-    request<PreparedRun>("/payroll/runs", { method: "POST", body }),
+  prepare: (body: {
+    period: string;
+    payDate: string;
+    label?: string;
+    /**
+     * Start an extra run beside a month that already has one — a final
+     * settlement, a bonus, a correction to a month already approved.
+     *
+     * It always makes a **new** run rather than resuming an open one: "prepare
+     * off-cycle" that resumed whichever extra run happened to be open would
+     * mean somebody adding a bonus silently overwrites a settlement.
+     */
+    offCycle?: boolean;
+    /** Work on a specific run in the month. 1 is the regular payroll. */
+    runSequence?: number;
+  }) => request<PreparedRun>("/payroll/runs", { method: "POST", body }),
 
   /** The one-way door. Freezes the settings and settles loans and claims. */
   approve: (id: string) =>
@@ -1394,7 +1435,11 @@ export const payrollApi = {
     ),
 
   /** Puts one deduction back to the engine's own figure for this period. */
-  clearDeductionOverride: (id: string, employeeId: string, kind: DeductionKind) =>
+  clearDeductionOverride: (
+    id: string,
+    employeeId: string,
+    kind: DeductionKind,
+  ) =>
     request<DeductionOverrideChange>(
       `/payroll/runs/${id}/deduction-overrides/${employeeId}/${kind}`,
       { method: "DELETE" },
@@ -1453,7 +1498,10 @@ export const payrollApi = {
     id: string,
     body: { employeeId: string; amountKobo: number; reason?: string },
   ) =>
-    request<BonusChange>(`/payroll/runs/${id}/bonuses`, { method: "POST", body }),
+    request<BonusChange>(`/payroll/runs/${id}/bonuses`, {
+      method: "POST",
+      body,
+    }),
 
   clearBonus: (id: string, employeeId: string) =>
     request<PreparedRun>(`/payroll/runs/${id}/bonuses/${employeeId}`, {
@@ -1473,10 +1521,10 @@ export const payrollApi = {
    * lines cannot answer this instead.
    */
   lineSummary: (id: string, signal?: AbortSignal) =>
-    request<{ bonuses: LineSummaryByEmployee; deductions: LineSummaryByEmployee }>(
-      `/payroll/runs/${id}/lines-summary`,
-      { ...(signal ? { signal } : {}) },
-    ),
+    request<{
+      bonuses: LineSummaryByEmployee;
+      deductions: LineSummaryByEmployee;
+    }>(`/payroll/runs/${id}/lines-summary`, { ...(signal ? { signal } : {}) }),
 
   /**
    * Replaces every line of one kind for one person, in one call.
@@ -1498,7 +1546,8 @@ export const payrollApi = {
       kind: "bonus" | "deduction";
       lines: readonly { amountKobo: number; reason?: string }[];
     },
-  ) => request<LinesSaved>(`/payroll/runs/${id}/lines`, { method: "PUT", body }),
+  ) =>
+    request<LinesSaved>(`/payroll/runs/${id}/lines`, { method: "PUT", body }),
 
   /**
    * A whole payroll's figures, from one uploaded spreadsheet.

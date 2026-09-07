@@ -41,11 +41,7 @@ import { request, requestPaged, type Paged } from "@/lib/api/client";
 
 /** Mirrors `DisciplinaryLevel` in the Prisma schema, in escalating order. */
 export type DisciplinaryLevel =
-  | "VERBAL"
-  | "WRITTEN"
-  | "FINAL_WRITTEN"
-  | "SUSPENSION"
-  | "DISMISSAL";
+  "VERBAL" | "WRITTEN" | "FINAL_WRITTEN" | "SUSPENSION" | "DISMISSAL";
 
 /**
  * A handbook section as the list returns it.
@@ -229,7 +225,13 @@ export type PolicyListParams = {
   page?: number;
   pageSize?: number;
   /** Allow-list: title | category | version | publishedAt | createdAt | updatedAt. */
-  sort?: "title" | "category" | "version" | "publishedAt" | "createdAt" | "updatedAt";
+  sort?:
+    | "title"
+    | "category"
+    | "version"
+    | "publishedAt"
+    | "createdAt"
+    | "updatedAt";
   order?: "asc" | "desc";
   q?: string;
   category?: string;
@@ -393,7 +395,10 @@ export const conductApi = {
     request<ApiPolicyDetail>("/conduct/policies", { method: "POST", body }),
 
   updatePolicy: (id: string, body: UpdatePolicyBody) =>
-    request<ApiPolicyDetail>(`/conduct/policies/${id}`, { method: "PATCH", body }),
+    request<ApiPolicyDetail>(`/conduct/policies/${id}`, {
+      method: "PATCH",
+      body,
+    }),
 
   /** The one call that can change the words of a policy people have accepted. */
   publishPolicy: (id: string, body: PublishPolicyBody = {}) =>

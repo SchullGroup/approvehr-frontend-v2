@@ -49,7 +49,8 @@ export function InterviewPanel({
 }) {
   const [editing, setEditing] = useState(false);
   const recorded = interview?.recorded === true;
-  const declined = interview?.declinedAt !== null && interview?.declinedAt !== undefined;
+  const declined =
+    interview?.declinedAt !== null && interview?.declinedAt !== undefined;
 
   return (
     <>
@@ -59,7 +60,11 @@ export function InterviewPanel({
           level={3}
           action={
             closed && !recorded ? undefined : (
-              <Button size="sm" variant="secondary" onClick={() => setEditing(true)}>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setEditing(true)}
+              >
                 {recorded ? "Edit" : "Record it"}
               </Button>
             )
@@ -97,7 +102,9 @@ export function InterviewPanel({
                 },
                 { term: "What worked", value: interview.whatWorked ?? "—" },
                 { term: "What did not", value: interview.whatDidNot ?? "—" },
-                ...(interview.notes ? [{ term: "Notes", value: interview.notes }] : []),
+                ...(interview.notes
+                  ? [{ term: "Notes", value: interview.notes }]
+                  : []),
                 {
                   term: "Recorded by",
                   value: `${interview.conductedByName ?? "—"}${
@@ -144,9 +151,12 @@ function InterviewDialog({
   const [declined, setDeclined] = useState(
     interview?.declinedAt !== null && interview?.declinedAt !== undefined,
   );
-  const [primaryReason, setPrimaryReason] = useState(interview?.primaryReason ?? "");
+  const [primaryReason, setPrimaryReason] = useState(
+    interview?.primaryReason ?? "",
+  );
   const [wouldRecommend, setWouldRecommend] = useState(
-    interview?.wouldRecommend === null || interview?.wouldRecommend === undefined
+    interview?.wouldRecommend === null ||
+      interview?.wouldRecommend === undefined
       ? ""
       : String(interview.wouldRecommend),
   );
@@ -176,11 +186,15 @@ function InterviewDialog({
         declined
           ? { declined: true }
           : {
-              ...(primaryReason.trim() ? { primaryReason: primaryReason.trim() } : {}),
+              ...(primaryReason.trim()
+                ? { primaryReason: primaryReason.trim() }
+                : {}),
               ...(wouldRecommend !== ""
                 ? { wouldRecommend: Number(wouldRecommend) }
                 : {}),
-              ...(wouldReturn !== "" ? { wouldReturn: wouldReturn === "yes" } : {}),
+              ...(wouldReturn !== ""
+                ? { wouldReturn: wouldReturn === "yes" }
+                : {}),
               ...(whatWorked.trim() ? { whatWorked: whatWorked.trim() } : {}),
               ...(whatDidNot.trim() ? { whatDidNot: whatDidNot.trim() } : {}),
             },

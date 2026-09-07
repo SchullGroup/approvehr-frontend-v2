@@ -232,7 +232,11 @@ export function RolesScreen({
         )}
 
         {roles.error && (
-          <LoadFailure subject="your roles" error={roles.error}  onRetry={roles.reload}/>
+          <LoadFailure
+            subject="your roles"
+            error={roles.error}
+            onRetry={roles.reload}
+          />
         )}
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -609,8 +613,8 @@ function InvitationsCard({
         <CardHeader title="Invitations" level={3} />
         <CardBody>
           <p className="text-body-sm text-muted">
-            Nothing here works without a server. Sign in against the real API
-            to invite somebody to sign in.
+            Nothing here works without a server. Sign in against the real API to
+            invite somebody to sign in.
           </p>
         </CardBody>
       </Card>
@@ -762,8 +766,8 @@ function YourAccess({
 
         {held.length === 0 ? (
           <p className="text-body-sm leading-relaxed text-muted">
-            Nothing yet: you can see your own record, your own payslips and
-            your own requests.
+            Nothing yet: you can see your own record, your own payslips and your
+            own requests.
           </p>
         ) : (
           <ul className="flex flex-col gap-2">

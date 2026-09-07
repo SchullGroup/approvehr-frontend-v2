@@ -55,10 +55,7 @@ export function AssignHeadDialog({
         label="Head"
         help="Responsible for everyone in the unit, including its sub-departments."
       >
-        <Select
-          value={headId}
-          onChange={(e) => setHeadId(e.target.value)}
-        >
+        <Select value={headId} onChange={(e) => setHeadId(e.target.value)}>
           <option value="">Nobody assigned</option>
           {employees.map((employee) => (
             <option key={employee.id} value={employee.id}>

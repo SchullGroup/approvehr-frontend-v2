@@ -1318,10 +1318,7 @@ export function EmployeeRecord({
             </Card>
 
             <Card>
-              <CardHeader
-                title="Requests"
-                level={3}
-              />
+              <CardHeader title="Requests" level={3} />
               {leaveRequests.length === 0 ? (
                 <CardBody>
                   <p className="text-body-sm text-muted">
@@ -1542,7 +1539,10 @@ function Compensation({
             <Line label="Transport" value={figures.transport} muted />
             <div className="h-px bg-line" />
             {pensionShown && (
-              <Line label="Pension (employee)" value={-figures.pensionEmployee} />
+              <Line
+                label="Pension (employee)"
+                value={-figures.pensionEmployee}
+              />
             )}
             {nhfShown && <Line label="NHF" value={-figures.nhf} />}
             {payeShown && <Line label="PAYE" value={-figures.paye} />}
@@ -1557,7 +1557,8 @@ function Compensation({
                   .filter(Boolean)
                   .join(", ")}
                 . This employer does not operate{" "}
-                {[!pensionShown, !nhfShown, !payeShown].filter(Boolean).length === 1
+                {[!pensionShown, !nhfShown, !payeShown].filter(Boolean)
+                  .length === 1
                   ? "it"
                   : "them"}
                 .
@@ -1618,7 +1619,8 @@ function Guarded({
     <span className="inline-flex items-center gap-2">
       <span className="tabular">{revealed ? value : masked}</span>
       {!revealed && (
-        <span className="sr-only">, hidden. Only the last four characters are shown.
+        <span className="sr-only">
+          , hidden. Only the last four characters are shown.
         </span>
       )}
       {canReveal && (

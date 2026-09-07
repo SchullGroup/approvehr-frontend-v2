@@ -84,7 +84,8 @@ export function useMyPendingChanges(): MyChangesState {
         const result = await employees.myChanges(controller.signal);
         if (!cancelled) setAnswer({ changes: result.changes, error: null });
       } catch (caught) {
-        if (caught instanceof DOMException && caught.name === "AbortError") return;
+        if (caught instanceof DOMException && caught.name === "AbortError")
+          return;
         if (!cancelled) {
           setAnswer({
             changes: [],
@@ -105,7 +106,13 @@ export function useMyPendingChanges(): MyChangesState {
     return { changes: [], loading: true, error: null, editable: false, reload };
   }
   if (!isConnected) {
-    return { changes: [], loading: false, error: null, editable: false, reload };
+    return {
+      changes: [],
+      loading: false,
+      error: null,
+      editable: false,
+      reload,
+    };
   }
   if (!answer) {
     return { changes: [], loading: true, error: null, editable: true, reload };

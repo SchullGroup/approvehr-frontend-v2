@@ -219,72 +219,74 @@ type DemoPolicy = {
  * of conduct is reference-only, so the screen has to render both the chase case
  * and the "nothing to chase" case without being told.
  */
-const DEMO_POLICIES: DemoPolicy[] = DEMO_ENABLED ? [
-  {
-    id: "pol-01",
-    title: "Staff handbook",
-    category: "Company",
-    version: 2,
-    publishedAt: "2026-06-01",
-    requiresAcknowledgement: true,
-    acceptedBase: 8,
-    body:
-      "Working hours are 8:30am to 5:00pm, Monday to Friday, with an hour for lunch. " +
-      "If you cannot get in, tell your manager before 9:00am: a message is fine.\n\n" +
-      "Salaries are paid on the 25th of each month, or the last working day before " +
-      "it when the 25th falls on a weekend or a public holiday.\n\n" +
-      "You are entitled to 20 working days of annual leave a year, booked through " +
-      "ApproveHR and approved by your manager. Unused days do not carry into a new " +
-      "year beyond five.",
-  },
-  {
-    id: "pol-02",
-    title: "Expenses and claims",
-    category: "Money",
-    version: 3,
-    publishedAt: "2026-08-04",
-    requiresAcknowledgement: true,
-    acceptedBase: 4,
-    body:
-      "Keep the receipt. A claim without one cannot be paid, however small.\n\n" +
-      "File a claim within 30 days of spending the money. Claims are approved by " +
-      "your manager and paid with the next month's salary.\n\n" +
-      "Client entertainment above ₦50,000 needs approval before you spend it, not " +
-      "after.",
-  },
-  {
-    id: "pol-03",
-    title: "Phones, laptops and company data",
-    category: "IT",
-    version: 1,
-    publishedAt: "2026-03-17",
-    requiresAcknowledgement: true,
-    acceptedBase: 9,
-    body:
-      "Company laptops and phones stay with the company. You hand them back on " +
-      "your last day, in working order.\n\n" +
-      "Do not keep customer or staff records on a personal device, and do not " +
-      "share your sign-in with anybody, including a colleague covering for you.\n\n" +
-      "Tell us the same day if a device is lost or stolen. Nobody is in trouble " +
-      "for losing a laptop; they are in trouble for not saying so.",
-  },
-  {
-    id: "pol-04",
-    title: "Code of conduct",
-    category: "Company",
-    version: 1,
-    publishedAt: "2026-01-08",
-    requiresAcknowledgement: false,
-    acceptedBase: 0,
-    body:
-      "Treat colleagues, customers and suppliers with respect. Harassment, " +
-      "discrimination and bullying are grounds for dismissal.\n\n" +
-      "Declare anything that could look like a conflict of interest (a supplier" +
-      "you are related to, a second job with a competitor) in writing, to your" +
-      "manager.\n\n" +
-      "This section is here to read. There is nothing to accept.",
-  },
-] : [];
+const DEMO_POLICIES: DemoPolicy[] = DEMO_ENABLED
+  ? [
+      {
+        id: "pol-01",
+        title: "Staff handbook",
+        category: "Company",
+        version: 2,
+        publishedAt: "2026-06-01",
+        requiresAcknowledgement: true,
+        acceptedBase: 8,
+        body:
+          "Working hours are 8:30am to 5:00pm, Monday to Friday, with an hour for lunch. " +
+          "If you cannot get in, tell your manager before 9:00am: a message is fine.\n\n" +
+          "Salaries are paid on the 25th of each month, or the last working day before " +
+          "it when the 25th falls on a weekend or a public holiday.\n\n" +
+          "You are entitled to 20 working days of annual leave a year, booked through " +
+          "ApproveHR and approved by your manager. Unused days do not carry into a new " +
+          "year beyond five.",
+      },
+      {
+        id: "pol-02",
+        title: "Expenses and claims",
+        category: "Money",
+        version: 3,
+        publishedAt: "2026-08-04",
+        requiresAcknowledgement: true,
+        acceptedBase: 4,
+        body:
+          "Keep the receipt. A claim without one cannot be paid, however small.\n\n" +
+          "File a claim within 30 days of spending the money. Claims are approved by " +
+          "your manager and paid with the next month's salary.\n\n" +
+          "Client entertainment above ₦50,000 needs approval before you spend it, not " +
+          "after.",
+      },
+      {
+        id: "pol-03",
+        title: "Phones, laptops and company data",
+        category: "IT",
+        version: 1,
+        publishedAt: "2026-03-17",
+        requiresAcknowledgement: true,
+        acceptedBase: 9,
+        body:
+          "Company laptops and phones stay with the company. You hand them back on " +
+          "your last day, in working order.\n\n" +
+          "Do not keep customer or staff records on a personal device, and do not " +
+          "share your sign-in with anybody, including a colleague covering for you.\n\n" +
+          "Tell us the same day if a device is lost or stolen. Nobody is in trouble " +
+          "for losing a laptop; they are in trouble for not saying so.",
+      },
+      {
+        id: "pol-04",
+        title: "Code of conduct",
+        category: "Company",
+        version: 1,
+        publishedAt: "2026-01-08",
+        requiresAcknowledgement: false,
+        acceptedBase: 0,
+        body:
+          "Treat colleagues, customers and suppliers with respect. Harassment, " +
+          "discrimination and bullying are grounds for dismissal.\n\n" +
+          "Declare anything that could look like a conflict of interest (a supplier" +
+          "you are related to, a second job with a competitor) in writing, to your" +
+          "manager.\n\n" +
+          "This section is here to read. There is nothing to accept.",
+      },
+    ]
+  : [];
 
 /**
  * Demo disciplinary history.
@@ -310,59 +312,64 @@ type DemoAction = {
   disputeNote: string | null;
 };
 
-const DEMO_ACTIONS: DemoAction[] = DEMO_ENABLED ? [
-  {
-    id: "da-01",
-    employeeId: "p-03",
-    level: "VERBAL",
-    incidentOn: "2026-02-10",
-    summary: "Late three times in one week without telling anyone.",
-    detail:
-      "Arrived after 10:00am on 4, 5 and 9 February. No message to the team on " +
-      "any of the three days.",
-    outcome: "Agreed to message the team before 9:00am when running late.",
-    issuedById: "p-01",
-    issuedAt: "2026-02-11T09:20:00.000Z",
-    expiresOn: "2026-07-10",
-    acknowledgedAt: "2026-02-11T14:02:00.000Z",
-    disputedAt: null,
-    disputeNote: null,
-  },
-  {
-    id: "da-02",
-    employeeId: "p-03",
-    level: "WRITTEN",
-    incidentOn: "2026-07-22",
-    summary: "Deployed to production on a Friday evening without a review.",
-    detail:
-      "Change went out at 6:40pm with no approval on the pull request. The " +
-      "payments page was down for 25 minutes.",
-    outcome: "Deployment access now needs a second approver until October.",
-    issuedById: "p-01",
-    issuedAt: "2026-07-23T10:05:00.000Z",
-    expiresOn: "2027-01-22",
-    acknowledgedAt: "2026-07-23T16:30:00.000Z",
-    disputedAt: null,
-    disputeNote: null,
-  },
-  {
-    id: "da-03",
-    employeeId: "p-04",
-    level: "WRITTEN",
-    incidentOn: "2026-08-11",
-    summary: "Client work promised for the 7th was delivered on the 11th.",
-    detail: "Client chased twice. No handover was arranged before annual leave.",
-    outcome: null,
-    issuedById: "p-02",
-    issuedAt: "2026-08-12T08:45:00.000Z",
-    expiresOn: "2027-02-11",
-    acknowledgedAt: null,
-    disputedAt: null,
-    disputeNote: null,
-  },
-] : [];
+const DEMO_ACTIONS: DemoAction[] = DEMO_ENABLED
+  ? [
+      {
+        id: "da-01",
+        employeeId: "p-03",
+        level: "VERBAL",
+        incidentOn: "2026-02-10",
+        summary: "Late three times in one week without telling anyone.",
+        detail:
+          "Arrived after 10:00am on 4, 5 and 9 February. No message to the team on " +
+          "any of the three days.",
+        outcome: "Agreed to message the team before 9:00am when running late.",
+        issuedById: "p-01",
+        issuedAt: "2026-02-11T09:20:00.000Z",
+        expiresOn: "2026-07-10",
+        acknowledgedAt: "2026-02-11T14:02:00.000Z",
+        disputedAt: null,
+        disputeNote: null,
+      },
+      {
+        id: "da-02",
+        employeeId: "p-03",
+        level: "WRITTEN",
+        incidentOn: "2026-07-22",
+        summary: "Deployed to production on a Friday evening without a review.",
+        detail:
+          "Change went out at 6:40pm with no approval on the pull request. The " +
+          "payments page was down for 25 minutes.",
+        outcome: "Deployment access now needs a second approver until October.",
+        issuedById: "p-01",
+        issuedAt: "2026-07-23T10:05:00.000Z",
+        expiresOn: "2027-01-22",
+        acknowledgedAt: "2026-07-23T16:30:00.000Z",
+        disputedAt: null,
+        disputeNote: null,
+      },
+      {
+        id: "da-03",
+        employeeId: "p-04",
+        level: "WRITTEN",
+        incidentOn: "2026-08-11",
+        summary: "Client work promised for the 7th was delivered on the 11th.",
+        detail:
+          "Client chased twice. No handover was arranged before annual leave.",
+        outcome: null,
+        issuedById: "p-02",
+        issuedAt: "2026-08-12T08:45:00.000Z",
+        expiresOn: "2027-02-11",
+        acknowledgedAt: null,
+        disputedAt: null,
+        disputeNote: null,
+      },
+    ]
+  : [];
 
-const nameOf = (id: string): { name: string; employeeNo: string; jobTitle: string } => {
+const nameOf = (
+  id: string,
+): { name: string; employeeNo: string; jobTitle: string } => {
   const employee = EMPLOYEES.find((e) => e.id === id);
   return employee
     ? {
@@ -375,7 +382,8 @@ const nameOf = (id: string): { name: string; employeeNo: string; jobTitle: strin
 
 /** Same rule as the API: the last day it counts, compared at UTC midnight. */
 const stillCounts = (expiresOn: string | null): boolean =>
-  expiresOn === null || new Date(expiresOn).getTime() >= new Date(TODAY).getTime();
+  expiresOn === null ||
+  new Date(expiresOn).getTime() >= new Date(TODAY).getTime();
 
 function demoAction(row: DemoAction): ApiAction {
   const subject = nameOf(row.employeeId);
@@ -423,7 +431,11 @@ const acceptanceKey = (employeeId: string, policyId: string) =>
 
 /** Reads the demo acceptance diff, hydration-safe. */
 function useAcceptances(): AcceptanceState {
-  return useSyncExternalStore(store.subscribe, store.read, store.getServerSnapshot);
+  return useSyncExternalStore(
+    store.subscribe,
+    store.read,
+    store.getServerSnapshot,
+  );
 }
 
 function demoPolicy(
@@ -431,7 +443,9 @@ function demoPolicy(
   acceptedByMe: boolean,
 ): ApiPolicy & { body: string } {
   const chased = row.requiresAcknowledgement;
-  const accepted = chased ? Math.min(row.acceptedBase + (acceptedByMe ? 1 : 0), DEMO_STAFF) : 0;
+  const accepted = chased
+    ? Math.min(row.acceptedBase + (acceptedByMe ? 1 : 0), DEMO_STAFF)
+    : 0;
   return {
     id: row.id,
     title: row.title,
@@ -524,7 +538,8 @@ export function usePolicies(params: PolicyListParams = {}) {
         }
       } catch (error) {
         if (cancelled) return;
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         setFetched({
           key,
           policies: [],
@@ -588,7 +603,10 @@ export function usePolicies(params: PolicyListParams = {}) {
   );
 
   const publish = useCallback(
-    async (id: string, body: PublishPolicyBody = {}): Promise<ApiPublishResult> => {
+    async (
+      id: string,
+      body: PublishPolicyBody = {},
+    ): Promise<ApiPublishResult> => {
       guard();
       const result = await conductApi.publishPolicy(id, body);
       reload();
@@ -652,7 +670,8 @@ export function usePolicyText(id: string | null) {
         if (!cancelled) setFetched({ id, detail, error: null });
       } catch (error) {
         if (cancelled) return;
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         setFetched({
           id,
           detail: null,
@@ -726,7 +745,8 @@ export function useAcknowledgements(
         }
       } catch (error) {
         if (cancelled) return;
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         setFetched({
           key,
           rows: [],
@@ -793,7 +813,8 @@ export function useMyPolicies() {
         if (!cancelled) setFetched({ data, error: null });
       } catch (error) {
         if (cancelled) return;
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         setFetched({
           data: EMPTY_MINE,
           error: error instanceof ApiError ? error : null,
@@ -949,11 +970,14 @@ function demoRecord(employeeId: string): ApiConductRecord {
       active,
       lapsed: actions.length - active,
       total: actions.length,
-      awaitingConfirmation: actions.filter((a) => a.awaitingConfirmation).length,
+      awaitingConfirmation: actions.filter((a) => a.awaitingConfirmation)
+        .length,
       disputed: actions.filter((a) => a.disputedAt !== null).length,
       activeByLevel,
     },
-    actions: [...actions].sort((a, b) => b.incidentOn.localeCompare(a.incidentOn)),
+    actions: [...actions].sort((a, b) =>
+      b.incidentOn.localeCompare(a.incidentOn),
+    ),
     total: actions.length,
     page: 1,
     pageSize: 25,
@@ -995,11 +1019,16 @@ export function useConductRecord(employeeId: string | null) {
     const controller = new AbortController();
     void (async () => {
       try {
-        const record = await conductApi.record(employeeId, {}, controller.signal);
+        const record = await conductApi.record(
+          employeeId,
+          {},
+          controller.signal,
+        );
         if (!cancelled) setFetched({ id: employeeId, record, error: null });
       } catch (error) {
         if (cancelled) return;
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         setFetched({
           id: employeeId,
           record: null,
@@ -1070,7 +1099,10 @@ export function useConductRecord(employeeId: string | null) {
   const matched =
     employeeId !== null && fetched !== null && fetched.id === employeeId;
   return {
-    record: matched && fetched.record ? fetched.record : emptyRecord(employeeId ?? ""),
+    record:
+      matched && fetched.record
+        ? fetched.record
+        : emptyRecord(employeeId ?? ""),
     /* Derived from whether a live id has a matching answer, so nothing sets
        state during a render to clear the previous person's history. */
     loading: employeeId !== null && !matched,

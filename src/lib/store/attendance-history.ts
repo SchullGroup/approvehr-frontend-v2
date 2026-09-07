@@ -139,7 +139,8 @@ export function useAttendanceMonth(month: string): AttendanceMonthState {
           });
         }
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
           setFetched({
             key,

@@ -177,7 +177,10 @@ export const NIGERIAN_BANKS: readonly Bank[] = [
   { label: "Kayvee Microfinance Bank", code: "5129" },
   { label: "Keystone Bank", code: "082" },
   { label: "Kolomoni MFB", code: "899" },
-  { label: "KONGAPAY (Kongapay Technologies Limited)(formerly Zinternet)", code: "100025" },
+  {
+    label: "KONGAPAY (Kongapay Technologies Limited)(formerly Zinternet)",
+    code: "100025",
+  },
   { label: "Kredi Money MFB LTD", code: "50200" },
   { label: "Kuda Bank", code: "50211" },
   { label: "Lagos Building Investment Company Plc.", code: "90052" },

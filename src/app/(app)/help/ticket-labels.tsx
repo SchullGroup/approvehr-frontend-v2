@@ -30,16 +30,20 @@ import {
  * professional and has never seen a status enum.
  */
 
-export const STATUS: Record<TicketStatus, { tone: BadgeTone; label: string }> = {
-  OPEN: { tone: "warning", label: "Not started" },
-  IN_PROGRESS: { tone: "info", label: "Being worked on" },
-  /* "Waiting on them" reads from the handler's side, which is who sees this
+export const STATUS: Record<TicketStatus, { tone: BadgeTone; label: string }> =
+  {
+    OPEN: { tone: "warning", label: "Not started" },
+    IN_PROGRESS: { tone: "info", label: "Being worked on" },
+    /* "Waiting on them" reads from the handler's side, which is who sees this
      column. The thread says "waiting on you" to the requester. */
-  WAITING: { tone: "neutral", label: "Waiting on them" },
-  RESOLVED: { tone: "success", label: "Sorted" },
-};
+    WAITING: { tone: "neutral", label: "Waiting on them" },
+    RESOLVED: { tone: "success", label: "Sorted" },
+  };
 
-export const PRIORITY: Record<TicketPriority, { tone: BadgeTone; label: string }> = {
+export const PRIORITY: Record<
+  TicketPriority,
+  { tone: BadgeTone; label: string }
+> = {
   HIGH: { tone: "danger", label: "Urgent" },
   NORMAL: { tone: "neutral", label: "Normal" },
   LOW: { tone: "neutral", label: "Whenever" },

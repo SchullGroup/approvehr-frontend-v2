@@ -141,8 +141,10 @@ export function toRoleRow(
     status: posting.status,
     statusLabel: STATUS_LABEL[posting.status],
     live: posting.status === "PUBLISHED" && posting.acceptingApplications,
-    salaryMin: posting.salaryMinKobo === null ? null : naira(posting.salaryMinKobo),
-    salaryMax: posting.salaryMaxKobo === null ? null : naira(posting.salaryMaxKobo),
+    salaryMin:
+      posting.salaryMinKobo === null ? null : naira(posting.salaryMinKobo),
+    salaryMax:
+      posting.salaryMaxKobo === null ? null : naira(posting.salaryMaxKobo),
     applications: posting.applicationCount,
     waiting: tally?.waiting ?? 0,
     advanced: tally?.advanced ?? 0,
@@ -203,7 +205,9 @@ export function toNumbers(analytics: ApiCareersAnalytics): HiringNumbers {
  * received → screened → advanced for applications that arrived in July — and
  * this API does not expose the dates that would need.
  */
-export function queueBars(numbers: HiringNumbers): { label: string; value: number }[] {
+export function queueBars(
+  numbers: HiringNumbers,
+): { label: string; value: number }[] {
   return [
     { label: "Waiting", value: numbers.waiting },
     { label: "Screened in", value: numbers.advanced },
@@ -294,7 +298,9 @@ export function toAdvanceBody(input: ScreenInInput): AdvanceBody {
     ...(input.expectedSalary === undefined
       ? {}
       : { expectedSalaryKobo: kobo(input.expectedSalary) }),
-    ...(input.rightToWork === undefined ? {} : { rightToWork: input.rightToWork }),
+    ...(input.rightToWork === undefined
+      ? {}
+      : { rightToWork: input.rightToWork }),
   };
 }
 
@@ -328,8 +334,12 @@ export function toAdvertBody(draft: AdvertDraft): CreatePostingBody {
     employmentType: draft.employmentType,
     showSalary: draft.showSalary,
     ...(draft.location ? { location: draft.location } : {}),
-    ...(draft.salaryMin === undefined ? {} : { salaryMinKobo: kobo(draft.salaryMin) }),
-    ...(draft.salaryMax === undefined ? {} : { salaryMaxKobo: kobo(draft.salaryMax) }),
+    ...(draft.salaryMin === undefined
+      ? {}
+      : { salaryMinKobo: kobo(draft.salaryMin) }),
+    ...(draft.salaryMax === undefined
+      ? {}
+      : { salaryMaxKobo: kobo(draft.salaryMax) }),
     ...(draft.requisitionId ? { requisitionId: draft.requisitionId } : {}),
   };
 }
@@ -415,7 +425,9 @@ export const APPLICATION_STATUS_TONE: Record<
   WITHDRAWN: "neutral",
 };
 
-export function toApplicantRecord(detail: ApiApplicationDetail): ApplicantRecord {
+export function toApplicantRecord(
+  detail: ApiApplicationDetail,
+): ApplicantRecord {
   return {
     applicationId: detail.id,
     candidateId: detail.candidateId,
@@ -432,7 +444,8 @@ export function toApplicantRecord(detail: ApiApplicationDetail): ApplicantRecord
     status: detail.status,
     statusLabel: APPLICATION_STATUS_LABEL[detail.status],
     waiting: detail.status === "RECEIVED",
-    screenedOn: detail.screenedAt === null ? null : detail.screenedAt.slice(0, 10),
+    screenedOn:
+      detail.screenedAt === null ? null : detail.screenedAt.slice(0, 10),
     declineReason: detail.declineReason,
     cvUrl: detail.cv?.url ?? null,
     cvNote: detail.cv?.note ?? null,
@@ -481,7 +494,10 @@ export function mergeApplicantHistory(
   detail: ApiApplicationDetail | null,
 ): ApplicantRecord {
   if (detail === null) return base;
-  return { ...base, otherApplications: toApplicantRecord(detail).otherApplications };
+  return {
+    ...base,
+    otherApplications: toApplicantRecord(detail).otherApplications,
+  };
 }
 
 /* -------------------------------------------------------- offers and bands */
@@ -539,7 +555,8 @@ export function offerBand(
 
   const nearest = [...grades].sort(
     (a, b) =>
-      Math.abs(a.midGrossKobo - offerKobo) - Math.abs(b.midGrossKobo - offerKobo),
+      Math.abs(a.midGrossKobo - offerKobo) -
+      Math.abs(b.midGrossKobo - offerKobo),
   )[0];
   if (!nearest) return null;
   return { band: band(nearest), label: label(nearest), offerKobo };

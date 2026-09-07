@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
 import { ApiError } from "@/lib/api/client";
 import {
   leaveApi,
@@ -13,6 +13,7 @@ import { PUBLIC_HOLIDAYS } from "@/lib/mock/workflows";
 import { createPersistedState } from "./persisted";
 import { useSession } from "./session";
 import { useRevalidation } from "@/lib/revalidate";
+import { createSharedResource } from "@/lib/shared-resource";
 
 /**
  * The public holiday calendar, in both modes.
@@ -132,6 +133,62 @@ const NO_HOLIDAYS: PublicHolidayRow[] = [];
  * use this have a year control, so an "every year on file" mode would be a shape
  * neither of them renders.
  */
+/**
+ * The shared cache behind every caller.
+ *
+ * One request per year per session, however many components ask. `/people/leave`
+ * mounts this three times — the calendar and the booking form's two years — and
+ * before this it was three separate `useEffect` fetches, six with React's
+ * development double-invoke. That is the same defect `lib/permissions.ts` had
+ * at twenty-two, and `shared-resource.ts` exists because of it; its header says
+ * to use it for any future shared read, and this is one.
+ *
+ * ## The value is the OUTCOME, not the calendar
+ *
+ * The fetcher resolves `{ calendar, error }` rather than rejecting. A shared
+ * resource caches what its fetcher resolves, so a rejection would come back as
+ * `null` and every caller would render an empty year with no explanation —
+ * `LoadFailure` needs the API's own sentence, and the whole point of that
+ * component is that the server's message is the useful part.
+ *
+ * A failure therefore sticks until somebody asks again, where before each mount
+ * retried on its own. That is the better behaviour and not merely an accepted
+ * cost: `reload` is on the state, `LoadFailure` renders a retry, and one press
+ * now re-fetches for every component showing the year rather than for the one
+ * that happened to be pressed.
+ */
+type HolidayOutcome = { calendar: HolidayCalendar; error: ApiError | null };
+
+const holidayYears = createSharedResource<HolidayOutcome>(
+  async (key, signal) => {
+    const year = Number(key);
+    try {
+      return { calendar: await leaveApi.holidays(year, signal), error: null };
+    } catch (error) {
+      /* An abort is the resource dropping the request, not an answer. Rethrowing
+       keeps it out of the cache so the next subscriber starts a fresh load. */
+      if (error instanceof DOMException && error.name === "AbortError")
+        throw error;
+      return {
+        calendar: { holidays: NO_HOLIDAYS, awaitingProclamation: 0 },
+        error: error instanceof ApiError ? error : null,
+      };
+    }
+  },
+);
+
+/** Re-fetch every year currently on screen. Called after a write. */
+export function refreshHolidayYear(year: number): void {
+  holidayYears.refresh(String(year));
+}
+
+/**
+ * One year of the calendar.
+ *
+ * `year` is required. A calendar is drawn a year at a time and both screens that
+ * use this have a year control, so an "every year on file" mode would be a shape
+ * neither of them renders.
+ */
 export function usePublicHolidays(year: number): HolidayCalendarState {
   const { isConnected } = useSession();
   const demo = useSyncExternalStore(
@@ -140,44 +197,20 @@ export function usePublicHolidays(year: number): HolidayCalendarState {
     demoStore.getServerSnapshot,
   );
 
-  const [tick, setTick] = useState(0);
-  const [fetched, setFetched] = useState<{
-    key: string;
-    calendar: HolidayCalendar;
-    error: ApiError | null;
-  } | null>(null);
+  const outcome = holidayYears.use(isConnected ? String(year) : null);
 
-  const key = `${year}|${tick}`;
-
-  /* Re-ask when somebody comes back to the window. Not in the key below,
-     so the answer is replaced without the screen flashing a skeleton. */
+  /* Re-ask when somebody comes back to the window. The resource replaces the
+     value in place, so the screen never flashes a skeleton for an answer it
+     already has. */
   const revalidation = useRevalidation();
   useEffect(() => {
-    if (!isConnected) return;
-    let cancelled = false;
-    const controller = new AbortController();
-    void (async () => {
-      try {
-        const calendar = await leaveApi.holidays(year, controller.signal);
-        if (!cancelled) setFetched({ key, calendar, error: null });
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        if (!cancelled) {
-          setFetched({
-            key,
-            calendar: { holidays: NO_HOLIDAYS, awaitingProclamation: 0 },
-            error: error instanceof ApiError ? error : null,
-          });
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [isConnected, year, key, revalidation]);
+    if (!isConnected || revalidation === 0) return;
+    holidayYears.refresh(String(year));
+  }, [isConnected, year, revalidation]);
 
-  const reload = useCallback(() => setTick((t) => t + 1), []);
+  const reload = useCallback(() => {
+    holidayYears.refresh(String(year));
+  }, [year]);
 
   /* The demo answer, derived and never written to state. Counting here rather
      than reading a stored figure is the same decision the API made: one number,
@@ -192,10 +225,6 @@ export function usePublicHolidays(year: number): HolidayCalendarState {
     };
   }, [demo, year]);
 
-  /* Staleness decided by comparing the key during render, not by clearing state
-     in an effect — which would be a synchronous setState and a cascaded render. */
-  const matched = fetched !== null && fetched.key === key;
-
   if (!isConnected) {
     return {
       holidays: demoCalendar.holidays,
@@ -209,11 +238,15 @@ export function usePublicHolidays(year: number): HolidayCalendarState {
   }
 
   return {
-    holidays: matched ? fetched.calendar.holidays : NO_HOLIDAYS,
-    awaitingProclamation: matched ? fetched.calendar.awaitingProclamation : null,
+    holidays: outcome ? outcome.calendar.holidays : NO_HOLIDAYS,
+    /* Null, not 0, until the answer is in — "no dates are awaiting
+       proclamation" is a claim about the company. */
+    awaitingProclamation: outcome
+      ? outcome.calendar.awaitingProclamation
+      : null,
     year,
-    loading: !matched,
-    error: matched ? fetched.error : null,
+    loading: outcome === null,
+    error: outcome ? outcome.error : null,
     source: "api",
     reload,
   };
@@ -238,7 +271,9 @@ export function useDemoHolidayCounts(year: number): {
     demoStore.getServerSnapshot,
   );
   return useMemo(() => {
-    const rows = demo.holidays.filter((holiday) => yearOf(holiday.date) === year);
+    const rows = demo.holidays.filter(
+      (holiday) => yearOf(holiday.date) === year,
+    );
     return {
       holidays: rows.length,
       awaitingProclamation: rows.filter((holiday) => !holiday.confirmed).length,
@@ -283,7 +318,11 @@ export function useHolidayMutations(): HolidayMutations {
             holiday.name.toLowerCase() === name.toLowerCase(),
         )
       ) {
-        refuse(409, "conflict", `${name} is already on the calendar for that date.`);
+        refuse(
+          409,
+          "conflict",
+          `${name} is already on the calendar for that date.`,
+        );
       }
       const row: PublicHolidayRow = {
         id: demoId(),
@@ -310,7 +349,9 @@ export function useHolidayMutations(): HolidayMutations {
         ...existing,
         ...(patch.date === undefined ? {} : { date: patch.date }),
         ...(patch.name === undefined ? {} : { name: patch.name.trim() }),
-        ...(patch.confirmed === undefined ? {} : { confirmed: patch.confirmed }),
+        ...(patch.confirmed === undefined
+          ? {}
+          : { confirmed: patch.confirmed }),
       };
       if (
         state.holidays.some(

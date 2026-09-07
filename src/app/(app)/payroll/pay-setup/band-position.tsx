@@ -71,7 +71,12 @@ type Common = {
 
 export type BandPositionProps = Common &
   (
-    | { employeeId: string; grade?: never; offerKobo?: never; gradeLabel?: never }
+    | {
+        employeeId: string;
+        grade?: never;
+        offerKobo?: never;
+        gradeLabel?: never;
+      }
     | {
         employeeId?: never;
         grade: Band;
@@ -116,9 +121,7 @@ function FetchedBandPosition(props: Common & { employeeId: string }) {
     return (
       <div className={cn("flex flex-col gap-2", props.className)}>
         {props.label && (
-          <p className="text-meta font-semibold text-faint">
-            {props.label}
-          </p>
+          <p className="text-meta font-semibold text-faint">{props.label}</p>
         )}
         <Skeleton className="h-2 w-full rounded-full" />
         <Skeleton className="h-4 w-40" />
@@ -144,9 +147,7 @@ function FetchedBandPosition(props: Common & { employeeId: string }) {
     return (
       <div className={cn("flex flex-col gap-2", props.className)}>
         {props.label && (
-          <p className="text-meta font-semibold text-faint">
-            {props.label}
-          </p>
+          <p className="text-meta font-semibold text-faint">{props.label}</p>
         )}
         <p className="text-body-sm text-muted">
           Not on a grade, so there is no band to compare against.
@@ -204,9 +205,7 @@ export function BandMeter({
       {(label ?? gradeLabel) && (
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           {label && (
-            <p className="text-meta font-semibold text-faint">
-              {label}
-            </p>
+            <p className="text-meta font-semibold text-faint">{label}</p>
           )}
           {gradeLabel && (
             <p className="text-body-sm font-medium text-ink">{gradeLabel}</p>
@@ -248,11 +247,7 @@ export function BandMeter({
             aria-hidden="true"
             className={cn(
               "absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-surface",
-              over
-                ? "bg-warning"
-                : under
-                  ? "bg-info"
-                  : "bg-success-strong",
+              over ? "bg-warning" : under ? "bg-info" : "bg-success-strong",
             )}
             style={{ left: `${marker}%` }}
           />

@@ -19,7 +19,10 @@ import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
 import type { ApiAttendanceDevice } from "@/lib/api/attendance";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
-import { useDeviceEnrolments, useDeviceMutations } from "@/lib/store/attendance-devices";
+import {
+  useDeviceEnrolments,
+  useDeviceMutations,
+} from "@/lib/store/attendance-devices";
 
 /**
  * Who a terminal's own enrolment numbers mean.
@@ -65,7 +68,9 @@ export function EnrolmentsDrawer({
 }) {
   const toast = useToast();
   const mutations = useDeviceMutations();
-  const { employees, loading: loadingPeople } = useEmployeeDirectory({ pageSize: 200 });
+  const { employees, loading: loadingPeople } = useEmployeeDirectory({
+    pageSize: 200,
+  });
 
   /* Passed into the store so the demo rows can name a person. Connected the
      API resolves the name itself and this is never called — which is why it is
@@ -180,8 +185,8 @@ export function EnrolmentsDrawer({
             {device.unmappedPunches === 1
               ? "One tap has arrived from a number nothing here recognises."
               : `${device.unmappedPunches} taps have arrived from numbers nothing here recognises.`}{" "}
-            They are stored, not lost. Map the number below and every one of them
-            is attributed and every day it touches is worked out again.
+            They are stored, not lost. Map the number below and every one of
+            them is attributed and every day it touches is worked out again.
           </Callout>
         )}
 
@@ -234,8 +239,8 @@ export function EnrolmentsDrawer({
               </div>
 
               <p className="text-body-sm text-muted">
-                Mapping a number also claims everything it has already sent, so a
-                terminal can go in weeks before anybody sits down to do this.
+                Mapping a number also claims everything it has already sent, so
+                a terminal can go in weeks before anybody sits down to do this.
               </p>
             </div>
           </DrawerSection>
@@ -268,7 +273,9 @@ export function EnrolmentsDrawer({
                         User {row.deviceUserId}
                       </Badge>
                     </span>
-                    <span className="text-meta text-muted">{row.employeeNo}</span>
+                    <span className="text-meta text-muted">
+                      {row.employeeNo}
+                    </span>
                   </span>
                   {canManage && (
                     <Button
@@ -297,8 +304,8 @@ export function EnrolmentsDrawer({
             Taps already collected keep the person they were attributed to. That
             is deliberate: we recorded who we believed was at the gate at the
             time, and rewriting it to match a decision made afterwards would
-            leave their attendance with no evidence behind it. New taps from that
-            number have nobody until it is mapped again.
+            leave their attendance with no evidence behind it. New taps from
+            that number have nobody until it is mapped again.
           </p>
         </DrawerSection>
       </div>

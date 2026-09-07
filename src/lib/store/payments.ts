@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { formatMoney } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -131,34 +137,36 @@ const DEMO_NET_KOBO: Record<string, number> = {
   "p-10": 56_691_329,
 };
 
-const DEMO_ACCOUNTS: ApiBankAccount[] = DEMO_ENABLED ? [
-  {
-    id: "acct-gtb",
-    bankName: "GTBank",
-    accountName: "Schull Technologies Ltd",
-    accountNumberMasked: "******0110",
-    last4: "0110",
-    bankCode: "058",
-    accountType: "Current",
-    isPrimary: true,
-    active: true,
-    archived: false,
-    addedOn: "2025-11-04",
-  },
-  {
-    id: "acct-zen",
-    bankName: "Zenith Bank",
-    accountName: "Schull Technologies Ltd",
-    accountNumberMasked: "******0295",
-    last4: "0295",
-    bankCode: "057",
-    accountType: "Current",
-    isPrimary: false,
-    active: true,
-    archived: false,
-    addedOn: "2026-02-18",
-  },
-] : [];
+const DEMO_ACCOUNTS: ApiBankAccount[] = DEMO_ENABLED
+  ? [
+      {
+        id: "acct-gtb",
+        bankName: "GTBank",
+        accountName: "Schull Technologies Ltd",
+        accountNumberMasked: "******0110",
+        last4: "0110",
+        bankCode: "058",
+        accountType: "Current",
+        isPrimary: true,
+        active: true,
+        archived: false,
+        addedOn: "2025-11-04",
+      },
+      {
+        id: "acct-zen",
+        bankName: "Zenith Bank",
+        accountName: "Schull Technologies Ltd",
+        accountNumberMasked: "******0295",
+        last4: "0295",
+        bankCode: "057",
+        accountType: "Current",
+        isPrimary: false,
+        active: true,
+        archived: false,
+        addedOn: "2026-02-18",
+      },
+    ]
+  : [];
 
 /**
  * One payee row for the demo book.
@@ -173,15 +181,23 @@ function demoInstruction(
   broken?: "no-account" | "short-account" | "shares-account-with-p-04",
 ): DemoInstruction {
   const person = EMPLOYEES.find((e) => e.id === employeeId);
-  const name = person ? `${person.firstName} ${person.lastName}` : "Unknown payee";
+  const name = person
+    ? `${person.firstName} ${person.lastName}`
+    : "Unknown payee";
   const full =
     broken === "no-account"
       ? ""
       : broken === "short-account"
-        ? demoAccountNumber(person?.employeeNo ?? "", person?.bankAccount ?? "").slice(0, 8)
+        ? demoAccountNumber(
+            person?.employeeNo ?? "",
+            person?.bankAccount ?? "",
+          ).slice(0, 8)
         : broken === "shares-account-with-p-04"
           ? demoAccountNumber("AHR-0205", "UBA ····6612")
-          : demoAccountNumber(person?.employeeNo ?? "", person?.bankAccount ?? "");
+          : demoAccountNumber(
+              person?.employeeNo ?? "",
+              person?.bankAccount ?? "",
+            );
 
   return {
     id: `pi-${employeeId}-${narration.slice(-8).replace(/\s/g, "")}`,
@@ -209,21 +225,36 @@ function mask(accountNumber: string): string {
   return `${"*".repeat(digits.length - 4)}${digits.slice(-4)}`;
 }
 
-const AUGUST_PAYEES: [string, "no-account" | "short-account" | "shares-account-with-p-04" | undefined][] = DEMO_ENABLED ? [
-  ["p-01", undefined],
-  ["p-02", undefined],
-  ["p-03", undefined],
-  ["p-04", undefined],
-  ["p-05", undefined],
-  ["p-06", undefined],
-  ["p-07", undefined],
-  ["p-08", "no-account"],
-  ["p-09", "short-account"],
-  ["p-10", "shares-account-with-p-04"],
-] : [];
+const AUGUST_PAYEES: [
+  string,
+  "no-account" | "short-account" | "shares-account-with-p-04" | undefined,
+][] = DEMO_ENABLED
+  ? [
+      ["p-01", undefined],
+      ["p-02", undefined],
+      ["p-03", undefined],
+      ["p-04", undefined],
+      ["p-05", undefined],
+      ["p-06", undefined],
+      ["p-07", undefined],
+      ["p-08", "no-account"],
+      ["p-09", "short-account"],
+      ["p-10", "shares-account-with-p-04"],
+    ]
+  : [];
 
 /** July, before Grace Effiong started. Everybody in it can be paid. */
-const JULY_PAYEES = ["p-01", "p-02", "p-03", "p-04", "p-05", "p-06", "p-07", "p-09", "p-10"];
+const JULY_PAYEES = [
+  "p-01",
+  "p-02",
+  "p-03",
+  "p-04",
+  "p-05",
+  "p-06",
+  "p-07",
+  "p-09",
+  "p-10",
+];
 
 function demoBatchSeed(
   reference: string,
@@ -267,96 +298,101 @@ function demoBatchSeed(
   };
 }
 
-const SEED_BOOK: DemoBook = DEMO_ENABLED ? {
-  accounts: DEMO_ACCOUNTS,
-  batches: [
-    demoBatchSeed(
-      "PAY-202608-1",
-      "2026-08-01",
-      "2026-08-28",
-      "DRAFT",
-      "Salary August 2026",
-      AUGUST_PAYEES.map(([id, broken]) =>
-        demoInstruction(id, "Salary August 2026", broken),
-      ),
-    ),
-    demoBatchSeed(
-      "PAY-202607-1",
-      "2026-07-01",
-      "2026-07-28",
-      "APPROVED",
-      "Salary July 2026",
-      JULY_PAYEES.map((id) => demoInstruction(id, "Salary July 2026")),
-      {
-        approvedById: "p-02",
-        approvedByName: "Tunde Bakare",
-        approvedAt: "2026-07-26T10:41:00.000Z",
-      },
-    ),
-    demoBatchSeed(
-      "PAY-202606-1",
-      "2026-06-01",
-      "2026-06-26",
-      "CANCELLED",
-      "Salary June 2026",
-      JULY_PAYEES.map((id) => demoInstruction(id, "Salary June 2026")),
-      { failureReason: "Built against the wrong account: rebuilt as PAY-202606-2" },
-    ),
-  ],
-  /**
-   * Money in only.
-   *
-   * A salary line appears in this ledger when a payment **settles**, and nothing
-   * can settle without a provider. So the demo's ledger holds what a real
-   * company's would at this point: the transfers somebody typed in off a bank
-   * statement. Two of the three carry the balance that was printed beside them;
-   * the third does not, and shows a dash rather than a total worked out here.
-   */
-  ledger: [
-    {
-      id: "led-03",
-      occurredAt: "2026-08-18",
-      kind: "FUNDING",
-      direction: "CREDIT",
-      amountKobo: 9_500_000_000,
-      balanceAfterKobo: 11_248_033_219,
-      reference: "FT26081800194",
-      note: "Transfer from the operations account",
-      bankAccountId: "acct-gtb",
-      bankAccount: "GTBank ******0110",
-      paymentBatchId: null,
-      batchReference: null,
-    },
-    {
-      id: "led-02",
-      occurredAt: "2026-07-24",
-      kind: "FUNDING",
-      direction: "CREDIT",
-      amountKobo: 8_800_000_000,
-      balanceAfterKobo: null,
-      reference: "FT26072400881",
-      note: "Transfer from the operations account",
-      bankAccountId: "acct-gtb",
-      bankAccount: "GTBank ******0110",
-      paymentBatchId: null,
-      batchReference: null,
-    },
-    {
-      id: "led-01",
-      occurredAt: "2026-06-23",
-      kind: "FUNDING",
-      direction: "CREDIT",
-      amountKobo: 8_450_000_000,
-      balanceAfterKobo: 9_120_411_866,
-      reference: "FT26062300310",
-      note: "Transfer from the operations account",
-      bankAccountId: "acct-gtb",
-      bankAccount: "GTBank ******0110",
-      paymentBatchId: null,
-      batchReference: null,
-    },
-  ],
-} : { accounts: [], batches: [], ledger: [] };
+const SEED_BOOK: DemoBook = DEMO_ENABLED
+  ? {
+      accounts: DEMO_ACCOUNTS,
+      batches: [
+        demoBatchSeed(
+          "PAY-202608-1",
+          "2026-08-01",
+          "2026-08-28",
+          "DRAFT",
+          "Salary August 2026",
+          AUGUST_PAYEES.map(([id, broken]) =>
+            demoInstruction(id, "Salary August 2026", broken),
+          ),
+        ),
+        demoBatchSeed(
+          "PAY-202607-1",
+          "2026-07-01",
+          "2026-07-28",
+          "APPROVED",
+          "Salary July 2026",
+          JULY_PAYEES.map((id) => demoInstruction(id, "Salary July 2026")),
+          {
+            approvedById: "p-02",
+            approvedByName: "Tunde Bakare",
+            approvedAt: "2026-07-26T10:41:00.000Z",
+          },
+        ),
+        demoBatchSeed(
+          "PAY-202606-1",
+          "2026-06-01",
+          "2026-06-26",
+          "CANCELLED",
+          "Salary June 2026",
+          JULY_PAYEES.map((id) => demoInstruction(id, "Salary June 2026")),
+          {
+            failureReason:
+              "Built against the wrong account: rebuilt as PAY-202606-2",
+          },
+        ),
+      ],
+      /**
+       * Money in only.
+       *
+       * A salary line appears in this ledger when a payment **settles**, and nothing
+       * can settle without a provider. So the demo's ledger holds what a real
+       * company's would at this point: the transfers somebody typed in off a bank
+       * statement. Two of the three carry the balance that was printed beside them;
+       * the third does not, and shows a dash rather than a total worked out here.
+       */
+      ledger: [
+        {
+          id: "led-03",
+          occurredAt: "2026-08-18",
+          kind: "FUNDING",
+          direction: "CREDIT",
+          amountKobo: 9_500_000_000,
+          balanceAfterKobo: 11_248_033_219,
+          reference: "FT26081800194",
+          note: "Transfer from the operations account",
+          bankAccountId: "acct-gtb",
+          bankAccount: "GTBank ******0110",
+          paymentBatchId: null,
+          batchReference: null,
+        },
+        {
+          id: "led-02",
+          occurredAt: "2026-07-24",
+          kind: "FUNDING",
+          direction: "CREDIT",
+          amountKobo: 8_800_000_000,
+          balanceAfterKobo: null,
+          reference: "FT26072400881",
+          note: "Transfer from the operations account",
+          bankAccountId: "acct-gtb",
+          bankAccount: "GTBank ******0110",
+          paymentBatchId: null,
+          batchReference: null,
+        },
+        {
+          id: "led-01",
+          occurredAt: "2026-06-23",
+          kind: "FUNDING",
+          direction: "CREDIT",
+          amountKobo: 8_450_000_000,
+          balanceAfterKobo: 9_120_411_866,
+          reference: "FT26062300310",
+          note: "Transfer from the operations account",
+          bankAccountId: "acct-gtb",
+          bankAccount: "GTBank ******0110",
+          paymentBatchId: null,
+          batchReference: null,
+        },
+      ],
+    }
+  : { accounts: [], batches: [], ledger: [] };
 
 /* ------------------------------------------------------------ the demo store */
 
@@ -372,7 +408,11 @@ const demo = createPersistedState<{ book: DemoBook | null }>({
 });
 
 function useDemoBook(): DemoBook {
-  const state = useSyncExternalStore(demo.subscribe, demo.read, demo.getServerSnapshot);
+  const state = useSyncExternalStore(
+    demo.subscribe,
+    demo.read,
+    demo.getServerSnapshot,
+  );
   return state.book ?? SEED_BOOK;
 }
 
@@ -443,7 +483,8 @@ function evaluateDemo(
   const expected = batch.expectedTotalKobo;
   const computed = batch.computedTotalKobo;
   const summed = rows.reduce((total, row) => total + row.amountKobo, 0);
-  const money = (kobo: number) => formatMoney(naira(kobo), "NGN", { decimals: true });
+  const money = (kobo: number) =>
+    formatMoney(naira(kobo), "NGN", { decimals: true });
 
   if (rows.length === 0) {
     found.push({
@@ -499,7 +540,9 @@ function evaluateDemo(
     });
   }
 
-  const source = accounts.find((account) => account.id === batch.sourceAccountId);
+  const source = accounts.find(
+    (account) => account.id === batch.sourceAccountId,
+  );
   if (!source || !source.active || source.archived) {
     found.push({
       code: "source_account_inactive",
@@ -608,7 +651,10 @@ function toBatch(batch: DemoBatch): ApiPaymentBatch {
   };
 }
 
-function toDetail(batch: DemoBatch, accounts: ApiBankAccount[]): ApiBatchDetail {
+function toDetail(
+  batch: DemoBatch,
+  accounts: ApiBankAccount[],
+): ApiBatchDetail {
   const gate = evaluateDemo(batch, accounts);
   return {
     ...toBatch(batch),
@@ -667,7 +713,8 @@ export function usePaymentsSummary(): PaymentsSummaryState {
         const summary = await paymentsApi.summary(controller.signal);
         if (!cancelled) setFetched({ rev, summary, error: null });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
           setFetched({
             rev,
@@ -686,10 +733,14 @@ export function usePaymentsSummary(): PaymentsSummaryState {
   if (!isConnected) {
     const outstanding = book.batches
       .filter((batch) =>
-        ["DRAFT", "AWAITING_APPROVAL", "APPROVED", "SUBMITTED"].includes(batch.status),
+        ["DRAFT", "AWAITING_APPROVAL", "APPROVED", "SUBMITTED"].includes(
+          batch.status,
+        ),
       )
       .map(toBatch);
-    const august = book.batches.filter((batch) => batch.period?.startsWith("2026-08"));
+    const august = book.batches.filter((batch) =>
+      batch.period?.startsWith("2026-08"),
+    );
 
     return {
       summary: {
@@ -698,13 +749,16 @@ export function usePaymentsSummary(): PaymentsSummaryState {
         provider: {
           connected: false,
           name: null,
-          note:
-            "No payment provider is connected. Approve a batch and download the bank file — that is how payments go out today.",
+          note: "No payment provider is connected. Approve a batch and download the bank file — that is how payments go out today.",
         },
-        primaryAccount: book.accounts.find((a) => a.isPrimary && !a.archived) ?? null,
+        primaryAccount:
+          book.accounts.find((a) => a.isPrimary && !a.archived) ?? null,
         outstanding: {
           count: outstanding.length,
-          totalKobo: outstanding.reduce((sum, b) => sum + b.computedTotalKobo, 0),
+          totalKobo: outstanding.reduce(
+            (sum, b) => sum + b.computedTotalKobo,
+            0,
+          ),
           batches: outstanding,
         },
         /* Nothing has completed, because nothing can. */
@@ -782,7 +836,8 @@ export function useWallet(): WalletState {
         const wallet = await paymentsApi.wallet(controller.signal);
         if (!cancelled) setFetched({ rev, wallet, error: null });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
           setFetched({
             rev,
@@ -832,7 +887,9 @@ export type BatchListState = {
   reload: () => void;
 };
 
-export function usePaymentBatches(params: BatchListParams = {}): BatchListState {
+export function usePaymentBatches(
+  params: BatchListParams = {},
+): BatchListState {
   const { isConnected, can } = useSession();
   /* Every payments route is `RUN_PAYROLL` (`modules/payments/router.ts`), so
      asking without it only ever produced a 403 on a screen that had already
@@ -850,7 +907,14 @@ export function usePaymentBatches(params: BatchListParams = {}): BatchListState 
   const book = useDemoBook();
   const rev = useRevision();
 
-  const { page = 1, pageSize = 25, status, payrollRunId, sort, order = "desc" } = params;
+  const {
+    page = 1,
+    pageSize = 25,
+    status,
+    payrollRunId,
+    sort,
+    order = "desc",
+  } = params;
 
   const query = useMemo<BatchListParams>(
     () => ({
@@ -886,10 +950,16 @@ export function usePaymentBatches(params: BatchListParams = {}): BatchListState 
       try {
         const result = await paymentsApi.batches(query, controller.signal);
         if (!cancelled) {
-          setFetched({ key, batches: result.data, total: result.meta.total, error: null });
+          setFetched({
+            key,
+            batches: result.data,
+            total: result.meta.total,
+            error: null,
+          });
         }
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
           setFetched({
             key,
@@ -979,7 +1049,8 @@ export function usePaymentBatch(id: string | null): BatchDetailState {
         const batch = await paymentsApi.batch(id, controller.signal);
         if (!cancelled) setFetched({ id, rev, batch, error: null });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
           setFetched({
             id,
@@ -997,7 +1068,9 @@ export function usePaymentBatch(id: string | null): BatchDetailState {
   }, [id, active, rev, revalidation]);
 
   if (!isConnected) {
-    const found = id ? book.batches.find((batch) => batch.id === id) : undefined;
+    const found = id
+      ? book.batches.find((batch) => batch.id === id)
+      : undefined;
     return {
       batch: found ? toDetail(found, book.accounts) : null,
       loading: false,
@@ -1043,7 +1116,15 @@ export function useLedger(params: LedgerListParams = {}): LedgerState {
   const book = useDemoBook();
   const rev = useRevision();
 
-  const { page = 1, pageSize = 25, kind, bankAccountId, from, to, order = "desc" } = params;
+  const {
+    page = 1,
+    pageSize = 25,
+    kind,
+    bankAccountId,
+    from,
+    to,
+    order = "desc",
+  } = params;
 
   const query = useMemo<LedgerListParams>(
     () => ({
@@ -1078,7 +1159,8 @@ export function useLedger(params: LedgerListParams = {}): LedgerState {
         const result = await paymentsApi.ledger(query, controller.signal);
         if (!cancelled) setFetched({ key, result, error: null });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
           setFetched({
             key,
@@ -1097,7 +1179,8 @@ export function useLedger(params: LedgerListParams = {}): LedgerState {
   if (!isConnected) {
     let rows = book.ledger;
     if (kind) rows = rows.filter((row) => row.kind === kind);
-    if (bankAccountId) rows = rows.filter((row) => row.bankAccountId === bankAccountId);
+    if (bankAccountId)
+      rows = rows.filter((row) => row.bankAccountId === bankAccountId);
     if (from) rows = rows.filter((row) => row.occurredAt >= from);
     if (to) rows = rows.filter((row) => row.occurredAt <= to);
     rows = [...rows].sort((a, b) =>
@@ -1176,19 +1259,17 @@ export function useLedger(params: LedgerListParams = {}): LedgerState {
 function demoHistoryRows(book: DemoBook): ApiPaymentHistoryRow[] {
   return book.batches
     .flatMap((batch) =>
-      batch.instructions.map(
-        (row): ApiPaymentHistoryRow => ({
-          ...strip(row),
-          batchId: batch.id,
-          batchReference: batch.reference,
-          batchStatus: batch.status,
-          /* The batch carries `YYYY-MM-DD`; a history row carries the month.
+      batch.instructions.map((row): ApiPaymentHistoryRow => ({
+        ...strip(row),
+        batchId: batch.id,
+        batchReference: batch.reference,
+        batchStatus: batch.status,
+        /* The batch carries `YYYY-MM-DD`; a history row carries the month.
              Sending the full date would be a shape the API never returns. */
-          period: batch.period ? batch.period.slice(0, 7) : null,
-          payDate: batch.payDate,
-          raisedAt: batch.createdAt,
-        }),
-      ),
+        period: batch.period ? batch.period.slice(0, 7) : null,
+        payDate: batch.payDate,
+        raisedAt: batch.createdAt,
+      })),
     )
     .sort(
       (a, b) =>
@@ -1311,7 +1392,8 @@ export function usePaymentHistory(
         const result = await paymentsApi.history(query, controller.signal);
         if (!cancelled) setFetched({ key, result, error: null });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
           setFetched({
             key,
@@ -1348,10 +1430,12 @@ export function usePaymentHistory(
     pageSize,
     totalPages: Math.max(1, Math.ceil(total / pageSize)),
     pageNetKobo: rows.reduce(
-      (sum, row) => (paymentOutcome(row).moved === "no" ? sum : sum + row.amountKobo),
+      (sum, row) =>
+        paymentOutcome(row).moved === "no" ? sum : sum + row.amountKobo,
       0,
     ),
-    pageUnpaidCount: rows.filter((row) => paymentOutcome(row).moved === "no").length,
+    pageUnpaidCount: rows.filter((row) => paymentOutcome(row).moved === "no")
+      .length,
     /* `answer === null` means nothing has arrived yet, and "complete" would then
        be vacuously true over an empty list. */
     complete: answer !== null && rows.length === total,
@@ -1430,7 +1514,8 @@ export function usePaidPeople(period?: string): PaidPeopleState {
         );
         if (!cancelled) setFetched({ key, result });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         /* A refusal here costs the filter, not the table. The screen renders no
            dropdown rather than an error beside a working list. */
         if (!cancelled) setFetched({ key, result: null });
@@ -1440,7 +1525,7 @@ export function usePaidPeople(period?: string): PaidPeopleState {
       cancelled = true;
       controller.abort();
     };
-  /* `mayRead` belongs here, and its absence was not harmless: permissions
+    /* `mayRead` belongs here, and its absence was not harmless: permissions
      arrive asynchronously, so it is false on the first render and flips true
      when they land. With nothing in the array changing at that moment, the
      effect never re-ran and the payee filter stayed empty for the whole
@@ -1453,7 +1538,12 @@ export function usePaidPeople(period?: string): PaidPeopleState {
     const rows = demoHistoryRows(book).filter((row) =>
       matchesFilter(row, undefined, period),
     );
-    return { rows: rows.slice(0, PAYEE_SCAN_SIZE), total: rows.length, page: 1, pageSize: PAYEE_SCAN_SIZE };
+    return {
+      rows: rows.slice(0, PAYEE_SCAN_SIZE),
+      total: rows.length,
+      page: 1,
+      pageSize: PAYEE_SCAN_SIZE,
+    };
   }, [isConnected, book, period]);
 
   const matched = fetched !== null && fetched.key === key;
@@ -1537,7 +1627,10 @@ export function useBankAccounts(includeArchived = false): BankAccountsState {
     const controller = new AbortController();
     void (async () => {
       try {
-        const result = await paymentsApi.accounts(includeArchived, controller.signal);
+        const result = await paymentsApi.accounts(
+          includeArchived,
+          controller.signal,
+        );
         if (!cancelled) {
           setFetched({
             key,
@@ -1548,7 +1641,8 @@ export function useBankAccounts(includeArchived = false): BankAccountsState {
           });
         }
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
           setFetched({
             key,
@@ -1624,7 +1718,8 @@ export function useBankAccounts(includeArchived = false): BankAccountsState {
             ? -1
             : 1,
       ),
-      primaryId: book.accounts.find((a) => a.isPrimary && !a.archived)?.id ?? null,
+      primaryId:
+        book.accounts.find((a) => a.isPrimary && !a.archived)?.id ?? null,
       counts: {
         active: book.accounts.filter((a) => a.active && !a.archived).length,
         archived: book.accounts.filter((a) => a.archived).length,
@@ -1664,7 +1759,9 @@ function openBatchesFor(book: DemoBook, accountId: string): string[] {
     .filter(
       (batch) =>
         batch.sourceAccountId === accountId &&
-        ["DRAFT", "AWAITING_APPROVAL", "APPROVED", "SUBMITTED"].includes(batch.status),
+        ["DRAFT", "AWAITING_APPROVAL", "APPROVED", "SUBMITTED"].includes(
+          batch.status,
+        ),
     )
     .map((batch) => batch.reference);
 }
@@ -1676,7 +1773,9 @@ function refuse(message: string): never {
 function demoCreateAccount(body: CreateAccountBody) {
   const book = currentBook();
   const digits = body.accountNumber.replace(/\D/g, "");
-  const clash = book.accounts.find((account) => account.last4 === digits.slice(-4));
+  const clash = book.accounts.find(
+    (account) => account.last4 === digits.slice(-4),
+  );
   if (clash) {
     refuse(
       clash.archived
@@ -1761,12 +1860,16 @@ function demoUpdateAccount(id: string, body: UpdateAccountBody) {
       return {
         ...account,
         ...(body.bankName !== undefined ? { bankName: body.bankName } : {}),
-        ...(body.accountName !== undefined ? { accountName: body.accountName } : {}),
+        ...(body.accountName !== undefined
+          ? { accountName: body.accountName }
+          : {}),
         ...(digits
           ? { accountNumberMasked: mask(digits), last4: digits.slice(-4) }
           : {}),
         ...(body.bankCode !== undefined ? { bankCode: body.bankCode } : {}),
-        ...(body.accountType !== undefined ? { accountType: body.accountType } : {}),
+        ...(body.accountType !== undefined
+          ? { accountType: body.accountType }
+          : {}),
         ...(body.active !== undefined ? { active: body.active } : {}),
         ...(promoting ? { isPrimary: true } : {}),
       };
@@ -1828,7 +1931,9 @@ export const NO_PROVIDER_REASON =
 
 export type PaymentActions = {
   /** Runs the gate. Safe and repeatable: it releases nothing. */
-  check: (id: string) => Promise<{ ok: boolean; discrepancies: PaymentDiscrepancy[] }>;
+  check: (
+    id: string,
+  ) => Promise<{ ok: boolean; discrepancies: PaymentDiscrepancy[] }>;
   approve: (id: string) => Promise<void>;
   /** Always refuses today. Throws `ApiError` carrying the reason. */
   release: (id: string) => Promise<never>;
@@ -1846,7 +1951,10 @@ export type PaymentActions = {
     id: string,
     body?: { paidOn?: string; reference?: string },
   ) => Promise<ApiBatchRecordedPaid>;
-  createBatch: (payrollRunId: string, sourceBankAccountId?: string) => Promise<string>;
+  createBatch: (
+    payrollRunId: string,
+    sourceBankAccountId?: string,
+  ) => Promise<string>;
   recordFunding: (body: FundingBody) => Promise<void>;
   live: boolean;
 };
@@ -1871,12 +1979,15 @@ export function usePaymentActions(): PaymentActions {
          decision somebody signed. */
       let status = batch.status;
       if (gate.ok && batch.status === "DRAFT") status = "AWAITING_APPROVAL";
-      else if (!gate.ok && batch.status === "AWAITING_APPROVAL") status = "DRAFT";
+      else if (!gate.ok && batch.status === "AWAITING_APPROVAL")
+        status = "DRAFT";
 
       if (status !== batch.status) {
         commitBook({
           ...book,
-          batches: book.batches.map((row) => (row.id === id ? { ...row, status } : row)),
+          batches: book.batches.map((row) =>
+            row.id === id ? { ...row, status } : row,
+          ),
         });
       }
       bumpRevision();
@@ -1900,7 +2011,9 @@ export function usePaymentActions(): PaymentActions {
       }
       const gate = evaluateDemo(batch, book.accounts);
       if (!gate.ok) {
-        const blockers = gate.discrepancies.filter((d) => d.severity === "BLOCKER");
+        const blockers = gate.discrepancies.filter(
+          (d) => d.severity === "BLOCKER",
+        );
         throw new ApiError(
           422,
           "unprocessable",
@@ -1944,7 +2057,11 @@ export function usePaymentActions(): PaymentActions {
            an adapter is ever registered this is where success lands, and the
            screen will need a branch for it. */
         bumpRevision();
-        throw new ApiError(500, "unexpected", "That batch reported a result nothing here can render yet.");
+        throw new ApiError(
+          500,
+          "unexpected",
+          "That batch reported a result nothing here can render yet.",
+        );
       }
       throw new ApiError(422, "no_payment_provider", NO_PROVIDER_REASON);
     },
@@ -2073,7 +2190,9 @@ export function usePaymentActions(): PaymentActions {
         return;
       }
       const book = currentBook();
-      const account = book.accounts.find((row) => row.id === body.bankAccountId);
+      const account = book.accounts.find(
+        (row) => row.id === body.bankAccountId,
+      );
       if (!account) refuse("That bank account is not on file.");
       const entry: ApiLedgerEntry = {
         id: `led-${Date.now()}`,
@@ -2178,9 +2297,10 @@ export function usePayableRuns(): PayableRunsState {
   const mayRead = can("VIEW_SALARIES");
   const rev = useRevision();
 
-  const [fetched, setFetched] = useState<{ rev: number; runs: ApiPayableRun[] } | null>(
-    null,
-  );
+  const [fetched, setFetched] = useState<{
+    rev: number;
+    runs: ApiPayableRun[];
+  } | null>(null);
 
   /* Re-ask when somebody comes back to the window. Not in the key below,
      so the answer is replaced without the screen flashing a skeleton. */
@@ -2194,7 +2314,8 @@ export function usePayableRuns(): PayableRunsState {
         const runs = await paymentsApi.payableRuns(controller.signal);
         if (!cancelled) setFetched({ rev, runs });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         /* A reader who cannot see payroll runs is not an error to report — they
            simply get no button. The API is the thing enforcing that. */
         if (!cancelled) setFetched({ rev, runs: [] });
@@ -2228,7 +2349,11 @@ export function usePayableRuns(): PayableRunsState {
  */
 export const BATCH_STATUS: Record<
   PaymentBatchStatus,
-  { label: string; tone: "neutral" | "accent" | "warning" | "success" | "danger"; hint: string }
+  {
+    label: string;
+    tone: "neutral" | "accent" | "warning" | "success" | "danger";
+    hint: string;
+  }
 > = {
   DRAFT: {
     label: "Being built",

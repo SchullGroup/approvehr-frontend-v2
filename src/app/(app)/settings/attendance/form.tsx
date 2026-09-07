@@ -121,9 +121,9 @@ export function AttendancePolicyForm() {
     set("workingWeekdays", next);
   };
 
-  const changed = (
-    Object.keys(policy) as (keyof ApiAttendancePolicy)[]
-  ).filter((key) => key !== "id" && policy[key] !== value[key]);
+  const changed = (Object.keys(policy) as (keyof ApiAttendancePolicy)[]).filter(
+    (key) => key !== "id" && policy[key] !== value[key],
+  );
   const dirty = changed.length > 0;
   const noWorkingDays = value.workingWeekdays.length === 0;
 
@@ -138,7 +138,8 @@ export function AttendancePolicyForm() {
       toast.push({
         tone: "success",
         title: "Saved",
-        detail: "Today's roster and timesheet read this the next time they load.",
+        detail:
+          "Today's roster and timesheet read this the next time they load.",
       });
     } catch (caught) {
       toast.push({
@@ -242,8 +243,8 @@ export function AttendancePolicyForm() {
                 </div>
                 {noWorkingDays && (
                   <p className="mt-3 text-body-sm text-danger-text">
-                    No working days chosen: every day would count as a day
-                    off, and attendance would have nothing to measure.
+                    No working days chosen: every day would count as a day off,
+                    and attendance would have nothing to measure.
                   </p>
                 )}
               </CardBody>

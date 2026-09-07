@@ -31,9 +31,7 @@ export function LegalDocument({ doc }: { doc: LegalDoc }) {
       <div className="container-page">
         <div className="grid gap-14 lg:grid-cols-[minmax(0,1fr)_15rem] lg:gap-16">
           <article className="max-w-2xl">
-            <p className="text-meta font-medium text-slate-muted">
-              Legal
-            </p>
+            <p className="text-meta font-medium text-slate-muted">Legal</p>
             <h1 className="mt-3 text-h1 text-slate">{doc.title}</h1>
             <p className="mt-6 text-lead text-slate-muted">{doc.standfirst}</p>
 

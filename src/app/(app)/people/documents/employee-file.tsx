@@ -16,7 +16,12 @@ import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
 import type { ApiDocument, ApiDocumentRequest } from "@/lib/api/documents";
 import { useEmployeeFile } from "@/lib/store/documents";
-import { AddDocumentModal, AttachDocumentModal, RemindModal, WaiveModal } from "./dialogs";
+import {
+  AddDocumentModal,
+  AttachDocumentModal,
+  RemindModal,
+  WaiveModal,
+} from "./dialogs";
 import { DocumentRow, RequestRow } from "./document-rows";
 
 /**
@@ -63,7 +68,9 @@ export function EmployeeFileDrawer({
       title: "That did not work",
       tone: "danger",
       detail:
-        error instanceof ApiError ? error.message : "Something went wrong. Try again.",
+        error instanceof ApiError
+          ? error.message
+          : "Something went wrong. Try again.",
     });
 
   return (
@@ -88,7 +95,11 @@ export function EmployeeFileDrawer({
               <span />
             )}
             {file.editable && (
-              <Button variant="accent" size="sm" onClick={() => setAdding(true)}>
+              <Button
+                variant="accent"
+                size="sm"
+                onClick={() => setAdding(true)}
+              >
                 <Plus aria-hidden="true" className="size-4" />
                 Add a document
               </Button>
@@ -106,7 +117,8 @@ export function EmployeeFileDrawer({
             <LoadFailure
               subject="this person's document file"
               error={file.error}
-             onRetry={file.reload}/>
+              onRetry={file.reload}
+            />
           </div>
         ) : (
           <div className="flex flex-col gap-6">
@@ -225,6 +237,7 @@ export function EmployeeFileDrawer({
       {adding && file.file && (
         <AddDocumentModal
           whose={`${file.file.employeeName.split(" ")[0] ?? name}’s`}
+          employeeId={file.file.employeeId}
           onClose={() => setAdding(false)}
           onAdd={async (body) => {
             await file.add(body);

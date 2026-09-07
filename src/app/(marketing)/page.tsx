@@ -4,18 +4,9 @@ import { Check, Layers, Radar, ShieldCheck, Sparkles } from "lucide-react";
 import { Pill } from "@/components/marketing/pill";
 import { CountUp, Reveal } from "@/components/marketing/motion";
 import { PlatformOverview } from "@/components/marketing/platform-overview";
-import {
-  ModuleGrid,
-  SectionHeading,
-} from "@/components/marketing/sections";
-import {
-  ClientLogos,
-  Testimonials,
-} from "@/components/marketing/social-proof";
-import {
-  PayrollMockup,
-  StatutoryMockup,
-} from "@/components/marketing/mockups";
+import { ModuleGrid, SectionHeading } from "@/components/marketing/sections";
+import { ClientLogos, Testimonials } from "@/components/marketing/social-proof";
+import { PayrollMockup, StatutoryMockup } from "@/components/marketing/mockups";
 import { liveProductCta, newTabIfApp } from "@/lib/marketing/links";
 import { quote } from "@/lib/marketing/pricing";
 
@@ -137,7 +128,8 @@ export default function HomePage() {
                 </Pill>
               </div>
               <p className="mt-4 text-meta text-slate-muted">
-                Your first month and data migration are on us. No card required before you have decided anything.
+                Your first month and data migration are on us. No card required
+                before you have decided anything.
               </p>
             </Reveal>
           </div>
@@ -175,9 +167,7 @@ export default function HomePage() {
                     />
                   </span>
                   <h3 className="text-h4 text-slate">{item.title}</h3>
-                  <p className="text-body leading-relaxed">
-                    {item.body}
-                  </p>
+                  <p className="text-body leading-relaxed">{item.body}</p>
                 </div>
               </Reveal>
             ))}
@@ -275,9 +265,7 @@ export default function HomePage() {
                       strokeWidth={3}
                     />
                   </span>
-                  <span className="text-body leading-relaxed">
-                    {line}
-                  </span>
+                  <span className="text-body leading-relaxed">{line}</span>
                 </li>
               ))}
             </ul>
@@ -320,9 +308,7 @@ export default function HomePage() {
             ].map((item, i) => (
               <Reveal key={i} as="div" delay={i * 70}>
                 <dt className="text-mega text-slate">{item.value}</dt>
-                <dd className="mt-3 text-body leading-relaxed">
-                  {item.label}
-                </dd>
+                <dd className="mt-3 text-body leading-relaxed">{item.label}</dd>
               </Reveal>
             ))}
           </dl>
@@ -342,7 +328,9 @@ export default function HomePage() {
                   Start free. Pay from month two.
                 </h2>
                 <p className="mt-5 max-w-md leading-relaxed text-white/60">
-                  Your first month on us. We migrate your existing employee records and payroll history at no cost. Pricing after that is per employee, per month, the rate falls as your team grows.
+                  Your first month on us. We migrate your existing employee
+                  records and payroll history at no cost. Pricing after that is
+                  per employee, per month, the rate falls as your team grows.
                 </p>
                 <div className="mt-8 flex flex-wrap gap-3">
                   <Pill href="/demo" variant="solid" arrow>
@@ -391,7 +379,8 @@ export default function HomePage() {
                 Start free. We move your data. You pay from month two.
               </h2>
               <p className="mx-auto mt-5 max-w-xl text-lead text-slate-muted">
-                Book a thirty-minute demo on your own numbers. If it fits, we migrate your records and run your first payroll at no cost.
+                Book a thirty-minute demo on your own numbers. If it fits, we
+                migrate your records and run your first payroll at no cost.
               </p>
               <div className="mt-9 flex flex-wrap justify-center gap-3">
                 <Pill href="/demo" variant="solid" size="lg" arrow>

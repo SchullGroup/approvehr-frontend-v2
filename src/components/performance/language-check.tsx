@@ -121,7 +121,10 @@ export function LanguageCheck({
     >
       <ul className="mt-1 flex flex-col gap-3">
         {findings.map((finding) => (
-          <Row key={`${String(finding.at)}-${finding.phrase}`} finding={finding} />
+          <Row
+            key={`${String(finding.at)}-${finding.phrase}`}
+            finding={finding}
+          />
         ))}
       </ul>
       <p className="mt-3 text-body-sm text-muted">{FINDINGS_CAVEAT}</p>

@@ -75,7 +75,7 @@ export function ScoreHistoryScreen({ employeeId }: { employeeId: string }) {
   return (
     <>
       <PageHeader
-        breadcrumb={[{ href: "/performance", label: "KPIs & appraisals" }]}
+        breadcrumb={[{ href: "/performance", label: "Performance" }]}
         title={history?.employeeName ?? "Appraisal history"}
         meta={
           history ? (
@@ -108,7 +108,8 @@ export function ScoreHistoryScreen({ employeeId }: { employeeId: string }) {
         <LoadFailure
           subject="this person's score history"
           error={detail.error}
-         onRetry={detail.reload}/>
+          onRetry={detail.reload}
+        />
 
         {detail.loading && (
           <Card>

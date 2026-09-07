@@ -129,7 +129,16 @@ export function useAnnouncements(
   /* Every input to the request, in one string. Two jobs: the effect's dependency
      and the staleness comparison below, which have to be the same value or a
      render can show one filter's answer under another filter's heading. */
-  const key = [status, includeExpired, page, pageSize, sort, order, q, tick].join("|");
+  const key = [
+    status,
+    includeExpired,
+    page,
+    pageSize,
+    sort,
+    order,
+    q,
+    tick,
+  ].join("|");
 
   /* Re-ask when somebody comes back to the window. Not in the key below,
      so the answer is replaced without the screen flashing a skeleton. */
@@ -161,7 +170,8 @@ export function useAnnouncements(
           });
         }
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
           setFetched({
             key,
@@ -176,7 +186,19 @@ export function useAnnouncements(
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, mayRead, key, status, includeExpired, page, pageSize, sort, order, q, revalidation]);
+  }, [
+    isConnected,
+    mayRead,
+    key,
+    status,
+    includeExpired,
+    page,
+    pageSize,
+    sort,
+    order,
+    q,
+    revalidation,
+  ]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
 
@@ -232,9 +254,14 @@ const byNewest = (a: ApiAnnouncement, b: ApiAnnouncement): number =>
 
 export type AnnouncementMutations = {
   create: (body: CreateAnnouncementBody) => Promise<ApiAnnouncement>;
-  update: (id: string, body: UpdateAnnouncementBody) => Promise<ApiAnnouncement>;
+  update: (
+    id: string,
+    body: UpdateAnnouncementBody,
+  ) => Promise<ApiAnnouncement>;
   /** Answers with how many accounts it reached — the point of publishing. */
-  publish: (id: string) => Promise<{ announcement: ApiAnnouncement; reaches: number }>;
+  publish: (
+    id: string,
+  ) => Promise<{ announcement: ApiAnnouncement; reaches: number }>;
   /** Off the board, wording kept. */
   unpublish: (id: string) => Promise<{ note: string }>;
   /** Hard, and the dialog says so. */

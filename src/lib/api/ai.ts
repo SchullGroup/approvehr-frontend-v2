@@ -299,8 +299,7 @@ export const chat = (
  * credentialed — which is a different fact and reads differently to a person.
  */
 export type ApiActionGate =
-  | { kind: "permission"; permission: string }
-  | { kind: "service" };
+  { kind: "permission"; permission: string } | { kind: "service" };
 
 export type ApiAssistantAction = {
   name: string;

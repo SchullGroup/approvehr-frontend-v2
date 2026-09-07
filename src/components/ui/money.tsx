@@ -106,12 +106,7 @@ export function Money({
     <span className={cn("inline-flex flex-col", className)}>
       <span className={cn("tabular font-medium text-ink", sizes[size])}>
         {formatMoney(amount, currency, { compact, decimals })}
-        {per && (
-          <span className="font-normal text-muted">
-            {" "}
-            per {per}
-          </span>
-        )}
+        {per && <span className="font-normal text-muted"> per {per}</span>}
       </span>
       {ngnRate !== undefined && currency === "USD" && (
         <span className="tabular text-meta text-muted">

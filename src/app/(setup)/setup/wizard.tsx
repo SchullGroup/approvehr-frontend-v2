@@ -27,7 +27,10 @@ import { NIGERIAN_STATES } from "@/lib/reference/lists";
 import { usePermissions } from "@/lib/permissions";
 import { useOrgTaxState } from "@/lib/store/company";
 import { useDeductionSwitches } from "@/lib/store/payroll-deductions";
-import { useWorkLocationList, useWorkLocationMutations } from "@/lib/store/work-locations";
+import {
+  useWorkLocationList,
+  useWorkLocationMutations,
+} from "@/lib/store/work-locations";
 import type { ApiWorkLocation } from "@/lib/api/attendance";
 import { useRoles } from "@/lib/store/permissions";
 import {
@@ -1257,7 +1260,9 @@ function Done({
                     The sidebar has always said Coming soon; this said the
                     opposite on the screen somebody sees first. */}
                 {FEATURE_COPY[key].soon && (
-                  <span className="ml-1.5 font-normal text-muted">(coming soon)</span>
+                  <span className="ml-1.5 font-normal text-muted">
+                    (coming soon)
+                  </span>
                 )}
               </span>
               <span className="mt-0.5 block text-body-sm text-muted">

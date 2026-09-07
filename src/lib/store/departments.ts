@@ -196,7 +196,8 @@ export function useDepartments(includeArchived = false) {
         const result = await api.tree(includeArchived, controller.signal);
         if (!cancelled) setFetched({ key, result, error: null });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
           setFetched({
             key,
@@ -237,7 +238,9 @@ export function useDepartments(includeArchived = false) {
     : {
         tree: matched ? (fetched.result?.tree ?? []) : [],
         flat: matched ? (fetched.result?.flat ?? []) : [],
-        counts: matched ? (fetched.result?.counts ?? EMPTY_COUNTS) : EMPTY_COUNTS,
+        counts: matched
+          ? (fetched.result?.counts ?? EMPTY_COUNTS)
+          : EMPTY_COUNTS,
         loading: !matched,
         error: matched ? fetched.error : null,
         source: "api",
@@ -345,7 +348,10 @@ export function useDepartments(includeArchived = false) {
   );
 
   const move = useCallback(
-    async (id: string, parentId: string | null): Promise<ApiDepartmentDetail> => {
+    async (
+      id: string,
+      parentId: string | null,
+    ): Promise<ApiDepartmentDetail> => {
       if (isConnected) {
         const moved = await api.move(id, parentId);
         reload();
@@ -371,7 +377,8 @@ export function useDepartments(includeArchived = false) {
             );
           }
           cursor =
-            state.departments.find((one) => one.id === cursor)?.parentId ?? null;
+            state.departments.find((one) => one.id === cursor)?.parentId ??
+            null;
         }
       }
 
@@ -553,7 +560,8 @@ export function useDepartment(id: string | null) {
         const detail = await api.get(id, controller.signal);
         if (!cancelled) setFetched({ id, detail });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) setFetched({ id, detail: null });
       }
     })();

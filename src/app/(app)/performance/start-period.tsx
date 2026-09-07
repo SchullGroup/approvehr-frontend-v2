@@ -85,8 +85,7 @@ export function StartPeriodDialog({
   /** Days before the deadline to chase whoever still owes a form. */
   const [remind, setRemind] = useState("");
   /** Off by default. Lets a manager add their own questions, scoped to their team. */
-  const [managersCanAddQuestions, setManagersCanAddQuestions] =
-    useState(false);
+  const [managersCanAddQuestions, setManagersCanAddQuestions] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 

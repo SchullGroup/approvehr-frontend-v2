@@ -203,7 +203,9 @@ function Endpoint({ id }: { id: string }) {
         title: active ? "Switched back on" : "Switched off",
         tone: active ? "success" : "info",
         ...(active
-          ? { detail: "Send a test event to check it before the next real one." }
+          ? {
+              detail: "Send a test event to check it before the next real one.",
+            }
           : { detail: "Events raised from now on are not queued for it." }),
       });
     } catch (error) {
@@ -378,7 +380,10 @@ function Endpoint({ id }: { id: string }) {
             <DescriptionList
               columns={2}
               items={[
-                { term: "URL", value: <span className="break-all">{detail.url}</span> },
+                {
+                  term: "URL",
+                  value: <span className="break-all">{detail.url}</span>,
+                },
                 {
                   term: "Events",
                   value: (
@@ -426,9 +431,9 @@ function Endpoint({ id }: { id: string }) {
                 {detail.notRaisedYet.join(", ")}{" "}
                 {detail.notRaisedYet.length === 1 ? "is" : "are"} not raised by
                 anything yet. Your endpoint stays quiet for{" "}
-                {detail.notRaisedYet.length === 1 ? "it" : "them"} until the module
-                that raises {detail.notRaisedYet.length === 1 ? "it" : "them"}{" "}
-                ships.
+                {detail.notRaisedYet.length === 1 ? "it" : "them"} until the
+                module that raises{" "}
+                {detail.notRaisedYet.length === 1 ? "it" : "them"} ships.
               </p>
             )}
           </CardBody>

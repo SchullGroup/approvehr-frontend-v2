@@ -282,7 +282,9 @@ function TaskRow({
         ) : (
           <Checkbox
             checked={false}
-            disabled={closed || busy || !canVerify || !task.completed || tickedByMe}
+            disabled={
+              closed || busy || !canVerify || !task.completed || tickedByMe
+            }
             onChange={() => onVerify()}
             label="Checked by"
             {...(!closed && task.completed && tickedByMe
@@ -303,8 +305,15 @@ function TaskRow({
             company means it stays undone. Only offered while the line is open:
             handing over something already finished is not a thing to do. */}
         {onHandOver && !closed && !task.completed && (
-          <Button variant="ghost" size="sm" disabled={busy} onClick={onHandOver}>
-            {task.assigneeName ? "Hand to somebody else" : "Give it to somebody"}
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={busy}
+            onClick={onHandOver}
+          >
+            {task.assigneeName
+              ? "Hand to somebody else"
+              : "Give it to somebody"}
           </Button>
         )}
       </div>
@@ -455,7 +464,9 @@ function HandOverDialog({
       onClose={onClose}
       title={task.label}
       description={`Right now this is ${ownerLabel(task.owner)}${
-        task.assigneeName ? ` — ${task.assigneeName}` : " and nobody in particular"
+        task.assigneeName
+          ? ` — ${task.assigneeName}`
+          : " and nobody in particular"
       }.`}
       footer={
         <div className="flex justify-end gap-2">

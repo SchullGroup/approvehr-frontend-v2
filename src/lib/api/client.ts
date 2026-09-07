@@ -204,7 +204,18 @@ export type Paged<T, Extra = unknown> = {
   meta: PageMeta & Extra;
 };
 
-function buildUrl(path: string, query?: RequestOptions["query"]): string {
+/**
+ * The one place a query string is built.
+ *
+ * Exported so `api/download.ts` can send a file request under exactly the query
+ * the JSON request would have used. An export whose filter is serialised by a
+ * second function is an export that can disagree with the table it came from —
+ * the same argument `employees.summary` makes for sending the list's own object.
+ */
+export function buildUrl(
+  path: string,
+  query?: RequestOptions["query"],
+): string {
   const url = new URL(`${BASE_URL}${path}`);
   for (const [key, value] of Object.entries(query ?? {})) {
     if (value === undefined || value === null || value === "") continue;
@@ -298,7 +309,8 @@ export async function request<T>(
   try {
     response = await send();
   } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") throw error;
+    if (error instanceof DOMException && error.name === "AbortError")
+      throw error;
     throw new ApiError(
       0,
       "network_error",
@@ -354,7 +366,8 @@ export async function requestPaged<T, Extra = unknown>(
   try {
     response = await send();
   } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") throw error;
+    if (error instanceof DOMException && error.name === "AbortError")
+      throw error;
     throw new ApiError(
       0,
       "network_error",
@@ -380,16 +393,78 @@ export async function requestPaged<T, Extra = unknown>(
   return (await response.json()) as Paged<T, Extra>;
 }
 
-/** True when the API is reachable. Used by the connection banner. */
+/**
+ * Timeouts for the reachability probe, one per attempt.
+ *
+ * Five seconds rather than the three this used to allow itself, and three
+ * attempts rather than one. The cost of patience is asymmetric: a server that
+ * is genuinely down refuses the connection immediately — all three attempts
+ * fail in well under a second, so nobody waits — while a server that is merely
+ * slow is the case where being wrong is expensive.
+ */
+const PROBE_TIMEOUTS_MS = [5000, 5000, 5000];
+
+/** Grows with each retry, so a struggling server is not hit three times in a row. */
+const PROBE_GAP_MS = 300;
+
+/**
+ * True when the API is reachable.
+ *
+ * ## What this decides, and why it earned a rewrite
+ *
+ * This is not a banner. `lib/store/session.ts` reads it to choose which product
+ * the reader is in: answer `false` and a *development* build swaps a live,
+ * authenticated session for the offline demo, whose figures are invented and
+ * whose personas are seeded. A production build has no demo to fall back to, so
+ * the same answer instead reports an outage on a server that is serving.
+ *
+ * The version this replaces made that decision from **one attempt with a
+ * three-second fuse**, and returned `false` for every way it could fail —
+ * timeout, navigation abort, transient blip, DNS hiccup, all alike. It was
+ * observed on 5 September 2026 doing exactly what that implies: mid-session,
+ * with `/health` answering 200 to every request made against it by hand, two
+ * screens dropped to *"The API is not running, so this is the demo."*
+ *
+ * Three seconds is not a long time on a Lagos mobile connection, and it was not
+ * a long time on this app either while a single page load fired sixty requests
+ * — see `lib/shared-resource.ts` for that half, which is the same incident from
+ * the other end.
+ *
+ * ## Any answer means reachable, and 404 is the exception
+ *
+ * `response.ok` was too strict. A 429 is the rate limiter, a 503 is a database
+ * that has not finished waking up, a 500 is a bug — every one of them is a
+ * server that is **there**, answering, holding a session that is still valid.
+ * Swapping the product out from under somebody because their own request burst
+ * tripped a rate limit is the worst reading of a 429 available.
+ *
+ * A 404 is the one status that genuinely means "not our API": `NEXT_PUBLIC_API_URL`
+ * points somewhere that is not this backend. It is not retried, because a second
+ * request to a wrong URL is still a wrong URL.
+ */
 export async function ping(): Promise<boolean> {
-  try {
-    const response = await fetch(`${BASE_URL.replace(/\/api\/v1$/, "")}/health`, {
-      signal: AbortSignal.timeout(3000),
-    });
-    return response.ok;
-  } catch {
-    return false;
+  const url = `${BASE_URL.replace(/\/api\/v1$/, "")}/health`;
+
+  for (let attempt = 0; attempt < PROBE_TIMEOUTS_MS.length; attempt += 1) {
+    if (attempt > 0) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, PROBE_GAP_MS * attempt),
+      );
+    }
+    try {
+      const response = await fetch(url, {
+        signal: AbortSignal.timeout(PROBE_TIMEOUTS_MS[attempt] ?? 5000),
+        /* A cached 200 from before an outage would answer for a server that is
+           no longer there — the one direction this must not be wrong in. */
+        cache: "no-store",
+      });
+      return response.status !== 404;
+    } catch {
+      /* Timed out, refused, or the network went away. Try again — and if this
+         was the last attempt, fall through to the `false` below. */
+    }
   }
+  return false;
 }
 
 export const apiBaseUrl = BASE_URL;

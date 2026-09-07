@@ -129,9 +129,7 @@ export function PayloadBlock({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        {title && (
-          <p className="text-body-sm font-medium text-ink">{title}</p>
-        )}
+        {title && <p className="text-body-sm font-medium text-ink">{title}</p>}
         <CopyButton value={json} label={copyLabel} />
       </div>
 

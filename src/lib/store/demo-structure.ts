@@ -143,117 +143,117 @@ export type DemoStructure = {
    "offline" there. */
 const DEMO_SEED: DemoStructure = DEMO_ENABLED
   ? {
-  departments: [
-    {
-      id: "dept-engineering",
-      name: "Engineering",
-      parentId: null,
-      costCentre: "CC-ENG",
-      headId: "p-01",
-      archived: false,
-    },
-    {
-      id: "dept-finance",
-      name: "Finance",
-      parentId: null,
-      costCentre: "CC-FIN",
-      headId: "p-02",
-      archived: false,
-    },
-    {
-      id: "dept-operations",
-      name: "Operations",
-      parentId: null,
-      costCentre: "CC-OPS",
-      headId: "p-10",
-      archived: false,
-    },
-    {
-      id: "dept-people",
-      name: "People",
-      parentId: null,
-      costCentre: "CC-PPL",
-      headId: null,
-      archived: false,
-    },
-    {
-      id: "dept-product",
-      name: "Product",
-      parentId: null,
-      costCentre: "CC-PRD",
-      headId: null,
-      archived: false,
-    },
-  ],
-  teams: [
-    {
-      id: "team-platform",
-      name: "Platform",
-      purpose: "Keeps the deployment pipeline and the shared services",
-      departmentId: "dept-engineering",
-      leadId: "p-01",
-      archived: false,
-    },
-    {
-      id: "team-payroll-go-live",
-      name: "Payroll go-live",
-      purpose: "Getting the first live payroll out",
-      departmentId: null,
-      leadId: "p-02",
-      archived: false,
-    },
-  ],
-  members: [
-    {
-      membershipId: "tm-01",
-      teamId: "team-platform",
-      employeeId: "p-01",
-      roleLabel: "Lead",
-      joinedAt: "2026-02-02T09:00:00.000Z",
-    },
-    {
-      membershipId: "tm-02",
-      teamId: "team-platform",
-      employeeId: "p-03",
-      roleLabel: null,
-      joinedAt: "2026-02-02T09:00:00.000Z",
-    },
-    {
-      membershipId: "tm-03",
-      teamId: "team-platform",
-      employeeId: "p-09",
-      roleLabel: null,
-      joinedAt: "2026-04-13T09:00:00.000Z",
-    },
-    {
-      membershipId: "tm-04",
-      teamId: "team-payroll-go-live",
-      employeeId: "p-02",
-      roleLabel: "Sponsor",
-      joinedAt: "2026-06-01T09:00:00.000Z",
-    },
-    {
-      membershipId: "tm-05",
-      teamId: "team-payroll-go-live",
-      employeeId: "p-08",
-      roleLabel: null,
-      joinedAt: "2026-06-01T09:00:00.000Z",
-    },
-    {
-      membershipId: "tm-06",
-      teamId: "team-payroll-go-live",
-      employeeId: "p-05",
-      roleLabel: null,
-      joinedAt: "2026-06-08T09:00:00.000Z",
-    },
-    {
-      membershipId: "tm-07",
-      teamId: "team-payroll-go-live",
-      employeeId: "p-03",
-      roleLabel: null,
-      joinedAt: "2026-06-15T09:00:00.000Z",
-    },
-  ],
+      departments: [
+        {
+          id: "dept-engineering",
+          name: "Engineering",
+          parentId: null,
+          costCentre: "CC-ENG",
+          headId: "p-01",
+          archived: false,
+        },
+        {
+          id: "dept-finance",
+          name: "Finance",
+          parentId: null,
+          costCentre: "CC-FIN",
+          headId: "p-02",
+          archived: false,
+        },
+        {
+          id: "dept-operations",
+          name: "Operations",
+          parentId: null,
+          costCentre: "CC-OPS",
+          headId: "p-10",
+          archived: false,
+        },
+        {
+          id: "dept-people",
+          name: "People",
+          parentId: null,
+          costCentre: "CC-PPL",
+          headId: null,
+          archived: false,
+        },
+        {
+          id: "dept-product",
+          name: "Product",
+          parentId: null,
+          costCentre: "CC-PRD",
+          headId: null,
+          archived: false,
+        },
+      ],
+      teams: [
+        {
+          id: "team-platform",
+          name: "Platform",
+          purpose: "Keeps the deployment pipeline and the shared services",
+          departmentId: "dept-engineering",
+          leadId: "p-01",
+          archived: false,
+        },
+        {
+          id: "team-payroll-go-live",
+          name: "Payroll go-live",
+          purpose: "Getting the first live payroll out",
+          departmentId: null,
+          leadId: "p-02",
+          archived: false,
+        },
+      ],
+      members: [
+        {
+          membershipId: "tm-01",
+          teamId: "team-platform",
+          employeeId: "p-01",
+          roleLabel: "Lead",
+          joinedAt: "2026-02-02T09:00:00.000Z",
+        },
+        {
+          membershipId: "tm-02",
+          teamId: "team-platform",
+          employeeId: "p-03",
+          roleLabel: null,
+          joinedAt: "2026-02-02T09:00:00.000Z",
+        },
+        {
+          membershipId: "tm-03",
+          teamId: "team-platform",
+          employeeId: "p-09",
+          roleLabel: null,
+          joinedAt: "2026-04-13T09:00:00.000Z",
+        },
+        {
+          membershipId: "tm-04",
+          teamId: "team-payroll-go-live",
+          employeeId: "p-02",
+          roleLabel: "Sponsor",
+          joinedAt: "2026-06-01T09:00:00.000Z",
+        },
+        {
+          membershipId: "tm-05",
+          teamId: "team-payroll-go-live",
+          employeeId: "p-08",
+          roleLabel: null,
+          joinedAt: "2026-06-01T09:00:00.000Z",
+        },
+        {
+          membershipId: "tm-06",
+          teamId: "team-payroll-go-live",
+          employeeId: "p-05",
+          roleLabel: null,
+          joinedAt: "2026-06-08T09:00:00.000Z",
+        },
+        {
+          membershipId: "tm-07",
+          teamId: "team-payroll-go-live",
+          employeeId: "p-03",
+          roleLabel: null,
+          joinedAt: "2026-06-15T09:00:00.000Z",
+        },
+      ],
     }
   : { departments: [], teams: [], members: [] };
 
@@ -381,7 +381,9 @@ export function structurePeople(
        naira number and a float multiply is how a rounding error gets into a
        total that a department payroll report then shows. */
     grossMonthlyKobo:
-      person.grossMonthly === null ? null : koboFromDecimal(person.grossMonthly),
+      person.grossMonthly === null
+        ? null
+        : koboFromDecimal(person.grossMonthly),
   }));
 }
 
@@ -419,7 +421,9 @@ export function demoTree(
 
   const nodes = new Map<string, ApiDepartment>();
   for (const row of rows) {
-    const direct = people.filter((person) => sameName(person.department, row.name));
+    const direct = people.filter((person) =>
+      sameName(person.department, row.name),
+    );
     nodes.set(row.id, {
       id: row.id,
       name: row.name,
@@ -652,7 +656,8 @@ export function demoTeamDetail(
           /* The contradiction, named rather than repaired — the same rule the
              service states. Zero of these is the invariant holding. */
           departmentMismatch:
-            row.departmentId !== null && (assigned?.id ?? null) !== row.departmentId,
+            row.departmentId !== null &&
+            (assigned?.id ?? null) !== row.departmentId,
         },
       ];
     });
@@ -666,7 +671,8 @@ export function demoTeamDetail(
       (sum, member) => sum + (member.grossMonthlyKobo ?? 0),
       0,
     ),
-    payrollUnknown: members.filter((member) => member.grossMonthlyKobo === null).length,
+    payrollUnknown: members.filter((member) => member.grossMonthlyKobo === null)
+      .length,
   };
 }
 
@@ -689,11 +695,13 @@ export function pendingAlignment(
 ): { toName: string; moved: ApiMoved[] } | null {
   const team = state.teams.find((row) => row.id === teamId);
   if (!team?.departmentId) return null;
-  const department = state.departments.find((row) => row.id === team.departmentId);
+  const department = state.departments.find(
+    (row) => row.id === team.departmentId,
+  );
   if (!department) return null;
 
-  const moved: ApiMoved[] = liveMembers(state, people, teamId)
-    .flatMap((member) => {
+  const moved: ApiMoved[] = liveMembers(state, people, teamId).flatMap(
+    (member) => {
       const person = people.find((one) => one.id === member.employeeId);
       if (!person || sameName(person.department, department.name)) return [];
       return [
@@ -703,7 +711,8 @@ export function pendingAlignment(
           from: isUnassigned(person.department) ? null : person.department,
         },
       ];
-    });
+    },
+  );
 
   return { toName: department.name, moved };
 }

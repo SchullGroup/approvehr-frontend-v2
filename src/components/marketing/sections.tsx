@@ -45,9 +45,7 @@ export function SectionHeading({
         </p>
       )}
       <h2 className="text-h1 text-slate">{title}</h2>
-      {lead && (
-        <p className="mt-5 text-lead text-slate-muted">{lead}</p>
-      )}
+      {lead && <p className="mt-5 text-lead text-slate-muted">{lead}</p>}
     </div>
   );
 }
@@ -162,9 +160,7 @@ export function ProofRow({
       {items.map((item, i) => (
         <Reveal key={item.label} as="div" delay={i * 70}>
           <dt className="text-mega text-slate">{item.value}</dt>
-          <dd className="mt-2 text-body leading-relaxed">
-            {item.label}
-          </dd>
+          <dd className="mt-2 text-body leading-relaxed">{item.label}</dd>
         </Reveal>
       ))}
     </dl>

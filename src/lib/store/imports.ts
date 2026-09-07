@@ -274,7 +274,9 @@ const encoder = new TextEncoder();
  * not the rows themselves, because validate and apply must send byte-identical
  * parts — the API fingerprints what it checked and refuses anything else.
  */
-export function planParts(rows: readonly ImportRow[]): { start: number; end: number }[] {
+export function planParts(
+  rows: readonly ImportRow[],
+): { start: number; end: number }[] {
   if (rows.length === 0) return [];
 
   const sample = rows.slice(0, 200);
@@ -308,9 +310,15 @@ function translate(
   rowNumbers: readonly number[],
   columns: Record<string, string>,
 ): RowLine {
-  const fileRow = (sentRow: number): number => rowNumbers[sentRow - 1] ?? sentRow;
+  const fileRow = (sentRow: number): number =>
+    rowNumbers[sentRow - 1] ?? sentRow;
   const problem = (
-    issue: { row: number; column: string; value: string | null; problem: string },
+    issue: {
+      row: number;
+      column: string;
+      value: string | null;
+      problem: string;
+    },
     severity: Severity,
   ): RowProblem => ({
     row: fileRow(issue.row),
@@ -337,7 +345,6 @@ function translate(
     employeeNoGenerated: report.employeeNoGenerated,
   };
 }
-
 
 /**
  * The decisions that belong to one part, renumbered to that part's own rows.
@@ -491,7 +498,9 @@ export function useImport(dictionary: Dictionary<string>) {
    * ever absent from this map before its first check, or after `chooseFile`
    * clears it for a new one.
    */
-  const [decisions, setDecisions] = useState<Record<number, "skip" | "update">>({});
+  const [decisions, setDecisions] = useState<Record<number, "skip" | "update">>(
+    {},
+  );
 
   const decide = useCallback((row: number, action: "skip" | "update") => {
     setDecisions((prior) => ({ ...prior, [row]: action }));
@@ -562,90 +571,94 @@ export function useImport(dictionary: Dictionary<string>) {
    * Answers whether it worked, so the screen can move to the next step without
    * waiting a render for state it just set.
    */
-  const chooseFile = useCallback(async (chosen: File): Promise<boolean> => {
-    setError(null);
-    setCheck(null);
-    setResult(null);
-    /* Corrections, answers and any re-submission belong to the file that needed
+  const chooseFile = useCallback(
+    async (chosen: File): Promise<boolean> => {
+      setError(null);
+      setCheck(null);
+      setResult(null);
+      /* Corrections, answers and any re-submission belong to the file that needed
        them. Carrying them into a new upload would write one spreadsheet's fixes
        onto another's rows. */
-    setFixes({});
-    setDecisions({});
-    setSelection(null);
-    mapped.current = [];
+      setFixes({});
+      setDecisions({});
+      setSelection(null);
+      mapped.current = [];
 
-    if (chosen.size > 25_000_000) {
-      setError(
-        "That file is bigger than 25MB. Split it in two and import each half: each one reports its own numbers.",
-      );
-      return false;
-    }
-
-    /* The older binary formats, and the two that are not spreadsheets we can
-       open. `.xls` is a completely different container from `.xlsx` and `.numbers`
-       is a package; both convert in one menu item, and the message says which. */
-    if (/\.(xls|xlsm|xlsb|numbers|ods)$/i.test(chosen.name)) {
-      setError(
-        "We can read .xlsx and .csv. In Excel or Numbers: File, then Save As or Export, and choose Excel Workbook (.xlsx) or CSV, then upload that.",
-      );
-      return false;
-    }
-
-    let csv: CsvFile;
-    if (isXlsxName(chosen.name)) {
-      /* An Excel file, which is what our own template hands them. Reading it is
-         not a nicety: offering a .xlsx template and then refusing .xlsx uploads
-         would be a trap of our own making. */
-      try {
-        const workbook = await readXlsx(await chosen.arrayBuffer());
-        /* The first sheet with more than a heading row in it. A workbook whose
-           first tab is a cover note is common, and so is our own template's
-           second tab — picking sheet one blindly imports the guide. */
-        const useful =
-          workbook.sheets.find((sheet) => sheet.grid.length > 1) ?? workbook.sheets[0];
-        if (!useful) {
-          setError("There are no sheets in that workbook.");
-          return false;
-        }
-        const notes = [...workbook.notes];
-        if (workbook.sheets.length > 1) {
-          notes.push(
-            `That workbook has ${workbook.sheets.length} sheets. We read "${useful.name}", the first one with rows in it.`,
-          );
-        }
-        csv = fileFromRecords(useful.grid, { notes });
-      } catch {
+      if (chosen.size > 25_000_000) {
         setError(
-          "That .xlsx could not be opened. If it came from another system, open it in Excel and save it again, or save it as CSV and upload that.",
+          "That file is bigger than 25MB. Split it in two and import each half: each one reports its own numbers.",
         );
         return false;
       }
-    } else {
-      let text: string;
-      try {
-        text = await chosen.text();
-      } catch {
-        setError("That file could not be read. Try saving it again as CSV.");
+
+      /* The older binary formats, and the two that are not spreadsheets we can
+       open. `.xls` is a completely different container from `.xlsx` and `.numbers`
+       is a package; both convert in one menu item, and the message says which. */
+      if (/\.(xls|xlsm|xlsb|numbers|ods)$/i.test(chosen.name)) {
+        setError(
+          "We can read .xlsx and .csv. In Excel or Numbers: File, then Save As or Export, and choose Excel Workbook (.xlsx) or CSV, then upload that.",
+        );
         return false;
       }
-      csv = parseCsv(text);
-    }
 
-    if (csv.headers.length === 0) {
-      setError("That file is empty: there is no heading row in it.");
-      return false;
-    }
-    if (csv.rows.length === 0) {
-      setError(
-        "That file has headings but nobody in it. Check you saved the sheet the data is on.",
-      );
-      return false;
-    }
+      let csv: CsvFile;
+      if (isXlsxName(chosen.name)) {
+        /* An Excel file, which is what our own template hands them. Reading it is
+         not a nicety: offering a .xlsx template and then refusing .xlsx uploads
+         would be a trap of our own making. */
+        try {
+          const workbook = await readXlsx(await chosen.arrayBuffer());
+          /* The first sheet with more than a heading row in it. A workbook whose
+           first tab is a cover note is common, and so is our own template's
+           second tab — picking sheet one blindly imports the guide. */
+          const useful =
+            workbook.sheets.find((sheet) => sheet.grid.length > 1) ??
+            workbook.sheets[0];
+          if (!useful) {
+            setError("There are no sheets in that workbook.");
+            return false;
+          }
+          const notes = [...workbook.notes];
+          if (workbook.sheets.length > 1) {
+            notes.push(
+              `That workbook has ${workbook.sheets.length} sheets. We read "${useful.name}", the first one with rows in it.`,
+            );
+          }
+          csv = fileFromRecords(useful.grid, { notes });
+        } catch {
+          setError(
+            "That .xlsx could not be opened. If it came from another system, open it in Excel and save it again, or save it as CSV and upload that.",
+          );
+          return false;
+        }
+      } else {
+        let text: string;
+        try {
+          text = await chosen.text();
+        } catch {
+          setError("That file could not be read. Try saving it again as CSV.");
+          return false;
+        }
+        csv = parseCsv(text);
+      }
 
-    setFile({ name: chosen.name, size: chosen.size, csv });
-    setMapping(guessMapping(dictionary, csv.headers));
-    return true;
-  }, [dictionary]);
+      if (csv.headers.length === 0) {
+        setError("That file is empty: there is no heading row in it.");
+        return false;
+      }
+      if (csv.rows.length === 0) {
+        setError(
+          "That file has headings but nobody in it. Check you saved the sheet the data is on.",
+        );
+        return false;
+      }
+
+      setFile({ name: chosen.name, size: chosen.size, csv });
+      setMapping(guessMapping(dictionary, csv.headers));
+      return true;
+    },
+    [dictionary],
+  );
 
   /**
    * Pick up a past import from the rows it was checked against.
@@ -685,7 +698,9 @@ export function useImport(dictionary: Dictionary<string>) {
 
       const headers = Object.keys(answer.rows[0] ?? {});
       if (headers.length === 0) {
-        setError("That import kept no columns, so there is nothing to pick up.");
+        setError(
+          "That import kept no columns, so there is nothing to pick up.",
+        );
         return false;
       }
 
@@ -845,7 +860,11 @@ export function useImport(dictionary: Dictionary<string>) {
           decisions: decisionsFor(rowNumbers, decisions),
         });
 
-        parts.push({ index: parts.length + 1, batchId: answer.batchId, rowNumbers });
+        parts.push({
+          index: parts.length + 1,
+          batchId: answer.batchId,
+          rowNumbers,
+        });
         toCreate += answer.toCreate;
         toUpdate += answer.toUpdate;
         toSkip += answer.toSkip;
@@ -953,7 +972,8 @@ export function useImport(dictionary: Dictionary<string>) {
    * writes each part in a transaction, so there is no half-part.
    */
   const runImport = useCallback(async (): Promise<boolean> => {
-    if (!check || !check.authoritative || check.parts.length === 0) return false;
+    if (!check || !check.authoritative || check.parts.length === 0)
+      return false;
     /* A correction typed after the check is a correction the API has not seen.
        Applying now would import the unmended row while the screen showed it as
        mended — so this refuses, and the screen offers the re-check instead. */
@@ -1002,7 +1022,8 @@ export function useImport(dictionary: Dictionary<string>) {
            turn "not applicable to this entity" into a reported count of none. */
         for (const key of EXTRA_KEYS) {
           const value = answer[key];
-          if (typeof value === "number") extras[key] = (extras[key] ?? 0) + value;
+          if (typeof value === "number")
+            extras[key] = (extras[key] ?? 0) + value;
         }
         answer.notes.forEach((note) => notes.add(note));
         for (const report of answer.skippedRows) {

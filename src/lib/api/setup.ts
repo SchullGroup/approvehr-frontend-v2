@@ -24,10 +24,7 @@ import { request } from "@/lib/api/client";
 /* ------------------------------------------------------------------- shapes */
 
 export type HeadcountBand =
-  | "UNDER_10"
-  | "FROM_10_TO_50"
-  | "FROM_50_TO_250"
-  | "OVER_250";
+  "UNDER_10" | "FROM_10_TO_50" | "FROM_50_TO_250" | "OVER_250";
 
 /**
  * The capabilities that decide which **screens** exist. Set by the wizard.
@@ -58,7 +55,11 @@ export const MODULE_FEATURE_KEYS = [
  * five questions are for. The groups are collapsed and opt-in on the form
  * already, and these flags are for the company that never wants to see them.
  */
-export const RECORD_FIELD_KEYS = ["taxSetup", "pensionSetup", "bankDetails"] as const;
+export const RECORD_FIELD_KEYS = [
+  "taxSetup",
+  "pensionSetup",
+  "bankDetails",
+] as const;
 
 /**
  * Depth inside a module that is already on. A third kind of switch.
@@ -258,7 +259,11 @@ export type ApiSetupChecklist = {
     /** Fenced **and** not open to clocking in from anywhere. */
     enforcing: number;
   };
-  recordFields: { taxSetup: boolean; pensionSetup: boolean; bankDetails: boolean };
+  recordFields: {
+    taxSetup: boolean;
+    pensionSetup: boolean;
+    bankDetails: boolean;
+  };
   leave: {
     types: number;
     /** The largest annual entitlement on file. See the API's own note. */

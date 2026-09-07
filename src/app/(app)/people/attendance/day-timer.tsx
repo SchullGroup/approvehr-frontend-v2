@@ -129,7 +129,8 @@ export function DayTimer({
   const nowMinutes = anchor.server + Math.floor((tick - anchor.at) / 60_000);
   /* Someone who clocked in before midnight and is still on shift. Rare, and a
      negative elapsed time would be worse than the wrap. */
-  const elapsed = nowMinutes >= started ? nowMinutes - started : nowMinutes + 1440 - started;
+  const elapsed =
+    nowMinutes >= started ? nowMinutes - started : nowMinutes + 1440 - started;
 
   const shiftStart = minutesOf(policy?.shiftStart);
   const shiftEnd = minutesOf(policy?.shiftEnd);
@@ -154,10 +155,7 @@ export function DayTimer({
 
   return (
     <div
-      className={cn(
-        "flex flex-wrap items-center gap-x-2.5 gap-y-1",
-        className,
-      )}
+      className={cn("flex flex-wrap items-center gap-x-2.5 gap-y-1", className)}
     >
       <span className="flex items-center gap-1.5">
         <Timer aria-hidden="true" className="size-4 text-accent-text" />

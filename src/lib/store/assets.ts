@@ -437,14 +437,52 @@ type DemoState = {
  * T-shirt, and an exit checklist that insists on one is an exit checklist
  * people learn to tick without reading.
  */
-const SEED_KINDS: ApiAssetCategory[] = DEMO_ENABLED ? [
-  { id: "demo-kind-laptop", name: "Laptop", returnRequired: true, active: true, assetCount: 5 },
-  { id: "demo-kind-phone", name: "Phone", returnRequired: true, active: true, assetCount: 2 },
-  { id: "demo-kind-sim", name: "SIM card", returnRequired: true, active: true, assetCount: 1 },
-  { id: "demo-kind-modem", name: "MiFi and modem", returnRequired: true, active: true, assetCount: 1 },
-  { id: "demo-kind-power", name: "Generator and inverter", returnRequired: true, active: true, assetCount: 1 },
-  { id: "demo-kind-branded", name: "Branded items", returnRequired: false, active: true, assetCount: 1 },
-] : [];
+const SEED_KINDS: ApiAssetCategory[] = DEMO_ENABLED
+  ? [
+      {
+        id: "demo-kind-laptop",
+        name: "Laptop",
+        returnRequired: true,
+        active: true,
+        assetCount: 5,
+      },
+      {
+        id: "demo-kind-phone",
+        name: "Phone",
+        returnRequired: true,
+        active: true,
+        assetCount: 2,
+      },
+      {
+        id: "demo-kind-sim",
+        name: "SIM card",
+        returnRequired: true,
+        active: true,
+        assetCount: 1,
+      },
+      {
+        id: "demo-kind-modem",
+        name: "MiFi and modem",
+        returnRequired: true,
+        active: true,
+        assetCount: 1,
+      },
+      {
+        id: "demo-kind-power",
+        name: "Generator and inverter",
+        returnRequired: true,
+        active: true,
+        assetCount: 1,
+      },
+      {
+        id: "demo-kind-branded",
+        name: "Branded items",
+        returnRequired: false,
+        active: true,
+        assetCount: 1,
+      },
+    ]
+  : [];
 
 function seedAsset(input: {
   id: string;
@@ -483,7 +521,9 @@ function seedAsset(input: {
     condition: input.condition,
     notes: input.notes ?? null,
     archived: false,
-    createdAt: new Date(`${daysAgo(input.boughtDaysAgo ?? 400)}T09:00:00`).toISOString(),
+    createdAt: new Date(
+      `${daysAgo(input.boughtDaysAgo ?? 400)}T09:00:00`,
+    ).toISOString(),
   };
 }
 
@@ -503,260 +543,268 @@ function seedAsset(input: {
  * - **Amara — the demo account — holds two things and has handed one back.**
  *   `MyAssets` on `/profile` is otherwise a page about nothing.
  */
-const SEED_ASSETS: DemoAsset[] = DEMO_ENABLED ? [
-  seedAsset({
-    id: "demo-item-lt1",
-    tag: "AHR-LT-01",
-    name: "MacBook Air",
-    kindId: "demo-kind-laptop",
-    make: "Apple",
-    model: "Air M2 13-inch",
-    serial: "C02XK4N2Q6LR",
-    cost: 1_450_000,
-    boughtDaysAgo: 420,
-    status: "ASSIGNED",
-    condition: "GOOD",
-  }),
-  seedAsset({
-    id: "demo-item-lt2",
-    tag: "AHR-LT-02",
-    name: "HP ProBook 450",
-    kindId: "demo-kind-laptop",
-    make: "HP",
-    model: "ProBook 450 G9",
-    serial: "5CD1207QZK",
-    cost: 780_000,
-    boughtDaysAgo: 300,
-    status: "ASSIGNED",
-    condition: "FAIR",
-  }),
-  seedAsset({
-    id: "demo-item-lt3",
-    tag: "AHR-LT-03",
-    name: "Lenovo ThinkPad E14",
-    kindId: "demo-kind-laptop",
-    make: "Lenovo",
-    model: "ThinkPad E14 Gen 4",
-    serial: "PF3JK8T1",
-    cost: 690_000,
-    boughtDaysAgo: 260,
-    status: "IN_REPAIR",
-    condition: "DAMAGED",
-  }),
-  seedAsset({
-    id: "demo-item-lt4",
-    tag: "AHR-LT-04",
-    name: "Dell Latitude 5420",
-    kindId: "demo-kind-laptop",
-    make: "Dell",
-    model: "Latitude 5420",
-    cost: 540_000,
-    boughtDaysAgo: 700,
-    status: "LOST",
-    condition: "POOR",
-    notes: "Not seen since the Abuja trip. Musa still has it on his record.",
-  }),
-  seedAsset({
-    id: "demo-item-lt5",
-    tag: "AHR-LT-05",
-    name: "HP 250 G8",
-    kindId: "demo-kind-laptop",
-    make: "HP",
-    model: "250 G8",
-    cost: 520_000,
-    boughtDaysAgo: 900,
-    status: "RETIRED",
-    condition: "DAMAGED",
-    notes: "Motherboard gone. Written off after the workshop quote.",
-  }),
-  seedAsset({
-    id: "demo-item-ph1",
-    tag: "AHR-PH-01",
-    name: "Samsung Galaxy A15",
-    kindId: "demo-kind-phone",
-    make: "Samsung",
-    model: "Galaxy A15",
-    cost: 185_000,
-    boughtDaysAgo: 150,
-    status: "ASSIGNED",
-    condition: "GOOD",
-  }),
-  seedAsset({
-    id: "demo-item-ph2",
-    tag: "AHR-PH-02",
-    name: "Tecno Spark 20",
-    kindId: "demo-kind-phone",
-    make: "Tecno",
-    model: "Spark 20",
-    cost: 135_000,
-    boughtDaysAgo: 500,
-    status: "AVAILABLE",
-    condition: "FAIR",
-  }),
-  seedAsset({
-    id: "demo-item-sim1",
-    tag: "AHR-SIM-01",
-    name: "MTN line 0803 111 0011",
-    kindId: "demo-kind-sim",
-    status: "ASSIGNED",
-    condition: "GOOD",
-    notes: "Company line. Airtime billed to the office account.",
-  }),
-  seedAsset({
-    id: "demo-item-mf1",
-    tag: "AHR-MF-01",
-    name: "MTN MiFi",
-    kindId: "demo-kind-modem",
-    cost: 42_000,
-    boughtDaysAgo: 200,
-    status: "AVAILABLE",
-    condition: "GOOD",
-  }),
-  seedAsset({
-    id: "demo-item-gen1",
-    tag: "AHR-GEN-01",
-    name: "Elepaq 3.5kVA generator",
-    kindId: "demo-kind-power",
-    cost: 620_000,
-    boughtDaysAgo: 340,
-    status: "AVAILABLE",
-    condition: "GOOD",
-    notes: "Kept at the Ikeja office. Serviced every three months.",
-  }),
-  seedAsset({
-    id: "demo-item-br1",
-    tag: "AHR-BR-01",
-    name: "Branded backpack",
-    kindId: "demo-kind-branded",
-    cost: 18_000,
-    boughtDaysAgo: 90,
-    status: "ASSIGNED",
-    condition: "GOOD",
-  }),
-] : [];
+const SEED_ASSETS: DemoAsset[] = DEMO_ENABLED
+  ? [
+      seedAsset({
+        id: "demo-item-lt1",
+        tag: "AHR-LT-01",
+        name: "MacBook Air",
+        kindId: "demo-kind-laptop",
+        make: "Apple",
+        model: "Air M2 13-inch",
+        serial: "C02XK4N2Q6LR",
+        cost: 1_450_000,
+        boughtDaysAgo: 420,
+        status: "ASSIGNED",
+        condition: "GOOD",
+      }),
+      seedAsset({
+        id: "demo-item-lt2",
+        tag: "AHR-LT-02",
+        name: "HP ProBook 450",
+        kindId: "demo-kind-laptop",
+        make: "HP",
+        model: "ProBook 450 G9",
+        serial: "5CD1207QZK",
+        cost: 780_000,
+        boughtDaysAgo: 300,
+        status: "ASSIGNED",
+        condition: "FAIR",
+      }),
+      seedAsset({
+        id: "demo-item-lt3",
+        tag: "AHR-LT-03",
+        name: "Lenovo ThinkPad E14",
+        kindId: "demo-kind-laptop",
+        make: "Lenovo",
+        model: "ThinkPad E14 Gen 4",
+        serial: "PF3JK8T1",
+        cost: 690_000,
+        boughtDaysAgo: 260,
+        status: "IN_REPAIR",
+        condition: "DAMAGED",
+      }),
+      seedAsset({
+        id: "demo-item-lt4",
+        tag: "AHR-LT-04",
+        name: "Dell Latitude 5420",
+        kindId: "demo-kind-laptop",
+        make: "Dell",
+        model: "Latitude 5420",
+        cost: 540_000,
+        boughtDaysAgo: 700,
+        status: "LOST",
+        condition: "POOR",
+        notes:
+          "Not seen since the Abuja trip. Musa still has it on his record.",
+      }),
+      seedAsset({
+        id: "demo-item-lt5",
+        tag: "AHR-LT-05",
+        name: "HP 250 G8",
+        kindId: "demo-kind-laptop",
+        make: "HP",
+        model: "250 G8",
+        cost: 520_000,
+        boughtDaysAgo: 900,
+        status: "RETIRED",
+        condition: "DAMAGED",
+        notes: "Motherboard gone. Written off after the workshop quote.",
+      }),
+      seedAsset({
+        id: "demo-item-ph1",
+        tag: "AHR-PH-01",
+        name: "Samsung Galaxy A15",
+        kindId: "demo-kind-phone",
+        make: "Samsung",
+        model: "Galaxy A15",
+        cost: 185_000,
+        boughtDaysAgo: 150,
+        status: "ASSIGNED",
+        condition: "GOOD",
+      }),
+      seedAsset({
+        id: "demo-item-ph2",
+        tag: "AHR-PH-02",
+        name: "Tecno Spark 20",
+        kindId: "demo-kind-phone",
+        make: "Tecno",
+        model: "Spark 20",
+        cost: 135_000,
+        boughtDaysAgo: 500,
+        status: "AVAILABLE",
+        condition: "FAIR",
+      }),
+      seedAsset({
+        id: "demo-item-sim1",
+        tag: "AHR-SIM-01",
+        name: "MTN line 0803 111 0011",
+        kindId: "demo-kind-sim",
+        status: "ASSIGNED",
+        condition: "GOOD",
+        notes: "Company line. Airtime billed to the office account.",
+      }),
+      seedAsset({
+        id: "demo-item-mf1",
+        tag: "AHR-MF-01",
+        name: "MTN MiFi",
+        kindId: "demo-kind-modem",
+        cost: 42_000,
+        boughtDaysAgo: 200,
+        status: "AVAILABLE",
+        condition: "GOOD",
+      }),
+      seedAsset({
+        id: "demo-item-gen1",
+        tag: "AHR-GEN-01",
+        name: "Elepaq 3.5kVA generator",
+        kindId: "demo-kind-power",
+        cost: 620_000,
+        boughtDaysAgo: 340,
+        status: "AVAILABLE",
+        condition: "GOOD",
+        notes: "Kept at the Ikeja office. Serviced every three months.",
+      }),
+      seedAsset({
+        id: "demo-item-br1",
+        tag: "AHR-BR-01",
+        name: "Branded backpack",
+        kindId: "demo-kind-branded",
+        cost: 18_000,
+        boughtDaysAgo: 90,
+        status: "ASSIGNED",
+        condition: "GOOD",
+      }),
+    ]
+  : [];
 
-const SEED_ASSIGNMENTS: DemoAssignment[] = DEMO_ENABLED ? [
-  {
-    id: "demo-hand-01",
-    assetId: "demo-item-lt1",
-    employeeId: "p-06",
-    assignedOn: daysAgo(120),
-    returnedOn: null,
-    conditionOut: "GOOD",
-    conditionBack: null,
-    note: "Collected from the store on her first day back from leave.",
-  },
-  {
-    id: "demo-hand-02",
-    assetId: "demo-item-ph1",
-    employeeId: "p-06",
-    assignedOn: daysAgo(60),
-    returnedOn: null,
-    conditionOut: "GOOD",
-    conditionBack: null,
-    note: null,
-  },
-  {
-    id: "demo-hand-03",
-    assetId: "demo-item-lt2",
-    employeeId: "p-01",
-    assignedOn: daysAgo(90),
-    returnedOn: null,
-    conditionOut: "GOOD",
-    conditionBack: null,
-    note: null,
-  },
-  {
-    id: "demo-hand-04",
-    assetId: "demo-item-sim1",
-    employeeId: "p-03",
-    assignedOn: daysAgo(200),
-    returnedOn: null,
-    conditionOut: "GOOD",
-    conditionBack: null,
-    note: null,
-  },
-  {
-    id: "demo-hand-05",
-    assetId: "demo-item-lt4",
-    employeeId: "p-07",
-    assignedOn: daysAgo(300),
-    returnedOn: null,
-    conditionOut: "GOOD",
-    conditionBack: null,
-    note: "Signed for before the Abuja trip.",
-  },
-  {
-    id: "demo-hand-06",
-    assetId: "demo-item-br1",
-    employeeId: "p-10",
-    assignedOn: daysAgo(80),
-    returnedOn: null,
-    conditionOut: "NEW",
-    conditionBack: null,
-    note: null,
-  },
-  /* Closed, so "handed back" is not an empty list on Amara's own page. */
-  {
-    id: "demo-hand-07",
-    assetId: "demo-item-ph2",
-    employeeId: "p-06",
-    assignedOn: daysAgo(400),
-    returnedOn: daysAgo(200),
-    conditionOut: "GOOD",
-    conditionBack: "FAIR",
-    note: "Swapped for the Samsung.\nOn return: screen scratched, still working.",
-  },
-  {
-    id: "demo-hand-08",
-    assetId: "demo-item-lt3",
-    employeeId: "p-04",
-    assignedOn: daysAgo(240),
-    returnedOn: daysAgo(6),
-    conditionOut: "GOOD",
-    conditionBack: "DAMAGED",
-    note: "On return: screen cracked in the car.",
-  },
-] : [];
+const SEED_ASSIGNMENTS: DemoAssignment[] = DEMO_ENABLED
+  ? [
+      {
+        id: "demo-hand-01",
+        assetId: "demo-item-lt1",
+        employeeId: "p-06",
+        assignedOn: daysAgo(120),
+        returnedOn: null,
+        conditionOut: "GOOD",
+        conditionBack: null,
+        note: "Collected from the store on her first day back from leave.",
+      },
+      {
+        id: "demo-hand-02",
+        assetId: "demo-item-ph1",
+        employeeId: "p-06",
+        assignedOn: daysAgo(60),
+        returnedOn: null,
+        conditionOut: "GOOD",
+        conditionBack: null,
+        note: null,
+      },
+      {
+        id: "demo-hand-03",
+        assetId: "demo-item-lt2",
+        employeeId: "p-01",
+        assignedOn: daysAgo(90),
+        returnedOn: null,
+        conditionOut: "GOOD",
+        conditionBack: null,
+        note: null,
+      },
+      {
+        id: "demo-hand-04",
+        assetId: "demo-item-sim1",
+        employeeId: "p-03",
+        assignedOn: daysAgo(200),
+        returnedOn: null,
+        conditionOut: "GOOD",
+        conditionBack: null,
+        note: null,
+      },
+      {
+        id: "demo-hand-05",
+        assetId: "demo-item-lt4",
+        employeeId: "p-07",
+        assignedOn: daysAgo(300),
+        returnedOn: null,
+        conditionOut: "GOOD",
+        conditionBack: null,
+        note: "Signed for before the Abuja trip.",
+      },
+      {
+        id: "demo-hand-06",
+        assetId: "demo-item-br1",
+        employeeId: "p-10",
+        assignedOn: daysAgo(80),
+        returnedOn: null,
+        conditionOut: "NEW",
+        conditionBack: null,
+        note: null,
+      },
+      /* Closed, so "handed back" is not an empty list on Amara's own page. */
+      {
+        id: "demo-hand-07",
+        assetId: "demo-item-ph2",
+        employeeId: "p-06",
+        assignedOn: daysAgo(400),
+        returnedOn: daysAgo(200),
+        conditionOut: "GOOD",
+        conditionBack: "FAIR",
+        note: "Swapped for the Samsung.\nOn return: screen scratched, still working.",
+      },
+      {
+        id: "demo-hand-08",
+        assetId: "demo-item-lt3",
+        employeeId: "p-04",
+        assignedOn: daysAgo(240),
+        returnedOn: daysAgo(6),
+        conditionOut: "GOOD",
+        conditionBack: "DAMAGED",
+        note: "On return: screen cracked in the car.",
+      },
+    ]
+  : [];
 
-const SEED_REPAIRS: ApiRepair[] = DEMO_ENABLED ? [
-  {
-    id: "demo-repair-01",
-    assetId: "demo-item-lt3",
-    assetTag: "AHR-LT-03",
-    assetName: "Lenovo ThinkPad E14",
-    description: "Cracked screen, panel replacement",
-    costKobo: 145_000 * NAIRA,
-    startedOn: daysAgo(6),
-    completedOn: null,
-    vendor: "Computer Village, Ikeja",
-    open: true,
-  },
-  {
-    id: "demo-repair-02",
-    assetId: "demo-item-lt2",
-    assetTag: "AHR-LT-02",
-    assetName: "HP ProBook 450",
-    description: "Battery replacement, holds 40 minutes",
-    costKobo: 38_000 * NAIRA,
-    startedOn: daysAgo(3),
-    completedOn: null,
-    vendor: "Computer Village, Ikeja",
-    open: true,
-  },
-  {
-    id: "demo-repair-03",
-    assetId: "demo-item-lt5",
-    assetTag: "AHR-LT-05",
-    assetName: "HP 250 G8",
-    description: "Motherboard failure, quoted more than the laptop is worth",
-    costKobo: 25_000 * NAIRA,
-    startedOn: daysAgo(150),
-    completedOn: daysAgo(140),
-    vendor: "Computer Village, Ikeja",
-    open: false,
-  },
-] : [];
+const SEED_REPAIRS: ApiRepair[] = DEMO_ENABLED
+  ? [
+      {
+        id: "demo-repair-01",
+        assetId: "demo-item-lt3",
+        assetTag: "AHR-LT-03",
+        assetName: "Lenovo ThinkPad E14",
+        description: "Cracked screen, panel replacement",
+        costKobo: 145_000 * NAIRA,
+        startedOn: daysAgo(6),
+        completedOn: null,
+        vendor: "Computer Village, Ikeja",
+        open: true,
+      },
+      {
+        id: "demo-repair-02",
+        assetId: "demo-item-lt2",
+        assetTag: "AHR-LT-02",
+        assetName: "HP ProBook 450",
+        description: "Battery replacement, holds 40 minutes",
+        costKobo: 38_000 * NAIRA,
+        startedOn: daysAgo(3),
+        completedOn: null,
+        vendor: "Computer Village, Ikeja",
+        open: true,
+      },
+      {
+        id: "demo-repair-03",
+        assetId: "demo-item-lt5",
+        assetTag: "AHR-LT-05",
+        assetName: "HP 250 G8",
+        description:
+          "Motherboard failure, quoted more than the laptop is worth",
+        costKobo: 25_000 * NAIRA,
+        startedOn: daysAgo(150),
+        completedOn: daysAgo(140),
+        vendor: "Computer Village, Ikeja",
+        open: false,
+      },
+    ]
+  : [];
 
 const demo = createPersistedState<DemoState>({
   key: "approvehr.equipment.store",
@@ -774,7 +822,10 @@ const demoId = (prefix: string) =>
   `demo-${prefix}-${Date.now().toString(36)}-${(demoCounter += 1)}`;
 
 /** The open assignment for one item, or undefined. The demo's `openAssignment`. */
-function openFor(state: DemoState, assetId: string): DemoAssignment | undefined {
+function openFor(
+  state: DemoState,
+  assetId: string,
+): DemoAssignment | undefined {
   return state.assignments.find(
     (row) => row.assetId === assetId && row.returnedOn === null,
   );
@@ -783,7 +834,10 @@ function openFor(state: DemoState, assetId: string): DemoAssignment | undefined 
 function personOf(employeeId: string): { name: string; employeeNo: string } {
   const person = employeeById(employeeId);
   return person
-    ? { name: `${person.firstName} ${person.lastName}`, employeeNo: person.employeeNo }
+    ? {
+        name: `${person.firstName} ${person.lastName}`,
+        employeeNo: person.employeeNo,
+      }
     : { name: "Somebody who has left", employeeNo: "—" };
 }
 
@@ -882,7 +936,11 @@ function useRevision(): number {
 }
 
 function useDemoState(): DemoState {
-  return useSyncExternalStore(demo.subscribe, demo.read, demo.getServerSnapshot);
+  return useSyncExternalStore(
+    demo.subscribe,
+    demo.read,
+    demo.getServerSnapshot,
+  );
 }
 
 /* ---------------------------------------------------------------- the kinds */
@@ -925,7 +983,8 @@ export function useEquipmentKinds(includeInactive = false) {
     void (async () => {
       try {
         const rows = await api.categories(includeInactive, controller.signal);
-        if (!cancelled) setRemote({ stamp, kinds: rows.map(toKind), error: null });
+        if (!cancelled)
+          setRemote({ stamp, kinds: rows.map(toKind), error: null });
       } catch (error) {
         if (cancelled || error instanceof DOMException) return;
         setRemote({
@@ -1006,9 +1065,14 @@ export function useEquipmentKinds(includeInactive = false) {
       const state = demo.current();
       const existing = state.categories.find((row) => row.id === id);
       if (!existing) throw missing("That kind of equipment");
-      if (input.name && input.name.toLowerCase() !== existing.name.toLowerCase()) {
+      if (
+        input.name &&
+        input.name.toLowerCase() !== existing.name.toLowerCase()
+      ) {
         const clash = state.categories.find(
-          (row) => row.id !== id && row.name.toLowerCase() === input.name?.toLowerCase(),
+          (row) =>
+            row.id !== id &&
+            row.name.toLowerCase() === input.name?.toLowerCase(),
         );
         if (clash) throw conflict(`"${input.name}" already exists.`);
       }
@@ -1187,8 +1251,10 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
         if (params.heldBy && open?.employeeId !== params.heldBy) return false;
         if (params.unassigned && open) return false;
         if (params.status && asset.status !== params.status) return false;
-        if (params.condition && asset.condition !== params.condition) return false;
-        if (params.categoryId && asset.categoryId !== params.categoryId) return false;
+        if (params.condition && asset.condition !== params.condition)
+          return false;
+        if (params.categoryId && asset.categoryId !== params.categoryId)
+          return false;
         if (needle) {
           const haystack = [
             asset.tag,
@@ -1259,7 +1325,9 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
           ...(input.make ? { make: input.make } : {}),
           ...(input.model ? { model: input.model } : {}),
           ...(input.purchasedOn ? { purchasedOn: input.purchasedOn } : {}),
-          ...(input.cost === undefined ? {} : { purchaseCostKobo: kobo(input.cost) }),
+          ...(input.cost === undefined
+            ? {}
+            : { purchaseCostKobo: kobo(input.cost) }),
           ...(input.condition ? { condition: input.condition } : {}),
           ...(input.notes ? { notes: input.notes } : {}),
         });
@@ -1309,7 +1377,8 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
             workLocationId: null,
             workLocationName: null,
             purchasedOn: input.purchasedOn ?? null,
-            purchaseCostKobo: input.cost === undefined ? null : kobo(input.cost),
+            purchaseCostKobo:
+              input.cost === undefined ? null : kobo(input.cost),
             status: "AVAILABLE",
             condition: input.condition ?? "GOOD",
             notes: input.notes ?? null,
@@ -1346,8 +1415,12 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
             : { purchasedOn: patch.purchasedOn }),
           ...(patch.cost === undefined
             ? {}
-            : { purchaseCostKobo: patch.cost === null ? null : kobo(patch.cost) }),
-          ...(patch.condition === undefined ? {} : { condition: patch.condition }),
+            : {
+                purchaseCostKobo: patch.cost === null ? null : kobo(patch.cost),
+              }),
+          ...(patch.condition === undefined
+            ? {}
+            : { condition: patch.condition }),
           ...(patch.status === undefined ? {} : { status: patch.status }),
           ...(patch.notes === undefined ? {} : { notes: patch.notes }),
         });
@@ -1362,9 +1435,11 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
       if (patch.tag && patch.tag.toLowerCase() !== existing.tag.toLowerCase()) {
         const clash = state.assets.find(
           (asset) =>
-            asset.id !== id && asset.tag.toLowerCase() === patch.tag?.toLowerCase(),
+            asset.id !== id &&
+            asset.tag.toLowerCase() === patch.tag?.toLowerCase(),
         );
-        if (clash) throw conflict(`Tag ${patch.tag} is already on ${clash.name}.`);
+        if (clash)
+          throw conflict(`Tag ${patch.tag} is already on ${clash.name}.`);
       }
 
       /* The status rule, in full. Most changes are refused while somebody is
@@ -1378,7 +1453,10 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
           const person = personOf(open.employeeId);
           if (patch.status === "LOST") {
             status = "LOST";
-          } else if (patch.status === "AVAILABLE" && existing.status === "LOST") {
+          } else if (
+            patch.status === "AVAILABLE" &&
+            existing.status === "LOST"
+          ) {
             status = "ASSIGNED";
           } else {
             throw conflict(
@@ -1555,7 +1633,8 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
       }
 
       const taker = employeeById(input.employeeId);
-      if (!taker) throw unprocessable("That employee does not exist, or has left.");
+      if (!taker)
+        throw unprocessable("That employee does not exist, or has left.");
 
       const assignedOn = input.assignedOn ?? today();
       if (assignedOn > today()) {
@@ -1614,7 +1693,9 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
 
       const open = openFor(state, id);
       if (!open) {
-        throw conflict(`Nobody has ${asset.name}. There is nothing to take back.`);
+        throw conflict(
+          `Nobody has ${asset.name}. There is nothing to take back.`,
+        );
       }
 
       const returnedOn = input.returnedOn ?? today();
@@ -1657,7 +1738,9 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
             : row,
         ),
         assignments: state.assignments.map((row) =>
-          row.id === open.id ? { ...row, returnedOn, conditionBack, note } : row,
+          row.id === open.id
+            ? { ...row, returnedOn, conditionBack, note }
+            : row,
         ),
       });
 
@@ -1821,7 +1904,8 @@ export function useEquipmentItem(id: string | null) {
     void (async () => {
       try {
         const row = await api.get(id, controller.signal);
-        if (!cancelled) setFetched({ stamp, detail: toDetail(row), error: null });
+        if (!cancelled)
+          setFetched({ stamp, detail: toDetail(row), error: null });
       } catch (error) {
         if (cancelled || error instanceof DOMException) return;
         setFetched({
@@ -1855,7 +1939,14 @@ export function useEquipmentItem(id: string | null) {
   }, [demoState, id]);
 
   return {
-    detail: id === null ? null : isConnected ? (answered ? fetched.detail : null) : demoDetail,
+    detail:
+      id === null
+        ? null
+        : isConnected
+          ? answered
+            ? fetched.detail
+            : null
+          : demoDetail,
     loading: Boolean(id) && isConnected && !answered,
     error: isConnected && answered ? fetched.error : null,
   };
@@ -1931,9 +2022,15 @@ export function useRepairs(params: RepairListParams = {}, enabled = true) {
       .filter((row) => {
         if (params.assetId && row.assetId !== params.assetId) return false;
         if (params.state === "open" && row.completedOn !== null) return false;
-        if (params.state === "completed" && row.completedOn === null) return false;
+        if (params.state === "completed" && row.completedOn === null)
+          return false;
         if (needle) {
-          const haystack = [row.description, row.vendor, row.assetTag, row.assetName]
+          const haystack = [
+            row.description,
+            row.vendor,
+            row.assetTag,
+            row.assetName,
+          ]
             .filter((value): value is string => Boolean(value))
             .join(" ")
             .toLowerCase();
@@ -1942,8 +2039,11 @@ export function useRepairs(params: RepairListParams = {}, enabled = true) {
         return true;
       })
       .sort((a, b) => {
-        const openness = Number(b.completedOn === null) - Number(a.completedOn === null);
-        return openness !== 0 ? openness : b.startedOn.localeCompare(a.startedOn);
+        const openness =
+          Number(b.completedOn === null) - Number(a.completedOn === null);
+        return openness !== 0
+          ? openness
+          : b.startedOn.localeCompare(a.startedOn);
       })
       .map(toRepair);
   }, [demoState.repairs, params.assetId, params.state, params.q]);
@@ -1971,7 +2071,9 @@ export function useRepairs(params: RepairListParams = {}, enabled = true) {
           ...(input.description === undefined
             ? {}
             : { description: input.description }),
-          ...(input.startedOn === undefined ? {} : { startedOn: input.startedOn }),
+          ...(input.startedOn === undefined
+            ? {}
+            : { startedOn: input.startedOn }),
           ...(input.completedOn === undefined
             ? {}
             : { completedOn: input.completedOn }),
@@ -1979,7 +2081,9 @@ export function useRepairs(params: RepairListParams = {}, enabled = true) {
             ? {}
             : { costKobo: input.cost === null ? null : kobo(input.cost) }),
           ...(input.vendor === undefined ? {} : { vendor: input.vendor }),
-          ...(input.condition === undefined ? {} : { condition: input.condition }),
+          ...(input.condition === undefined
+            ? {}
+            : { condition: input.condition }),
         });
         bumpRevision();
         return;
@@ -1991,7 +2095,9 @@ export function useRepairs(params: RepairListParams = {}, enabled = true) {
 
       const startedOn = input.startedOn ?? existing.startedOn;
       const completedOn =
-        input.completedOn === undefined ? existing.completedOn : input.completedOn;
+        input.completedOn === undefined
+          ? existing.completedOn
+          : input.completedOn;
       if (completedOn && completedOn < startedOn) {
         throw unprocessable("It cannot be finished before it was started.");
       }
@@ -2045,7 +2151,11 @@ export function useRepairs(params: RepairListParams = {}, enabled = true) {
 
   return {
     repairs,
-    total: !enabled ? 0 : isConnected ? (remote?.total ?? 0) : demoRepairs.length,
+    total: !enabled
+      ? 0
+      : isConnected
+        ? (remote?.total ?? 0)
+        : demoRepairs.length,
     loading: enabled && isConnected && !answered,
     error: enabled && isConnected && answered ? remote.error : null,
     connected: isConnected,
@@ -2158,7 +2268,9 @@ export function useEquipmentSummary(enabled = true) {
       };
       bucket.count += 1;
       if (asset.status === "ASSIGNED") bucket.withSomebody += 1;
-      bucket.value += asset.purchaseCostKobo ? naira(asset.purchaseCostKobo) : 0;
+      bucket.value += asset.purchaseCostKobo
+        ? naira(asset.purchaseCostKobo)
+        : 0;
       buckets.set(bucketKey, bucket);
     }
 
@@ -2173,7 +2285,8 @@ export function useEquipmentSummary(enabled = true) {
         (a, b) => b.count - a.count || a.name.localeCompare(b.name),
       ),
       totalValue: live.reduce(
-        (sum, asset) => sum + (asset.purchaseCostKobo ? naira(asset.purchaseCostKobo) : 0),
+        (sum, asset) =>
+          sum + (asset.purchaseCostKobo ? naira(asset.purchaseCostKobo) : 0),
         0,
       ),
       counts: {
@@ -2191,10 +2304,17 @@ export function useEquipmentSummary(enabled = true) {
   }, [demoState]);
 
   if (!enabled) {
-    return { ...EMPTY_SUMMARY, loading: false, error: null, connected: isConnected };
+    return {
+      ...EMPTY_SUMMARY,
+      loading: false,
+      error: null,
+      connected: isConnected,
+    };
   }
 
-  const summary = isConnected ? (remote?.summary ?? EMPTY_SUMMARY) : demoSummary;
+  const summary = isConnected
+    ? (remote?.summary ?? EMPTY_SUMMARY)
+    : demoSummary;
   return {
     ...summary,
     loading: isConnected && !answered,
@@ -2411,7 +2531,14 @@ export function useMyEquipment(employeeId: string | null) {
   );
 
   return {
-    kit: employeeId === null ? null : isConnected ? (answered ? remote.kit : null) : demoKit,
+    kit:
+      employeeId === null
+        ? null
+        : isConnected
+          ? answered
+            ? remote.kit
+            : null
+          : demoKit,
     loading: Boolean(employeeId) && isConnected && !answered,
     error: isConnected && answered ? remote.error : null,
     connected: isConnected,

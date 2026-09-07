@@ -68,10 +68,14 @@ export function HelpdeskSettingsScreen() {
   const canManage = useCan("MANAGE_SETTINGS");
   const toast = useToast();
 
-  const [categories, setCategories] = useState<ApiTicketCategory[] | null>(null);
+  const [categories, setCategories] = useState<ApiTicketCategory[] | null>(
+    null,
+  );
   const [policies, setPolicies] = useState<ApiSlaPolicy[] | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
-  const [editing, setEditing] = useState<ApiTicketCategory | "new" | null>(null);
+  const [editing, setEditing] = useState<ApiTicketCategory | "new" | null>(
+    null,
+  );
   const [editingSla, setEditingSla] = useState<ApiSlaPolicy | "new" | null>(
     null,
   );
@@ -139,7 +143,13 @@ export function HelpdeskSettingsScreen() {
           promised to answer.
         </p>
 
-        {error && <LoadFailure subject="the help desk settings" error={error}  onRetry={reload}/>}
+        {error && (
+          <LoadFailure
+            subject="the help desk settings"
+            error={error}
+            onRetry={reload}
+          />
+        )}
 
         <Card>
           <CardHeader
@@ -314,7 +324,9 @@ function CategoryRow({
         title: "That did not work",
         tone: "danger",
         detail:
-          caught instanceof ApiError ? caught.message : "Try again in a moment.",
+          caught instanceof ApiError
+            ? caught.message
+            : "Try again in a moment.",
       });
     } finally {
       setBusy(false);

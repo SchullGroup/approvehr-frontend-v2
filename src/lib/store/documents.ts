@@ -185,78 +185,80 @@ type SeedRequest = {
  * the thirty-day window, one further out, one answered and one dropped. Dates
  * are relative to `TODAY` (19 Aug 2026), so the demo does not decay.
  */
-const SEED_REQUESTS: SeedRequest[] = DEMO_ENABLED ? [
-  {
-    id: "dr-01",
-    employeeId: "p-01",
-    name: "Work permit",
-    category: "IDENTIFICATION",
-    reason: "Renewal for the Lagos office.",
-    dueOn: "2026-08-31",
-    status: "OPEN",
-    requestedById: "p-05",
-    requestedAt: "2026-08-04T09:12:00.000Z",
-  },
-  {
-    id: "dr-02",
-    employeeId: "p-03",
-    name: "NYSC certificate",
-    category: "CERTIFICATE",
-    reason: "Missing from the file since he joined.",
-    dueOn: "2026-08-14",
-    status: "OPEN",
-    requestedById: "p-05",
-    requestedAt: "2026-07-28T11:40:00.000Z",
-  },
-  {
-    id: "dr-03",
-    employeeId: "p-06",
-    name: "Signed contract",
-    category: "CONTRACT",
-    reason: "We have the draft, not the signed copy.",
-    dueOn: "2026-08-24",
-    status: "OPEN",
-    requestedById: "p-05",
-    requestedAt: "2026-08-10T08:05:00.000Z",
-  },
-  {
-    id: "dr-04",
-    employeeId: "p-08",
-    name: "Degree certificate",
-    category: "CERTIFICATE",
-    reason: null,
-    dueOn: "2026-09-30",
-    status: "OPEN",
-    requestedById: "p-05",
-    requestedAt: "2026-08-12T15:22:00.000Z",
-  },
-  {
-    id: "dr-05",
-    employeeId: "p-04",
-    name: "Medical report",
-    category: "MEDICAL",
-    reason: "Company health cover.",
-    dueOn: "2026-08-10",
-    status: "FULFILLED",
-    requestedById: "p-05",
-    requestedAt: "2026-07-20T10:00:00.000Z",
-    documentId: "dd-05",
-    fulfilledAt: "2026-08-08T13:30:00.000Z",
-  },
-  {
-    id: "dr-06",
-    employeeId: "p-07",
-    name: "Driver’s licence",
-    category: "IDENTIFICATION",
-    reason: "For the company vehicle.",
-    dueOn: "2026-08-05",
-    status: "WAIVED",
-    requestedById: "p-05",
-    requestedAt: "2026-07-15T09:00:00.000Z",
-    waivedAt: "2026-08-06T09:15:00.000Z",
-    waivedReason: "He no longer drives the company vehicle.",
-  },
-] : [];
+const SEED_REQUESTS: SeedRequest[] = DEMO_ENABLED
+  ? [
+      {
+        id: "dr-01",
+        employeeId: "p-01",
+        name: "Work permit",
+        category: "IDENTIFICATION",
+        reason: "Renewal for the Lagos office.",
+        dueOn: "2026-08-31",
+        status: "OPEN",
+        requestedById: "p-05",
+        requestedAt: "2026-08-04T09:12:00.000Z",
+      },
+      {
+        id: "dr-02",
+        employeeId: "p-03",
+        name: "NYSC certificate",
+        category: "CERTIFICATE",
+        reason: "Missing from the file since he joined.",
+        dueOn: "2026-08-14",
+        status: "OPEN",
+        requestedById: "p-05",
+        requestedAt: "2026-07-28T11:40:00.000Z",
+      },
+      {
+        id: "dr-03",
+        employeeId: "p-06",
+        name: "Signed contract",
+        category: "CONTRACT",
+        reason: "We have the draft, not the signed copy.",
+        dueOn: "2026-08-24",
+        status: "OPEN",
+        requestedById: "p-05",
+        requestedAt: "2026-08-10T08:05:00.000Z",
+      },
+      {
+        id: "dr-04",
+        employeeId: "p-08",
+        name: "Degree certificate",
+        category: "CERTIFICATE",
+        reason: null,
+        dueOn: "2026-09-30",
+        status: "OPEN",
+        requestedById: "p-05",
+        requestedAt: "2026-08-12T15:22:00.000Z",
+      },
+      {
+        id: "dr-05",
+        employeeId: "p-04",
+        name: "Medical report",
+        category: "MEDICAL",
+        reason: "Company health cover.",
+        dueOn: "2026-08-10",
+        status: "FULFILLED",
+        requestedById: "p-05",
+        requestedAt: "2026-07-20T10:00:00.000Z",
+        documentId: "dd-05",
+        fulfilledAt: "2026-08-08T13:30:00.000Z",
+      },
+      {
+        id: "dr-06",
+        employeeId: "p-07",
+        name: "Driver’s licence",
+        category: "IDENTIFICATION",
+        reason: "For the company vehicle.",
+        dueOn: "2026-08-05",
+        status: "WAIVED",
+        requestedById: "p-05",
+        requestedAt: "2026-07-15T09:00:00.000Z",
+        waivedAt: "2026-08-06T09:15:00.000Z",
+        waivedReason: "He no longer drives the company vehicle.",
+      },
+    ]
+  : [];
 
 function demoRequest(seed: SeedRequest): ApiDocumentRequest {
   const employee = seedEmployee(seed.employeeId);
@@ -300,15 +302,75 @@ type SeedDocument = {
   sizeBytes?: number;
 };
 
-const SEED_DOCUMENTS: SeedDocument[] = DEMO_ENABLED ? [
-  { id: "dd-01", employeeId: "p-01", name: "Employment contract", category: "CONTRACT", uploadedAt: "2022-03-14T10:00:00.000Z", verified: true, sizeBytes: 412_880 },
-  { id: "dd-02", employeeId: "p-01", name: "International passport", category: "IDENTIFICATION", uploadedAt: "2024-02-02T14:20:00.000Z", verified: true, sizeBytes: 1_204_112 },
-  { id: "dd-03", employeeId: "p-01", name: "Employment contract (2021)", category: "CONTRACT", uploadedAt: "2021-08-01T10:00:00.000Z", verified: true, archived: true, sizeBytes: 388_210 },
-  { id: "dd-04", employeeId: "p-03", name: "Employment contract", category: "CONTRACT", uploadedAt: "2023-06-12T09:30:00.000Z", verified: true, sizeBytes: 401_998 },
-  { id: "dd-05", employeeId: "p-04", name: "Medical report", category: "MEDICAL", uploadedAt: "2026-08-08T13:30:00.000Z", verified: true, fulfilsRequestId: "dr-05", sizeBytes: 902_144 },
-  { id: "dd-06", employeeId: "p-06", name: "Employment contract", category: "CONTRACT", uploadedAt: "2023-11-06T11:00:00.000Z", verified: true, sizeBytes: 396_204 },
-  { id: "dd-07", employeeId: "p-06", name: "NIN slip", category: "IDENTIFICATION", uploadedAt: "2023-11-06T11:04:00.000Z", verified: false, sizeBytes: 210_880 },
-] : [];
+const SEED_DOCUMENTS: SeedDocument[] = DEMO_ENABLED
+  ? [
+      {
+        id: "dd-01",
+        employeeId: "p-01",
+        name: "Employment contract",
+        category: "CONTRACT",
+        uploadedAt: "2022-03-14T10:00:00.000Z",
+        verified: true,
+        sizeBytes: 412_880,
+      },
+      {
+        id: "dd-02",
+        employeeId: "p-01",
+        name: "International passport",
+        category: "IDENTIFICATION",
+        uploadedAt: "2024-02-02T14:20:00.000Z",
+        verified: true,
+        sizeBytes: 1_204_112,
+      },
+      {
+        id: "dd-03",
+        employeeId: "p-01",
+        name: "Employment contract (2021)",
+        category: "CONTRACT",
+        uploadedAt: "2021-08-01T10:00:00.000Z",
+        verified: true,
+        archived: true,
+        sizeBytes: 388_210,
+      },
+      {
+        id: "dd-04",
+        employeeId: "p-03",
+        name: "Employment contract",
+        category: "CONTRACT",
+        uploadedAt: "2023-06-12T09:30:00.000Z",
+        verified: true,
+        sizeBytes: 401_998,
+      },
+      {
+        id: "dd-05",
+        employeeId: "p-04",
+        name: "Medical report",
+        category: "MEDICAL",
+        uploadedAt: "2026-08-08T13:30:00.000Z",
+        verified: true,
+        fulfilsRequestId: "dr-05",
+        sizeBytes: 902_144,
+      },
+      {
+        id: "dd-06",
+        employeeId: "p-06",
+        name: "Employment contract",
+        category: "CONTRACT",
+        uploadedAt: "2023-11-06T11:00:00.000Z",
+        verified: true,
+        sizeBytes: 396_204,
+      },
+      {
+        id: "dd-07",
+        employeeId: "p-06",
+        name: "NIN slip",
+        category: "IDENTIFICATION",
+        uploadedAt: "2023-11-06T11:04:00.000Z",
+        verified: false,
+        sizeBytes: 210_880,
+      },
+    ]
+  : [];
 
 function demoDocument(seed: SeedDocument): ApiDocument {
   return {
@@ -328,10 +390,14 @@ function demoDocument(seed: SeedDocument): ApiDocument {
   };
 }
 
-function demoFile(employeeId: string, includeArchived: boolean): ApiEmployeeFile {
+function demoFile(
+  employeeId: string,
+  includeArchived: boolean,
+): ApiEmployeeFile {
   const employee = seedEmployee(employeeId);
   const documents = SEED_DOCUMENTS.filter(
-    (d) => d.employeeId === employeeId && (includeArchived || d.archived !== true),
+    (d) =>
+      d.employeeId === employeeId && (includeArchived || d.archived !== true),
   ).map(demoDocument);
   return {
     employeeId,
@@ -418,7 +484,13 @@ export function useDocumentRegister(params: RequestListParams = {}) {
   const [state, setState] = useState<RegisterState>(() =>
     isConnected
       ? { requests: [], total: 0, loading: true, error: null, editable: true }
-      : { requests: [], total: 0, loading: false, error: null, editable: false },
+      : {
+          requests: [],
+          total: 0,
+          loading: false,
+          error: null,
+          editable: false,
+        },
   );
 
   /* Serialised so the effect re-runs on a value change, not on every render. */
@@ -439,7 +511,9 @@ export function useDocumentRegister(params: RequestListParams = {}) {
           parsed.employeeId ? r.employeeId === parsed.employeeId : true,
         )
         .filter((r) =>
-          parsed.q ? r.name.toLowerCase().includes(parsed.q.toLowerCase()) : true,
+          parsed.q
+            ? r.name.toLowerCase().includes(parsed.q.toLowerCase())
+            : true,
         )
         .sort((a, b) =>
           parsed.sort === "name"
@@ -489,7 +563,9 @@ export function useDocumentRegister(params: RequestListParams = {}) {
   const peopleWaitingOn = useMemo(
     () =>
       new Set(
-        state.requests.filter((r) => r.status === "OPEN").map((r) => r.employeeId),
+        state.requests
+          .filter((r) => r.status === "OPEN")
+          .map((r) => r.employeeId),
       ).size,
     [state.requests],
   );
@@ -798,9 +874,10 @@ export function useMyDocuments() {
   const { isConnected, employeeId } = useSession();
 
   const key = `${isConnected ? "api" : "demo"}:${employeeId ?? "-"}`;
-  const [loaded, setLoaded] = useState<{ key: string; state: MineState } | null>(
-    null,
-  );
+  const [loaded, setLoaded] = useState<{
+    key: string;
+    state: MineState;
+  } | null>(null);
 
   const resolve = useCallback(async (): Promise<MineState> => {
     if (!isConnected) {
@@ -808,7 +885,9 @@ export function useMyDocuments() {
          somebody's. `store/session.ts` picks the same person. */
       const id = employeeId ?? "p-06";
       return {
-        requests: SEED_REQUESTS.filter((r) => r.employeeId === id).map(demoRequest),
+        requests: SEED_REQUESTS.filter((r) => r.employeeId === id).map(
+          demoRequest,
+        ),
         file: demoFile(id, false),
         error: null,
         linked: true,

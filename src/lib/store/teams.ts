@@ -122,7 +122,8 @@ export function useTeams(
         );
         if (!cancelled) setFetched({ key, list, error: null });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
           setFetched({
             key,
@@ -218,7 +219,8 @@ export function useTeam(id: string | null): TeamDetailState {
         const team = await teamsApi.get(id, controller.signal);
         if (!cancelled) setFetched({ key, team, error: null });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
           setFetched({
             key,
@@ -464,7 +466,8 @@ export function useTeamMutations() {
       /* Moving a team between departments is one of the two writes that can
          break the rule, so it is one of the two that align. */
       const changedDepartment =
-        body.departmentId !== undefined && body.departmentId !== row.departmentId;
+        body.departmentId !== undefined &&
+        body.departmentId !== row.departmentId;
       const plan = changedDepartment
         ? align(id)
         : { toName: null, moved: [] as ApiMoved[] };

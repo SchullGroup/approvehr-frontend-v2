@@ -92,12 +92,7 @@ import { ApiError, request } from "@/lib/api/client";
  * as opaque: render the label, never re-derive the value.
  */
 export type AttendanceStatus =
-  | "PRESENT"
-  | "LATE"
-  | "ABSENT"
-  | "ON_LEAVE"
-  | "HOLIDAY"
-  | "REST_DAY";
+  "PRESENT" | "LATE" | "ABSENT" | "ON_LEAVE" | "HOLIDAY" | "REST_DAY";
 
 /**
  * The company's working pattern.
@@ -584,7 +579,8 @@ const GEOFENCE_REASONS = ["outside", "unproven", "position_required"] as const;
 export function geofenceRefusal(error: unknown): GeofenceRefusal | null {
   if (!(error instanceof ApiError)) return null;
   const details = error.details;
-  if (details === undefined || details === null || Array.isArray(details)) return null;
+  if (details === undefined || details === null || Array.isArray(details))
+    return null;
   const reason = (details as Record<string, unknown>)["reason"];
   if (typeof reason !== "string") return null;
   if (!GEOFENCE_REASONS.some((known) => known === reason)) return null;
@@ -836,9 +832,12 @@ export const attendanceApi = {
 
   /** Off, not gone. Reports how many people are still assigned there. */
   archiveLocation: (id: string) =>
-    request<{ name: string; assigned?: number }>(`/attendance/locations/${id}`, {
-      method: "DELETE",
-    }),
+    request<{ name: string; assigned?: number }>(
+      `/attendance/locations/${id}`,
+      {
+        method: "DELETE",
+      },
+    ),
 
   /**
    * Back on. Idempotent, so a double click is not an error.
@@ -876,7 +875,10 @@ export const attendanceApi = {
    * or merely switched off.
    */
   registerDevice: (input: NewDeviceInput) =>
-    request<ApiDeviceSecret>("/attendance/devices", { method: "POST", body: input }),
+    request<ApiDeviceSecret>("/attendance/devices", {
+      method: "POST",
+      body: input,
+    }),
 
   updateDevice: (id: string, patch: DevicePatch) =>
     request<ApiAttendanceDevice>(`/attendance/devices/${id}`, {
@@ -890,7 +892,9 @@ export const attendanceApi = {
    * what it reported while it was trusted.
    */
   archiveDevice: (id: string) =>
-    request<ApiAttendanceDevice>(`/attendance/devices/${id}`, { method: "DELETE" }),
+    request<ApiAttendanceDevice>(`/attendance/devices/${id}`, {
+      method: "DELETE",
+    }),
 
   restoreDevice: (id: string) =>
     request<ApiAttendanceDevice>(`/attendance/devices/${id}/restore`, {

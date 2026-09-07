@@ -2,7 +2,14 @@
 
 import { useState } from "react";
 import { Send } from "lucide-react";
-import { Badge, Button, Callout, Card, CardBody, CardHeader } from "@/components/ui";
+import {
+  Badge,
+  Button,
+  Callout,
+  Card,
+  CardBody,
+  CardHeader,
+} from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import type { PayslipSendOutcome } from "@/lib/api/payroll";
 import { usePayrollActions } from "@/lib/store/payroll";
@@ -147,7 +154,9 @@ function Outcome({ outcome }: { outcome: PayslipSendOutcome }) {
         {outcome.sent === 0 ? (
           nothingHappened ? (
             outcome.alreadySent > 0 ? (
-              <>Everybody on this payroll already had theirs. Nothing was sent.</>
+              <>
+                Everybody on this payroll already had theirs. Nothing was sent.
+              </>
             ) : (
               <>There was nobody to send to.</>
             )

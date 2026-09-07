@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { ApiError } from "@/lib/api/client";
 import {
   permissionsApi,
@@ -84,7 +90,8 @@ const DEMO_COPY: Record<
 > = {
   VIEW_SALARIES: {
     label: "See salaries",
-    description: "Open anyone's pay and payslips. Without it, figures stay hidden.",
+    description:
+      "Open anyone's pay and payslips. Without it, figures stay hidden.",
     section: "money",
     sensitive: true,
   },
@@ -108,7 +115,8 @@ const DEMO_COPY: Record<
   },
   APPROVE_LOANS: {
     label: "Approve staff loans",
-    description: "Say yes to a loan, and to the salary deductions that repay it.",
+    description:
+      "Say yes to a loan, and to the salary deductions that repay it.",
     section: "money",
     sensitive: true,
   },
@@ -128,6 +136,12 @@ const DEMO_COPY: Record<
     description: "Post roles, move candidates along, and make offers.",
     section: "people",
   },
+  APPROVE_HIRING: {
+    label: "Approve hiring",
+    description:
+      "Approve a requisition before it opens, and an offer before it goes out.",
+    section: "people",
+  },
   APPROVE_LEAVE: {
     label: "Approve leave for their team",
     description: "Decide requests from the people who report to them.",
@@ -140,12 +154,14 @@ const DEMO_COPY: Record<
   },
   MANAGE_SETTINGS: {
     label: "Change company settings",
-    description: "Company details, leave policy, the working week, and notifications.",
+    description:
+      "Company details, leave policy, the working week, and notifications.",
     section: "company",
   },
   MANAGE_ROLES: {
     label: "Manage access",
-    description: "Decide what everybody else on this page can do. Give it sparingly.",
+    description:
+      "Decide what everybody else on this page can do. Give it sparingly.",
     section: "company",
     sensitive: true,
   },
@@ -164,7 +180,8 @@ const DEMO_COPY: Record<
   },
   IMPORT_DATA: {
     label: "Import a spreadsheet",
-    description: "Add staff in bulk. One wrong file changes hundreds of records.",
+    description:
+      "Add staff in bulk. One wrong file changes hundreds of records.",
     section: "records",
     sensitive: true,
   },
@@ -177,7 +194,10 @@ const DEMO_COPY: Record<
 };
 
 /** Reported, never blocked — a two-person company genuinely has one person doing both. */
-const DEMO_SOD: { permissions: [PermissionKey, PermissionKey]; message: string }[] = [
+const DEMO_SOD: {
+  permissions: [PermissionKey, PermissionKey];
+  message: string;
+}[] = [
   {
     permissions: ["RUN_PAYROLL", "APPROVE_PAYROLL"],
     message:
@@ -300,7 +320,11 @@ const warningsFor = (permissions: readonly PermissionKey[]): string[] =>
     rule.permissions.every((key) => permissions.includes(key)),
   ).map((rule) => rule.message);
 
-function toRole(seed: SeedRole, patch: RolePatch | undefined, isSystem: boolean): ApiRole {
+function toRole(
+  seed: SeedRole,
+  patch: RolePatch | undefined,
+  isSystem: boolean,
+): ApiRole {
   const permissions = ordered(patch?.permissions ?? seed.permissions);
   const members = patch?.members ?? seed.members;
   return {
@@ -319,9 +343,9 @@ function toRole(seed: SeedRole, patch: RolePatch | undefined, isSystem: boolean)
 
 /** The demo's roles, seed plus diff, in the API's own order. */
 function demoRoles(state: DemoState): ApiRole[] {
-  const seeded = SEED_ROLES.filter((role) => !state.deleted.includes(role.id)).map(
-    (role) => toRole(role, state.overrides[role.id], true),
-  );
+  const seeded = SEED_ROLES.filter(
+    (role) => !state.deleted.includes(role.id),
+  ).map((role) => toRole(role, state.overrides[role.id], true));
   const made = state.created
     .filter((role) => !state.deleted.includes(role.id))
     .map((role) => toRole(role, state.overrides[role.id], false))
@@ -333,7 +357,9 @@ function demoRoles(state: DemoState): ApiRole[] {
 function demoMembers(state: DemoState, roleId: string): string[] {
   const patch = state.overrides[roleId];
   if (patch?.members) return patch.members;
-  const seed = [...SEED_ROLES, ...state.created].find((role) => role.id === roleId);
+  const seed = [...SEED_ROLES, ...state.created].find(
+    (role) => role.id === roleId,
+  );
   return seed ? seed.members : [];
 }
 
@@ -365,10 +391,7 @@ function refuse(message: string): never {
 function survivorsOfManageAccess(state: DemoState): number {
   return demoRoles(state)
     .filter((role) => role.permissions.includes("MANAGE_ROLES"))
-    .reduce(
-      (total, role) => total + demoMembers(state, role.id).length,
-      0,
-    );
+    .reduce((total, role) => total + demoMembers(state, role.id).length, 0);
 }
 
 /**
@@ -389,7 +412,10 @@ function assertSomebodyKeepsAccess(before: DemoState, after: DemoState) {
 }
 
 /** The escalation guard, simulated. `held` is what the person editing holds. */
-function assertCanGrant(granting: readonly PermissionKey[], held: PermissionKey[]) {
+function assertCanGrant(
+  granting: readonly PermissionKey[],
+  held: PermissionKey[],
+) {
   const missing = granting.filter((key) => !held.includes(key));
   if (missing.length === 0) return;
   refuse(
@@ -402,7 +428,8 @@ function assertCanGrant(granting: readonly PermissionKey[], held: PermissionKey[
 function assertNameFree(state: DemoState, name: string, exceptId?: string) {
   const clash = demoRoles(state).find(
     (role) =>
-      role.id !== exceptId && role.name.toLowerCase() === name.trim().toLowerCase(),
+      role.id !== exceptId &&
+      role.name.toLowerCase() === name.trim().toLowerCase(),
   );
   if (clash) refuse(`There is already a role called ${clash.name}.`);
 }
@@ -433,7 +460,11 @@ export type RolesState = {
  */
 export function useRoles(held: readonly PermissionKey[] = PERMISSION_KEYS) {
   const { isConnected } = useSession();
-  const state = useSyncExternalStore(demo.subscribe, demo.read, demo.getServerSnapshot);
+  const state = useSyncExternalStore(
+    demo.subscribe,
+    demo.read,
+    demo.getServerSnapshot,
+  );
 
   const [live, setLive] = useState<{
     roles: RoleView[];
@@ -484,15 +515,12 @@ export function useRoles(held: readonly PermissionKey[] = PERMISSION_KEYS) {
 
   const heldList = useMemo(() => [...held], [held]);
 
-  const write = useCallback(
-    (mutate: (current: DemoState) => DemoState) => {
-      const current = demo.current();
-      const next = mutate(current);
-      assertSomebodyKeepsAccess(current, next);
-      demo.commit(next);
-    },
-    [],
-  );
+  const write = useCallback((mutate: (current: DemoState) => DemoState) => {
+    const current = demo.current();
+    const next = mutate(current);
+    assertSomebodyKeepsAccess(current, next);
+    demo.commit(next);
+  }, []);
 
   const create = useCallback(
     async (body: {
@@ -546,7 +574,11 @@ export function useRoles(held: readonly PermissionKey[] = PERMISSION_KEYS) {
       const role = demoRoles(current).find((candidate) => candidate.id === id);
       if (!role) refuse("That role no longer exists. Reload the page.");
 
-      if (role.isSystem && patch.name !== undefined && patch.name !== role.name) {
+      if (
+        role.isSystem &&
+        patch.name !== undefined &&
+        patch.name !== role.name
+      ) {
         refuse(
           `${role.name} is a built-in role, so its name is fixed. Create a new role with the permissions you want instead.`,
         );
@@ -634,7 +666,10 @@ export function useRoles(held: readonly PermissionKey[] = PERMISSION_KEYS) {
       if (isConnected) {
         const result = await permissionsApi.addMembers(id, userIds);
         await load();
-        return { added: result.added.length, alreadyIn: result.alreadyIn.length };
+        return {
+          added: result.added.length,
+          alreadyIn: result.alreadyIn.length,
+        };
       }
 
       const current = demo.current();
@@ -678,7 +713,9 @@ export function useRoles(held: readonly PermissionKey[] = PERMISSION_KEYS) {
           ...state_.overrides,
           [id]: {
             ...state_.overrides[id],
-            members: demoMembers(state_, id).filter((member) => member !== userId),
+            members: demoMembers(state_, id).filter(
+              (member) => member !== userId,
+            ),
           },
         },
       }));
@@ -723,7 +760,11 @@ export function useRoles(held: readonly PermissionKey[] = PERMISSION_KEYS) {
  */
 export function useRoleMembers(roleId: string | null, query = "") {
   const { isConnected } = useSession();
-  const state = useSyncExternalStore(demo.subscribe, demo.read, demo.getServerSnapshot);
+  const state = useSyncExternalStore(
+    demo.subscribe,
+    demo.read,
+    demo.getServerSnapshot,
+  );
 
   /**
    * Keyed by the request it answers.
@@ -765,7 +806,8 @@ export function useRoleMembers(roleId: string | null, query = "") {
         });
       } catch (error) {
         if (cancelled) return;
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         setLive({
           key: want,
           members: [],
@@ -828,9 +870,10 @@ export function useAssignableAccounts(roleIds: string[]) {
   /* Serialised so the effect depends on the ids rather than the array identity,
      and keyed so `loading` is derived rather than set inside the effect. */
   const key = roleIds.join(",");
-  const [loaded, setLoaded] = useState<{ key: string; accounts: RoleMember[] } | null>(
-    null,
-  );
+  const [loaded, setLoaded] = useState<{
+    key: string;
+    accounts: RoleMember[];
+  } | null>(null);
 
   /* Re-ask when somebody comes back to the window. Not in the key below,
      so the answer is replaced without the screen flashing a skeleton. */
@@ -857,8 +900,7 @@ export function useAssignableAccounts(roleIds: string[]) {
     return {
       accounts: fresh?.accounts ?? [],
       loading: fresh === null,
-      note:
-        "Only people who already have an account and hold at least one role can be listed.",
+      note: "Only people who already have an account and hold at least one role can be listed.",
     };
   }
 
@@ -888,7 +930,11 @@ export function useAssignableAccounts(roleIds: string[]) {
  */
 export function useRolePreview() {
   const { isConnected } = useSession();
-  const state = useSyncExternalStore(demo.subscribe, demo.read, demo.getServerSnapshot);
+  const state = useSyncExternalStore(
+    demo.subscribe,
+    demo.read,
+    demo.getServerSnapshot,
+  );
 
   const set = useCallback((roleId: string | null) => {
     demo.commit({ ...demo.current(), previewRoleId: roleId });
@@ -921,9 +967,15 @@ export function useRolePreview() {
  * their badge changes with the next render, which is the whole reason the demo
  * roles are editable at all.
  */
-export function useDemoRoles(employeeId: string | null): { id: string; name: string }[] {
+export function useDemoRoles(
+  employeeId: string | null,
+): { id: string; name: string }[] {
   const { isConnected } = useSession();
-  const state = useSyncExternalStore(demo.subscribe, demo.read, demo.getServerSnapshot);
+  const state = useSyncExternalStore(
+    demo.subscribe,
+    demo.read,
+    demo.getServerSnapshot,
+  );
 
   return useMemo(() => {
     if (isConnected || !employeeId) return [];

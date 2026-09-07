@@ -49,7 +49,9 @@ export function MyLoans({ className }: { className?: string }) {
 
   const live = loans.find(
     (loan) =>
-      loan.status === "ACTIVE" || loan.status === "APPROVED" || loan.status === "PENDING",
+      loan.status === "ACTIVE" ||
+      loan.status === "APPROVED" ||
+      loan.status === "PENDING",
   );
   const past = loans.filter((loan) => loan.status === "SETTLED");
 
@@ -66,7 +68,11 @@ export function MyLoans({ className }: { className?: string }) {
           level={3}
           action={
             live ? undefined : (
-              <Button variant="accent" size="sm" onClick={() => setApplying(true)}>
+              <Button
+                variant="accent"
+                size="sm"
+                onClick={() => setApplying(true)}
+              >
                 Apply for a loan
               </Button>
             )
@@ -96,7 +102,8 @@ export function MyLoans({ className }: { className?: string }) {
                   {LOAN_STATUS_LABEL.PENDING}
                 </Badge>
                 <span className="text-body-sm text-muted">
-                  applied for {formatMoney(naira(live.principalKobo), "NGN", {
+                  applied for{" "}
+                  {formatMoney(naira(live.principalKobo), "NGN", {
                     decimals: true,
                   })}
                 </span>
@@ -109,8 +116,8 @@ export function MyLoans({ className }: { className?: string }) {
                   })}
                 </strong>{" "}
                 comes out of your pay each month for {live.termMonths}{" "}
-                {live.termMonths === 1 ? "month" : "months"}. Nothing is deducted
-                until then.
+                {live.termMonths === 1 ? "month" : "months"}. Nothing is
+                deducted until then.
               </p>
               <div className="flex flex-wrap gap-2">
                 <ButtonLink href={`/payroll/loans/${live.id}`} size="sm">
@@ -150,7 +157,9 @@ export function MyLoans({ className }: { className?: string }) {
                   </p>
                   <p className="mt-1 text-body-sm text-ink">
                     {finishesLabel(live) ??
-                      (live.startPeriod ? monthLabel(live.startPeriod) : "Not set")}
+                      (live.startPeriod
+                        ? monthLabel(live.startPeriod)
+                        : "Not set")}
                   </p>
                 </div>
               </div>
@@ -184,8 +193,8 @@ export function MyLoans({ className }: { className?: string }) {
 
           {past.length > 0 && live && (
             <p className="text-meta text-muted">
-              {past.length} earlier {past.length === 1 ? "loan" : "loans"} repaid
-              in full · {" "}
+              {past.length} earlier {past.length === 1 ? "loan" : "loans"}{" "}
+              repaid in full ·{" "}
               <Link
                 href="/payroll/loans"
                 className="text-accent-text hover:underline"

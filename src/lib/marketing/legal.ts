@@ -314,9 +314,7 @@ const SECURITY: LegalDoc = {
     {
       id: "not-yet",
       heading: "What we do not have",
-      body: [
-        "Starting here, because every other security page buries it.",
-      ],
+      body: ["Starting here, because every other security page buries it."],
       list: [
         "No SOC 2 Type II report. We have not been audited.",
         "No ISO 27001 certificate.",
