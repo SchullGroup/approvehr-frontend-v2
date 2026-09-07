@@ -68,7 +68,14 @@ const BANNED = [
  * copy cannot slip through by containing one.
  */
 const TRUE_IN_PRODUCTION = [
-  "Drafts live in this browser only — they are not on your other",
+  /* The punctuation matters, because this list matches on the exact string.
+     This branch's copy pass changed the em dash to a colon in
+     `people/new/form.tsx` and this entry was not moved with it, so the
+     sentence stopped being stripped and the bundle check started reporting
+     "this browser only" as a leak — which it is not: local drafts are a real
+     production feature, and this sentence is the whole justification for not
+     having built a server-side one. */
+  "Drafts live in this browser only: they are not on your other",
   "In this browser only — it will not be here on another device.",
   "In this browser only. It will not be here on another device.",
 ];
