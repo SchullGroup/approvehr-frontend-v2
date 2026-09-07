@@ -115,7 +115,8 @@ export function AppraisalsCard() {
               period with no report yet — never zeroed. */}
           {/* The whole cycle, not its id: staging changed `PeriodStatus` to take
               the object so it can read the stage and the dates without a
-              second fetch. */}
+              second fetch. Caught by `tsc` when this branch merged staging —
+              the text merged cleanly and the contract had moved. */}
           <PeriodStatus cycle={period} canSeeCompany={canSeeCompany} />
         </>
       ) : (
