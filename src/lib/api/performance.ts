@@ -1457,7 +1457,8 @@ export const POTENTIAL_LABELS: Record<ApiPotentialLevel, string> = {
 
 export const POTENTIAL_MEANING: Record<ApiPotentialLevel, string> = {
   HIGH: "Could take on a substantially bigger or different role within a year or two.",
-  MEDIUM: "Could grow further in this kind of role, or take a bigger one in time.",
+  MEDIUM:
+    "Could grow further in this kind of role, or take a bigger one in time.",
   LOW: "Well placed where they are. This is not a judgement of their value — most people are here, and it is what makes a company work.",
 };
 
@@ -2516,3 +2517,26 @@ export const APPRAISER_ROLE_HELP: Record<AppraiserRole, string> = {
   PROJECT_LEAD: "Ran the work they spent the period on.",
   SKIP_LEVEL: "Their manager's manager, checking the mark.",
 };
+
+/**
+ * The period a screen is about.
+ *
+ * The running one, or the most recent if none is running — never a draft in
+ * preference to a period people are actually answering. `cycles` arrives
+ * newest first, so the first match is the newest match.
+ *
+ * Here rather than in `performance/now.tsx`, where it started, because the
+ * dashboard's appraisals card asks the same question. Two definitions of
+ * "which period are we in" is how the dashboard comes to report on one period
+ * while the performance screen works on another — the same reason `overtimeOn`
+ * moved out of the payroll wizard.
+ */
+export function periodInPlay(
+  periods: readonly ApiCycle[],
+): ApiCycle | undefined {
+  return (
+    periods.find(
+      (period) => period.stage !== "PUBLISHED" && period.stage !== "DRAFT",
+    ) ?? periods[0]
+  );
+}

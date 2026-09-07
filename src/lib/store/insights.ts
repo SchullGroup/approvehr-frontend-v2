@@ -221,6 +221,21 @@ export function useDashboard(): DashboardState & { reload: () => void } {
 
 export function useReports(
   period?: string,
+  /**
+   * Whether to ask at all.
+   *
+   * The dashboard's chart widgets read this endpoint, and most people will not
+   * keep any of them — so a dashboard that always pulled the reports payload
+   * would double the cost of the screen that has to load fastest, for cards
+   * nobody has switched on. `/reports` itself passes nothing and gets the old
+   * behaviour, which is why the default is `true`.
+   *
+   * Off, the demo branch still answers: it is derived from the employee store
+   * with no request in it, so there is nothing to save by withholding it, and
+   * a demo that went blank when a flag flipped would be a second behaviour to
+   * reason about.
+   */
+  enabled = true,
 ): ReportsState & { reload: () => void } {
   const { isConnected } = useSession();
   const { directory } = useEmployeeStore();
@@ -291,7 +306,7 @@ export function useReports(
      so the answer is replaced without the screen flashing a skeleton. */
   const revalidation = useRevalidation();
   useEffect(() => {
-    if (!isConnected) return;
+    if (!isConnected || !enabled) return;
     let cancelled = false;
     void (async () => {
       try {
@@ -313,13 +328,16 @@ export function useReports(
     return () => {
       cancelled = true;
     };
-  }, [isConnected, period, tick, revalidation]);
+  }, [isConnected, enabled, period, tick, revalidation]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
 
   if (!isConnected) {
     return { data: demoData, loading: false, error: null, reload };
   }
+  /* Not asked for: absent and **not loading**. A caller that read `loading`
+     as "wait" would spin for ever on a dashboard with no charts on it. */
+  if (!enabled) return { data: null, loading: false, error: null, reload };
   return fetched
     ? { ...fetched, reload }
     : { data: null, loading: true, error: null, reload };
