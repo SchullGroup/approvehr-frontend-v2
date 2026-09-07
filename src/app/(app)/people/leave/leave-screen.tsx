@@ -61,6 +61,11 @@ import { HolidayCalendarCard } from "./holiday-calendar";
 
 const STATUS: Record<LeaveRowStatus, { tone: BadgeTone; label: string }> = {
   pending: { tone: "warning", label: "Waiting" },
+  /* Warning, not success. Half-approved is still outstanding, and colouring it
+     green would tell the employee to book a flight on a decision nobody has
+     made — which is the same wrong claim as the notification that used to say
+     "approved" at this point. The label says who has it. */
+  awaitingHr: { tone: "warning", label: "With HR" },
   approved: { tone: "success", label: "Approved" },
   declined: { tone: "danger", label: "Sent back" },
   cancelled: { tone: "neutral", label: "Withdrawn" },

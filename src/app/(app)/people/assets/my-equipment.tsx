@@ -16,6 +16,7 @@ import {
 import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
 import { useSession } from "@/lib/store/session";
+import { ReportFaultButton, RepairStatusLine } from "./report-fault";
 import {
   CONDITION_LABEL,
   STATUS_LABEL,
@@ -196,6 +197,22 @@ export function MyAssets({
                           I&apos;ve received this
                         </Button>
                       ))}
+
+                    {/* Where a fault report on this item has got to, if there
+                        is one. Renders nothing otherwise — an empty "no
+                        repairs" line beside every laptop in a company is noise
+                        that teaches people to stop reading this area. */}
+                    <RepairStatusLine assetId={item.itemId} />
+
+                    {/* The feedback's question — "is it the employee who
+                        raises it?" — answered yes, in the one place they are
+                        already looking at the broken thing. */}
+                    {mine && (
+                      <ReportFaultButton
+                        assetId={item.itemId}
+                        assetName={item.name}
+                      />
+                    )}
                   </div>
                   {item.value !== null && (
                     <Money amount={item.value} size="sm" className="shrink-0" />

@@ -161,6 +161,59 @@ export type ApiRepair = {
   open: boolean;
 };
 
+/**
+ * The states a fault report moves through.
+ *
+ * Exactly the feedback's own list — *"Reported → Under Review → In Repair →
+ * Repair Completed → Returned to Employee → Closed"* — plus `REJECTED`, which
+ * is not in it because the feedback did not think about the case where
+ * somebody looks at a fault and decides it is not one. That has to end
+ * somewhere.
+ */
+export type RepairRequestStatus =
+  | "REPORTED"
+  | "UNDER_REVIEW"
+  | "IN_REPAIR"
+  | "REPAIR_COMPLETED"
+  | "RETURNED"
+  | "CLOSED"
+  | "REJECTED";
+
+/**
+ * A fault somebody reported, and where it has got to.
+ *
+ * Deliberately **not** `ApiRepair` above, which is `AssetMaintenance` — HR's
+ * own record of work done, with a vendor and a cost. This is the request: who
+ * reported it and what is wrong. A repair that never happened still has a
+ * request behind it, and a scheduled service has no requester at all.
+ */
+export type ApiRepairRequest = {
+  id: string;
+  assetId: string;
+  assetTag: string;
+  assetName: string;
+  raisedById: string;
+  raisedByName: string;
+  fault: string;
+  status: RepairRequestStatus;
+  /** The API's wording. Do not keep a second copy of these seven. */
+  statusLabel: string;
+  note: string | null;
+  raisedAt: string;
+  updatedAt: string;
+  returnedAt: string | null;
+  closedAt: string | null;
+  /**
+   * What this reader may move it to.
+   *
+   * **Empty is the ordinary answer** for an employee: they raise a fault and
+   * do not run the workshop. Render nothing rather than the buttons disabled —
+   * a control that is present and always refuses teaches people the product is
+   * broken.
+   */
+  nextStatuses: RepairRequestStatus[];
+};
+
 /** `GET /:id` — one item, plus who had it when and what has been fixed. */
 export type ApiAssetDetail = ApiAsset & {
   /** Newest first. The answer to "who had it when it broke". */
@@ -376,6 +429,48 @@ export const assetsApi = {
 
   updateCategory: (id: string, body: UpdateCategoryBody) =>
     request<ApiAssetCategory>(`/assets/categories/${id}`, {
+      method: "PATCH",
+      body,
+    }),
+
+  /**
+   * Fault reports, narrowed to what this reader may see.
+   *
+   * No permission is checked here and none should be: the API resolves the
+   * reader's tier — their own, their department's, the company's — and narrows
+   * the query, so somebody with none gets an empty list rather than a 403 that
+   * confirms other people's fault reports exist.
+   */
+  repairRequests: (
+    params: {
+      status?: RepairRequestStatus;
+      assetId?: string;
+      page?: number;
+      pageSize?: number;
+    } = {},
+    signal?: AbortSignal,
+  ) =>
+    requestPaged<ApiRepairRequest>("/assets/repairs", {
+      query: { pageSize: 50, ...params },
+      ...(signal ? { signal } : {}),
+    }),
+
+  /** Report a fault. Open to anybody holding the item. */
+  reportFault: (assetId: string, fault: string) =>
+    request<ApiRepairRequest>(`/assets/${assetId}/repairs`, {
+      method: "POST",
+      body: { fault },
+    }),
+
+  /**
+   * Move one along. The API refuses a transition the lifecycle forbids and
+   * names what it would accept — show that message, never one written here.
+   */
+  advanceRepair: (
+    id: string,
+    body: { status: RepairRequestStatus; note?: string },
+  ) =>
+    request<ApiRepairRequest>(`/assets/repairs/${id}`, {
       method: "PATCH",
       body,
     }),

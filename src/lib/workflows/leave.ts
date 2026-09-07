@@ -81,7 +81,16 @@ export function balanceForRequest(
 export type LeaveWindow = {
   id: string;
   employeeId: string;
-  status: LeaveStatus;
+  /**
+   * `"awaitingHr"` is accepted alongside the demo's four.
+   *
+   * It is the middle of the two-step workflow — a department head has approved
+   * and HR has not decided — and it has to count as an overlap for the same
+   * reason `pending` does: the question this answers is "will anyone be left
+   * to cover", and a request one signature from being granted is exactly the
+   * one an approver needs to see before adding another.
+   */
+  status: LeaveStatus | "awaitingHr";
   from: string;
   to: string;
 };
@@ -108,7 +117,9 @@ export function clashesWith<T extends LeaveWindow>(
     (r) =>
       r.id !== request.id &&
       r.employeeId !== request.employeeId &&
-      (r.status === "approved" || r.status === "pending") &&
+      (r.status === "approved" ||
+        r.status === "pending" ||
+        r.status === "awaitingHr") &&
       r.from <= request.to &&
       r.to >= request.from,
   );
