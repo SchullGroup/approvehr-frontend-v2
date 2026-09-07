@@ -1,13 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Button,
-  Callout,
-  Field,
-  Input,
-  Modal,
-} from "@/components/ui";
+import { Button, Callout, Field, Input, Modal } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { formatKobo } from "@/lib/api/payroll";
 import { usePaymentActions } from "@/lib/store/payments";
@@ -89,7 +83,12 @@ export function RecordPaidDialog({
       description={`${formatKobo(amountKobo)} to ${people}, on ${reference}.`}
       footer={
         <div className="flex justify-end gap-2">
-          <Button type="button" variant="ghost" onClick={onClose} disabled={saving}>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onClose}
+            disabled={saving}
+          >
             Cancel
           </Button>
           <Button

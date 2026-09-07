@@ -215,7 +215,9 @@ function PersonPicker({
   return (
     <Field label="Who is leaving" required>
       <Select value={value} onChange={(e) => onChange(e.target.value)}>
-        <option value="">{loading ? "Loading people…" : "Choose somebody"}</option>
+        <option value="">
+          {loading ? "Loading people…" : "Choose somebody"}
+        </option>
         {employees.map((person) => (
           <option key={person.id} value={person.id}>
             {person.firstName} {person.lastName} · {person.jobTitle}

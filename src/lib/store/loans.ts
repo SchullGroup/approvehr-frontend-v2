@@ -93,8 +93,14 @@ function withProgress(loan: StoredLoan): ApiLoanDetail {
   const paidKobo = schedule.reduce((total, r) => total + r.paidAmountKobo, 0);
   const waivedKobo = schedule
     .filter((r) => r.status === "WAIVED")
-    .reduce((total, r) => total + Math.max(0, r.amountKobo - r.paidAmountKobo), 0);
-  const remainingKobo = schedule.reduce((total, r) => total + r.remainingKobo, 0);
+    .reduce(
+      (total, r) => total + Math.max(0, r.amountKobo - r.paidAmountKobo),
+      0,
+    );
+  const remainingKobo = schedule.reduce(
+    (total, r) => total + r.remainingKobo,
+    0,
+  );
   const nextDue = schedule.find(
     (r) => r.status === "SCHEDULED" || r.status === "PARTIAL",
   );
@@ -166,73 +172,75 @@ type SeedLoan = {
  * - One is **settled** and one is **declined with a reason**, so those states
  *   have something real behind them.
  */
-const SEED: SeedLoan[] = DEMO_ENABLED ? [
-  {
-    id: "loan-0001",
-    employeeId: "p-03",
-    principal: 600_000,
-    termMonths: 6,
-    interestRate: 0,
-    status: "ACTIVE",
-    reason: "Deposit on a flat closer to the office.",
-    createdAt: "2026-03-21T10:12:00.000Z",
-    startPeriod: "2026-04-01",
-    /* April, May and June recovered in full. July took ₦12,000 of ₦100,000 —
+const SEED: SeedLoan[] = DEMO_ENABLED
+  ? [
+      {
+        id: "loan-0001",
+        employeeId: "p-03",
+        principal: 600_000,
+        termMonths: 6,
+        interestRate: 0,
+        status: "ACTIVE",
+        reason: "Deposit on a flat closer to the office.",
+        createdAt: "2026-03-21T10:12:00.000Z",
+        startPeriod: "2026-04-01",
+        /* April, May and June recovered in full. July took ₦12,000 of ₦100,000 —
        the month the salary would not carry it. */
-    paid: [100_000, 100_000, 100_000, 12_000],
-    decidedById: "p-02",
-    decidedAt: "2026-03-24T08:40:00.000Z",
-  },
-  {
-    id: "loan-0002",
-    employeeId: "p-05",
-    principal: 250_000,
-    termMonths: 5,
-    interestRate: 0,
-    status: "PENDING",
-    reason: "School fees for my daughter's second term.",
-    createdAt: "2026-08-14T14:05:00.000Z",
-  },
-  {
-    id: "loan-0003",
-    employeeId: "p-04",
-    principal: 900_000,
-    termMonths: 12,
-    interestRate: 0.05,
-    status: "PENDING",
-    reason: "My landlord wants two years' rent up front.",
-    createdAt: "2026-08-17T09:32:00.000Z",
-  },
-  {
-    id: "loan-0004",
-    employeeId: "p-07",
-    principal: 180_000,
-    termMonths: 3,
-    interestRate: 0,
-    status: "SETTLED",
-    reason: "Generator repair after the flood.",
-    createdAt: "2026-01-18T11:20:00.000Z",
-    startPeriod: "2026-02-01",
-    paid: [60_000, 60_000, 60_000],
-    decidedById: "p-02",
-    decidedAt: "2026-01-19T15:02:00.000Z",
-    completedAt: "2026-04-28T10:00:00.000Z",
-  },
-  {
-    id: "loan-0005",
-    employeeId: "p-09",
-    principal: 2_000_000,
-    termMonths: 4,
-    interestRate: 0,
-    status: "DECLINED",
-    reason: "Buying a car.",
-    createdAt: "2026-08-06T16:41:00.000Z",
-    declinedReason:
-      "Four months would take ₦500,000 a month, which is more than half your take-home. Reapply over twelve months and we can look at it again.",
-    decidedById: "p-02",
-    decidedAt: "2026-08-07T09:10:00.000Z",
-  },
-] : [];
+        paid: [100_000, 100_000, 100_000, 12_000],
+        decidedById: "p-02",
+        decidedAt: "2026-03-24T08:40:00.000Z",
+      },
+      {
+        id: "loan-0002",
+        employeeId: "p-05",
+        principal: 250_000,
+        termMonths: 5,
+        interestRate: 0,
+        status: "PENDING",
+        reason: "School fees for my daughter's second term.",
+        createdAt: "2026-08-14T14:05:00.000Z",
+      },
+      {
+        id: "loan-0003",
+        employeeId: "p-04",
+        principal: 900_000,
+        termMonths: 12,
+        interestRate: 0.05,
+        status: "PENDING",
+        reason: "My landlord wants two years' rent up front.",
+        createdAt: "2026-08-17T09:32:00.000Z",
+      },
+      {
+        id: "loan-0004",
+        employeeId: "p-07",
+        principal: 180_000,
+        termMonths: 3,
+        interestRate: 0,
+        status: "SETTLED",
+        reason: "Generator repair after the flood.",
+        createdAt: "2026-01-18T11:20:00.000Z",
+        startPeriod: "2026-02-01",
+        paid: [60_000, 60_000, 60_000],
+        decidedById: "p-02",
+        decidedAt: "2026-01-19T15:02:00.000Z",
+        completedAt: "2026-04-28T10:00:00.000Z",
+      },
+      {
+        id: "loan-0005",
+        employeeId: "p-09",
+        principal: 2_000_000,
+        termMonths: 4,
+        interestRate: 0,
+        status: "DECLINED",
+        reason: "Buying a car.",
+        createdAt: "2026-08-06T16:41:00.000Z",
+        declinedReason:
+          "Four months would take ₦500,000 a month, which is more than half your take-home. Reapply over twelve months and we can look at it again.",
+        decidedById: "p-02",
+        decidedAt: "2026-08-07T09:10:00.000Z",
+      },
+    ]
+  : [];
 
 /** Who a demo loan belongs to. The seed directory is the only name source here. */
 function personOf(employeeId: string): {
@@ -259,7 +267,10 @@ function seedSchedule(seed: SeedLoan): ApiRepayment[] {
 
   return schedule.lines.map((line, index) => {
     const waived = seed.waived?.includes(line.sequence) ?? false;
-    const paidAmountKobo = Math.min(kobo(seed.paid?.[index] ?? 0), line.amountKobo);
+    const paidAmountKobo = Math.min(
+      kobo(seed.paid?.[index] ?? 0),
+      line.amountKobo,
+    );
     const status: LoanRepaymentStatus = waived
       ? "WAIVED"
       : paidAmountKobo >= line.amountKobo
@@ -501,7 +512,8 @@ export function useLoans(params: LoanListParamsWithScope = {}): LoanListState {
           });
         }
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
           setFetched({
             key,
@@ -607,7 +619,8 @@ export function useLoan(id: string | null): {
         const loan = await loansApi.get(id, controller.signal);
         if (!cancelled) setFetched({ id, loan, error: null });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
           setFetched({
             id,
@@ -679,7 +692,8 @@ export function useLoanSummary(enabled = true): {
         const summary = await loansApi.summary(controller.signal);
         if (!cancelled) setFetched({ key, summary, error: null });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
           setFetched({
             key,
@@ -714,7 +728,10 @@ export function useLoanSummary(enabled = true): {
 
     return {
       period: thisMonth.slice(0, 7),
-      outstandingKobo: active_.reduce((total, loan) => total + loan.outstandingKobo, 0),
+      outstandingKobo: active_.reduce(
+        (total, loan) => total + loan.outstandingKobo,
+        0,
+      ),
       activeCount: active_.length,
       pendingCount: loans.filter((loan) => loan.status === "PENDING").length,
       thisMonth: {
@@ -728,7 +745,11 @@ export function useLoanSummary(enabled = true): {
   }, [book]);
 
   if (!isConnected) {
-    return { summary: enabled ? demoSummary : null, loading: false, error: null };
+    return {
+      summary: enabled ? demoSummary : null,
+      loading: false,
+      error: null,
+    };
   }
 
   const matched = fetched !== null && fetched.key === key;
@@ -760,7 +781,11 @@ export type LoanActions = {
   /** `{}` approves exactly as applied for. Fields are a counter-offer. */
   approve: (id: string, body?: ApproveLoanBody) => Promise<ApiLoanDetail>;
   decline: (id: string, reason: string) => Promise<ApiLoanDetail>;
-  pay: (id: string, sequence: number, body: PayRepaymentBody) => Promise<ApiLoanDetail>;
+  pay: (
+    id: string,
+    sequence: number,
+    body: PayRepaymentBody,
+  ) => Promise<ApiLoanDetail>;
   waive: (id: string, sequence: number, note: string) => Promise<ApiLoanDetail>;
   /** True when these writes reach the API. */
   live: boolean;
@@ -774,7 +799,8 @@ export function useLoanActions(): LoanActions {
     (id: string, change: (loan: StoredLoan) => StoredLoan): ApiLoanDetail => {
       const book = currentBook();
       const found = book.find((loan) => loan.id === id);
-      if (!found) throw new ApiError(404, "not_found", "That loan no longer exists.");
+      if (!found)
+        throw new ApiError(404, "not_found", "That loan no longer exists.");
       const next = change(found);
       commitBook(book.map((loan) => (loan.id === id ? next : loan)));
       bumpRevision();
@@ -800,7 +826,10 @@ export function useLoanActions(): LoanActions {
       const book = currentBook();
       const live = book
         .map(withProgress)
-        .find((loan) => loan.employeeId === employeeId && LIVE.includes(loan.status));
+        .find(
+          (loan) =>
+            loan.employeeId === employeeId && LIVE.includes(loan.status),
+        );
       if (live) {
         throw conflict(
           live.status === "PENDING"
@@ -969,7 +998,8 @@ export function useLoanActions(): LoanActions {
           );
         }
         const row = loan.schedule.find((r) => r.sequence === sequence);
-        if (!row) throw unprocessable("That instalment is not on this schedule.");
+        if (!row)
+          throw unprocessable("That instalment is not on this schedule.");
         if (row.status === "WAIVED") {
           throw conflict("That instalment has been written off.");
         }
@@ -1002,7 +1032,10 @@ export function useLoanActions(): LoanActions {
           ...loan,
           schedule,
           ...(settled
-            ? { status: "SETTLED" as LoanStatus, completedAt: new Date().toISOString() }
+            ? {
+                status: "SETTLED" as LoanStatus,
+                completedAt: new Date().toISOString(),
+              }
             : {}),
         };
       });
@@ -1011,7 +1044,11 @@ export function useLoanActions(): LoanActions {
   );
 
   const waive = useCallback(
-    async (id: string, sequence: number, note: string): Promise<ApiLoanDetail> => {
+    async (
+      id: string,
+      sequence: number,
+      note: string,
+    ): Promise<ApiLoanDetail> => {
       if (isConnected) {
         const loan = await loansApi.waive(id, sequence, note);
         bumpRevision();
@@ -1020,17 +1057,25 @@ export function useLoanActions(): LoanActions {
 
       return write(id, (loan) => {
         const row = loan.schedule.find((r) => r.sequence === sequence);
-        if (!row) throw unprocessable("That instalment is not on this schedule.");
+        if (!row)
+          throw unprocessable("That instalment is not on this schedule.");
         if (row.status === "WAIVED") {
           throw conflict("That instalment is already written off.");
         }
         if (row.status === "PAID") {
-          throw conflict("That instalment is paid. There is nothing left to write off.");
+          throw conflict(
+            "That instalment is paid. There is nothing left to write off.",
+          );
         }
 
         const schedule = loan.schedule.map((r) =>
           r.sequence === sequence
-            ? { ...r, status: "WAIVED" as LoanRepaymentStatus, remainingKobo: 0, note }
+            ? {
+                ...r,
+                status: "WAIVED" as LoanRepaymentStatus,
+                remainingKobo: 0,
+                note,
+              }
             : r,
         );
         const settled = schedule.every(
@@ -1041,7 +1086,10 @@ export function useLoanActions(): LoanActions {
           ...loan,
           schedule,
           ...(settled
-            ? { status: "SETTLED" as LoanStatus, completedAt: new Date().toISOString() }
+            ? {
+                status: "SETTLED" as LoanStatus,
+                completedAt: new Date().toISOString(),
+              }
             : {}),
         };
       });

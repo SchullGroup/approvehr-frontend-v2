@@ -1394,8 +1394,29 @@ export function usePayrollActions() {
       period: string;
       payDate: string;
       label?: string;
+      offCycle?: boolean;
+      runSequence?: number;
     }): Promise<PreparedRun> => {
       if (isConnected) return payrollApi.prepare(input);
+
+      if (input.offCycle || input.runSequence !== undefined) {
+        /* Refused rather than quietly resuming the month's own run, which is
+           what ignoring the flag would do — and that is the worst available
+           behaviour: somebody preparing a final settlement would overwrite the
+           payroll everybody else is on.
+
+           The demo keeps one run per period (`DemoRunRecord` is keyed on it),
+           so supporting this offline means a second store shape for a feature
+           whose whole point is a second row in a table the demo does not have.
+           `store/departments.ts`'s argument, where it genuinely holds. */
+        throw new ApiError(
+          422,
+          "unprocessable",
+          "An extra payroll beside a month that already has one needs the " +
+            "server: it is a second run against the same period, and this demo " +
+            "keeps one.",
+        );
+      }
 
       const state = demoStore.current();
       const existing = state.runs.find((r) => r.period === input.period);
@@ -1550,7 +1571,11 @@ export function usePayrollActions() {
          not to explain; typing "x" is defeating a dialog. */
       const reason = input.reason?.trim() ?? "";
       if (reason.length > 0 && reason.length < 4) {
-        throw new ApiError(422, "unprocessable", "Say a little more than that.");
+        throw new ApiError(
+          422,
+          "unprocessable",
+          "Say a little more than that.",
+        );
       }
 
       const state = demoStore.current();
@@ -1692,7 +1717,8 @@ export function usePayrollActions() {
 
   const clearOvertimeOverride = useCallback(
     async (runId: string, employeeId: string): Promise<PreparedRun> => {
-      if (isConnected) return payrollApi.clearOvertimeOverride(runId, employeeId);
+      if (isConnected)
+        return payrollApi.clearOvertimeOverride(runId, employeeId);
       throw new ApiError(
         0,
         "offline",
@@ -1783,7 +1809,10 @@ export function usePayrollActions() {
   const lineSummary = useCallback(
     async (
       runId: string,
-    ): Promise<{ bonuses: LineSummaryByEmployee; deductions: LineSummaryByEmployee }> => {
+    ): Promise<{
+      bonuses: LineSummaryByEmployee;
+      deductions: LineSummaryByEmployee;
+    }> => {
       if (isConnected) return payrollApi.lineSummary(runId);
       return { bonuses: {}, deductions: {} };
     },
@@ -1813,9 +1842,9 @@ export function usePayrollActions() {
         "offline",
         input.kind === "bonus"
           ? "Adding a bonus needs the API. It moves gross and the tax on it, " +
-            "and the demo has no engine to recompute either."
+              "and the demo has no engine to recompute either."
           : "Entering a deduction needs the API. It comes off take-home pay " +
-            "after tax, and the demo has no engine to recompute the payslip.",
+              "after tax, and the demo has no engine to recompute the payslip.",
       );
     },
     [isConnected],

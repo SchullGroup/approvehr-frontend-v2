@@ -327,6 +327,26 @@ export type EmployeeListParams = {
   order?: "asc" | "desc";
 };
 
+export type ApiOrgNode = {
+  id: string;
+  employeeNo: string;
+  name: string;
+  jobTitle: string;
+  department: string | null;
+  workLocation: string | null;
+  status: string;
+  reports: ApiOrgNode[];
+  /** Everybody below them at any depth, not only their direct reports. */
+  totalBelow: number;
+};
+
+export type ApiOrgChart = {
+  roots: ApiOrgNode[];
+  covered: number;
+  /** People whose reporting line loops. Rendered as roots and named, never dropped. */
+  detached: { id: string; name: string }[];
+};
+
 /**
  * The directory's header counts, from the API, under the caller's own filter.
  *
@@ -355,7 +375,15 @@ export type EmployeeSummary = {
  * filter that means "only the ready ones". Dropping a false here would silently
  * turn "show me who is ready" into "show me everybody".
  */
-function employeeQuery(params: EmployeeListParams) {
+/**
+ * The directory filter, as query parameters.
+ *
+ * Exported so the staff export sends **this** object rather than building its
+ * own. Two serialisations of one filter is how a downloaded file comes to cover
+ * a different set of people than the table it was downloaded from, and the file
+ * is the copy that gets emailed.
+ */
+export function employeeQuery(params: EmployeeListParams) {
   return {
     ...params,
     includeArchived: params.includeArchived ? "true" : undefined,
@@ -410,8 +438,43 @@ export const employees = {
       ...(signal ? { signal } : {}),
     }),
 
+  /**
+   * The reporting line, as a tree.
+   *
+   * Assembled on the API rather than walked here — a second implementation is
+   * how two screens come to disagree about who somebody reports to, and it is
+   * one request rather than one per level. **No salary is in this payload at
+   * any permission**; a caller wanting pay asks the directory, which withholds
+   * it properly.
+   */
+  orgChart: (signal?: AbortSignal) =>
+    request<ApiOrgChart>("/employees/org-chart", {
+      ...(signal ? { signal } : {}),
+    }),
+
   get: (id: string, signal?: AbortSignal) =>
     request<ApiEmployee>(`/employees/${id}`, { ...(signal ? { signal } : {}) }),
+
+  /**
+   * Move several people into a department or an office at once.
+   *
+   * One request, not one per person: two hundred `PATCH`es is two hundred round
+   * trips and a partial state if the twelfth fails — the lesson
+   * `payroll/adjustments` already paid for.
+   *
+   * The result counts what actually **moved**, which is not the number of ids
+   * sent: somebody already in that department is not a move, and the sentence
+   * under the button has to be true of what happened.
+   */
+  bulkAssign: (input: {
+    employeeIds: string[];
+    departmentId?: string | null;
+    workLocationId?: string | null;
+  }) =>
+    request<{ requested: number; moved: number; alreadyThere: number }>(
+      "/employees/bulk-assign",
+      { method: "POST", body: input },
+    ),
 
   create: (body: Record<string, unknown>) =>
     request<ApiEmployee>("/employees", { method: "POST", body }),

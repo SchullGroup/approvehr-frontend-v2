@@ -116,11 +116,15 @@ function check(draft: Draft): Problems {
   const summary = draft.summary.trim();
   const description = draft.description.trim();
 
-  if (title.length < 3) problems.title = "Give the role a title people search for.";
-  else if (title.length > 120) problems.title = "Too long for a job board listing.";
+  if (title.length < 3)
+    problems.title = "Give the role a title people search for.";
+  else if (title.length > 120)
+    problems.title = "Too long for a job board listing.";
 
-  if (summary.length < 20) problems.summary = "Write a line or two saying what the job is.";
-  else if (summary.length > 400) problems.summary = "Keep it to a couple of lines.";
+  if (summary.length < 20)
+    problems.summary = "Write a line or two saying what the job is.";
+  else if (summary.length > 400)
+    problems.summary = "Keep it to a couple of lines.";
 
   if (description.length < 50)
     problems.description =
@@ -188,7 +192,9 @@ export function PostingEditor({
           salaryMaxKobo: max === null ? null : kobo(max),
           closesOn: draft.closesOn === "" ? null : draft.closesOn,
           requisitionId:
-            draft.requisitionId.trim() === "" ? null : draft.requisitionId.trim(),
+            draft.requisitionId.trim() === ""
+              ? null
+              : draft.requisitionId.trim(),
           /* Only while it is still a draft, and only when it actually changed
              to something. Sending it after publishing is refused by name, so
              the field is not even rendered by then; an empty box means "leave
@@ -338,7 +344,8 @@ export function PostingEditor({
           <Field
             optional
             label="Last day to apply"
-            help="Leave blank to keep it open. It drops off the list the day after.">
+            help="Leave blank to keep it open. It drops off the list the day after."
+          >
             <Input
               type="date"
               value={draft.closesOn}
@@ -369,8 +376,8 @@ export function PostingEditor({
               {careersPath(posting.publicPath)}
             </p>
             <p className="mt-1.5 text-body-sm text-muted">
-              People have this link already. Close this advert and write a new one
-              if the address has to be different.
+              People have this link already. Close this advert and write a new
+              one if the address has to be different.
             </p>
           </div>
         ) : (
@@ -378,7 +385,8 @@ export function PostingEditor({
             optional
             label="Link"
             help="Leave blank and we make one from the title. It is fixed once you publish."
-            error={problemFor("slug")}>
+            error={problemFor("slug")}
+          >
             <Input
               value={draft.slug}
               placeholder="payroll-officer"

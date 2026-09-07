@@ -43,7 +43,8 @@ import {
 export type AssetConditionCode = "NEW" | "GOOD" | "FAIR" | "POOR" | "DAMAGED";
 
 /** The statuses a person may set. `ASSIGNED` is not one — see `assetRowRules`. */
-export type SettableAssetStatusCode = "AVAILABLE" | "IN_REPAIR" | "RETIRED" | "LOST";
+export type SettableAssetStatusCode =
+  "AVAILABLE" | "IN_REPAIR" | "RETIRED" | "LOST";
 
 export type AssetField =
   | "kind"
@@ -120,7 +121,7 @@ const COLUMNS: readonly ColumnSpec<AssetField>[] = [
     ],
     required: true,
     example: 'MacBook Air 13"',
-    note: "What it's called, e.g. \"MacBook Pro 14-inch\".",
+    note: 'What it\'s called, e.g. "MacBook Pro 14-inch".',
   },
   {
     field: "mustReturn",
@@ -213,7 +214,12 @@ const COLUMNS: readonly ColumnSpec<AssetField>[] = [
   {
     field: "status",
     column: "status",
-    aliases: ["asset_status", "location_status", "availability", "state_of_use"],
+    aliases: [
+      "asset_status",
+      "location_status",
+      "availability",
+      "state_of_use",
+    ],
     required: false,
     example: "available",
     note: "available, in_repair, retired or lost. Say who holds it below, not here.",
@@ -408,7 +414,10 @@ function assetRowRules(ctx: RowContext<AssetField>): void {
   }
 
   const mustReturn = text("mustReturn");
-  if (mustReturn !== "" && MUST_RETURN[normalizeKey(mustReturn)] === undefined) {
+  if (
+    mustReturn !== "" &&
+    MUST_RETURN[normalizeKey(mustReturn)] === undefined
+  ) {
     error(
       "mustReturn",
       `We do not know what "${mustReturn}" means here. Write yes if a leaver has to hand it back, or no if they keep it.`,
@@ -446,7 +455,10 @@ function assetRowRules(ctx: RowContext<AssetField>): void {
     const digits = value.replace(/[^\d.]/g, "");
     const kobo = Math.round(Number(digits) * 100);
     if (Number.isFinite(kobo) && kobo > MAX_VALUE_KOBO) {
-      error("value", "That is too much for one item. Check for a misplaced decimal point.");
+      error(
+        "value",
+        "That is too much for one item. Check for a misplaced decimal point.",
+      );
     }
   }
 

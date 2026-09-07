@@ -136,7 +136,9 @@ function Endpoints() {
           : `${hostOf(webhook.url)} is off`,
         tone: active ? "success" : "info",
         ...(active
-          ? { detail: "Send a test event to check it before the next real one." }
+          ? {
+              detail: "Send a test event to check it before the next real one.",
+            }
           : {}),
       });
       list.reload();
@@ -175,7 +177,11 @@ function Endpoints() {
 
         {/* No `&&` guard: the component renders nothing without an error, and
             an `unknown &&` expression is not a valid React child. */}
-        <LoadFailure subject="your endpoints" error={list.error} onRetry={list.reload} />
+        <LoadFailure
+          subject="your endpoints"
+          error={list.error}
+          onRetry={list.reload}
+        />
 
         <div className="flex flex-wrap items-center gap-3">
           <SegmentedControl
@@ -247,8 +253,8 @@ function Endpoints() {
               Newer
             </Button>
             <span className="text-body-sm tabular text-muted">
-              {list.total === 1 ? "1 endpoint" : `${list.total} endpoints`} · page{" "}
-              {page}
+              {list.total === 1 ? "1 endpoint" : `${list.total} endpoints`} ·
+              page {page}
             </span>
             <Button
               variant="secondary"
@@ -263,7 +269,8 @@ function Endpoints() {
 
         {list.rows.length > 0 && (
           <p className="text-body-sm text-body">
-            An endpoint that fails repeatedly is switched off and a notice goes to{" "}
+            An endpoint that fails repeatedly is switched off and a notice goes
+            to{" "}
             <Link
               href="/notifications"
               className="font-medium text-accent-text underline decoration-accent-line underline-offset-2"

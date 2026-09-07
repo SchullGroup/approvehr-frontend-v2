@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { FileQuestion, ShieldCheck } from "lucide-react";
+import { FileQuestion, LineChart, ShieldCheck } from "lucide-react";
 import {
   Badge,
   Button,
+  ButtonLink,
   Card,
   CardBody,
   CardFooter,
@@ -100,7 +101,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
     return (
       <>
         <PageHeader
-          breadcrumb={[{ href: "/performance", label: "KPIs & appraisals" }]}
+          breadcrumb={[{ href: "/performance", label: "Performance" }]}
           title="Appraisal"
         />
         <PageBody className="flex items-center gap-2 py-16 text-body-sm text-muted">
@@ -115,7 +116,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
     return (
       <>
         <PageHeader
-          breadcrumb={[{ href: "/performance", label: "KPIs & appraisals" }]}
+          breadcrumb={[{ href: "/performance", label: "Performance" }]}
           title="Appraisal"
         />
         <PageBody>
@@ -171,7 +172,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
   return (
     <>
       <PageHeader
-        breadcrumb={[{ href: "/performance", label: "KPIs & appraisals" }]}
+        breadcrumb={[{ href: "/performance", label: "Performance" }]}
         title={review.kindLabel}
         meta={
           <>
@@ -198,6 +199,22 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
               </Badge>
             )}
           </>
+        }
+        /* One mark is not a judgement about somebody — it is one point on a
+           line, and the line already exists and is already permissioned
+           (`assertSeesEmployee`: self, direct report, or `EDIT_RECORDS`). The
+           register row and the record page both link to it; the screen where
+           somebody is actually deciding a rating was the one place that did
+           not, which is exactly where the previous periods matter most. */
+        action={
+          <ButtonLink
+            href={`/performance/history/${review.subjectId}`}
+            variant="secondary"
+            size="sm"
+          >
+            <LineChart aria-hidden="true" className="size-3.5" />
+            {isSubject ? "My previous marks" : "Previous marks"}
+          </ButtonLink>
         }
       />
 

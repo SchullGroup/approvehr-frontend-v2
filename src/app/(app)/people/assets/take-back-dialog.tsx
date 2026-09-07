@@ -105,7 +105,11 @@ export function TakeBackDialog({
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="accent" disabled={busy} onClick={() => void submit()}>
+          <Button
+            variant="accent"
+            disabled={busy}
+            onClick={() => void submit()}
+          >
             {busy ? "Recording…" : "Take it back"}
           </Button>
         </div>
@@ -173,11 +177,13 @@ export function TakeBackDialog({
                   setCondition(value);
                 }}
               >
-                {CONDITIONS.filter((value) => value !== "DAMAGED").map((value) => (
-                  <option key={value} value={value}>
-                    {CONDITION_LABEL[value]}
-                  </option>
-                ))}
+                {CONDITIONS.filter((value) => value !== "DAMAGED").map(
+                  (value) => (
+                    <option key={value} value={value}>
+                      {CONDITION_LABEL[value]}
+                    </option>
+                  ),
+                )}
               </Select>
             </Field>
           )}

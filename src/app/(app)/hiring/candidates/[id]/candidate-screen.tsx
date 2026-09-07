@@ -48,9 +48,13 @@ import {
 } from "@/lib/api/hiring";
 import { usePermissions } from "@/lib/permissions";
 import { useApplicantRecord, useOfferBands } from "@/lib/store/hiring";
+import { useRealPipelineApplication } from "@/lib/store/recruitment";
+import { useSession } from "@/lib/store/session";
 import { STAGES, fullName, type PipelineCard } from "@/lib/types";
 import { daysInStage } from "@/lib/mock/hiring";
 import { employeeById } from "@/lib/mock/people";
+import { RealPipeline, RealRole, realOutcomeBadge } from "./real-pipeline";
+import type { ApiApplicationDetail } from "@/lib/api/recruitment";
 
 /**
  * One person's file.
@@ -95,7 +99,7 @@ export function CandidateScreen({ id }: { id: string }) {
     );
   }
 
-  if (!can("MANAGE_HIRING")) {
+  if (!can("MANAGE_HIRING") && !can("APPROVE_HIRING")) {
     return (
       <>
         <PageHeader title="Candidate" />
@@ -104,7 +108,7 @@ export function CandidateScreen({ id }: { id: string }) {
             <EmptyState
               icon={<Lock aria-hidden="true" />}
               title="You cannot see candidates"
-              description="This record holds a stranger's phone number and salary expectation, so it is kept to whoever hires. Ask whoever manages access to add hiring to your role."
+              description="This record holds a stranger's phone number and salary expectation, so it is kept to whoever hires or approves hiring. Ask whoever manages access to add one of those to your role."
               action={
                 <ButtonLink href="/hiring" variant="secondary" size="sm">
                   Back to hiring
@@ -124,13 +128,21 @@ export function CandidateScreen({ id }: { id: string }) {
 
 function Record({ id }: { id: string }) {
   const view = useApplicantRecord(id);
+  const { isConnected } = useSession();
+  const real = useRealPipelineApplication(id, view.record?.candidateId ?? null);
   const [screening, setScreening] = useState(false);
   const [declining, setDeclining] = useState(false);
   const toast = useToast();
 
   const { record, card } = view;
+  /* Connected, the pipeline is real or it does not exist for this person yet
+     — never the seed, even though it is still compiled into a dev build.
+     `card` is only ever consulted while genuinely offline. */
 
-  if (view.loading && record === null && card === null) {
+  const stillResolving =
+    (view.loading && record === null && card === null) ||
+    (isConnected && real.loading && record === null);
+  if (stillResolving) {
     return (
       <>
         <PageHeader title="Candidate" />
@@ -143,11 +155,23 @@ function Record({ id }: { id: string }) {
     );
   }
 
-  if (record === null && card === null) {
-    return <NotFoundHere id={id} error={view.error} onRetry={view.reload} />;
+  if (
+    record === null &&
+    (isConnected ? real.application === null : card === null)
+  ) {
+    return (
+      <NotFoundHere
+        id={id}
+        error={view.error ?? real.error}
+        onRetry={view.reload}
+      />
+    );
   }
 
-  const name = record?.name ?? (card ? fullName(card.candidate) : "Candidate");
+  const name =
+    record?.name ??
+    (isConnected ? real.application?.candidateName : undefined) ??
+    (card ? fullName(card.candidate) : "Candidate");
   const fail = (error: unknown) =>
     toast.push({
       title: "That did not work",
@@ -158,24 +182,42 @@ function Record({ id }: { id: string }) {
           : "Something went wrong. Try again.",
     });
 
+  const realApp: ApiApplicationDetail | null = isConnected
+    ? real.application
+    : null;
+
   return (
     <>
       <PageHeader
         breadcrumb={[
           { href: "/hiring", label: "Pipeline" },
-          ...(card
+          ...(realApp
             ? [
                 {
-                  href: `/hiring/requisitions/${card.requisitionId}`,
-                  label: card.requisition.title,
+                  href: `/hiring/requisitions/${realApp.requisitionId}`,
+                  label: realApp.requisitionJobTitle,
                 },
               ]
-            : [{ href: "/hiring/postings/applications", label: "Applications" }]),
+            : card
+              ? [
+                  {
+                    href: `/hiring/requisitions/${card.requisitionId}`,
+                    label: card.requisition.title,
+                  },
+                ]
+              : [
+                  {
+                    href: "/hiring/postings/applications",
+                    label: "Applications",
+                  },
+                ]),
           { href: `/hiring/candidates/${id}`, label: name },
         ]}
         title={name}
         meta={
-          card ? (
+          realApp ? (
+            realOutcomeBadge(realApp)
+          ) : card ? (
             <StagePill stage={card.stage} outcome={card.outcome} />
           ) : record ? (
             <Badge tone={APPLICATION_STATUS_TONE[record.status]} dot>
@@ -184,7 +226,15 @@ function Record({ id }: { id: string }) {
           ) : undefined
         }
         action={
-          card ? (
+          realApp ? (
+            <ButtonLink
+              href={`/hiring/requisitions/${realApp.requisitionId}`}
+              variant="secondary"
+              size="sm"
+            >
+              Back to pipeline
+            </ButtonLink>
+          ) : card ? (
             <ButtonLink
               href={`/hiring/requisitions/${card.requisitionId}`}
               variant="secondary"
@@ -214,6 +264,7 @@ function Record({ id }: { id: string }) {
                   <p className="text-h4 text-ink">{name}</p>
                   <p className="mt-0.5 text-body-sm text-muted">
                     {card?.candidate.currentTitle ??
+                      realApp?.requisitionJobTitle ??
                       record?.postingTitle ??
                       "Applicant"}
                   </p>
@@ -229,11 +280,13 @@ function Record({ id }: { id: string }) {
                 )}
               </CardBody>
               <CardBody className="border-t border-line">
-                <Contact record={record} card={card} />
+                <Contact record={record} card={card} real={realApp} />
               </CardBody>
             </Card>
 
-            {card ? (
+            {realApp ? (
+              <RealRole application={realApp} />
+            ) : card ? (
               <SeededRole card={card} />
             ) : record ? (
               <LiveAdvert record={record} live={view.live} />
@@ -251,6 +304,24 @@ function Record({ id }: { id: string }) {
                 onDecline={() => setDeclining(true)}
                 onRetry={view.reload}
               />
+            ) : realApp ? (
+              <Card>
+                <CardHeader title="Their application" />
+                <CardBody>
+                  <p className="text-body-sm text-body">
+                    Opened from the pipeline board, which does not carry the
+                    original careers-page application. Find it from{" "}
+                    <ButtonLink
+                      href="/hiring/postings/applications"
+                      variant="ghost"
+                      size="sm"
+                    >
+                      the applications queue
+                    </ButtonLink>{" "}
+                    to read what they wrote and their CV.
+                  </p>
+                </CardBody>
+              </Card>
             ) : (
               <Card>
                 <CardHeader
@@ -267,7 +338,20 @@ function Record({ id }: { id: string }) {
               </Card>
             )}
 
-            {card ? (
+            {realApp ? (
+              <RealPipeline application={realApp} onChanged={real.reload} />
+            ) : isConnected ? (
+              <Card>
+                <CardHeader title="Their pipeline record" />
+                <CardBody className="flex flex-col items-start gap-3">
+                  <p className="text-body-sm text-body">
+                    {record?.waiting
+                      ? "Screen them in to start a pipeline record — stage, interviews, scorecards and any offer all live there once they are."
+                      : "Nobody has screened this person into a role's pipeline yet."}
+                  </p>
+                </CardBody>
+              </Card>
+            ) : card ? (
               <Pipeline card={card} />
             ) : (
               <Card>
@@ -277,9 +361,10 @@ function Record({ id }: { id: string }) {
                 />
                 <CardBody className="flex flex-col items-start gap-3">
                   <p className="text-body-sm text-body">
-                    The stage they are in, their interviews, their scorecards and
-                    any offer were written by the API and cannot be read back: the pipeline has no endpoint yet. The application above is
-                    everything this page can show for certain.
+                    The stage they are in, their interviews, their scorecards
+                    and any offer were written by the API and cannot be read
+                    back: the pipeline has no endpoint yet. The application
+                    above is everything this page can show for certain.
                   </p>
                   <ButtonLink href="/hiring" variant="secondary" size="sm">
                     Back to hiring
@@ -322,7 +407,9 @@ function Record({ id }: { id: string }) {
           onClose={() => setDeclining(false)}
           onConfirm={async (reason) => {
             try {
-              await view.screenOut(reason.trim() === "" ? undefined : reason.trim());
+              await view.screenOut(
+                reason.trim() === "" ? undefined : reason.trim(),
+              );
               toast.push({
                 title: `${record.name} turned down`,
                 tone: "success",
@@ -351,29 +438,45 @@ function Record({ id }: { id: string }) {
 function Contact({
   record,
   card,
+  real,
 }: {
   record: ApplicantRecord | null;
   card: PipelineCard | null;
+  real: ApiApplicationDetail | null;
 }) {
   const rows: { icon: React.ReactNode; text: string; href?: string }[] = [];
-  const email = record?.email ?? card?.candidate.email;
-  const phone = record?.phone ?? card?.candidate.phone ?? null;
+  const email = record?.email ?? card?.candidate.email ?? real?.candidate.email;
+  const phone =
+    record?.phone ?? card?.candidate.phone ?? real?.candidate.phone ?? null;
 
   if (email) {
-    rows.push({ icon: <Mail aria-hidden="true" />, text: email, href: `mailto:${email}` });
+    rows.push({
+      icon: <Mail aria-hidden="true" />,
+      text: email,
+      href: `mailto:${email}`,
+    });
   }
   if (phone) {
-    rows.push({ icon: <Phone aria-hidden="true" />, text: phone, href: `tel:${phone}` });
+    rows.push({
+      icon: <Phone aria-hidden="true" />,
+      text: phone,
+      href: `tel:${phone}`,
+    });
   }
   if (card) {
-    rows.push({ icon: <MapPin aria-hidden="true" />, text: card.candidate.location });
+    rows.push({
+      icon: <MapPin aria-hidden="true" />,
+      text: card.candidate.location,
+    });
   }
 
   return (
     <ul className="flex flex-col gap-2.5">
       {rows.map((row) => (
         <li key={row.text} className="flex items-center gap-2.5">
-          <span className="shrink-0 text-faint [&>svg]:size-3.5">{row.icon}</span>
+          <span className="shrink-0 text-faint [&>svg]:size-3.5">
+            {row.icon}
+          </span>
           {row.href ? (
             <a
               href={row.href}
@@ -406,9 +509,7 @@ function SeededRole({ card }: { card: PipelineCard }) {
     <Card>
       <CardBody className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-meta font-semibold text-muted">
-            Applying for
-          </h2>
+          <h2 className="text-meta font-semibold text-muted">Applying for</h2>
           <SourceBadge live={false} />
         </div>
         <Link
@@ -446,7 +547,8 @@ function SeededRole({ card }: { card: PipelineCard }) {
             },
             {
               term: "Source",
-              value: SOURCE_LABEL[card.candidate.source] ?? card.candidate.source,
+              value:
+                SOURCE_LABEL[card.candidate.source] ?? card.candidate.source,
             },
             { term: "Days in stage", value: `${daysInStage(card)} days` },
           ]}
@@ -566,16 +668,17 @@ function Application({
             </p>
           </div>
         ) : (
-          <p className="text-body-sm text-muted">
-            They sent no covering note.
-          </p>
+          <p className="text-body-sm text-muted">They sent no covering note.</p>
         )}
 
         {/* The CV. `cvUrl` is null in every environment while no object store is
             wired, and the API's own sentence explains why rather than this
             screen inventing one. */}
         <div className="flex flex-wrap items-center gap-2.5 rounded-md border border-line p-3">
-          <Paperclip aria-hidden="true" className="size-4 shrink-0 text-faint" />
+          <Paperclip
+            aria-hidden="true"
+            className="size-4 shrink-0 text-faint"
+          />
           {record.cvUrl ? (
             <a
               href={record.cvUrl}
@@ -633,7 +736,11 @@ function Application({
               Screening somebody in writes a candidate into the pipeline, so it
               needs the API.
             </p>
-            <Button variant="secondary" size="sm" onClick={() => void onRetry()}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => void onRetry()}
+            >
               Check again
             </Button>
           </div>
@@ -673,7 +780,8 @@ function Pipeline({ card }: { card: PipelineCard }) {
       ? submitted.reduce(
           (sum, sc) =>
             sum +
-            sc.ratings.reduce((a, r) => a + r.score, 0) / (sc.ratings.length || 1),
+            sc.ratings.reduce((a, r) => a + r.score, 0) /
+              (sc.ratings.length || 1),
           0,
         ) / submitted.length
       : null;
@@ -793,8 +901,8 @@ function Pipeline({ card }: { card: PipelineCard }) {
                   return e ? fullName(e) : "Unknown";
                 })
                 .join(", ")}{" "}
-              has not submitted. The candidate cannot leave Interview until every
-              scorecard is in.
+              has not submitted. The candidate cannot leave Interview until
+              every scorecard is in.
             </Callout>
           )}
 
@@ -808,7 +916,10 @@ function Pipeline({ card }: { card: PipelineCard }) {
                     {who ? fullName(who) : "Unknown"}
                   </span>
                   {sc.recommendation && (
-                    <Badge tone={RECOMMENDATION[sc.recommendation].tone} size="sm">
+                    <Badge
+                      tone={RECOMMENDATION[sc.recommendation].tone}
+                      size="sm"
+                    >
                       {RECOMMENDATION[sc.recommendation].label}
                     </Badge>
                   )}
@@ -822,7 +933,11 @@ function Pipeline({ card }: { card: PipelineCard }) {
                       label={r.competency}
                       size="sm"
                       tone={
-                        r.score >= 4 ? "success" : r.score >= 3 ? "accent" : "warning"
+                        r.score >= 4
+                          ? "success"
+                          : r.score >= 3
+                            ? "accent"
+                            : "warning"
                       }
                     />
                   ))}
@@ -871,13 +986,16 @@ function Pipeline({ card }: { card: PipelineCard }) {
                     hour: "2-digit",
                     minute: "2-digit",
                   })}{" "}
-                  · {iv.durationMins} mins · {" "}
+                  · {iv.durationMins} mins ·{" "}
                   {iv.interviewerIds
                     .map((x) => employeeById(x)?.firstName ?? "?")
                     .join(", ")}
                 </p>
               </div>
-              <Badge tone={iv.status === "completed" ? "success" : "info"} size="sm">
+              <Badge
+                tone={iv.status === "completed" ? "success" : "info"}
+                size="sm"
+              >
                 {iv.status}
               </Badge>
             </div>

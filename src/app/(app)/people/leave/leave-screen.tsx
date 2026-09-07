@@ -35,6 +35,7 @@ import {
   TD,
   TDPrimary,
   TH,
+  SortableTH,
   THead,
   TR,
   TableWrap,
@@ -133,6 +134,37 @@ export function LeaveScreen() {
   /* Somebody who cannot decide leave for everyone is only shown their own. */
   const onlyMine = !canDecide || scope === "mine";
 
+  /**
+   * The column the **server** orders by, and which way.
+   *
+   * Server-side, which is the only kind that is not a lie here: this screen
+   * holds up to 200 rows out of however many the company has, and reordering
+   * those 200 in the browser would present the top of a page as the top of the
+   * list. `SortableTH`'s own header says the same thing.
+   *
+   * `null` is the queue's own order — pending first, then by start date — which
+   * is what somebody gets before they touch anything. The API keeps that
+   * default and lets an explicit sort take over, so a header does what it says.
+   */
+  const [sort, setSort] = useState<string | null>(null);
+  const [order, setOrder] = useState<"asc" | "desc">("asc");
+  const toggleSort = (column: string, startDescending = false) => {
+    if (sort !== column) {
+      setSort(column);
+      setOrder(startDescending ? "desc" : "asc");
+      return;
+    }
+    /* Third press returns to the queue rather than cycling asc/desc for ever:
+       "pending first" is a view somebody wants back, and there is otherwise no
+       way to ask for it short of reloading. */
+    if (order === (startDescending ? "asc" : "desc")) {
+      setSort(null);
+      setOrder("asc");
+      return;
+    }
+    setOrder(order === "asc" ? "desc" : "asc");
+  };
+
   const {
     requests: fetched,
     total,
@@ -142,6 +174,7 @@ export function LeaveScreen() {
     reload,
   } = useLeaveRequests({
     pageSize: 200,
+    ...(sort ? { sort, order } : {}),
     /* Connected this is the API's own filter, so the count in the header is the
        real one rather than the length of a page filtered afterwards. */
     ...(onlyMine && employeeId ? { employeeId } : {}),
@@ -296,7 +329,11 @@ export function LeaveScreen() {
       />
 
       <PageBody className="flex flex-col gap-6">
-        <LoadFailure subject="the leave requests" error={error}  onRetry={reload}/>
+        <LoadFailure
+          subject="the leave requests"
+          error={error}
+          onRetry={reload}
+        />
 
         {noRecord && (
           <Callout tone="info" title="This account has no employee record">
@@ -341,7 +378,11 @@ export function LeaveScreen() {
         <Card className="min-w-0">
           <CardHeader
             title="Requests"
-            description="Waiting first, then by start date."
+            description={
+              sort === null
+                ? "Waiting first, then by start date."
+                : "In the order you asked for, across every request — not just this page."
+            }
             action={
               <div className="flex items-center gap-3">
                 {loading && (
@@ -386,10 +427,37 @@ export function LeaveScreen() {
               <THead>
                 <TH>Employee</TH>
                 <TH>Type</TH>
-                <TH>Dates</TH>
-                <TH align="right">Days</TH>
+                {/* `startDate` — the API's allow-list name, not the column's
+                    label. A name it does not recognise falls back to the queue,
+                    which is a header that appears to do nothing. */}
+                <SortableTH
+                  column="startDate"
+                  active={sort ?? ""}
+                  order={order}
+                  onSort={(column) => toggleSort(column, true)}
+                  startDescending
+                >
+                  Dates
+                </SortableTH>
+                <SortableTH
+                  column="days"
+                  active={sort ?? ""}
+                  order={order}
+                  onSort={(column) => toggleSort(column, true)}
+                  align="right"
+                  startDescending
+                >
+                  Days
+                </SortableTH>
                 <TH>Approver</TH>
-                <TH>Status</TH>
+                <SortableTH
+                  column="status"
+                  active={sort ?? ""}
+                  order={order}
+                  onSort={(column) => toggleSort(column)}
+                >
+                  Status
+                </SortableTH>
                 <TH align="right">Decision</TH>
                 <TH align="right">
                   <span className="sr-only">Open</span>

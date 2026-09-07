@@ -214,7 +214,8 @@ export function rosterFor({
         holiday: 4,
         rest_day: 5,
       };
-      if (rank[a.status] !== rank[b.status]) return rank[a.status] - rank[b.status];
+      if (rank[a.status] !== rank[b.status])
+        return rank[a.status] - rank[b.status];
       return a.employee.firstName.localeCompare(b.employee.firstName);
     });
 }
@@ -323,9 +324,7 @@ export function prorationFor({
   workingDaysPerMonth: number;
 }): Proration {
   const fraction =
-    workingDaysPerMonth > 0
-      ? Math.min(1, unpaidDays / workingDaysPerMonth)
-      : 0;
+    workingDaysPerMonth > 0 ? Math.min(1, unpaidDays / workingDaysPerMonth) : 0;
   return {
     unpaidDays,
     workingDaysPerMonth,

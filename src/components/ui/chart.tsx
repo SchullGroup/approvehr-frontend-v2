@@ -66,26 +66,41 @@ function DataTable({
   format: (n: number) => string;
 }) {
   return (
-    <table className="sr-only-focusable">
-      <caption>{caption}</caption>
-      <thead>
-        <tr>
-          <th scope="col">Label</th>
-          <th scope="col">Value</th>
-        </tr>
-      </thead>
-      <tbody>
-        {points.map((p) => (
-          <tr key={p.label}>
-            <th scope="row">{p.label}</th>
-            {/* "Nothing recorded", never "0". This table is the chart for
+    /* The clip lives on a wrapping div, not on the table.
+       ------------------------------------------------------------------
+       `sr-only-focusable` sets `width: 1px`, and a `<table>` does not honour
+       it: under automatic table layout the *used* width is at least the
+       min-content width, so this table laid out at 545px. It was invisible —
+       `clip` still worked — and because it is absolutely positioned it extended
+       the document's scrollable overflow anyway. On a 375px phone the dashboard
+       scrolled sideways to 585px, and every gate in this repo was blind to it:
+       nothing renders, measures or screenshots at that width.
+
+       A `<div>` honours `width: 1px`. Measured on the live dashboard: the
+       document went from 585px to 420px the moment the wrapper went in.
+       `table-layout: fixed` was tried first and changed nothing. */
+    <div className="sr-only-focusable">
+      <table>
+        <caption>{caption}</caption>
+        <thead>
+          <tr>
+            <th scope="col">Label</th>
+            <th scope="col">Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          {points.map((p) => (
+            <tr key={p.label}>
+              <th scope="row">{p.label}</th>
+              {/* "Nothing recorded", never "0". This table is the chart for
                 anybody not looking at it, and it has to make the same
                 distinction the gap makes. */}
-            <td>{p.value === null ? "Nothing recorded" : format(p.value)}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+              <td>{p.value === null ? "Nothing recorded" : format(p.value)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

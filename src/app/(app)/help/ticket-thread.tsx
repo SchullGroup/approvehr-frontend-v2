@@ -26,15 +26,17 @@ import {
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
-import {
-  formatWorkingMinutes,
-  type TicketPriority,
-} from "@/lib/api/helpdesk";
+import { formatWorkingMinutes, type TicketPriority } from "@/lib/api/helpdesk";
 import { useCan } from "@/lib/permissions";
 import { useSession } from "@/lib/store/session";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { useTicket } from "@/lib/store/helpdesk";
-import { INTERNAL_LABEL, InternalBadge, PRIORITY, TicketClockBadge } from "./ticket-labels";
+import {
+  INTERNAL_LABEL,
+  InternalBadge,
+  PRIORITY,
+  TicketClockBadge,
+} from "./ticket-labels";
 
 /**
  * One ticket, as a conversation.
@@ -126,7 +128,9 @@ export function TicketThread({
         open
         onClose={onClose}
         title={detail ? detail.subject : "Request"}
-        {...(detail ? { description: `${detail.reference} · ${detail.category}` } : {})}
+        {...(detail
+          ? { description: `${detail.reference} · ${detail.category}` }
+          : {})}
         size="xl"
         footer={
           detail ? (
@@ -181,7 +185,7 @@ export function TicketThread({
           </div>
         )}
 
-        <LoadFailure subject="this ticket" error={ticket.error}/>
+        <LoadFailure subject="this ticket" error={ticket.error} />
 
         {detail && (
           <div className="flex flex-col gap-5">
@@ -544,7 +548,9 @@ function Composer({
         <Textarea
           value={draft}
           rows={3}
-          placeholder={note ? "Something the requester must not read." : "Type your reply."}
+          placeholder={
+            note ? "Something the requester must not read." : "Type your reply."
+          }
           onChange={(event) => {
             const value = event.target.value;
             onDraft(value);

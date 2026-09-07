@@ -105,7 +105,9 @@ export function BulkInviteButton({
             email: person.email,
           })),
       );
-      setRoles(roleList.roles.map((role) => ({ id: role.id, name: role.name })));
+      setRoles(
+        roleList.roles.map((role) => ({ id: role.id, name: role.name })),
+      );
       /* "Employee" carries no permissions at all, which is exactly right for
          somebody being set up for nothing but their own payslips and their own
          requests. */

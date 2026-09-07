@@ -101,7 +101,9 @@ export function DeclineLoanModal({
     try {
       await decline(loan.id, reason.trim());
       toast.push({
-        title: own ? "Application withdrawn" : `Declined ${loan.employeeName}'s loan`,
+        title: own
+          ? "Application withdrawn"
+          : `Declined ${loan.employeeName}'s loan`,
         tone: "success",
         detail: own ? undefined : "They will see the reason you gave.",
       });
@@ -119,7 +121,11 @@ export function DeclineLoanModal({
       open
       onClose={onClose}
       size="sm"
-      title={own ? "Withdraw this application" : `Decline ${loan.employeeName}'s loan`}
+      title={
+        own
+          ? "Withdraw this application"
+          : `Decline ${loan.employeeName}'s loan`
+      }
       description={
         own
           ? "Nothing is deducted and you can apply again whenever you like."
@@ -148,7 +154,9 @@ export function DeclineLoanModal({
           </Callout>
         )}
         <Field
-          label={own ? "Why are you withdrawing it?" : "Why are you declining it?"}
+          label={
+            own ? "Why are you withdrawing it?" : "Why are you declining it?"
+          }
           required
           error={failure?.messageFor("reason")}
           help={
@@ -291,7 +299,9 @@ export function CounterOfferModal({
         >
           <Select
             value={startsIn}
-            onChange={(event) => setStartsIn(event.target.value as "0" | "1" | "2")}
+            onChange={(event) =>
+              setStartsIn(event.target.value as "0" | "1" | "2")
+            }
           >
             <option value="0">{monthLabel(addMonths(TODAY, 0))}</option>
             <option value="1">{monthLabel(addMonths(TODAY, 1))}</option>

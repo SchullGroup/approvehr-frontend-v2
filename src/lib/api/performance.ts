@@ -1391,6 +1391,95 @@ function listQuery(
 
 const signalOf = (signal?: AbortSignal) => (signal ? { signal } : {});
 
+export type ApiPotentialLevel = "LOW" | "MEDIUM" | "HIGH";
+export type ApiPerformanceAxis = "BELOW" | "MEETS" | "EXCEEDS";
+
+export type ApiNineBoxPerson = {
+  employeeId: string;
+  employeeName: string;
+  jobTitle: string;
+  departmentId: string | null;
+  departmentName: string | null;
+  /** Null where nothing has been recorded. Never a zero. */
+  scoreBp: number | null;
+  band: string | null;
+  bandLabel: string | null;
+  performance: ApiPerformanceAxis | null;
+  potential: ApiPotentialLevel | null;
+  potentialReason: string | null;
+  potentialAssessedAt: string | null;
+  /** The box, or null when either half is missing. */
+  box: string | null;
+};
+
+export type ApiNineBoxCell = {
+  box: string;
+  potential: ApiPotentialLevel;
+  performance: ApiPerformanceAxis;
+  label: string;
+  meaning: string;
+  people: ApiNineBoxPerson[];
+};
+
+export type ApiNineBox = {
+  cycleId: string;
+  cells: ApiNineBoxCell[];
+  /**
+   * Everybody the grid could not place, split by which half is missing.
+   *
+   * A list rather than a tenth box, and that is the shape of the whole
+   * feature: somebody nobody has assessed is **not low potential**, and
+   * somebody with no mark is **not a low performer**. Rendering either at the
+   * bottom of a scale would be a claim, on a grid whose bottom row is the one
+   * a company acts on hardest.
+   */
+  unplaced: {
+    noPotential: ApiNineBoxPerson[];
+    noPerformance: ApiNineBoxPerson[];
+    neither: ApiNineBoxPerson[];
+  };
+  counts: { people: number; placed: number; unplaced: number };
+};
+
+/**
+ * What the two axes claim, written here because the grid renders them and the
+ * server sends the per-box sentences with the cells.
+ *
+ * `LOW` is the one that has to be on screen. It does not mean somebody is not
+ * valued; a grid that lets a manager read it that way is a grid that does
+ * damage.
+ */
+export const POTENTIAL_LABELS: Record<ApiPotentialLevel, string> = {
+  HIGH: "High potential",
+  MEDIUM: "Some potential",
+  LOW: "At their level",
+};
+
+export const POTENTIAL_MEANING: Record<ApiPotentialLevel, string> = {
+  HIGH: "Could take on a substantially bigger or different role within a year or two.",
+  MEDIUM:
+    "Could grow further in this kind of role, or take a bigger one in time.",
+  LOW: "Well placed where they are. This is not a judgement of their value — most people are here, and it is what makes a company work.",
+};
+
+export const PERFORMANCE_AXIS_LABELS: Record<ApiPerformanceAxis, string> = {
+  BELOW: "Below expectations",
+  MEETS: "Meets expectations",
+  EXCEEDS: "Exceeds expectations",
+};
+
+/** The API's own floor, so somebody is told before they press rather than by a 422. */
+export const POTENTIAL_REASON_MIN = 10;
+
+export function potentialReasonProblem(reason: string): string | null {
+  if (reason.trim().length >= POTENTIAL_REASON_MIN) return null;
+  return (
+    `Say why in a sentence — at least ${String(POTENTIAL_REASON_MIN)} characters. ` +
+    "This placement is read by the people who decide promotions, and one " +
+    "nobody can explain should not be deciding anything."
+  );
+}
+
 export const performanceApi = {
   /* ------------------------------------------------------------------ goals */
 
@@ -1860,6 +1949,38 @@ export const performanceApi = {
     request<ApiCycleReport>(
       `/performance/cycles/${cycleId}/report`,
       signalOf(signal),
+    ),
+
+  /**
+   * The nine-box for one cycle.
+   *
+   * `EDIT_RECORDS`, like the report. Deliberately not open to a manager for
+   * their own reports: a grid three people wide is three placements out of
+   * context, and the value of the exercise is seeing the whole population at
+   * once.
+   */
+  nineBox: (cycleId: string, signal?: AbortSignal) =>
+    request<ApiNineBox>(
+      `/performance/cycles/${cycleId}/nine-box`,
+      signalOf(signal),
+    ),
+
+  /** Record or move somebody's potential. The reason is required — see above. */
+  setPotential: (
+    cycleId: string,
+    employeeId: string,
+    body: { level: ApiPotentialLevel; reason: string },
+  ) =>
+    request<ApiNineBoxPerson>(
+      `/performance/cycles/${cycleId}/potential/${employeeId}`,
+      { method: "PUT", body },
+    ),
+
+  /** Take a placement off. They return to unplaced, never to the bottom row. */
+  clearPotential: (cycleId: string, employeeId: string) =>
+    request<{ cleared: boolean }>(
+      `/performance/cycles/${cycleId}/potential/${employeeId}`,
+      { method: "DELETE" },
     ),
 
   /**
@@ -2396,3 +2517,26 @@ export const APPRAISER_ROLE_HELP: Record<AppraiserRole, string> = {
   PROJECT_LEAD: "Ran the work they spent the period on.",
   SKIP_LEVEL: "Their manager's manager, checking the mark.",
 };
+
+/**
+ * The period a screen is about.
+ *
+ * The running one, or the most recent if none is running — never a draft in
+ * preference to a period people are actually answering. `cycles` arrives
+ * newest first, so the first match is the newest match.
+ *
+ * Here rather than in `performance/now.tsx`, where it started, because the
+ * dashboard's appraisals card asks the same question. Two definitions of
+ * "which period are we in" is how the dashboard comes to report on one period
+ * while the performance screen works on another — the same reason `overtimeOn`
+ * moved out of the payroll wizard.
+ */
+export function periodInPlay(
+  periods: readonly ApiCycle[],
+): ApiCycle | undefined {
+  return (
+    periods.find(
+      (period) => period.stage !== "PUBLISHED" && period.stage !== "DRAFT",
+    ) ?? periods[0]
+  );
+}

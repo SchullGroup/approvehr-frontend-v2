@@ -100,8 +100,7 @@ export function RotaGrid({
       ArrowLeft: () => move(row, col - 1),
       ArrowDown: () => move(row + 1, col),
       ArrowUp: () => move(row - 1, col),
-      Home: () =>
-        event.ctrlKey || event.metaKey ? move(0, 0) : move(row, 0),
+      Home: () => (event.ctrlKey || event.metaKey ? move(0, 0) : move(row, 0)),
       End: () =>
         event.ctrlKey || event.metaKey
           ? move(rows.length - 1, days.length - 1)
@@ -154,7 +153,10 @@ export function RotaGrid({
                 aria-label={
                   cover.length > 0
                     ? `${spokenDay(date)}. ${cover
-                        .map((entry) => `${entry.people} on ${nameOfShift(entry.shiftId)}`)
+                        .map(
+                          (entry) =>
+                            `${entry.people} on ${nameOfShift(entry.shiftId)}`,
+                        )
                         .join(", ")}`
                     : `${spokenDay(date)}. Nobody on.`
                 }
@@ -290,7 +292,8 @@ export function ShiftLegend({
             />
             <span className="text-body-sm text-body">
               <span className="font-semibold text-ink">{shift.shortName}</span>{" "}
-              {shift.name} · <span className="tabular">{timesLabel(shift)}</span>
+              {shift.name} ·{" "}
+              <span className="tabular">{timesLabel(shift)}</span>
             </span>
           </li>
         );

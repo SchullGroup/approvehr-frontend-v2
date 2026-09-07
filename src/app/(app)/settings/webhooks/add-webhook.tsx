@@ -1,7 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, ChevronDown, ChevronRight, KeyRound } from "lucide-react";
+import {
+  AlertTriangle,
+  ChevronDown,
+  ChevronRight,
+  KeyRound,
+} from "lucide-react";
 import {
   Button,
   ButtonLink,
@@ -158,8 +163,8 @@ export function AddWebhookModal({
           </div>
 
           <p className="text-body-sm text-body">
-            Nothing is sent until you press <strong>Send test event</strong>. How
-            to check the signature is on that page too.
+            Nothing is sent until you press <strong>Send test event</strong>.
+            How to check the signature is on that page too.
           </p>
         </div>
       </Modal>

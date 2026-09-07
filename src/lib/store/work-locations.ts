@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { ApiError } from "@/lib/api/client";
 import {
   GEOFENCE_ALL_OR_NOTHING,
@@ -144,7 +150,9 @@ function enforced(row: {
   remoteAllowed: boolean;
 }): boolean {
   const whole =
-    row.latitude !== null && row.longitude !== null && row.radiusMetres !== null;
+    row.latitude !== null &&
+    row.longitude !== null &&
+    row.radiusMetres !== null;
   return whole && !row.remoteAllowed;
 }
 
@@ -187,7 +195,6 @@ const NO_LOCATIONS: ApiWorkLocation[] = [];
  */
 const DEMO_ARCHIVED_AT = "1970-01-01T00:00:00.000Z";
 
-
 /**
  * Every location, for the screen that manages them.
  *
@@ -196,7 +203,9 @@ const DEMO_ARCHIVED_AT = "1970-01-01T00:00:00.000Z";
  * that quietly offered a closed branch would let somebody clock in at a place
  * that no longer exists.
  */
-export function useWorkLocationList(includeArchived: boolean): WorkLocationsState {
+export function useWorkLocationList(
+  includeArchived: boolean,
+): WorkLocationsState {
   const { isConnected } = useSession();
   const demo = useSyncExternalStore(
     demoStore.subscribe,
@@ -228,7 +237,8 @@ export function useWorkLocationList(includeArchived: boolean): WorkLocationsStat
         );
         if (!cancelled) setFetched({ key, locations, error: null });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
           setFetched({
             key,
@@ -253,7 +263,9 @@ export function useWorkLocationList(includeArchived: boolean): WorkLocationsStat
         ? { ...location, archivedAt: DEMO_ARCHIVED_AT }
         : location,
     );
-    return (includeArchived ? rows : rows.filter((row) => row.archivedAt === null))
+    return (
+      includeArchived ? rows : rows.filter((row) => row.archivedAt === null)
+    )
       .slice()
       .sort(byName);
   }, [demo, includeArchived]);
@@ -335,7 +347,8 @@ export type LocationsState = {
  * the places somebody may be assigned to today, plus a way to add one inline.
  */
 export function useWorkLocations(): LocationsState {
-  const { locations, loading, error, source, reload } = useWorkLocationList(false);
+  const { locations, loading, error, source, reload } =
+    useWorkLocationList(false);
   const { create } = useWorkLocationMutations();
 
   /* `reload` rather than folding the new row into local state: the API answers a
@@ -362,7 +375,9 @@ export type WorkLocationMutations = {
   update: (id: string, patch: WorkLocationPatch) => Promise<ApiWorkLocation>;
   /** Off, not gone. Reports how many people are still assigned there. */
   archive: (id: string) => Promise<{ name: string; assigned?: number }>;
-  restore: (id: string) => Promise<{ id: string; name: string; alreadyOn: boolean }>;
+  restore: (
+    id: string,
+  ) => Promise<{ id: string; name: string; alreadyOn: boolean }>;
 };
 
 /**
@@ -413,7 +428,9 @@ export function useWorkLocationMutations(): WorkLocationMutations {
       const row: ApiWorkLocation = {
         id: demoId(),
         name,
-        addressLine: input.addressLine?.trim() ? input.addressLine.trim() : null,
+        addressLine: input.addressLine?.trim()
+          ? input.addressLine.trim()
+          : null,
         ...fence,
         geofenceEnforced: enforced(fence),
         archivedAt: null,
@@ -433,13 +450,15 @@ export function useWorkLocationMutations(): WorkLocationMutations {
 
       const state = demoStore.current();
       const existing = state.locations.find((location) => location.id === id);
-      if (!existing) refuse(404, "not_found", "That work location was not found.");
+      if (!existing)
+        refuse(404, "not_found", "That work location was not found.");
 
       const name = patch.name === undefined ? existing.name : patch.name.trim();
       if (name.toLowerCase() !== existing.name.toLowerCase()) {
         const clash = state.locations.find(
           (location) =>
-            location.id !== id && location.name.toLowerCase() === name.toLowerCase(),
+            location.id !== id &&
+            location.name.toLowerCase() === name.toLowerCase(),
         );
         if (clash) {
           refuse(
@@ -468,7 +487,8 @@ export function useWorkLocationMutations(): WorkLocationMutations {
           patch.remoteAllowed === undefined
             ? existing.remoteAllowed
             : patch.remoteAllowed,
-        latitude: patch.latitude === undefined ? existing.latitude : patch.latitude,
+        latitude:
+          patch.latitude === undefined ? existing.latitude : patch.latitude,
         longitude:
           patch.longitude === undefined ? existing.longitude : patch.longitude,
         radiusMetres:
@@ -477,7 +497,10 @@ export function useWorkLocationMutations(): WorkLocationMutations {
             : patch.radiusMetres,
       };
       assertWholeFence(merged);
-      const next: ApiWorkLocation = { ...merged, geofenceEnforced: enforced(merged) };
+      const next: ApiWorkLocation = {
+        ...merged,
+        geofenceEnforced: enforced(merged),
+      };
 
       demoStore.commit({
         ...state,
@@ -496,7 +519,8 @@ export function useWorkLocationMutations(): WorkLocationMutations {
 
       const state = demoStore.current();
       const existing = state.locations.find((location) => location.id === id);
-      if (!existing) refuse(404, "not_found", "That work location was not found.");
+      if (!existing)
+        refuse(404, "not_found", "That work location was not found.");
       if (state.archived.includes(id)) return { name: existing.name };
 
       /* Archived, never deleted, in both modes: an attendance entry and an
@@ -512,12 +536,15 @@ export function useWorkLocationMutations(): WorkLocationMutations {
   );
 
   const restore = useCallback(
-    async (id: string): Promise<{ id: string; name: string; alreadyOn: boolean }> => {
+    async (
+      id: string,
+    ): Promise<{ id: string; name: string; alreadyOn: boolean }> => {
       if (isConnected) return attendanceApi.restoreLocation(id);
 
       const state = demoStore.current();
       const existing = state.locations.find((location) => location.id === id);
-      if (!existing) refuse(404, "not_found", "That work location was not found.");
+      if (!existing)
+        refuse(404, "not_found", "That work location was not found.");
       if (!state.archived.includes(id)) {
         return { id, name: existing.name, alreadyOn: true };
       }

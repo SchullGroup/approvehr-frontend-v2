@@ -92,11 +92,20 @@ const away = (ms: number) => {
 
 const before = revalidationCount();
 away(AWAY_MS + 500);
-if (revalidationCount() === before + 1) pass("a return after a real absence bumps");
-else fail("a return after a real absence bumps", `count went ${before} -> ${revalidationCount()}`);
+if (revalidationCount() === before + 1)
+  pass("a return after a real absence bumps");
+else
+  fail(
+    "a return after a real absence bumps",
+    `count went ${before} -> ${revalidationCount()}`,
+  );
 
 if (notified === 1) pass("and subscribers are told exactly once");
-else fail("and subscribers are told exactly once", `notified ${String(notified)} times`);
+else
+  fail(
+    "and subscribers are told exactly once",
+    `notified ${String(notified)} times`,
+  );
 
 /* The floor. A second return straight away must not bump again. */
 const afterFirst = revalidationCount();
@@ -112,7 +121,8 @@ else
 /* Past the floor, it bumps again. */
 clock += MIN_INTERVAL_MS;
 away(AWAY_MS + 500);
-if (revalidationCount() === afterFirst + 1) pass("past the floor it bumps again");
+if (revalidationCount() === afterFirst + 1)
+  pass("past the floor it bumps again");
 else fail("past the floor it bumps again", `count is ${revalidationCount()}`);
 
 /* A glance away is not an absence. */
@@ -121,7 +131,8 @@ const beforeGlance = revalidationCount();
 away(AWAY_MS - 1);
 if (revalidationCount() === beforeGlance)
   pass("a glance shorter than the away threshold does not bump");
-else fail("a glance shorter than the away threshold does not bump", "it bumped");
+else
+  fail("a glance shorter than the away threshold does not bump", "it bumped");
 
 /* Coming back to a still-hidden document is not coming back. */
 clock += MIN_INTERVAL_MS;
@@ -141,7 +152,8 @@ focused = true;
 emit("visibilitychange");
 if (revalidationCount() === beforeHidden + 1)
   pass("becoming visible again does bump");
-else fail("becoming visible again does bump", `count is ${revalidationCount()}`);
+else
+  fail("becoming visible again does bump", `count is ${revalidationCount()}`);
 
 Date.now = realNow;
 
@@ -179,7 +191,8 @@ for (const file of files) {
   const src = fs.readFileSync(path.join(STORES, file), "utf8");
   /* A store that fetches: an effect whose body awaits, chains, or fires a
      loader. Anything else is localStorage-only and has nothing to re-ask. */
-  const fetches = /useEffect\(/.test(src) && /await |\.then\(|void \w+\(/.test(src);
+  const fetches =
+    /useEffect\(/.test(src) && /await |\.then\(|void \w+\(/.test(src);
   if (!fetches) {
     localOnly += 1;
     continue;
@@ -206,7 +219,8 @@ for (const file of files) {
   if (file === "notifications.ts") continue;
   const src = fs.readFileSync(path.join(STORES, file), "utf8");
   for (const line of src.split("\n")) {
-    if (/\bkey\b\s*=/.test(line) && /revalidation/.test(line)) keyed.push(`${file}: ${line.trim()}`);
+    if (/\bkey\b\s*=/.test(line) && /revalidation/.test(line))
+      keyed.push(`${file}: ${line.trim()}`);
   }
 }
 if (keyed.length === 0) pass("no staleness key includes the generation");

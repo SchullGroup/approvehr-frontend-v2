@@ -100,9 +100,7 @@ export function Testimonials() {
                     className="size-11 shrink-0 rounded-full object-cover"
                   />
                   <div className="min-w-0">
-                    <p className="truncate text-body font-medium">
-                      {t.name}
-                    </p>
+                    <p className="truncate text-body font-medium">{t.name}</p>
                     <p className="truncate text-meta text-slate-muted">
                       {t.role}, {t.company}
                     </p>

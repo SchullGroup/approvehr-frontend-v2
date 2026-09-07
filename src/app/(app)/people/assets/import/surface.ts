@@ -31,10 +31,14 @@ export const EQUIPMENT_IMPORT_SURFACE: ImportSurface = {
       title: "Some equipment kinds have not been answered for yet",
       consequence:
         "are new, and their rows do not say whether a leaver has to hand one back. Fill in must_be_returned_on_exit on those rows and check again: one answer makes somebody's clearance impossible and the other makes it meaningless, so we will not choose it.",
-      action: { href: "/people/assets", label: "See the kinds you already have" },
+      action: {
+        href: "/people/assets",
+        label: "See the kinds you already have",
+      },
     },
     people: {
-      title: "Some of the people named as holding something are not on your staff list",
+      title:
+        "Some of the people named as holding something are not on your staff list",
       consequence:
         "will import, with nobody recorded as holding them — so they will not appear on anybody's exit checklist until you hand them over.",
       action: { href: "/people", label: "Add the people first" },

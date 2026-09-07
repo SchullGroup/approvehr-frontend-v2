@@ -22,6 +22,7 @@ import {
   ConfirmDialog,
   EmptyState,
   Input,
+  Modal,
   ProgressMeter,
   SegmentedControl,
   Spinner,
@@ -146,6 +147,12 @@ export function KpisTab({
     }
   };
 
+  /* Same rule as `GoalBranch` applies to a node's children, applied to the
+     roots: no ladder between peers, so peers pair up, and anything heading a
+     cascade keeps its own row. */
+  const rootLeaves = kpis.cascade.filter((node) => node.children.length === 0);
+  const rootBranches = kpis.cascade.filter((node) => node.children.length > 0);
+
   const tracked = kpis.goals.filter((goal) => goal.status !== "DONE");
   const waiting = kpis.goals.filter(
     (goal) => goal.approval === "AWAITING_APPROVAL",
@@ -204,7 +211,11 @@ export function KpisTab({
         </div>
       </div>
 
-      <LoadFailure subject="the KPI cascade" error={kpis.error}  onRetry={kpis.reload}/>
+      <LoadFailure
+        subject="the KPI cascade"
+        error={kpis.error}
+        onRetry={kpis.reload}
+      />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat label="KPIs being tracked" value={String(tracked.length)} />
@@ -215,7 +226,9 @@ export function KpisTab({
             ? {}
             : {
                 hint:
-                  tracked.length === 1 ? "across 1 KPI" : `across ${tracked.length} KPIs`,
+                  tracked.length === 1
+                    ? "across 1 KPI"
+                    : `across ${tracked.length} KPIs`,
               })}
         />
         <Stat
@@ -228,7 +241,11 @@ export function KpisTab({
         <Stat
           label="Measures at target"
           /* "0 of 0" is a measurement of a set nobody has created. */
-          value={measures.length === 0 ? "None set yet" : `${hit} of ${measures.length}`}
+          value={
+            measures.length === 0
+              ? "None set yet"
+              : `${hit} of ${measures.length}`
+          }
         />
       </div>
 
@@ -282,7 +299,57 @@ export function KpisTab({
           />
         ) : (
           <CardBody className="flex flex-col gap-3">
-            {kpis.cascade.map((node) => (
+            {/* Roots pair up too, on the same rule the branches use.
+                ------------------------------------------------------------
+                The grid was originally only applied to a node's *children*,
+                which quietly did nothing for the commonest shape there is: a
+                company whose objectives are a flat list rather than a
+                cascade. Read against a real company with nine objectives and
+                no nesting at all, every card was at depth 0, no node had
+                children, and the grid never rendered — nine full-width cards
+                in one column, which is the exact scroll this change set out
+                to remove.
+
+                So the split is applied here as well: a root with nothing
+                under it is a leaf like any other and can sit beside its
+                peers, while a root that heads a cascade stays full width so
+                the things indented beneath it read as beneath it. */}
+            {rootLeaves.length > 0 && (
+              <div className="grid gap-3 lg:grid-cols-2 min-[1600px]:grid-cols-3">
+                {rootLeaves.map((node) => (
+                  <GoalCard
+                    key={node.id}
+                    goal={node}
+                    depth={node.depth}
+                    editable={mutations.editable}
+                    actingId={actingId}
+                    onAddMeasure={setAddingTo}
+                    onAddChild={(parentId) => setCreating({ parentId })}
+                    onComplete={setCompleting}
+                    onStop={setStopping}
+                    onShare={(goal) =>
+                      void run(
+                        () => mutations.shareGoal(goal.id),
+                        `"${goal.title}" shared`,
+                      )
+                    }
+                    onSubmit={(goal) =>
+                      void run(
+                        () => objectives.submit(goal.id),
+                        `"${goal.title}" sent to be agreed`,
+                      )
+                    }
+                    onReopen={setReopening}
+                    onRecord={async (measureId, value, note) => {
+                      await mutations.recordProgress(measureId, value, note);
+                      if (kpis.source === "api") kpis.reload();
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+
+            {rootBranches.map((node) => (
               <GoalBranch
                 key={node.id}
                 node={node}
@@ -425,12 +492,27 @@ function GoalBranch({
   onShare: (goal: ApiGoal) => void;
   onSubmit: (goal: ApiGoal) => void;
   onReopen: (goal: ApiGoal) => void;
-  onRecord: (
-    measureId: string,
-    value: string,
-    note?: string,
-  ) => Promise<void>;
+  onRecord: (measureId: string, value: string, note?: string) => Promise<void>;
 }) {
+  /**
+   * Siblings with nothing under them sit side by side. Anything that is itself
+   * a parent gets its own full-width row.
+   *
+   * The cascade is a ladder — "everything below ladders up to it" is the whole
+   * claim the screen makes — so a flat grid over every objective would throw
+   * away the one relationship this screen exists to show. But there is no
+   * ladder *between siblings*: four personal KPIs under one team KPI are four
+   * peers, and stacking them in a single column is a scroll bought for nothing.
+   *
+   * So the split is by whether a node carries children of its own. A parent
+   * stays full width, because the things indented beneath it have to read as
+   * beneath it. Leaves pair up. Indentation still carries the depth in both
+   * cases, and a branch that happens to have no leaf siblings renders exactly
+   * as it did before.
+   */
+  const leaves = node.children.filter((child) => child.children.length === 0);
+  const branches = node.children.filter((child) => child.children.length > 0);
+
   return (
     <div className="flex flex-col gap-3">
       <GoalCard
@@ -447,7 +529,30 @@ function GoalBranch({
         onReopen={onReopen}
         onRecord={onRecord}
       />
-      {node.children.map((child) => (
+
+      {leaves.length > 0 && (
+        <div className="grid gap-3 lg:grid-cols-2 min-[1600px]:grid-cols-3">
+          {leaves.map((child) => (
+            <GoalCard
+              key={child.id}
+              goal={child}
+              depth={child.depth}
+              editable={editable}
+              actingId={actingId}
+              onAddMeasure={onAddMeasure}
+              onAddChild={onAddChild}
+              onComplete={onComplete}
+              onStop={onStop}
+              onShare={onShare}
+              onSubmit={onSubmit}
+              onReopen={onReopen}
+              onRecord={onRecord}
+            />
+          ))}
+        </div>
+      )}
+
+      {branches.map((child) => (
         <GoalBranch
           key={child.id}
           node={child}
@@ -500,11 +605,7 @@ function GoalCard({
   onShare: (goal: ApiGoal) => void;
   onSubmit: (goal: ApiGoal) => void;
   onReopen: (goal: ApiGoal) => void;
-  onRecord: (
-    measureId: string,
-    value: string,
-    note?: string,
-  ) => Promise<void>;
+  onRecord: (measureId: string, value: string, note?: string) => Promise<void>;
 }) {
   const progress = goal.measuredProgress ?? goal.progress;
   const done = goal.status === "DONE";
@@ -519,82 +620,248 @@ function GoalCard({
      to no period, because one agreed for no period cannot be agreed before it. */
   const noPeriod = goal.reviewCycleId === null && goal.dueQuarter === null;
 
+  /* The detail is a modal, and this is the card's only piece of state.
+     Everything the modal renders comes from the same `goal` the card has, so
+     opening one costs no request and cannot show a different reading of the
+     objective from the one on the card behind it. */
+  const [open, setOpen] = useState(false);
+
   return (
-    <div
-      className={cn(
-        "rounded-lg border border-line p-4",
-        goal.companyWide ? "bg-canvas" : "bg-surface",
-        done && "opacity-75",
-      )}
-      style={{ marginLeft: Math.min(depth, 4) * 20 }}
-    >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex min-w-0 gap-2.5">
-          {depth > 0 && (
-            <CornerDownRight
-              aria-hidden="true"
-              className="mt-1 size-4 shrink-0 text-faint"
-            />
-          )}
-          <div className="min-w-0">
-            <p className="text-body-sm font-medium text-ink">{goal.title}</p>
-            <div className="mt-1.5 flex flex-wrap items-center gap-2 text-meta text-muted">
-              <Badge tone={goal.companyWide ? "accent" : "neutral"} size="sm">
-                {rung}
-              </Badge>
+    <>
+      {/*
+       * The compressed card.
+       *
+       * This was ~240px: title, rung, owner, period, two badges, a labelled
+       * progress bar, every measure, the task log, the freeze paragraph and
+       * five buttons — per objective, down a single column, so nine of them
+       * was a two-thousand-pixel scroll and four hundred words of identical
+       * policy text between a reader and nine figures. The card was sized by
+       * its rarest control rather than by its content.
+       *
+       * What stays on the face is what somebody scanning a cascade is actually
+       * reading for: whose it is, how far along, and the two states. Everything
+       * that is detail, and every action, is one click away.
+       *
+       * ## What deliberately did *not* move
+       *
+       * `approvalNote` — the reason somebody sent an objective back or refused
+       * it. A refusal whose reason is behind a click is a refusal nobody can
+       * act on, and the note is the whole of what makes a second version of an
+       * objective make sense. It is the one piece of prose worth its space
+       * here, and it only renders while there is one.
+       */}
+      <div
+        className={cn(
+          "rounded-lg border border-line",
+          goal.companyWide ? "bg-canvas" : "bg-surface",
+          done && "opacity-75",
+        )}
+        style={{ marginLeft: Math.min(depth, 4) * 20 }}
+      >
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-haspopup="dialog"
+          className="flex w-full flex-col gap-2.5 rounded-lg p-3.5 text-left transition-colors hover:border-accent-line hover:bg-sunken/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+        >
+          <div className="flex w-full items-start justify-between gap-3">
+            <div className="flex min-w-0 gap-2.5">
+              {depth > 0 && (
+                <CornerDownRight
+                  aria-hidden="true"
+                  className="mt-0.5 size-4 shrink-0 text-faint"
+                />
+              )}
+              <p className="min-w-0 text-body-sm font-medium text-ink">
+                {goal.title}
+              </p>
+            </div>
+            <span className="tabular shrink-0 text-body-sm font-medium text-ink">
+              {progress}%
+            </span>
+          </div>
+
+          <ProgressMeter
+            value={progress}
+            size="sm"
+            showValue={false}
+            tone={
+              done
+                ? "ink"
+                : goal.status === "OFF_TRACK"
+                  ? "danger"
+                  : goal.status === "AT_RISK"
+                    ? "warning"
+                    : "accent"
+            }
+          />
+
+          <div className="flex w-full flex-wrap items-center justify-between gap-2 text-meta text-muted">
+            <span className="flex min-w-0 items-center gap-1.5">
               {goal.companyWide ? (
                 <span>Everyone</span>
               ) : goal.ownerName ? (
-                <span className="flex items-center gap-1.5">
+                <>
                   <Avatar name={goal.ownerName} size="xs" />
-                  {goal.ownerName}
-                </span>
+                  <span className="truncate">{goal.ownerName}</span>
+                </>
               ) : (
                 <span>No owner</span>
               )}
-              {/* The appraisal period is what makes this scoreable; a bare
-                  quarter is what companies typed before periods existed and is
-                  still allowed. */}
-              <span>
-                {goal.reviewCycleName ?? quarterLabel(goal.dueQuarter)}
-              </span>
-              {goal.revisionCount > 0 && (
-                <span>
-                  {goal.revisionCount === 1
-                    ? "Target reopened once"
-                    : `Target reopened ${goal.revisionCount} times`}
-                </span>
-              )}
-              {depth === 0 && goal.parentTitle && (
-                <span>Under {goal.parentTitle}</span>
-              )}
-            </div>
-          </div>
-        </div>
+            </span>
 
-        {/* Two axes, both shown. Agreed and off track at once is the ordinary
-            case, and one badge carrying both would hide whichever mattered. */}
-        <div className="flex flex-wrap items-center gap-2">
+            {/* Two axes, both shown, on the face. Agreed and off track at once
+                is the ordinary case and one badge carrying both would hide
+                whichever mattered — the reason this stayed on the card. */}
+            <span className="flex shrink-0 flex-wrap items-center gap-1.5">
+              <Badge tone={APPROVAL_TONE[goal.approval]} size="sm" dot>
+                {goal.approvalLabel}
+              </Badge>
+              <Badge tone={GOAL_STATUS_TONE[goal.status]} size="sm" dot>
+                {GOAL_STATUS_LABEL[goal.status]}
+              </Badge>
+            </span>
+          </div>
+        </button>
+
+        {goal.approvalNote && (
+          <p className="mx-3.5 mb-3.5 border-l-2 border-line-strong pl-3 text-body-sm leading-relaxed text-body">
+            {goal.approvalNote}
+          </p>
+        )}
+      </div>
+
+      <GoalDetailModal
+        goal={goal}
+        open={open}
+        onClose={() => setOpen(false)}
+        rung={rung}
+        progress={progress}
+        done={done}
+        canShare={canShare}
+        canLogTasks={canLogTasks}
+        noPeriod={noPeriod}
+        editable={editable}
+        onAddMeasure={onAddMeasure}
+        onAddChild={onAddChild}
+        onComplete={onComplete}
+        onStop={onStop}
+        onShare={onShare}
+        onSubmit={onSubmit}
+        onReopen={onReopen}
+        onRecord={onRecord}
+      />
+    </>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * One objective in full: what it is, what measures it, and what may be done
+ * to it.
+ *
+ * ## Why a modal rather than a taller card
+ *
+ * Everything here is true of one objective and matters only once somebody has
+ * picked that objective. On the card it cost every reader of the cascade the
+ * same space whether they cared or not — and the pieces that cost the most
+ * (the five actions and the freeze paragraph) are the ones the fewest readers
+ * want. A dialog is the shape of "I have chosen this one".
+ *
+ * ## Nothing here is new, and nothing was dropped
+ *
+ * Every control, refusal and sentence is the one that was on the card, with
+ * the same conditions on it. The freeze paragraph in particular is now
+ * directly above the buttons it constrains, which is where it was always
+ * trying to be: it explains why "Add a measure" is absent, and on the card it
+ * sat eighty pixels away from the gap it was explaining.
+ */
+function GoalDetailModal({
+  goal,
+  open,
+  onClose,
+  rung,
+  progress,
+  done,
+  canShare,
+  canLogTasks,
+  noPeriod,
+  editable,
+  onAddMeasure,
+  onAddChild,
+  onComplete,
+  onStop,
+  onShare,
+  onSubmit,
+  onReopen,
+  onRecord,
+}: {
+  goal: ApiGoal;
+  open: boolean;
+  onClose: () => void;
+  rung: string;
+  progress: number;
+  done: boolean;
+  canShare: boolean;
+  canLogTasks: boolean;
+  noPeriod: boolean;
+  editable: boolean;
+  onAddMeasure: (goal: ApiGoal) => void;
+  onAddChild: (parentId: string) => void;
+  onComplete: (goal: ApiGoal) => void;
+  onStop: (goal: ApiGoal) => void;
+  onShare: (goal: ApiGoal) => void;
+  onSubmit: (goal: ApiGoal) => void;
+  onReopen: (goal: ApiGoal) => void;
+  onRecord: (measureId: string, value: string, note?: string) => Promise<void>;
+}) {
+  /* Every action closes the dialog before it runs. All eight open a second
+     dialog of their own — a confirm, a form, a share sheet — and two stacked
+     dialogs is a trap: the one underneath keeps the focus ring and neither
+     says which Escape belongs to it. */
+  const act = (run: () => void) => () => {
+    onClose();
+    run();
+  };
+
+  return (
+    <Modal open={open} onClose={onClose} title={goal.title} size="lg">
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center gap-2 text-meta text-muted">
+          <Badge tone={goal.companyWide ? "accent" : "neutral"} size="sm">
+            {rung}
+          </Badge>
           <Badge tone={APPROVAL_TONE[goal.approval]} size="sm" dot>
             {goal.approvalLabel}
           </Badge>
           <Badge tone={GOAL_STATUS_TONE[goal.status]} size="sm" dot>
             {GOAL_STATUS_LABEL[goal.status]}
           </Badge>
+          {goal.companyWide ? (
+            <span>Everyone</span>
+          ) : goal.ownerName ? (
+            <span className="flex items-center gap-1.5">
+              <Avatar name={goal.ownerName} size="xs" />
+              {goal.ownerName}
+            </span>
+          ) : (
+            <span>No owner</span>
+          )}
+          {/* The appraisal period is what makes this scoreable; a bare quarter
+              is what companies typed before periods existed and is still
+              allowed. */}
+          <span>{goal.reviewCycleName ?? quarterLabel(goal.dueQuarter)}</span>
+          {goal.revisionCount > 0 && (
+            <span>
+              {goal.revisionCount === 1
+                ? "Target reopened once"
+                : `Target reopened ${goal.revisionCount} times`}
+            </span>
+          )}
+          {goal.parentTitle && <span>Under {goal.parentTitle}</span>}
         </div>
-      </div>
 
-      {/* The reason somebody gave. Kept on the card while it matters, because a
-          second version of an objective only makes sense beside what was asked
-          for — and a refusal with no reason on screen is a refusal nobody can
-          act on. */}
-      {goal.approvalNote && (
-        <p className="mt-3 border-l-2 border-line-strong pl-3 text-body-sm leading-relaxed text-body">
-          {goal.approvalNote}
-        </p>
-      )}
-
-      <div className="mt-3.5">
         <ProgressMeter
           value={progress}
           showValue
@@ -616,101 +883,105 @@ function GoalCard({
                 : `Progress, from ${goal.keyResults.length} measures`
           }
         />
-      </div>
 
-      {goal.keyResults.length > 0 && (
-        <ul className="mt-3.5 flex flex-col gap-3 border-t border-line pt-3.5">
-          {goal.keyResults.map((measure) => (
-            <MeasureRow
-              key={measure.id}
-              measure={measure}
-              goalId={goal.id}
-              editable={!done}
-              onRecord={onRecord}
-            />
-          ))}
-        </ul>
-      )}
-
-      {goal.keyResults.length === 0 && (
-        <p className="mt-3 text-body-sm text-body">
-          No measure yet, so nothing tracks itself.
-        </p>
-      )}
-
-      {canLogTasks && (
-        <TaskLogPanel goalId={goal.id} keyResults={goal.keyResults} />
-      )}
-
-      {/* What the freeze actually costs, said before anything is refused. The
-          target is frozen and progress is not, and the two halves are easy to
-          confuse into "this KPI is finished". */}
-      {goal.targetFrozen && (
-        <p className="mt-3 text-body-sm text-muted">
-          Agreed, so the target is fixed: the title, the period and every
-          measure&apos;s target stay as they are, and no measure can be added
-          because that would change what delivering this means. The numbers
-          still move.
-        </p>
-      )}
-
-      {noPeriod && goal.approval !== "AGREED" && (
-        <p className="mt-3 text-body-sm text-body">
-          Give this a quarter before it can be sent to be agreed. An objective
-          agreed for no period cannot be agreed before it.
-        </p>
-      )}
-
-      <div className="mt-3.5 flex flex-wrap gap-2">
-        {/* The lifecycle moves need no permission — the API checks the reporting
-            line — so they are offered whatever `editable` says about writing
-            goals. Sending your own objective to be agreed is a thing you do to
-            your own work. */}
-        {mayBeSubmitted(goal) && (
-          <Button variant="accent" size="sm" onClick={() => onSubmit(goal)}>
-            {goal.approval === "NEEDS_REVISION"
-              ? "Send it again"
-              : "Send to be agreed"}
-          </Button>
-        )}
-        {goal.approval === "AGREED" && !done && (
-          <Button size="sm" onClick={() => onReopen(goal)}>
-            Reopen the target
-          </Button>
+        {goal.keyResults.length > 0 ? (
+          <ul className="flex flex-col gap-3 border-t border-line pt-4">
+            {goal.keyResults.map((measure) => (
+              <MeasureRow
+                key={measure.id}
+                measure={measure}
+                goalId={goal.id}
+                editable={!done}
+                onRecord={onRecord}
+              />
+            ))}
+          </ul>
+        ) : (
+          <p className="text-body-sm text-body">
+            No measure yet, so nothing tracks itself.
+          </p>
         )}
 
-        {editable && (
-          <>
-            {/* Refused by the API on an agreed objective, so it is not offered.
-                The sentence above says why rather than leaving a gap. */}
-            {!goal.targetFrozen && (
-              <Button size="sm" onClick={() => onAddMeasure(goal)}>
-                <Plus aria-hidden="true" className="size-4" />
-                Add a measure
-              </Button>
-            )}
-            <Button size="sm" onClick={() => onAddChild(goal.id)}>
-              Add a KPI under this
+        {canLogTasks && (
+          <TaskLogPanel goalId={goal.id} keyResults={goal.keyResults} />
+        )}
+
+        {/* What the freeze actually costs, said before anything is refused —
+            and now directly above the buttons it explains the absence of. The
+            target is frozen and progress is not, and the two halves are easy
+            to confuse into "this KPI is finished". */}
+        {goal.targetFrozen && (
+          <p className="border-t border-line pt-4 text-body-sm text-muted">
+            Agreed, so the target is fixed: the title, the period and every
+            measure&apos;s target stay as they are, and no measure can be added
+            because that would change what delivering this means. The numbers
+            still move.
+          </p>
+        )}
+
+        {noPeriod && goal.approval !== "AGREED" && (
+          <p className="text-body-sm text-body">
+            Give this a quarter before it can be sent to be agreed. An objective
+            agreed for no period cannot be agreed before it.
+          </p>
+        )}
+
+        <div className="flex flex-wrap gap-2 border-t border-line pt-4">
+          {/* The lifecycle moves need no permission — the API checks the
+              reporting line — so they are offered whatever `editable` says
+              about writing goals. Sending your own objective to be agreed is a
+              thing you do to your own work. */}
+          {mayBeSubmitted(goal) && (
+            <Button
+              variant="accent"
+              size="sm"
+              onClick={act(() => onSubmit(goal))}
+            >
+              {goal.approval === "NEEDS_REVISION"
+                ? "Send it again"
+                : "Send to be agreed"}
             </Button>
-            {canShare && (
-              <Button size="sm" onClick={() => onShare(goal)}>
-                Tell the people affected
+          )}
+          {goal.approval === "AGREED" && !done && (
+            <Button size="sm" onClick={act(() => onReopen(goal))}>
+              Reopen the target
+            </Button>
+          )}
+
+          {editable && (
+            <>
+              {/* Refused by the API on an agreed objective, so it is not
+                  offered. The sentence above says why rather than leaving a
+                  gap. */}
+              {!goal.targetFrozen && (
+                <Button size="sm" onClick={act(() => onAddMeasure(goal))}>
+                  <Plus aria-hidden="true" className="size-4" />
+                  Add a measure
+                </Button>
+              )}
+              <Button size="sm" onClick={act(() => onAddChild(goal.id))}>
+                Add a KPI under this
               </Button>
-            )}
-            {!done && (
-              <>
-                <Button size="sm" onClick={() => onComplete(goal)}>
-                  Mark done
+              {canShare && (
+                <Button size="sm" onClick={act(() => onShare(goal))}>
+                  Tell the people affected
                 </Button>
-                <Button size="sm" onClick={() => onStop(goal)}>
-                  Stop this KPI
-                </Button>
-              </>
-            )}
-          </>
-        )}
+              )}
+              {!done && (
+                <>
+                  <Button size="sm" onClick={act(() => onComplete(goal))}>
+                    Mark done
+                  </Button>
+                  <Button size="sm" onClick={act(() => onStop(goal))}>
+                    Stop this KPI
+                  </Button>
+                </>
+              )}
+            </>
+          )}
+        </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -735,11 +1006,7 @@ function MeasureRow({
   /** The objective this measure belongs to. Grounds the write-up suggestion. */
   goalId: string;
   editable: boolean;
-  onRecord: (
-    measureId: string,
-    value: string,
-    note?: string,
-  ) => Promise<void>;
+  onRecord: (measureId: string, value: string, note?: string) => Promise<void>;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
   const [note, setNote] = useState("");
@@ -755,7 +1022,11 @@ function MeasureRow({
     setSaving(true);
     setFailed(null);
     try {
-      await onRecord(measure.id, (draft ?? "").trim(), note.trim() || undefined);
+      await onRecord(
+        measure.id,
+        (draft ?? "").trim(),
+        note.trim() || undefined,
+      );
       setDraft(null);
       setNote("");
       summary.clear();
@@ -887,7 +1158,9 @@ function MeasureRow({
                somebody still has to press Save under. The suggestion is built
                from what they typed and adds no achievement they did not
                mention — see `modules/ai/service.ts#suggestTaskSummary`. */
-            onUse={(suggestion) => setNote(suggestion.detail || suggestion.title)}
+            onUse={(suggestion) =>
+              setNote(suggestion.detail || suggestion.title)
+            }
           />
         </div>
       )}

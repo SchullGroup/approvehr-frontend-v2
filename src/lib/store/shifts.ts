@@ -162,7 +162,13 @@ type DemoSwap = {
 type DemoState = {
   shifts: ApiShift[];
   /** Stored with the wire shape's `sequence`; `days` is derived on read. */
-  patterns: { id: string; name: string; sequence: (string | null)[]; active: boolean; archived: boolean }[];
+  patterns: {
+    id: string;
+    name: string;
+    sequence: (string | null)[];
+    active: boolean;
+    archived: boolean;
+  }[];
   assignments: DemoAssignment[];
   swaps: DemoSwap[];
 };
@@ -173,19 +179,17 @@ const minutesOf = (time: string): number => {
 };
 
 /** The same derivation the API does, so the two never disagree about a length. */
-function shiftShape(
-  input: {
-    id: string;
-    name: string;
-    shortName: string;
-    startTime: string;
-    endTime: string;
-    unpaidBreakMinutes: number;
-    active?: boolean;
-    archived?: boolean;
-    timesRostered?: number;
-  },
-): ApiShift {
+function shiftShape(input: {
+  id: string;
+  name: string;
+  shortName: string;
+  startTime: string;
+  endTime: string;
+  unpaidBreakMinutes: number;
+  active?: boolean;
+  archived?: boolean;
+  timesRostered?: number;
+}): ApiShift {
   const start = minutesOf(input.startTime);
   const end = minutesOf(input.endTime);
   const overnight = crossesMidnight(input.startTime, input.endTime);
@@ -205,73 +209,77 @@ function shiftShape(
   };
 }
 
-const DEMO_SHIFTS: ApiShift[] = DEMO_ENABLED ? [
-  shiftShape({
-    id: "ds-early",
-    name: "Early",
-    shortName: "E",
-    startTime: "06:00",
-    endTime: "14:00",
-    unpaidBreakMinutes: 30,
-  }),
-  shiftShape({
-    id: "ds-late",
-    name: "Late",
-    shortName: "L",
-    startTime: "14:00",
-    endTime: "22:00",
-    unpaidBreakMinutes: 30,
-  }),
-  shiftShape({
-    id: "ds-night",
-    name: "Nights",
-    shortName: "N",
-    startTime: "22:00",
-    endTime: "06:00",
-    unpaidBreakMinutes: 45,
-  }),
-] : [];
+const DEMO_SHIFTS: ApiShift[] = DEMO_ENABLED
+  ? [
+      shiftShape({
+        id: "ds-early",
+        name: "Early",
+        shortName: "E",
+        startTime: "06:00",
+        endTime: "14:00",
+        unpaidBreakMinutes: 30,
+      }),
+      shiftShape({
+        id: "ds-late",
+        name: "Late",
+        shortName: "L",
+        startTime: "14:00",
+        endTime: "22:00",
+        unpaidBreakMinutes: 30,
+      }),
+      shiftShape({
+        id: "ds-night",
+        name: "Nights",
+        shortName: "N",
+        startTime: "22:00",
+        endTime: "06:00",
+        unpaidBreakMinutes: 45,
+      }),
+    ]
+  : [];
 
-const DEMO_PATTERNS: DemoState["patterns"] = DEMO_ENABLED ? [
-  {
-    id: "dp-nights",
-    name: "Four on, four off (nights)",
-    sequence: [
-      "ds-night",
-      "ds-night",
-      "ds-night",
-      "ds-night",
-      null,
-      null,
-      null,
-      null,
-    ],
-    active: true,
-    archived: false,
-  },
-  {
-    id: "dp-rotating",
-    name: "Early / late rotating",
-    sequence: [
-      "ds-early",
-      "ds-early",
-      "ds-early",
-      "ds-early",
-      "ds-early",
-      null,
-      null,
-      "ds-late",
-      "ds-late",
-      "ds-late",
-      "ds-late",
-      "ds-late",
-      null,
-      null,
-    ],
-    active: true,
-    archived: false,
-  },
-] : [];
+const DEMO_PATTERNS: DemoState["patterns"] = DEMO_ENABLED
+  ? [
+      {
+        id: "dp-nights",
+        name: "Four on, four off (nights)",
+        sequence: [
+          "ds-night",
+          "ds-night",
+          "ds-night",
+          "ds-night",
+          null,
+          null,
+          null,
+          null,
+        ],
+        active: true,
+        archived: false,
+      },
+      {
+        id: "dp-rotating",
+        name: "Early / late rotating",
+        sequence: [
+          "ds-early",
+          "ds-early",
+          "ds-early",
+          "ds-early",
+          "ds-early",
+          null,
+          null,
+          "ds-late",
+          "ds-late",
+          "ds-late",
+          "ds-late",
+          "ds-late",
+          null,
+          null,
+        ],
+        active: true,
+        archived: false,
+      },
+    ]
+  : [];
 
 /** Positive modulo. `-1 % 8` is `-1` in JavaScript, which wraps the wrong way. */
 const cycleIndex = (offset: number, length: number): number =>
@@ -312,7 +320,10 @@ function seedAssignments(): DemoAssignment[] {
       for (const date of days) {
         const entry =
           pattern.sequence[
-            cycleIndex(daysBetween(crew.cycleStart, date), pattern.sequence.length)
+            cycleIndex(
+              daysBetween(crew.cycleStart, date),
+              pattern.sequence.length,
+            )
           ];
         /* A rest day writes no row. That is what makes counting rostered days a
            plain count rather than a filter on a status. */
@@ -615,7 +626,8 @@ function demoMyRota(
   const to = range.to ?? addDays(from, 27);
   const days = state.assignments
     .filter(
-      (row) => row.employeeId === employeeId && row.date >= from && row.date <= to,
+      (row) =>
+        row.employeeId === employeeId && row.date >= from && row.date <= to,
     )
     .sort((a, b) => a.date.localeCompare(b.date))
     .map((row) => demoCell(state, row))
@@ -630,7 +642,8 @@ function demoMyRota(
     next: days.find((cell) => cell.date >= TODAY) ?? null,
     awaitingMe: state.swaps
       .filter(
-        (swap) => swap.counterpartyId === employeeId && swap.status === "PENDING",
+        (swap) =>
+          swap.counterpartyId === employeeId && swap.status === "PENDING",
       )
       .map((swap) => demoSwap(state, swap, nameOf)),
   };
@@ -753,7 +766,8 @@ function assertNoClashes(
 ): void {
   const clashes = clashesFor(state, placements, nameOf, ignoreIds);
   if (clashes.length === 0) return;
-  const first = clashes[0]?.reason ?? "Somebody would be on two shifts at once.";
+  const first =
+    clashes[0]?.reason ?? "Somebody would be on two shifts at once.";
   refuse(
     409,
     "shift_clash",
@@ -849,7 +863,8 @@ export function useShiftCatalogue(includeArchived = false): CatalogueState {
         ]);
         if (!cancelled) setFetched({ key, shifts, patterns, error: null });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
           setFetched({
             key,
@@ -942,7 +957,8 @@ export function useRota(params: RotaParams): RotaState {
           setFetched({ key, rota, error: null });
         }
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled && ticket === latest.current) {
           setFetched({
             key,
@@ -1006,7 +1022,9 @@ export type MyRotaState = {
  * a real state — an accountant with a login and no employment — and not an
  * error worth showing as one. It surfaces as `noRecord`.
  */
-export function useMyRota(range: { from?: string; to?: string } = {}): MyRotaState {
+export function useMyRota(
+  range: { from?: string; to?: string } = {},
+): MyRotaState {
   const { isConnected, employeeId } = useSession();
   const demo = useDemoState();
   const { nameOf } = useDemoPeople();
@@ -1034,7 +1052,8 @@ export function useMyRota(range: { from?: string; to?: string } = {}): MyRotaSta
           setFetched({ key, myRota, error: null, noRecord: false });
         }
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (cancelled) return;
         const api = error instanceof ApiError ? error : null;
         setFetched({
@@ -1135,7 +1154,8 @@ export function useSwaps(params: SwapListParams = {}): SwapsState {
           });
         }
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
           setFetched({
             key,
@@ -1217,7 +1237,8 @@ export function useShiftMutations() {
       const state = demoStore.current();
       if (
         state.shifts.some(
-          (shift) => shift.name.toLowerCase() === body.name.trim().toLowerCase(),
+          (shift) =>
+            shift.name.toLowerCase() === body.name.trim().toLowerCase(),
         )
       ) {
         refuse(409, "duplicate", `"${body.name}" already exists.`);
@@ -1332,7 +1353,8 @@ export function useShiftMutations() {
       const serialized = demoPatterns(next).find(
         (row) => row.id === pattern.id,
       );
-      if (!serialized) refuse(500, "unexpected", "Could not read that pattern back.");
+      if (!serialized)
+        refuse(500, "unexpected", "Could not read that pattern back.");
       return serialized;
     },
     [isConnected],
@@ -1360,7 +1382,8 @@ export function useShiftMutations() {
       };
       demoStore.commit(next);
       const serialized = demoPatterns(next).find((row) => row.id === id);
-      if (!serialized) refuse(500, "unexpected", "Could not read that pattern back.");
+      if (!serialized)
+        refuse(500, "unexpected", "Could not read that pattern back.");
       return { ...serialized, rotaUnchanged: body.sequence !== undefined };
     },
     [isConnected],
@@ -1415,8 +1438,11 @@ export function useShiftMutations() {
       if (isConnected) return shiftsApi.bulkAssign(body);
       const state = demoStore.current();
       const days = eachDay(body.from, body.to);
-      const placements: { employeeId: string; date: string; shiftId: string }[] =
-        [];
+      const placements: {
+        employeeId: string;
+        date: string;
+        shiftId: string;
+      }[] = [];
       let patternName: string | null = null;
       let shiftName: string | null = null;
 
@@ -1424,7 +1450,8 @@ export function useShiftMutations() {
         const pattern = state.patterns.find(
           (row) => row.id === body.patternId && !row.archived,
         );
-        if (!pattern) refuse(422, "unknown_pattern", "That pattern does not exist.");
+        if (!pattern)
+          refuse(422, "unknown_pattern", "That pattern does not exist.");
         patternName = pattern.name;
         const anchor = body.cycleStart ?? body.from;
         for (const employeeId of body.employeeIds) {
@@ -1524,7 +1551,8 @@ export function useShiftMutations() {
           swap.requesterAssignmentId === id ||
           swap.counterpartyAssignmentId === id;
         if (!touches) return swap;
-        if (swap.status !== "PENDING" && swap.status !== "ACCEPTED") return swap;
+        if (swap.status !== "PENDING" && swap.status !== "ACCEPTED")
+          return swap;
         cancelled += 1;
         return {
           ...swap,
@@ -1599,7 +1627,11 @@ export function useShiftMutations() {
         );
       }
       if (swap.status !== "PENDING") {
-        refuse(409, "already_decided", `That swap is already ${SWAP_STATUS_LABEL[swap.status].toLowerCase()}.`);
+        refuse(
+          409,
+          "already_decided",
+          `That swap is already ${SWAP_STATUS_LABEL[swap.status].toLowerCase()}.`,
+        );
       }
       const updated: DemoSwap = {
         ...swap,
@@ -1630,7 +1662,11 @@ export function useShiftMutations() {
         );
       }
       if (swap.status !== "ACCEPTED") {
-        refuse(409, "already_decided", `That swap is already ${SWAP_STATUS_LABEL[swap.status].toLowerCase()}.`);
+        refuse(
+          409,
+          "already_decided",
+          `That swap is already ${SWAP_STATUS_LABEL[swap.status].toLowerCase()}.`,
+        );
       }
       const mine = state.assignments.find(
         (row) => row.id === swap.requesterAssignmentId,
@@ -1698,7 +1734,11 @@ export function useShiftMutations() {
       const swap = state.swaps.find((row) => row.id === id);
       if (!swap) refuse(404, "not_found", "That swap no longer exists.");
       if (swap.status === "APPROVED" || swap.status === "CANCELLED") {
-        refuse(409, "already_decided", `That swap is already ${SWAP_STATUS_LABEL[swap.status].toLowerCase()}.`);
+        refuse(
+          409,
+          "already_decided",
+          `That swap is already ${SWAP_STATUS_LABEL[swap.status].toLowerCase()}.`,
+        );
       }
       const updated: DemoSwap = {
         ...swap,

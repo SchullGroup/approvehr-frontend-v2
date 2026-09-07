@@ -303,8 +303,8 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
     <>
       <PageHeader
         breadcrumb={[
-          { href: "/performance", label: "KPIs & appraisals" },
-          { href: "/performance?tab=periods", label: "Appraisal periods" },
+          { href: "/performance", label: "Performance" },
+          { href: "/performance/periods", label: "Appraisal periods" },
         ]}
         title={period?.name ?? "Appraisal period"}
         meta={
@@ -336,6 +336,20 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 href={`/performance/periods/${cycleId}/report`}
               >
                 See the report
+              </ButtonLink>
+            )}
+            {/* The nine-box is the calibration read: performance against
+                potential, with everybody it cannot place named. Linked from
+                here for the same reason the report is — a screen nobody can
+                find is a screen nobody has, and this module has already lost
+                the assistant and the tax override that way. */}
+            {canSeeCompany && !draft && (
+              <ButtonLink
+                size="sm"
+                variant="secondary"
+                href={`/performance/periods/${cycleId}/nine-box`}
+              >
+                Nine-box
               </ButtonLink>
             )}
             {/* The stage never moved on its own, and nothing moved it: the
@@ -1318,11 +1332,7 @@ function RegisterRow({
           {row.scoreBp === null ? (
             <span className="text-meta text-muted">No mark yet</span>
           ) : (
-            <CalibrateButton
-              cycleId={cycleId}
-              row={row}
-              onChanged={onAsked}
-            />
+            <CalibrateButton cycleId={cycleId} row={row} onChanged={onAsked} />
           )}
         </TD>
       )}
@@ -1598,7 +1608,11 @@ function CalibrateButton({
               {/* Only offered where there is something to undo, and away from
                   the save button — it is the destructive half. */}
               {existing ? (
-                <Button variant="ghost" disabled={busy} onClick={() => void clear()}>
+                <Button
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={() => void clear()}
+                >
                   Put it back
                 </Button>
               ) : (
@@ -1716,9 +1730,7 @@ function RevisionButton({
   const toast = useToast();
 
   const [open, setOpen] = useState(false);
-  const [targetStage, setTargetStage] = useState<"SELF" | "MANAGER">(
-    "MANAGER",
-  );
+  const [targetStage, setTargetStage] = useState<"SELF" | "MANAGER">("MANAGER");
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);

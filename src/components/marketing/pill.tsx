@@ -61,7 +61,10 @@ export function Pill({
   arrow?: boolean;
   className?: string;
   children: React.ReactNode;
-} & Omit<React.ComponentProps<typeof Link>, "href" | "className" | "children">) {
+} & Omit<
+  React.ComponentProps<typeof Link>,
+  "href" | "className" | "children"
+>) {
   return (
     <Link
       href={href}

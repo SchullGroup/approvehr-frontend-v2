@@ -41,6 +41,7 @@ export const PERMISSION_KEYS = [
   /* People */
   "EDIT_RECORDS",
   "MANAGE_HIRING",
+  "APPROVE_HIRING",
   /* Time off */
   "APPROVE_LEAVE",
   "APPROVE_LEAVE_ALL",

@@ -80,19 +80,15 @@ export default async function CareersListingPage({
             <div className="mt-14 rounded-3xl border border-sand-line bg-white/70 p-10 sm:p-14">
               <h2 className="text-h3 text-slate">Nothing open right now</h2>
               <p className="mt-3 max-w-md text-body leading-relaxed">
-                No roles are being advertised today. New ones appear on this page
-                the moment they go live.
+                No roles are being advertised today. New ones appear on this
+                page the moment they go live.
               </p>
             </div>
           </Reveal>
         ) : (
           <ul className="mt-14 flex list-none flex-col gap-4">
             {result.value.map((role, index) => (
-              <Reveal
-                key={role.slug}
-                as="li"
-                delay={Math.min(index, 3) * 70}
-              >
+              <Reveal key={role.slug} as="li" delay={Math.min(index, 3) * 70}>
                 <RoleCard org={org} role={role} />
               </Reveal>
             ))}
@@ -178,9 +174,7 @@ function Unavailable({ reason }: { reason: ReadFailure }) {
   return (
     <div className="mt-14 rounded-3xl border border-sand-line bg-white/70 p-10 sm:p-14">
       <h2 className="text-h3 text-slate">Roles are not showing</h2>
-      <p className="mt-3 max-w-md text-body leading-relaxed">
-        {line}
-      </p>
+      <p className="mt-3 max-w-md text-body leading-relaxed">{line}</p>
       <div className="mt-8">
         <Pill href="/" variant="dark" arrow>
           Back to the homepage

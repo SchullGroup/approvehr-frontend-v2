@@ -4,11 +4,16 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { sourceNote } from "@/lib/demo";
-import { downloadCsv, toCsv, type CsvRow } from "@/lib/csv";
+import { toCsv, type CsvRow } from "@/lib/csv";
+import { staffCsv } from "@/lib/api/exports";
+import type { FileDownload } from "@/lib/api/download";
+import { useCan } from "@/lib/permissions";
+import { useRowSelection } from "@/lib/use-row-selection";
+import { BulkAssignBar } from "@/components/people/bulk-assign-bar";
+import { ExportButton } from "@/components/portal/export-button";
 import {
   Banknote,
   Building2,
-  Download,
   MoreHorizontal,
   Plus,
   RotateCcw,
@@ -17,6 +22,7 @@ import {
   Users,
 } from "lucide-react";
 import {
+  Checkbox,
   Badge,
   ButtonLink,
   Button,
@@ -164,7 +170,9 @@ export function Directory({
 
   const scope = useMemo(
     () => ({
-      ...(view === "archived" ? { archivedOnly: true, includeArchived: true } : {}),
+      ...(view === "archived"
+        ? { archivedOnly: true, includeArchived: true }
+        : {}),
       ...(view === "incomplete" ? { payrollBlocked: true } : {}),
     }),
     [view],
@@ -182,13 +190,20 @@ export function Directory({
       ...(list.filters.workLocationId
         ? { workLocationId: list.filters.workLocationId }
         : { workLocationId: undefined }),
-      ...(list.filters.status ? { status: list.filters.status } : { status: undefined }),
+      ...(list.filters.status
+        ? { status: list.filters.status }
+        : { status: undefined }),
     }),
     [list.params, list.filters, scope],
   );
 
-  const { employees: rows, loading, connected, error, reload } =
-    useEmployeeDirectory(params);
+  const {
+    employees: rows,
+    loading,
+    connected,
+    error,
+    reload,
+  } = useEmployeeDirectory(params);
   const summary = useDirectorySummary(params);
 
   /**
@@ -242,8 +257,9 @@ export function Directory({
           {
             label: "Status",
             value:
-              STATUS_OPTIONS.find(([value]) => value === list.filters.status)?.[1] ??
-              list.filters.status,
+              STATUS_OPTIONS.find(
+                ([value]) => value === list.filters.status,
+              )?.[1] ?? list.filters.status,
             onClear: () => list.setFilter("status", ""),
           },
         ]
@@ -269,7 +285,32 @@ export function Directory({
    * sentence beside it say "shown below" rather than "directory" for the
    * same reason — the honest scope, stated rather than implied.
    */
-  const exportRows = () => {
+  /**
+   * `EXPORT_DATA`, which this button was not gated on at all.
+   *
+   * The permission has been on the roles screen since permissions were built,
+   * described as "Download staff, pay and attendance as a spreadsheet". A
+   * company that deliberately withheld it from an office manager found they
+   * could still download the directory. Withholding a permission has to
+   * withhold something.
+   */
+  const mayExport = useCan("EXPORT_DATA");
+  /* The same permission a single record edit needs — a bulk assignment changes
+     the same two fields, not more. Without it the column is absent rather than
+     present and refused. */
+  const mayEdit = useCan("EDIT_RECORDS");
+  const selection = useRowSelection();
+  /* The rows on screen, never the whole filtered set: "select all" that
+     silently ticks 300 people when 25 are visible is a control saying one thing
+     and doing another. */
+  const pageIds = useMemo(() => rows.map((row) => row.id), [rows]);
+
+  /**
+   * The offline file: the page on screen, built here because there is no server
+   * to ask. Returns the file rather than saving it, so both modes end at the
+   * same button and cannot report success differently.
+   */
+  const exportRows = (): FileDownload => {
     const headers = [
       "Staff number",
       "First name",
@@ -298,14 +339,10 @@ export function Directory({
         ...payrollFieldsForDisplay(e),
       }).join("; "),
     }));
-    downloadCsv(
-      `employee-directory-${new Date().toISOString().slice(0, 10)}.csv`,
-      toCsv(headers, csvRows),
-    );
-    toast.push({
-      title: `Exported ${rows.length} ${rows.length === 1 ? "row" : "rows"}`,
-      tone: "success",
-    });
+    return {
+      filename: `employee-directory-${new Date().toISOString().slice(0, 10)}.csv`,
+      body: toCsv(headers, csvRows),
+    };
   };
 
   return (
@@ -381,7 +418,11 @@ export function Directory({
             summary.grossMonthlyKobo === undefined ? (
               "—"
             ) : (
-              <Money amount={naira(summary.grossMonthlyKobo)} compact size="xl" />
+              <Money
+                amount={naira(summary.grossMonthlyKobo)}
+                compact
+                size="xl"
+              />
             )
           }
           icon={<Banknote aria-hidden="true" />}
@@ -390,7 +431,13 @@ export function Directory({
             other clickable-stat pattern exists yet in this app to follow. */}
         <Link
           href="/people/incomplete"
-          className="block h-full rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+          /* `min-w-0` because this link is the GRID ITEM and `Stat` inside it is
+                 not. A `1fr` track floors at the widest item's min-content, and a
+                 grid track is shared — so this one wrapper without the class made
+                 all four stat cards 489px wide inside a 335px row and gave the
+                 whole page a sideways scroll at 375px. The three bare `Stat`s
+                 beside it already carried it; only the clickable one did not. */
+          className="block h-full min-w-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
         >
           <Stat
             label="Records incomplete"
@@ -398,7 +445,12 @@ export function Directory({
             icon={<ShieldAlert aria-hidden="true" />}
             className="h-full transition-colors hover:border-accent-line"
             {...(summary.incomplete !== undefined && summary.incomplete > 0
-              ? { trend: { direction: "down" as const, label: "Worth checking before payroll" } }
+              ? {
+                  trend: {
+                    direction: "down" as const,
+                    label: "Worth checking before payroll",
+                  },
+                }
               : {})}
             /* Only a missing bank account actually blocks a payslip — a missing
                PIN only leaves the remittance schedule incomplete, and a missing
@@ -437,7 +489,9 @@ export function Directory({
         <Field label="Department">
           <Select
             value={list.filters.departmentId}
-            onChange={(event) => list.setFilter("departmentId", event.target.value)}
+            onChange={(event) =>
+              list.setFilter("departmentId", event.target.value)
+            }
           >
             <option value="">Every department</option>
             {departments.flat.map((department) => (
@@ -514,11 +568,49 @@ export function Directory({
         </Card>
       ) : (
         <div className="rounded-lg border border-line bg-surface">
+          {/* Above the table, and only when something is ticked. A permanently
+              visible bar with disabled controls is furniture. */}
+          {mayEdit && selection.count > 0 && (
+            <div className="p-3 pb-0">
+              <BulkAssignBar
+                ids={[...selection.selected]}
+                departments={departments.flat.map((d) => ({
+                  id: d.id,
+                  name: d.name,
+                }))}
+                locations={locations.locations.map((l) => ({
+                  id: l.id,
+                  name: l.name,
+                }))}
+                onDone={reload}
+                onClear={selection.clear}
+              />
+            </div>
+          )}
           <TableWrap
             className="rounded-b-none border-0"
             caption="Employee directory with role, department, salary and status"
           >
             <THead>
+              {mayEdit && (
+                <TH>
+                  <Checkbox
+                    /* A visually hidden label rather than `aria-label`:
+                       `Checkbox` renders its label in a `<label>` tied to the
+                       input, which is what makes the tick itself clickable and
+                       is stronger than an attribute. In a table cell it must
+                       not be drawn. */
+                    label={
+                      <span className="sr-only-focusable">
+                        Select every row on this page
+                      </span>
+                    }
+                    checked={selection.allSelected(pageIds)}
+                    indeterminate={selection.someSelected(pageIds)}
+                    onChange={() => selection.toggleAll(pageIds)}
+                  />
+                </TH>
+              )}
               <SortableTH
                 column="lastName"
                 active={list.sort}
@@ -561,6 +653,27 @@ export function Directory({
                     interactive
                     onClick={rowClick(() => router.push(`/people/${e.id}`))}
                   >
+                    {mayEdit && (
+                      <TD>
+                        {/* The row navigates; the checkbox must not. Without
+                            this, ticking somebody opens their record and the
+                            selection is lost on the way. */}
+                        <span
+                          onClick={(event) => event.stopPropagation()}
+                          role="presentation"
+                        >
+                          <Checkbox
+                            label={
+                              <span className="sr-only-focusable">
+                                Select {fullName(e)}
+                              </span>
+                            }
+                            checked={selection.isSelected(e.id)}
+                            onChange={() => selection.toggle(e.id)}
+                          />
+                        </span>
+                      </TD>
+                    )}
                     <TDPrimary
                       title={
                         <Link
@@ -593,7 +706,10 @@ export function Directory({
                               .map((g) => `${g.label}: ${g.consequence}`)
                               .join(" ")}
                           >
-                            <Badge tone={blocking.length > 0 ? "danger" : "warning"} size="sm">
+                            <Badge
+                              tone={blocking.length > 0 ? "danger" : "warning"}
+                              size="sm"
+                            >
                               {gaps.length} missing
                             </Badge>
                           </span>
@@ -670,26 +786,47 @@ export function Directory({
         </div>
       )}
 
-      <Card>
-        <CardBody className="flex flex-wrap items-center gap-3">
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={rows.length === 0}
-            onClick={exportRows}
-          >
-            <Download aria-hidden="true" className="size-3.5" />
-            Export directory
-          </Button>
-          <p className="text-meta text-muted">
-            Exports the {rows.length} {rows.length === 1 ? "row" : "rows"}{" "}
-            shown below: this page, under whatever is filtered above, not the
-            whole company. Archived records are hidden from the directory and
-            the payroll run, but stay resolvable so past payslips keep
-            working.
-          </p>
-        </CardBody>
-      </Card>
+      {/* Absent without `EXPORT_DATA`, rather than present and refused. A button
+          whose only outcome is a refusal teaches people the product is broken —
+          and this one is the reason the permission exists. */}
+      {mayExport && (
+        <Card>
+          <CardBody className="flex flex-wrap items-center gap-3">
+            <ExportButton
+              label="Export directory"
+              disabled={rows.length === 0}
+              /* `params` is the screen's own filter object, serialised by the
+                 same `employeeQuery` the table's request uses — so the file
+                 cannot cover a different set of people than the table showing
+                 it. Offline there is no server, so the page on screen is
+                 genuinely all there is. */
+              download={async () =>
+                connected ? staffCsv(params) : exportRows()
+              }
+            />
+            <p className="text-meta text-muted">
+              {connected ? (
+                <>
+                  Exports everyone matching the filters above — the whole set,
+                  not just this page. Pay is included only if you are allowed to
+                  see it. Archived records are hidden from the directory and the
+                  payroll run, but stay resolvable so past payslips keep
+                  working.
+                </>
+              ) : (
+                <>
+                  Exports the {rows.length} {rows.length === 1 ? "row" : "rows"}{" "}
+                  shown below: this page, under whatever is filtered above, not
+                  the whole company. With no server to ask, the file can only
+                  hold what this screen already has. Archived records are hidden
+                  from the directory and the payroll run, but stay resolvable so
+                  past payslips keep working.
+                </>
+              )}
+            </p>
+          </CardBody>
+        </Card>
+      )}
     </div>
   );
 }
@@ -776,4 +913,3 @@ function RowActions({
     </div>
   );
 }
-

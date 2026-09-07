@@ -125,7 +125,8 @@ export function ImportOutcome({
   const [acknowledged, setAcknowledged] = useState(false);
   const dictionary: Dictionary<string> = surface.dictionary;
   const noun = dictionary.noun;
-  const people = (value: number): string => (value === 1 ? noun.one : noun.many);
+  const people = (value: number): string =>
+    value === 1 ? noun.one : noun.many;
 
   const landed = result.created + result.updated;
   const missed = result.notImported.length;
@@ -137,8 +138,14 @@ export function ImportOutcome({
   return (
     <div className="flex flex-col gap-5">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat label={`${capitalise(noun.many)} added`} value={count(result.created)} />
-        <Stat label={`${capitalise(noun.many)} updated`} value={count(result.updated)} />
+        <Stat
+          label={`${capitalise(noun.many)} added`}
+          value={count(result.created)}
+        />
+        <Stat
+          label={`${capitalise(noun.many)} updated`}
+          value={count(result.updated)}
+        />
         <Stat
           label="Rows not imported"
           value={count(missed)}
@@ -169,9 +176,9 @@ export function ImportOutcome({
           title={`Part ${result.failure.part} of ${result.partsTotal} did not go through`}
         >
           <p className="mb-3">
-            {count(landed)} {people(landed)} {landed === 1 ? "was" : "were"} imported
-            before it stopped. {count(missed)} rows were not: they are unchanged
-            in your file. {result.failure.message}
+            {count(landed)} {people(landed)} {landed === 1 ? "was" : "were"}{" "}
+            imported before it stopped. {count(missed)} rows were not: they are
+            unchanged in your file. {result.failure.message}
           </p>
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="accent" size="sm" onClick={onRetry}>
@@ -235,7 +242,9 @@ export function ImportOutcome({
                 const line = byRow.get(row);
                 return (
                   <TR key={row}>
-                    <TD className="tabular align-top font-medium text-ink">{row}</TD>
+                    <TD className="tabular align-top font-medium text-ink">
+                      {row}
+                    </TD>
                     <TD className="align-top">
                       <span className="text-meta text-ink">
                         {line?.name ?? line?.employeeNo ?? "—"}
@@ -326,8 +335,8 @@ export function ImportOutcome({
                 />
               </span>
               <p className="text-body text-ink">
-                {count(result.created)} added and {count(result.updated)} updated
-                from {filename}.
+                {count(result.created)} added and {count(result.updated)}{" "}
+                updated from {filename}.
               </p>
               <p className="text-body-sm text-muted">
                 Every row in the file landed.

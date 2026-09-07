@@ -1,13 +1,7 @@
 "use client";
 
-import {
-  ApiError,
-  apiBaseUrl,
-  request,
-  requestPaged,
-  tokens,
-  type Paged,
-} from "@/lib/api/client";
+import { request, requestPaged, type Paged } from "@/lib/api/client";
+import { fetchFile } from "@/lib/api/download";
 
 /**
  * Payments — `/api/v1/payments`.
@@ -67,11 +61,7 @@ export type PaymentBatchStatus =
 
 /** Mirrors `PaymentInstructionStatus`. `REVERSED` means the money came back. */
 export type PaymentInstructionStatus =
-  | "PENDING"
-  | "SUBMITTED"
-  | "SETTLED"
-  | "FAILED"
-  | "REVERSED";
+  "PENDING" | "SUBMITTED" | "SETTLED" | "FAILED" | "REVERSED";
 
 /** Mirrors `LedgerKind`. */
 export type LedgerKind =
@@ -453,7 +443,10 @@ export function availableFigure(availableKobo: number): {
     return {
       label: "Short by",
       kobo: -availableKobo,
-      hint: "more is promised than the wallet holds",
+      /* Four words, because `Stat` truncates its hint on purpose and this
+         one was rendering as "more is promised than the walle...". The long
+         form of this explanation is the paragraph under the row. */
+      hint: "promised beyond the balance",
       short: true,
     };
   }
@@ -495,7 +488,8 @@ export function paymentOutcome(row: {
       return {
         label: "Failed",
         tone: "danger",
-        hint: row.failureReason ?? "The transfer was attempted and did not work.",
+        hint:
+          row.failureReason ?? "The transfer was attempted and did not work.",
         moved: "no",
       };
     case "REVERSED":
@@ -639,6 +633,31 @@ export type ApiWallet = {
     accountNumber: string;
     accountName: string;
     bankName: string;
+    /**
+     * Null where the provider did not give one.
+     *
+     * Some Nigerian banking apps ask for a bank code rather than offering a
+     * name picker, and somebody in front of one of those has nowhere else to
+     * get it. Shown for that reader and kept subordinate to the account
+     * number, which is what everybody else is looking for.
+     */
+    bankCode: string | null;
+    /**
+     * Which account to lead with. **A flag, never a filter.**
+     *
+     * Money paid into *any* account in this list credits the wallet, so
+     * nothing here may be hidden on the strength of this field — the API's own
+     * comment is explicit that doing so would show a company one account, take
+     * their money into another, and give them nowhere to look for it.
+     *
+     * It is derived from the company's *disbursement* provider, so it is a
+     * reasonable guess and not an instruction. It is `false` on **every**
+     * account where a company has not chosen a provider, which is the state
+     * every company starts in — so a reader must never assume exactly one is
+     * true. The API sorts these first; taking the first row is the way to get
+     * the leading account without depending on the flag at all.
+     */
+    isDefault: boolean;
   }[];
 };
 
@@ -803,7 +822,10 @@ export const paymentsApi = {
     request<ApiAccountCreated>("/payments/accounts", { method: "POST", body }),
 
   updateAccount: (id: string, body: UpdateAccountBody) =>
-    request<ApiBankAccount>(`/payments/accounts/${id}`, { method: "PATCH", body }),
+    request<ApiBankAccount>(`/payments/accounts/${id}`, {
+      method: "PATCH",
+      body,
+    }),
 
   /** Archived, not deleted — past batches still point at it. */
   archiveAccount: (id: string) =>
@@ -855,7 +877,9 @@ export const paymentsApi = {
 
   /** The money door. Re-runs the gate and refuses if anything moved. */
   approve: (id: string) =>
-    request<ApiBatchApproved>(`/payments/batches/${id}/approve`, { method: "POST" }),
+    request<ApiBatchApproved>(`/payments/batches/${id}/approve`, {
+      method: "POST",
+    }),
 
   /**
    * Hands the batch to the provider. **There is no provider.**
@@ -866,7 +890,9 @@ export const paymentsApi = {
    * error the user did something wrong; it is the state of the product.
    */
   release: (id: string) =>
-    request<ApiBatchSubmitted>(`/payments/batches/${id}/submit`, { method: "POST" }),
+    request<ApiBatchSubmitted>(`/payments/batches/${id}/submit`, {
+      method: "POST",
+    }),
 
   /**
    * Record that a bank paid this batch.
@@ -904,53 +930,19 @@ export const paymentsApi = {
    * back to the reference, so a saved file is still identifiable.
    */
   async bankFile(id: string, reference?: string): Promise<BankFileDownload> {
-    const access = tokens.access();
-    let response: Response;
-    try {
-      response = await fetch(`${apiBaseUrl}/payments/batches/${id}/file`, {
-        headers: access ? { Authorization: `Bearer ${access}` } : {},
-      });
-    } catch {
-      throw new ApiError(
-        0,
-        "network_error",
-        "Could not reach the server, so no file was produced.",
-      );
-    }
-
-    if (response.status === 401) {
-      throw new ApiError(
-        401,
-        "session_expired",
-        "Your session has ended. Sign in again, then download the file.",
-      );
-    }
-
-    if (!response.ok) {
-      /* The refusals here are the useful part — "this batch has not been
-         approved yet", "this batch no longer adds up" — so they are read out of
-         the error envelope rather than replaced with a generic failure. */
-      let message = "No file was produced.";
-      let code = "http_error";
-      try {
-        const body = (await response.json()) as {
-          error?: { code?: string; message?: string };
-        };
-        message = body.error?.message ?? message;
-        code = body.error?.code ?? code;
-      } catch {
-        /* Not JSON. Keep the default. */
-      }
-      throw new ApiError(response.status, code, message);
-    }
-
-    return {
-      filename: filenameFrom(
-        response.headers.get("content-disposition"),
-        reference,
-      ),
-      csv: await response.text(),
-    };
+    /* `fetchFile` is this call's own body, lifted to `api/download.ts` when the
+       export routes needed the identical four things — bearer token, a
+       session-expiry sentence, the server's refusal read out of the error
+       envelope, and the filename off `Content-Disposition`. The third is the
+       one worth having exactly once: "this batch has not been approved yet" and
+       "this batch no longer adds up" are the useful part of the response, and a
+       second copy that replaced them with "download failed" would look like it
+       worked. */
+    const file = await fetchFile(
+      `/payments/batches/${id}/file`,
+      `payments-${reference ?? "batch"}`,
+    );
+    return { filename: file.filename, csv: file.body };
   },
 
   /* -------------------------------------------------------------- history */
@@ -1116,9 +1108,3 @@ export const BANK_FILE_COLUMNS = [
 ] as const;
 
 /** `attachment; filename="payments-PAY-202608-1.csv"` → the filename. */
-function filenameFrom(header: string | null, reference?: string): string {
-  const match = header?.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i);
-  if (match?.[1]) return match[1];
-  const stem = (reference ?? "payments").replace(/[^A-Za-z0-9._-]/g, "-");
-  return `payments-${stem}.csv`;
-}

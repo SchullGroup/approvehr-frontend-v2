@@ -174,7 +174,11 @@ export function NotificationsInbox() {
 
       <PageBody className="flex flex-col gap-5">
         {notifications.error && (
-          <LoadFailure subject="your notifications" error={notifications.error}  onRetry={notifications.reload}/>
+          <LoadFailure
+            subject="your notifications"
+            error={notifications.error}
+            onRetry={notifications.reload}
+          />
         )}
 
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -299,9 +303,7 @@ function Row({
         aria-hidden="true"
         className="mt-1.5 flex size-2.5 shrink-0 items-center justify-center"
       >
-        {!item.read && (
-          <span className="size-2 rounded-full bg-accent" />
-        )}
+        {!item.read && <span className="size-2 rounded-full bg-accent" />}
       </span>
 
       <div className="min-w-0 flex-1">
@@ -426,7 +428,10 @@ function dayHeading(date: Date, now: Date): string {
 /** Relative while it is still news, then the clock time — the day is in the heading. */
 function whenLabel(iso: string, now: Date): string {
   const then = new Date(iso);
-  const minutes = Math.max(0, Math.round((now.getTime() - then.getTime()) / 60_000));
+  const minutes = Math.max(
+    0,
+    Math.round((now.getTime() - then.getTime()) / 60_000),
+  );
   if (minutes < 1) return "Just now";
   if (minutes < 60) return `${minutes} min ago`;
   const hours = Math.round(minutes / 60);

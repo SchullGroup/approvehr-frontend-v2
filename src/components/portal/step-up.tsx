@@ -69,7 +69,10 @@ export function useStepUp() {
       try {
         return await attempt();
       } catch (caught) {
-        if (!(caught instanceof ApiError) || caught.code !== "step_up_required") {
+        if (
+          !(caught instanceof ApiError) ||
+          caught.code !== "step_up_required"
+        ) {
           throw caught;
         }
 

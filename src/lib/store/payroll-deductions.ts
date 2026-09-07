@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ApiError } from "@/lib/api/client";
+import { useCallback, useEffect, useMemo } from "react";
 import {
   payrollApi,
   type ApiPayrollSettings,
@@ -12,6 +11,12 @@ import {
 import { useDemoDeductions } from "./features";
 import { useSession } from "./session";
 import { useRevalidation } from "@/lib/revalidate";
+import {
+  PAYROLL_SETTINGS_KEY,
+  payrollSettingsResource,
+  publishPayrollSettings,
+  refreshPayrollSettings,
+} from "./payroll-settings";
 
 /**
  * The three switches that decide what the payroll engine computes.
@@ -84,6 +89,10 @@ const DEMO_ROW: PayrollSettingsRow = {
   nhfEnabled: false,
   nhfRate: "0.025",
   nhfOnGross: false,
+  /* On, matching the schema default: every company that existed before the
+     switch had the Bonus column on its payroll run, so this is what they
+     already had. See `PayrollSettings.bonusEnabled`. */
+  bonusEnabled: true,
   netSwingThreshold: "0.25",
   requireBankAccount: true,
   requirePensionPin: true,
@@ -110,6 +119,26 @@ export const DEMO_REFUSAL =
   "screen. What each answer commits you to under Nigerian law is written on " +
   "the server, beside the engine that reads it, so it is not repeated here.";
 
+/**
+ * The shared cache behind every caller.
+ *
+ * One request per session, however many components ask. `/payroll` mounts this
+ * four times over — the wizard, the statutory screen and the settings form all
+ * read what the company deducts — and each had its own `useEffect`. Same defect
+ * `lib/permissions.ts` had at twenty-two, and `shared-resource.ts` is the answer
+ * its own header asks callers to reach for.
+ *
+ * ## The value is the OUTCOME, not the settings
+ *
+ * The fetcher resolves `{ settings, error }` rather than rejecting, because a
+ * rejection caches as `null` and every caller would then render "nothing is
+ * deducted" — which on this screen is not an empty state, it is a false claim
+ * about a company's payroll. The message has to survive, so it travels in the
+ * value.
+ *
+ * The key is a constant: there is one answer per session and the permission
+ * decides whether it is asked for at all, not which answer comes back.
+ */
 export function useDeductionSwitches(): DeductionSwitchState {
   const { isConnected, isLoading, can } = useSession();
   /* `GET /payroll/settings` is `VIEW_SALARIES` (`modules/payroll/router.ts`).
@@ -121,14 +150,10 @@ export function useDeductionSwitches(): DeductionSwitchState {
      settings screen still reporting PAYE as deducted would be two demo screens
      making opposite claims about money. */
   const demoAnswers = useDemoDeductions();
-  const [tick, setTick] = useState(0);
-  const [fetched, setFetched] = useState<{
-    key: string;
-    settings: ApiPayrollSettings | null;
-    error: string | null;
-  } | null>(null);
 
-  const key = `${String(isConnected)}|${tick}`;
+  const outcome = payrollSettingsResource.use(
+    !isLoading && isConnected && mayRead ? PAYROLL_SETTINGS_KEY : null,
+  );
 
   /* The demo value never touches state — same rule as `lib/store/shifts.ts`.
      Writing it into `useState` makes the offline branch a render cascade, and it
@@ -144,51 +169,29 @@ export function useDeductionSwitches(): DeductionSwitchState {
     [demoAnswers],
   );
 
-  /* Re-ask when somebody comes back to the window. Not in the key below,
-     so the answer is replaced without the screen flashing a skeleton. */
+  /* Re-ask when somebody comes back to the window. The resource replaces the
+     value in place, so the screen never flashes a skeleton for an answer it
+     already has. */
   const revalidation = useRevalidation();
   useEffect(() => {
-    if (isLoading || !isConnected || !mayRead) return;
-    let cancelled = false;
-    const controller = new AbortController();
-
-    void (async () => {
-      try {
-        const settings = await payrollApi.settings(controller.signal);
-        if (!cancelled) setFetched({ key, settings, error: null });
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        if (!cancelled) {
-          setFetched({
-            key,
-            settings: null,
-            error:
-              error instanceof ApiError
-                ? error.message
-                : "Could not read what this company deducts.",
-          });
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [key, isConnected, isLoading, mayRead, revalidation]);
+    if (isLoading || !isConnected || !mayRead || revalidation === 0) return;
+    refreshPayrollSettings();
+  }, [isConnected, isLoading, mayRead, revalidation]);
 
   const save = useCallback(
     async (patch: PayrollSettingsPatch) => {
       if (!isConnected) throw new Error(DEMO_REFUSAL);
-      const settings = await payrollApi.updateSettings(patch);
       /* The response is the new truth, including the notices, so nothing here
-         re-derives what switching one off means. */
-      setFetched({ key, settings, error: null });
+         re-derives what switching one off means — and publishing it updates
+         every other screen reading this row in the same tick. */
+      publishPayrollSettings(await payrollApi.updateSettings(patch));
     },
-    [isConnected, key],
+    [isConnected],
   );
 
-  const reload = useCallback(() => setTick((n) => n + 1), []);
+  const reload = useCallback(() => {
+    refreshPayrollSettings();
+  }, []);
 
   if (!isConnected) {
     return {
@@ -203,15 +206,21 @@ export function useDeductionSwitches(): DeductionSwitchState {
     };
   }
 
-  /* Matched on the key, so a reload does not show the previous answer as
-     current. Absent is loading, never "nothing is deducted". */
-  const current = fetched?.key === key ? fetched : null;
+  /* Absent is loading, never "nothing is deducted". */
   return {
-    settings: current?.settings ?? null,
-    defaults: current?.settings?.defaults ?? false,
-    notices: current?.settings?.notices ?? [],
-    loading: current === null,
-    error: current?.error ?? null,
+    settings: outcome?.settings ?? null,
+    defaults: outcome?.settings?.defaults ?? false,
+    notices: outcome?.settings?.notices ?? [],
+    loading: outcome === null,
+    /* The shared resource carries the `ApiError`; this hook's contract is a
+       sentence, because its callers render it straight into a Callout. The
+       fallback is only reached for a non-`ApiError` throw, where there is
+       genuinely nothing the server said. */
+    error: outcome?.error
+      ? outcome.error.message
+      : outcome && outcome.settings === null
+        ? "Could not read what this company deducts."
+        : null,
     available: true,
     save,
     reload,

@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
-import { AnnouncementBar, MarketingFooter, MarketingNav } from "@/components/marketing/chrome";
+import {
+  AnnouncementBar,
+  MarketingFooter,
+  MarketingNav,
+} from "@/components/marketing/chrome";
 import { Pill } from "@/components/marketing/pill";
 import { StatusPage } from "@/components/marketing/status-page";
 import { MODULES } from "@/lib/marketing/modules";

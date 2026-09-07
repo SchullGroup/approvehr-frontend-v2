@@ -3,22 +3,31 @@ import {
   BookOpen,
   BriefcaseBusiness,
   Building2,
+  CalendarClock,
   CalendarDays,
   CalendarRange,
   CalendarSearch,
   ChartNoAxesColumn,
+  CheckCheck,
   ClipboardCheck,
+  ClipboardList,
   Clock,
   CreditCard,
   DoorOpen,
+  FileCheck,
+  FileSignature,
   FileText,
   FileUp,
   FolderOpen,
+  GraduationCap,
   History,
-  Wallet,
+  Inbox,
   Laptop,
   LayoutDashboard,
   LifeBuoy,
+  Megaphone,
+  MessagesSquare,
+  Network,
   Receipt,
   ReceiptText,
   Settings,
@@ -27,8 +36,10 @@ import {
   Sparkles,
   Target,
   Timer,
+  TrendingUp,
   UserRoundPlus,
   Users,
+  Wallet,
 } from "lucide-react";
 import type { PermissionKey } from "@/lib/permissions";
 import type { FeatureKey } from "@/lib/api/setup";
@@ -42,10 +53,7 @@ import { MODULES, type ModuleId } from "@/lib/marketing/modules";
  * derived. Anything that can move at runtime has to be a key, not a number.
  */
 export type BadgeSource =
-  | "approvals"
-  | "pendingLeave"
-  | "notClockedIn"
-  | "unreadNotifications";
+  "approvals" | "pendingLeave" | "notClockedIn" | "unreadNotifications";
 
 export type NavItem = {
   href: string;
@@ -68,6 +76,18 @@ export type NavItem = {
    * should not have been shown a door they cannot open.
    */
   permission?: PermissionKey;
+
+  /**
+   * Hidden unless the signed-in person holds at least one of these.
+   *
+   * For the rare item two different permissions each independently justify
+   * seeing — approving hiring is not managing it, but both need to reach the
+   * same screens to have anything to approve. `permission` stays the field
+   * for the ordinary case of exactly one gate; add this one rather than
+   * making `permission` accept an array; a call site that means "any of
+   * these" should read differently from one that means "this one."
+   */
+  anyPermission?: PermissionKey[];
 
   /**
    * Hidden unless the company has this capability switched on.
@@ -217,6 +237,16 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       feature: "departments",
     },
     {
+      /* No permission and no feature flag: who reports to whom is not
+         privileged — the directory already publishes it — and a company that
+         has never opened Settings still has a reporting line. Gating it would
+         reproduce the defect it was built to close, which was a chart nobody
+         could find rather than a chart nobody could read. */
+      href: "/people/org-chart",
+      label: "Org chart",
+      icon: <Network aria-hidden="true" />,
+    },
+    {
       /* Restored alongside the status field on the create form (see
          `people/new/form.tsx`) so a new hire can actually be put into
          ONBOARDING and this tab has something to show. */
@@ -241,6 +271,29 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       label: "Documents",
       icon: <FolderOpen aria-hidden="true" />,
       permission: "EDIT_RECORDS",
+    },
+    {
+      /* Beside Documents, because that is what it is: the register says what
+         is on file, and this says what is waiting to be signed.
+
+         `always`, no permission: whether somebody has a document to sign is a
+         property of the rows, and the API is the only thing that can answer it
+         — an administrator holding every permission is refused the button. */
+      href: "/people/signatures",
+      label: "Signatures",
+      icon: <FileSignature aria-hidden="true" />,
+      always: true,
+    },
+    {
+      /* `always`, and no permission: a one-to-one is between two people, so
+         "may I see this" is a property of the rows rather than of the caller
+         — the API answers it and no `useCan` here can. Somebody in none at
+         all gets an empty screen offering to start one with their reports,
+         which is the honest answer and is also how the feature is found. */
+      href: "/people/one-on-ones",
+      label: "One-to-ones",
+      icon: <MessagesSquare aria-hidden="true" />,
+      always: true,
     },
     {
       /* Laptops, phones and SIM cards. Gated to the register's audience
@@ -279,6 +332,19 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       icon: <SlidersHorizontal aria-hidden="true" />,
       permission: "VIEW_SALARIES",
     },
+    /* Benefits deliberately has no entry here.
+       --------------------------------------------------------------------
+       It briefly had one, filed under Performance, and this commit first
+       moved it to Payroll — a benefit plan is part of what a company pays
+       somebody, so Payroll was the right heading of the three. The better
+       answer turned out to be no heading at all: it is a tab on Pay setup
+       now (`pay-setup/benefits-panel.tsx`), beside Allowances, Deductions
+       and Grades, because a benefit plan is the same kind of thing as an
+       allowance, and Pay setup is already the screen that answers "what is
+       pay made of, other than salary".
+
+       This note exists so the entry does not get helpfully added back by
+       somebody reading the nav and noticing a gap. */
     {
       href: "/payroll/payslips",
       label: "Payslips",
@@ -290,6 +356,17 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       label: "Loans",
       icon: <CreditCard aria-hidden="true" />,
       feature: "loans",
+    },
+    {
+      /* No permission and `always`: drawing your own earned pay is a
+         self-service act, and gating it behind a role would hide it from
+         exactly the people it exists for. Whether they *can* is decided by the
+         company's policy and by what they have earned — the screen asks the
+         API and renders its refusal. */
+      href: "/payroll/advances",
+      label: "Pay early",
+      icon: <Banknote aria-hidden="true" />,
+      always: true,
     },
     {
       href: "/payroll/expenses",
@@ -343,11 +420,45 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
   hiring: [
     {
       href: "/hiring",
-      label: "Recruitment",
+      label: "Overview",
       icon: <BriefcaseBusiness aria-hidden="true" />,
+      anyPermission: ["MANAGE_HIRING", "APPROVE_HIRING"],
+      feature: "hiring",
+    },
+    {
+      href: "/hiring/requisitions/new",
+      label: "New role",
+      icon: <UserRoundPlus aria-hidden="true" />,
       permission: "MANAGE_HIRING",
       feature: "hiring",
-      soon: true,
+    },
+    {
+      href: "/hiring/postings",
+      label: "Job adverts",
+      icon: <Megaphone aria-hidden="true" />,
+      permission: "MANAGE_HIRING",
+      feature: "hiring",
+    },
+    {
+      href: "/hiring/postings/applications",
+      label: "Applications",
+      icon: <Inbox aria-hidden="true" />,
+      permission: "MANAGE_HIRING",
+      feature: "hiring",
+    },
+    {
+      href: "/hiring/interviews",
+      label: "Interviews",
+      icon: <CalendarClock aria-hidden="true" />,
+      anyPermission: ["MANAGE_HIRING", "APPROVE_HIRING"],
+      feature: "hiring",
+    },
+    {
+      href: "/hiring/offers",
+      label: "Offers",
+      icon: <FileCheck aria-hidden="true" />,
+      anyPermission: ["MANAGE_HIRING", "APPROVE_HIRING"],
+      feature: "hiring",
     },
   ],
 
@@ -410,14 +521,68 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
     },
   ],
 
-  /* One route, rendered by role — PARITY.md Rule 1. The label names what is
-     inside it rather than repeating the heading. */
+  /* Seven real routes, not one page with a tab strip inside it — the same
+     move made for hiring above, and for the same reason: a tab strip is
+     invisible to anybody who has not already opened the page, and "where do
+     I manage a section, a competency, a cycle" was a discoverability
+     complaint about exactly that invisibility. Each item below used to be a
+     `?tab=` value on `/performance`; the ids are unchanged; only the door is
+     new. */
   performance: [
     {
       href: "/performance",
-      label: "KPIs & appraisals",
+      label: "Overview",
       icon: <Target aria-hidden="true" />,
       always: true,
+    },
+    {
+      href: "/performance/kpis",
+      label: "KPIs",
+      icon: <TrendingUp aria-hidden="true" />,
+      always: true,
+    },
+    {
+      href: "/performance/review-tasks",
+      label: "Review tasks",
+      icon: <ClipboardList aria-hidden="true" />,
+      always: true,
+    },
+    {
+      /* `SkillsTab` itself decides mine/team/company; the nav only asks
+         whether the company scores competencies at all. */
+      href: "/performance/skills",
+      label: "Competency ratings",
+      icon: <GraduationCap aria-hidden="true" />,
+      feature: "appraisals",
+    },
+    {
+      /* Matches the old tab's own gate exactly: appraisals on, and either
+         runs a period (`MANAGE_SETTINGS`) or reads across the company
+         (`EDIT_RECORDS`). Staff with neither never had this tab either. */
+      href: "/performance/periods",
+      label: "Appraisal periods",
+      icon: <CalendarRange aria-hidden="true" />,
+      feature: "appraisals",
+      anyPermission: ["MANAGE_SETTINGS", "EDIT_RECORDS"],
+    },
+    {
+      /* Was reachable only from a notification. It is a queue with one job,
+         same shape as Hiring's Applications, and it deserves the same
+         permanent door. */
+      href: "/performance/approvals",
+      label: "Objectives to agree",
+      icon: <CheckCheck aria-hidden="true" />,
+      feature: "appraisals",
+    },
+    {
+      /* `multiAppraiser` cannot be on while `appraisals` is off — the setup
+         module refuses that combination — so one feature flag is enough to
+         carry both. */
+      href: "/performance/appraisers",
+      label: "Who appraises whom",
+      icon: <Network aria-hidden="true" />,
+      feature: "multiAppraiser",
+      permission: "EDIT_RECORDS",
     },
   ],
 
@@ -563,6 +728,9 @@ export function visibleNav(
         }
         if (item.assistant && !assistantWired) return false;
         if (item.always) return true;
+        if (item.anyPermission) {
+          return item.anyPermission.some((p) => permissions.has(p));
+        }
         if (item.permission === undefined) return true;
         return permissions.has(item.permission);
       }),

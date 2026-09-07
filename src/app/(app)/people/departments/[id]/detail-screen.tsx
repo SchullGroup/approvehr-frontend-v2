@@ -137,7 +137,9 @@ export function DepartmentDetailScreen({ id }: { id: string }) {
           {detail.payrollKobo !== null && (
             <Stat
               label="Monthly"
-              value={<Money amount={detail.payrollKobo / 100} compact size="xl" />}
+              value={
+                <Money amount={detail.payrollKobo / 100} compact size="xl" />
+              }
               {...(withoutPay > 0
                 ? {
                     hint: `over ${detail.directEmployees - withoutPay} of ${detail.directEmployees} — ${withoutPay} have no pay set`,
@@ -148,7 +150,9 @@ export function DepartmentDetailScreen({ id }: { id: string }) {
           <Stat
             label="Units inside"
             value={String(detail.childCount)}
-            hint={detail.childCount === 1 ? "sub-department" : "sub-departments"}
+            hint={
+              detail.childCount === 1 ? "sub-department" : "sub-departments"
+            }
           />
           <Stat
             label="Led by"
@@ -184,7 +188,10 @@ export function DepartmentDetailScreen({ id }: { id: string }) {
               />
             </CardBody>
           ) : (
-            <TableWrap className="rounded-none border-0" caption="People in this unit">
+            <TableWrap
+              className="rounded-none border-0"
+              caption="People in this unit"
+            >
               <THead>
                 <TH>Name</TH>
                 <TH>Job title</TH>
@@ -195,7 +202,10 @@ export function DepartmentDetailScreen({ id }: { id: string }) {
                   <TR key={person.id}>
                     <TDPrimary
                       title={
-                        <Link href={`/people/${person.id}`} className="hover:underline">
+                        <Link
+                          href={`/people/${person.id}`}
+                          className="hover:underline"
+                        >
                           {person.name}
                         </Link>
                       }

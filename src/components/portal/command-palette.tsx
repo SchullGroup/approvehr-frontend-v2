@@ -158,9 +158,19 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
             Nobody and no role matches &ldquo;{debounced}&rdquo;.
           </p>
         ) : (
-          <div id="command-palette-results" role="listbox" className="flex flex-col gap-4">
+          <div
+            id="command-palette-results"
+            role="listbox"
+            className="flex flex-col gap-4"
+          >
             {peopleResults.length > 0 && (
-              <ResultGroup title="People" results={peopleResults} offset={0} activeIndex={activeIndex} onPick={go} />
+              <ResultGroup
+                title="People"
+                results={peopleResults}
+                offset={0}
+                activeIndex={activeIndex}
+                onPick={go}
+              />
             )}
             {roleResults.length > 0 && (
               <ResultGroup
@@ -194,9 +204,7 @@ function ResultGroup({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <h3 className="text-meta font-semibold text-faint">
-        {title}
-      </h3>
+      <h3 className="text-meta font-semibold text-faint">{title}</h3>
       <ul className="flex flex-col divide-y divide-line rounded-md border border-line">
         {results.map((result, i) => {
           const active = offset + i === activeIndex;
@@ -217,7 +225,9 @@ function ResultGroup({
                   aria-hidden="true"
                   className={cn(
                     "flex size-8 shrink-0 items-center justify-center rounded-md",
-                    active ? "bg-surface text-accent-text" : "bg-sunken text-muted",
+                    active
+                      ? "bg-surface text-accent-text"
+                      : "bg-sunken text-muted",
                   )}
                 >
                   {result.icon}

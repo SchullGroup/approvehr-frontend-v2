@@ -59,7 +59,9 @@ export default async function PeoplePage({
         }
       />
       <PageBody>
-        <Directory {...(single?.trim() ? { initialQuery: single.trim() } : {})} />
+        <Directory
+          {...(single?.trim() ? { initialQuery: single.trim() } : {})}
+        />
       </PageBody>
     </>
   );

@@ -27,7 +27,12 @@ import fs from "node:fs";
 import path from "node:path";
 
 const WEB_ROOT = path.resolve(import.meta.dirname, "..");
-const DEFAULT_TARGET = path.resolve(WEB_ROOT, "..", "..", "approvehr-marketing");
+const DEFAULT_TARGET = path.resolve(
+  WEB_ROOT,
+  "..",
+  "..",
+  "approvehr-marketing",
+);
 const TARGET = path.resolve(process.argv[2] ?? DEFAULT_TARGET);
 
 /* -------------------------------------------------------------------------- */
@@ -148,7 +153,10 @@ function assertSafeTarget() {
 function resolveVersion(name: string): string {
   const pkg = JSON.parse(
     fs.readFileSync(path.join(WEB_ROOT, "package.json"), "utf8"),
-  ) as { dependencies: Record<string, string>; devDependencies: Record<string, string> };
+  ) as {
+    dependencies: Record<string, string>;
+    devDependencies: Record<string, string>;
+  };
   const version = pkg.dependencies[name] ?? pkg.devDependencies[name];
   if (!version) fail(`${name} is not a dependency of web/package.json`);
   return version;
@@ -337,7 +345,8 @@ function clean() {
 function copy() {
   for (const rel of COPY) {
     const from = path.join(WEB_ROOT, rel);
-    if (!fs.existsSync(from)) fail(`${rel} does not exist in web/ — stale COPY manifest`);
+    if (!fs.existsSync(from))
+      fail(`${rel} does not exist in web/ — stale COPY manifest`);
     const to = path.join(TARGET, rel);
     fs.mkdirSync(path.dirname(to), { recursive: true });
     fs.cpSync(from, to, { recursive: true });
@@ -352,7 +361,10 @@ function generate() {
     [".gitignore", GITIGNORE],
     [".env.example", ENV_EXAMPLE],
     ["README.md", readme()],
-    ["tsconfig.json", fs.readFileSync(path.join(WEB_ROOT, "tsconfig.json"), "utf8")],
+    [
+      "tsconfig.json",
+      fs.readFileSync(path.join(WEB_ROOT, "tsconfig.json"), "utf8"),
+    ],
     [
       "postcss.config.mjs",
       fs.readFileSync(path.join(WEB_ROOT, "postcss.config.mjs"), "utf8"),
@@ -409,7 +421,8 @@ function assertClosure() {
 
   /* Marketing pages must not link at app routes directly — they go through
      lib/marketing/links.ts so an undeployed app degrades instead of 404ing. */
-  const appRoutes = /href="\/(dashboard|approvals|payroll|hiring|performance|reports|settings|design-system|people)(\/|")/;
+  const appRoutes =
+    /href="\/(dashboard|approvals|payroll|hiring|performance|reports|settings|design-system|people)(\/|")/;
   for (const file of files) {
     if (file.endsWith(".css")) continue;
     const rel = path.relative(TARGET, file);

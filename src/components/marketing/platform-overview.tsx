@@ -13,7 +13,10 @@ import {
   ReviewMockup,
 } from "./mockups";
 
-const PANELS: Record<ModuleId, (props: { className?: string }) => React.ReactElement> = {
+const PANELS: Record<
+  ModuleId,
+  (props: { className?: string }) => React.ReactElement
+> = {
   payroll: PayrollMockup,
   hiring: PipelineMockup,
   "core-hr": RecordMockup,
@@ -84,7 +87,10 @@ export function PlatformOverview() {
   }
 
   return (
-    <div ref={railRef} className="grid gap-10 lg:grid-cols-[190px_minmax(0,1fr)_300px] lg:gap-12">
+    <div
+      ref={railRef}
+      className="grid gap-10 lg:grid-cols-[190px_minmax(0,1fr)_300px] lg:gap-12"
+    >
       {/* Rail */}
       <div
         role="tablist"
@@ -113,7 +119,9 @@ export function PlatformOverview() {
                 aria-hidden="true"
                 className={cn(
                   "size-1.5 shrink-0 rounded-full transition-all duration-300",
-                  on ? "scale-100 bg-slate" : "scale-0 bg-transparent lg:scale-100 lg:bg-slate/20",
+                  on
+                    ? "scale-100 bg-slate"
+                    : "scale-0 bg-transparent lg:scale-100 lg:bg-slate/20",
                 )}
               />
               {mod.label}
@@ -135,11 +143,12 @@ export function PlatformOverview() {
       </div>
 
       {/* Copy */}
-      <div key={`${active}-copy`} className="animate-fade flex flex-col justify-center">
+      <div
+        key={`${active}-copy`}
+        className="animate-fade flex flex-col justify-center"
+      >
         <h3 className="text-h2 text-slate">{current.label}</h3>
-        <p className="mt-4 text-body leading-relaxed">
-          {current.blurb}
-        </p>
+        <p className="mt-4 text-body leading-relaxed">{current.blurb}</p>
         {current.statutory && (
           <p className="mt-4 inline-flex w-fit rounded-full bg-wash-green px-3 py-1 text-meta font-medium text-success-text">
             {current.statutory}
