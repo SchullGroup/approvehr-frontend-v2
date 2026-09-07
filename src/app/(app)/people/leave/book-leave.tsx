@@ -152,8 +152,11 @@ export function BookLeaveDialog({
    */
   const approverFor = (subjectId: string) => {
     if (!session.employeeId) return {};
-    if (subjectId !== session.employeeId) return { approverId: session.employeeId };
-    const manager = employees.find((person) => person.id === subjectId)?.managerId;
+    if (subjectId !== session.employeeId)
+      return { approverId: session.employeeId };
+    const manager = employees.find(
+      (person) => person.id === subjectId,
+    )?.managerId;
     return manager ? { approverId: manager } : {};
   };
 
@@ -181,7 +184,9 @@ export function BookLeaveDialog({
   const employeeOptions = useMemo(
     () =>
       [...employees].sort((a, b) =>
-        `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`),
+        `${a.firstName} ${a.lastName}`.localeCompare(
+          `${b.firstName} ${b.lastName}`,
+        ),
       ),
     [employees],
   );
@@ -269,7 +274,11 @@ export function BookLeaveDialog({
           <Button variant="secondary" onClick={close} disabled={saving}>
             Cancel
           </Button>
-          <Button variant="accent" onClick={() => void submit()} loading={saving}>
+          <Button
+            variant="accent"
+            onClick={() => void submit()}
+            loading={saving}
+          >
             Raise request
           </Button>
         </div>
@@ -298,8 +307,7 @@ export function BookLeaveDialog({
               ))}
             </Select>
           </Field>
-        ) : (
-          /* Nothing at all.
+        ) : /* Nothing at all.
              This used to answer "Who is this for" with "You", followed by a
              line about asking the people team to book for somebody else. Three
              lines to say the form is yours — which somebody opening "Book time
@@ -309,8 +317,7 @@ export function BookLeaveDialog({
              the form looked, never what it sent. Its own comment said so.
 
              Anybody who *can* book for somebody else gets the picker above. */
-          null
-        )}
+        null}
 
         <Field
           label="Type"
@@ -382,7 +389,10 @@ export function BookLeaveDialog({
         </Field>
 
         {chosenType?.requiresEvidence && (
-          <Callout tone="info" title={`${chosenType.name} leave needs evidence`}>
+          <Callout
+            tone="info"
+            title={`${chosenType.name} leave needs evidence`}
+          >
             Attach the note or certificate to their record after raising this.
             Documents are not part of a leave request yet.
           </Callout>

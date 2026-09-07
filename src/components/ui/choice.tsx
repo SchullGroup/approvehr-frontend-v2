@@ -42,8 +42,8 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
               "peer size-[18px] appearance-none rounded-xs border bg-surface",
               "border-control-line cursor-pointer transition-colors duration-150",
               "hover:border-ink-soft",
-              "checked:bg-ink checked:border-ink",
-              "indeterminate:bg-ink indeterminate:border-ink",
+              "checked:bg-fill-strong checked:border-fill-strong",
+              "indeterminate:bg-fill-strong indeterminate:border-fill-strong",
               "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text",
               "disabled:cursor-not-allowed disabled:bg-sunken disabled:border-line-strong",
             )}

@@ -107,7 +107,7 @@ export function ApprovalsScreen() {
     return (
       <>
         <PageHeader
-          breadcrumb={[{ href: "/performance", label: "KPIs & appraisals" }]}
+          breadcrumb={[{ href: "/performance", label: "Performance" }]}
           title="Objectives to agree"
         />
         <PageBody>
@@ -136,7 +136,7 @@ export function ApprovalsScreen() {
   return (
     <>
       <PageHeader
-        breadcrumb={[{ href: "/performance", label: "KPIs & appraisals" }]}
+        breadcrumb={[{ href: "/performance", label: "Performance" }]}
         title="Objectives to agree"
         /* One of the three doors on the same dialog. Agreeing the objectives is
            the step immediately before starting the period they belong to, so
@@ -157,7 +157,8 @@ export function ApprovalsScreen() {
           <LoadFailure
             subject="the objectives waiting on you"
             error={approvals.error}
-           onRetry={approvals.reload}/>
+            onRetry={approvals.reload}
+          />
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Stat

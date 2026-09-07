@@ -1,15 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Button,
-  Field,
-  Input,
-  Modal,
-  Select,
-  Textarea,
-} from "@/components/ui";
-import type { ApiKbArticleDetail, ApiKbCategoryFlat } from "@/lib/api/knowledge";
+import { Button, Field, Input, Modal, Select, Textarea } from "@/components/ui";
+import type {
+  ApiKbArticleDetail,
+  ApiKbCategoryFlat,
+} from "@/lib/api/knowledge";
 
 /**
  * Write an article, or fix one.
@@ -66,7 +62,12 @@ export function ArticleForm({
   }) => Promise<void>;
   onSave: (
     id: string,
-    body: { title: string; body: string; slug?: string; categoryId: string | null },
+    body: {
+      title: string;
+      body: string;
+      slug?: string;
+      categoryId: string | null;
+    },
   ) => Promise<void>;
 }) {
   const editing = article !== null;
@@ -89,7 +90,9 @@ export function ArticleForm({
       await action();
     } catch (error) {
       setProblem(
-        error instanceof Error ? error.message : "That did not save. Try again.",
+        error instanceof Error
+          ? error.message
+          : "That did not save. Try again.",
       );
     } finally {
       setSaving(false);

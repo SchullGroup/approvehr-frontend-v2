@@ -295,7 +295,6 @@ export const usePeriodGoalDraft = () =>
 export const usePeriodQuestionDraft = () =>
   useSuggestion<{ text: string; count?: number }>(draftPeriodQuestions);
 
-
 /**
  * Asking a question about the company's records.
  *
@@ -334,7 +333,9 @@ export function useAsk(): {
            was a rate limit, a refusal or a bad question, and nothing here
            does. */
         setError(
-          caught instanceof ApiError ? caught.message : "That did not go through. Try again.",
+          caught instanceof ApiError
+            ? caught.message
+            : "That did not go through. Try again.",
         );
       } finally {
         setAsking(false);

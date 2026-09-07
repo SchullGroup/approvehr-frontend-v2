@@ -230,7 +230,9 @@ export function AnnouncementForm({
         </Field>
 
         <fieldset className="flex flex-col gap-2.5">
-          <legend className="text-body-sm font-medium text-ink">Who it is for</legend>
+          <legend className="text-body-sm font-medium text-ink">
+            Who it is for
+          </legend>
           <Radio
             name="announcement-audience"
             label="Everybody"
@@ -251,8 +253,8 @@ export function AnnouncementForm({
           <div className="flex flex-col gap-2.5 rounded-lg border border-line p-3.5">
             {departments.length === 0 ? (
               <p className="text-body-sm text-muted">
-                No departments on file yet, so there is nothing to address this to.
-                Address it to everybody, or set up departments first.
+                No departments on file yet, so there is nothing to address this
+                to. Address it to everybody, or set up departments first.
               </p>
             ) : (
               <div className="grid gap-2 sm:grid-cols-2">
@@ -271,7 +273,9 @@ export function AnnouncementForm({
             )}
 
             {audienceProblem && (
-              <p className="text-body-sm text-warning-text">{audienceProblem}</p>
+              <p className="text-body-sm text-warning-text">
+                {audienceProblem}
+              </p>
             )}
           </div>
         )}

@@ -27,8 +27,14 @@ import { BandPosition } from "@/app/(app)/payroll/pay-setup/band-position";
 import { bandStanding } from "@/lib/grades/band";
 import type { OfferBand } from "@/lib/api/hiring";
 import { usePermissions } from "@/lib/permissions";
-import { pipelineSnapshot, useOfferBands, type OfferBands } from "@/lib/store/hiring";
+import {
+  pipelineSnapshot,
+  useOfferBands,
+  type OfferBands,
+} from "@/lib/store/hiring";
 import { fullName, type PipelineCard } from "@/lib/types";
+import { useSession } from "@/lib/store/session";
+import { RealApprovals } from "./real-approvals";
 
 const BREADCRUMB = [
   { href: "/hiring", label: "Pipeline" },
@@ -85,7 +91,7 @@ export function OfferApprovals() {
     );
   }
 
-  if (!can("MANAGE_HIRING")) {
+  if (!can("MANAGE_HIRING") && !can("APPROVE_HIRING")) {
     return (
       <>
         <PageHeader breadcrumb={BREADCRUMB} title="Offer approvals" />
@@ -94,7 +100,7 @@ export function OfferApprovals() {
             <EmptyState
               icon={<Lock aria-hidden="true" />}
               title="You cannot see offers"
-              description="An offer names the candidate and states their exact salary and notice period, so it is kept to whoever hires. Ask whoever manages access to add hiring to your role."
+              description="An offer names the candidate and states their exact salary and notice period, so it is kept to whoever hires or approves hiring. Ask whoever manages access to add one of those to your role."
               action={
                 <ButtonLink href="/hiring" variant="secondary" size="sm">
                   Back to hiring
@@ -107,16 +113,23 @@ export function OfferApprovals() {
     );
   }
 
+  return <OfferApprovalsBody />;
+}
+
+function OfferApprovalsBody() {
+  const { isConnected } = useSession();
   return (
     <>
       <PageHeader
         breadcrumb={BREADCRUMB}
         title="Offer approvals"
-        meta={<SourceBadge live={false} note="The offers themselves." />}
+        meta={
+          !isConnected && (
+            <SourceBadge live={false} note="The offers themselves." />
+          )
+        }
       />
-      <PageBody>
-        <Approvals />
-      </PageBody>
+      <PageBody>{isConnected ? <RealApprovals /> : <Approvals />}</PageBody>
     </>
   );
 }
@@ -176,7 +189,10 @@ function Approvals() {
           "no grades" to somebody who simply cannot see them sends them to build
           a ladder that already exists. */}
       {bands.note && !bands.loading && (
-        <Callout tone="warning" title="These are not being checked against a band">
+        <Callout
+          tone="warning"
+          title="These are not being checked against a band"
+        >
           {bands.note}
         </Callout>
       )}
@@ -216,7 +232,9 @@ function Approvals() {
                   </p>
                 </div>
                 <Badge
-                  tone={decisions[card.id] === "approved" ? "success" : "danger"}
+                  tone={
+                    decisions[card.id] === "approved" ? "success" : "danger"
+                  }
                   size="sm"
                   dot
                 >
@@ -236,7 +254,9 @@ function Approvals() {
           setDeclining(null);
         }}
         title={
-          declining ? `Decline this offer for ${fullName(declining.candidate)}?` : ""
+          declining
+            ? `Decline this offer for ${fullName(declining.candidate)}?`
+            : ""
         }
         confirmLabel="Decline offer"
         tone="danger"
@@ -287,7 +307,8 @@ function OfferCard({
       ? submitted.reduce(
           (sum, sc) =>
             sum +
-            sc.ratings.reduce((a, r) => a + r.score, 0) / (sc.ratings.length || 1),
+            sc.ratings.reduce((a, r) => a + r.score, 0) /
+              (sc.ratings.length || 1),
           0,
         ) / submitted.length
       : null;

@@ -35,7 +35,8 @@
  * loaded. Same rule as `links.ts`: never point at something that is not there.
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL?.trim().replace(/\/$/, "") || null;
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL?.trim().replace(/\/$/, "") || null;
 
 /** True when there is an API to ask for adverts. */
 export const configured = API_URL !== null;
@@ -93,8 +94,7 @@ export type ApplyResult = {
 export type ReadFailure = "unconfigured" | "missing" | "unreachable";
 
 export type ReadResult<T> =
-  | { ok: true; value: T }
-  | { ok: false; reason: ReadFailure };
+  { ok: true; value: T } | { ok: false; reason: ReadFailure };
 
 /* --------------------------------------------------------------------- money */
 
@@ -117,9 +117,12 @@ export function payRange(role: {
   salaryMinKobo: number | null;
   salaryMaxKobo: number | null;
 }): string | null {
-  const min = role.salaryMinKobo === null ? null : formatNaira(role.salaryMinKobo);
-  const max = role.salaryMaxKobo === null ? null : formatNaira(role.salaryMaxKobo);
-  if (min && max) return min === max ? `${min} a month` : `${min} – ${max} a month`;
+  const min =
+    role.salaryMinKobo === null ? null : formatNaira(role.salaryMinKobo);
+  const max =
+    role.salaryMaxKobo === null ? null : formatNaira(role.salaryMaxKobo);
+  if (min && max)
+    return min === max ? `${min} a month` : `${min} – ${max} a month`;
   if (min) return `${min} a month and up`;
   if (max) return `Up to ${max} a month`;
   return null;
@@ -173,7 +176,9 @@ async function read<T>(path: string): Promise<ReadResult<T>> {
 
 /** Every live advert for one company. Closed ones drop off this list. */
 export const listRoles = (orgSlug: string): Promise<ReadResult<PublicRole[]>> =>
-  read<PublicRole[]>(`/careers/public/${encodeURIComponent(orgSlug)}?pageSize=100`);
+  read<PublicRole[]>(
+    `/careers/public/${encodeURIComponent(orgSlug)}?pageSize=100`,
+  );
 
 /** One advert, in full. Stays readable after its closing date. */
 export const getRole = (
@@ -223,15 +228,13 @@ export async function apply(
       },
     );
 
-    const payload = (await response.json().catch(() => null)) as
-      | {
-          data?: ApplyResult;
-          error?: {
-            message?: string;
-            details?: { field: string; message: string }[];
-          };
-        }
-      | null;
+    const payload = (await response.json().catch(() => null)) as {
+      data?: ApplyResult;
+      error?: {
+        message?: string;
+        details?: { field: string; message: string }[];
+      };
+    } | null;
 
     if (response.ok && payload?.data) return { ok: true, value: payload.data };
 
@@ -249,7 +252,8 @@ export async function apply(
   } catch {
     return {
       ok: false,
-      message: "We could not reach the server. Check your connection and try again.",
+      message:
+        "We could not reach the server. Check your connection and try again.",
       fields: {},
     };
   }

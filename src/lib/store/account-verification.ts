@@ -65,7 +65,8 @@ export function useAccountVerification(
 
   const name = bankName?.trim() ?? "";
   const digits = (accountNumber ?? "").replace(/[\s-]/g, "");
-  const ready = isConnected && !isLoading && name.length >= 2 && isNuban(digits);
+  const ready =
+    isConnected && !isLoading && name.length >= 2 && isNuban(digits);
   const key = ready
     ? JSON.stringify({ bankName: name, accountNumber: digits })
     : null;
@@ -85,7 +86,8 @@ export function useAccountVerification(
         const data = await paymentsApi.verifyAccount(body, controller.signal);
         if (!cancelled) setResult({ key: settled, data });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         /* A network hiccup here is the same fact as the API's own
            `checked: false` — nothing could be confirmed, and the account is
            still perfectly saveable. */

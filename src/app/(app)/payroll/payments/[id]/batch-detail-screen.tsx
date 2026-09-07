@@ -230,7 +230,11 @@ export function BatchDetailScreen({ id }: { id: string }) {
             <Fact
               term="Total leaving the account"
               value={
-                <Money amount={naira(batch.computedTotalKobo)} decimals size="lg" />
+                <Money
+                  amount={naira(batch.computedTotalKobo)}
+                  decimals
+                  size="lg"
+                />
               }
             />
             <Fact
@@ -288,7 +292,10 @@ export function BatchDetailScreen({ id }: { id: string }) {
           }
           onRelease={() => run(() => actions.release(batch.id))}
           onCancel={(reason) =>
-            run(() => actions.cancel(batch.id, reason), `${batch.reference} stopped`)
+            run(
+              () => actions.cancel(batch.id, reason),
+              `${batch.reference} stopped`,
+            )
           }
           onDownload={download}
         />
@@ -328,7 +335,10 @@ export function BatchDetailScreen({ id }: { id: string }) {
                       row.bankName
                     ) : (
                       <span className="flex items-center gap-1.5 text-danger-text">
-                        <TriangleAlert aria-hidden="true" className="size-3.5" />
+                        <TriangleAlert
+                          aria-hidden="true"
+                          className="size-3.5"
+                        />
                         No bank on file
                       </span>
                     )}
@@ -338,7 +348,10 @@ export function BatchDetailScreen({ id }: { id: string }) {
                       row.accountNumberMasked
                     ) : (
                       <span className="flex items-center gap-1.5 text-danger-text">
-                        <TriangleAlert aria-hidden="true" className="size-3.5" />
+                        <TriangleAlert
+                          aria-hidden="true"
+                          className="size-3.5"
+                        />
                         {row.accountNumberMasked === ""
                           ? "None on file"
                           : `${row.accountNumberMasked} (not ten digits)`}
@@ -364,7 +377,10 @@ export function BatchDetailScreen({ id }: { id: string }) {
                   {people(batch.instructions.length)}
                 </TD>
                 <TD align="right" className="tabular font-semibold text-ink">
-                  <Money amount={naira(batch.check.instructionTotalKobo)} decimals />
+                  <Money
+                    amount={naira(batch.check.instructionTotalKobo)}
+                    decimals
+                  />
                 </TD>
                 <TD />
               </TR>
@@ -386,10 +402,16 @@ export function BatchDetailScreen({ id }: { id: string }) {
                 />
               )}
               {batch.submittedAt && (
-                <HistoryLine term="Sent" value={longDateTime(batch.submittedAt)} />
+                <HistoryLine
+                  term="Sent"
+                  value={longDateTime(batch.submittedAt)}
+                />
               )}
               {batch.completedAt && (
-                <HistoryLine term="Paid" value={longDateTime(batch.completedAt)} />
+                <HistoryLine
+                  term="Paid"
+                  value={longDateTime(batch.completedAt)}
+                />
               )}
               {batch.providerRef && (
                 <HistoryLine
@@ -417,9 +439,7 @@ export function BatchDetailScreen({ id }: { id: string }) {
 function Fact({ term, value }: { term: string; value: React.ReactNode }) {
   return (
     <div className="min-w-0">
-      <p className="text-meta font-medium text-muted">
-        {term}
-      </p>
+      <p className="text-meta font-medium text-muted">{term}</p>
       <div className="mt-1.5 text-body-sm font-medium text-ink">{value}</div>
     </div>
   );
@@ -450,7 +470,10 @@ function InstructionState({
   failureReason: string | null;
   employeeId: string | null;
 }) {
-  const map: Record<string, { label: string; tone: "neutral" | "warning" | "success" | "danger" }> = {
+  const map: Record<
+    string,
+    { label: string; tone: "neutral" | "warning" | "success" | "danger" }
+  > = {
     PENDING: { label: "Not sent", tone: "neutral" },
     SUBMITTED: { label: "Sent", tone: "warning" },
     SETTLED: { label: "Paid", tone: "success" },

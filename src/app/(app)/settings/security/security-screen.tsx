@@ -140,7 +140,9 @@ export function SecurityScreen() {
         title: "That did not work",
         tone: "danger",
         detail:
-          caught instanceof ApiError ? caught.message : "Try again in a moment.",
+          caught instanceof ApiError
+            ? caught.message
+            : "Try again in a moment.",
       });
     } finally {
       setBusy(false);
@@ -159,7 +161,9 @@ export function SecurityScreen() {
         title: "That did not work",
         tone: "danger",
         detail:
-          caught instanceof ApiError ? caught.message : "Try again in a moment.",
+          caught instanceof ApiError
+            ? caught.message
+            : "Try again in a moment.",
       });
     } finally {
       setBusy(false);
@@ -174,7 +178,9 @@ export function SecurityScreen() {
         title: "That did not save",
         tone: "danger",
         detail:
-          caught instanceof ApiError ? caught.message : "Try again in a moment.",
+          caught instanceof ApiError
+            ? caught.message
+            : "Try again in a moment.",
       });
     }
   };
@@ -191,11 +197,19 @@ export function SecurityScreen() {
             description="A six-digit code from your email, on top of your password."
             action={
               status?.enabled ? (
-                <Badge tone="success" size="sm" icon={<ShieldCheck aria-hidden="true" />}>
+                <Badge
+                  tone="success"
+                  size="sm"
+                  icon={<ShieldCheck aria-hidden="true" />}
+                >
                   On
                 </Badge>
               ) : (
-                <Badge tone="neutral" size="sm" icon={<ShieldOff aria-hidden="true" />}>
+                <Badge
+                  tone="neutral"
+                  size="sm"
+                  icon={<ShieldOff aria-hidden="true" />}
+                >
                   Off
                 </Badge>
               )
@@ -222,7 +236,10 @@ export function SecurityScreen() {
                   </Callout>
                 )}
                 <div>
-                  <Button variant="secondary" onClick={() => setDisabling(true)}>
+                  <Button
+                    variant="secondary"
+                    onClick={() => setDisabling(true)}
+                  >
                     Turn it off
                   </Button>
                 </div>
@@ -236,9 +253,9 @@ export function SecurityScreen() {
                 {!status.emailWorks && (
                   <Callout tone="warning" title="This server cannot send email">
                     Codes will not arrive in your inbox. The ten recovery codes
-                    you are about to be shown would be your <strong>only</strong>{" "}
-                    way to sign in. Save them somewhere safe before you close
-                    that dialog.
+                    you are about to be shown would be your{" "}
+                    <strong>only</strong> way to sign in. Save them somewhere
+                    safe before you close that dialog.
                   </Callout>
                 )}
                 <p className="text-body-sm text-body">
@@ -246,7 +263,11 @@ export function SecurityScreen() {
                   once and cannot be looked up again.
                 </p>
                 <div>
-                  <Button variant="accent" loading={busy} onClick={() => void enrol()}>
+                  <Button
+                    variant="accent"
+                    loading={busy}
+                    onClick={() => void enrol()}
+                  >
                     Turn on two-factor
                   </Button>
                 </div>
@@ -406,8 +427,8 @@ function RecoveryCodesDialog({
       <div className="flex flex-col gap-4">
         <p className="text-body-sm text-body">
           Each one works once, in place of the emailed code. This is the only
-          time they are shown: they are stored scrambled and cannot be looked
-          up again.
+          time they are shown: they are stored scrambled and cannot be looked up
+          again.
         </p>
 
         <ul className="grid grid-cols-2 gap-1.5 rounded-md border border-line bg-canvas p-3">

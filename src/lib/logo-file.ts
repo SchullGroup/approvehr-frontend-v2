@@ -161,10 +161,7 @@ export function sanitiseSvg(source: string): string {
     // `@import` is the one fetch a stylesheet can still start. Blocked in an
     // `<img>` anyway; removed so that is not the only thing stopping it.
     if (name === "style" && element.textContent) {
-      element.textContent = element.textContent.replace(
-        /@import[^;]*;?/gi,
-        "",
-      );
+      element.textContent = element.textContent.replace(/@import[^;]*;?/gi, "");
     }
 
     for (const attribute of [...element.attributes]) {
@@ -204,7 +201,8 @@ export function sanitiseSvg(source: string): string {
 function readAsText(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onerror = () => reject(new LogoError("That file could not be read."));
+    reader.onerror = () =>
+      reject(new LogoError("That file could not be read."));
     reader.onload = () => resolve(String(reader.result));
     reader.readAsText(file);
   });
@@ -213,7 +211,8 @@ function readAsText(file: File): Promise<string> {
 function readAsDataUri(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onerror = () => reject(new LogoError("That file could not be read."));
+    reader.onerror = () =>
+      reject(new LogoError("That file could not be read."));
     reader.onload = () => resolve(String(reader.result));
     reader.readAsDataURL(file);
   });

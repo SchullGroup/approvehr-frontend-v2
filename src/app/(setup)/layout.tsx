@@ -1,6 +1,8 @@
 import { ToastProvider } from "@/components/ui";
 import { AuthGate } from "@/components/portal/auth-gate";
 import { Logo } from "@/components/brand/logo";
+import { ThemeEffect } from "@/components/portal/theme-effect";
+import { THEME_INIT_SCRIPT } from "@/lib/theme-init-script";
 
 /**
  * The setup wizard's own route group — full screen, no `AppShell`.
@@ -28,19 +30,24 @@ export default function SetupLayout({
   children: React.ReactNode;
 }) {
   return (
-    <ToastProvider>
-      <AuthGate>
-        <div className="flex min-h-dvh flex-col bg-canvas">
-          <header className="border-b border-line bg-surface">
-            <div className="mx-auto flex h-14 max-w-5xl items-center px-5">
-              <Logo size={24} showWordmark={false} />
-            </div>
-          </header>
-          <main id="main" className="flex flex-1 flex-col">
-            {children}
-          </main>
-        </div>
-      </AuthGate>
-    </ToastProvider>
+    <>
+      {/* Same theme mechanism as (app)/layout.tsx — see that file's note. */}
+      <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      <ThemeEffect />
+      <ToastProvider>
+        <AuthGate>
+          <div className="flex min-h-dvh flex-col bg-canvas">
+            <header className="border-b border-line bg-surface">
+              <div className="mx-auto flex h-14 max-w-5xl items-center px-5">
+                <Logo size={24} showWordmark={false} />
+              </div>
+            </header>
+            <main id="main" className="flex flex-1 flex-col">
+              {children}
+            </main>
+          </div>
+        </AuthGate>
+      </ToastProvider>
+    </>
   );
 }

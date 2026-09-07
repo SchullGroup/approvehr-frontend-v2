@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, Check, Plus } from "lucide-react";
+import { Building2, Check } from "lucide-react";
 import {
   Badge,
   Button,
@@ -201,7 +201,10 @@ function Form() {
   const errorFor = (field: keyof CompanyProfile) =>
     errors.find((e) => e.field === field)?.message;
 
-  const set = <K extends keyof CompanyProfile>(key: K, v: CompanyProfile[K]) => {
+  const set = <K extends keyof CompanyProfile>(
+    key: K,
+    v: CompanyProfile[K],
+  ) => {
     setDraft((d) => ({ ...d, [key]: v }));
     setErrors((e) => e.filter((x) => x.field !== key));
   };
@@ -243,7 +246,8 @@ function Form() {
          `state` are this form's words for `addressLine` and `taxState`. */
       const body: Record<string, unknown> = {};
       if (draft.legalName !== undefined) body["legalName"] = draft.legalName;
-      if (draft.tradingName !== undefined) body["tradingName"] = draft.tradingName;
+      if (draft.tradingName !== undefined)
+        body["tradingName"] = draft.tradingName;
       if (draft.rcNumber !== undefined) body["rcNumber"] = draft.rcNumber;
       if (draft.tin !== undefined) body["tin"] = draft.tin;
       if (draft.industry !== undefined) body["industry"] = draft.industry;
@@ -315,7 +319,10 @@ function Form() {
                   />
                 </Field>
 
-                <Field label="Trading name" help="Shown in the product and on payslips.">
+                <Field
+                  label="Trading name"
+                  help="Shown in the product and on payslips."
+                >
                   <Input
                     value={value("tradingName")}
                     onChange={(e) => set("tradingName", e.target.value)}
@@ -403,8 +410,8 @@ function Form() {
 
             {dirty && (
               <Callout tone="info" title="Unsaved changes">
-                Nothing is written until you save. Filings already generated keep
-                the details they were generated with.
+                Nothing is written until you save. Filings already generated
+                keep the details they were generated with.
               </Callout>
             )}
           </div>
@@ -413,13 +420,7 @@ function Form() {
         <Card>
           <CardHeader
             title="Legal entities"
-            description="Each entity files separately. Headcount is live from the directory."
-            action={
-              <Button variant="secondary" size="sm" disabled>
-                <Plus aria-hidden="true" className="size-3.5" />
-                Add entity
-              </Button>
-            }
+            description="Each entity files separately. Headcount is live from the directory. Adding one is not self-service yet — ask us and we will set it up."
           />
           <TableWrap className="rounded-none border-0">
             <THead>
@@ -462,8 +463,8 @@ function Form() {
             <p className="text-body-sm leading-relaxed text-muted">
               Adding and removing entities is not wired up yet: it changes which
               tax office each employee is filed to, so it needs the migration
-              step that moves people across, not just a form. The button above is
-              disabled rather than hidden so you can see it is coming.
+              step that moves people across, not just a form. The button above
+              is disabled rather than hidden so you can see it is coming.
             </p>
           </CardBody>
         </Card>

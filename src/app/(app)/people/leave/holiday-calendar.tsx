@@ -12,7 +12,10 @@ import {
   Spinner,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
-import { UNCONFIRMED_HOLIDAY_EFFECT, type PublicHolidayRow } from "@/lib/api/leave";
+import {
+  UNCONFIRMED_HOLIDAY_EFFECT,
+  type PublicHolidayRow,
+} from "@/lib/api/leave";
 import { usePublicHolidays } from "@/lib/store/holidays";
 import { shortDate } from "@/lib/today";
 
@@ -259,7 +262,8 @@ export function HolidayCalendarCard({
       <LoadFailure
         subject={`the ${year} holiday calendar`}
         error={calendar.error}
-       onRetry={calendar.reload}/>
+        onRetry={calendar.reload}
+      />
 
       {/* Outside the disclosure. The count, with the consequence attached: both
           halves are true and the second is the one nobody expects. */}
@@ -363,7 +367,12 @@ export function HolidayCalendarCard({
           <>
             <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {MONTHS.map((name, month) => (
-                <MiniMonth key={name} year={year} month={month} onDate={onDate} />
+                <MiniMonth
+                  key={name}
+                  year={year}
+                  month={month}
+                  onDate={onDate}
+                />
               ))}
             </div>
 

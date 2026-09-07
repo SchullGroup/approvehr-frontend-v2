@@ -2,12 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import {
-  Clock,
-  MoreHorizontal,
-  Timer,
-  TriangleAlert,
-} from "lucide-react";
+import { Clock, MoreHorizontal, Timer, TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
   Badge,
@@ -38,12 +33,11 @@ import { BulkInviteButton } from "@/components/portal/bulk-invite";
 import { MyClockCard } from "@/components/portal/my-clock-card";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
-import {
-  type ApiRosterRow,
-  type ApiWorkLocation,
-} from "@/lib/api/attendance";
+import { type ApiRosterRow, type ApiWorkLocation } from "@/lib/api/attendance";
 import { addDays, hoursLabel, timesLabel } from "@/lib/api/shifts";
 import { useCan, useIsManager } from "@/lib/permissions";
+import { attendanceCsv } from "@/lib/api/exports";
+import { ExportButton } from "@/components/portal/export-button";
 import {
   STATUS_LABEL,
   STATUS_TONE,
@@ -58,6 +52,14 @@ import {
 import { useSession } from "@/lib/store/session";
 import { shortDate } from "@/lib/today";
 import { MyAttendanceHistoryPanel } from "./my-attendance-history";
+
+/**
+ * The window both the table and its export ask for.
+ *
+ * Named because they are two requests and a file covering a different fortnight
+ * than the table above it is the export version of a stale figure.
+ */
+const TIMESHEET_DAYS = 15;
 
 type View = "today" | "timesheet";
 
@@ -110,7 +112,7 @@ type View = "today" | "timesheet";
  */
 export function AttendanceScreen() {
   const roster = useAttendanceRoster();
-  const sheet = useAttendanceTimesheet(15);
+  const sheet = useAttendanceTimesheet(TIMESHEET_DAYS);
   const locations = useWorkLocations();
   const session = useSession();
   /* Two separate hook calls, never short-circuited into one expression — a
@@ -128,7 +130,6 @@ export function AttendanceScreen() {
 
   const [view, setView] = useState<View>("today");
   const [correcting, setCorrecting] = useState<ApiRosterRow | null>(null);
-
 
   const refresh = () => {
     roster.reload();
@@ -210,7 +211,10 @@ export function AttendanceScreen() {
           )
         ) : (
           <>
-            <MyAttendanceSummary sheet={sheet} employeeId={session.employeeId} />
+            <MyAttendanceSummary
+              sheet={sheet}
+              employeeId={session.employeeId}
+            />
             <MyAttendanceHistoryPanel />
           </>
         )}
@@ -228,7 +232,6 @@ export function AttendanceScreen() {
           onSaved={refresh}
         />
       )}
-
     </>
   );
 }
@@ -604,6 +607,7 @@ function RowActions({
  */
 function TimesheetView({ sheet }: { sheet: TimesheetState }) {
   const rota = useRotaContext(sheet.from, sheet.to);
+  const mayExport = useCan("EXPORT_DATA");
 
   return (
     <Card>
@@ -611,10 +615,27 @@ function TimesheetView({ sheet }: { sheet: TimesheetState }) {
         title={`Timesheet · ${shortDate(sheet.from)} to ${shortDate(sheet.to)}`}
         description={`${sheet.workingDays} working days, public holidays excluded. Hours are clocked time; anyone on a rota is measured against their rota.`}
         action={
-          <ButtonLink href="/people/overtime" variant="secondary" size="sm">
-            <Timer aria-hidden="true" className="size-4" />
-            Overtime
-          </ButtonLink>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* `EXPORT_DATA`, and only connected: the honest offline file would
+                be the fifteen rows already on screen, and unlike the directory
+                nobody is asking for that. No `VIEW_SALARIES` branch either —
+                this file carries days, not money. The timesheet read computes a
+                proration *amount* as well and it is deliberately not a column:
+                that is a salary figure wearing an attendance label, on the one
+                export that does not need the pay permission. */}
+            {sheet.source === "api" && mayExport && (
+              <ExportButton
+                label="Download"
+                download={() =>
+                  attendanceCsv({ days: TIMESHEET_DAYS, to: sheet.to })
+                }
+              />
+            )}
+            <ButtonLink href="/people/overtime" variant="secondary" size="sm">
+              <Timer aria-hidden="true" className="size-4" />
+              Overtime
+            </ButtonLink>
+          </div>
         }
       />
       <TableWrap className="rounded-none border-0">

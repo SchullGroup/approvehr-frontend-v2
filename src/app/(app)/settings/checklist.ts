@@ -85,7 +85,8 @@ export function checklistProgress(rows: ChecklistRow[]): {
 /* ------------------------------------------------------------------ the rows */
 
 function companyRow(facts: SetupFacts): ChecklistRow {
-  const { logo, rcNumber, addressLine, taxState, tin, entities } = facts.company;
+  const { logo, rcNumber, addressLine, taxState, tin, entities } =
+    facts.company;
   /* TIN is not in the "done" test on purpose: a company can pay salaries and
      file PAYE before its TIN is issued, and blocking the checklist on a number
      the FIRS has not sent yet would be nagging about somebody else's queue. It
@@ -120,7 +121,8 @@ function companyRow(facts: SetupFacts): ChecklistRow {
         ? `Complete.${entityNote}${tin ? "" : " No TIN recorded yet. Add it before your first filing."}${logoNote}`
         : `Still needs ${missing.join(", ")}.${logoNote}`,
     href: "/settings/company",
-    linkLabel: missing.length === 0 ? "Review the profile" : "Finish the profile",
+    linkLabel:
+      missing.length === 0 ? "Review the profile" : "Finish the profile",
   };
 }
 
@@ -195,13 +197,8 @@ function recordFieldsRow(facts: SetupFacts): ChecklistRow {
 }
 
 function leaveRow(facts: SetupFacts): ChecklistRow {
-  const {
-    types,
-    biggestEntitlement,
-    holidays,
-    year,
-    awaitingProclamation,
-  } = facts.leave;
+  const { types, biggestEntitlement, holidays, year, awaitingProclamation } =
+    facts.leave;
 
   if (types === 0) {
     return {
@@ -388,8 +385,12 @@ function rolesRow(facts: SetupFacts): ChecklistRow {
 }
 
 function payrollChecksRow(facts: SetupFacts): ChecklistRow {
-  const { employees, requirePensionPin, missingBankAccount, missingPensionPin } =
-    facts.payrollChecks;
+  const {
+    employees,
+    requirePensionPin,
+    missingBankAccount,
+    missingPensionPin,
+  } = facts.payrollChecks;
   const affects =
     "What stops a payroll before it goes out. These are the same checks the run itself raises.";
 

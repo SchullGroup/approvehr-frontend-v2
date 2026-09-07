@@ -14,10 +14,7 @@ import {
   ButtonLink,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
-import {
-  geofenceRefusal,
-  type ApiClockResult,
-} from "@/lib/api/attendance";
+import { geofenceRefusal, type ApiClockResult } from "@/lib/api/attendance";
 import { PositionError } from "@/lib/geolocation";
 import {
   STATUS_LABEL,
@@ -38,9 +35,7 @@ import { DayTimer } from "@/app/(app)/people/attendance/day-timer";
  * roster reload, because a clock event this card causes should be reflected
  * there too. The dashboard has nothing else to refresh, so it passes nothing.
  */
-export function MyClockCard({
-  onRecorded,
-}: { onRecorded?: () => void } = {}) {
+export function MyClockCard({ onRecorded }: { onRecorded?: () => void } = {}) {
   const roster = useAttendanceRoster();
   const locations = useWorkLocations();
   const { clockIn, clockOut, undoClockOut } = useAttendanceMutations();

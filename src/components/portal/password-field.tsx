@@ -72,9 +72,7 @@ export function PasswordField({
   const [touched, setTouched] = useState(false);
 
   const rules = passwordRules(value, strict);
-  const shown = rules.filter(
-    (rule) => rule.showWhen === "always" || !rule.met,
-  );
+  const shown = rules.filter((rule) => rule.showWhen === "always" || !rule.met);
   const remaining = Math.max(0, PASSWORD_MIN - value.length);
 
   return (
@@ -134,8 +132,8 @@ export function PasswordField({
             {strict ? (
               <>
                 Longer beats complicated: a phrase like three ordinary words,
-                with a capital, a number and a symbol, is easier to remember
-                and harder to guess than a short jumble.
+                with a capital, a number and a symbol, is easier to remember and
+                harder to guess than a short jumble.
               </>
             ) : (
               <>
@@ -156,7 +154,7 @@ export function PasswordField({
                   className={cn(
                     "flex size-4 shrink-0 items-center justify-center rounded-full border transition-colors",
                     rule.met
-                      ? "border-success-strong bg-success text-ink"
+                      ? "border-success-strong bg-success text-fill-strong"
                       : "border-control-line text-transparent",
                   )}
                 >

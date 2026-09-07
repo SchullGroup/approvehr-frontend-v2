@@ -68,7 +68,11 @@ export function SectionsPanel({
           title="Sections"
           action={
             sections.editable ? (
-              <Button variant="secondary" size="sm" onClick={() => setAdding(true)}>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setAdding(true)}
+              >
                 <Plus aria-hidden="true" className="size-4" />
                 Add section
               </Button>
@@ -88,7 +92,11 @@ export function SectionsPanel({
             }
             action={
               sections.editable && !sections.loading ? (
-                <Button variant="accent" size="sm" onClick={() => setAdding(true)}>
+                <Button
+                  variant="accent"
+                  size="sm"
+                  onClick={() => setAdding(true)}
+                >
                   Add the first section
                 </Button>
               ) : undefined
@@ -100,7 +108,11 @@ export function SectionsPanel({
               <div
                 key={section.id}
                 className="flex flex-wrap items-center gap-3 rounded-md border border-line p-2.5"
-                style={section.depth > 0 ? { marginLeft: section.depth * 18 } : undefined}
+                style={
+                  section.depth > 0
+                    ? { marginLeft: section.depth * 18 }
+                    : undefined
+                }
               >
                 <span
                   aria-hidden="true"
@@ -120,7 +132,9 @@ export function SectionsPanel({
                   </span>
                 </span>
                 <span className="tabular shrink-0 text-body-sm text-muted">
-                  {section.articles === 1 ? "1 article" : `${section.articles} articles`}
+                  {section.articles === 1
+                    ? "1 article"
+                    : `${section.articles} articles`}
                 </span>
                 {sections.editable && (
                   <span className="flex shrink-0 gap-1">
@@ -259,7 +273,9 @@ function SectionDialog({
             disabled={name.trim().length < 2}
             onClick={() => {
               setSaving(true);
-              void onSubmit(name.trim(), parentId).finally(() => setSaving(false));
+              void onSubmit(name.trim(), parentId).finally(() =>
+                setSaving(false),
+              );
             }}
           >
             Save

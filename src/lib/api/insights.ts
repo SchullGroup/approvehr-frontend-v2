@@ -28,8 +28,42 @@ import type { ApiBoard } from "@/lib/api/announcements";
 /** Money crosses as integer kobo. Naira is a display concern. */
 export const naira = (kobo: number): number => kobo / 100;
 
+/**
+ * The signed-in person's own three facts. Absent when the account has no
+ * employee record behind it — an external administrator has no pay and no
+ * leave, and three zeroes would say otherwise.
+ */
+export type MyOverview = {
+  /** Absent when no payroll has ever included them. Never a zero. */
+  pay?: {
+    /** `YYYY-MM`. */
+    period: string;
+    netKobo: number;
+    /** `PAID`, not `APPROVED`. Approving is a decision; paying moved money. */
+    paid: boolean;
+  };
+  /**
+   * Every type they have an entitlement in, biggest first.
+   *
+   * Deliberately not one headline figure: nothing on a leave type says which
+   * is the ordinary annual one, so picking would be a guess — and the guess
+   * the API first made showed a man 84 days of maternity leave. Empty is a
+   * company that has configured no leave, which is not "no days left".
+   */
+  leave: {
+    leaveType: string;
+    entitled: number;
+    taken: number;
+    remaining: number;
+  }[];
+  /** Approvals addressed to them and still open. Zero is a real answer here. */
+  waitingOnMe: number;
+};
+
 export type DashboardData = {
   asOf: string;
+  /** The caller's own facts. See `MyOverview`. */
+  me?: MyOverview;
   /**
    * Absent for a plain employee — the same rule as `hiring`, `payroll` and
    * `money` below. Headcount, the company-wide approval backlog and who has
@@ -45,7 +79,11 @@ export type DashboardData = {
     leavingThisMonth: number;
     incomplete: number;
   };
-  approvals?: { waiting: number; overdue: number; oldestWaitingDays: number | null };
+  approvals?: {
+    waiting: number;
+    overdue: number;
+    oldestWaitingDays: number | null;
+  };
   today?: {
     expected: number;
     clockedIn: number;
@@ -129,7 +167,12 @@ export type DashboardData = {
 export type ReportsData = {
   period: string;
   payrollByDepartment:
-    | { department: string; headcount: number; grossKobo: number; netKobo: number }[]
+    | {
+        department: string;
+        headcount: number;
+        grossKobo: number;
+        netKobo: number;
+      }[]
     | null;
   grossBreakdown: {
     basicKobo: number;
@@ -148,11 +191,83 @@ export type ReportsData = {
     approvalsPending: number;
     attendanceCorrections: number;
   };
+  /**
+   * Headcount over time, turnover and tenure.
+   *
+   * Derived on the API from `startDate` and `endDate`, which **are** the
+   * historical record — not a snapshot table, and not the invented `Feb: 182 …
+   * Aug: 264` array this product once drew on the dashboard.
+   *
+   * Needs no `VIEW_SALARIES`, unlike everything else on this report: how many
+   * people work here and how long they stay carries no money.
+   */
+  workforce: {
+    /** Oldest first, one per month. */
+    trend: {
+      month: string;
+      headcount: number;
+      joiners: number;
+      leavers: number;
+    }[];
+    /**
+     * Leavers against average headcount, in basis points.
+     *
+     * **Null, never 0**, for a company with nobody in it — 0% would claim it
+     * retains everybody, which is a statement about a workforce that does not
+     * exist.
+     */
+    turnoverBp: number | null;
+    turnoverWindowMonths: number;
+    /** Null for a company with nobody. Over current staff, not leavers. */
+    averageTenureMonths: number | null;
+    headcountNow: number;
+  };
+};
+
+/**
+ * One person's own dashboard arrangement.
+ *
+ * `layout` is **null** for somebody who has never opened the drawer, and an
+ * empty `widgets` array for somebody who switched everything off. Those are
+ * different answers and the screen treats them differently — the first takes
+ * the catalogue's defaults for their role, which are allowed to change between
+ * releases; the second is a decision to keep. See `DashboardLayout` on the API.
+ */
+export type ApiDashboardLayout = {
+  layout: { widgets: string[]; updatedAt: string } | null;
 };
 
 export const insightsApi = {
   dashboard: (): Promise<DashboardData> =>
     request<DashboardData>("/insights/dashboard"),
+
+  layout: (signal?: AbortSignal): Promise<ApiDashboardLayout> =>
+    request<ApiDashboardLayout>("/insights/dashboard/layout", { signal }),
+
+  /**
+   * Replaces the whole arrangement.
+   *
+   * Order and membership are one fact, so there is no per-widget endpoint —
+   * half a saved arrangement is a state nobody can describe. Same shape as the
+   * appraiser weights and the payroll lines modal.
+   */
+  saveLayout: (widgets: readonly string[]): Promise<ApiDashboardLayout> =>
+    request<ApiDashboardLayout>("/insights/dashboard/layout", {
+      method: "PUT",
+      body: { widgets },
+    }),
+
+  /**
+   * Back to never having chosen, so the catalogue's defaults answer again.
+   *
+   * A DELETE rather than a PUT of today's defaults: that is what makes a later
+   * release's better starting arrangement reach the person who reset, and it is
+   * the only way back to the `null` state the API distinguishes.
+   */
+  clearLayout: (): Promise<ApiDashboardLayout> =>
+    request<ApiDashboardLayout>("/insights/dashboard/layout", {
+      method: "DELETE",
+    }),
 
   /** `period` is `YYYY-MM`. Omitted means this month. */
   reports: (period?: string): Promise<ReportsData> =>

@@ -2,7 +2,23 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # `test` is the branch that ships. Every `Production` deployment on this
+    # repo was created by `vercel[bot]` from a `test` ref, and `main`'s head has
+    # never had one — so a merge into `test` reaches customers, and `main` is a
+    # record rather than a release.
+    #
+    # Until `test` was in this list, CI had never run on the commit that
+    # shipped. `pull_request` checks the PR *head*, not the merge result, and
+    # the two are different commits whenever the merge is not a fast-forward —
+    # which is every promotion into a branch that already carries merge commits
+    # of its own, as all three of these do.
+    #
+    # `preprod` for the same reason one step earlier in the chain.
+    #
+    # Still uncovered on push: `dev` and `staging`. Adding them is this same
+    # one-line change; they are left out only because this change was scoped to
+    # the branches that deploy.
+    branches: [main, preprod, test]
   pull_request:
 
 concurrency:

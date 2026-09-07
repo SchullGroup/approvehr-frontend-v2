@@ -203,7 +203,9 @@ export function RequisitionWorkspace({
                     )}
                   </TD>
                   <TD align="right" className="tabular">
-                    <span className={days >= 7 ? "text-warning-text" : undefined}>
+                    <span
+                      className={days >= 7 ? "text-warning-text" : undefined}
+                    >
                       {days}
                     </span>
                   </TD>

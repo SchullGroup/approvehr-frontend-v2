@@ -51,7 +51,9 @@ export function DeclineDialog({
       setError(null);
       onClose();
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "That did not work.");
+      setError(
+        failure instanceof Error ? failure.message : "That did not work.",
+      );
     } finally {
       setBusy(false);
     }
@@ -69,7 +71,11 @@ export function DeclineDialog({
           <Button variant="secondary" onClick={close} disabled={busy}>
             Cancel
           </Button>
-          <Button variant="accent" onClick={() => void confirm()} loading={busy}>
+          <Button
+            variant="accent"
+            onClick={() => void confirm()}
+            loading={busy}
+          >
             Send it back
           </Button>
         </div>

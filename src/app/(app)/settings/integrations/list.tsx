@@ -147,15 +147,17 @@ function Catalogue() {
     };
   }, [isConnected]);
 
-  const demoRows: IntegrationRow[] = settings.integrations.map((integration) => ({
-    id: integration.id,
-    name: integration.name,
-    category: integration.category,
-    detail: integration.detail,
-    status: integration.status,
-  }));
+  const demoRows: IntegrationRow[] = settings.integrations.map(
+    (integration) => ({
+      id: integration.id,
+      name: integration.name,
+      category: integration.category,
+      detail: integration.detail,
+      status: integration.status,
+    }),
+  );
 
-  const rows = isConnected ? fetched?.rows ?? [] : demoRows;
+  const rows = isConnected ? (fetched?.rows ?? []) : demoRows;
   const rowsLoading = isConnected && fetched === null;
 
   const requested = rows.filter((i) => i.status === "requested");
@@ -197,13 +199,19 @@ function Catalogue() {
       }
     } catch (error) {
       setFetched(
-        (s) => s && { ...s, rows: s.rows.map((r) => (r.id === row.id ? before : r)) },
+        (s) =>
+          s && {
+            ...s,
+            rows: s.rows.map((r) => (r.id === row.id ? before : r)),
+          },
       );
       toast.push({
         title: "That did not save",
         tone: "danger",
         detail:
-          error instanceof ApiError ? error.message : "Something went wrong. Try again.",
+          error instanceof ApiError
+            ? error.message
+            : "Something went wrong. Try again.",
       });
     }
   }
@@ -214,14 +222,18 @@ function Catalogue() {
 
       <PageBody className="flex flex-col gap-6">
         {isConnected && fetched?.error && (
-          <LoadFailure subject="the integrations catalogue" error={fetched.error}/>
+          <LoadFailure
+            subject="the integrations catalogue"
+            error={fetched.error}
+          />
         )}
 
         <Callout tone="info" title="None of these are live yet">
-          Connecting any of them means holding credentials for another company&rsquo;s
-          API, which needs the backend. Rather than showing a toggle that flips to
-          &ldquo;Connected&rdquo; and does nothing, this page tells you where each one stands
-          and lets you tell us which to build first.
+          Connecting any of them means holding credentials for another
+          company&rsquo;s API, which needs the backend. Rather than showing a
+          toggle that flips to &ldquo;Connected&rdquo; and does nothing, this
+          page tells you where each one stands and lets you tell us which to
+          build first.
         </Callout>
 
         {requested.length > 0 && (
@@ -329,9 +341,9 @@ function Catalogue() {
             </p>
             <p>
               <strong className="text-ink">Bank payment files.</strong> The
-              approved run produces a payment file in your bank&rsquo;s format. The
-              Banking integrations above would remove the upload step; they are
-              not required to pay anybody.
+              approved run produces a payment file in your bank&rsquo;s format.
+              The Banking integrations above would remove the upload step; they
+              are not required to pay anybody.
             </p>
           </CardBody>
         </Card>

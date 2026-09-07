@@ -90,7 +90,9 @@ export function AssignComponentToManyDialog({
           : `This component has no default ${fixed ? "amount" : "rate"}, so set one below: leaving it blank would ask to add ₦0.00 to every payslip, which is refused.`
       }
       countLabel={(count) =>
-        count === 1 ? "1 person will be assigned" : `${count} people will be assigned`
+        count === 1
+          ? "1 person will be assigned"
+          : `${count} people will be assigned`
       }
       extraContent={
         <div className="flex flex-col gap-4 rounded-lg border border-line bg-canvas p-4">

@@ -159,15 +159,22 @@ export function parseImportTime(raw: string): Parsed<string> {
   if (meridiem) {
     const isPm = meridiem[1]?.toLowerCase() === "p";
     if (hour < 1 || hour > 12) {
-      return { ok: false, problem: `${clock} is not an hour on a 12-hour clock.` };
+      return {
+        ok: false,
+        problem: `${clock} is not an hour on a 12-hour clock.`,
+      };
     }
     if (hour === 12) hour = isPm ? 12 : 0;
     else if (isPm) hour += 12;
   }
 
-  if (hour > 23) return { ok: false, problem: `There is no ${String(hour)} o'clock.` };
+  if (hour > 23)
+    return { ok: false, problem: `There is no ${String(hour)} o'clock.` };
   if (minute > 59) {
-    return { ok: false, problem: `${String(minute)} is not a number of minutes.` };
+    return {
+      ok: false,
+      problem: `${String(minute)} is not a number of minutes.`,
+    };
   }
 
   return {
@@ -476,7 +483,9 @@ export function buildDictionary<Field extends string>(
     columns,
     lookup,
     byField: new Map(columns.map((spec) => [spec.field, spec])),
-    requiredFields: columns.filter((spec) => spec.required).map((spec) => spec.field),
+    requiredFields: columns
+      .filter((spec) => spec.required)
+      .map((spec) => spec.field),
     recommended: columns.filter((spec) => spec.recommended !== undefined),
     heading: Object.fromEntries(
       columns.map((spec) => [spec.field, spec.column]),

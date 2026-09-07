@@ -1,13 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import {
-  BookOpen,
-  Check,
-  Eye,
-  ThumbsDown,
-  ThumbsUp,
-} from "lucide-react";
+import { BookOpen, Check, Eye, ThumbsDown, ThumbsUp } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
   Badge,
@@ -97,7 +91,9 @@ export function ArticleScreen({ slug }: { slug: string }) {
           <Card>
             <EmptyState
               icon={<BookOpen aria-hidden="true" />}
-              title={notFound ? "That article is not here" : "Could not open that"}
+              title={
+                notFound ? "That article is not here" : "Could not open that"
+              }
               description={
                 notFound
                   ? "It may have been taken down while somebody rewrites it."
@@ -150,7 +146,11 @@ export function ArticleScreen({ slug }: { slug: string }) {
         }
         action={
           <Can permission="MANAGE_SETTINGS">
-            <ButtonLink href="/settings/knowledge" variant="secondary" size="sm">
+            <ButtonLink
+              href="/settings/knowledge"
+              variant="secondary"
+              size="sm"
+            >
               Manage articles
             </ButtonLink>
           </Can>
@@ -161,10 +161,7 @@ export function ArticleScreen({ slug }: { slug: string }) {
         <Card className="max-w-3xl">
           <CardBody className="flex flex-col gap-4">
             {paragraphs.map((block, index) => (
-              <p
-                key={index}
-                className="text-body leading-relaxed text-body"
-              >
+              <p key={index} className="text-body leading-relaxed text-body">
                 {block}
               </p>
             ))}

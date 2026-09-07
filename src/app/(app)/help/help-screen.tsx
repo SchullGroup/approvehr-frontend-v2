@@ -2,7 +2,14 @@
 
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { AlertTriangle, Inbox, LifeBuoy, Search, Send, UserPlus } from "lucide-react";
+import {
+  AlertTriangle,
+  Inbox,
+  LifeBuoy,
+  Search,
+  Send,
+  UserPlus,
+} from "lucide-react";
 import {
   Avatar,
   Badge,
@@ -110,7 +117,9 @@ function QueueView() {
   const [categoryId, setCategoryId] = useState("");
   /* Read once as the initial value — a notification carries `?ticket=<id>` and
      we want it open immediately; subsequent opens/closes are the user's. */
-  const [openId, setOpenId] = useState<string | null>(() => search.get("ticket"));
+  const [openId, setOpenId] = useState<string | null>(() =>
+    search.get("ticket"),
+  );
   const [raising, setRaising] = useState(false);
   const [bump, setBump] = useState(0);
 
@@ -133,7 +142,11 @@ function QueueView() {
           )
         }
         action={
-          <Button variant="secondary" size="sm" onClick={() => setRaising(true)}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setRaising(true)}
+          >
             <LifeBuoy aria-hidden="true" className="size-4" />
             Raise a request
           </Button>
@@ -316,7 +329,10 @@ function QueueView() {
       )}
 
       {raising && (
-        <RaiseRequestModal onClose={() => setRaising(false)} onRaised={refresh} />
+        <RaiseRequestModal
+          onClose={() => setRaising(false)}
+          onRaised={refresh}
+        />
       )}
     </>
   );
@@ -327,7 +343,9 @@ function QueueView() {
 function MyRequestsView() {
   const search = useSearchParams();
   const [view, setView] = useState<TicketView>("open");
-  const [openId, setOpenId] = useState<string | null>(() => search.get("ticket"));
+  const [openId, setOpenId] = useState<string | null>(() =>
+    search.get("ticket"),
+  );
   const [raising, setRaising] = useState(false);
   const [bump, setBump] = useState(0);
 
@@ -396,7 +414,11 @@ function MyRequestsView() {
             }
             emptyAction={
               view === "open" ? (
-                <Button variant="accent" size="sm" onClick={() => setRaising(true)}>
+                <Button
+                  variant="accent"
+                  size="sm"
+                  onClick={() => setRaising(true)}
+                >
                   Get help
                 </Button>
               ) : undefined
@@ -653,7 +675,8 @@ function RaiseRequestModal({
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
 
-  const chosen = categories.find((category) => category.id === categoryId) ?? null;
+  const chosen =
+    categories.find((category) => category.id === categoryId) ?? null;
   const promise = chosen
     ? (responseTargetLine(
         chosen.sla?.firstResponseMinutes ?? null,

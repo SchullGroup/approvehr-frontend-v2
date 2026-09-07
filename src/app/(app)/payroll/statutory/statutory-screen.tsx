@@ -15,6 +15,7 @@ import { PageBody, PageHeader } from "@/components/portal/shell";
 import { SourceBadge } from "@/components/payroll/run-panels";
 import { useCan } from "@/lib/permissions";
 import { useDeductionSwitches } from "@/lib/store/payroll-deductions";
+import { SchedulesTable } from "./schedules-table";
 
 /**
  * Statutory filings.
@@ -49,11 +50,15 @@ import { useDeductionSwitches } from "@/lib/store/payroll-deductions";
  * label warning that the data below is fake is not a substitute for not
  * shipping fake data — and on a live product it is the wrong half to keep.
  *
- * `StatutorySchedule` exists in the schema and nothing writes it yet, so what
- * remains is only what is true: **which bodies this company files for**, read
- * from what it actually deducts, and the statement that each schedule appears
- * once a run is approved. The `SourceBadge` reports where that came from.
- * When the generator lands, the amounts arrive with it.
+ * **The generator has landed.** `modules/payroll/statutory.ts` writes a
+ * `StatutorySchedule` per body per run at *approval* — not at prepare, because
+ * a schedule is a statement about money owed to a regulator and must not move
+ * under somebody who has already looked at it. So `SchedulesTable` below shows
+ * the real amounts, the real recipients and the real due dates, every one of
+ * them summed from that run's own payslips.
+ *
+ * The **Filed** badge is now set by somebody recording a real filing with a
+ * real reference, which is the only version of that badge worth having.
  *
  * ## Who may look
  *
@@ -246,6 +251,11 @@ export function StatutoryScreen() {
               </Card>
             )}
 
+            {/* The schedules themselves. This card used to say only *which*
+                bodies a company files for, because `StatutorySchedule` was a
+                model nothing wrote — approval writes it now. */}
+            <SchedulesTable />
+
             <Card>
               <CardHeader
                 title="What you file for"
@@ -258,8 +268,9 @@ export function StatutoryScreen() {
                       key={label}
                       className="text-body-sm leading-relaxed text-body"
                     >
-                      <strong className="font-medium text-ink">{label}</strong>{" "}: the schedule, the amount and the due date appear here
-                      once a payroll run for the period is approved.
+                      <strong className="font-medium text-ink">{label}</strong>{" "}
+                      : a schedule appears above for each one the moment a
+                      payroll run for the period is approved.
                     </p>
                   ),
                 )}

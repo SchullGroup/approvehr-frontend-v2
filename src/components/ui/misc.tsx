@@ -36,7 +36,7 @@ export function Avatar({
   const tones = {
     neutral: "bg-sunken text-body",
     accent: "bg-accent-soft text-accent-text",
-    ink: "bg-ink text-white",
+    ink: "bg-fill-strong text-white",
   } as const;
 
   if (src) {
@@ -126,9 +126,7 @@ export function Timeline({
               </time>
             </div>
             {entry.actor && (
-              <p className="mt-0.5 text-meta text-muted">
-                by {entry.actor}
-              </p>
+              <p className="mt-0.5 text-meta text-muted">by {entry.actor}</p>
             )}
             {entry.detail && (
               <div className="mt-1.5 text-body-sm leading-relaxed text-body">
@@ -199,10 +197,7 @@ export function FileDrop({
             : "border-line-strong bg-canvas",
         )}
       >
-        <UploadCloud
-          aria-hidden="true"
-          className="mx-auto size-6 text-faint"
-        />
+        <UploadCloud aria-hidden="true" className="mx-auto size-6 text-faint" />
         <p className="mt-3 text-body-sm text-body">
           Drag files here, or{" "}
           <button
@@ -236,7 +231,10 @@ export function FileDrop({
               key={f.id}
               className="flex items-center gap-3 rounded-md border border-line bg-surface px-3 py-2.5"
             >
-              <FileText aria-hidden="true" className="size-4 shrink-0 text-faint" />
+              <FileText
+                aria-hidden="true"
+                className="size-4 shrink-0 text-faint"
+              />
               <span className="min-w-0 flex-1 truncate text-body-sm text-ink">
                 {f.name}
               </span>
@@ -245,7 +243,9 @@ export function FileDrop({
               </span>
               <button
                 type="button"
-                onClick={() => onFilesChange(files.filter((x) => x.id !== f.id))}
+                onClick={() =>
+                  onFilesChange(files.filter((x) => x.id !== f.id))
+                }
                 aria-label={`Remove ${f.name}`}
                 className="shrink-0 rounded-sm p-1 text-muted hover:bg-sunken hover:text-danger-text"
               >
@@ -316,7 +316,13 @@ export function DescriptionList({
   }
 
   return (
-    <dl className={cn("grid grid-cols-1 gap-x-6 gap-y-4", cols[columns], className)}>
+    <dl
+      className={cn(
+        "grid grid-cols-1 gap-x-6 gap-y-4",
+        cols[columns],
+        className,
+      )}
+    >
       {items.map((item) => (
         <div key={item.term} className="min-w-0">
           <dt className="text-meta font-medium text-muted">{item.term}</dt>
@@ -346,9 +352,7 @@ export function CheckList({
             strokeWidth={3}
             className="mt-0.5 size-3.5 shrink-0 text-success-text"
           />
-          <span className="text-body-sm leading-relaxed text-body">
-            {item}
-          </span>
+          <span className="text-body-sm leading-relaxed text-body">{item}</span>
         </li>
       ))}
     </ul>

@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { ApiError } from "@/lib/api/client";
 import {
   offboardingApi,
@@ -313,21 +319,21 @@ function generateTasks(
     .filter((t) => t.active !== false)
     .filter((t) => t.appliesTo.length === 0 || t.appliesTo.includes(kind))
     .map((template, index) => ({
-    id: nextId("task"),
-    kind: template.kind,
-    label: template.label,
-    owner: template.owner,
-    order: index,
-    mandatory: template.mandatory,
-    assigneeId: assigneeFor(template.owner, employeeId, managerId),
-    completedAt: null,
-    completedById: null,
-    verifiedAt: null,
-    verifiedById: null,
-    outcome: null,
-    note: null,
-    assetAssignmentId: null,
-  }));
+      id: nextId("task"),
+      kind: template.kind,
+      label: template.label,
+      owner: template.owner,
+      order: index,
+      mandatory: template.mandatory,
+      assigneeId: assigneeFor(template.owner, employeeId, managerId),
+      completedAt: null,
+      completedById: null,
+      verifiedAt: null,
+      verifiedById: null,
+      outcome: null,
+      note: null,
+      assetAssignmentId: null,
+    }));
 }
 
 /* -------------------------------------------------------------- the seed */
@@ -499,7 +505,10 @@ function serializeExit(exit: DemoExit): ApiExit {
   return {
     id: exit.id,
     employee: identityOf(exit),
-    manager: exit.managerId && managerName ? { id: exit.managerId, name: managerName } : null,
+    manager:
+      exit.managerId && managerName
+        ? { id: exit.managerId, name: managerName }
+        : null,
     kind: exit.kind,
     kindLabel: KIND_LABELS[exit.kind],
     reason: exit.reason,
@@ -570,7 +579,8 @@ function buildReadiness(
   const managerRequired = exit.managerId !== null;
 
   const blockers: string[] = [];
-  if (exit.status === "COMPLETED") blockers.push("This exit is already closed.");
+  if (exit.status === "COMPLETED")
+    blockers.push("This exit is already closed.");
   if (exit.status === "DECLINED" || exit.status === "CANCELLED") {
     blockers.push(`This exit is ${STATUS_LABELS[exit.status].toLowerCase()}.`);
   }
@@ -583,7 +593,8 @@ function buildReadiness(
         : "Their manager has not released them yet.",
     );
   }
-  if (exit.hrApprovedAt === null) blockers.push("HR has not approved this yet.");
+  if (exit.hrApprovedAt === null)
+    blockers.push("HR has not approved this yet.");
   for (const task of outstanding.filter((t) => t.mandatory)) {
     blockers.push(
       task.outcome === "NOT_RETURNED"
@@ -598,7 +609,8 @@ function buildReadiness(
     statusLabel: STATUS_LABELS[exit.status],
     lastWorkingDay: exit.lastWorkingDay,
     daysToLastWorkingDay: Math.ceil(
-      (new Date(exit.lastWorkingDay).getTime() - new Date(TODAY).getTime()) / DAY_MS,
+      (new Date(exit.lastWorkingDay).getTime() - new Date(TODAY).getTime()) /
+        DAY_MS,
     ),
     progress: progressOf(exit.tasks),
     approvals: {
@@ -637,8 +649,12 @@ function buildReadiness(
 
 /* ----------------------------------------------------------- demo writes */
 
-const refuse = (status: number, code: string, message: string, details?: Record<string, unknown>) =>
-  new ApiError(status, code, message, details);
+const refuse = (
+  status: number,
+  code: string,
+  message: string,
+  details?: Record<string, unknown>,
+) => new ApiError(status, code, message, details);
 
 function replace(exit: DemoExit) {
   /* `current()`, never `read()`: this page may never have rendered a list of
@@ -669,7 +685,9 @@ function demoStart(body: StartExitBody, actingId: string | null): DemoExit {
   }
 
   const person = employeeById(targetId);
-  const name = person ? `${person.firstName} ${person.lastName}` : "That person";
+  const name = person
+    ? `${person.firstName} ${person.lastName}`
+    : "That person";
 
   if (person && body.lastWorkingDay < person.startDate) {
     throw refuse(
@@ -685,7 +703,10 @@ function demoStart(body: StartExitBody, actingId: string | null): DemoExit {
      replaced the first. */
   const open = store
     .current()
-    .exits.find((row) => row.employeeId === targetId && OPEN_STATUSES.includes(row.status));
+    .exits.find(
+      (row) =>
+        row.employeeId === targetId && OPEN_STATUSES.includes(row.status),
+    );
   if (open) {
     throw refuse(
       409,
@@ -721,7 +742,12 @@ function demoStart(body: StartExitBody, actingId: string | null): DemoExit {
     declinedReason: null,
     completedAt: null,
     createdAt: new Date().toISOString(),
-    tasks: generateTasks(body.kind, targetId, managerId, store.current().templates),
+    tasks: generateTasks(
+      body.kind,
+      targetId,
+      managerId,
+      store.current().templates,
+    ),
     interview: null,
   };
 
@@ -832,7 +858,11 @@ function demoWithdraw(
   });
 }
 
-function demoUpdateTask(taskId: string, body: UpdateTaskBody, actingId: string | null) {
+function demoUpdateTask(
+  taskId: string,
+  body: UpdateTaskBody,
+  actingId: string | null,
+) {
   /* These two lookups were the half of the exit fix that got missed: `replace`
      was moved to `current()` and the *finds* that feed it were left on
      `read()`, which is worse than either being wrong on its own. A task on a
@@ -928,7 +958,11 @@ function demoVerifyTask(taskId: string, actingId: string | null) {
     );
   }
   if (task.verifiedAt !== null) {
-    throw refuse(409, "already_verified", `"${task.label}" has already been confirmed.`);
+    throw refuse(
+      409,
+      "already_verified",
+      `"${task.label}" has already been confirmed.`,
+    );
   }
   if (task.completedById !== null && task.completedById === actingId) {
     throw refuse(
@@ -943,7 +977,11 @@ function demoVerifyTask(taskId: string, actingId: string | null) {
     ...exit,
     tasks: exit.tasks.map((row) =>
       row.id === taskId
-        ? { ...row, verifiedAt: new Date().toISOString(), verifiedById: actingId }
+        ? {
+            ...row,
+            verifiedAt: new Date().toISOString(),
+            verifiedById: actingId,
+          }
         : row,
     ),
   });
@@ -1090,7 +1128,8 @@ export function useExits(params: ExitListParams = {}) {
         }
       } catch (error) {
         if (cancelled) return;
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         setFetched({
           key,
           rows: EMPTY_ROWS,
@@ -1210,7 +1249,8 @@ export function useExit(id: string) {
         await load(controller.signal);
       } catch (error) {
         if (cancelled) return;
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         setFetched({
           id,
           exit: null,
@@ -1289,7 +1329,13 @@ export function useExit(id: string) {
   }, [id, isConnected, refresh, employees]);
 
   return {
-    exit: isConnected ? (matched ? fetched.exit : null) : localExit ? serializeExit(localExit) : null,
+    exit: isConnected
+      ? matched
+        ? fetched.exit
+        : null
+      : localExit
+        ? serializeExit(localExit)
+        : null,
     readiness: isConnected
       ? matched
         ? fetched.readiness
@@ -1419,7 +1465,8 @@ export function useMyExit() {
         }
       } catch (error) {
         if (cancelled) return;
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         setFetched({
           subject,
           row: null,
@@ -1439,7 +1486,8 @@ export function useMyExit() {
       subject
         ? (demo.exits.find(
             (exit) =>
-              exit.employeeId === subject && OPEN_STATUSES.includes(exit.status),
+              exit.employeeId === subject &&
+              OPEN_STATUSES.includes(exit.status),
           ) ?? null)
         : null,
     [demo.exits, subject],
@@ -1561,7 +1609,8 @@ export function useExitTemplates(includeInactive = false) {
         if (!cancelled) setFetched({ key, rows: result.rows, error: null });
       } catch (error) {
         if (cancelled) return;
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         setFetched({
           key,
           rows: [],
@@ -1717,7 +1766,9 @@ function demoAddTemplate(body: TemplateBody) {
         kind: body.kind,
         label: body.label.trim(),
         owner: body.owner.trim(),
-        order: state.templates.reduce((max, row) => Math.max(max, row.order), -1) + 1,
+        order:
+          state.templates.reduce((max, row) => Math.max(max, row.order), -1) +
+          1,
         mandatory: body.mandatory ?? true,
         appliesTo: body.appliesTo ?? [],
         active: true,
@@ -1740,8 +1791,12 @@ function demoEditTemplate(id: string, body: UpdateTemplateBody) {
             ...(body.kind === undefined ? {} : { kind: body.kind }),
             ...(body.label === undefined ? {} : { label: body.label.trim() }),
             ...(body.owner === undefined ? {} : { owner: body.owner.trim() }),
-            ...(body.mandatory === undefined ? {} : { mandatory: body.mandatory }),
-            ...(body.appliesTo === undefined ? {} : { appliesTo: body.appliesTo }),
+            ...(body.mandatory === undefined
+              ? {}
+              : { mandatory: body.mandatory }),
+            ...(body.appliesTo === undefined
+              ? {}
+              : { appliesTo: body.appliesTo }),
             ...(body.active === undefined ? {} : { active: body.active }),
           }
         : row,

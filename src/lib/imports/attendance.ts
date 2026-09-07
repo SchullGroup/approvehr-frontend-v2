@@ -58,12 +58,7 @@ import {
 export const MAX_ROWS_PER_BATCH = 500;
 
 export type AttendanceField =
-  | "employee"
-  | "date"
-  | "clockIn"
-  | "clockOut"
-  | "location"
-  | "note";
+  "employee" | "date" | "clockIn" | "clockOut" | "location" | "note";
 
 const COLUMNS: readonly ColumnSpec<AttendanceField>[] = [
   {
@@ -165,7 +160,14 @@ const COLUMNS: readonly ColumnSpec<AttendanceField>[] = [
   {
     field: "location",
     column: "work_location",
-    aliases: ["location", "site", "office", "branch", "terminal", "device_location"],
+    aliases: [
+      "location",
+      "site",
+      "office",
+      "branch",
+      "terminal",
+      "device_location",
+    ],
     required: false,
     example: "Ikeja Head Office",
     note: "One of your offices, by name. Must already exist: this never creates one.",
@@ -292,7 +294,9 @@ function attendanceRowRules({
 }
 
 /** The batch-level sentences, from what the row rules counted. */
-function attendanceFileNotes(counts: Readonly<Record<string, number>>): string[] {
+function attendanceFileNotes(
+  counts: Readonly<Record<string, number>>,
+): string[] {
   const notes: string[] = [];
   const openShifts = counts["openShifts"] ?? 0;
 

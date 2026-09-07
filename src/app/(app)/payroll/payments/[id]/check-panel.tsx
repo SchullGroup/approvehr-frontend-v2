@@ -68,13 +68,20 @@ export function CheckPanel({
   onRecheck: () => void;
   rechecking: boolean;
 }) {
-  const allBlockers = batch.check.discrepancies.filter((d) => d.severity === "BLOCKER");
-  const warnings = batch.check.discrepancies.filter((d) => d.severity === "WARNING");
+  const allBlockers = batch.check.discrepancies.filter(
+    (d) => d.severity === "BLOCKER",
+  );
+  const warnings = batch.check.discrepancies.filter(
+    (d) => d.severity === "WARNING",
+  );
 
   /* The two codes the payroll run's own check now catches first. Split out so
      they render as one line pointing back at the run rather than a row each —
      see the header comment on why this list should almost always be empty. */
-  const BANK_DETAIL_CODES = new Set(["missing_bank_name", "invalid_account_number"]);
+  const BANK_DETAIL_CODES = new Set([
+    "missing_bank_name",
+    "invalid_account_number",
+  ]);
   const bankProblems = allBlockers.filter((d) => BANK_DETAIL_CODES.has(d.code));
   const blockers = allBlockers.filter((d) => !BANK_DETAIL_CODES.has(d.code));
 
@@ -126,13 +133,16 @@ export function CheckPanel({
             anybody with a bank-detail problem, so a batch reaching this page
             with one is almost always older than that rule. */}
         {bankProblems.length > 0 && (
-          <Callout tone="warning" title="Bank details need fixing on the payroll">
+          <Callout
+            tone="warning"
+            title="Bank details need fixing on the payroll"
+          >
             <p>
               {people(bankProblems.length)} on this batch{" "}
               {bankProblems.length === 1 ? "has" : "have"} a bank detail that is
               missing or does not add up. Fix it on their record, then rebuild
-              this batch: the details on it were copied in when it was built
-              and will not update on their own.
+              this batch: the details on it were copied in when it was built and
+              will not update on their own.
             </p>
             {batch.payrollRunId && (
               <ButtonLink
@@ -239,15 +249,33 @@ export function CheckPanel({
         <dl className="divide-y divide-line rounded-md border border-line">
           <Figure
             term="The payroll run comes to"
-            value={<Money amount={naira(batch.expectedTotalKobo)} decimals size="xl" />}
+            value={
+              <Money
+                amount={naira(batch.expectedTotalKobo)}
+                decimals
+                size="xl"
+              />
+            }
           />
           <Figure
             term="This batch says"
-            value={<Money amount={naira(batch.computedTotalKobo)} decimals size="xl" />}
+            value={
+              <Money
+                amount={naira(batch.computedTotalKobo)}
+                decimals
+                size="xl"
+              />
+            }
           />
           <Figure
             term={`The ${batch.instructions.length} payments add up to`}
-            value={<Money amount={naira(batch.check.instructionTotalKobo)} decimals size="xl" />}
+            value={
+              <Money
+                amount={naira(batch.check.instructionTotalKobo)}
+                decimals
+                size="xl"
+              />
+            }
           />
           <Verified
             term="All three figures agree"
@@ -278,8 +306,8 @@ export function CheckPanel({
             ok={batch.instructions.every((row) => row.accountNumberOk)}
             value={
               <span className="tabular text-body-sm font-medium text-ink">
-                {batch.instructions.filter((row) => row.accountNumberOk).length} of{" "}
-                {batch.instructions.length}
+                {batch.instructions.filter((row) => row.accountNumberOk).length}{" "}
+                of {batch.instructions.length}
               </span>
             }
           />

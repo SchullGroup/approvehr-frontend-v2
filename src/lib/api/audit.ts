@@ -227,7 +227,9 @@ export const auditApi = {
 
   /** One event with its before/after. Sensitive values are already withheld. */
   get: (id: string, signal?: AbortSignal): Promise<AuditEntryDetail> =>
-    request<AuditEntryDetail>(`/audit/${id}`, { ...(signal ? { signal } : {}) }),
+    request<AuditEntryDetail>(`/audit/${id}`, {
+      ...(signal ? { signal } : {}),
+    }),
 
   /**
    * Everything that ever happened to one record.

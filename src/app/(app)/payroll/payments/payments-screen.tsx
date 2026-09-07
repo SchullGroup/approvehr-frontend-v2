@@ -136,7 +136,9 @@ export function PaymentsScreen() {
         title: "No file was produced",
         tone: "danger",
         detail:
-          error instanceof ApiError ? error.message : "Something went wrong. Try again.",
+          error instanceof ApiError
+            ? error.message
+            : "Something went wrong. Try again.",
       });
     } finally {
       setDownloading(null);
@@ -187,7 +189,11 @@ export function PaymentsScreen() {
               company that has approved more than it holds is short by an
               amount, not in possession of a negative one. */}
           <Stat
-            label={held ? availableFigure(held.availableKobo).label : "Available to pay with"}
+            label={
+              held
+                ? availableFigure(held.availableKobo).label
+                : "Available to pay with"
+            }
             value={
               held ? (
                 <Money
@@ -214,7 +220,7 @@ export function PaymentsScreen() {
                 <Unknown />
               )
             }
-            hint="what a bank statement would show"
+            hint="on the bank statement"
           />
           <Stat
             label="Already promised"
@@ -235,12 +241,17 @@ export function PaymentsScreen() {
                   {primary.bankName}
                 </span>
               ) : (
-                <span className="text-body-sm font-medium text-muted">Not set</span>
+                <span className="text-body-sm font-medium text-muted">
+                  Not set
+                </span>
               )
             }
             hint={
               primary
-                ? `${primary.accountName} · ${primary.accountNumberMasked}`
+                ? /* Digits first: the masked number is what somebody checks a
+                     payout account by, and it was the half `truncate` was
+                     eating -- "Schull Technologies Limited - ***..." */
+                  `${primary.accountNumberMasked} · ${primary.accountName}`
                 : undefined
             }
           />
@@ -262,7 +273,11 @@ export function PaymentsScreen() {
                 No account for salaries to be paid <em>from</em> yet. A payroll
                 cannot build its payment without one.
               </p>
-              <ButtonLink href="/settings/bank-accounts" variant="accent" size="sm">
+              <ButtonLink
+                href="/settings/bank-accounts"
+                variant="accent"
+                size="sm"
+              >
                 <Landmark aria-hidden="true" className="size-4" />
                 Add a bank account
               </ButtonLink>
@@ -271,16 +286,23 @@ export function PaymentsScreen() {
         )}
 
         <Card>
-          <CardHeader
-            title="Putting money in"
-            /* The promise is only made where it can be kept. Offline there is
-               no account to transfer into, and a description saying transfers
-               credit the wallet above a callout saying the wallet is not
-               available here is one card making two contradictory claims. */
-            description={
-              held ? "Transfers into this account credit the wallet." : undefined
-            }
-          />
+          {/*
+           * No description, deliberately: `FundingAccounts` opens with this
+           * card's sentence already.
+           *
+           * There were two of them, one line apart -- "Transfers into any of
+           * these accounts credit the wallet." here, and "Transfer into any of
+           * these accounts and the wallet is credited automatically." from the
+           * component -- which read as the page repeating itself. Making the
+           * two agree about plurality, which is what happened first, was
+           * fixing the wrong half.
+           *
+           * The component's copy is the one that survives, because it travels
+           * with the accounts: the component states its own terms wherever it
+           * is placed, and a card description cannot. It also already handles
+           * both the singular and the empty case.
+           */}
+          <CardHeader title="Putting money in" />
           <CardBody>
             {wallet.loading ? (
               <div className="flex items-center gap-2 text-body-sm text-muted">
@@ -351,11 +373,19 @@ export function PaymentsScreen() {
                       <TD align="right" className="tabular">
                         {batch.itemCount}
                       </TD>
-                      <TD align="right" className="tabular font-medium text-ink">
-                        <Money amount={naira(batch.computedTotalKobo)} decimals />
+                      <TD
+                        align="right"
+                        className="tabular font-medium text-ink"
+                      >
+                        <Money
+                          amount={naira(batch.computedTotalKobo)}
+                          decimals
+                        />
                       </TD>
                       <TD>
-                        <span className="text-body-sm">{batch.sourceBankName}</span>
+                        <span className="text-body-sm">
+                          {batch.sourceBankName}
+                        </span>
                         <span className="tabular mt-0.5 block text-meta text-muted">
                           {batch.sourceAccountMasked}
                         </span>
@@ -380,7 +410,10 @@ export function PaymentsScreen() {
                               loading={downloading === batch.id}
                               onClick={() => void download(batch)}
                             >
-                              <ArrowDownToLine aria-hidden="true" className="size-3.5" />
+                              <ArrowDownToLine
+                                aria-hidden="true"
+                                className="size-3.5"
+                              />
                               Bank file
                             </Button>
                           )}

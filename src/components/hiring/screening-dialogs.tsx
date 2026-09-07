@@ -93,7 +93,11 @@ export function ScreenInDialog({
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="accent" loading={busy} onClick={() => void confirm()}>
+          <Button
+            variant="accent"
+            loading={busy}
+            onClick={() => void confirm()}
+          >
             Screen in
           </Button>
         </>
@@ -112,7 +116,10 @@ export function ScreenInDialog({
         </p>
 
         <div className="grid gap-4 sm:grid-cols-3">
-          <Field label="Notice (days)" help="Leave blank if you have not asked.">
+          <Field
+            label="Notice (days)"
+            help="Leave blank if you have not asked."
+          >
             <Input
               inputMode="numeric"
               value={noticeDays}

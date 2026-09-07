@@ -51,6 +51,24 @@ export type PayrollSettings = {
     basis: "basic" | "gross";
   };
 
+  /**
+   * Whether this company awards one-off bonuses through payroll.
+   *
+   * The odd one out in this object: every other field feeds an arithmetic, and
+   * this one decides whether the payroll run shows a Bonus column at all. It is
+   * here rather than on `OrgFeatures` because it is a fact about how this
+   * company pays people, which is what the rest of this file holds, and because
+   * the API keeps it on the same row.
+   *
+   * Off, the run drops the column and the endpoints behind it refuse an
+   * addition — never a removal, so a bonus already on an open run can still be
+   * taken off it.
+   *
+   * Overtime's twin is `OvertimePolicy.enabled`, which already existed and is
+   * the same decision; there is deliberately no second copy of it here.
+   */
+  bonus: { enabled: boolean };
+
   exceptions: {
     /**
      * Fractional month-on-month change in net pay that raises a warning.
@@ -89,6 +107,9 @@ export const DEFAULT_SETTINGS: PayrollSettings = {
     basis: ["basic", "housing", "transport"],
   },
   nhf: { enabled: true, rate: 0.025, basis: "basic" },
+  /* On, matching the column's own default: every company that existed before
+     the switch had the Bonus column, so this is what they already had. */
+  bonus: { enabled: true },
   exceptions: {
     netSwingThreshold: 0.25,
     requireBankAccount: true,
@@ -156,7 +177,10 @@ export function validateSettings(s: PayrollSettings): SettingsIssue[] {
     issues.push({ field: "nhf.rate", message: "NHF rate cannot be negative." });
   }
 
-  if (s.exceptions.netSwingThreshold <= 0 || s.exceptions.netSwingThreshold > 5) {
+  if (
+    s.exceptions.netSwingThreshold <= 0 ||
+    s.exceptions.netSwingThreshold > 5
+  ) {
     issues.push({
       field: "exceptions.netSwingThreshold",
       message: "Swing threshold must be between 1% and 500%.",

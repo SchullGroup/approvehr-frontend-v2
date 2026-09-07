@@ -24,9 +24,12 @@
  */
 
 import {
+  CARRIES_ALL,
   SHEET_BLANK_RULE,
   SHEET_COLUMNS,
+  buildSheet,
   parseSheet,
+  sheetColumnsFor,
   type ParsedSheet,
 } from "../src/lib/payroll/adjustment-sheet";
 
@@ -76,7 +79,8 @@ async function main() {
   );
   check(
     "the rule is one exported sentence",
-    /Emptying a cell/.test(SHEET_BLANK_RULE) && /whole column/.test(SHEET_BLANK_RULE),
+    /Emptying a cell/.test(SHEET_BLANK_RULE) &&
+      /whole column/.test(SHEET_BLANK_RULE),
     true,
   );
 
@@ -99,7 +103,9 @@ async function main() {
 
   /* ----------------------------------------------------------------- blank */
 
-  console.log("\nAn EMPTY CELL takes the figure off — the key is present and null");
+  console.log(
+    "\nAn EMPTY CELL takes the figure off — the key is present and null",
+  );
   {
     const sheet = await csv(`${STAFF},${PAYE}\nAHR-0001,\n`);
     const row = sheet.rows[0];
@@ -114,7 +120,11 @@ async function main() {
        one distinction this whole file exists to check. */
     check(
       "and it is null",
-      row && "payeKobo" in row ? (row.payeKobo === null ? "null" : row.payeKobo) : "absent",
+      row && "payeKobo" in row
+        ? row.payeKobo === null
+          ? "null"
+          : row.payeKobo
+        : "absent",
       "null",
     );
   }
@@ -135,11 +145,19 @@ async function main() {
   console.log("\nWhat a person actually types is accepted");
   {
     const sheet = await csv(`${STAFF},${PAYE}\nAHR-0001,"₦50,000.00"\n`);
-    check("naira, symbol and separators -> kobo", sheet.rows[0]?.payeKobo, 5_000_000);
+    check(
+      "naira, symbol and separators -> kobo",
+      sheet.rows[0]?.payeKobo,
+      5_000_000,
+    );
   }
   {
     const sheet = await csv(`${STAFF},${PAYE}\nAHR-0001,0\n`);
-    check("a typed zero is a figure, not an absence", sheet.rows[0]?.payeKobo, 0);
+    check(
+      "a typed zero is a figure, not an absence",
+      sheet.rows[0]?.payeKobo,
+      0,
+    );
   }
 
   console.log("\nA cell that is not a number is refused, and says which");
@@ -158,9 +176,82 @@ async function main() {
 
   console.log("\nColumns we do not read are reported, never refused");
   {
-    const sheet = await csv(`${STAFF},${PAYE},Favourite colour\nAHR-0001,5000,blue\n`);
+    const sheet = await csv(
+      `${STAFF},${PAYE},Favourite colour\nAHR-0001,5000,blue\n`,
+    );
     check("the row still parses", sheet.rows.length, 1);
-    check("and the stray heading is named", sheet.ignored, ["Favourite colour"]);
+    check("and the stray heading is named", sheet.ignored, [
+      "Favourite colour",
+    ]);
+  }
+
+  /* --------------------------------------------------------------------- */
+
+  console.log("\nA company that does not pay these does not get their columns");
+  {
+    const headings = (carries: { overtime: boolean; bonus: boolean }) =>
+      sheetColumnsFor(carries).map((c) => c.heading);
+
+    check(
+      "everything, by default",
+      headings(CARRIES_ALL).length,
+      SHEET_COLUMNS.length,
+    );
+    check(
+      "overtime off drops one column",
+      headings({ overtime: false, bonus: true }).includes("overtime_hours"),
+      false,
+    );
+    check(
+      "bonus off drops the figure and its reason",
+      headings({ overtime: true, bonus: false }).filter((h) =>
+        h.startsWith("bonus"),
+      ),
+      [],
+    );
+    check(
+      "and nothing else moves",
+      headings({ overtime: false, bonus: false }).length,
+      SHEET_COLUMNS.length - 3,
+    );
+    /* The identity columns and the other four figures are what somebody still
+       has to be able to work in. A switch that took `staff_no` with it would
+       make the file unapplicable, and one that took `deduction` would be
+       hiding a column nobody switched off. */
+    for (const key of ["staff_no", "monthly_salary", "paye_tax", "deduction"]) {
+      check(
+        `${key} survives both switches`,
+        headings({ overtime: false, bonus: false }).includes(key),
+        true,
+      );
+    }
+
+    const written = buildSheet([], "2026-08", {
+      overtime: false,
+      bonus: false,
+    });
+    check(
+      "the written CSV header matches",
+      /* BOM and CRLF stripped: `toCsv` writes both on purpose, for Excel. */
+      written.csv.replace(/^\ufeff/, "").split("\r\n")[0],
+      headings({ overtime: false, bonus: false }).join(","),
+    );
+  }
+
+  console.log(
+    "\nBut a sheet that still has them is READ, never quietly narrowed",
+  );
+  {
+    /* The case this exists for: downloaded in March, uploaded in April with
+       bonuses switched off in between. Dropping the figure here would report a
+       clean apply having thrown away what somebody typed. The API refuses the
+       file instead, naming the setting. */
+    const sheet = await csv(
+      `${STAFF},bonus,overtime_hours\nAHR-0001,50000,6\n`,
+    );
+    check("the bonus still parses", sheet.rows[0]?.bonusKobo, 50_000_00);
+    check("so do the hours", sheet.rows[0]?.overtimeHours, 6);
+    check("and nothing is reported as ignored", sheet.ignored, []);
   }
 
   console.log(

@@ -173,7 +173,10 @@ export function useDashboard(): DashboardState & { reload: () => void } {
     };
   }, [directory, seesCompanyOverview]);
 
-  const demoData = useMemo(() => (isConnected ? null : demo()), [isConnected, demo]);
+  const demoData = useMemo(
+    () => (isConnected ? null : demo()),
+    [isConnected, demo],
+  );
 
   const [tick, setTick] = useState(0);
   const [fetched, setFetched] = useState<DashboardState | null>(null);
@@ -216,7 +219,24 @@ export function useDashboard(): DashboardState & { reload: () => void } {
     : { data: null, loading: true, error: null, reload };
 }
 
-export function useReports(period?: string): ReportsState & { reload: () => void } {
+export function useReports(
+  period?: string,
+  /**
+   * Whether to ask at all.
+   *
+   * The dashboard's chart widgets read this endpoint, and most people will not
+   * keep any of them — so a dashboard that always pulled the reports payload
+   * would double the cost of the screen that has to load fastest, for cards
+   * nobody has switched on. `/reports` itself passes nothing and gets the old
+   * behaviour, which is why the default is `true`.
+   *
+   * Off, the demo branch still answers: it is derived from the employee store
+   * with no request in it, so there is nothing to save by withholding it, and
+   * a demo that went blank when a flag flipped would be a second behaviour to
+   * reason about.
+   */
+  enabled = true,
+): ReportsState & { reload: () => void } {
   const { isConnected } = useSession();
   const { directory } = useEmployeeStore();
 
@@ -252,10 +272,32 @@ export function useReports(period?: string): ReportsState & { reload: () => void
         approvalsPending: 0,
         attendanceCorrections: 0,
       },
+      /**
+       * No trend offline, and an empty one rather than an invented shape.
+       *
+       * The demo directory carries no `endDate` for anybody and every seeded
+       * person starts on the same day, so a derived trend would be a flat line
+       * at today's headcount stretching back a year — which is not what
+       * happened to any company, it is what the seed happens to look like. An
+       * empty array draws nothing and the screen says why.
+       *
+       * `turnoverBp` is null for the same reason it is null on the API for an
+       * empty company: 0% is a claim about retention, not an absence.
+       */
+      workforce: {
+        trend: [],
+        turnoverBp: null,
+        turnoverWindowMonths: 12,
+        averageTenureMonths: null,
+        headcountNow: directory.length,
+      },
     };
   }, [directory, period]);
 
-  const demoData = useMemo(() => (isConnected ? null : demo()), [isConnected, demo]);
+  const demoData = useMemo(
+    () => (isConnected ? null : demo()),
+    [isConnected, demo],
+  );
 
   const [tick, setTick] = useState(0);
   const [fetched, setFetched] = useState<ReportsState | null>(null);
@@ -264,7 +306,7 @@ export function useReports(period?: string): ReportsState & { reload: () => void
      so the answer is replaced without the screen flashing a skeleton. */
   const revalidation = useRevalidation();
   useEffect(() => {
-    if (!isConnected) return;
+    if (!isConnected || !enabled) return;
     let cancelled = false;
     void (async () => {
       try {
@@ -286,13 +328,16 @@ export function useReports(period?: string): ReportsState & { reload: () => void
     return () => {
       cancelled = true;
     };
-  }, [isConnected, period, tick, revalidation]);
+  }, [isConnected, enabled, period, tick, revalidation]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
 
   if (!isConnected) {
     return { data: demoData, loading: false, error: null, reload };
   }
+  /* Not asked for: absent and **not loading**. A caller that read `loading`
+     as "wait" would spin for ever on a dashboard with no charts on it. */
+  if (!enabled) return { data: null, loading: false, error: null, reload };
   return fetched
     ? { ...fetched, reload }
     : { data: null, loading: true, error: null, reload };
