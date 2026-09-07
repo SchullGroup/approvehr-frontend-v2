@@ -20,7 +20,6 @@ import {
   FileUp,
   FolderOpen,
   GraduationCap,
-  HeartPulse,
   History,
   Inbox,
   Laptop,
@@ -528,14 +527,6 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       label: "Signatures",
       icon: <FileSignature aria-hidden="true" />,
       always: true,
-    },
-    {
-      /* Reading is either permission, so the nav asks for the wider one: an
-         approver who can enrol somebody has to be able to find the screen. */
-      href: "/people/benefits",
-      label: "Benefits",
-      icon: <HeartPulse aria-hidden="true" />,
-      anyPermission: ["MANAGE_PAY_STRUCTURE", "EDIT_RECORDS"],
     },
     {
       href: "/performance/review-tasks",
