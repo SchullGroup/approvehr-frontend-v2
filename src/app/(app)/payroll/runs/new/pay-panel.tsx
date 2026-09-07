@@ -22,6 +22,7 @@ import { usePaymentActions } from "@/lib/store/payments";
 import { RecordPaidDialog } from "@/components/payroll/record-paid-dialog";
 import { DEMO_NO_BATCH_REASON } from "@/lib/store/payroll";
 import { downloadCsv } from "@/lib/csv";
+import { CopyButton } from "@/app/(app)/settings/webhooks";
 
 /**
  * Where the product actually stands on moving money, said before the click.
@@ -509,10 +510,10 @@ function Figure({
       <dd
         className={
           tone === "danger"
-            ? "text-body font-medium text-danger-text"
+            ? "font-medium text-danger-text"
             : tone === "success"
-              ? "text-body font-medium text-success-text"
-              : "text-body font-medium text-ink"
+              ? "font-medium text-success-text"
+              : "font-medium text-ink"
         }
       >
         {formatKobo(kobo)}
@@ -538,6 +539,9 @@ export function FundingAccounts({
     accountNumber: string;
     accountName: string;
     bankName: string;
+    /** Absent from some providers. See the note on `ApiWallet`. */
+    bankCode: string | null;
+    isDefault: boolean;
   }[];
 }) {
   if (accounts.length === 0) {
@@ -565,10 +569,48 @@ export function FundingAccounts({
           >
             <Landmark aria-hidden="true" className="mt-0.5 size-4 text-muted" />
             <div className="flex flex-col gap-0.5">
-              <span className="tabular text-body font-medium text-ink">
-                {account.accountNumber}
-              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="tabular font-medium text-ink">
+                  {account.accountNumber}
+                </span>
+                {/* The one action this card exists to enable.
+                    ------------------------------------------------------
+                    Somebody reading this screen is about to type a ten-digit
+                    account number into their bank, and a transposed digit
+                    sends a payroll's worth of money to a stranger. The old
+                    product had this and the rebuild lost it.
+
+                    `CopyButton` rather than a local one: it is exported from
+                    the webhooks barrel precisely for reuse, and it reports a
+                    clipboard failure instead of silently doing nothing —
+                    which matters here, because `navigator.clipboard` is
+                    unavailable over plain http and a dead Copy button on a
+                    payment instruction is worse than none. */}
+                <CopyButton
+                  value={account.accountNumber}
+                  label="Copy number"
+                />
+                {/* Only worth saying when there is a choice to make. On a
+                    single account it is a badge on the only option, and it
+                    would also imply the others are somehow lesser — which is
+                    the exact reading the API's flag-not-filter design exists to
+                    avoid, since every account here credits the wallet. */}
+                {accounts.length > 1 && account.isDefault && (
+                  <Badge tone="neutral" size="sm">
+                    Suggested
+                  </Badge>
+                )}
+              </div>
               <span className="text-body-sm text-body">{account.bankName}</span>
+              {/* Null rather than blank where the provider gave none: an
+                  absent code is not an empty one, and a stray "Bank code"
+                  label with nothing after it reads as a failure to load. */}
+              {account.bankCode && (
+                <span className="text-meta text-muted">
+                  Bank code{" "}
+                  <span className="tabular text-body">{account.bankCode}</span>
+                </span>
+              )}
               <span className="text-meta text-muted">{account.accountName}</span>
             </div>
           </li>

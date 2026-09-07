@@ -214,7 +214,7 @@ export function PaymentsScreen() {
                 <Unknown />
               )
             }
-            hint="what a bank statement would show"
+            hint="on the bank statement"
           />
           <Stat
             label="Already promised"
@@ -240,7 +240,10 @@ export function PaymentsScreen() {
             }
             hint={
               primary
-                ? `${primary.accountName} · ${primary.accountNumberMasked}`
+                ? /* Digits first: the masked number is what somebody checks a
+                     payout account by, and it was the half `truncate` was
+                     eating -- "Schull Technologies Limited - ***..." */
+                  `${primary.accountNumberMasked} · ${primary.accountName}`
                 : undefined
             }
           />
@@ -271,16 +274,23 @@ export function PaymentsScreen() {
         )}
 
         <Card>
-          <CardHeader
-            title="Putting money in"
-            /* The promise is only made where it can be kept. Offline there is
-               no account to transfer into, and a description saying transfers
-               credit the wallet above a callout saying the wallet is not
-               available here is one card making two contradictory claims. */
-            description={
-              held ? "Transfers into this account credit the wallet." : undefined
-            }
-          />
+          {/*
+            * No description, deliberately: `FundingAccounts` opens with this
+            * card's sentence already.
+            *
+            * There were two of them, one line apart -- "Transfers into any of
+            * these accounts credit the wallet." here, and "Transfer into any of
+            * these accounts and the wallet is credited automatically." from the
+            * component -- which read as the page repeating itself. Making the
+            * two agree about plurality, which is what happened first, was
+            * fixing the wrong half.
+            *
+            * The component's copy is the one that survives, because it travels
+            * with the accounts: the component states its own terms wherever it
+            * is placed, and a card description cannot. It also already handles
+            * both the singular and the empty case.
+            */}
+          <CardHeader title="Putting money in" />
           <CardBody>
             {wallet.loading ? (
               <div className="flex items-center gap-2 text-body-sm text-muted">
