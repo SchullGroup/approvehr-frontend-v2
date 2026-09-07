@@ -11,5 +11,7 @@ export const SHIFT_TABS = ["rota", "catalogue"] as const;
 export type ShiftTab = (typeof SHIFT_TABS)[number];
 
 export function isShiftTab(value: string | undefined): value is ShiftTab {
-  return value !== undefined && (SHIFT_TABS as readonly string[]).includes(value);
+  return (
+    value !== undefined && (SHIFT_TABS as readonly string[]).includes(value)
+  );
 }

@@ -12,7 +12,8 @@
  * unauthenticated and posts directly to `POST /demo-requests`.
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL?.trim().replace(/\/$/, "") || null;
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL?.trim().replace(/\/$/, "") || null;
 
 /** True when there is an API configured for demo requests. */
 export const configured = API_URL !== null;
@@ -78,15 +79,13 @@ export async function submitDemoRequest(
       }),
     });
 
-    const payload = (await response.json().catch(() => null)) as
-      | {
-          data?: DemoRequestResult;
-          error?: {
-            message?: string;
-            details?: { field: string; message: string }[];
-          };
-        }
-      | null;
+    const payload = (await response.json().catch(() => null)) as {
+      data?: DemoRequestResult;
+      error?: {
+        message?: string;
+        details?: { field: string; message: string }[];
+      };
+    } | null;
 
     if (response.ok && payload?.data) {
       return { ok: true, value: payload.data };
@@ -107,7 +106,8 @@ export async function submitDemoRequest(
   } catch {
     return {
       ok: false,
-      message: "We could not reach the server. Check your connection and try again.",
+      message:
+        "We could not reach the server. Check your connection and try again.",
       fields: {},
     };
   }

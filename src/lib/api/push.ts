@@ -76,7 +76,9 @@ export const pushApi = {
  * `Uint8Array.from` produces the wider type. Allocating the buffer first is what
  * makes it the narrow one.
  */
-export function applicationServerKey(base64url: string): Uint8Array<ArrayBuffer> {
+export function applicationServerKey(
+  base64url: string,
+): Uint8Array<ArrayBuffer> {
   const padded = base64url.replace(/-/g, "+").replace(/_/g, "/");
   const binary = atob(padded.padEnd(Math.ceil(padded.length / 4) * 4, "="));
   const bytes = new Uint8Array(new ArrayBuffer(binary.length));
@@ -92,5 +94,8 @@ export function toBase64Url(buffer: ArrayBuffer | null): string {
   const bytes = new Uint8Array(buffer);
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return btoa(binary)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
 }

@@ -137,7 +137,11 @@ const marked = (column: TemplateColumn): string =>
   column.required ? `${column.column} *` : column.column;
 
 const need = (column: TemplateColumn): string =>
-  column.required ? "Required" : column.recommended ? "Recommended" : "Optional";
+  column.required
+    ? "Required"
+    : column.recommended
+      ? "Recommended"
+      : "Optional";
 
 /** The one example row, made obviously an example by the dictionary's overrides. */
 export function exampleRow(columns: readonly TemplateColumn[]): string[] {
@@ -209,7 +213,13 @@ export function buildTemplateFiles(
     ...legend.map((line) => [line]),
     ...(matching ? [[matching]] : []),
     [""],
-    ["Column", "Needed?", "Example", "What goes in it", "Other headings we accept"],
+    [
+      "Column",
+      "Needed?",
+      "Example",
+      "What goes in it",
+      "Other headings we accept",
+    ],
     ...columns.map((column) => [
       column.column,
       need(column),
@@ -230,7 +240,9 @@ export function buildTemplateFiles(
         /* The header cells are the longest thing in most columns, so the widths
            follow them. Enough to read; not so much that 33 columns cannot be
            scrolled. */
-        widths: headers.map((heading) => Math.min(34, Math.max(12, heading.length + 3))),
+        widths: headers.map((heading) =>
+          Math.min(34, Math.max(12, heading.length + 3)),
+        ),
         ...(validations.length > 0 ? { validations } : {}),
       },
       {

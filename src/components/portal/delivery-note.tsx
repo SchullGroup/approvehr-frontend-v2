@@ -49,7 +49,12 @@ export function DeliveryNote({
         This server cannot send email yet, so use the link here instead.
         {clock ? ` It stops working at ${clock}.` : ""}
       </p>
-      <ButtonLink href={href(hint.token)} variant="secondary" size="sm" className="mt-3">
+      <ButtonLink
+        href={href(hint.token)}
+        variant="secondary"
+        size="sm"
+        className="mt-3"
+      >
         {action}
       </ButtonLink>
     </Callout>

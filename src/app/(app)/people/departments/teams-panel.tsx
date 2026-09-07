@@ -78,7 +78,12 @@ export function TeamsPanel({
   employees,
 }: {
   departments: { id: string; name: string; depth: number; archived: boolean }[];
-  employees: { id: string; name: string; jobTitle?: string | null; departmentName?: string | null }[];
+  employees: {
+    id: string;
+    name: string;
+    jobTitle?: string | null;
+    departmentName?: string | null;
+  }[];
 }) {
   const teams = useTeams({ includeArchived: true });
   const mutations = useTeamMutations();
@@ -91,8 +96,14 @@ export function TeamsPanel({
   const [archiving, setArchiving] = useState<ApiTeam | null>(null);
   const [opened, setOpened] = useState<string | null>(null);
 
-  const active = useMemo(() => teams.teams.filter((team) => !team.archived), [teams.teams]);
-  const archived = useMemo(() => teams.teams.filter((team) => team.archived), [teams.teams]);
+  const active = useMemo(
+    () => teams.teams.filter((team) => !team.archived),
+    [teams.teams],
+  );
+  const archived = useMemo(
+    () => teams.teams.filter((team) => team.archived),
+    [teams.teams],
+  );
 
   /**
    * Every mutation reports its own failure in the API's words, and its own
@@ -116,7 +127,9 @@ export function TeamsPanel({
         ...(moved.length > 0
           ? {
               detail: `Moved into this team's department: ${moved
-                .map((one) => (one.from ? `${one.name} (was ${one.from})` : one.name))
+                .map((one) =>
+                  one.from ? `${one.name} (was ${one.from})` : one.name,
+                )
                 .join(", ")}.`,
             }
           : {}),
@@ -139,7 +152,11 @@ export function TeamsPanel({
   return (
     <div className="flex flex-col gap-6">
       {teams.error && (
-        <LoadFailure subject="the teams" error={teams.error}  onRetry={teams.reload}/>
+        <LoadFailure
+          subject="the teams"
+          error={teams.error}
+          onRetry={teams.reload}
+        />
       )}
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -163,7 +180,11 @@ export function TeamsPanel({
           {...(canManage
             ? {
                 action: (
-                  <Button variant="accent" size="sm" onClick={() => setCreating(true)}>
+                  <Button
+                    variant="accent"
+                    size="sm"
+                    onClick={() => setCreating(true)}
+                  >
                     <UsersRound aria-hidden="true" className="size-4" />
                     Add team
                   </Button>
@@ -200,7 +221,10 @@ export function TeamsPanel({
                 onEdit={() => setEditing(team)}
                 onArchive={() => setArchiving(team)}
                 onRestore={() =>
-                  void run(() => mutations.restore(team.id), `${team.name} restored`)
+                  void run(
+                    () => mutations.restore(team.id),
+                    `${team.name} restored`,
+                  )
                 }
               />
             ))}
@@ -224,7 +248,10 @@ export function TeamsPanel({
                 onEdit={() => setEditing(team)}
                 onArchive={() => setArchiving(team)}
                 onRestore={() =>
-                  void run(() => mutations.restore(team.id), `${team.name} restored`)
+                  void run(
+                    () => mutations.restore(team.id),
+                    `${team.name} restored`,
+                  )
                 }
               />
             ))}
@@ -241,7 +268,9 @@ export function TeamsPanel({
           onAdd={(id, employeeIds) =>
             run(
               () => mutations.addMembers(id, employeeIds),
-              employeeIds.length === 1 ? "Added to the team" : "Added to the team",
+              employeeIds.length === 1
+                ? "Added to the team"
+                : "Added to the team",
               (result) => result.moved,
             )
           }
@@ -265,7 +294,9 @@ export function TeamsPanel({
               () =>
                 mutations.create({
                   name: body.name,
-                  ...(body.departmentId ? { departmentId: body.departmentId } : {}),
+                  ...(body.departmentId
+                    ? { departmentId: body.departmentId }
+                    : {}),
                   ...(body.leadId ? { leadId: body.leadId } : {}),
                   ...(body.purpose ? { purpose: body.purpose } : {}),
                 }),
@@ -288,7 +319,8 @@ export function TeamsPanel({
               () =>
                 mutations.update(editing.id, {
                   ...(body.name !== editing.name ? { name: body.name } : {}),
-                  departmentId: body.departmentId === "" ? null : body.departmentId,
+                  departmentId:
+                    body.departmentId === "" ? null : body.departmentId,
                   leadId: body.leadId === "" ? null : body.leadId,
                   purpose: body.purpose === "" ? null : body.purpose,
                 }),
@@ -386,9 +418,7 @@ function TeamRow({
 
       <div className="shrink-0 text-right">
         <p className="text-meta text-faint">Members</p>
-        <p className="tabular text-body-sm font-medium">
-          {team.memberCount}
-        </p>
+        <p className="tabular text-body-sm font-medium">{team.memberCount}</p>
       </div>
 
       <div className="flex shrink-0 gap-1.5">
@@ -442,17 +472,30 @@ function TeamDrawer({
 }: {
   teamId: string;
   canEditRecords: boolean;
-  employees: { id: string; name: string; jobTitle?: string | null; departmentName?: string | null }[];
+  employees: {
+    id: string;
+    name: string;
+    jobTitle?: string | null;
+    departmentName?: string | null;
+  }[];
   onClose: () => void;
   onAdd: (teamId: string, employeeIds: string[]) => Promise<unknown>;
-  onRemove: (teamId: string, employeeId: string, name: string) => Promise<unknown>;
+  onRemove: (
+    teamId: string,
+    employeeId: string,
+    name: string,
+  ) => Promise<unknown>;
 }) {
   const { team, loading, error, reload } = useTeam(teamId);
   const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const memberIds = new Set((team?.members ?? []).map((member) => member.employeeId));
-  const mismatches = (team?.members ?? []).filter((member) => member.departmentMismatch);
+  const memberIds = new Set(
+    (team?.members ?? []).map((member) => member.employeeId),
+  );
+  const mismatches = (team?.members ?? []).filter(
+    (member) => member.departmentMismatch,
+  );
 
   return (
     <>
@@ -504,9 +547,7 @@ function TeamDrawer({
           <div className="flex flex-col gap-5">
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-md border border-line p-3">
-                <p className="text-meta text-faint">
-                  Lead
-                </p>
+                <p className="text-meta text-faint">Lead</p>
                 <p className="mt-0.5 text-body-sm text-ink">
                   {team.leadName ?? "Nobody assigned"}
                 </p>
@@ -514,30 +555,29 @@ function TeamDrawer({
               {/* The whole tile is dropped for a reader who may not see pay,
                   rather than headed "Monthly cost" with a dash in it. */}
               {team.payrollKobo !== null && (
-              <div className="rounded-md border border-line p-3">
-                <p className="text-meta text-faint">
-                  Monthly cost
-                </p>
-                <p className="tabular mt-0.5 text-body-sm text-ink">
-                  <Money amount={team.payrollKobo / 100} compact />
-                </p>
-                {team.payrollUnknown !== null && team.payrollUnknown > 0 && (
-                  <p className="mt-0.5 text-meta text-faint">
-                    {team.members.length - team.payrollUnknown} of{" "}
-                    {team.members.length} — {team.payrollUnknown} have no pay
-                    set
+                <div className="rounded-md border border-line p-3">
+                  <p className="text-meta text-faint">Monthly cost</p>
+                  <p className="tabular mt-0.5 text-body-sm text-ink">
+                    <Money amount={team.payrollKobo / 100} compact />
                   </p>
-                )}
-              </div>
+                  {team.payrollUnknown !== null && team.payrollUnknown > 0 && (
+                    <p className="mt-0.5 text-meta text-faint">
+                      {team.members.length - team.payrollUnknown} of{" "}
+                      {team.members.length} — {team.payrollUnknown} have no pay
+                      set
+                    </p>
+                  )}
+                </div>
               )}
             </div>
 
             {mismatches.length > 0 && (
               <Callout tone="warning" title="Somebody's department disagrees">
                 {mismatches.map((member) => member.name).join(", ")}{" "}
-                {mismatches.length === 1 ? "is" : "are"} on this team but recorded
-                under a different department. Nothing has been changed for them: moving a cost centre is not a repair. Fix it on their record, or move
-                the team.
+                {mismatches.length === 1 ? "is" : "are"} on this team but
+                recorded under a different department. Nothing has been changed
+                for them: moving a cost centre is not a repair. Fix it on their
+                record, or move the team.
               </Callout>
             )}
 
@@ -600,8 +640,8 @@ function TeamDrawer({
             )}
 
             <p className="text-body-sm text-muted">
-              Taking somebody off a team leaves their department exactly where it is.
-              Leaving a team is not leaving a cost centre.
+              Taking somebody off a team leaves their department exactly where
+              it is. Leaving a team is not leaving a cost centre.
             </p>
           </div>
         )}
@@ -679,7 +719,9 @@ function TeamDialog({
 
   const departmentChanged =
     mode === "edit" && draft.departmentId !== (team?.departmentId ?? "");
-  const targetName = departments.find((one) => one.id === draft.departmentId)?.name;
+  const targetName = departments.find(
+    (one) => one.id === draft.departmentId,
+  )?.name;
 
   return (
     <Modal
@@ -758,7 +800,10 @@ function TeamDialog({
           </Callout>
         )}
 
-        <Field label="Lead" help="Who runs it. Not necessarily anybody's manager.">
+        <Field
+          label="Lead"
+          help="Who runs it. Not necessarily anybody's manager."
+        >
           <Select
             value={draft.leadId}
             onChange={(event) => {

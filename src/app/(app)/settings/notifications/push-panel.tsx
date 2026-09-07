@@ -156,7 +156,9 @@ function Device({ device }: { device: ApiPushDevice }) {
  */
 function browserName(userAgent: string | null): string {
   if (!userAgent) return "A browser";
-  const mobile = /Mobile|Android|iPhone|iPad/.test(userAgent) ? " (phone or tablet)" : "";
+  const mobile = /Mobile|Android|iPhone|iPad/.test(userAgent)
+    ? " (phone or tablet)"
+    : "";
   if (/Edg\//.test(userAgent)) return `Edge${mobile}`;
   if (/OPR\//.test(userAgent)) return `Opera${mobile}`;
   if (/Firefox\//.test(userAgent)) return `Firefox${mobile}`;

@@ -127,7 +127,10 @@ export function ImportFlow({ surface }: { surface: ImportSurface }) {
   if (!allowed) {
     return (
       <>
-        <PageHeader title={surface.title} breadcrumb={[...surface.breadcrumb]} />
+        <PageHeader
+          title={surface.title}
+          breadcrumb={[...surface.breadcrumb]}
+        />
         <PageBody>
           <Card>
             <EmptyState
@@ -307,7 +310,11 @@ function TemplateButtons({
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Button variant="secondary" size={size} onClick={() => onDownload("xlsx")}>
+      <Button
+        variant="secondary"
+        size={size}
+        onClick={() => onDownload("xlsx")}
+      >
         <Download aria-hidden="true" className="size-4" />
         Template for Excel
       </Button>
@@ -444,7 +451,10 @@ function ChooseFile({
               />
               {filename && (
                 <p className="mt-4 flex flex-wrap items-center justify-center gap-2 text-meta text-body">
-                  <FileSpreadsheet aria-hidden="true" className="size-4 text-muted" />
+                  <FileSpreadsheet
+                    aria-hidden="true"
+                    className="size-4 text-muted"
+                  />
                   <span className="font-medium text-ink">{filename}</span>
                   <span className="text-muted">
                     {rows.toLocaleString("en-NG")} rows, {columns} columns
@@ -464,9 +474,7 @@ function ChooseFile({
           <CardBody className="flex flex-col gap-4">
             <TemplateButtons onDownload={onTemplate} />
             <div>
-              <p className="text-meta font-semibold text-faint">
-                Required
-              </p>
+              <p className="text-meta font-semibold text-faint">Required</p>
               <ul className="mt-2 flex flex-wrap gap-1.5">
                 {required.map((spec) => (
                   <li key={spec.field}>
@@ -478,9 +486,7 @@ function ChooseFile({
               </ul>
             </div>
             <div>
-              <p className="text-meta font-semibold text-faint">
-                Recommended
-              </p>
+              <p className="text-meta font-semibold text-faint">Recommended</p>
               <ul className="mt-2 flex flex-wrap gap-1.5">
                 {recommended.map((spec) => (
                   <li key={spec.field}>
@@ -557,7 +563,9 @@ function ChooseFile({
                       />
                       <TD>
                         <span className="flex items-center gap-1.5 text-meta text-body">
-                          {isResuming ? "Picking up where it stopped…" : batch.summary}
+                          {isResuming
+                            ? "Picking up where it stopped…"
+                            : batch.summary}
                           {isResuming ? (
                             <Loader2
                               aria-hidden="true"
@@ -587,11 +595,14 @@ function ChooseFile({
                       <TD>
                         <span className="flex items-center gap-1.5 text-meta text-muted">
                           <Clock aria-hidden="true" className="size-3.5" />
-                          {new Date(batch.createdAt).toLocaleDateString("en-NG", {
-                            day: "numeric",
-                            month: "short",
-                            year: "numeric",
-                          })}
+                          {new Date(batch.createdAt).toLocaleDateString(
+                            "en-NG",
+                            {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            },
+                          )}
                         </span>
                       </TD>
                     </TR>
@@ -619,15 +630,14 @@ function ChooseFile({
                                       Row {row.row}
                                     </span>{" "}
                                     <span className="text-muted">
-                                      {row.name ?? row.employeeNo ?? "No name in this row"}
+                                      {row.name ??
+                                        row.employeeNo ??
+                                        "No name in this row"}
                                     </span>
                                     <ul className="ml-4 mt-1 flex flex-col gap-0.5">
                                       {[...row.errors, ...row.warnings].map(
                                         (issue, i) => (
-                                          <li
-                                            key={i}
-                                            className="text-muted"
-                                          >
+                                          <li key={i} className="text-muted">
                                             <code className="rounded bg-sunken px-1 py-0.5 text-meta">
                                               {issue.column}
                                             </code>{" "}
@@ -641,10 +651,9 @@ function ChooseFile({
                               </ul>
                               <div className="flex flex-wrap items-center gap-3 border-t border-line pt-3">
                                 <p className="flex-1 text-meta text-muted">
-                                  This one did not keep its rows: it ran
-                                  before we started keeping them, or
-                                  everything in it imported. Upload the file
-                                  again to carry on.
+                                  This one did not keep its rows: it ran before
+                                  we started keeping them, or everything in it
+                                  imported. Upload the file again to carry on.
                                 </p>
                                 <Button
                                   variant="secondary"

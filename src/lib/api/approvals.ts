@@ -113,7 +113,8 @@ type WireSummary = {
 
 /* ---------------------------------------------------------------- the shapes */
 
-export type ApprovalRowStatus = "pending" | "approved" | "declined" | "withdrawn";
+export type ApprovalRowStatus =
+  "pending" | "approved" | "declined" | "withdrawn";
 
 export type ApprovalRow = {
   id: string;
@@ -279,7 +280,11 @@ export const approvalsApi = {
     id: string,
     decision: "approve" | "decline",
     note?: string,
-  ): Promise<{ row: ApprovalRow | null; subjectMoved: boolean; note?: string }> => {
+  ): Promise<{
+    row: ApprovalRow | null;
+    subjectMoved: boolean;
+    note?: string;
+  }> => {
     const result = await request<{
       approval: WireApproval | null;
       subject: unknown;

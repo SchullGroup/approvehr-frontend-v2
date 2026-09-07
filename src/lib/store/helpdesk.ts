@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { ApiError } from "@/lib/api/client";
 import {
   helpdeskApi,
@@ -155,86 +161,91 @@ const person = (id: string): ApiPerson | null => {
  * targets is a normal state, and the raise form has to say "no target set"
  * honestly rather than inventing one — so the demo has to be able to reach it.
  */
-const DEMO_CATEGORIES: ApiTicketCategory[] = DEMO_ENABLED ? [
-  {
-    id: "cat-payroll",
-    name: "Pay and payslips",
-    description: "Anything about what you were paid, or a payslip you cannot find.",
-    active: true,
-    defaultAssignee: person("p-05"),
-    sla: {
-      id: "sla-fast",
-      name: "Pay questions",
-      priority: "HIGH",
-      firstResponseMinutes: 240,
-      resolutionMinutes: 1080,
-      active: true,
-    },
-    tickets: 2,
-    openTickets: 2,
-  },
-  {
-    id: "cat-leave",
-    name: "Leave and time off",
-    description: "Balances, a request that did not go through, a booking to change.",
-    active: true,
-    defaultAssignee: person("p-06"),
-    sla: {
-      id: "sla-standard",
-      name: "Standard",
-      priority: "NORMAL",
-      firstResponseMinutes: 480,
-      resolutionMinutes: 1620,
-      active: true,
-    },
-    tickets: 1,
-    openTickets: 1,
-  },
-  {
-    id: "cat-records",
-    name: "Records and letters",
-    description: "A confirmation letter, a detail on your record that is wrong.",
-    active: true,
-    defaultAssignee: person("p-05"),
-    sla: {
-      id: "sla-letters",
-      name: "Letters and records",
-      priority: "NORMAL",
-      firstResponseMinutes: 540,
-      resolutionMinutes: 2700,
-      active: true,
-    },
-    tickets: 3,
-    openTickets: 2,
-  },
-  {
-    id: "cat-it",
-    name: "Laptop and accounts",
-    description: "Equipment, logins, anything you cannot get into.",
-    active: true,
-    defaultAssignee: person("p-06"),
-    sla: {
-      id: "sla-it",
-      name: "Equipment",
-      priority: "HIGH",
-      firstResponseMinutes: 120,
-      resolutionMinutes: 1080,
-      active: true,
-    },
-    tickets: 1,
-    openTickets: 0,
-  },
-  {
-    id: "cat-other",
-    name: "Something else",
-    description: "Not sure where it goes. Somebody will file it properly.",
-    active: true,
-    defaultAssignee: null,
-    sla: null,
-    tickets: 0,
-    openTickets: 0,
-  },
-] : [];
+const DEMO_CATEGORIES: ApiTicketCategory[] = DEMO_ENABLED
+  ? [
+      {
+        id: "cat-payroll",
+        name: "Pay and payslips",
+        description:
+          "Anything about what you were paid, or a payslip you cannot find.",
+        active: true,
+        defaultAssignee: person("p-05"),
+        sla: {
+          id: "sla-fast",
+          name: "Pay questions",
+          priority: "HIGH",
+          firstResponseMinutes: 240,
+          resolutionMinutes: 1080,
+          active: true,
+        },
+        tickets: 2,
+        openTickets: 2,
+      },
+      {
+        id: "cat-leave",
+        name: "Leave and time off",
+        description:
+          "Balances, a request that did not go through, a booking to change.",
+        active: true,
+        defaultAssignee: person("p-06"),
+        sla: {
+          id: "sla-standard",
+          name: "Standard",
+          priority: "NORMAL",
+          firstResponseMinutes: 480,
+          resolutionMinutes: 1620,
+          active: true,
+        },
+        tickets: 1,
+        openTickets: 1,
+      },
+      {
+        id: "cat-records",
+        name: "Records and letters",
+        description:
+          "A confirmation letter, a detail on your record that is wrong.",
+        active: true,
+        defaultAssignee: person("p-05"),
+        sla: {
+          id: "sla-letters",
+          name: "Letters and records",
+          priority: "NORMAL",
+          firstResponseMinutes: 540,
+          resolutionMinutes: 2700,
+          active: true,
+        },
+        tickets: 3,
+        openTickets: 2,
+      },
+      {
+        id: "cat-it",
+        name: "Laptop and accounts",
+        description: "Equipment, logins, anything you cannot get into.",
+        active: true,
+        defaultAssignee: person("p-06"),
+        sla: {
+          id: "sla-it",
+          name: "Equipment",
+          priority: "HIGH",
+          firstResponseMinutes: 120,
+          resolutionMinutes: 1080,
+          active: true,
+        },
+        tickets: 1,
+        openTickets: 0,
+      },
+      {
+        id: "cat-other",
+        name: "Something else",
+        description: "Not sure where it goes. Somebody will file it properly.",
+        active: true,
+        defaultAssignee: null,
+        sla: null,
+        tickets: 0,
+        openTickets: 0,
+      },
+    ]
+  : [];
 
 const comment = (
   id: string,
@@ -545,7 +556,8 @@ type Viewer = { employeeId: string; canManage: boolean };
  * does not read the notes written about it while it was being worked.
  */
 function canReadInternal(ticket: DemoTicket, viewer: Viewer): boolean {
-  if (ticket.requester && ticket.requester.id === viewer.employeeId) return false;
+  if (ticket.requester && ticket.requester.id === viewer.employeeId)
+    return false;
   if (viewer.canManage) return true;
   return ticket.assignee !== null && ticket.assignee.id === viewer.employeeId;
 }
@@ -562,7 +574,9 @@ function canReadTicket(ticket: DemoTicket, viewer: Viewer): boolean {
 /** Adds the two fields the API derives per reader, and drops what they cannot see. */
 function project(ticket: DemoTicket, viewer: Viewer): ApiTicketDetail {
   const internalAllowed = canReadInternal(ticket, viewer);
-  const comments = ticket.comments.filter((c) => internalAllowed || !c.internal);
+  const comments = ticket.comments.filter(
+    (c) => internalAllowed || !c.internal,
+  );
   return {
     ...ticket,
     comments,
@@ -575,10 +589,16 @@ function project(ticket: DemoTicket, viewer: Viewer): ApiTicketDetail {
 
 /* -------------------------------------------------------------- demo queries */
 
-function demoRows(book: DemoBook, viewer: Viewer, filter: TicketFilter): ApiTicket[] {
+function demoRows(
+  book: DemoBook,
+  viewer: Viewer,
+  filter: TicketFilter,
+): ApiTicket[] {
   const scoped = book.tickets.filter((ticket) => {
-    if (filter.scope === "mine") return ticket.requester?.id === viewer.employeeId;
-    if (filter.scope === "assigned") return ticket.assignee?.id === viewer.employeeId;
+    if (filter.scope === "mine")
+      return ticket.requester?.id === viewer.employeeId;
+    if (filter.scope === "assigned")
+      return ticket.assignee?.id === viewer.employeeId;
     return canReadTicket(ticket, viewer);
   });
 
@@ -594,7 +614,8 @@ function demoRows(book: DemoBook, viewer: Viewer, filter: TicketFilter): ApiTick
 
   const needle = filter.q?.trim().toLowerCase();
   const matched = viewed.filter((ticket) => {
-    if (filter.categoryId && ticket.categoryId !== filter.categoryId) return false;
+    if (filter.categoryId && ticket.categoryId !== filter.categoryId)
+      return false;
     if (!needle) return true;
     return (
       ticket.subject.toLowerCase().includes(needle) ||
@@ -606,10 +627,12 @@ function demoRows(book: DemoBook, viewer: Viewer, filter: TicketFilter): ApiTick
   /* Soonest promise first, tickets with no promise last — the order the API's
      `sort=targetAt&order=asc` produces, so both paths read the same. */
   const ordered = [...matched].sort((a, b) => {
-    if (filter.view === "resolved") return b.updatedAt.localeCompare(a.updatedAt);
+    if (filter.view === "resolved")
+      return b.updatedAt.localeCompare(a.updatedAt);
     const left = a.responseDueAt ?? a.resolutionDueAt;
     const right = b.responseDueAt ?? b.resolutionDueAt;
-    if (left === null && right === null) return a.raisedAt.localeCompare(b.raisedAt);
+    if (left === null && right === null)
+      return a.raisedAt.localeCompare(b.raisedAt);
     if (left === null) return 1;
     if (right === null) return -1;
     return left.localeCompare(right);
@@ -891,13 +914,17 @@ export function useTicket(id: string | null) {
           const stamped = now();
           const authoredByRequester = ticket.requester?.id === actingId;
           const isFirstPublicReply =
-            !internal && !authoredByRequester && ticket.firstRespondedAt === null;
+            !internal &&
+            !authoredByRequester &&
+            ticket.firstRespondedAt === null;
           return {
             ...ticket,
             updatedAt: stamped,
             /* A requester chasing is not a first response, and neither is an
                internal note — the person waiting has still heard nothing. */
-            firstRespondedAt: isFirstPublicReply ? stamped : ticket.firstRespondedAt,
+            firstRespondedAt: isFirstPublicReply
+              ? stamped
+              : ticket.firstRespondedAt,
             responseWorkingMinutes: isFirstPublicReply
               ? ticket.openWorkingMinutes
               : ticket.responseWorkingMinutes,
@@ -985,7 +1012,9 @@ export function useTicket(id: string | null) {
           ...ticket,
           assignee: assigneeId ? person(assigneeId) : null,
           status:
-            assigneeId && ticket.status === "OPEN" ? "IN_PROGRESS" : ticket.status,
+            assigneeId && ticket.status === "OPEN"
+              ? "IN_PROGRESS"
+              : ticket.status,
           updatedAt: now(),
         }));
       },
@@ -1076,7 +1105,8 @@ export function useRaiseTicket() {
       }
 
       const current = demoStore.current();
-      const category = DEMO_CATEGORIES.find((c) => c.id === body.categoryId) ?? null;
+      const category =
+        DEMO_CATEGORIES.find((c) => c.id === body.categoryId) ?? null;
       const stamped = new Date().toISOString();
       const id = `tk-demo-${current.nextRef}`;
 
@@ -1213,10 +1243,7 @@ export function useHelpdeskPulse(enabled: boolean, bump = 0): HelpdeskPulse {
     void (async () => {
       try {
         const [open, overdue, unassigned, analytics] = await Promise.all([
-          helpdeskApi.queue(
-            { openOnly: true, pageSize: 1 },
-            controller.signal,
-          ),
+          helpdeskApi.queue({ openOnly: true, pageSize: 1 }, controller.signal),
           helpdeskApi.queue({ overdue: true, pageSize: 1 }, controller.signal),
           helpdeskApi.queue(
             { openOnly: true, unassigned: true, pageSize: 1 },
@@ -1230,7 +1257,8 @@ export function useHelpdeskPulse(enabled: boolean, bump = 0): HelpdeskPulse {
           overdue: overdue.meta.total,
           unassigned: unassigned.meta.total,
           unanswered: analytics.firstResponse.unanswered,
-          medianFirstResponseMinutes: analytics.firstResponse.medianWorkingMinutes,
+          medianFirstResponseMinutes:
+            analytics.firstResponse.medianWorkingMinutes,
           minutesPerDay: analytics.workingDay.minutesPerDay,
           byCategory: analytics.volume.byCategory,
           loading: false,
@@ -1249,7 +1277,9 @@ export function useHelpdeskPulse(enabled: boolean, bump = 0): HelpdeskPulse {
   const demo = useMemo<HelpdeskPulse | null>(() => {
     if (isConnected || !enabled) return null;
     const viewer: Viewer = { employeeId: actingId, canManage };
-    const readable = book.tickets.filter((ticket) => canReadTicket(ticket, viewer));
+    const readable = book.tickets.filter((ticket) =>
+      canReadTicket(ticket, viewer),
+    );
     const live = readable.filter((ticket) => ticket.status !== "RESOLVED");
     const measured = readable
       .map((ticket) => ticket.responseWorkingMinutes)
@@ -1270,7 +1300,9 @@ export function useHelpdeskPulse(enabled: boolean, bump = 0): HelpdeskPulse {
           ? null
           : measured.length % 2 === 1
             ? (measured[middle] ?? null)
-            : Math.round(((measured[middle - 1] ?? 0) + (measured[middle] ?? 0)) / 2),
+            : Math.round(
+                ((measured[middle - 1] ?? 0) + (measured[middle] ?? 0)) / 2,
+              ),
       minutesPerDay: WORKING_DAY_FALLBACK.minutesPerDay,
       /* Null, not []. The seed's tickets carry no category, so an empty list
          here would render as "nobody has asked us anything". */

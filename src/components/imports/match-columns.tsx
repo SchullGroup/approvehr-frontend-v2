@@ -20,7 +20,12 @@ import {
   TableWrap,
 } from "@/components/ui";
 import type { CsvFile } from "@/lib/csv";
-import { fieldOptions, mappingProblems, noteFor, type Mapping } from "@/lib/imports/mapping";
+import {
+  fieldOptions,
+  mappingProblems,
+  noteFor,
+  type Mapping,
+} from "@/lib/imports/mapping";
 import type { Dictionary } from "@/lib/imports/spec";
 
 /**
@@ -122,7 +127,10 @@ export function MatchColumns({
       )}
 
       {problems.missingRequired.length > 0 && (
-        <Callout tone="warning" title="Some columns we have to have are missing">
+        <Callout
+          tone="warning"
+          title="Some columns we have to have are missing"
+        >
           <p>
             Every {dictionary.noun.one} needs{" "}
             {problems.missingRequired.map((field, index) => (
@@ -135,8 +143,9 @@ export function MatchColumns({
             ))}
             . Point a column at{" "}
             {problems.missingRequired.length === 1 ? "it" : "each of them"}{" "}
-            below, or add {problems.missingRequired.length === 1 ? "it" : "them"}{" "}
-            to your file and choose it again.
+            below, or add{" "}
+            {problems.missingRequired.length === 1 ? "it" : "them"} to your file
+            and choose it again.
           </p>
         </Callout>
       )}
@@ -236,7 +245,8 @@ export function MatchColumns({
                         <option value="">Do not import</option>
                         {options.map((option) => {
                           const holder = claimedBy.get(option.field);
-                          const taken = holder !== undefined && holder !== heading;
+                          const taken =
+                            holder !== undefined && holder !== heading;
                           return (
                             <option
                               key={option.field}

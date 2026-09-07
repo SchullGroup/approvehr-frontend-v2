@@ -131,11 +131,16 @@ export function useHiringOverview(): HiringOverview {
   }, [analytics.analytics]);
 
   const roles = useMemo(
-    () => postings.postings.map((posting) => toRoleRow(posting, tallies.get(posting.id))),
+    () =>
+      postings.postings.map((posting) =>
+        toRoleRow(posting, tallies.get(posting.id)),
+      ),
     [postings.postings, tallies],
   );
 
-  const numbers = analytics.analytics ? toNumbers(analytics.analytics) : NO_NUMBERS;
+  const numbers = analytics.analytics
+    ? toNumbers(analytics.analytics)
+    : NO_NUMBERS;
 
   const reload = useCallback(() => {
     void postings.reload();
@@ -180,7 +185,10 @@ export type RoleQueue = {
     applicationId: string,
     input?: ScreenInInput,
   ) => Promise<{ note: string; candidateId: string }>;
-  screenOut: (applicationId: string, reason?: string) => Promise<{ note: string }>;
+  screenOut: (
+    applicationId: string,
+    reason?: string,
+  ) => Promise<{ note: string }>;
   reload: () => Promise<void>;
 };
 
@@ -202,7 +210,10 @@ export function useRoleQueue(requisitionId: string): RoleQueue {
   const applications = useApplications();
 
   const adverts = useMemo(
-    () => postings.postings.filter((posting) => posting.requisitionId === requisitionId),
+    () =>
+      postings.postings.filter(
+        (posting) => posting.requisitionId === requisitionId,
+      ),
     [postings.postings, requisitionId],
   );
 
@@ -248,8 +259,9 @@ export function useRoleQueue(requisitionId: string): RoleQueue {
     adverts,
     rows,
     waiting: rows.filter((row) => row.waiting).length,
-    reference: adverts.find((advert) => advert.requisitionReference)
-      ?.requisitionReference ?? null,
+    reference:
+      adverts.find((advert) => advert.requisitionReference)
+        ?.requisitionReference ?? null,
     cvNote: rows.find((row) => row.cvNote)?.cvNote ?? null,
     screenIn,
     screenOut,
@@ -330,12 +342,14 @@ export function pipelineSnapshot(requisitionId?: string): PipelineSnapshot {
     scheduledInterviews: INTERVIEWS.filter(
       (interview) =>
         interview.status === "scheduled" &&
-        (requisitionId === undefined || applicationIds.has(interview.applicationId)),
+        (requisitionId === undefined ||
+          applicationIds.has(interview.applicationId)),
     ),
     offersOut: cards.filter(
       (card) =>
         card.offer !== undefined &&
-        (card.offer.status === "sent" || card.offer.status === "pending_approval"),
+        (card.offer.status === "sent" ||
+          card.offer.status === "pending_approval"),
     ),
     /* Occupancy per stage, so a bar chart. A funnel would overflow its track:
        more people can be sitting in Interview this week than in Shortlisted. */
@@ -369,7 +383,9 @@ export type ApplicantView = {
    * which join it is looking at rather than letting the reader assume one record.
    */
   matchedBy: "id" | "email" | null;
-  screenIn: (input?: ScreenInInput) => Promise<{ note: string; candidateId: string }>;
+  screenIn: (
+    input?: ScreenInInput,
+  ) => Promise<{ note: string; candidateId: string }>;
   screenOut: (reason?: string) => Promise<{ note: string }>;
   reload: () => Promise<void>;
 };
@@ -471,7 +487,8 @@ export function useApplicantRecord(id: string): ApplicantView {
      left the screen showing a stale status after a write, because `advance`
      reloads the list and the detail is fetched once per id. */
   const record = useMemo(
-    () => (row ? mergeApplicantHistory(toApplicantRecordFromRow(row), detail) : null),
+    () =>
+      row ? mergeApplicantHistory(toApplicantRecordFromRow(row), detail) : null,
     [detail, row],
   );
 
@@ -534,7 +551,9 @@ export type ScreeningBacklog = {
  */
 export function useScreeningBacklog(): ScreeningBacklog {
   const analytics = useCareersAnalytics();
-  const numbers = analytics.analytics ? toNumbers(analytics.analytics) : NO_NUMBERS;
+  const numbers = analytics.analytics
+    ? toNumbers(analytics.analytics)
+    : NO_NUMBERS;
 
   return {
     /* An access token plus an answer. `useCareersAnalytics` returns the demo

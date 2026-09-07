@@ -130,9 +130,7 @@ export default function DesignSystemPage() {
           aria-label="Sections"
           className="sticky top-8 hidden h-fit w-44 shrink-0 lg:block"
         >
-          <p className="mb-3 px-3 text-eyebrow text-faint">
-            Contents
-          </p>
+          <p className="mb-3 px-3 text-eyebrow text-faint">Contents</p>
           <ul className="flex flex-col gap-0.5">
             {SECTIONS.map((s) => (
               <li key={s.id}>
@@ -170,9 +168,7 @@ export default function DesignSystemPage() {
               <Card className="overflow-hidden border-fill-strong bg-fill-strong">
                 <div className="flex flex-col items-center gap-4 py-9">
                   <Logo size={28} className="text-white" />
-                  <p className="text-meta text-white/60">
-                    Lockup on ink
-                  </p>
+                  <p className="text-meta text-white/60">Lockup on ink</p>
                 </div>
               </Card>
             </div>
@@ -219,9 +215,7 @@ export default function DesignSystemPage() {
                     <dl className="flex shrink-0 gap-5 text-meta text-muted">
                       <div>
                         <dt className="sr-only-focusable">Token</dt>
-                        <dd className="font-medium text-ink">
-                          text-{t.name}
-                        </dd>
+                        <dd className="font-medium text-ink">text-{t.name}</dd>
                       </div>
                       <div>
                         <dt className="sr-only-focusable">Size</dt>
@@ -252,7 +246,10 @@ export default function DesignSystemPage() {
                   </p>
                   <div className="flex flex-wrap gap-5">
                     {RADII.map((r) => (
-                      <div key={r.name} className="flex flex-col items-center gap-2">
+                      <div
+                        key={r.name}
+                        className="flex flex-col items-center gap-2"
+                      >
                         <div
                           className="size-14 border border-line-strong bg-sunken"
                           style={{ borderRadius: r.value }}
@@ -276,7 +273,10 @@ export default function DesignSystemPage() {
                   </p>
                   <div className="flex flex-wrap gap-5">
                     {SHADOWS.map((s) => (
-                      <div key={s.name} className="flex flex-col items-center gap-2">
+                      <div
+                        key={s.name}
+                        className="flex flex-col items-center gap-2"
+                      >
                         <div
                           className={cn(
                             "size-14 rounded-lg bg-surface",
@@ -435,9 +435,7 @@ function SwatchGrid({
 }) {
   return (
     <div className="mb-8 last:mb-0">
-      <p className="mb-1 text-meta font-semibold text-ink">
-        {title}
-      </p>
+      <p className="mb-1 text-meta font-semibold text-ink">{title}</p>
       {note && (
         <p className="mb-3 max-w-2xl text-meta leading-relaxed text-muted">
           {note}
@@ -465,9 +463,7 @@ function SwatchGrid({
                   </span>
                 )}
               </div>
-              <p className="tabular text-meta text-muted">
-                {s.hex}
-              </p>
+              <p className="tabular text-meta text-muted">{s.hex}</p>
               <p className="mt-0.5 text-meta leading-snug text-muted">
                 {s.usage}
               </p>

@@ -120,7 +120,11 @@ export function OneOnOnesScreen() {
              earlier. Found by the e2e suite, which runs in exactly the state a
              developer never does: no API. */
           mutations.available ? (
-            <Button size="sm" variant="accent" onClick={() => setStarting(true)}>
+            <Button
+              size="sm"
+              variant="accent"
+              onClick={() => setStarting(true)}
+            >
               <Plus aria-hidden="true" className="size-4" />
               Start one
             </Button>
@@ -141,11 +145,7 @@ export function OneOnOnesScreen() {
         }
       />
       <PageBody>
-        {tab === "mine" ? (
-          <Mine read={mine} />
-        ) : (
-          <Coverage read={coverage} />
-        )}
+        {tab === "mine" ? <Mine read={mine} /> : <Coverage read={coverage} />}
       </PageBody>
       {starting && (
         <StartDialog
@@ -301,7 +301,11 @@ function Coverage({ read }: { read: ReturnType<typeof useOneOnOneCoverage> }) {
   }
   if (read.error) {
     return (
-      <LoadFailure subject="coverage" error={read.error} onRetry={read.reload} />
+      <LoadFailure
+        subject="coverage"
+        error={read.error}
+        onRetry={read.reload}
+      />
     );
   }
   if (read.loading || !read.data) return <Spinner label="Loading" />;
@@ -478,7 +482,8 @@ function StartDialog({
           </Select>
         </Field>
         <p className="text-meta text-faint">
-          Both of you will see it, and the notes in it. There is no private half.
+          Both of you will see it, and the notes in it. There is no private
+          half.
         </p>
         {failure && (
           <Callout tone="danger" title="That was refused">

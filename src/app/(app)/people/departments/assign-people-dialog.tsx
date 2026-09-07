@@ -3,7 +3,14 @@
 import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { Badge, Button, Callout, Checkbox, Input, Modal } from "@/components/ui";
+import {
+  Badge,
+  Button,
+  Callout,
+  Checkbox,
+  Input,
+  Modal,
+} from "@/components/ui";
 
 /**
  * Put a set of people into a department, or onto a team.
@@ -124,11 +131,13 @@ export function AssignPeopleDialog({
           <p className="text-body-sm text-muted">
             {moving.length === 0
               ? "Nobody chosen yet"
-              : (countLabel ??
+              : (
+                  countLabel ??
                   ((count) =>
-                    count === 1 ? "1 person will move" : `${count} people will move`))(
-                  moving.length,
-                )}
+                    count === 1
+                      ? "1 person will move"
+                      : `${count} people will move`)
+                )(moving.length)}
           </p>
           <div className="flex gap-2">
             <Button variant="secondary" onClick={onClose}>

@@ -1,7 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Callout, Field, Input, Modal, Textarea } from "@/components/ui";
+import {
+  Button,
+  Callout,
+  Field,
+  Input,
+  Modal,
+  Textarea,
+} from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import {
   today,
@@ -143,7 +150,8 @@ export function RepairDialog({
             help="Leave blank while it is still being fixed."
             {...(datesWrong
               ? { error: "It cannot be finished before it went in." }
-              : {})}>
+              : {})}
+          >
             <Input
               type="date"
               value={completedOn}

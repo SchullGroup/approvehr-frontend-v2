@@ -138,7 +138,9 @@ export const account = {
    * malformed token answers `false` here and then fails the usual way on
    * submit, so a failed call is safe to treat the same as a `false` reply.
    */
-  requirementsForReset: (token: string): Promise<{ requiresStrongPassword: boolean }> =>
+  requirementsForReset: (
+    token: string,
+  ): Promise<{ requiresStrongPassword: boolean }> =>
     request<{ requiresStrongPassword: boolean }>("/auth/reset-password", {
       query: { token },
       anonymous: true,
@@ -159,7 +161,9 @@ export const account = {
   },
 
   /** Same idea as `requirementsForReset`, for an invitation instead of a reset. */
-  requirementsForInvite: (token: string): Promise<{ requiresStrongPassword: boolean }> =>
+  requirementsForInvite: (
+    token: string,
+  ): Promise<{ requiresStrongPassword: boolean }> =>
     request<{ requiresStrongPassword: boolean }>("/auth/accept-invite", {
       query: { token },
       anonymous: true,
@@ -236,9 +240,21 @@ export type PasswordRule = {
  * length constant above already lives by — the API stays the real gate either
  * way, and a mismatch only ever costs a round trip, never a wrong acceptance.
  */
-const CLASS_RULES: { id: string; label: string; test: (value: string) => boolean }[] = [
-  { id: "lower", label: "A lowercase letter", test: (value) => /[a-z]/.test(value) },
-  { id: "upper", label: "An uppercase letter", test: (value) => /[A-Z]/.test(value) },
+const CLASS_RULES: {
+  id: string;
+  label: string;
+  test: (value: string) => boolean;
+}[] = [
+  {
+    id: "lower",
+    label: "A lowercase letter",
+    test: (value) => /[a-z]/.test(value),
+  },
+  {
+    id: "upper",
+    label: "An uppercase letter",
+    test: (value) => /[A-Z]/.test(value),
+  },
   { id: "digit", label: "A number", test: (value) => /[0-9]/.test(value) },
   {
     id: "symbol",

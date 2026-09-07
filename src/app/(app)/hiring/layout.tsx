@@ -6,6 +6,10 @@
  * the next module that needs only the plain wall still has `ComingSoon`
  * itself, in `components/portal/shell.tsx`.
  */
-export default function HiringLayout({ children }: { children: React.ReactNode }) {
+export default function HiringLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return children;
 }

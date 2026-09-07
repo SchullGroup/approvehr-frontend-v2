@@ -101,122 +101,124 @@ type Seed = {
  * rows are the two the settings page refuses to let a company silence quietly:
  * a bank account change and a filing deadline.
  */
-const SEED: Seed[] = DEMO_ENABLED ? [
-  {
-    id: "nt-01",
-    ruleId: "n-record-change",
-    title: "Ngozi Eze's bank account changed",
-    body: "Changed today, with the August run still waiting for approval.",
-    actionHref: "/people/p-04",
-    entityType: "employee",
-    entityId: "p-04",
-    severity: "CRITICAL",
-    minutesAgo: 45,
-  },
-  {
-    id: "nt-02",
-    ruleId: "n-payroll-approval",
-    title: "August payroll needs your approval",
-    body: "10 people. Bank cut-off is 26 August.",
-    actionHref: "/payroll",
-    entityType: "payroll_run",
-    entityId: "run-2026-08",
-    severity: "ACTION",
-    minutesAgo: 95,
-  },
-  {
-    id: "nt-03",
-    ruleId: "n-leave-request",
-    title: "Chidi Nwosu asked for 2 days annual leave",
-    body: "14–15 September. You are the approver.",
-    actionHref: "/approvals",
-    entityType: "leave_request",
-    entityId: "lv-02",
-    severity: "ACTION",
-    minutesAgo: 220,
-  },
-  {
-    id: "nt-04",
-    ruleId: "n-offer-approval",
-    title: "Oluwaseun Adeyemi's offer is above the band",
-    body: "Asking ₦1.9m against a band top of ₦1.8m on ENG-114.",
-    actionHref: "/hiring/candidates/c-05",
-    entityType: "offer",
-    entityId: "c-05",
-    severity: "ACTION",
-    minutesAgo: 380,
-  },
-  {
-    id: "nt-05",
-    ruleId: "n-statutory-due",
-    title: "PAYE for August is due in 7 days",
-    body: "Lagos State, due 10 September.",
-    actionHref: "/payroll/statutory",
-    entityType: "statutory_filing",
-    entityId: "paye-2026-08",
-    severity: "CRITICAL",
-    minutesAgo: 600,
-  },
-  {
-    id: "nt-06",
-    ruleId: "n-attendance-exception",
-    title: "Musa Ibrahim did not clock in",
-    body: "No approved leave behind it, so the day is unpaid as it stands.",
-    actionHref: "/people/attendance",
-    entityType: "attendance",
-    entityId: "p-07",
-    severity: "WARNING",
-    minutesAgo: 1_290,
-  },
-  {
-    id: "nt-07",
-    ruleId: "n-payslip",
-    title: "Musa Ibrahim's payslip bounced",
-    body: "The address on his record was rejected by the mail server.",
-    actionHref: "/payroll/payslips",
-    entityType: "payslip",
-    entityId: "p-07",
-    severity: "WARNING",
-    minutesAgo: 1_460,
-    readMinutesAgo: 1_200,
-  },
-  {
-    id: "nt-08",
-    ruleId: "n-payslip",
-    title: "August payslips went out",
-    body: "10 sent. 1 bounced and 1 person has no email on file.",
-    actionHref: "/payroll/payslips",
-    entityType: "payslip",
-    entityId: "run-2026-08",
-    severity: "INFO",
-    minutesAgo: 1_520,
-    readMinutesAgo: 1_180,
-  },
-  {
-    id: "nt-09",
-    ruleId: "n-leave-decision",
-    title: "Your leave for 3–7 September was approved",
-    body: "Approved by Adaeze Okonkwo.",
-    actionHref: "/people/leave",
-    entityType: "leave_request",
-    entityId: "lv-05",
-    severity: "INFO",
-    minutesAgo: 2_760,
-    readMinutesAgo: 2_700,
-  },
-  {
-    id: "nt-10",
-    ruleId: "n-record-change",
-    title: "Emeka Anyanwu finished onboarding",
-    body: "Every starter task is signed off. He is on the next run.",
-    actionHref: "/people/onboarding",
-    entityType: "employee",
-    entityId: "p-09",
-    severity: "INFO",
-    minutesAgo: 4_320,
-    readMinutesAgo: 4_100,
-  },
-] : [];
+const SEED: Seed[] = DEMO_ENABLED
+  ? [
+      {
+        id: "nt-01",
+        ruleId: "n-record-change",
+        title: "Ngozi Eze's bank account changed",
+        body: "Changed today, with the August run still waiting for approval.",
+        actionHref: "/people/p-04",
+        entityType: "employee",
+        entityId: "p-04",
+        severity: "CRITICAL",
+        minutesAgo: 45,
+      },
+      {
+        id: "nt-02",
+        ruleId: "n-payroll-approval",
+        title: "August payroll needs your approval",
+        body: "10 people. Bank cut-off is 26 August.",
+        actionHref: "/payroll",
+        entityType: "payroll_run",
+        entityId: "run-2026-08",
+        severity: "ACTION",
+        minutesAgo: 95,
+      },
+      {
+        id: "nt-03",
+        ruleId: "n-leave-request",
+        title: "Chidi Nwosu asked for 2 days annual leave",
+        body: "14–15 September. You are the approver.",
+        actionHref: "/approvals",
+        entityType: "leave_request",
+        entityId: "lv-02",
+        severity: "ACTION",
+        minutesAgo: 220,
+      },
+      {
+        id: "nt-04",
+        ruleId: "n-offer-approval",
+        title: "Oluwaseun Adeyemi's offer is above the band",
+        body: "Asking ₦1.9m against a band top of ₦1.8m on ENG-114.",
+        actionHref: "/hiring/candidates/c-05",
+        entityType: "offer",
+        entityId: "c-05",
+        severity: "ACTION",
+        minutesAgo: 380,
+      },
+      {
+        id: "nt-05",
+        ruleId: "n-statutory-due",
+        title: "PAYE for August is due in 7 days",
+        body: "Lagos State, due 10 September.",
+        actionHref: "/payroll/statutory",
+        entityType: "statutory_filing",
+        entityId: "paye-2026-08",
+        severity: "CRITICAL",
+        minutesAgo: 600,
+      },
+      {
+        id: "nt-06",
+        ruleId: "n-attendance-exception",
+        title: "Musa Ibrahim did not clock in",
+        body: "No approved leave behind it, so the day is unpaid as it stands.",
+        actionHref: "/people/attendance",
+        entityType: "attendance",
+        entityId: "p-07",
+        severity: "WARNING",
+        minutesAgo: 1_290,
+      },
+      {
+        id: "nt-07",
+        ruleId: "n-payslip",
+        title: "Musa Ibrahim's payslip bounced",
+        body: "The address on his record was rejected by the mail server.",
+        actionHref: "/payroll/payslips",
+        entityType: "payslip",
+        entityId: "p-07",
+        severity: "WARNING",
+        minutesAgo: 1_460,
+        readMinutesAgo: 1_200,
+      },
+      {
+        id: "nt-08",
+        ruleId: "n-payslip",
+        title: "August payslips went out",
+        body: "10 sent. 1 bounced and 1 person has no email on file.",
+        actionHref: "/payroll/payslips",
+        entityType: "payslip",
+        entityId: "run-2026-08",
+        severity: "INFO",
+        minutesAgo: 1_520,
+        readMinutesAgo: 1_180,
+      },
+      {
+        id: "nt-09",
+        ruleId: "n-leave-decision",
+        title: "Your leave for 3–7 September was approved",
+        body: "Approved by Adaeze Okonkwo.",
+        actionHref: "/people/leave",
+        entityType: "leave_request",
+        entityId: "lv-05",
+        severity: "INFO",
+        minutesAgo: 2_760,
+        readMinutesAgo: 2_700,
+      },
+      {
+        id: "nt-10",
+        ruleId: "n-record-change",
+        title: "Emeka Anyanwu finished onboarding",
+        body: "Every starter task is signed off. He is on the next run.",
+        actionHref: "/people/onboarding",
+        entityType: "employee",
+        entityId: "p-09",
+        severity: "INFO",
+        minutesAgo: 4_320,
+        readMinutesAgo: 4_100,
+      },
+    ]
+  : [];
 
 const iso = (minutesAgo: number): string =>
   new Date(DEMO_NOW.getTime() - minutesAgo * 60_000).toISOString();
@@ -232,8 +234,7 @@ function toItem(seed: Seed): InboxItem {
     entityId: seed.entityId,
     severity: seed.severity,
     read: seed.readMinutesAgo !== undefined,
-    readAt:
-      seed.readMinutesAgo !== undefined ? iso(seed.readMinutesAgo) : null,
+    readAt: seed.readMinutesAgo !== undefined ? iso(seed.readMinutesAgo) : null,
     createdAt: iso(seed.minutesAgo),
   };
 }
@@ -498,7 +499,8 @@ export function useNotifications(tab: InboxTab) {
           error: null,
         });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         setLive((s) => ({
           ...s,
           loading: false,
@@ -564,7 +566,10 @@ export function useNotifications(tab: InboxTab) {
       const ids = DEMO_ITEMS.filter(
         (item) => !item.read && !deleted.has(item.id),
       ).map((item) => item.id);
-      demo.commit({ ...current, read: [...new Set([...current.read, ...ids])] });
+      demo.commit({
+        ...current,
+        read: [...new Set([...current.read, ...ids])],
+      });
       return ids.length;
     }
     const result = await notificationsApi.markAllRead();
@@ -601,7 +606,10 @@ export function useNotifications(tab: InboxTab) {
    * connected; the demo dataset's own day otherwise, so seeded rows read
    * "Today" instead of drifting further into the past every morning.
    */
-  const now = useMemo(() => (isConnected ? new Date() : DEMO_NOW), [isConnected]);
+  const now = useMemo(
+    () => (isConnected ? new Date() : DEMO_NOW),
+    [isConnected],
+  );
 
   return {
     items,

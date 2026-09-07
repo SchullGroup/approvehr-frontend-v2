@@ -30,9 +30,9 @@ export function AppearanceScreen() {
             <div>
               <h2 className="text-body-md font-semibold text-ink">Theme</h2>
               <p className="mt-1 text-body-sm leading-relaxed text-body">
-                Light or dark, or match whatever your device is already set
-                to. Nobody else&apos;s screen changes, and nobody needs to
-                let you do this.
+                Light or dark, or match whatever your device is already set to.
+                Nobody else&apos;s screen changes, and nobody needs to let you
+                do this.
               </p>
               <p className="text-body-sm leading-relaxed text-body">
                 In this browser only — it will not be here on another device.

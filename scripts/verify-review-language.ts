@@ -44,9 +44,11 @@ console.log("\nWritten-review language check\n");
 /* ------------------------------------------------ 1. it catches the real thing */
 
 console.log("Catches a claim about a person");
-check("she is disorganised", kinds("Chidera is fine but she is disorganised."), [
-  "character",
-]);
+check(
+  "she is disorganised",
+  kinds("Chidera is fine but she is disorganised."),
+  ["character"],
+);
 check("he is quite lazy", kinds("Honestly he is quite lazy."), ["character"]);
 check("they are unprofessional", kinds("They are unprofessional at times."), [
   "character",
@@ -56,11 +58,9 @@ check(
   kinds("The employee is difficult to work with."),
   ["character"],
 );
-check(
-  "contracted: she's arrogant",
-  kinds("She's arrogant in meetings."),
-  ["character"],
-);
+check("contracted: she's arrogant", kinds("She's arrogant in meetings."), [
+  "character",
+]);
 check(
   "hedged: he is a bit careless",
   kinds("He is a bit careless with the figures."),
@@ -176,7 +176,11 @@ check(
 );
 
 const wall = Array.from({ length: 20 }, () => "He is lazy.").join(" ");
-check("a wall of findings is capped", reviewLanguageFindings(wall).length, MAX_FINDINGS);
+check(
+  "a wall of findings is capped",
+  reviewLanguageFindings(wall).length,
+  MAX_FINDINGS,
+);
 
 check(
   "several boxes are checked together",
@@ -184,7 +188,11 @@ check(
   ["character", "sensitive"],
 );
 
-check("headline, one", findingsHeadline(1), "One phrase here is worth a second look");
+check(
+  "headline, one",
+  findingsHeadline(1),
+  "One phrase here is worth a second look",
+);
 check(
   "headline, several",
   findingsHeadline(3),
@@ -194,8 +202,16 @@ check(
 /* The caveat is the thing that keeps this readable as a prompt rather than a
    verdict, so it has to say both halves: it does not block, and it does not
    know whether the review is fair. */
-check("the caveat says it does not block", FINDINGS_CAVEAT.includes("stops you"), true);
-check("the caveat admits its limits", FINDINGS_CAVEAT.includes("cannot tell"), true);
+check(
+  "the caveat says it does not block",
+  FINDINGS_CAVEAT.includes("stops you"),
+  true,
+);
+check(
+  "the caveat admits its limits",
+  FINDINGS_CAVEAT.includes("cannot tell"),
+  true,
+);
 
 /* Every finding has to carry somewhere to go. A flag with no "instead" is a
    complaint. */
@@ -236,11 +252,9 @@ check(
   kinds("She is lazy.", "Tunde Bakare"),
   ["character"],
 );
-check(
-  "no name supplied still catches the pronoun",
-  kinds("She is lazy."),
-  ["character"],
-);
+check("no name supplied still catches the pronoun", kinds("She is lazy."), [
+  "character",
+]);
 check(
   "a name in a sentence about work is not flagged",
   kinds("The migration Tunde ran was difficult.", "Tunde Bakare"),
@@ -252,11 +266,7 @@ check(
   ["absolute"],
 );
 /* An initial would match inside other words and turn this into noise. */
-check(
-  "a two-letter name part is ignored",
-  kinds("Bo is lazy.", "Bo Ali"),
-  [],
-);
+check("a two-letter name part is ignored", kinds("Bo is lazy.", "Bo Ali"), []);
 check(
   "a regex character in a name does not break the pattern",
   kinds("O'Brien is lazy.", "O'Brien (Ade)"),

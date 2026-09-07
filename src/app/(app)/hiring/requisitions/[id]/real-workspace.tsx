@@ -20,7 +20,10 @@ import {
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import type { ApiApplication, ApiStage } from "@/lib/api/recruitment";
-import { useApplicationMutations, useApplicationsForRequisition } from "@/lib/store/recruitment";
+import {
+  useApplicationMutations,
+  useApplicationsForRequisition,
+} from "@/lib/store/recruitment";
 
 const OUTCOME_TONE = {
   IN_PROGRESS: "info",
@@ -53,22 +56,29 @@ export function RealRequisitionWorkspace({
   requisitionId: string;
   stages: ApiStage[];
 }) {
-  const { applications, loading, error, reload } = useApplicationsForRequisition(requisitionId, {
-    pageSize: 200,
-  });
+  const { applications, loading, error, reload } =
+    useApplicationsForRequisition(requisitionId, {
+      pageSize: 200,
+    });
   const mutations = useApplicationMutations();
   const toast = useToast();
   const [showTerminal, setShowTerminal] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  const ordered = useMemo(() => [...stages].sort((a, b) => a.order - b.order), [stages]);
+  const ordered = useMemo(
+    () => [...stages].sort((a, b) => a.order - b.order),
+    [stages],
+  );
 
   const visible = useMemo(
-    () => applications.filter((a) => showTerminal || a.outcome === "IN_PROGRESS"),
+    () =>
+      applications.filter((a) => showTerminal || a.outcome === "IN_PROGRESS"),
     [applications, showTerminal],
   );
 
-  const terminalCount = applications.filter((a) => a.outcome !== "IN_PROGRESS").length;
+  const terminalCount = applications.filter(
+    (a) => a.outcome !== "IN_PROGRESS",
+  ).length;
 
   async function move(application: ApiApplication, stageId: string) {
     setBusyId(application.id);
@@ -79,7 +89,10 @@ export function RealRequisitionWorkspace({
       toast.push({
         title: "Not moved",
         tone: "danger",
-        detail: error instanceof ApiError ? error.message : "Something went wrong. Try again.",
+        detail:
+          error instanceof ApiError
+            ? error.message
+            : "Something went wrong. Try again.",
       });
     } finally {
       setBusyId(null);
@@ -133,7 +146,9 @@ export function RealRequisitionWorkspace({
           <Filter aria-hidden="true" className="size-3.5" />
           {showTerminal ? "Hide" : "Show"} hired / rejected / withdrawn
           {terminalCount > 0 && (
-            <span className="tabular ml-0.5 text-meta opacity-70">({terminalCount})</span>
+            <span className="tabular ml-0.5 text-meta opacity-70">
+              ({terminalCount})
+            </span>
           )}
         </Button>
       </div>
@@ -144,7 +159,11 @@ export function RealRequisitionWorkspace({
           title="No candidates yet"
           description="Somebody joins this board when a screener screens them in from the application queue."
           action={
-            <ButtonLink href="/hiring/postings/applications" variant="accent" size="sm">
+            <ButtonLink
+              href="/hiring/postings/applications"
+              variant="accent"
+              size="sm"
+            >
               Open the application queue
             </ButtonLink>
           }

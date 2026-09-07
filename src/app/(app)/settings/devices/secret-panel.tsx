@@ -49,12 +49,12 @@ export function SecretPanel({
       open
       onClose={onClose}
       size="md"
-      title={rotated ? `New secret for ${result.label}` : `${result.label} is registered`}
-      description={
-        issued
-          ? "This is the only time it is shown."
-          : undefined
+      title={
+        rotated
+          ? `New secret for ${result.label}`
+          : `${result.label} is registered`
       }
+      description={issued ? "This is the only time it is shown." : undefined}
       footer={
         <div className="flex justify-end">
           <Button variant="accent" onClick={onClose}>
@@ -102,9 +102,9 @@ export function SecretPanel({
               </p>
               <p>
                 <strong className="text-ink">And the serial number.</strong> The
-                agent sends{" "}
-                <CodeInline>{result.serialNumber}</CodeInline> alongside every
-                delivery to say which machine it is. Both go into its config.
+                agent sends <CodeInline>{result.serialNumber}</CodeInline>{" "}
+                alongside every delivery to say which machine it is. Both go
+                into its config.
               </p>
             </div>
           </>

@@ -64,18 +64,10 @@ import { request, requestPaged, type Paged } from "@/lib/api/client";
 
 /** Where a rostered day stands. `SWAPPED` is never written — see below. */
 export type ShiftAssignmentStatus =
-  | "SCHEDULED"
-  | "WORKED"
-  | "SWAPPED"
-  | "ABSENT"
-  | "CANCELLED";
+  "SCHEDULED" | "WORKED" | "SWAPPED" | "ABSENT" | "CANCELLED";
 
 export type SwapStatus =
-  | "PENDING"
-  | "ACCEPTED"
-  | "APPROVED"
-  | "DECLINED"
-  | "CANCELLED";
+  "PENDING" | "ACCEPTED" | "APPROVED" | "DECLINED" | "CANCELLED";
 
 /** Mirrors `SerializedShift`. */
 export type ApiShift = {
@@ -411,10 +403,7 @@ export const shiftsApi = {
     }),
 
   /** 422 when the sign-in is not linked to a staff record. */
-  myRota: (
-    params: { from?: string; to?: string } = {},
-    signal?: AbortSignal,
-  ) =>
+  myRota: (params: { from?: string; to?: string } = {}, signal?: AbortSignal) =>
     request<ApiMyRota>("/shifts/me/rota", {
       query: { from: params.from, to: params.to },
       ...(signal ? { signal } : {}),
@@ -430,7 +419,10 @@ export const shiftsApi = {
 
   /** Replaces only rows the same pattern wrote. Anything else refuses. */
   bulkAssign: (body: BulkAssignBody) =>
-    request<ApiBulkResult>("/shifts/assignments/bulk", { method: "POST", body }),
+    request<ApiBulkResult>("/shifts/assignments/bulk", {
+      method: "POST",
+      body,
+    }),
 
   /** Hard delete, and it cancels any open swap on that day. */
   removeAssignment: (id: string) =>
@@ -617,9 +609,11 @@ export function hoursLabel(minutes: number): string {
  * The trailing clause is why `crossesMidnight` is on the wire: "22:00 – 06:00"
  * on its own reads as an eight-hour shift that ended this morning.
  */
-export function timesLabel(
-  shift: { startTime: string; endTime: string; crossesMidnight: boolean },
-): string {
+export function timesLabel(shift: {
+  startTime: string;
+  endTime: string;
+  crossesMidnight: boolean;
+}): string {
   return `${shift.startTime} – ${shift.endTime}${
     shift.crossesMidnight ? ", next day" : ""
   }`;

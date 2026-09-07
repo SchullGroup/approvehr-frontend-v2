@@ -26,10 +26,7 @@ import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
 import { naira, wasDeducted, type StatutoryOperation } from "@/lib/api/payroll";
 import { usePermissions } from "@/lib/permissions";
-import {
-  quoteSettingsFrom,
-  usePayslipQuote,
-} from "@/lib/store/payslip-quote";
+import { quoteSettingsFrom, usePayslipQuote } from "@/lib/store/payslip-quote";
 import {
   STATUTORY,
   validateSettings,
@@ -43,7 +40,8 @@ import {
 import { DEMO_REFUSAL } from "@/lib/store/payroll-deductions";
 
 /** The six sub-forms, each its own disclosure. */
-type Section = "deductions" | "working" | "split" | "pension" | "nhf" | "checks";
+type Section =
+  "deductions" | "working" | "split" | "pension" | "nhf" | "checks";
 
 /**
  * The three statutory deductions, as questions.
@@ -82,7 +80,13 @@ const DEDUCTION_COPY = {
   },
 } as const satisfies Record<
   string,
-  { noun: string; path: "paye" | "pension" | "nhf"; question: string; on: string; off: string }
+  {
+    noun: string;
+    path: "paye" | "pension" | "nhf";
+    question: string;
+    on: string;
+    off: string;
+  }
 >;
 
 const DEDUCTION_KEYS = [
@@ -208,7 +212,12 @@ export function PayrollSettingsForm() {
       pension: { ...draft.pension, enabled: settings.pension.enabled },
       nhf: { ...draft.nhf, enabled: settings.nhf.enabled },
     }),
-    [draft, settings.paye.enabled, settings.pension.enabled, settings.nhf.enabled],
+    [
+      draft,
+      settings.paye.enabled,
+      settings.pension.enabled,
+      settings.nhf.enabled,
+    ],
   );
 
   const issues = validateSettings(effective);
@@ -323,7 +332,9 @@ export function PayrollSettingsForm() {
   };
 
   /** Which of the three are deducted, for the closed summary. */
-  const deducted = DEDUCTION_KEYS.filter((key) => effective[DEDUCTION_COPY[key].path].enabled);
+  const deducted = DEDUCTION_KEYS.filter(
+    (key) => effective[DEDUCTION_COPY[key].path].enabled,
+  );
 
   /** How many of the three hard stops are armed. The closed summary's count. */
   const stops = [
@@ -390,7 +401,10 @@ export function PayrollSettingsForm() {
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
       <div className="flex flex-col gap-5">
         {issues.length > 0 && (
-          <Callout tone="danger" title={`${issues.length} problem${issues.length > 1 ? "s" : ""} to fix`}>
+          <Callout
+            tone="danger"
+            title={`${issues.length} problem${issues.length > 1 ? "s" : ""} to fix`}
+          >
             <ul className="mt-1 flex list-disc flex-col gap-1 pl-4">
               {issues.map((i) => (
                 <li key={i.field}>{i.message}</li>
@@ -509,10 +523,10 @@ export function PayrollSettingsForm() {
                 );
               })}
               <p className="text-meta leading-relaxed text-muted">
-                These three save as you answer them and apply to the next payroll
-                you prepare. A payroll already approved keeps the settings it was
-                computed with, so switching one back on cannot change a payslip
-                anybody has been given.
+                These three save as you answer them and apply to the next
+                payroll you prepare. A payroll already approved keeps the
+                settings it was computed with, so switching one back on cannot
+                change a payslip anybody has been given.
               </p>
             </>
           )}
@@ -551,7 +565,6 @@ export function PayrollSettingsForm() {
             />
           </Field>
         </Disclosure>
-
 
         <Disclosure
           className="bg-surface"
@@ -607,7 +620,6 @@ export function PayrollSettingsForm() {
           )}
         </Disclosure>
 
-
         <Disclosure
           className="bg-surface"
           title="Pension"
@@ -631,8 +643,8 @@ export function PayrollSettingsForm() {
               screen ends up disagreeing with itself about what a company does. */}
           {!effective.pension.enabled && (
             <p className="text-body-sm leading-relaxed text-body">
-              This payroll operates no pension scheme, so none of these rates are
-              used. Turn it on under <strong>What you deduct</strong> above.
+              This payroll operates no pension scheme, so none of these rates
+              are used. Turn it on under <strong>What you deduct</strong> above.
             </p>
           )}
 
@@ -655,8 +667,7 @@ export function PayrollSettingsForm() {
                         ...s,
                         pension: {
                           ...s.pension,
-                          employeeRate:
-                            (Number(e.target.value) || 0) / 100,
+                          employeeRate: (Number(e.target.value) || 0) / 100,
                         },
                       }))
                     }
@@ -679,8 +690,7 @@ export function PayrollSettingsForm() {
                         ...s,
                         pension: {
                           ...s.pension,
-                          employerRate:
-                            (Number(e.target.value) || 0) / 100,
+                          employerRate: (Number(e.target.value) || 0) / 100,
                         },
                       }))
                     }
@@ -695,32 +705,31 @@ export function PayrollSettingsForm() {
                 error={issueFor("pension.basis")}
               >
                 <div className="flex flex-wrap gap-4">
-                  {(["basic", "housing", "transport"] as PensionComponent[]).map(
-                    (key) => (
-                      <Checkbox
-                        key={key}
-                        label={key[0].toUpperCase() + key.slice(1)}
-                        checked={draft.pension.basis.includes(key)}
-                        onChange={(e) =>
-                          update((s) => ({
-                            ...s,
-                            pension: {
-                              ...s.pension,
-                              basis: e.target.checked
-                                ? [...s.pension.basis, key]
-                                : s.pension.basis.filter((b) => b !== key),
-                            },
-                          }))
-                        }
-                      />
-                    ),
-                  )}
+                  {(
+                    ["basic", "housing", "transport"] as PensionComponent[]
+                  ).map((key) => (
+                    <Checkbox
+                      key={key}
+                      label={key[0].toUpperCase() + key.slice(1)}
+                      checked={draft.pension.basis.includes(key)}
+                      onChange={(e) =>
+                        update((s) => ({
+                          ...s,
+                          pension: {
+                            ...s.pension,
+                            basis: e.target.checked
+                              ? [...s.pension.basis, key]
+                              : s.pension.basis.filter((b) => b !== key),
+                          },
+                        }))
+                      }
+                    />
+                  ))}
                 </div>
               </FieldSet>
             </>
           )}
         </Disclosure>
-
 
         <Disclosure
           className="bg-surface"
@@ -787,14 +796,15 @@ export function PayrollSettingsForm() {
           )}
         </Disclosure>
 
-
         <Disclosure
           className="bg-surface"
           title="Checks before paying"
           meta={
             <>
               <Badge tone="neutral" size="sm">
-                {stops === 1 ? "1 check stops a run" : `${stops} checks stop a run`}
+                {stops === 1
+                  ? "1 check stops a run"
+                  : `${stops} checks stop a run`}
               </Badge>
               <Badge tone="neutral" size="sm">
                 flags net swings over{" "}
@@ -823,8 +833,7 @@ export function PayrollSettingsForm() {
                   ...s,
                   exceptions: {
                     ...s.exceptions,
-                    netSwingThreshold:
-                      (Number(e.target.value) || 0) / 100,
+                    netSwingThreshold: (Number(e.target.value) || 0) / 100,
                   },
                 }))
               }
@@ -892,7 +901,9 @@ export function PayrollSettingsForm() {
           <Button
             variant="approve"
             loading={busy === "save"}
-            disabled={issues.length > 0 || saved || !canManagePay || busy !== null}
+            disabled={
+              issues.length > 0 || saved || !canManagePay || busy !== null
+            }
             onClick={() => void doSave()}
           >
             <Save aria-hidden="true" className="size-4" />
@@ -968,8 +979,8 @@ function Preview({
           <p className="text-body-sm leading-relaxed text-muted">
             A payslip is worked out by the payroll engine on the server, and
             there is no second copy of it in this browser: there was once, and
-            it spent a while quoting the wrong year&rsquo;s tax. Start the API to
-            see what these settings pay.
+            it spent a while quoting the wrong year&rsquo;s tax. Start the API
+            to see what these settings pay.
           </p>
         ) : blocked ? (
           <p className="text-body-sm leading-relaxed text-muted">
@@ -1009,7 +1020,10 @@ function Preview({
               it. This repo has already shipped that confusion twice.
             */}
             {wasDeducted(slip.operates, "pension") && (
-              <PreviewRow label="Pension" value={-naira(slip.pensionEmployeeKobo)} />
+              <PreviewRow
+                label="Pension"
+                value={-naira(slip.pensionEmployeeKobo)}
+              />
             )}
             {wasDeducted(slip.operates, "nhf") && (
               <PreviewRow label="NHF" value={-naira(slip.nhfKobo)} />
@@ -1019,9 +1033,10 @@ function Preview({
             )}
             {notDeducted(slip.operates).length > 0 && (
               <p className="text-meta leading-relaxed text-muted">
-                Not deducted: {notDeducted(slip.operates).join(", ")}. Nothing for
-                {notDeducted(slip.operates).length === 1 ? " it" : " them"} appears
-                on a payslip.
+                Not deducted: {notDeducted(slip.operates).join(", ")}. Nothing
+                for
+                {notDeducted(slip.operates).length === 1 ? " it" : " them"}{" "}
+                appears on a payslip.
               </p>
             )}
             <div className="h-px bg-line" />

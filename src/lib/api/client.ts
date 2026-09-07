@@ -212,7 +212,10 @@ export type Paged<T, Extra = unknown> = {
  * second function is an export that can disagree with the table it came from —
  * the same argument `employees.summary` makes for sending the list's own object.
  */
-export function buildUrl(path: string, query?: RequestOptions["query"]): string {
+export function buildUrl(
+  path: string,
+  query?: RequestOptions["query"],
+): string {
   const url = new URL(`${BASE_URL}${path}`);
   for (const [key, value] of Object.entries(query ?? {})) {
     if (value === undefined || value === null || value === "") continue;
@@ -306,7 +309,8 @@ export async function request<T>(
   try {
     response = await send();
   } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") throw error;
+    if (error instanceof DOMException && error.name === "AbortError")
+      throw error;
     throw new ApiError(
       0,
       "network_error",
@@ -362,7 +366,8 @@ export async function requestPaged<T, Extra = unknown>(
   try {
     response = await send();
   } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") throw error;
+    if (error instanceof DOMException && error.name === "AbortError")
+      throw error;
     throw new ApiError(
       0,
       "network_error",
@@ -442,7 +447,9 @@ export async function ping(): Promise<boolean> {
 
   for (let attempt = 0; attempt < PROBE_TIMEOUTS_MS.length; attempt += 1) {
     if (attempt > 0) {
-      await new Promise((resolve) => setTimeout(resolve, PROBE_GAP_MS * attempt));
+      await new Promise((resolve) =>
+        setTimeout(resolve, PROBE_GAP_MS * attempt),
+      );
     }
     try {
       const response = await fetch(url, {

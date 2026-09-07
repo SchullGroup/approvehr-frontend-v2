@@ -82,7 +82,11 @@ export function ResetPasswordScreen({ token }: { token: string | null }) {
     return (
       <>
         <h1 className="text-h2 text-ink">This link is incomplete</h1>
-        <ButtonLink href="/forgot-password" variant="accent" className="mt-6 self-start">
+        <ButtonLink
+          href="/forgot-password"
+          variant="accent"
+          className="mt-6 self-start"
+        >
           Send me a new link
         </ButtonLink>
       </>
@@ -104,7 +108,11 @@ export function ResetPasswordScreen({ token }: { token: string | null }) {
               }. Sign in again with your new password.`
             : "Sign in with your new password."}
         </Callout>
-        <ButtonLink href="/dashboard" variant="accent" className="mt-6 self-start">
+        <ButtonLink
+          href="/dashboard"
+          variant="accent"
+          className="mt-6 self-start"
+        >
           Sign in
         </ButtonLink>
       </>
@@ -123,7 +131,11 @@ export function ResetPasswordScreen({ token }: { token: string | null }) {
       <h1 className="text-h2 text-ink">Choose a new password</h1>
 
       {deadLink && (
-        <Callout tone="danger" title="This link no longer works" className="mt-5">
+        <Callout
+          tone="danger"
+          title="This link no longer works"
+          className="mt-5"
+        >
           <p>{deadLink.message}</p>
           <ButtonLink
             href="/forgot-password"

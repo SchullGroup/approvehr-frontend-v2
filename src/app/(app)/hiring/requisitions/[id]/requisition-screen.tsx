@@ -20,12 +20,20 @@ import {
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { SourceBadge } from "@/components/hiring/source-badge";
 import { ApiError } from "@/lib/api/client";
-import { naira, type ApiRequisitionDetail, type RequisitionStatus as RealStatus } from "@/lib/api/recruitment";
+import {
+  naira,
+  type ApiRequisitionDetail,
+  type RequisitionStatus as RealStatus,
+} from "@/lib/api/recruitment";
 import { usePermissions, useCan } from "@/lib/permissions";
 import { pipelineCards, requisitionById } from "@/lib/mock/hiring";
 import { employeeById } from "@/lib/mock/people";
 import { fullName } from "@/lib/types";
-import { useRequisitionDetail, useRequisitionMutations, useStageMutations } from "@/lib/store/recruitment";
+import {
+  useRequisitionDetail,
+  useRequisitionMutations,
+  useStageMutations,
+} from "@/lib/store/recruitment";
 import { useSession } from "@/lib/store/session";
 import { RequisitionScreening, UnknownRequisition } from "./screening";
 import { RequisitionWorkspace } from "./workspace";
@@ -122,7 +130,11 @@ const STATUS_LABEL = {
 } as const;
 
 const WORK_MODE = { onsite: "On-site", hybrid: "Hybrid", remote: "Remote" };
-const TYPE = { full_time: "Full time", contract: "Contract", internship: "Internship" };
+const TYPE = {
+  full_time: "Full time",
+  contract: "Contract",
+  internship: "Internship",
+};
 
 /**
  * A band, written out in full.
@@ -171,7 +183,8 @@ function RequisitionDetail({ id }: { id: string }) {
  * still works" compromise, which exists only for the demo's own drift.
  */
 function RealRequisitionDetail({ id }: { id: string }) {
-  const { requisition, loading, error, notFound, reload } = useRequisitionDetail(id);
+  const { requisition, loading, error, notFound, reload } =
+    useRequisitionDetail(id);
   const mutations = useRequisitionMutations();
   const stageMutations = useStageMutations();
   const canApprove = useCan("APPROVE_HIRING");
@@ -196,7 +209,10 @@ function RealRequisitionDetail({ id }: { id: string }) {
         <Card>
           <EmptyState
             title="That requisition is not here"
-            description={error?.message ?? "It may have been removed, or this id belongs to another company."}
+            description={
+              error?.message ??
+              "It may have been removed, or this id belongs to another company."
+            }
             action={
               <ButtonLink href="/hiring" variant="secondary" size="sm">
                 Back to hiring
@@ -212,7 +228,10 @@ function RealRequisitionDetail({ id }: { id: string }) {
     toast.push({
       title: "Not done",
       tone: "danger",
-      detail: err instanceof ApiError ? err.message : "Something went wrong. Try again.",
+      detail:
+        err instanceof ApiError
+          ? err.message
+          : "Something went wrong. Try again.",
     });
 
   async function run(action: () => Promise<ApiRequisitionDetail>) {
@@ -252,7 +271,10 @@ function RealRequisitionDetail({ id }: { id: string }) {
       <PageHeader
         breadcrumb={[
           { href: "/hiring", label: "Pipeline" },
-          { href: `/hiring/requisitions/${requisition.id}`, label: requisition.reference },
+          {
+            href: `/hiring/requisitions/${requisition.id}`,
+            label: requisition.reference,
+          },
         ]}
         title={requisition.jobTitle}
         meta={
@@ -274,22 +296,31 @@ function RealRequisitionDetail({ id }: { id: string }) {
               <div className="flex flex-wrap gap-x-6 gap-y-3 text-body-sm">
                 <Fact label="Salary band">
                   <span className="tabular whitespace-nowrap">
-                    {requisition.bandMinKobo != null && requisition.bandMaxKobo != null
-                      ? band(naira(requisition.bandMinKobo), naira(requisition.bandMaxKobo))
+                    {requisition.bandMinKobo != null &&
+                    requisition.bandMaxKobo != null
+                      ? band(
+                          naira(requisition.bandMinKobo),
+                          naira(requisition.bandMaxKobo),
+                        )
                       : "Not set"}
                   </span>
                 </Fact>
                 <Fact label="Location">
                   {requisition.location ? (
                     <span className="inline-flex items-center gap-1">
-                      <MapPin aria-hidden="true" className="size-3.5 text-faint" />
+                      <MapPin
+                        aria-hidden="true"
+                        className="size-3.5 text-faint"
+                      />
                       {requisition.location}
                     </span>
                   ) : (
                     "Not set"
                   )}
                 </Fact>
-                <Fact label="Type">{EMPLOYMENT_TYPE_LABELS[requisition.employmentType]}</Fact>
+                <Fact label="Type">
+                  {EMPLOYMENT_TYPE_LABELS[requisition.employmentType]}
+                </Fact>
                 <Fact label="Headcount">{requisition.headcount}</Fact>
                 {requisition.departmentName && (
                   <Fact label="Department">{requisition.departmentName}</Fact>
@@ -314,15 +345,26 @@ function RealRequisitionDetail({ id }: { id: string }) {
                 <Person label="Approved by" name={requisition.approvedByName} />
               )}
               <div className="flex flex-wrap items-center gap-2 border-t border-line pt-3">
-                {(requisition.status === "DRAFT" || requisition.status === "PENDING_APPROVAL") && (
+                {(requisition.status === "DRAFT" ||
+                  requisition.status === "PENDING_APPROVAL") && (
                   <>
                     {requisition.status === "DRAFT" && (
-                      <Button size="sm" variant="secondary" loading={busy} onClick={() => void run(() => mutations.submit(id))}>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        loading={busy}
+                        onClick={() => void run(() => mutations.submit(id))}
+                      >
                         Submit
                       </Button>
                     )}
                     {canApprove && (
-                      <Button size="sm" variant="approve" loading={busy} onClick={() => void run(() => mutations.approve(id))}>
+                      <Button
+                        size="sm"
+                        variant="approve"
+                        loading={busy}
+                        onClick={() => void run(() => mutations.approve(id))}
+                      >
                         Approve
                       </Button>
                     )}
@@ -330,24 +372,45 @@ function RealRequisitionDetail({ id }: { id: string }) {
                 )}
                 {requisition.status === "OPEN" && (
                   <>
-                    <Button size="sm" variant="secondary" loading={busy} onClick={() => void run(() => mutations.hold(id))}>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      loading={busy}
+                      onClick={() => void run(() => mutations.hold(id))}
+                    >
                       Put on hold
                     </Button>
-                    <Button size="sm" variant="secondary" loading={busy} onClick={() => void run(() => mutations.fill(id))}>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      loading={busy}
+                      onClick={() => void run(() => mutations.fill(id))}
+                    >
                       Mark filled
                     </Button>
                   </>
                 )}
                 {requisition.status === "ON_HOLD" && (
-                  <Button size="sm" variant="secondary" loading={busy} onClick={() => void run(() => mutations.reopen(id))}>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    loading={busy}
+                    onClick={() => void run(() => mutations.reopen(id))}
+                  >
                     Reopen
                   </Button>
                 )}
-                {requisition.status !== "FILLED" && requisition.status !== "CANCELLED" && (
-                  <Button size="sm" variant="ghost" loading={busy} onClick={() => void run(() => mutations.cancel(id))}>
-                    Cancel
-                  </Button>
-                )}
+                {requisition.status !== "FILLED" &&
+                  requisition.status !== "CANCELLED" && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      loading={busy}
+                      onClick={() => void run(() => mutations.cancel(id))}
+                    >
+                      Cancel
+                    </Button>
+                  )}
               </div>
               <div className="border-t border-line pt-3 text-body-sm">
                 <p className="tabular flex flex-wrap gap-x-3 gap-y-1 text-meta text-muted">
@@ -360,13 +423,20 @@ function RealRequisitionDetail({ id }: { id: string }) {
           </Card>
         </div>
 
-        <RequisitionScreening requisitionId={requisition.id} roleName={requisition.jobTitle} />
+        <RequisitionScreening
+          requisitionId={requisition.id}
+          roleName={requisition.jobTitle}
+        />
 
         <Card>
           <CardHeader
             title="Pipeline stages"
             action={
-              <Button size="sm" variant="secondary" onClick={() => setAddingStage((v) => !v)}>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setAddingStage((v) => !v)}
+              >
                 <Plus aria-hidden="true" className="size-3.5" />
                 Add stage
               </Button>
@@ -375,14 +445,24 @@ function RealRequisitionDetail({ id }: { id: string }) {
           {addingStage && (
             <CardBody className="flex flex-wrap items-end gap-3 border-b border-line">
               <Field label="Stage name" className="flex-1">
-                <Input value={stageName} onChange={(e) => setStageName(e.currentTarget.value)} placeholder="Technical interview" />
+                <Input
+                  value={stageName}
+                  onChange={(e) => setStageName(e.currentTarget.value)}
+                  placeholder="Technical interview"
+                />
               </Field>
               <Checkbox
                 label="Requires scorecards to leave"
                 checked={stageScored}
                 onChange={(e) => setStageScored(e.currentTarget.checked)}
               />
-              <Button variant="accent" size="sm" loading={busy} disabled={!stageName.trim()} onClick={() => void addStage()}>
+              <Button
+                variant="accent"
+                size="sm"
+                loading={busy}
+                disabled={!stageName.trim()}
+                onClick={() => void addStage()}
+              >
                 Add
               </Button>
             </CardBody>
@@ -400,7 +480,10 @@ function RealRequisitionDetail({ id }: { id: string }) {
         </Card>
 
         <div className="flex flex-col gap-4">
-          <RealRequisitionWorkspace requisitionId={requisition.id} stages={requisition.stages} />
+          <RealRequisitionWorkspace
+            requisitionId={requisition.id}
+            stages={requisition.stages}
+          />
         </div>
       </PageBody>
     </>
@@ -469,7 +552,10 @@ function SeededRequisitionDetail({ id }: { id: string }) {
                 </Fact>
                 <Fact label="Location">
                   <span className="inline-flex items-center gap-1">
-                    <MapPin aria-hidden="true" className="size-3.5 text-faint" />
+                    <MapPin
+                      aria-hidden="true"
+                      className="size-3.5 text-faint"
+                    />
                     {req.location}
                   </span>
                 </Fact>
@@ -486,10 +572,7 @@ function SeededRequisitionDetail({ id }: { id: string }) {
                   </h3>
                   <ul className="flex flex-col gap-1.5">
                     {req.mustHaves.map((m) => (
-                      <li
-                        key={m}
-                        className="flex gap-2 text-body-sm text-body"
-                      >
+                      <li key={m} className="flex gap-2 text-body-sm text-body">
                         <span aria-hidden="true" className="text-success-text">
                           ✓
                         </span>
@@ -527,8 +610,16 @@ function SeededRequisitionDetail({ id }: { id: string }) {
               <h3 className="text-meta font-semibold text-muted">
                 Hiring team
               </h3>
-              <Person label="Hiring manager" name={manager ? fullName(manager) : "—"} role={manager?.jobTitle} />
-              <Person label="Recruiter" name={recruiter ? fullName(recruiter) : "—"} role={recruiter?.jobTitle} />
+              <Person
+                label="Hiring manager"
+                name={manager ? fullName(manager) : "—"}
+                role={manager?.jobTitle}
+              />
+              <Person
+                label="Recruiter"
+                name={recruiter ? fullName(recruiter) : "—"}
+                role={recruiter?.jobTitle}
+              />
               <div className="border-t border-line pt-3">
                 <p className="flex items-center gap-1.5 text-meta text-muted">
                   <Users aria-hidden="true" className="size-3.5" />
@@ -562,9 +653,7 @@ function Fact({
 }) {
   return (
     <div>
-      <dt className="text-meta text-faint">
-        {label}
-      </dt>
+      <dt className="text-meta text-faint">{label}</dt>
       <dd className="mt-0.5 font-medium text-ink">{children}</dd>
     </div>
   );
@@ -581,9 +670,7 @@ function Person({
 }) {
   return (
     <div>
-      <p className="text-meta text-faint">
-        {label}
-      </p>
+      <p className="text-meta text-faint">{label}</p>
       <p className="mt-0.5 text-body-sm font-medium text-ink">{name}</p>
       {role && <p className="text-meta text-muted">{role}</p>}
     </div>

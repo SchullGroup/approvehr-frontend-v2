@@ -101,7 +101,11 @@ export function SwapPanel({
         )
       : swaps;
 
-  const run = async (id: string, action: () => Promise<unknown>, done: string) => {
+  const run = async (
+    id: string,
+    action: () => Promise<unknown>,
+    done: string,
+  ) => {
     setBusy(id);
     try {
       await action();
@@ -182,14 +186,15 @@ export function SwapPanel({
                 >
                   <div className="min-w-0 flex-1">
                     <p className="text-body-sm font-medium text-ink">
-                      {swap.requester?.name ?? "Somebody"} → {swap.counterparty.name}
+                      {swap.requester?.name ?? "Somebody"} →{" "}
+                      {swap.counterparty.name}
                     </p>
                     <p className="mt-0.5 text-body-sm text-body">
                       {swapAsk(swap)}
                     </p>
                     {swap.requesterShift && (
                       <p className="tabular mt-0.5 text-meta text-muted">
-                        {spokenDay(swap.requesterShift.date)} · {" "}
+                        {spokenDay(swap.requesterShift.date)} ·{" "}
                         {/* `ApiSwapSide` carries the times and not the flag. */}
                         {timesLabel({
                           ...swap.requesterShift,
@@ -269,7 +274,8 @@ export function SwapPanel({
                       </>
                     )}
 
-                    {(swap.status === "PENDING" || swap.status === "ACCEPTED") &&
+                    {(swap.status === "PENDING" ||
+                      swap.status === "ACCEPTED") &&
                       (isRequester || canEdit) &&
                       !isCounterparty && (
                         <Button

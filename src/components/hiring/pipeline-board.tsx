@@ -150,7 +150,9 @@ function CandidateCard({
 }) {
   const days = daysInStage(card);
   const stale = days >= 7;
-  const pendingScorecards = card.scorecards.filter((s) => !s.submittedAt).length;
+  const pendingScorecards = card.scorecards.filter(
+    (s) => !s.submittedAt,
+  ).length;
   const name = fullName(card.candidate);
 
   return (

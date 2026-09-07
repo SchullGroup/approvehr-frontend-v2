@@ -57,48 +57,51 @@ const NAIRA = 100;
  * would teach the demo's audience the wrong thing about which direction the
  * causation runs. What *is* derived is who sits on which rung, below.
  */
-const DEMO_LADDER: { code: string; name: string; level: number; band: Band }[] = DEMO_ENABLED ? [
-  {
-    code: "G1",
-    name: "Associate",
-    level: 1,
-    band: {
-      minGrossKobo: 600_000 * NAIRA,
-      midGrossKobo: 700_000 * NAIRA,
-      maxGrossKobo: 850_000 * NAIRA,
-    },
-  },
-  {
-    code: "G2",
-    name: "Senior",
-    level: 2,
-    band: {
-      minGrossKobo: 900_000 * NAIRA,
-      midGrossKobo: 1_100_000 * NAIRA,
-      maxGrossKobo: 1_300_000 * NAIRA,
-    },
-  },
-  {
-    code: "G3",
-    name: "Lead",
-    level: 3,
-    band: {
-      minGrossKobo: 1_300_000 * NAIRA,
-      midGrossKobo: 1_600_000 * NAIRA,
-      maxGrossKobo: 1_900_000 * NAIRA,
-    },
-  },
-  {
-    code: "G4",
-    name: "Head of function",
-    level: 4,
-    band: {
-      minGrossKobo: 1_900_000 * NAIRA,
-      midGrossKobo: 2_300_000 * NAIRA,
-      maxGrossKobo: 2_700_000 * NAIRA,
-    },
-  },
-] : [];
+const DEMO_LADDER: { code: string; name: string; level: number; band: Band }[] =
+  DEMO_ENABLED
+    ? [
+        {
+          code: "G1",
+          name: "Associate",
+          level: 1,
+          band: {
+            minGrossKobo: 600_000 * NAIRA,
+            midGrossKobo: 700_000 * NAIRA,
+            maxGrossKobo: 850_000 * NAIRA,
+          },
+        },
+        {
+          code: "G2",
+          name: "Senior",
+          level: 2,
+          band: {
+            minGrossKobo: 900_000 * NAIRA,
+            midGrossKobo: 1_100_000 * NAIRA,
+            maxGrossKobo: 1_300_000 * NAIRA,
+          },
+        },
+        {
+          code: "G3",
+          name: "Lead",
+          level: 3,
+          band: {
+            minGrossKobo: 1_300_000 * NAIRA,
+            midGrossKobo: 1_600_000 * NAIRA,
+            maxGrossKobo: 1_900_000 * NAIRA,
+          },
+        },
+        {
+          code: "G4",
+          name: "Head of function",
+          level: 4,
+          band: {
+            minGrossKobo: 1_900_000 * NAIRA,
+            midGrossKobo: 2_300_000 * NAIRA,
+            maxGrossKobo: 2_700_000 * NAIRA,
+          },
+        },
+      ]
+    : [];
 
 const demoId = (code: string) => `demo-grade-${code.toLowerCase()}`;
 
@@ -168,7 +171,10 @@ function demoGrades(): ApiGrade[] {
       ...rung.band,
       bandWidthKobo: rung.band.maxGrossKobo - rung.band.minGrossKobo,
       employees: mine.length,
-      monthlyPayrollKobo: mine.reduce((sum, p) => sum + p.row.grossMonthlyKobo, 0),
+      monthlyPayrollKobo: mine.reduce(
+        (sum, p) => sum + p.row.grossMonthlyKobo,
+        0,
+      ),
       outsideBand: mine.filter((p) => !p.row.position.withinBand).length,
       archived: false,
     };
@@ -449,7 +455,9 @@ export function useGradeEmployees(gradeId: string | null, band: Band | null) {
 
   const demoRows = useMemo(() => {
     if (isConnected || !gradeId) return [];
-    const code = DEMO_LADDER.find((rung) => demoId(rung.code) === gradeId)?.code;
+    const code = DEMO_LADDER.find(
+      (rung) => demoId(rung.code) === gradeId,
+    )?.code;
     return demoPeople()
       .filter((person) => person.gradeCode === code)
       .map((person) => person.row)
@@ -607,7 +615,9 @@ export function useGradeIncrease() {
 
   const localPreview = useCallback(
     (grade: ApiGrade, draft: IncreaseDraft): ApiIncreaseResult => {
-      const code = DEMO_LADDER.find((rung) => demoId(rung.code) === grade.id)?.code;
+      const code = DEMO_LADDER.find(
+        (rung) => demoId(rung.code) === grade.id,
+      )?.code;
       const rate = draft.basis === "PERCENT" ? draft.percent / 100 : 0;
 
       const lines: ApiIncreaseLine[] = demoPeople()
@@ -633,7 +643,10 @@ export function useGradeIncrease() {
           };
         });
 
-      const currentMonthlyKobo = lines.reduce((s, l) => s + l.currentGrossKobo, 0);
+      const currentMonthlyKobo = lines.reduce(
+        (s, l) => s + l.currentGrossKobo,
+        0,
+      );
       const newMonthlyKobo = lines.reduce((s, l) => s + l.newGrossKobo, 0);
       const monthlyIncreaseKobo = newMonthlyKobo - currentMonthlyKobo;
 
@@ -668,7 +681,10 @@ export function useGradeIncrease() {
     [],
   );
 
-  const bodyFor = (draft: IncreaseDraft, confirm: boolean): ApplyIncreaseBody => ({
+  const bodyFor = (
+    draft: IncreaseDraft,
+    confirm: boolean,
+  ): ApplyIncreaseBody => ({
     basis: draft.basis,
     ...(draft.basis === "PERCENT"
       ? { percent: draft.percent }
@@ -688,10 +704,15 @@ export function useGradeIncrease() {
      * has to stay pressable for the refusal to arrive where the decision is
      * made, rather than as a caveat above it. `apply` is what refuses.
      */
-    canApply: isConnected ? can("MANAGE_PAY_STRUCTURE") && can("EDIT_RECORDS") : true,
+    canApply: isConnected
+      ? can("MANAGE_PAY_STRUCTURE") && can("EDIT_RECORDS")
+      : true,
 
     preview: useCallback(
-      async (grade: ApiGrade, draft: IncreaseDraft): Promise<ApiIncreaseResult> => {
+      async (
+        grade: ApiGrade,
+        draft: IncreaseDraft,
+      ): Promise<ApiIncreaseResult> => {
         setBusy("preview");
         try {
           if (!isConnected) {
@@ -713,7 +734,10 @@ export function useGradeIncrease() {
     ),
 
     apply: useCallback(
-      async (grade: ApiGrade, draft: IncreaseDraft): Promise<ApiIncreaseResult> => {
+      async (
+        grade: ApiGrade,
+        draft: IncreaseDraft,
+      ): Promise<ApiIncreaseResult> => {
         if (!isConnected) refuse("Applying a pay rise");
         setBusy("apply");
         try {
@@ -738,7 +762,10 @@ export function useGradeTotals(rows: ApiGrade[]) {
     () => ({
       grades: rows.filter((row) => !row.archived).length,
       employees: rows.reduce((sum, row) => sum + row.employees, 0),
-      monthlyPayrollKobo: rows.reduce((sum, row) => sum + row.monthlyPayrollKobo, 0),
+      monthlyPayrollKobo: rows.reduce(
+        (sum, row) => sum + row.monthlyPayrollKobo,
+        0,
+      ),
       outsideBand: rows.reduce((sum, row) => sum + row.outsideBand, 0),
     }),
     [rows],

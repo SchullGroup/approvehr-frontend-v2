@@ -80,7 +80,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
     digits === undefined
       ? onChange
       : (event: React.ChangeEvent<HTMLInputElement>) => {
-          const cleaned = event.target.value.replace(/\D/g, "").slice(0, digits);
+          const cleaned = event.target.value
+            .replace(/\D/g, "")
+            .slice(0, digits);
           /* Rewritten before the caller sees it, so a controlled parent never
              holds a value this field would refuse to render. */
           if (cleaned !== event.target.value) event.target.value = cleaned;

@@ -378,7 +378,8 @@ export function useAttendanceRoster(date?: string): RosterState {
           });
         }
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled && ticket === latest.current) {
           setFetched({
             key,
@@ -554,7 +555,8 @@ export function useAttendanceHistory(params: HistoryParams = {}): HistoryState {
           setFetched({ key, ...history, error: null });
         }
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled && ticket === latest.current) {
           setFetched({
             key,
@@ -686,7 +688,8 @@ export function useMyCorrections(): CorrectionsState {
         const requests = await attendanceApi.myCorrections(controller.signal);
         if (!cancelled) setFetched({ key: tick, requests, error: null });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
           setFetched({
             key: tick,
@@ -785,7 +788,8 @@ export function useAttendancePolicy(): AttendancePolicyState {
         setError(null);
       } catch (caught) {
         if (cancelled) return;
-        if (caught instanceof DOMException && caught.name === "AbortError") return;
+        if (caught instanceof DOMException && caught.name === "AbortError")
+          return;
         setError(
           caught instanceof ApiError
             ? caught.message
@@ -800,7 +804,9 @@ export function useAttendancePolicy(): AttendancePolicyState {
   }, [isConnected, attempt, revalidation]);
 
   const fromApi = fetched?.connected === true ? fetched.policy : null;
-  const policy = isConnected ? (fromApi ?? toApiPolicy(DEFAULT_POLICY)) : toApiPolicy(local.policy);
+  const policy = isConnected
+    ? (fromApi ?? toApiPolicy(DEFAULT_POLICY))
+    : toApiPolicy(local.policy);
 
   const save = useCallback(
     async (patch: PolicyBody): Promise<ApiAttendancePolicy> => {
@@ -918,12 +924,16 @@ export function useAttendanceTimesheet(days = 15): TimesheetState {
     const controller = new AbortController();
     void (async () => {
       try {
-        const sheet = await attendanceApi.timesheet({ days }, controller.signal);
+        const sheet = await attendanceApi.timesheet(
+          { days },
+          controller.signal,
+        );
         if (!cancelled && ticket === latest.current) {
           setFetched({ key, ...sheet, error: null });
         }
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled && ticket === latest.current) {
           setFetched({
             key,
@@ -1137,13 +1147,20 @@ export function useAttendanceMutations() {
    */
   const undoClockOut = useCallback(async () => {
     if (!isConnected) {
-      const entry = local.forDate(TODAY).find((row) => row.employeeId === actingId);
+      const entry = local
+        .forDate(TODAY)
+        .find((row) => row.employeeId === actingId);
       if (!entry?.clockOut) {
         throw new ApiError(409, "conflict", "You are still clocked in.");
       }
       /* `undefined`, not `null`: the demo entry types `clockOut` as optional,
          and the patch is spread over the row — an undefined key clears it. */
-      local.correct(actingId, TODAY, { clockOut: undefined }, "Clock-out reversed");
+      local.correct(
+        actingId,
+        TODAY,
+        { clockOut: undefined },
+        "Clock-out reversed",
+      );
       return { employeeId: actingId, date: TODAY, clockIn: entry.clockIn };
     }
     return attendanceApi.undoClockOut();
@@ -1259,7 +1276,9 @@ export function useRotaContext(from: string, to: string): RotaContext {
       /* A rest day is the absence of a cell, in the rota's own model — so
          counting rostered days is a count of non-null cells, never a filter on
          a status. */
-      const worked = row.days.filter((cell): cell is ApiRotaCell => cell !== null);
+      const worked = row.days.filter(
+        (cell): cell is ApiRotaCell => cell !== null,
+      );
       if (worked.length === 0) continue;
       onRota.add(row.employeeId);
       rosteredDays.set(row.employeeId, worked.length);

@@ -21,7 +21,12 @@ import {
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { SourceBadge } from "@/components/payroll/run-panels";
-import { STATUS_LABEL, naira, periodLabel, type OwnPayslip } from "@/lib/api/payroll";
+import {
+  STATUS_LABEL,
+  naira,
+  periodLabel,
+  type OwnPayslip,
+} from "@/lib/api/payroll";
 import { deliveryOf, useMyPayslips } from "@/lib/store/payroll";
 import { useSession } from "@/lib/store/session";
 
@@ -44,7 +49,9 @@ const DELIVERY_LABEL: Record<ReturnType<typeof deliveryOf>, string> = {
 export function MyPayslipIndex() {
   const router = useRouter();
   const { employeeId } = useSession();
-  const { payslips, loading, error, connected } = useMyPayslips(employeeId ?? null);
+  const { payslips, loading, error, connected } = useMyPayslips(
+    employeeId ?? null,
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -63,7 +70,10 @@ export function MyPayslipIndex() {
             description="A payslip appears here once a payroll you are on has been run."
           />
         ) : (
-          <TableWrap className="rounded-none border-x-0 border-b-0" caption="Your payslips">
+          <TableWrap
+            className="rounded-none border-x-0 border-b-0"
+            caption="Your payslips"
+          >
             <THead>
               <TH>Month</TH>
               <TH align="right">Gross</TH>
@@ -74,7 +84,11 @@ export function MyPayslipIndex() {
               {payslips.map((slip: OwnPayslip) => {
                 const href = `/payroll/payslips/${slip.id}`;
                 return (
-                  <TR key={slip.id} interactive onClick={rowClick(() => router.push(href))}>
+                  <TR
+                    key={slip.id}
+                    interactive
+                    onClick={rowClick(() => router.push(href))}
+                  >
                     <TDPrimary
                       title={
                         <Link
@@ -94,7 +108,9 @@ export function MyPayslipIndex() {
                     </TD>
                     <TD>
                       <Badge
-                        tone={deliveryOf(slip) === "opened" ? "success" : "info"}
+                        tone={
+                          deliveryOf(slip) === "opened" ? "success" : "info"
+                        }
                         size="sm"
                         dot
                       >

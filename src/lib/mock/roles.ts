@@ -35,52 +35,57 @@ export type SeedRole = {
   members: string[];
 };
 
-export const SEED_ROLES: SeedRole[] = DEMO_ENABLED ? [
-  {
-    id: "role-owner",
-    name: "Owner",
-    description: "Full access. Created with the company and cannot be deleted.",
-    /* Spread rather than the array itself: a role must not be able to hand
+export const SEED_ROLES: SeedRole[] = DEMO_ENABLED
+  ? [
+      {
+        id: "role-owner",
+        name: "Owner",
+        description:
+          "Full access. Created with the company and cannot be deleted.",
+        /* Spread rather than the array itself: a role must not be able to hand
        the canonical list to a caller that mutates it. */
-    permissions: [...PERMISSION_KEYS],
-    members: ["p-02"],
-  },
-  {
-    id: "role-hr-manager",
-    name: "HR manager",
-    description: "Runs people operations. Holds no payroll permission at all.",
-    permissions: [
-      "VIEW_SALARIES",
-      "EDIT_RECORDS",
-      "APPROVE_LEAVE_ALL",
-      "MANAGE_HIRING",
-      "EXPORT_DATA",
-      "IMPORT_DATA",
-      "MANAGE_SETTINGS",
-      "INVITE_STAFF",
-    ],
-    members: ["p-05", "p-06"],
-  },
-  {
-    id: "role-payroll-officer",
-    name: "Payroll officer",
-    description: "Prepares the run. Somebody else approves it.",
-    permissions: [
-      "VIEW_SALARIES",
-      "RUN_PAYROLL",
-      "MANAGE_PAY_STRUCTURE",
-      "EXPORT_DATA",
-    ],
-    members: ["p-08"],
-  },
-  {
-    id: "role-employee",
-    name: "Employee",
-    description: "Their own record, their own payslips, their own requests.",
-    permissions: [],
-    members: ["p-01", "p-03", "p-04", "p-07", "p-09", "p-10"],
-  },
-] : [];
+        permissions: [...PERMISSION_KEYS],
+        members: ["p-02"],
+      },
+      {
+        id: "role-hr-manager",
+        name: "HR manager",
+        description:
+          "Runs people operations. Holds no payroll permission at all.",
+        permissions: [
+          "VIEW_SALARIES",
+          "EDIT_RECORDS",
+          "APPROVE_LEAVE_ALL",
+          "MANAGE_HIRING",
+          "EXPORT_DATA",
+          "IMPORT_DATA",
+          "MANAGE_SETTINGS",
+          "INVITE_STAFF",
+        ],
+        members: ["p-05", "p-06"],
+      },
+      {
+        id: "role-payroll-officer",
+        name: "Payroll officer",
+        description: "Prepares the run. Somebody else approves it.",
+        permissions: [
+          "VIEW_SALARIES",
+          "RUN_PAYROLL",
+          "MANAGE_PAY_STRUCTURE",
+          "EXPORT_DATA",
+        ],
+        members: ["p-08"],
+      },
+      {
+        id: "role-employee",
+        name: "Employee",
+        description:
+          "Their own record, their own payslips, their own requests.",
+        permissions: [],
+        members: ["p-01", "p-03", "p-04", "p-07", "p-09", "p-10"],
+      },
+    ]
+  : [];
 
 /**
  * The roles a demo persona holds, straight from the seed.
@@ -95,7 +100,9 @@ export const SEED_ROLES: SeedRole[] = DEMO_ENABLED ? [
  * describe an account holding none — and inventing "Employee" for them would be
  * a claim about their access rather than a description of it.
  */
-export function seedRolesFor(employeeId: string): { id: string; name: string }[] {
+export function seedRolesFor(
+  employeeId: string,
+): { id: string; name: string }[] {
   return SEED_ROLES.filter((role) => role.members.includes(employeeId)).map(
     ({ id, name }) => ({ id, name }),
   );

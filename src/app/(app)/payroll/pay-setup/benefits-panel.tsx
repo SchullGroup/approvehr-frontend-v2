@@ -163,12 +163,16 @@ export function BenefitsPanel() {
                 {/* Two figures, two cards, labelled apart. Never one "cost". */}
                 <Stat
                   label="Company pays a month"
-                  value={<Money amount={cost.data.employerKobo / 100} decimals />}
+                  value={
+                    <Money amount={cost.data.employerKobo / 100} decimals />
+                  }
                   hint="On top of salary. It does not reduce anyone's pay."
                 />
                 <Stat
                   label="Staff pay a month"
-                  value={<Money amount={cost.data.employeeKobo / 100} decimals />}
+                  value={
+                    <Money amount={cost.data.employeeKobo / 100} decimals />
+                  }
                   hint="Deducted on their payslips"
                 />
                 <Stat
@@ -373,7 +377,11 @@ function People({
 
   if (read.error) {
     return (
-      <LoadFailure subject="who is on what" error={read.error} onRetry={read.reload} />
+      <LoadFailure
+        subject="who is on what"
+        error={read.error}
+        onRetry={read.reload}
+      />
     );
   }
   if (read.loading || !read.data) return <Spinner label="Loading" />;
@@ -389,7 +397,11 @@ function People({
   return (
     <div className="flex flex-col gap-4">
       {wholeMonthNotice && (
-        <Callout tone="info" title="Whole months" icon={<Info aria-hidden="true" />}>
+        <Callout
+          tone="info"
+          title="Whole months"
+          icon={<Info aria-hidden="true" />}
+        >
           {wholeMonthNotice}
         </Callout>
       )}
@@ -752,8 +764,9 @@ function EnrolDialog({
           <p className="text-meta text-faint">
             Leave it off and the plan&rsquo;s own price applies:{" "}
             <Money amount={plan.employerMonthlyKobo / 100} decimals /> from the
-            company and <Money amount={plan.employeeMonthlyKobo / 100} decimals />{" "}
-            from them.
+            company and{" "}
+            <Money amount={plan.employeeMonthlyKobo / 100} decimals /> from
+            them.
           </p>
           {priceThem && (
             <div className="grid gap-3 sm:grid-cols-2">

@@ -85,7 +85,11 @@ function LinkExistingAccount({
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="accent" disabled={!userId || busy} onClick={() => void link()}>
+          <Button
+            variant="accent"
+            disabled={!userId || busy}
+            onClick={() => void link()}
+          >
             {busy ? "Linking…" : "Link it"}
           </Button>
         </div>
@@ -99,8 +103,8 @@ function LinkExistingAccount({
       ) : candidates.length === 0 ? (
         <p className="text-body-sm leading-relaxed text-muted">
           Every sign-in in your company already has a personnel file, or there
-          is only one account and it is already linked. There is nothing to
-          link here yet.
+          is only one account and it is already linked. There is nothing to link
+          here yet.
         </p>
       ) : (
         <Field

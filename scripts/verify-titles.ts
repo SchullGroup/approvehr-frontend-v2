@@ -22,7 +22,9 @@ function pages(dir: string): string[] {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) return pages(full);
-    return entry.name === "page.tsx" || entry.name === "layout.tsx" ? [full] : [];
+    return entry.name === "page.tsx" || entry.name === "layout.tsx"
+      ? [full]
+      : [];
   });
 }
 
@@ -65,7 +67,9 @@ if (offenders.length > 0) {
     console.error(`    title:    "${o.title}"`);
     console.error(`    renders:  "${rendered}"\n`);
   }
-  console.error("Drop the brand from the page title and let the template add it.");
+  console.error(
+    "Drop the brand from the page title and let the template add it.",
+  );
   process.exit(1);
 }
 

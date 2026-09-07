@@ -2606,7 +2606,11 @@ export function useCycleMutations() {
     requestRevision: useCallback(
       async (
         cycleId: string,
-        body: { employeeId: string; targetStage: "SELF" | "MANAGER"; reason: string },
+        body: {
+          employeeId: string;
+          targetStage: "SELF" | "MANAGER";
+          reason: string;
+        },
       ) => {
         guard("Sending a review back needs the API.");
         return performanceApi.requestRevision(cycleId, body);

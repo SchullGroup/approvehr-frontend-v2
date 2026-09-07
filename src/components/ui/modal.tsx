@@ -46,7 +46,10 @@ export function Modal({
   children: React.ReactNode;
 }) {
   const isClient = useIsClient();
-  const ref = useFocusTrap<HTMLDivElement>(open, dismissible ? onClose : undefined);
+  const ref = useFocusTrap<HTMLDivElement>(
+    open,
+    dismissible ? onClose : undefined,
+  );
   const id = useId();
 
   if (!isClient || !open) return null;
@@ -279,9 +282,7 @@ export function DrawerSection({
   return (
     <section className={cn("min-w-0", className)}>
       <div className="flex items-baseline justify-between gap-3">
-        <h3 className="text-meta font-semibold text-muted">
-          {title}
-        </h3>
+        <h3 className="text-meta font-semibold text-muted">{title}</h3>
         {action && <div className="shrink-0">{action}</div>}
       </div>
       <div className="mt-2.5">{children}</div>

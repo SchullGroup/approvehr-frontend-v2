@@ -39,7 +39,11 @@ import {
 } from "@/lib/api/overtime";
 import type { OvertimePolicy, OvertimeStatus } from "@/lib/overtime/derive";
 import { usePermissions } from "@/lib/permissions";
-import { currentPeriod, useOvertime, type OvertimeRow } from "@/lib/store/overtime";
+import {
+  currentPeriod,
+  useOvertime,
+  type OvertimeRow,
+} from "@/lib/store/overtime";
 import { TODAY } from "@/lib/today";
 import { DeclineOvertimeModal } from "./decline-overtime";
 import { MyOvertime } from "./my-overtime";
@@ -99,9 +103,7 @@ export function OvertimeScreen() {
 function OwnOvertime() {
   return (
     <>
-      <PageHeader
-        title="Overtime"
-      />
+      <PageHeader title="Overtime" />
       <PageBody>
         <MyOvertime
           fallback={
@@ -267,7 +269,8 @@ function AllOvertime() {
         <LoadFailure
           subject={`the overtime for ${monthLabel(period)}`}
           error={overtime.error}
-         onRetry={overtime.reload}/>
+          onRetry={overtime.reload}
+        />
 
         {overtime.policyKnown && !policy.enabled && (
           <Card>
@@ -289,7 +292,10 @@ function AllOvertime() {
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="min-w-0">
                 <p className="flex items-center gap-2 text-body-sm font-semibold text-ink">
-                  <TriangleAlert aria-hidden="true" className="size-4 shrink-0" />
+                  <TriangleAlert
+                    aria-hidden="true"
+                    className="size-4 shrink-0"
+                  />
                   Waiting for approval
                 </p>
                 <p className="mt-2">
@@ -304,7 +310,8 @@ function AllOvertime() {
                   {awaitingApproval.count === 1
                     ? "one day"
                     : `${awaitingApproval.count} days`}
-                  , this month and any other. Unapproved overtime is not paid: the payroll run raises it as a warning.
+                  , this month and any other. Unapproved overtime is not paid:
+                  the payroll run raises it as a warning.
                 </p>
               </div>
               {status !== "PENDING" && (
@@ -326,8 +333,8 @@ function AllOvertime() {
                 "Nothing worked out yet."
               ) : (
                 <>
-                  {shown.count} {shown.count === 1 ? "day" : "days"} · {" "}
-                  {hoursLabel(shown.minutes)} · {" "}
+                  {shown.count} {shown.count === 1 ? "day" : "days"} ·{" "}
+                  {hoursLabel(shown.minutes)} ·{" "}
                   <Money amount={naira(shown.amountKobo)} decimals />
                 </>
               )
@@ -485,12 +492,12 @@ function OvertimeTableRow({
   return (
     <>
       <TR className={hasNote ? "[&>*]:pb-1.5" : undefined}>
-        <TDPrimary
-          title={row.name}
-          subtitle={row.employeeNo ?? undefined}
-        />
+        <TDPrimary title={row.name} subtitle={row.employeeNo ?? undefined} />
         <TD className="tabular whitespace-nowrap">{dayLabel(row.onDate)}</TD>
-        <TD align="right" className="tabular whitespace-nowrap font-medium text-ink">
+        <TD
+          align="right"
+          className="tabular whitespace-nowrap font-medium text-ink"
+        >
           {hoursLabel(row.minutes)}
         </TD>
         <TD>

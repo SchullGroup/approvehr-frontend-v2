@@ -93,7 +93,8 @@ const COMPONENT_SOURCE: Record<ScoreComponent, string> = {
     "Ratings against competencies filed under Behavioural competency.",
   LEADERSHIP:
     "Ratings under Leadership, and only for people who manage others or lead a team.",
-  SELF_ASSESSMENT: "The overall rating somebody gave themselves on their own form.",
+  SELF_ASSESSMENT:
+    "The overall rating somebody gave themselves on their own form.",
 };
 
 /** Percent text to integer basis points. Never a float in the payload. */
@@ -110,7 +111,9 @@ function toText(bp: number): string {
 
 function invalid(text: string): boolean {
   const value = Number(text);
-  return text.trim() === "" || !Number.isFinite(value) || value < 0 || value > 100;
+  return (
+    text.trim() === "" || !Number.isFinite(value) || value < 0 || value > 100
+  );
 }
 
 type Draft = Record<ScoreComponent, string>;
@@ -161,8 +164,8 @@ export function ScoringWeightsForm() {
   const dirty = entries.some(
     (row) =>
       row.weightBp !==
-      (weights?.rows.find((saved) => saved.component === row.component)?.weightBp ??
-        0),
+      (weights?.rows.find((saved) => saved.component === row.component)
+        ?.weightBp ?? 0),
   );
 
   /* The gap a self-rating can move, expressed once. A person who rates
@@ -220,7 +223,10 @@ export function ScoringWeightsForm() {
               </Badge>
             )}
             {weights && (
-              <Badge tone={weights.source === "saved" ? "accent" : "neutral"} size="sm">
+              <Badge
+                tone={weights.source === "saved" ? "accent" : "neutral"}
+                size="sm"
+              >
                 {weights.source === "saved"
                   ? "Set by your company"
                   : "Our recommended set"}
@@ -248,14 +254,15 @@ export function ScoringWeightsForm() {
             <Callout tone="info" title="What these weights do">
               <p>
                 A mark is the weighted average of the parts below. They have to
-                make 100% exactly, checked when they are saved, so there is never
-                an unbalanced set to patch up afterwards.
+                make 100% exactly, checked when they are saved, so there is
+                never an unbalanced set to patch up afterwards.
               </p>
               <p className="mt-2">
-                A part with <strong>nothing recorded against it is left out</strong>{" "}
-                and the rest are spread over the whole mark. Somebody who manages
-                nobody is not rated on leadership, and they are not scored nought
-                for it either: those are different claims about a person.
+                A part with{" "}
+                <strong>nothing recorded against it is left out</strong> and the
+                rest are spread over the whole mark. Somebody who manages nobody
+                is not rated on leadership, and they are not scored nought for
+                it either: those are different claims about a person.
               </p>
             </Callout>
 
@@ -265,7 +272,10 @@ export function ScoringWeightsForm() {
               </Callout>
             )}
             {editable && !canManage && (
-              <Callout tone="info" title="Changing these needs settings permission">
+              <Callout
+                tone="info"
+                title="Changing these needs settings permission"
+              >
                 <p>
                   How much each part counts decides pay, so it sits behind the
                   same permission as the rest of company configuration. You can
@@ -288,7 +298,9 @@ export function ScoringWeightsForm() {
                     className="grid gap-3 sm:grid-cols-[1fr_9rem] sm:items-start"
                   >
                     <div className="min-w-0">
-                      <p className="text-body-sm font-medium text-ink">{row.label}</p>
+                      <p className="text-body-sm font-medium text-ink">
+                        {row.label}
+                      </p>
                       <p className="mt-0.5 text-meta text-muted">
                         {COMPONENT_SOURCE[row.component]}
                       </p>
@@ -480,10 +492,15 @@ function SelfAssessment({
         {/* The API's own sentence about the **saved** value, said to be that
             whenever the draft has moved away from it. */}
         <p className="flex items-start gap-2 text-body-sm text-body">
-          <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-faint" />
+          <Info
+            aria-hidden="true"
+            className="mt-0.5 size-4 shrink-0 text-faint"
+          />
           <span>
             {changed && (
-              <span className="font-medium text-ink">Saved now, not yet changed: </span>
+              <span className="font-medium text-ink">
+                Saved now, not yet changed:{" "}
+              </span>
             )}
             {note}
           </span>
@@ -492,18 +509,18 @@ function SelfAssessment({
         {on ? (
           <p className="rounded-md border border-warning-line bg-warning-soft px-3.5 py-2.5 text-body-sm text-ink">
             {changed ? "If you save this: at" : "At"} {weightLabel(weightBp)},
-            somebody who rates themselves 5 out of 5 rather than 3 out of 5 moves
-            their own final mark by {weightLabel(swingBp)}, more if any other
-            part has nothing recorded against it, because the remaining weights
-            are spread over the whole mark. Two people who delivered identically
-            will not get the same mark.
+            somebody who rates themselves 5 out of 5 rather than 3 out of 5
+            moves their own final mark by {weightLabel(swingBp)}, more if any
+            other part has nothing recorded against it, because the remaining
+            weights are spread over the whole mark. Two people who delivered
+            identically will not get the same mark.
           </p>
         ) : (
           <p className="text-body-sm text-body">
             Set this above 0% and an employee&apos;s own opinion of themselves
             becomes part of the mark used to decide confirmation, promotion and
-            bonus. It rewards confidence over delivery, and it cannot be explained
-            to the person who rated themselves honestly.
+            bonus. It rewards confidence over delivery, and it cannot be
+            explained to the person who rated themselves honestly.
           </p>
         )}
 

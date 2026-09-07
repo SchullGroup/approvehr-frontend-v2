@@ -204,7 +204,9 @@ export function ReportBuilderScreen() {
                     >
                       <option value="">No grouping — one row each</option>
                       {dataset.columns
-                        .filter((column) => column.groupable && column.available)
+                        .filter(
+                          (column) => column.groupable && column.available,
+                        )
                         .map((column) => (
                           <option key={column.key} value={column.key}>
                             {column.label}
@@ -284,7 +286,9 @@ function DatasetCard({
         chosen ? "border-accent bg-accent-subtle" : "border-line bg-surface"
       } disabled:opacity-60`}
     >
-      <span className="text-body-sm font-medium text-body">{dataset.label}</span>
+      <span className="text-body-sm font-medium text-body">
+        {dataset.label}
+      </span>
       <span className="text-meta text-faint">{dataset.rowIs}</span>
       {/* Listed rather than hidden: a dataset that vanishes without a permission
           reads as a product that does not have it, and then nobody asks. */}
@@ -334,7 +338,10 @@ function useFilterOptions(dataset: ApiDataset | null) {
           }));
         }
         if (sources.has("payrollRuns")) {
-          const { runs } = await payrollApi.runs({ take: 24 }, controller.signal);
+          const { runs } = await payrollApi.runs(
+            { take: 24 },
+            controller.signal,
+          );
           next["payrollRuns"] = runs.map((run) => ({
             value: run.id,
             /* The period and the status, because "which run" on a month with
@@ -384,9 +391,7 @@ function Filters({
                 onChange({ ...filters, [filter.key]: event.target.value })
               }
             >
-              <option value="">
-                {filter.required ? "Choose one" : "Any"}
-              </option>
+              <option value="">{filter.required ? "Choose one" : "Any"}</option>
               {(filter.options ?? []).map((option) => (
                 <option key={option} value={option}>
                   {option}
@@ -492,7 +497,9 @@ function Result({ result }: { result: ApiReportResult }) {
               );
               return (
                 <p key={total.column} className="text-body-sm text-body">
-                  <span className="text-muted">{column?.label ?? total.column}:</span>{" "}
+                  <span className="text-muted">
+                    {column?.label ?? total.column}:
+                  </span>{" "}
                   {/* Never rendered as 0. `null` means nothing was present,
                       which is a different fact from a total of nothing. */}
                   {total.value === null ? (

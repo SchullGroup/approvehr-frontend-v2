@@ -274,7 +274,11 @@ export function InviteToSignIn({
            not be adjacent. */
         <div className="flex flex-wrap items-center justify-between gap-2">
           {pending ? (
-            <Button variant="ghost" disabled={busy} onClick={() => void revoke()}>
+            <Button
+              variant="ghost"
+              disabled={busy}
+              onClick={() => void revoke()}
+            >
               Cancel the invitation
             </Button>
           ) : (

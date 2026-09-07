@@ -73,10 +73,12 @@ const toDraft = (location?: ApiWorkLocation): Draft => ({
   name: location?.name ?? "",
   addressLine: location?.addressLine ?? "",
   remoteAllowed: location?.remoteAllowed ?? false,
-  fenced: location?.radiusMetres !== null && location?.radiusMetres !== undefined,
-  latitude: location?.latitude === null || location?.latitude === undefined
-    ? ""
-    : String(location.latitude),
+  fenced:
+    location?.radiusMetres !== null && location?.radiusMetres !== undefined,
+  latitude:
+    location?.latitude === null || location?.latitude === undefined
+      ? ""
+      : String(location.latitude),
   longitude:
     location?.longitude === null || location?.longitude === undefined
       ? ""
@@ -116,7 +118,8 @@ export function LocationForm({
 
   const name = draft.name.trim();
   const latitude = draft.latitude.trim() === "" ? null : Number(draft.latitude);
-  const longitude = draft.longitude.trim() === "" ? null : Number(draft.longitude);
+  const longitude =
+    draft.longitude.trim() === "" ? null : Number(draft.longitude);
   const radius =
     draft.radiusMetres.trim() === "" ? null : Number(draft.radiusMetres);
 
@@ -124,7 +127,8 @@ export function LocationForm({
      round trip. Ranges rather than a shape check: -91 is a well-formed number
      and not a place. */
   const latitudeError =
-    latitude !== null && (Number.isNaN(latitude) || latitude < -90 || latitude > 90)
+    latitude !== null &&
+    (Number.isNaN(latitude) || latitude < -90 || latitude > 90)
       ? "Latitude runs from -90 to 90."
       : undefined;
   const longitudeError =
@@ -216,7 +220,11 @@ export function LocationForm({
           />
         </Field>
 
-        <Field optional label="Address" help="For the record, not for the fence.">
+        <Field
+          optional
+          label="Address"
+          help="For the record, not for the fence."
+        >
           <Input
             value={draft.addressLine}
             placeholder="12 Allen Avenue, Ikeja, Lagos"
@@ -256,8 +264,8 @@ export function LocationForm({
             <>
               <p className="text-body-sm text-muted">
                 Stand at the entrance, open any maps app, and read the two
-                numbers off the pin, latitude first. Six decimal places is
-                about a metre; four is about ten.
+                numbers off the pin, latitude first. Six decimal places is about
+                a metre; four is about ten.
               </p>
 
               <div className="grid gap-4 sm:grid-cols-2">
@@ -312,9 +320,9 @@ export function LocationForm({
 
               {draft.remoteAllowed && !partial && (
                 <Callout tone="info" title="This fence will not be applied">
-                  Staff here may clock in from anywhere, so the radius is kept on
-                  the record and nothing checks against it. Turn that off to make
-                  the fence bite.
+                  Staff here may clock in from anywhere, so the radius is kept
+                  on the record and nothing checks against it. Turn that off to
+                  make the fence bite.
                 </Callout>
               )}
             </>

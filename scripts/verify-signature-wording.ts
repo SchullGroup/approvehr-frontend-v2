@@ -1,9 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import {
-  SIGNATURE_KIND,
-  SIGNING_WORDING,
-} from "../src/lib/api/signatures";
+import { SIGNATURE_KIND, SIGNING_WORDING } from "../src/lib/api/signatures";
 
 /**
  * The two signature sentences must say the same thing on both sides of the wire.
@@ -77,8 +74,16 @@ if (!existsSync(SOURCE)) {
   );
 } else {
   const source = readFileSync(SOURCE, "utf8");
-  check("SIGNING_WORDING", SIGNING_WORDING, constantFrom(source, "SIGNING_WORDING"));
-  check("SIGNATURE_KIND", SIGNATURE_KIND, constantFrom(source, "SIGNATURE_KIND"));
+  check(
+    "SIGNING_WORDING",
+    SIGNING_WORDING,
+    constantFrom(source, "SIGNING_WORDING"),
+  );
+  check(
+    "SIGNATURE_KIND",
+    SIGNATURE_KIND,
+    constantFrom(source, "SIGNATURE_KIND"),
+  );
 }
 
 if (failures > 0) {

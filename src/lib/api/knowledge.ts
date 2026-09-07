@@ -404,7 +404,10 @@ export const knowledgeApi = {
   /* ----------------------------------------------------------- writing */
 
   createArticle: (body: CreateKbArticleBody) =>
-    request<ApiKbArticleDetail>("/knowledge/articles", { method: "POST", body }),
+    request<ApiKbArticleDetail>("/knowledge/articles", {
+      method: "POST",
+      body,
+    }),
 
   updateArticle: (idOrSlug: string, body: UpdateKbArticleBody) =>
     request<ApiKbArticleDetail>(

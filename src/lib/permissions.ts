@@ -2,7 +2,11 @@
 
 import { useCallback, useEffect, useMemo } from "react";
 import { PERMISSION_KEYS, type PermissionKey } from "@/lib/permission-keys";
-import { permissionsApi, type Catalogue, type UserAccess } from "@/lib/api/permissions";
+import {
+  permissionsApi,
+  type Catalogue,
+  type UserAccess,
+} from "@/lib/api/permissions";
 import { useEmployeeStore } from "@/lib/store/employees";
 import { useRolePreview } from "@/lib/store/permissions";
 import { useSession } from "@/lib/store/session";
@@ -79,7 +83,10 @@ export const NO_PERMISSIONS: PermissionSet = new Set<PermissionKey>();
  * A plain function on purpose: the nav filter is given a set and a required
  * permission and has no business calling a hook per item.
  */
-export function hasPermission(set: PermissionSet, permission: PermissionKey): boolean {
+export function hasPermission(
+  set: PermissionSet,
+  permission: PermissionKey,
+): boolean {
   return set.has(permission);
 }
 
@@ -273,8 +280,8 @@ export function usePermissions(): Access {
 
   const grantedBy = useCallback(
     (permission: PermissionKey): string[] =>
-      detail?.grants.find((grant) => grant.permission === permission)?.viaRoles ??
-      [],
+      detail?.grants.find((grant) => grant.permission === permission)
+        ?.viaRoles ?? [],
     [detail],
   );
 

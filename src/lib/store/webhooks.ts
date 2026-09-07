@@ -95,167 +95,182 @@ const at = (minutesAgo: number): string =>
 const ahead = (minutes: number): string =>
   new Date(DEMO_NOW.getTime() + minutes * 60_000).toISOString();
 
-const DEMO_WEBHOOKS: ApiWebhook[] = DEMO_ENABLED ? [
-  {
-    id: "demo-live",
-    url: "https://hooks.acme-foods.example/approvehr",
-    events: ["payroll_run.approved", "payment_batch.approved", "leave.approved"],
-    active: true,
-    secretHint: "whsec_…4f2a",
-    disabledAt: null,
-    disabledReason: null,
-    /* Every one of them, and truthfully: nothing in the product raises these
+const DEMO_WEBHOOKS: ApiWebhook[] = DEMO_ENABLED
+  ? [
+      {
+        id: "demo-live",
+        url: "https://hooks.acme-foods.example/approvehr",
+        events: [
+          "payroll_run.approved",
+          "payment_batch.approved",
+          "leave.approved",
+        ],
+        active: true,
+        secretHint: "whsec_…4f2a",
+        disabledAt: null,
+        disabledReason: null,
+        /* Every one of them, and truthfully: nothing in the product raises these
        yet. The screen says so rather than implying a quiet endpoint is broken. */
-    notRaisedYet: [
-      "payroll_run.approved",
-      "payment_batch.approved",
-      "leave.approved",
-    ],
-    health: {
-      delivered: 128,
-      failed: 0,
-      pending: 1,
-      lastActivityAt: at(12),
-      lastDeliveredAt: at(41),
-    },
-    createdAt: at(60 * 24 * 26),
-    updatedAt: at(60 * 24 * 3),
-  },
-  {
-    id: "demo-off",
-    url: "https://reporting.acme-foods.example/webhooks/payroll",
-    events: ["employee.created", "employee.archived"],
-    active: false,
-    secretHint: "whsec_…9c07",
-    disabledAt: at(60 * 20),
-    /* Worded exactly as `runner.ts` writes it, so the demo cannot teach somebody
+        notRaisedYet: [
+          "payroll_run.approved",
+          "payment_batch.approved",
+          "leave.approved",
+        ],
+        health: {
+          delivered: 128,
+          failed: 0,
+          pending: 1,
+          lastActivityAt: at(12),
+          lastDeliveredAt: at(41),
+        },
+        createdAt: at(60 * 24 * 26),
+        updatedAt: at(60 * 24 * 3),
+      },
+      {
+        id: "demo-off",
+        url: "https://reporting.acme-foods.example/webhooks/payroll",
+        events: ["employee.created", "employee.archived"],
+        active: false,
+        secretHint: "whsec_…9c07",
+        disabledAt: at(60 * 20),
+        /* Worded exactly as `runner.ts` writes it, so the demo cannot teach somebody
        to expect a sentence the API never produces. */
-    disabledReason:
-      "3 deliveries in a row failed every attempt. Last failure: The server refused the connection. Nothing is listening on that port.",
-    notRaisedYet: ["employee.created", "employee.archived"],
-    health: {
-      delivered: 46,
-      failed: 3,
-      pending: 0,
-      lastActivityAt: at(60 * 20),
-      lastDeliveredAt: at(60 * 24 * 4),
-    },
-    createdAt: at(60 * 24 * 51),
-    updatedAt: at(60 * 20),
-  },
-] : [];
+        disabledReason:
+          "3 deliveries in a row failed every attempt. Last failure: The server refused the connection. Nothing is listening on that port.",
+        notRaisedYet: ["employee.created", "employee.archived"],
+        health: {
+          delivered: 46,
+          failed: 3,
+          pending: 0,
+          lastActivityAt: at(60 * 20),
+          lastDeliveredAt: at(60 * 24 * 4),
+        },
+        createdAt: at(60 * 24 * 51),
+        updatedAt: at(60 * 20),
+      },
+    ]
+  : [];
 
-const DEMO_DELIVERY_STATUS: DeliveryStatus = { mode: "inline", retriesRunning: false };
+const DEMO_DELIVERY_STATUS: DeliveryStatus = {
+  mode: "inline",
+  retriesRunning: false,
+};
 
 const delivery = (
   row: Omit<ApiDelivery, "maxAttempts" | "webhookId"> & { webhookId: string },
 ): ApiDelivery => ({ maxAttempts: 6, ...row });
 
-const DEMO_DELIVERIES: Record<string, ApiDelivery[]> = DEMO_ENABLED ? {
-  "demo-live": [
-    delivery({
-      id: "demo-d1",
-      webhookId: "demo-live",
-      event: "payroll_run.approved",
-      attempt: 3,
-      statusCode: 502,
-      error: null,
-      state: "pending",
-      deliveredAt: null,
-      retryAt: ahead(13),
-      createdAt: at(12),
-      payload: {
-        id: "0192f3c3-1122-7bd3-8e44-77a1b0c9d3e2",
-        period: "2026-08",
-        payDate: "2026-08-28",
-        employees: 42,
-        grossKobo: 1840000000,
-        netKobo: 1482800000,
-        payeKobo: 210000000,
-      },
-    }),
-    delivery({
-      id: "demo-d2",
-      webhookId: "demo-live",
-      event: "leave.approved",
-      attempt: 1,
-      statusCode: 200,
-      error: null,
-      state: "delivered",
-      deliveredAt: at(41),
-      retryAt: null,
-      createdAt: at(41),
-      payload: {
-        id: "0192f3c2-0f11-7a52-b3cd-4a9e2f7c1b08",
-        employee: { id: "0192f3c1-8a4e-7c2b-9f10-6d2b7a4e11c3", name: "Adaeze Okonkwo" },
-        leaveType: "Annual",
-        startDate: "2026-09-14",
-        endDate: "2026-09-18",
-        days: 5,
-      },
-    }),
-    delivery({
-      id: "demo-d3",
-      webhookId: "demo-live",
-      event: "webhook.test",
-      attempt: 1,
-      statusCode: 200,
-      error: null,
-      state: "delivered",
-      deliveredAt: at(60 * 26),
-      retryAt: null,
-      createdAt: at(60 * 26),
-      payload: {
-        message:
-          "If your server is reading this, the endpoint and the signature both work.",
-        sentAt: "2026-08-18T14:00:00.000Z",
-      },
-    }),
-  ],
-  "demo-off": [
-    delivery({
-      id: "demo-d4",
-      webhookId: "demo-off",
-      event: "employee.created",
-      attempt: 6,
-      statusCode: null,
-      error: "The server refused the connection. Nothing is listening on that port.",
-      state: "failed",
-      deliveredAt: null,
-      retryAt: null,
-      createdAt: at(60 * 33),
-      payload: {
-        id: "0192f3c1-8a4e-7c2b-9f10-6d2b7a4e11c3",
-        employeeNo: "EMP-0042",
-        firstName: "Adaeze",
-        lastName: "Okonkwo",
-        jobTitle: "Accountant",
-        department: "Finance",
-        startDate: "2026-09-01",
-        grossMonthlyKobo: 45000000,
-      },
-    }),
-    delivery({
-      id: "demo-d5",
-      webhookId: "demo-off",
-      event: "employee.archived",
-      attempt: 6,
-      statusCode: null,
-      error: "No answer within 10 seconds.",
-      state: "failed",
-      deliveredAt: null,
-      retryAt: null,
-      createdAt: at(60 * 44),
-      payload: {
-        id: "0192f3c1-8a4e-7c2b-9f10-6d2b7a4e11c3",
-        employeeNo: "EMP-0042",
-        name: "Adaeze Okonkwo",
-        lastWorkingDay: "2026-10-31",
-        reason: "RESIGNATION",
-      },
-    }),
-  ],
-} : {};
+const DEMO_DELIVERIES: Record<string, ApiDelivery[]> = DEMO_ENABLED
+  ? {
+      "demo-live": [
+        delivery({
+          id: "demo-d1",
+          webhookId: "demo-live",
+          event: "payroll_run.approved",
+          attempt: 3,
+          statusCode: 502,
+          error: null,
+          state: "pending",
+          deliveredAt: null,
+          retryAt: ahead(13),
+          createdAt: at(12),
+          payload: {
+            id: "0192f3c3-1122-7bd3-8e44-77a1b0c9d3e2",
+            period: "2026-08",
+            payDate: "2026-08-28",
+            employees: 42,
+            grossKobo: 1840000000,
+            netKobo: 1482800000,
+            payeKobo: 210000000,
+          },
+        }),
+        delivery({
+          id: "demo-d2",
+          webhookId: "demo-live",
+          event: "leave.approved",
+          attempt: 1,
+          statusCode: 200,
+          error: null,
+          state: "delivered",
+          deliveredAt: at(41),
+          retryAt: null,
+          createdAt: at(41),
+          payload: {
+            id: "0192f3c2-0f11-7a52-b3cd-4a9e2f7c1b08",
+            employee: {
+              id: "0192f3c1-8a4e-7c2b-9f10-6d2b7a4e11c3",
+              name: "Adaeze Okonkwo",
+            },
+            leaveType: "Annual",
+            startDate: "2026-09-14",
+            endDate: "2026-09-18",
+            days: 5,
+          },
+        }),
+        delivery({
+          id: "demo-d3",
+          webhookId: "demo-live",
+          event: "webhook.test",
+          attempt: 1,
+          statusCode: 200,
+          error: null,
+          state: "delivered",
+          deliveredAt: at(60 * 26),
+          retryAt: null,
+          createdAt: at(60 * 26),
+          payload: {
+            message:
+              "If your server is reading this, the endpoint and the signature both work.",
+            sentAt: "2026-08-18T14:00:00.000Z",
+          },
+        }),
+      ],
+      "demo-off": [
+        delivery({
+          id: "demo-d4",
+          webhookId: "demo-off",
+          event: "employee.created",
+          attempt: 6,
+          statusCode: null,
+          error:
+            "The server refused the connection. Nothing is listening on that port.",
+          state: "failed",
+          deliveredAt: null,
+          retryAt: null,
+          createdAt: at(60 * 33),
+          payload: {
+            id: "0192f3c1-8a4e-7c2b-9f10-6d2b7a4e11c3",
+            employeeNo: "EMP-0042",
+            firstName: "Adaeze",
+            lastName: "Okonkwo",
+            jobTitle: "Accountant",
+            department: "Finance",
+            startDate: "2026-09-01",
+            grossMonthlyKobo: 45000000,
+          },
+        }),
+        delivery({
+          id: "demo-d5",
+          webhookId: "demo-off",
+          event: "employee.archived",
+          attempt: 6,
+          statusCode: null,
+          error: "No answer within 10 seconds.",
+          state: "failed",
+          deliveredAt: null,
+          retryAt: null,
+          createdAt: at(60 * 44),
+          payload: {
+            id: "0192f3c1-8a4e-7c2b-9f10-6d2b7a4e11c3",
+            employeeNo: "EMP-0042",
+            name: "Adaeze Okonkwo",
+            lastWorkingDay: "2026-10-31",
+            reason: "RESIGNATION",
+          },
+        }),
+      ],
+    }
+  : {};
 
 /**
  * Four events, copied from the API's catalogue.
@@ -267,118 +282,122 @@ const DEMO_DELIVERIES: Record<string, ApiDelivery[]> = DEMO_ENABLED ? {
 /* Nullable rather than an invented empty catalogue: the one consumer already
    returns `CatalogueView | null`, and an empty events list would be a claim
    that the API publishes no events. */
-const DEMO_CATALOGUE: CatalogueView | null = DEMO_ENABLED ? {
-  events: [
-    {
-      name: "webhook.test",
-      description:
-        "A sample payload, sent on request so you can prove your endpoint works.",
-      raisedWhen: "Somebody presses Send test event. Nothing else raises it.",
-      wired: true,
-      sample: {
-        message:
-          "If your server is reading this, the endpoint and the signature both work.",
-        sentAt: "2026-08-20T09:15:00.000Z",
-      },
-    },
-    {
-      name: "employee.created",
-      description: "A new person has been added to the staff list.",
-      raisedWhen: "An employee record is created, by hand or by an import.",
-      wired: false,
-      sample: {
-        id: "0192f3c1-8a4e-7c2b-9f10-6d2b7a4e11c3",
-        employeeNo: "EMP-0042",
-        firstName: "Adaeze",
-        lastName: "Okonkwo",
-        jobTitle: "Accountant",
-        department: "Finance",
-        startDate: "2026-09-01",
-        grossMonthlyKobo: 45000000,
-      },
-    },
-    {
-      name: "leave.approved",
-      description: "A leave request has been approved.",
-      raisedWhen: "The last approver on the request approves it.",
-      wired: false,
-      sample: {
-        id: "0192f3c2-0f11-7a52-b3cd-4a9e2f7c1b08",
-        employee: {
-          id: "0192f3c1-8a4e-7c2b-9f10-6d2b7a4e11c3",
-          name: "Adaeze Okonkwo",
+const DEMO_CATALOGUE: CatalogueView | null = DEMO_ENABLED
+  ? {
+      events: [
+        {
+          name: "webhook.test",
+          description:
+            "A sample payload, sent on request so you can prove your endpoint works.",
+          raisedWhen:
+            "Somebody presses Send test event. Nothing else raises it.",
+          wired: true,
+          sample: {
+            message:
+              "If your server is reading this, the endpoint and the signature both work.",
+            sentAt: "2026-08-20T09:15:00.000Z",
+          },
         },
-        leaveType: "Annual",
-        startDate: "2026-09-14",
-        endDate: "2026-09-18",
-        days: 5,
-        balanceRemainingDays: 7,
+        {
+          name: "employee.created",
+          description: "A new person has been added to the staff list.",
+          raisedWhen: "An employee record is created, by hand or by an import.",
+          wired: false,
+          sample: {
+            id: "0192f3c1-8a4e-7c2b-9f10-6d2b7a4e11c3",
+            employeeNo: "EMP-0042",
+            firstName: "Adaeze",
+            lastName: "Okonkwo",
+            jobTitle: "Accountant",
+            department: "Finance",
+            startDate: "2026-09-01",
+            grossMonthlyKobo: 45000000,
+          },
+        },
+        {
+          name: "leave.approved",
+          description: "A leave request has been approved.",
+          raisedWhen: "The last approver on the request approves it.",
+          wired: false,
+          sample: {
+            id: "0192f3c2-0f11-7a52-b3cd-4a9e2f7c1b08",
+            employee: {
+              id: "0192f3c1-8a4e-7c2b-9f10-6d2b7a4e11c3",
+              name: "Adaeze Okonkwo",
+            },
+            leaveType: "Annual",
+            startDate: "2026-09-14",
+            endDate: "2026-09-18",
+            days: 5,
+            balanceRemainingDays: 7,
+          },
+        },
+        {
+          name: "payroll_run.approved",
+          description:
+            "A payroll run has been approved and its figures are now fixed.",
+          raisedWhen:
+            "The run is approved. Approving does not move money — this is the event to hook if you post journals to an accounting system.",
+          wired: false,
+          sample: {
+            id: "0192f3c3-1122-7bd3-8e44-77a1b0c9d3e2",
+            period: "2026-08",
+            payDate: "2026-08-28",
+            employees: 42,
+            grossKobo: 1840000000,
+            netKobo: 1482800000,
+            payeKobo: 210000000,
+            pensionEmployeeKobo: 147200000,
+            pensionEmployerKobo: 184000000,
+          },
+        },
+      ],
+      envelope: {
+        id: "0192f3c7-5566-7f17-c288-bbe5f4031726",
+        event: "webhook.test",
+        createdAt: "2026-08-20T09:15:00.000Z",
+        data: {
+          message:
+            "If your server is reading this, the endpoint and the signature both work.",
+          sentAt: "2026-08-20T09:15:00.000Z",
+        },
       },
-    },
-    {
-      name: "payroll_run.approved",
-      description: "A payroll run has been approved and its figures are now fixed.",
-      raisedWhen:
-        "The run is approved. Approving does not move money — this is the event to hook if you post journals to an accounting system.",
-      wired: false,
-      sample: {
-        id: "0192f3c3-1122-7bd3-8e44-77a1b0c9d3e2",
-        period: "2026-08",
-        payDate: "2026-08-28",
-        employees: 42,
-        grossKobo: 1840000000,
-        netKobo: 1482800000,
-        payeKobo: 210000000,
-        pensionEmployeeKobo: 147200000,
-        pensionEmployerKobo: 184000000,
+      money:
+        "Every amount is a whole number of kobo and every field is named …Kobo. ₦450,000.00 is 45000000.",
+      signature: {
+        algorithm: "HMAC-SHA256",
+        version: "v1",
+        headers: {
+          signature: "X-ApproveHR-Signature",
+          timestamp: "X-ApproveHR-Timestamp",
+          event: "X-ApproveHR-Event",
+          delivery: "X-ApproveHR-Delivery",
+        },
+        construction:
+          'X-ApproveHR-Signature = "v1=" + lowercase_hex(HMAC_SHA256(secret, timestamp + "." + raw_request_body))',
+        steps: [
+          "Read the raw request body before parsing it. Re-serialising parsed JSON changes the bytes and the digest will not match.",
+          "Join the X-ApproveHR-Timestamp value, a full stop, and that raw body.",
+          "HMAC-SHA256 it with your webhook secret as the key, exactly as shown to you, and hex-encode the result.",
+          "Compare in constant time, and reject anything older than 300 seconds.",
+        ],
+        toleranceSeconds: 300,
+        /* Never invented. See the note at the top of this file. */
+        example: null,
       },
-    },
-  ],
-  envelope: {
-    id: "0192f3c7-5566-7f17-c288-bbe5f4031726",
-    event: "webhook.test",
-    createdAt: "2026-08-20T09:15:00.000Z",
-    data: {
-      message:
-        "If your server is reading this, the endpoint and the signature both work.",
-      sentAt: "2026-08-20T09:15:00.000Z",
-    },
-  },
-  money:
-    "Every amount is a whole number of kobo and every field is named …Kobo. ₦450,000.00 is 45000000.",
-  signature: {
-    algorithm: "HMAC-SHA256",
-    version: "v1",
-    headers: {
-      signature: "X-ApproveHR-Signature",
-      timestamp: "X-ApproveHR-Timestamp",
-      event: "X-ApproveHR-Event",
-      delivery: "X-ApproveHR-Delivery",
-    },
-    construction:
-      'X-ApproveHR-Signature = "v1=" + lowercase_hex(HMAC_SHA256(secret, timestamp + "." + raw_request_body))',
-    steps: [
-      "Read the raw request body before parsing it. Re-serialising parsed JSON changes the bytes and the digest will not match.",
-      "Join the X-ApproveHR-Timestamp value, a full stop, and that raw body.",
-      "HMAC-SHA256 it with your webhook secret as the key, exactly as shown to you, and hex-encode the result.",
-      "Compare in constant time, and reject anything older than 300 seconds.",
-    ],
-    toleranceSeconds: 300,
-    /* Never invented. See the note at the top of this file. */
-    example: null,
-  },
-  retries: {
-    attempts: 6,
-    backoffMinutes: [1, 5, 25, 125, 625],
-    timeoutMs: 10_000,
-    switchedOffAfter: 3,
-    note: "6 attempts per event, waiting 1, 5, 25, 125, 625 minutes between them. After 3 events fail every attempt, the webhook is switched off and whoever manages settings is told why. Test sends never count towards that.",
-    idempotency:
-      "Retries reuse the X-ApproveHR-Delivery value, so treat it as an idempotency key. Delivery is at-least-once.",
-  },
-  delivery: DEMO_DELIVERY_STATUS,
-  live: false,
-} : null;
+      retries: {
+        attempts: 6,
+        backoffMinutes: [1, 5, 25, 125, 625],
+        timeoutMs: 10_000,
+        switchedOffAfter: 3,
+        note: "6 attempts per event, waiting 1, 5, 25, 125, 625 minutes between them. After 3 events fail every attempt, the webhook is switched off and whoever manages settings is told why. Test sends never count towards that.",
+        idempotency:
+          "Retries reuse the X-ApproveHR-Delivery value, so treat it as an idempotency key. Delivery is at-least-once.",
+      },
+      delivery: DEMO_DELIVERY_STATUS,
+      live: false,
+    }
+  : null;
 
 /** What every mutation refuses with when there is no API behind the screen. */
 const DEMO_REFUSAL = new ApiError(
@@ -402,17 +421,17 @@ export function useWebhookCatalogue() {
   const [loaded, setLoaded] = useState<{
     catalogue: CatalogueView | null;
     /**
-   * The failure itself, not its sentence.
-   *
-   * This used to be `string | null` — `error.message` pulled off an `ApiError`
-   * and the class thrown away. `LoadFailure` chooses its advice from the class,
-   * so every screen reading this fell to the general branch: no "sign in
-   * again" for a 401, no "wait a moment" for a 429, and no Try again button,
-   * since offering one depends on knowing the failure could pass. Keeping the
-   * caught value costs nothing and lets the one component that renders it do
-   * its job.
-   */
-  error: unknown;
+     * The failure itself, not its sentence.
+     *
+     * This used to be `string | null` — `error.message` pulled off an `ApiError`
+     * and the class thrown away. `LoadFailure` chooses its advice from the class,
+     * so every screen reading this fell to the general branch: no "sign in
+     * again" for a 401, no "wait a moment" for a 429, and no Try again button,
+     * since offering one depends on knowing the failure could pass. Keeping the
+     * caught value costs nothing and lets the one component that renders it do
+     * its job.
+     */
+    error: unknown;
   } | null>(null);
 
   /* Re-ask when somebody comes back to the window. Not in the key below,
@@ -424,7 +443,9 @@ export function useWebhookCatalogue() {
     const controller = new AbortController();
     void (async () => {
       try {
-        const served: ApiCatalogue = await webhooksApi.catalogue(controller.signal);
+        const served: ApiCatalogue = await webhooksApi.catalogue(
+          controller.signal,
+        );
         if (!cancelled) {
           setLoaded({ catalogue: { ...served, live: true }, error: null });
         }
@@ -478,17 +499,17 @@ export function useWebhooks(options: WebhookListOptions = {}) {
     total: number;
     hasMore: boolean;
     /**
-   * The failure itself, not its sentence.
-   *
-   * This used to be `string | null` — `error.message` pulled off an `ApiError`
-   * and the class thrown away. `LoadFailure` chooses its advice from the class,
-   * so every screen reading this fell to the general branch: no "sign in
-   * again" for a 401, no "wait a moment" for a 429, and no Try again button,
-   * since offering one depends on knowing the failure could pass. Keeping the
-   * caught value costs nothing and lets the one component that renders it do
-   * its job.
-   */
-  error: unknown;
+     * The failure itself, not its sentence.
+     *
+     * This used to be `string | null` — `error.message` pulled off an `ApiError`
+     * and the class thrown away. `LoadFailure` chooses its advice from the class,
+     * so every screen reading this fell to the general branch: no "sign in
+     * again" for a 401, no "wait a moment" for a 429, and no Try again button,
+     * since offering one depends on knowing the failure could pass. Keeping the
+     * caught value costs nothing and lets the one component that renders it do
+     * its job.
+     */
+    error: unknown;
   } | null>(null);
 
   /* The request this result answers. Comparing it during render is what makes
@@ -520,7 +541,8 @@ export function useWebhooks(options: WebhookListOptions = {}) {
         }
       } catch (error) {
         if (cancelled) return;
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         setLoaded({
           key,
           rows: [],
@@ -578,17 +600,17 @@ export function useWebhook(id: string) {
     key: string;
     detail: ApiWebhookDetail | null;
     /**
-   * The failure itself, not its sentence.
-   *
-   * This used to be `string | null` — `error.message` pulled off an `ApiError`
-   * and the class thrown away. `LoadFailure` chooses its advice from the class,
-   * so every screen reading this fell to the general branch: no "sign in
-   * again" for a 401, no "wait a moment" for a 429, and no Try again button,
-   * since offering one depends on knowing the failure could pass. Keeping the
-   * caught value costs nothing and lets the one component that renders it do
-   * its job.
-   */
-  error: unknown;
+     * The failure itself, not its sentence.
+     *
+     * This used to be `string | null` — `error.message` pulled off an `ApiError`
+     * and the class thrown away. `LoadFailure` chooses its advice from the class,
+     * so every screen reading this fell to the general branch: no "sign in
+     * again" for a 401, no "wait a moment" for a 429, and no Try again button,
+     * since offering one depends on knowing the failure could pass. Keeping the
+     * caught value costs nothing and lets the one component that renders it do
+     * its job.
+     */
+    error: unknown;
   } | null>(null);
 
   const key = `${id}|${nonce}`;
@@ -606,7 +628,8 @@ export function useWebhook(id: string) {
         if (!cancelled) setLoaded({ key, detail, error: null });
       } catch (error) {
         if (cancelled) return;
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         setLoaded({
           key,
           detail: null,
@@ -664,7 +687,10 @@ export type DeliveryLogOptions = {
  *
  * Newest first, always. A delivery log is read from the top.
  */
-export function useDeliveryLog(webhookId: string, options: DeliveryLogOptions = {}) {
+export function useDeliveryLog(
+  webhookId: string,
+  options: DeliveryLogOptions = {},
+) {
   const { isConnected, isLoading } = useSession();
   const status = options.status ?? "all";
   const event = options.event ?? "";
@@ -677,17 +703,17 @@ export function useDeliveryLog(webhookId: string, options: DeliveryLogOptions = 
     total: number;
     hasMore: boolean;
     /**
-   * The failure itself, not its sentence.
-   *
-   * This used to be `string | null` — `error.message` pulled off an `ApiError`
-   * and the class thrown away. `LoadFailure` chooses its advice from the class,
-   * so every screen reading this fell to the general branch: no "sign in
-   * again" for a 401, no "wait a moment" for a 429, and no Try again button,
-   * since offering one depends on knowing the failure could pass. Keeping the
-   * caught value costs nothing and lets the one component that renders it do
-   * its job.
-   */
-  error: unknown;
+     * The failure itself, not its sentence.
+     *
+     * This used to be `string | null` — `error.message` pulled off an `ApiError`
+     * and the class thrown away. `LoadFailure` chooses its advice from the class,
+     * so every screen reading this fell to the general branch: no "sign in
+     * again" for a 401, no "wait a moment" for a 429, and no Try again button,
+     * since offering one depends on knowing the failure could pass. Keeping the
+     * caught value costs nothing and lets the one component that renders it do
+     * its job.
+     */
+    error: unknown;
   } | null>(null);
 
   const key = `${webhookId}|${status}|${event}|${page}|${nonce}`;
@@ -717,7 +743,8 @@ export function useDeliveryLog(webhookId: string, options: DeliveryLogOptions = 
         }
       } catch (error) {
         if (cancelled) return;
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         setLoaded({
           key,
           rows: [],

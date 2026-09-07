@@ -461,68 +461,68 @@ function SidebarNav({
               </h2>
             )}
             <ul id={listId} hidden={!open} className="flex flex-col gap-0.5">
-            {group.items.map((item) => {
-              const active = item.href === activeHref;
+              {group.items.map((item) => {
+                const active = item.href === activeHref;
 
-              const count =
-                item.badgeSource !== undefined
-                  ? badges[item.badgeSource]
-                  : item.badge;
+                const count =
+                  item.badgeSource !== undefined
+                    ? badges[item.badgeSource]
+                    : item.badge;
 
-              return (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    aria-current={active ? "page" : undefined}
-                    /* The guided tour points at items by route, so it can only
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      aria-current={active ? "page" : undefined}
+                      /* The guided tour points at items by route, so it can only
                        ever highlight one this company actually has — the list
                        here is already filtered by permission and feature. */
-                    data-tour={`nav-item:${item.href}`}
-                    onClick={onNavigate}
-                    className={cn(
-                      "group flex items-center gap-2.5 rounded-md px-2.5 py-2 text-body-sm font-medium",
-                      "transition-colors duration-150",
-                      active
-                        ? "bg-accent-soft text-accent-text"
-                        : "text-body hover:bg-surface hover:text-ink",
-                    )}
-                  >
-                    <span
-                      aria-hidden="true"
+                      data-tour={`nav-item:${item.href}`}
+                      onClick={onNavigate}
                       className={cn(
-                        "shrink-0 [&>svg]:size-4",
+                        "group flex items-center gap-2.5 rounded-md px-2.5 py-2 text-body-sm font-medium",
+                        "transition-colors duration-150",
                         active
-                          ? "text-accent-text"
-                          : "text-faint group-hover:text-muted",
+                          ? "bg-accent-soft text-accent-text"
+                          : "text-body hover:bg-surface hover:text-ink",
                       )}
                     >
-                      {item.icon}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate">
-                      {item.label}
-                    </span>
-
-                    {item.soon && (
-                      <span className="shrink-0 text-meta font-normal text-faint">
-                        Coming soon
-                      </span>
-                    )}
-                    {count !== undefined && count > 0 && !item.soon && (
                       <span
+                        aria-hidden="true"
                         className={cn(
-                          "tabular shrink-0 rounded-full px-1.5 py-0.5 text-meta font-semibold",
+                          "shrink-0 [&>svg]:size-4",
                           active
-                            ? "bg-accent text-white"
-                            : "bg-sunken text-muted",
+                            ? "text-accent-text"
+                            : "text-faint group-hover:text-muted",
                         )}
                       >
-                        {count}
+                        {item.icon}
                       </span>
-                    )}
-                  </Link>
-                </li>
-              );
-            })}
+                      <span className="min-w-0 flex-1 truncate">
+                        {item.label}
+                      </span>
+
+                      {item.soon && (
+                        <span className="shrink-0 text-meta font-normal text-faint">
+                          Coming soon
+                        </span>
+                      )}
+                      {count !== undefined && count > 0 && !item.soon && (
+                        <span
+                          className={cn(
+                            "tabular shrink-0 rounded-full px-1.5 py-0.5 text-meta font-semibold",
+                            active
+                              ? "bg-accent text-white"
+                              : "bg-sunken text-muted",
+                          )}
+                        >
+                          {count}
+                        </span>
+                      )}
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         );

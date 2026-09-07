@@ -88,7 +88,11 @@ export function MissingDetailsDialog({
         if (Object.keys(fieldErrors).length > 0) {
           setErrors(fieldErrors);
         } else {
-          toast.push({ title: "That did not save", tone: "danger", detail: error.message });
+          toast.push({
+            title: "That did not save",
+            tone: "danger",
+            detail: error.message,
+          });
         }
       } else {
         toast.push({
@@ -128,7 +132,12 @@ export function MissingDetailsDialog({
     >
       <div className="flex flex-col gap-4">
         {gaps.map((g) => (
-          <Field key={g.field} label={g.label} help={HELP[g.field]} error={errors[g.field]}>
+          <Field
+            key={g.field}
+            label={g.label}
+            help={HELP[g.field]}
+            error={errors[g.field]}
+          >
             <Input
               value={values[g.field] ?? ""}
               onChange={(e) => setValue(g.field, e.target.value)}

@@ -429,7 +429,9 @@ const toType = (wire: WireType): LeaveTypeRow => ({
 export const leaveApi = {
   types: async (signal?: AbortSignal): Promise<LeaveTypeRow[]> =>
     (
-      await request<WireType[]>("/leave/types", { ...(signal ? { signal } : {}) })
+      await request<WireType[]>("/leave/types", {
+        ...(signal ? { signal } : {}),
+      })
     ).map(toType),
 
   /**
@@ -454,7 +456,10 @@ export const leaveApi = {
    * against, so a `PATCH` genuinely moves `/people/leave`, every employee
    * record and the booking form — the same figure, not a copy of it.
    */
-  updateType: async (id: string, patch: LeaveTypePatch): Promise<LeaveTypeRow> =>
+  updateType: async (
+    id: string,
+    patch: LeaveTypePatch,
+  ): Promise<LeaveTypeRow> =>
     toType(
       await request<WireType>(`/leave/types/${id}`, {
         method: "PATCH",
@@ -558,7 +563,10 @@ export const leaveApi = {
    * `confirmedOnly` is never sent. See the header: the unconfirmed dates are the
    * ones the calendar exists for.
    */
-  holidays: async (year?: number, signal?: AbortSignal): Promise<HolidayCalendar> => {
+  holidays: async (
+    year?: number,
+    signal?: AbortSignal,
+  ): Promise<HolidayCalendar> => {
     const wire = await request<WireHolidayList>("/leave/holidays", {
       ...(year ? { query: { year } } : {}),
       ...(signal ? { signal } : {}),
@@ -581,18 +589,25 @@ export const leaveApi = {
       body: {
         date: input.date,
         name: input.name,
-        ...(input.confirmed === undefined ? {} : { confirmed: input.confirmed }),
+        ...(input.confirmed === undefined
+          ? {}
+          : { confirmed: input.confirmed }),
       },
     }),
 
   /** In practice: confirming one that has been proclaimed. */
-  updateHoliday: async (id: string, patch: HolidayPatch): Promise<{ id: string }> =>
+  updateHoliday: async (
+    id: string,
+    patch: HolidayPatch,
+  ): Promise<{ id: string }> =>
     request<{ id: string }>(`/leave/holidays/${id}`, {
       method: "PATCH",
       body: {
         ...(patch.date === undefined ? {} : { date: patch.date }),
         ...(patch.name === undefined ? {} : { name: patch.name }),
-        ...(patch.confirmed === undefined ? {} : { confirmed: patch.confirmed }),
+        ...(patch.confirmed === undefined
+          ? {}
+          : { confirmed: patch.confirmed }),
       },
     }),
 
@@ -632,10 +647,13 @@ export const leaveApi = {
   ): Promise<Record<string, LeaveBalanceRow[]>> => {
     const ids = [...new Set(employeeIds)];
     if (ids.length === 0) return {};
-    const wire = await request<Record<string, WireBalance[]>>("/leave/balances", {
-      query: { employeeIds: ids.join(","), ...(year ? { year } : {}) },
-      ...(signal ? { signal } : {}),
-    });
+    const wire = await request<Record<string, WireBalance[]>>(
+      "/leave/balances",
+      {
+        query: { employeeIds: ids.join(","), ...(year ? { year } : {}) },
+        ...(signal ? { signal } : {}),
+      },
+    );
     const out: Record<string, LeaveBalanceRow[]> = {};
     for (const id of ids) out[id] = (wire[id] ?? []).map(toBalance);
     return out;

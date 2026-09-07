@@ -36,7 +36,8 @@ export function Tabs({
     const currentIndex = items.findIndex((i) => i.id === value);
     let nextIndex: number | null = null;
 
-    if (event.key === "ArrowRight") nextIndex = (currentIndex + 1) % items.length;
+    if (event.key === "ArrowRight")
+      nextIndex = (currentIndex + 1) % items.length;
     else if (event.key === "ArrowLeft")
       nextIndex = (currentIndex - 1 + items.length) % items.length;
     else if (event.key === "Home") nextIndex = 0;
@@ -45,9 +46,8 @@ export function Tabs({
     if (nextIndex === null) return;
     event.preventDefault();
     onChange(items[nextIndex].id);
-    const buttons = listRef.current?.querySelectorAll<HTMLButtonElement>(
-      "[role='tab']",
-    );
+    const buttons =
+      listRef.current?.querySelectorAll<HTMLButtonElement>("[role='tab']");
     buttons?.[nextIndex]?.focus();
   }
 
@@ -89,7 +89,9 @@ export function Tabs({
                 <span
                   className={cn(
                     "tabular rounded-full px-1.5 py-0.5 text-meta font-semibold",
-                    selected ? "bg-accent-soft text-accent-text" : "bg-sunken text-muted",
+                    selected
+                      ? "bg-accent-soft text-accent-text"
+                      : "bg-sunken text-muted",
                   )}
                 >
                   {item.count}
@@ -149,7 +151,9 @@ export function LinkTabs({
               <span
                 className={cn(
                   "tabular rounded-full px-1.5 py-0.5 text-meta font-semibold",
-                  active ? "bg-accent-soft text-accent-text" : "bg-sunken text-muted",
+                  active
+                    ? "bg-accent-soft text-accent-text"
+                    : "bg-sunken text-muted",
                 )}
               >
                 {item.count}

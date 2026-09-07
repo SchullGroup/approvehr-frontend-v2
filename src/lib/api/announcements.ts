@@ -214,9 +214,12 @@ export const announcementsApi = {
   },
 
   /** Hard. See `DELETE_EFFECT`. */
-  remove(
-    id: string,
-  ): Promise<{ id: string; title: string; wasPublished: boolean; note: string }> {
+  remove(id: string): Promise<{
+    id: string;
+    title: string;
+    wasPublished: boolean;
+    note: string;
+  }> {
     return request<{
       id: string;
       title: string;

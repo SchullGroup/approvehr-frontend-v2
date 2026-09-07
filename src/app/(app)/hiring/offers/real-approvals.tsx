@@ -29,7 +29,10 @@ import { useToast } from "@/components/ui";
 
 /** Real offers waiting on approval — the connected replacement for `Approvals`. */
 export function RealApprovals() {
-  const { offers, loading, error, reload } = useOffers({ status: "PENDING_APPROVAL", pageSize: 50 });
+  const { offers, loading, error, reload } = useOffers({
+    status: "PENDING_APPROVAL",
+    pageSize: 50,
+  });
   const canApprove = useCan("APPROVE_HIRING");
   const canManage = useCan("MANAGE_HIRING");
 
@@ -69,8 +72,8 @@ export function RealApprovals() {
     <div className="flex flex-col gap-5">
       {!canApprove && (
         <Callout tone="info" title="You can see these, not decide them">
-          Approving hiring is a separate permission from managing it. Ask whoever holds it to
-          decide these.
+          Approving hiring is a separate permission from managing it. Ask
+          whoever holds it to decide these.
         </Callout>
       )}
       {offers.map((offer) => (
@@ -118,7 +121,10 @@ function RealOfferCard({
       toast.push({
         title: "Not done",
         tone: "danger",
-        detail: error instanceof ApiError ? error.message : "Something went wrong. Try again.",
+        detail:
+          error instanceof ApiError
+            ? error.message
+            : "Something went wrong. Try again.",
       });
     } finally {
       setBusy(false);
@@ -139,7 +145,9 @@ function RealOfferCard({
         description={`${application.requisitionJobTitle} · ${application.requisitionReference}`}
         action={
           <Badge tone="warning" dot>
-            {offer.approvedAt ? "Approved — ready to send" : "Awaiting your approval"}
+            {offer.approvedAt
+              ? "Approved — ready to send"
+              : "Awaiting your approval"}
           </Badge>
         }
       />
@@ -169,7 +177,9 @@ function RealOfferCard({
             <Button
               variant="approve"
               loading={busy}
-              onClick={() => void run(() => mutations.approve(offer.id), "Approved")}
+              onClick={() =>
+                void run(() => mutations.approve(offer.id), "Approved")
+              }
             >
               <Check aria-hidden="true" className="size-4" />
               Approve offer
@@ -207,7 +217,9 @@ function RealOfferCard({
             <Button
               variant="secondary"
               loading={busy}
-              onClick={() => void run(() => mutations.decline(offer.id), "Declined")}
+              onClick={() =>
+                void run(() => mutations.decline(offer.id), "Declined")
+              }
             >
               <ThumbsDown aria-hidden="true" className="size-4" />
               Decline

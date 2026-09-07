@@ -265,7 +265,9 @@ export function ShiftCatalogue({
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => setPatternForm({ mode: "edit", pattern })}
+                        onClick={() =>
+                          setPatternForm({ mode: "edit", pattern })
+                        }
                       >
                         Edit
                       </Button>
@@ -623,8 +625,8 @@ function PatternForm({
         {existing && existing.peopleOn > 0 && (
           <p className="text-body-sm text-body">
             {existing.peopleOn}{" "}
-            {existing.peopleOn === 1 ? "person is" : "people are"} on this cycle.
-            Saving does not move their rota.
+            {existing.peopleOn === 1 ? "person is" : "people are"} on this
+            cycle. Saving does not move their rota.
           </p>
         )}
       </div>

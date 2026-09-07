@@ -213,7 +213,9 @@ function departmentRowRules(ctx: RowContext<DepartmentField>): void {
 }
 
 /** The batch-level sentences, from what the row rules counted. */
-function departmentFileNotes(counts: Readonly<Record<string, number>>): string[] {
+function departmentFileNotes(
+  counts: Readonly<Record<string, number>>,
+): string[] {
   const notes: string[] = [];
   const nested = counts["nested"] ?? 0;
   const namedHeads = counts["namedHeads"] ?? 0;

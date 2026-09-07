@@ -166,7 +166,10 @@ export function ReviewFormModal({
    * third party, which `/settings/ai` and the DPA both say does not happen.
    */
   const languageTexts = coaching
-    ? [...review.questions.map((question) => value(question).text ?? ""), summary]
+    ? [
+        ...review.questions.map((question) => value(question).text ?? ""),
+        summary,
+      ]
     : [];
   const languageFindings = coaching
     ? findingsAcross(languageTexts, review.subjectName)
@@ -196,7 +199,12 @@ export function ReviewFormModal({
     /* One press to read it, one to send anyway. Never on a self-review — see
        `language-check.tsx` on why somebody's own words about their own work are
        not this checker's business. */
-    if (kind === "send" && coaching && languageFindings.length > 0 && !languageSeen) {
+    if (
+      kind === "send" &&
+      coaching &&
+      languageFindings.length > 0 &&
+      !languageSeen
+    ) {
       setLanguageSeen(true);
       return;
     }
@@ -270,7 +278,8 @@ export function ReviewFormModal({
             className="font-medium text-accent-text underline-offset-2 hover:underline"
           >
             See what came of this
-          </Link>{" "}, the mark, and whether it has been signed off.
+          </Link>{" "}
+          , the mark, and whether it has been signed off.
         </p>
       )}
       <div className="flex flex-col gap-5">
@@ -317,10 +326,7 @@ export function ReviewFormModal({
 
         {/* Presence, not a value. Absent is a form the mapping never covered. */}
         {review.appraiser && (
-          <AppraiserStrip
-            appraiser={review.appraiser}
-            mine={review.mine}
-          />
+          <AppraiserStrip appraiser={review.appraiser} mine={review.mine} />
         )}
 
         {failed && (
@@ -424,7 +430,10 @@ export function ReviewFormModal({
                      would lose the only part of this form nobody can regenerate. */
                   onUse={(suggestion) =>
                     setSummary((current) =>
-                      [current.trim(), `${suggestion.title}: ${suggestion.detail}`]
+                      [
+                        current.trim(),
+                        `${suggestion.title}: ${suggestion.detail}`,
+                      ]
                         .filter(Boolean)
                         .join("\n\n"),
                     )

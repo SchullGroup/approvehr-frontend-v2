@@ -63,10 +63,16 @@ export default function GlobalError({ retry }: { retry: () => void }) {
             >
               This page couldn&apos;t load.
             </h1>
-            <p style={{ marginTop: "0.875rem", color: "#5c5346", lineHeight: 1.6 }}>
+            <p
+              style={{
+                marginTop: "0.875rem",
+                color: "#5c5346",
+                lineHeight: 1.6,
+              }}
+            >
               Something failed badly enough that the whole page came down with
-              it. Reloading usually clears it. If it keeps happening, the
-              fault is ours, not yours.
+              it. Reloading usually clears it. If it keeps happening, the fault
+              is ours, not yours.
             </p>
             <div
               style={{

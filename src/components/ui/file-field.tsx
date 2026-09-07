@@ -5,11 +5,7 @@ import { Paperclip, X } from "lucide-react";
 import { Button } from "./button";
 import { Field } from "./field";
 import { cn } from "@/lib/cn";
-import {
-  UploadRefused,
-  upload,
-  type UploadScope,
-} from "@/lib/api/uploads";
+import { UploadRefused, upload, type UploadScope } from "@/lib/api/uploads";
 
 /**
  * Attach one file.

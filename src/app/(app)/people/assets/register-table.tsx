@@ -159,7 +159,10 @@ export function RegisterTable({
                     </span>
                   }
                   subtitle={
-                    [item.kind, [item.make, item.model].filter(Boolean).join(" ")]
+                    [
+                      item.kind,
+                      [item.make, item.model].filter(Boolean).join(" "),
+                    ]
                       .filter(Boolean)
                       .join(" · ") || undefined
                   }
@@ -187,7 +190,9 @@ export function RegisterTable({
                     {STATUS_LABEL[item.status]}
                   </Badge>
                   {item.archived && (
-                    <span className="ml-1.5 text-meta text-muted">archived</span>
+                    <span className="ml-1.5 text-meta text-muted">
+                      archived
+                    </span>
                   )}
                 </TD>
 

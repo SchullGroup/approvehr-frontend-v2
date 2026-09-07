@@ -53,7 +53,8 @@ function recordFailureDetail(error: unknown): string {
       "try again."
     );
   }
-  if (error.status === 401) return "Your session has ended. Sign in again to carry on.";
+  if (error.status === 401)
+    return "Your session has ended. Sign in again to carry on.";
   if (error.status >= 500) {
     return (
       "Something went wrong on our side, so this record did not open. Try " +
@@ -146,9 +147,10 @@ export function EmployeeRecordPage({ id }: { id: string }) {
             }
           : {
               title: "No such employee",
-              detail: record.connected || !DEMO_ENABLED
-                ? "This record does not exist, or it belongs to another company."
-                : "This record does not exist, or it was created in another browser: demo data is not shared between devices.",
+              detail:
+                record.connected || !DEMO_ENABLED
+                  ? "This record does not exist, or it belongs to another company."
+                  : "This record does not exist, or it was created in another browser: demo data is not shared between devices.",
             };
 
     return (
@@ -173,7 +175,9 @@ export function EmployeeRecordPage({ id }: { id: string }) {
   const manager = employee.managerId
     ? (directory.employees.find((e) => e.id === employee.managerId) ?? null)
     : null;
-  const reports = directory.employees.filter((e) => e.managerId === employee.id);
+  const reports = directory.employees.filter(
+    (e) => e.managerId === employee.id,
+  );
 
   /* Rethrows on purpose. The editable sections put the API's field-level
      messages on the inputs they belong to, and swallowing here would leave
@@ -282,7 +286,11 @@ export function EmployeeRecordPage({ id }: { id: string }) {
         {/* The record itself is on screen; it is the directory read behind it
             that failed, so this says what is missing from the page rather than
             standing in for the page. */}
-        <LoadFailure subject="the rest of the directory" error={directory.error} onRetry={directory.reload}>
+        <LoadFailure
+          subject="the rest of the directory"
+          error={directory.error}
+          onRetry={directory.reload}
+        >
           Their manager and direct reports may be missing below.
         </LoadFailure>
 
@@ -321,8 +329,8 @@ export function EmployeeRecordPage({ id }: { id: string }) {
             </p>
             <p>
               Nothing is deleted. An employment record is a legal document, and
-              past payslips have to keep pointing at something: you can
-              restore them at any time.
+              past payslips have to keep pointing at something: you can restore
+              them at any time.
             </p>
           </div>
         }

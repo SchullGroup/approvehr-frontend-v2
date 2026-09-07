@@ -35,7 +35,12 @@ import {
   type LoanRepaymentStatus,
   type LoanStatus,
 } from "@/lib/api/loans";
-import { addMonths, monthLabel, priceLoan, shortMonthLabel } from "@/lib/loans/schedule";
+import {
+  addMonths,
+  monthLabel,
+  priceLoan,
+  shortMonthLabel,
+} from "@/lib/loans/schedule";
 import {
   LOAN_STATUS_LABEL,
   REPAYMENT_STATUS_LABEL,
@@ -83,22 +88,26 @@ import {
 const money = (amountKobo: number) =>
   formatMoney(naira(amountKobo), "NGN", { decimals: true });
 
-const STATUS_TONE: Record<LoanStatus, "warning" | "accent" | "info" | "success" | "neutral"> =
-  {
-    PENDING: "warning",
-    APPROVED: "info",
-    ACTIVE: "accent",
-    SETTLED: "success",
-    DECLINED: "neutral",
-  };
+const STATUS_TONE: Record<
+  LoanStatus,
+  "warning" | "accent" | "info" | "success" | "neutral"
+> = {
+  PENDING: "warning",
+  APPROVED: "info",
+  ACTIVE: "accent",
+  SETTLED: "success",
+  DECLINED: "neutral",
+};
 
-const ROW_TONE: Record<LoanRepaymentStatus, "neutral" | "warning" | "success" | "info"> =
-  {
-    SCHEDULED: "neutral",
-    PARTIAL: "warning",
-    PAID: "success",
-    WAIVED: "info",
-  };
+const ROW_TONE: Record<
+  LoanRepaymentStatus,
+  "neutral" | "warning" | "success" | "info"
+> = {
+  SCHEDULED: "neutral",
+  PARTIAL: "warning",
+  PAID: "success",
+  WAIVED: "info",
+};
 
 export function LoanDetailScreen({ id }: { id: string }) {
   const { loan, loading, error } = useLoan(id);
@@ -144,7 +153,9 @@ export function LoanDetailScreen({ id }: { id: string }) {
                 ? error.message
                 : "It may have been created in another browser, or the link is wrong."
             }
-            action={<ButtonLink href="/payroll/loans">Back to loans</ButtonLink>}
+            action={
+              <ButtonLink href="/payroll/loans">Back to loans</ButtonLink>
+            }
           />
         </PageBody>
       </>
@@ -229,12 +240,20 @@ export function LoanDetailScreen({ id }: { id: string }) {
               <Button size="sm" onClick={() => setCountering(loan)}>
                 Different terms
               </Button>
-              <Button variant="ghost" size="sm" onClick={() => setDeclining(loan)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setDeclining(loan)}
+              >
                 Decline
               </Button>
             </>
           ) : pending && own ? (
-            <Button variant="ghost" size="sm" onClick={() => setDeclining(loan)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setDeclining(loan)}
+            >
               Withdraw it
             </Button>
           ) : undefined
@@ -265,7 +284,10 @@ export function LoanDetailScreen({ id }: { id: string }) {
                           loan.interestRate * 100
                         ).toFixed(2)}% a year`,
                 },
-                { term: "Total to repay", value: money(loan.totalRepayableKobo) },
+                {
+                  term: "Total to repay",
+                  value: money(loan.totalRepayableKobo),
+                },
                 { term: "A month", value: money(loan.monthlyRepaymentKobo) },
                 {
                   term: "First deduction",
@@ -312,12 +334,15 @@ export function LoanDetailScreen({ id }: { id: string }) {
                   {" "}
                   — {loan.decidedByName}
                   {loan.decidedAt
-                    ? ` on ${new Date(loan.decidedAt).toLocaleDateString("en-NG", {
-                        day: "numeric",
-                        month: "long",
-                        year: "numeric",
-                        timeZone: "UTC",
-                      })}`
+                    ? ` on ${new Date(loan.decidedAt).toLocaleDateString(
+                        "en-NG",
+                        {
+                          day: "numeric",
+                          month: "long",
+                          year: "numeric",
+                          timeZone: "UTC",
+                        },
+                      )}`
                     : ""}
                 </>
               )}
@@ -334,14 +359,28 @@ export function LoanDetailScreen({ id }: { id: string }) {
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <Stat
               label="Repaid so far"
-              value={<Money amount={naira(loan.progress.paidKobo)} decimals size="xl" />}
+              value={
+                <Money
+                  amount={naira(loan.progress.paidKobo)}
+                  decimals
+                  size="xl"
+                />
+              }
               hint={`${loan.progress.instalmentsSettled} of ${loan.progress.instalmentsTotal} instalments done`}
             />
             <Stat
               label="Left to pay"
-              value={<Money amount={naira(loan.progress.remainingKobo)} decimals size="xl" />}
+              value={
+                <Money
+                  amount={naira(loan.progress.remainingKobo)}
+                  decimals
+                  size="xl"
+                />
+              }
               hint={
-                loan.status === "SETTLED" ? "nothing outstanding" : "across the rest of the schedule"
+                loan.status === "SETTLED"
+                  ? "nothing outstanding"
+                  : "across the rest of the schedule"
               }
             />
             <Stat
@@ -361,7 +400,13 @@ export function LoanDetailScreen({ id }: { id: string }) {
             />
             <Stat
               label="Written off"
-              value={<Money amount={naira(loan.progress.waivedKobo)} decimals size="xl" />}
+              value={
+                <Money
+                  amount={naira(loan.progress.waivedKobo)}
+                  decimals
+                  size="xl"
+                />
+              }
               hint={
                 loan.progress.waivedKobo > 0
                   ? "given up, not recovered"
@@ -402,8 +447,11 @@ export function LoanDetailScreen({ id }: { id: string }) {
               <TBody>
                 {loan.schedule.map((row) => {
                   const columns =
-                    (canRecord || canDecide) && loan.status === "ACTIVE" ? 6 : 5;
-                  const open = row.status === "SCHEDULED" || row.status === "PARTIAL";
+                    (canRecord || canDecide) && loan.status === "ACTIVE"
+                      ? 6
+                      : 5;
+                  const open =
+                    row.status === "SCHEDULED" || row.status === "PARTIAL";
                   return (
                     /* The fragment is the list item, so the key belongs on it —
                        a partial or waived instalment renders two rows. */
@@ -425,7 +473,10 @@ export function LoanDetailScreen({ id }: { id: string }) {
                           {row.paidAmountKobo === 0 ? (
                             <span className="text-muted">—</span>
                           ) : (
-                            <Money amount={naira(row.paidAmountKobo)} decimals />
+                            <Money
+                              amount={naira(row.paidAmountKobo)}
+                              decimals
+                            />
                           )}
                         </TD>
                         <TD>
@@ -466,7 +517,10 @@ export function LoanDetailScreen({ id }: { id: string }) {
                           has to ring payroll about. */}
                       {row.status === "PARTIAL" && (
                         <TR className="bg-canvas">
-                          <TD colSpan={columns} className="text-body-sm text-body">
+                          <TD
+                            colSpan={columns}
+                            className="text-body-sm text-body"
+                          >
                             {money(row.paidAmountKobo)} of{" "}
                             {money(row.amountKobo)} came out in{" "}
                             {monthLabel(row.dueDate)}. That month&rsquo;s pay
@@ -482,7 +536,10 @@ export function LoanDetailScreen({ id }: { id: string }) {
 
                       {row.status === "WAIVED" && (
                         <TR className="bg-canvas">
-                          <TD colSpan={columns} className="text-body-sm text-body">
+                          <TD
+                            colSpan={columns}
+                            className="text-body-sm text-body"
+                          >
                             Written off, so nothing more is owed on it.
                             {row.note ? ` ${row.note}` : ""}
                           </TD>
@@ -500,9 +557,10 @@ export function LoanDetailScreen({ id }: { id: string }) {
               What the schedule would be
             </h2>
             <p className="text-body-sm leading-relaxed text-body">
-              Nothing is deducted until somebody approves this. Approving creates
-              these {proposed.lines.length} instalments and payroll starts taking
-              them in {monthLabel(proposed.lines[0]?.dueDate ?? TODAY)}.
+              Nothing is deducted until somebody approves this. Approving
+              creates these {proposed.lines.length} instalments and payroll
+              starts taking them in{" "}
+              {monthLabel(proposed.lines[0]?.dueDate ?? TODAY)}.
             </p>
             <TableWrap caption="The schedule this loan would create if it were approved">
               <THead>
@@ -538,12 +596,15 @@ export function LoanDetailScreen({ id }: { id: string }) {
             title="Fully repaid"
           >
             {loan.completedAt
-              ? `Cleared on ${new Date(loan.completedAt).toLocaleDateString("en-NG", {
-                  day: "numeric",
-                  month: "long",
-                  year: "numeric",
-                  timeZone: "UTC",
-                })}. Nothing is deducted from now on.`
+              ? `Cleared on ${new Date(loan.completedAt).toLocaleDateString(
+                  "en-NG",
+                  {
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                    timeZone: "UTC",
+                  },
+                )}. Nothing is deducted from now on.`
               : "Nothing is deducted from now on."}
           </Callout>
         )}
@@ -560,7 +621,10 @@ export function LoanDetailScreen({ id }: { id: string }) {
       </PageBody>
 
       {countering && (
-        <CounterOfferModal loan={countering} onClose={() => setCountering(null)} />
+        <CounterOfferModal
+          loan={countering}
+          onClose={() => setCountering(null)}
+        />
       )}
       {declining && (
         <DeclineLoanModal

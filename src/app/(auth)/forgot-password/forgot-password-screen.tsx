@@ -53,7 +53,9 @@ export function ForgotPasswordScreen() {
         {sent.passwordReset ? (
           <DeliveryNote
             hint={sent.passwordReset}
-            href={(token) => `/reset-password?token=${encodeURIComponent(token)}`}
+            href={(token) =>
+              `/reset-password?token=${encodeURIComponent(token)}`
+            }
             action="Set a new password"
           />
         ) : (

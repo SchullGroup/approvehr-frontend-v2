@@ -23,7 +23,11 @@ import {
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
-import { STATUS_LABELS, type ApiAdvance, type ApiAdvanceStatus } from "@/lib/api/advances";
+import {
+  STATUS_LABELS,
+  type ApiAdvance,
+  type ApiAdvanceStatus,
+} from "@/lib/api/advances";
 import {
   useAdvanceMutations,
   useAdvancePolicy,
@@ -57,15 +61,17 @@ import { useCan } from "@/lib/permissions";
  * signature for a transfer.
  */
 
-const TONE: Record<ApiAdvanceStatus, "warning" | "info" | "success" | "danger" | "neutral"> =
-  {
-    REQUESTED: "warning",
-    APPROVED: "info",
-    PAID: "success",
-    DECLINED: "danger",
-    CANCELLED: "neutral",
-    RECOVERED: "neutral",
-  };
+const TONE: Record<
+  ApiAdvanceStatus,
+  "warning" | "info" | "success" | "danger" | "neutral"
+> = {
+  REQUESTED: "warning",
+  APPROVED: "info",
+  PAID: "success",
+  DECLINED: "danger",
+  CANCELLED: "neutral",
+  RECOVERED: "neutral",
+};
 
 export function AdvancesScreen() {
   const canDecide = useCan("APPROVE_LOANS");
@@ -237,7 +243,11 @@ function Mine({
           </Callout>
         )}
 
-        <Callout tone="info" title="This is an estimate" icon={<Info aria-hidden="true" />}>
+        <Callout
+          tone="info"
+          title="This is an estimate"
+          icon={<Info aria-hidden="true" />}
+        >
           {eligibility.estimateNotice}
         </Callout>
       </CardBody>
@@ -302,8 +312,8 @@ function Waiting({
               </p>
               <p className="text-meta text-faint">
                 Had earned{" "}
-                <Money amount={advance.earnedAtRequestKobo / 100} decimals /> when
-                they asked · cap was{" "}
+                <Money amount={advance.earnedAtRequestKobo / 100} decimals />{" "}
+                when they asked · cap was{" "}
                 <Money amount={advance.capAtRequestKobo / 100} decimals />
               </p>
             </div>
@@ -312,7 +322,9 @@ function Waiting({
               variant="approve"
               size="sm"
               loading={busy}
-              onClick={() => void run(() => mutations.approve(advance.id), "Approved")}
+              onClick={() =>
+                void run(() => mutations.approve(advance.id), "Approved")
+              }
             >
               Approve
             </Button>
@@ -381,8 +393,8 @@ function History({ read }: { read: ReturnType<typeof useAdvances> }) {
                 advance.status !== "DECLINED" &&
                 advance.status !== "CANCELLED" && (
                   <p className="text-meta text-faint">
-                    <Money amount={advance.outstandingKobo / 100} decimals /> still
-                    to come off a payslip
+                    <Money amount={advance.outstandingKobo / 100} decimals />{" "}
+                    still to come off a payslip
                   </p>
                 )}
             </div>
@@ -402,7 +414,10 @@ function History({ read }: { read: ReturnType<typeof useAdvances> }) {
                     setBusy(true);
                     try {
                       await mutations.markPaid(advance.id);
-                      toast.push({ tone: "success", title: "Recorded as paid" });
+                      toast.push({
+                        tone: "success",
+                        title: "Recorded as paid",
+                      });
                       read.reload();
                     } catch (error) {
                       toast.push({
@@ -723,7 +738,9 @@ function PolicyDialog({
             <Input
               inputMode="decimal"
               value={state.min}
-              onChange={(event) => setDraft({ ...state, min: event.target.value })}
+              onChange={(event) =>
+                setDraft({ ...state, min: event.target.value })
+              }
             />
           </Field>
 
