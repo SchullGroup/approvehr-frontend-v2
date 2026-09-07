@@ -33,6 +33,7 @@ import {
   useEmployeeScore,
   useReview,
   useSignOff,
+  useSubjectSelfReview,
 } from "@/lib/store/performance";
 import { ReviewFormModal } from "../../review-form";
 import { AppraiserStrip, ReadAnswer, draftFrom } from "../../review-parts";
@@ -84,6 +85,11 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
   const [finalising, setFinalising] = useState(false);
 
   const isSubject = review !== null && review.subjectId === actingId;
+
+  /* What the employee said about their own period, for an appraiser writing
+     theirs. Every piece of this already existed — the permission, the query and
+     a typed API wrapper with no consumers — and no screen ever asked. */
+  const { selfReview, loading: selfLoading } = useSubjectSelfReview(review);
 
   /* Only a manager review carries a rating of record, so it is the only kind
      with a composite behind it. A self-review is an input to the conversation and
@@ -426,6 +432,8 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
               </CardBody>
             )}
           </Card>
+
+          <TheirOwnAccount review={selfReview} loading={selfLoading} />
         </div>
       </PageBody>
 
@@ -483,6 +491,81 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
  * mark rather than asking "are you sure" — an irreversible act with a generic
  * dialog in front of it is an irreversible act nobody read.
  */
+/**
+ * The employee's own account of the period, beside the appraiser's form.
+ *
+ * The comparison the feedback asks for — *"a proper comparison between employee
+ * self-assessment and manager assessment"*. Side by side on a wide screen and
+ * stacked on a phone, which is what the existing two-column grid already does.
+ *
+ * **Absent rather than empty when there is nothing to show.** Null covers three
+ * different situations — this is not an appraiser's form, the employee has not
+ * sent theirs, or there is no API — and none of them is "they wrote nothing".
+ * An empty panel headed with their name would say exactly that. The employee
+ * not having sent it is stated where it can be acted on: the refusal a manager
+ * meets when they try to submit before it is in.
+ *
+ * Read-only, and it does not offer to open the self form. An appraiser reading
+ * it is doing so through `mayReadReview`'s `(cycle, subject)` scoping, which is
+ * permission to read this one account rather than a door into the employee's
+ * record.
+ */
+function TheirOwnAccount({
+  review,
+  loading,
+}: {
+  review: ApiReviewDetail | null;
+  loading: boolean;
+}) {
+  if (loading) {
+    return (
+      <Card>
+        <CardBody className="flex items-center gap-2 text-body-sm text-muted">
+          <Spinner size="sm" />
+          Looking for their self-appraisal
+        </CardBody>
+      </Card>
+    );
+  }
+  if (!review) return null;
+
+  return (
+    <Card>
+      <CardHeader
+        level={3}
+        title="What they said about their own period"
+        description={
+          review.summary
+            ? undefined
+            : "Their answers, as they sent them. Yours are above."
+        }
+      />
+      {review.summary && (
+        <CardBody className="pb-0">
+          <p className="text-body-sm leading-relaxed text-body">
+            {review.summary}
+          </p>
+        </CardBody>
+      )}
+      {review.questions.length === 0 ? (
+        <CardBody className="text-body-sm text-muted">
+          They were asked nothing on their own form.
+        </CardBody>
+      ) : (
+        <CardBody className="flex flex-col gap-4">
+          {review.questions.map((question) => (
+            <ReadAnswer
+              key={question.id}
+              question={question}
+              held={draftFrom(question)}
+            />
+          ))}
+        </CardBody>
+      )}
+    </Card>
+  );
+}
+
 function FinaliseDialog({
   open,
   review,

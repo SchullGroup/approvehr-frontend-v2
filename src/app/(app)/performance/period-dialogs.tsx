@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Copy, Pencil, Plus, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { weightLabel } from "@/lib/api/performance";
 import {
   Badge,
   Button,
@@ -27,6 +28,7 @@ import {
   useCycleQuestions,
   useFramework,
   useFrameworkActions,
+  useSections,
 } from "@/lib/store/performance";
 import { QUESTION_BANK } from "@/lib/performance/question-bank";
 
@@ -416,6 +418,7 @@ function SubsectionPicker({
   onChange: (id: string) => void;
 }) {
   const framework = useFramework();
+  const { sections } = useSections();
   const actions = useFrameworkActions();
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
@@ -531,8 +534,46 @@ function SubsectionPicker({
     );
   }
 
+  /* What each section is worth, so the filing decision is made with the one
+     fact that gives it meaning. The feedback's complaint is that the sections
+     configured in Settings do not reach appraisal creation: they do reach it,
+     as these headings, and they used to reach it stripped of their weight. */
+  const weightOf = new Map(
+    sections.map((section) => [section.name, section.weightBp]),
+  );
+  const sectionLabel = (name: string) => {
+    const bp = weightOf.get(name);
+    if (bp === undefined) return name;
+    /* Null is "not weighted", never 0%. A section outside `ScoreComponent` has
+       its ratings recorded and excluded, and saying 0% would read as a weight
+       somebody chose. */
+    return bp === null
+      ? `${name} — not weighted`
+      : `${name} — ${weightLabel(bp)} of the mark`;
+  };
+
+  const chosen = framework.competencies.find(
+    (competency) => competency.id === value,
+  );
+  const chosenSection = chosen?.sectionName ?? null;
+  const chosenWeight = chosenSection ? weightOf.get(chosenSection) : undefined;
+
   return (
-    <Field label="Filed under">
+    <Field
+      label="Filed under"
+      help={
+        /* Says what the choice does to the score, at the moment it is made.
+           An unfiled question is answerable and unscored, which is a real
+           thing to want for a free-text prompt and a surprise for a rating. */
+        value === ""
+          ? "Unfiled questions are asked and answered, and count towards no part of the mark."
+          : chosenWeight === null
+            ? `That section is not weighted, so answers to this count towards no part of the mark.`
+            : chosenWeight !== undefined
+              ? `Answers to this count towards ${chosenSection}, which is ${weightLabel(chosenWeight)} of the mark.`
+              : undefined
+      }
+    >
       <div className="flex gap-2">
         <Select
           value={value}
@@ -541,7 +582,10 @@ function SubsectionPicker({
         >
           <option value="">Not filed under a subsection</option>
           {framework.groups.map((group) => (
-            <optgroup key={group.sectionName} label={group.sectionName}>
+            <optgroup
+              key={group.sectionName}
+              label={sectionLabel(group.sectionName)}
+            >
               {group.competencies.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}

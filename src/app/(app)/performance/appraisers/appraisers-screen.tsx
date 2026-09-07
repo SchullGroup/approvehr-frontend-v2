@@ -33,7 +33,7 @@ export function AppraisersScreen() {
   if (!features.appraisals) {
     return (
       <>
-        <PageHeader title="Who appraises whom" />
+        <PageHeader breadcrumb={[{ href: "/performance", label: "Performance" }]} title="Who appraises whom" />
         <PageBody>
           <EmptyState
             icon={<ToggleRight aria-hidden="true" />}
@@ -53,7 +53,7 @@ export function AppraisersScreen() {
   if (!features.multiAppraiser || !canSeeCompany) {
     return (
       <>
-        <PageHeader title="Who appraises whom" />
+        <PageHeader breadcrumb={[{ href: "/performance", label: "Performance" }]} title="Who appraises whom" />
         <PageBody>
           <EmptyState
             icon={<ToggleRight aria-hidden="true" />}
@@ -74,7 +74,7 @@ export function AppraisersScreen() {
 
   return (
     <>
-      <PageHeader title="Who appraises whom" />
+      <PageHeader breadcrumb={[{ href: "/performance", label: "Performance" }]} title="Who appraises whom" />
       <PageBody>
         <AppraiserMapTab />
       </PageBody>
