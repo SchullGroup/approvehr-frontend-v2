@@ -126,7 +126,9 @@ export function BankAccountsScreen() {
         title: "That did not work",
         tone: "danger",
         detail:
-          error instanceof ApiError ? error.message : "Something went wrong. Try again.",
+          error instanceof ApiError
+            ? error.message
+            : "Something went wrong. Try again.",
       });
       return false;
     } finally {
@@ -138,7 +140,8 @@ export function BankAccountsScreen() {
      here is a step-up challenge or a permission refusal and they are different
      situations. */
   const stepUpBlocked =
-    accounts.error instanceof ApiError && accounts.error.code === "step_up_required";
+    accounts.error instanceof ApiError &&
+    accounts.error.code === "step_up_required";
   /** The read did not land, so nothing derived from it is a measurement. */
   const unread = Boolean(accounts.error);
 
@@ -170,31 +173,31 @@ export function BankAccountsScreen() {
 
       <PageBody className="flex flex-col gap-6">
         {/*
-          * A step-up refusal is not a failure, and must not be dressed as one.
-          *
-          * `GET /payments/accounts` sits behind `requireStepUp(BANK_DETAILS)`,
-          * so a company that ticks "Changing bank details" on
-          * /settings/security gets a 403 here — and this screen rendered "The
-          * accounts did not load" over it, then four zeros, then an empty
-          * state asserting there are none, then an Add button that the same
-          * gate refuses. Four wrong claims about a company that may have five
-          * accounts on file.
-          *
-          * It now offers the challenge rather than only describing it.
-          * `useStepUp` takes a thunk, catches the refusal, collects the code
-          * and retries — so the button below asks for the accounts, and the
-          * store's own reload picks them up once the grant exists. Turning the
-          * requirement off is still offered, because somebody with no
-          * two-factor set up has no way to receive a code and needs the other
-          * door.
-          */}
+         * A step-up refusal is not a failure, and must not be dressed as one.
+         *
+         * `GET /payments/accounts` sits behind `requireStepUp(BANK_DETAILS)`,
+         * so a company that ticks "Changing bank details" on
+         * /settings/security gets a 403 here — and this screen rendered "The
+         * accounts did not load" over it, then four zeros, then an empty
+         * state asserting there are none, then an Add button that the same
+         * gate refuses. Four wrong claims about a company that may have five
+         * accounts on file.
+         *
+         * It now offers the challenge rather than only describing it.
+         * `useStepUp` takes a thunk, catches the refusal, collects the code
+         * and retries — so the button below asks for the accounts, and the
+         * store's own reload picks them up once the grant exists. Turning the
+         * requirement off is still offered, because somebody with no
+         * two-factor set up has no way to receive a code and needs the other
+         * door.
+         */}
         {stepUpBlocked ? (
           <Callout tone="warning" title="This needs a confirmation code">
             Your company asks for a code before bank details can be read or
-            changed. Entering one is not built into this screen yet, so the
-            list below cannot be shown: nothing here says a company has no
-            accounts, only that they cannot be read right now. Turn the
-            requirement off under{" "}
+            changed. Entering one is not built into this screen yet, so the list
+            below cannot be shown: nothing here says a company has no accounts,
+            only that they cannot be read right now. Turn the requirement off
+            under{" "}
             <Link
               href="/settings/security"
               className="text-accent-text underline underline-offset-4"
@@ -209,9 +212,12 @@ export function BankAccountsScreen() {
                 onClick={() => {
                   void (async () => {
                     try {
-                      await stepUp.run(() => paymentsApi.accounts(showArchived), {
-                        action: "BANK_DETAILS",
-                      });
+                      await stepUp.run(
+                        () => paymentsApi.accounts(showArchived),
+                        {
+                          action: "BANK_DETAILS",
+                        },
+                      );
                       /* The grant is what the retry needed, not the payload:
                          the store owns this data and re-asks for it itself. */
                       accounts.reload();
@@ -229,7 +235,11 @@ export function BankAccountsScreen() {
           </Callout>
         ) : (
           accounts.error && (
-            <LoadFailure subject="the accounts" error={accounts.error}  onRetry={accounts.reload}/>
+            <LoadFailure
+              subject="the accounts"
+              error={accounts.error}
+              onRetry={accounts.reload}
+            />
           )
         )}
 
@@ -250,7 +260,9 @@ export function BankAccountsScreen() {
                   {primary.bankName}
                 </span>
               ) : (
-                <span className="text-body-sm font-medium text-muted">Not set</span>
+                <span className="text-body-sm font-medium text-muted">
+                  Not set
+                </span>
               )
             }
             hint={primary?.accountNumberMasked}
@@ -303,7 +315,11 @@ export function BankAccountsScreen() {
           ) : accounts.accounts.length === 0 ? (
             <EmptyState
               icon={<Landmark aria-hidden="true" />}
-              title={unread ? "The accounts could not be read" : "No bank accounts yet"}
+              title={
+                unread
+                  ? "The accounts could not be read"
+                  : "No bank accounts yet"
+              }
               description={
                 unread
                   ? "This is not a company with no accounts: it is a list that did not load. Nothing has been added or removed."
@@ -333,7 +349,10 @@ export function BankAccountsScreen() {
               </THead>
               <TBody>
                 {accounts.accounts.map((account) => (
-                  <TR key={account.id} className={account.archived ? "opacity-60" : ""}>
+                  <TR
+                    key={account.id}
+                    className={account.archived ? "opacity-60" : ""}
+                  >
                     <TDPrimary
                       title={account.bankName}
                       subtitle={account.accountType ?? undefined}
@@ -361,9 +380,13 @@ export function BankAccountsScreen() {
                             Archived
                           </Badge>
                         )}
-                        {!account.isPrimary && account.active && !account.archived && (
-                          <span className="text-body-sm text-muted">On file</span>
-                        )}
+                        {!account.isPrimary &&
+                          account.active &&
+                          !account.archived && (
+                            <span className="text-body-sm text-muted">
+                              On file
+                            </span>
+                          )}
                       </span>
                     </TD>
                     <TD className="text-body-sm text-muted">
@@ -387,12 +410,18 @@ export function BankAccountsScreen() {
                                 disabled={busy}
                                 onClick={() =>
                                   void run(
-                                    () => accounts.update(account.id, { active: true }),
+                                    () =>
+                                      accounts.update(account.id, {
+                                        active: true,
+                                      }),
                                     `${account.bankName} switched back on`,
                                   )
                                 }
                               >
-                                <RotateCcw aria-hidden="true" className="size-3.5" />
+                                <RotateCcw
+                                  aria-hidden="true"
+                                  className="size-3.5"
+                                />
                                 Switch on
                               </Button>
                             )}
@@ -417,14 +446,18 @@ export function BankAccountsScreen() {
                                 is not offered there — the way to do it is to
                                 make another account the salary account first,
                                 which is the button beside this one. */}
-                            {(!account.isPrimary || accounts.counts.active === 1) && (
+                            {(!account.isPrimary ||
+                              accounts.counts.active === 1) && (
                               <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => setArchiving(account)}
                                 aria-label={`Archive ${account.bankName} ${account.accountNumberMasked}`}
                               >
-                                <Archive aria-hidden="true" className="size-3.5" />
+                                <Archive
+                                  aria-hidden="true"
+                                  className="size-3.5"
+                                />
                               </Button>
                             )}
                           </>
@@ -446,8 +479,8 @@ export function BankAccountsScreen() {
           >
             audit trail
           </Link>{" "}
-          and whoever can release money is told. Account numbers are never written
-          into the trail.
+          and whoever can release money is told. Account numbers are never
+          written into the trail.
         </p>
       </PageBody>
 
@@ -504,9 +537,9 @@ export function BankAccountsScreen() {
               </span>
               {primary && (
                 <span>
-                  {primary.bankName} {primary.accountNumberMasked} stops being the
-                  salary account. Batches already built keep the account they were
-                  built with.
+                  {primary.bankName} {primary.accountNumberMasked} stops being
+                  the salary account. Batches already built keep the account
+                  they were built with.
                 </span>
               )}
             </span>

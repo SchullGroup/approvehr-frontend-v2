@@ -81,7 +81,10 @@ const TRUE_IN_PRODUCTION = [
 ];
 
 const stripAllowed = (text: string): string =>
-  TRUE_IN_PRODUCTION.reduce((acc, allowed) => acc.split(allowed).join(""), text);
+  TRUE_IN_PRODUCTION.reduce(
+    (acc, allowed) => acc.split(allowed).join(""),
+    text,
+  );
 
 /**
  * The module that is allowed to hold the copy, because it is the module that
@@ -136,7 +139,8 @@ for (const file of walk(SRC, (f) => /\.(ts|tsx|mts)$/.test(f))) {
     offenders.push({
       file: path.relative(ROOT, file),
       phrase,
-      reason: "does not mention DEMO_ENABLED, so nothing can be folding it away",
+      reason:
+        "does not mention DEMO_ENABLED, so nothing can be folding it away",
     });
   }
 }
@@ -155,7 +159,7 @@ if (offenders.length > 0) {
       "or, for a source label, by calling sourceNote(connected) instead of\n" +
       "writing the two strings inline. Both fold to nothing in a production\n" +
       "build. If the sentence is true in production — a module with no API at\n" +
-      "all — reword it to say that instead of saying \"demo\".\n",
+      'all — reword it to say that instead of saying "demo".\n',
   );
   process.exit(1);
 }
@@ -193,16 +197,17 @@ if (!fs.existsSync(path.join(NEXT, "build-manifest.json"))) {
  * present — so that subtree is excluded rather than reported. A dev server
  * running beside a production build is the normal state on this machine.
  */
-const chunkDirs = [
-  path.join(NEXT, "static"),
-  path.join(NEXT, "server"),
-].filter((d) => fs.existsSync(d));
+const chunkDirs = [path.join(NEXT, "static"), path.join(NEXT, "server")].filter(
+  (d) => fs.existsSync(d),
+);
 
 const found: { file: string; phrase: string }[] = [];
 let chunksChecked = 0;
 
 for (const dir of chunkDirs) {
-  for (const file of walk(dir, (f) => /\.(js|mjs|cjs|json|html|rsc|txt)$/.test(f))) {
+  for (const file of walk(dir, (f) =>
+    /\.(js|mjs|cjs|json|html|rsc|txt)$/.test(f),
+  )) {
     if (file === SELF) continue;
     chunksChecked += 1;
     const built = stripAllowed(fs.readFileSync(file, "utf8"));

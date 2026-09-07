@@ -116,7 +116,11 @@ export function ApplyForm({
     return (
       <div className="rounded-3xl border border-sand-line bg-white/70 p-10 text-center">
         <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-success">
-          <Check aria-hidden="true" className="size-6 text-slate" strokeWidth={3} />
+          <Check
+            aria-hidden="true"
+            className="size-6 text-slate"
+            strokeWidth={3}
+          />
         </span>
         <h2 className="mt-6 text-h3 text-slate">Application sent</h2>
         <p className="mx-auto mt-3 max-w-sm text-body leading-relaxed">
@@ -228,8 +232,8 @@ export function ApplyForm({
         </PillButton>
 
         <p className="text-center text-meta leading-relaxed text-slate-muted">
-          {company} sees what you send here. It is not shared with anyone else and
-          it is not added to a mailing list.
+          {company} sees what you send here. It is not shared with anyone else
+          and it is not added to a mailing list.
         </p>
       </div>
     </form>

@@ -434,7 +434,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     aliases: ["salary_frequency", "pay_cycle", "frequency"],
     required: false,
     example: "monthly",
-    note: "Must say \"monthly\" if included.",
+    note: 'Must say "monthly" if included.',
     dropdown: PAY_FREQUENCY_OPTIONS,
   },
   {

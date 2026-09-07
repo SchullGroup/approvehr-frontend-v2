@@ -207,7 +207,9 @@ export function MonthCalendar({
   return (
     <div>
       <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-line">
-        <h3 className="text-body font-semibold text-ink">{monthLabel(month)}</h3>
+        <h3 className="text-body font-semibold text-ink">
+          {monthLabel(month)}
+        </h3>
         <div className="flex items-center gap-1">
           <IconButton
             label={`Show ${monthLabel(shiftMonth(month, -1))}`}
@@ -310,7 +312,10 @@ export function MonthCalendar({
                     was recorded on is a sentence nobody has the records for.
                     `aria-hidden` because the button's own label already says all
                     of this as a sentence. */}
-                <span aria-hidden="true" className="flex flex-col leading-tight">
+                <span
+                  aria-hidden="true"
+                  className="flex flex-col leading-tight"
+                >
                   {counts.length > 0 ? (
                     counts.map((line) => (
                       <span

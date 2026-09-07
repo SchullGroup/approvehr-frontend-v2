@@ -57,13 +57,15 @@ import { useCan } from "@/lib/permissions";
  * many words that this is not a cryptographic digital signature.
  */
 
-const TONE: Record<ApiSignatureStatus, "warning" | "success" | "danger" | "neutral"> =
-  {
-    PENDING: "warning",
-    SIGNED: "success",
-    DECLINED: "danger",
-    CANCELLED: "neutral",
-  };
+const TONE: Record<
+  ApiSignatureStatus,
+  "warning" | "success" | "danger" | "neutral"
+> = {
+  PENDING: "warning",
+  SIGNED: "success",
+  DECLINED: "danger",
+  CANCELLED: "neutral",
+};
 
 export function SignaturesScreen() {
   const canManage = useCan("EDIT_RECORDS");
@@ -92,7 +94,10 @@ export function SignaturesScreen() {
             onChange={(value) => setTab(value as "mine" | "all")}
             options={[
               { value: "mine", label: "Waiting on me" },
-              { value: "all", label: canManage ? "Everything" : "Sent and signed" },
+              {
+                value: "all",
+                label: canManage ? "Everything" : "Sent and signed",
+              },
             ]}
           />
         }
@@ -228,7 +233,10 @@ function SignatureCard({
             <ExportButton
               label="Certificate"
               download={() =>
-                signaturesApi.certificate(record.id, `certificate-${record.title}`)
+                signaturesApi.certificate(
+                  record.id,
+                  `certificate-${record.title}`,
+                )
               }
             />
           )}
@@ -330,14 +338,21 @@ function DeclineButton({
               >
                 Decline it
               </Button>
-              <Button variant="ghost" onClick={() => setOpen(false)} disabled={busy}>
+              <Button
+                variant="ghost"
+                onClick={() => setOpen(false)}
+                disabled={busy}
+              >
                 Cancel
               </Button>
             </div>
           }
         >
           <div className="flex flex-col gap-4">
-            <Field label="Why" help="Required — it is the only thing the sender gets.">
+            <Field
+              label="Why"
+              help="Required — it is the only thing the sender gets."
+            >
               <Textarea
                 rows={3}
                 value={reason}
@@ -421,7 +436,11 @@ function SignDialog({
       }
     >
       <div className="flex flex-col gap-4">
-        <Callout tone="info" title="Read it first" icon={<Info aria-hidden="true" />}>
+        <Callout
+          tone="info"
+          title="Read it first"
+          icon={<Info aria-hidden="true" />}
+        >
           Open the document before you sign. What you are signing is the exact
           file with this fingerprint:
           <span className="mt-1 block font-mono text-meta">{first}</span>

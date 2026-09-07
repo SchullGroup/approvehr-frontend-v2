@@ -130,10 +130,17 @@ export function ChecklistSettingsScreen() {
 
       <PageBody className="flex flex-col gap-6">
         {templates.error && (
-          <LoadFailure subject="the checklist" error={templates.error}  onRetry={templates.reload}/>
+          <LoadFailure
+            subject="the checklist"
+            error={templates.error}
+            onRetry={templates.reload}
+          />
         )}
 
-        <Callout tone="info" title="These apply to the next exit, not to one already running">
+        <Callout
+          tone="info"
+          title="These apply to the next exit, not to one already running"
+        >
           Somebody already working through their checklist keeps the lines they
           were given. Changing this list would rewrite a record somebody has
           already signed off.
@@ -141,8 +148,8 @@ export function ChecklistSettingsScreen() {
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-body-sm text-muted">
-            {templates.counts.active} on the list · {" "}
-            {templates.counts.mandatory} must be done before an exit can close
+            {templates.counts.active} on the list · {templates.counts.mandatory}{" "}
+            must be done before an exit can close
           </p>
           <Switch
             checked={showOff}
@@ -339,7 +346,9 @@ function LineDialog({
   const [everyKind, setEveryKind] = useState(
     existing ? existing.appliesTo.length === 0 : true,
   );
-  const [appliesTo, setAppliesTo] = useState<ExitKind[]>(existing?.appliesTo ?? []);
+  const [appliesTo, setAppliesTo] = useState<ExitKind[]>(
+    existing?.appliesTo ?? [],
+  );
   const [busy, setBusy] = useState(false);
 
   const ready = label.trim().length >= 3 && (everyKind || appliesTo.length > 0);
@@ -375,7 +384,11 @@ function LineDialog({
       }
     >
       <div className="flex flex-col gap-4">
-        <Field label="What has to happen" required help="Write it as something done.">
+        <Field
+          label="What has to happen"
+          required
+          help="Write it as something done."
+        >
           <Input
             value={label}
             autoFocus

@@ -114,7 +114,8 @@ const DEMO_POLICY: OvertimePolicy = {
   graceMinutes: 15,
 };
 
-const recordKey = (employeeId: string, onDate: string) => `${employeeId}:${onDate}`;
+const recordKey = (employeeId: string, onDate: string) =>
+  `${employeeId}:${onDate}`;
 
 /* --------------------------------------------------------------- the shapes */
 
@@ -147,7 +148,10 @@ function totalsOf(
   );
 }
 
-const withCap = (record: OvertimeRecord, policy: OvertimePolicy): OvertimeRow => ({
+const withCap = (
+  record: OvertimeRecord,
+  policy: OvertimePolicy,
+): OvertimeRow => ({
   ...record,
   atCap: isAtCap(record.minutes, policy),
 });
@@ -232,7 +236,8 @@ export function useOvertimePolicy(): PolicyState {
         setError(null);
       } catch (caught) {
         if (cancelled) return;
-        if (caught instanceof DOMException && caught.name === "AbortError") return;
+        if (caught instanceof DOMException && caught.name === "AbortError")
+          return;
         setError(
           caught instanceof ApiError
             ? caught.message
@@ -252,7 +257,9 @@ export function useOvertimePolicy(): PolicyState {
   );
 
   const fromApi = fetched?.connected === true ? fetched.policy : null;
-  const policy = isConnected ? (fromApi ?? DEFAULT_OVERTIME_POLICY) : demoPolicy;
+  const policy = isConnected
+    ? (fromApi ?? DEFAULT_OVERTIME_POLICY)
+    : demoPolicy;
 
   const save = useCallback(
     async (patch: Partial<OvertimePolicy>): Promise<OvertimePolicy> => {
@@ -306,7 +313,10 @@ function useDemoInputs() {
            which readers already handle, rather than a rate of zero. */
         employees.all
           .filter((employee) => employee.grossMonthly !== null)
-          .map((employee) => [employee.id, Math.round(employee.grossMonthly! * 100)]),
+          .map((employee) => [
+            employee.id,
+            Math.round(employee.grossMonthly! * 100),
+          ]),
       ),
     [employees.all],
   );
@@ -429,7 +439,8 @@ export function useOvertime({
         });
         setError(null);
       } catch (caught) {
-        if (caught instanceof DOMException && caught.name === "AbortError") return;
+        if (caught instanceof DOMException && caught.name === "AbortError")
+          return;
         if (ticket !== latest.current) return;
         setError(
           caught instanceof ApiError
@@ -451,14 +462,17 @@ export function useOvertime({
       .filter((record) => status === "ALL" || record.status === status)
       .map((record) => toRecord(record, demo.names.get(record.employeeId)))
       .sort(
-        (a, b) => b.onDate.localeCompare(a.onDate) || a.name.localeCompare(b.name),
+        (a, b) =>
+          b.onDate.localeCompare(a.onDate) || a.name.localeCompare(b.name),
       );
   }, [isConnected, state.records, period, status, demo.names]);
 
   const demoAwaiting = useMemo(() => {
     if (isConnected) return NOTHING;
     return totalsOf(
-      Object.values(state.records).filter((record) => record.status === "PENDING"),
+      Object.values(state.records).filter(
+        (record) => record.status === "PENDING",
+      ),
     );
   }, [isConnected, state.records]);
 
@@ -481,7 +495,9 @@ export function useOvertime({
       }
 
       const derived = deriveOvertime({
-        entries: demo.entries.filter((entry) => entry.date.startsWith(forPeriod)),
+        entries: demo.entries.filter((entry) =>
+          entry.date.startsWith(forPeriod),
+        ),
         grossMonthlyKobo: demo.grossMonthlyKobo,
         policy,
         shiftEnd: demo.attendancePolicy.shiftEnd,
@@ -520,7 +536,8 @@ export function useOvertime({
              way the API's update does — an approved day whose hours were
              corrected stays approved, at the corrected amount. */
           status:
-            existing?.status ?? (policy.requiresApproval ? "PENDING" : "APPROVED"),
+            existing?.status ??
+            (policy.requiresApproval ? "PENDING" : "APPROVED"),
           declinedReason: existing?.declinedReason ?? null,
           approvedById: existing?.approvedById ?? null,
           approvedAt: existing?.approvedAt ?? null,
@@ -544,7 +561,11 @@ export function useOvertime({
   const decide = useCallback(
     async (id: string, approve: boolean, reason?: string) => {
       if (!approve && !reason?.trim()) {
-        throw new ApiError(422, "unprocessable", "Say why you are turning it down.");
+        throw new ApiError(
+          422,
+          "unprocessable",
+          "Say why you are turning it down.",
+        );
       }
 
       if (isConnected) {
@@ -560,7 +581,8 @@ export function useOvertime({
       const entry = Object.entries(current.records).find(
         ([, record]) => record.id === id,
       );
-      if (!entry) throw new ApiError(404, "not_found", "No such overtime record.");
+      if (!entry)
+        throw new ApiError(404, "not_found", "No such overtime record.");
       const [at, record] = entry;
 
       if (record.status === "PAID") {
@@ -571,7 +593,11 @@ export function useOvertime({
         );
       }
       if (record.employeeId === actingId) {
-        throw new ApiError(409, "conflict", "You cannot approve your own overtime.");
+        throw new ApiError(
+          409,
+          "conflict",
+          "You cannot approve your own overtime.",
+        );
       }
 
       store.commit({

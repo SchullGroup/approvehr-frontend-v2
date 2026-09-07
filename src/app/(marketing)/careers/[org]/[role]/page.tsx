@@ -95,7 +95,10 @@ export default async function RolePage({
             <p className="mt-5 text-lead text-slate-muted">{role.summary}</p>
 
             <dl className="mt-8 flex flex-wrap gap-2.5">
-              <Fact label="Type of work" value={workTypeLabel(role.employmentType)} />
+              <Fact
+                label="Type of work"
+                value={workTypeLabel(role.employmentType)}
+              />
               {role.location && (
                 <Fact
                   label="Where"
@@ -108,7 +111,9 @@ export default async function RolePage({
                 <Fact
                   label="Last day to apply"
                   value={readableDate(role.closesOn)}
-                  icon={<CalendarClock aria-hidden="true" className="size-3.5" />}
+                  icon={
+                    <CalendarClock aria-hidden="true" className="size-3.5" />
+                  }
                 />
               )}
             </dl>

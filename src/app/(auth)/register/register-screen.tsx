@@ -5,13 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import { ApiError } from "@/lib/api/client";
-import {
-  Button,
-  ButtonLink,
-  Callout,
-  Field,
-  Input,
-} from "@/components/ui";
+import { Button, ButtonLink, Callout, Field, Input } from "@/components/ui";
 import { account, passwordAccepted } from "@/lib/api/account";
 import { stashPendingVerification } from "@/lib/pending-email-verification";
 import { markSignedIn } from "@/lib/store/session";
@@ -115,7 +109,8 @@ export function RegisterScreen() {
      with field-level detail is shown on the field itself; only errors with no
      field to sit on become a banner. */
   const taken = error?.code === "conflict";
-  const banner = error && !taken && error.fieldErrors.length === 0 ? error : null;
+  const banner =
+    error && !taken && error.fieldErrors.length === 0 ? error : null;
 
   return (
     <>

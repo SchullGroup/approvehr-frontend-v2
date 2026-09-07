@@ -141,7 +141,11 @@ export function PoliciesScreen() {
         )}
 
         {policies.error && (
-          <LoadFailure subject="the handbook" error={policies.error}  onRetry={policies.reload}/>
+          <LoadFailure
+            subject="the handbook"
+            error={policies.error}
+            onRetry={policies.reload}
+          />
         )}
 
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -262,7 +266,10 @@ export function PoliciesScreen() {
             setWithdrawing(target);
           }}
           onSave={async (body) => {
-            const ok = await run(() => policies.update(editing.id, body), "Saved");
+            const ok = await run(
+              () => policies.update(editing.id, body),
+              "Saved",
+            );
             if (ok) setEditing(null);
           }}
         />
@@ -401,7 +408,11 @@ function PolicyRow({
             !policy.archived &&
             policy.requiresAcknowledgement &&
             policy.fullyAccepted && (
-              <Badge tone="success" size="sm" icon={<Check aria-hidden="true" />}>
+              <Badge
+                tone="success"
+                size="sm"
+                icon={<Check aria-hidden="true" />}
+              >
                 Everyone
               </Badge>
             )}
@@ -479,7 +490,8 @@ function WriteSectionModal({
   const [mustAccept, setMustAccept] = useState(true);
   const [busy, setBusy] = useState(false);
 
-  const ready = title.trim().length >= MIN_TITLE && wording.trim().length >= MIN_BODY;
+  const ready =
+    title.trim().length >= MIN_TITLE && wording.trim().length >= MIN_BODY;
 
   const submit = (publish: boolean) => {
     setBusy(true);
@@ -506,10 +518,18 @@ function WriteSectionModal({
               : "Publishing puts it in the handbook to read."}
           </p>
           <div className="flex gap-2">
-            <Button variant="secondary" disabled={!ready || busy} onClick={() => submit(false)}>
+            <Button
+              variant="secondary"
+              disabled={!ready || busy}
+              onClick={() => submit(false)}
+            >
               Save as a draft
             </Button>
-            <Button variant="accent" disabled={!ready || busy} onClick={() => submit(true)}>
+            <Button
+              variant="accent"
+              disabled={!ready || busy}
+              onClick={() => submit(true)}
+            >
               {busy ? "Working…" : "Publish now"}
             </Button>
           </div>
@@ -623,7 +643,9 @@ function EditSectionModal({
             </Button>
             <Button
               variant="accent"
-              disabled={busy || title.trim().length < MIN_TITLE || !wordingReady}
+              disabled={
+                busy || title.trim().length < MIN_TITLE || !wordingReady
+              }
               onClick={() => {
                 setBusy(true);
                 void onSave({
@@ -738,7 +760,8 @@ function PublishModal({
   const [busy, setBusy] = useState(false);
 
   const shown = wording ?? current.policy?.body ?? "";
-  const changed = wording !== null && wording.trim() !== (current.policy?.body ?? "");
+  const changed =
+    wording !== null && wording.trim() !== (current.policy?.body ?? "");
   const ready = policy.published
     ? !current.loading && shown.trim().length >= MIN_BODY
     : true;
@@ -885,7 +908,10 @@ function ChaseDrawer({
           value={state}
           onChange={setState}
           options={[
-            { value: "outstanding", label: `Not accepted (${policy.outstandingCount})` },
+            {
+              value: "outstanding",
+              label: `Not accepted (${policy.outstandingCount})`,
+            },
             { value: "accepted", label: `Accepted (${policy.acceptedCount})` },
           ]}
         />
@@ -900,7 +926,7 @@ function ChaseDrawer({
             Loading
           </div>
         ) : list.error ? (
-          <LoadFailure subject="the list" error={list.error}/>
+          <LoadFailure subject="the list" error={list.error} />
         ) : list.rows.length === 0 ? (
           <p className="text-body-sm text-body">
             {state === "outstanding"
@@ -927,7 +953,9 @@ function ChaseDrawer({
                     <>
                       Accepted {dayLabel(row.acceptedAt?.slice(0, 10) ?? null)}
                       {row.ipAddress && (
-                        <span className="block text-faint">from {row.ipAddress}</span>
+                        <span className="block text-faint">
+                          from {row.ipAddress}
+                        </span>
                       )}
                     </>
                   ) : row.previouslyAcceptedVersion !== null ? (

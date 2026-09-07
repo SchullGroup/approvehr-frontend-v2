@@ -110,7 +110,10 @@ export function putToStorage(
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("PUT", presigned.url, true);
-    xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+    xhr.setRequestHeader(
+      "Content-Type",
+      file.type || "application/octet-stream",
+    );
 
     xhr.upload.addEventListener("progress", (event) => {
       if (event.lengthComputable && onProgress) {
@@ -127,13 +130,21 @@ export function putToStorage(
          reader anything useful about which, and the status code is not
          something to put in front of a payroll clerk — see
          `components/portal/load-failure.tsx` for the same argument. */
-      reject(new Error("The file could not be stored. Try attaching it again."));
+      reject(
+        new Error("The file could not be stored. Try attaching it again."),
+      );
     });
 
     xhr.addEventListener("error", () =>
-      reject(new Error("The upload did not finish. Check your connection and try again.")),
+      reject(
+        new Error(
+          "The upload did not finish. Check your connection and try again.",
+        ),
+      ),
     );
-    xhr.addEventListener("abort", () => reject(new Error("The upload was stopped.")));
+    xhr.addEventListener("abort", () =>
+      reject(new Error("The upload was stopped.")),
+    );
 
     xhr.send(file);
   });

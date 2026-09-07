@@ -145,7 +145,9 @@ function RailSegment({
         )}
       >
         {segment.label}
-        {live && <span className="sr-only"> — the stage this period is in</span>}
+        {live && (
+          <span className="sr-only"> — the stage this period is in</span>
+        )}
       </p>
 
       {!showFigures ? (

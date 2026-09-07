@@ -53,10 +53,7 @@ import { MODULES, type ModuleId } from "@/lib/marketing/modules";
  * derived. Anything that can move at runtime has to be a key, not a number.
  */
 export type BadgeSource =
-  | "approvals"
-  | "pendingLeave"
-  | "notClockedIn"
-  | "unreadNotifications";
+  "approvals" | "pendingLeave" | "notClockedIn" | "unreadNotifications";
 
 export type NavItem = {
   href: string;

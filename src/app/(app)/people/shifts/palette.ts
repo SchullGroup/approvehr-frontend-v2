@@ -102,4 +102,5 @@ export function shiftColours(
 export const colourFor = (
   colours: Map<string, ShiftColour>,
   shiftId: string | null,
-): ShiftColour => (shiftId ? colours.get(shiftId) ?? UNKNOWN_SHIFT : UNKNOWN_SHIFT);
+): ShiftColour =>
+  shiftId ? (colours.get(shiftId) ?? UNKNOWN_SHIFT) : UNKNOWN_SHIFT;

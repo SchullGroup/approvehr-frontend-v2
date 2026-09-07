@@ -108,7 +108,8 @@ export function ScoreHistoryScreen({ employeeId }: { employeeId: string }) {
         <LoadFailure
           subject="this person's score history"
           error={detail.error}
-         onRetry={detail.reload}/>
+          onRetry={detail.reload}
+        />
 
         {detail.loading && (
           <Card>

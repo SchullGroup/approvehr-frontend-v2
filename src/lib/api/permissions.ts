@@ -234,7 +234,10 @@ export const permissionsApi = {
    * The fix is a `GET /permissions/users` on the backend. Until it exists, this
    * is the honest version.
    */
-  async assignable(roleIds: string[], signal?: AbortSignal): Promise<RoleMember[]> {
+  async assignable(
+    roleIds: string[],
+    signal?: AbortSignal,
+  ): Promise<RoleMember[]> {
     const pages = await Promise.all(
       roleIds.map((roleId) =>
         permissionsApi
@@ -260,7 +263,10 @@ export const permissionsApi = {
    * because the answer needed is "any?", and `meta.total` carries it without
    * transferring a team.
    */
-  async directReportCount(employeeId: string, signal?: AbortSignal): Promise<number> {
+  async directReportCount(
+    employeeId: string,
+    signal?: AbortSignal,
+  ): Promise<number> {
     const result = await requestPaged<{ id: string }>("/employees", {
       query: { managerId: employeeId, pageSize: 1 },
       ...(signal ? { signal } : {}),

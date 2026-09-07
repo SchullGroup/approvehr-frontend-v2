@@ -186,7 +186,12 @@ const store = createPersistedState<Stored>({
 
 export type EmployeeDraftState = {
   /** Present only when something was actually saved. */
-  saved: { draft: EmployeeDraft; open: OpenGroups; step: number; savedAt: string } | null;
+  saved: {
+    draft: EmployeeDraft;
+    open: OpenGroups;
+    step: number;
+    savedAt: string;
+  } | null;
   /** Write the whole draft. Called from an explicit press, never on keystroke. */
   save: (draft: EmployeeDraft, open: OpenGroups, step: number) => void;
   /** Throw it away. Used by Discard, and by a successful create. */

@@ -85,7 +85,8 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     label: "Payroll can pay them",
     owner: "hr",
     dueOffsetDays: 0,
-    fromRecord: (e) => Boolean(e.bankAccount) && Boolean(e.pensionPin) && Boolean(e.tin),
+    fromRecord: (e) =>
+      Boolean(e.bankAccount) && Boolean(e.pensionPin) && Boolean(e.tin),
   },
   {
     id: "o6",

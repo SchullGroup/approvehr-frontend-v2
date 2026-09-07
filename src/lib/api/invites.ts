@@ -175,8 +175,7 @@ export const invitesApi = {
     name: string;
     url: string;
     expiresAt: string;
-  }> =>
-    request(`/invites/${userId}/link`, { method: "POST" }),
+  }> => request(`/invites/${userId}/link`, { method: "POST" }),
 
   resend: (userId: string): Promise<SentInvite> =>
     request<SentInvite>(`/invites/${userId}/resend`, { method: "POST" }),

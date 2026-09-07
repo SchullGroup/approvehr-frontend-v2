@@ -47,7 +47,9 @@ import { PolicyDrawer } from "./policy-drawer";
 export function MyPolicies({ className }: { className?: string }) {
   const mine = useMyPolicies();
   const toast = useToast();
-  const [opening, setOpening] = useState<{ id: string; title: string } | null>(null);
+  const [opening, setOpening] = useState<{ id: string; title: string } | null>(
+    null,
+  );
   const [busy, setBusy] = useState<string | null>(null);
 
   const accept = async (id: string, title: string) => {
@@ -88,13 +90,19 @@ export function MyPolicies({ className }: { className?: string }) {
           description={
             mine.counts.outstanding > 0
               ? `${mine.counts.outstanding} ${
-                  mine.counts.outstanding === 1 ? "section needs" : "sections need"
+                  mine.counts.outstanding === 1
+                    ? "section needs"
+                    : "sections need"
                 } your acceptance.`
               : "Nothing waiting on you."
           }
           action={
             mine.counts.outstanding === 0 && mine.counts.accepted > 0 ? (
-              <Badge tone="success" size="sm" icon={<Check aria-hidden="true" />}>
+              <Badge
+                tone="success"
+                size="sm"
+                icon={<Check aria-hidden="true" />}
+              >
                 Up to date
               </Badge>
             ) : undefined
@@ -123,8 +131,9 @@ export function MyPolicies({ className }: { className?: string }) {
                     <p className="mt-0.5 text-body-sm text-body">
                       {policy.previouslyAcceptedVersion !== null ? (
                         <>
-                          You accepted version {policy.previouslyAcceptedVersion}.
-                          The wording has changed.
+                          You accepted version{" "}
+                          {policy.previouslyAcceptedVersion}. The wording has
+                          changed.
                         </>
                       ) : (
                         <>

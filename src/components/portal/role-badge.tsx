@@ -1,6 +1,12 @@
 "use client";
 
-import { Crown, KeyRound, ShieldCheck, UserRound, UsersRound } from "lucide-react";
+import {
+  Crown,
+  KeyRound,
+  ShieldCheck,
+  UserRound,
+  UsersRound,
+} from "lucide-react";
 import { Badge, type BadgeTone } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import {
@@ -105,8 +111,11 @@ export function RoleBadge({
                 roles behind the "+1" are also stated in text. The visible label
                 is read normally, so this only carries what it cannot. */}
             <span className="sr-only">
-              , and {extra.length === 1 ? "one other role" : `${extra.length} other roles`}:{" "}
-              {extra.map((role) => role.name).join(", ")}
+              , and{" "}
+              {extra.length === 1
+                ? "one other role"
+                : `${extra.length} other roles`}
+              : {extra.map((role) => role.name).join(", ")}
             </span>
           </>
         )}

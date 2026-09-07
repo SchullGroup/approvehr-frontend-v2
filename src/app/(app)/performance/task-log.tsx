@@ -7,15 +7,13 @@ import { ApiError } from "@/lib/api/client";
 import type { ApiKeyResult, ApiTask } from "@/lib/api/performance";
 import { useGoalTasks, useTaskActions } from "@/lib/store/performance";
 
-const GRADE_LABEL: Record<
-  NonNullable<ApiTask["grade"]> | "UNGRADED",
-  string
-> = {
-  COMPLETED: "Done",
-  PARTIALLY_COMPLETED: "Partly done",
-  NOT_COMPLETED: "Not done",
-  UNGRADED: "Not graded yet",
-};
+const GRADE_LABEL: Record<NonNullable<ApiTask["grade"]> | "UNGRADED", string> =
+  {
+    COMPLETED: "Done",
+    PARTIALLY_COMPLETED: "Partly done",
+    NOT_COMPLETED: "Not done",
+    UNGRADED: "Not graded yet",
+  };
 
 const GRADE_TONE: Record<
   NonNullable<ApiTask["grade"]> | "UNGRADED",

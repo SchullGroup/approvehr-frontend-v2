@@ -84,7 +84,8 @@ export function InlineMoney({
           /* Enter saves, Escape cancels. On a table somebody is working down,
              reaching for a mouse per row is the slow part. */
           onKeyDown={(event) => {
-            if (event.key === "Enter" && valid) onSave(Math.round(parsed * 100));
+            if (event.key === "Enter" && valid)
+              onSave(Math.round(parsed * 100));
             if (event.key === "Escape") onCancel();
           }}
         />
@@ -95,7 +96,11 @@ export function InlineMoney({
           onClick={() => onSave(Math.round(parsed * 100))}
           className="flex size-8 items-center justify-center rounded-md border border-line text-accent-text hover:bg-canvas disabled:text-faint"
         >
-          {saving ? <Spinner size="sm" /> : <Check aria-hidden="true" className="size-4" />}
+          {saving ? (
+            <Spinner size="sm" />
+          ) : (
+            <Check aria-hidden="true" className="size-4" />
+          )}
         </button>
         <button
           type="button"
@@ -168,7 +173,11 @@ export function InlineHours({
           onClick={() => onSave(parsed)}
           className="flex size-8 items-center justify-center rounded-md border border-line text-accent-text hover:bg-canvas disabled:text-faint"
         >
-          {saving ? <Spinner size="sm" /> : <Check aria-hidden="true" className="size-4" />}
+          {saving ? (
+            <Spinner size="sm" />
+          ) : (
+            <Check aria-hidden="true" className="size-4" />
+          )}
         </button>
         <button
           type="button"

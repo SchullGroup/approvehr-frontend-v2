@@ -140,9 +140,18 @@ const STATUS_TONE: Record<PostingStatus, "neutral" | "success" | "warning"> = {
  * with. Returns null when neither end is set, which is normal here — plenty of
  * Nigerian adverts do not quote pay.
  */
-function salaryBand(minKobo: number | null, maxKobo: number | null): string | null {
-  const min = minKobo === null ? null : formatMoney(naira(minKobo), "NGN", { decimals: true });
-  const max = maxKobo === null ? null : formatMoney(naira(maxKobo), "NGN", { decimals: true });
+function salaryBand(
+  minKobo: number | null,
+  maxKobo: number | null,
+): string | null {
+  const min =
+    minKobo === null
+      ? null
+      : formatMoney(naira(minKobo), "NGN", { decimals: true });
+  const max =
+    maxKobo === null
+      ? null
+      : formatMoney(naira(maxKobo), "NGN", { decimals: true });
   if (min && max) return min === max ? min : `${min} – ${max}`;
   if (min) return `${min} and up`;
   if (max) return `Up to ${max}`;
@@ -225,12 +234,20 @@ function Adverts() {
         breadcrumb={[{ href: "/hiring", label: "Pipeline" }]}
         action={
           <>
-            <ButtonLink href="/hiring/postings/applications" variant="secondary" size="sm">
+            <ButtonLink
+              href="/hiring/postings/applications"
+              variant="secondary"
+              size="sm"
+            >
               Applications
               {totals && totals.waiting > 0 ? ` (${totals.waiting})` : ""}
             </ButtonLink>
             {postings.editable && (
-              <Button variant="accent" size="sm" onClick={() => setCreating(true)}>
+              <Button
+                variant="accent"
+                size="sm"
+                onClick={() => setCreating(true)}
+              >
                 <Plus aria-hidden="true" className="size-4" />
                 New advert
               </Button>
@@ -248,7 +265,11 @@ function Adverts() {
         )}
 
         {postings.error && (
-          <LoadFailure subject="your adverts" error={postings.error}  onRetry={postings.reload}/>
+          <LoadFailure
+            subject="your adverts"
+            error={postings.error}
+            onRetry={postings.reload}
+          />
         )}
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -376,7 +397,8 @@ function Adverts() {
           {postings.total > postings.postings.length && (
             <CardBody className="border-t border-line">
               <p className="text-body-sm text-muted">
-                Showing the newest {postings.postings.length} of {postings.total}.
+                Showing the newest {postings.postings.length} of{" "}
+                {postings.total}.
               </p>
             </CardBody>
           )}
@@ -510,7 +532,9 @@ function AdvertRow({
       </TD>
 
       <TD align="right">
-        <span className="tabular text-body-sm text-ink">{posting.applicationCount}</span>
+        <span className="tabular text-body-sm text-ink">
+          {posting.applicationCount}
+        </span>
         {waiting > 0 && (
           <Link
             href={`/hiring/postings/applications?posting=${posting.id}`}
@@ -538,11 +562,12 @@ function AdvertRow({
         {posting.closesOn ? (
           <span className="tabular text-body-sm text-body">
             {posting.closesOn}
-            {!posting.acceptingApplications && posting.status === "PUBLISHED" && (
-              <span className="mt-0.5 block text-meta text-warning-text">
-                Date has passed
-              </span>
-            )}
+            {!posting.acceptingApplications &&
+              posting.status === "PUBLISHED" && (
+                <span className="mt-0.5 block text-meta text-warning-text">
+                  Date has passed
+                </span>
+              )}
           </span>
         ) : (
           <span className="text-body-sm text-faint">Open</span>

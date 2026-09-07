@@ -134,7 +134,9 @@ export function buildSchedule({
 
   /* Rounded once, here, so every figure downstream divides from a whole
      number of kobo. */
-  const interestKobo = Math.round((principalKobo * interestRate * termMonths) / 12);
+  const interestKobo = Math.round(
+    (principalKobo * interestRate * termMonths) / 12,
+  );
   const totalKobo = principalKobo + interestKobo;
   const instalmentKobo = Math.floor(totalKobo / termMonths);
 
@@ -194,7 +196,12 @@ export function priceLoan(input: {
      schedule to draw. The API says the same thing with a 422. */
   if (Math.floor(principalKobo / termMonths) === 0) return null;
   try {
-    return buildSchedule({ principalKobo, termMonths, interestRate, startPeriod });
+    return buildSchedule({
+      principalKobo,
+      termMonths,
+      interestRate,
+      startPeriod,
+    });
   } catch {
     return null;
   }

@@ -50,15 +50,12 @@ import { request, requestPaged, type Paged } from "@/lib/api/client";
 export type PostingStatus = "DRAFT" | "PUBLISHED" | "CLOSED";
 
 /** Mirrors `JobApplicationStatus`. `WITHDRAWN` is set by nothing in this API yet. */
-export type ApplicationStatus = "RECEIVED" | "ADVANCED" | "DECLINED" | "WITHDRAWN";
+export type ApplicationStatus =
+  "RECEIVED" | "ADVANCED" | "DECLINED" | "WITHDRAWN";
 
 /** Mirrors `EmploymentType`. NYSC is a Nigerian service year placement. */
 export type EmploymentType =
-  | "FULL_TIME"
-  | "PART_TIME"
-  | "CONTRACT"
-  | "INTERN"
-  | "NYSC";
+  "FULL_TIME" | "PART_TIME" | "CONTRACT" | "INTERN" | "NYSC";
 
 export const EMPLOYMENT_TYPES: readonly EmploymentType[] = [
   "FULL_TIME",
@@ -78,12 +75,7 @@ export const EMPLOYMENT_TYPE_LABEL: Record<EmploymentType, string> = {
 };
 
 export type RequisitionStatus =
-  | "DRAFT"
-  | "PENDING_APPROVAL"
-  | "OPEN"
-  | "ON_HOLD"
-  | "FILLED"
-  | "CANCELLED";
+  "DRAFT" | "PENDING_APPROVAL" | "OPEN" | "ON_HOLD" | "FILLED" | "CANCELLED";
 
 /** An advert, as every internal list returns it. */
 export type ApiPosting = {
@@ -382,7 +374,10 @@ export const careersApi = {
       method: "POST",
     }),
 
-  listApplications: (params: ApplicationListParams = {}, signal?: AbortSignal) =>
+  listApplications: (
+    params: ApplicationListParams = {},
+    signal?: AbortSignal,
+  ) =>
     requestPaged<ApiApplication>("/careers/applications", {
       query: applicationQuery(params),
       ...(signal ? { signal } : {}),
@@ -438,7 +433,8 @@ export const kobo = (amount: number): number => Math.round(amount * 100);
  * on this frontend is `/careers`. Kept in one function so the internal "copy
  * link" control and the marketing routes cannot disagree about the shape.
  */
-export const careersPath = (publicPath: string): string => `/careers${publicPath}`;
+export const careersPath = (publicPath: string): string =>
+  `/careers${publicPath}`;
 
 /**
  * The same link, absolute, for pasting into WhatsApp.
@@ -451,7 +447,9 @@ export const careersPath = (publicPath: string): string => `/careers${publicPath
  * the two ship together, as they do in this repo.
  */
 export function careersUrl(publicPath: string): string {
-  const configured = process.env["NEXT_PUBLIC_SITE_URL"]?.trim().replace(/\/$/, "");
+  const configured = process.env["NEXT_PUBLIC_SITE_URL"]
+    ?.trim()
+    .replace(/\/$/, "");
   const origin =
     configured || (typeof window === "undefined" ? "" : window.location.origin);
   return `${origin}${careersPath(publicPath)}`;

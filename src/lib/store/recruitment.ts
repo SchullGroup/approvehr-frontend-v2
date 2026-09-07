@@ -44,7 +44,11 @@ import { useRevalidation } from "@/lib/revalidate";
  */
 
 function offlineError(action: string): ApiError {
-  return new ApiError(0, "offline", `${action} needs the API. Start it and sign in again.`);
+  return new ApiError(
+    0,
+    "offline",
+    `${action} needs the API. Start it and sign in again.`,
+  );
 }
 
 /* -------------------------------------------------------------- requisitions */
@@ -58,7 +62,9 @@ export type RequisitionListState = {
   reload: () => void;
 };
 
-export function useRequisitions(params: RequisitionListParams = {}): RequisitionListState {
+export function useRequisitions(
+  params: RequisitionListParams = {},
+): RequisitionListState {
   const { isConnected } = useSession();
   const [state, setState] = useState<{
     requisitions: ApiRequisition[];
@@ -80,11 +86,20 @@ export function useRequisitions(params: RequisitionListParams = {}): Requisition
         controller.signal,
       );
       if (ticket !== latest.current) return;
-      setState({ requisitions: page.data, total: page.meta.total, loading: false, error: null });
+      setState({
+        requisitions: page.data,
+        total: page.meta.total,
+        loading: false,
+        error: null,
+      });
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       if (ticket !== latest.current) return;
-      setState((s) => ({ ...s, loading: false, error: error instanceof ApiError ? error : null }));
+      setState((s) => ({
+        ...s,
+        loading: false,
+        error: error instanceof ApiError ? error : null,
+      }));
     }
   }, [isConnected, key]);
 
@@ -94,7 +109,14 @@ export function useRequisitions(params: RequisitionListParams = {}): Requisition
   }, [load, revalidation]);
 
   if (!isConnected) {
-    return { requisitions: [], total: 0, loading: false, error: null, connected: false, reload: () => {} };
+    return {
+      requisitions: [],
+      total: 0,
+      loading: false,
+      error: null,
+      connected: false,
+      reload: () => {},
+    };
   }
   return { ...state, connected: true, reload: load };
 }
@@ -108,7 +130,9 @@ export type RequisitionDetailState = {
   reload: () => void;
 };
 
-export function useRequisitionDetail(id: string | undefined): RequisitionDetailState {
+export function useRequisitionDetail(
+  id: string | undefined,
+): RequisitionDetailState {
   const { isConnected, isLoading } = useSession();
   const [nonce, setNonce] = useState(0);
   const [fetched, setFetched] = useState<{
@@ -130,9 +154,15 @@ export function useRequisitionDetail(id: string | undefined): RequisitionDetailS
         const row = await recruitmentApi.getRequisition(id, controller.signal);
         if (!cancelled) setFetched({ id, nonce, row, error: null });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
-          setFetched({ id, nonce, row: null, error: error instanceof ApiError ? error : null });
+          setFetched({
+            id,
+            nonce,
+            row: null,
+            error: error instanceof ApiError ? error : null,
+          });
         }
       }
     })();
@@ -145,13 +175,28 @@ export function useRequisitionDetail(id: string | undefined): RequisitionDetailS
   const reload = useCallback(() => setNonce((n) => n + 1), []);
 
   if (!isConnected) {
-    return { requisition: null, loading: false, error: null, connected: false, notFound: false, reload };
+    return {
+      requisition: null,
+      loading: false,
+      error: null,
+      connected: false,
+      notFound: false,
+      reload,
+    };
   }
   if (!id) {
-    return { requisition: null, loading: false, error: null, connected: true, notFound: true, reload };
+    return {
+      requisition: null,
+      loading: false,
+      error: null,
+      connected: true,
+      notFound: true,
+      reload,
+    };
   }
 
-  const matched = fetched !== null && fetched.id === id && fetched.nonce === nonce;
+  const matched =
+    fetched !== null && fetched.id === id && fetched.nonce === nonce;
   const row = matched ? fetched.row : null;
   const error = matched ? fetched.error : null;
 
@@ -225,7 +270,17 @@ export function useRequisitionMutations() {
     [isConnected],
   );
 
-  return { create, update, submit, approve, hold, reopen, fill, cancel, connected: isConnected };
+  return {
+    create,
+    update,
+    submit,
+    approve,
+    hold,
+    reopen,
+    fill,
+    cancel,
+    connected: isConnected,
+  };
 }
 
 export type StageListState = {
@@ -253,12 +308,22 @@ export function useStages(requisitionId: string | undefined): StageListState {
     let cancelled = false;
     void (async () => {
       try {
-        const rows = await recruitmentApi.listStages(requisitionId, controller.signal);
-        if (!cancelled) setFetched({ id: requisitionId, nonce, rows, error: null });
+        const rows = await recruitmentApi.listStages(
+          requisitionId,
+          controller.signal,
+        );
+        if (!cancelled)
+          setFetched({ id: requisitionId, nonce, rows, error: null });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
-          setFetched({ id: requisitionId, nonce, rows: [], error: error instanceof ApiError ? error : null });
+          setFetched({
+            id: requisitionId,
+            nonce,
+            rows: [],
+            error: error instanceof ApiError ? error : null,
+          });
         }
       }
     })();
@@ -271,9 +336,16 @@ export function useStages(requisitionId: string | undefined): StageListState {
   const reload = useCallback(() => setNonce((n) => n + 1), []);
 
   if (!isConnected || !requisitionId) {
-    return { stages: [], loading: false, error: null, connected: isConnected, reload };
+    return {
+      stages: [],
+      loading: false,
+      error: null,
+      connected: isConnected,
+      reload,
+    };
   }
-  const matched = fetched !== null && fetched.id === requisitionId && fetched.nonce === nonce;
+  const matched =
+    fetched !== null && fetched.id === requisitionId && fetched.nonce === nonce;
   return {
     stages: matched ? fetched.rows : [],
     loading: !matched,
@@ -355,11 +427,20 @@ export function useApplicationsForRequisition(
         controller.signal,
       );
       if (ticket !== latest.current) return;
-      setState({ applications: page.data, total: page.meta.total, loading: false, error: null });
+      setState({
+        applications: page.data,
+        total: page.meta.total,
+        loading: false,
+        error: null,
+      });
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       if (ticket !== latest.current) return;
-      setState((s) => ({ ...s, loading: false, error: error instanceof ApiError ? error : null }));
+      setState((s) => ({
+        ...s,
+        loading: false,
+        error: error instanceof ApiError ? error : null,
+      }));
     }
   }, [isConnected, requisitionId, key]);
 
@@ -369,7 +450,14 @@ export function useApplicationsForRequisition(
   }, [load, revalidation]);
 
   if (!isConnected || !requisitionId) {
-    return { applications: [], total: 0, loading: false, error: null, connected: isConnected, reload: () => {} };
+    return {
+      applications: [],
+      total: 0,
+      loading: false,
+      error: null,
+      connected: isConnected,
+      reload: () => {},
+    };
   }
   return { ...state, connected: true, reload: load };
 }
@@ -383,7 +471,9 @@ export type ApplicationDetailState = {
   reload: () => void;
 };
 
-export function useApplicationDetail(id: string | undefined): ApplicationDetailState {
+export function useApplicationDetail(
+  id: string | undefined,
+): ApplicationDetailState {
   const { isConnected, isLoading } = useSession();
   const [nonce, setNonce] = useState(0);
   const [fetched, setFetched] = useState<{
@@ -405,9 +495,15 @@ export function useApplicationDetail(id: string | undefined): ApplicationDetailS
         const row = await recruitmentApi.getApplication(id, controller.signal);
         if (!cancelled) setFetched({ id, nonce, row, error: null });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
-          setFetched({ id, nonce, row: null, error: error instanceof ApiError ? error : null });
+          setFetched({
+            id,
+            nonce,
+            row: null,
+            error: error instanceof ApiError ? error : null,
+          });
         }
       }
     })();
@@ -420,13 +516,28 @@ export function useApplicationDetail(id: string | undefined): ApplicationDetailS
   const reload = useCallback(() => setNonce((n) => n + 1), []);
 
   if (!isConnected) {
-    return { application: null, loading: false, error: null, connected: false, notFound: false, reload };
+    return {
+      application: null,
+      loading: false,
+      error: null,
+      connected: false,
+      notFound: false,
+      reload,
+    };
   }
   if (!id) {
-    return { application: null, loading: false, error: null, connected: true, notFound: true, reload };
+    return {
+      application: null,
+      loading: false,
+      error: null,
+      connected: true,
+      notFound: true,
+      reload,
+    };
   }
 
-  const matched = fetched !== null && fetched.id === id && fetched.nonce === nonce;
+  const matched =
+    fetched !== null && fetched.id === id && fetched.nonce === nonce;
   const row = matched ? fetched.row : null;
   const error = matched ? fetched.error : null;
 
@@ -502,11 +613,20 @@ export function useCandidates(params: CandidateListParams = {}) {
         controller.signal,
       );
       if (ticket !== latest.current) return;
-      setState({ candidates: page.data, total: page.meta.total, loading: false, error: null });
+      setState({
+        candidates: page.data,
+        total: page.meta.total,
+        loading: false,
+        error: null,
+      });
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       if (ticket !== latest.current) return;
-      setState((s) => ({ ...s, loading: false, error: error instanceof ApiError ? error : null }));
+      setState((s) => ({
+        ...s,
+        loading: false,
+        error: error instanceof ApiError ? error : null,
+      }));
     }
   }, [isConnected, key]);
 
@@ -515,7 +635,14 @@ export function useCandidates(params: CandidateListParams = {}) {
   }, [load]);
 
   if (!isConnected) {
-    return { candidates: [], total: 0, loading: false, error: null, connected: false, reload: () => {} };
+    return {
+      candidates: [],
+      total: 0,
+      loading: false,
+      error: null,
+      connected: false,
+      reload: () => {},
+    };
   }
   return { ...state, connected: true, reload: load };
 }
@@ -531,7 +658,9 @@ export type InterviewListState = {
   reload: () => void;
 };
 
-export function useInterviews(params: InterviewListParams = {}): InterviewListState {
+export function useInterviews(
+  params: InterviewListParams = {},
+): InterviewListState {
   const { isConnected } = useSession();
   const [state, setState] = useState<{
     interviews: ApiInterview[];
@@ -553,11 +682,20 @@ export function useInterviews(params: InterviewListParams = {}): InterviewListSt
         controller.signal,
       );
       if (ticket !== latest.current) return;
-      setState({ interviews: page.data, total: page.meta.total, loading: false, error: null });
+      setState({
+        interviews: page.data,
+        total: page.meta.total,
+        loading: false,
+        error: null,
+      });
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       if (ticket !== latest.current) return;
-      setState((s) => ({ ...s, loading: false, error: error instanceof ApiError ? error : null }));
+      setState((s) => ({
+        ...s,
+        loading: false,
+        error: error instanceof ApiError ? error : null,
+      }));
     }
   }, [isConnected, key]);
 
@@ -567,7 +705,14 @@ export function useInterviews(params: InterviewListParams = {}): InterviewListSt
   }, [load, revalidation]);
 
   if (!isConnected) {
-    return { interviews: [], total: 0, loading: false, error: null, connected: false, reload: () => {} };
+    return {
+      interviews: [],
+      total: 0,
+      loading: false,
+      error: null,
+      connected: false,
+      reload: () => {},
+    };
   }
   return { ...state, connected: true, reload: load };
 }
@@ -580,7 +725,9 @@ export type InterviewDetailState = {
   reload: () => void;
 };
 
-export function useInterviewDetail(id: string | undefined): InterviewDetailState {
+export function useInterviewDetail(
+  id: string | undefined,
+): InterviewDetailState {
   const { isConnected, isLoading } = useSession();
   const [nonce, setNonce] = useState(0);
   const [fetched, setFetched] = useState<{
@@ -602,9 +749,15 @@ export function useInterviewDetail(id: string | undefined): InterviewDetailState
         const row = await recruitmentApi.getInterview(id, controller.signal);
         if (!cancelled) setFetched({ id, nonce, row, error: null });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
-          setFetched({ id, nonce, row: null, error: error instanceof ApiError ? error : null });
+          setFetched({
+            id,
+            nonce,
+            row: null,
+            error: error instanceof ApiError ? error : null,
+          });
         }
       }
     })();
@@ -617,9 +770,16 @@ export function useInterviewDetail(id: string | undefined): InterviewDetailState
   const reload = useCallback(() => setNonce((n) => n + 1), []);
 
   if (!isConnected || !id) {
-    return { interview: null, loading: false, error: null, connected: isConnected, reload };
+    return {
+      interview: null,
+      loading: false,
+      error: null,
+      connected: isConnected,
+      reload,
+    };
   }
-  const matched = fetched !== null && fetched.id === id && fetched.nonce === nonce;
+  const matched =
+    fetched !== null && fetched.id === id && fetched.nonce === nonce;
   return {
     interview: matched ? fetched.row : null,
     loading: !matched,
@@ -675,7 +835,15 @@ export function useInterviewMutations() {
     [isConnected],
   );
 
-  return { schedule, reschedule, cancel, complete, noShow, submitScorecard, connected: isConnected };
+  return {
+    schedule,
+    reschedule,
+    cancel,
+    complete,
+    noShow,
+    submitScorecard,
+    connected: isConnected,
+  };
 }
 
 /* ---------------------------------------------------------------------- offers */
@@ -711,11 +879,20 @@ export function useOffers(params: OfferListParams = {}): OfferListState {
         controller.signal,
       );
       if (ticket !== latest.current) return;
-      setState({ offers: page.data, total: page.meta.total, loading: false, error: null });
+      setState({
+        offers: page.data,
+        total: page.meta.total,
+        loading: false,
+        error: null,
+      });
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       if (ticket !== latest.current) return;
-      setState((s) => ({ ...s, loading: false, error: error instanceof ApiError ? error : null }));
+      setState((s) => ({
+        ...s,
+        loading: false,
+        error: error instanceof ApiError ? error : null,
+      }));
     }
   }, [isConnected, key]);
 
@@ -725,7 +902,14 @@ export function useOffers(params: OfferListParams = {}): OfferListState {
   }, [load, revalidation]);
 
   if (!isConnected) {
-    return { offers: [], total: 0, loading: false, error: null, connected: false, reload: () => {} };
+    return {
+      offers: [],
+      total: 0,
+      loading: false,
+      error: null,
+      connected: false,
+      reload: () => {},
+    };
   }
   return { ...state, connected: true, reload: load };
 }
@@ -797,7 +981,18 @@ export function useOfferMutations() {
     [isConnected],
   );
 
-  return { create, update, submit, approve, send, accept, decline, withdraw, redo, connected: isConnected };
+  return {
+    create,
+    update,
+    submit,
+    approve,
+    send,
+    accept,
+    decline,
+    withdraw,
+    redo,
+    connected: isConnected,
+  };
 }
 
 /* ------------------------------------------------------------------- analytics */
@@ -821,9 +1016,14 @@ export function useRecruitmentAnalytics() {
         const analytics = await recruitmentApi.analytics(controller.signal);
         if (!cancelled) setState({ analytics, loading: false, error: null });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
-          setState((s) => ({ ...s, loading: false, error: error instanceof ApiError ? error : null }));
+          setState((s) => ({
+            ...s,
+            loading: false,
+            error: error instanceof ApiError ? error : null,
+          }));
         }
       }
     })();
@@ -869,7 +1069,8 @@ export function useRealPipelineApplication(
     error: ApiError | null;
   } | null>(null);
 
-  const active = isConnected && !isLoading && (Boolean(id) || Boolean(candidateId));
+  const active =
+    isConnected && !isLoading && (Boolean(id) || Boolean(candidateId));
   const [nonce, setNonce] = useState(0);
   const key = `${id ?? ""}:${candidateId ?? ""}:${nonce}`;
 
@@ -883,21 +1084,33 @@ export function useRealPipelineApplication(
       try {
         if (id) {
           try {
-            application = await recruitmentApi.getApplication(id, controller.signal);
+            application = await recruitmentApi.getApplication(
+              id,
+              controller.signal,
+            );
           } catch (error) {
-            if (error instanceof DOMException && error.name === "AbortError") throw error;
+            if (error instanceof DOMException && error.name === "AbortError")
+              throw error;
             application = null;
           }
         }
         if (!application && candidateId) {
-          const candidate = await recruitmentApi.getCandidate(candidateId, controller.signal);
+          const candidate = await recruitmentApi.getCandidate(
+            candidateId,
+            controller.signal,
+          );
           const best =
             candidate.applications.find((a) => a.outcome === "IN_PROGRESS") ??
             candidate.applications[0];
-          if (best) application = await recruitmentApi.getApplication(best.id, controller.signal);
+          if (best)
+            application = await recruitmentApi.getApplication(
+              best.id,
+              controller.signal,
+            );
         }
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         failure = error instanceof ApiError ? error : null;
       }
       if (!cancelled) setState({ key, application, error: failure });
@@ -911,7 +1124,13 @@ export function useRealPipelineApplication(
   const reload = useCallback(() => setNonce((n) => n + 1), []);
 
   if (!isConnected) {
-    return { application: null, loading: false, error: null, connected: false, reload };
+    return {
+      application: null,
+      loading: false,
+      error: null,
+      connected: false,
+      reload,
+    };
   }
   const matched = state !== null && state.key === key;
   return {

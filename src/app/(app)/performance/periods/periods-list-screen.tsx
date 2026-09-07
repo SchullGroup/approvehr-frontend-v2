@@ -66,7 +66,10 @@ export function PeriodsListScreen() {
 
   return (
     <>
-      <PageHeader title="Appraisal periods" action={<StartPeriodButton withIcon />} />
+      <PageHeader
+        title="Appraisal periods"
+        action={<StartPeriodButton withIcon />}
+      />
       <PageBody>
         <PeriodsTab />
       </PageBody>

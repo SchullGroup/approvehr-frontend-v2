@@ -328,7 +328,8 @@ function Unplaced({
   if (!anything) {
     return (
       <Callout tone="success" title="Everybody is on the grid">
-        Every person this period covers has both a mark and a recorded potential.
+        Every person this period covers has both a mark and a recorded
+        potential.
       </Callout>
     );
   }
@@ -403,7 +404,9 @@ function PlaceDialog({
 }) {
   const mutations = useCycleMutations();
   const toast = useToast();
-  const [level, setLevel] = useState<ApiPotentialLevel>(person.potential ?? "MEDIUM");
+  const [level, setLevel] = useState<ApiPotentialLevel>(
+    person.potential ?? "MEDIUM",
+  );
   const [reason, setReason] = useState(person.potentialReason ?? "");
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
@@ -442,7 +445,11 @@ function PlaceDialog({
             disabled={problem !== null}
             onClick={() =>
               void run(
-                () => mutations.setPotential(cycleId, person.employeeId, { level, reason }),
+                () =>
+                  mutations.setPotential(cycleId, person.employeeId, {
+                    level,
+                    reason,
+                  }),
                 person.potential ? "Moved" : "Placed",
               )
             }
@@ -479,7 +486,9 @@ function PlaceDialog({
         <Field label="How far could they go?">
           <Select
             value={level}
-            onChange={(event) => setLevel(event.target.value as ApiPotentialLevel)}
+            onChange={(event) =>
+              setLevel(event.target.value as ApiPotentialLevel)
+            }
           >
             {LEVELS.map((each) => (
               <option key={each} value={each}>
@@ -488,7 +497,11 @@ function PlaceDialog({
             ))}
           </Select>
         </Field>
-        <Callout tone="info" title={POTENTIAL_LABELS[level]} icon={<Info aria-hidden="true" />}>
+        <Callout
+          tone="info"
+          title={POTENTIAL_LABELS[level]}
+          icon={<Info aria-hidden="true" />}
+        >
           {POTENTIAL_MEANING[level]}
         </Callout>
 
@@ -507,13 +520,17 @@ function PlaceDialog({
 
         {person.potential && (
           <p className="text-meta text-faint">
-            Taking the placement off returns them to the not-placed list. It does
-            not move them to the bottom row.
+            Taking the placement off returns them to the not-placed list. It
+            does not move them to the bottom row.
           </p>
         )}
 
         {failure && (
-          <Callout tone="danger" title="That was refused" icon={<TriangleAlert aria-hidden="true" />}>
+          <Callout
+            tone="danger"
+            title="That was refused"
+            icon={<TriangleAlert aria-hidden="true" />}
+          >
             {failure}
           </Callout>
         )}

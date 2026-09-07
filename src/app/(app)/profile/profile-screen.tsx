@@ -246,9 +246,7 @@ export function ProfileScreen({ initialTab }: { initialTab: ProfileTab }) {
             /* Bank account is the only one of the three the person can fix
                themselves; the other two are the company's to enter. So the
                button appears only when it would go somewhere useful. */
-            onFixBank={
-              employee.bankAccount ? undefined : () => change("pay")
-            }
+            onFixBank={employee.bankAccount ? undefined : () => change("pay")}
           />
         )}
 
@@ -364,8 +362,7 @@ function MissingDetails({
             button as well as the meter, and both refuse to shrink. */}
         <div className="min-w-0 flex-1 basis-48">
           <p className="text-body font-semibold text-ink">
-            {gaps.length} {gaps.length === 1 ? "detail" : "details"}{" "}
-            missing
+            {gaps.length} {gaps.length === 1 ? "detail" : "details"} missing
           </p>
           <p className="mt-1 text-body-sm text-body">{gapSentence}</p>
         </div>
@@ -410,7 +407,10 @@ function EmploymentCard({ employee }: { employee: Employee }) {
             { term: "Started", value: employee.startDate },
             { term: "Work location", value: employee.location },
             { term: "Tax state", value: employee.taxState },
-            { term: "Pension PIN", value: employee.pensionPin ?? "Not on file" },
+            {
+              term: "Pension PIN",
+              value: employee.pensionPin ?? "Not on file",
+            },
             {
               term: "Pension provider",
               value: employee.pensionProvider ?? "Not on file",
@@ -424,9 +424,7 @@ function EmploymentCard({ employee }: { employee: Employee }) {
 
 /* -------------------------------------------------------------------------- */
 
-
 /* -------------------------------------------------------------------------- */
-
 
 /* -------------------------------------------------------------------------- */
 
@@ -477,7 +475,9 @@ function TimeOffCard({ employeeId }: { employeeId: string }) {
           <Skeleton className="h-14 w-full" />
         ) : annual ? (
           <div>
-            <p className="text-body-sm text-muted">{annual.leaveType} days left</p>
+            <p className="text-body-sm text-muted">
+              {annual.leaveType} days left
+            </p>
             <p className="text-[1.25rem] font-semibold text-ink">
               {annual.remaining}
               <span className="ml-1 text-body-sm font-normal text-muted">
@@ -659,7 +659,9 @@ function SecurityCard({
               <Button
                 variant="accent"
                 size="sm"
-                disabled={!current || !passwordAccepted(next, strict) || busy !== null}
+                disabled={
+                  !current || !passwordAccepted(next, strict) || busy !== null
+                }
                 onClick={() => void changePassword()}
               >
                 {busy === "password" ? "Changing…" : "Change password"}

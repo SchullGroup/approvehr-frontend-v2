@@ -4,7 +4,8 @@ import { PayslipRoute } from "./index-table";
 
 export const metadata: Metadata = {
   title: "Payslips",
-  description: "Every payslip for the period, and whether it reached the person.",
+  description:
+    "Every payslip for the period, and whether it reached the person.",
 };
 
 export default function PayslipsPage() {

@@ -77,15 +77,21 @@ export function ReleasePanel({
   onDownload: () => Promise<void>;
   busy: boolean;
 }) {
-  const [confirming, setConfirming] = useState<"approve" | "release" | null>(null);
+  const [confirming, setConfirming] = useState<"approve" | "release" | null>(
+    null,
+  );
   const [stopping, setStopping] = useState(false);
   const [recording, setRecording] = useState(false);
 
-  const total = formatMoney(naira(batch.computedTotalKobo), "NGN", { decimals: true });
+  const total = formatMoney(naira(batch.computedTotalKobo), "NGN", {
+    decimals: true,
+  });
   const headcount = people(batch.itemCount);
   const status = BATCH_STATUS[batch.status];
 
-  const blockers = batch.check.discrepancies.filter((d) => d.severity === "BLOCKER");
+  const blockers = batch.check.discrepancies.filter(
+    (d) => d.severity === "BLOCKER",
+  );
 
   return (
     <>
@@ -214,18 +220,28 @@ export function ReleasePanel({
             </div>
           )}
 
-          {!batch.can.approve && !batch.can.submit && batch.can.downloadFile && (
-            <div className="flex flex-wrap items-center gap-3">
-              <Button variant="secondary" loading={busy} onClick={() => void onDownload()}>
-                <ArrowDownToLine aria-hidden="true" className="size-4" />
-                Download payment file
-              </Button>
-            </div>
-          )}
+          {!batch.can.approve &&
+            !batch.can.submit &&
+            batch.can.downloadFile && (
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  variant="secondary"
+                  loading={busy}
+                  onClick={() => void onDownload()}
+                >
+                  <ArrowDownToLine aria-hidden="true" className="size-4" />
+                  Download payment file
+                </Button>
+              </div>
+            )}
 
           {batch.can.cancel && canApprove && (
             <div className="flex flex-wrap items-center gap-3 border-t border-line pt-4">
-              <Button variant="ghost" size="sm" onClick={() => setStopping(true)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setStopping(true)}
+              >
                 <Ban aria-hidden="true" className="size-3.5" />
                 Stop this batch
               </Button>
@@ -278,8 +294,8 @@ export function ReleasePanel({
         body={
           <span className="flex flex-col gap-2">
             <span>
-              Leaving {batch.sourceBankName} {batch.sourceAccountMasked}, reference{" "}
-              {batch.reference}.
+              Leaving {batch.sourceBankName} {batch.sourceAccountMasked},
+              reference {batch.reference}.
             </span>
             <span>This cannot be undone once a bank has taken it.</span>
           </span>

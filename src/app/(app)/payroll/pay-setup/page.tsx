@@ -28,6 +28,8 @@ export default async function PaySetupPage({
   const { tab } = await searchParams;
   const single = Array.isArray(tab) ? tab[0] : tab;
   return (
-    <PaySetupScreen initialTab={isPaySetupTab(single) ? single : "allowances"} />
+    <PaySetupScreen
+      initialTab={isPaySetupTab(single) ? single : "allowances"}
+    />
   );
 }

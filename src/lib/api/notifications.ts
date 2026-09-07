@@ -98,7 +98,9 @@ export const notificationsApi = {
    * record it points at is still there. Keeping the message forever would only
    * make the inbox unusable.
    */
-  remove: (id: string): Promise<{ id: string; deleted: true; unread: number }> =>
+  remove: (
+    id: string,
+  ): Promise<{ id: string; deleted: true; unread: number }> =>
     request<{ id: string; deleted: true; unread: number }>(
       `/notifications/${id}`,
       { method: "DELETE" },

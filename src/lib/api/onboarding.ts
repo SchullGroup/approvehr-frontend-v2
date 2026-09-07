@@ -40,10 +40,7 @@ export type OnboardingStatus = "IN_PROGRESS" | "COMPLETED";
  * other three each name the employee field(s) that answer the task instead.
  */
 export type OnboardingDerivedCheck =
-  | "NONE"
-  | "BANK_AND_PENSION"
-  | "TIN_AND_NHF"
-  | "PAYROLL_READY";
+  "NONE" | "BANK_AND_PENSION" | "TIN_AND_NHF" | "PAYROLL_READY";
 
 /* ----------------------------------------------------------------- shapes */
 
@@ -140,8 +137,18 @@ export type ApiOnboardingReadiness = {
   progress: ApiOnboardingProgress;
   approvals: {
     /** False when the person has no manager on their record. */
-    manager: { required: boolean; done: boolean; byName: string | null; at: string | null };
-    hr: { required: boolean; done: boolean; byName: string | null; at: string | null };
+    manager: {
+      required: boolean;
+      done: boolean;
+      byName: string | null;
+      at: string | null;
+    };
+    hr: {
+      required: boolean;
+      done: boolean;
+      byName: string | null;
+      at: string | null;
+    };
   };
   canComplete: boolean;
   blockers: string[];
@@ -270,17 +277,25 @@ export const onboardingApi = {
    * suggested list — nothing seeds it on its own (PARITY.md Rule 3 still
    * applies: adopting is a choice, not something that happens to a company).
    */
-  templates: (params: { includeInactive?: boolean } = {}, signal?: AbortSignal) =>
+  templates: (
+    params: { includeInactive?: boolean } = {},
+    signal?: AbortSignal,
+  ) =>
     request<{
       rows: ApiOnboardingTemplate[];
       counts: { total: number; active: number; mandatory: number };
     }>("/onboarding/templates", {
-      query: { includeInactive: params.includeInactive === true ? "true" : undefined },
+      query: {
+        includeInactive: params.includeInactive === true ? "true" : undefined,
+      },
       ...(signal ? { signal } : {}),
     }),
 
   createTemplate: (body: TemplateBody) =>
-    request<ApiOnboardingTemplate>("/onboarding/templates", { method: "POST", body }),
+    request<ApiOnboardingTemplate>("/onboarding/templates", {
+      method: "POST",
+      body,
+    }),
 
   updateTemplate: (id: string, body: UpdateTemplateBody) =>
     request<ApiOnboardingTemplate>(`/onboarding/templates/${id}`, {

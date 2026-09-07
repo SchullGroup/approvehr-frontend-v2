@@ -81,7 +81,11 @@ export function KindsPanel({
                 }}
               />
               {canManage && (
-                <Button variant="accent" size="sm" onClick={() => setAdding(true)}>
+                <Button
+                  variant="accent"
+                  size="sm"
+                  onClick={() => setAdding(true)}
+                >
                   <Plus aria-hidden="true" className="size-4" />
                   Add a kind
                 </Button>
@@ -114,7 +118,10 @@ export function KindsPanel({
               : {})}
           />
         ) : (
-          <TableWrap className="rounded-none border-0" caption="Kinds of equipment">
+          <TableWrap
+            className="rounded-none border-0"
+            caption="Kinds of equipment"
+          >
             <THead>
               <TH>Kind</TH>
               <TH align="right">Things</TH>
@@ -125,7 +132,10 @@ export function KindsPanel({
             </THead>
             <TBody>
               {kinds.map((kind) => (
-                <TR key={kind.id} className={kind.active ? undefined : "opacity-60"}>
+                <TR
+                  key={kind.id}
+                  className={kind.active ? undefined : "opacity-60"}
+                >
                   <TDPrimary
                     title={
                       <span className="flex flex-wrap items-center gap-2">

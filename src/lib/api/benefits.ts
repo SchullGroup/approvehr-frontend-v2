@@ -107,7 +107,11 @@ export const benefitsApi = {
     request<ApiBenefitPlan>(`/benefits/plans/${id}`, { method: "PATCH", body }),
 
   enrolments: (
-    query: { planId?: string; employeeId?: string; includeEnded?: boolean } = {},
+    query: {
+      planId?: string;
+      employeeId?: string;
+      includeEnded?: boolean;
+    } = {},
     signal?: AbortSignal,
   ) =>
     request<ApiBenefitEnrolment[]>("/benefits/enrolments", {

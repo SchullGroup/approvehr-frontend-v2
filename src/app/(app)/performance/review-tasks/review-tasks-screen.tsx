@@ -8,7 +8,10 @@ import { StartPeriodButton } from "../start-period";
 export function ReviewTasksScreen() {
   return (
     <>
-      <PageHeader title="Review tasks" action={<StartPeriodButton withIcon />} />
+      <PageHeader
+        title="Review tasks"
+        action={<StartPeriodButton withIcon />}
+      />
       <PageBody>
         <ReviewTasksTab />
       </PageBody>

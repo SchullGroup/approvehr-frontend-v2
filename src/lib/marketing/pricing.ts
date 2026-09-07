@@ -103,8 +103,9 @@ export const ANNUAL_MONTHS_CHARGED = 10;
 
 export function tierFor(headcount: number): Tier {
   return (
-    TIERS.find((t) => headcount >= t.min && (t.max === null || headcount <= t.max)) ??
-    TIERS[TIERS.length - 1]
+    TIERS.find(
+      (t) => headcount >= t.min && (t.max === null || headcount <= t.max),
+    ) ?? TIERS[TIERS.length - 1]
   );
 }
 

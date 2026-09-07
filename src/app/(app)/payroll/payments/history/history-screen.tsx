@@ -85,7 +85,9 @@ const MONTH_SCAN_SIZE = 200;
 export function PaymentHistoryScreen() {
   const { can, loading: permissionsLoading } = usePermissions();
 
-  const [person, setPerson] = useState<{ id: string; name: string } | null>(null);
+  const [person, setPerson] = useState<{ id: string; name: string } | null>(
+    null,
+  );
   const [period, setPeriod] = useState("");
   const [page, setPage] = useState(1);
 
@@ -151,7 +153,9 @@ export function PaymentHistoryScreen() {
               icon={<History aria-hidden="true" />}
               title="Payment history is not part of your access"
               description="Seeing what everybody was paid needs either the “Run payroll” or the “Approve payroll” permission. Your own payslips are on the payslips screen."
-              action={<ButtonLink href="/payroll/payslips">Go to payslips</ButtonLink>}
+              action={
+                <ButtonLink href="/payroll/payslips">Go to payslips</ButtonLink>
+              }
             />
           </Card>
         </PageBody>
@@ -160,12 +164,15 @@ export function PaymentHistoryScreen() {
   }
 
   const filtered = person !== null || period !== "";
-  const from = history.total === 0 ? 0 : (history.page - 1) * history.pageSize + 1;
+  const from =
+    history.total === 0 ? 0 : (history.page - 1) * history.pageSize + 1;
   const to = Math.min(history.page * history.pageSize, history.total);
 
   function choosePerson(id: string) {
     const found = payees.people.find((entry) => entry.id === id);
-    setPerson(id === "" ? null : { id, name: found?.name ?? person?.name ?? "" });
+    setPerson(
+      id === "" ? null : { id, name: found?.name ?? person?.name ?? "" },
+    );
     setPage(1);
   }
 
@@ -190,7 +197,11 @@ export function PaymentHistoryScreen() {
 
       <PageBody className="flex flex-col gap-6">
         {history.error && (
-          <LoadFailure subject="the payment history" error={history.error}  onRetry={history.reload}/>
+          <LoadFailure
+            subject="the payment history"
+            error={history.error}
+            onRetry={history.reload}
+          />
         )}
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -224,7 +235,9 @@ export function PaymentHistoryScreen() {
               )
             }
             hint={
-              history.total === 0 ? "nothing on file under this filter" : netHint(history)
+              history.total === 0
+                ? "nothing on file under this filter"
+                : netHint(history)
             }
           />
         </div>
@@ -317,7 +330,9 @@ export function PaymentHistoryScreen() {
                     Clear filters
                   </Button>
                 ) : (
-                  <ButtonLink href="/payroll/payments">Go to payments</ButtonLink>
+                  <ButtonLink href="/payroll/payments">
+                    Go to payments
+                  </ButtonLink>
                 )
               }
             />
@@ -355,7 +370,9 @@ export function PaymentHistoryScreen() {
                               row.payeeName
                             )
                           }
-                          subtitle={row.employeeId ? undefined : "Not on the payroll"}
+                          subtitle={
+                            row.employeeId ? undefined : "Not on the payroll"
+                          }
                         />
                         <TD>
                           {row.period ? (
@@ -369,7 +386,10 @@ export function PaymentHistoryScreen() {
                             </span>
                           )}
                         </TD>
-                        <TD align="right" className="tabular font-medium text-ink">
+                        <TD
+                          align="right"
+                          className="tabular font-medium text-ink"
+                        >
                           <Money amount={naira(row.amountKobo)} decimals />
                         </TD>
                         <TD>
@@ -488,7 +508,9 @@ function netHint(history: {
         : `none of these ${history.total} payments have been paid`;
     }
     if (history.pageUnpaidCount === 0) {
-      return history.total === 1 ? "the only payment" : `all ${history.total} payments`;
+      return history.total === 1
+        ? "the only payment"
+        : `all ${history.total} payments`;
     }
     return `${counted} of ${history.total} payments: the other ${
       history.pageUnpaidCount

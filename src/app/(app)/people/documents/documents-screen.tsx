@@ -153,7 +153,9 @@ export function DocumentsScreen() {
             label="Late"
             value={String(expiring.counts.overdue)}
             {...(expiring.counts.overdue > 0
-              ? { trend: { direction: "down" as const, label: "Past the date" } }
+              ? {
+                  trend: { direction: "down" as const, label: "Past the date" },
+                }
               : {})}
           />
           <Stat
@@ -191,7 +193,8 @@ export function DocumentsScreen() {
               <LoadFailure
                 subject="the documents coming up for renewal"
                 error={expiring.error}
-               onRetry={expiring.reload}/>
+                onRetry={expiring.reload}
+              />
             </CardBody>
           ) : expiring.loading ? (
             <CardBody>
@@ -273,7 +276,8 @@ export function DocumentsScreen() {
                 <LoadFailure
                   subject="the documents you have asked for"
                   error={register.error}
-                 onRetry={register.reload}/>
+                  onRetry={register.reload}
+                />
               </div>
             ) : register.loading && register.requests.length === 0 ? (
               <span className="flex items-center gap-2 text-body-sm text-muted">
@@ -346,8 +350,8 @@ export function DocumentsScreen() {
 
             {!register.editable && (
               <p className="text-body-sm text-muted">
-                Asking and dropping need the API: the person is notified when you
-                ask, and a request kept in this browser reaches nobody.
+                Asking and dropping need the API: the person is notified when
+                you ask, and a request kept in this browser reaches nobody.
               </p>
             )}
           </CardBody>
@@ -424,7 +428,8 @@ export function DocumentsScreen() {
               toast.push({
                 title: `${firstNameOf(created.employeeName)} has no login yet`,
                 tone: "warning",
-                detail: "Nothing was sent. Use Remind to get the message to them.",
+                detail:
+                  "Nothing was sent. Use Remind to get the message to them.",
               });
             }
           }}

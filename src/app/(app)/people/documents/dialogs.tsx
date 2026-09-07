@@ -171,7 +171,11 @@ export function AskForDocumentModal({
           </Select>
         </Field>
 
-        <Field label="What you need" required help="Work permit, NYSC certificate, degree.">
+        <Field
+          label="What you need"
+          required
+          help="Work permit, NYSC certificate, degree."
+        >
           <Input
             value={name}
             autoFocus
@@ -184,7 +188,10 @@ export function AskForDocumentModal({
 
         <CategoryField value={category} onChange={setCategory} />
 
-        <Field label="Why you need it" help="They see this. One line is enough.">
+        <Field
+          label="Why you need it"
+          help="They see this. One line is enough."
+        >
           <Textarea
             rows={2}
             value={reason}
@@ -195,7 +202,11 @@ export function AskForDocumentModal({
           />
         </Field>
 
-        <Field optional label="Needed by" help="Leave it blank and nobody is reminded to bring it in.">
+        <Field
+          optional
+          label="Needed by"
+          help="Leave it blank and nobody is reminded to bring it in."
+        >
           <Input
             type="date"
             value={dueOn}
@@ -235,7 +246,9 @@ export function AttachDocumentModal({
   onAttach: (body: FulfilBody) => Promise<void>;
   subject: "self" | "other";
 }) {
-  const candidates = onFile.filter((d) => !d.archived && d.fulfilsRequestId === null);
+  const candidates = onFile.filter(
+    (d) => !d.archived && d.fulfilsRequestId === null,
+  );
   const [mode, setMode] = useState<"existing" | "new">(
     candidates.length > 0 ? "existing" : "new",
   );
@@ -338,7 +351,10 @@ export function AttachDocumentModal({
               label="The file"
               required
               help="A PDF, an image, or an Office document. Up to 25MB."
-              scope={{ kind: "employee-document", employeeId: request.employeeId }}
+              scope={{
+                kind: "employee-document",
+                employeeId: request.employeeId,
+              }}
               onBusyChange={setUploading}
               onUploaded={(key) => setStorageKey(key ?? "")}
             />
@@ -520,7 +536,8 @@ export function RemindModal({
           setState({ phase: result.notifiedEmployee ? "sent" : "no-account" });
         }
       } catch (error) {
-        if (!cancelled) setState({ phase: "failed", message: messageOf(error) });
+        if (!cancelled)
+          setState({ phase: "failed", message: messageOf(error) });
       }
     })();
     return () => {

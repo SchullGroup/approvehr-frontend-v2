@@ -47,7 +47,8 @@ export type PositionFix = {
   accuracyMetres: number;
 };
 
-export type PositionFailureReason = "denied" | "unavailable" | "timeout" | "unsupported";
+export type PositionFailureReason =
+  "denied" | "unavailable" | "timeout" | "unsupported";
 
 /**
  * A position that could not be read. Thrown, so a caller cannot forget it.
@@ -130,7 +131,8 @@ export async function readPosition(): Promise<PositionFix> {
             : error.code === error.TIMEOUT
               ? "timeout"
               : "unavailable";
-        const failure = FAILURES[reason as Exclude<PositionFailureReason, "unsupported">];
+        const failure =
+          FAILURES[reason as Exclude<PositionFailureReason, "unsupported">];
         reject(new PositionError(reason, failure.title, failure.message));
       },
       {

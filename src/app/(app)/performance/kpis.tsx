@@ -211,7 +211,11 @@ export function KpisTab({
         </div>
       </div>
 
-      <LoadFailure subject="the KPI cascade" error={kpis.error}  onRetry={kpis.reload}/>
+      <LoadFailure
+        subject="the KPI cascade"
+        error={kpis.error}
+        onRetry={kpis.reload}
+      />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat label="KPIs being tracked" value={String(tracked.length)} />
@@ -222,7 +226,9 @@ export function KpisTab({
             ? {}
             : {
                 hint:
-                  tracked.length === 1 ? "across 1 KPI" : `across ${tracked.length} KPIs`,
+                  tracked.length === 1
+                    ? "across 1 KPI"
+                    : `across ${tracked.length} KPIs`,
               })}
         />
         <Stat
@@ -235,7 +241,11 @@ export function KpisTab({
         <Stat
           label="Measures at target"
           /* "0 of 0" is a measurement of a set nobody has created. */
-          value={measures.length === 0 ? "None set yet" : `${hit} of ${measures.length}`}
+          value={
+            measures.length === 0
+              ? "None set yet"
+              : `${hit} of ${measures.length}`
+          }
         />
       </div>
 
@@ -482,11 +492,7 @@ function GoalBranch({
   onShare: (goal: ApiGoal) => void;
   onSubmit: (goal: ApiGoal) => void;
   onReopen: (goal: ApiGoal) => void;
-  onRecord: (
-    measureId: string,
-    value: string,
-    note?: string,
-  ) => Promise<void>;
+  onRecord: (measureId: string, value: string, note?: string) => Promise<void>;
 }) {
   /**
    * Siblings with nothing under them sit side by side. Anything that is itself
@@ -599,11 +605,7 @@ function GoalCard({
   onShare: (goal: ApiGoal) => void;
   onSubmit: (goal: ApiGoal) => void;
   onReopen: (goal: ApiGoal) => void;
-  onRecord: (
-    measureId: string,
-    value: string,
-    note?: string,
-  ) => Promise<void>;
+  onRecord: (measureId: string, value: string, note?: string) => Promise<void>;
 }) {
   const progress = goal.measuredProgress ?? goal.progress;
   const done = goal.status === "DONE";
@@ -812,11 +814,7 @@ function GoalDetailModal({
   onShare: (goal: ApiGoal) => void;
   onSubmit: (goal: ApiGoal) => void;
   onReopen: (goal: ApiGoal) => void;
-  onRecord: (
-    measureId: string,
-    value: string,
-    note?: string,
-  ) => Promise<void>;
+  onRecord: (measureId: string, value: string, note?: string) => Promise<void>;
 }) {
   /* Every action closes the dialog before it runs. All eight open a second
      dialog of their own — a confirm, a form, a share sheet — and two stacked
@@ -1008,11 +1006,7 @@ function MeasureRow({
   /** The objective this measure belongs to. Grounds the write-up suggestion. */
   goalId: string;
   editable: boolean;
-  onRecord: (
-    measureId: string,
-    value: string,
-    note?: string,
-  ) => Promise<void>;
+  onRecord: (measureId: string, value: string, note?: string) => Promise<void>;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
   const [note, setNote] = useState("");
@@ -1028,7 +1022,11 @@ function MeasureRow({
     setSaving(true);
     setFailed(null);
     try {
-      await onRecord(measure.id, (draft ?? "").trim(), note.trim() || undefined);
+      await onRecord(
+        measure.id,
+        (draft ?? "").trim(),
+        note.trim() || undefined,
+      );
       setDraft(null);
       setNote("");
       summary.clear();
@@ -1160,7 +1158,9 @@ function MeasureRow({
                somebody still has to press Save under. The suggestion is built
                from what they typed and adds no achievement they did not
                mention — see `modules/ai/service.ts#suggestTaskSummary`. */
-            onUse={(suggestion) => setNote(suggestion.detail || suggestion.title)}
+            onUse={(suggestion) =>
+              setNote(suggestion.detail || suggestion.title)
+            }
           />
         </div>
       )}

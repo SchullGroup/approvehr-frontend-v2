@@ -361,115 +361,119 @@ export function MyDetails({
           }
         />
         <CardBody className="flex flex-col gap-2">
-          {GROUPS.filter((group) => !only || group.tier === only).map((group) => {
-            const held = group.fields.filter((f) => waiting.has(f)).length;
-            const edited = group.fields.filter(
-              (f) => draft[f] !== baseline[f],
-            ).length;
-            return (
-              <Disclosure
-                key={group.id}
-                /* Single-open, which is the point: the record has thirty-odd
+          {GROUPS.filter((group) => !only || group.tier === only).map(
+            (group) => {
+              const held = group.fields.filter((f) => waiting.has(f)).length;
+              const edited = group.fields.filter(
+                (f) => draft[f] !== baseline[f],
+              ).length;
+              return (
+                <Disclosure
+                  key={group.id}
+                  /* Single-open, which is the point: the record has thirty-odd
                    fields and the reason this screen is not the incumbent's is
                    that only one group is ever in front of you. */
-                open={open === group.id}
-                onToggle={() =>
-                  setOpen((current) => (current === group.id ? null : group.id))
-                }
-                title={
-                  <span className="flex items-center gap-2">
-                    <span className="text-accent-text">{group.icon}</span>
-                    {group.title}
-                  </span>
-                }
-                meta={
-                  <span className="flex items-center gap-1.5">
-                    {group.tier === "approval" && (
-                      <Badge tone="neutral" size="sm">
-                        Payroll checks this
-                      </Badge>
-                    )}
-                    {held > 0 && (
-                      <Badge tone="info" size="sm" dot>
-                        {held} waiting
-                      </Badge>
-                    )}
-                    {edited > 0 && (
-                      <Badge tone="warning" size="sm">
-                        {edited} unsaved
-                      </Badge>
-                    )}
-                  </span>
-                }
-                hint={TIER_NOTE[group.tier]}
-              >
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {group.fields.flatMap((key) => {
-                    const field = (
-                      <Field
-                        key={key}
-                        label={LABEL[key]}
-                        {...(waiting.has(key)
-                          ? {
-                              help: "A change to this is already with payroll. Saving again replaces it.",
-                            }
-                          : {})}
-                      >
-                        {key === "stateOfOrigin" ? (
-                          <Select
-                            value={draft[key]}
-                            disabled={!editable}
-                            onChange={(event) => set(key, event.target.value)}
-                          >
-                            <option value="">Not recorded</option>
-                            {NIGERIAN_STATES.map((state) => (
-                              <option key={state} value={state}>
-                                {state}
-                              </option>
-                            ))}
-                          </Select>
-                        ) : key === "bankName" ? (
-                          <Select
-                            value={draft[key]}
-                            disabled={!editable}
-                            onChange={(event) => set(key, event.target.value)}
-                          >
-                            <option value="">Not recorded</option>
-                            {banksIncluding(initial.bankName).map((bank) => (
-                              <option key={bank.label} value={bank.label}>
-                                {bank.label}
-                              </option>
-                            ))}
-                          </Select>
-                        ) : (
-                          <Input
-                            value={draft[key]}
-                            disabled={!editable}
-                            onChange={(event) => set(key, event.target.value)}
-                          />
-                        )}
-                      </Field>
-                    );
+                  open={open === group.id}
+                  onToggle={() =>
+                    setOpen((current) =>
+                      current === group.id ? null : group.id,
+                    )
+                  }
+                  title={
+                    <span className="flex items-center gap-2">
+                      <span className="text-accent-text">{group.icon}</span>
+                      {group.title}
+                    </span>
+                  }
+                  meta={
+                    <span className="flex items-center gap-1.5">
+                      {group.tier === "approval" && (
+                        <Badge tone="neutral" size="sm">
+                          Payroll checks this
+                        </Badge>
+                      )}
+                      {held > 0 && (
+                        <Badge tone="info" size="sm" dot>
+                          {held} waiting
+                        </Badge>
+                      )}
+                      {edited > 0 && (
+                        <Badge tone="warning" size="sm">
+                          {edited} unsaved
+                        </Badge>
+                      )}
+                    </span>
+                  }
+                  hint={TIER_NOTE[group.tier]}
+                >
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {group.fields.flatMap((key) => {
+                      const field = (
+                        <Field
+                          key={key}
+                          label={LABEL[key]}
+                          {...(waiting.has(key)
+                            ? {
+                                help: "A change to this is already with payroll. Saving again replaces it.",
+                              }
+                            : {})}
+                        >
+                          {key === "stateOfOrigin" ? (
+                            <Select
+                              value={draft[key]}
+                              disabled={!editable}
+                              onChange={(event) => set(key, event.target.value)}
+                            >
+                              <option value="">Not recorded</option>
+                              {NIGERIAN_STATES.map((state) => (
+                                <option key={state} value={state}>
+                                  {state}
+                                </option>
+                              ))}
+                            </Select>
+                          ) : key === "bankName" ? (
+                            <Select
+                              value={draft[key]}
+                              disabled={!editable}
+                              onChange={(event) => set(key, event.target.value)}
+                            >
+                              <option value="">Not recorded</option>
+                              {banksIncluding(initial.bankName).map((bank) => (
+                                <option key={bank.label} value={bank.label}>
+                                  {bank.label}
+                                </option>
+                              ))}
+                            </Select>
+                          ) : (
+                            <Input
+                              value={draft[key]}
+                              disabled={!editable}
+                              onChange={(event) => set(key, event.target.value)}
+                            />
+                          )}
+                        </Field>
+                      );
 
-                    /* BE-10: confirms the account once both fields beside it
+                      /* BE-10: confirms the account once both fields beside it
                        are filled in. Placed after `bankAccount` rather than
                        inside its `Field` — a live confirmation is not the
                        field's own help text. */
-                    if (key !== "bankAccount") return [field];
-                    return [
-                      field,
-                      <div key={`${key}-verify`} className="sm:col-span-2">
-                        <AccountVerificationHint
-                          bankName={draft.bankName}
-                          accountNumber={draft.bankAccount}
-                        />
-                      </div>,
-                    ];
-                  })}
-                </div>
-              </Disclosure>
-            );
-          })}
+                      if (key !== "bankAccount") return [field];
+                      return [
+                        field,
+                        <div key={`${key}-verify`} className="sm:col-span-2">
+                          <AccountVerificationHint
+                            bankName={draft.bankName}
+                            accountNumber={draft.bankAccount}
+                          />
+                        </div>,
+                      ];
+                    })}
+                  </div>
+                </Disclosure>
+              );
+            },
+          )}
         </CardBody>
 
         <CardBody className="flex flex-wrap items-center justify-between gap-3 border-t border-line">

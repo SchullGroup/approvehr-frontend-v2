@@ -147,8 +147,12 @@ export function FeaturesScreen() {
     }
   };
 
-  const modulesOn = MODULE_FEATURE_KEYS.filter((key) => features.flags[key]).length;
-  const fieldsOn = RECORD_FIELD_KEYS.filter((key) => features.flags[key]).length;
+  const modulesOn = MODULE_FEATURE_KEYS.filter(
+    (key) => features.flags[key],
+  ).length;
+  const fieldsOn = RECORD_FIELD_KEYS.filter(
+    (key) => features.flags[key],
+  ).length;
 
   /**
    * What a switch depends on, and the sentence for when it is not met.
@@ -156,7 +160,9 @@ export function FeaturesScreen() {
    * One entry today. Written as a lookup rather than an `if` in the row so the
    * next dependent flag cannot be added without a sentence explaining itself.
    */
-  const REQUIRES: Partial<Record<FeatureKey, { key: FeatureKey; why: string }>> = {
+  const REQUIRES: Partial<
+    Record<FeatureKey, { key: FeatureKey; why: string }>
+  > = {
     multiAppraiser: {
       key: "appraisals",
       why: "Turn appraisals on first: this changes how an appraisal period works, and there are no appraisal periods without them.",
@@ -176,7 +182,9 @@ export function FeaturesScreen() {
               : FEATURE_COPY[key].label
           }
           description={
-            blocked ? `${FEATURE_COPY[key].line} ${needs.why}` : FEATURE_COPY[key].line
+            blocked
+              ? `${FEATURE_COPY[key].line} ${needs.why}`
+              : FEATURE_COPY[key].line
           }
           checked={features.flags[key]}
           disabled={
@@ -209,7 +217,7 @@ export function FeaturesScreen() {
             so there is no `ApiError` left to classify and this renders the
             general advice. Widening that state to `ApiError | null` is what
             would let the API's own 403 sentence through. */}
-        <LoadFailure subject="your feature settings" error={features.error}/>
+        <LoadFailure subject="your feature settings" error={features.error} />
 
         {!features.editable && (
           <Callout tone="info" title="You cannot change these">
@@ -254,13 +262,13 @@ export function FeaturesScreen() {
                 }}
                 className="max-w-xs"
               >
-                {(
-                  Object.keys(HEADCOUNT_LABELS) as HeadcountBand[]
-                ).map((band) => (
-                  <option key={band} value={band}>
-                    {HEADCOUNT_LABELS[band]}
-                  </option>
-                ))}
+                {(Object.keys(HEADCOUNT_LABELS) as HeadcountBand[]).map(
+                  (band) => (
+                    <option key={band} value={band}>
+                      {HEADCOUNT_LABELS[band]}
+                    </option>
+                  ),
+                )}
               </Select>
             </Field>
           </CardBody>
@@ -284,7 +292,10 @@ export function FeaturesScreen() {
             level={2}
           />
           <CardBody className="flex flex-col gap-4">
-            <Callout tone="info" title="Turning one off does not change anybody's pay">
+            <Callout
+              tone="info"
+              title="Turning one off does not change anybody's pay"
+            >
               A person who already has a TIN keeps it, payroll keeps filing with
               it, and their record still shows it. What stops is being asked for
               it on new records, and the payroll run still holds back anybody it

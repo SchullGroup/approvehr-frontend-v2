@@ -29,7 +29,10 @@ const cta = liveProductCta("See it live", {
   label: "See what it costs",
 });
 
-const HERO: Record<ModuleId, (p: { className?: string }) => React.ReactElement> = {
+const HERO: Record<
+  ModuleId,
+  (p: { className?: string }) => React.ReactElement
+> = {
   payroll: PayrollMockup,
   hiring: PipelineMockup,
   "core-hr": RecordMockup,
@@ -88,10 +91,7 @@ export default async function ModulePage({
        * paints above the wash.
        */}
       <section
-        className={cn(
-          "-mt-20 px-4 pb-20 pt-36 sm:pt-40",
-          WASH_CLASS[mod.wash],
-        )}
+        className={cn("-mt-20 px-4 pb-20 pt-36 sm:pt-40", WASH_CLASS[mod.wash])}
       >
         <div className="container-page">
           <Reveal>
@@ -134,11 +134,7 @@ export default async function ModulePage({
                 <Pill href="/demo" variant="solid" size="lg" arrow>
                   Book a demo
                 </Pill>
-                <Pill
-                  href={cta.href}
-                  variant="quiet"
-                  size="lg"
-                >
+                <Pill href={cta.href} variant="quiet" size="lg">
                   {cta.label}
                 </Pill>
               </div>

@@ -259,7 +259,11 @@ export function AppraiserMapTab() {
         </div>
       </div>
 
-      <LoadFailure subject="the appraiser mapping" error={error}  onRetry={reload}/>
+      <LoadFailure
+        subject="the appraiser mapping"
+        error={error}
+        onRetry={reload}
+      />
 
       {map && (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -749,7 +753,7 @@ export function AppraisersDialog({
           weightPct: String(one.weightBp / 100),
           note: one.note ?? "",
         }))
-        : /* The obvious starting point: their line manager, all of it. Not an
+      : /* The obvious starting point: their line manager, all of it. Not an
              empty row — the ordinary answer should need no typing.
 
              With no line manager it is still one row rather than none, and that
@@ -758,14 +762,14 @@ export function AppraisersDialog({
              whose entire purpose is to choose one. An untouched blank row is
              filtered out of `entries`, so "nobody assigned" still reads as
              nobody assigned and saving an empty set still undoes a mapping. */
-          [
-            {
-              appraiserId: row.lineManagerId ?? "",
-              role: "LINE_MANAGER" as AppraiserRole,
-              weightPct: "100",
-              note: "",
-            },
-          ],
+        [
+          {
+            appraiserId: row.lineManagerId ?? "",
+            role: "LINE_MANAGER" as AppraiserRole,
+            weightPct: "100",
+            note: "",
+          },
+        ],
   );
   const [failed, setFailed] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);

@@ -120,7 +120,8 @@ function demoPostings(): ApiPosting[] {
       salaryMinKobo: requisition.salaryMin * 100,
       salaryMaxKobo: requisition.salaryMax * 100,
       status,
-      publishedAt: status === "DRAFT" ? null : `${requisition.openedAt}T09:00:00.000Z`,
+      publishedAt:
+        status === "DRAFT" ? null : `${requisition.openedAt}T09:00:00.000Z`,
       closesOn: null,
       acceptingApplications: status === "PUBLISHED",
       requisitionId: requisition.id,
@@ -184,7 +185,8 @@ function demoAnalytics(
   applications: ApiApplication[],
 ): ApiCareersAnalytics {
   const tally = (id: string, status: ApplicationStatus) =>
-    applications.filter((a) => a.postingId === id && a.status === status).length;
+    applications.filter((a) => a.postingId === id && a.status === status)
+      .length;
 
   return {
     totals: {
@@ -206,7 +208,8 @@ function demoAnalytics(
         slug: posting.slug,
         status: posting.status,
         live: posting.status === "PUBLISHED",
-        applications: applications.filter((a) => a.postingId === posting.id).length,
+        applications: applications.filter((a) => a.postingId === posting.id)
+          .length,
         waiting: tally(posting.id, "RECEIVED"),
         advanced: tally(posting.id, "ADVANCED"),
         declined: tally(posting.id, "DECLINED"),
@@ -235,7 +238,10 @@ function demoAnalytics(
 }
 
 /** Both demo lists, with the per-advert count filled in from the other. */
-function demoBook(): { postings: ApiPosting[]; applications: ApiApplication[] } {
+function demoBook(): {
+  postings: ApiPosting[];
+  applications: ApiApplication[];
+} {
   const postings = demoPostings();
   const applications = demoApplications(postings);
   return {
@@ -352,7 +358,10 @@ export function usePostings(filters: PostingFilters = {}) {
       [guard, load],
     ),
     update: useCallback(
-      async (id: string, body: UpdatePostingBody): Promise<ApiPostingDetail> => {
+      async (
+        id: string,
+        body: UpdatePostingBody,
+      ): Promise<ApiPostingDetail> => {
         guard();
         const updated = await careersApi.updatePosting(id, body);
         await load();

@@ -72,7 +72,8 @@ function useRead<T>(
         const data = await load(controller.signal);
         if (!cancelled) setFetched({ key: full, data, error: null });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
           setFetched({
             key: full,

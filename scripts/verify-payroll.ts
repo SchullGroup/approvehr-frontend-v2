@@ -267,7 +267,9 @@ if (existsSync(backendEnginePath)) {
       ? Number.POSITIVE_INFINITY
       : Number(text.replaceAll("_", ""));
 
-  const effectiveFrom = /effectiveFrom: "(\d{4}-\d{2}-\d{2})"/.exec(newest)?.[1];
+  const effectiveFrom = /effectiveFrom: "(\d{4}-\d{2}-\d{2})"/.exec(
+    newest,
+  )?.[1];
   const bands = [
     ...newest
       .slice(newest.indexOf("bands: ["))

@@ -1,7 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Callout, Checkbox, Field, Modal, Picker } from "@/components/ui";
+import {
+  Button,
+  Callout,
+  Checkbox,
+  Field,
+  Modal,
+  Picker,
+} from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import type { PendingInvite } from "@/lib/api/invites";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
@@ -42,9 +49,7 @@ export function SendInviteDialog({
 
   const toggleRole = (id: string) =>
     setRoleIds((current) =>
-      current.includes(id)
-        ? current.filter((r) => r !== id)
-        : [...current, id],
+      current.includes(id) ? current.filter((r) => r !== id) : [...current, id],
     );
 
   async function submit() {

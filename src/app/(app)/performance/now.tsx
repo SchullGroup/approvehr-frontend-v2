@@ -239,7 +239,9 @@ export function WhatNeedsYouTab({
     const parts: string[] = [];
     if (owedNow.length > 0) {
       parts.push(
-        owedNow.length === 1 ? "1 review to write" : `${owedNow.length} reviews to write`,
+        owedNow.length === 1
+          ? "1 review to write"
+          : `${owedNow.length} reviews to write`,
       );
     }
     if (scored && owesAnswer.length > 0) {

@@ -70,11 +70,7 @@ export type ApiOneOnOneMeeting = {
 };
 
 export type ApiCoverageState =
-  | "NO_MANAGER"
-  | "NO_SERIES"
-  | "NEVER_MET"
-  | "OVERDUE"
-  | "UP_TO_DATE";
+  "NO_MANAGER" | "NO_SERIES" | "NEVER_MET" | "OVERDUE" | "UP_TO_DATE";
 
 export type ApiCoverageRow = {
   employeeId: string;
@@ -145,8 +141,10 @@ export const oneOnOnesApi = {
   start: (body: { employeeId: string; cadence?: ApiCadence }) =>
     request<ApiOneOnOne>("/one-on-ones", { method: "POST", body }),
 
-  updateSeries: (id: string, body: { cadence?: ApiCadence; active?: boolean }) =>
-    request<ApiOneOnOne>(`/one-on-ones/${id}`, { method: "PATCH", body }),
+  updateSeries: (
+    id: string,
+    body: { cadence?: ApiCadence; active?: boolean },
+  ) => request<ApiOneOnOne>(`/one-on-ones/${id}`, { method: "PATCH", body }),
 
   meetings: (seriesId: string, signal?: AbortSignal) =>
     request<ApiOneOnOneMeeting[]>(
@@ -166,7 +164,10 @@ export const oneOnOnesApi = {
    * Two separate fields on purpose: marking a meeting held is what the coverage
    * report counts, so it must never be a side effect of typing an agenda.
    */
-  updateMeeting: (id: string, body: { notes?: string | null; held?: boolean }) =>
+  updateMeeting: (
+    id: string,
+    body: { notes?: string | null; held?: boolean },
+  ) =>
     request<ApiOneOnOneMeeting>(`/one-on-ones/meetings/${id}`, {
       method: "PATCH",
       body,

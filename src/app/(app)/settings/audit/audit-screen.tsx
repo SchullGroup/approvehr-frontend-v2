@@ -211,8 +211,9 @@ function Trail({ initialEntityType = "", initialEntityId = "" }: ScreenProps) {
     return [...map.values()];
   }, [trail.entries, trail.now]);
 
-  const filtered =
-    Boolean(query || actor || entityType || entityId || from || to || includeReads);
+  const filtered = Boolean(
+    query || actor || entityType || entityId || from || to || includeReads,
+  );
 
   const clear = () => {
     setSearch("");
@@ -229,7 +230,7 @@ function Trail({ initialEntityType = "", initialEntityId = "" }: ScreenProps) {
      no dropdown showing it. Naming it, with the button that widens the view, is
      the difference between a log that looks empty and a log that says why. */
   const oneRecord = entityId
-    ? trail.entries[0]?.entity.label ?? "this record"
+    ? (trail.entries[0]?.entity.label ?? "this record")
     : null;
 
   return (
@@ -254,7 +255,11 @@ function Trail({ initialEntityType = "", initialEntityId = "" }: ScreenProps) {
 
       <PageBody className="flex flex-col gap-5">
         {trail.error && (
-          <LoadFailure subject="the audit log" error={trail.error}  onRetry={trail.reload}/>
+          <LoadFailure
+            subject="the audit log"
+            error={trail.error}
+            onRetry={trail.reload}
+          />
         )}
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -316,7 +321,7 @@ function Trail({ initialEntityType = "", initialEntityId = "" }: ScreenProps) {
                 {options.actors.map((person) => (
                   <option
                     key={person.id ?? "system"}
-                    value={person.isSystem ? "system" : person.id ?? ""}
+                    value={person.isSystem ? "system" : (person.id ?? "")}
                   >
                     {person.name} ({countFor(person)})
                   </option>
@@ -377,9 +382,14 @@ function Trail({ initialEntityType = "", initialEntityId = "" }: ScreenProps) {
         {oneRecord && (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line bg-canvas px-4 py-3">
             <p className="text-body-sm text-body">
-              One record: <span className="font-medium text-ink">{oneRecord}</span>
+              One record:{" "}
+              <span className="font-medium text-ink">{oneRecord}</span>
             </p>
-            <Button variant="secondary" size="sm" onClick={() => setEntityId("")}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setEntityId("")}
+            >
               Show everything
             </Button>
           </div>
@@ -397,7 +407,11 @@ function Trail({ initialEntityType = "", initialEntityId = "" }: ScreenProps) {
           <Card>
             <EmptyState
               icon={<ShieldCheck aria-hidden="true" />}
-              title={filtered ? "Nothing matches those filters" : "Nothing recorded yet"}
+              title={
+                filtered
+                  ? "Nothing matches those filters"
+                  : "Nothing recorded yet"
+              }
               description={
                 filtered
                   ? "Widen the dates, or clear the filters and start again."
@@ -415,7 +429,10 @@ function Trail({ initialEntityType = "", initialEntityId = "" }: ScreenProps) {
         ) : (
           <div className="flex flex-col gap-6">
             {groups.map((group) => (
-              <section key={group.key} aria-labelledby={`audit-day-${group.key}`}>
+              <section
+                key={group.key}
+                aria-labelledby={`audit-day-${group.key}`}
+              >
                 <h2
                   id={`audit-day-${group.key}`}
                   className="mb-3 text-meta font-semibold text-faint"

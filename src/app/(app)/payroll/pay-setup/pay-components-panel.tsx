@@ -141,8 +141,8 @@ export function PayComponentsPanel({
       <CardBody className="flex flex-col gap-5">
         {DEMO_ENABLED && !lines.connected && !lines.loading && (
           <Callout tone="warning" title="Demo data, this browser only">
-            The take-home figure runs the real payroll engine, which lives on the
-            server: offline this panel shows the lines and totals only.
+            The take-home figure runs the real payroll engine, which lives on
+            the server: offline this panel shows the lines and totals only.
           </Callout>
         )}
 
@@ -150,7 +150,11 @@ export function PayComponentsPanel({
             there is nothing to show, and the "Salary a month" figure below
             already says so. A red banner repeating it is noise, not help. */}
         {lines.error && !lines.error.message.includes("no monthly pay set") && (
-          <LoadFailure subject="this person's pay lines" error={lines.error}  onRetry={lines.reload}/>
+          <LoadFailure
+            subject="this person's pay lines"
+            error={lines.error}
+            onRetry={lines.reload}
+          />
         )}
 
         {issues.length > 0 && (
@@ -160,7 +164,12 @@ export function PayComponentsPanel({
                 <li key={issue.field}>{issue.message}</li>
               ))}
             </ul>
-            <ButtonLink href="/settings/payroll" variant="secondary" size="sm" className="mt-3">
+            <ButtonLink
+              href="/settings/payroll"
+              variant="secondary"
+              size="sm"
+              className="mt-3"
+            >
               Fix payroll settings
             </ButtonLink>
           </Callout>
@@ -246,7 +255,11 @@ export function PayComponentsPanel({
             }
             action={
               !lines.loading && lines.editable ? (
-                <Button variant="accent" size="sm" onClick={() => setAdding(true)}>
+                <Button
+                  variant="accent"
+                  size="sm"
+                  onClick={() => setAdding(true)}
+                >
                   <Plus aria-hidden="true" className="size-4" />
                   Add the first line
                 </Button>
@@ -292,7 +305,11 @@ export function PayComponentsPanel({
                       <span className="flex flex-wrap gap-1.5">
                         {chips.map((chip) => (
                           <span key={chip.label} title={chip.why}>
-                            <Badge size="sm" tone={chip.tone} className="cursor-help">
+                            <Badge
+                              size="sm"
+                              tone={chip.tone}
+                              className="cursor-help"
+                            >
                               {chip.label}
                             </Badge>
                           </span>
@@ -445,7 +462,10 @@ function ChangeEffect({
 
       <dl className="mt-3 grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
         {rows.map((row) => (
-          <div key={row.label} className="flex items-baseline justify-between gap-3">
+          <div
+            key={row.label}
+            className="flex items-baseline justify-between gap-3"
+          >
             <dt className="text-body-sm text-body">{row.label}</dt>
             <dd className="tabular text-body-sm font-medium text-ink">
               {row.kobo === 0 ? "no change" : signedMoney(row.kobo)}
@@ -460,7 +480,8 @@ function ChangeEffect({
           {change.employerCostKobo === 0
             ? "nothing more"
             : `${signedMoney(change.employerCostKobo)} a month`}
-        </span>{" "}: salary plus the employer pension on it.
+        </span>{" "}
+        : salary plus the employer pension on it.
       </p>
 
       {note && <p className="mt-2 text-body-sm text-body">{note}</p>}
@@ -624,7 +645,11 @@ function AddLineDialog({
             assign but not read the library gets the reason rather than an empty
             list with no explanation. */}
         {library.error && (
-          <LoadFailure subject="the list to choose from" error={library.error}  onRetry={library.reload}/>
+          <LoadFailure
+            subject="the list to choose from"
+            error={library.error}
+            onRetry={library.reload}
+          />
         )}
 
         <Field label="What is it?" required>
@@ -687,7 +712,10 @@ function AddLineDialog({
 
             <ul className="flex flex-col gap-1">
               {flagChips(chosen, settings.pension).map((chip) => (
-                <li key={chip.label} className="text-body-sm leading-relaxed text-body">
+                <li
+                  key={chip.label}
+                  className="text-body-sm leading-relaxed text-body"
+                >
                   {chip.why}
                 </li>
               ))}
@@ -790,7 +818,8 @@ function AddLineDialog({
             <LoadFailure
               subject="the effect on their pay"
               error={preview.error}
-             onRetry={preview.reload}/>
+              onRetry={preview.reload}
+            />
           </>
         )}
       </div>
@@ -811,7 +840,9 @@ function RemoveLineDialog({
   onClose: () => void;
   onConfirm: () => Promise<void>;
 }) {
-  const preview = usePayPreview(employeeId, { dropAssignmentId: assignment.id });
+  const preview = usePayPreview(employeeId, {
+    dropAssignmentId: assignment.id,
+  });
   const [saving, setSaving] = useState(false);
 
   return (
@@ -848,11 +879,17 @@ function RemoveLineDialog({
         ) : (
           <OfflineEffect
             component={assignment}
-            amountKobo={assignment.resolvedKobo === 0 ? null : -assignment.resolvedKobo}
+            amountKobo={
+              assignment.resolvedKobo === 0 ? null : -assignment.resolvedKobo
+            }
           />
         )}
 
-        <LoadFailure subject="the effect on their pay" error={preview.error}  onRetry={preview.reload}/>
+        <LoadFailure
+          subject="the effect on their pay"
+          error={preview.error}
+          onRetry={preview.reload}
+        />
       </div>
     </Modal>
   );
@@ -882,15 +919,18 @@ function OfflineEffect({
     <div className="rounded-lg border border-line bg-canvas p-4">
       {exact === null ? (
         <p className="text-body-sm leading-relaxed text-body">
-          The take-home figure needs the API. It recomputes PAYE, pension and NHF
-          with this line&apos;s tax and pension settings, and there is one
+          The take-home figure needs the API. It recomputes PAYE, pension and
+          NHF with this line&apos;s tax and pension settings, and there is one
           implementation of that, on the server, the same one the payroll run
           uses.
         </p>
       ) : (
         <p className="text-body-sm text-ink">
           Take-home {exact < 0 ? "falls" : "rises"} by exactly{" "}
-          <span className="tabular font-semibold">{money(Math.abs(exact))}</span>{" "}: an after-tax deduction does not change PAYE, pension or NHF, so
+          <span className="tabular font-semibold">
+            {money(Math.abs(exact))}
+          </span>{" "}
+          : an after-tax deduction does not change PAYE, pension or NHF, so
           adding or stopping one moves take-home by its own amount and nothing
           else.
         </p>

@@ -108,7 +108,9 @@ function seedFrom(
     draft[f.key] = value as never;
     if (f.type === "money") {
       text[String(f.key)] =
-        value === null || value === undefined ? "" : String(naira(Number(value)));
+        value === null || value === undefined
+          ? ""
+          : String(naira(Number(value)));
     }
   }
   return { draft, text };
@@ -385,12 +387,16 @@ export function EditableSection({
           continue;
         }
         if (!Number.isFinite(Number(typed))) {
-          bad.push({ field: f.key, message: `Enter ${f.label.toLowerCase()} as a number.` });
+          bad.push({
+            field: f.key,
+            message: `Enter ${f.label.toLowerCase()} as a number.`,
+          });
           continue;
         }
         /* Integer kobo, split on the point rather than multiplied. */
         const kobo = koboFromDecimal(typed);
-        if (kobo !== Number(baseline[f.key] ?? NaN)) patch[f.key] = kobo as never;
+        if (kobo !== Number(baseline[f.key] ?? NaN))
+          patch[f.key] = kobo as never;
         continue;
       }
       const next = draft[f.key];
@@ -478,138 +484,139 @@ export function EditableSection({
      the same either way, and adding a group cannot quietly change how a value
      is displayed or edited. */
   const renderField = (f: EditableField) => {
-            const value = valueOf(f);
+    const value = valueOf(f);
 
     if (!editing) {
       return (
         <div key={String(f.key)}>
-  <dt className="text-meta text-muted">{f.label}</dt>
-  <dd className="mt-0.5 text-body-sm text-ink">
-    {value === null || value === undefined || value === "" ? (
-      <span
-        className={
-          f.emptyIsNormal ? "text-muted" : "font-medium text-danger-text"
-        }
-      >
-        {f.emptyLabel ?? "Not provided"}
-      </span>
-    ) : f.type === "money" ? (
-      <Money amount={naira(Number(value))} />
-    ) : f.format ? (
-      f.format(value)
-    ) : (
-      String(value)
-    )}
-  </dd>
+          <dt className="text-meta text-muted">{f.label}</dt>
+          <dd className="mt-0.5 text-body-sm text-ink">
+            {value === null || value === undefined || value === "" ? (
+              <span
+                className={
+                  f.emptyIsNormal
+                    ? "text-muted"
+                    : "font-medium text-danger-text"
+                }
+              >
+                {f.emptyLabel ?? "Not provided"}
+              </span>
+            ) : f.type === "money" ? (
+              <Money amount={naira(Number(value))} />
+            ) : f.format ? (
+              f.format(value)
+            ) : (
+              String(value)
+            )}
+          </dd>
         </div>
       );
     }
 
     return (
       <Fragment key={String(f.key)}>
-      <Field
-        label={f.label}
-        required={f.required}
-        optional={f.optional}
-        help={f.help}
-        error={errorFor(f.key)}
-      >
-        {f.type === "money" ? (
-  <Input
-    data-section-field={String(f.key)}
-    {...(f.digits === undefined ? {} : { digits: f.digits })}
-    inputMode="numeric"
-    value={text[String(f.key)] ?? ""}
-    onChange={(e) => {
-      const raw = e.target.value;
-      setText((t) => ({ ...t, [String(f.key)]: raw }));
-      setErrors((x) => x.filter((y) => y.field !== f.key));
-    }}
-  />
-        ) : f.type === "picker" ? (
-  <Picker
-    value={String(draft[f.key] ?? "")}
-    onChange={(v) => {
-      setDraft((d) => ({ ...d, [f.key]: v }));
-      setErrors((x) => x.filter((y) => y.field !== f.key));
-    }}
-    options={f.options ?? []}
-    {...(f.placeholder === undefined
-      ? {}
-      : { placeholder: f.placeholder })}
-  />
-        ) : f.type === "select" &&
-  (otherFields[String(f.key)] ||
-    isCustomValue(f, draft[f.key])) ? (
-  <div className="flex flex-col gap-1.5">
-    <Input
-      data-section-field={String(f.key)}
-      value={String(draft[f.key] ?? "")}
-      onChange={(e) => {
-        const v = e.target.value;
-        setDraft((d) => ({ ...d, [f.key]: v }));
-        setErrors((x) => x.filter((y) => y.field !== f.key));
-      }}
-    />
-    <Button
-      type="button"
-      variant="ghost"
-      size="sm"
-      className="self-start"
-      onClick={() => {
-        setOtherFields((o) => ({ ...o, [String(f.key)]: false }));
-        setDraft((d) => ({ ...d, [f.key]: "" as never }));
-        setErrors((x) => x.filter((y) => y.field !== f.key));
-      }}
-    >
-      Choose from the list instead
-    </Button>
-  </div>
-        ) : f.type === "select" ? (
-  <Select
-    value={String(draft[f.key] ?? "")}
-    onChange={(e) => {
-      const v = e.target.value;
-      if (f.allowOther && v === OTHER_OPTION_VALUE) {
-        setOtherFields((o) => ({ ...o, [String(f.key)]: true }));
-        setDraft((d) => ({ ...d, [f.key]: "" as never }));
-      } else {
-        setDraft((d) => ({ ...d, [f.key]: v }));
-      }
-      setErrors((x) => x.filter((y) => y.field !== f.key));
-    }}
-  >
-    {f.options?.map((o) => (
-      <option key={o.value} value={o.value}>
-        {o.label}
-      </option>
-    ))}
-    {f.allowOther && (
-      <option value={OTHER_OPTION_VALUE}>
-        {f.otherLabel ?? "Other (specify)"}
-      </option>
-    )}
-  </Select>
-        ) : (
-  <Input
-    data-section-field={String(f.key)}
-    {...(f.digits === undefined ? {} : { digits: f.digits })}
-    type={f.type ?? "text"}
-    value={String(draft[f.key] ?? "")}
-    onChange={(e) => {
-      const raw = e.target.value;
-      const v = f.type === "number" ? Number(raw) : raw;
-      setDraft((d) => ({ ...d, [f.key]: v }));
-      setErrors((x) => x.filter((y) => y.field !== f.key));
-    }}
-  />
+        <Field
+          label={f.label}
+          required={f.required}
+          optional={f.optional}
+          help={f.help}
+          error={errorFor(f.key)}
+        >
+          {f.type === "money" ? (
+            <Input
+              data-section-field={String(f.key)}
+              {...(f.digits === undefined ? {} : { digits: f.digits })}
+              inputMode="numeric"
+              value={text[String(f.key)] ?? ""}
+              onChange={(e) => {
+                const raw = e.target.value;
+                setText((t) => ({ ...t, [String(f.key)]: raw }));
+                setErrors((x) => x.filter((y) => y.field !== f.key));
+              }}
+            />
+          ) : f.type === "picker" ? (
+            <Picker
+              value={String(draft[f.key] ?? "")}
+              onChange={(v) => {
+                setDraft((d) => ({ ...d, [f.key]: v }));
+                setErrors((x) => x.filter((y) => y.field !== f.key));
+              }}
+              options={f.options ?? []}
+              {...(f.placeholder === undefined
+                ? {}
+                : { placeholder: f.placeholder })}
+            />
+          ) : f.type === "select" &&
+            (otherFields[String(f.key)] || isCustomValue(f, draft[f.key])) ? (
+            <div className="flex flex-col gap-1.5">
+              <Input
+                data-section-field={String(f.key)}
+                value={String(draft[f.key] ?? "")}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setDraft((d) => ({ ...d, [f.key]: v }));
+                  setErrors((x) => x.filter((y) => y.field !== f.key));
+                }}
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="self-start"
+                onClick={() => {
+                  setOtherFields((o) => ({ ...o, [String(f.key)]: false }));
+                  setDraft((d) => ({ ...d, [f.key]: "" as never }));
+                  setErrors((x) => x.filter((y) => y.field !== f.key));
+                }}
+              >
+                Choose from the list instead
+              </Button>
+            </div>
+          ) : f.type === "select" ? (
+            <Select
+              value={String(draft[f.key] ?? "")}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (f.allowOther && v === OTHER_OPTION_VALUE) {
+                  setOtherFields((o) => ({ ...o, [String(f.key)]: true }));
+                  setDraft((d) => ({ ...d, [f.key]: "" as never }));
+                } else {
+                  setDraft((d) => ({ ...d, [f.key]: v }));
+                }
+                setErrors((x) => x.filter((y) => y.field !== f.key));
+              }}
+            >
+              {f.options?.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+              {f.allowOther && (
+                <option value={OTHER_OPTION_VALUE}>
+                  {f.otherLabel ?? "Other (specify)"}
+                </option>
+              )}
+            </Select>
+          ) : (
+            <Input
+              data-section-field={String(f.key)}
+              {...(f.digits === undefined ? {} : { digits: f.digits })}
+              type={f.type ?? "text"}
+              value={String(draft[f.key] ?? "")}
+              onChange={(e) => {
+                const raw = e.target.value;
+                const v = f.type === "number" ? Number(raw) : raw;
+                setDraft((d) => ({ ...d, [f.key]: v }));
+                setErrors((x) => x.filter((y) => y.field !== f.key));
+              }}
+            />
+          )}
+        </Field>
+        {f.extraWhileEditing && (
+          <div className={columns === 2 ? "sm:col-span-2" : undefined}>
+            {f.extraWhileEditing(draft)}
+          </div>
         )}
-      </Field>
-      {f.extraWhileEditing && (
-        <div className={columns === 2 ? "sm:col-span-2" : undefined}>
-          {f.extraWhileEditing(draft)}
-        </div>
-      )}
       </Fragment>
     );
   };

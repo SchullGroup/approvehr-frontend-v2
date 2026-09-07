@@ -60,7 +60,8 @@ function useRead<T>(
         const data = await load(controller.signal);
         if (!cancelled) setFetched({ key: full, data, error: null });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
           setFetched({
             key: full,
@@ -92,12 +93,17 @@ function useRead<T>(
 /** Waiting on the caller to sign. Their own queue; no permission decides it. */
 export function useMySignatures(): Read<ApiSignature[]> {
   const { isConnected } = useSession();
-  const load = useCallback((signal: AbortSignal) => signaturesApi.mine(signal), []);
+  const load = useCallback(
+    (signal: AbortSignal) => signaturesApi.mine(signal),
+    [],
+  );
   return useRead("mine", isConnected, load);
 }
 
 /** Everything the caller may see: theirs, ones they sent, or all with EDIT_RECORDS. */
-export function useSignatures(status?: ApiSignatureStatus): Read<ApiSignature[]> {
+export function useSignatures(
+  status?: ApiSignatureStatus,
+): Read<ApiSignature[]> {
   const { isConnected } = useSession();
   const load = useCallback(
     (signal: AbortSignal) => signaturesApi.list(status, signal),
