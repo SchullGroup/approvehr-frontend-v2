@@ -6293,3 +6293,667 @@ screen yet for it to exercise.
   Rewriting it to go through `recruitment/service.ts` instead is a reasonable
   follow-up but wasn't asked for and risks changing what the demo dataset
   looks like.
+
+---
+
+# A permission that was administered for months and did nothing
+
+`Permission.EXPORT_DATA` has been in the enum, in both catalogues, and granted
+to two seeded roles since permissions were built. It read, on the roles screen,
+*"Export — Download staff, pay and attendance as a spreadsheet."* It was **wired
+to no route on either side**, and `grep EXPORT_DATA src/` on the API returned
+three hits, all of them the catalogue and the seed.
+
+That is worse than the four instances of "findable by nobody" this file already
+records, and worth separating from them. A hidden feature is a feature nobody
+uses. **A permission is a promise somebody has already administered** — an
+owner had gone into Settings, decided their office manager should not be able to
+download the staff register, saved it, and been told nothing had changed. There
+was nothing to withhold.
+
+## The scope was already decided, by the sentence next to the switch
+
+Three exports, because the permission's own description names three things. If
+a fourth is added, that sentence changes in the same commit, in
+`permissions/service.ts` **and** `lib/store/permissions.ts`.
+
+| | Route | Gate |
+|---|---|---|
+| Staff | `GET /exports/staff.csv` | `EXPORT_DATA` |
+| Pay | `GET /exports/payroll-runs/:id/payslips.csv` | `EXPORT_DATA` **and** `VIEW_SALARIES` |
+| Attendance | `GET /exports/attendance.csv` | `EXPORT_DATA` |
+
+## Every export is a serialiser over the read the screen already uses
+
+`employees.list`, `payroll.payslips`, `attendance.timesheet`. Not one builds its
+own query, and that is the load-bearing decision rather than a convenience: a
+second definition of "who is in this list" is how a downloaded file comes to
+disagree with the screen it was downloaded from — and the file is the copy that
+gets emailed to an accountant, printed, and argued over months later. Same
+argument as never re-implementing a score.
+
+It goes one level further on the frontend. `staffCsv` takes the directory's
+**own** `EmployeeListParams` and serialises them with the directory's **own**
+`employeeQuery`, and `api/client.ts#buildUrl` is exported so one function builds
+both query strings. Verified on the wire: typing "Musa" into the directory
+search sent `?q=Musa&sort=lastName&order=asc` to the export, matching the single
+row on screen.
+
+The cost is accepted and stated: these reads page, so an export asks for one
+large page rather than streaming, and `MAX_EXPORT_ROWS` (10,000) is where that
+stops. The refusal names the figure and how to narrow it — and it is tested
+directly, because no seeded dataset comes near it and an untested refusal is a
+path nobody has ever taken.
+
+## `EXPORT_DATA` is the gate. `VIEW_SALARIES` decides the columns.
+
+Different questions, and collapsing them is how the departments salary leak
+happened — pay travelling alongside a read nobody thought of as a pay read.
+
+- The staff file has **no `gross_monthly` column at all** without
+  `VIEW_SALARIES`. Absent, not blank: a column of empty cells is a claim that
+  nobody has a salary, and it invites somebody to sum it.
+- The payslip file is **refused outright** rather than served with its money
+  columns blank. A payslip file with no pay in it is a list of names, and
+  handing one over under that label misdescribes what the reader is holding.
+- The attendance file has no `VIEW_SALARIES` branch because it carries days.
+  `attendance.timesheet` computes a proration **amount** as well, and it is
+  deliberately not a column: that is a salary figure wearing an attendance
+  label, on the one export that does not need the pay permission.
+
+**Neither seeded role exercises this.** Both roles that grant `EXPORT_DATA` also
+grant `VIEW_SALARIES`, so the column gate only fires for a custom role — which
+the roles screen fully supports and which `tests/exports.test.ts` constructs by
+hand. It is not dead code; it is code no seed reaches.
+
+## Absent is not zero, in the one artefact where it gets summed
+
+`operates: NOT_OPERATED` writes an **empty cell**, never `0.00`. Confirmed on
+the live demo, whose company has `deductsNhf: false`: every NHF cell is blank
+while PAYE carries its figure.
+
+A `0.00` under a column headed PAYE claims tax was computed and came to nothing
+— lawful and common under the ₦800,000 exemption, and a completely different
+fact from an employer who does not operate PAYE at all. This is the ₦0 defect
+wearing a spreadsheet, and a spreadsheet is exactly where it would be summed by
+somebody who never read the row. The timesheet's `daysUnexplained` and
+`proration.unpaidDays` are null-able for the same reason and get the same
+treatment.
+
+## The pay file reconciles or it is refused
+
+The sum of the `net` column is compared with the run's stored `totalNet`, exact
+integers, no tolerance, and a mismatch **refuses the download**. That is
+`reconcile.ts`'s discipline carried to the one artefact that leaves the
+building: a spreadsheet that does not add up is worse than no spreadsheet,
+because it is the copy an accountant works from and the product is not there to
+be asked. Verified against two live runs — ₦8,669,312.97 and ₦9,400,272.00, both
+matching to the kobo.
+
+## What is deliberately NOT in any of these files
+
+Bank account numbers, TIN, NIN and pension PINs. `serializeDirectory` publishes
+**whether** each is on file and never the value, and an export is the worst
+possible place to reverse that: three hundred account numbers leave in one click
+and cannot be recalled. Filing a pension schedule genuinely needs those values,
+and that is a separate decision with an NDPR conversation in it — not something
+to slip in behind a permission whose description says "staff, pay and
+attendance". Asserted, so adding one is a deliberate act rather than a passing
+convenience.
+
+## The one export that already existed was not gated at all
+
+`/people`'s "Export directory" built a CSV in the browser and **anybody who
+could see the directory could press it**. Salary was safe by accident —
+`serializeDirectory` had already nulled it — but the export itself, the thing
+the permission names, was ungated.
+
+It is `EXPORT_DATA` now, and absent rather than present-and-refused. Connected
+it downloads the whole filtered set from the API; **offline it still builds the
+page on screen**, because demo mode has no server to ask and that is honest —
+the copy says so in each mode and the two sentences are different.
+
+## Two things lifted rather than copied
+
+- **`csvCell`** moved from `payments/file.ts` to `lib/csv.ts`. It is the
+  formula-injection guard (`=`, `+`, `@`), and a second copy is a second place
+  for it to be subtly weaker — the weaker one always being the one somebody
+  opens. `payments/file.ts` imports and re-exports it.
+- **The file fetch** moved from `payments.bankFile` to `lib/api/download.ts`.
+  Four things: bearer token, a session-expiry sentence, **the server's own
+  refusal read out of the error envelope**, and the filename off
+  `Content-Disposition`. The third is the one worth having exactly once — "this
+  batch no longer adds up" and "this file does not add up" are the useful part
+  of the response, and a copy that replaced them with "download failed" would
+  look like it worked.
+
+`components/portal/export-button.tsx` is the shared button. It is **not** gated
+inside itself: whether a button should exist is a question about the screen, and
+hiding a permission decision in a shared component puts it where nobody
+reviewing the screen would look.
+
+## One bug eslint caught that nothing else would
+
+`useCan("EXPORT_DATA") && useCan("VIEW_SALARIES")` short-circuits, which makes
+the second call a **conditional hook** — on any render where the first is false
+React sees a different hook order. Two calls on their own lines, then combined.
+`attendance-screen.tsx` already had a comment warning about exactly this for
+`useIsManager`; it is easy to write anyway.
+
+## Verified
+
+API `npm run check` — 21 new assertions in `tests/exports.test.ts`. Web
+`npm run check` exit 0 (the 8 warnings are the pre-existing ones).
+
+Against the live API, signed in as the seeded administrator: all three files
+downloaded from their screens; the staff export carrying the directory's own
+`?q=` filter; both payroll runs reconciling to the kobo; NHF blank throughout;
+and the audit entry recording `{rows: 1, columns: ["identity","employment","pay"],
+filename: "staff.csv"}` — the question a data protection officer actually asks,
+which a web log cannot answer.
+
+**Not exercised: demo mode.** The API was up and `useApiReachable` correctly
+reported connected, so the offline branch of the directory button — which now
+returns a `FileDownload` instead of saving one itself — was only typechecked.
+It is one function's return type and the same shared button, but somebody in a
+room with no database should press it once.
+
+---
+
+# The dashboard scrolled sideways on a phone, and three classes caused it
+
+`responsive-pass` in the audit backlog, and the finding is narrower and more
+useful than "~55 screens have no breakpoint utilities". Measured at 375px across
+ten routes: **three shared causes**, each one class, each fixed in one place, and
+between them every route measured now sits at exactly the viewport width with no
+horizontal scroll.
+
+## First, the metric — because the obvious one is wrong
+
+`document.documentElement.scrollWidth` **over-reports**. It counts content inside
+`overflow-x: auto` containers, so `/people/leave` read 1035px purely because
+`TableWrap` was doing its job around a 1030px table. The honest test is
+`document.body.scrollWidth` against `clientWidth`, confirmed by actually calling
+`window.scrollTo(600, 0)` and reading `window.scrollX` back. If it stays 0 there
+is no horizontal scroll, whatever `scrollWidth` says.
+
+I got this wrong first and it sent me looking at a table that was already
+correct. Use the scroll test.
+
+## 1. `sr-only` does not work on a `<table>`
+
+`components/ui/chart.tsx` renders every chart's accessible data table with
+`sr-only-focusable`, which sets `width: 1px`. **A table does not honour it**:
+under automatic table layout the used width is at least the min-content width,
+so it laid out at 545px. `clip` still hid it, and because it is absolutely
+positioned it extended the document's scrollable overflow anyway — the dashboard
+scrolled to 585px on a 375px screen because of an accessibility affordance.
+
+The clip lives on a wrapping `<div>` now, which does honour `width: 1px`.
+Measured: 585px → 420px. `table-layout: fixed` was tried first and changed
+nothing.
+
+## 2. A grid item's `min-width: auto` floors the whole track
+
+`1fr` is `minmax(auto, 1fr)`, and that automatic minimum is the item's
+min-content width. So one grid item that cannot compress sets a floor the
+*container* cannot go below — and because a track is shared, one item does it to
+every sibling.
+
+Two instances, and the second is the instructive one:
+
+- **`dashboard/quick-actions.tsx`** — the `min-w-0` was on the text span inside
+  the card. The floor is set by the **item**, one level up. Track 379px → 293px,
+  document 420px → 375px.
+- **`people/directory.tsx` and `people/onboarding`** — three `Stat` cards
+  carried `min-w-0` and the fourth grid child, a link wrapping a `Stat` to make
+  it clickable, did not. That one wrapper made all four cards 489px wide inside
+  a 335px row. Track 489px → 335px.
+
+**If you put a grid item inside a wrapper, the wrapper needs the class.** The
+component inside it having `min-w-0` does nothing.
+
+## 3. The page header's action row could not wrap
+
+`PageHeader` in `components/portal/shell.tsx` rendered its actions as
+`flex shrink-0 items-center gap-2` — an unbreakable block as wide as the sum of
+its buttons. On `/people` that is three buttons at 501px. The header is shared,
+so one class did it to every screen with more than one header action.
+
+It is `flex flex-wrap items-center gap-2` now. **Dropping `shrink-0` does not
+squash the buttons on a desktop**: the parent is `flex-wrap`, so a row that will
+not fit moves to its own line before anything inside it is compressed, and only
+when the action row alone exceeds the width — the phone case — does it wrap
+internally. Verified at desktop width: the three buttons are still on one line.
+
+Adding `flex-wrap` while keeping `shrink-0` changes nothing, which is worth
+knowing: the container's base size is still max-content, so there is nothing to
+wrap against.
+
+## Verified
+
+Ten routes at 375×812, each with `body.scrollWidth === clientWidth` and
+`window.scrollX` staying 0 after a scroll attempt: `/dashboard`, `/people`,
+`/people/attendance`, `/people/leave`, `/people/org-chart`, `/payroll`,
+`/payroll/payslips`, `/performance`, `/approvals`, `/settings`. `npm run check`
+exit 0, and desktop screenshotted to confirm the header is unchanged.
+
+## Deliberately not done
+
+- **A gate.** Every other invariant in this repo has one, and this one needs a
+  headless browser to measure — a Playwright dependency is a decision rather
+  than a fix, and adding it inside a responsive pass would be the wrong order.
+  The probe is eight lines of JavaScript; it is in this entry rather than in
+  `scripts/` because there is nothing to run it in.
+- **The remaining ~45 routes.** Ten were measured, chosen as the ones an
+  employee or an administrator actually opens. The three causes are shared
+  components and shared classes, so the fixes reach further than the ten — but
+  "every route is clean" is a claim I have not measured and am not making.
+- **Card-per-row tables.** `TableWrap`'s horizontal scroll is doing its job and
+  is a legitimate answer; replacing a dense payroll table with stacked cards on
+  a phone is a design decision, not a defect fix.
+
+---
+
+# ApproveHR installs on a phone, and refuses to lie when the phone has no signal
+
+`pwa` in the audit backlog. Two halves, and the second one is the reason the
+first is defensible.
+
+## The manifest, and one decision in it worth not undoing
+
+`app/manifest.ts` (the file convention in this Next — checked in
+`node_modules/next/dist/docs`, not assumed). `start_url` is **`/dashboard`, not
+`/`**: both surfaces are route groups in one app so this manifest is served on
+the marketing site too, and somebody who installs from a sales page means "give
+me ApproveHR", not "give me the page I just read".
+
+Icons are generated from `public/brand/mark.svg` with `sharp` — the mark is
+697×444 and an app icon is square, so it is **fitted inside a brand-indigo plate
+with 18% padding** rather than stretched. The padding is what makes `maskable`
+safe: Android crops to whatever shape the launcher uses, and a mark drawn to the
+edges loses its corners. Each size is listed twice, `any` and `maskable`,
+because the spec's `purpose: "any maskable"` is one string and Next's type
+rejects it.
+
+**`maximumScale` and `userScalable` are deliberately unset.** Locking zoom is
+the commonest mobile accessibility mistake, and this product's readers are
+frequently over fifty — the same argument that put a 14px floor under the type
+scale. A payroll figure somebody cannot enlarge is one they misread.
+
+## The offline half, and why it is not optional
+
+`display: standalone` removes the address bar. A failed navigation then shows
+the *browser's* offline page inside what the reader believes is an app: no
+ApproveHR name, a reload control that is not there, and it reads as the product
+being broken rather than the connection being down. Shipping installability
+without this would have been shipping the label without the thing.
+
+`public/sw.js` caches **one document** — `/offline` — and serves it when a
+**navigation** fails. That is all of it. No pages, no JavaScript, no CSS, no
+images, no API responses, and it never answers from cache while the network is
+up.
+
+That restraint is the feature. A worker that caches application chunks can serve
+a build older than the one deployed, and in a payroll product an old chunk is an
+old tax table — `TAX_SCHEDULES` is versioned by date precisely because the wrong
+bands cost real money. **A stale figure rendered confidently is the failure this
+whole codebase is arranged to refuse, and a cache is the easiest way to
+introduce it.**
+
+`skipWaiting` and `clients.claim` both fire immediately, so a deploy that
+changes the file wins on the next load rather than waiting for every tab to
+close. Since nothing versioned is cached there is no consistency argument for
+waiting, and a stuck old worker is the nightmare here.
+
+**To withdraw it**: replace the body of `public/sw.js` with
+`self.registration.unregister()` in an `activate` handler and deploy. Every
+client that fetches the new file removes it. That path is written down because a
+worker you cannot withdraw is a worker you should not ship.
+
+`components/portal/service-worker.tsx` registers it, and **unregisters any
+worker it finds in development** — somebody who ran a production build on
+`localhost:3000` once otherwise has a worker answering for every other project
+on that port for good. Mounted in `(app)`, never the root: nobody installs a
+sales page.
+
+## `npm run verify-service-worker`, and the tamper that got through
+
+Registration could not be exercised here **at all** — neither the embedded
+preview browser nor `next start` in this environment permits
+`serviceWorker.register` (it fails with "an unknown error occurred when fetching
+the script" while the script itself serves 200 with the right content type, and
+no CSP violation is reported; `worker-src 'self'` was added explicitly and
+changed nothing). No Chrome was connected either.
+
+So everything the worker *decides* is asserted instead, by running `public/sw.js`
+inside a `vm` context against a fake `ServiceWorkerGlobalScope`. Ten behaviours,
+in `npm run check`.
+
+The two that matter: **a non-navigation request is never intercepted** even with
+the network down, and **a 500 is passed through** rather than becoming "no
+connection" — a server error is a `Response`, not a thrown fetch, and telling
+somebody to check their Wi-Fi about a problem on our side is a wrong claim.
+
+Tamper-tested, and this is the part worth reading: rewriting the worker to
+intercept *everything* failed the gate immediately, and rewriting it to be
+**cache-first failed to fail** — 10/10, on the single most dangerous change
+possible. The "network works" case had an empty cache, so a cache-first worker
+passed it by falling through. Installing first, so the cache is populated *and*
+the network works, is the assertion that catches it. A model that omits a case
+cannot catch a failure on it; this one omitted the case it existed for.
+
+## Verified
+
+`npm run check` exit 0 with the new gate. Production build into `.next-verify`
+served on port 3100: `manifest.webmanifest` complete and `application/manifest+json`,
+all three icons 200, and the head carrying `theme-color` for both schemes,
+`apple-touch-icon`, `mobile-web-app-capable` and a viewport that permits zoom.
+`/offline` renders as a normal route with its copy and a plain `<a>` — not a
+button with an `onClick`, because a service worker serves that document to a
+page with no React running and a control needing JavaScript would be dead.
+
+**Not verified: registration itself, and therefore the offline page actually
+being served by the worker.** Somebody with a real browser should install the
+app, turn off the network, and open it once.
+
+---
+
+# One endpoint, two caches, two answers
+
+`rate-limit-headroom` in the backlog, which turned out to be half a request-count
+problem and half a correctness one.
+
+## The measurement, after the permissions fix
+
+Ten employees, development (React's double-invoke doubles everything, so halve
+these for production):
+
+| | before | after |
+|---|---|---|
+| `/people/leave` | 30, `leave/holidays` **×6** | 26, holidays **×2** |
+| `/payroll` | 22, `payroll/settings` **×4** | 19, settings **×1** |
+
+`shared-resource.ts` already existed — `072c8a0` built it for the permissions
+storm and its header asks callers to reach for it. These are two callers that
+had not.
+
+## The holidays case is ordinary. The payroll one is not.
+
+Nine components call `usePublicHolidays`, three of them on `/people/leave` (the
+calendar, and the booking form asking for two years). Each had its own effect.
+Keyed by year, the resource collapses that to one request per year.
+
+`payroll/settings` was worse, and the request count was the least of it.
+**Two different hooks were reading the same endpoint independently** —
+`store/payroll-deductions.ts` for what the company deducts, and
+`payroll/use-settings.ts` for the rates and the working month — each with its
+own `useState`, and **each writing its own PATCH response back into itself**. So
+saving the rates left the deduction switches rendering the previous answer, and
+saving a switch left the rates screen stale. Two caches of one row is two
+answers about a company's payroll, which is the thing this product is sold
+against.
+
+`lib/store/payroll-settings.ts` is now the one cache, and both hooks read it.
+
+## `SharedResource.set`, and why `refresh` was wrong for a save
+
+The first version called `refresh` after a PATCH. That is wrong twice: `refresh`
+blanks the value before re-fetching, so the person who pressed Save watches the
+screen flash a loading state at them — and it spends a round trip re-reading
+something the server has already handed back.
+
+`set(key, value)` publishes an answer somebody already holds to everybody
+rendering that key. Measured on a real save: no loading flash, and one GET plus
+one PATCH rather than one GET, one PATCH and a second GET.
+
+**Only ever call `set` with a server's own response.** Writing a locally
+assembled object there puts a guess in front of every screen reading the key,
+which is the failure the shared cache exists to prevent rather than to spread.
+
+## The outcome-not-value pattern, now in three places
+
+Both new resources resolve `{ value, error }` rather than rejecting, because a
+shared resource caches what its fetcher resolves and a rejection arrives as
+`null`. `null` is not read as "the request failed" by either caller — it is read
+as "no holidays this year" and "nothing is deducted", and the second is a false
+claim about a company's payroll rather than an empty state. The API's own
+sentence has to survive, so it travels in the value.
+
+An `AbortError` is the exception and is rethrown: it is the resource dropping
+its own request, not an answer, and caching it would hand a failure nobody
+experienced to the next subscriber.
+
+## Verified
+
+`npm run check` exit 0. Counts above measured in the browser against the live
+API. The save path walked end to end on `/settings/payroll`: NHF switched on, no
+loading flash, the page's own sentence updating — then **switched back off**, so
+the demo company is as it was.
+
+## Still duplicated, and left alone
+
+`/people/leave` still asks `leave/requests` ×4 and `employees` ×3. Those are
+different *queries* against one endpoint rather than the same read repeated —
+the balances panel, the request table and the booking form want different rows —
+so a keyed cache would not collapse them and pretending otherwise would mean one
+of the three rendering somebody else's filter.
+
+---
+
+# A crash in production reached nothing, and the CSP would have hidden that
+
+`sentry` in the backlog. Two gaps, and the second was bigger than the one the
+item names.
+
+## `registerErrorReporter` had no callers, and boundaries were not the gap
+
+`lib/report-error.ts` was written as a seam — one registration function, one
+accessor, honest behaviour when nothing is registered — and **nothing ever
+registered.** `reportError` logged to the console and stopped.
+
+Worse: only React's error boundaries called it at all. An uncaught `TypeError`
+in an event handler and a rejected promise nobody awaited reached **nothing** —
+and those are the majority of what actually breaks in a browser.
+`window.addEventListener("error")` and `"unhandledrejection"` now feed the same
+seam.
+
+## Why this is not `@sentry/nextjs`
+
+Deliberate, and not an avoidance:
+
+- a vendor SDK **cannot be verified here**. It needs a real DSN and a real
+  project, and shipping an unconfigured one is the seam's own warning about a
+  green Paid button that moved no money;
+- `@sentry/nextjs` brings a build plugin, source-map upload and a wrapped
+  config. That is a deployment decision with a bill attached and it is the
+  user's;
+- **the seam takes a vendor adapter just as easily.** `registerErrorReporter`
+  accepts any function; swapping this for `Sentry.captureException` is one line
+  and nothing else in the app moves. That was the whole point of the seam and it
+  stays true.
+
+So `NEXT_PUBLIC_ERROR_REPORT_URL` names any endpoint that accepts a JSON POST —
+a Sentry tunnel, a collector, a Lambda. Unset, nothing registers.
+
+## The finding: the CSP silently blocked it
+
+Pointed a real production build at a real collector and **nothing arrived**. The
+`connect-src` added in `32e06d6` is `'self' <apiOrigin>`, and the browser
+refused the report against it — logging the refusal to the console, which is the
+one channel error reporting exists to replace.
+
+That is the worst possible failure mode for this feature: it looks configured,
+it never delivers, and the signal that would tell you is the thing being
+blocked. `next.config.ts` derives the origin from the same variable now and adds
+it. **The same clause is what a hosted service needs** — pointing this at Sentry
+means putting Sentry's ingest origin in `connect-src` too. That is not an
+oversight to route around, it is the allowlist doing its job.
+
+It also means changing the endpoint needs a **rebuild**, not a restart: both the
+reporter and the CSP read it at build time.
+
+## Redaction is a gate, not a rule somebody remembers
+
+`report-error.ts` says in prose that a report must not carry a salary, a bank
+account or a name. Prose is not a check — and the thing that carries them is not
+the `context` a developer fills in deliberately, it is the **error message**,
+which frequently contains whatever was being processed when it threw.
+`Cannot read properties of undefined … on 0123456789` is an account number in a
+stack trace nobody decided to send.
+
+Four shapes are stripped from the message *and the stack*: a work email, a
+`PEN`+9-digit pension PIN, a bare ten-digit NUBAN, and a JWT.
+`npm run verify-error-reporting` asserts them — and asserts just as hard that
+ordinary text **survives**, because a redaction that strips anything which might
+be personal leaves a report nobody can act on, and then the reporting is worse
+than none. An ISO timestamp, a kobo figure, a sixteen-digit id and a route with
+a uuid in it are all left alone.
+
+**The console keeps the unredacted error, deliberately.** A developer with the
+tab open needs the real value; redaction is about what leaves the machine.
+
+## Two rules kept from the seam
+
+No queue, no retry, no persistence — a reporter that cannot deliver drops the
+report and the console kept it either way. And a cap of **five per page**: a
+render loop produces thousands of identical errors a second, and without the cap
+the first customer to hit one turns their bad afternoon into an outage of the
+collector.
+
+## Verified end to end
+
+A production build with the endpoint compiled in, served on 3100, against a
+local collector:
+
+- an uncaught throw and an unhandled rejection both arrived — two reports, from
+  two paths that previously reached nothing;
+- **on the wire**, `grace.effiong@schull.io`, `PEN100482913` and `0123456789`
+  were all absent, replaced by their labels, while the stack frames survived
+  intact;
+- the context carried `{route, kind: "unhandled-rejection"}`;
+- 20 errors thrown in a loop delivered exactly **5**.
+
+`npm run check` exit 0 with both new gates. The redaction gate was tamper-tested
+by deleting the account-number rule: 14/16, naming both cases.
+
+---
+
+# It does work at a thousand employees, and the audit was wrong about that
+
+`loadtest` in the backlog. The audit said the product *"works at 10 employees;
+it will not work at 1,000"* — a reasonable inference from reading the code, and
+**nobody had run it**. An inference about performance is a guess with a citation.
+
+`npm run load-test` in `approvehr-api` builds its own tenant, measures, and
+tears it down in a `finally`. Measured, local Postgres, no network between the
+API and the database:
+
+| | 1,000 | 5,000 |
+|---|---|---|
+| directory, page 1 of 25 | 31ms | 43ms |
+| directory, page 40 (deep paging) | 9ms | 20ms |
+| directory summary | 10ms | 11ms |
+| org chart, whole company | 13ms | 47ms |
+| `staff.csv` export | 41ms (107KB) | 143ms (536KB) |
+| **payroll prepare** | **1,207ms** | **6,522ms** |
+| payslip list, page 1 | 10ms | 36ms |
+| `payslips.csv` export | 40ms (112KB) | 170ms (562KB) |
+
+**Everything paged is flat and `prepare` is linear** — five times the people for
+5.4 times the time, not 25. There is no quadratic term hiding in the run.
+
+## Where the ceiling actually is
+
+`prepare` holds an interactive transaction, and its timeout is already
+`120_000` — raised deliberately, from Prisma's five-second default, by whoever
+found a three-hundred-person payroll failing on the very last statement. At the
+measured rate that puts the ceiling near **90,000 employees on one payroll**,
+which is not a number any customer of this product has.
+
+So the honest reading is: nothing here needs optimising for scale. What the
+audit was right about is the **distance** — the API runs in us-east-1 with users
+in Nigeria, and a warm no-op `/health` costs 197–321ms from Lagos. A 31ms
+directory read behind a 300ms round trip is a 331ms directory read, and that is
+where the second is spent. Moving the region, or putting the API behind the CDN
+the frontend already uses, is worth more than any query in this table.
+
+## One thing the run surfaced and this did not chase
+
+At 5,000 the pg driver logs *"Calling client.query() when the client is already
+executing a query is deprecated and will be removed in pg@9.0"*. That is the
+class HANDOVER already records under "writes return ids, reads return shapes" —
+Prisma loading relations in parallel inside a transaction. It is a warning today
+and a breakage at pg 9, so it is worth finding before the upgrade rather than
+during it.
+
+## Reading a number from this table
+
+It is a floor. There is no network in it, the rows are uniform, and one process
+has the database to itself. Take the shape — flat, linear, no cliff — rather
+than the milliseconds.
+
+---
+
+# The frontend has tests now, and what they are for
+
+`component-tests` in the backlog. The API has ~2,600 assertions; `web/` had
+**none** — thirteen bespoke `verify-*` scripts and nothing that opened a page.
+
+## The verifier scripts are staying, and this does not overlap them
+
+Each `verify-*` answers a question a component test cannot: does a built chunk
+carry a seeded persona, does every store write through `current()`, do the two
+import dictionaries agree, does `sw.js` intercept only navigations. They are
+static or bundle-level checks and they are the right tool for those jobs.
+
+What none of them can do is **render something and press it**. Every defect this
+file records as "found in the browser, not by `tsc`" is that shape:
+
+- a count true of the wrong noun — *"Apply to 1 person"* over *"4 people's
+  figures changed"*;
+- a live "Try again" beside a 409 that will refuse identically forever;
+- *"Counting for 20%"* directly above *"weighted at 0%"*;
+- `₦0.00` where a figure does not belong.
+
+Every one satisfied every type in the codebase. `netKobo: number` is satisfied
+by a zero, and so is the type of every wrong claim.
+
+## What the first two suites cover, and why those
+
+**`my-overview.test.tsx`** — absent-is-not-zero, which is the rule this file
+states in a dozen places and enforces nowhere. The card is the right first
+subject because it puts all three shapes on one screen: an absence that must
+draw nothing, a *nil* that must draw `₦0.00` because a payroll really did run,
+and a zero queue that is a real and useful answer.
+
+**`export-button.test.tsx`** — "the server's refusal, verbatim", which is prose
+in four files and enforced nowhere. A well-meaning
+`catch { toast("Download failed") }` satisfies every type in the repo and throws
+away the only sentence anybody can act on — and it is invisible until somebody
+without a permission presses the button.
+
+Both were **tamper-tested**. Replacing the refusal with a generic string fails
+three assertions; rendering `₦0.00` for an absent payslip fails one. A suite
+that cannot fail proves nothing.
+
+## `jsdom`, not a browser
+
+A real browser is `e2e`'s job and needs Playwright, a download and a running
+server. These mount, assert, press, assert — milliseconds, which is what makes
+them a thing people actually run.
+
+## Not in `npm run check` yet, deliberately
+
+`check` is what CI enforces and it is thirteen scripts finishing in under a
+minute. `npm test` is separate until the suite is load-bearing rather than
+illustrative — wire it in when it is. **That is the next person's call and it is
+the right one to make soon**: two files is a demonstration, not a safety net.
+
+## What to write next, in order
+
+The helpers that have already produced a defect once, because each is a rule
+somebody will re-break: `headcountLabel` versus `paidPeopleLabel` (a number
+under a label has to be true of the thing the label names), `fixFor`'s links,
+`weightProblem` and `scoringWeightProblem` being the server's sentence
+character-for-character, and `dueIn` on the statutory table.

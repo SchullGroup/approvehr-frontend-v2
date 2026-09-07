@@ -6,6 +6,7 @@ import { seedRolesFor } from "@/lib/mock/roles";
 import type { Employee } from "@/lib/types";
 import { SessionExpiredError, onAuthChange, tokens } from "@/lib/api/client";
 import { auth, type ApiUser } from "@/lib/api/endpoints";
+import { clearSharedResources } from "@/lib/shared-resource";
 
 /**
  * Who is signed in.
@@ -343,6 +344,9 @@ export function useSession() {
     safeRemove(OFFLINE_KEY);
     if (cache.mode === "api") await auth.signOut();
     else tokens.clear();
+    /* Before the state change, so nothing re-renders against the outgoing
+       person's permissions on the way out. See `lib/shared-resource.ts`. */
+    clearSharedResources();
     set({ status: "signed_out", mode: "api", user: null, employeeId: null });
   }, []);
 
@@ -450,25 +454,66 @@ export function useSession() {
 }
 
 /**
- * Whether the API answers, checked once per mount.
+ * Whether the API answers.
  *
  * Used by the sign-in screen to decide which path to offer, and by the shell to
  * show which mode you are in. Deliberately a hook with its own state rather than
  * part of the session store: it is a property of the environment, not of the
  * user, and it can change while the app is open.
+ *
+ * ## It re-checks, and it used to say "once per mount"
+ *
+ * A single probe deciding a question this consequential — see `ping`'s own
+ * header for what answering `false` costs — had no way back from a wrong
+ * answer. Somebody whose laptop woke on a train, or whose first request
+ * happened to land while the server was compiling, stayed in the wrong product
+ * until they reloaded the page.
+ *
+ * So the probe re-runs when the browser says the network came back, and when a
+ * hidden tab is looked at again. Both are the events that follow a false
+ * negative, and neither fires while somebody is working — this is not polling,
+ * and it must not become polling: `ping` costs three requests in the bad case,
+ * and turning it into a heartbeat would reintroduce the load the same incident
+ * was caused by.
  */
 export function useApiReachable(): boolean | null {
   const [reachable, setReachable] = useState<boolean | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    void (async () => {
-      const { ping } = await import("@/lib/api/client");
-      const ok = await ping();
-      if (!cancelled) setReachable(ok);
-    })();
+    let checking = false;
+
+    async function check() {
+      /* One probe at a time. `online` and `visibilitychange` fire together often
+         enough — closing a laptop lid and opening it is both — and two overlapping
+         probes would race to answer the same question. */
+      if (checking) return;
+      checking = true;
+      try {
+        const { ping } = await import("@/lib/api/client");
+        const ok = await ping();
+        if (!cancelled) setReachable(ok);
+      } finally {
+        checking = false;
+      }
+    }
+
+    void check();
+
+    /* Named, because `removeEventListener` compares by reference: an inline
+       arrow here adds a listener that cleanup silently fails to remove, and the
+       probe then outlives every unmount. */
+    const onOnline = () => void check();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void check();
+    };
+    window.addEventListener("online", onOnline);
+    document.addEventListener("visibilitychange", onVisible);
+
     return () => {
       cancelled = true;
+      window.removeEventListener("online", onOnline);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);
 

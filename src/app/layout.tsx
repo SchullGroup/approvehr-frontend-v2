@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { GeistSans } from "geist/font/sans";
 import "./globals.css";
 
@@ -9,7 +9,42 @@ export const metadata: Metadata = {
   },
   description:
     "Your HR intelligence partner: one platform for people, payroll and hiring, built for teams across Africa.",
-  icons: { icon: "/brand/mark.svg" },
+  icons: {
+    icon: "/brand/mark.svg",
+    /* iOS ignores the manifest's icons entirely and reads this. Without it an
+       app added to a Home Screen gets a screenshot of the page as its icon,
+       which is unrecognisable at 60px. */
+    apple: "/brand/apple-touch-icon.png",
+  },
+  appleWebApp: {
+    capable: true,
+    title: "ApproveHR",
+    /* `default` keeps the status bar legible on both themes. `black-translucent`
+       draws the page under the clock, which on a screen whose first row is a
+       payroll figure puts the time on top of the money. */
+    statusBarStyle: "default",
+  },
+};
+
+/**
+ * The viewport, split out because Next wants it separately from `metadata`.
+ *
+ * `maximumScale` and `userScalable` are deliberately **not set**. Locking zoom
+ * is the single most common accessibility mistake in a mobile web app, and this
+ * product's readers are frequently over fifty — the same argument that put a
+ * 14px floor under the type scale and gated it in `verify-typescale`. A payroll
+ * figure somebody cannot enlarge is a payroll figure somebody misreads.
+ *
+ * `themeColor` carries both schemes so the browser chrome matches the app
+ * rather than the other way round.
+ */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#0e1621" },
+  ],
 };
 
 /* Deliberately free of any @/components/ui import. ToastProvider lives in the

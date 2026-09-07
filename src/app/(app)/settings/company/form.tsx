@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, Check, Plus } from "lucide-react";
+import { Building2, Check } from "lucide-react";
 import {
   Badge,
   Button,
@@ -413,13 +413,7 @@ function Form() {
         <Card>
           <CardHeader
             title="Legal entities"
-            description="Each entity files separately. Headcount is live from the directory."
-            action={
-              <Button variant="secondary" size="sm" disabled>
-                <Plus aria-hidden="true" className="size-3.5" />
-                Add entity
-              </Button>
-            }
+            description="Each entity files separately. Headcount is live from the directory. Adding one is not self-service yet — ask us and we will set it up."
           />
           <TableWrap className="rounded-none border-0">
             <THead>

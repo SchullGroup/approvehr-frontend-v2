@@ -81,10 +81,12 @@ const OWNER: Record<string, { label: string; tone: string }> = {
  * never a second one.
  */
 export function OnboardingScreen() {
-  const { employees, loading, connected, error, reload } = useEmployeeDirectory({
-    status: "ONBOARDING",
-    pageSize: 100,
-  });
+  const { employees, loading, connected, error, reload } = useEmployeeDirectory(
+    {
+      status: "ONBOARDING",
+      pageSize: 100,
+    },
+  );
   const checklist = useOnboardingChecklist();
   const mutations = useEmployeeMutations();
   const canEdit = useCan("EDIT_RECORDS");
@@ -167,7 +169,11 @@ export function OnboardingScreen() {
         {/* Out of the badge row. A failed read rendered at badge size, between a
             source note and a count, reads as one more label about the page
             rather than the reason the page is empty. */}
-        <LoadFailure subject="the onboarding checklists" error={error}  onRetry={reload}/>
+        <LoadFailure
+          subject="the onboarding checklists"
+          error={error}
+          onRetry={reload}
+        />
 
         <div className="grid gap-4 sm:grid-cols-3">
           <Stat label="In onboarding" value={String(employees.length)} />
@@ -190,7 +196,13 @@ export function OnboardingScreen() {
           {blocked.length > 0 ? (
             <Link
               href="/people/incomplete"
-              className="block h-full rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+              /* `min-w-0` because this link is the GRID ITEM and `Stat` inside it is
+                 not. A `1fr` track floors at the widest item's min-content, and a
+                 grid track is shared — so this one wrapper without the class made
+                 all four stat cards 489px wide inside a 335px row and gave the
+                 whole page a sideways scroll at 375px. The three bare `Stat`s
+                 beside it already carried it; only the clickable one did not. */
+              className="block h-full min-w-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
             >
               <Stat
                 label="Cannot be paid yet"
@@ -396,10 +408,14 @@ function StepRow({
             aria-hidden="true"
             className={cn(
               "flex size-4 shrink-0 items-center justify-center rounded-full",
-              done ? "bg-success text-fill-strong" : "border border-line-strong",
+              done
+                ? "bg-success text-fill-strong"
+                : "border border-line-strong",
             )}
           >
-            {done && <Check aria-hidden="true" className="size-2.5" strokeWidth={3} />}
+            {done && (
+              <Check aria-hidden="true" className="size-2.5" strokeWidth={3} />
+            )}
           </span>
           <span
             className={cn(
@@ -418,7 +434,9 @@ function StepRow({
               </Link>
             )}
             <span className="sr-only">
-              {done ? ", done, from their record" : ", outstanding on their record"}
+              {done
+                ? ", done, from their record"
+                : ", outstanding on their record"}
             </span>
           </span>
           <span className="shrink-0 rounded-full bg-sunken px-1.5 py-0.5 text-meta font-medium text-muted">

@@ -15,17 +15,18 @@ import {
   CreditCard,
   DoorOpen,
   FileCheck,
+  FileSignature,
   FileText,
   FileUp,
   FolderOpen,
   GraduationCap,
   History,
   Inbox,
-  Wallet,
   Laptop,
   LayoutDashboard,
   LifeBuoy,
   Megaphone,
+  MessagesSquare,
   Network,
   Receipt,
   ReceiptText,
@@ -38,6 +39,7 @@ import {
   TrendingUp,
   UserRoundPlus,
   Users,
+  Wallet,
 } from "lucide-react";
 import type { PermissionKey } from "@/lib/permissions";
 import type { FeatureKey } from "@/lib/api/setup";
@@ -236,6 +238,16 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       icon: <Building2 aria-hidden="true" />,
       permission: "EDIT_RECORDS",
       feature: "departments",
+    },
+    {
+      /* No permission and no feature flag: who reports to whom is not
+         privileged — the directory already publishes it — and a company that
+         has never opened Settings still has a reporting line. Gating it would
+         reproduce the defect it was built to close, which was a chart nobody
+         could find rather than a chart nobody could read. */
+      href: "/people/org-chart",
+      label: "Org chart",
+      icon: <Network aria-hidden="true" />,
     },
     {
       /* Restored alongside the status field on the create form (see
@@ -483,6 +495,26 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       href: "/performance/kpis",
       label: "KPIs",
       icon: <TrendingUp aria-hidden="true" />,
+      always: true,
+    },
+    {
+      /* `always`, and no permission: a one-to-one is between two people, so
+         "may I see this" is a property of the rows rather than of the caller
+         — the API answers it and no `useCan` here can. Somebody in none at
+         all gets an empty screen offering to start one with their reports,
+         which is the honest answer and is also how the feature is found. */
+      href: "/people/one-on-ones",
+      label: "One-to-ones",
+      icon: <MessagesSquare aria-hidden="true" />,
+      always: true,
+    },
+    {
+      /* `always`, no permission: whether somebody has a document to sign is a
+         property of the rows, and the API is the only thing that can answer it
+         — an administrator holding every permission is refused the button. */
+      href: "/people/signatures",
+      label: "Signatures",
+      icon: <FileSignature aria-hidden="true" />,
       always: true,
     },
     {

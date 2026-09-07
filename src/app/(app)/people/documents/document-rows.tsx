@@ -1,7 +1,8 @@
 "use client";
 
-import { FileText, ShieldCheck } from "lucide-react";
-import { Badge, type BadgeTone } from "@/components/ui";
+import { useState } from "react";
+import { Download, FileText, ShieldCheck } from "lucide-react";
+import { Badge, Button, type BadgeTone } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import {
   CATEGORY_LABEL,
@@ -9,6 +10,7 @@ import {
   type ApiDocumentRequest,
 } from "@/lib/api/documents";
 import { dueLabel } from "@/lib/store/documents";
+import { documentFile } from "@/lib/api/uploads";
 
 /**
  * The two rows every documents screen is built from.
@@ -183,15 +185,74 @@ export function DocumentRow({
             </Badge>
           )}
         </p>
-        {/* The key, because it is all there is. Nothing here offers a download:
-            there is no file endpoint yet, and a dead link is worse than a path
-            somebody can go and look up. */}
+        {/* The date, and a way to open it. The key used to be printed here
+            because it was all there was; a reader has no use for a storage
+            path once the file behind it can actually be fetched. */}
         <p className="mt-0.5 truncate text-body-sm text-muted">
-          Added {readableDate(document.uploadedAt)} · kept at{" "}
-          <span className="tabular text-meta">{document.storageKey}</span>
+          Added {readableDate(document.uploadedAt)}
         </p>
+        <OpenDocument id={document.id} />
       </div>
       {action && <div className="flex shrink-0 gap-1.5">{action}</div>}
+    </div>
+  );
+}
+
+/**
+ * Open one document.
+ *
+ * The link is minted on click rather than rendered up front, for two reasons.
+ * A presigned URL is a bearer token for that file and expires in minutes, so
+ * one issued when a list rendered would be dead by the time anybody scrolled
+ * to it — and every mint is **audited** on the API, so a page of twenty
+ * documents would otherwise write twenty download entries for a page nobody
+ * read.
+ *
+ * When there is nothing behind the key the API says so in its own sentence —
+ * no bucket on this deployment, or a row recorded before storage existed — and
+ * that is shown rather than a dead link.
+ */
+function OpenDocument({ id }: { id: string }) {
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-2">
+      <Button
+        type="button"
+        variant="secondary"
+        size="sm"
+        disabled={busy}
+        onClick={() => {
+          setBusy(true);
+          setNote(null);
+          void documentFile(id)
+            .then((access) => {
+              if (access.url) {
+                /* `noopener` because the target is somebody else's origin. */
+                window.open(access.url, "_blank", "noopener,noreferrer");
+                return;
+              }
+              setNote(access.note ?? "There is nothing to open.");
+            })
+            .catch((error: unknown) =>
+              setNote(
+                error instanceof Error
+                  ? error.message
+                  : "The file could not be opened.",
+              ),
+            )
+            .finally(() => setBusy(false));
+        }}
+      >
+        <Download aria-hidden="true" className="size-3.5" />
+        {busy ? "Opening…" : "Open"}
+      </Button>
+      {note && (
+        <span className="text-meta text-muted" role="status">
+          {note}
+        </span>
+      )}
     </div>
   );
 }

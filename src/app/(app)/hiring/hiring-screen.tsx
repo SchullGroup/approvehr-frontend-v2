@@ -34,6 +34,8 @@ import { SourceBadge } from "@/components/hiring/source-badge";
 import { usePermissions } from "@/lib/permissions";
 import type { RoleRow } from "@/lib/api/hiring";
 import { pipelineSnapshot, useHiringOverview } from "@/lib/store/hiring";
+import { useSession } from "@/lib/store/session";
+import { useInterviews, useOffers } from "@/lib/store/recruitment";
 import { fullName } from "@/lib/types";
 
 /**
@@ -100,6 +102,7 @@ export function HiringScreen() {
 
 function Overview() {
   const { live, loading, error, roles, numbers, bars, reload } = useHiringOverview();
+  const { isConnected } = useSession();
   const pipeline = pipelineSnapshot();
 
   return (
@@ -226,84 +229,92 @@ function Overview() {
               </CardBody>
             </Card>
 
-            <Card>
-              <CardHeader
-                title="Interviews booked"
-                action={<SourceBadge live={false} />}
-              />
-              <CardBody className="flex flex-col gap-3">
-                {pipeline.scheduledInterviews.length === 0 ? (
-                  <p className="text-body-sm text-muted">Nothing booked.</p>
-                ) : (
-                  <p className="text-body-sm text-body">
-                    <span className="tabular font-medium text-ink">
-                      {pipeline.scheduledInterviews.length}
-                    </span>{" "}
-                    scheduled, and{" "}
-                    <span className="tabular font-medium text-ink">
-                      {pipeline.stalled.length}
-                    </span>{" "}
-                    candidates have sat in one stage for a week or more.
-                  </p>
-                )}
-                <ButtonLink href="/hiring/interviews" variant="secondary" size="sm">
-                  <CalendarClock aria-hidden="true" className="size-3.5" />
-                  Open interviews
-                </ButtonLink>
-              </CardBody>
-            </Card>
+            {isConnected ? (
+              <LiveInterviewsCard />
+            ) : (
+              <Card>
+                <CardHeader
+                  title="Interviews booked"
+                  action={<SourceBadge live={false} />}
+                />
+                <CardBody className="flex flex-col gap-3">
+                  {pipeline.scheduledInterviews.length === 0 ? (
+                    <p className="text-body-sm text-muted">Nothing booked.</p>
+                  ) : (
+                    <p className="text-body-sm text-body">
+                      <span className="tabular font-medium text-ink">
+                        {pipeline.scheduledInterviews.length}
+                      </span>{" "}
+                      scheduled, and{" "}
+                      <span className="tabular font-medium text-ink">
+                        {pipeline.stalled.length}
+                      </span>{" "}
+                      candidates have sat in one stage for a week or more.
+                    </p>
+                  )}
+                  <ButtonLink href="/hiring/interviews" variant="secondary" size="sm">
+                    <CalendarClock aria-hidden="true" className="size-3.5" />
+                    Open interviews
+                  </ButtonLink>
+                </CardBody>
+              </Card>
+            )}
 
-            <Card>
-              <CardHeader title="Offers out" action={<SourceBadge live={false} />} />
-              <CardBody className="flex flex-col gap-3">
-                {pipeline.offersOut.length === 0 && (
-                  <p className="text-body-sm text-muted">No offers pending.</p>
-                )}
-                {pipeline.offersOut.map((card) => (
-                  /* A plain wrapper with the link stretched over it by
-                     `after:inset-0`. An outer <Link> wrapping the inner one
-                     would nest anchors, which breaks hydration silently and
-                     renders the page blank with nothing useful in the console. */
-                  <div
-                    key={card.id}
-                    className="relative flex items-center gap-3 rounded-md border border-line p-2.5 transition-colors hover:bg-canvas"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-body-sm font-medium text-ink">
-                        <Link
-                          href={`/hiring/candidates/${card.id}`}
-                          className="after:absolute after:inset-0 hover:text-accent-text hover:underline underline-offset-4"
+            {isConnected ? (
+              <LiveOffersCard />
+            ) : (
+              <Card>
+                <CardHeader title="Offers out" action={<SourceBadge live={false} />} />
+                <CardBody className="flex flex-col gap-3">
+                  {pipeline.offersOut.length === 0 && (
+                    <p className="text-body-sm text-muted">No offers pending.</p>
+                  )}
+                  {pipeline.offersOut.map((card) => (
+                    /* A plain wrapper with the link stretched over it by
+                       `after:inset-0`. An outer <Link> wrapping the inner one
+                       would nest anchors, which breaks hydration silently and
+                       renders the page blank with nothing useful in the console. */
+                    <div
+                      key={card.id}
+                      className="relative flex items-center gap-3 rounded-md border border-line p-2.5 transition-colors hover:bg-canvas"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-body-sm font-medium text-ink">
+                          <Link
+                            href={`/hiring/candidates/${card.id}`}
+                            className="after:absolute after:inset-0 hover:text-accent-text hover:underline underline-offset-4"
+                          >
+                            {fullName(card.candidate)}
+                          </Link>
+                        </p>
+                        <p className="truncate text-meta text-muted">
+                          {card.requisition.title}
+                        </p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="tabular text-body-sm font-medium text-ink">
+                          {formatMoney(card.offer!.grossMonthly, "NGN", {
+                            decimals: true,
+                          })}
+                        </p>
+                        <Badge
+                          tone={card.offer!.status === "sent" ? "info" : "warning"}
+                          size="sm"
                         >
-                          {fullName(card.candidate)}
-                        </Link>
-                      </p>
-                      <p className="truncate text-meta text-muted">
-                        {card.requisition.title}
-                      </p>
+                          {card.offer!.status === "sent"
+                            ? "With the candidate"
+                            : "Waiting on approval"}
+                        </Badge>
+                      </div>
                     </div>
-                    <div className="shrink-0 text-right">
-                      <p className="tabular text-body-sm font-medium text-ink">
-                        {formatMoney(card.offer!.grossMonthly, "NGN", {
-                          decimals: true,
-                        })}
-                      </p>
-                      <Badge
-                        tone={card.offer!.status === "sent" ? "info" : "warning"}
-                        size="sm"
-                      >
-                        {card.offer!.status === "sent"
-                          ? "With the candidate"
-                          : "Waiting on approval"}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
-                <ButtonLink href="/hiring/offers" variant="secondary" size="sm">
-                  Open offer approvals
-                  <ArrowRight aria-hidden="true" className="size-3.5" />
-                </ButtonLink>
-              </CardBody>
-            </Card>
+                  ))}
+                  <ButtonLink href="/hiring/offers" variant="secondary" size="sm">
+                    Open offer approvals
+                    <ArrowRight aria-hidden="true" className="size-3.5" />
+                  </ButtonLink>
+                </CardBody>
+              </Card>
+            )}
           </div>
         </div>
       </PageBody>
@@ -393,5 +404,118 @@ function RoleTableRow({ role }: { role: RoleRow }) {
         {payRange(role.salaryMin, role.salaryMax)}
       </TD>
     </TR>
+  );
+}
+
+/**
+ * The two overview panels, read from the API rather than the seed.
+ *
+ * The ATS backend shipped and this screen was never told. Both cards passed
+ * `live={false}` unconditionally and read `pipelineSnapshot()`, which is the
+ * demo fixture — so connected they carried a "Demo data, this browser only"
+ * badge, and in a production build (where the seed is compiled out entirely)
+ * they said "Not available yet" and showed nothing at all, on a module that
+ * works.
+ *
+ * The sibling screens already had the answer: `interviews-screen.tsx` and
+ * `offers/approvals.tsx` both branch on `isConnected` into a `Real*`
+ * component. This is that pattern, applied to the two cards that were missed.
+ */
+
+/** Booked interviews, and how many of them nobody has filed a scorecard for. */
+function LiveInterviewsCard() {
+  const { interviews, total, loading, error } = useInterviews({
+    status: "SCHEDULED",
+    pageSize: 100,
+  });
+  const unscored = interviews.filter(
+    (interview) => interview.scorecardsSubmitted === 0,
+  ).length;
+
+  return (
+    <Card>
+      <CardHeader title="Interviews booked" />
+      <CardBody className="flex flex-col gap-3">
+        {loading ? (
+          <Skeleton className="h-5 w-3/4" />
+        ) : error ? (
+          <p className="text-body-sm text-muted">
+            The interview diary did not load. Open it to try again.
+          </p>
+        ) : total === 0 ? (
+          <p className="text-body-sm text-muted">Nothing booked.</p>
+        ) : (
+          <p className="text-body-sm text-body">
+            <span className="tabular font-medium text-ink">{total}</span>{" "}
+            scheduled
+            {unscored > 0 ? (
+              <>
+                , and{" "}
+                <span className="tabular font-medium text-ink">{unscored}</span>{" "}
+                {unscored === 1 ? "has" : "have"} no scorecard yet.
+              </>
+            ) : (
+              ", and every one has a scorecard against it."
+            )}
+          </p>
+        )}
+        <ButtonLink href="/hiring/interviews" variant="secondary" size="sm">
+          <CalendarClock aria-hidden="true" className="size-3.5" />
+          Open interviews
+        </ButtonLink>
+      </CardBody>
+    </Card>
+  );
+}
+
+/**
+ * Offers that are out or waiting to go out.
+ *
+ * Two statuses, deliberately: `PENDING_APPROVAL` is waiting on somebody here
+ * and `SENT` is waiting on the candidate. They are different jobs and the card
+ * says which is which rather than totalling them into one number nobody can
+ * act on.
+ */
+function LiveOffersCard() {
+  const awaiting = useOffers({ status: "PENDING_APPROVAL", pageSize: 50 });
+  const sent = useOffers({ status: "SENT", pageSize: 50 });
+  const loading = awaiting.loading || sent.loading;
+  const failed = awaiting.error !== null && sent.error !== null;
+
+  return (
+    <Card>
+      <CardHeader title="Offers out" />
+      <CardBody className="flex flex-col gap-3">
+        {loading ? (
+          <Skeleton className="h-5 w-2/3" />
+        ) : failed ? (
+          <p className="text-body-sm text-muted">
+            The offers did not load. Open them to try again.
+          </p>
+        ) : awaiting.total === 0 && sent.total === 0 ? (
+          <p className="text-body-sm text-muted">No offers pending.</p>
+        ) : (
+          <ul className="flex flex-col gap-1.5">
+            {awaiting.total > 0 && (
+              <li className="text-body-sm text-body">
+                <span className="tabular font-medium text-ink">
+                  {awaiting.total}
+                </span>{" "}
+                waiting on an approval here.
+              </li>
+            )}
+            {sent.total > 0 && (
+              <li className="text-body-sm text-body">
+                <span className="tabular font-medium text-ink">{sent.total}</span>{" "}
+                with the candidate.
+              </li>
+            )}
+          </ul>
+        )}
+        <ButtonLink href="/hiring/offers" variant="secondary" size="sm">
+          Open offer approvals
+        </ButtonLink>
+      </CardBody>
+    </Card>
   );
 }

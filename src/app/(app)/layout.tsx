@@ -1,4 +1,6 @@
 import { ToastProvider } from "@/components/ui";
+import { ErrorReporting } from "@/components/portal/error-reporting";
+import { ServiceWorker } from "@/components/portal/service-worker";
 import { AuthGate } from "@/components/portal/auth-gate";
 import { SetupGate } from "@/components/portal/setup-gate";
 import { AppShell } from "@/components/portal/shell";
@@ -12,17 +14,21 @@ import { THEME_INIT_SCRIPT } from "@/lib/theme-init-script";
    AppShell so the redirect fires before the sidebar ever paints. /setup itself
    now lives in its own route group (`app/(setup)/`), with no AppShell at all —
    see that layout's note for why a redirect here was not, on its own, enough. */
-export default function AppLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
       {/* Sets data-theme on <html> before first paint. Bypasses React on
           purpose — see lib/theme-init-script.ts's own header. */}
       <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       <ThemeEffect />
+      {/* Only the signed-in product registers a worker. The marketing site is
+          served from the same Next app and has no business doing it: nobody
+          installs a sales page, and the offline document it would cache talks
+          about payroll. */}
+      <ServiceWorker />
+      {/* Uncaught errors and rejected promises reached nothing before this —
+          only React's boundaries called `reportError`, and those see neither. */}
+      <ErrorReporting />
       <ToastProvider>
         <AuthGate>
           <SetupGate>

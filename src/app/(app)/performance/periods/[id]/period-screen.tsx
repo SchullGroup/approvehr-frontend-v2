@@ -338,6 +338,20 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 See the report
               </ButtonLink>
             )}
+            {/* The nine-box is the calibration read: performance against
+                potential, with everybody it cannot place named. Linked from
+                here for the same reason the report is — a screen nobody can
+                find is a screen nobody has, and this module has already lost
+                the assistant and the tax override that way. */}
+            {canSeeCompany && !draft && (
+              <ButtonLink
+                size="sm"
+                variant="secondary"
+                href={`/performance/periods/${cycleId}/nine-box`}
+              >
+                Nine-box
+              </ButtonLink>
+            )}
             {/* The stage never moved on its own, and nothing moved it: the
                 endpoint has always accepted `MANAGER` and `CALIBRATION`,
                 gated and ordered correctly, and had no caller — so every

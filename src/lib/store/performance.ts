@@ -35,6 +35,8 @@ import {
   type ApiReviewDetail,
   type ApiRevisionRequest,
   type ApiCycleReport,
+  type ApiNineBox,
+  type ApiPotentialLevel,
   type ApiScoreHistory,
   type ApiScoreRegister,
   type ApiScoringWeights,
@@ -2530,6 +2532,33 @@ export function useCycleMutations() {
       [guard],
     ),
 
+    /**
+     * Record or move somebody's potential — the second axis of the nine-box.
+     *
+     * A judgement with a name and a reason on it, never a computation. See
+     * `lib/api/performance.ts` for why the grid cannot derive this, and why an
+     * absence leaves somebody off the grid rather than at the bottom of it.
+     */
+    setPotential: useCallback(
+      async (
+        cycleId: string,
+        employeeId: string,
+        body: { level: ApiPotentialLevel; reason: string },
+      ) => {
+        guard("Recording potential needs the API.");
+        return performanceApi.setPotential(cycleId, employeeId, body);
+      },
+      [guard],
+    ),
+
+    clearPotential: useCallback(
+      async (cycleId: string, employeeId: string) => {
+        guard("Taking a placement off needs the API.");
+        return performanceApi.clearPotential(cycleId, employeeId);
+      },
+      [guard],
+    ),
+
     addQuestion: useCallback(
       async (cycleId: string, body: CreateQuestionBody) => {
         guard("Adding a question needs the API.");
@@ -3522,6 +3551,70 @@ export function useCycleReport(
     error: isConnected ? fetched.error : null,
     available: isConnected && enabled,
     refusal: REPORT_OFFLINE,
+    reload: fetched.reload,
+  };
+}
+
+const NINE_BOX_OFFLINE =
+  "A nine-box needs the API. One half of it is every person's mark, which is " +
+  "an aggregate over everybody, and the other half is a judgement somebody " +
+  "recorded — a grid assembled in this browser would place people nobody has " +
+  "placed.";
+
+/**
+ * Performance against potential, for one cycle.
+ *
+ * The cycle is fetched beside the grid, as the report does, so a reader refused
+ * the grid still gets the period's name for the heading.
+ *
+ * `enabled` is `EDIT_RECORDS`, asked by the screen — the store does not reach
+ * for `useCan` itself, or every consumer pays for the permissions fetch.
+ */
+export function useNineBox(
+  cycleId: string | null,
+  enabled: boolean,
+): {
+  grid: ApiNineBox | null;
+  cycle: ApiCycle | null;
+  loading: boolean;
+  error: ApiError | null;
+  available: boolean;
+  refusal: string;
+  reload: () => void;
+} {
+  const { isConnected } = useSession();
+  const active = cycleId !== null && enabled && isConnected;
+
+  const load = useCallback(
+    async (signal: AbortSignal) => {
+      const id = cycleId ?? "";
+      const [cycle, grid] = await Promise.all([
+        performanceApi.cycle(id, signal),
+        performanceApi.nineBox(id, signal),
+      ]);
+      return { cycle, grid };
+    },
+    [cycleId],
+  );
+
+  const fetched = useFetched<{ cycle: ApiCycle; grid: ApiNineBox }>(
+    `nine-box|${cycleId ?? "none"}`,
+    active,
+    load,
+  );
+
+  const offlineValue = useMemo(
+    () => demoCycles.find((cycle) => cycle.id === cycleId) ?? null,
+    [cycleId],
+  );
+
+  return {
+    grid: isConnected ? (fetched.data?.grid ?? null) : null,
+    cycle: isConnected ? (fetched.data?.cycle ?? null) : offlineValue,
+    loading: isConnected ? fetched.loading : false,
+    error: isConnected ? fetched.error : null,
+    available: isConnected && enabled,
+    refusal: NINE_BOX_OFFLINE,
     reload: fetched.reload,
   };
 }

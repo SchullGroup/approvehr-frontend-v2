@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { reportError } from "@/lib/report-error";
 import { AnnouncementBar, MarketingFooter, MarketingNav } from "@/components/marketing/chrome";
 import { Pill, PillButton } from "@/components/marketing/pill";
 import { StatusPage } from "@/components/marketing/status-page";
@@ -22,10 +23,12 @@ import { StatusPage } from "@/components/marketing/status-page";
  * has to) is the separate, rarer fallback for a crash in the root layout
  * itself.
  *
- * Nothing here reports the error anywhere — there is no error-tracking
- * service wired into this repo, and pretending to send one would be the
- * "green Paid button that moved no money" mistake this codebase's own
- * HANDOVER warns against elsewhere. `console.error` is the whole of it.
+ * Reporting goes through `lib/report-error.ts`, which is a seam rather than a
+ * service: with nothing registered it writes the console line and stops, which
+ * is what this comment used to describe as the whole of it. The difference is
+ * that wiring a provider is now one adapter instead of an edit to every
+ * boundary — and that a production crash stops being invisible the day
+ * somebody registers one.
  */
 export default function Error({
   error,
@@ -35,7 +38,7 @@ export default function Error({
   retry: () => void;
 }) {
   useEffect(() => {
-    console.error("Rendering failed:", error);
+    reportError(error, error.digest ? { digest: error.digest } : {});
   }, [error]);
 
   return (
