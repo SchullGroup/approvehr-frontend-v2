@@ -325,6 +325,17 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       feature: "loans",
     },
     {
+      /* No permission and `always`: drawing your own earned pay is a
+         self-service act, and gating it behind a role would hide it from
+         exactly the people it exists for. Whether they *can* is decided by the
+         company's policy and by what they have earned — the screen asks the
+         API and renders its refusal. */
+      href: "/payroll/advances",
+      label: "Pay early",
+      icon: <Banknote aria-hidden="true" />,
+      always: true,
+    },
+    {
       href: "/payroll/expenses",
       label: "Expenses",
       icon: <ReceiptText aria-hidden="true" />,
