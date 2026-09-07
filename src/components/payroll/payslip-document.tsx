@@ -89,6 +89,8 @@ export type PayslipIdentity = {
   taxState?: string | null;
   pensionPin?: string | null;
   bankAccount?: string | null;
+  /** The bank the account is with. A bare NUBAN identifies nothing. */
+  bankName?: string | null;
 };
 
 /** Year-to-date totals, in kobo. Omitted when they cannot be known. */
@@ -445,8 +447,6 @@ export function PayslipDocument({
     })),
   ];
 
-  const absent = notOperated(slip.operates);
-
   /* Only what was actually deducted. Adding a not-operated zero changes nothing
      arithmetically and is written this way so the total and the column can never
      be built from different sets of lines. */
@@ -510,7 +510,22 @@ export function PayslipDocument({
         <Detail label="Department" value={employee.department} />
         <Detail label="Tax state" value={employee.taxState} />
         <Detail label="Pension PIN" value={employee.pensionPin} />
-        <Detail label="Paid to" value={employee.bankAccount} />
+        {/* The account the money actually went to, named.
+            ----------------------------------------------------------------
+            This printed the NUBAN alone, and ten digits on their own identify
+            nothing — an employee querying a missing payment has to say which
+            bank, and a payslip is the document they are holding when they ask.
+            Both parts, or whichever exists: absent stays absent, so an
+            employee with no account on file still gets "—" rather than a
+            half-sentence about a bank with no number. */}
+        <Detail
+          label="Paid to"
+          value={
+            employee.bankAccount && employee.bankName
+              ? `${employee.bankAccount} · ${employee.bankName}`
+              : (employee.bankAccount ?? employee.bankName ?? null)
+          }
+        />
         <Detail label="Payment date" value={payDate} />
       </section>
 
@@ -559,17 +574,29 @@ export function PayslipDocument({
             ))}
             <LineItem label="Total deductions" kobo={takenKobo} total />
           </dl>
-          {/* Absent from the column and stated in words. A ₦500,000 salary
-              taking home ₦500,000 needs the sentence, and "PAYE ₦0.00" would be
-              the wrong one — it claims tax was worked out. */}
-          {absent.length > 0 && (
-            <p className="mt-2 text-meta leading-relaxed text-body">
-              {absent.map((row) => row.label).join(", ")}{" "}
-              {absent.length === 1 ? "does" : "do"} not appear above because{" "}
-              {absent.map((row) => row.because).join(", and ")}. Nothing was
-              deducted for {absent.length === 1 ? "it" : "them"}.
-            </p>
-          )}
+          {/* A deduction the employer does not operate is simply not here.
+              ------------------------------------------------------------------
+              This used to print a sentence naming it — "National Housing Fund
+              does not appear above because this employer does not deduct a
+              housing fund contribution. Nothing was deducted for it." True, and
+              nobody it was written for needed it: an employee reading their own
+              payslip has no idea their employer might have operated a scheme it
+              does not operate, so the sentence introduces a thing that is not
+              happening in order to say it is not happening.
+
+              The rule this replaces it with is the stricter reading of "absent,
+              not zero": **something switched off does not appear at all, and
+              does not get a disclaimer either.** A "PAYE ₦0.00" line would
+              still be wrong — it claims tax was worked out and came to nothing
+              — and that is exactly what `takenKobo` above avoids by summing
+              only what was deducted.
+
+              `notOperated` is still exported and still used by the run's
+              review panel (`run-panels.tsx`), and `/payroll/statutory` makes
+              the same distinction from the settings row — because there the
+              reader *is* somebody deciding what to remit, and does need to
+              know a schedule is empty on purpose rather than by mistake. The
+              distinction is the audience, not the fact. */}
           {carried > 0 && (
             <p className="mt-2 text-meta leading-relaxed text-body">
               {formatKobo(carried)} of the above could not be taken this month: there was not enough pay left after tax. It carries over to next
