@@ -12,6 +12,7 @@ import {
   EmptyState,
   Spinner,
 } from "@/components/ui";
+import { cn } from "@/lib/cn";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { dayLabel, type ApiCycle } from "@/lib/api/performance";
 import { useSession } from "@/lib/store/session";
@@ -144,6 +145,58 @@ export function PeriodsTab() {
 /* -------------------------------------------------------------------------- */
 
 /**
+ * Where this period sits in the sequence, without asking the API anything.
+ *
+ * ## Stages, not counts
+ *
+ * The full rail on `/performance` carries figures, and it buys them with
+ * `GET /cycles/:id/report` — the heaviest read in the module. One per row here
+ * would make a list of eight periods eight reports, so this deliberately shows
+ * only what `ApiCycle.stage` already says: which of the four stages this period
+ * has reached. The badge beside it names that stage; this says how far through
+ * the four it is, which is the thing a list of periods cannot otherwise tell
+ * you — a period "at manager review" is halfway, and one "at calibration" is
+ * nearly done, and those read identically as words.
+ *
+ * A draft fills nothing: it has not started, and the row's own button says so.
+ */
+const STAGE_SEQUENCE = ["SELF", "MANAGER", "CALIBRATION", "PUBLISHED"] as const;
+
+function StageRail({ period }: { period: ApiCycle }) {
+  const reached = STAGE_SEQUENCE.indexOf(
+    period.stage as (typeof STAGE_SEQUENCE)[number],
+  );
+
+  return (
+    <span
+      className="flex w-24 shrink-0 gap-0.5"
+      role="img"
+      aria-label={
+        reached < 0
+          ? "Not started"
+          : `Stage ${String(reached + 1)} of ${String(STAGE_SEQUENCE.length)}: ${period.stageLabel}`
+      }
+    >
+      {STAGE_SEQUENCE.map((stage, i) => (
+        <span
+          key={stage}
+          className={cn(
+            "h-1.5 flex-1 rounded-full",
+            reached < 0
+              ? "bg-sunken"
+              : i < reached
+                ? "bg-accent"
+                : i === reached
+                  ? "bg-accent-text"
+                  : "bg-sunken",
+          )}
+        />
+      ))}
+    </span>
+  );
+}
+
+/**
  * One period, with the one thing it needs next.
  *
  * The label on the link is the state, not a menu: a draft needs setting up, a
@@ -160,6 +213,7 @@ function PeriodRow({ period }: { period: ApiCycle }) {
       <div className="min-w-0">
         <p className="text-body-sm font-medium text-ink">{period.name}</p>
         <p className="mt-1 flex flex-wrap items-center gap-2 text-meta text-muted">
+          <StageRail period={period} />
           <Badge tone={published ? "neutral" : "info"} size="sm" dot>
             {period.stageLabel}
           </Badge>
