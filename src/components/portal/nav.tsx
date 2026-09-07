@@ -20,7 +20,6 @@ import {
   FileUp,
   FolderOpen,
   GraduationCap,
-  HeartPulse,
   History,
   Inbox,
   Laptop,
@@ -336,19 +335,19 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       icon: <SlidersHorizontal aria-hidden="true" />,
       permission: "VIEW_SALARIES",
     },
-    {
-      /* Payroll, not Performance, and not Core HR either: what a company
-         contributes to somebody's HMO or pension is part of what it pays
-         them, and the permission says so — `MANAGE_PAY_STRUCTURE` is the
-         same gate Pay setup above it carries.
+    /* Benefits deliberately has no entry here.
+       --------------------------------------------------------------------
+       It briefly had one, filed under Performance, and this commit first
+       moved it to Payroll — a benefit plan is part of what a company pays
+       somebody, so Payroll was the right heading of the three. The better
+       answer turned out to be no heading at all: it is a tab on Pay setup
+       now (`pay-setup/benefits-panel.tsx`), beside Allowances, Deductions
+       and Grades, because a benefit plan is the same kind of thing as an
+       allowance, and Pay setup is already the screen that answers "what is
+       pay made of, other than salary".
 
-         Reading is either permission, so the nav asks for the wider one: an
-         approver who can enrol somebody has to be able to find the screen. */
-      href: "/people/benefits",
-      label: "Benefits",
-      icon: <HeartPulse aria-hidden="true" />,
-      anyPermission: ["MANAGE_PAY_STRUCTURE", "EDIT_RECORDS"],
-    },
+       This note exists so the entry does not get helpfully added back by
+       somebody reading the nav and noticing a gap. */
     {
       href: "/payroll/payslips",
       label: "Payslips",

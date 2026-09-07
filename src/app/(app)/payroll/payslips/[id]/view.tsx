@@ -145,6 +145,7 @@ export function PayslipView({ id }: { id: string }) {
     taxState: onFile?.taxState ?? person?.taxState ?? null,
     pensionPin: onFile?.pensionPin ?? person?.pensionPin ?? null,
     bankAccount: onFile?.bankAccount ?? person?.bankAccount ?? null,
+    bankName: onFile?.bankName ?? person?.bankName ?? null,
   };
 
   /* Projected, and labelled as projected, only where nothing better exists.
