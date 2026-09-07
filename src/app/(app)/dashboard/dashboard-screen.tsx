@@ -2,13 +2,22 @@
 
 import { useMemo, useState } from "react";
 import { LayoutGrid } from "lucide-react";
-import { Button, Callout, Card, CardBody, Spinner } from "@/components/ui";
+import {
+  Button,
+  ButtonLink,
+  Callout,
+  Card,
+  CardBody,
+  Spinner,
+} from "@/components/ui";
 import { PageBody } from "@/components/portal/shell";
-import { usePermissions } from "@/lib/permissions";
+import { useCan, usePermissions } from "@/lib/permissions";
 import { useFeatures } from "@/lib/store/features";
 import { useSessionRoles, roleTier, type RoleTier } from "@/lib/roles";
 import { useDashboard, useReports } from "@/lib/store/insights";
 import { useDashboardLayout } from "@/lib/store/dashboard-layout";
+import { useSetupChecklist } from "@/lib/store/setup-checklist";
+import { checklistRows } from "../settings/checklist";
 import { DashboardHeader } from "./header";
 import { CustomizeDrawer } from "./customize-drawer";
 import { WIDGET_COMPONENTS } from "./widgets";
@@ -177,6 +186,19 @@ export function DashboardScreen() {
       />
 
       <PageBody>
+        {/* What is still not set up, where somebody actually is.
+        
+            The feedback asks for the post-signup "Complete Setup" prompt to
+            appear on the dashboard too, and it is right about why: the wizard's
+            own CTA is on a screen nobody returns to, so a company that stopped
+            halfway had nothing telling them. `useSetupChecklist` is the same
+            read `/settings` answers from, so the two cannot disagree about
+            what is outstanding.
+        
+            Absent once everything is done, rather than a green "all set" card
+            that lives on the dashboard for ever. */}
+        <SetupPrompt />
+
         {/* The arrangement failed to load and the standard one is showing. Said
             once, here, rather than left for somebody to notice their dashboard
             has reverted. */}
@@ -237,5 +259,53 @@ export function DashboardScreen() {
         onReset={() => void layout.reset()}
       />
     </>
+  );
+}
+
+/**
+ * What is still outstanding in setting the company up.
+ *
+ * Renders nothing when the checklist is complete, when it has not answered
+ * yet, or for somebody who could not act on it anyway — a prompt to finish
+ * setting up the company shown to an employee who cannot open Settings is a
+ * dead end with a link on it.
+ *
+ * The count and the wording come from the same `checklistRows` the settings
+ * hub renders, so the dashboard cannot say "3 things left" while the hub says
+ * four.
+ */
+function SetupPrompt() {
+  const canManage = useCan("MANAGE_SETTINGS");
+  const { facts, loading } = useSetupChecklist();
+
+  if (!canManage || loading || !facts) return null;
+
+  /* `optional` and `unknown` are left out of the denominator for the reason
+     the checklist's own header gives: a row that cannot be incomplete would
+     make the count a number that never falls to zero, and a count that never
+     completes stops being read. */
+  const rows = checklistRows(facts).filter(
+    (row) => row.status !== "optional" && row.status !== "unknown",
+  );
+  const outstanding = rows.filter((row) => row.status !== "done");
+  if (outstanding.length === 0) return null;
+
+  const first = outstanding[0]!;
+  return (
+    <Callout tone="info" className="mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <p className="text-body-sm">
+          <span className="font-medium">
+            {outstanding.length} of {rows.length} still to set up.
+          </span>{" "}
+          {/* Names the next one rather than only counting. A number alone is a
+              nag; a number and the next step is a thing somebody can finish. */}
+          <span className="text-muted">Next: {first.title.toLowerCase()}.</span>
+        </p>
+        <ButtonLink size="sm" variant="secondary" href={first.href}>
+          {first.linkLabel}
+        </ButtonLink>
+      </div>
+    </Callout>
   );
 }
