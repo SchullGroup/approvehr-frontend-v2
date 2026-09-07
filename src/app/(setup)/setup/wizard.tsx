@@ -501,7 +501,7 @@ export function SetupWizard() {
     return (
       <Frame nudge={nudge}>
         <Callout tone="warning" title="Nothing to ask">
-          There are no setup questions right now.
+          {null}
         </Callout>
         <div className="mt-5">
           <ButtonLink href="/dashboard" variant="accent">
