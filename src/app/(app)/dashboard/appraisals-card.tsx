@@ -113,7 +113,10 @@ export function AppraisalsCard() {
           </CardBody>
           {/* The figures. Absent for a reader without the permission, and for a
               period with no report yet — never zeroed. */}
-          <PeriodStatus cycleId={period.id} canSeeCompany={canSeeCompany} />
+          {/* The whole cycle, not its id: staging changed `PeriodStatus` to take
+              the object so it can read the stage and the dates without a
+              second fetch. */}
+          <PeriodStatus cycle={period} canSeeCompany={canSeeCompany} />
         </>
       ) : (
         <CardBody>

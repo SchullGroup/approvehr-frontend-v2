@@ -17,6 +17,16 @@ export const PAY_SETUP_TABS = [
   "deductions",
   "extras",
   "grades",
+  /**
+   * Benefits. Last, and the one tab not gated on `VIEW_SALARIES`.
+   *
+   * A benefit plan is a definition of what pay is made of, like the three
+   * above it, which is why it stopped being a route of its own. It is also the
+   * one somebody can work on without being allowed to see what anybody earns
+   * — `benefits-panel.tsx` withholds only the cost figures — so the screen
+   * asks per tab rather than once for the whole page. See `pay-setup-screen`.
+   */
+  "benefits",
 ] as const;
 
 export type PaySetupTab = (typeof PAY_SETUP_TABS)[number];
