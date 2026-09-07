@@ -73,7 +73,30 @@ export type SheetColumn = {
   note: string;
   /** True for the four figures the upload actually reads. */
   entered: boolean;
+  /**
+   * A company switch this column depends on, if any.
+   *
+   * Overtime and bonuses are decisions a company makes in Pay setup, and the
+   * run's own table drops their columns when they are off. A spreadsheet that
+   * kept offering them would be the same complexity coming back through the
+   * side door — and worse, because the API refuses a sheet that carries a
+   * figure in either, so it would be an invitation to a refusal.
+   *
+   * **Only the writer reads this.** See `sheetColumnsFor`.
+   */
+  needs?: SheetSwitch;
 };
+
+/** The two company switches a column can depend on. */
+export type SheetSwitch = "overtime" | "bonus";
+
+/**
+ * Which of the two a company operates. Both default **on** where a caller has
+ * no answer, so a sheet is never quietly narrower than the run's own table.
+ */
+export type SheetCarries = { overtime: boolean; bonus: boolean };
+
+export const CARRIES_ALL: SheetCarries = { overtime: true, bonus: true };
 
 export const SHEET_COLUMNS: readonly SheetColumn[] = [
   {
@@ -82,9 +105,24 @@ export const SHEET_COLUMNS: readonly SheetColumn[] = [
     note: "Who the row is about. Do not change it: it is how the upload finds them.",
     entered: false,
   },
-  { key: "name", heading: "name", note: "For reading. Not read back.", entered: false },
-  { key: "email", heading: "email", note: "For reading. Not read back.", entered: false },
-  { key: "phone", heading: "phone", note: "For reading. Not read back.", entered: false },
+  {
+    key: "name",
+    heading: "name",
+    note: "For reading. Not read back.",
+    entered: false,
+  },
+  {
+    key: "email",
+    heading: "email",
+    note: "For reading. Not read back.",
+    entered: false,
+  },
+  {
+    key: "phone",
+    heading: "phone",
+    note: "For reading. Not read back.",
+    entered: false,
+  },
   {
     key: "department",
     heading: "department",
@@ -124,6 +162,7 @@ export const SHEET_COLUMNS: readonly SheetColumn[] = [
       "Hours only. The rate is the company's own weekday rate, worked out from " +
       "their salary. Empty this cell to take hand-entered overtime off.",
     entered: true,
+    needs: "overtime",
   },
   {
     key: "bonus",
@@ -133,12 +172,14 @@ export const SHEET_COLUMNS: readonly SheetColumn[] = [
       `shows "${AMBIGUOUS_LINES_MARKER}", this person has more than one bonus: ` +
       "leave the cell as it is and edit them individually in the app.",
     entered: true,
+    needs: "bonus",
   },
   {
     key: "bonus_reason",
     heading: "bonus_reason",
     note: "What the bonus is for. Optional: the bonus still saves without one.",
     entered: true,
+    needs: "bonus",
   },
   {
     key: "deduction",
@@ -186,6 +227,30 @@ export const SHEET_COLUMNS: readonly SheetColumn[] = [
 ] as const;
 
 /**
+ * The columns a sheet is written with, for a company that operates these things.
+ *
+ * ## The writer asks. The reader must not.
+ *
+ * A sheet downloaded in March and uploaded in April, with bonuses switched off
+ * in between, still has a `bonus` column in it. `parseSheet` reads it, sends
+ * it, and the API refuses the whole file naming the setting — which is the
+ * honest outcome. Filtering on the way **in** would silently drop a figure
+ * somebody typed and report a clean apply, which is the failure this codebase
+ * spends most of its comments refusing. So `SHEET_COLUMNS` stays the reader's
+ * whole list and this narrows only what goes out.
+ *
+ * A caller with no answer passes `CARRIES_ALL` and gets what the sheet has
+ * always had.
+ */
+export function sheetColumnsFor(
+  carries: SheetCarries = CARRIES_ALL,
+): readonly SheetColumn[] {
+  return SHEET_COLUMNS.filter(
+    (column) => column.needs === undefined || carries[column.needs],
+  );
+}
+
+/**
  * The one rule somebody has to understand before they edit this file.
  *
  * Written once, rendered on the guide sheet **and** on the screen above the
@@ -198,7 +263,7 @@ export const SHEET_BLANK_RULE =
 
 export const SHEET_LEGEND: readonly string[] = [
   SHEET_BLANK_RULE,
-  "Only the columns marked \"Yes\" below are read back. Everything before " +
+  'Only the columns marked "Yes" below are read back. Everything before ' +
     "them is here so you can see who a row is about.",
   "Do not add rows. Somebody who is not on this payroll cannot be adjusted on it.",
   "Amounts are naira. Do not type a currency symbol or a thousands separator.",
@@ -254,13 +319,16 @@ export function sheetRow(source: SheetRowSource): CsvRow {
        otherwise — the same fallback `payrollFieldsForDisplay` documents, and
        the reason it is correct in both connected and demo mode. */
     bank_account:
-      (employee?.hasBankAccount ?? employee?.bankAccount != null) ? "Yes" : "No",
+      (employee?.hasBankAccount ?? employee?.bankAccount != null)
+        ? "Yes"
+        : "No",
     /* Null is nobody having recorded a salary, which the run already raises
        as a blocker. An empty cell here is the honest rendering of that, and
        it is also the cell somebody is about to fill in. */
     monthly_salary:
       employee?.grossMonthly == null ? "" : employee.grossMonthly.toFixed(2),
-    overtime_hours: source.overtimeHours === null ? "" : String(source.overtimeHours),
+    overtime_hours:
+      source.overtimeHours === null ? "" : String(source.overtimeHours),
     bonus: bonus.amount,
     bonus_reason: bonus.reason,
     deduction: deduction.amount,
@@ -294,8 +362,14 @@ export type SheetFiles = {
   xlsxFilename: string;
 };
 
-export function buildSheet(rows: readonly CsvRow[], period: string): SheetFiles {
-  const headings = SHEET_COLUMNS.map((c) => c.heading);
+export function buildSheet(
+  rows: readonly CsvRow[],
+  period: string,
+  /** What this company operates. Omitted means everything — see `CARRIES_ALL`. */
+  carries: SheetCarries = CARRIES_ALL,
+): SheetFiles {
+  const columns = sheetColumnsFor(carries);
+  const headings = columns.map((c) => c.heading);
   const basename = `approvehr-payroll-${period}`;
 
   const guide: string[][] = [
@@ -303,7 +377,7 @@ export function buildSheet(rows: readonly CsvRow[], period: string): SheetFiles 
     ...SHEET_LEGEND.map((line) => [line]),
     [""],
     ["Column", "Read back?", "What goes in it"],
-    ...SHEET_COLUMNS.map((c) => [c.heading, c.entered ? "Yes" : "No", c.note]),
+    ...columns.map((c) => [c.heading, c.entered ? "Yes" : "No", c.note]),
   ];
 
   const sheets: SheetSpec[] = [
@@ -314,7 +388,11 @@ export function buildSheet(rows: readonly CsvRow[], period: string): SheetFiles 
       freezeFirstRow: true,
       widths: headings.map((h) => Math.min(34, Math.max(14, h.length + 4))),
     },
-    { name: "Columns explained", rows: guide, boldRows: [0, SHEET_LEGEND.length + 2] },
+    {
+      name: "Columns explained",
+      rows: guide,
+      boldRows: [0, SHEET_LEGEND.length + 2],
+    },
   ];
 
   return {
@@ -418,14 +496,17 @@ export async function parseSheet(file: File): Promise<ParsedSheet> {
     const workbook = await readXlsx(await file.arrayBuffer());
     /* The first sheet with rows in it. Our own guide tab is second, and a
        customer's cover note is common — the importer picks the same way. */
-    const sheet = workbook.sheets.find((s) => s.grid.length > 1) ?? workbook.sheets[0];
+    const sheet =
+      workbook.sheets.find((s) => s.grid.length > 1) ?? workbook.sheets[0];
     const rows = sheet?.grid ?? [];
     headings.push(...(rows[0] ?? []));
     records.push(...rows.slice(1));
   } else {
     const parsed = parseCsv(await file.text());
     headings.push(...parsed.headers);
-    records.push(...parsed.rows.map((row) => parsed.headers.map((h) => row[h] ?? "")));
+    records.push(
+      ...parsed.rows.map((row) => parsed.headers.map((h) => row[h] ?? "")),
+    );
   }
 
   const index = new Map<string, number>();
@@ -448,7 +529,9 @@ export async function parseSheet(file: File): Promise<ParsedSheet> {
     return { rows: [], problems, ignored, carried: [] };
   }
 
-  const carried = SHEET_COLUMNS.filter((c) => c.entered && index.has(c.key)).map((c) => c.key);
+  const carried = SHEET_COLUMNS.filter(
+    (c) => c.entered && index.has(c.key),
+  ).map((c) => c.key);
   if (carried.length === 0) {
     problems.push({
       row: 0,
@@ -475,13 +558,15 @@ export async function parseSheet(file: File): Promise<ParsedSheet> {
     const employeeNo = cell("staff_no").trim();
     /* A wholly blank line. Excel leaves them behind constantly and they are
        not a mistake anybody made. */
-    if (employeeNo === "" && record.every((value) => value.trim() === "")) return;
+    if (employeeNo === "" && record.every((value) => value.trim() === ""))
+      return;
 
     if (employeeNo === "") {
       problems.push({
         row: number,
         column: "staff_no",
-        problem: "This row has no staff number, so there is nobody to apply it to.",
+        problem:
+          "This row has no staff number, so there is nobody to apply it to.",
       });
       return;
     }
@@ -516,13 +601,20 @@ export async function parseSheet(file: File): Promise<ParsedSheet> {
      * and delete lines nobody asked to touch. Anything else that is not a
      * number is a real mistake and refuses normally.
      */
-    const moneyOrMarker = (key: "bonus" | "deduction", field: keyof ParsedRow) => {
+    const moneyOrMarker = (
+      key: "bonus" | "deduction",
+      field: keyof ParsedRow,
+    ) => {
       if (!index.has(key)) return;
       const raw = cell(key).trim();
       if (raw === AMBIGUOUS_LINES_MARKER) return;
       const value = moneyKobo(raw);
       if (value === "bad") {
-        problems.push({ row: number, column: key, problem: `"${raw}" is not an amount.` });
+        problems.push({
+          row: number,
+          column: key,
+          problem: `"${raw}" is not an amount.`,
+        });
         broke = true;
         return;
       }
@@ -531,7 +623,10 @@ export async function parseSheet(file: File): Promise<ParsedSheet> {
 
     /** `bonus_reason` / `deduction_reason` — plain text, carried through only
      *  when it is a real reason somebody typed. */
-    const reasonText = (key: "bonus_reason" | "deduction_reason", field: keyof ParsedRow) => {
+    const reasonText = (
+      key: "bonus_reason" | "deduction_reason",
+      field: keyof ParsedRow,
+    ) => {
       if (!index.has(key)) return;
       const raw = cell(key).trim();
       if (raw === "" || raw === AMBIGUOUS_LINES_MARKER) return;
@@ -594,22 +689,28 @@ export function summarise(
     let clears = false;
 
     if ("bonusKobo" in row) {
-      const was = before?.bonus.state === "one" ? before.bonus.amountKobo : null;
+      const was =
+        before?.bonus.state === "one" ? before.bonus.amountKobo : null;
       if (row.bonusKobo === null && was !== null) clears = true;
       else if (row.bonusKobo !== null && row.bonusKobo !== was) moves = true;
     }
     if ("deductionKobo" in row) {
-      const was = before?.deduction.state === "one" ? before.deduction.amountKobo : null;
+      const was =
+        before?.deduction.state === "one" ? before.deduction.amountKobo : null;
       if (row.deductionKobo === null && was !== null) clears = true;
-      else if (row.deductionKobo !== null && row.deductionKobo !== was) moves = true;
+      else if (row.deductionKobo !== null && row.deductionKobo !== was)
+        moves = true;
     }
     if ("overtimeHours" in row) {
       const was = before?.overtimeHours ?? null;
       if (row.overtimeHours === null && was !== null) clears = true;
-      else if (row.overtimeHours !== null && row.overtimeHours !== was) moves = true;
+      else if (row.overtimeHours !== null && row.overtimeHours !== was)
+        moves = true;
     }
     if ("payeKobo" in row) {
-      const was = before?.payslip.payeOverridden ? (before.payslip.payeKobo ?? null) : null;
+      const was = before?.payslip.payeOverridden
+        ? (before.payslip.payeKobo ?? null)
+        : null;
       if (row.payeKobo === null && was !== null) clears = true;
       else if (row.payeKobo !== null && row.payeKobo !== was) moves = true;
     }
@@ -620,7 +721,9 @@ export function summarise(
        through to `unchanged`, so the panel offered "Apply to 1 person, 9
        unchanged" over a sheet that would silently drop somebody's override. */
     if ("pensionKobo" in row) {
-      const was = before?.payslip.overriddenDeductions?.includes("PENSION_EMPLOYEE")
+      const was = before?.payslip.overriddenDeductions?.includes(
+        "PENSION_EMPLOYEE",
+      )
         ? (before.payslip.pensionEmployeeKobo ?? null)
         : null;
       if (row.pensionKobo === null && was !== null) clears = true;
@@ -635,7 +738,8 @@ export function summarise(
     }
     if ("monthlyKobo" in row && row.monthlyKobo !== null) {
       const was = before?.employee?.grossMonthly;
-      if (was == null || Math.round(was * 100) !== row.monthlyKobo) moves = true;
+      if (was == null || Math.round(was * 100) !== row.monthlyKobo)
+        moves = true;
     }
 
     if (moves) changing += 1;

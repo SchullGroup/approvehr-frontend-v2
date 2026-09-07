@@ -422,6 +422,23 @@ export type LineSummary =
 export type LineSummaryByEmployee = Record<string, LineSummary>;
 
 /**
+ * What this run is paying somebody in overtime — hand-entered or clocked.
+ *
+ * Here rather than in the run wizard because two surfaces ask it: the table,
+ * to decide whether to show an Overtime column a company has switched off, and
+ * the adjustment sheet, to decide whether to write one. A second copy of the
+ * test is how the sheet comes to disagree with the table it was downloaded
+ * from — see every other note in this file about one figure, one definition.
+ */
+export function overtimeOn(slip: Payslip): number {
+  return slip.lines
+    .filter(
+      (line) => line.kind === "EARNING" && line.label.startsWith("Overtime"),
+    )
+    .reduce((total, line) => total + line.amountKobo, 0);
+}
+
+/**
  * What a saved list came to.
  *
  * `total` is the figure the table cell shows. It comes back from the API rather
@@ -811,6 +828,15 @@ export type PayrollSettingsRow = {
   nhfEnabled: boolean;
   nhfRate: Decimalish;
   nhfOnGross: boolean;
+  /**
+   * Whether this company awards bonuses through payroll at all.
+   *
+   * Not a statutory switch and not part of the arithmetic — off, the payroll
+   * run drops its Bonus column and the endpoints behind it refuse. `QuoteSettings`
+   * deliberately has no twin: a quote is a payslip for a salary figure, and a
+   * bonus is not part of one.
+   */
+  bonusEnabled: boolean;
   netSwingThreshold: Decimalish;
   requireBankAccount: boolean;
   requirePensionPin: boolean;
@@ -851,6 +877,7 @@ export type PayrollSettingsPatch = Partial<{
   nhfEnabled: boolean;
   nhfRate: number;
   nhfOnGross: boolean;
+  bonusEnabled: boolean;
   netSwingThreshold: number;
   requireBankAccount: boolean;
   requirePensionPin: boolean;

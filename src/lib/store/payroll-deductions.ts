@@ -89,6 +89,10 @@ const DEMO_ROW: PayrollSettingsRow = {
   nhfEnabled: false,
   nhfRate: "0.025",
   nhfOnGross: false,
+  /* On, matching the schema default: every company that existed before the
+     switch had the Bonus column on its payroll run, so this is what they
+     already had. See `PayrollSettings.bonusEnabled`. */
+  bonusEnabled: true,
   netSwingThreshold: "0.25",
   requireBankAccount: true,
   requirePensionPin: true,

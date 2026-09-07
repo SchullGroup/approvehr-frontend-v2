@@ -15,6 +15,7 @@
 export const PAY_SETUP_TABS = [
   "allowances",
   "deductions",
+  "extras",
   "grades",
   /**
    * Benefits. Last, and the one tab not gated on `VIEW_SALARIES`.

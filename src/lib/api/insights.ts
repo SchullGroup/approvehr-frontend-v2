@@ -224,9 +224,50 @@ export type ReportsData = {
   };
 };
 
+/**
+ * One person's own dashboard arrangement.
+ *
+ * `layout` is **null** for somebody who has never opened the drawer, and an
+ * empty `widgets` array for somebody who switched everything off. Those are
+ * different answers and the screen treats them differently — the first takes
+ * the catalogue's defaults for their role, which are allowed to change between
+ * releases; the second is a decision to keep. See `DashboardLayout` on the API.
+ */
+export type ApiDashboardLayout = {
+  layout: { widgets: string[]; updatedAt: string } | null;
+};
+
 export const insightsApi = {
   dashboard: (): Promise<DashboardData> =>
     request<DashboardData>("/insights/dashboard"),
+
+  layout: (signal?: AbortSignal): Promise<ApiDashboardLayout> =>
+    request<ApiDashboardLayout>("/insights/dashboard/layout", { signal }),
+
+  /**
+   * Replaces the whole arrangement.
+   *
+   * Order and membership are one fact, so there is no per-widget endpoint —
+   * half a saved arrangement is a state nobody can describe. Same shape as the
+   * appraiser weights and the payroll lines modal.
+   */
+  saveLayout: (widgets: readonly string[]): Promise<ApiDashboardLayout> =>
+    request<ApiDashboardLayout>("/insights/dashboard/layout", {
+      method: "PUT",
+      body: { widgets },
+    }),
+
+  /**
+   * Back to never having chosen, so the catalogue's defaults answer again.
+   *
+   * A DELETE rather than a PUT of today's defaults: that is what makes a later
+   * release's better starting arrangement reach the person who reset, and it is
+   * the only way back to the `null` state the API distinguishes.
+   */
+  clearLayout: (): Promise<ApiDashboardLayout> =>
+    request<ApiDashboardLayout>("/insights/dashboard/layout", {
+      method: "DELETE",
+    }),
 
   /** `period` is `YYYY-MM`. Omitted means this month. */
   reports: (period?: string): Promise<ReportsData> =>

@@ -276,6 +276,29 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       permission: "EDIT_RECORDS",
     },
     {
+      /* Beside Documents, because that is what it is: the register says what
+         is on file, and this says what is waiting to be signed.
+
+         `always`, no permission: whether somebody has a document to sign is a
+         property of the rows, and the API is the only thing that can answer it
+         — an administrator holding every permission is refused the button. */
+      href: "/people/signatures",
+      label: "Signatures",
+      icon: <FileSignature aria-hidden="true" />,
+      always: true,
+    },
+    {
+      /* `always`, and no permission: a one-to-one is between two people, so
+         "may I see this" is a property of the rows rather than of the caller
+         — the API answers it and no `useCan` here can. Somebody in none at
+         all gets an empty screen offering to start one with their reports,
+         which is the honest answer and is also how the feature is found. */
+      href: "/people/one-on-ones",
+      label: "One-to-ones",
+      icon: <MessagesSquare aria-hidden="true" />,
+      always: true,
+    },
+    {
       /* Laptops, phones and SIM cards. Gated to the register's audience
          because a staff member's own kit already renders on `/profile`, and
          the point of this nav is that a five-person company is not shown
@@ -312,6 +335,19 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       icon: <SlidersHorizontal aria-hidden="true" />,
       permission: "VIEW_SALARIES",
     },
+    /* Benefits deliberately has no entry here.
+       --------------------------------------------------------------------
+       It briefly had one, filed under Performance, and this commit first
+       moved it to Payroll — a benefit plan is part of what a company pays
+       somebody, so Payroll was the right heading of the three. The better
+       answer turned out to be no heading at all: it is a tab on Pay setup
+       now (`pay-setup/benefits-panel.tsx`), beside Allowances, Deductions
+       and Grades, because a benefit plan is the same kind of thing as an
+       allowance, and Pay setup is already the screen that answers "what is
+       pay made of, other than salary".
+
+       This note exists so the entry does not get helpfully added back by
+       somebody reading the nav and noticing a gap. */
     {
       href: "/payroll/payslips",
       label: "Payslips",
@@ -506,26 +542,6 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       href: "/performance/kpis",
       label: "KPIs",
       icon: <TrendingUp aria-hidden="true" />,
-      always: true,
-    },
-    {
-      /* `always`, and no permission: a one-to-one is between two people, so
-         "may I see this" is a property of the rows rather than of the caller
-         — the API answers it and no `useCan` here can. Somebody in none at
-         all gets an empty screen offering to start one with their reports,
-         which is the honest answer and is also how the feature is found. */
-      href: "/people/one-on-ones",
-      label: "One-to-ones",
-      icon: <MessagesSquare aria-hidden="true" />,
-      always: true,
-    },
-    {
-      /* `always`, no permission: whether somebody has a document to sign is a
-         property of the rows, and the API is the only thing that can answer it
-         — an administrator holding every permission is refused the button. */
-      href: "/people/signatures",
-      label: "Signatures",
-      icon: <FileSignature aria-hidden="true" />,
       always: true,
     },
     {

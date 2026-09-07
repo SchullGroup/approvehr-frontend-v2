@@ -6957,3 +6957,190 @@ somebody will re-break: `headcountLabel` versus `paidPeopleLabel` (a number
 under a label has to be true of the thing the label names), `fixFor`'s links,
 `weightProblem` and `scoringWeightProblem` being the server's sentence
 character-for-character, and `dueIn` on the statutory table.
+
+---
+
+# The payroll table had a switch in its header, and two columns nobody chose
+
+Three questions in one message, and the first one is worth answering before the
+other two, because it is the one that decides whether the rest is safe.
+
+## Do Pay setup's allowances and deductions actually reach payroll?
+
+**Yes, and the `active` switch is respected.** Not inferred from the code —
+measured against the demo tenant's August 2026 run:
+
+| Pay component | Assigned to | On payslips | Total |
+|---|---|---|---|
+| Transport allowance | 4 | 4 | ₦185,000 |
+| Meal allowance | 2 | 2 | ₦50,000 |
+| Shift allowance | 1 | 1 | ₦35,625 |
+| Cooperative contribution | 1 | 1 | ₦20,000 |
+| Union dues | 1 | 1 | ₦5,000 |
+
+`assemble.ts` calls `resolveComponentsForMany`, which filters on
+`component: { active: true, archivedAt: null }`. So switching one off stops it
+at the **next** run and does not touch an approved one — the settings-versus-
+snapshot split doing its job.
+
+## The PAYE toggle is out of the run's table
+
+A 28-pixel `role="switch"` lived in the header of the PAYE column, writing
+`PayrollSettings.payeEnabled` — the company's tax policy, for every payroll,
+not just the one on screen. Its own docstring explained why it was there and
+the reason was real: a company that does not operate PAYE reached the cell,
+found the words "Not operated" and had no control to press, so there was no
+path to the setting from the screen where the problem is noticed.
+
+That was the right problem and the wrong fix. **A setting inside a data table
+is a setting somebody changes while working a month up**, and the narrowest
+column on the screen was carrying the widest decision on it. It is gone;
+`/settings/payroll` keeps the switch, with the notices and the rates and the
+bases that explain what switching it off means, and Pay setup links to it.
+
+## Overtime and Bonus are company decisions now, not table furniture
+
+Both columns were offered to every company, on every row, every month, whether
+or not it had ever paid either. On a payroll of five that is most of the width
+given to two controls nobody will press — which is the product this one is sold
+against, not the one it is meant to be.
+
+**Overtime's switch already existed and this table ignored it.**
+`OvertimePolicy.enabled` — the "Pay overtime" switch on `/settings/overtime`,
+which has **always defaulted off** and whose own description has always said
+"nothing reaches payroll". It gated `detect()` and nothing else, so the run
+happily accepted hand-entered hours for a company that had never switched
+overtime on. Closing that is a behaviour change and the copy was already
+promising it.
+
+**Bonuses had none**, so `PayrollSettings.bonusEnabled` is new
+(`20260906200000_payroll_bonus_switch`), defaulting **on** for the reason
+`payeEnabled` does: every company that existed before the column had the
+column.
+
+Both are on a new **Extras** tab in Pay setup — `/payroll/pay-setup?tab=extras`
+— beside the allowances and deductions, which are the standing half of the same
+question.
+
+### The switch holds at the endpoint, not only on the screen
+
+`src/modules/payroll/switches.ts` on the API. A control that disappears while
+the route behind it still writes is decoration, and the adjustment-sheet upload
+is exactly the path somebody would find round it. Four write paths ask:
+`setOvertimeOverride`, `setBonus`, `setLines` for bonuses, and
+`applyAdjustmentSheet` for either column — refused **whole**, never half
+applied.
+
+**Adding is refused; removing never is.** A bonus already sitting on an open run
+when somebody switches bonuses off has to come off it, so `clearBonus`,
+`clearOvertimeOverride`, an empty list from the lines modal and a sheet full of
+cleared cells all go through untouched. Guarding the removal traps the money on
+the run with no control left to reach it.
+
+### A switched-off column still appears when the run carries money
+
+This is the half worth not undoing. `overtimeEnabled` governs what the screen
+**offers**, never what the payroll **pays**: overtime approved in the overtime
+module is still detected, valued and paid, and neither switch is part of
+`engineSettingsFrom` or the approval snapshot. So the column is shown on any run
+that carries the money, whatever the switch says.
+
+Hiding a figure that is in the net pay is "absent is not zero" inverted into
+something worse — money on the payslip and nothing on the table to account for
+it, which is the reconciliation defect this product is sold against.
+
+`CellValue` gained `addable` for the consequence: on such a run every *other*
+person's cell would otherwise offer an "Add hours" the API now refuses. Found
+by looking at it — the first version shipped exactly that dead control, on
+Adaeze's row, on a table that was otherwise correct.
+
+### Two fixture rows, and what they were relying on
+
+`tests/payroll-adjustment-sheet.test.ts` and
+`tests/payroll-overtime-override.test.ts` both created an `OvertimePolicy`
+without `enabled`, which defaults false, and then entered overtime by hand.
+Those companies do pay overtime; the fixtures were relying on the gap. Set
+explicitly, with the reason.
+
+## Verified
+
+API `npm run check` — `tests/payroll-run-extras-switches.test.ts` is new, 17
+assertions: the defaults, all four refusals, all three removals, the sheet
+refused whole with the legal PAYE row on it **not** written, a sheet of cleared
+cells applying with the switch off, an absent column not tripping the guard, and
+the setting surviving an unrelated patch.
+
+Web `npm run check` exit 0 — the 8 lint warnings are the pre-existing ones in
+`payslips/[id]/view.tsx`, `runs/new/wizard.tsx`, `settings/company/form.tsx` and
+`store/features.ts`.
+
+**In the browser, connected**, on the demo company's August run: the PAYE header
+with no switch under it (`switchesInHeader: 0`); both switches off leaving
+`Employee · Unpaid days · Gross · Overtime · PAYE · Deductions · Net` — Bonus
+gone, Overtime kept because Chidi Nwosu carries ₦78,571.44 of approved overtime,
+and **"Add hours" nowhere on the table**; both consequence sentences rendered
+under the switches they belong to; and both switched back on returning the table
+to eight columns with both controls. The demo company's settings were left
+exactly as found — `bonusEnabled: t`, `payeEnabled: t`, overtime `enabled: t`.
+
+## Deliberately not done
+
+- **PAYE, pension and NHF are not repeated on the Extras tab.** Two places to
+  change one field is how they come to disagree; the tab links to
+  `/settings/payroll`, which has room for what each one means.
+- **No `bonusEnabled` on `QuoteSettings`.** A quote is a payslip for a salary
+  figure and a bonus is not part of one.
+
+## The sheet follows the switches too, and the reader deliberately does not
+
+This entry originally left the adjustment sheet alone and said so. It is done
+now, and the asymmetry is the whole of it:
+
+> **The writer asks. The reader must not.**
+
+`sheetColumnsFor(carries)` narrows what goes **out**: a company with overtime
+off downloads a file with no `overtime_hours` column, and one with bonuses off
+gets neither `bonus` nor `bonus_reason`. The identity columns and the other
+four figures are untouched, and `verify-adjustment-sheet` asserts that
+explicitly — a switch that took `staff_no` with it would make the file
+unapplicable, and one that took `deduction` would be hiding a column nobody
+switched off.
+
+`parseSheet` still reads every column there has ever been. A sheet downloaded
+in March and uploaded in April with bonuses switched off in between **is read**,
+sent, and refused whole by the API in words naming the setting. Filtering on the
+way in would silently drop a figure somebody typed and then report a clean
+apply, which is the failure this codebase spends most of its comments refusing.
+
+Two other things follow from the same rule as the table:
+
+- **A column comes back when the run carries the money.** `carries` is
+  `switch || anybody already has some`, computed in `sheet-panel.tsx` from
+  `overtimeOn(payslip)` and the bonus `LineSummary`. A sheet that dropped a
+  bonus somebody is being paid would be describing the payroll wrongly by
+  omission, on the artefact that leaves the building.
+- **The modal's own sentence is built from `carries`**, not written out. It
+  used to read "Fill in overtime hours, a bonus or a deduction…" — a paragraph
+  describing a spreadsheet the reader is about to open and find different.
+
+`overtimeOn` moved from `wizard.tsx` to `lib/api/payroll.ts`, because two
+surfaces now ask it and a second copy of the test is how the sheet comes to
+disagree with the table it was downloaded from.
+
+### Verified
+
+`verify-adjustment-sheet` is **28 assertions**, up from 16, and was
+tamper-tested in both directions separately: making the writer ignore the
+switches fails 3, and making the reader honour them fails a different 3. Both
+restored to green.
+
+In the browser, connected, on the demo company's August run: both switches on →
+all 15 columns; bonuses off → 13, with `bonus` and `bonus_reason` gone and
+`overtime_hours` **kept** because the run carries approved overtime; the
+sentence following in both cases. Then an "old" sheet carrying a bonus was
+uploaded with bonuses off — read as *"1 person with a figure that moves"*,
+applied, and refused: *"This company does not award bonuses through payroll, so
+one cannot be added here. Switch bonuses on under Pay setup → Extras first.
+Nothing in the file was applied, so the payroll is exactly as it was."*
+Confirmed in the database that no bonus row and no payslip line were written.
+
