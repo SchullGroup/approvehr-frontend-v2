@@ -22,6 +22,7 @@ import {
   Users,
   /* Plug, Webhook — with the Integrations and Webhooks cards below, commented
      out for now. */
+  ToggleRight,
 } from "lucide-react";
 import {
   Badge,
@@ -112,6 +113,22 @@ const STATUS: Record<
  * stops being read.
  */
 const ONGOING = [
+  {
+    /* First, deliberately.
+    
+       `/settings/features` holds the switches for loans, expenses, hiring,
+       shifts, attendance, grades and departments — and it was in **no nav
+       entry and linked from nowhere**, reachable only by typing its URL. So a
+       module switched off looked deleted: the loans module is complete in both
+       repos, has a sidebar entry, and lets any authenticated user apply, and a
+       whole standup concluded that building one "should be postponed" because
+       nobody could find it. What needed finding was this page. */
+    href: "/settings/features",
+    title: "What this company uses",
+    description:
+      "Switch modules on and off — loans, expenses, hiring, shifts, attendance. A module switched off disappears from the sidebar rather than being deleted, and its data is kept.",
+    icon: <ToggleRight aria-hidden="true" />,
+  },
   {
     href: "/settings/announcements",
     title: "Noticeboard",

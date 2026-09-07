@@ -867,6 +867,14 @@ export type TimesheetState = {
   /** Working days in the window, public holidays excluded. */
   workingDays: number;
   rows: ApiTimesheetRow[];
+  /**
+   * How many rows have something on them, whether or not a filter is applied.
+   *
+   * Counted before any narrowing, so the figure describes the month rather
+   * than the view — a count that shrank when you filtered to exceptions would
+   * be reporting the filter back at you.
+   */
+  withExceptions: number;
   loading: boolean;
   error: ApiError | null;
   source: AttendanceSource;
@@ -901,6 +909,8 @@ export function useAttendanceTimesheet(days = 15): TimesheetState {
     to: string;
     workingDays: number;
     rows: ApiTimesheetRow[];
+    /** The API's own count, before any narrowing. */
+    withExceptions: number;
     error: ApiError | null;
   } | null>(null);
 
@@ -930,6 +940,7 @@ export function useAttendanceTimesheet(days = 15): TimesheetState {
             from: "",
             to: "",
             workingDays: 0,
+            withExceptions: 0,
             rows: [],
             error: error instanceof ApiError ? error : null,
           });
@@ -966,6 +977,22 @@ export function useAttendanceTimesheet(days = 15): TimesheetState {
       daysEarly: row.daysEarly,
       daysOnLeave: row.daysOnLeave,
       daysUnexplained: row.daysAbsent,
+      /* The demo's own walk does not compute short hours — it has no shift
+         length to measure against — so this is 0 rather than a guess. Zero is
+         honest here: nothing was found, not "nothing was looked for", because
+         the exceptions list below says which checks actually ran. */
+      daysShort: 0,
+      exceptions: [
+        ...(row.daysLate > 0
+          ? [{ code: "LATE", label: "Arrived late", days: row.daysLate }]
+          : []),
+        ...(row.daysEarly > 0
+          ? [{ code: "EARLY_OUT", label: "Early timeout", days: row.daysEarly }]
+          : []),
+        ...(row.daysAbsent > 0
+          ? [{ code: "NO_CLOCK_IN", label: "No clock-in", days: row.daysAbsent }]
+          : []),
+      ],
       hours: row.hours,
       proration: {
         unpaidDays: row.daysAbsent,
@@ -989,6 +1016,7 @@ export function useAttendanceTimesheet(days = 15): TimesheetState {
       to: window[0] ?? TODAY,
       workingDays: window.length,
       rows,
+      withExceptions: rows.filter((row) => row.exceptions.length > 0).length,
       loading: false,
       error: null,
       source: "demo",
@@ -1001,6 +1029,10 @@ export function useAttendanceTimesheet(days = 15): TimesheetState {
     to: matched ? fetched.to : "",
     workingDays: matched ? fetched.workingDays : 0,
     rows: matched ? fetched.rows : [],
+    /* The API's own count, which it computes before narrowing. Zero while
+       nothing has arrived, which reads as "nothing to report yet" beside a
+       spinner rather than as a claim about a clean month. */
+    withExceptions: matched ? (fetched.withExceptions ?? 0) : 0,
     loading: !matched,
     error: matched ? fetched.error : null,
     source: "api",

@@ -471,8 +471,21 @@ type WireTimesheetRow = {
   daysPresent: number;
   daysLate: number;
   daysEarly: number;
+  /** Days clocked in and out for less than the shift is worth. */
+  daysShort: number;
   daysOnLeave: number;
   daysUnexplained: number;
+  /**
+   * The days that need looking at, named by the API.
+   *
+   * Every figure above already existed as a column; what did not exist was the
+   * product saying which of them is a problem. A row of six numbers leaves the
+   * reader to decide, and on a month of a hundred people nobody does.
+   *
+   * Render `label` — a second copy of these four names here is how the screen
+   * and the export come to describe the same day differently.
+   */
+  exceptions: { code: string; label: string; days: number }[];
   hours: number;
   proration: {
     unpaidDays: number;
@@ -486,6 +499,14 @@ type WireTimesheet = {
   to: string;
   workingDays: number;
   rows: WireTimesheetRow[];
+  /**
+   * How many rows have something on them, **whether or not the filter is on**.
+   *
+   * Computed before narrowing on purpose: a count of exceptions that shrank
+   * when you filtered to exceptions would be describing the filter rather than
+   * the month.
+   */
+  withExceptions: number;
 };
 
 export type ApiTimesheetRow = Omit<WireTimesheetRow, "proration"> & {
@@ -515,6 +536,14 @@ export type ApiTimesheet = {
   /** Working days in the window, public holidays excluded. */
   workingDays: number;
   rows: ApiTimesheetRow[];
+  /**
+   * How many rows have something on them, **before** any narrowing.
+   *
+   * So the figure describes the month rather than the view: a count that
+   * shrank when you filtered to exceptions would be reporting the filter back
+   * at you.
+   */
+  withExceptions: number;
 };
 
 /** What a clock-in or clock-out answers with. A write returns the fact, not a row. */
@@ -727,6 +756,17 @@ export type TimesheetParams = {
   to?: string;
   /** One person's sheet, for a record page. */
   employeeId?: string;
+  /**
+   * One branch.
+   *
+   * From the standup: a company with several offices reads one timesheet and
+   * cannot tell whose log is whose. Filters on where somebody **works**, not
+   * where they clocked in from — a visitor to Abuja for a day is not the Abuja
+   * office.
+   */
+  workLocationId?: string;
+  /** Only the rows with something on them. */
+  exceptionsOnly?: boolean;
 };
 
 export type HistoryParams = {
@@ -968,6 +1008,12 @@ export const attendanceApi = {
         from: params.from,
         to: params.to,
         employeeId: params.employeeId,
+        /* One branch, and only the days that need looking at. Both are
+           filters the export takes too, because it validates against this
+           same query — so "downloadable filtered report" needed the filters
+           rather than a second endpoint. */
+        workLocationId: params.workLocationId,
+        exceptionsOnly: params.exceptionsOnly,
       },
       ...(signal ? { signal } : {}),
     });

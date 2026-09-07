@@ -71,6 +71,15 @@ export type EmployeeDraft = {
 
   jobTitle: string;
   departmentId: string;
+  /**
+   * The access role the invitation will carry.
+   *
+   * Empty means "whatever the API defaults to", which is the Employee role —
+   * not "no access". The distinction matters because a blank here is the
+   * ordinary state for almost every add, and treating it as a refusal would
+   * stop inviting anybody.
+   */
+  accessRoleId: string;
   managerId: string;
   employmentType: EmploymentType;
   status: EmploymentStatus;
@@ -124,6 +133,7 @@ export const BLANK_DRAFT: EmployeeDraft = {
   workLocationId: "",
   jobTitle: "",
   departmentId: "",
+  accessRoleId: "",
   managerId: "",
   employmentType: "full_time",
   /* Active, not onboarding.
