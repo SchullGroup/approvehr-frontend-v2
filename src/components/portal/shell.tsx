@@ -3,7 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, ChevronDown, ChevronLeft, Menu, Search, X } from "lucide-react";
+import {
+  Bell,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Menu,
+  Search,
+  X,
+} from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useCanGoBack } from "@/lib/nav-history";
 import { Logo } from "@/components/brand/logo";
@@ -320,6 +328,52 @@ function resolveActiveHref(
   return best;
 }
 
+/**
+ * The sidebar, with one module open at a time.
+ *
+ * ## Why the modules collapse and the rest does not
+ *
+ * Every item used to be on screen at once. That was fine at four or five items
+ * a module and stopped being fine as the modules filled out: Recruitment went
+ * from one link to six and Performance from one to seven, so a company with
+ * everything switched on had a sidebar taller than the viewport, and the thing
+ * you were looking for was as likely to be below the fold as in front of you.
+ * Scrolling a nav to find a nav is the failure.
+ *
+ * Only the **module** groups collapse. The two headingless blocks — Home, My
+ * approvals and Assistant at the top, Reports, Settings and Roles at the
+ * bottom — stay open always, because neither is a module and both are things
+ * somebody reaches from anywhere. Collapsing "your own queue" behind a click
+ * would be the opposite of the point.
+ *
+ * ## One at a time, and the route decides which
+ *
+ * Opening a module closes the one that was open. What is open by default is
+ * **the module the current page is in**, which is the only default that cannot
+ * leave somebody looking at a screen whose own nav item is hidden.
+ *
+ * `override` is a deliberate click, and it is dropped the moment the route
+ * moves into a different module — so navigating always wins over a stale
+ * choice, and the group you are in reopens itself. That comparison is done
+ * during render rather than in an effect: an effect would apply it a frame
+ * late, which is a visible flash of the wrong group open.
+ *
+ * Clicking the open module therefore does not collapse to nothing — it clears
+ * the override and falls back to the route's own group. There is no state in
+ * which the sidebar shows six shut modules and no way of telling which screen
+ * you are on, which a plain toggle would have allowed.
+ *
+ * A module that is closed while holding the current page keeps a dot on its
+ * heading. That is the case the exclusive behaviour creates — click Payroll
+ * while sitting on a Performance screen and Performance shuts — and the dot is
+ * what stops "where am I" becoming unanswerable.
+ *
+ * ## Collapsed means gone, not merely invisible
+ *
+ * The list is `hidden`, which takes it out of the tab order and out of the
+ * accessibility tree. A collapsed group whose links are still tabbable is a
+ * keyboard user tabbing through thirty invisible destinations.
+ */
 function SidebarNav({
   groups,
   pathname,
@@ -333,16 +387,79 @@ function SidebarNav({
 }) {
   const activeHref = resolveActiveHref(groups, pathname);
 
+  /* The module holding the current page, by heading. Null on a route that
+     belongs to one of the headingless blocks. */
+  const activeHeading =
+    groups.find(
+      (group) =>
+        group.heading !== undefined &&
+        group.items.some((item) => item.href === activeHref),
+    )?.heading ?? null;
+
+  const [override, setOverride] = useState<string | null>(null);
+  const [lastActive, setLastActive] = useState<string | null>(activeHeading);
+
+  /* Adjusted during render — the "you might not need an effect" pattern. */
+  if (activeHeading !== lastActive) {
+    setLastActive(activeHeading);
+    setOverride(null);
+  }
+
+  const openHeading = override ?? activeHeading;
+
   return (
     <nav aria-label="Main" className="flex flex-col gap-6">
-      {groups.map((group, gi) => (
-        <div key={group.heading ?? `g${gi}`}>
-          {group.heading && (
-            <h2 className="mb-1.5 px-2.5 text-meta font-semibold text-faint">
-              {group.heading}
-            </h2>
-          )}
-          <ul className="flex flex-col gap-0.5">
+      {groups.map((group, gi) => {
+        const collapsible = group.heading !== undefined;
+        const open = !collapsible || group.heading === openHeading;
+        /* Only worth saying when the group is shut: open, the highlight on the
+           item itself already says it. */
+        const holdsActiveWhileShut =
+          collapsible && !open && group.heading === activeHeading;
+        const listId = `nav-group-${String(gi)}`;
+
+        return (
+          <div key={group.heading ?? `g${gi}`}>
+            {collapsible && (
+              <h2>
+                <button
+                  type="button"
+                  aria-expanded={open}
+                  aria-controls={listId}
+                  onClick={() =>
+                    setOverride(open ? null : (group.heading ?? null))
+                  }
+                  className={cn(
+                    "mb-1.5 flex w-full items-center gap-1.5 rounded-md px-2.5 py-1 text-meta font-semibold",
+                    "transition-colors duration-150 hover:bg-surface",
+                    open ? "text-muted" : "text-faint hover:text-muted",
+                  )}
+                >
+                  <ChevronRight
+                    aria-hidden="true"
+                    className={cn(
+                      "size-3 shrink-0 transition-transform duration-150",
+                      open && "rotate-90",
+                    )}
+                  />
+                  <span className="min-w-0 flex-1 truncate text-left">
+                    {group.heading}
+                  </span>
+                  {holdsActiveWhileShut && (
+                    <>
+                      <span
+                        aria-hidden="true"
+                        className="size-1.5 shrink-0 rounded-full bg-accent"
+                      />
+                      <span className="sr-only">
+                        contains the page you are on
+                      </span>
+                    </>
+                  )}
+                </button>
+              </h2>
+            )}
+            <ul id={listId} hidden={!open} className="flex flex-col gap-0.5">
             {group.items.map((item) => {
               const active = item.href === activeHref;
 
@@ -405,9 +522,10 @@ function SidebarNav({
                 </li>
               );
             })}
-          </ul>
-        </div>
-      ))}
+            </ul>
+          </div>
+        );
+      })}
     </nav>
   );
 }
