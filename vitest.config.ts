@@ -35,6 +35,25 @@ import { defineConfig } from "vitest/config";
  */
 export default defineConfig({
   plugins: [react()],
+  /**
+   * The compile-time globals, defined for the test runner too.
+   *
+   * `next.config.ts` substitutes these through `compiler.define` so a
+   * production build folds the branch away entirely — see `lib/demo.ts` for why
+   * they are ambient globals with no import rather than exported constants.
+   * Vitest does not read that config, so any component test whose import graph
+   * reaches a gated module dies at module scope with `X is not defined` — which
+   * looks like a bug in the component and is a gap in the harness.
+   *
+   * `DEMO_ENABLED` is **true** here: a component test's job is to render, and
+   * the demo branch is a branch that renders. `SALES_SCRIPT_ENABLED` is
+   * **false**, because a test that got canned answers instead of the real
+   * component would be asserting the script.
+   */
+  define: {
+    DEMO_ENABLED: "true",
+    SALES_SCRIPT_ENABLED: "false",
+  },
   test: {
     environment: "jsdom",
     globals: true,

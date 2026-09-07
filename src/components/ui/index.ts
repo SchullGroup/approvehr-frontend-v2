@@ -29,14 +29,11 @@ export type { Currency } from "./money";
 export { ProgressMeter, ScoreRing, FactorBars } from "./progress";
 
 export { Modal, Drawer, DrawerSection, ConfirmDialog } from "./modal";
+export { Sortable, SortableHandle } from "./sortable";
+export type { SortableProps, SortableRenderArgs } from "./sortable";
 export type { ModalSize, DrawerSize } from "./modal";
 
-export {
-  useStepper,
-  StepIndicator,
-  StepperModal,
-  StepHeader,
-} from "./stepper";
+export { useStepper, StepIndicator, StepperModal, StepHeader } from "./stepper";
 export type { Step, StepperState } from "./stepper";
 
 export {
@@ -68,13 +65,7 @@ export type { TabItem } from "./tabs";
 
 export { Disclosure } from "./disclosure";
 
-export {
-  Avatar,
-  Timeline,
-  FileDrop,
-  DescriptionList,
-  CheckList,
-} from "./misc";
+export { Avatar, Timeline, FileDrop, DescriptionList, CheckList } from "./misc";
 export type { TimelineEntry, DroppedFile } from "./misc";
 
 export { ToastProvider, useToast } from "./toast";

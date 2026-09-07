@@ -30,6 +30,7 @@ import {
   type ApiGoal,
   type ApiPeerFeedback,
   type ApiReview,
+  periodInPlay,
 } from "@/lib/api/performance";
 import { useCan } from "@/lib/permissions";
 import { useFeatures } from "@/lib/store/features";
@@ -897,21 +898,6 @@ export function WhatNeedsYouTab({
 }
 
 /* -------------------------------------------------------------------------- */
-
-/**
- * The period everything on this screen belongs to.
- *
- * The running one, or the most recent if none is running — never a draft in
- * preference to a period people are actually answering. `cycles` arrives newest
- * first, so the first match is the newest match.
- */
-function periodInPlay(periods: ApiCycle[]): ApiCycle | undefined {
-  return (
-    periods.find(
-      (period) => period.stage !== "PUBLISHED" && period.stage !== "DRAFT",
-    ) ?? periods[0]
-  );
-}
 
 /** Three names and a count, never a bare count. */
 function objectiveNames(goals: ApiGoal[]): string {

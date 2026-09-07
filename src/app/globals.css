@@ -825,3 +825,49 @@
     text-decoration: none !important;
   }
 }
+/* ---------------------------------------------------------------- sortable
+   The lift on a row being dragged. In CSS rather than inline styles for one
+   reason: `prefers-reduced-motion` has to be able to reach it, and a media
+   query cannot reach a style attribute.
+
+   Reduced motion keeps the transform — a dragged thing must follow the hand,
+   or dragging is broken — and drops the shadow, the scale and the tilt, which
+   are the parts nobody asked for. See `components/ui/sortable.tsx`. */
+.ahr-sortable-lifted {
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+
+.ahr-sortable-lifted > * {
+  transform: scale(1.02) rotate(0.35deg);
+  box-shadow:
+    0 10px 24px -8px rgb(0 0 0 / 0.22),
+    0 2px 6px -2px rgb(0 0 0 / 0.14);
+  transition:
+    transform 0.16s var(--ease-out-soft),
+    box-shadow 0.16s var(--ease-out-soft);
+}
+
+/* The settle. A row that has just been let go eases back to flat rather than
+   snapping, which is the difference between "it landed" and "it vanished". */
+.ahr-sortable-row > * {
+  transition:
+    transform 0.24s var(--ease-out-soft),
+    box-shadow 0.24s var(--ease-out-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ahr-sortable-row,
+  .ahr-sortable-row > *,
+  .ahr-sortable-lifted > * {
+    transition: none !important;
+  }
+
+  .ahr-sortable-lifted > * {
+    transform: none;
+    /* The outline replaces the lift: with no shadow and no scale, something
+       still has to say which row is in the hand. */
+    outline: 2px solid var(--color-accent-text);
+    outline-offset: 2px;
+  }
+}

@@ -277,6 +277,29 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       permission: "EDIT_RECORDS",
     },
     {
+      /* Beside Documents, because that is what it is: the register says what
+         is on file, and this says what is waiting to be signed.
+
+         `always`, no permission: whether somebody has a document to sign is a
+         property of the rows, and the API is the only thing that can answer it
+         — an administrator holding every permission is refused the button. */
+      href: "/people/signatures",
+      label: "Signatures",
+      icon: <FileSignature aria-hidden="true" />,
+      always: true,
+    },
+    {
+      /* `always`, and no permission: a one-to-one is between two people, so
+         "may I see this" is a property of the rows rather than of the caller
+         — the API answers it and no `useCan` here can. Somebody in none at
+         all gets an empty screen offering to start one with their reports,
+         which is the honest answer and is also how the feature is found. */
+      href: "/people/one-on-ones",
+      label: "One-to-ones",
+      icon: <MessagesSquare aria-hidden="true" />,
+      always: true,
+    },
+    {
       /* Laptops, phones and SIM cards. Gated to the register's audience
          because a staff member's own kit already renders on `/profile`, and
          the point of this nav is that a five-person company is not shown
@@ -312,6 +335,19 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       label: "Pay setup",
       icon: <SlidersHorizontal aria-hidden="true" />,
       permission: "VIEW_SALARIES",
+    },
+    {
+      /* Payroll, not Performance, and not Core HR either: what a company
+         contributes to somebody's HMO or pension is part of what it pays
+         them, and the permission says so — `MANAGE_PAY_STRUCTURE` is the
+         same gate Pay setup above it carries.
+
+         Reading is either permission, so the nav asks for the wider one: an
+         approver who can enrol somebody has to be able to find the screen. */
+      href: "/people/benefits",
+      label: "Benefits",
+      icon: <HeartPulse aria-hidden="true" />,
+      anyPermission: ["MANAGE_PAY_STRUCTURE", "EDIT_RECORDS"],
     },
     {
       href: "/payroll/payslips",
@@ -508,34 +544,6 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       label: "KPIs",
       icon: <TrendingUp aria-hidden="true" />,
       always: true,
-    },
-    {
-      /* `always`, and no permission: a one-to-one is between two people, so
-         "may I see this" is a property of the rows rather than of the caller
-         — the API answers it and no `useCan` here can. Somebody in none at
-         all gets an empty screen offering to start one with their reports,
-         which is the honest answer and is also how the feature is found. */
-      href: "/people/one-on-ones",
-      label: "One-to-ones",
-      icon: <MessagesSquare aria-hidden="true" />,
-      always: true,
-    },
-    {
-      /* `always`, no permission: whether somebody has a document to sign is a
-         property of the rows, and the API is the only thing that can answer it
-         — an administrator holding every permission is refused the button. */
-      href: "/people/signatures",
-      label: "Signatures",
-      icon: <FileSignature aria-hidden="true" />,
-      always: true,
-    },
-    {
-      /* Reading is either permission, so the nav asks for the wider one: an
-         approver who can enrol somebody has to be able to find the screen. */
-      href: "/people/benefits",
-      label: "Benefits",
-      icon: <HeartPulse aria-hidden="true" />,
-      anyPermission: ["MANAGE_PAY_STRUCTURE", "EDIT_RECORDS"],
     },
     {
       href: "/performance/review-tasks",

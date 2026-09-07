@@ -1,108 +1,122 @@
 "use client";
 
-import Link from "next/link";
-import {
-  AlertTriangle,
-  ArrowRight,
-  BadgeCheck,
-  CalendarClock,
-  Users,
-} from "lucide-react";
-import {
-  Badge,
-  ButtonLink,
-  Card,
-  CardBody,
-  CardHeader,
-  Money,
-  Spinner,
-  StackedBar,
-  Stat,
-} from "@/components/ui";
+import { useMemo, useState } from "react";
+import { LayoutGrid } from "lucide-react";
+import { Button, Callout, Card, CardBody, Spinner } from "@/components/ui";
 import { PageBody } from "@/components/portal/shell";
-import { AskPanel } from "@/components/portal/ask-panel";
-import { MyClockCard } from "@/components/portal/my-clock-card";
+import { usePermissions } from "@/lib/permissions";
+import { useFeatures } from "@/lib/store/features";
+import { useSessionRoles, roleTier, type RoleTier } from "@/lib/roles";
+import { useDashboard, useReports } from "@/lib/store/insights";
+import { useDashboardLayout } from "@/lib/store/dashboard-layout";
 import { DashboardHeader } from "./header";
-import { AnnouncementsPanel } from "./announcements-panel";
-import { MyOverview } from "./my-overview";
-import { useDashboard } from "@/lib/store/insights";
-import { StartPeriodButton } from "@/app/(app)/performance";
+import { CustomizeDrawer } from "./customize-drawer";
+import { WIDGET_COMPONENTS } from "./widgets";
 import {
-  naira,
-  runStatusLabel,
-  type DashboardData,
-  type MyOverview as MyOverviewData,
-} from "@/lib/api/insights";
-import { useCan } from "@/lib/permissions";
-import type { ApiBoard } from "@/lib/api/announcements";
-import { QuickActions } from "./quick-actions";
+  SPAN_CLASS,
+  defaultLayout,
+  resolveLayout,
+  type WidgetContext,
+} from "./catalogue";
 
 /**
- * The screen people open first.
+ * The screen people open first, and now the one they arrange.
  *
- * One request. `/insights/dashboard` composes it server-side; see the header of
- * `src/modules/insights/service.ts` for why it is not ten calls to ten
- * `/summary` endpoints.
+ * ## What this used to be
  *
- * ## Two dashboards, one screen
+ * 687 lines: two hard-coded sequences of blocks — one for somebody with company
+ * permissions, one for somebody without — in an order chosen once. That is a
+ * defensible design for a product with one kind of user, and this product
+ * deliberately has several. The owner's screen opened with **their own leave
+ * balance**, above the headcount, above the payroll, above what needed a
+ * decision; and starting an appraisal period was a button in the page header,
+ * telling nobody whether a period was running.
  *
- * `headcount`, `approvals` and `today` are the company's own figures — a
- * headcount, an approval backlog, who has not clocked in — and they are
- * absent, not zeroed, for anybody without `EDIT_RECORDS` or `VIEW_SALARIES`.
- * This file used to destructure and render them unconditionally, which meant
- * every plain employee's own dashboard quoted the whole company's headcount
- * and payroll completeness back at them — a real defect, not a hypothetical
- * one, found by an employee account reading its own screen. `CompanyOverview`
- * below is everything the previous single component did; `EmployeeOverview`
- * is what somebody without those two permissions gets instead, and the branch
- * between them is the fix.
+ * It is a catalogue and a layout now. `catalogue.ts` says what exists and who
+ * starts with what, `widgets.tsx` draws each one, `customize-drawer.tsx` is
+ * where somebody changes it, and this file composes. The `CompanyOverview` /
+ * `EmployeeOverview` split is gone — not because the distinction was wrong but
+ * because it was the wrong mechanism: it is two permissions, and permissions
+ * are already a gate every widget declares.
  *
- * ## Blocks are absent, not empty
+ * ## Three requests at most, and usually one
  *
- * The API omits a section the signed-in person has no permission for. So every
- * block below is behind a presence check, and a missing one renders **nothing**
- * rather than a zero. `₦0.00` where a figure does not belong tells somebody
- * their company has no outstanding loans, which is a different and wrong claim
- * from "you cannot see this".
+ * `/insights/dashboard` composes the company's figures server-side, as it
+ * always has. `/insights/dashboard/layout` is one small read for the
+ * arrangement. `/insights/reports` is fetched **only when a chart widget is
+ * on** — `needsReports` below is that condition, and it is why `useReports`
+ * grew an `enabled` argument rather than the dashboard pulling a payload most
+ * people will not look at.
  *
- * ## The noticeboard is part of the one request
+ * ## Loading is one gate, deliberately
  *
- * Announcements ride in `/insights/dashboard` rather than in a second call to
- * `/announcements/board`. Both come out of one function on the API (`boardFor`),
- * so there is no second definition of "which notices may this person see" to
- * drift — and the panel costs nothing on the screen that has to load fastest.
+ * The layout and the data are awaited together. Rendering the default
+ * arrangement while the stored one is in flight would mean everybody's
+ * dashboard visibly rearranges itself half a second after it appears, on every
+ * single load — which is worse than a moment of spinner, and is the kind of
+ * flicker somebody reports as a bug rather than as a preference.
  *
- * `announcements` is the one block below that arrives for **everybody**: a
- * noticeboard needs no permission, so there is nothing to withhold. That is not
- * an exception to the presence rule, it is the rule read correctly — and it
- * does not make an empty board something to draw. `AnnouncementsPanel` returns
- * null on an empty board. The incumbent renders "Your Announcements Will Appear
- * Here" in that case, which spends the best space on the screen people open
- * first to say that a feature exists.
+ * ## Absent widgets close the grid
  *
- * ## Starting an appraisal period is reachable from here
- *
- * One of the doors onto `StartPeriodButton` — the product owner's rule is that
- * the same action should be reachable from every screen somebody might be on
- * when the thought occurs, and the dashboard is the first of them. It costs no
- * request: the button reads the features and permissions stores the shell has
- * already loaded, and it renders **nothing** when the company has appraisals
- * switched off or the reader cannot run one. A dead control on the screen people
- * open first would be worse than no control.
- *
- * ## What is deliberately not here
- *
- * The previous version drew a headcount trend from a hardcoded array —
- * `Feb: 182` through `Aug: 264`. Nothing in the system stores a historical
- * headcount, so those were invented numbers presented as the company's own
- * history, on a screen an owner would quote in a board meeting. It is gone
- * rather than reproduced. When somebody wants the trend, the honest way is a
- * monthly snapshot table, and then the chart is real.
+ * Every component returns `null` when it has nothing to draw — no payroll run
+ * this month, no leave configured, an empty noticeboard. A `null` in a grid
+ * leaves no hole, so a dashboard of eight widgets where three have nothing to
+ * say reads as a dashboard of five rather than as a broken one. The
+ * consequence worth knowing: **a widget can be on and invisible**, which is
+ * why the drawer lists what is on rather than making somebody infer it from
+ * the screen.
  */
 export function DashboardScreen() {
   const { data, loading, error, reload } = useDashboard();
+  const layout = useDashboardLayout();
+  const { permissions, loading: permissionsLoading } = usePermissions();
+  const features = useFeatures();
+  const roles = useSessionRoles();
 
-  if (loading) {
+  const [customizing, setCustomizing] = useState(false);
+
+  /**
+   * The two gates a catalogue can answer.
+   *
+   * Memoised on the permission set and the flags rather than rebuilt every
+   * render: `availableWidgets` runs over the whole catalogue and the drawer
+   * calls it too, and a fresh context object each render would make every
+   * `useMemo` downstream of it recompute. Same reasoning as `usePayrollSettings`
+   * memoising `rowToSettings`.
+   */
+  const context: WidgetContext = useMemo(
+    () => ({
+      has: (permission) => permissions.has(permission),
+      /* `features[key] === false` is the test, not falsiness: the store starts
+         every flag as `undefined` while it loads, and reading that as "off"
+         would hide half the dashboard for the first moment of every load. */
+      featureOff: (feature) => features[feature] === false,
+    }),
+    [permissions, features],
+  );
+
+  const tier: RoleTier = roles.primary ? roleTier(roles.primary.name) : "staff";
+
+  /**
+   * The arrangement, resolved.
+   *
+   * `null` from the store is "never chosen", and that is when the catalogue's
+   * defaults answer. A stored list is filtered against what exists and what
+   * this person may see — see `resolveLayout` for the three things it drops and
+   * why it drops rather than rewrites.
+   */
+  const chosen = useMemo(() => {
+    if (layout.widgets === null)
+      return resolveLayout(defaultLayout(tier, context), context);
+    return resolveLayout(layout.widgets, context);
+  }, [layout.widgets, tier, context]);
+
+  /* Only ask for the reports payload if something is going to draw it. */
+  const needsReports = chosen.some((widget) => widget.source === "reports");
+  const reports = useReports(undefined, needsReports);
+
+  /* One gate. See the header for why the layout is awaited with the data. */
+  if (loading || layout.loading || permissionsLoading || roles.loading) {
     return (
       <>
         <DashboardHeader />
@@ -140,548 +154,88 @@ export function DashboardScreen() {
     );
   }
 
-  /* Checked together rather than one standing for all three: the API gates
-     them on the same permission pair, but only this check lets TypeScript
-     narrow all three to defined below, in `CompanyOverview`'s props. */
-  if (data.headcount && data.approvals && data.today) {
-    return (
-      <CompanyOverview
-        {...data}
-        headcount={data.headcount}
-        approvals={data.approvals}
-        today={data.today}
-      />
-    );
-  }
-
-  return <EmployeeOverview announcements={data.announcements} me={data.me} />;
-}
-
-/* -------------------------------------------------------------------------- */
-
-/**
- * Somebody without `EDIT_RECORDS` or `VIEW_SALARIES`: the noticeboard,
- * everybody's, and their own clock-in — the one thing every employee does on
- * this screen. Nothing here is a smaller version of a company figure; it is a
- * different, honest question ("what is my day") rather than the company's
- * question answered badly.
- */
-function EmployeeOverview({
-  announcements,
-  me,
-}: {
-  announcements: ApiBoard;
-  me: MyOverviewData | undefined;
-}) {
-  return (
-    <>
-      <DashboardHeader action={<StartPeriodButton withIcon />} />
-      <PageBody className="flex flex-col gap-6">
-        <MyClockCard />
-        {/* Their own pay, leave and queue. Absent for an account with no
-            employee record behind it — see `MyOverview`. */}
-        {me && <MyOverview me={me} />}
-        {/* Renders nothing when no assistant is wired — see `AskPanel`. It is
-            offered on both dashboards rather than only the company one:
-            "how many days leave do I have" is a staff question, and the
-            reads answer to the asker's own permissions either way. */}
-        <AskPanel />
-        <AnnouncementsPanel board={announcements} />
-      </PageBody>
-    </>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-
-type CompanyOverviewProps = Omit<
-  DashboardData,
-  "headcount" | "approvals" | "today"
-> & {
-  headcount: NonNullable<DashboardData["headcount"]>;
-  approvals: NonNullable<DashboardData["approvals"]>;
-  today: NonNullable<DashboardData["today"]>;
-};
-
-/** Everybody with `EDIT_RECORDS` or `VIEW_SALARIES`: the company's own dashboard. */
-function CompanyOverview({
-  headcount,
-  approvals,
-  today,
-  announcements,
-  me,
-  exits,
-  onboarding,
-  hiring,
-  payroll,
-  money,
-}: CompanyOverviewProps) {
-  /* The card this sits in is gated by the API on `VIEW_SALARIES` — "absent
-     means no permission", see the comment on the block below. Preparing a
-     payroll is `RUN_PAYROLL`, which is a different permission on purpose:
-     `PARITY.md` splits reading what people are paid from releasing money. So
-     the card can be present and this button still refused, which is what a
-     read-only finance reader met. Absent, not disabled. */
-  const canRunPayroll = useCan("RUN_PAYROLL");
-  /* Gates the "nobody's on the payroll yet" row below. Without this,
-     somebody who cannot add an employee would see an action they cannot take.
-     Same principle `StartPeriodButton` above already follows: a dead control
-     is worse than no control. */
-  const canAddEmployee = useCan("EDIT_RECORDS");
-
-  /* An exit with nothing outstanding needs nobody, so it earns no row — "Needs
-     you" says every line on it is one click from being dealt with, and a row
-     reporting that three exits are progressing normally is furniture. The open
-     total still travels, and is used below to give the figure its denominator.
-
-     Absent means the caller may not see the register; zero means nothing is
-     held up. Both render nothing, and the check is presence-then-value rather
-     than truthiness so the two stay distinguishable in the code. */
-  const exitsHeldUp = exits ? exits.withMandatoryOutstanding : 0;
-
-  /* Same rule as exits: absent means no permission, zero means nothing held up.
-     A starter whose checklist is complete needs no action. */
-  const onboardingHeldUp = onboarding ? onboarding.withMandatoryOutstanding : 0;
-
-  /* A company that has never added anyone satisfies none of the other
-     "Needs you" conditions — no approvals, no incomplete records (there is
-     nobody to be incomplete), no exits, no payroll blockers — so without
-     this the card that is supposed to say what needs doing stays hidden for
-     exactly the company that has done the least. */
-  const nobodyOnPayroll = headcount.active === 0;
+  const props = {
+    dashboard: data,
+    reports: reports.data,
+    reportsLoading: needsReports && reports.loading,
+  };
 
   return (
     <>
-      <DashboardHeader action={<StartPeriodButton withIcon />} />
-
-      <PageBody className="flex flex-col gap-6">
-        <AskPanel />
-
-        {/* An administrator is also somebody with leave and a payslip, and the
-            company's headcount is not an answer to "have I been paid". Above
-            the company figures on purpose: the first question anybody has on
-            their own dashboard is about themselves. */}
-        {me && <MyOverview me={me} />}
-
-        {/* ---- The row that answers "is anything waiting for me" ---------- */}
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Stat
-            label="On the payroll"
-            value={headcount.active.toLocaleString()}
-            hint={
-              headcount.startingThisMonth > 0
-                ? `${headcount.startingThisMonth} started this month`
-                : undefined
-            }
-            icon={<Users aria-hidden="true" />}
-          />
-
-          <Stat
-            label="Waiting for a decision"
-            value={approvals.waiting.toLocaleString()}
-            hint={
-              approvals.overdue > 0
-                ? `${approvals.overdue} past their deadline`
-                : approvals.oldestWaitingDays !== null
-                  ? `Oldest has waited ${approvals.oldestWaitingDays} days`
-                  : "Nothing waiting"
-            }
-            icon={<BadgeCheck aria-hidden="true" />}
-          />
-
-          <Stat
-            label="Not accounted for today"
-            value={today.unaccountedFor.toLocaleString()}
-            hint={`${today.clockedIn} clocked in · ${today.onLeave} on leave`}
-            icon={<CalendarClock aria-hidden="true" />}
-          />
-
-          {/* Records payroll would refuse. Same test the run uses, so this
-              figure and the run's blockers cannot disagree. */}
-          <Stat
-            label="Records to finish"
-            value={headcount.incomplete.toLocaleString()}
-            hint={
-              headcount.incomplete > 0
-                ? "Missing a bank account or pension PIN"
-                : /* "Everyone can be paid" is true of an empty set, which
-                     reads as reassurance where none is warranted — there is
-                     nobody to have finished a record for. */
-                  nobodyOnPayroll
-                  ? "Nobody added yet"
-                  : "Everyone can be paid"
-            }
-            icon={<AlertTriangle aria-hidden="true" />}
-          />
-        </div>
-
-        {/* ---- Who is in today -------------------------------------------
-            `expected` splits into exactly these four, and two of them —
-            `late` and `expected` itself — were being fetched on every dashboard
-            load and rendered nowhere. The tile above shows one part of a
-            composition and hints at two more; this is the whole of it.
-
-            **Gated on the parts, not on `expected`.** In demo mode
-            `store/insights.ts` deliberately returns a real `expected` with all
-            four parts at zero, because the dashboard does not reach into the
-            attendance store. A bar drawn on that would be an empty track inside
-            a real headcount — a confident claim that nobody turned up. */}
-        {today.clockedIn + today.late + today.onLeave + today.unaccountedFor >
-          0 && (
-          <Card>
-            <CardHeader
-              title="Who is in today"
-              description={`Of ${String(today.expected)} expected.`}
-            />
-            <CardBody>
-              <StackedBar
-                total={today.expected}
-                format={(n) => String(n)}
-                segments={[
-                  {
-                    label: "Clocked in",
-                    value: today.clockedIn,
-                    color: "var(--color-success-strong)",
-                  },
-                  ...(today.late > 0
-                    ? [
-                        {
-                          label: "Late",
-                          value: today.late,
-                          color: "var(--color-warning)",
-                        },
-                      ]
-                    : []),
-                  ...(today.onLeave > 0
-                    ? [
-                        {
-                          label: "On leave",
-                          value: today.onLeave,
-                          color: "var(--color-accent-line)",
-                        },
-                      ]
-                    : []),
-                  ...(today.unaccountedFor > 0
-                    ? [
-                        {
-                          label: "Not accounted for",
-                          value: today.unaccountedFor,
-                          color: "var(--color-danger)",
-                        },
-                      ]
-                    : []),
-                ]}
-                caption={`Of ${String(today.expected)} expected today: ${String(today.clockedIn)} clocked in, ${String(today.late)} late, ${String(today.onLeave)} on leave, ${String(today.unaccountedFor)} not accounted for.`}
-              />
-            </CardBody>
-          </Card>
-        )}
-
-        {/* ---- Things to do, each with the button that does it ------------ */}
-        {(approvals.waiting > 0 ||
-          headcount.incomplete > 0 ||
-          exitsHeldUp > 0 ||
-          onboardingHeldUp > 0 ||
-          (payroll && payroll.blockers > 0) ||
-          (nobodyOnPayroll && canAddEmployee)) && (
-          <Card>
-            <CardHeader title="Needs you" />
-            <CardBody className="flex flex-col gap-3">
-              {/* First, because nothing else on this card can be true for a
-                  company that has never added anyone — every other row here
-                  needs an employee to exist first. */}
-              {nobodyOnPayroll && canAddEmployee && (
-                <Row
-                  href="/people/new"
-                  label="Nobody's on the payroll yet"
-                  detail="Add your first person to start paying them"
-                  action="Add employee"
-                />
-              )}
-
-              {approvals.waiting > 0 && (
-                <Row
-                  href="/approvals"
-                  label={`${approvals.waiting} ${approvals.waiting === 1 ? "request" : "requests"} waiting for a decision`}
-                  detail={
-                    approvals.overdue > 0
-                      ? `${approvals.overdue} past the deadline`
-                      : undefined
-                  }
-                  action="Open approvals"
-                  urgent={approvals.overdue > 0}
-                />
-              )}
-
-              {headcount.incomplete > 0 && (
-                <Row
-                  href="/people"
-                  label={`${headcount.incomplete} ${headcount.incomplete === 1 ? "person" : "people"} cannot be paid yet`}
-                  detail="No account number or no pension PIN on file"
-                  action="Fix records"
-                  urgent
-                />
-              )}
-
-              {/* Exits, for whoever may see the register. Placed after the
-                  records row and before payroll because it is the one item here
-                  whose cost grows the longer it is left: an account nobody
-                  disabled and a laptop nobody chased do not get easier in
-                  September. */}
-              {exits && exitsHeldUp > 0 && (
-                <Row
-                  href="/people/offboarding"
-                  label={`${exitsHeldUp} ${exitsHeldUp === 1 ? "person is" : "people are"} leaving with things still outstanding`}
-                  detail={
-                    /* The denominator matters: "1 of 1" and "1 of 9" are
-                       different situations, and the second one is the company
-                       working through exits properly with one held up. */
-                    `Equipment, access or final pay not signed off · ${exitsHeldUp} of ${exits.open} open ${exits.open === 1 ? "exit" : "exits"}`
-                  }
-                  action="Open exits"
-                />
-              )}
-
-              {onboarding && onboardingHeldUp > 0 && (
-                <Row
-                  href="/people/onboarding"
-                  label={`${onboardingHeldUp} ${onboardingHeldUp === 1 ? "starter has" : "starters have"} mandatory checklist items outstanding`}
-                  detail={`${onboardingHeldUp} of ${onboarding.open} active ${onboarding.open === 1 ? "starter" : "starters"} not yet complete`}
-                  action="Open onboarding"
-                />
-              )}
-
-              {payroll && payroll.blockers > 0 && (
-                <Row
-                  href="/payroll"
-                  label={`${payroll.period} payroll has ${payroll.blockers} ${payroll.blockers === 1 ? "problem" : "problems"} to fix`}
-                  detail={`It cannot be approved until ${payroll.blockers === 1 ? "it is" : "they are"} cleared`}
-                  action="Open payroll"
-                  urgent
-                />
-              )}
-            </CardBody>
-          </Card>
-        )}
-
-        {/* What to *start*, above what to read. `QuickActions` gates itself on
-            permissions and features, so it renders nothing for somebody who can
-            act on none of it — which is why it is safe here and absent from
-            `EmployeeOverview`, whose reader holds neither permission. */}
-        <QuickActions />
-
-        {/* ---- The noticeboard. Renders nothing when nothing is up ------- */}
-        <AnnouncementsPanel board={announcements} />
-
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* ---- Payroll. Absent means no permission; null means no run --- */}
-          {payroll !== undefined && (
-            <Card>
-              <CardHeader title="This month's payroll" level={3} />
-              <CardBody>
-                {payroll === null ? (
-                  <div className="flex flex-col items-start gap-3">
-                    <p className="text-body">
-                      No run has been prepared for this month yet.
-                    </p>
-                    {canRunPayroll && (
-                      <ButtonLink
-                        href="/payroll/runs/new"
-                        variant="accent"
-                        size="sm"
-                      >
-                        Start this month&rsquo;s payroll
-                        <ArrowRight aria-hidden="true" className="size-4" />
-                      </ButtonLink>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-4">
-                    <div className="flex flex-wrap items-baseline gap-3">
-                      <Money
-                        amount={naira(payroll.netKobo)}
-                        decimals
-                        size="xl"
-                      />
-                      <Badge
-                        tone={
-                          payroll.status === "APPROVED" ? "success" : "neutral"
-                        }
-                        size="sm"
-                      >
-                        {runStatusLabel(payroll.status)}
-                      </Badge>
-                    </div>
-                    <p className="text-body-sm text-muted">
-                      {/* `employeeCount` is payslips. Beside a net figure it
-                          reads as the headcount, and stating nine where ten
-                          people work is a wrong claim rather than a rounded
-                          one — so the excluded are named in the same breath. */}
-                      Net pay for {payroll.employeeCount}{" "}
-                      {payroll.employeeCount === 1 ? "person" : "people"}
-                      {payroll.excludedCount > 0
-                        ? ` of ${payroll.employeeCount + payroll.excludedCount}`
-                        : ""}{" "}
-                      · gross{" "}
-                      <Money amount={naira(payroll.grossKobo)} decimals />
-                    </p>
-                    {payroll.excludedCount > 0 && (
-                      <p className="text-body-sm text-warning-text">
-                        {payroll.excludedCount}{" "}
-                        {payroll.excludedCount === 1
-                          ? "person is"
-                          : "people are"}{" "}
-                        deliberately not on this payroll, with the reason
-                        recorded
-                      </p>
-                    )}
-                    {payroll.warnings > 0 && (
-                      <p className="text-body-sm text-warning-text">
-                        {payroll.warnings}{" "}
-                        {payroll.warnings === 1 ? "thing" : "things"} worth
-                        checking before you approve
-                      </p>
-                    )}
-                    <ButtonLink href="/payroll" variant="secondary" size="sm">
-                      Open payroll
-                    </ButtonLink>
-                  </div>
-                )}
-              </CardBody>
-            </Card>
-          )}
-
-          {/* ---- Hiring, for whoever holds MANAGE_HIRING ------------------ */}
-          {hiring && (
-            <Card>
-              <CardHeader title="Hiring" level={3} />
-              <CardBody className="grid grid-cols-2 gap-4">
-                <Figure
-                  label="In the pipeline"
-                  value={hiring.candidatesInPlay}
-                />
-                <Figure
-                  label="Stalled a week or more"
-                  value={hiring.stalledSevenDays}
-                  warn={hiring.stalledSevenDays > 0}
-                />
-                <Figure
-                  label="Interviews this week"
-                  value={hiring.interviewsNextSevenDays}
-                />
-                <Figure label="Offers out" value={hiring.offersOut} />
-              </CardBody>
-            </Card>
-          )}
-
-          {/* ---- Money owed, for whoever holds VIEW_SALARIES -------------- */}
-          {money && (
-            <Card>
-              <CardHeader
-                title="Money owed"
-                level={3}
-                description="Committed but not yet paid out."
-              />
-              <CardBody className="flex flex-col gap-3">
-                <Owed
-                  href="/payroll/loans"
-                  label="Staff loans outstanding"
-                  kobo={money.loansOutstandingKobo}
-                />
-                <Owed
-                  href="/payroll/expenses"
-                  label="Approved expenses not yet paid"
-                  kobo={money.expensesApprovedUnpaidKobo}
-                />
-                <Owed
-                  href="/people/overtime"
-                  label="Overtime waiting for approval"
-                  kobo={money.overtimeAwaitingApprovalKobo}
-                />
-              </CardBody>
-            </Card>
-          )}
-        </div>
-      </PageBody>
-    </>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-
-function Row({
-  href,
-  label,
-  detail,
-  action,
-  urgent = false,
-}: {
-  href: string;
-  label: string;
-  detail?: string;
-  action: string;
-  urgent?: boolean;
-}) {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line p-3">
-      <div className="min-w-0">
-        <p className="text-body-sm font-medium">
-          {/* Urgency carries a word as well as a colour. */}
-          {urgent && (
-            <span className="mr-2 text-meta font-semibold text-danger-text">
-              Overdue
-            </span>
-          )}
-          {label}
-        </p>
-        {detail && <p className="mt-0.5 text-body-sm text-muted">{detail}</p>}
-      </div>
-      <ButtonLink href={href} variant="secondary" size="sm">
-        {action}
-      </ButtonLink>
-    </div>
-  );
-}
-
-function Figure({
-  label,
-  value,
-  warn = false,
-}: {
-  label: string;
-  value: number;
-  warn?: boolean;
-}) {
-  return (
-    <div>
-      <p className={warn ? "text-h3 text-warning-text" : "text-h3 text-ink"}>
-        {value.toLocaleString()}
-      </p>
-      <p className="mt-0.5 text-body-sm text-muted">{label}</p>
-    </div>
-  );
-}
-
-function Owed({
-  href,
-  label,
-  kobo,
-}: {
-  href: string;
-  label: string;
-  kobo: number;
-}) {
-  return (
-    <Link
-      href={href}
-      className="flex items-center justify-between gap-3 rounded-md px-1 py-1 transition-colors hover:bg-canvas"
-    >
-      <span className="text-body-sm text-body">{label}</span>
-      <Money
-        amount={naira(kobo)}
-        decimals
-        className="text-body-sm font-medium"
+      <DashboardHeader
+        action={
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => setCustomizing(true)}
+          >
+            <LayoutGrid aria-hidden="true" className="size-3.5" />
+            Customise
+          </Button>
+        }
       />
-    </Link>
+
+      <PageBody>
+        {/* The arrangement failed to load and the standard one is showing. Said
+            once, here, rather than left for somebody to notice their dashboard
+            has reverted. */}
+        {layout.error && !customizing && (
+          <Callout tone="warning" className="mb-4">
+            {layout.error}
+          </Callout>
+        )}
+
+        {chosen.length === 0 ? (
+          <Card>
+            <CardBody className="flex flex-col items-start gap-3">
+              <p className="text-body">There is nothing on your dashboard.</p>
+              <p className="text-body-sm text-muted">
+                That is a real choice and it stays until you change it — nothing
+                has gone wrong.
+              </p>
+              <Button
+                type="button"
+                variant="accent"
+                size="sm"
+                onClick={() => setCustomizing(true)}
+              >
+                <LayoutGrid aria-hidden="true" className="size-3.5" />
+                Choose what to show
+              </Button>
+            </CardBody>
+          </Card>
+        ) : (
+          /* Twelve columns, so thirds and quarters both divide it. Every widget
+             is full width below `sm` — a stat at a quarter of a phone is
+             unreadable — and each carries `min-w-0` from `SPAN_CLASS`, without
+             which one item that cannot compress floors the whole track. See the
+             responsive entry in HANDOVER. */
+          <div className="grid grid-cols-12 gap-4">
+            {chosen.map((widget) => {
+              const Widget = WIDGET_COMPONENTS[widget.id];
+              if (!Widget) return null;
+              return (
+                <div key={widget.id} className={SPAN_CLASS[widget.span]}>
+                  <Widget {...props} />
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </PageBody>
+
+      <CustomizeDrawer
+        open={customizing}
+        onClose={() => setCustomizing(false)}
+        chosen={chosen}
+        context={context}
+        connected={layout.connected}
+        saving={layout.saving}
+        error={layout.error}
+        onChange={(ids) => void layout.save(ids)}
+        onReset={() => void layout.reset()}
+      />
+    </>
   );
 }
