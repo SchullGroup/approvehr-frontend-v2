@@ -6,12 +6,10 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": [
         "run",
-        "dev",
-        "--",
-        "--port",
-        "3001"
+        "dev"
       ],
-      "port": 3001
+      "port": 3001,
+      "autoPort": true
     },
     {
       "name": "approvehr-marketing",
