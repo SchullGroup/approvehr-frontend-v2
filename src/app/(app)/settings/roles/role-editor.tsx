@@ -492,6 +492,27 @@ function PeopleTab({
     .map((key, index) => ({ key, label: role.labels[index] ?? key }))
     .filter((entry) => !hasPermission(held, entry.key));
 
+  /* The genuine empty state — nobody in the role, and no search narrowing
+     that down. "Nobody matches that" is a different situation (there ARE
+     members, this search just missed) and keeps the button beside the
+     search box, where it reads as "add someone else". The true empty state
+     moves it below the empty-state text instead: beside an empty search box
+     "Add people" reads as a second way to search, when it's actually the
+     opposite — the one action that isn't search. */
+  const genuinelyEmpty = members.length === 0 && !loading && !query;
+
+  const addPeopleButton = canManage && (
+    <Button
+      variant="accent"
+      size="sm"
+      disabled={missing.length > 0}
+      onClick={() => setAdding(true)}
+    >
+      <UserPlus aria-hidden="true" className="size-4" />
+      Add people
+    </Button>
+  );
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -504,17 +525,7 @@ function PeopleTab({
             setQuery(value);
           }}
         />
-        {canManage && (
-          <Button
-            variant="accent"
-            size="sm"
-            disabled={missing.length > 0}
-            onClick={() => setAdding(true)}
-          >
-            <UserPlus aria-hidden="true" className="size-4" />
-            Add people
-          </Button>
-        )}
+        {!genuinelyEmpty && addPeopleButton}
       </div>
 
       {missing.length > 0 && canManage && (
@@ -540,6 +551,7 @@ function PeopleTab({
                 description:
                   "A role with nobody in it changes nothing. Add the people who should have it.",
               })}
+          {...(genuinelyEmpty ? { action: addPeopleButton } : {})}
         />
       ) : (
         <ul className="flex flex-col divide-y divide-line rounded-md border border-line">
