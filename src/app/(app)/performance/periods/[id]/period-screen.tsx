@@ -146,6 +146,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
   const [starting, setStarting] = useState(false);
   const [questionsOpen, setQuestionsOpen] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [confirmingStart, setConfirmingStart] = useState(false);
   const [advancing, setAdvancing] = useState(false);
   /* Named lists, not counts, and they survive the toast. Both are somebody who
      finishes the period short, and the fixes are different. */
@@ -228,6 +229,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
       failed(error);
     } finally {
       setStarting(false);
+      setConfirmingStart(false);
     }
   };
 
@@ -380,7 +382,6 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
             <Card>
               <CardHeader
                 title="Set it up, then start it"
-                description="Nobody is asked anything until you start it. Add your own questions on top of the four competency groups, which are asked either way: once it has started the form is fixed."
                 action={
                   <Badge
                     tone={period.questionCount > 0 ? "neutral" : "warning"}
@@ -403,7 +404,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                     size="sm"
                     loading={starting}
                     disabled={period.questionCount === 0}
-                    onClick={() => void start()}
+                    onClick={() => setConfirmingStart(true)}
                   >
                     <Play aria-hidden="true" className="size-3.5" />
                     {/* The control says why it is dead, rather than leaving a
@@ -661,6 +662,21 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                   periods.copyQuestions(cycleId, sourceCycleId),
               }
             : {})}
+        />
+      )}
+
+      {/* One-way, and the confirmation says which way: your own questions join
+          the four competency groups, and neither can be edited once asked. */}
+      {confirmingStart && period && (
+        <ConfirmDialog
+          open
+          onClose={() => setConfirmingStart(false)}
+          onConfirm={() => void start()}
+          title="Start the period?"
+          confirmLabel="Start it"
+          tone="primary"
+          loading={starting}
+          body={`Everybody in ${period.name} can be asked from this point. Your own questions go out alongside the four competency groups, and once it has started the form is fixed.`}
         />
       )}
 

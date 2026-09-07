@@ -149,21 +149,14 @@ export function StartPeriodDialog({
             buttons follow. */}
         {assistant.available && (
           <Callout tone="accent" title="Not sure what to put in it?">
-            <p>
-              Describe the half in a sentence or two and get the company goals
-              and the review questions as a draft you edit. Nothing is created
-              until you have read it.
-            </p>
-            <p className="mt-2">
-              <ButtonLink
-                href="/performance/periods/new"
-                variant="secondary"
-                size="sm"
-              >
-                <Sparkles aria-hidden="true" className="size-3.5" />
-                Draft it from a description
-              </ButtonLink>
-            </p>
+            <ButtonLink
+              href="/performance/periods/new"
+              variant="secondary"
+              size="sm"
+            >
+              <Sparkles aria-hidden="true" className="size-3.5" />
+              Draft it from a description
+            </ButtonLink>
           </Callout>
         )}
 

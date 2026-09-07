@@ -751,10 +751,7 @@ export function DraftPeriodWizard() {
         {/* --------------------------------------------------------- review */}
         {step === "review" && (
           <Card>
-            <CardHeader
-              title="Review it"
-              description="This is the only screen that writes anything. Nothing has been created yet."
-            />
+            <CardHeader title="Review it" />
             <CardBody className="flex flex-col gap-4">
               <dl className="flex flex-col gap-2 text-body-sm">
                 <div className="flex flex-wrap gap-2">
@@ -795,15 +792,12 @@ export function DraftPeriodWizard() {
 
               {questions.length === 0 && (
                 <Callout tone="warning" title="No questions yet">
-                  A period cannot start without at least one question. The
-                  period will be created as a draft and you can write them on it.
+                  A period cannot start without at least one question.
                 </Callout>
               )}
 
               <Callout tone="info" title="Nobody is asked anything yet">
-                This creates the period as a **draft**. Starting it is a
-                separate press on the period&rsquo;s own screen, which is where
-                you set the weights and check who appraises whom.
+                {null}
               </Callout>
 
               <div className="flex flex-wrap items-center gap-2">
