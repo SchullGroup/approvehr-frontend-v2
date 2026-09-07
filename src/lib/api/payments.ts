@@ -447,7 +447,10 @@ export function availableFigure(availableKobo: number): {
     return {
       label: "Short by",
       kobo: -availableKobo,
-      hint: "more is promised than the wallet holds",
+      /* Four words, because `Stat` truncates its hint on purpose and this
+         one was rendering as "more is promised than the walle...". The long
+         form of this explanation is the paragraph under the row. */
+      hint: "promised beyond the balance",
       short: true,
     };
   }
@@ -633,6 +636,31 @@ export type ApiWallet = {
     accountNumber: string;
     accountName: string;
     bankName: string;
+    /**
+     * Null where the provider did not give one.
+     *
+     * Some Nigerian banking apps ask for a bank code rather than offering a
+     * name picker, and somebody in front of one of those has nowhere else to
+     * get it. Shown for that reader and kept subordinate to the account
+     * number, which is what everybody else is looking for.
+     */
+    bankCode: string | null;
+    /**
+     * Which account to lead with. **A flag, never a filter.**
+     *
+     * Money paid into *any* account in this list credits the wallet, so
+     * nothing here may be hidden on the strength of this field — the API's own
+     * comment is explicit that doing so would show a company one account, take
+     * their money into another, and give them nowhere to look for it.
+     *
+     * It is derived from the company's *disbursement* provider, so it is a
+     * reasonable guess and not an instruction. It is `false` on **every**
+     * account where a company has not chosen a provider, which is the state
+     * every company starts in — so a reader must never assume exactly one is
+     * true. The API sorts these first; taking the first row is the way to get
+     * the leading account without depending on the flag at all.
+     */
+    isDefault: boolean;
   }[];
 };
 
