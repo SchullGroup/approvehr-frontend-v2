@@ -147,6 +147,12 @@ export function KpisTab({
     }
   };
 
+  /* Same rule as `GoalBranch` applies to a node's children, applied to the
+     roots: no ladder between peers, so peers pair up, and anything heading a
+     cascade keeps its own row. */
+  const rootLeaves = kpis.cascade.filter((node) => node.children.length === 0);
+  const rootBranches = kpis.cascade.filter((node) => node.children.length > 0);
+
   const tracked = kpis.goals.filter((goal) => goal.status !== "DONE");
   const waiting = kpis.goals.filter(
     (goal) => goal.approval === "AWAITING_APPROVAL",
@@ -283,7 +289,57 @@ export function KpisTab({
           />
         ) : (
           <CardBody className="flex flex-col gap-3">
-            {kpis.cascade.map((node) => (
+            {/* Roots pair up too, on the same rule the branches use.
+                ------------------------------------------------------------
+                The grid was originally only applied to a node's *children*,
+                which quietly did nothing for the commonest shape there is: a
+                company whose objectives are a flat list rather than a
+                cascade. Read against a real company with nine objectives and
+                no nesting at all, every card was at depth 0, no node had
+                children, and the grid never rendered — nine full-width cards
+                in one column, which is the exact scroll this change set out
+                to remove.
+
+                So the split is applied here as well: a root with nothing
+                under it is a leaf like any other and can sit beside its
+                peers, while a root that heads a cascade stays full width so
+                the things indented beneath it read as beneath it. */}
+            {rootLeaves.length > 0 && (
+              <div className="grid gap-3 lg:grid-cols-2 min-[1600px]:grid-cols-3">
+                {rootLeaves.map((node) => (
+                  <GoalCard
+                    key={node.id}
+                    goal={node}
+                    depth={node.depth}
+                    editable={mutations.editable}
+                    actingId={actingId}
+                    onAddMeasure={setAddingTo}
+                    onAddChild={(parentId) => setCreating({ parentId })}
+                    onComplete={setCompleting}
+                    onStop={setStopping}
+                    onShare={(goal) =>
+                      void run(
+                        () => mutations.shareGoal(goal.id),
+                        `"${goal.title}" shared`,
+                      )
+                    }
+                    onSubmit={(goal) =>
+                      void run(
+                        () => objectives.submit(goal.id),
+                        `"${goal.title}" sent to be agreed`,
+                      )
+                    }
+                    onReopen={setReopening}
+                    onRecord={async (measureId, value, note) => {
+                      await mutations.recordProgress(measureId, value, note);
+                      if (kpis.source === "api") kpis.reload();
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+
+            {rootBranches.map((node) => (
               <GoalBranch
                 key={node.id}
                 node={node}
