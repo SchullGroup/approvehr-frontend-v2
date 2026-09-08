@@ -1,5 +1,6 @@
 import { cn } from "@/lib/cn";
 import { LogoMark } from "@/components/brand/logo";
+import { TaxBands } from "@/components/payroll/tax-bands";
 import {
   formatKobo,
   naira,
@@ -672,6 +673,12 @@ export function PayslipDocument({
             {relief.note}
           </p>
         )}
+        {/* And the step between those three lines, for the reader who wants to
+            check the figure rather than take it. Renders nothing whenever the
+            API cannot stand behind a working — a hand-entered tax figure being
+            the case worth knowing about, since the reason for that one is
+            printed above instead. */}
+        <TaxBands slip={slip} />
       </section>
 
       {/* Year to date */}
