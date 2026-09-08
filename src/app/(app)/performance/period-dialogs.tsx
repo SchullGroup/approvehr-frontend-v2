@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Copy, Pencil, Plus, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { weightLabel } from "@/lib/api/performance";
@@ -13,6 +13,8 @@ import {
   Input,
   Modal,
   Select,
+  Sortable,
+  SortableHandle,
   Spinner,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
@@ -108,6 +110,7 @@ export function QuestionsDialog({
   onAdd,
   onUpdate,
   onRemove,
+  onReorder,
   onCopyFrom,
 }: {
   cycleId: string;
@@ -116,11 +119,63 @@ export function QuestionsDialog({
   onAdd: (body: CreateQuestionBody) => Promise<void>;
   onUpdate: (id: string, body: UpdateQuestionBody) => Promise<void>;
   onRemove: (id: string) => Promise<void>;
+  /**
+   * Rearrange the form. Absent once the period is published, where the API
+   * refuses it — its form is a record by then. Every other stage may reorder,
+   * so this is not the same gate as `onCopyFrom`.
+   */
+  onReorder?: (ids: string[]) => Promise<void>;
   /** Absent on a period that has started — copying is refused there anyway. */
   onCopyFrom?: (sourceCycleId: string) => Promise<{ copied: number }>;
 }) {
   const { questions, loading, reload } = useCycleQuestions(cycleId);
   const framework = useFramework();
+
+  /**
+   * The arrangement somebody has just dragged, held until the server's own
+   * order says the same thing.
+   *
+   * Without it the row snaps back to where it started for as long as the
+   * request takes, which reads as the drag having failed — and then lands in
+   * the new place a moment later, which reads as a second, unasked-for move.
+   *
+   * It is reconciled against the live list on every render rather than cleared
+   * on success, so it needs no timing: a question added meanwhile appends
+   * (which is where the API puts it too, at `last.order + 1`) and a removed one
+   * drops out. On a refusal it is thrown away and the server's order stands.
+   */
+  const [dragged, setDragged] = useState<string[] | null>(null);
+  const [orderError, setOrderError] = useState<string | null>(null);
+
+  const ordered = useMemo(() => {
+    if (!dragged) return questions;
+    const byId = new Map(questions.map((q) => [q.id, q]));
+    const known = new Set(dragged);
+    return [
+      ...dragged.flatMap((id) => byId.get(id) ?? []),
+      ...questions.filter((q) => !known.has(q.id)),
+    ];
+  }, [questions, dragged]);
+
+  const reorder = async (ids: string[]) => {
+    if (!onReorder) return;
+    const before = dragged;
+    setDragged(ids);
+    setOrderError(null);
+    try {
+      await onReorder(ids);
+      reload();
+    } catch (caught) {
+      /* Put it back where it was. A list left in an order the server rejected
+         is a screen claiming a change that did not happen. */
+      setDragged(before);
+      setOrderError(
+        caught instanceof ApiError
+          ? caught.message
+          : "That new order was not saved. Try again.",
+      );
+    }
+  };
 
   /** The question being changed, or `null` while the form is adding a new one. */
   const [editing, setEditing] = useState<ApiQuestion | null>(null);
@@ -291,68 +346,68 @@ export function QuestionsDialog({
             <CopyFromPeriod cycleId={cycleId} busy={saving} onCopy={copyFrom} />
           )
         ) : (
-          <ul className="flex flex-col gap-2">
-            {questions.map((question) => (
-              <li
-                key={question.id}
-                className={cn(
-                  "flex flex-wrap items-start justify-between gap-3 rounded-md border p-3",
-                  editing?.id === question.id
-                    ? "border-accent-line bg-accent-soft"
-                    : "border-line",
-                )}
+          <>
+            {orderError && (
+              <p className="text-body-sm text-danger-text">{orderError}</p>
+            )}
+            {onReorder ? (
+              <Sortable
+                items={ordered}
+                keyOf={(question) => question.id}
+                labelOf={(question) => question.prompt}
+                onReorder={(ids) => void reorder(ids)}
+                gap={8}
               >
-                <span className="min-w-0">
-                  <span className="block text-body-sm font-medium text-ink">
-                    {question.prompt}
-                  </span>
-                  <span className="mt-1.5 flex flex-wrap items-center gap-2">
-                    <Badge tone="neutral" size="sm">
-                      {KIND_LABEL[question.kind]}
-                    </Badge>
-                    <Badge tone="neutral" size="sm">
-                      {question.askedOf.length === 0
-                        ? "Everyone"
-                        : question.askedOf
-                            .map((who) => AUDIENCE_LABEL[who])
-                            .join(", ")}
-                    </Badge>
-                    {question.required && (
-                      <Badge tone="accent" size="sm">
-                        Must be answered
-                      </Badge>
+                {(question, args) => (
+                  <div
+                    className={cn(
+                      "flex flex-wrap items-start gap-3 rounded-md border p-3",
+                      editing?.id === question.id
+                        ? "border-accent-line bg-accent-soft"
+                        : "border-line",
                     )}
-                    {question.competencyId && (
-                      <Badge tone="neutral" size="sm">
-                        {competencyName(question.competencyId) ?? "Filed"}
-                      </Badge>
-                    )}
-                    {question.source === "MANAGER" && (
-                      <Badge tone="neutral" size="sm">
-                        Added by a manager
-                      </Badge>
-                    )}
-                  </span>
-                </span>
-                <span className="flex shrink-0 gap-1">
-                  <IconButton
-                    label={`Edit "${question.prompt}"`}
-                    disabled={saving}
-                    onClick={() => startEdit(question)}
                   >
-                    <Pencil aria-hidden="true" />
-                  </IconButton>
-                  <IconButton
-                    label={`Remove "${question.prompt}"`}
-                    disabled={saving}
-                    onClick={() => void remove(question.id)}
+                    <SortableHandle handleProps={args.handleProps} />
+                    <QuestionSummary
+                      question={question}
+                      competencyName={competencyName}
+                    />
+                    <QuestionRowActions
+                      question={question}
+                      disabled={saving}
+                      onEdit={() => startEdit(question)}
+                      onRemove={() => void remove(question.id)}
+                    />
+                  </div>
+                )}
+              </Sortable>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {ordered.map((question) => (
+                  <li
+                    key={question.id}
+                    className={cn(
+                      "flex flex-wrap items-start justify-between gap-3 rounded-md border p-3",
+                      editing?.id === question.id
+                        ? "border-accent-line bg-accent-soft"
+                        : "border-line",
+                    )}
                   >
-                    <Trash2 aria-hidden="true" />
-                  </IconButton>
-                </span>
-              </li>
-            ))}
-          </ul>
+                    <QuestionSummary
+                      question={question}
+                      competencyName={competencyName}
+                    />
+                    <QuestionRowActions
+                      question={question}
+                      disabled={saving}
+                      onEdit={() => startEdit(question)}
+                      onRemove={() => void remove(question.id)}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
         )}
 
         <div className="flex flex-col gap-4 border-t border-line pt-5">
@@ -650,6 +705,86 @@ function SubsectionPicker({
  * hand-typed choice, because a bank of phrasing is a convenience, not a
  * fixed vocabulary.
  */
+/**
+ * One question as the list shows it: the prompt, and its settings as badges.
+ *
+ * Extracted because the list renders twice — dragging when the period is still
+ * open, plain when it is published and the API refuses a rearrangement. Two
+ * copies of sixty lines is how one of them quietly stops showing a badge.
+ */
+function QuestionSummary({
+  question,
+  competencyName,
+}: {
+  question: ApiQuestion;
+  competencyName: (id: string) => string | null;
+}) {
+  return (
+    <span className="min-w-0 flex-1">
+      <span className="block text-body-sm font-medium text-ink">
+        {question.prompt}
+      </span>
+      <span className="mt-1.5 flex flex-wrap items-center gap-2">
+        <Badge tone="neutral" size="sm">
+          {KIND_LABEL[question.kind]}
+        </Badge>
+        <Badge tone="neutral" size="sm">
+          {question.askedOf.length === 0
+            ? "Everyone"
+            : question.askedOf.map((who) => AUDIENCE_LABEL[who]).join(", ")}
+        </Badge>
+        {question.required && (
+          <Badge tone="accent" size="sm">
+            Must be answered
+          </Badge>
+        )}
+        {question.competencyId && (
+          <Badge tone="neutral" size="sm">
+            {competencyName(question.competencyId) ?? "Filed"}
+          </Badge>
+        )}
+        {question.source === "MANAGER" && (
+          <Badge tone="neutral" size="sm">
+            Added by a manager
+          </Badge>
+        )}
+      </span>
+    </span>
+  );
+}
+
+/** Edit and remove, labelled with the prompt so the two rows never sound alike. */
+function QuestionRowActions({
+  question,
+  disabled,
+  onEdit,
+  onRemove,
+}: {
+  question: ApiQuestion;
+  disabled: boolean;
+  onEdit: () => void;
+  onRemove: () => void;
+}) {
+  return (
+    <span className="flex shrink-0 gap-1">
+      <IconButton
+        label={`Edit "${question.prompt}"`}
+        disabled={disabled}
+        onClick={onEdit}
+      >
+        <Pencil aria-hidden="true" />
+      </IconButton>
+      <IconButton
+        label={`Remove "${question.prompt}"`}
+        disabled={disabled}
+        onClick={onRemove}
+      >
+        <Trash2 aria-hidden="true" />
+      </IconButton>
+    </span>
+  );
+}
+
 /**
  * Which audiences a question is put to, when it is not put to everybody.
  *
