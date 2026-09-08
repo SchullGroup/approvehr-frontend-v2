@@ -32,10 +32,7 @@ export function PricingCalculator() {
     <div className="grid gap-8 rounded-3xl border border-sand-line bg-white/70 p-7 lg:grid-cols-[1fr_360px] lg:p-10">
       {/* Controls */}
       <div>
-        <label
-          htmlFor="headcount"
-          className="block font-medium text-slate"
-        >
+        <label htmlFor="headcount" className="block font-medium text-slate">
           How many people do you pay?
         </label>
 

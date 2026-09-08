@@ -37,6 +37,7 @@ import {
   Textarea,
   useToast,
 } from "@/components/ui";
+import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { cn } from "@/lib/cn";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -45,6 +46,7 @@ import {
   EXCEPTION_CODE_SUMMARY,
   dayLabel,
   groupExceptionsByCode,
+  ratingWords,
   scoreLabel,
   weightLabel,
   type ApiAppraiserMap,
@@ -459,82 +461,50 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
             </Card>
           )}
 
-          {/* Not a toast. Somebody has to act on these, and a toast is gone in
-              six seconds. They stay until the page is left or somebody dismisses
-              them. */}
-          {noAppraiser && (
-            <Callout
-              tone="danger"
-              title="Some people have nobody appraising them"
-            >
-              <p>
-                {noAppraiser.join(", ")}{" "}
-                {noAppraiser.length === 1 ? "has" : "have"} no manager, so
-                starting this period gave them no appraiser. They will finish it
-                with no mark unless somebody is assigned.
-              </p>
-              {/* Dismiss used to be the only button here, on a message whose
-                  own last sentence told somebody to assign an appraiser. The
-                  card that does that is on this page — this takes them to it,
-                  where every one of these people now has an Assign button
-                  beside their name.
+          {/* A line each. These were two tinted panels, each with a heading, a
+              paragraph explaining the consequence, an action and a Dismiss —
+              stacked, immediately after pressing Start, on the screen that
+              fixes both. The names are what somebody needs; the essay about
+              how a missing part is carried by the rest of the score belongs
+              where the score is explained, not over the top of a list of
+              people. See `NoticeLine`.
 
-                  `withoutAppraiser` is a list of names and not rows (see
-                  `activateCycle`), so the callout cannot open the dialog on one
-                  person directly. Sending them to the card that can is the
-                  honest affordance rather than a button that guesses. */}
-              <p className="mt-2 flex flex-wrap items-center gap-2">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => {
-                    document
-                      .getElementById(APPRAISER_EXCEPTIONS_ANCHOR)
-                      ?.scrollIntoView({ behavior: "smooth", block: "start" });
-                  }}
-                >
-                  Assign appraisers
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setNoAppraiser(null)}
-                >
-                  Dismiss
-                </Button>
-              </p>
-            </Callout>
+              `withoutAppraiser` is a list of names and not rows (see
+              `activateCycle`), so this cannot open the dialog on one person
+              directly. Scrolling to the card that can is the honest
+              affordance rather than a control that guesses. */}
+          {noAppraiser && (
+            <NoticeLine tone="danger">
+              <span>
+                {noAppraiser.length === 1
+                  ? `${noAppraiser[0]} has no appraiser`
+                  : `${noAppraiser.length} people have no appraiser: ${noAppraiser.join(", ")}`}
+              </span>
+              <button
+                type="button"
+                className={NOTICE_LINK}
+                onClick={() => {
+                  document
+                    .getElementById(APPRAISER_EXCEPTIONS_ANCHOR)
+                    ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }}
+              >
+                Assign appraisers
+              </button>
+            </NoticeLine>
           )}
 
           {noObjectives && (
-            <Callout
-              tone="warning"
-              title="Some people have nothing agreed to be judged on"
-            >
-              <p>
-                {noObjectives.join(", ")}{" "}
-                {noObjectives.length === 1 ? "has" : "have"} no agreed objective
-                in this period. Delivery against objectives is one of the four
-                parts an appraisal is made of, so that part of their mark cannot
-                be worked out: it is left out rather than scored zero, and the
-                rest of their score carries the difference.
-              </p>
-              <p className="mt-2 flex flex-wrap items-center gap-3">
-                <Link
-                  href="/performance/approvals"
-                  className="font-medium underline-offset-2 hover:underline"
-                >
-                  Agree what is waiting
-                </Link>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setNoObjectives(null)}
-                >
-                  Dismiss
-                </Button>
-              </p>
-            </Callout>
+            <NoticeLine tone="warning">
+              <span>
+                {noObjectives.length === 1
+                  ? `${noObjectives[0]} has no agreed objective`
+                  : `${noObjectives.length} people have no agreed objective: ${noObjectives.join(", ")}`}
+              </span>
+              <Link href="/performance/approvals" className={NOTICE_LINK}>
+                Agree what is waiting
+              </Link>
+            </NoticeLine>
           )}
 
           {/* Not a permission problem and not an outage. Two different sentences,
@@ -1135,7 +1105,7 @@ function MultiAppraiserReviews({
                       ? "Written, not final"
                       : "Not written yet"}
                   {manager.rating !== null
-                    ? ` · ${manager.rating} out of 5`
+                    ? ` · ${ratingWords(manager.rating)}`
                     : ""}
                 </p>
               </div>

@@ -26,6 +26,7 @@ import {
 import {
   dayLabel,
   dayOf,
+  ratingWords,
   type ApiCycle,
   type ApiGoal,
   type ApiPeerFeedback,
@@ -354,51 +355,19 @@ export function WhatNeedsYouTab({
         </p>
       )}
 
-      {/* Outside every reveal, by Rule 5's own test: somebody who never opens a
-          disclosure must not be able to be surprised by this. Being the last to
-          hear about your own missing appraiser is the worst possible order to
-          find out in. */}
-      {scored && noAppraiser && (
-        /* One line, not four.
-           ---------------------
-           This used to explain the mechanism — that the cycle falls back to a
-           line manager, that the self-review still counts, what a manager
-           review is for. All true, and none of it this person's job: they
-           cannot set their own appraiser and nothing here changes what they
-           should do next. What they need is that somebody has to fix it and it
-           is not them.
+      {/* The "Nobody is set to appraise you yet" notice used to be here, and
+          Kene asked for it off this screen: *"Remove this from here."*
 
-           The API's own `message` named the employee in the third person
-           ("Ekemini Adowoima has no appraiser yet") on the employee's own
-           screen, which reads as a note written about them rather than to
-           them. Dropped for the same reason. */
-        <Callout tone="warning" title="Nobody is set to appraise you yet">
-          {/* Two readers, two different sentences.
-              --------------------------------------
-              Somebody who can set an appraiser gets to do it here, in a dialog,
-              without leaving the screen they are on — the standing rule is that
-              a problem the reader can fix must never be stated without the fix
-              beside it.
+          It was the first thing on the performance landing, above the figures,
+          for a problem the reader usually cannot fix — an employee cannot
+          assign their own appraiser, so it was a coloured sentence telling
+          somebody about somebody else's job before they had read anything they
+          came for.
 
-              An ordinary employee cannot, and for them the honest answer is who
-              can. Offering a button that the API would refuse is the failure
-              this rule exists to prevent, one step further along. */}
-          {canAssignAppraiser && mine.row && openPeriod ? (
-            <span className="flex flex-wrap items-center gap-3">
-              <span>Set one now and this clears.</span>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setAssigningSelf(true)}
-              >
-                Assign an appraiser
-              </Button>
-            </span>
-          ) : (
-            "Ask whoever runs this period to assign one."
-          )}
-        </Callout>
-      )}
+          Nothing is lost. `appraiser-map.tsx` raises it against the people it
+          belongs to, the period screen raises it in the exception lines
+          `PeriodStatus` renders, and both are read by whoever actually sets
+          appraisers. The employee's own copy was the one nobody could act on. */}
 
       {/*
        * One figure, not four tiles.
@@ -499,7 +468,7 @@ export function WhatNeedsYouTab({
                   <p className="text-body-sm font-medium text-ink">
                     {review.cycleName}
                     {review.rating !== null
-                      ? ` · ${review.rating} out of 5`
+                      ? ` · ${ratingWords(review.rating)}`
                       : " · no overall mark"}
                   </p>
                   <p className="mt-1 text-meta text-muted">
@@ -782,7 +751,9 @@ export function WhatNeedsYouTab({
        * on the landing page has not shown you the thing.
        *
        * Nothing is lost. The whole explanation is still one link away, and
-       * `PeriodStatus` carries the link.
+       * `PeriodStatus` carries the link. The component itself is now deleted
+       * rather than left exported with no importers — see the note in
+       * `how-it-works.tsx` for why a spare copy is worse than none.
        */}
 
       {scored && (
@@ -989,7 +960,7 @@ function ReviewRow({
           {review.dueDate && <span>Due {dayLabel(review.dueDate)}</span>}
           {/* Absent, not zero: a form the author put no number on is not a form
               marked nought. */}
-          {review.rating !== null && <span>Mark {review.rating} out of 5</span>}
+          {review.rating !== null && <span>{ratingWords(review.rating)}</span>}
           <Badge tone={review.submitted ? "neutral" : "warning"} size="sm" dot>
             {review.submitted ? "Sent" : "Not sent"}
           </Badge>
@@ -1070,6 +1041,10 @@ function PeerBlock({ entry }: { entry: ApiPeerFeedback }) {
             <p className="text-meta font-medium text-muted">{answer.prompt}</p>
             {answer.averageRating !== null && (
               <p className="tabular mt-1 text-body-sm text-ink">
+                {/* The one place a mark stays a figure. An average of ordinal
+                    words is not a word: 3.4 and 2.6 both round to "Meets
+                    Expectations" and only one of them is nearer 2. Naming a
+                    level here would be a claim nobody made. rating-scale-prose */}
                 Average {answer.averageRating} out of 5, across{" "}
                 {answer.answered === 1
                   ? "1 answer"
