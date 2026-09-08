@@ -646,6 +646,11 @@ function TimesheetView({ sheet }: { sheet: TimesheetState }) {
           <TH align="right">On leave</TH>
           <TH align="right">Unexplained</TH>
           <TH align="right">Hours</TH>
+          {/* What actually needs looking at. The columns to the left are
+              figures a reader has to interpret; this is the product saying
+              which of them is a problem — the feedback's "automatically pick
+              up attendance exceptions". */}
+          <TH>Needs looking at</TH>
           <TH align="right">Payroll effect</TH>
         </THead>
         <TBody>
@@ -703,6 +708,26 @@ function TimesheetView({ sheet }: { sheet: TimesheetState }) {
                   </TD>
                   <TD align="right" className="tabular text-muted">
                     {row.hours || "—"}
+                  </TD>
+                  {/* The API's own labels, and its own counts. A second copy
+                      of these four names here is how the screen and the
+                      downloaded report come to describe the same day
+                      differently. Empty reads as "nothing to look at", which
+                      is exactly right — a word like "none" is one more thing
+                      to scan past on a clean month. */}
+                  <TD>
+                    {row.exceptions.length === 0 ? (
+                      <span className="text-faint">—</span>
+                    ) : (
+                      <span className="flex flex-wrap gap-1">
+                        {row.exceptions.map((issue) => (
+                          <Badge key={issue.code} tone="warning" size="sm">
+                            {issue.label}
+                            {issue.days > 1 ? ` ×${issue.days}` : ""}
+                          </Badge>
+                        ))}
+                      </span>
+                    )}
                   </TD>
                   <TD align="right" className="tabular">
                     {rota.loading ? (

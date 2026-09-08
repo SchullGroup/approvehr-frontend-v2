@@ -38,6 +38,7 @@ export function KpisScreen() {
   return (
     <>
       <PageHeader
+        breadcrumb={[{ href: "/performance", label: "Performance" }]}
         title="KPIs"
         meta={
           <Badge tone={scope === "mine" ? "neutral" : "accent"} size="sm">

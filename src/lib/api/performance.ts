@@ -239,6 +239,24 @@ export type ApiSection = {
   name: string;
   order: number;
   competencyCount: number;
+  /**
+   * The scored component this section counts towards, and what that component
+   * is worth right now.
+   *
+   * Both **null** when the section is not weighted — a fifth section a company
+   * invented, which `ScoreComponent` has no member for. Null is not zero: its
+   * ratings are recorded and simply do not enter the mark, and a screen saying
+   * "0%" would read as a weight somebody chose rather than a section outside
+   * the model.
+   *
+   * The engine used to resolve this by exact string equality on `name`, so
+   * renaming a section in Settings silently stopped it counting. Carried here
+   * so a person writing questions can see what the section they are filing
+   * them under is actually worth — which is the feedback's complaint that the
+   * configured sections do not reach appraisal creation.
+   */
+  component: ScoreComponent | null;
+  weightBp: number | null;
 };
 
 export type ApiCompetency = {
@@ -2243,17 +2261,38 @@ export type PagedGoals = Paged<ApiGoal>;
  * What each point on the 1–5 scale is called, everywhere a rating renders:
  * `Review.rating`, an answer's `ratingValue`, a competency `level`.
  *
- * One label set rather than each screen inventing its own. Matches the
- * company's own Employee Performance Review Guide, and the API's
- * `RATING_LABELS` in `scoring.ts` — if the two ever disagree, the API is
- * right and this is the bug.
+ * **One set, and it is a mirror.** The authority is `RATING_LABELS` in the
+ * API's `scoring.ts`, which ships with the engine that scores them;
+ * `npm run verify-rating-scale` parses that file and fails the build if these
+ * drift. A screen that can reach the API should prefer `GET
+ * /performance/rating-scale`, which also carries what each level *means*.
+ *
+ * This existed before with different words and **zero importers**, alongside a
+ * second set in `review-parts.tsx` that read "3: Did what was needed" and was
+ * the one actually rendered. So the wording the feedback asked for was already
+ * written down twice, in two repos, and shown nowhere.
  */
 export const RATING_LABELS: Record<number, string> = {
-  5: "Exceeds Expectations",
-  4: "Above Expectations",
+  5: "Exceptional",
+  4: "Exceeds Expectations",
   3: "Meets Expectations",
-  2: "Needs Improvement",
+  2: "Below Expectations",
   1: "Unsatisfactory",
+};
+
+/**
+ * What each level means, so the words are not left to interpretation.
+ *
+ * "Exceeds Expectations" with no sentence beside it is read differently by
+ * every manager in a company, and a scale everybody reads differently is not a
+ * scale — which is the entire problem an appraisal exists to avoid.
+ */
+export const RATING_MEANING: Record<number, string> = {
+  5: "Consistently well beyond what the role asks for, and others learn from how they do it.",
+  4: "Delivers more than the role asks for, reliably.",
+  3: "Does what the role asks for. The ordinary, good outcome — most people, most periods.",
+  2: "Falls short of what the role asks for in ways that need addressing.",
+  1: "Well short of what the role asks for.",
 };
 
 /* -------------------------------------------------------------- the measures */

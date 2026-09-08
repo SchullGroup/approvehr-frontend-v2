@@ -2,6 +2,8 @@
 
 import { Badge, Field, Select, Textarea } from "@/components/ui";
 import {
+  RATING_LABELS as API_RATING_LABELS,
+  RATING_MEANING as API_RATING_MEANING,
   weightLabel,
   type ApiAppraiserContext,
   type ApiFormQuestion,
@@ -27,16 +29,32 @@ import {
  *
  * A bare number is not a scale anybody agrees on: two managers picking "3" for
  * different reasons is the whole problem an appraisal exists to avoid. The
- * ceiling is five because that is the documented range of `Review.rating` and of
- * `submitReviewSchema`, which refuses anything outside it.
+ * ceiling is five because that is the documented range of `Review.rating` and
+ * of `submitReviewSchema`, which refuses anything outside it.
+ *
+ * **This file used to define its own set** — "3: Did what was needed" — while
+ * two other sets said "Meets Expectations" and had no importers between them.
+ * The words now come from `lib/api/performance`, which mirrors the API's own
+ * `RATING_LABELS` under a build gate, so the scale a manager reads is the
+ * scale the engine scores.
+ *
+ * Keyed by string because the radio inputs are, and re-exported so the two
+ * screens that render a rating did not have to change their call sites.
  */
-export const RATING_LABELS: Record<string, string> = {
-  "1": "1: Well below what was needed",
-  "2": "2: Below what was needed",
-  "3": "3: Did what was needed",
-  "4": "4: Above what was needed",
-  "5": "5: Far above what was needed",
-};
+export const RATING_LABELS: Record<string, string> = Object.fromEntries(
+  Object.entries(API_RATING_LABELS).map(([level, label]) => [
+    level,
+    `${level}: ${label}`,
+  ]),
+);
+
+/** The sentence under each option. See `RATING_MEANING`'s note. */
+export const RATING_MEANINGS: Record<string, string> = Object.fromEntries(
+  Object.entries(API_RATING_MEANING).map(([level, meaning]) => [
+    level,
+    meaning,
+  ]),
+);
 
 export const RATING_OPTIONS = ["1", "2", "3", "4", "5"] as const;
 
