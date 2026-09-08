@@ -14,6 +14,7 @@
     "verify-csv": "tsx scripts/verify-csv.ts",
     "verify-template": "tsx scripts/verify-template.ts",
     "verify-loans": "tsx scripts/verify-loans.ts",
+    "verify-marketing": "tsx scripts/export-marketing.ts --check",
     "verify-titles": "tsx scripts/verify-titles.ts",
     "verify-typescale": "tsx scripts/verify-typescale.ts",
     "refresh:banks": "tsx scripts/refresh-banks.mts",
