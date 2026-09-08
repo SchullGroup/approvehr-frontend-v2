@@ -34,7 +34,7 @@ export function PricingCalculator() {
       <div>
         <label
           htmlFor="headcount"
-          className="block font-medium text-slate"
+          className="block text-body font-medium text-slate"
         >
           How many people do you pay?
         </label>

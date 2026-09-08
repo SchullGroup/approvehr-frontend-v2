@@ -3,7 +3,6 @@ import { ArrowUpRight } from "lucide-react";
 import {
   COMPANY,
   LEGAL_DOCS,
-  LEGAL_STATUS,
   type LegalDoc,
   type LegalDocId,
 } from "@/lib/marketing/legal";
@@ -39,25 +38,19 @@ export function LegalDocument({ doc }: { doc: LegalDoc }) {
               Last updated {doc.updated}
             </p>
 
-            {/* Draft disclosure. Deliberately part of the document rather than a
-                dismissible banner — it is a statement about the document's
-                status, so it belongs where the document is read. */}
-            <aside
-              aria-label="Status of this document"
-              className="mt-6 rounded-2xl border border-sand-line bg-sand-deep/60 p-5"
-            >
-              <h2 className="text-meta font-semibold text-slate">
-                Status: draft
-              </h2>
-              <p className="mt-2 text-body-sm leading-relaxed text-slate-muted">
-                {LEGAL_STATUS}
-              </p>
-              {doc.statusNote && (
-                <p className="mt-3 text-body-sm leading-relaxed text-slate-muted">
+            {/* Deliberately part of the document rather than a dismissible
+                banner — where a document carries a standing note, it belongs
+                where the document is read. */}
+            {doc.statusNote && (
+              <aside
+                aria-label="A note on this document"
+                className="mt-6 rounded-2xl border border-sand-line bg-sand-deep/60 p-5"
+              >
+                <p className="text-body-sm leading-relaxed text-slate-muted">
                   {doc.statusNote}
                 </p>
-              )}
-            </aside>
+              </aside>
+            )}
 
             {doc.sections.map((section, i) => (
               <section
