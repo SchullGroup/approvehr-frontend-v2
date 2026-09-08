@@ -6,6 +6,7 @@ import {
   naira,
   wasDeducted,
   type Payslip,
+  type RateWorking,
   type StatutoryOperation,
 } from "@/lib/api/payroll";
 
@@ -422,6 +423,13 @@ export function PayslipDocument({
             label: rates
               ? `Pension contribution (${pct(rates.pensionEmployee)})`
               : "Pension contribution",
+            /* "8% of what?" — the whole of what somebody querying this line
+               wants, and until now the payslip could not say. `workings` is
+               sent only where the rate times the base reproduces the figure
+               beside it exactly, so this can never quote a base that did not
+               produce the deduction. Absent for a payslip whose rates cannot
+               be known, which is the ordinary case for an older row. */
+            note: rateWorking(slip.workings?.pension),
             kobo: slip.pensionEmployeeKobo,
           },
         ]
@@ -432,6 +440,7 @@ export function PayslipDocument({
             label: rates
               ? `National Housing Fund (${pct(rates.nhf)} of ${rates.nhfBasis})`
               : "National Housing Fund",
+            note: rateWorking(slip.workings?.nhf),
             kobo: slip.nhfKobo,
           },
         ]
@@ -571,6 +580,7 @@ export function PayslipDocument({
                 key={`${line.label}-${i}`}
                 label={line.label}
                 kobo={line.kobo}
+                note={"note" in line ? line.note : null}
               />
             ))}
             <LineItem label="Total deductions" kobo={takenKobo} total />
@@ -782,6 +792,24 @@ function Detail({
       </dd>
     </div>
   );
+}
+
+/**
+ * "8% of ₦500,000.00 — basic, housing and transport."
+ *
+ * The one sentence a pension or housing-fund line was missing. Everything in
+ * it comes from the API, which sends a working only where the rate multiplied
+ * by the base reproduces the figure on the payslip — so this is the arithmetic
+ * that actually ran, not a percentage derived back out of the result.
+ *
+ * Null in, null out. A payslip whose rates cannot be known prints the line
+ * with no working under it, exactly as it always did.
+ */
+function rateWorking(working: RateWorking | null | undefined): string | null {
+  if (!working) return null;
+  const rate = working.rate * 100;
+  const percent = Number.isInteger(rate) ? rate : rate.toFixed(2);
+  return `${percent}% of ${formatKobo(working.baseKobo)} — ${working.baseLabel}`;
 }
 
 function LineItem({

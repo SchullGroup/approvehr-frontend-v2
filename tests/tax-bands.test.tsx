@@ -52,6 +52,11 @@ const REAL_WORKING = {
       { widthKobo: null, rate: 0.18, taxedKobo: 1_800_000_00, taxKobo: 437_400_05 },
     ],
   },
+  /* Not what this file is about — `TaxBands` reads only `paye` — but the type
+     requires them, which is the type doing its job: a payslip that carries one
+     working and silently omits the other two is a payslip half-explained. */
+  pension: null,
+  nhf: null,
 } satisfies Payslip["workings"];
 
 const open = async () =>
@@ -114,7 +119,9 @@ describe("it renders nothing rather than an empty explanation", () => {
     /* The common case: no PAYE operated, a figure entered by hand, a nil, or a
        derivation that did not reproduce the charge. All four arrive as null,
        and all four mean there is nothing anybody could check. */
-    const { container } = render(<TaxBands slip={slipWith({ paye: null })} />);
+    const { container } = render(
+      <TaxBands slip={slipWith({ paye: null, pension: null, nhf: null })} />,
+    );
     expect(container).toBeEmptyDOMElement();
   });
 });

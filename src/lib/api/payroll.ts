@@ -239,6 +239,24 @@ export type PayslipLine = {
   taxable: boolean;
 };
 
+/**
+ * A rate, and what it was charged on.
+ *
+ * The answer to "8% of what?", which is the whole of what somebody querying a
+ * pension or housing-fund line wants. Sent by the API only where the rate
+ * multiplied by the base reproduces the stored figure exactly — so a screen
+ * showing this is never showing a base that did not produce the deduction.
+ */
+export type RateWorking = {
+  /** A fraction. `0.08` for 8%. */
+  rate: number;
+  baseKobo: number;
+  /** Equals the figure on the payslip, by construction on the API. */
+  amountKobo: number;
+  /** Which parts of the pay were counted, in the API's own words. */
+  baseLabel: string;
+};
+
 export type Payslip = {
   id: string;
   employeeId: string;
@@ -312,9 +330,11 @@ export type Payslip = {
    * this. Only `GET /payroll/payslips/:id` carries it, because only the payslip
    * document renders it.
    *
-   * Pension and NHF are deliberately not here: their rates and bases are not on
-   * a stored payslip, and this document already refuses to print a rate it
-   * cannot know rather than deriving a percentage back out of the figures.
+   * `pension` and `nhf` answer the other half of the same question — "8% of
+   * what?" — from the run's own frozen settings where it has them, and are
+   * null on the same terms. A rate that does not reproduce the deduction is
+   * refused rather than shown against a base that did not produce it, which is
+   * the case somebody with a pensionable allowance falls into.
    */
   workings?: {
     paye: {
@@ -331,6 +351,8 @@ export type Payslip = {
         taxKobo: number;
       }[];
     } | null;
+    pension: RateWorking | null;
+    nhf: RateWorking | null;
   };
   /**
    * Which statutory deductions the run that produced this payslip operated.
