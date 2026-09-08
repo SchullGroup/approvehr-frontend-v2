@@ -10,13 +10,13 @@ import {
   EmptyState,
   Field,
   Input,
-  Switch,
   Tabs,
   Textarea,
 } from "@/components/ui";
-import type { Catalogue, CatalogueEntry } from "@/lib/api/permissions";
+import type { Catalogue } from "@/lib/api/permissions";
 import type { PermissionKey, PermissionSet } from "@/lib/permissions";
 import { hasPermission } from "@/lib/permissions";
+import { PermissionMatrix } from "./permission-matrix";
 import { useRoleMembers, type RoleView } from "@/lib/store/permissions";
 import { AddPeopleDialog } from "./add-people";
 
@@ -29,22 +29,30 @@ import { AddPeopleDialog } from "./add-people";
  * risks, and putting them on one scrolling page means the second is always
  * below the fold. Both counts are on the tab, so neither is a surprise.
  *
- * ## A built-in role is locked, and offers the way forward
+ * ## A built-in role's name is fixed; what it can do is not
  *
- * `Owner`, `HR manager`, `Payroll officer` and `Employee` ship with the product
- * and our own support answers describe them, so their names and permission sets
- * do not move. Two earlier versions of this screen got that fact wrong in two
- * different directions: the first rendered an editable form and let the save
- * fail; the second rendered every permission as a switch, disabled, which reads
- * as broken rather than as fixed — a row of controls nobody can touch is not
- * how "this cannot be changed" is usually said.
+ * This used to lock built-in roles completely, and the feedback asked for the
+ * opposite: an owner should be able to retune HR manager rather than abandon it
+ * and rebuild the whole thing as a custom role to change one checkbox. So the
+ * lock split in two, and the two halves have different reasons.
  *
- * This one says it as what it is: a plain list of what the role actually
- * grants, `GrantedPermissions` below, with nothing to toggle because nothing
- * here toggles. **Duplicate to edit** — in the drawer's own footer — is where
- * somebody who wants a version they *can* change goes. Descriptions stay
- * editable even on a locked role, because "who this is for here" is the
- * company's sentence, not ours.
+ * **The name stays fixed** because it is the role's identity — `seedSystemRoles`
+ * upserts on `(organizationId, name)`, so renaming "HR manager" would make the
+ * next seed create a second one beside it.
+ *
+ * **What it can do is editable**, for every built-in role except `Owner`. Owner
+ * is "everything, by construction", which is the guarantee that a newly added
+ * permission is held by somebody on the day it ships; an owner who can untick
+ * their own "Manage access" leaves an organisation nobody can administer, and
+ * unlike every other lockout that one cannot be repaired from inside the
+ * product. Transferring ownership is the supported way to move that seat.
+ *
+ * Owner therefore still renders as `GrantedPermissions` below — a plain list of
+ * what it grants, with nothing to toggle because nothing here toggles. Two
+ * earlier versions of this screen got that wrong in two different directions:
+ * the first rendered an editable form and let the save fail; the second
+ * rendered every permission as a disabled switch, which reads as broken rather
+ * than as fixed.
  *
  * ## The escalation guard is on the switch, not in the error
  *
@@ -93,13 +101,20 @@ export function RoleEditor({
   const [draft, setDraft] = useState<PermissionKey[]>(role.permissions);
   const [saving, setSaving] = useState(false);
 
-  const locked = role.isSystem;
+  /* Two locks, not one. See the header: the name is identity, the permission
+     set is a decision — and only Owner's is ours to make rather than the
+     company's. `OWNER_ROLE_NAME` is not imported from the API, so this matches
+     on the name the seed writes; if a tenant has no role by that name then
+     nothing here is locked, and the server's own last-holder guard is what
+     stops a lockout. */
+  const nameLocked = role.isSystem;
+  const grantsLocked = role.isSystem && role.name === "Owner";
   const readOnly = !canManage;
 
   /* What changed, so the save button can say so and stay off when nothing did. */
   const changes = useMemo(() => {
     const list: string[] = [];
-    if (!locked && name.trim() !== role.name) list.push("name");
+    if (!nameLocked && name.trim() !== role.name) list.push("name");
     if (description.trim() !== (role.description ?? ""))
       list.push("description");
     const added = draft.filter((key) => !role.permissions.includes(key));
@@ -107,7 +122,7 @@ export function RoleEditor({
     if (added.length > 0) list.push(`${added.length} added`);
     if (removed.length > 0) list.push(`${removed.length} removed`);
     return { list, added, removed };
-  }, [name, description, draft, role, locked]);
+  }, [name, description, draft, role, nameLocked]);
 
   const dirty = changes.list.length > 0;
 
@@ -118,11 +133,11 @@ export function RoleEditor({
       description?: string | null;
       permissions?: PermissionKey[];
     } = {};
-    if (!locked && name.trim() !== role.name) patch.name = name.trim();
+    if (!nameLocked && name.trim() !== role.name) patch.name = name.trim();
     if (description.trim() !== (role.description ?? "")) {
       patch.description = description.trim() === "" ? null : description.trim();
     }
-    if (!locked && (changes.added.length > 0 || changes.removed.length > 0)) {
+    if (!grantsLocked && (changes.added.length > 0 || changes.removed.length > 0)) {
       patch.permissions = draft;
     }
     const ok = await onSave(patch);
@@ -147,7 +162,7 @@ export function RoleEditor({
               <Button variant="secondary" onClick={onClose}>
                 Cancel
               </Button>
-              {locked ? (
+              {grantsLocked ? (
                 <Button variant="accent" onClick={onDuplicate}>
                   <Copy aria-hidden="true" className="size-4" />
                   Duplicate to edit
@@ -188,7 +203,8 @@ export function RoleEditor({
             draft={draft}
             setDraft={setDraft}
             held={held}
-            locked={locked}
+            nameLocked={nameLocked}
+            grantsLocked={grantsLocked}
             readOnly={readOnly}
             name={name}
             setName={setName}
@@ -218,7 +234,8 @@ function PermissionsTab({
   draft,
   setDraft,
   held,
-  locked,
+  nameLocked,
+  grantsLocked,
   readOnly,
   name,
   setName,
@@ -230,40 +247,18 @@ function PermissionsTab({
   draft: PermissionKey[];
   setDraft: (next: PermissionKey[]) => void;
   held: PermissionSet;
-  locked: boolean;
+  nameLocked: boolean;
+  grantsLocked: boolean;
   readOnly: boolean;
   name: string;
   setName: (next: string) => void;
   description: string;
   setDescription: (next: string) => void;
 }) {
-  const toggle = (key: PermissionKey, on: boolean) =>
-    setDraft(on ? [...draft, key] : draft.filter((held_) => held_ !== key));
-
-  /**
-   * Which separation-of-duties note to hang under which switch.
-   *
-   * A rule names two permissions and fires when the draft holds both. Attaching
-   * the note to the *later* of the pair in catalogue order means it appears once,
-   * under the switch the reader most recently touched, rather than twice.
-   */
-  const notes = useMemo(() => {
-    const order = catalogue.permissions.map((entry) => entry.key);
-    const map = new Map<PermissionKey, string[]>();
-    for (const rule of catalogue.separationOfDuties) {
-      if (!rule.permissions.every((key) => draft.includes(key))) continue;
-      const anchor = [...rule.permissions].sort(
-        (a, b) => order.indexOf(b) - order.indexOf(a),
-      )[0];
-      if (!anchor) continue;
-      map.set(anchor, [...(map.get(anchor) ?? []), rule.message]);
-    }
-    return map;
-  }, [catalogue, draft]);
 
   return (
     <div className="flex flex-col gap-6">
-      {readOnly && !locked && (
+      {readOnly && !grantsLocked && (
         <Callout tone="neutral">
           You can see this role but not change it. Ask somebody who can manage
           access.
@@ -274,7 +269,7 @@ function PermissionsTab({
         <Field label="Name" required>
           <Input
             value={name}
-            disabled={locked || readOnly}
+            disabled={nameLocked || readOnly}
             onChange={(e) => {
               const value = e.target.value;
               setName(value);
@@ -297,29 +292,16 @@ function PermissionsTab({
         </Field>
       </div>
 
-      {locked ? (
+      {grantsLocked ? (
         <GrantedPermissions role={role} catalogue={catalogue} draft={draft} />
       ) : (
-        catalogue.sections.map((section) => (
-          <section key={section.key} className="flex flex-col gap-3.5">
-            <h3 className="text-meta font-semibold text-faint">
-              {section.title}
-            </h3>
-            <div className="flex flex-col divide-y divide-line rounded-md border border-line">
-              {section.permissions.map((entry) => (
-                <PermissionRow
-                  key={entry.key}
-                  entry={entry}
-                  on={draft.includes(entry.key)}
-                  held={held}
-                  locked={readOnly}
-                  notes={notes.get(entry.key) ?? []}
-                  onToggle={toggle}
-                />
-              ))}
-            </div>
-          </section>
-        ))
+        <PermissionMatrix
+          catalogue={catalogue}
+          draft={draft}
+          setDraft={setDraft}
+          held={held}
+          readOnly={readOnly}
+        />
       )}
     </div>
   );
@@ -392,62 +374,6 @@ function GrantedPermissions({
         </section>
       ))}
     </>
-  );
-}
-
-function PermissionRow({
-  entry,
-  on,
-  held,
-  locked,
-  notes,
-  onToggle,
-}: {
-  entry: CatalogueEntry;
-  on: boolean;
-  held: PermissionSet;
-  locked: boolean;
-  notes: string[];
-  onToggle: (key: PermissionKey, on: boolean) => void;
-}) {
-  const canGrant = hasPermission(held, entry.key);
-  /* Blocked only in the granting direction. Taking access away is not
-     escalation, and the API does not gate it either. */
-  const blocked = !on && !canGrant;
-
-  return (
-    <div className="px-3.5 py-3">
-      <Switch
-        checked={on}
-        disabled={locked || blocked}
-        onChange={(e) => onToggle(entry.key, e.target.checked)}
-        label={
-          <span className="flex items-center gap-2">
-            {entry.label}
-            {entry.sensitive && (
-              <TriangleAlert
-                aria-label="Handle with care"
-                className="size-3.5 shrink-0 text-warning-text"
-              />
-            )}
-          </span>
-        }
-        description={
-          blocked
-            ? "You do not hold this, so you cannot give it out."
-            : entry.description
-        }
-      />
-      {notes.map((note) => (
-        <p
-          key={note}
-          className="mt-2 flex gap-2 rounded-md bg-warning-soft px-2.5 py-2 text-body-sm leading-relaxed text-warning-text"
-        >
-          <TriangleAlert aria-hidden="true" className="mt-px size-4 shrink-0" />
-          {note}
-        </p>
-      ))}
-    </div>
   );
 }
 

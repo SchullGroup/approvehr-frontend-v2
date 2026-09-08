@@ -33,7 +33,7 @@ export function PeriodsListScreen() {
   if (!features.appraisals) {
     return (
       <>
-        <PageHeader title="Appraisal periods" />
+        <PageHeader breadcrumb={[{ href: "/performance", label: "Performance" }]} title="Appraisal periods" />
         <PageBody>
           <EmptyState
             icon={<ToggleRight aria-hidden="true" />}
@@ -53,7 +53,7 @@ export function PeriodsListScreen() {
   if (!canManage && !canSeeCompany) {
     return (
       <>
-        <PageHeader title="Appraisal periods" />
+        <PageHeader breadcrumb={[{ href: "/performance", label: "Performance" }]} title="Appraisal periods" />
         <PageBody>
           <EmptyState
             title="Not yours to run"
@@ -66,7 +66,7 @@ export function PeriodsListScreen() {
 
   return (
     <>
-      <PageHeader title="Appraisal periods" action={<StartPeriodButton withIcon />} />
+      <PageHeader breadcrumb={[{ href: "/performance", label: "Performance" }]} title="Appraisal periods" action={<StartPeriodButton withIcon />} />
       <PageBody>
         <PeriodsTab />
       </PageBody>

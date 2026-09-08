@@ -16,10 +16,12 @@ import {
   type ApiAssetCategory,
   type ApiAssetDetail,
   type ApiRepair,
+  type ApiRepairRequest,
   type AssetCondition,
   type AssetListParams,
   type AssetStatus,
   type RepairListParams,
+  type RepairRequestStatus,
   type ReturnOutcome,
   type SettableStatus,
 } from "@/lib/api/assets";
@@ -2416,5 +2418,136 @@ export function useMyEquipment(employeeId: string | null) {
     error: isConnected && answered ? remote.error : null,
     connected: isConnected,
     acknowledge,
+  };
+}
+
+
+/* ============================================================ repair requests */
+
+/**
+ * Fault reports, narrowed by the API to what this reader may see.
+ *
+ * No permission check here and none should be. Who may see which repair is
+ * three tiers deep — their own, their department's, the company's — and the
+ * server resolves the tier and narrows the query. A reader with none gets an
+ * empty list rather than a 403 confirming other people's fault reports exist.
+ *
+ * Empty offline rather than seeded. A fabricated repair history on somebody's
+ * own laptop is the kind of invented record `verify-demo` exists to keep out of
+ * a production build, and the demo shows the button rather than a fiction
+ * behind it.
+ *
+ * Shaped on `useMyEquipment` above — a stamp compared during render rather than
+ * synchronised into state, so a stale answer is never shown beside a key that
+ * has already moved.
+ */
+export function useRepairRequests(
+  params: { assetId?: string; status?: RepairRequestStatus } = {},
+): {
+  requests: ApiRepairRequest[];
+  loading: boolean;
+  error: ApiError | null;
+  reload: () => void;
+} {
+  const { isConnected } = useSession();
+  const revisionValue = useRevision();
+  const stamp = `${params.assetId ?? ""}|${params.status ?? ""}|${revisionValue}`;
+
+  const [remote, setRemote] = useState<{
+    stamp: string;
+    rows: ApiRepairRequest[];
+    error: ApiError | null;
+  } | null>(null);
+
+  const revalidation = useRevalidation();
+  useEffect(() => {
+    if (!isConnected) return;
+    const controller = new AbortController();
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const result = await api.repairRequests(
+          {
+            ...(params.assetId ? { assetId: params.assetId } : {}),
+            ...(params.status ? { status: params.status } : {}),
+          },
+          controller.signal,
+        );
+        if (!cancelled) setRemote({ stamp, rows: result.data, error: null });
+      } catch (caught) {
+        if (cancelled || controller.signal.aborted) return;
+        setRemote({
+          stamp,
+          rows: [],
+          error:
+            caught instanceof ApiError
+              ? caught
+              : new ApiError(0, "network", "Could not reach the server."),
+        });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [isConnected, stamp, params.assetId, params.status, revalidation]);
+
+  if (!isConnected) {
+    return { requests: [], loading: false, error: null, reload: bumpRevision };
+  }
+  /* Compared during render, never synchronised into state: an answer for a key
+     that has already moved is a wrong answer wearing a right label. */
+  const fresh = remote?.stamp === stamp ? remote : null;
+  return {
+    requests: fresh?.rows ?? [],
+    loading: fresh === null,
+    error: fresh?.error ?? null,
+    reload: bumpRevision,
+  };
+}
+
+/**
+ * Reporting a fault and moving one along.
+ *
+ * Refused offline, and this one is not a close call: a repair request is a
+ * message to whoever looks after equipment, and one that reached nobody would
+ * be exactly the failure the feedback describes — *"nothing shows up properly
+ * on either side"* — with the product's own demo as the cause.
+ */
+export function useRepairActions() {
+  const { isConnected } = useSession();
+
+  return {
+    report: useCallback(
+      async (assetId: string, fault: string) => {
+        if (!isConnected) {
+          throw unprocessable(
+            "Reporting a fault needs the API. In the demo there is nobody to tell.",
+          );
+        }
+        const created = await api.reportFault(assetId, fault);
+        bumpRevision();
+        return created;
+      },
+      [isConnected],
+    ),
+    advance: useCallback(
+      async (
+        id: string,
+        body: { status: RepairRequestStatus; note?: string },
+      ) => {
+        if (!isConnected) {
+          throw unprocessable(
+            "Moving a repair along needs the API. In the demo there is no workshop.",
+          );
+        }
+        const moved = await api.advanceRepair(id, body);
+        bumpRevision();
+        return moved;
+      },
+      [isConnected],
+    ),
   };
 }

@@ -99,9 +99,13 @@ function fromSeed(request: LeaveRequest): LeaveRow {
  */
 const RANK: Record<LeaveRowStatus, number> = {
   pending: 0,
-  approved: 1,
-  declined: 2,
-  cancelled: 3,
+  /* Second, not last. It is still open — somebody has to act on it — and
+     sorting it below the decided ones would bury the half of the queue that
+     has already had a person's attention. */
+  awaitingHr: 1,
+  approved: 2,
+  declined: 3,
+  cancelled: 4,
 };
 
 const inApiOrder = (rows: LeaveRow[]): LeaveRow[] =>

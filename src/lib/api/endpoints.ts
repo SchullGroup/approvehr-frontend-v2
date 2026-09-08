@@ -298,6 +298,31 @@ export type ApiEmployee = {
   archived: boolean;
   missingForPayroll: string[];
   payrollReady: boolean;
+
+  /**
+   * Whether they can sign in, and where their invitation has got to.
+   *
+   * The feedback asks for exactly this on the record — *"invitation status
+   * (Sent / Accepted / In Progress / Expired)"* — and nothing in the product
+   * could say it: the invite existed, the token existed, and no screen read
+   * either, so an invitation sent six weeks ago and one sent this morning were
+   * indistinguishable.
+   *
+   * `SENT` is the feedback's "In Progress", named after what is true — the mail
+   * has gone — rather than after a guess about what the recipient is doing.
+   * `EXPIRED` is the state somebody has to act on and the reason a resend
+   * exists.
+   *
+   * Derived by the API from the account and its token, never stored, so it
+   * cannot go stale the moment somebody accepts.
+   */
+  access: {
+    state: "NONE" | "SENT" | "EXPIRED" | "ACCEPTED" | "DISABLED";
+    /** When the live invitation runs out. Null unless `SENT`. */
+    expiresAt: string | null;
+    /** The roles the account actually holds. */
+    roles: string[];
+  };
 };
 
 export type EmployeeListParams = {
@@ -1016,6 +1041,10 @@ export const company = {
 export function toEmployee(api: ApiEmployee): Employee {
   return {
     id: api.id,
+    /* Carried straight through. `access` is derived by the API from the
+       account and its token, and re-deriving anything from it here would be a
+       second answer to "can this person sign in". */
+    ...(api.access ? { access: api.access } : {}),
     employeeNo: api.employeeNo,
     firstName: api.firstName,
     lastName: api.lastName,

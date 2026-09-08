@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArchiveX, Info, Lock, Plus, RotateCcw } from "lucide-react";
+import { ArchiveX, Check, Info, Lock, Plus, RotateCcw } from "lucide-react";
 import {
   Badge,
   Button,
@@ -18,6 +18,7 @@ import {
   ProgressMeter,
   Select,
   Skeleton,
+  Spinner,
   Switch,
   TBody,
   TD,
@@ -147,6 +148,43 @@ function Policy() {
   const { isConnected } = useSession();
   const toast = useToast();
 
+  /**
+   * Whether the last edit has landed.
+   *
+   * The feedback: *"Settings fields (Leave) need a clear save mechanism:
+   * either a visible Save button when a field is edited, or if changes are
+   * autosaved a clear 'Autosaved' indicator so users aren't left unsure
+   * whether their edits were captured."*
+   *
+   * These fields **do** autosave — every keystroke on the entitlement fires a
+   * PATCH — and said nothing at all, so somebody typing 26 and navigating away
+   * had no way to know whether it took. A Save button would be the wrong fix:
+   * it would have to be added to a screen that already writes on change, which
+   * means either two mechanisms or a rewrite of the save path for a message.
+   *
+   * `saved` clears itself after a few seconds. A permanent "Saved" beside a
+   * field is not an indicator, it is furniture — it stops being read, and then
+   * it is there on the one occasion something failed.
+   */
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">(
+    "idle",
+  );
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const markSaved = useCallback(() => {
+    setSaveState("saved");
+    if (savedTimer.current) clearTimeout(savedTimer.current);
+    savedTimer.current = setTimeout(() => setSaveState("idle"), 2500);
+  }, []);
+
+  /* Cleared on unmount, or a timer fires against a component that is gone. */
+  useEffect(
+    () => () => {
+      if (savedTimer.current) clearTimeout(savedTimer.current);
+    },
+    [],
+  );
+
   /* Demo mode runs on `TODAY`; the real clock would open the calendar on a year
      the seed has nothing in. Same reasoning as `/people/leave`. */
   const calendarYear = Number(
@@ -229,9 +267,13 @@ function Policy() {
   async function editType(row: TypeRow, patch: Partial<Omit<TypeRow, "id" | "name">>) {
     if (!isConnected) {
       updateLeaveType(row.name, patch);
+      /* Demo mode saves too — locally — so the indicator says so rather than
+         staying silent, which would read as nothing having happened. */
+      markSaved();
       return;
     }
     if (!row.id) return;
+    setSaveState("saving");
     const before = row;
     setFetched(
       (s) =>
@@ -256,7 +298,9 @@ function Policy() {
           ? { requiresEvidence: patch.requiresEvidence }
           : {}),
       });
+      markSaved();
     } catch (error) {
+      setSaveState("idle");
       setFetched(
         (s) => s && { ...s, rows: s.rows.map((r) => (r.id === row.id ? before : r)) },
       );
@@ -370,17 +414,26 @@ function Policy() {
         <Card>
           <CardHeader
             title="Leave types"
-            description="Statutory minimums in Nigeria are a floor, not a ceiling: a company may grant more."
+            description="Statutory minimums in Nigeria are a floor, not a ceiling: a company may grant more. Changes here save as you make them."
             action={
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={!isConnected}
-                onClick={() => setAdding(true)}
-              >
-                <Plus aria-hidden="true" className="size-3.5" />
-                Add leave type
-              </Button>
+              <div className="flex items-center gap-2">
+                {/* Whether the last edit landed. These fields autosave on
+                    change and said nothing at all, so somebody typing 26 and
+                    navigating away had no way to know it took. Absent while
+                    idle rather than a permanent "Saved" — a badge that is
+                    always there stops being read, and then it is there on the
+                    one occasion something failed. */}
+                <SaveState state={saveState} />
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={!isConnected}
+                  onClick={() => setAdding(true)}
+                >
+                  <Plus aria-hidden="true" className="size-3.5" />
+                  Add leave type
+                </Button>
+              </div>
             }
           />
           {typesLoading ? (
@@ -789,5 +842,43 @@ function AddLeaveTypeDialog({
         </Field>
       </div>
     </Modal>
+  );
+}
+
+/**
+ * Whether the last edit landed.
+ *
+ * Renders **nothing** while idle. A permanent "Saved" beside a field is not an
+ * indicator, it is furniture: it stops being read, and then it is still there
+ * on the one occasion something failed. What somebody needs is a change of
+ * state at the moment their change lands, and silence the rest of the time.
+ *
+ * "Saving…" is shown as well as "Saved" because on a slow connection the gap
+ * between typing and landing is exactly the window the feedback describes —
+ * *"users aren\'t left unsure whether their edits were captured"* — and an
+ * indicator that only ever appears afterwards says nothing during it.
+ */
+function SaveState({ state }: { state: "idle" | "saving" | "saved" }) {
+  if (state === "idle") return null;
+  return (
+    <span
+      /* Polite, not assertive: this is a confirmation, and interrupting a
+         screen reader mid-sentence to say "saved" is worse than telling them
+         when they next pause. */
+      aria-live="polite"
+      className="flex items-center gap-1.5 text-meta text-muted"
+    >
+      {state === "saving" ? (
+        <>
+          <Spinner size="sm" />
+          Saving
+        </>
+      ) : (
+        <>
+          <Check aria-hidden="true" className="size-3.5 text-success-text" />
+          Saved
+        </>
+      )}
+    </span>
   );
 }

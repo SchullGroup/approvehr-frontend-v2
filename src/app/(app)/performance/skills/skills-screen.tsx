@@ -33,7 +33,7 @@ export function SkillsScreen() {
   if (!features.appraisals) {
     return (
       <>
-        <PageHeader title="Competency ratings" />
+        <PageHeader breadcrumb={[{ href: "/performance", label: "Performance" }]} title="Competency ratings" />
         <PageBody>
           <EmptyState
             icon={<ToggleRight aria-hidden="true" />}
@@ -53,6 +53,7 @@ export function SkillsScreen() {
   return (
     <>
       <PageHeader
+        breadcrumb={[{ href: "/performance", label: "Performance" }]}
         title="Competency ratings"
         action={<StartPeriodButton withIcon />}
       />

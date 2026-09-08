@@ -463,6 +463,16 @@ export function EmployeeRecord({
             />
           </CardBody>
 
+          {/* Whether they can sign in, and where the invitation got to.
+          
+              The feedback asks for "Sent / Accepted / In Progress / Expired"
+              on the record, and the product could not say: the invite existed,
+              the token existed, and no screen read either — so an invitation
+              sent six weeks ago and one sent this morning looked identical.
+              Beside the record rather than on a separate access screen,
+              because "can this person actually get in" is a fact about them. */}
+          <AccessLine employee={employee} />
+
           {/* A small checklist, not the page's main focus. These never hold
               back a payslip — `payrollGapsFor` says so in `consequence` — so a
               red callout at the top of the record was claiming the same
@@ -1444,6 +1454,69 @@ const TAB_IDS = ["personal", "employment", "pay", "leave", "conduct"];
  * rather than a guess: this card and the demo payslip for the same person must
  * never disagree, and the only way to guarantee that is one source.
  */
+/**
+ * Whether this person can sign in.
+ *
+ * Five states, and each says what somebody would do about it. `NONE` is the
+ * ordinary state for most of a directory and renders quietly; `EXPIRED` is the
+ * one that needs acting on and is the reason a resend exists.
+ *
+ * The wording is the point rather than the badge. "Invited" tells you nothing
+ * you can act on; "Invited — expires 4 October" and "Invited, and the link has
+ * expired" are two different afternoons.
+ */
+function AccessLine({ employee }: { employee: Employee }) {
+  const access = employee.access;
+  /* Absent on a record served by an older API, or in demo mode, where nothing
+     knows. Rendering "no account" from an absence would be a claim. */
+  if (!access) return null;
+
+  const line = {
+    NONE: {
+      tone: "neutral" as const,
+      label: "No login",
+      detail: "They have not been invited to sign in.",
+    },
+    SENT: {
+      tone: "info" as const,
+      label: "Invited",
+      detail: access.expiresAt
+        ? `Waiting for them to accept. The link expires ${shortDate(access.expiresAt)}.`
+        : "Waiting for them to accept.",
+    },
+    EXPIRED: {
+      tone: "warning" as const,
+      label: "Invitation expired",
+      detail: "The link ran out before they used it. Send another one.",
+    },
+    ACCEPTED: {
+      tone: "success" as const,
+      label: "Signs in",
+      detail:
+        access.roles.length > 0
+          ? access.roles.join(", ")
+          : "No role, so they can sign in and see only their own record.",
+    },
+    DISABLED: {
+      tone: "danger" as const,
+      label: "Access closed",
+      detail: "Their account is archived. They cannot sign in.",
+    },
+  }[access.state];
+
+  return (
+    <CardBody className="border-t border-line">
+      <p className="mb-1.5 text-meta font-medium text-muted">Signing in</p>
+      <Badge tone={line.tone} size="sm">
+        {line.label}
+      </Badge>
+      <p className="mt-1.5 text-meta leading-relaxed text-muted">
+        {line.detail}
+      </p>
+    </CardBody>
+  );
+}
+
 function Compensation({
   employee,
   connected,
