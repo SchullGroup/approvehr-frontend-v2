@@ -55,6 +55,7 @@ import {
 import { useWorkLocations } from "@/lib/store/attendance";
 import { NO_DEPARTMENT } from "@/lib/store/demo-structure";
 import { useDepartments } from "@/lib/store/departments";
+import { useRoles } from "@/lib/store/permissions";
 import { useOrgTaxState } from "@/lib/store/company";
 import { AccountVerificationHint } from "@/components/payments/account-verification";
 import { NIGERIAN_BANKS } from "@/lib/reference/banks";
@@ -246,6 +247,7 @@ export function NewEmployeeForm() {
   /* Both modes, so the manager picker offers real colleagues either way. */
   const directory = useEmployeeDirectory({ pageSize: 200 });
   const departments = useDepartments();
+  const accessRoles = useRoles();
   const locations = useWorkLocations();
 
   /**
@@ -766,6 +768,21 @@ export function NewEmployeeForm() {
          beside the email field, so it is a decision somebody can see and undo
          before the click rather than find in a sent folder. */
       invite: draft.email.trim() !== "",
+      /* Which access role that invitation carries.
+         ------------------------------------------------------------------
+         The feedback's flow in its own words: *"Create Employee → Assign
+         Employee ID → Assign Department lead/line Manager → Assign Role →
+         Configure Access → Save → Automatic Invitation Sent"* — one form,
+         rather than a create followed by two more screens.
+
+         Omitted when nobody chose, and omitted is not "no access": the API
+         falls back to the Employee role, which is what every invitation has
+         always carried. `assertCanGrant` on the server refuses a role whose
+         permissions the person filling this in does not hold themselves, so a
+         field here cannot mint an administrator. */
+      ...(draft.accessRoleId && draft.email.trim()
+        ? { accessRoleId: draft.accessRoleId }
+        : {}),
       status: draft.status,
       employmentType: draft.employmentType,
       /* Omitted rather than defaulted: the API falls back to the company's own
@@ -1072,6 +1089,40 @@ export function NewEmployeeForm() {
                       placeholder="name@schulltech.com"
                     />
                   </Field>
+
+                  {/* The access role, beside the address that triggers the
+                      invitation — the feedback's "Assign Role → Configure
+                      Access" step, in the one place where the decision is
+                      already being made.
+
+                      Shown only with an email, because a role on an invitation
+                      nobody sends is a decision with nowhere to land. Blank is
+                      the ordinary answer and means the Employee role: their own
+                      record, their own payslips, no permissions. Anything wider
+                      is a choice somebody makes on purpose, and the server
+                      refuses a role the person filling this in does not hold
+                      themselves. */}
+                  {draft.email.trim() !== "" && (
+                    <Field
+                      label="What they can do when they sign in"
+                      help="Employee unless you say otherwise — their own record and their own payslips. You can only give out a role you hold yourself."
+                    >
+                      <Picker
+                        value={draft.accessRoleId}
+                        onChange={(v) => set("accessRoleId", v)}
+                        placeholder="Employee"
+                        loading={accessRoles.loading}
+                        options={[
+                          { value: "", label: "Employee (their own record)" },
+                          ...accessRoles.roles.map((role) => ({
+                            value: role.id,
+                            label: role.name,
+                          })),
+                        ]}
+                      />
+                    </Field>
+                  )}
+
                   <Field label="Phone" error={errorFor("phone")}>
                     <Input
                       data-employee-field="phone"
@@ -1633,6 +1684,17 @@ export function NewEmployeeForm() {
                           "—",
                       ],
                       ["Work email", draft.email.trim() || "Not given"],
+                      /* On the review step because it is an access decision,
+                         and the one thing on this form somebody could get
+                         wrong without noticing. */
+                      [
+                        "When they sign in",
+                        draft.email.trim() === ""
+                          ? "No login"
+                          : (accessRoles.roles.find(
+                              (role) => role.id === draft.accessRoleId,
+                            )?.name ?? "Employee"),
+                      ],
                       ["Phone", draft.phone.trim() || "Not given"],
                       ["Work location", locationName ?? "Not set"],
                     ]}

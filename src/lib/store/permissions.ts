@@ -12,6 +12,10 @@ import {
   permissionsApi,
   type ApiRole,
   type Catalogue,
+  type CatalogueEntry,
+  type Matrix,
+  type MatrixCell,
+  type MatrixRow,
   type RoleMember,
   type SectionKey,
 } from "@/lib/api/permissions";
@@ -19,7 +23,14 @@ import { EMPLOYEES } from "@/lib/mock/people";
 import { SEED_ROLES, type SeedRole } from "@/lib/mock/roles";
 /* The leaf, not `@/lib/permissions` — that import would close a cycle this
    module cannot survive. The file's header explains it. */
-import { PERMISSION_KEYS, type PermissionKey } from "@/lib/permission-keys";
+import {
+  PERMISSION_KEYS,
+  PERMISSION_SHAPE,
+  type PermissionAction,
+  type PermissionKey,
+  type PermissionModule,
+  type PermissionScope,
+} from "@/lib/permission-keys";
 import { createPersistedState } from "./persisted";
 import { useSession } from "./session";
 import { useRevalidation } from "@/lib/revalidate";
@@ -191,6 +202,87 @@ const DEMO_COPY: Record<
     section: "records",
     sensitive: true,
   },
+
+  /* Equipment and its repairs. Three view scopes, because a department head
+     needs their team's kit, an employee needs the laptop on their desk, and
+     only HR needs the whole estate. */
+  VIEW_EQUIPMENT_ALL: {
+    label: "See all equipment",
+    description: "Every item the company owns, and who is holding each one.",
+    section: "people",
+  },
+  VIEW_EQUIPMENT_DEPARTMENT: {
+    label: "See their department's equipment",
+    description: "Items held by anybody in a department they head.",
+    section: "people",
+  },
+  VIEW_EQUIPMENT_OWN: {
+    label: "See their own equipment",
+    description: "The items on their own desk. Everybody should have this.",
+    section: "people",
+  },
+  CREATE_EQUIPMENT: {
+    label: "Add equipment",
+    description: "Put a new item on the register.",
+    section: "people",
+  },
+  EDIT_EQUIPMENT: {
+    label: "Edit equipment",
+    description:
+      "Correct an item's details — its serial number, model or notes.",
+    section: "people",
+  },
+  DELETE_EQUIPMENT: {
+    label: "Delete equipment",
+    description: "Remove an item from the register, and its history with it.",
+    section: "people",
+    sensitive: true,
+  },
+  ASSIGN_EQUIPMENT: {
+    label: "Hand equipment out",
+    description:
+      "Give an item to somebody, or move it between two people. Separate from editing: correcting a serial number is not the same as changing who is answerable for a laptop.",
+    section: "people",
+  },
+  REPORT_EQUIPMENT_FAULT: {
+    label: "Report a fault",
+    description:
+      "Raise a repair request against an item. Everybody should have this — the person holding the broken laptop is the person who knows it is broken.",
+    section: "people",
+  },
+  VIEW_REPAIRS_ALL: {
+    label: "See all repair requests",
+    description: "Every open and closed repair in the company.",
+    section: "people",
+  },
+  VIEW_REPAIRS_DEPARTMENT: {
+    label: "See their department's repairs",
+    description: "Repairs raised by anybody in a department they head.",
+    section: "people",
+  },
+  VIEW_REPAIRS_OWN: {
+    label: "See their own repair requests",
+    description: "The repairs they raised, and where each one has got to.",
+    section: "people",
+  },
+  UPDATE_REPAIR_STATUS: {
+    label: "Move a repair along",
+    description:
+      "Take a request from reported to under review, in repair, and repaired.",
+    section: "people",
+  },
+  CONFIRM_EQUIPMENT_RETURN: {
+    label: "Confirm a return",
+    description:
+      "Close a repair by recording that the item is back with its holder.",
+    section: "people",
+  },
+  APPROVE_LEAVE_DEPARTMENT: {
+    label: "Approve leave for their department",
+    description:
+      "Decide requests from anybody in a department they head — including people who do not report to them directly.",
+    section: "timeOff",
+  },
 };
 
 /** Reported, never blocked — a two-person company genuinely has one person doing both. */
@@ -209,27 +301,165 @@ const DEMO_SOD: {
   },
 ];
 
+/**
+ * The matrix's row and column titles, for demo mode only.
+ *
+ * The *structure* — which module and action each permission belongs to — is in
+ * `PERMISSION_SHAPE` on the shared leaf, so it is written once and both this
+ * file and the grid read it. Only the words are here, for the same reason the
+ * rest of `DEMO_COPY` is: connected, the API's titles win.
+ */
+const DEMO_MODULE_TITLES: Record<PermissionModule, string> = {
+  people: "People",
+  equipment: "Equipment",
+  repairs: "Equipment repairs",
+  hiring: "Recruitment",
+  leave: "Leave",
+  payroll: "Payroll",
+  paySetup: "Pay setup",
+  loans: "Staff loans",
+  expenses: "Expenses",
+  settings: "Company settings",
+  access: "Access and roles",
+  records: "Data in and out",
+  audit: "Audit trail",
+};
+
+/** Narrowest first, so a scope control reads left to right as it widens. */
+const DEMO_SCOPE_ORDER: PermissionScope[] = [
+  "own",
+  "team",
+  "department",
+  "all",
+];
+
+const DEMO_SCOPE_TITLES: Record<PermissionScope, string> = {
+  own: "Their own",
+  team: "Their reports",
+  department: "Their department",
+  all: "Everyone",
+};
+
+/** Column order, and only the ones something uses. Mirrors the API's list. */
+const DEMO_ACTIONS: { key: PermissionAction; title: string }[] = [
+  { key: "view", title: "View" },
+  { key: "create", title: "Create" },
+  { key: "edit", title: "Edit" },
+  { key: "delete", title: "Delete" },
+  { key: "approve", title: "Approve" },
+  { key: "assign", title: "Assign" },
+  { key: "report", title: "Report a fault" },
+  { key: "update", title: "Move it along" },
+  { key: "confirm", title: "Confirm return" },
+  { key: "run", title: "Prepare" },
+  { key: "manage", title: "Set up" },
+  { key: "invite", title: "Invite" },
+  { key: "import", title: "Import" },
+  { key: "export", title: "Export" },
+];
+
+const entryOf = (key: PermissionKey): CatalogueEntry => ({
+  key,
+  label: DEMO_COPY[key].label,
+  description: DEMO_COPY[key].description,
+  section: DEMO_COPY[key].section,
+  module: PERMISSION_SHAPE[key].module,
+  action: PERMISSION_SHAPE[key].action,
+  ...(PERMISSION_SHAPE[key].scope
+    ? { scope: PERMISSION_SHAPE[key].scope }
+    : {}),
+  sensitive: DEMO_COPY[key].sensitive === true,
+});
+
+/**
+ * The same projection the API does, over the same structure table.
+ *
+ * Duplicated logic rather than duplicated data: `PERMISSION_SHAPE` is the one
+ * place a permission's module and action are written on this side, so the grid
+ * demo mode draws and the grid the API sends are the same grid with different
+ * copy — which is what makes the demo a demo of the real thing.
+ */
+function demoMatrix(): Matrix {
+  const cellFor = (
+    module: PermissionModule,
+    action: PermissionAction,
+  ): MatrixCell | undefined => {
+    const found = PERMISSION_KEYS.filter(
+      (key) =>
+        PERMISSION_SHAPE[key].module === module &&
+        PERMISSION_SHAPE[key].action === action,
+    ).map(entryOf);
+    if (found.length === 0) return undefined;
+
+    const only = found[0];
+    if (found.length === 1 && only && only.scope === undefined) {
+      return {
+        kind: "one",
+        permission: only.key,
+        label: only.label,
+        description: only.description,
+        sensitive: only.sensitive,
+      };
+    }
+    return {
+      kind: "scoped",
+      scopes: found
+        .filter((entry) => entry.scope !== undefined)
+        .sort(
+          (a, b) =>
+            DEMO_SCOPE_ORDER.indexOf(a.scope!) -
+            DEMO_SCOPE_ORDER.indexOf(b.scope!),
+        )
+        .map((entry) => ({
+          scope: entry.scope!,
+          title: DEMO_SCOPE_TITLES[entry.scope!],
+          permission: entry.key,
+          label: entry.label,
+          description: entry.description,
+          sensitive: entry.sensitive,
+        })),
+    };
+  };
+
+  const rows: MatrixRow[] = (
+    Object.keys(DEMO_MODULE_TITLES) as PermissionModule[]
+  ).map((module) => {
+    const cells: Partial<Record<PermissionAction, MatrixCell>> = {};
+    for (const action of DEMO_ACTIONS) {
+      const cell = cellFor(module, action.key);
+      if (cell) cells[action.key] = cell;
+    }
+    /* The section comes off any permission in the row — they all share it,
+       because a module sits under exactly one heading. */
+    const first = PERMISSION_KEYS.find(
+      (key) => PERMISSION_SHAPE[key].module === module,
+    );
+    return {
+      key: module,
+      title: DEMO_MODULE_TITLES[module],
+      section: first ? DEMO_COPY[first].section : "company",
+      cells,
+    };
+  });
+
+  return {
+    columns: DEMO_ACTIONS.filter((action) =>
+      rows.some((row) => row.cells[action.key] !== undefined),
+    ),
+    rows,
+  };
+}
+
 const DEMO_CATALOGUE: Catalogue = {
+  matrix: demoMatrix(),
   sections: DEMO_SECTIONS.map((section) => ({
     key: section.key,
     title: section.title,
     permissions: PERMISSION_KEYS.filter(
       (key) => DEMO_COPY[key].section === section.key,
-    ).map((key) => ({
-      key,
-      label: DEMO_COPY[key].label,
-      description: DEMO_COPY[key].description,
-      section: DEMO_COPY[key].section,
-      sensitive: DEMO_COPY[key].sensitive === true,
-    })),
+    ).map(entryOf),
   })),
-  permissions: PERMISSION_KEYS.map((key) => ({
-    key,
-    label: DEMO_COPY[key].label,
-    description: DEMO_COPY[key].description,
-    section: DEMO_COPY[key].section,
-    sensitive: DEMO_COPY[key].sensitive === true,
-  })),
+  permissions: PERMISSION_KEYS.map(entryOf),
   separationOfDuties: DEMO_SOD.map((rule) => ({
     permissions: [...rule.permissions],
     labels: rule.permissions.map((key) => DEMO_COPY[key].label),

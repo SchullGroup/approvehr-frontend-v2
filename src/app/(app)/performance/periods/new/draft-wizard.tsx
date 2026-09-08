@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, Sparkles, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Sparkles, Target, Trash2 } from "lucide-react";
 import {
   Badge,
   Button,
@@ -574,7 +574,16 @@ export function DraftPeriodWizard() {
                   >
                     <div className="flex items-start gap-2">
                       <span className="min-w-0 flex-1">
-                        <Field label={`Goal ${String(index + 1)}`}>
+                        <div className="mb-1.5 flex items-center gap-1.5">
+                          <Target
+                            aria-hidden="true"
+                            className="size-4 shrink-0 text-accent"
+                          />
+                          <span className="text-body-sm font-medium text-ink">
+                            Goal {index + 1}
+                          </span>
+                        </div>
+                        <Field label={`Goal ${String(index + 1)}`} hideLabel>
                           <Input
                             value={goal.title}
                             onChange={(event) =>
@@ -608,14 +617,19 @@ export function DraftPeriodWizard() {
                     </Field>
 
                     {goal.measures.length > 0 && (
-                      <div className="flex flex-col gap-2">
-                        <p className="text-meta font-semibold text-muted">
-                          Measures
-                        </p>
+                      <div className="flex flex-col gap-1.5">
+                        <div className="flex items-center gap-2">
+                          <p className="min-w-0 flex-1 text-meta font-semibold text-muted">
+                            Measures
+                          </p>
+                          <p className="w-32 shrink-0 text-meta font-semibold text-muted">
+                            Target
+                          </p>
+                        </div>
                         {goal.measures.map((measure, at) => (
                           <div
                             key={`${goal.id}-${String(at)}`}
-                            className="flex flex-wrap items-end gap-2"
+                            className="flex items-center gap-2"
                           >
                             <span className="min-w-40 flex-1 text-body-sm text-body">
                               {measure.label}
@@ -626,18 +640,16 @@ export function DraftPeriodWizard() {
                                 </span>
                               )}
                             </span>
-                            <span className="w-36">
-                              <Field label="Target">
-                                <Input
-                                  inputMode="decimal"
-                                  value={measure.target}
-                                  placeholder="You set this"
-                                  onChange={(event) =>
-                                    setTarget(goal.id, at, event.target.value)
-                                  }
-                                />
-                              </Field>
-                            </span>
+                            <Input
+                              inputMode="decimal"
+                              value={measure.target}
+                              placeholder="You set this"
+                              aria-label={`Target for ${measure.label}`}
+                              onChange={(event) =>
+                                setTarget(goal.id, at, event.target.value)
+                              }
+                              className="w-32 shrink-0"
+                            />
                           </div>
                         ))}
                       </div>
@@ -753,10 +765,7 @@ export function DraftPeriodWizard() {
         {/* --------------------------------------------------------- review */}
         {step === "review" && (
           <Card>
-            <CardHeader
-              title="Review it"
-              description="This is the only screen that writes anything. Nothing has been created yet."
-            />
+            <CardHeader title="Review it" />
             <CardBody className="flex flex-col gap-4">
               <dl className="flex flex-col gap-2 text-body-sm">
                 <div className="flex flex-wrap gap-2">
@@ -804,9 +813,7 @@ export function DraftPeriodWizard() {
               )}
 
               <Callout tone="info" title="Nobody is asked anything yet">
-                This creates the period as a **draft**. Starting it is a
-                separate press on the period&rsquo;s own screen, which is where
-                you set the weights and check who appraises whom.
+                {null}
               </Callout>
 
               <div className="flex flex-wrap items-center gap-2">

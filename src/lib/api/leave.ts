@@ -96,7 +96,17 @@ import { request, requestPaged } from "@/lib/api/client";
 
 /* ------------------------------------------------------------------ the wire */
 
-type WireStatus = "PENDING" | "APPROVED" | "DECLINED" | "CANCELLED";
+/**
+ * `AWAITING_HR` is the middle of the two-step workflow.
+ *
+ * A department head has said yes and HR has not yet. Only reachable on a
+ * company running `leaveTwoStepApproval`, and a separate member rather than a
+ * flag because every screen that lists leave switches on the status — a
+ * half-approved request showing as PENDING would tell the head they still have
+ * it to do.
+ */
+type WireStatus =
+  "PENDING" | "AWAITING_HR" | "APPROVED" | "DECLINED" | "CANCELLED";
 
 type WireRequest = {
   id: string;
@@ -173,7 +183,16 @@ type WireType = {
 /* ---------------------------------------------------------------- the shapes */
 
 /** Matches the union in `lib/mock/workflows.ts`, so one screen renders both. */
-export type LeaveRowStatus = "pending" | "approved" | "declined" | "cancelled";
+/**
+ * `awaitingHr` is the middle of the two-step workflow: a department head has
+ * said yes and HR has not yet.
+ *
+ * Its own member rather than a flag on `pending`, because every screen switches
+ * on this — showing it as pending would tell the head they still have it to do,
+ * and showing it as approved would tell the employee to book a flight.
+ */
+export type LeaveRowStatus =
+  "pending" | "awaitingHr" | "approved" | "declined" | "cancelled";
 
 /**
  * One leave request, in the shape the screens use.
@@ -349,8 +368,28 @@ export type NewLeaveInput = {
 
 /* --------------------------------------------------------------- the mapping */
 
-const statusOf = (wire: WireStatus): LeaveRowStatus =>
-  wire.toLowerCase() as LeaveRowStatus;
+/**
+ * The wire's status to the app's.
+ *
+ * A written-out map rather than `wire.toLowerCase() as LeaveRowStatus`, which
+ * is what this was and which held only while every member happened to be one
+ * word. `AWAITING_HR` lowercases to `awaiting_hr`, which is not a
+ * `LeaveRowStatus` at all — and the cast would have let it through to every
+ * screen as an unrecognised value, rendering a blank badge and sorting last,
+ * with nothing in `tsc` able to see it.
+ *
+ * Exhaustive by type, so a member added to either side is a compile error
+ * rather than a silent blank.
+ */
+const STATUS_OF: Record<WireStatus, LeaveRowStatus> = {
+  PENDING: "pending",
+  AWAITING_HR: "awaitingHr",
+  APPROVED: "approved",
+  DECLINED: "declined",
+  CANCELLED: "cancelled",
+};
+
+const statusOf = (wire: WireStatus): LeaveRowStatus => STATUS_OF[wire];
 
 /** A timestamp to the day it fell on. See the header on why. */
 const dayOf = (iso: string | null): string | null => iso?.slice(0, 10) ?? null;
@@ -708,6 +747,9 @@ export const UNCONFIRMED_HOLIDAY_EFFECT = {
 /** How a decided request reads. `pending` is deliberately absent — it has none. */
 export const DECISION_LABEL: Record<LeaveRowStatus, string> = {
   pending: "Waiting on a decision",
+  /* Says who has it, not merely that it is unfinished. "Waiting" twice over
+     would leave a department head unable to tell what they had already done. */
+  awaitingHr: "Approved by their department, with HR",
   approved: "Approved",
   declined: "Sent back",
   cancelled: "Withdrawn",
