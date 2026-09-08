@@ -25,7 +25,23 @@ export type EmploymentType = "full_time" | "contract" | "internship";
  * They are what the payroll run checks for, and what the record page nags to
  * complete.
  */
+/** Whether somebody can sign in, and where their invitation got to. */
+export type EmployeeAccess = {
+  state: "NONE" | "SENT" | "EXPIRED" | "ACCEPTED" | "DISABLED";
+  /** When the live invitation runs out. Null unless `SENT`. */
+  expiresAt: string | null;
+  roles: string[];
+};
+
 export type Employee = {
+  /**
+   * Whether they can sign in.
+   *
+   * **Optional**, and absent is a real state rather than a gap: demo mode does
+   * not know, and neither does an older API. Rendering "no account" from an
+   * absence would be a claim about somebody's access made from silence.
+   */
+  access?: EmployeeAccess;
   id: Uuid;
   employeeNo: string;
   firstName: string;

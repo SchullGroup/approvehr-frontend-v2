@@ -52,8 +52,27 @@ jobs:
       # a fresh clone actually builds.
       - run: npm ci
 
-      # typecheck + lint + contrast + payroll + csv + loans, in one script, so
-      # what CI runs and what a developer runs before pushing cannot drift.
+      # Deliberately duplicated: `npm run check` runs `format:check` too, and
+      # that is the copy that matters — it is what keeps a developer's pre-push
+      # run and CI from drifting, and removing it there to avoid running
+      # prettier twice would mean formatting was only ever enforced on GitHub.
+      #
+      # This step exists for the failure, not the pass. Inside `check`,
+      # unformatted code fails the 3rd of 18 sub-checks after several minutes,
+      # under a step named "Check", and you have to read the log to find out
+      # which one broke. Here it fails in seconds under a step named "Format",
+      # and the fix is the command in the message. Prettier over 718 files
+      # costs about two seconds against a job that builds Next.js.
+      - name: Format
+        run: |
+          npm run format:check || {
+            echo "::error::Unformatted code. Run 'npm run format' locally and commit the result."
+            exit 1
+          }
+
+      # typecheck + lint + format + contrast + payroll + csv + loans, in one
+      # script, so what CI runs and what a developer runs before pushing cannot
+      # drift.
       - name: Check
         run: npm run check
 

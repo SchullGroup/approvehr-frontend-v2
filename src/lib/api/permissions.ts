@@ -1,7 +1,12 @@
 "use client";
 
 import { request, requestPaged, type Paged } from "@/lib/api/client";
-import type { PermissionKey } from "@/lib/permission-keys";
+import type {
+  PermissionAction,
+  PermissionKey,
+  PermissionModule,
+  PermissionScope,
+} from "@/lib/permission-keys";
 
 /**
  * Roles and permissions — `/api/v1/permissions`.
@@ -50,8 +55,61 @@ export type CatalogueEntry = {
   label: string;
   description: string;
   section: SectionKey;
+  /** Which row of the matrix this sits in. */
+  module: PermissionModule;
+  /** Which column. */
+  action: PermissionAction;
+  /** Which scoped variant this is, where the act has scopes at all. */
+  scope?: PermissionScope;
   /** Moves money, exposes pay, or hands out access. The editor marks these. */
   sensitive: boolean;
+};
+
+/**
+ * One square of the grid.
+ *
+ * `one` is an ordinary checkbox. `scoped` is a single control offering a choice
+ * of how far the act reaches, which is how the feedback's own table writes it —
+ * with "Own" as a cell value rather than as a separate tick.
+ *
+ * A square the module has no permission for is **absent**, not a cell that is
+ * off. Absent renders as empty: an unticked box says "you could turn this on",
+ * and there is no turning on "delete a payroll run". Absent is not off, the
+ * same way absent is not zero.
+ */
+export type MatrixCell =
+  | {
+      kind: "one";
+      permission: PermissionKey;
+      label: string;
+      description: string;
+      sensitive: boolean;
+    }
+  | {
+      kind: "scoped";
+      scopes: {
+        scope: PermissionScope;
+        /** "Their department", not `department`. */
+        title: string;
+        permission: PermissionKey;
+        label: string;
+        description: string;
+        sensitive: boolean;
+      }[];
+    };
+
+export type MatrixRow = {
+  key: PermissionModule;
+  /** "Equipment repairs", not `repairs`. */
+  title: string;
+  section: SectionKey;
+  cells: Partial<Record<PermissionAction, MatrixCell>>;
+};
+
+export type Matrix = {
+  /** Only the columns something actually uses, in the API's order. */
+  columns: { key: PermissionAction; title: string }[];
+  rows: MatrixRow[];
 };
 
 export type CatalogueSection = {
@@ -68,6 +126,15 @@ export type SeparationRule = {
 };
 
 export type Catalogue = {
+  /**
+   * The module × action grid.
+   *
+   * Derived by the API from the same table that drives its own guard, so the
+   * grid cannot disagree with what a save enforces — which is the failure this
+   * shape exists to prevent: a checkbox that grants something other than what
+   * it says.
+   */
+  matrix: Matrix;
   sections: CatalogueSection[];
   /** The same entries flat, so a lookup by key need not walk the sections. */
   permissions: CatalogueEntry[];
