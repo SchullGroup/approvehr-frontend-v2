@@ -81,6 +81,30 @@ export const RECORD_FIELD_KEYS = [
  */
 export const ADVANCED_FEATURE_KEYS = ["multiAppraiser", "twoFactor"] as const;
 
+/**
+ * How a module's own workflow is configured. A fourth kind of switch.
+ *
+ * `leaveTwoStepApproval` is not a module, does not hide a field, and is not
+ * "depth" the way `multiAppraiser` is — it changes **who decides** a leave
+ * request. The feedback asks for it by location, twice: *"configurable from
+ * the Settings → Approval Workflows section"*, and again *"Under Settings →
+ * Approval Workflows → Leave, the Owner/Admin should be able to configure the
+ * approval process."*
+ *
+ * So it is deliberately **not** rendered on `/settings/features`, which shows
+ * the other three lists. It lives on `/settings/leave`, beside the leave types
+ * and the entitlements — which is where somebody deciding whether a
+ * departmental lead approves first already is, and the only place they have
+ * the context to decide it. Two places to change one field is how they come to
+ * disagree.
+ *
+ * It is here rather than invented at the call site because the API already
+ * accepts it on `PATCH /setup/features`, and a flag the store does not know
+ * about is a flag the store silently drops — which is exactly why the whole
+ * two-step workflow shipped with no way to turn it on.
+ */
+export const WORKFLOW_FEATURE_KEYS = ["leaveTwoStepApproval"] as const;
+
 /** The acts a company can put a code in front of. Mirrors `StepUpAction`. */
 export const STEP_UP_ACTIONS = [
   "PAYROLL_APPROVE",
@@ -96,11 +120,13 @@ export const FEATURE_KEYS = [
   ...MODULE_FEATURE_KEYS,
   ...RECORD_FIELD_KEYS,
   ...ADVANCED_FEATURE_KEYS,
+  ...WORKFLOW_FEATURE_KEYS,
 ] as const;
 
 export type ModuleFeatureKey = (typeof MODULE_FEATURE_KEYS)[number];
 export type RecordFieldKey = (typeof RECORD_FIELD_KEYS)[number];
 export type AdvancedFeatureKey = (typeof ADVANCED_FEATURE_KEYS)[number];
+export type WorkflowFeatureKey = (typeof WORKFLOW_FEATURE_KEYS)[number];
 export type FeatureKey = (typeof FEATURE_KEYS)[number];
 
 /** What a PATCH sends, and what a wizard option's `sets` looks like. */
@@ -137,6 +163,8 @@ export type ApiFeatures = {
   bankDetails: boolean;
   /** Several appraisers per person, with roles and weights. Needs `appraisals`. */
   multiAppraiser: boolean;
+  /** The departmental lead approves before HR. See `WORKFLOW_FEATURE_KEYS`. */
+  leaveTwoStepApproval: boolean;
   /** Whether a second factor is asked for at all. Off by default. */
   twoFactor: boolean;
   /** Which acts need a code, when `twoFactor` is on. Empty means sign-in only. */

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Wrench } from "lucide-react";
+import { Check, Wrench } from "lucide-react";
 import {
   Badge,
   Button,
@@ -152,6 +152,10 @@ export function ReportFaultButton({
  */
 export function RepairStatusLine({ assetId }: { assetId: string }) {
   const { requests } = useRepairRequests({ assetId });
+  const { confirmReturn } = useRepairActions();
+  const [confirming, setConfirming] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
+  const toast = useToast();
 
   /* The newest, because `reportFault` refuses a second open request on one
      item — so there is at most one open, and any others are history. */
@@ -160,17 +164,78 @@ export function RepairStatusLine({ assetId }: { assetId: string }) {
 
   const open = !isFinished(current);
 
+  /**
+   * The last step of the loop the feedback describes, and the one that was
+   * missing: *"Once the equipment is returned, the employee should be able to
+   * confirm receipt and the request can be closed."*
+   *
+   * `mayConfirmReturn` is the API's answer, not a test written here. It knows
+   * the status is `RETURNED`, that this reader holds
+   * `CONFIRM_EQUIPMENT_RETURN`, and that they are the person who reported it —
+   * and until this shipped, that permission gated nothing anywhere.
+   */
+  const confirm = async () => {
+    setConfirming(true);
+    setFailed(null);
+    try {
+      await confirmReturn(current.id);
+      toast.push({
+        title: "Closed",
+        tone: "success",
+        detail: "Nobody needs to chase this one any further.",
+      });
+    } catch (caught) {
+      /* The API's own refusal. It knows whether the workshop has actually sent
+         it back yet; nothing here does. */
+      setFailed(
+        caught instanceof ApiError
+          ? caught.message
+          : "That did not go through. Try again in a moment.",
+      );
+    } finally {
+      setConfirming(false);
+    }
+  };
+
   return (
-    <p className="mt-1.5 flex flex-wrap items-center gap-2 text-body-sm text-muted">
-      <Badge tone={open ? OPEN_TONE : "neutral"} size="sm">
-        {/* The API's wording, not a second copy of the seven states. */}
-        {current.statusLabel}
-      </Badge>
-      <span className="min-w-0">{current.fault}</span>
-      {current.note && (
-        <span className="w-full text-meta text-faint">{current.note}</span>
+    <div className="mt-1.5 flex flex-col gap-1.5">
+      <p className="flex flex-wrap items-center gap-2 text-body-sm text-muted">
+        <Badge tone={open ? OPEN_TONE : "neutral"} size="sm">
+          {/* The API's wording, not a second copy of the seven states. */}
+          {current.statusLabel}
+        </Badge>
+        <span className="min-w-0">{current.fault}</span>
+        {current.note && (
+          <span className="w-full text-meta text-faint">{current.note}</span>
+        )}
+      </p>
+
+      {/* Present only when the API says this reader can do it, rather than
+          disabled the rest of the time. A control that is there and always
+          refuses teaches people the product is broken. */}
+      {current.mayConfirmReturn && (
+        <p className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="approve"
+            size="sm"
+            loading={confirming}
+            onClick={() => void confirm()}
+          >
+            <Check aria-hidden="true" className="size-3.5" />I have it back
+          </Button>
+          <span className="text-meta text-muted">
+            Confirms you received it and closes the request.
+          </span>
+        </p>
       )}
-    </p>
+
+      {failed && (
+        <p role="status" className="text-body-sm text-danger-text">
+          {failed}
+        </p>
+      )}
+    </div>
   );
 }
 

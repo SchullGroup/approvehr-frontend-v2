@@ -138,6 +138,9 @@ const BASE_FLAGS: FeatureFlags = {
   /* Off, like every module. A company with one manager per person must never be
      shown a weighting table it did not ask for. */
   multiAppraiser: false,
+  /* Off, matching the API's own default: a company that has not asked for a
+     second approver keeps the one-step flow it already had. */
+  leaveTwoStepApproval: false,
   twoFactor: false,
 };
 
@@ -249,6 +252,13 @@ export const FEATURE_COPY: Record<
   twoFactor: {
     label: "Ask for a code from email",
     line: "People who have set it up are asked for a six-digit code when they sign in. You choose separately which actions also need one.",
+  },
+  /* Rendered on `/settings/leave` rather than `/settings/features` — see
+     `WORKFLOW_FEATURE_KEYS`. The copy lives here anyway so the label and the
+     consequence are written once, wherever the switch is placed. */
+  leaveTwoStepApproval: {
+    label: "The departmental lead approves leave first",
+    line: "A request goes to the person who heads their department, and to HR only once that is approved. A decline at either step is final and the employee hears once.",
   },
 };
 
@@ -653,6 +663,7 @@ function fromApi(features: ApiFeatures): State {
       pensionSetup: features.pensionSetup,
       bankDetails: features.bankDetails,
       multiAppraiser: features.multiAppraiser,
+      leaveTwoStepApproval: features.leaveTwoStepApproval,
     },
     headcountBand: features.headcountBand,
     setupStep: features.setupStep,
@@ -853,6 +864,7 @@ export function useFeatureSettings() {
           pensionSetup: features.pensionSetup,
           bankDetails: features.bankDetails,
           multiAppraiser: features.multiAppraiser,
+          leaveTwoStepApproval: features.leaveTwoStepApproval,
           headcountBand: features.headcountBand,
         };
       } finally {
