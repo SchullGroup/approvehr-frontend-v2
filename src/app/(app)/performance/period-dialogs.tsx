@@ -39,6 +39,25 @@ const AUDIENCES: { value: ReviewAudience; label: string }[] = [
   { value: "PEER", label: "Their colleagues (anonymous)" },
 ];
 
+/**
+ * Keep a chosen set in the order above rather than in click order.
+ *
+ * The list row renders `askedOf` joined with commas, so without this the same
+ * two audiences read "Manager, Self" or "Self, Manager" depending on which box
+ * somebody happened to tick first — two labels for one fact.
+ *
+ * Anything the picker does not offer (`REPORT` today) sorts last and is
+ * **kept**. Dropping a value the form cannot display is the defect this whole
+ * change is about, one level down.
+ */
+const audienceRank = new Map(AUDIENCES.map((a, index) => [a.value, index]));
+const inAudienceOrder = (chosen: readonly ReviewAudience[]): ReviewAudience[] =>
+  [...chosen].sort(
+    (a, b) =>
+      (audienceRank.get(a) ?? AUDIENCES.length) -
+      (audienceRank.get(b) ?? AUDIENCES.length),
+  );
+
 const KINDS: { value: ReviewQuestionKind; label: string }[] = [
   { value: "TEXT", label: "In their own words" },
   { value: "RATING", label: "A rating on the company scale" },
@@ -107,7 +126,15 @@ export function QuestionsDialog({
   const [editing, setEditing] = useState<ApiQuestion | null>(null);
   const [prompt, setPrompt] = useState("");
   const [kind, setKind] = useState<ReviewQuestionKind>("TEXT");
-  const [audience, setAudience] = useState<ReviewAudience | "ALL">("ALL");
+  /**
+   * Whether the question is narrowed to particular audiences.
+   *
+   * Separate from `audiences` because an empty list is otherwise ambiguous:
+   * "everybody" and "narrowed, nothing ticked yet" are opposite intentions and
+   * only one of them is a question worth saving.
+   */
+  const [narrowed, setNarrowed] = useState(false);
+  const [audiences, setAudiences] = useState<ReviewAudience[]>([]);
   const [required, setRequired] = useState(true);
   const [competencyId, setCompetencyId] = useState("");
   const [options, setOptions] = useState<string[]>(["", ""]);
@@ -119,7 +146,10 @@ export function QuestionsDialog({
     setEditing(question);
     setPrompt(question.prompt);
     setKind(question.kind);
-    setAudience(question.askedOf[0] ?? "ALL");
+    /* The whole list, not `[0]`. Reading only the first is what let an edit
+       silently narrow a question asked of two people to one. */
+    setNarrowed(question.askedOf.length > 0);
+    setAudiences(inAudienceOrder(question.askedOf));
     setRequired(question.required);
     setCompetencyId(question.competencyId ?? "");
     setOptions(question.options.length > 0 ? question.options : ["", ""]);
@@ -131,7 +161,8 @@ export function QuestionsDialog({
     setEditing(null);
     setPrompt("");
     setKind("TEXT");
-    setAudience("ALL");
+    setNarrowed(false);
+    setAudiences([]);
     setRequired(true);
     setCompetencyId("");
     setOptions(["", ""]);
@@ -151,10 +182,17 @@ export function QuestionsDialog({
       setError("A pick-from-a-list question needs at least two choices.");
       return;
     }
+    if (narrowed && audiences.length === 0) {
+      setError(
+        "Choose who is asked, or set it back to everyone on the form. " +
+          "A question nobody is asked is never answered.",
+      );
+      return;
+    }
     setError(null);
     setSaving(true);
     try {
-      const askedOf = audience === "ALL" ? [] : [audience];
+      const askedOf = narrowed ? inAudienceOrder(audiences) : [];
       const shared = {
         prompt: prompt.trim(),
         kind,
@@ -347,20 +385,18 @@ export function QuestionsDialog({
             </Field>
             <Field label="Who is asked">
               <Select
-                value={audience}
-                onChange={(event) =>
-                  setAudience(event.target.value as ReviewAudience | "ALL")
-                }
+                value={narrowed ? "SOME" : "ALL"}
+                onChange={(event) => setNarrowed(event.target.value === "SOME")}
               >
                 <option value="ALL">Everyone on the form</option>
-                {AUDIENCES.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
+                <option value="SOME">Only certain people</option>
               </Select>
             </Field>
           </div>
+
+          {narrowed && (
+            <AudiencePicker value={audiences} onChange={setAudiences} />
+          )}
 
           <SubsectionPicker value={competencyId} onChange={setCompetencyId} />
 
@@ -614,6 +650,53 @@ function SubsectionPicker({
  * hand-typed choice, because a bank of phrasing is a convenience, not a
  * fixed vocabulary.
  */
+/**
+ * Which audiences a question is put to, when it is not put to everybody.
+ *
+ * Checkboxes rather than a second dropdown because the answer is a set: a
+ * question can be asked of the person and their manager but not their
+ * colleagues, and until this existed the form could only ever write one
+ * audience or none. A question created through the API with two would open
+ * here showing the first and save back having dropped the second.
+ *
+ * A value the list does not offer is left alone by the toggle rather than
+ * filtered out, so `REPORT` — in the enum, reached by nothing — survives an
+ * edit instead of being quietly discarded by a screen that cannot show it.
+ */
+function AudiencePicker({
+  value,
+  onChange,
+}: {
+  value: ReviewAudience[];
+  onChange: (next: ReviewAudience[]) => void;
+}) {
+  const toggle = (who: ReviewAudience, on: boolean) => {
+    onChange(
+      on ? inAudienceOrder([...value, who]) : value.filter((v) => v !== who),
+    );
+  };
+
+  return (
+    <div className="flex flex-col gap-3 rounded-md border border-line bg-canvas p-3">
+      <span className="text-body-sm font-medium text-ink">
+        Who is asked this one
+      </span>
+      {AUDIENCES.map((option) => (
+        <Checkbox
+          key={option.value}
+          label={option.label}
+          checked={value.includes(option.value)}
+          onChange={(event) => toggle(option.value, event.target.checked)}
+        />
+      ))}
+      <span className="text-meta text-muted">
+        A colleague only sees this if somebody has asked them for a peer review
+        on this period. Nobody is asked one by default.
+      </span>
+    </div>
+  );
+}
+
 function ChoiceEditor({
   options,
   onChange,
