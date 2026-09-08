@@ -13,7 +13,6 @@ import {
   Badge,
   Button,
   ButtonLink,
-  Callout,
   Card,
   CardBody,
   CardHeader,
@@ -24,6 +23,7 @@ import {
   Tabs,
   type TabItem,
 } from "@/components/ui";
+import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import {
   dayLabel,
   dayOf,
@@ -310,41 +310,45 @@ export function WhatNeedsYouTab({
            ("Ekemini Adowoima has no appraiser yet") on the employee's own
            screen, which reads as a note written about them rather than to
            them. Dropped for the same reason. */
-        <Callout tone="warning" title="Nobody is set to appraise you yet">
-          {/* Two readers, two different sentences.
-              --------------------------------------
-              Somebody who can set an appraiser gets to do it here, in a dialog,
-              without leaving the screen they are on — the standing rule is that
-              a problem the reader can fix must never be stated without the fix
-              beside it.
+        /* A line, not a panel. The fact is one sentence and the fix is one
+           link; a tinted box with a heading over the top of them was the
+           product raising its voice about something the reader may not even be
+           able to act on.
 
-              An ordinary employee cannot, and for them the honest answer is who
-              can. Offering a button that the API would refuse is the failure
-              this rule exists to prevent, one step further along. */}
+           Two readers, two endings, and that half is unchanged: somebody who
+           can set an appraiser does it here without leaving the screen — a
+           problem the reader can fix is never stated without the fix beside it
+           — and an ordinary employee is told who can, rather than offered a
+           button the API would refuse. */
+        <NoticeLine tone="warning">
+          <span>Nobody is set to appraise you yet</span>
           {canAssignAppraiser && mine.row && openPeriod ? (
-            <span className="flex flex-wrap items-center gap-3">
-              <span>Set one now and this clears.</span>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setAssigningSelf(true)}
-              >
-                Assign an appraiser
-              </Button>
-            </span>
+            <button
+              type="button"
+              className={NOTICE_LINK}
+              onClick={() => setAssigningSelf(true)}
+            >
+              Assign an appraiser
+            </button>
           ) : (
-            "Ask whoever runs this period to assign one."
+            <span className="text-muted">
+              Ask whoever runs this period to assign one.
+            </span>
           )}
-        </Callout>
+        </NoticeLine>
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat
           label="Waiting on you"
           value={String(waitingOnMe)}
+          /* Short enough to fit. `Stat` truncates its hint on purpose — a long
+             filename once spilled over the card beside it — so this rendered as
+             "Everything below with a b...", which is the class of thing Abdulla
+             fixed on the wallet stats. The fix is a hint that fits. */
           {...(waitingOnMe > 0
-            ? { hint: "Everything below with a button beside it" }
-            : { hint: "Nothing needs you here" })}
+            ? { hint: "Listed below" }
+            : { hint: "Nothing needs you" })}
         />
         <Stat
           label="Waiting on somebody else"

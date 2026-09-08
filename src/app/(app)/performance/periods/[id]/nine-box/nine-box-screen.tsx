@@ -18,6 +18,7 @@ import {
   Textarea,
   useToast,
 } from "@/components/ui";
+import { NoticeLine } from "@/components/portal/notice-line";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
@@ -327,9 +328,12 @@ function Unplaced({
   const anything = groups.some((group) => group.people.length > 0);
   if (!anything) {
     return (
-      <Callout tone="success" title="Everybody is on the grid">
-        Every person this period covers has both a mark and a recorded potential.
-      </Callout>
+      /* A line. This was a green panel with a heading, congratulating the
+         reader on the absence of a problem — the thing people learn to dismiss
+         without reading, and then the one that mattered goes with it. */
+      <NoticeLine tone="muted">
+        Everybody this period covers has both a mark and a recorded potential.
+      </NoticeLine>
     );
   }
 

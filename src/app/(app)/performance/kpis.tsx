@@ -15,7 +15,6 @@ import {
   Avatar,
   Badge,
   Button,
-  Callout,
   Card,
   CardBody,
   CardHeader,
@@ -29,6 +28,7 @@ import {
   Textarea,
   useToast,
 } from "@/components/ui";
+import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { LoadFailure } from "@/components/portal/load-failure";
 import {
   SuggestButton,
@@ -236,25 +236,31 @@ export function KpisTab({
           made of, and only an **agreed** objective counts towards it. Somebody
           whose KPIs are all drafts is somebody who will be unscored on that
           part, so the count is on the page rather than discovered at the end of
-          the period. */}
-      {waiting.length + unsent.length > 0 && (
-        <Callout tone="info" title="Not everything here can be scored yet">
-          <p>
-            Only an agreed objective counts towards delivery at review time.
-            {waiting.length > 0 &&
-              ` ${waiting.length === 1 ? "1 is" : `${waiting.length} are`} waiting for somebody to agree.`}
-            {unsent.length > 0 &&
-              ` ${unsent.length === 1 ? "1 has" : `${unsent.length} have`} not been sent yet.`}
-          </p>
-          <p className="mt-2">
-            <Link
-              href="/performance/approvals"
-              className="font-medium underline-offset-2 hover:underline"
-            >
-              Objectives waiting on you
-            </Link>
-          </p>
-        </Callout>
+          the period.
+
+          A line, not a panel. This was a tinted box headed "Not everything here
+          can be scored yet" over a sentence explaining what an agreed objective
+          counts towards — the product explaining its own scoring rules to
+          somebody who came to look at their objectives. The two counts are the
+          fact; `NoticeLine` carries the argument. */}
+      {waiting.length > 0 && (
+        <NoticeLine tone="warning">
+          <span>
+            {waiting.length === 1
+              ? "1 objective is waiting to be agreed"
+              : `${waiting.length} objectives are waiting to be agreed`}
+          </span>
+          <Link href="/performance/approvals" className={NOTICE_LINK}>
+            See what is waiting
+          </Link>
+        </NoticeLine>
+      )}
+      {unsent.length > 0 && (
+        <NoticeLine tone="warning">
+          {unsent.length === 1
+            ? "1 objective has not been sent for approval yet"
+            : `${unsent.length} objectives have not been sent for approval yet`}
+        </NoticeLine>
       )}
 
       <Card>

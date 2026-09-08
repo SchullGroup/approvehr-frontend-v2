@@ -7,6 +7,7 @@ import {
   Lock,
   TriangleAlert,
   UserX,
+  Users,
 } from "lucide-react";
 import {
   Badge,
@@ -148,19 +149,26 @@ export function PeriodReportScreen({ cycleId }: { cycleId: string }) {
 
       <PageBody className="flex flex-col gap-6">
         {!canSeeCompany ? (
-          <Callout tone="info" title="This is a company-wide view">
-            <p>
-              A distribution of marks is an aggregate over every employee, which
-              needs the records permission. Your own rating is on{" "}
-              <Link
-                href="/performance"
-                className="font-medium text-accent-text underline-offset-2 hover:underline"
-              >
-                the performance screen
-              </Link>
-              .
-            </p>
-          </Callout>
+          /* An empty state, not a notice on an empty page.
+             ------------------------------------------------
+             Word for word the argument `period-screen.tsx` already makes for
+             its own version of this: a `Callout` on an otherwise blank screen
+             reads as a warning about something that went wrong. Nothing went
+             wrong — this page is a company-wide aggregate and this reader is
+             not its audience — so it looks like a screen that is simply not
+             for you, and points at the one that is. */
+          <Card>
+            <EmptyState
+              icon={<Users aria-hidden="true" />}
+              title="This page is a company-wide view"
+              description="A distribution of marks is an aggregate over every employee, which needs the records permission."
+              action={
+                <ButtonLink href="/performance" variant="secondary">
+                  Your own rating
+                </ButtonLink>
+              }
+            />
+          </Card>
         ) : DEMO_ENABLED && !detail.available ? (
           <Callout tone="warning" title="Demo data, this browser only">
             <p>{detail.refusal}</p>
