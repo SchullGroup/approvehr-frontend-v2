@@ -18,6 +18,7 @@ import { useDashboard, useReports } from "@/lib/store/insights";
 import { useDashboardLayout } from "@/lib/store/dashboard-layout";
 import { useSetupChecklist } from "@/lib/store/setup-checklist";
 import { checklistRows } from "../settings/checklist";
+import { SetupGuide } from "./setup-guide";
 import { DashboardHeader } from "./header";
 import { CustomizeDrawer } from "./customize-drawer";
 import { WIDGET_COMPONENTS } from "./widgets";
@@ -277,8 +278,24 @@ export function DashboardScreen() {
 function SetupPrompt() {
   const canManage = useCan("MANAGE_SETTINGS");
   const { facts, loading } = useSetupChecklist();
+  /* Held here rather than inside the guide, because this callout owns the
+     button that reopens it and the guide owns the once-per-browser offer. Two
+     components, one piece of open/closed state, and it lives with the one that
+     renders on every load. */
+  const [guiding, setGuiding] = useState(false);
 
-  if (!canManage || loading || !facts) return null;
+  /* Mounted before the permission and completeness checks below, because the
+     guide answers both for itself — and because a hook cannot be skipped. It
+     renders nothing when there is nothing to walk through. */
+  const guide = (
+    <SetupGuide
+      open={guiding}
+      onOpen={() => setGuiding(true)}
+      onClose={() => setGuiding(false)}
+    />
+  );
+
+  if (!canManage || loading || !facts) return guide;
 
   /* `optional` and `unknown` are left out of the denominator for the reason
      the checklist's own header gives: a row that cannot be incomplete would
@@ -288,24 +305,36 @@ function SetupPrompt() {
     (row) => row.status !== "optional" && row.status !== "unknown",
   );
   const outstanding = rows.filter((row) => row.status !== "done");
-  if (outstanding.length === 0) return null;
+  if (outstanding.length === 0) return guide;
 
   const first = outstanding[0]!;
   return (
-    <Callout tone="info" className="mb-4">
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <p className="text-body-sm">
-          <span className="font-medium">
-            {outstanding.length} of {rows.length} still to set up.
-          </span>{" "}
-          {/* Names the next one rather than only counting. A number alone is a
-              nag; a number and the next step is a thing somebody can finish. */}
-          <span className="text-muted">Next: {first.title.toLowerCase()}.</span>
-        </p>
-        <ButtonLink size="sm" variant="secondary" href={first.href}>
-          {first.linkLabel}
-        </ButtonLink>
-      </div>
-    </Callout>
+    <>
+      <Callout tone="info" className="mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <p className="text-body-sm">
+            <span className="font-medium">
+              {outstanding.length} of {rows.length} still to set up.
+            </span>{" "}
+            {/* Names the next one rather than only counting. A number alone is a
+                nag; a number and the next step is a thing somebody can finish. */}
+            <span className="text-muted">Next: {first.title.toLowerCase()}.</span>
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* The way back to the walk. The guide offers itself once per
+                browser; without this, somebody who dismissed it — or who
+                arrived after a colleague dismissed it on a shared machine —
+                has no way to ask for it again. */}
+            <Button size="sm" variant="ghost" onClick={() => setGuiding(true)}>
+              Walk me through it
+            </Button>
+            <ButtonLink size="sm" variant="secondary" href={first.href}>
+              {first.linkLabel}
+            </ButtonLink>
+          </div>
+        </div>
+      </Callout>
+      {guide}
+    </>
   );
 }
