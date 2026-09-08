@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { QuestionsDialog } from "@/app/(app)/performance/period-dialogs";
@@ -111,6 +111,64 @@ const moveDown = async (prompt: string) => {
   await userEvent.keyboard("{ArrowDown}");
   await userEvent.keyboard("{ }");
 };
+
+/**
+ * Drag with a pointer, which is the path the keyboard tests do not reach.
+ *
+ * `Sortable` committed the release from inside a `setDrag` updater — and React
+ * runs updaters during the render phase, so `onReorder` landed a parent's
+ * `setState` mid-render. The keyboard path never had it: it calls `commit` and
+ * `setDrag` as two statements in the handler.
+ *
+ * jsdom reports every rect as zero, so the slot arithmetic runs on `gap` alone:
+ * 8px a row, and a swap at half of it. That is enough to move a row by one,
+ * which is all this needs to prove.
+ */
+const drag = async (prompt: string, byPixels: number) => {
+  const handle = handleFor(prompt);
+  /* jsdom has neither, and `Sortable` calls the first at pick-up. */
+  handle.setPointerCapture = vi.fn();
+  handle.releasePointerCapture = vi.fn();
+
+  const pointer = (type: string, clientY: number) =>
+    Object.assign(new MouseEvent(type, { bubbles: true, clientY }), {
+      pointerId: 1,
+    });
+
+  await act(async () => {
+    handle.dispatchEvent(pointer("pointerdown", 0));
+  });
+  await act(async () => {
+    window.dispatchEvent(pointer("pointermove", byPixels));
+  });
+  await act(async () => {
+    window.dispatchEvent(pointer("pointerup", byPixels));
+  });
+};
+
+describe("dragging with a pointer", () => {
+  it("commits the release without updating a parent mid-render", async () => {
+    /* React reports a setState-in-render through `console.error` and nothing
+       else — no throw, no failed assertion, and every other test here stays
+       green. Watching the channel is the only way to see it. */
+    const complaints: unknown[][] = [];
+    const spy = vi
+      .spyOn(console, "error")
+      .mockImplementation((...args: unknown[]) => complaints.push(args));
+
+    const onReorder = vi.fn().mockResolvedValue(undefined);
+    mount(onReorder);
+    await drag("What are you proudest of?", 10);
+    spy.mockRestore();
+
+    expect(onReorder).toHaveBeenCalledWith(["q-2", "q-1", "q-3"]);
+    expect(
+      complaints.filter((args) =>
+        String(args[0]).includes("while rendering a different component"),
+      ),
+    ).toEqual([]);
+  });
+});
 
 describe("rearranging the form", () => {
   it("sends every id, once, in the new order", async () => {
