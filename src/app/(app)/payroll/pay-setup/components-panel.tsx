@@ -170,13 +170,17 @@ export function ComponentsPanel({ kind }: { kind: PayComponentKind }) {
     <div className="flex flex-col gap-5">
       {DEMO_ENABLED && !components.connected && !components.loading && (
         <Callout tone="warning" title="Demo data, this browser only">
-          These are the {copy.plural} ApproveHR sets up for a new company. Adding
-          or changing one needs the API: a deduction kept in a browser would
-          never reach a payroll run.
+          These are the {copy.plural} ApproveHR sets up for a new company.
+          Adding or changing one needs the API: a deduction kept in a browser
+          would never reach a payroll run.
         </Callout>
       )}
 
-      <LoadFailure subject={`the ${copy.plural}`} error={components.error}  onRetry={components.reload}/>
+      <LoadFailure
+        subject={`the ${copy.plural}`}
+        error={components.error}
+        onRetry={components.reload}
+      />
 
       <Card>
         <CardHeader
@@ -185,7 +189,11 @@ export function ComponentsPanel({ kind }: { kind: PayComponentKind }) {
           description={copy.description}
           action={
             components.editable ? (
-              <Button variant="accent" size="sm" onClick={() => setCreating(true)}>
+              <Button
+                variant="accent"
+                size="sm"
+                onClick={() => setCreating(true)}
+              >
                 <Plus aria-hidden="true" className="size-4" />
                 {copy.add}
               </Button>
@@ -209,9 +217,7 @@ export function ComponentsPanel({ kind }: { kind: PayComponentKind }) {
               />
             </div>
             <div className="flex items-center gap-4">
-              <p className="text-body-sm text-muted">
-                {onCount} switched on
-              </p>
+              <p className="text-body-sm text-muted">{onCount} switched on</p>
               <Checkbox
                 label="Show archived"
                 checked={includeArchived}
@@ -302,7 +308,10 @@ export function ComponentsPanel({ kind }: { kind: PayComponentKind }) {
             setEditing(null);
           }}
           onCreate={async (body) => {
-            const ok = await run(() => components.create(body), `${body.name} added`);
+            const ok = await run(
+              () => components.create(body),
+              `${body.name} added`,
+            );
             if (ok) setCreating(false);
           }}
           onUpdate={async (id, body) => {
@@ -338,7 +347,8 @@ export function ComponentsPanel({ kind }: { kind: PayComponentKind }) {
                   {archiving.assignmentCount === 1
                     ? "One person has been on it."
                     : `${archiving.assignmentCount} people have been on it.`}{" "}
-                  If anyone still is, this will be refused and it will name them. Take them off first, or turn it off instead.
+                  If anyone still is, this will be refused and it will name
+                  them. Take them off first, or turn it off instead.
                 </p>
               )}
             </>
@@ -536,7 +546,9 @@ function AssigneesDrawer({
   onEdit: () => void;
   onToggle: () => void;
 }) {
-  const { detail, loading, error, reload } = usePayComponentDetail(component.id);
+  const { detail, loading, error, reload } = usePayComponentDetail(
+    component.id,
+  );
   const assignMany = useAssignManyToComponent();
   const { employees } = useEmployeeDirectory({ pageSize: 200 });
   const toast = useToast();
@@ -561,182 +573,184 @@ function AssigneesDrawer({
 
   return (
     <>
-    <Drawer
-      open
-      onClose={onClose}
-      title={component.name}
-      description={amountLine(component)}
-      footer={
-        assignMany.editable || editable ? (
-          <div className="flex flex-wrap items-center gap-2">
-            {assignMany.editable && (
-              <Button
-                variant="accent"
-                size="sm"
-                onClick={() => {
-                  setAssignFailed(null);
-                  setAssigning(true);
-                }}
-              >
-                Assign people
-              </Button>
-            )}
-            {editable && (
-              <>
-                <Button variant="secondary" size="sm" onClick={onEdit}>
-                  <Pencil aria-hidden="true" className="size-4" />
-                  Edit
-                </Button>
-                <Button variant="secondary" size="sm" onClick={onToggle}>
-                  {component.active ? "Turn off" : "Turn on"}
-                </Button>
-              </>
-            )}
-          </div>
-        ) : undefined
-      }
-    >
-      <div className="flex flex-col gap-5">
-        <div className="flex flex-wrap gap-1.5">
-          {chips.map((chip) => (
-            <Badge key={chip.label} tone={chip.tone} size="sm">
-              {chip.label}
-            </Badge>
-          ))}
-        </div>
-
-        <ul className="flex flex-col gap-2">
-          {chips.map((chip) => (
-            <li key={chip.label} className="text-body-sm leading-relaxed text-body">
-              <span className="font-medium text-ink">{chip.label}</span> — {chip.why}
-            </li>
-          ))}
-        </ul>
-
-        {component.isSystem && (
-          <div className="rounded-lg border border-line bg-canvas p-4">
-            <p className="text-body-sm font-semibold text-ink">
-              Built in, so it cannot be removed
-            </p>
-            <p className="mt-1 text-body-sm leading-relaxed text-body">
-              Payslips point at it by name. Turning it off stops the next run
-              from charging it and leaves those payslips readable.
-            </p>
-            {editable && (
-              <Button
-                variant="secondary"
-                size="sm"
-                className="mt-3"
-                onClick={onToggle}
-              >
-                {component.active ? "Turn it off" : "Turn it on"}
-              </Button>
-            )}
-          </div>
-        )}
-
-        {error && (
-          <LoadFailure subject="who is on it" error={error} />
-        )}
-
-        <div>
-          <h3 className="text-body-sm font-semibold text-ink">
-            {loading
-              ? "Who is on it"
-              : assignees.length === 0
-                ? "Nobody is on it yet"
-                : `On it now: ${detail?.liveAssignments ?? 0} of ${assignees.length}`}
-          </h3>
-
-          {assignees.length === 0 ? (
-            <p className="mt-1.5 text-body-sm leading-relaxed text-muted">
-              {loading
-                ? "Reading the assignments…"
-                : assignMany.editable
-                  ? "Assign it to people above, or add it to somebody from their own record, on the Pay tab."
-                  : "Add it to somebody from their record, on the Pay tab."}
-            </p>
-          ) : (
-            <ul className="mt-3 flex flex-col divide-y divide-line">
-              {assignees.map((person) => (
-                <li
-                  key={person.assignmentId}
-                  className="flex items-start justify-between gap-3 py-2.5"
+      <Drawer
+        open
+        onClose={onClose}
+        title={component.name}
+        description={amountLine(component)}
+        footer={
+          assignMany.editable || editable ? (
+            <div className="flex flex-wrap items-center gap-2">
+              {assignMany.editable && (
+                <Button
+                  variant="accent"
+                  size="sm"
+                  onClick={() => {
+                    setAssignFailed(null);
+                    setAssigning(true);
+                  }}
                 >
-                  <span className="min-w-0">
-                    <span className="block text-body-sm font-medium text-ink">
-                      {person.name}
-                    </span>
-                    <span className="block text-meta text-muted">
-                      From {shortDate(person.effectiveFrom)}
-                      {person.effectiveTo
-                        ? ` to ${shortDate(person.effectiveTo)}`
-                        : ", every month"}
-                    </span>
-                  </span>
-                  <span className="tabular shrink-0 text-body-sm text-body">
-                    {person.amountKobo !== null
-                      ? money(person.amountKobo)
-                      : person.rate !== null
-                        ? `${percent(person.rate)} of ${basisOf(component.basis)}`
-                        : "Default"}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
-    </Drawer>
+                  Assign people
+                </Button>
+              )}
+              {editable && (
+                <>
+                  <Button variant="secondary" size="sm" onClick={onEdit}>
+                    <Pencil aria-hidden="true" className="size-4" />
+                    Edit
+                  </Button>
+                  <Button variant="secondary" size="sm" onClick={onToggle}>
+                    {component.active ? "Turn off" : "Turn on"}
+                  </Button>
+                </>
+              )}
+            </div>
+          ) : undefined
+        }
+      >
+        <div className="flex flex-col gap-5">
+          <div className="flex flex-wrap gap-1.5">
+            {chips.map((chip) => (
+              <Badge key={chip.label} tone={chip.tone} size="sm">
+                {chip.label}
+              </Badge>
+            ))}
+          </div>
 
-    {assigning && (
-      <AssignComponentToManyDialog
-        component={component}
-        candidates={candidates}
-        busy={assignBusy}
-        failed={assignFailed}
-        onClose={() => {
-          setAssigning(false);
-          setAssignFailed(null);
-        }}
-        onAssign={(employeeIds, figures) => {
-          setAssignBusy(true);
-          setAssignFailed(null);
-          void (async () => {
-            try {
-              const result = await assignMany.assignToMany(component.id, {
-                employeeIds,
-                ...figures,
-              });
-              setAssigning(false);
-              reload();
-              toast.push({
-                title:
-                  result.assigned === 0
-                    ? `Nobody new to assign: everyone chosen already had ${component.name}.`
-                    : `${component.name} assigned to ${result.assigned} ${result.assigned === 1 ? "person" : "people"}.`,
-                tone: result.assigned === 0 ? "info" : "success",
-                ...(result.alreadyAssigned.length > 0
-                  ? {
-                      detail: `Already on it: ${result.alreadyAssigned
-                        .map((row) => row.name)
-                        .join(", ")}.`,
-                    }
-                  : {}),
-              });
-            } catch (error) {
-              setAssignFailed(
-                error instanceof ApiError
-                  ? error.message
-                  : "Something went wrong. Try again.",
-              );
-            } finally {
-              setAssignBusy(false);
-            }
-          })();
-        }}
-      />
-    )}
+          <ul className="flex flex-col gap-2">
+            {chips.map((chip) => (
+              <li
+                key={chip.label}
+                className="text-body-sm leading-relaxed text-body"
+              >
+                <span className="font-medium text-ink">{chip.label}</span> —{" "}
+                {chip.why}
+              </li>
+            ))}
+          </ul>
+
+          {component.isSystem && (
+            <div className="rounded-lg border border-line bg-canvas p-4">
+              <p className="text-body-sm font-semibold text-ink">
+                Built in, so it cannot be removed
+              </p>
+              <p className="mt-1 text-body-sm leading-relaxed text-body">
+                Payslips point at it by name. Turning it off stops the next run
+                from charging it and leaves those payslips readable.
+              </p>
+              {editable && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="mt-3"
+                  onClick={onToggle}
+                >
+                  {component.active ? "Turn it off" : "Turn it on"}
+                </Button>
+              )}
+            </div>
+          )}
+
+          {error && <LoadFailure subject="who is on it" error={error} />}
+
+          <div>
+            <h3 className="text-body-sm font-semibold text-ink">
+              {loading
+                ? "Who is on it"
+                : assignees.length === 0
+                  ? "Nobody is on it yet"
+                  : `On it now: ${detail?.liveAssignments ?? 0} of ${assignees.length}`}
+            </h3>
+
+            {assignees.length === 0 ? (
+              <p className="mt-1.5 text-body-sm leading-relaxed text-muted">
+                {loading
+                  ? "Reading the assignments…"
+                  : assignMany.editable
+                    ? "Assign it to people above, or add it to somebody from their own record, on the Pay tab."
+                    : "Add it to somebody from their record, on the Pay tab."}
+              </p>
+            ) : (
+              <ul className="mt-3 flex flex-col divide-y divide-line">
+                {assignees.map((person) => (
+                  <li
+                    key={person.assignmentId}
+                    className="flex items-start justify-between gap-3 py-2.5"
+                  >
+                    <span className="min-w-0">
+                      <span className="block text-body-sm font-medium text-ink">
+                        {person.name}
+                      </span>
+                      <span className="block text-meta text-muted">
+                        From {shortDate(person.effectiveFrom)}
+                        {person.effectiveTo
+                          ? ` to ${shortDate(person.effectiveTo)}`
+                          : ", every month"}
+                      </span>
+                    </span>
+                    <span className="tabular shrink-0 text-body-sm text-body">
+                      {person.amountKobo !== null
+                        ? money(person.amountKobo)
+                        : person.rate !== null
+                          ? `${percent(person.rate)} of ${basisOf(component.basis)}`
+                          : "Default"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      </Drawer>
+
+      {assigning && (
+        <AssignComponentToManyDialog
+          component={component}
+          candidates={candidates}
+          busy={assignBusy}
+          failed={assignFailed}
+          onClose={() => {
+            setAssigning(false);
+            setAssignFailed(null);
+          }}
+          onAssign={(employeeIds, figures) => {
+            setAssignBusy(true);
+            setAssignFailed(null);
+            void (async () => {
+              try {
+                const result = await assignMany.assignToMany(component.id, {
+                  employeeIds,
+                  ...figures,
+                });
+                setAssigning(false);
+                reload();
+                toast.push({
+                  title:
+                    result.assigned === 0
+                      ? `Nobody new to assign: everyone chosen already had ${component.name}.`
+                      : `${component.name} assigned to ${result.assigned} ${result.assigned === 1 ? "person" : "people"}.`,
+                  tone: result.assigned === 0 ? "info" : "success",
+                  ...(result.alreadyAssigned.length > 0
+                    ? {
+                        detail: `Already on it: ${result.alreadyAssigned
+                          .map((row) => row.name)
+                          .join(", ")}.`,
+                      }
+                    : {}),
+                });
+              } catch (error) {
+                setAssignFailed(
+                  error instanceof ApiError
+                    ? error.message
+                    : "Something went wrong. Try again.",
+                );
+              } finally {
+                setAssignBusy(false);
+              }
+            })();
+          }}
+        />
+      )}
     </>
   );
 }
@@ -797,7 +811,10 @@ function ComponentDialog({
       component?.defaultAmountKobo != null
         ? String(naira(component.defaultAmountKobo))
         : "",
-    rate: component?.defaultRate != null ? String(ratePercent(component.defaultRate)) : "",
+    rate:
+      component?.defaultRate != null
+        ? String(ratePercent(component.defaultRate))
+        : "",
     taxable: component?.taxable ?? true,
     pensionable: component?.pensionable ?? false,
     preTax: component?.preTax ?? false,
@@ -809,8 +826,10 @@ function ComponentDialog({
     setDraft((current) => ({ ...current, [field]: value }));
 
   const fixed = draft.basis === "FIXED";
-  const amountKobo = draft.amount.trim() === "" ? null : kobo(Number(draft.amount));
-  const rate = draft.rate.trim() === "" ? null : rateFraction(Number(draft.rate));
+  const amountKobo =
+    draft.amount.trim() === "" ? null : kobo(Number(draft.amount));
+  const rate =
+    draft.rate.trim() === "" ? null : rateFraction(Number(draft.rate));
 
   const nameError =
     draft.name.trim().length > 0 && draft.name.trim().length < 2
@@ -852,7 +871,9 @@ function ComponentDialog({
           kind,
           basis: draft.basis,
           /* Omitted, never null: the create schema takes a number or nothing. */
-          ...(fixed && amountKobo !== null ? { defaultAmountKobo: amountKobo } : {}),
+          ...(fixed && amountKobo !== null
+            ? { defaultAmountKobo: amountKobo }
+            : {}),
           ...(!fixed && rate !== null ? { defaultRate: rate } : {}),
           applyMode: draft.applyMode,
           ...(kind === "ALLOWANCE"
@@ -898,7 +919,9 @@ function ComponentDialog({
             disabled={!valid}
             onClick={() => void submit()}
           >
-            {editing ? "Save" : `Add ${kind === "ALLOWANCE" ? "allowance" : "deduction"}`}
+            {editing
+              ? "Save"
+              : `Add ${kind === "ALLOWANCE" ? "allowance" : "deduction"}`}
           </Button>
         </>
       }
@@ -928,7 +951,9 @@ function ComponentDialog({
         </Field>
 
         <div className="flex flex-col gap-2">
-          <p className="text-body-sm font-medium text-ink">How is it worked out?</p>
+          <p className="text-body-sm font-medium text-ink">
+            How is it worked out?
+          </p>
           <SegmentedControl
             label="How the amount is worked out"
             options={BASIS_OPTIONS}
@@ -942,7 +967,8 @@ function ComponentDialog({
             optional
             label="Amount each month (₦)"
             help="Leave it blank if the figure differs by person. Most do."
-            {...(amountError ? { error: amountError } : {})}>
+            {...(amountError ? { error: amountError } : {})}
+          >
             <Input
               type="number"
               inputMode="decimal"

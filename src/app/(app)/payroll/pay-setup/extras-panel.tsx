@@ -267,8 +267,8 @@ function BonusSwitch({ canEdit }: { canEdit: boolean }) {
           </Callout>
         )}
         <p className="mt-3 text-body-sm text-muted">
-          A payment somebody gets every month is an allowance, not a bonus —
-          add it on the Allowances tab so it lands on every payroll by itself.
+          A payment somebody gets every month is an allowance, not a bonus — add
+          it on the Allowances tab so it lands on every payroll by itself.
         </p>
       </CardBody>
     </Card>

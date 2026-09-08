@@ -78,7 +78,11 @@ export function realOutcomeBadge(application: ApiApplicationDetail) {
 }
 
 /** The role card for a real pipeline application, replacing `SeededRole`. */
-export function RealRole({ application }: { application: ApiApplicationDetail }) {
+export function RealRole({
+  application,
+}: {
+  application: ApiApplicationDetail;
+}) {
   return (
     <Card>
       <CardBody className="flex flex-col gap-3">
@@ -89,7 +93,10 @@ export function RealRole({ application }: { application: ApiApplicationDetail })
           href={`/hiring/requisitions/${application.requisitionId}`}
           className="flex items-start gap-2.5 rounded-md border border-line p-2.5 transition-colors hover:bg-canvas"
         >
-          <Briefcase aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-faint" />
+          <Briefcase
+            aria-hidden="true"
+            className="mt-0.5 size-4 shrink-0 text-faint"
+          />
           <span className="min-w-0">
             <span className="block truncate text-body-sm font-medium text-ink">
               {application.requisitionJobTitle}
@@ -135,11 +142,20 @@ export function RealPipeline({
   const [offering, setOffering] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState<{ tone: "success" | "danger"; text: string } | null>(null);
+  const [notice, setNotice] = useState<{
+    tone: "success" | "danger";
+    text: string;
+  } | null>(null);
 
-  const say = (tone: "success" | "danger", text: string) => setNotice({ tone, text });
+  const say = (tone: "success" | "danger", text: string) =>
+    setNotice({ tone, text });
   const fail = (error: unknown) =>
-    say("danger", error instanceof ApiError ? error.message : "Something went wrong. Try again.");
+    say(
+      "danger",
+      error instanceof ApiError
+        ? error.message
+        : "Something went wrong. Try again.",
+    );
 
   async function moveTo(stageId: string) {
     setBusy(true);
@@ -171,7 +187,10 @@ export function RealPipeline({
   return (
     <>
       {notice && (
-        <Callout tone={notice.tone} title={notice.tone === "success" ? "Done" : "Not done"}>
+        <Callout
+          tone={notice.tone}
+          title={notice.tone === "success" ? "Done" : "Not done"}
+        >
           {notice.text}
         </Callout>
       )}
@@ -193,7 +212,11 @@ export function RealPipeline({
                   Move to {s.name}
                 </Button>
               ))}
-            <Button variant="ghost" size="sm" onClick={() => setRejecting(true)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setRejecting(true)}
+            >
               Reject
             </Button>
           </CardBody>
@@ -212,7 +235,11 @@ export function RealPipeline({
           <CardHeader
             title="Offer"
             action={
-              <Button variant="accent" size="sm" onClick={() => setOffering(true)}>
+              <Button
+                variant="accent"
+                size="sm"
+                onClick={() => setOffering(true)}
+              >
                 <Plus aria-hidden="true" className="size-3.5" />
                 Make an offer
               </Button>
@@ -225,7 +252,11 @@ export function RealPipeline({
         <CardHeader
           title="Interviews"
           action={
-            <Button variant="secondary" size="sm" onClick={() => setScheduling(true)}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setScheduling(true)}
+            >
               <Plus aria-hidden="true" className="size-3.5" />
               Schedule
             </Button>
@@ -238,7 +269,10 @@ export function RealPipeline({
           {application.interviews.map((iv) => (
             <div key={iv.id} className="rounded-md border border-line p-3">
               <div className="flex items-start gap-3">
-                <CalendarClock aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-faint" />
+                <CalendarClock
+                  aria-hidden="true"
+                  className="mt-0.5 size-4 shrink-0 text-faint"
+                />
                 <div className="min-w-0 flex-1">
                   <p className="text-body-sm font-medium text-ink">
                     {INTERVIEW_KIND_LABEL[iv.kind]}
@@ -264,7 +298,11 @@ export function RealPipeline({
                   {iv.scorecards.filter((s) => s.submitted).length} of{" "}
                   {iv.scorecards.length || 1} scorecards in
                 </span>
-                <Button variant="ghost" size="sm" onClick={() => setScoring(iv.id)}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setScoring(iv.id)}
+                >
                   Submit a scorecard
                 </Button>
                 {iv.status === "SCHEDULED" && (
@@ -272,14 +310,24 @@ export function RealPipeline({
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => void interviews.complete(iv.id).then(onChanged).catch(fail)}
+                      onClick={() =>
+                        void interviews
+                          .complete(iv.id)
+                          .then(onChanged)
+                          .catch(fail)
+                      }
                     >
                       Mark complete
                     </Button>
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => void interviews.noShow(iv.id).then(onChanged).catch(fail)}
+                      onClick={() =>
+                        void interviews
+                          .noShow(iv.id)
+                          .then(onChanged)
+                          .catch(fail)
+                      }
                     >
                       No-show
                     </Button>
@@ -405,33 +453,65 @@ function OfferCard({
         )}
         <p className="flex items-baseline gap-2">
           <Money amount={naira(offer.grossMonthlyKobo)} decimals size="lg" />
-          <span className="text-body-sm text-muted">a month, from {offer.startDate}</span>
+          <span className="text-body-sm text-muted">
+            a month, from {offer.startDate}
+          </span>
         </p>
         <div className="flex flex-wrap items-center gap-2 border-t border-line pt-3.5">
           {offer.status === "DRAFT" && (
-            <Button variant="accent" size="sm" loading={busy} onClick={() => void run(() => offers.submit(offer.id))}>
+            <Button
+              variant="accent"
+              size="sm"
+              loading={busy}
+              onClick={() => void run(() => offers.submit(offer.id))}
+            >
               Submit for approval
             </Button>
           )}
-          {offer.status === "PENDING_APPROVAL" && !offer.approvedAt && canApprove && (
-            <Button variant="approve" size="sm" loading={busy} onClick={() => void run(() => offers.approve(offer.id))}>
-              Approve
-            </Button>
-          )}
-          {offer.status === "PENDING_APPROVAL" && !offer.approvedAt && !canApprove && (
-            <span className="text-meta text-muted">Waiting on approval.</span>
-          )}
-          {offer.status === "PENDING_APPROVAL" && offer.approvedAt && canManage && (
-            <Button variant="accent" size="sm" loading={busy} onClick={() => void run(() => offers.send(offer.id))}>
-              Send
-            </Button>
-          )}
-          {offer.status === "PENDING_APPROVAL" && offer.approvedAt && !canManage && (
-            <span className="text-meta text-muted">Approved. Waiting to be sent.</span>
-          )}
+          {offer.status === "PENDING_APPROVAL" &&
+            !offer.approvedAt &&
+            canApprove && (
+              <Button
+                variant="approve"
+                size="sm"
+                loading={busy}
+                onClick={() => void run(() => offers.approve(offer.id))}
+              >
+                Approve
+              </Button>
+            )}
+          {offer.status === "PENDING_APPROVAL" &&
+            !offer.approvedAt &&
+            !canApprove && (
+              <span className="text-meta text-muted">Waiting on approval.</span>
+            )}
+          {offer.status === "PENDING_APPROVAL" &&
+            offer.approvedAt &&
+            canManage && (
+              <Button
+                variant="accent"
+                size="sm"
+                loading={busy}
+                onClick={() => void run(() => offers.send(offer.id))}
+              >
+                Send
+              </Button>
+            )}
+          {offer.status === "PENDING_APPROVAL" &&
+            offer.approvedAt &&
+            !canManage && (
+              <span className="text-meta text-muted">
+                Approved. Waiting to be sent.
+              </span>
+            )}
           {offer.status === "SENT" && (
             <>
-              <Button variant="approve" size="sm" loading={busy} onClick={() => void run(() => offers.accept(offer.id))}>
+              <Button
+                variant="approve"
+                size="sm"
+                loading={busy}
+                onClick={() => void run(() => offers.accept(offer.id))}
+              >
                 Record accepted
               </Button>
               <Button
@@ -457,7 +537,9 @@ function OfferCard({
               </Button>
             )}
           {offer.status === "ACCEPTED" && (
-            <span className="text-meta text-success-text">Became an employee record.</span>
+            <span className="text-meta text-success-text">
+              Became an employee record.
+            </span>
           )}
         </div>
       </CardBody>
@@ -517,7 +599,10 @@ function ScheduleInterviewDialog({
     >
       <div className="flex flex-col gap-4">
         <Field label="Kind">
-          <Select value={kind} onChange={(e) => setKind(e.currentTarget.value as InterviewKind)}>
+          <Select
+            value={kind}
+            onChange={(e) => setKind(e.currentTarget.value as InterviewKind)}
+          >
             {(Object.keys(INTERVIEW_KIND_LABEL) as InterviewKind[]).map((k) => (
               <option key={k} value={k}>
                 {INTERVIEW_KIND_LABEL[k]}
@@ -542,14 +627,22 @@ function ScheduleInterviewDialog({
           </Field>
         </div>
         <Field label="Location" optional help="A room, or a call link.">
-          <Input value={location} onChange={(e) => setLocation(e.currentTarget.value)} />
+          <Input
+            value={location}
+            onChange={(e) => setLocation(e.currentTarget.value)}
+          />
         </Field>
       </div>
     </Modal>
   );
 }
 
-const COMPETENCIES = ["Technical depth", "Communication", "Ownership", "Culture fit"];
+const COMPETENCIES = [
+  "Technical depth",
+  "Communication",
+  "Ownership",
+  "Culture fit",
+];
 
 function ScorecardDialog({
   onClose,
@@ -562,7 +655,9 @@ function ScorecardDialog({
     ratings: { competency: string; score: number }[];
   }) => Promise<void>;
 }) {
-  const [recommendation, setRecommendation] = useState<ScorecardRecommendation | "">("");
+  const [recommendation, setRecommendation] = useState<
+    ScorecardRecommendation | ""
+  >("");
   const [scores, setScores] = useState<Record<string, number>>({});
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
@@ -620,10 +715,16 @@ function ScorecardDialog({
         <Field label="Recommendation" optional>
           <Select
             value={recommendation}
-            onChange={(e) => setRecommendation(e.currentTarget.value as ScorecardRecommendation)}
+            onChange={(e) =>
+              setRecommendation(
+                e.currentTarget.value as ScorecardRecommendation,
+              )
+            }
             placeholder="Not given"
           >
-            {(Object.keys(RECOMMENDATION_LABEL) as ScorecardRecommendation[]).map((r) => (
+            {(
+              Object.keys(RECOMMENDATION_LABEL) as ScorecardRecommendation[]
+            ).map((r) => (
               <option key={r} value={r}>
                 {RECOMMENDATION_LABEL[r]}
               </option>
@@ -631,7 +732,11 @@ function ScorecardDialog({
           </Select>
         </Field>
         <Field label="Notes" optional>
-          <Textarea rows={3} value={notes} onChange={(e) => setNotes(e.currentTarget.value)} />
+          <Textarea
+            rows={3}
+            value={notes}
+            onChange={(e) => setNotes(e.currentTarget.value)}
+          />
         </Field>
       </div>
     </Modal>
@@ -677,10 +782,19 @@ function OfferDialog({
     >
       <div className="flex flex-col gap-4">
         <Field label="Gross monthly (₦)" required>
-          <Input inputMode="numeric" value={amount} onChange={(e) => setAmount(e.currentTarget.value)} placeholder="1,500,000" />
+          <Input
+            inputMode="numeric"
+            value={amount}
+            onChange={(e) => setAmount(e.currentTarget.value)}
+            placeholder="1,500,000"
+          />
         </Field>
         <Field label="Start date" required>
-          <Input type="date" value={startDate} onChange={(e) => setStartDate(e.currentTarget.value)} />
+          <Input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.currentTarget.value)}
+          />
         </Field>
         <p className="text-meta text-muted">
           Saved as a draft. Submit it for approval once you are ready.
@@ -711,14 +825,22 @@ function RejectDialog({
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="primary" loading={busy} onClick={() => onConfirm(reason)}>
+          <Button
+            variant="primary"
+            loading={busy}
+            onClick={() => onConfirm(reason)}
+          >
             Reject
           </Button>
         </>
       }
     >
       <Field label="Reason" optional help="Kept internal.">
-        <Textarea rows={3} value={reason} onChange={(e) => setReason(e.currentTarget.value)} />
+        <Textarea
+          rows={3}
+          value={reason}
+          onChange={(e) => setReason(e.currentTarget.value)}
+        />
       </Field>
     </Modal>
   );

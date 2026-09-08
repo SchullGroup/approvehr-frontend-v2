@@ -190,71 +190,68 @@ export function useAssistantChat(): ChatState & ChatActions {
   const sequence = useRef(0);
 
   /** Everything after this point is a click, so `turns` is never read in render. */
-  const exchange = useCallback(
-    async (next: ChatTurn[]): Promise<boolean> => {
-      const mine = ++sequence.current;
-      setTurns(next);
-      setSending(true);
-      setError(null);
+  const exchange = useCallback(async (next: ChatTurn[]): Promise<boolean> => {
+    const mine = ++sequence.current;
+    setTurns(next);
+    setSending(true);
+    setError(null);
 
-      try {
-        const reply = await chat(toWire(next));
-        if (sequence.current !== mine) return false;
+    try {
+      const reply = await chat(toWire(next));
+      if (sequence.current !== mine) return false;
 
-        /* An assistant that went away mid-conversation. `reason` is not an
+      /* An assistant that went away mid-conversation. `reason` is not an
            answer and must not be appended as one — putting it in the transcript
            would send it back next turn as though the assistant had said it. */
-        if (!reply.available) {
-          setError(
-            reply.reason ??
-              "The assistant is not available. Nothing was sent to it.",
-          );
-          return true;
-        }
+      if (!reply.available) {
+        setError(
+          reply.reason ??
+            "The assistant is not available. Nothing was sent to it.",
+        );
+        return true;
+      }
 
-        /* `text` when there is prose; the proposal's own summary when there is
+      /* `text` when there is prose; the proposal's own summary when there is
            not. See the field's own note above. */
-        const content = reply.text ?? reply.proposed?.proposal.summary ?? "";
+      const content = reply.text ?? reply.proposed?.proposal.summary ?? "";
 
-        /* Neither is a shape the API says it produces. Appending it anyway
+      /* Neither is a shape the API says it produces. Appending it anyway
            would put an empty assistant message in the transcript, and the very
            next turn would come back 400 — "An empty message says nothing" —
            about a message nobody typed, which is an unrecoverable conversation.
            Reported as a turn that did not go through instead, which it is. */
-        if (content.trim().length === 0) {
-          setError("The assistant answered with nothing. Ask again.");
-          return true;
-        }
-
-        setTurns([
-          ...next,
-          {
-            id: nextId(),
-            role: "assistant",
-            content,
-            used: reply.used,
-            ...(reply.proposed ? { proposed: reply.proposed } : {}),
-          },
-        ]);
+      if (content.trim().length === 0) {
+        setError("The assistant answered with nothing. Ask again.");
         return true;
-      } catch (caught) {
-        if (sequence.current !== mine) return false;
-        /* The API's own sentence where it wrote one — it knows whether this was
+      }
+
+      setTurns([
+        ...next,
+        {
+          id: nextId(),
+          role: "assistant",
+          content,
+          used: reply.used,
+          ...(reply.proposed ? { proposed: reply.proposed } : {}),
+        },
+      ]);
+      return true;
+    } catch (caught) {
+      if (sequence.current !== mine) return false;
+      /* The API's own sentence where it wrote one — it knows whether this was
            a rate limit, a malformed transcript or a refusal, and nothing here
            does. Paraphrasing a server message locally is how the two stop
            agreeing. */
-        setError(
-          caught instanceof ApiError
-            ? caught.message
-            : "That did not go through. Try again.",
-        );
-        return true;
-      } finally {
-        if (sequence.current === mine) setSending(false);
-      }
-    },
-    [],
-  );
+      setError(
+        caught instanceof ApiError
+          ? caught.message
+          : "That did not go through. Try again.",
+      );
+      return true;
+    } finally {
+      if (sequence.current === mine) setSending(false);
+    }
+  }, []);
 
   const send = useCallback(
     async (text: string): Promise<boolean> => {
@@ -451,7 +448,8 @@ export function useAssistantActions(): AssistantActionsState {
           setFetched({ actions: answer.actions, loading: false, error: null });
         }
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
           setFetched({ actions: NO_ACTIONS, loading: false, error });
         }

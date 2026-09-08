@@ -27,7 +27,10 @@ import {
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
-import { GEOFENCE_EXPLANATION, type ApiWorkLocation } from "@/lib/api/attendance";
+import {
+  GEOFENCE_EXPLANATION,
+  type ApiWorkLocation,
+} from "@/lib/api/attendance";
 import { usePermissions } from "@/lib/permissions";
 import {
   useWorkLocationList,
@@ -89,7 +92,9 @@ function toCreateInput(draft: LocationDraft) {
     ...(draft.addressLine === null ? {} : { addressLine: draft.addressLine }),
     ...(draft.latitude === null ? {} : { latitude: draft.latitude }),
     ...(draft.longitude === null ? {} : { longitude: draft.longitude }),
-    ...(draft.radiusMetres === null ? {} : { radiusMetres: draft.radiusMetres }),
+    ...(draft.radiusMetres === null
+      ? {}
+      : { radiusMetres: draft.radiusMetres }),
   };
 }
 
@@ -160,7 +165,11 @@ export function LocationsScreen() {
       />
 
       <PageBody className="flex flex-col gap-6">
-        <LoadFailure subject="your work locations" error={list.error}  onRetry={list.reload}/>
+        <LoadFailure
+          subject="your work locations"
+          error={list.error}
+          onRetry={list.reload}
+        />
 
         {/* The one honest gap in demo mode, stated rather than left to be
             discovered by wondering why a fence let somebody in. */}
@@ -289,17 +298,24 @@ export function LocationsScreen() {
                             On site only
                           </span>
                         ) : (
-                          <span className="text-body-sm text-body">Anywhere (no fence set)</span>
+                          <span className="text-body-sm text-body">
+                            Anywhere (no fence set)
+                          </span>
                         )}
                       </TD>
                       <TD>
                         {row.radiusMetres === null ? (
                           /* Absent, not zero. */
-                          <span className="text-body-sm text-muted">Not checked</span>
+                          <span className="text-body-sm text-muted">
+                            Not checked
+                          </span>
                         ) : (
                           <span className="flex flex-col gap-0.5">
                             <span className="tabular flex items-center gap-1.5 text-body-sm text-ink">
-                              <MapPin aria-hidden="true" className="size-3.5 text-faint" />
+                              <MapPin
+                                aria-hidden="true"
+                                className="size-3.5 text-faint"
+                              />
                               {row.radiusMetres.toLocaleString()} m
                             </span>
                             <span className="tabular text-meta text-muted">
@@ -340,7 +356,10 @@ export function LocationsScreen() {
                                   )
                                 }
                               >
-                                <RotateCcw aria-hidden="true" className="size-3.5" />
+                                <RotateCcw
+                                  aria-hidden="true"
+                                  className="size-3.5"
+                                />
                                 Turn back on
                               </Button>
                             ) : (
@@ -357,7 +376,10 @@ export function LocationsScreen() {
                                   size="sm"
                                   onClick={() => setArchiving(row)}
                                 >
-                                  <Power aria-hidden="true" className="size-3.5" />
+                                  <Power
+                                    aria-hidden="true"
+                                    className="size-3.5"
+                                  />
                                   Switch off
                                 </Button>
                               </>
@@ -386,17 +408,19 @@ export function LocationsScreen() {
               office&rdquo; is visible rather than assumed.
             </p>
             <p>
-              <strong className="text-ink">The geofence.</strong> Where one is set
-              and staff may not clock in from anywhere, a clock-in from outside
-              the radius is turned down and told how far off it was.
+              <strong className="text-ink">The geofence.</strong> Where one is
+              set and staff may not clock in from anywhere, a clock-in from
+              outside the radius is turned down and told how far off it was.
             </p>
             <p>
-              <strong className="text-ink">Employee records.</strong> Each person
-              can name the location they report to, on their record and in the
-              spreadsheet import.
+              <strong className="text-ink">Employee records.</strong> Each
+              person can name the location they report to, on their record and
+              in the spreadsheet import.
             </p>
             <p>
-              <strong className="text-ink">The roster and the timesheet.</strong>{" "}
+              <strong className="text-ink">
+                The roster and the timesheet.
+              </strong>{" "}
               Both show where the day was worked. Switching a location off keeps
               every record that already names it.
             </p>
@@ -465,15 +489,17 @@ export function LocationsScreen() {
               correctly. Nobody can clock in there again, and it disappears from
               the picker on an employee record.
             </span>
-            {archiving !== null && archiving.assigned !== null && archiving.assigned > 0 && (
-              <span>
-                {archiving.assigned === 1
-                  ? "One person still has this as their location"
-                  : `${archiving.assigned} people still have this as their location`}
-                . They are not moved and nothing refuses the change. Reassign
-                them when you know where they should be.
-              </span>
-            )}
+            {archiving !== null &&
+              archiving.assigned !== null &&
+              archiving.assigned > 0 && (
+                <span>
+                  {archiving.assigned === 1
+                    ? "One person still has this as their location"
+                    : `${archiving.assigned} people still have this as their location`}
+                  . They are not moved and nothing refuses the change. Reassign
+                  them when you know where they should be.
+                </span>
+              )}
             <span>You can turn it back on at any time.</span>
           </span>
         }

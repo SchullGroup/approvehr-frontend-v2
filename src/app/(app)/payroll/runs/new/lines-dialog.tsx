@@ -107,7 +107,10 @@ export function LinesDialog({
 
   const noun = kind === "bonus" ? "bonus" : "deduction";
   const filled = rows.filter((row) => parseKobo(row.amount) !== null);
-  const total = filled.reduce((sum, row) => sum + (parseKobo(row.amount) ?? 0), 0);
+  const total = filled.reduce(
+    (sum, row) => sum + (parseKobo(row.amount) ?? 0),
+    0,
+  );
 
   /* A row with something typed into the amount that is not a number. Kept apart
      from "empty", which is an ordinary row somebody has not filled in yet and
@@ -187,7 +190,12 @@ export function LinesDialog({
             )}
           </span>
           <span className="flex gap-2">
-            <Button type="button" variant="ghost" onClick={onClose} disabled={saving}>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={onClose}
+              disabled={saving}
+            >
               Cancel
             </Button>
             <Button
@@ -198,7 +206,10 @@ export function LinesDialog({
                  save an empty list over an empty list. It reads as an action
                  and is a no-op, so it is dead rather than dressed up. */
               disabled={
-                saving || loading || broken || (filled.length === 0 && !hadLines)
+                saving ||
+                loading ||
+                broken ||
+                (filled.length === 0 && !hadLines)
               }
               onClick={() => void save()}
             >
@@ -256,7 +267,9 @@ export function LinesDialog({
                     onChange={(event) => {
                       const next = event.target.value;
                       setRows((was) =>
-                        was.map((r) => (r.key === row.key ? { ...r, amount: next } : r)),
+                        was.map((r) =>
+                          r.key === row.key ? { ...r, amount: next } : r,
+                        ),
                       );
                     }}
                   />
@@ -272,14 +285,18 @@ export function LinesDialog({
                 >
                   <Input
                     placeholder={
-                      kind === "bonus" ? "Lagos install" : "Staff loan repayment"
+                      kind === "bonus"
+                        ? "Lagos install"
+                        : "Staff loan repayment"
                     }
                     value={row.reason}
                     maxLength={200}
                     onChange={(event) => {
                       const next = event.target.value;
                       setRows((was) =>
-                        was.map((r) => (r.key === row.key ? { ...r, reason: next } : r)),
+                        was.map((r) =>
+                          r.key === row.key ? { ...r, reason: next } : r,
+                        ),
                       );
                     }}
                   />

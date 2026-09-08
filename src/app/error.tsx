@@ -2,7 +2,11 @@
 
 import { useEffect } from "react";
 import { reportError } from "@/lib/report-error";
-import { AnnouncementBar, MarketingFooter, MarketingNav } from "@/components/marketing/chrome";
+import {
+  AnnouncementBar,
+  MarketingFooter,
+  MarketingNav,
+} from "@/components/marketing/chrome";
 import { Pill, PillButton } from "@/components/marketing/pill";
 import { StatusPage } from "@/components/marketing/status-page";
 
@@ -52,7 +56,12 @@ export default function Error({
           description="Something on this page failed to render. Trying again usually clears it. If it keeps happening, the fault is ours, not yours."
           actions={
             <>
-              <PillButton type="button" variant="dark" arrow onClick={() => retry()}>
+              <PillButton
+                type="button"
+                variant="dark"
+                arrow
+                onClick={() => retry()}
+              >
                 Try again
               </PillButton>
               <Pill href="/" variant="quiet">

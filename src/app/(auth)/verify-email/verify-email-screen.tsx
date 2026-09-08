@@ -132,7 +132,11 @@ export function VerifyEmailScreen({ token }: { token: string | null }) {
         >
           {phase.email} is confirmed.
         </Callout>
-        <ButtonLink href="/dashboard" variant="accent" className="mt-6 self-start">
+        <ButtonLink
+          href="/dashboard"
+          variant="accent"
+          className="mt-6 self-start"
+        >
           Open ApproveHR
         </ButtonLink>
       </>
@@ -143,7 +147,11 @@ export function VerifyEmailScreen({ token }: { token: string | null }) {
     return (
       <>
         <h1 className="text-h2 text-ink">Already confirmed</h1>
-        <ButtonLink href="/dashboard" variant="accent" className="mt-6 self-start">
+        <ButtonLink
+          href="/dashboard"
+          variant="accent"
+          className="mt-6 self-start"
+        >
           Open ApproveHR
         </ButtonLink>
       </>
@@ -180,7 +188,11 @@ export function VerifyEmailScreen({ token }: { token: string | null }) {
       <h1 className="text-h2 text-ink">Confirm your email</h1>
 
       {phase.kind === "dead" && (
-        <Callout tone="danger" title="This link no longer works" className="mt-5">
+        <Callout
+          tone="danger"
+          title="This link no longer works"
+          className="mt-5"
+        >
           {phase.message}
         </Callout>
       )}

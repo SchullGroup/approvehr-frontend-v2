@@ -12,12 +12,7 @@ import { TODAY } from "@/lib/today";
  */
 
 export type AttendanceStatus =
-  | "present"
-  | "late"
-  | "absent"
-  | "on_leave"
-  | "holiday"
-  | "rest_day";
+  "present" | "late" | "absent" | "on_leave" | "holiday" | "rest_day";
 
 export type AttendanceEntry = {
   id: string;
@@ -55,38 +50,40 @@ export type WorkLocation = {
   radiusMetres?: number;
 };
 
-export const WORK_LOCATIONS: WorkLocation[] = DEMO_ENABLED ? [
-  {
-    id: "loc-hq",
-    name: "Lagos HQ",
-    address: "Victoria Island, Lagos",
-    remoteAllowed: true,
-  },
-  {
-    id: "loc-abuja",
-    name: "Abuja office",
-    address: "Central Business District, Abuja",
-    remoteAllowed: true,
-  },
-  {
-    /* The one fenced site, so the demo shows both states. Approximate district
+export const WORK_LOCATIONS: WorkLocation[] = DEMO_ENABLED
+  ? [
+      {
+        id: "loc-hq",
+        name: "Lagos HQ",
+        address: "Victoria Island, Lagos",
+        remoteAllowed: true,
+      },
+      {
+        id: "loc-abuja",
+        name: "Abuja office",
+        address: "Central Business District, Abuja",
+        remoteAllowed: true,
+      },
+      {
+        /* The one fenced site, so the demo shows both states. Approximate district
        coordinates, not a surveyed position — a demo fence is illustrative and
        the settings screen says so. */
-    id: "loc-site",
-    name: "Abeokuta site",
-    address: "Ogun State",
-    remoteAllowed: false,
-    latitude: 7.1475,
-    longitude: 3.3619,
-    radiusMetres: 250,
-  },
-  {
-    id: "loc-remote",
-    name: "Remote",
-    address: "Anywhere",
-    remoteAllowed: true,
-  },
-] : [];
+        id: "loc-site",
+        name: "Abeokuta site",
+        address: "Ogun State",
+        remoteAllowed: false,
+        latitude: 7.1475,
+        longitude: 3.3619,
+        radiusMetres: 250,
+      },
+      {
+        id: "loc-remote",
+        name: "Remote",
+        address: "Anywhere",
+        remoteAllowed: true,
+      },
+    ]
+  : [];
 
 export const locationById = (id?: string) =>
   WORK_LOCATIONS.find((l) => l.id === id);

@@ -104,7 +104,10 @@ const MARKS: Record<string, { tone: Tone; icon: React.ReactNode }> = {
 };
 
 const READ_MARK = { tone: "neutral" as Tone, icon: <Eye aria-hidden="true" /> };
-const FALLBACK_MARK = { tone: "neutral" as Tone, icon: <Pencil aria-hidden="true" /> };
+const FALLBACK_MARK = {
+  tone: "neutral" as Tone,
+  icon: <Pencil aria-hidden="true" />,
+};
 
 function markFor(entry: AuditEntry) {
   if (entry.isRead) return READ_MARK;
@@ -235,7 +238,10 @@ export function Changes({ detail }: { detail: AuditEntryDetail }) {
   const facts = detail.diff.details.filter((fact) => fact.field !== "note");
   const note = detail.diff.details.find((fact) => fact.field === "note");
   const nothing =
-    detail.diff.changes.length === 0 && facts.length === 0 && !note && !detail.diff.raw;
+    detail.diff.changes.length === 0 &&
+    facts.length === 0 &&
+    !note &&
+    !detail.diff.raw;
 
   return (
     <div className="flex flex-col gap-3">

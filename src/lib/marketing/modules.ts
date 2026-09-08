@@ -54,12 +54,7 @@
  */
 
 export type ModuleId =
-  | "core-hr"
-  | "payroll"
-  | "hiring"
-  | "time"
-  | "performance"
-  | "desk";
+  "core-hr" | "payroll" | "hiring" | "time" | "performance" | "desk";
 
 export type Wash = "indigo" | "green" | "amber" | "blue" | "violet" | "rose";
 

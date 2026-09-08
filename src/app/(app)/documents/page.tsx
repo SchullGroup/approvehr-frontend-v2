@@ -22,9 +22,7 @@ export const metadata: Metadata = {
 export default function MyDocumentsPage() {
   return (
     <>
-      <PageHeader
-        title="My documents"
-      />
+      <PageHeader title="My documents" />
       <PageBody>
         <MyDocuments heading={false} />
       </PageBody>

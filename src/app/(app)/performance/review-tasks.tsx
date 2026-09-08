@@ -54,7 +54,10 @@ export function ReviewTasksTab() {
    * has already been decided by the timestamp.
    */
   const grouped = useMemo(() => {
-    const byDay = new Map<string, { day: string; at: number; tasks: typeof tasks }>();
+    const byDay = new Map<
+      string,
+      { day: string; at: number; tasks: typeof tasks }
+    >();
     for (const task of tasks) {
       const at = new Date(task.createdAt).getTime();
       /* Bucket on the calendar day, not the instant. */
@@ -155,41 +158,41 @@ export function ReviewTasksTab() {
                     </TD>
                   </TR>
                   {group.tasks.map((task) => (
-                <TR key={task.id}>
-                  <TDPrimary title={task.employeeName} />
-                  <TD>{task.goalTitle}</TD>
-                  <TD className="max-w-xs">{task.description}</TD>
-                  <TD align="right">
-                    <div className="flex justify-end gap-1.5">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        loading={grading === task.id}
-                        onClick={() => void grade(task.id, "NOT_COMPLETED")}
-                      >
-                        Not done
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        loading={grading === task.id}
-                        onClick={() =>
-                          void grade(task.id, "PARTIALLY_COMPLETED")
-                        }
-                      >
-                        Partly
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="accent"
-                        loading={grading === task.id}
-                        onClick={() => void grade(task.id, "COMPLETED")}
-                      >
-                        Done
-                      </Button>
-                    </div>
-                  </TD>
-                </TR>
+                    <TR key={task.id}>
+                      <TDPrimary title={task.employeeName} />
+                      <TD>{task.goalTitle}</TD>
+                      <TD className="max-w-xs">{task.description}</TD>
+                      <TD align="right">
+                        <div className="flex justify-end gap-1.5">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            loading={grading === task.id}
+                            onClick={() => void grade(task.id, "NOT_COMPLETED")}
+                          >
+                            Not done
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            loading={grading === task.id}
+                            onClick={() =>
+                              void grade(task.id, "PARTIALLY_COMPLETED")
+                            }
+                          >
+                            Partly
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="accent"
+                            loading={grading === task.id}
+                            onClick={() => void grade(task.id, "COMPLETED")}
+                          >
+                            Done
+                          </Button>
+                        </div>
+                      </TD>
+                    </TR>
                   ))}
                 </Fragment>
               ))}

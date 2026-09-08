@@ -24,7 +24,11 @@ import {
   type BadgeTone,
 } from "@/components/ui";
 import type { SortOrder } from "@/lib/use-list-query";
-import { today, type Claim, type ExpenseType } from "@/lib/store/reimbursements";
+import {
+  today,
+  type Claim,
+  type ExpenseType,
+} from "@/lib/store/reimbursements";
 import { ReceiptCell } from "./approval-queue";
 
 /**
@@ -136,7 +140,9 @@ export function ClaimsRegister({
             `CardHeader`'s action slot: that slot is `shrink-0`, so a search box
             and a five-way control in it squeeze the heading to one character per
             line below about 900px. */}
-        {filters && <CardBody className="border-b border-line">{filters}</CardBody>}
+        {filters && (
+          <CardBody className="border-b border-line">{filters}</CardBody>
+        )}
 
         {claims.length === 0 ? (
           <EmptyState
@@ -182,7 +188,9 @@ export function ClaimsRegister({
                     )}
 
                     <TD className="max-w-88">
-                      <span className="block text-ink">{claim.description}</span>
+                      <span className="block text-ink">
+                        {claim.description}
+                      </span>
                       <span className="block text-meta text-muted">
                         {claim.type}
                       </span>

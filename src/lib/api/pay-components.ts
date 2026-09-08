@@ -40,9 +40,7 @@ export type PayComponentKind = "ALLOWANCE" | "DEDUCTION";
 
 /** How the amount is worked out. `FIXED` uses an amount; the rest use a rate. */
 export type PayComponentBasis =
-  | "FIXED"
-  | "PERCENT_OF_GROSS"
-  | "PERCENT_OF_BASIC";
+  "FIXED" | "PERCENT_OF_GROSS" | "PERCENT_OF_BASIC";
 
 /**
  * `PERMANENT` charges every active employee automatically, at the default
@@ -169,7 +167,11 @@ export type ApiEmployeeAssignments = {
 };
 
 /** A payslip line, as it will print. */
-export type ApiPayslipLine = { code: string; label: string; amountKobo: number };
+export type ApiPayslipLine = {
+  code: string;
+  label: string;
+  amountKobo: number;
+};
 
 /** The engine's answer for one person in one period. */
 export type ApiComputedPayslip = {
@@ -487,7 +489,11 @@ export const payComponentsApi = {
       note: string;
     }>(`/pay-components/assignments/${id}`, { method: "DELETE" }),
 
-  preview: (employeeId: string, params: PreviewParams = {}, signal?: AbortSignal) =>
+  preview: (
+    employeeId: string,
+    params: PreviewParams = {},
+    signal?: AbortSignal,
+  ) =>
     request<ApiPreview>(`/pay-components/preview/${employeeId}`, {
       query: {
         period: params.period,

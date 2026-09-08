@@ -101,7 +101,10 @@ export function quoteSettingsFrom(settings: PayrollSettings): QuoteSettings {
  *   typed; pass 0 where the input is a switch or a dropdown and should answer at
  *   once.
  */
-export function usePayslipQuote(body: QuoteBody | null, delay = 350): QuoteState {
+export function usePayslipQuote(
+  body: QuoteBody | null,
+  delay = 350,
+): QuoteState {
   const { isConnected, isLoading } = useSession();
   const [result, setResult] = useState<{
     key: string;
@@ -130,7 +133,8 @@ export function usePayslipQuote(body: QuoteBody | null, delay = 350): QuoteState
         );
         if (!cancelled) setResult({ key: wanted, data, error: null });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
           setResult({
             key: wanted,

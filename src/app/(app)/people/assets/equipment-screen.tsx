@@ -85,7 +85,8 @@ const FILTER_LABEL: Record<Filter, string> = {
   LOST: "Lost",
 };
 
-const money = (amount: number) => formatMoney(amount, "NGN", { decimals: true });
+const money = (amount: number) =>
+  formatMoney(amount, "NGN", { decimals: true });
 
 export function EquipmentScreen() {
   const { can, loading: permissionsLoading } = usePermissions();
@@ -119,9 +120,7 @@ export function EquipmentScreen() {
 function OwnKitOnly() {
   return (
     <>
-      <PageHeader
-        title="Equipment"
-      />
+      <PageHeader title="Equipment" />
       <PageBody>
         <MyAssets />
       </PageBody>
@@ -148,7 +147,11 @@ function Register() {
    * had 200 of them unreachable, with no control on screen to say so and a table
    * that looked complete. Sorting was a `localeCompare` on whatever arrived.
    */
-  const list = useListQuery<{ filter: Filter; kindId: string; archived: boolean }>({
+  const list = useListQuery<{
+    filter: Filter;
+    kindId: string;
+    archived: boolean;
+  }>({
     filters: { filter: "ALL", kindId: "", archived: false },
     sort: "tag",
     pageSize: 25,
@@ -316,7 +319,11 @@ function Register() {
             already know about.
           */
           <div className="flex flex-wrap items-center gap-2">
-            <ButtonLink href="/people/assets/import" variant="secondary" size="sm">
+            <ButtonLink
+              href="/people/assets/import"
+              variant="secondary"
+              size="sm"
+            >
               <Upload aria-hidden="true" className="size-4" />
               Import from a spreadsheet
             </ButtonLink>
@@ -385,7 +392,11 @@ function Register() {
           click, so the banner was a second route to something one tab away.
         */}
 
-        <Tabs items={tabs} value={tab} onChange={(next) => setTab(next as typeof tab)}>
+        <Tabs
+          items={tabs}
+          value={tab}
+          onChange={(next) => setTab(next as typeof tab)}
+        >
           {tab === "register" && (
             <RegisterTable
               title="The register"
@@ -398,7 +409,11 @@ function Register() {
                  thing — and the panel already had all three. */
               onOpen={(item) => setPanelId(item.id)}
               emptyAction={
-                <Button variant="accent" size="sm" onClick={() => setAdding(true)}>
+                <Button
+                  variant="accent"
+                  size="sm"
+                  onClick={() => setAdding(true)}
+                >
                   Add equipment
                 </Button>
               }
@@ -498,7 +513,9 @@ function Register() {
               onAdd={(input) =>
                 run(() => kinds.addKind(input), `${input.name} added`)
               }
-              onEdit={(id, input) => run(() => kinds.editKind(id, input), "Saved")}
+              onEdit={(id, input) =>
+                run(() => kinds.editKind(id, input), "Saved")
+              }
             />
           )}
         </Tabs>
@@ -579,7 +596,9 @@ function Register() {
            as this closes. */
         <AddKindDialog
           onClose={() => setAddingKind(false)}
-          onAdd={(input) => run(() => kinds.addKind(input), `${input.name} added`)}
+          onAdd={(input) =>
+            run(() => kinds.addKind(input), `${input.name} added`)
+          }
         />
       )}
 

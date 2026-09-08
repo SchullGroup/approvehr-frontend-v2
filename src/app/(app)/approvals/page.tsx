@@ -5,7 +5,8 @@ import { ApprovalInbox } from "./inbox";
 
 export const metadata: Metadata = {
   title: "My approvals",
-  description: "Everything waiting on a decision from you, across every module.",
+  description:
+    "Everything waiting on a decision from you, across every module.",
 };
 
 /**

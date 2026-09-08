@@ -72,7 +72,8 @@ const store = createPersistedState<StoreState>({
     if (typeof raw !== "object" || raw === null) return null;
     const candidate = raw as Partial<StoreState>;
     const shaped =
-      (candidate.overrides !== undefined && typeof candidate.overrides === "object") ||
+      (candidate.overrides !== undefined &&
+        typeof candidate.overrides === "object") ||
       Array.isArray(candidate.created) ||
       Array.isArray(candidate.archived);
     return shaped ? (candidate as StoreState) : null;
@@ -213,7 +214,10 @@ export function validateEmployee(patch: Partial<Employee>): FieldError[] {
 
   if (has("email") && patch.email) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(patch.email)) {
-      errors.push({ field: "email", message: "That is not a valid email address." });
+      errors.push({
+        field: "email",
+        message: "That is not a valid email address.",
+      });
     }
   }
 

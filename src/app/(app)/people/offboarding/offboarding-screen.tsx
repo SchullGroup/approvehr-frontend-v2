@@ -42,7 +42,11 @@ export function OffboardingScreen() {
   const [query, setQuery] = useState("");
   const [starting, setStarting] = useState(false);
 
-  const exits = useExits({ state: view, q: query.trim() || undefined, pageSize: 50 });
+  const exits = useExits({
+    state: view,
+    q: query.trim() || undefined,
+    pageSize: 50,
+  });
   const isHr = useCan("EDIT_RECORDS");
 
   const leavingSoon = exits.rows.filter(
@@ -79,7 +83,11 @@ export function OffboardingScreen() {
               </ButtonLink>
             </Can>
             <Can permission="EDIT_RECORDS">
-              <Button variant="accent" size="sm" onClick={() => setStarting(true)}>
+              <Button
+                variant="accent"
+                size="sm"
+                onClick={() => setStarting(true)}
+              >
                 <UserMinus aria-hidden="true" className="size-4" />
                 Start an exit
               </Button>
@@ -90,7 +98,11 @@ export function OffboardingScreen() {
 
       <PageBody className="flex flex-col gap-6">
         {exits.error && (
-          <LoadFailure subject="the list" error={exits.error}  onRetry={exits.reload}/>
+          <LoadFailure
+            subject="the list"
+            error={exits.error}
+            onRetry={exits.reload}
+          />
         )}
 
         {/* Two numbers, not three. "Working through a checklist" would be
@@ -99,7 +111,11 @@ export function OffboardingScreen() {
             phone screen before the actual list. */}
         {view === "open" && (
           <div className="grid gap-4 sm:grid-cols-2">
-            <Stat label="Leaving" value={String(leavingSoon)} hint="still open" />
+            <Stat
+              label="Leaving"
+              value={String(leavingSoon)}
+              hint="still open"
+            />
             <Stat
               label="Waiting on a decision"
               value={String(waitingOnSomebody)}
@@ -117,7 +133,8 @@ export function OffboardingScreen() {
             reader looking for that door on this screen alone would not find
             it, which is the whole reason this line exists. */}
         <p className="text-body-sm text-muted">
-          Staff can also hand in their own notice from their Profile page: it shows up here the same way as one you start for them.
+          Staff can also hand in their own notice from their Profile page: it
+          shows up here the same way as one you start for them.
         </p>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -207,9 +224,7 @@ export function OffboardingScreen() {
                   </div>
 
                   <div className="shrink-0 text-right">
-                    <p className="text-meta text-faint">
-                      Last day
-                    </p>
+                    <p className="text-meta text-faint">Last day</p>
                     <p className="tabular text-body-sm font-medium text-ink">
                       {shortDate(row.lastWorkingDay)}
                     </p>

@@ -94,7 +94,9 @@ export function DayHoliday({
         title: "That did not work",
         tone: "danger",
         detail:
-          caught instanceof ApiError ? caught.message : "Try again in a moment.",
+          caught instanceof ApiError
+            ? caught.message
+            : "Try again in a moment.",
       });
     } finally {
       setBusy(false);
@@ -114,7 +116,9 @@ export function DayHoliday({
         title: "That did not work",
         tone: "danger",
         detail:
-          caught instanceof ApiError ? caught.message : "Try again in a moment.",
+          caught instanceof ApiError
+            ? caught.message
+            : "Try again in a moment.",
       });
     } finally {
       setBusy(false);
@@ -126,15 +130,15 @@ export function DayHoliday({
       {onDay ? (
         <span className="flex flex-wrap items-center gap-2">
           <PartyPopper aria-hidden="true" className="size-4 text-accent-text" />
-          <span className="text-body-sm font-medium text-ink">{onDay.name}</span>
+          <span className="text-body-sm font-medium text-ink">
+            {onDay.name}
+          </span>
           <Badge tone={onDay.confirmed ? "success" : "warning"} size="sm">
             {onDay.confirmed ? "Confirmed" : "Not gazetted yet"}
           </Badge>
         </span>
       ) : (
-        <span className="text-body-sm text-muted">
-          Not a public holiday.
-        </span>
+        <span className="text-body-sm text-muted">Not a public holiday.</span>
       )}
 
       {canManage && (
@@ -161,7 +165,11 @@ export function DayHoliday({
               )}
             </>
           ) : (
-            <Button variant="secondary" size="sm" onClick={() => setAdding(true)}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setAdding(true)}
+            >
               <CalendarPlus aria-hidden="true" className="size-3.5" />
               Make it a public holiday
             </Button>

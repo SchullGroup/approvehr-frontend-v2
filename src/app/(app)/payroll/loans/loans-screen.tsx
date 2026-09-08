@@ -73,14 +73,16 @@ import { DeclineLoanModal } from "./decisions";
  * statement is written out in full, with kobo — `₦2.9m` is unreconcilable.
  */
 
-const STATUS_TONE: Record<LoanStatus, "warning" | "accent" | "info" | "success" | "neutral"> =
-  {
-    PENDING: "warning",
-    APPROVED: "info",
-    ACTIVE: "accent",
-    SETTLED: "success",
-    DECLINED: "neutral",
-  };
+const STATUS_TONE: Record<
+  LoanStatus,
+  "warning" | "accent" | "info" | "success" | "neutral"
+> = {
+  PENDING: "warning",
+  APPROVED: "info",
+  ACTIVE: "accent",
+  SETTLED: "success",
+  DECLINED: "neutral",
+};
 
 type Filter = LoanStatus | "ALL";
 
@@ -91,7 +93,6 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: "SETTLED", label: "Fully repaid" },
   { id: "DECLINED", label: "Declined" },
 ];
-
 
 /** The API's own allow-list, taken from its params rather than re-typed. */
 type LoanSort = NonNullable<LoanListParams["sort"]>;
@@ -123,7 +124,11 @@ export function LoansScreen() {
    * permissions would refuse.
    */
   const scope =
-    filter === "PENDING" && canDecide ? "pending" : seeEverybody ? "all" : "mine";
+    filter === "PENDING" && canDecide
+      ? "pending"
+      : seeEverybody
+        ? "all"
+        : "mine";
 
   /**
    * The column the **server** orders by.
@@ -242,21 +247,37 @@ export function LoansScreen() {
 
       <PageBody className="flex flex-col gap-6">
         {list.error && (
-          <LoadFailure subject="the loans" error={list.error}  onRetry={list.reload}/>
+          <LoadFailure
+            subject="the loans"
+            error={list.error}
+            onRetry={list.reload}
+          />
         )}
 
         {seeEverybody && summary && (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <Stat
               label="Still owed to the company"
-              value={<Money amount={naira(summary.outstandingKobo)} decimals size="xl" />}
+              value={
+                <Money
+                  amount={naira(summary.outstandingKobo)}
+                  decimals
+                  size="xl"
+                />
+              }
               hint={`across ${summary.activeCount} ${
                 summary.activeCount === 1 ? "loan" : "loans"
               } being repaid`}
             />
             <Stat
               label="Coming out of this month's payroll"
-              value={<Money amount={naira(summary.thisMonth.deductionKobo)} decimals size="xl" />}
+              value={
+                <Money
+                  amount={naira(summary.thisMonth.deductionKobo)}
+                  decimals
+                  size="xl"
+                />
+              }
               hint={
                 summary.thisMonth.arrearsKobo > 0
                   ? `${summary.thisMonth.instalmentCount} instalments, including ${formatMoney(
@@ -391,21 +412,26 @@ export function LoansScreen() {
                             repayable here would read as a debt that exists,
                             and on an interest-bearing application it would
                             show more than the row says was borrowed. */}
-                        {loan.status === "PENDING" || loan.status === "DECLINED" ? (
+                        {loan.status === "PENDING" ||
+                        loan.status === "DECLINED" ? (
                           <span className="text-muted">—</span>
                         ) : (
-                          <Money amount={naira(loan.outstandingKobo)} decimals />
+                          <Money
+                            amount={naira(loan.outstandingKobo)}
+                            decimals
+                          />
                         )}
                       </TD>
                       <TD align="right">
-                        <Money amount={naira(loan.monthlyRepaymentKobo)} decimals />
+                        <Money
+                          amount={naira(loan.monthlyRepaymentKobo)}
+                          decimals
+                        />
                       </TD>
                       <TD>
                         {finishes ?? (
                           <span className="text-muted">
-                            {loan.status === "PENDING"
-                              ? "Once approved"
-                              : "—"}
+                            {loan.status === "PENDING" ? "Once approved" : "—"}
                           </span>
                         )}
                       </TD>

@@ -79,7 +79,11 @@ export type BandStanding = "below" | "within" | "above" | "flat";
 
 export function bandStanding(grossKobo: number, band: Band): BandStanding {
   if (band.maxGrossKobo === band.minGrossKobo) {
-    return grossKobo === band.minGrossKobo ? "flat" : grossKobo > band.maxGrossKobo ? "above" : "below";
+    return grossKobo === band.minGrossKobo
+      ? "flat"
+      : grossKobo > band.maxGrossKobo
+        ? "above"
+        : "below";
   }
   if (grossKobo < band.minGrossKobo) return "below";
   if (grossKobo > band.maxGrossKobo) return "above";
@@ -105,7 +109,9 @@ export function bandLabel(grossKobo: number, band: Band): string {
 
   const { quartile } = bandPositionOf(grossKobo, band);
   if (grossKobo < band.midGrossKobo) {
-    return quartile === 1 ? "Bottom quarter of the band" : "Below the mid-point";
+    return quartile === 1
+      ? "Bottom quarter of the band"
+      : "Below the mid-point";
   }
   return quartile === 4 ? "Top quarter of the band" : "Above the mid-point";
 }

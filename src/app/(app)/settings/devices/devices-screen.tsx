@@ -1,14 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Cpu,
-  KeyRound,
-  Plus,
-  Power,
-  RotateCcw,
-  Users,
-} from "lucide-react";
+import { Cpu, KeyRound, Plus, Power, RotateCcw, Users } from "lucide-react";
 import {
   Badge,
   Button,
@@ -116,7 +109,9 @@ function DeviceOffice({
     locations.find((location) => location.id === row.workLocationId)?.name ??
     null;
   return name === null ? (
-    <span className="text-body-sm text-muted">An office that is switched off</span>
+    <span className="text-body-sm text-muted">
+      An office that is switched off
+    </span>
   ) : (
     <span className="text-body-sm text-body">{name}</span>
   );
@@ -183,7 +178,10 @@ export function DevicesScreen() {
 
   const live = list.devices.filter((row) => row.archivedAt === null);
   const listening = live.filter((row) => row.active);
-  const unmapped = live.reduce((total, row) => total + (row.unmappedPunches ?? 0), 0);
+  const unmapped = live.reduce(
+    (total, row) => total + (row.unmappedPunches ?? 0),
+    0,
+  );
   /* Whether the figure is knowable is a property of the source, not of whether
      any row happens to carry one. Read off the rows, a company with no terminal
      registered yet answered `false` — so a connected screen told somebody a tap
@@ -229,17 +227,17 @@ export function DevicesScreen() {
             persist in this browser. Two things do not.{" "}
             <strong>No tap can arrive</strong>, because the thing that delivers
             one is an endpoint on the server — so nothing here reaches a
-            timesheet. And <strong>no signing secret is issued</strong>: one made
-            up in a browser would look exactly like a real credential and would
-            sign deliveries nothing would accept.
+            timesheet. And <strong>no signing secret is issued</strong>: one
+            made up in a browser would look exactly like a real credential and
+            would sign deliveries nothing would accept.
           </Callout>
         )}
 
         {!canManage && (
           <Callout tone="info" title="You can see these, not change them">
             Registering a machine that may write attendance is the same kind of
-            decision as drawing the fence people clock in inside, so it needs the
-            settings permission. Ask whoever manages settings.
+            decision as drawing the fence people clock in inside, so it needs
+            the settings permission. Ask whoever manages settings.
           </Callout>
         )}
 
@@ -277,18 +275,18 @@ export function DevicesScreen() {
             value={list.loading || !unmappedKnown ? "—" : String(unmapped)}
             hint={
               !unmappedKnown
-                  /* True wherever it renders, rather than a sentence naming a
+                ? /* True wherever it renders, rather than a sentence naming a
                      mode — `verify-demo` only checks this file mentions
                      DEMO_ENABLED somewhere, so the guard is the wording. */
-                ? "A tap is delivered over the network, so this needs a server."
+                  "A tap is delivered over the network, so this needs a server."
                 : live.length === 0
                   ? "Nothing to map yet: no terminal has been registered."
                   : unmapped === 0
-                    /* Not "every tap has somebody's name on it": over a terminal
+                    ? /* Not "every tap has somebody's name on it": over a terminal
                        that has never delivered that is a vacuous truth reading as
                        a reassurance, which is the defect the first stat's comment
                        describes. State the nought. */
-                    ? "Nothing is waiting to be identified."
+                      "Nothing is waiting to be identified."
                     : "Stored and waiting for somebody to say whose they are. Nothing is lost."
             }
           />
@@ -371,7 +369,10 @@ export function DevicesScreen() {
                         subtitle={row.serialNumber}
                       />
                       <TD>
-                        <DeviceOffice row={row} locations={locations.locations} />
+                        <DeviceOffice
+                          row={row}
+                          locations={locations.locations}
+                        />
                       </TD>
                       <TD>
                         {row.lastSeenAt === null ? (
@@ -394,7 +395,9 @@ export function DevicesScreen() {
                         {row.unmappedPunches === null ? (
                           <span className="text-body-sm text-muted">—</span>
                         ) : row.unmappedPunches === 0 ? (
-                          <span className="tabular text-body-sm text-muted">0</span>
+                          <span className="tabular text-body-sm text-muted">
+                            0
+                          </span>
                         ) : (
                           <Badge tone="warning" size="sm">
                             {row.unmappedPunches}
@@ -416,7 +419,10 @@ export function DevicesScreen() {
                                   )
                                 }
                               >
-                                <RotateCcw aria-hidden="true" className="size-3.5" />
+                                <RotateCcw
+                                  aria-hidden="true"
+                                  className="size-3.5"
+                                />
                                 Turn back on
                               </Button>
                             ) : (
@@ -426,7 +432,10 @@ export function DevicesScreen() {
                                   size="sm"
                                   onClick={() => setEnrolling(row)}
                                 >
-                                  <Users aria-hidden="true" className="size-3.5" />
+                                  <Users
+                                    aria-hidden="true"
+                                    className="size-3.5"
+                                  />
                                   Who it knows
                                 </Button>
                                 <Button
@@ -441,7 +450,10 @@ export function DevicesScreen() {
                                   size="sm"
                                   onClick={() => setRotating(row)}
                                 >
-                                  <KeyRound aria-hidden="true" className="size-3.5" />
+                                  <KeyRound
+                                    aria-hidden="true"
+                                    className="size-3.5"
+                                  />
                                   New secret
                                 </Button>
                                 <Button
@@ -449,7 +461,10 @@ export function DevicesScreen() {
                                   size="sm"
                                   onClick={() => setArchiving(row)}
                                 >
-                                  <Power aria-hidden="true" className="size-3.5" />
+                                  <Power
+                                    aria-hidden="true"
+                                    className="size-3.5"
+                                  />
                                   Switch off
                                 </Button>
                               </>
@@ -473,7 +488,9 @@ export function DevicesScreen() {
           />
           <CardBody className="flex flex-col gap-2.5 text-body-sm text-body">
             <p>
-              <strong className="text-ink">Every tap is kept, then read.</strong>{" "}
+              <strong className="text-ink">
+                Every tap is kept, then read.
+              </strong>{" "}
               Taps are recorded exactly as they arrive, and a separate pass
               decides what the day meant — first tap in, last tap out. A single
               tap is an open shift, never a zero-length day.

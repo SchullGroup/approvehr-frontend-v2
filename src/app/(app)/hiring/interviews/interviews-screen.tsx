@@ -145,7 +145,8 @@ function Diary() {
             <LoadFailure
               subject="the screening backlog"
               error={backlog.error}
-             onRetry={backlog.reload}>
+              onRetry={backlog.reload}
+            >
               <Button variant="secondary" size="sm" onClick={backlog.reload}>
                 Try again
               </Button>
@@ -212,7 +213,8 @@ function Diary() {
                           </p>
                           <p className="text-meta text-body">
                             {KIND_LABEL[interview.kind] ?? interview.kind} with{" "}
-                            {fullName(card.candidate)} · {card.requisition.title}
+                            {fullName(card.candidate)} ·{" "}
+                            {card.requisition.title}
                           </p>
                         </div>
                         <Button
@@ -238,7 +240,10 @@ function Diary() {
             )}
 
             <Card>
-              <CardHeader title="Upcoming" action={<SourceBadge live={false} />} />
+              <CardHeader
+                title="Upcoming"
+                action={<SourceBadge live={false} />}
+              />
               <CardBody className="flex flex-col gap-2.5">
                 {scheduled.length === 0 && (
                   <EmptyState
@@ -280,7 +285,7 @@ function Diary() {
                           </Link>
                         </p>
                         <p className="text-meta text-muted">
-                          {KIND_LABEL[iv.kind] ?? iv.kind} · {" "}
+                          {KIND_LABEL[iv.kind] ?? iv.kind} ·{" "}
                           <Link
                             href={`/hiring/requisitions/${card.requisitionId}`}
                             className="hover:text-accent-text hover:underline underline-offset-4"
@@ -293,7 +298,7 @@ function Diary() {
                             hour: "2-digit",
                             minute: "2-digit",
                           })}{" "}
-                          · {iv.durationMins} mins · {" "}
+                          · {iv.durationMins} mins ·{" "}
                           {iv.interviewerIds
                             .map((id) => {
                               const person = employeeById(id);

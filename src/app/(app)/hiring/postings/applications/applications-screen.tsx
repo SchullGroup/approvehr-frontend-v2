@@ -205,7 +205,11 @@ function Queue({ initialPostingId }: { initialPostingId: string }) {
         )}
 
         {applications.error && (
-          <LoadFailure subject="the queue" error={applications.error}  onRetry={applications.reload}/>
+          <LoadFailure
+            subject="the queue"
+            error={applications.error}
+            onRetry={applications.reload}
+          />
         )}
 
         {cvNote && (
@@ -364,7 +368,8 @@ function ApplicationRow({
   onCopyMessage: () => void;
 }) {
   const waiting = application.status === "RECEIVED";
-  const noApprovedRole = posting !== undefined && posting.requisitionId === null;
+  const noApprovedRole =
+    posting !== undefined && posting.requisitionId === null;
 
   return (
     <div className="flex flex-col gap-3 rounded-md border border-line p-4">
@@ -379,7 +384,11 @@ function ApplicationRow({
                 wired the same field carries a real URL and this becomes a link,
                 which is the whole point of `cvAccess` returning both. */}
             {application.cv && application.cv.url === null && (
-              <Badge tone="neutral" size="sm" icon={<Paperclip aria-hidden="true" />}>
+              <Badge
+                tone="neutral"
+                size="sm"
+                icon={<Paperclip aria-hidden="true" />}
+              >
                 CV cannot be opened
               </Badge>
             )}
@@ -576,8 +585,8 @@ function AdvanceDialog({
           </Field>
         ) : (
           <p className="text-body-sm text-body">
-            They go into the first stage of {posting?.requisitionReference}. Their
-            record is created from this application.
+            They go into the first stage of {posting?.requisitionReference}.
+            Their record is created from this application.
           </p>
         )}
 
@@ -645,8 +654,8 @@ function DeclineDialog({
       <div className="flex flex-col gap-4">
         <p className="text-body-sm text-body">
           Nothing is sent to them: email is not connected. Afterwards,
-          <span className="font-medium text-ink"> Copy message</span> gives you a
-          short note to send from your own inbox.
+          <span className="font-medium text-ink"> Copy message</span> gives you
+          a short note to send from your own inbox.
         </p>
         <Field
           label="Why, for your own records"

@@ -66,8 +66,8 @@ export function SignatureDoc({ catalogue }: { catalogue: CatalogueView }) {
           <CodeBlock>{signature.construction}</CodeBlock>
           <p className="text-body-sm text-body">
             {signature.algorithm}. The key is your signing secret exactly as
-            shown, <code className="font-mono text-meta">whsec_</code>{" "}
-            prefix included, as UTF-8 bytes.
+            shown, <code className="font-mono text-meta">whsec_</code> prefix
+            included, as UTF-8 bytes.
           </p>
         </section>
 
@@ -91,7 +91,9 @@ export function SignatureDoc({ catalogue }: { catalogue: CatalogueView }) {
         </section>
 
         <section className="flex flex-col gap-3">
-          <h3 className="text-body-sm font-semibold text-ink">A worked example</h3>
+          <h3 className="text-body-sm font-semibold text-ink">
+            A worked example
+          </h3>
           {signature.example ? (
             <>
               <p className="text-body-sm text-body">
@@ -110,8 +112,8 @@ export function SignatureDoc({ catalogue }: { catalogue: CatalogueView }) {
             </>
           ) : (
             <p className="text-body-sm text-body">
-              The example signature is computed by the server on request. Connect
-              the API to see one you can check your code against.
+              The example signature is computed by the server on request.
+              Connect the API to see one you can check your code against.
             </p>
           )}
         </section>
@@ -139,8 +141,8 @@ export function SignatureDoc({ catalogue }: { catalogue: CatalogueView }) {
             </li>
             <li>
               After {retries.switchedOffAfter} events fail every attempt, the
-              endpoint is switched off and whoever manages settings gets a notice.
-              Test sends never count.
+              endpoint is switched off and whoever manages settings gets a
+              notice. Test sends never count.
             </li>
             <li>{retries.idempotency}</li>
             <li>
@@ -153,7 +155,13 @@ export function SignatureDoc({ catalogue }: { catalogue: CatalogueView }) {
   );
 }
 
-function Header({ name, children }: { name: string; children: React.ReactNode }) {
+function Header({
+  name,
+  children,
+}: {
+  name: string;
+  children: React.ReactNode;
+}) {
   return (
     <>
       <dt className="font-mono text-meta text-ink">{name}</dt>

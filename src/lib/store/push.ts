@@ -31,12 +31,7 @@ import { useSession } from "./session";
  * - `on` — subscribed here.
  */
 export type PushState =
-  | "loading"
-  | "unsupported"
-  | "unconfigured"
-  | "blocked"
-  | "off"
-  | "on";
+  "loading" | "unsupported" | "unconfigured" | "blocked" | "off" | "on";
 
 export function usePush(): {
   state: PushState;

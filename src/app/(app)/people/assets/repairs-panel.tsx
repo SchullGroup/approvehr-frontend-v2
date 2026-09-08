@@ -111,7 +111,9 @@ export function RepairsPanel({
                   }
                 />
                 <TD className="text-body-sm">
-                  <span className="block text-ink">{repair.itemName ?? "—"}</span>
+                  <span className="block text-ink">
+                    {repair.itemName ?? "—"}
+                  </span>
                   <span className="tabular block text-meta text-muted">
                     {repair.tag ?? ""}
                   </span>

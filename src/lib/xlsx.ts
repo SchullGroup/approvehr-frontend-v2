@@ -134,7 +134,9 @@ function zip(entries: readonly ZipEntry[]): Uint8Array {
   endView.setUint32(16, offset, true);
 
   const total =
-    chunks.reduce((sum, part) => sum + part.length, 0) + centralSize + end.length;
+    chunks.reduce((sum, part) => sum + part.length, 0) +
+    centralSize +
+    end.length;
   const out = new Uint8Array(total);
   let at = 0;
   for (const part of [...chunks, ...central, end]) {
@@ -277,9 +279,7 @@ const sheetRef = (name: string): string => `'${name.replace(/'/g, "''")}'`;
  * row is never validated, and the ceiling is generous rather than counted,
  * because nobody has told us how many rows somebody will eventually paste in.
  */
-function dataValidationsXml(
-  validations: SheetSpec["validations"],
-): string {
+function dataValidationsXml(validations: SheetSpec["validations"]): string {
   if (!validations || validations.length === 0) return "";
   const entries = validations
     .map((v) => {
@@ -482,7 +482,9 @@ export function unescapeXml(value: string): string {
 function textOf(xml: string): string {
   const parts = xml.match(/<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/g) ?? [];
   return parts
-    .map((part) => unescapeXml(part.replace(/^<t(?:\s[^>]*)?>/, "").replace(/<\/t>$/, "")))
+    .map((part) =>
+      unescapeXml(part.replace(/^<t(?:\s[^>]*)?>/, "").replace(/<\/t>$/, "")),
+    )
     .join("");
 }
 
@@ -512,7 +514,8 @@ function readDateStyles(xml: string | null): Set<number> {
     custom.set(Number(match[1]), unescapeXml(match[2] ?? ""));
   }
 
-  const builtInDate = (id: number) => (id >= 14 && id <= 22) || (id >= 45 && id <= 47);
+  const builtInDate = (id: number) =>
+    (id >= 14 && id <= 22) || (id >= 45 && id <= 47);
   const customIsDate = (code: string) => {
     const bare = code.replace(/"[^"]*"/g, "").replace(/\\./g, "");
     return /[yd]/i.test(bare) || /m{3,}/i.test(bare) || /\bm\b/i.test(bare);
@@ -572,7 +575,9 @@ export type XlsxFile = {
  * the caller picks. Values only: formulas come back as their cached result,
  * which is what the file says the answer is.
  */
-export async function readXlsx(input: ArrayBuffer | Uint8Array): Promise<XlsxFile> {
+export async function readXlsx(
+  input: ArrayBuffer | Uint8Array,
+): Promise<XlsxFile> {
   const bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
   const entries = readArchive(bytes);
 
@@ -583,7 +588,9 @@ export async function readXlsx(input: ArrayBuffer | Uint8Array): Promise<XlsxFil
   const shared = readSharedStrings(
     await readPart(bytes, entries, "xl/sharedStrings.xml"),
   );
-  const dateStyles = readDateStyles(await readPart(bytes, entries, "xl/styles.xml"));
+  const dateStyles = readDateStyles(
+    await readPart(bytes, entries, "xl/styles.xml"),
+  );
   const date1904 = /date1904="(1|true)"/.test(workbook);
 
   /* Sheet name to part path, through the relationship id. Sheets are not
@@ -627,9 +634,7 @@ export async function readXlsx(input: ArrayBuffer | Uint8Array): Promise<XlsxFil
  * recognise what this writer produces, and every dropdown here is written
  * against exactly one column.
  */
-function dataValidationsOf(
-  xml: string,
-): { column: number; source: string }[] {
+function dataValidationsOf(xml: string): { column: number; source: string }[] {
   const found: { column: number; source: string }[] = [];
   for (const match of xml.matchAll(
     /<dataValidation\b([^>]*)>\s*<formula1>([\s\S]*?)<\/formula1>/g,

@@ -81,7 +81,10 @@ function makeScope(fetchImpl: () => Promise<unknown>) {
       },
     },
     registration: {
-      showNotification: async (title: string, options: Record<string, unknown>) => {
+      showNotification: async (
+        title: string,
+        options: Record<string, unknown>,
+      ) => {
         state.notifications.push({ title, options });
       },
     },
@@ -286,7 +289,10 @@ async function main(): Promise<void> {
       },
     });
     const shown = state.notifications[0];
-    check("a push shows a notification with its title", shown?.title === "A payroll needs approving");
+    check(
+      "a push shows a notification with its title",
+      shown?.title === "A payroll needs approving",
+    );
     check(
       "the href travels on the notification, for the tap to use",
       (shown?.options["data"] as { href?: string } | undefined)?.href ===

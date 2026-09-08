@@ -261,10 +261,13 @@ function Policy() {
     requiresEvidence: type.requiresEvidence,
   }));
 
-  const types = isConnected ? fetched?.rows ?? [] : demoRows;
+  const types = isConnected ? (fetched?.rows ?? []) : demoRows;
   const typesLoading = isConnected && fetched === null;
 
-  async function editType(row: TypeRow, patch: Partial<Omit<TypeRow, "id" | "name">>) {
+  async function editType(
+    row: TypeRow,
+    patch: Partial<Omit<TypeRow, "id" | "name">>,
+  ) {
     if (!isConnected) {
       updateLeaveType(row.name, patch);
       /* Demo mode saves too — locally — so the indicator says so rather than
@@ -284,7 +287,9 @@ function Policy() {
     );
     try {
       await leaveApi.updateType(row.id, {
-        ...(patch.entitled !== undefined ? { entitledDays: patch.entitled } : {}),
+        ...(patch.entitled !== undefined
+          ? { entitledDays: patch.entitled }
+          : {}),
         ...(patch.accrual !== undefined
           ? { accrual: LOCAL_TO_WIRE_ACCRUAL[patch.accrual] }
           : {}),
@@ -302,13 +307,19 @@ function Policy() {
     } catch (error) {
       setSaveState("idle");
       setFetched(
-        (s) => s && { ...s, rows: s.rows.map((r) => (r.id === row.id ? before : r)) },
+        (s) =>
+          s && {
+            ...s,
+            rows: s.rows.map((r) => (r.id === row.id ? before : r)),
+          },
       );
       toast.push({
         title: "That did not save",
         tone: "danger",
         detail:
-          error instanceof ApiError ? error.message : "Something went wrong. Try again.",
+          error instanceof ApiError
+            ? error.message
+            : "Something went wrong. Try again.",
       });
     }
   }
@@ -350,7 +361,9 @@ function Policy() {
         title: "That did not switch off",
         tone: "danger",
         detail:
-          error instanceof ApiError ? error.message : "Something went wrong. Try again.",
+          error instanceof ApiError
+            ? error.message
+            : "Something went wrong. Try again.",
       });
     } finally {
       setArchiveBusy(false);
@@ -372,7 +385,9 @@ function Policy() {
         title: "That did not restore",
         tone: "danger",
         detail:
-          error instanceof ApiError ? error.message : "Something went wrong. Try again.",
+          error instanceof ApiError
+            ? error.message
+            : "Something went wrong. Try again.",
       });
     }
   }
@@ -524,9 +539,13 @@ function Policy() {
                     <TD>
                       <Switch
                         checked={type.requiresEvidence}
-                        label={type.requiresEvidence ? "Required" : "Not required"}
+                        label={
+                          type.requiresEvidence ? "Required" : "Not required"
+                        }
                         onChange={(e) =>
-                          void editType(type, { requiresEvidence: e.target.checked })
+                          void editType(type, {
+                            requiresEvidence: e.target.checked,
+                          })
                         }
                       />
                     </TD>
@@ -555,8 +574,8 @@ function Policy() {
           {!isConnected && (
             <CardBody className="border-t border-line">
               <p className="text-body-sm leading-relaxed text-muted">
-                Adding a leave type writes to the company&rsquo;s own record, so it
-                needs a live company. Demo mode ships this fixed set of five.
+                Adding a leave type writes to the company&rsquo;s own record, so
+                it needs a live company. Demo mode ships this fixed set of five.
               </p>
             </CardBody>
           )}
@@ -589,21 +608,25 @@ function Policy() {
                     </Badge>
                     {row.total > 0 && (
                       <span className="text-meta text-muted">
-                        {row.total} request{row.total === 1 ? "" : "s"} kept on the
-                        books
+                        {row.total} request{row.total === 1 ? "" : "s"} kept on
+                        the books
                       </span>
                     )}
                   </span>
-                  <Button variant="secondary" size="sm" onClick={() => void restoreType(row)}>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => void restoreType(row)}
+                  >
                     <RotateCcw aria-hidden="true" className="size-3.5" />
                     Turn it back on
                   </Button>
                 </div>
               ))}
               <p className="text-meta leading-relaxed text-muted">
-                This list lasts as long as this page: the server does not yet let
-                the interface see switched-off types, so leaving here puts turning
-                one back on out of reach until it does.
+                This list lasts as long as this page: the server does not yet
+                let the interface see switched-off types, so leaving here puts
+                turning one back on out of reach until it does.
               </p>
             </CardBody>
           </Card>
@@ -670,7 +693,9 @@ function Policy() {
               >
                 <Switch
                   checked={policy.reservePendingDays}
-                  label={policy.reservePendingDays ? "Held back" : "Not held back"}
+                  label={
+                    policy.reservePendingDays ? "Held back" : "Not held back"
+                  }
                   onChange={(e) =>
                     updateLeave({ reservePendingDays: e.target.checked })
                   }
@@ -687,10 +712,19 @@ function Policy() {
                 level={3}
               />
               <CardBody className="flex flex-col gap-3 text-body-sm leading-relaxed text-body">
-                <p>The table above edits this company&rsquo;s real leave types, so a change here moves everybody&rsquo;s balance immediately. This card cannot show a live roster of who that affects (that is a per-employee read, not a company-wide one) without fetching every employee&rsquo;s balance individually.</p>
+                <p>
+                  The table above edits this company&rsquo;s real leave types,
+                  so a change here moves everybody&rsquo;s balance immediately.
+                  This card cannot show a live roster of who that affects (that
+                  is a per-employee read, not a company-wide one) without
+                  fetching every employee&rsquo;s balance individually.
+                </p>
                 <p>
                   See a real person&rsquo;s balance move on{" "}
-                  <Link href="/people/leave" className="font-medium text-accent-text underline">
+                  <Link
+                    href="/people/leave"
+                    className="font-medium text-accent-text underline"
+                  >
                     /people/leave
                   </Link>
                   , or on their own record.
@@ -706,7 +740,10 @@ function Policy() {
               />
               <CardBody className="flex flex-col gap-3.5">
                 {overdrawn > 0 && (
-                  <Callout tone="warning" title={`${overdrawn} people are now over`}>
+                  <Callout
+                    tone="warning"
+                    title={`${overdrawn} people are now over`}
+                  >
                     Reducing the entitlement does not cancel leave already
                     approved. These balances are negative until the next accrual
                     year.
@@ -728,15 +765,24 @@ function Policy() {
                         value={Math.min(balance!.taken, balance!.entitled)}
                         max={Math.max(balance!.entitled, 1)}
                         size="sm"
-                        tone={remaining < 0 ? "danger" : remaining <= 3 ? "warning" : "accent"}
+                        tone={
+                          remaining < 0
+                            ? "danger"
+                            : remaining <= 3
+                              ? "warning"
+                              : "accent"
+                        }
                       />
                     </div>
                   );
                 })}
                 <p className="mt-1 flex gap-2 text-meta leading-relaxed text-muted">
-                  <Info aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
-                  Days taken before the tracked period are included, which is why
-                  nobody starts at a full entitlement.
+                  <Info
+                    aria-hidden="true"
+                    className="mt-0.5 size-3.5 shrink-0"
+                  />
+                  Days taken before the tracked period are included, which is
+                  why nobody starts at a full entitlement.
                 </p>
               </CardBody>
             </Card>
@@ -789,7 +835,9 @@ function AddLeaveTypeDialog({
       await onSave({ name: trimmed, entitledDays });
     } catch (caught) {
       setError(
-        caught instanceof ApiError ? caught.message : "That did not save. Try again.",
+        caught instanceof ApiError
+          ? caught.message
+          : "That did not save. Try again.",
       );
     } finally {
       setBusy(false);
@@ -828,7 +876,11 @@ function AddLeaveTypeDialog({
             onChange={(e) => setName(e.target.value)}
           />
         </Field>
-        <Field label="Days a year" required help="Every other setting can be changed afterwards.">
+        <Field
+          label="Days a year"
+          required
+          help="Every other setting can be changed afterwards."
+        >
           <Input
             type="number"
             min={0}

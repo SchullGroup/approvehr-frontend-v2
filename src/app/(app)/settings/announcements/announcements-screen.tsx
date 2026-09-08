@@ -140,7 +140,9 @@ export function AnnouncementsScreen() {
     }
   }
 
-  const live = board.announcements.filter((row) => row.published && !row.expired);
+  const live = board.announcements.filter(
+    (row) => row.published && !row.expired,
+  );
   const drafts = board.announcements.filter((row) => !row.published);
   const expired = board.announcements.filter((row) => row.expired);
 
@@ -204,7 +206,11 @@ export function AnnouncementsScreen() {
               See it as staff do
             </ButtonLink>
             {canManage && board.editable && (
-              <Button variant="accent" size="sm" onClick={() => setWriting(true)}>
+              <Button
+                variant="accent"
+                size="sm"
+                onClick={() => setWriting(true)}
+              >
                 <Plus aria-hidden="true" className="size-4" />
                 Write a notice
               </Button>
@@ -223,11 +229,23 @@ export function AnnouncementsScreen() {
           </Callout>
         )}
 
-        <LoadFailure subject="the noticeboard" error={board.error}  onRetry={board.reload}/>
+        <LoadFailure
+          subject="the noticeboard"
+          error={board.error}
+          onRetry={board.reload}
+        />
 
         <div className="grid gap-4 sm:grid-cols-3">
-          <Stat label="On the board" value={String(live.length)} hint="staff see these" />
-          <Stat label="Drafts" value={String(drafts.length)} hint="nobody sees these" />
+          <Stat
+            label="On the board"
+            value={String(live.length)}
+            hint="staff see these"
+          />
+          <Stat
+            label="Drafts"
+            value={String(drafts.length)}
+            hint="nobody sees these"
+          />
           {/* The state that has no other symptom. See the header. */}
           <Stat
             label="Come down already"
@@ -324,7 +342,9 @@ export function AnnouncementsScreen() {
                             <Badge
                               tone="accent"
                               size="sm"
-                              icon={<Pin aria-hidden="true" className="size-3" />}
+                              icon={
+                                <Pin aria-hidden="true" className="size-3" />
+                              }
                             >
                               Pinned
                             </Badge>
@@ -368,7 +388,9 @@ export function AnnouncementsScreen() {
                               onClick={() =>
                                 void run(
                                   async () => {
-                                    const result = await mutations.publish(notice.id);
+                                    const result = await mutations.publish(
+                                      notice.id,
+                                    );
                                     return result;
                                   },
                                   `${notice.title} is on the board`,
@@ -400,8 +422,8 @@ export function AnnouncementsScreen() {
             board.total > board.announcements.length && (
               <CardBody className="border-t border-line">
                 <p className="text-body-sm text-muted">
-                  Showing {board.announcements.length} of {board.total}. Narrow it
-                  with the search box above.
+                  Showing {board.announcements.length} of {board.total}. Narrow
+                  it with the search box above.
                 </p>
               </CardBody>
             )}
@@ -431,22 +453,25 @@ export function AnnouncementsScreen() {
           onClose={() => setEditing(null)}
           onSave={async (draft, publish) => {
             const target = editing;
-            const ok = await run(async () => {
-              await mutations.update(target.id, {
-                title: draft.title,
-                body: draft.body,
-                audience: draft.audience,
-                departmentIds: draft.departmentIds,
-                pinned: draft.pinned,
-                /* An empty date clears it. `null` and absent mean different
+            const ok = await run(
+              async () => {
+                await mutations.update(target.id, {
+                  title: draft.title,
+                  body: draft.body,
+                  audience: draft.audience,
+                  departmentIds: draft.departmentIds,
+                  pinned: draft.pinned,
+                  /* An empty date clears it. `null` and absent mean different
                    things to the API, and this is the one that means "clear". */
-                expiresOn: draft.expiresOn === "" ? null : draft.expiresOn,
-              });
-              /* Two calls, because they are two acts: the edit stands whether or
+                  expiresOn: draft.expiresOn === "" ? null : draft.expiresOn,
+                });
+                /* Two calls, because they are two acts: the edit stands whether or
                  not the publish is asked for, and publishing has its own
                  refusals (an archived department, a date already past). */
-              if (publish) await mutations.publish(target.id);
-            }, publish ? `${draft.title} is on the board` : "Saved");
+                if (publish) await mutations.publish(target.id);
+              },
+              publish ? `${draft.title} is on the board` : "Saved",
+            );
             if (ok) setEditing(null);
           }}
         />
@@ -495,11 +520,12 @@ export function AnnouncementsScreen() {
         onConfirm={() => {
           const target = deleting;
           if (!target) return;
-          void run(() => mutations.remove(target.id), `${target.title} deleted`).then(
-            (ok) => {
-              if (ok) setDeleting(null);
-            },
-          );
+          void run(
+            () => mutations.remove(target.id),
+            `${target.title} deleted`,
+          ).then((ok) => {
+            if (ok) setDeleting(null);
+          });
         }}
       />
     </>
@@ -571,7 +597,8 @@ function reachSentence(notice: ApiAnnouncement): string | undefined {
 
 /** The first line of the wording, for the row's subtitle. */
 function firstLine(body: string): string {
-  const line = body.split("\n").find((candidate) => candidate.trim().length > 0) ?? "";
+  const line =
+    body.split("\n").find((candidate) => candidate.trim().length > 0) ?? "";
   return line.length > 110 ? `${line.slice(0, 110).trimEnd()}…` : line;
 }
 

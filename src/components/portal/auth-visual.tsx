@@ -1,5 +1,8 @@
 import { LogoMark } from "@/components/brand/logo";
-import { PayrollCardMockup, PipelineMockup } from "@/components/marketing/mockups";
+import {
+  PayrollCardMockup,
+  PipelineMockup,
+} from "@/components/marketing/mockups";
 
 /**
  * The decorative half of the sign-in and account screens.
@@ -63,7 +66,8 @@ export function AuthVisual() {
           A smarter way to manage staff.
         </p>
         <p className="max-w-sm text-body leading-relaxed text-white/70">
-          Employee records, payroll, recruitment, leave and approvals, managed in one platform.
+          Employee records, payroll, recruitment, leave and approvals, managed
+          in one platform.
         </p>
       </div>
 

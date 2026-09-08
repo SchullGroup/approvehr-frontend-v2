@@ -46,7 +46,10 @@ export function guessMapping(
   dictionary: Dictionary<string>,
   headers: readonly string[],
 ): Mapping {
-  const claims = new Map<string, { heading: string; priority: number; index: number }>();
+  const claims = new Map<
+    string,
+    { heading: string; priority: number; index: number }
+  >();
   const mapping: Mapping = {};
 
   headers.forEach((heading, index) => {
@@ -85,7 +88,9 @@ export function mappingProblems(
   }
 
   return {
-    missingRequired: dictionary.requiredFields.filter((field) => !byField.has(field)),
+    missingRequired: dictionary.requiredFields.filter(
+      (field) => !byField.has(field),
+    ),
     duplicates: [...byField.entries()]
       .filter(([, headings]) => headings.length > 1)
       .map(([field, headings]) => ({ field, headings })),
@@ -97,7 +102,9 @@ export const isMappingReady = (
   mapping: Mapping,
 ): boolean => {
   const problems = mappingProblems(dictionary, mapping);
-  return problems.missingRequired.length === 0 && problems.duplicates.length === 0;
+  return (
+    problems.missingRequired.length === 0 && problems.duplicates.length === 0
+  );
 };
 
 /** Headings the person has chosen to leave out. Named in the UI, never silent. */
@@ -169,8 +176,12 @@ export const fieldOptions = (
   }));
 
 /** The one-line note for a field, for the column being matched. */
-export const noteFor = (dictionary: Dictionary<string>, field: string): string =>
-  dictionary.byField.get(field)?.note ?? "";
+export const noteFor = (
+  dictionary: Dictionary<string>,
+  field: string,
+): string => dictionary.byField.get(field)?.note ?? "";
 
-export const exampleFor = (dictionary: Dictionary<string>, field: string): string =>
-  dictionary.byField.get(field)?.example ?? "";
+export const exampleFor = (
+  dictionary: Dictionary<string>,
+  field: string,
+): string => dictionary.byField.get(field)?.example ?? "";

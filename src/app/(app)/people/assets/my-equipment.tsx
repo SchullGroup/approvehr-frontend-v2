@@ -232,8 +232,8 @@ export function MyAssets({
               {returned.slice(0, 4).map((item) => (
                 <li key={item.assignmentId} className="text-body-sm text-muted">
                   {item.name}{" "}
-                  <span className="tabular text-meta">{item.tag}</span> ·
-                  handed back {dayLabel(item.returnedOn)}
+                  <span className="tabular text-meta">{item.tag}</span> · handed
+                  back {dayLabel(item.returnedOn)}
                   {item.conditionBack
                     ? ` · ${CONDITION_LABEL[item.conditionBack].toLowerCase()}`
                     : ""}

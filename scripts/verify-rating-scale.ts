@@ -106,7 +106,9 @@ function compare(
  */
 function checkShape(): void {
   checks += 1;
-  const levels = Object.keys(RATING_LABELS).map(Number).sort((a, b) => a - b);
+  const levels = Object.keys(RATING_LABELS)
+    .map(Number)
+    .sort((a, b) => a - b);
   if (levels.join(",") !== "1,2,3,4,5") {
     failures += 1;
     console.log(`  FAIL  the scale is not 1–5: ${levels.join(", ")}`);
@@ -135,7 +137,11 @@ if (!existsSync(SOURCE)) {
 } else {
   const source = readFileSync(SOURCE, "utf8");
   compare("RATING_LABELS", RATING_LABELS, recordFrom(source, "RATING_LABELS"));
-  compare("RATING_MEANING", RATING_MEANING, recordFrom(source, "RATING_MEANING"));
+  compare(
+    "RATING_MEANING",
+    RATING_MEANING,
+    recordFrom(source, "RATING_MEANING"),
+  );
 }
 
 if (failures > 0) {

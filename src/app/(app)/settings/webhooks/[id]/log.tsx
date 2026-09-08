@@ -108,7 +108,9 @@ export function DeliveryLog({
       <CardHeader
         title="Delivery log"
         description={
-          log.total === 1 ? "1 attempt recorded." : `${log.total} attempts recorded.`
+          log.total === 1
+            ? "1 attempt recorded."
+            : `${log.total} attempts recorded.`
         }
         level={2}
       />
@@ -145,10 +147,13 @@ export function DeliveryLog({
 
         {!retriesRunning && (
           <p className="flex items-start gap-2 rounded-md border border-warning-line bg-warning-soft p-3 text-body-sm text-warning-text">
-            <AlertTriangle aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+            <AlertTriangle
+              aria-hidden="true"
+              className="mt-0.5 size-4 shrink-0"
+            />
             <span>
-              Automatic retries are not running on this server. Fix your endpoint,
-              then press Retry on the deliveries below.
+              Automatic retries are not running on this server. Fix your
+              endpoint, then press Retry on the deliveries below.
             </span>
           </p>
         )}
@@ -157,7 +162,11 @@ export function DeliveryLog({
             it, so there is no `ApiError` left to classify and this renders the
             general advice. Widening that state to `ApiError | null` is what
             would let the API's own sentence through. */}
-        <LoadFailure subject="the delivery log" error={log.error}  onRetry={log.reload}/>
+        <LoadFailure
+          subject="the delivery log"
+          error={log.error}
+          onRetry={log.reload}
+        />
 
         {log.loading ? (
           <Skeleton className="h-40 w-full" />
@@ -182,62 +191,73 @@ export function DeliveryLog({
                 const open = expanded.has(row.id);
                 return (
                   <Fragment key={row.id}>
-                  <TR className="align-top">
-                    <TDPrimary
-                      title={
-                        <span className="font-mono text-body-sm">
-                          {row.event}
-                        </span>
-                      }
-                      subtitle={
-                        <span className="font-mono">{row.id.slice(0, 8)}…</span>
-                      }
-                    />
-                    <TD className="whitespace-nowrap tabular">
-                      {fullStamp(row.createdAt)}
-                    </TD>
-                    <TD>
-                      <Outcome row={row} />
-                    </TD>
-                    <TD className="whitespace-nowrap tabular">
-                      {row.attempt} of {row.maxAttempts}
-                    </TD>
-                    <TD align="right">
-                      <div className="flex flex-col items-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          aria-expanded={open}
-                          onClick={() => toggle(row.id)}
-                        >
-                          {open ? (
-                            <ChevronDown aria-hidden="true" className="size-4" />
-                          ) : (
-                            <ChevronRight aria-hidden="true" className="size-4" />
-                          )}
-                          {open ? "Hide" : "Show"}
-                        </Button>
-                        {editable && row.state !== "delivered" && (
+                    <TR className="align-top">
+                      <TDPrimary
+                        title={
+                          <span className="font-mono text-body-sm">
+                            {row.event}
+                          </span>
+                        }
+                        subtitle={
+                          <span className="font-mono">
+                            {row.id.slice(0, 8)}…
+                          </span>
+                        }
+                      />
+                      <TD className="whitespace-nowrap tabular">
+                        {fullStamp(row.createdAt)}
+                      </TD>
+                      <TD>
+                        <Outcome row={row} />
+                      </TD>
+                      <TD className="whitespace-nowrap tabular">
+                        {row.attempt} of {row.maxAttempts}
+                      </TD>
+                      <TD align="right">
+                        <div className="flex flex-col items-end gap-2">
                           <Button
-                            variant="secondary"
+                            variant="ghost"
                             size="sm"
-                            loading={retrying === row.id}
-                            onClick={() => void retry(row.id)}
+                            aria-expanded={open}
+                            onClick={() => toggle(row.id)}
                           >
-                            <RotateCcw aria-hidden="true" className="size-4" />
-                            Retry now
+                            {open ? (
+                              <ChevronDown
+                                aria-hidden="true"
+                                className="size-4"
+                              />
+                            ) : (
+                              <ChevronRight
+                                aria-hidden="true"
+                                className="size-4"
+                              />
+                            )}
+                            {open ? "Hide" : "Show"}
                           </Button>
-                        )}
-                      </div>
-                    </TD>
-                  </TR>
-                  {open && (
-                    <TR>
-                      <TD colSpan={5}>
-                        <Detail row={row} />
+                          {editable && row.state !== "delivered" && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              loading={retrying === row.id}
+                              onClick={() => void retry(row.id)}
+                            >
+                              <RotateCcw
+                                aria-hidden="true"
+                                className="size-4"
+                              />
+                              Retry now
+                            </Button>
+                          )}
+                        </div>
                       </TD>
                     </TR>
-                  )}
+                    {open && (
+                      <TR>
+                        <TD colSpan={5}>
+                          <Detail row={row} />
+                        </TD>
+                      </TR>
+                    )}
                   </Fragment>
                 );
               })}
@@ -334,7 +354,9 @@ function Detail({ row }: { row: ApiDelivery }) {
         {row.deliveredAt && (
           <Line term="Delivered">{fullStamp(row.deliveredAt)}</Line>
         )}
-        {row.retryAt && <Line term="Next attempt">{fullStamp(row.retryAt)}</Line>}
+        {row.retryAt && (
+          <Line term="Next attempt">{fullStamp(row.retryAt)}</Line>
+        )}
       </dl>
       <PayloadBlock title="Payload sent" value={row.payload} />
     </div>

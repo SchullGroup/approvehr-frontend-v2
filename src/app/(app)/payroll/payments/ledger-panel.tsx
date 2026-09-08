@@ -57,7 +57,11 @@ import { longDate } from "./format";
  * here because there is no edit endpoint, and that is what makes this a ledger
  * rather than a balance column somebody can tidy.
  */
-export function LedgerPanel({ canRecordFunding }: { canRecordFunding: boolean }) {
+export function LedgerPanel({
+  canRecordFunding,
+}: {
+  canRecordFunding: boolean;
+}) {
   const ledger = useLedger({ pageSize: 25 });
   const [recording, setRecording] = useState(false);
 
@@ -68,7 +72,11 @@ export function LedgerPanel({ canRecordFunding }: { canRecordFunding: boolean })
           title="Account activity"
           action={
             canRecordFunding ? (
-              <Button variant="secondary" size="sm" onClick={() => setRecording(true)}>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setRecording(true)}
+              >
                 <Plus aria-hidden="true" className="size-4" />
                 Record money in
               </Button>
@@ -110,7 +118,9 @@ export function LedgerPanel({ canRecordFunding }: { canRecordFunding: boolean })
                     <TD>
                       <span className="flex flex-wrap items-center gap-2">
                         <Badge
-                          tone={row.direction === "CREDIT" ? "accent" : "neutral"}
+                          tone={
+                            row.direction === "CREDIT" ? "accent" : "neutral"
+                          }
                           size="sm"
                           icon={
                             row.direction === "CREDIT" ? (
@@ -151,7 +161,10 @@ export function LedgerPanel({ canRecordFunding }: { canRecordFunding: boolean })
                     <TD align="right" className="tabular">
                       {row.balanceAfterKobo === null ? (
                         /* Not on the statement we were given. Never a guess. */
-                        <span className="text-faint" title="Not recorded from a statement">
+                        <span
+                          className="text-faint"
+                          title="Not recorded from a statement"
+                        >
                           —
                         </span>
                       ) : (
@@ -229,9 +242,11 @@ function RecordFundingModal({
   const [error, setError] = useState<string | null>(null);
 
   const usable = accounts.accounts.filter((account) => !account.archived);
-  const chosen = accountId || usable.find((account) => account.isPrimary)?.id || "";
+  const chosen =
+    accountId || usable.find((account) => account.isPrimary)?.id || "";
   const amountValue = Number(amount.replace(/,/g, ""));
-  const valid = chosen !== "" && Number.isFinite(amountValue) && amountValue > 0;
+  const valid =
+    chosen !== "" && Number.isFinite(amountValue) && amountValue > 0;
 
   async function save() {
     setBusy(true);
@@ -251,7 +266,9 @@ function RecordFundingModal({
       onDone();
     } catch (caught) {
       setError(
-        caught instanceof ApiError ? caught.message : "That did not save. Try again.",
+        caught instanceof ApiError
+          ? caught.message
+          : "That did not save. Try again.",
       );
     } finally {
       setBusy(false);

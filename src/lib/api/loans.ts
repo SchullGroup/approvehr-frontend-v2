@@ -48,7 +48,8 @@ import { request, requestPaged, type Paged } from "@/lib/api/client";
  * because a loan that is approved with no schedule deducts nothing and looks
  * fine. Handle it anyway — a status a screen cannot render is a blank cell.
  */
-export type LoanStatus = "PENDING" | "APPROVED" | "ACTIVE" | "SETTLED" | "DECLINED";
+export type LoanStatus =
+  "PENDING" | "APPROVED" | "ACTIVE" | "SETTLED" | "DECLINED";
 
 /** Mirrors `LoanRepaymentStatus`. `WAIVED` means forgiven, not paid. */
 export type LoanRepaymentStatus = "SCHEDULED" | "PARTIAL" | "PAID" | "WAIVED";

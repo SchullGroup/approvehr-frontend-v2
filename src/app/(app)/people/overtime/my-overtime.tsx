@@ -1,6 +1,14 @@
 "use client";
 
-import { Badge, ButtonLink, Card, CardBody, CardHeader, Money, Spinner } from "@/components/ui";
+import {
+  Badge,
+  ButtonLink,
+  Card,
+  CardBody,
+  CardHeader,
+  Money,
+  Spinner,
+} from "@/components/ui";
 import {
   KIND_LABEL,
   STATUS_LABEL,
@@ -58,7 +66,8 @@ export function MyOvertime({
           </span>
         ) : policyKnown && !policy.enabled ? (
           <p className="text-body-sm leading-relaxed text-body">
-            Your company does not pay overtime, so extra hours are not worked out.
+            Your company does not pay overtime, so extra hours are not worked
+            out.
           </p>
         ) : rows.length === 0 ? (
           <p className="text-body-sm leading-relaxed text-body">
@@ -73,20 +82,21 @@ export function MyOvertime({
             {waiting.count > 0 && (
               <div className="rounded-md border border-warning-line bg-warning-soft px-3.5 py-3">
                 <p className="text-body-sm font-semibold text-ink">
-                  <Money amount={naira(waiting.amountKobo)} decimals /> waiting for
-                  approval
+                  <Money amount={naira(waiting.amountKobo)} decimals /> waiting
+                  for approval
                 </p>
                 <p className="mt-0.5 text-body-sm text-body">
                   {hoursLabel(waiting.minutes)} across{" "}
-                  {waiting.count === 1 ? "one day" : `${waiting.count} days`}. It is
-                  not paid until somebody approves it.
+                  {waiting.count === 1 ? "one day" : `${waiting.count} days`}.
+                  It is not paid until somebody approves it.
                 </p>
               </div>
             )}
 
             {approved.count > 0 && (
               <p className="text-body-sm text-body">
-                <Money amount={naira(approved.amountKobo)} decimals /> approved: the next payroll run picks it up.
+                <Money amount={naira(approved.amountKobo)} decimals /> approved:
+                the next payroll run picks it up.
               </p>
             )}
 
@@ -113,8 +123,8 @@ export function MyOvertime({
 
                   {row.atCap && (
                     <p className="text-body-sm text-body">
-                      Capped at {spokenHours(policy.dailyCapMinutes)}. Check whether
-                      you forgot to clock out.
+                      Capped at {spokenHours(policy.dailyCapMinutes)}. Check
+                      whether you forgot to clock out.
                     </p>
                   )}
 

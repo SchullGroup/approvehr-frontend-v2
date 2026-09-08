@@ -63,7 +63,8 @@ function useRead<T>(
         const data = await load(controller.signal);
         if (!cancelled) setFetched({ key: full, data, error: null });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
           setFetched({
             key: full,
@@ -92,7 +93,9 @@ function useRead<T>(
   };
 }
 
-export function useBenefitPlans(includeArchived = false): Read<ApiBenefitPlan[]> {
+export function useBenefitPlans(
+  includeArchived = false,
+): Read<ApiBenefitPlan[]> {
   const { isConnected } = useSession();
   const load = useCallback(
     (signal: AbortSignal) => benefitsApi.plans(includeArchived, signal),
@@ -119,7 +122,10 @@ export function useBenefitEnrolments(
 /** The notices that have to reach a screen. Not decoration — see the API. */
 export function useBenefitNotices(): Read<ApiBenefitNotices> {
   const { isConnected } = useSession();
-  const load = useCallback((signal: AbortSignal) => benefitsApi.notices(signal), []);
+  const load = useCallback(
+    (signal: AbortSignal) => benefitsApi.notices(signal),
+    [],
+  );
   return useRead("notices", isConnected, load);
 }
 

@@ -231,14 +231,20 @@ export const overtimeApi = {
 
   /** Partial by design: send only what changed. */
   updatePolicy: (patch: Partial<OvertimePolicy>) =>
-    request<{ id: string }>("/overtime/policy", { method: "PATCH", body: patch }),
+    request<{ id: string }>("/overtime/policy", {
+      method: "PATCH",
+      body: patch,
+    }),
 
   list: async (
     params: OvertimeListParams = {},
     signal?: AbortSignal,
   ): Promise<OvertimeList> =>
     toList(
-      await request<WireList>("/overtime", { query: listQuery(params), signal }),
+      await request<WireList>("/overtime", {
+        query: listQuery(params),
+        signal,
+      }),
     ),
 
   /** Your own, whatever permissions you hold. */

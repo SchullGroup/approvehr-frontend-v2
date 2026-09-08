@@ -34,9 +34,7 @@ function Head({
   };
   return (
     <div className="mb-3 flex items-center justify-between gap-3">
-      <span className="text-meta font-medium text-slate/40">
-        {title}
-      </span>
+      <span className="text-meta font-medium text-slate/40">{title}</span>
       {chip && (
         <span
           className={cn(
@@ -110,9 +108,7 @@ function Person({
           {name}
         </span>
         {meta && (
-          <span className="block truncate text-meta text-slate/45">
-            {meta}
-          </span>
+          <span className="block truncate text-meta text-slate/45">{meta}</span>
         )}
       </span>
       {right}
@@ -125,7 +121,9 @@ function Tick({ on = true }: { on?: boolean }) {
     <span
       className={cn(
         "flex size-4 shrink-0 items-center justify-center rounded-full text-meta",
-        on ? "bg-success text-slate" : "border border-slate/20 text-transparent",
+        on
+          ? "bg-success text-slate"
+          : "border border-slate/20 text-transparent",
       )}
     >
       ✓
@@ -152,9 +150,7 @@ function EmployeeRecord() {
           ["Started", "14 Mar 2022"],
         ].map(([k, v]) => (
           <div key={k}>
-            <p className="text-meta text-slate/35">
-              {k}
-            </p>
+            <p className="text-meta text-slate/35">{k}</p>
             <p className="mt-0.5 truncate text-meta text-slate/75">{v}</p>
           </div>
         ))}
@@ -180,26 +176,20 @@ function SelfServiceChange() {
   return (
     <DayFrame className={SHELL}>
       <Head title="Change request" chip="Awaiting HR" chipTone="amber" />
-      <p className="text-meta font-medium text-slate">
-        Bank account update
-      </p>
+      <p className="text-meta font-medium text-slate">Bank account update</p>
       <p className="mt-0.5 text-meta text-slate/45">
         Raised by Obinna Ezeh · today
       </p>
 
       <div className="mt-3 flex flex-col gap-2">
         <div className="rounded-lg border border-slate/8 p-2">
-          <p className="text-meta text-slate/35">
-            Current
-          </p>
+          <p className="text-meta text-slate/35">Current</p>
           <p className="mt-0.5 text-meta text-slate/60 line-through">
             Zenith ····8820
           </p>
         </div>
         <div className="rounded-lg border border-success-line bg-wash-green p-2">
-          <p className="text-meta text-success-text/70">
-            Requested
-          </p>
+          <p className="text-meta text-success-text/70">Requested</p>
           <p className="mt-0.5 text-meta font-medium text-success-text">
             GTBank ····4471
           </p>
@@ -233,7 +223,10 @@ function OrgChart() {
             { label: "Finance", n: 28, tint: "bg-success-strong" },
             { label: "Operations", n: 54, tint: "bg-warning" },
           ].map((d) => (
-            <div key={d.label} className="flex flex-1 flex-col items-center gap-1.5">
+            <div
+              key={d.label}
+              className="flex flex-1 flex-col items-center gap-1.5"
+            >
               <span className="h-3 w-px bg-slate/15" />
               <span className="w-full rounded-md border border-slate/10 bg-white px-1.5 py-1 text-center">
                 <span className="block truncate text-meta font-medium text-slate">
@@ -363,15 +356,28 @@ function ApprovalChain() {
       <div className="flex flex-col gap-2.5">
         {[
           { n: "Folake Adisa", r: "Prepared", done: true, tint: "bg-accent" },
-          { n: "Zainab Yusuf", r: "Reviewed", done: true, tint: "bg-success-strong" },
-          { n: "Segun Adeyemi", r: "Approves", done: false, tint: "bg-slate/25" },
+          {
+            n: "Zainab Yusuf",
+            r: "Reviewed",
+            done: true,
+            tint: "bg-success-strong",
+          },
+          {
+            n: "Segun Adeyemi",
+            r: "Approves",
+            done: false,
+            tint: "bg-slate/25",
+          },
         ].map((s, i) => (
           <div key={s.n} className="relative flex items-center gap-2.5">
             {i < 2 && (
               <span className="absolute left-3.25 top-7 h-2.5 w-px bg-slate/12" />
             )}
             <Person
-              initials={s.n.split(" ").map((p) => p[0]).join("")}
+              initials={s.n
+                .split(" ")
+                .map((p) => p[0])
+                .join("")}
               name={s.n}
               meta={s.r}
               tint={s.tint}
@@ -450,9 +456,7 @@ function Payslip() {
         <span className="rounded-md bg-slate/6 px-2 py-1 text-meta text-slate/55">
           Email
         </span>
-        <span className="ml-auto text-meta text-slate/40">
-          Itemised by law
-        </span>
+        <span className="ml-auto text-meta text-slate/40">Itemised by law</span>
       </div>
     </DayFrame>
   );
@@ -518,9 +522,7 @@ function StageConfig() {
               {label as string}
             </span>
             {(locked as boolean) && (
-              <span className="text-meta text-slate/35">
-                Required
-              </span>
+              <span className="text-meta text-slate/35">Required</span>
             )}
           </div>
         ))}
@@ -578,7 +580,11 @@ function OfferStatus() {
   return (
     <DayFrame className={SHELL}>
       <Head title="Offer" chip="Accepted" chipTone="green" />
-      <Person initials="ZY" name="Zainab Yusuf" meta="Senior Backend Engineer" />
+      <Person
+        initials="ZY"
+        name="Zainab Yusuf"
+        meta="Senior Backend Engineer"
+      />
       <div className="mt-3 flex flex-col gap-0.5 rounded-lg bg-slate/3 p-2.5">
         <Row label="Gross monthly" value="₦1,750,000" strong />
         <Row label="Within band" value="Yes" />
@@ -592,9 +598,7 @@ function OfferStatus() {
         ].map(([label, done]) => (
           <div key={label as string} className="flex items-center gap-2">
             <Tick on={done as boolean} />
-            <span className="text-meta text-slate/60">
-              {label as string}
-            </span>
+            <span className="text-meta text-slate/60">{label as string}</span>
           </div>
         ))}
       </div>
@@ -667,9 +671,7 @@ function LeaveApproval() {
       <Head title="Leave request" chip="With manager" chipTone="amber" />
       <Person initials="NE" name="Kemi Balogun" meta="12–16 Sep · 5 days" />
       <div className="mt-3 rounded-lg border border-slate/8 p-2">
-        <p className="text-meta text-slate/35">
-          Who else is off
-        </p>
+        <p className="text-meta text-slate/35">Who else is off</p>
         <div className="mt-1.5 flex flex-col gap-1">
           {[
             ["Obinna Ezeh", "14–15 Sep", "bg-warning"],
@@ -739,9 +741,7 @@ function GoalCascade() {
     <DayFrame className={SHELL}>
       <Head title="Goal alignment" chip="Q3" chipTone="blue" />
       <div className="rounded-lg bg-slate px-2.5 py-1.5">
-        <p className="text-meta text-white/45">
-          Company
-        </p>
+        <p className="text-meta text-white/45">Company</p>
         <p className="text-meta font-medium text-white">
           Reach ₦2bn processed payroll
         </p>
@@ -751,13 +751,12 @@ function GoalCascade() {
           ["Engineering", "Ship multi-entity payroll", 72],
           ["Sales", "40 new mid-market logos", 48],
         ].map(([team, goal, pct]) => (
-          <div key={team as string} className="rounded-lg border border-slate/8 p-2">
-            <p className="text-meta text-slate/35">
-              {team as string}
-            </p>
-            <p className="text-meta font-medium text-slate">
-              {goal as string}
-            </p>
+          <div
+            key={team as string}
+            className="rounded-lg border border-slate/8 p-2"
+          >
+            <p className="text-meta text-slate/35">{team as string}</p>
+            <p className="text-meta font-medium text-slate">{goal as string}</p>
             <span className="mt-1 block h-1 overflow-hidden rounded-full bg-slate/10">
               <span
                 className="block h-full rounded-full bg-cat-4"
@@ -787,12 +786,8 @@ function ReviewCycle() {
         ].map(([stage, when, pct]) => (
           <div key={stage as string}>
             <div className="mb-1 flex items-center justify-between">
-              <span className="text-meta text-slate/60">
-                {stage as string}
-              </span>
-              <span className="text-meta text-slate/40">
-                {when as string}
-              </span>
+              <span className="text-meta text-slate/60">{stage as string}</span>
+              <span className="text-meta text-slate/40">{when as string}</span>
             </div>
             <span className="block h-1.5 overflow-hidden rounded-full bg-slate/8">
               <span
@@ -826,9 +821,7 @@ function CompetencyScores() {
         ].map(([label, pct, weight]) => (
           <div key={label as string}>
             <div className="mb-1 flex items-center justify-between">
-              <span className="text-meta text-slate/60">
-                {label as string}
-              </span>
+              <span className="text-meta text-slate/60">{label as string}</span>
               <span className="text-meta rounded-full bg-slate/6 px-1.5 text-slate/45">
                 weight {weight as string}
               </span>
@@ -853,13 +846,15 @@ function Calibration() {
   const dist = [4, 11, 38, 28, 9];
   return (
     <DayFrame className={SHELL}>
-      <Head title="Rating distribution" chip="Before publish" chipTone="amber" />
+      <Head
+        title="Rating distribution"
+        chip="Before publish"
+        chipTone="amber"
+      />
       <div className="flex flex-1 items-end gap-2 pb-2">
         {dist.map((n, i) => (
           <div key={i} className="flex flex-1 flex-col items-center gap-1.5">
-            <span className="text-meta tabular-nums text-slate/45">
-              {n}
-            </span>
+            <span className="text-meta tabular-nums text-slate/45">{n}</span>
             <span
               className={cn(
                 "w-full rounded-t-md",
@@ -906,7 +901,10 @@ function TicketThread() {
       <div className="mt-auto flex items-center gap-2 border-t border-slate/8 pt-2">
         <span className="flex -space-x-1">
           {["bg-accent", "bg-success-strong"].map((c) => (
-            <span key={c} className={cn("size-4 rounded-full ring-2 ring-white", c)} />
+            <span
+              key={c}
+              className={cn("size-4 rounded-full ring-2 ring-white", c)}
+            />
           ))}
         </span>
         <span className="text-meta text-slate/45">
@@ -936,9 +934,7 @@ function SlaBoard() {
             <span className="min-w-0 flex-1 truncate text-meta text-slate/65">
               {cat as string}
             </span>
-            <span className="text-meta text-slate/35">
-              {target as string}
-            </span>
+            <span className="text-meta text-slate/35">{target as string}</span>
             <span
               className={cn(
                 "w-16 text-right text-meta tabular-nums",

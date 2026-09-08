@@ -98,7 +98,11 @@ export function MyDocuments({
             <>
               {mine.error && (
                 <div role="alert">
-                  <LoadFailure subject="your documents" error={mine.error}  onRetry={mine.reload}/>
+                  <LoadFailure
+                    subject="your documents"
+                    error={mine.error}
+                    onRetry={mine.reload}
+                  />
                 </div>
               )}
 

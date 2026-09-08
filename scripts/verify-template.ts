@@ -36,7 +36,11 @@ import "./demo-global";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { parseCsv } from "../src/lib/csv";
-import { guessMapping, isMappingReady, mapRow } from "../src/lib/imports/mapping";
+import {
+  guessMapping,
+  isMappingReady,
+  mapRow,
+} from "../src/lib/imports/mapping";
 import {
   buildTemplateFiles,
   columnsFromDictionary,
@@ -44,7 +48,13 @@ import {
 } from "../src/lib/imports/template-file";
 import { EMPLOYEES } from "../src/lib/imports/employees";
 import { ATTENDANCE_COLUMNS } from "../src/lib/imports/attendance";
-import { columnIndex, columnName, readXlsx, serialToDate, writeXlsx } from "../src/lib/xlsx";
+import {
+  columnIndex,
+  columnName,
+  readXlsx,
+  serialToDate,
+  writeXlsx,
+} from "../src/lib/xlsx";
 
 type Check = { name: string; got: unknown; want: unknown };
 const checks: Check[] = [];
@@ -105,7 +115,10 @@ function gateMirror(
     /\n    column: "([^"]+)"/.exec(block)?.[1] ?? "";
 
   const apiSide = (pattern: RegExp): string[] =>
-    blocks.filter((block) => pattern.test(block)).map(columnOf).sort();
+    blocks
+      .filter((block) => pattern.test(block))
+      .map(columnOf)
+      .sort();
   const mirrorSide = (has: (spec: MirrorColumn) => boolean): string[] =>
     mirror
       .filter(has)
@@ -172,20 +185,34 @@ async function main(): Promise<void> {
      uses. Excel counts from 1900 and believes 1900 was a leap year, so the
      epoch is the 30th of December 1899 rather than the 31st — off by one there
      puts every imported start date a day early. */
-  eq("a date serial reads as the date the sheet shows", serialToDate(44314, false), "2021-04-28");
+  eq(
+    "a date serial reads as the date the sheet shows",
+    serialToDate(44314, false),
+    "2021-04-28",
+  );
   /* Old Mac Excel counts from 1 January 1904 and has no leap-year fiction, so
      the same serial is a different day. Checked against a calendar, not guessed:
      1904-01-01 plus 41000 days. */
-  eq("the 1904 workbook epoch is different", serialToDate(41000, true), "2016-04-02");
+  eq(
+    "the 1904 workbook epoch is different",
+    serialToDate(41000, true),
+    "2016-04-02",
+  );
   /* Serials inside the 1900 leap-year fiction are refused rather than shifted. */
-  eq("a serial inside the 1900 fiction is refused", serialToDate(59, false), null);
+  eq(
+    "a serial inside the 1900 fiction is refused",
+    serialToDate(59, false),
+    null,
+  );
 
   /* --- Two downloads of the same template are the same file ----------- */
 
   const twice = buildTemplateFiles(columns);
   eq(
     "the workbook is byte-identical each time it is built",
-    Buffer.from(twice.xlsx).equals(Buffer.from(buildTemplateFiles(columns).xlsx)),
+    Buffer.from(twice.xlsx).equals(
+      Buffer.from(buildTemplateFiles(columns).xlsx),
+    ),
     true,
   );
 
@@ -257,19 +284,27 @@ async function main(): Promise<void> {
   );
   eq(
     "so the file opens on the columns a row cannot be imported without",
-    csv.headers.slice(0, REQUIRED_FIELDS.length).map((heading) => mapping[heading]),
+    csv.headers
+      .slice(0, REQUIRED_FIELDS.length)
+      .map((heading) => mapping[heading]),
     [...REQUIRED_FIELDS],
   );
   /* And the declaration keeps its own grouping inside a tier — the sort is
      stable, so this is the check that a reorder has not shuffled the sheet. */
   eq(
     "and the declaration's own order survives inside each tier",
-    columns.filter((column) => tier(column) === 2).map((column) => column.column)[0],
+    columns
+      .filter((column) => tier(column) === 2)
+      .map((column) => column.column)[0],
     "employee_no",
   );
 
   /* And the example row's values reach the fields they are examples of. */
-  const mapped = mapRow(EMPLOYEES, csv.rows[0] as Record<string, string>, mapping);
+  const mapped = mapRow(
+    EMPLOYEES,
+    csv.rows[0] as Record<string, string>,
+    mapping,
+  );
   eq(
     "the example row's start date lands on the start date field",
     mapped[HEADING.startDate],
@@ -304,7 +339,11 @@ async function main(): Promise<void> {
     workbook.sheets.length,
     3,
   );
-  eq("the sheet somebody fills in comes first", workbook.sheets[0]?.name, "Staff list");
+  eq(
+    "the sheet somebody fills in comes first",
+    workbook.sheets[0]?.name,
+    "Staff list",
+  );
   eq(
     "the workbook's headings are the CSV's headings",
     workbook.sheets[0]?.grid[0],
@@ -346,7 +385,11 @@ async function main(): Promise<void> {
      looks selectable in isolation. */
 
   const listsSheet = workbook.sheets[2];
-  eq("the third sheet is the hidden list of options", listsSheet?.name, "Lists");
+  eq(
+    "the third sheet is the hidden list of options",
+    listsSheet?.name,
+    "Lists",
+  );
   eq("and it does not show in the tab bar", listsSheet?.hidden, true);
 
   const dropdownColumns = columns
@@ -419,7 +462,12 @@ async function main(): Promise<void> {
      assertions moved into `gateMirror` rather than being copied — a second copy
      of a drift check is the drift this block exists to prevent, one level up.
      A third entity is one line. */
-  gateMirror("attendance", "attendance.ts", "ATTENDANCE_COLUMNS", ATTENDANCE_COLUMNS);
+  gateMirror(
+    "attendance",
+    "attendance.ts",
+    "ATTENDANCE_COLUMNS",
+    ATTENDANCE_COLUMNS,
+  );
 
   /* --- Report --------------------------------------------------------- */
 

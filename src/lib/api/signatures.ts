@@ -24,7 +24,8 @@ import { fetchBinary, type BinaryDownload } from "./download";
  * own answer to "is this yours" — and never on a `useCan`.
  */
 
-export type ApiSignatureStatus = "PENDING" | "SIGNED" | "DECLINED" | "CANCELLED";
+export type ApiSignatureStatus =
+  "PENDING" | "SIGNED" | "DECLINED" | "CANCELLED";
 
 export type ApiSignature = {
   id: string;

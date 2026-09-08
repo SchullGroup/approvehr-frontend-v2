@@ -193,7 +193,9 @@ export function NewKpiDialog({
           >
             <option value="me">Mine</option>
             {canSetCompanyWide && (
-              <option value="company">The whole company (everyone sees it)</option>
+              <option value="company">
+                The whole company (everyone sees it)
+              </option>
             )}
             {/* The API's own rule, not a longer list than it will accept.
                 `assertMayApproveGoal` lets somebody set an objective for

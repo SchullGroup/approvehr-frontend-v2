@@ -480,7 +480,9 @@ export function useLeaveBalancesFor(
         if (!cancelled) {
           setFetched({
             key,
-            rows: Object.fromEntries(ids.map((id) => [id, [] as LeaveBalanceRow[]])),
+            rows: Object.fromEntries(
+              ids.map((id) => [id, [] as LeaveBalanceRow[]]),
+            ),
           });
         }
       }
@@ -542,19 +544,17 @@ export type NewLeave = {
  * exists because a request that cannot be filed at all is a worse outcome than
  * one filed against Annual, and because the balance follows the name either way.
  */
-const SEED_TYPES: LeaveType[] = DEMO_ENABLED ? [
-  "Annual",
-  "Sick",
-  "Compassionate",
-  "Maternity",
-  "Paternity",
-] : [];
+const SEED_TYPES: LeaveType[] = DEMO_ENABLED
+  ? ["Annual", "Sick", "Compassionate", "Maternity", "Paternity"]
+  : [];
 
 const asSeedType = (name: string): LeaveType =>
   SEED_TYPES.find((type) => type === name) ?? "Annual";
 
 export type LeaveMutations = {
-  create: (input: NewLeave) => Promise<{ request: LeaveRow; warnings: string[] }>;
+  create: (
+    input: NewLeave,
+  ) => Promise<{ request: LeaveRow; warnings: string[] }>;
   decide: (
     id: string,
     decision: "approved" | "declined",
@@ -692,10 +692,15 @@ export function useEmployeeLeaveBalances(
 
     void (async () => {
       try {
-        const rows = await leaveApi.balances(employeeId, undefined, controller.signal);
+        const rows = await leaveApi.balances(
+          employeeId,
+          undefined,
+          controller.signal,
+        );
         if (!cancelled) setFetched({ id: employeeId, rows, error: null });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
           setFetched({
             id: employeeId,
