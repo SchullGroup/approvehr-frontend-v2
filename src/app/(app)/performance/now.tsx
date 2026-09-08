@@ -751,7 +751,9 @@ export function WhatNeedsYouTab({
        * on the landing page has not shown you the thing.
        *
        * Nothing is lost. The whole explanation is still one link away, and
-       * `PeriodStatus` carries the link.
+       * `PeriodStatus` carries the link. The component itself is now deleted
+       * rather than left exported with no importers — see the note in
+       * `how-it-works.tsx` for why a spare copy is worse than none.
        */}
 
       {scored && (
