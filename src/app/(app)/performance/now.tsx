@@ -13,7 +13,6 @@ import {
   Badge,
   Button,
   ButtonLink,
-  Callout,
   Card,
   CardBody,
   CardHeader,
@@ -27,7 +26,6 @@ import {
   dayLabel,
   dayOf,
   ratingWords,
-  type ApiCycle,
   type ApiGoal,
   type ApiPeerFeedback,
   type ApiReview,
@@ -180,16 +178,6 @@ export function WhatNeedsYouTab({
     openPeriod && openPeriod.stage !== "PUBLISHED" ? openPeriod.id : null,
     meOrNobody,
   );
-  /* Only the API saying "the list is empty" means nobody is appraising them.
-     A row with no `appraisers` field at all is a different fact — an answer to
-     a question we did not ask — and reading it as an empty list would put a
-     "nobody is appraising you" callout on somebody who has an appraiser, on
-     top of throwing on `.length`. Absent is not empty; the presence check is
-     the claim, not defensiveness. */
-  const noAppraiser =
-    Array.isArray(mine.row?.appraisers) && mine.row.appraisers.length === 0
-      ? mine.row.exceptions?.find((issue) => issue.code === "NO_APPRAISER")
-      : undefined;
   const appraisingMe = mine.row?.appraisers ?? [];
 
   /* Whoever may change the mapping — the API gates `PUT /cycles/:id/appraisers`
@@ -202,7 +190,6 @@ export function WhatNeedsYouTab({
      it" on a draft period and "Turn appraisals on", both of which land on a
      screen that is read-only for them. */
   const canManagePeriods = useCan("MANAGE_SETTINGS");
-  const canAssignAppraiser = canManagePeriods;
   const [assigningSelf, setAssigningSelf] = useState(false);
 
   /* My own objectives, split by who the next move belongs to. `mine` scope also

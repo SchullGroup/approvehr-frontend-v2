@@ -1226,6 +1226,26 @@ export type ApiTask = {
   createdAt: string;
 };
 
+/**
+ * One row in somebody's own record of what they logged.
+ *
+ * Carries the objective's title and the week, because this list is read on
+ * its own screen rather than inside the objective it belongs to — a task
+ * without what it was toward is a sentence with no subject.
+ */
+export type ApiMyTask = {
+  id: string;
+  goalId: string;
+  goalTitle: string;
+  keyResultId: string | null;
+  description: string;
+  grade: "COMPLETED" | "PARTIALLY_COMPLETED" | "NOT_COMPLETED" | null;
+  gradedAt: string | null;
+  weekStart: string;
+  weekEnd: string;
+  createdAt: string;
+};
+
 /** One row in a manager's or HR's grading queue — named, so no follow-up lookup. */
 export type ApiTaskForGrading = {
   id: string;
@@ -2137,6 +2157,13 @@ export const performanceApi = {
       "/performance/tasks/for-grading",
       signalOf(signal),
     ),
+
+  /**
+   * My own tasks and the grades that came back. Empty for a sign-in with no
+   * linked staff record, rather than a refusal.
+   */
+  myTasks: (signal?: AbortSignal) =>
+    request<ApiMyTask[]>("/performance/tasks/mine", signalOf(signal)),
 
   /** Only the goal's own owner may log against it — see the API's own note. */
   submitTask: (

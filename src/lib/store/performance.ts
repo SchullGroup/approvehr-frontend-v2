@@ -44,6 +44,7 @@ import {
   type ApiScoringWeightsSaved,
   type ApiTask,
   type ApiTaskForGrading,
+  type ApiMyTask,
   type ScoreBand,
   type ScoreComponent,
   type AnswerBody,
@@ -2855,6 +2856,36 @@ export function useTasksForGrading(): {
     isConnected,
     load,
   );
+
+  return {
+    tasks: isConnected ? (fetched.data ?? []) : [],
+    loading: isConnected ? fetched.loading : false,
+    error: isConnected ? fetched.error : null,
+    reload: fetched.reload,
+  };
+}
+
+/**
+ * My own tasks and the grades that came back, newest first.
+ *
+ * The other half of `useTasksForGrading`. No demo simulation, same reason: a
+ * grade is something a manager gives and an employee reads, so one this
+ * browser invented would be a mark nobody awarded.
+ */
+export function useMyTasks(): {
+  tasks: ApiMyTask[];
+  loading: boolean;
+  error: ApiError | null;
+  reload: () => void;
+} {
+  const { isConnected } = useSession();
+
+  const load = useCallback(
+    async (signal: AbortSignal) => performanceApi.myTasks(signal),
+    [],
+  );
+
+  const fetched = useFetched<ApiMyTask[]>("my-tasks", isConnected, load);
 
   return {
     tasks: isConnected ? (fetched.data ?? []) : [],
