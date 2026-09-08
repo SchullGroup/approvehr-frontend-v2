@@ -41,7 +41,7 @@ const AUDIENCES: { value: ReviewAudience; label: string }[] = [
 
 const KINDS: { value: ReviewQuestionKind; label: string }[] = [
   { value: "TEXT", label: "In their own words" },
-  { value: "RATING", label: "A mark out of five" },
+  { value: "RATING", label: "A rating on the company scale" },
   { value: "BOOLEAN", label: "Yes or no" },
   { value: "CHOICE", label: "Pick from a list" },
 ];
@@ -55,7 +55,7 @@ const AUDIENCE_LABEL: Record<ReviewAudience, string> = {
 
 const KIND_LABEL: Record<ReviewQuestionKind, string> = {
   TEXT: "Own words",
-  RATING: "Mark out of 5",
+  RATING: "Rating",
   BOOLEAN: "Yes or no",
   CHOICE: "Pick one",
 };

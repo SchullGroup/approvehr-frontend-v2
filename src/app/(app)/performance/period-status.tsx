@@ -1,13 +1,8 @@
 "use client";
 
-import { TriangleAlert } from "lucide-react";
-import {
-  Badge,
-  ButtonLink,
-  Callout,
-  ProgressMeter,
-  Spinner,
-} from "@/components/ui";
+import Link from "next/link";
+import { Badge, ButtonLink, ProgressMeter, Spinner } from "@/components/ui";
+import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { cn } from "@/lib/cn";
 import {
   EXCEPTION_CODE_SUMMARY,
@@ -234,39 +229,32 @@ export function PeriodStatus({
   const showFigures = canSeeCompany && report !== null;
 
   const lines = exceptionLines(appraisers.map?.rows ?? []);
-  const blocking = lines.some((line) => line.severity === "BLOCKER");
   const segments = segmentsFrom(report);
 
   return (
     <div className="flex flex-col gap-3 border-t border-line px-5 py-4">
       {/* Above the figures, never below them. A blocker in row forty is a
-          blocker nobody read — the payroll run's own discipline. */}
-      {lines.length > 0 && (
-        <Callout
-          tone={blocking ? "danger" : "warning"}
-          title={
-            blocking
-              ? "Somebody will finish this period with no mark"
-              : "Worth sorting before the period closes"
-          }
-          icon={<TriangleAlert aria-hidden="true" />}
+          blocker nobody read — the payroll run's own discipline.
+
+          A line each, not a panel. This was a tinted box with an icon, the
+          heading "Worth sorting before the period closes", the count and a
+          Review-and-fix button — five lines and a colour block for one fact
+          and one link, above the figures somebody opened the screen to read.
+          See `NoticeLine`. */}
+      {lines.map((line) => (
+        <NoticeLine
+          key={line.code}
+          tone={line.severity === "BLOCKER" ? "danger" : "warning"}
         >
-          <ul className="flex flex-col gap-1">
-            {lines.map((line) => (
-              <li key={line.code}>{line.text}</li>
-            ))}
-          </ul>
-          <p className="mt-2">
-            <ButtonLink
-              href={`/performance/periods/${cycle.id}`}
-              variant="secondary"
-              size="sm"
-            >
-              Review and fix
-            </ButtonLink>
-          </p>
-        </Callout>
-      )}
+          <span>{line.text}</span>
+          <Link
+            href={`/performance/periods/${cycle.id}`}
+            className={NOTICE_LINK}
+          >
+            Fix it
+          </Link>
+        </NoticeLine>
+      ))}
 
       <div className="flex flex-wrap overflow-hidden rounded-md border border-line">
         {segments.map((segment) => (

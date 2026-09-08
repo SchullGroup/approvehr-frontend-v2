@@ -361,11 +361,41 @@ function SkillRow({ row }: { row: ApiCompetencyRow }) {
 }
 
 /**
- * The level as a row of blocks, with the target marked.
+ * The level as a row of segments, with the shortfall shown rather than outlined.
  *
  * Decoration only — `aria-hidden`, because the sentence beside it already says
- * "Level 3 of 5, target 4". A shape that carries meaning nothing else carries is
+ * "Level 4 of 5, target 5". A shape that carries meaning nothing else carries is
  * a shape somebody cannot read.
+ *
+ * ## Why it was redesigned
+ *
+ * It was five `h-4 w-2.5` blocks, each with a border, filled in
+ * `bg-fill-strong` — near-black — at a 4px gap. Four of those in a row read as
+ * a barcode rather than a level, and Kene said so: *"this competency rating
+ * looks very ugly when filled."* Three rows of it down a page is a wall of
+ * black dominoes beside the sentence that already said the number.
+ *
+ * The target used to be an `outline-2 outline-offset-1` ring on one segment,
+ * which needs 6px of clearance in a 4px gap — so the ring overlapped its
+ * neighbours, which is most of what made it look broken.
+ *
+ * ## The shortfall is the information, so the shortfall is what is drawn
+ *
+ * Three states instead of two, and no ring:
+ *
+ * | Segment | Meaning | Weight |
+ * |---|---|---|
+ * | up to the level | what they have | solid accent |
+ * | level → target | **what is missing** | accent at a third |
+ * | past the target | not asked for | a hairline |
+ *
+ * So "Level 4 of 5, target 5" is four solid segments and one ghost, and the
+ * gap is legible without reading the badge. At target it is a clean unbroken
+ * run with nothing ghosted — which is the state that should look calmest,
+ * and previously looked heaviest.
+ *
+ * Slimmer, too: capsules rather than blocks, so a column of these down the
+ * page reads as a scale instead of a row of switches.
  */
 function Pips({
   level,
@@ -377,20 +407,20 @@ function Pips({
   scaleMax: number;
 }) {
   return (
-    <span aria-hidden="true" className="flex items-end gap-1">
+    <span aria-hidden="true" className="flex items-center gap-1">
       {Array.from({ length: scaleMax }).map((_, index) => {
         const step = index + 1;
-        const filled = level !== null && step <= level;
-        const isTarget = target !== null && step === target;
+        const reached = level !== null && step <= level;
+        /* Between what they have and what was asked for. Drawn as a ghost of
+           the filled colour, so the gap is the thing the eye lands on. */
+        const shortfall =
+          !reached && target !== null && step <= target && level !== null;
         return (
           <span
             key={step}
             className={cn(
-              "h-4 w-2.5 rounded-xs border",
-              filled
-                ? "bg-fill-strong border-fill-strong"
-                : "bg-sunken border-line-strong",
-              isTarget && "outline-2 outline-offset-1 outline-accent-text",
+              "h-1.5 w-5 rounded-full",
+              reached ? "bg-accent" : shortfall ? "bg-accent/30" : "bg-line",
             )}
           />
         );

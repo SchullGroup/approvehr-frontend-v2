@@ -4,6 +4,7 @@ import { Badge, Field, Select, Textarea } from "@/components/ui";
 import {
   RATING_LABELS as API_RATING_LABELS,
   RATING_MEANING as API_RATING_MEANING,
+  ratingWords,
   weightLabel,
   type ApiAppraiserContext,
   type ApiFormQuestion,
@@ -246,9 +247,9 @@ export function ReadAnswer({
 }) {
   const answer =
     question.kind === "RATING"
-      ? held.rating
-        ? `${held.rating} out of 5`
-        : null
+      ? /* The words, not the digit. See `ratingWords` — the scale the standup
+           asked for was on the picker and nowhere a mark was read back. */
+        ratingWords(held.rating ? Number(held.rating) : null)
       : question.kind === "BOOLEAN"
         ? held.bool
           ? held.bool === "yes"
