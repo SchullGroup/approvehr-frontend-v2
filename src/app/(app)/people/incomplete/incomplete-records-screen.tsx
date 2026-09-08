@@ -26,7 +26,11 @@ import {
   type PayrollGap,
 } from "@/lib/types";
 
-type Row = { employee: Employee; blocking: PayrollGap[]; advisory: PayrollGap[] };
+type Row = {
+  employee: Employee;
+  blocking: PayrollGap[];
+  advisory: PayrollGap[];
+};
 
 /**
  * Every employee with a payroll-data gap, one row each, blocking gaps first.

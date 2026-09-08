@@ -28,7 +28,9 @@ let facts: SetupFacts | null = null;
 let loading = false;
 
 vi.mock("@/lib/permissions", () => ({ useCan: () => true }));
-vi.mock("@/lib/store/session", () => ({ useSession: () => ({ tourSeen: true }) }));
+vi.mock("@/lib/store/session", () => ({
+  useSession: () => ({ tourSeen: true }),
+}));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("@/lib/store/setup-checklist", () => ({
   useSetupChecklist: () => ({ facts, loading }),

@@ -334,7 +334,11 @@ export function LeaveScreen() {
       />
 
       <PageBody className="flex flex-col gap-6">
-        <LoadFailure subject="the leave requests" error={error}  onRetry={reload}/>
+        <LoadFailure
+          subject="the leave requests"
+          error={error}
+          onRetry={reload}
+        />
 
         {noRecord && (
           <Callout tone="info" title="This account has no employee record">

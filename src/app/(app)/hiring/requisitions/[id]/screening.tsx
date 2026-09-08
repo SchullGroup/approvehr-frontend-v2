@@ -2,7 +2,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Inbox, Mail, Megaphone, Paperclip, Phone } from "lucide-react";
+import {
+  ArrowRight,
+  Inbox,
+  Mail,
+  Megaphone,
+  Paperclip,
+  Phone,
+} from "lucide-react";
 import {
   Badge,
   Button,
@@ -56,7 +63,9 @@ export function RequisitionScreening({
   requisitionId: string;
   roleName: string;
 }) {
-  return <ScreeningCard queue={useRoleQueue(requisitionId)} roleName={roleName} />;
+  return (
+    <ScreeningCard queue={useRoleQueue(requisitionId)} roleName={roleName} />
+  );
 }
 
 /**
@@ -111,7 +120,8 @@ function ScreeningCard({
             <LoadFailure
               subject="the applications for this role"
               error={queue.error}
-             onRetry={queue.reload}>
+              onRetry={queue.reload}
+            >
               <Button
                 variant="secondary"
                 size="sm"

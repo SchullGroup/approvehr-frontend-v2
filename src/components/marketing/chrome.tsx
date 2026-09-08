@@ -6,7 +6,11 @@ import { ArrowRight, ChevronDown, Menu, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Logo, LogoMark } from "@/components/brand/logo";
 import { MODULES } from "@/lib/marketing/modules";
-import { appNavLinks, internalNavLinks, newTabIfApp } from "@/lib/marketing/links";
+import {
+  appNavLinks,
+  internalNavLinks,
+  newTabIfApp,
+} from "@/lib/marketing/links";
 import { LEGAL_LINKS } from "@/lib/marketing/legal";
 import { Pill } from "./pill";
 
@@ -22,8 +26,8 @@ export function AnnouncementBar() {
   return (
     <div className="relative bg-accent px-4 py-2.5 text-center text-white">
       <p className="inline text-body-sm font-medium">
-        <span className="font-bold">First month free. Migration on us.</span>
-        {" "}Start with your full team, move your data, pay nothing until month two.
+        <span className="font-bold">First month free. Migration on us.</span>{" "}
+        Start with your full team, move your data, pay nothing until month two.
       </p>
       <Link
         href="/demo"
@@ -178,9 +182,7 @@ export function MarketingNav() {
       {/* Mobile sheet */}
       {open && (
         <div className="animate-scale-in mx-auto mt-2 max-w-5xl rounded-2xl bg-white p-3 shadow-[0_16px_40px_-12px_rgb(20_18_15/0.22)] lg:hidden">
-          <p className="px-3 pb-1.5 pt-2 text-meta text-slate-muted">
-            Product
-          </p>
+          <p className="px-3 pb-1.5 pt-2 text-meta text-slate-muted">Product</p>
           {MODULES.map((m) => (
             <Link
               key={m.id}
@@ -223,7 +225,9 @@ export function MarketingNav() {
 const FOOTER_LINKS: { heading: string; links: [string, string][] }[] = [
   {
     heading: "Product",
-    links: MODULES.map((m) => [`/product/${m.id}`, m.label] as [string, string]),
+    links: MODULES.map(
+      (m) => [`/product/${m.id}`, m.label] as [string, string],
+    ),
   },
   {
     heading: "Company",
@@ -250,8 +254,8 @@ export function MarketingFooter() {
           <div>
             <Logo size={24} className="text-slate" />
             <p className="mt-4 max-w-xs text-body-sm leading-relaxed text-slate-muted">
-              HR, payroll and hiring intelligence for Nigerian companies.
-              Built around the statutory obligations you already have.
+              HR, payroll and hiring intelligence for Nigerian companies. Built
+              around the statutory obligations you already have.
             </p>
           </div>
 

@@ -75,7 +75,12 @@ type SeedChange = {
   redacted?: boolean;
 };
 
-type SeedFact = { field: string; label: string; value: unknown; redacted?: boolean };
+type SeedFact = {
+  field: string;
+  label: string;
+  value: unknown;
+  redacted?: boolean;
+};
 
 type Seed = {
   id: string;
@@ -93,8 +98,12 @@ type Seed = {
    not fold just because everything that reads it does, and these two carry
    real-looking email addresses. */
 const NOBODY = { id: "", name: "", email: "" };
-const GRACE = DEMO_ENABLED ? { id: "u-08", name: "Grace Effiong", email: "grace.effiong@schulltech.com" } : NOBODY;
-const TUNDE = DEMO_ENABLED ? { id: "u-02", name: "Tunde Bakare", email: "tunde.bakare@schulltech.com" } : NOBODY;
+const GRACE = DEMO_ENABLED
+  ? { id: "u-08", name: "Grace Effiong", email: "grace.effiong@schulltech.com" }
+  : NOBODY;
+const TUNDE = DEMO_ENABLED
+  ? { id: "u-02", name: "Tunde Bakare", email: "tunde.bakare@schulltech.com" }
+  : NOBODY;
 const SYSTEM = { id: null, name: "System" };
 
 const person = (id: string, label: string) => ({
@@ -111,250 +120,295 @@ const person = (id: string, label: string) => ({
  * mode never calls the API with them: they are not uuids and the API is right
  * to refuse them.
  */
-const SEED: Seed[] = DEMO_ENABLED ? [
-  {
-    id: "ae-01",
-    action: "employee.updated",
-    minutesAgo: 35,
-    actor: GRACE,
-    entity: person("p-06", "Amara Nwachukwu (AHR-0502)"),
-    changes: [
+const SEED: Seed[] = DEMO_ENABLED
+  ? [
       {
-        field: "bankAccount",
-        label: "Bank account",
-        from: "[redacted]",
-        to: "[changed]",
-        redacted: true,
+        id: "ae-01",
+        action: "employee.updated",
+        minutesAgo: 35,
+        actor: GRACE,
+        entity: person("p-06", "Amara Nwachukwu (AHR-0502)"),
+        changes: [
+          {
+            field: "bankAccount",
+            label: "Bank account",
+            from: "[redacted]",
+            to: "[changed]",
+            redacted: true,
+          },
+        ],
       },
-    ],
-  },
-  {
-    id: "ae-02",
-    action: "leave_request.created",
-    minutesAgo: 95,
-    actor: { id: "u-03", name: "Chidi Nwosu", email: "chidi.nwosu@schulltech.com" },
-    entity: {
-      type: "leave_requests",
-      id: "lv-02",
-      label: "Annual leave — Chidi Nwosu",
-      noun: "leave request",
-    },
-    details: [
-      { field: "days", label: "Days", value: 2 },
-      { field: "startDate", label: "Start date", value: "2026-09-14" },
-      { field: "endDate", label: "End date", value: "2026-09-15" },
-    ],
-  },
-  {
-    id: "ae-03",
-    action: "approval.decided",
-    minutesAgo: 150,
-    actor: TUNDE,
-    entity: {
-      type: "approval_requests",
-      id: "ap-11",
-      label: "August 2026 payroll",
-      noun: "approval",
-    },
-    details: [
-      { field: "decision", label: "Decision", value: "Approved" },
-      { field: "headcount", label: "Headcount", value: 10 },
-    ],
-  },
-  {
-    id: "ae-04",
-    action: "payroll.approved",
-    minutesAgo: 165,
-    actor: TUNDE,
-    /* Deliberately as the API writes it. See the header. */
-    entity: {
-      type: "PayrollRun",
-      id: "run-2026-08",
-      label: "PayrollRun 4f21ba90",
-      noun: "PayrollRun",
-    },
-    details: [
-      { field: "settledLoanInstalments", label: "Settled loan instalments", value: 3 },
-      { field: "settledExpenseClaims", label: "Settled expense claims", value: 2 },
-    ],
-  },
-  {
-    id: "ae-05",
-    action: "employee.created",
-    minutesAgo: 1_180,
-    actor: GRACE,
-    entity: person("p-10", "Halima Sani (AHR-0388)"),
-    details: [
-      { field: "employeeNo", label: "Employee no", value: "AHR-0388" },
-      { field: "jobTitle", label: "Job title", value: "Customer Success Lead" },
-    ],
-  },
-  {
-    id: "ae-06",
-    action: "audit_log.entity_read",
-    minutesAgo: 1_240,
-    actor: GRACE,
-    entity: person("p-06", "Amara Nwachukwu (AHR-0502)"),
-    isRead: true,
-    details: [
       {
-        field: "note",
-        label: "Note",
-        value: "Someone opened the audit trail. Reads of the log are recorded.",
+        id: "ae-02",
+        action: "leave_request.created",
+        minutesAgo: 95,
+        actor: {
+          id: "u-03",
+          name: "Chidi Nwosu",
+          email: "chidi.nwosu@schulltech.com",
+        },
+        entity: {
+          type: "leave_requests",
+          id: "lv-02",
+          label: "Annual leave — Chidi Nwosu",
+          noun: "leave request",
+        },
+        details: [
+          { field: "days", label: "Days", value: 2 },
+          { field: "startDate", label: "Start date", value: "2026-09-14" },
+          { field: "endDate", label: "End date", value: "2026-09-15" },
+        ],
       },
-    ],
-  },
-  {
-    id: "ae-07",
-    action: "salary_grade.increase_applied",
-    minutesAgo: 2_900,
-    actor: TUNDE,
-    entity: {
-      type: "salary_grades",
-      id: "sg-03",
-      label: "M3 Senior Engineer",
-      noun: "salary grade",
-    },
-    details: [
-      { field: "percent", label: "Percent", value: 10 },
-      { field: "employees", label: "Employees", value: 4 },
-    ],
-  },
-  {
-    id: "ae-08",
-    action: "loan.approved",
-    minutesAgo: 3_050,
-    actor: TUNDE,
-    entity: {
-      type: "loans",
-      id: "ln-02",
-      label: "Loan — Musa Ibrahim",
-      noun: "loan",
-    },
-    details: [
-      { field: "principalKobo", label: "Principal", value: 45_000_000 },
-      { field: "months", label: "Months", value: 6 },
-    ],
-  },
-  {
-    id: "ae-09",
-    action: "employee.updated",
-    minutesAgo: 4_400,
-    actor: GRACE,
-    entity: person("p-04", "Ngozi Eze (AHR-0205)"),
-    changes: [
-      { field: "jobTitle", label: "Job title", from: "Analyst", to: "Senior Analyst" },
-      { field: "salaryGradeId", label: "Salary grade", from: "M2", to: "M3" },
-      { field: "department", label: "Department", from: "Operations", to: "Finance" },
       {
-        field: "grossMonthly",
-        label: "Gross monthly",
-        from: "[redacted]",
-        to: "[changed]",
-        redacted: true,
+        id: "ae-03",
+        action: "approval.decided",
+        minutesAgo: 150,
+        actor: TUNDE,
+        entity: {
+          type: "approval_requests",
+          id: "ap-11",
+          label: "August 2026 payroll",
+          noun: "approval",
+        },
+        details: [
+          { field: "decision", label: "Decision", value: "Approved" },
+          { field: "headcount", label: "Headcount", value: 10 },
+        ],
       },
-    ],
-  },
-  {
-    id: "ae-10",
-    action: "department.employees_assigned",
-    minutesAgo: 5_900,
-    actor: GRACE,
-    entity: {
-      type: "departments",
-      id: "d-02",
-      label: "Finance",
-      noun: "department",
-    },
-    details: [{ field: "employees", label: "Employees", value: 2 }],
-  },
-  {
-    id: "ae-11",
-    action: "role.members_added",
-    minutesAgo: 7_400,
-    actor: TUNDE,
-    entity: { type: "roles", id: "r-03", label: "Payroll officer", noun: "role" },
-    details: [{ field: "added", label: "Added", value: ["Fatima Bello"] }],
-  },
-  {
-    id: "ae-12",
-    action: "reimbursement.paid",
-    minutesAgo: 8_800,
-    actor: TUNDE,
-    entity: {
-      type: "reimbursements",
-      id: "rb-04",
-      label: "Client dinner — Fatima Bello",
-      noun: "expense claim",
-    },
-    details: [{ field: "amountKobo", label: "Amount", value: 2_850_000 }],
-  },
-  {
-    id: "ae-13",
-    action: "import_batch.applied",
-    minutesAgo: 11_600,
-    actor: GRACE,
-    entity: {
-      type: "import_batches",
-      id: "im-01",
-      label: "staff-list-august.csv",
-      noun: "import",
-    },
-    details: [
-      { field: "created", label: "Created", value: 4 },
-      { field: "updated", label: "Updated", value: 6 },
-      { field: "skipped", label: "Skipped", value: 0 },
-    ],
-  },
-  {
-    id: "ae-14",
-    action: "attendance.corrected",
-    minutesAgo: 13_000,
-    actor: GRACE,
-    entity: {
-      type: "attendance_entries",
-      id: "at-77",
-      label: "Musa Ibrahim · 2026-08-11",
-      noun: "attendance entry",
-    },
-    changes: [{ field: "clockIn", label: "Clock in", from: null, to: "08:12" }],
-    details: [
-      { field: "note", label: "Note", value: "Fingerprint reader was down at the gate." },
-    ],
-  },
-  {
-    id: "ae-15",
-    action: "user.password_reset",
-    minutesAgo: 17_500,
-    actor: SYSTEM,
-    entity: {
-      type: "users",
-      id: "u-07",
-      label: "Musa Ibrahim (musa.ibrahim@schulltech.com)",
-      noun: "user",
-    },
-  },
-  {
-    id: "ae-16",
-    action: "employee.archived",
-    minutesAgo: 20_200,
-    actor: GRACE,
-    entity: person("p-09", "Emeka Anyanwu (AHR-0758)"),
-  },
-  {
-    id: "ae-17",
-    action: "setup.features_updated",
-    minutesAgo: 29_000,
-    actor: TUNDE,
-    entity: {
-      type: "org_features",
-      id: null,
-      label: "Company setup",
-      noun: "company setup",
-    },
-    changes: [{ field: "loans", label: "Loans", from: false, to: true }],
-  },
-] : [];
+      {
+        id: "ae-04",
+        action: "payroll.approved",
+        minutesAgo: 165,
+        actor: TUNDE,
+        /* Deliberately as the API writes it. See the header. */
+        entity: {
+          type: "PayrollRun",
+          id: "run-2026-08",
+          label: "PayrollRun 4f21ba90",
+          noun: "PayrollRun",
+        },
+        details: [
+          {
+            field: "settledLoanInstalments",
+            label: "Settled loan instalments",
+            value: 3,
+          },
+          {
+            field: "settledExpenseClaims",
+            label: "Settled expense claims",
+            value: 2,
+          },
+        ],
+      },
+      {
+        id: "ae-05",
+        action: "employee.created",
+        minutesAgo: 1_180,
+        actor: GRACE,
+        entity: person("p-10", "Halima Sani (AHR-0388)"),
+        details: [
+          { field: "employeeNo", label: "Employee no", value: "AHR-0388" },
+          {
+            field: "jobTitle",
+            label: "Job title",
+            value: "Customer Success Lead",
+          },
+        ],
+      },
+      {
+        id: "ae-06",
+        action: "audit_log.entity_read",
+        minutesAgo: 1_240,
+        actor: GRACE,
+        entity: person("p-06", "Amara Nwachukwu (AHR-0502)"),
+        isRead: true,
+        details: [
+          {
+            field: "note",
+            label: "Note",
+            value:
+              "Someone opened the audit trail. Reads of the log are recorded.",
+          },
+        ],
+      },
+      {
+        id: "ae-07",
+        action: "salary_grade.increase_applied",
+        minutesAgo: 2_900,
+        actor: TUNDE,
+        entity: {
+          type: "salary_grades",
+          id: "sg-03",
+          label: "M3 Senior Engineer",
+          noun: "salary grade",
+        },
+        details: [
+          { field: "percent", label: "Percent", value: 10 },
+          { field: "employees", label: "Employees", value: 4 },
+        ],
+      },
+      {
+        id: "ae-08",
+        action: "loan.approved",
+        minutesAgo: 3_050,
+        actor: TUNDE,
+        entity: {
+          type: "loans",
+          id: "ln-02",
+          label: "Loan — Musa Ibrahim",
+          noun: "loan",
+        },
+        details: [
+          { field: "principalKobo", label: "Principal", value: 45_000_000 },
+          { field: "months", label: "Months", value: 6 },
+        ],
+      },
+      {
+        id: "ae-09",
+        action: "employee.updated",
+        minutesAgo: 4_400,
+        actor: GRACE,
+        entity: person("p-04", "Ngozi Eze (AHR-0205)"),
+        changes: [
+          {
+            field: "jobTitle",
+            label: "Job title",
+            from: "Analyst",
+            to: "Senior Analyst",
+          },
+          {
+            field: "salaryGradeId",
+            label: "Salary grade",
+            from: "M2",
+            to: "M3",
+          },
+          {
+            field: "department",
+            label: "Department",
+            from: "Operations",
+            to: "Finance",
+          },
+          {
+            field: "grossMonthly",
+            label: "Gross monthly",
+            from: "[redacted]",
+            to: "[changed]",
+            redacted: true,
+          },
+        ],
+      },
+      {
+        id: "ae-10",
+        action: "department.employees_assigned",
+        minutesAgo: 5_900,
+        actor: GRACE,
+        entity: {
+          type: "departments",
+          id: "d-02",
+          label: "Finance",
+          noun: "department",
+        },
+        details: [{ field: "employees", label: "Employees", value: 2 }],
+      },
+      {
+        id: "ae-11",
+        action: "role.members_added",
+        minutesAgo: 7_400,
+        actor: TUNDE,
+        entity: {
+          type: "roles",
+          id: "r-03",
+          label: "Payroll officer",
+          noun: "role",
+        },
+        details: [{ field: "added", label: "Added", value: ["Fatima Bello"] }],
+      },
+      {
+        id: "ae-12",
+        action: "reimbursement.paid",
+        minutesAgo: 8_800,
+        actor: TUNDE,
+        entity: {
+          type: "reimbursements",
+          id: "rb-04",
+          label: "Client dinner — Fatima Bello",
+          noun: "expense claim",
+        },
+        details: [{ field: "amountKobo", label: "Amount", value: 2_850_000 }],
+      },
+      {
+        id: "ae-13",
+        action: "import_batch.applied",
+        minutesAgo: 11_600,
+        actor: GRACE,
+        entity: {
+          type: "import_batches",
+          id: "im-01",
+          label: "staff-list-august.csv",
+          noun: "import",
+        },
+        details: [
+          { field: "created", label: "Created", value: 4 },
+          { field: "updated", label: "Updated", value: 6 },
+          { field: "skipped", label: "Skipped", value: 0 },
+        ],
+      },
+      {
+        id: "ae-14",
+        action: "attendance.corrected",
+        minutesAgo: 13_000,
+        actor: GRACE,
+        entity: {
+          type: "attendance_entries",
+          id: "at-77",
+          label: "Musa Ibrahim · 2026-08-11",
+          noun: "attendance entry",
+        },
+        changes: [
+          { field: "clockIn", label: "Clock in", from: null, to: "08:12" },
+        ],
+        details: [
+          {
+            field: "note",
+            label: "Note",
+            value: "Fingerprint reader was down at the gate.",
+          },
+        ],
+      },
+      {
+        id: "ae-15",
+        action: "user.password_reset",
+        minutesAgo: 17_500,
+        actor: SYSTEM,
+        entity: {
+          type: "users",
+          id: "u-07",
+          label: "Musa Ibrahim (musa.ibrahim@schulltech.com)",
+          noun: "user",
+        },
+      },
+      {
+        id: "ae-16",
+        action: "employee.archived",
+        minutesAgo: 20_200,
+        actor: GRACE,
+        entity: person("p-09", "Emeka Anyanwu (AHR-0758)"),
+      },
+      {
+        id: "ae-17",
+        action: "setup.features_updated",
+        minutesAgo: 29_000,
+        actor: TUNDE,
+        entity: {
+          type: "org_features",
+          id: null,
+          label: "Company setup",
+          noun: "company setup",
+        },
+        changes: [{ field: "loans", label: "Loans", from: false, to: true }],
+      },
+    ]
+  : [];
 
 const DEMO_IP = "102.89.34.17";
 const DEMO_AGENT =
@@ -414,11 +468,15 @@ const DEMO_ENTRIES: AuditEntryDetail[] = SEED.map(buildDemo);
 function inRange(iso: string, from?: string, to?: string): boolean {
   const at = new Date(iso).getTime();
   if (from && at < new Date(`${from}T00:00:00.000Z`).getTime()) return false;
-  if (to && at >= new Date(`${to}T00:00:00.000Z`).getTime() + 86_400_000) return false;
+  if (to && at >= new Date(`${to}T00:00:00.000Z`).getTime() + 86_400_000)
+    return false;
   return true;
 }
 
-function matchesDemo(entry: AuditEntryDetail, params: AuditListParams): boolean {
+function matchesDemo(
+  entry: AuditEntryDetail,
+  params: AuditListParams,
+): boolean {
   if (!params.includeReads && entry.isRead) return false;
   if (params.actorUserId === "system" && !entry.actor.isSystem) return false;
   if (
@@ -428,7 +486,8 @@ function matchesDemo(entry: AuditEntryDetail, params: AuditListParams): boolean 
   ) {
     return false;
   }
-  if (params.entityType && entry.entity.type !== params.entityType) return false;
+  if (params.entityType && entry.entity.type !== params.entityType)
+    return false;
   if (params.entityId && entry.entity.id !== params.entityId) return false;
   if (params.action) {
     const matched = params.action.endsWith(".")
@@ -503,7 +562,10 @@ export function useAuditTrail(filters: AuditListParams) {
       if (!isConnected) return;
       setLive((state) => ({ ...state, loading: true, error: null }));
       try {
-        const result = await auditApi.list({ ...filters, pageSize: limit }, signal);
+        const result = await auditApi.list(
+          { ...filters, pageSize: limit },
+          signal,
+        );
         setLive({
           rows: result.data,
           total: result.meta.total,
@@ -512,7 +574,8 @@ export function useAuditTrail(filters: AuditListParams) {
           error: null,
         });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         setLive((state) => ({
           ...state,
           loading: false,
@@ -545,7 +608,10 @@ export function useAuditTrail(filters: AuditListParams) {
      render, which would defeat every `useMemo` downstream that groups by day.
      Frozen at mount is also what the notification inbox does: relative labels
      that tick on their own are motion nobody asked for. */
-  const now = useMemo(() => (isConnected ? new Date() : DEMO_NOW), [isConnected]);
+  const now = useMemo(
+    () => (isConnected ? new Date() : DEMO_NOW),
+    [isConnected],
+  );
 
   return {
     entries: isConnected ? live.rows : demo.rows,
@@ -593,7 +659,8 @@ export function useAuditEvent(id: string | null) {
         const detail = await auditApi.get(id, controller.signal);
         if (!cancelled) setFetched({ id, detail, error: null });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
           setFetched({
             id,
@@ -610,7 +677,7 @@ export function useAuditEvent(id: string | null) {
   }, [id, isConnected, revalidation]);
 
   const demo = useMemo(
-    () => (id ? DEMO_ENTRIES.find((entry) => entry.id === id) ?? null : null),
+    () => (id ? (DEMO_ENTRIES.find((entry) => entry.id === id) ?? null) : null),
     [id],
   );
 
@@ -682,7 +749,8 @@ export function useRecordTimeline(
           error: null,
         });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         setLive((state) => ({
           ...state,
           loading: false,
@@ -712,7 +780,10 @@ export function useRecordTimeline(
     return { rows: matched.slice(0, limit), total: matched.length };
   }, [entityType, entityId, limit, includeReads]);
 
-  const now = useMemo(() => (isConnected ? new Date() : DEMO_NOW), [isConnected]);
+  const now = useMemo(
+    () => (isConnected ? new Date() : DEMO_NOW),
+    [isConnected],
+  );
 
   return {
     entries: isConnected ? live.rows : demo.rows,
@@ -745,7 +816,9 @@ export type AuditFilterOptions = {
  * the API's decision, and the reason a module shipping next month appears in
  * this filter without anybody editing the frontend.
  */
-export function useAuditFilterOptions(range: { from?: string; to?: string } = {}) {
+export function useAuditFilterOptions(
+  range: { from?: string; to?: string } = {},
+) {
   const { isConnected } = useSession();
   const { from, to } = range;
 
@@ -771,7 +844,8 @@ export function useAuditFilterOptions(range: { from?: string; to?: string } = {}
         ]);
         setState({ actors, summary, loading: false, error: null });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         setState((current) => ({
           ...current,
           loading: false,
@@ -820,7 +894,8 @@ function demoOptions(from?: string, to?: string) {
          send it; the demo always sets it below, so this only satisfies the
          compiler rather than guarding a case that happens. */
       if (!entry.isRead) existing.changes = (existing.changes ?? 0) + 1;
-      if (!existing.lastAt || entry.at > existing.lastAt) existing.lastAt = entry.at;
+      if (!existing.lastAt || entry.at > existing.lastAt)
+        existing.lastAt = entry.at;
       continue;
     }
     actors.set(key, {
@@ -836,8 +911,14 @@ function demoOptions(from?: string, to?: string) {
     });
   }
 
-  const kinds = new Map<string, { type: string; noun: string; count: number }>();
-  const byAction = new Map<string, { action: string; label: string; count: number }>();
+  const kinds = new Map<
+    string,
+    { type: string; noun: string; count: number }
+  >();
+  const byAction = new Map<
+    string,
+    { action: string; label: string; count: number }
+  >();
   for (const entry of windowed) {
     if (entry.isRead) continue;
     const kind = kinds.get(entry.entity.type);

@@ -1,7 +1,11 @@
 "use client";
 
 import { useCallback, useSyncExternalStore } from "react";
-import { LEAVE_REQUESTS, type LeaveRequest, type LeaveType } from "@/lib/mock/workflows";
+import {
+  LEAVE_REQUESTS,
+  type LeaveRequest,
+  type LeaveType,
+} from "@/lib/mock/workflows";
 import { employeeById } from "@/lib/mock/people";
 import { fullName } from "@/lib/types";
 import { useSession } from "./session";
@@ -54,11 +58,11 @@ function nextLeaveId() {
  * dependency array does not include it would otherwise notify off whichever
  * render happened to create the closure.
  */
-function baseRequestById(
-  s: LeaveState,
-  id: string,
-): LeaveRequest | undefined {
-  return LEAVE_REQUESTS.find((r) => r.id === id) ?? s.created.find((r) => r.id === id);
+function baseRequestById(s: LeaveState, id: string): LeaveRequest | undefined {
+  return (
+    LEAVE_REQUESTS.find((r) => r.id === id) ??
+    s.created.find((r) => r.id === id)
+  );
 }
 
 /** Whole days inclusive of both ends, excluding weekends and confirmed public
@@ -270,7 +274,10 @@ export function validateLeave(
   const errors: LeaveError[] = [];
 
   if (!input.employeeId) {
-    errors.push({ field: "employeeId", message: "Choose who the leave is for." });
+    errors.push({
+      field: "employeeId",
+      message: "Choose who the leave is for.",
+    });
   }
   if (!input.from) {
     errors.push({ field: "from", message: "Pick a start date." });
@@ -281,13 +288,21 @@ export function validateLeave(
 
   if (input.from && input.to) {
     if (input.to < input.from) {
-      errors.push({ field: "to", message: "The end date is before the start date." });
+      errors.push({
+        field: "to",
+        message: "The end date is before the start date.",
+      });
     } else {
       const days = precomputedDays ?? workingDaysBetween(input.from, input.to);
-      if (input.type !== "Maternity" && input.type !== "Paternity" && days > 60) {
+      if (
+        input.type !== "Maternity" &&
+        input.type !== "Paternity" &&
+        days > 60
+      ) {
         errors.push({
           field: "to",
-          message: "That is over 60 days. Split it or raise it as a sabbatical.",
+          message:
+            "That is over 60 days. Split it or raise it as a sabbatical.",
         });
       }
       if (

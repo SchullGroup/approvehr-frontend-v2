@@ -32,6 +32,7 @@ import {
   groupExceptionsByCode,
   weightLabel,
   weightProblem,
+  type ApiAppraiser,
   type ApiAppraiserEntry,
   type ApiAppraiserMapRow,
   type AppraiserRole,
@@ -258,7 +259,11 @@ export function AppraiserMapTab() {
         </div>
       </div>
 
-      <LoadFailure subject="the appraiser mapping" error={error}  onRetry={reload}/>
+      <LoadFailure
+        subject="the appraiser mapping"
+        error={error}
+        onRetry={reload}
+      />
 
       {map && (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -479,6 +484,63 @@ export function AppraiserMapTab() {
  * that would matter — appraising yourself, and dropping somebody who has
  * already sent a review.
  */
+/**
+ * How one person's mark divides across the people marking them.
+ *
+ * ## Why a bar and not three numbers
+ *
+ * The chips already say `33.34% · 33.33% · 33.33%`, and three percentages are
+ * a sum a reader has to do in their head to check they make a whole. The whole
+ * is the point: the API refuses a set that does not total exactly 10000 basis
+ * points, and this is that rule made visible. A split you can see is also a
+ * split you can argue with, which is the thing a disputed mark turns on.
+ *
+ * ## Submitted is the fill, not the width
+ *
+ * Width is the share of the mark. Fill is whether that share has actually been
+ * answered yet. So a bar that is half solid is half a mark, which is exactly
+ * what `weightedRating` divides by — see `submittedWeightBp` beside it. An
+ * outstanding share is drawn as a tint rather than left blank, because blank
+ * would read as "this share does not exist" rather than "nobody has answered
+ * it".
+ *
+ * Basis points throughout, converted to a percentage only for the width and
+ * the spoken label, so the rounding happens in one place.
+ */
+function ShareBar({ appraisers }: { appraisers: ApiAppraiser[] }) {
+  const total = appraisers.reduce((sum, one) => sum + one.weightBp, 0);
+  /* Guard a zero total rather than dividing by it: the API refuses a set that
+     does not make 10000, but this component must not be the thing that throws
+     if one ever slips through. */
+  if (total <= 0) return null;
+
+  return (
+    <span
+      className="mt-2 flex h-1.5 w-full overflow-hidden rounded-full bg-sunken"
+      role="img"
+      aria-label={appraisers
+        .map(
+          (one) =>
+            `${one.appraiserName}, ${weightLabel(one.weightBp)}, ${
+              one.submitted ? "sent" : "outstanding"
+            }`,
+        )
+        .join("; ")}
+    >
+      {appraisers.map((one) => (
+        <span
+          key={one.appraiserId}
+          className={cn(
+            "block h-full border-r border-surface last:border-r-0",
+            one.submitted ? "bg-accent" : "bg-accent-soft",
+          )}
+          style={{ width: `${String((one.weightBp / total) * 100)}%` }}
+        />
+      ))}
+    </span>
+  );
+}
+
 function PersonRow({
   row,
   people,
@@ -563,6 +625,11 @@ function PersonRow({
             ))}
           </ul>
         )}
+
+        {/* The split, as one object rather than three percentages to add up.
+            Absent for a single appraiser at 100%, because a bar with one
+            segment says nothing the chip above it does not already say. */}
+        {row.appraisers.length > 1 && <ShareBar appraisers={row.appraisers} />}
       </div>
 
       <div className="shrink-0 text-right">
@@ -686,7 +753,7 @@ export function AppraisersDialog({
           weightPct: String(one.weightBp / 100),
           note: one.note ?? "",
         }))
-        : /* The obvious starting point: their line manager, all of it. Not an
+      : /* The obvious starting point: their line manager, all of it. Not an
              empty row — the ordinary answer should need no typing.
 
              With no line manager it is still one row rather than none, and that
@@ -695,14 +762,14 @@ export function AppraisersDialog({
              whose entire purpose is to choose one. An untouched blank row is
              filtered out of `entries`, so "nobody assigned" still reads as
              nobody assigned and saving an empty set still undoes a mapping. */
-          [
-            {
-              appraiserId: row.lineManagerId ?? "",
-              role: "LINE_MANAGER" as AppraiserRole,
-              weightPct: "100",
-              note: "",
-            },
-          ],
+        [
+          {
+            appraiserId: row.lineManagerId ?? "",
+            role: "LINE_MANAGER" as AppraiserRole,
+            weightPct: "100",
+            note: "",
+          },
+        ],
   );
   const [failed, setFailed] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);

@@ -3,29 +3,48 @@
 import Link from "next/link";
 import { Badge, ButtonLink, ProgressMeter, Spinner } from "@/components/ui";
 import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
+import { cn } from "@/lib/cn";
 import {
   EXCEPTION_CODE_SUMMARY,
+  dayLabel,
   type ApiAppraiserException,
+  type ApiCycle,
   type ApiCycleReport,
+  type ReviewCycleStage,
 } from "@/lib/api/performance";
 import { useAppraiserMap, useCycleReport } from "@/lib/store/performance";
 
 /**
- * How far along the running period is, in four figures.
+ * How far along the running period is, as a rail rather than four tiles.
  *
- * ## Why this exists
+ * ## Why it is a rail
  *
- * The module opened on a list of periods, and to learn how one was *going* you
- * had to open it. So the first question anybody arrives with — "where is this up
- * to" — was answered two clicks away from the screen that asked it, and the
- * landing page was a work list with no company-wide state on it at all.
+ * The four figures were right and they did not say they were a *sequence*. Self
+ * reviews come in, then managers write theirs, then marks are made final, then
+ * people answer them — that order is the whole model, and it was being carried
+ * by a four-bullet paragraph elsewhere on the same screen explaining it in
+ * words. A rail with the live stage tinted says it in one object, which is why
+ * that paragraph is gone.
  *
- * Every figure here comes from `GET /performance/cycles/:id/report`, which
- * already returned all of them. Nothing is computed on this side, deliberately:
- * `performance-report.test.ts` asserts the identities these numbers satisfy
- * (bands sum to `scored`, `scored + unscored` is `marks.people`), and a second
- * implementation in a browser is how two screens start disagreeing about the
- * same cycle. Same rule as the distribution and the trend.
+ * ## Everybody sees the rail. Not everybody sees the figures.
+ *
+ * This used to render nothing at all without `EDIT_RECORDS`, on the correct
+ * grounds that four zeroed cells would be a claim about a company somebody is
+ * not allowed to read. But *which stage the period is in* is not that claim —
+ * it is the single most useful thing an employee can know about a period they
+ * are in, and they were being shown a work list with no idea whether anybody
+ * had started.
+ *
+ * So the two are split:
+ *
+ * | | Sees |
+ * |---|---|
+ * | Anybody in the period | the four stages, which one is live, the due date |
+ * | `EDIT_RECORDS` | that, plus every count and the exceptions |
+ *
+ * A staff member gets no numerators, no denominators and no bars — not zeroed
+ * ones. Absent, not zero, exactly as before; what changed is that the *shape*
+ * of the period was never the privileged part.
  *
  * ## The manager denominator is not the headcount
  *
@@ -36,85 +55,112 @@ import { useAppraiserMap, useCycleReport } from "@/lib/store/performance";
  * `managerIn + managerOutstanding` and never `forms.people`, which in a
  * multi-appraiser company would report the period as further along than it is.
  *
- * ## Three absences, none of them a zero
+ * ## A cell with nothing to measure yet
  *
- * - **No permission.** `useCycleReport`'s `enabled` is `EDIT_RECORDS`, asked by
- *   the caller. An employee gets no strip — not four zeroed cells, which would
- *   be a claim about a company they are not allowed to read.
- * - **Offline.** The report refuses in demo mode, for the reason
- *   `useCycleRegister` gives: every figure on it is a register row. The strip is
- *   absent and the work list underneath is untouched.
- * - **A cell with nothing to measure yet.** Sign-off before any mark is final
- *   has a denominator of zero, and "0 of 0" reads as *nobody has signed off*
- *   when the truth is *nothing is ready to be signed off*. Those are different
- *   facts, so a zero-denominator cell says which one it is and renders no bar.
- *
- * That last one is the same rule as `operates: NOT_OPERATED` on a payslip and
- * `weightedRating` being null while appraisers have not answered. Rendering 0
- * where nothing belongs is a wrong claim, not a cosmetic slip.
+ * Sign-off before any mark is final has a denominator of zero, and "0 of 0"
+ * reads as *nobody has signed off* when the truth is *nothing is ready to be
+ * signed off*. Those are different facts, so a zero-denominator segment says
+ * which one it is and renders no bar. Same rule as `operates: NOT_OPERATED` on
+ * a payslip and `weightedRating` being null while appraisers have not answered.
  */
 
-type Cell = {
+type Segment = {
+  /** Short enough for a rail segment. The long form is the cell label. */
   label: string;
+  /** The stage this segment is the work of. Null for sign-off, which follows
+      publication rather than being a stage of its own. */
+  stage: ReviewCycleStage | null;
   done: number;
   total: number;
   /** What a zero denominator means here. Never "0 of 0". */
   notYet: string;
 };
 
-function cellsFrom(report: ApiCycleReport): Cell[] {
+function segmentsFrom(report: ApiCycleReport | null): Segment[] {
   return [
     {
-      label: "Self-reviews",
-      done: report.forms.selfIn,
-      total: report.forms.people,
+      label: "Self",
+      stage: "SELF",
+      done: report?.forms.selfIn ?? 0,
+      total: report?.forms.people ?? 0,
       notYet: "Nobody has a form yet",
     },
     {
-      label: "Manager reviews",
-      done: report.forms.managerIn,
+      label: "Manager",
+      stage: "MANAGER",
+      done: report?.forms.managerIn ?? 0,
       /* Reviews, not people. See the header. */
-      total: report.forms.managerIn + report.forms.managerOutstanding,
+      total: report
+        ? report.forms.managerIn + report.forms.managerOutstanding
+        : 0,
       notYet: "No manager review is due yet",
     },
     {
       label: "Marks final",
-      done: report.marks.finalised,
-      total: report.marks.people,
+      stage: "CALIBRATION",
+      done: report?.marks.finalised ?? 0,
+      total: report?.marks.people ?? 0,
       notYet: "Nobody is in the register yet",
     },
     {
       label: "Signed off",
-      done: report.marks.acknowledged,
+      stage: "PUBLISHED",
+      done: report?.marks.acknowledged ?? 0,
       /* You can only answer a mark you have been told, so the denominator is
          what has been finalised — not the headcount. */
-      total: report.marks.finalised,
+      total: report?.marks.finalised ?? 0,
       notYet: "No mark is final yet",
     },
   ];
 }
 
-function StatusCell({ cell }: { cell: Cell }) {
-  const nothingToMeasure = cell.total === 0;
-  const complete = !nothingToMeasure && cell.done === cell.total;
+function RailSegment({
+  segment,
+  live,
+  showFigures,
+}: {
+  segment: Segment;
+  live: boolean;
+  showFigures: boolean;
+}) {
+  const nothingToMeasure = segment.total === 0;
+  const complete = !nothingToMeasure && segment.done === segment.total;
 
   return (
-    <div className="min-w-0 flex-1 basis-40 rounded-md border border-line px-3 py-2.5">
-      <p className="text-meta font-semibold text-muted">
-        {cell.label}
+    <div
+      className={cn(
+        "min-w-0 flex-1 basis-32 border-r border-line px-3 py-2.5 last:border-r-0",
+        live && "bg-accent-soft",
+      )}
+    >
+      <p
+        className={cn(
+          "truncate text-meta font-semibold",
+          live ? "text-accent-text" : "text-muted",
+        )}
+      >
+        {segment.label}
+        {live && (
+          <span className="sr-only"> — the stage this period is in</span>
+        )}
       </p>
 
-      {nothingToMeasure ? (
-        <p className="mt-1.5 text-body-sm text-muted">{cell.notYet}</p>
+      {!showFigures ? (
+        /* No numerator, no denominator, no bar. The stage names and which one
+           is live are the whole of what somebody outside the register is
+           entitled to, and they are worth having. */
+        <p className="mt-1 text-body-sm text-muted">{live ? "Now" : ""}</p>
+      ) : nothingToMeasure ? (
+        <p className="mt-1.5 text-body-sm text-muted">{segment.notYet}</p>
       ) : (
         <>
           <p className="tabular mt-1 text-body-sm font-medium text-ink">
-            {cell.done} of {cell.total}
+            {segment.done} of {segment.total}
           </p>
           <ProgressMeter
             className="mt-1.5"
-            value={cell.done}
-            max={cell.total}
+            value={segment.done}
+            max={segment.total}
             tone={complete ? "success" : "accent"}
             size="sm"
             showValue={false}
@@ -156,18 +202,20 @@ function exceptionLines(
 }
 
 export function PeriodStatus({
-  cycleId,
+  cycle,
   canSeeCompany,
 }: {
-  cycleId: string | null;
+  cycle: ApiCycle;
   canSeeCompany: boolean;
 }) {
-  const { report, loading } = useCycleReport(cycleId, canSeeCompany);
-  const appraisers = useAppraiserMap(canSeeCompany ? cycleId : null, {
+  const { report, loading } = useCycleReport(cycle.id, canSeeCompany);
+  const appraisers = useAppraiserMap(canSeeCompany ? cycle.id : null, {
     exceptionsOnly: true,
   });
 
-  if (loading) {
+  /* Only the figures wait on the request. The rail itself is drawn from the
+     cycle the caller already has, so it does not flash for anybody. */
+  if (canSeeCompany && loading) {
     return (
       <div className="flex items-center gap-2 border-t border-line px-5 py-4 text-body-sm text-muted">
         <Spinner size="sm" />
@@ -176,11 +224,12 @@ export function PeriodStatus({
     );
   }
 
-  /* Absent, not zero. No permission, no connection, or no report — the strip is
-     not here, and the work list below is unaffected. */
-  if (!report) return null;
+  /* Counts need both the permission and an answer. Without either, the rail
+     still renders — it just carries stages rather than figures. */
+  const showFigures = canSeeCompany && report !== null;
 
   const lines = exceptionLines(appraisers.map?.rows ?? []);
+  const segments = segmentsFrom(report);
 
   return (
     <div className="flex flex-col gap-3 border-t border-line px-5 py-4">
@@ -188,12 +237,10 @@ export function PeriodStatus({
           blocker nobody read — the payroll run's own discipline.
 
           A line each, not a panel. This was a tinted box with an icon, the
-          heading "Worth sorting before the period closes", the count, and a
+          heading "Worth sorting before the period closes", the count and a
           Review-and-fix button — five lines and a colour block for one fact
-          and one link, sitting above the figures somebody opened the screen
-          to read. See `NoticeLine`: a count of work on another screen is a
-          line, and the heading was the product having an opinion about a fact
-          that speaks for itself. */}
+          and one link, above the figures somebody opened the screen to read.
+          See `NoticeLine`. */}
       {lines.map((line) => (
         <NoticeLine
           key={line.code}
@@ -201,7 +248,7 @@ export function PeriodStatus({
         >
           <span>{line.text}</span>
           <Link
-            href={`/performance/periods/${report.cycleId}`}
+            href={`/performance/periods/${cycle.id}`}
             className={NOTICE_LINK}
           >
             Fix it
@@ -209,31 +256,52 @@ export function PeriodStatus({
         </NoticeLine>
       ))}
 
-      <div className="flex flex-wrap gap-2">
-        {cellsFrom(report).map((cell) => (
-          <StatusCell key={cell.label} cell={cell} />
+      <div className="flex flex-wrap overflow-hidden rounded-md border border-line">
+        {segments.map((segment) => (
+          <RailSegment
+            key={segment.label}
+            segment={segment}
+            live={segment.stage === cycle.stage}
+            showFigures={showFigures}
+          />
         ))}
       </div>
 
       <p className="flex flex-wrap items-center gap-2 text-meta text-muted">
-        <span>
-          {report.marks.people === 1
-            ? "1 person in this period"
-            : `${report.marks.people} people in this period`}
-        </span>
-        {report.marks.disputed > 0 && (
-          <Badge tone="warning" size="sm">
-            {report.marks.disputed === 1
-              ? "1 mark disputed"
-              : `${report.marks.disputed} marks disputed`}
-          </Badge>
+        {/* The stage in the API's own words, for everybody. A rail says where
+            in the sequence; this says what that stage is called. */}
+        <span>At {cycle.stageLabel}</span>
+        {cycle.dueDate && <span>· Answers due {dayLabel(cycle.dueDate)}</span>}
+
+        {showFigures && report && (
+          <>
+            <span>
+              ·{" "}
+              {report.marks.people === 1
+                ? "1 person in this period"
+                : `${report.marks.people} people in this period`}
+            </span>
+            {report.marks.disputed > 0 && (
+              <Badge tone="warning" size="sm">
+                {report.marks.disputed === 1
+                  ? "1 mark disputed"
+                  : `${report.marks.disputed} marks disputed`}
+              </Badge>
+            )}
+            <ButtonLink
+              href={`/performance/periods/${cycle.id}/report`}
+              variant="ghost"
+              size="sm"
+            >
+              See the whole report
+            </ButtonLink>
+          </>
         )}
-        <ButtonLink
-          href={`/performance/periods/${report.cycleId}/report`}
-          variant="ghost"
-          size="sm"
-        >
-          See the whole report
+
+        {/* The explanation, one link from the thing it explains, instead of
+            four bullets printed on this screen for everybody for ever. */}
+        <ButtonLink href="/performance/how-it-works" variant="ghost" size="sm">
+          How this works
         </ButtonLink>
       </p>
     </div>

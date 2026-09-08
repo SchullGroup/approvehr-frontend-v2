@@ -26,7 +26,6 @@ import {
   useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
-import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import type { ApiBenefitKind, ApiBenefitPlan } from "@/lib/api/benefits";
 import {
@@ -74,7 +73,36 @@ const thisMonth = (): string => {
   return `${String(now.getUTCFullYear())}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
 };
 
-export function BenefitsScreen() {
+/**
+ * Benefits, as a panel inside Pay setup rather than a route of its own.
+ *
+ * ## Why it lives here
+ *
+ * A benefit plan is a definition of what the company gives and what each side
+ * pays for it — which is the same kind of thing as an allowance, a deduction
+ * and a grade, and Pay setup is the screen that already answers *what pay is
+ * made of, other than salary*. It had its own sidebar item and its own route,
+ * which put one quarter of that answer somewhere else.
+ *
+ * This follows the division `pay-setup-screen.tsx` sets out and asks a fourth
+ * tab to keep: **the shell owns the heading and the route, every panel owns
+ * its own body.** So the page header, the breadcrumb and the standalone route
+ * are gone, and what was in the header moved into the panel — the "Add a
+ * benefit" button sits above the content it adds to, and Plans / Who is on
+ * what stays a `SegmentedControl` because it is a different axis from the tab
+ * strip above it: the tabs choose *which kind of pay thing*, this chooses
+ * *definitions or assignments*.
+ *
+ * ## The permission is why Pay setup now gates per tab
+ *
+ * Pay setup's floor was `VIEW_SALARIES` for the whole page. Benefits was
+ * reachable with `EDIT_RECORDS`, and deliberately so: it gates only its
+ * **cost figures** on `VIEW_SALARIES`, so somebody who enrols people without
+ * seeing what anyone earns can still work here. Folding it behind the old
+ * whole-page floor would have taken the feature away from exactly the person
+ * it was shaped for, so the shell asks per tab instead. See the note there.
+ */
+export function BenefitsPanel() {
   const canPrice = useCan("MANAGE_PAY_STRUCTURE");
   const canEnrol = useCan("EDIT_RECORDS");
   const canSeeMoney = useCan("VIEW_SALARIES");
@@ -90,36 +118,32 @@ export function BenefitsScreen() {
 
   return (
     <>
-      <PageHeader
-        breadcrumb={[{ href: "/people", label: "People" }]}
-        title="Benefits"
-        meta={
-          <span className="text-meta text-faint">
-            What the company gives beyond salary. The company&rsquo;s share and
-            the employee&rsquo;s are two different figures.
-          </span>
-        }
-        action={
-          canPrice && plans.available ? (
-            <Button size="sm" variant="accent" onClick={() => setCreating(true)}>
-              <Plus aria-hidden="true" className="size-4" />
-              Add a benefit
-            </Button>
-          ) : undefined
-        }
-        tabs={
-          <SegmentedControl
-            label="What to show"
-            value={tab}
-            onChange={(value) => setTab(value as "plans" | "people")}
-            options={[
-              { value: "plans", label: "Plans" },
-              { value: "people", label: "Who is on what" },
-            ]}
-          />
-        }
-      />
-      <PageBody>
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <SegmentedControl
+          label="What to show"
+          value={tab}
+          onChange={(value) => setTab(value as "plans" | "people")}
+          options={[
+            { value: "plans", label: "Plans" },
+            { value: "people", label: "Who is on what" },
+          ]}
+        />
+        {canPrice && plans.available && (
+          <Button size="sm" variant="accent" onClick={() => setCreating(true)}>
+            <Plus aria-hidden="true" className="size-4" />
+            Add a benefit
+          </Button>
+        )}
+      </div>
+
+      {/* The sentence that was the page header's `meta`. It is the whole reason
+          two figures are shown separately below, so it stays with them. */}
+      <p className="mb-5 text-body-sm text-muted">
+        What the company gives beyond salary. The company&rsquo;s share and the
+        employee&rsquo;s are two different figures.
+      </p>
+
+      <div>
         {!plans.available ? (
           <Callout tone="info" title="This needs the API">
             {plans.refusal}
@@ -139,12 +163,16 @@ export function BenefitsScreen() {
                 {/* Two figures, two cards, labelled apart. Never one "cost". */}
                 <Stat
                   label="Company pays a month"
-                  value={<Money amount={cost.data.employerKobo / 100} decimals />}
+                  value={
+                    <Money amount={cost.data.employerKobo / 100} decimals />
+                  }
                   hint="On top of salary. It does not reduce anyone's pay."
                 />
                 <Stat
                   label="Staff pay a month"
-                  value={<Money amount={cost.data.employeeKobo / 100} decimals />}
+                  value={
+                    <Money amount={cost.data.employeeKobo / 100} decimals />
+                  }
                   hint="Deducted on their payslips"
                 />
                 <Stat
@@ -176,7 +204,7 @@ export function BenefitsScreen() {
             )}
           </div>
         )}
-      </PageBody>
+      </div>
       {creating && (
         <PlanDialog
           preTaxNotice={notices.data?.preTax ?? null}
@@ -349,7 +377,11 @@ function People({
 
   if (read.error) {
     return (
-      <LoadFailure subject="who is on what" error={read.error} onRetry={read.reload} />
+      <LoadFailure
+        subject="who is on what"
+        error={read.error}
+        onRetry={read.reload}
+      />
     );
   }
   if (read.loading || !read.data) return <Spinner label="Loading" />;
@@ -365,7 +397,11 @@ function People({
   return (
     <div className="flex flex-col gap-4">
       {wholeMonthNotice && (
-        <Callout tone="info" title="Whole months" icon={<Info aria-hidden="true" />}>
+        <Callout
+          tone="info"
+          title="Whole months"
+          icon={<Info aria-hidden="true" />}
+        >
           {wholeMonthNotice}
         </Callout>
       )}
@@ -728,8 +764,9 @@ function EnrolDialog({
           <p className="text-meta text-faint">
             Leave it off and the plan&rsquo;s own price applies:{" "}
             <Money amount={plan.employerMonthlyKobo / 100} decimals /> from the
-            company and <Money amount={plan.employeeMonthlyKobo / 100} decimals />{" "}
-            from them.
+            company and{" "}
+            <Money amount={plan.employeeMonthlyKobo / 100} decimals /> from
+            them.
           </p>
           {priceThem && (
             <div className="grid gap-3 sm:grid-cols-2">

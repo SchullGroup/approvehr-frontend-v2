@@ -131,7 +131,11 @@ export type PermissionScope = "own" | "team" | "department" | "all";
  */
 export const PERMISSION_SHAPE: Record<
   PermissionKey,
-  { module: PermissionModule; action: PermissionAction; scope?: PermissionScope }
+  {
+    module: PermissionModule;
+    action: PermissionAction;
+    scope?: PermissionScope;
+  }
 > = {
   VIEW_SALARIES: { module: "payroll", action: "view" },
   RUN_PAYROLL: { module: "payroll", action: "run" },

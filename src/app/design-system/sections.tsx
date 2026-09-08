@@ -140,9 +140,7 @@ function Row({
 }) {
   return (
     <div>
-      <p className="mb-2.5 text-meta font-medium text-muted">
-        {label}
-      </p>
+      <p className="mb-2.5 text-meta font-medium text-muted">{label}</p>
       <div className="flex flex-wrap items-center gap-2.5">{children}</div>
     </div>
   );
@@ -264,11 +262,46 @@ export function FormsDemo() {
 /* -------------------------------------------------------------------------- */
 
 const EMPLOYEES = [
-  { id: "1", name: "Example Alpha", role: "Senior Engineer", dept: "Engineering", salary: 1_250_000, status: "active" as const },
-  { id: "2", name: "Example Bravo", role: "Finance Manager", dept: "Finance", salary: 980_000, status: "active" as const },
-  { id: "3", name: "Example Charlie", role: "Product Designer", dept: "Product", salary: 870_000, status: "leave" as const },
-  { id: "4", name: "Example Delta", role: "Operations Lead", dept: "Operations", salary: 760_000, status: "probation" as const },
-  { id: "5", name: "Example Echo", role: "People Partner", dept: "People", salary: 690_000, status: "offboarding" as const },
+  {
+    id: "1",
+    name: "Example Alpha",
+    role: "Senior Engineer",
+    dept: "Engineering",
+    salary: 1_250_000,
+    status: "active" as const,
+  },
+  {
+    id: "2",
+    name: "Example Bravo",
+    role: "Finance Manager",
+    dept: "Finance",
+    salary: 980_000,
+    status: "active" as const,
+  },
+  {
+    id: "3",
+    name: "Example Charlie",
+    role: "Product Designer",
+    dept: "Product",
+    salary: 870_000,
+    status: "leave" as const,
+  },
+  {
+    id: "4",
+    name: "Example Delta",
+    role: "Operations Lead",
+    dept: "Operations",
+    salary: 760_000,
+    status: "probation" as const,
+  },
+  {
+    id: "5",
+    name: "Example Echo",
+    role: "People Partner",
+    dept: "People",
+    salary: 690_000,
+    status: "offboarding" as const,
+  },
 ];
 
 const STATUS_MAP = {
@@ -376,10 +409,7 @@ export function ChartsDemo() {
       </Card>
 
       <Card>
-        <CardHeader
-          title="August payroll"
-          description="Where the gross went"
-        />
+        <CardHeader title="August payroll" description="Where the gross went" />
         <CardBody>
           <DonutChart
             points={payrollSplit}
@@ -567,7 +597,11 @@ export function FeedbackDemo() {
         </div>
       </Row>
 
-      <Modal open={modal} onClose={() => setModal(false)} title="Approve payroll">
+      <Modal
+        open={modal}
+        onClose={() => setModal(false)}
+        title="Approve payroll"
+      >
         <p className="text-body-sm leading-relaxed text-body">
           You are approving August payroll for 264 employees, totalling{" "}
           <Money amount={93_000_000} className="font-medium text-ink" />. Funds
@@ -614,7 +648,14 @@ export function FeedbackDemo() {
             { term: "Manager", value: "Example Bravo" },
             { term: "Gross monthly", value: <Money amount={1_250_000} /> },
             { term: "Pension PIN", value: "PEN000000000" },
-            { term: "Status", value: <Badge tone="success" dot>Active</Badge> },
+            {
+              term: "Status",
+              value: (
+                <Badge tone="success" dot>
+                  Active
+                </Badge>
+              ),
+            },
           ]}
         />
       </Drawer>
@@ -640,21 +681,26 @@ export function FeedbackDemo() {
         }
       >
         <div className="flex flex-col gap-5">
-          {["Employment", "Pay", "Statutory", "Documents", "Equipment", "Leave"].map(
-            (section) => (
-              <DrawerSection key={section} title={section}>
-                <DescriptionList
-                  layout="rows"
-                  items={[
-                    { term: "Reference", value: "AHR-0142" },
-                    { term: "Recorded", value: "12 March 2024" },
-                    { term: "Recorded by", value: "Example Bravo" },
-                    { term: "Value", value: <Money amount={1_250_000} /> },
-                  ]}
-                />
-              </DrawerSection>
-            ),
-          )}
+          {[
+            "Employment",
+            "Pay",
+            "Statutory",
+            "Documents",
+            "Equipment",
+            "Leave",
+          ].map((section) => (
+            <DrawerSection key={section} title={section}>
+              <DescriptionList
+                layout="rows"
+                items={[
+                  { term: "Reference", value: "AHR-0142" },
+                  { term: "Recorded", value: "12 March 2024" },
+                  { term: "Recorded by", value: "Example Bravo" },
+                  { term: "Value", value: <Money amount={1_250_000} /> },
+                ]}
+              />
+            </DrawerSection>
+          ))}
         </div>
       </Drawer>
 
@@ -683,9 +729,7 @@ export function NavigationDemo() {
   return (
     <div className="flex flex-col gap-7">
       <div>
-        <p className="mb-2.5 text-meta font-medium text-muted">
-          Tabs
-        </p>
+        <p className="mb-2.5 text-meta font-medium text-muted">Tabs</p>
         <Tabs
           value={tab}
           onChange={setTab}
@@ -717,9 +761,7 @@ export function NavigationDemo() {
       </div>
 
       <div>
-        <p className="mb-2.5 text-meta font-medium text-muted">
-          Stepper
-        </p>
+        <p className="mb-2.5 text-meta font-medium text-muted">Stepper</p>
         <StepIndicator
           index={2}
           furthest={3}
@@ -734,9 +776,7 @@ export function NavigationDemo() {
       </div>
 
       <div>
-        <p className="mb-2.5 text-meta font-medium text-muted">
-          Accordion
-        </p>
+        <p className="mb-2.5 text-meta font-medium text-muted">Accordion</p>
         <Accordion
           items={[
             {
@@ -765,9 +805,7 @@ export function PeopleDemo() {
     <div className="grid gap-6 lg:grid-cols-2">
       <div className="flex flex-col gap-6">
         <div>
-          <p className="mb-2.5 text-meta font-medium text-muted">
-            Avatars
-          </p>
+          <p className="mb-2.5 text-meta font-medium text-muted">Avatars</p>
           <div className="flex items-center gap-3">
             <Avatar name="Example Alpha" size="xs" />
             <Avatar name="Example Bravo" size="sm" />
@@ -777,16 +815,26 @@ export function PeopleDemo() {
         </div>
 
         <div>
-          <p className="mb-2.5 text-meta font-medium text-muted">
-            Badges
-          </p>
+          <p className="mb-2.5 text-meta font-medium text-muted">Badges</p>
           <div className="flex flex-wrap gap-2">
-            <Badge tone="neutral" dot>Draft</Badge>
-            <Badge tone="warning" dot>Pending</Badge>
-            <Badge tone="info" dot>In review</Badge>
-            <Badge tone="success" dot>Approved</Badge>
-            <Badge tone="danger" dot>Rejected</Badge>
-            <Badge tone="accent" dot>Scheduled</Badge>
+            <Badge tone="neutral" dot>
+              Draft
+            </Badge>
+            <Badge tone="warning" dot>
+              Pending
+            </Badge>
+            <Badge tone="info" dot>
+              In review
+            </Badge>
+            <Badge tone="success" dot>
+              Approved
+            </Badge>
+            <Badge tone="danger" dot>
+              Rejected
+            </Badge>
+            <Badge tone="accent" dot>
+              Scheduled
+            </Badge>
             <Badge tone="ink">Enterprise</Badge>
           </div>
         </div>
@@ -814,9 +862,7 @@ export function PeopleDemo() {
       </div>
 
       <div>
-        <p className="mb-2.5 text-meta font-medium text-muted">
-          Timeline
-        </p>
+        <p className="mb-2.5 text-meta font-medium text-muted">Timeline</p>
         <Card>
           <CardBody>
             <Timeline
@@ -865,10 +911,7 @@ export function CardsDemo() {
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       <Card>
-        <CardHeader
-          title="Basic card"
-          description="Header, body and footer"
-        />
+        <CardHeader title="Basic card" description="Header, body and footer" />
         <CardBody>
           <p className="text-body-sm leading-relaxed text-body">
             The default surface for grouped content. Hairline border, no shadow

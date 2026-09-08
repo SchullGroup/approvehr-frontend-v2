@@ -72,7 +72,9 @@ test.describe("every module opens", () => {
            navigation — which is precisely why `components/portal/theme-effect.tsx`
            exists, and that file documents it. A warning about an arrangement
            the codebase already answers is not a crash. */
-        if (/Encountered a script tag while rendering React component/.test(text)) {
+        if (
+          /Encountered a script tag while rendering React component/.test(text)
+        ) {
           return;
         }
         crashes.push(text);

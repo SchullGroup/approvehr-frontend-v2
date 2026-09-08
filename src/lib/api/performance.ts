@@ -2331,9 +2331,11 @@ export const RATING_MEANING: Record<number, string> = {
  */
 export function ratingWords(level: number | null | undefined): string | null {
   if (level === null || level === undefined) return null;
-  return RATING_LABELS[level] ?? `${level} out of ${Object.keys(RATING_LABELS).length}`;
+  return (
+    RATING_LABELS[level] ??
+    `${level} out of ${Object.keys(RATING_LABELS).length}`
+  );
 }
-
 
 /* -------------------------------------------------------------- the measures */
 

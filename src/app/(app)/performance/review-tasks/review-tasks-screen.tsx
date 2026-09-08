@@ -8,7 +8,11 @@ import { StartPeriodButton } from "../start-period";
 export function ReviewTasksScreen() {
   return (
     <>
-      <PageHeader breadcrumb={[{ href: "/performance", label: "Performance" }]} title="Review tasks" action={<StartPeriodButton withIcon />} />
+      <PageHeader
+        breadcrumb={[{ href: "/performance", label: "Performance" }]}
+        title="Review tasks"
+        action={<StartPeriodButton withIcon />}
+      />
       <PageBody>
         <ReviewTasksTab />
       </PageBody>

@@ -295,7 +295,8 @@ const listQuery = (params: TicketListParams) => ({
   assigneeId: params.assigneeId,
   /* Booleans go over as the string literals the schema's three-state flag
      parses, and only when they were actually asked for. */
-  unassigned: params.unassigned === undefined ? undefined : String(params.unassigned),
+  unassigned:
+    params.unassigned === undefined ? undefined : String(params.unassigned),
   overdue: params.overdue === undefined ? undefined : String(params.overdue),
   openOnly: params.openOnly === undefined ? undefined : String(params.openOnly),
 });
@@ -331,7 +332,10 @@ export const helpdeskApi = {
     request<ApiTicket>("/helpdesk/tickets", { method: "POST", body }),
 
   update: (id: string, body: UpdateTicketBody) =>
-    request<ApiTicketDetail>(`/helpdesk/tickets/${id}`, { method: "PATCH", body }),
+    request<ApiTicketDetail>(`/helpdesk/tickets/${id}`, {
+      method: "PATCH",
+      body,
+    }),
 
   /** `null` puts it back in the unassigned queue. */
   assign: (id: string, assigneeId: string | null) =>
@@ -510,7 +514,8 @@ export function formatWorkingMinutes(
   minutes: number,
   minutesPerDay: number = WORKING_DAY_FALLBACK.minutesPerDay,
 ): string {
-  const safeDay = minutesPerDay > 0 ? minutesPerDay : WORKING_DAY_FALLBACK.minutesPerDay;
+  const safeDay =
+    minutesPerDay > 0 ? minutesPerDay : WORKING_DAY_FALLBACK.minutesPerDay;
   const value = Math.max(0, Math.round(minutes));
 
   if (value < 1) return "under a minute";
@@ -534,7 +539,8 @@ export function responseTargetLine(
   firstResponseMinutes: number | null | undefined,
   minutesPerDay: number = WORKING_DAY_FALLBACK.minutesPerDay,
 ): string | null {
-  if (firstResponseMinutes === null || firstResponseMinutes === undefined) return null;
+  if (firstResponseMinutes === null || firstResponseMinutes === undefined)
+    return null;
   return `Usually answered within ${formatWorkingMinutes(
     firstResponseMinutes,
     minutesPerDay,
@@ -618,7 +624,12 @@ export function ticketClock(
   }
 
   if (target === null) {
-    return { state: "no_target", label: `Waiting ${waited}`, waited, against: null };
+    return {
+      state: "no_target",
+      label: `Waiting ${waited}`,
+      waited,
+      against: null,
+    };
   }
 
   const remaining = Math.max(0, target - ticket.openWorkingMinutes);

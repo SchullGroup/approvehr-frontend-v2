@@ -1340,11 +1340,7 @@ function RegisterRow({
           {row.scoreBp === null ? (
             <span className="text-meta text-muted">No mark yet</span>
           ) : (
-            <CalibrateButton
-              cycleId={cycleId}
-              row={row}
-              onChanged={onAsked}
-            />
+            <CalibrateButton cycleId={cycleId} row={row} onChanged={onAsked} />
           )}
         </TD>
       )}
@@ -1663,7 +1659,11 @@ function CalibrateButton({
               {/* Only offered where there is something to undo, and away from
                   the save button — it is the destructive half. */}
               {existing ? (
-                <Button variant="ghost" disabled={busy} onClick={() => void clear()}>
+                <Button
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={() => void clear()}
+                >
                   Put it back
                 </Button>
               ) : (
@@ -1781,9 +1781,7 @@ function RevisionButton({
   const toast = useToast();
 
   const [open, setOpen] = useState(false);
-  const [targetStage, setTargetStage] = useState<"SELF" | "MANAGER">(
-    "MANAGER",
-  );
+  const [targetStage, setTargetStage] = useState<"SELF" | "MANAGER">("MANAGER");
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);

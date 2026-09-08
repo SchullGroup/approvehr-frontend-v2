@@ -141,11 +141,7 @@ function ManagerQuestionDialog({
       }
     >
       <div className="flex flex-col gap-4">
-        <Field
-          label="The question"
-          required
-          {...(error ? { error } : {})}
-        >
+        <Field label="The question" required {...(error ? { error } : {})}>
           <Textarea
             rows={2}
             value={prompt}

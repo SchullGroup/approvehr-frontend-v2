@@ -116,7 +116,9 @@ export function ItemForm({
   const [model, setModel] = useState(item?.model ?? "");
   const [serialNumber, setSerialNumber] = useState(item?.serialNumber ?? "");
   const [purchasedOn, setPurchasedOn] = useState(item?.purchasedOn ?? "");
-  const [cost, setCost] = useState(item?.cost === null || item?.cost === undefined ? "" : String(item.cost));
+  const [cost, setCost] = useState(
+    item?.cost === null || item?.cost === undefined ? "" : String(item.cost),
+  );
   const [condition, setCondition] = useState<AssetCondition>(
     item?.condition ?? "GOOD",
   );
@@ -131,7 +133,8 @@ export function ItemForm({
   const costInvalid =
     costNumber !== null && (Number.isNaN(costNumber) || costNumber < 0);
 
-  const ready = tag.trim().length > 0 && name.trim().length >= 2 && !costInvalid;
+  const ready =
+    tag.trim().length > 0 && name.trim().length >= 2 && !costInvalid;
 
   async function submit() {
     setBusy(true);
@@ -219,7 +222,11 @@ export function ItemForm({
         )}
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Tag" required help="The label you would read off the case.">
+          <Field
+            label="Tag"
+            required
+            help="The label you would read off the case."
+          >
             <Input
               value={tag}
               autoFocus={!editing}
@@ -327,7 +334,9 @@ export function ItemForm({
                 : `${kind.name} (nobody has to hand it back)`,
             }))}
             {...(onCreateKind
-              ? { onCreate: { label: "Add a new kind", onSelect: onCreateKind } }
+              ? {
+                  onCreate: { label: "Add a new kind", onSelect: onCreateKind },
+                }
               : {})}
           />
         </Field>
@@ -420,7 +429,9 @@ export function ItemForm({
               <Field
                 optional
                 label="What it cost, in naira"
-                {...(costInvalid ? { error: "Enter a figure like 780000." } : {})}
+                {...(costInvalid
+                  ? { error: "Enter a figure like 780000." }
+                  : {})}
               >
                 <Input
                   inputMode="decimal"
@@ -434,7 +445,10 @@ export function ItemForm({
               </Field>
             </div>
 
-            <Field label="Notes" help="Where it lives, what came with it. Optional.">
+            <Field
+              label="Notes"
+              help="Where it lives, what came with it. Optional."
+            >
               <Textarea
                 rows={3}
                 value={notes}

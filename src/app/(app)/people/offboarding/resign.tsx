@@ -171,7 +171,11 @@ function ResignDialog({
   onClose,
   onDone,
 }: {
-  start: (body: { kind: "RESIGNATION"; reason: string; lastWorkingDay: string }) => Promise<string>;
+  start: (body: {
+    kind: "RESIGNATION";
+    reason: string;
+    lastWorkingDay: string;
+  }) => Promise<string>;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -258,7 +262,8 @@ function ResignDialog({
         <Field
           optional
           label="Anything you want to say"
-          help="Your manager and HR will read it.">
+          help="Your manager and HR will read it."
+        >
           <Textarea
             rows={4}
             value={note}

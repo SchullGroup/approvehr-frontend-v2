@@ -282,7 +282,9 @@ export function ApplyLoanModal({
     setFailure(null);
     try {
       const loan = await apply({
-        ...(explicitApplicant && applicantId ? { employeeId: applicantId } : {}),
+        ...(explicitApplicant && applicantId
+          ? { employeeId: applicantId }
+          : {}),
         principalKobo: priced.principalKobo,
         termMonths: months,
         ...(interestRate > 0 ? { interestRate } : {}),
@@ -392,8 +394,8 @@ export function ApplyLoanModal({
               <strong className="font-semibold">
                 {money(priced.instalmentKobo)} a month
               </strong>{" "}
-              comes out of {forSomebodyElse ? "their" : "your"} pay for{" "}
-              {months} {months === 1 ? "month" : "months"}
+              comes out of {forSomebodyElse ? "their" : "your"} pay for {months}{" "}
+              {months === 1 ? "month" : "months"}
               {/* Only when something is actually left. A deduction bigger than
                   the pay it comes out of has no "leaving about" — printing a
                   negative take-home would be arithmetic nobody can act on, and
@@ -525,7 +527,8 @@ export function ApplyLoanModal({
                 }
               >
                 <option value="0">
-                  {monthLabel(addMonths(TODAY, 0))} (this month&rsquo;s payroll)</option>
+                  {monthLabel(addMonths(TODAY, 0))} (this month&rsquo;s payroll)
+                </option>
                 <option value="1">{monthLabel(addMonths(TODAY, 1))}</option>
                 <option value="2">{monthLabel(addMonths(TODAY, 2))}</option>
               </Select>

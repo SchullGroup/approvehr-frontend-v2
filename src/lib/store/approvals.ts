@@ -50,30 +50,36 @@ export function useApprovalStore() {
     store.getServerSnapshot,
   );
 
-  const decide = useCallback((id: string, decision: Decision, note?: string) => {
-    const s = store.current();
-    store.commit({
-      decisions: {
-        ...s.decisions,
-        [id]: {
-          decision,
-          at: TODAY,
-          byId: actingId,
-          ...(note ? { note } : {}),
+  const decide = useCallback(
+    (id: string, decision: Decision, note?: string) => {
+      const s = store.current();
+      store.commit({
+        decisions: {
+          ...s.decisions,
+          [id]: {
+            decision,
+            at: TODAY,
+            byId: actingId,
+            ...(note ? { note } : {}),
+          },
         },
-      },
-    });
-  }, [actingId]);
+      });
+    },
+    [actingId],
+  );
 
-  const decideMany = useCallback((ids: string[], decision: Decision) => {
-    if (ids.length === 0) return;
-    const s = store.current();
-    const next = { ...s.decisions };
-    for (const id of ids) {
-      next[id] = { decision, at: TODAY, byId: actingId };
-    }
-    store.commit({ decisions: next });
-  }, [actingId]);
+  const decideMany = useCallback(
+    (ids: string[], decision: Decision) => {
+      if (ids.length === 0) return;
+      const s = store.current();
+      const next = { ...s.decisions };
+      for (const id of ids) {
+        next[id] = { decision, at: TODAY, byId: actingId };
+      }
+      store.commit({ decisions: next });
+    },
+    [actingId],
+  );
 
   const reopen = useCallback((id: string) => {
     const s = store.current();

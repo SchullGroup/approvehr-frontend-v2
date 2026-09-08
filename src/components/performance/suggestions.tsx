@@ -141,8 +141,7 @@ export function SuggestionPanel({
           </span>
           {/* Rule 2. Never rendered without this line. */}
           <span className="mt-0.5 block text-meta text-muted">
-            Drafted from {groundedIn.summary}.
-            {emptyHint ? ` ${emptyHint}` : ""}
+            Drafted from {groundedIn.summary}.{emptyHint ? ` ${emptyHint}` : ""}
           </span>
         </span>
         <Button type="button" variant="ghost" size="sm" onClick={onDismiss}>

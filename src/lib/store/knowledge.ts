@@ -105,7 +105,11 @@ const local = createPersistedState<LocalState>({
 
 /** Hydration-safe read. See the header of `persisted.ts` for why. */
 function useLocal(): LocalState {
-  return useSyncExternalStore(local.subscribe, local.read, local.getServerSnapshot);
+  return useSyncExternalStore(
+    local.subscribe,
+    local.read,
+    local.getServerSnapshot,
+  );
 }
 
 const voteKey = (who: string, articleId: string) => `${who}|${articleId}`;
@@ -116,11 +120,13 @@ const voteKey = (who: string, articleId: string) => `${who}|${articleId}`;
 
 type DemoSection = { id: string; name: string; slug: string };
 
-const DEMO_SECTIONS: DemoSection[] = DEMO_ENABLED ? [
-  { id: "kbc-pay", name: "Getting paid", slug: "getting-paid" },
-  { id: "kbc-time", name: "Leave", slug: "time-off" },
-  { id: "kbc-record", name: "Your record", slug: "your-record" },
-] : [];
+const DEMO_SECTIONS: DemoSection[] = DEMO_ENABLED
+  ? [
+      { id: "kbc-pay", name: "Getting paid", slug: "getting-paid" },
+      { id: "kbc-time", name: "Leave", slug: "time-off" },
+      { id: "kbc-record", name: "Your record", slug: "your-record" },
+    ]
+  : [];
 
 type DemoArticle = {
   id: string;
@@ -142,114 +148,115 @@ type DemoArticle = {
  * rows are what the editor screen exists to surface — a seed where everything
  * is fine shows an editor nothing to do.
  */
-const DEMO_ARTICLES: DemoArticle[] = DEMO_ENABLED ? [
-  {
-    id: "kba-payslip",
-    slug: "how-to-read-your-payslip",
-    title: "How to read your payslip",
-    sectionId: "kbc-pay",
-    views: 412,
-    helpful: 38,
-    notHelpful: 2,
-    published: true,
-    updated: "2026-07-14",
-    body:
-      "Your payslip has three parts.\n\n" +
-      "The top is what you earned this month: your basic pay, your housing and " +
-      "transport, and anything extra like a bonus.\n\n" +
-      "The middle is what came out: tax (PAYE), your 8% pension, and NHF if you " +
-      "are on it. Loan repayments show here too, one line each.\n\n" +
-      "The bottom line is what reaches your bank. If that number is not what you " +
-      "expected, open the payslip and compare it with last month: the line that " +
-      "changed is nearly always the answer. If you still cannot see why, ask " +
-      "whoever runs payroll and give them the month.",
-  },
-  {
-    id: "kba-part-month",
-    slug: "when-you-get-paid",
-    title: "When you get paid, and what a part month looks like",
-    sectionId: "kbc-pay",
-    views: 231,
-    helpful: 19,
-    notHelpful: 1,
-    published: true,
-    updated: "2026-06-28",
-    body:
-      "Pay lands on the last working day of the month.\n\n" +
-      "If you started or left partway through a month, you are paid for the days " +
-      "you worked out of the working days in that month. Twelve days out of " +
-      "twenty-two is twelve twenty-seconds of your normal pay, and every " +
-      "deduction is worked out on that smaller figure, not the full one.\n\n" +
-      "Weekends and public holidays are not working days, so they are not counted " +
-      "against you.",
-  },
-  {
-    id: "kba-pension",
-    slug: "changing-your-pension-provider",
-    title: "Changing your pension provider",
-    sectionId: "kbc-pay",
-    views: 173,
-    helpful: 4,
-    notHelpful: 9,
-    published: true,
-    updated: "2026-03-02",
-    body:
-      "You can move your pension to another PFA once a year.\n\n" +
-      "Open the transfer with the PFA you are moving to. They handle it with " +
-      "PenCom. When it is done, send us the new PFA name and your PIN so the next " +
-      "payroll pays into the right place.\n\n" +
-      "Your PIN does not change when you switch provider.",
-  },
-  {
-    id: "kba-leave",
-    slug: "booking-time-off",
-    title: "Booking time off",
-    sectionId: "kbc-time",
-    views: 288,
-    helpful: 26,
-    notHelpful: 3,
-    published: true,
-    updated: "2026-08-04",
-    body:
-      "Ask for the days in the app. Your manager gets it straight away and you " +
-      "get an answer in the same place.\n\n" +
-      "Two things worth knowing. Days you have not earned yet cannot be booked: " +
-      "the balance on the screen is what you actually have. And a day you take " +
-      "without an approved request behind it is an unpaid day, which comes off " +
-      "that month's pay.\n\n" +
-      "If you were ill and could not ask first, file it when you are back and say " +
-      "so in the note.",
-  },
-  {
-    id: "kba-letter",
-    slug: "asking-for-a-confirmation-letter",
-    title: "Asking for a letter confirming your job",
-    sectionId: "kbc-record",
-    views: 96,
-    helpful: 11,
-    notHelpful: 0,
-    published: true,
-    updated: "2026-05-19",
-    body:
-      "Banks and landlords usually want a letter saying what you do here and what " +
-      "you earn.\n\n" +
-      "Ask whoever keeps the records and say who the letter is for and whether it " +
-      "needs your salary in it. Most are ready the same week.",
-  },
-  {
-    id: "kba-holidays",
-    slug: "public-holidays-2027",
-    title: "Public holidays 2027",
-    sectionId: "kbc-time",
-    views: 0,
-    helpful: 0,
-    notHelpful: 0,
-    published: false,
-    updated: "2026-08-18",
-    body:
-      "Draft. The 2027 dates are not gazetted yet: this goes live when they are.",
-  },
-] : [];
+const DEMO_ARTICLES: DemoArticle[] = DEMO_ENABLED
+  ? [
+      {
+        id: "kba-payslip",
+        slug: "how-to-read-your-payslip",
+        title: "How to read your payslip",
+        sectionId: "kbc-pay",
+        views: 412,
+        helpful: 38,
+        notHelpful: 2,
+        published: true,
+        updated: "2026-07-14",
+        body:
+          "Your payslip has three parts.\n\n" +
+          "The top is what you earned this month: your basic pay, your housing and " +
+          "transport, and anything extra like a bonus.\n\n" +
+          "The middle is what came out: tax (PAYE), your 8% pension, and NHF if you " +
+          "are on it. Loan repayments show here too, one line each.\n\n" +
+          "The bottom line is what reaches your bank. If that number is not what you " +
+          "expected, open the payslip and compare it with last month: the line that " +
+          "changed is nearly always the answer. If you still cannot see why, ask " +
+          "whoever runs payroll and give them the month.",
+      },
+      {
+        id: "kba-part-month",
+        slug: "when-you-get-paid",
+        title: "When you get paid, and what a part month looks like",
+        sectionId: "kbc-pay",
+        views: 231,
+        helpful: 19,
+        notHelpful: 1,
+        published: true,
+        updated: "2026-06-28",
+        body:
+          "Pay lands on the last working day of the month.\n\n" +
+          "If you started or left partway through a month, you are paid for the days " +
+          "you worked out of the working days in that month. Twelve days out of " +
+          "twenty-two is twelve twenty-seconds of your normal pay, and every " +
+          "deduction is worked out on that smaller figure, not the full one.\n\n" +
+          "Weekends and public holidays are not working days, so they are not counted " +
+          "against you.",
+      },
+      {
+        id: "kba-pension",
+        slug: "changing-your-pension-provider",
+        title: "Changing your pension provider",
+        sectionId: "kbc-pay",
+        views: 173,
+        helpful: 4,
+        notHelpful: 9,
+        published: true,
+        updated: "2026-03-02",
+        body:
+          "You can move your pension to another PFA once a year.\n\n" +
+          "Open the transfer with the PFA you are moving to. They handle it with " +
+          "PenCom. When it is done, send us the new PFA name and your PIN so the next " +
+          "payroll pays into the right place.\n\n" +
+          "Your PIN does not change when you switch provider.",
+      },
+      {
+        id: "kba-leave",
+        slug: "booking-time-off",
+        title: "Booking time off",
+        sectionId: "kbc-time",
+        views: 288,
+        helpful: 26,
+        notHelpful: 3,
+        published: true,
+        updated: "2026-08-04",
+        body:
+          "Ask for the days in the app. Your manager gets it straight away and you " +
+          "get an answer in the same place.\n\n" +
+          "Two things worth knowing. Days you have not earned yet cannot be booked: " +
+          "the balance on the screen is what you actually have. And a day you take " +
+          "without an approved request behind it is an unpaid day, which comes off " +
+          "that month's pay.\n\n" +
+          "If you were ill and could not ask first, file it when you are back and say " +
+          "so in the note.",
+      },
+      {
+        id: "kba-letter",
+        slug: "asking-for-a-confirmation-letter",
+        title: "Asking for a letter confirming your job",
+        sectionId: "kbc-record",
+        views: 96,
+        helpful: 11,
+        notHelpful: 0,
+        published: true,
+        updated: "2026-05-19",
+        body:
+          "Banks and landlords usually want a letter saying what you do here and what " +
+          "you earn.\n\n" +
+          "Ask whoever keeps the records and say who the letter is for and whether it " +
+          "needs your salary in it. Most are ready the same week.",
+      },
+      {
+        id: "kba-holidays",
+        slug: "public-holidays-2027",
+        title: "Public holidays 2027",
+        sectionId: "kbc-time",
+        views: 0,
+        helpful: 0,
+        notHelpful: 0,
+        published: false,
+        updated: "2026-08-18",
+        body: "Draft. The 2027 dates are not gazetted yet: this goes live when they are.",
+      },
+    ]
+  : [];
 
 /**
  * Four questions the demo knowledge base cannot answer.
@@ -258,7 +265,10 @@ const DEMO_ARTICLES: DemoArticle[] = DEMO_ENABLED ? [
  * the editorial backlog is the screen worth having, and it only reads as one
  * with rows in it. Your own failed searches join this list as you make them.
  */
-const DEMO_MISSES: Record<string, { searches: number; lastSearchedAt: string }> = {
+const DEMO_MISSES: Record<
+  string,
+  { searches: number; lastSearchedAt: string }
+> = {
   "how do i change my bank account": {
     searches: 14,
     lastSearchedAt: "2026-08-19T10:12:00.000Z",
@@ -428,11 +438,17 @@ export function useKbCategories() {
         if (!cancelled) setFetched({ ...result, error: null });
       } catch (error) {
         if (cancelled) return;
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         setFetched({
           tree: [],
           flat: [],
-          counts: { categories: 0, articles: 0, published: 0, uncategorised: 0 },
+          counts: {
+            categories: 0,
+            articles: 0,
+            published: 0,
+            uncategorised: 0,
+          },
           error: error instanceof ApiError ? error : null,
         });
       }
@@ -565,7 +581,8 @@ export function useKbArticles(params: KbArticleListParams = {}) {
         }
       } catch (error) {
         if (cancelled) return;
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         setFetched({
           key,
           articles: [],
@@ -591,7 +608,8 @@ export function useKbArticles(params: KbArticleListParams = {}) {
     const rows = DEMO_ARTICLES.filter((row) => {
       if (parsed.status === "published" && !row.published) return false;
       if (parsed.status === "draft" && row.published) return false;
-      if (parsed.categoryId && row.sectionId !== parsed.categoryId) return false;
+      if (parsed.categoryId && row.sectionId !== parsed.categoryId)
+        return false;
       if (parsed.uncategorised && row.sectionId !== null) return false;
       if (needle && !row.title.toLowerCase().includes(needle)) return false;
       return true;
@@ -722,9 +740,10 @@ export function useKbArticle(idOrSlug: string | null) {
     notHelpful: number;
     helpfulness: number | null;
   } | null>(null);
-  const [refused, setRefused] = useState<{ key: string; message: string } | null>(
-    null,
-  );
+  const [refused, setRefused] = useState<{
+    key: string;
+    message: string;
+  } | null>(null);
 
   /* Re-ask when somebody comes back to the window. Not in the key below,
      so the answer is replaced without the screen flashing a skeleton. */
@@ -739,7 +758,8 @@ export function useKbArticle(idOrSlug: string | null) {
         if (!cancelled) setFetched({ key: idOrSlug, article, error: null });
       } catch (error) {
         if (cancelled) return;
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         setFetched({
           key: idOrSlug,
           article: null,
@@ -756,11 +776,13 @@ export function useKbArticle(idOrSlug: string | null) {
   const demoRow = useMemo(() => {
     if (isConnected || !idOrSlug) return null;
     return (
-      DEMO_ARTICLES.find((a) => a.slug === idOrSlug || a.id === idOrSlug) ?? null
+      DEMO_ARTICLES.find((a) => a.slug === idOrSlug || a.id === idOrSlug) ??
+      null
     );
   }, [isConnected, idOrSlug]);
 
-  const matched = idOrSlug !== null && fetched !== null && fetched.key === idOrSlug;
+  const matched =
+    idOrSlug !== null && fetched !== null && fetched.key === idOrSlug;
 
   /**
    * The article's real id, whatever the URL used to reach it.
@@ -995,7 +1017,8 @@ export function useKbSearch({ pageSize = 8, minLength = 2 } = {}) {
           }
         } catch (error) {
           if (cancelled) return;
-          if (error instanceof DOMException && error.name === "AbortError") return;
+          if (error instanceof DOMException && error.name === "AbortError")
+            return;
           setResult({
             term,
             hits: [],
@@ -1085,7 +1108,8 @@ export function useKbAnalytics() {
         if (!cancelled) setFetched({ analytics, error: null });
       } catch (error) {
         if (cancelled) return;
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         setFetched({
           analytics: null,
           error: error instanceof ApiError ? error : null,
@@ -1110,7 +1134,10 @@ export function useKbAnalytics() {
         drafts: DEMO_ARTICLES.length - published.length,
         categories: DEMO_SECTIONS.length,
         views: DEMO_ARTICLES.reduce((sum, a) => sum + a.views, 0),
-        votes: DEMO_ARTICLES.reduce((sum, a) => sum + a.helpful + a.notHelpful, 0),
+        votes: DEMO_ARTICLES.reduce(
+          (sum, a) => sum + a.helpful + a.notHelpful,
+          0,
+        ),
         neverRead: published.filter((a) => a.views === 0).length,
       },
       mostViewed: rows
@@ -1129,15 +1156,17 @@ export function useKbAnalytics() {
         .filter((row) => row.notHelpful > 0)
         .sort((a, b) => b.notHelpful - a.notHelpful)
         .slice(0, 10)
-        .map(({ id, slug, title, views, helpful, notHelpful, helpfulness }) => ({
-          id,
-          slug,
-          title,
-          views,
-          helpful,
-          notHelpful,
-          helpfulness,
-        })),
+        .map(
+          ({ id, slug, title, views, helpful, notHelpful, helpfulness }) => ({
+            id,
+            slug,
+            title,
+            views,
+            helpful,
+            notHelpful,
+            helpfulness,
+          }),
+        ),
       unansweredSearches: Object.entries(misses)
         .map(([term, miss]) => ({
           term,

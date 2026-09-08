@@ -51,7 +51,10 @@ export const RATING_LABELS: Record<string, string> = Object.fromEntries(
 
 /** The sentence under each option. See `RATING_MEANING`'s note. */
 export const RATING_MEANINGS: Record<string, string> = Object.fromEntries(
-  Object.entries(API_RATING_MEANING).map(([level, meaning]) => [level, meaning]),
+  Object.entries(API_RATING_MEANING).map(([level, meaning]) => [
+    level,
+    meaning,
+  ]),
 );
 
 export const RATING_OPTIONS = ["1", "2", "3", "4", "5"] as const;

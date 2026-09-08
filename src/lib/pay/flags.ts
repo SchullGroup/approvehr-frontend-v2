@@ -126,16 +126,24 @@ export function applyModeChip(applyMode: PayComponentApplyMode): FlagChip {
  * there is nothing wrong to default it to.
  */
 export function flagChips(
-  component: Pick<ApiPayComponent, "kind" | "taxable" | "pensionable" | "preTax"> & {
+  component: Pick<
+    ApiPayComponent,
+    "kind" | "taxable" | "pensionable" | "preTax"
+  > & {
     applyMode?: PayComponentApplyMode;
   },
   rates: { employeeRate: number; employerRate: number },
 ): FlagChip[] {
   return [
     ...(component.kind === "ALLOWANCE"
-      ? [taxableChip(component.taxable), pensionChip(component.pensionable, rates)]
+      ? [
+          taxableChip(component.taxable),
+          pensionChip(component.pensionable, rates),
+        ]
       : [preTaxChip(component.preTax)]),
-    ...(component.applyMode === undefined ? [] : [applyModeChip(component.applyMode)]),
+    ...(component.applyMode === undefined
+      ? []
+      : [applyModeChip(component.applyMode)]),
   ];
 }
 

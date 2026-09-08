@@ -106,7 +106,9 @@ function compare(
  */
 function checkShape(): void {
   checks += 1;
-  const levels = Object.keys(RATING_LABELS).map(Number).sort((a, b) => a - b);
+  const levels = Object.keys(RATING_LABELS)
+    .map(Number)
+    .sort((a, b) => a - b);
   if (levels.join(",") !== "1,2,3,4,5") {
     failures += 1;
     console.log(`  FAIL  the scale is not 1–5: ${levels.join(", ")}`);
@@ -147,7 +149,10 @@ function checkShape(): void {
  * *continuation* lines of a block comment start with neither `*` nor `/`, so a
  * leading-marker test is not a comment test.
  */
-const SCREENS = path.resolve(import.meta.dirname, "../src/app/(app)/performance");
+const SCREENS = path.resolve(
+  import.meta.dirname,
+  "../src/app/(app)/performance",
+);
 const BANNED = /\bout of (?:5|five)\b/i;
 const ESCAPE = "rating-scale-prose";
 
@@ -198,8 +203,14 @@ function checkNoBareNumbers(): void {
     code.forEach((line, index) => {
       if (!BANNED.test(line)) return;
       /* An average of ordinal words has no word, and says so on its own line. */
-      if ((raw[index - 1] ?? "").includes(ESCAPE) || raw[index].includes(ESCAPE)) return;
-      found.push(`${path.relative(SCREENS, file)}:${index + 1}  ${line.trim()}`);
+      if (
+        (raw[index - 1] ?? "").includes(ESCAPE) ||
+        raw[index].includes(ESCAPE)
+      )
+        return;
+      found.push(
+        `${path.relative(SCREENS, file)}:${index + 1}  ${line.trim()}`,
+      );
     });
   }
 
@@ -213,7 +224,9 @@ function checkNoBareNumbers(): void {
     for (const line of found) console.log(`        ${line}`);
     return;
   }
-  console.log("  ok    every mark in the appraisal screens is read back in words");
+  console.log(
+    "  ok    every mark in the appraisal screens is read back in words",
+  );
 }
 
 checkShape();
@@ -226,7 +239,11 @@ if (!existsSync(SOURCE)) {
 } else {
   const source = readFileSync(SOURCE, "utf8");
   compare("RATING_LABELS", RATING_LABELS, recordFrom(source, "RATING_LABELS"));
-  compare("RATING_MEANING", RATING_MEANING, recordFrom(source, "RATING_MEANING"));
+  compare(
+    "RATING_MEANING",
+    RATING_MEANING,
+    recordFrom(source, "RATING_MEANING"),
+  );
 }
 
 if (failures > 0) {

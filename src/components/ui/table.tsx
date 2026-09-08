@@ -110,12 +110,18 @@ export function SortableTH({
   children?: React.ReactNode;
 }) {
   const sorted = active === column;
-  const Arrow = !sorted ? ChevronsUpDown : order === "asc" ? ArrowUp : ArrowDown;
+  const Arrow = !sorted
+    ? ChevronsUpDown
+    : order === "asc"
+      ? ArrowUp
+      : ArrowDown;
 
   return (
     <th
       scope="col"
-      aria-sort={sorted ? (order === "asc" ? "ascending" : "descending") : "none"}
+      aria-sort={
+        sorted ? (order === "asc" ? "ascending" : "descending") : "none"
+      }
       className={cn(
         "px-4 py-3 text-meta font-semibold text-muted whitespace-nowrap",
         align === "right" && "text-right",
@@ -250,9 +256,7 @@ export function TDPrimary({
     >
       <span className="block text-body-sm font-medium text-ink">{title}</span>
       {subtitle && (
-        <span className="mt-0.5 block text-meta text-muted">
-          {subtitle}
-        </span>
+        <span className="mt-0.5 block text-meta text-muted">{subtitle}</span>
       )}
     </th>
   );

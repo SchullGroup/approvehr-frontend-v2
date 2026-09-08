@@ -428,10 +428,7 @@ export function AssignPatternModal({
               {preview.map((day) => {
                 const colour = colourFor(colours, day.shiftId);
                 return (
-                  <li
-                    key={day.date}
-                    className="w-13 shrink-0 text-center"
-                  >
+                  <li key={day.date} className="w-13 shrink-0 text-center">
                     <span className="block text-meta text-muted">
                       {dayAbbrev(day.date)}
                     </span>

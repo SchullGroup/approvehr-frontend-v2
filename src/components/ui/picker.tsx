@@ -146,14 +146,11 @@ export function Picker({
 
   const chosen = options.find((o) => o.value === value) ?? null;
 
-  const close = useCallback(
-    (refocus = true) => {
-      setOpen(false);
-      setQuery("");
-      if (refocus) triggerRef.current?.focus();
-    },
-    [],
-  );
+  const close = useCallback((refocus = true) => {
+    setOpen(false);
+    setQuery("");
+    if (refocus) triggerRef.current?.focus();
+  }, []);
 
   const openList = useCallback(() => {
     if (disabled) return;
@@ -253,10 +250,18 @@ export function Picker({
   };
 
   const activeId =
-    active === -1 ? `${baseId}-create` : shown[active] ? `${baseId}-o${active}` : undefined;
+    active === -1
+      ? `${baseId}-create`
+      : shown[active]
+        ? `${baseId}-o${active}`
+        : undefined;
 
   return (
-    <div ref={wrapRef} className={cn("relative", className)} onBlurCapture={onBlurCapture}>
+    <div
+      ref={wrapRef}
+      className={cn("relative", className)}
+      onBlurCapture={onBlurCapture}
+    >
       <button
         ref={triggerRef}
         type="button"
@@ -420,7 +425,9 @@ export function Picker({
       {/* Announced politely so a screen-reader user hears the list shrink as
           they type, which a visual user can simply see. */}
       <span aria-live="polite" className="sr-only">
-        {open ? `${shown.length} ${shown.length === 1 ? "option" : "options"}` : ""}
+        {open
+          ? `${shown.length} ${shown.length === 1 ? "option" : "options"}`
+          : ""}
       </span>
     </div>
   );

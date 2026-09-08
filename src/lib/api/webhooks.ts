@@ -332,11 +332,15 @@ export const webhooksApi = {
 
   /** A new secret. The old one stops verifying the moment this returns. */
   rotateSecret: (id: string): Promise<ApiRotateResult> =>
-    request<ApiRotateResult>(`/webhooks/${id}/rotate-secret`, { method: "POST" }),
+    request<ApiRotateResult>(`/webhooks/${id}/rotate-secret`, {
+      method: "POST",
+    }),
 
   /** Events, sample payloads, the signature construction and the retry schedule. */
   catalogue: (signal?: AbortSignal): Promise<ApiCatalogue> =>
-    request<ApiCatalogue>("/webhooks/events", { ...(signal ? { signal } : {}) }),
+    request<ApiCatalogue>("/webhooks/events", {
+      ...(signal ? { signal } : {}),
+    }),
 };
 
 /* -------------------------------------------------------------- money seam */
@@ -366,7 +370,11 @@ export type KoboField = {
  * there is no schema for arbitrary payload JSON. Depth-capped for the same
  * reason the API's `redact()` is: a payload should not be able to spin a render.
  */
-export function koboFields(value: unknown, prefix = "", depth = 0): KoboField[] {
+export function koboFields(
+  value: unknown,
+  prefix = "",
+  depth = 0,
+): KoboField[] {
   if (depth > 8 || value === null || typeof value !== "object") return [];
 
   const found: KoboField[] = [];
@@ -424,4 +432,5 @@ export function retryWindowLabel(backoffMinutes: number[]): string {
 }
 
 /** Pretty-printed JSON, for a payload block. Two spaces, like the API's own docs. */
-export const asJson = (value: unknown): string => JSON.stringify(value, null, 2);
+export const asJson = (value: unknown): string =>
+  JSON.stringify(value, null, 2);

@@ -55,11 +55,7 @@ import { request, requestPaged, type Paged } from "@/lib/api/client";
 
 /** Where the thing is. `ASSIGNED` is derived, never sent. */
 export type AssetStatus =
-  | "AVAILABLE"
-  | "ASSIGNED"
-  | "IN_REPAIR"
-  | "RETIRED"
-  | "LOST";
+  "AVAILABLE" | "ASSIGNED" | "IN_REPAIR" | "RETIRED" | "LOST";
 
 /** What a person may set directly. `ASSIGNED` is deliberately absent. */
 export type SettableStatus = Exclude<AssetStatus, "ASSIGNED">;
@@ -315,7 +311,8 @@ export type AssetListParams = {
   includeArchived?: boolean;
   /** Covers tag, name, serial, make and model. */
   q?: string;
-  sort?: "tag" | "name" | "status" | "purchasedOn" | "purchaseCost" | "createdAt";
+  sort?:
+    "tag" | "name" | "status" | "purchasedOn" | "purchaseCost" | "createdAt";
   order?: "asc" | "desc";
 };
 

@@ -3,7 +3,8 @@ import { ResetPasswordScreen } from "./reset-password-screen";
 
 export const metadata: Metadata = {
   title: "Choose a new password",
-  description: "Set a new ApproveHR password using the link sent to your email.",
+  description:
+    "Set a new ApproveHR password using the link sent to your email.",
   /* The URL carries a one-time credential. Keeping it out of search indexes and
      out of the referrer of anything this page links to is the cheap half of not
      leaking it; the API expiring it in an hour and refusing a second use is the

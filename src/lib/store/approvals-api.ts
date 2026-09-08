@@ -2,7 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError } from "@/lib/api/client";
-import { approvalsApi, type ApprovalListParams, type ApprovalRow } from "@/lib/api/approvals";
+import {
+  approvalsApi,
+  type ApprovalListParams,
+  type ApprovalRow,
+} from "@/lib/api/approvals";
 import type { ApprovalKind } from "@/lib/mock/workflows";
 import {
   buildApprovalQueue,
@@ -213,7 +217,10 @@ export function useApprovalQueue(filter: QueueFilter = "all"): QueueState {
         : decidedItems({
             leaveRequests: leave.requests,
             decisions: approvals.decisions,
-          }).map(({ item, decision }) => ({ item: toQueueItem(item), decision })),
+          }).map(({ item, decision }) => ({
+            item: toQueueItem(item),
+            decision,
+          })),
     [isConnected, leave.requests, approvals.decisions],
   );
 
@@ -380,7 +387,8 @@ export function useSentApprovals(): SentApprovalsState {
     approvalsApi
       .sentByMe({ pageSize: 100 })
       .then((result) => {
-        if (!cancelled) setState({ rows: result.rows, loading: false, error: null });
+        if (!cancelled)
+          setState({ rows: result.rows, loading: false, error: null });
       })
       .catch((failure: unknown) => {
         if (!cancelled) {

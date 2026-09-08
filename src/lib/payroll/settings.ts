@@ -177,7 +177,10 @@ export function validateSettings(s: PayrollSettings): SettingsIssue[] {
     issues.push({ field: "nhf.rate", message: "NHF rate cannot be negative." });
   }
 
-  if (s.exceptions.netSwingThreshold <= 0 || s.exceptions.netSwingThreshold > 5) {
+  if (
+    s.exceptions.netSwingThreshold <= 0 ||
+    s.exceptions.netSwingThreshold > 5
+  ) {
     issues.push({
       field: "exceptions.netSwingThreshold",
       message: "Swing threshold must be between 1% and 500%.",

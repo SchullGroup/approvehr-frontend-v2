@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { FileQuestion, ShieldCheck } from "lucide-react";
+import { FileQuestion, LineChart, ShieldCheck } from "lucide-react";
 import {
   Badge,
   Button,
+  ButtonLink,
   Card,
   CardBody,
   CardFooter,
@@ -206,6 +207,22 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
               </Badge>
             )}
           </>
+        }
+        /* One mark is not a judgement about somebody — it is one point on a
+           line, and the line already exists and is already permissioned
+           (`assertSeesEmployee`: self, direct report, or `EDIT_RECORDS`). The
+           register row and the record page both link to it; the screen where
+           somebody is actually deciding a rating was the one place that did
+           not, which is exactly where the previous periods matter most. */
+        action={
+          <ButtonLink
+            href={`/performance/history/${review.subjectId}`}
+            variant="secondary"
+            size="sm"
+          >
+            <LineChart aria-hidden="true" className="size-3.5" />
+            {isSubject ? "My previous marks" : "Previous marks"}
+          </ButtonLink>
         }
       />
 
@@ -764,7 +781,10 @@ function ScorePanel({
                 : "Scored on the company's weights as they stand today. This period never locked in its own copy, so changing the company's weights would recalculate this mark too, even though it has already been given."}
             </p>
             <p className="flex items-start gap-2 text-muted">
-              <ShieldCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+              <ShieldCheck
+                aria-hidden="true"
+                className="mt-0.5 size-4 shrink-0"
+              />
               <span>
                 Every figure here is a whole number of basis points, so{" "}
                 {subjectName}&apos;s mark reproduces exactly. A score assembled
@@ -814,12 +834,14 @@ function ComponentRow({ component }: { component: ApiComponentScore }) {
           because that is different every time; and nothing where the weight it
           carried is the weight the company set, because the badge said it. */}
       {component.excludedNote ? (
-        <p className="mt-1.5 text-body-sm text-body">{component.excludedNote}</p>
+        <p className="mt-1.5 text-body-sm text-body">
+          {component.excludedNote}
+        </p>
       ) : component.effectiveWeightBp !== component.weightBp ? (
         <p className="mt-1.5 text-body-sm text-body">
           Set at {weightLabel(component.weightBp)} by the company, carried{" "}
-          {weightLabel(component.effectiveWeightBp)} here because components with
-          no data were left out.
+          {weightLabel(component.effectiveWeightBp)} here because components
+          with no data were left out.
         </p>
       ) : null}
 

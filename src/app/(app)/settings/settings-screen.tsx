@@ -391,10 +391,10 @@ export function SettingsScreen() {
             ) : undefined
           }
           hint={
-            loading
-              ? "Reading what is set up."
-              : complete
-                ? /* The collapsed line is the only thing a finished company
+            loading ? (
+              "Reading what is set up."
+            ) : complete ? (
+              /* The collapsed line is the only thing a finished company
                      reads — the rows below it are behind a closed reveal. So
                      anything still worth doing has to be said here or it is
                      said nowhere, which is exactly how the logo upload stayed
@@ -406,25 +406,26 @@ export function SettingsScreen() {
                      times where to upload a company logo, having read this
                      exact line. Naming a gap without a route to it is half a
                      job, and the missing half is the one that costs the time. */
-                  facts && !facts.company.logo
-                  ? (
-                      <>
-                        Everything a payroll needs is in place. No logo yet: it
-                        goes on every payslip and on the emails the platform
-                        sends.{" "}
-                        <Link
-                          href="/settings/company"
-                          className="font-medium text-accent-text underline-offset-2 hover:underline"
-                        >
-                          Add one
-                        </Link>
-                        .
-                      </>
-                    )
-                  : "Everything a payroll needs is in place."
-                : progress.outstanding.length > 0
-                  ? `Outstanding: ${progress.outstanding.map((row) => row.title).join(", ")}.`
-                  : "Seven things decide how the product behaves."
+              facts && !facts.company.logo ? (
+                <>
+                  Everything a payroll needs is in place. No logo yet: it goes
+                  on every payslip and on the emails the platform sends.{" "}
+                  <Link
+                    href="/settings/company"
+                    className="font-medium text-accent-text underline-offset-2 hover:underline"
+                  >
+                    Add one
+                  </Link>
+                  .
+                </>
+              ) : (
+                "Everything a payroll needs is in place."
+              )
+            ) : progress.outstanding.length > 0 ? (
+              `Outstanding: ${progress.outstanding.map((row) => row.title).join(", ")}.`
+            ) : (
+              "Seven things decide how the product behaves."
+            )
           }
         >
           {loading ? (
@@ -446,13 +447,16 @@ export function SettingsScreen() {
         </Disclosure>
 
         {DEMO_ENABLED && source === "demo" && (
-          <Callout tone="warning" title="Demo data, this browser only">This checklist is worked out from the seeded company in this browser. Two rows cannot be answered offline at all (whether a bank account is on file, and how many pay components and salary bands exist) and they say so rather than reporting nothing as zero.</Callout>
+          <Callout tone="warning" title="Demo data, this browser only">
+            This checklist is worked out from the seeded company in this
+            browser. Two rows cannot be answered offline at all (whether a bank
+            account is on file, and how many pay components and salary bands
+            exist) and they say so rather than reporting nothing as zero.
+          </Callout>
         )}
 
         <section>
-          <h2 className="mb-4 text-meta font-semibold text-muted">
-            Ongoing
-          </h2>
+          <h2 className="mb-4 text-meta font-semibold text-muted">Ongoing</h2>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {ONGOING.map((item) => (
               <LinkCard

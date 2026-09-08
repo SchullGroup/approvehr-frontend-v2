@@ -56,7 +56,9 @@ export function AccountForm({
   const [bankName, setBankName] = useState(account?.bankName ?? "");
   const [accountName, setAccountName] = useState(account?.accountName ?? "");
   const [accountNumber, setAccountNumber] = useState("");
-  const [accountType, setAccountType] = useState(account?.accountType ?? "Current");
+  const [accountType, setAccountType] = useState(
+    account?.accountType ?? "Current",
+  );
   const [isPrimary, setIsPrimary] = useState(!hasPrimary);
   const [busy, setBusy] = useState(false);
 

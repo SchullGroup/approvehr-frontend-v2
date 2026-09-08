@@ -68,7 +68,11 @@ export function MyRota({ className }: { className?: string }) {
 
   if (noRecord) return null;
 
-  const run = async (id: string, action: () => Promise<unknown>, done: string) => {
+  const run = async (
+    id: string,
+    action: () => Promise<unknown>,
+    done: string,
+  ) => {
     setBusy(id);
     try {
       await action();
@@ -246,8 +250,8 @@ export function MyRota({ className }: { className?: string }) {
                     </ButtonLink>
                     {hidden > 0 && (
                       <span className="text-body-sm text-muted">
-                        {hidden} more{" "}
-                        {hidden === 1 ? "day" : "days"} to {shortDay(myRota.to)}
+                        {hidden} more {hidden === 1 ? "day" : "days"} to{" "}
+                        {shortDay(myRota.to)}
                       </span>
                     )}
                   </div>

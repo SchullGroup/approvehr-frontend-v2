@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import { CalendarClock } from "lucide-react";
-import { Badge, ButtonLink, Card, CardBody, CardHeader, EmptyState } from "@/components/ui";
+import {
+  Badge,
+  ButtonLink,
+  Card,
+  CardBody,
+  CardHeader,
+  EmptyState,
+} from "@/components/ui";
 import { INTERVIEW_KIND_LABEL } from "@/lib/api/recruitment";
 import { useInterviews } from "@/lib/store/recruitment";
 
@@ -20,7 +27,9 @@ export function RealDiary() {
   const upcoming = useInterviews({ status: "SCHEDULED", pageSize: 50 });
   const completed = useInterviews({ status: "COMPLETED", pageSize: 50 });
 
-  const needsScorecard = completed.interviews.filter((iv) => iv.scorecardsSubmitted === 0);
+  const needsScorecard = completed.interviews.filter(
+    (iv) => iv.scorecardsSubmitted === 0,
+  );
 
   return (
     <>
@@ -85,7 +94,9 @@ function Row({
         <span className="text-meta text-muted">
           {when.toLocaleDateString("en-NG", { month: "short" })}
         </span>
-        <span className="tabular text-h4 leading-none text-ink">{when.getDate()}</span>
+        <span className="tabular text-h4 leading-none text-ink">
+          {when.getDate()}
+        </span>
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-body-sm font-medium text-ink">
@@ -97,18 +108,26 @@ function Row({
           </Link>
         </p>
         <p className="text-meta text-muted">
-          {INTERVIEW_KIND_LABEL[interview.kind] ?? interview.kind} · {interview.requisitionReference}
+          {INTERVIEW_KIND_LABEL[interview.kind] ?? interview.kind} ·{" "}
+          {interview.requisitionReference}
         </p>
         <p className="tabular mt-0.5 text-meta text-muted">
-          {when.toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit" })} ·{" "}
-          {interview.durationMins} mins
+          {when.toLocaleTimeString("en-NG", {
+            hour: "2-digit",
+            minute: "2-digit",
+          })}{" "}
+          · {interview.durationMins} mins
           {interview.location ? ` · ${interview.location}` : ""}
         </p>
       </div>
       <Badge tone={tone} size="sm" dot>
         {interview.status.replace("_", " ").toLowerCase()}
       </Badge>
-      <ButtonLink href={`/hiring/candidates/${interview.applicationId}`} size="sm" variant="secondary">
+      <ButtonLink
+        href={`/hiring/candidates/${interview.applicationId}`}
+        size="sm"
+        variant="secondary"
+      >
         Open record
       </ButtonLink>
     </div>

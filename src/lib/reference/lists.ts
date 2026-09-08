@@ -199,7 +199,9 @@ export const PENSION_PROVIDER_OTHER = "__other__";
 export function isOtherPensionProvider(value: string): boolean {
   const trimmed = value.trim();
   if (!trimmed) return false;
-  return !PENSION_PROVIDERS.some((p) => p.toLowerCase() === trimmed.toLowerCase());
+  return !PENSION_PROVIDERS.some(
+    (p) => p.toLowerCase() === trimmed.toLowerCase(),
+  );
 }
 
 /* -------------------------------------------------------------------------- */

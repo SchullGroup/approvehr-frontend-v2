@@ -75,7 +75,11 @@ const draw = (workings: Payslip["workings"]) =>
       /* Required, and required on purpose: this prop used to default to a
          fabricated legal name and RC number, which any caller that omitted it
          printed on a real person's payslip. See the note on it. */
-      company={{ name: "Example Ltd", rc: "RC000000", address: "1 Example Way" }}
+      company={{
+        name: "Example Ltd",
+        rc: "RC000000",
+        address: "1 Example Way",
+      }}
     />,
   );
 

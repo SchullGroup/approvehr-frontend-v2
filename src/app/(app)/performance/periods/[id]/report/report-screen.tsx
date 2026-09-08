@@ -175,7 +175,11 @@ export function PeriodReportScreen({ cycleId }: { cycleId: string }) {
           </Callout>
         ) : null}
 
-        <LoadFailure subject="this period's report" error={detail.error}  onRetry={detail.reload}/>
+        <LoadFailure
+          subject="this period's report"
+          error={detail.error}
+          onRetry={detail.reload}
+        />
 
         {detail.loading && (
           <Card>
@@ -608,7 +612,11 @@ function WhatCameIn({ report }: { report: ApiCycleReport }) {
             items={[
               {
                 term: "Self-reviews in",
-                value: ratio(forms.selfIn, forms.people, "Nobody has a form yet"),
+                value: ratio(
+                  forms.selfIn,
+                  forms.people,
+                  "Nobody has a form yet",
+                ),
               },
               {
                 term: "Self-reviews outstanding",

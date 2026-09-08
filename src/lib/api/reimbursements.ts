@@ -275,7 +275,12 @@ export const reimbursementsApi = {
  */
 export type PolicyBreach =
   | { limit: "requiresReceipt"; typeName: string }
-  | { limit: "capAmount"; typeName: string; capKobo: number; amountKobo: number };
+  | {
+      limit: "capAmount";
+      typeName: string;
+      capKobo: number;
+      amountKobo: number;
+    };
 
 export function policyBreach(error: unknown): PolicyBreach | null {
   if (!(error instanceof ApiError)) return null;
@@ -283,9 +288,11 @@ export function policyBreach(error: unknown): PolicyBreach | null {
   if (!details || Array.isArray(details)) return null;
 
   const limit = details["limit"];
-  const typeName = typeof details["typeName"] === "string" ? details["typeName"] : "";
+  const typeName =
+    typeof details["typeName"] === "string" ? details["typeName"] : "";
 
-  if (limit === "requiresReceipt") return { limit: "requiresReceipt", typeName };
+  if (limit === "requiresReceipt")
+    return { limit: "requiresReceipt", typeName };
   if (limit === "capAmount") {
     const capKobo = details["capKobo"];
     const amountKobo = details["amountKobo"];

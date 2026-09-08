@@ -19,14 +19,10 @@ import { request, requestPaged, type Paged } from "@/lib/api/client";
  */
 
 export type RequisitionStatus =
-  | "DRAFT"
-  | "PENDING_APPROVAL"
-  | "OPEN"
-  | "ON_HOLD"
-  | "FILLED"
-  | "CANCELLED";
+  "DRAFT" | "PENDING_APPROVAL" | "OPEN" | "ON_HOLD" | "FILLED" | "CANCELLED";
 
-export type EmploymentType = "FULL_TIME" | "PART_TIME" | "CONTRACT" | "INTERN" | "NYSC";
+export type EmploymentType =
+  "FULL_TIME" | "PART_TIME" | "CONTRACT" | "INTERN" | "NYSC";
 
 export const EMPLOYMENT_TYPE_LABEL: Record<EmploymentType, string> = {
   FULL_TIME: "Full time",
@@ -37,11 +33,7 @@ export const EMPLOYMENT_TYPE_LABEL: Record<EmploymentType, string> = {
 };
 
 export type ApplicationOutcome =
-  | "IN_PROGRESS"
-  | "OFFER_MADE"
-  | "HIRED"
-  | "REJECTED"
-  | "WITHDRAWN";
+  "IN_PROGRESS" | "OFFER_MADE" | "HIRED" | "REJECTED" | "WITHDRAWN";
 
 export type InterviewKind = "SCREEN" | "TECHNICAL" | "PANEL" | "FINAL";
 export const INTERVIEW_KIND_LABEL: Record<InterviewKind, string> = {
@@ -51,7 +43,8 @@ export const INTERVIEW_KIND_LABEL: Record<InterviewKind, string> = {
   FINAL: "Final",
 };
 
-export type InterviewStatus = "SCHEDULED" | "COMPLETED" | "CANCELLED" | "NO_SHOW";
+export type InterviewStatus =
+  "SCHEDULED" | "COMPLETED" | "CANCELLED" | "NO_SHOW";
 
 export type ScorecardRecommendation = "STRONG_YES" | "YES" | "NO" | "STRONG_NO";
 export const RECOMMENDATION_LABEL: Record<ScorecardRecommendation, string> = {
@@ -62,12 +55,7 @@ export const RECOMMENDATION_LABEL: Record<ScorecardRecommendation, string> = {
 };
 
 export type OfferStatus =
-  | "DRAFT"
-  | "PENDING_APPROVAL"
-  | "SENT"
-  | "ACCEPTED"
-  | "DECLINED"
-  | "WITHDRAWN";
+  "DRAFT" | "PENDING_APPROVAL" | "SENT" | "ACCEPTED" | "DECLINED" | "WITHDRAWN";
 
 /* -------------------------------------------------------------------- shapes */
 
@@ -144,7 +132,11 @@ export type ApiOffer = {
   updatedAt: string;
 };
 
-export type ApiInterviewScorecardRef = { id: string; interviewerId: string; submitted: boolean };
+export type ApiInterviewScorecardRef = {
+  id: string;
+  interviewerId: string;
+  submitted: boolean;
+};
 
 export type ApiInterviewSummary = {
   id: string;
@@ -182,7 +174,9 @@ export type ApiCandidateApplication = {
   appliedAt: string;
 };
 
-export type ApiCandidateDetail = ApiCandidate & { applications: ApiCandidateApplication[] };
+export type ApiCandidateDetail = ApiCandidate & {
+  applications: ApiCandidateApplication[];
+};
 
 export type ApiApplicationDetail = ApiApplication & {
   requisitionReference: string;
@@ -278,9 +272,15 @@ export type CreateRequisitionBody = {
   reference?: string;
 };
 
-export type UpdateRequisitionBody = Partial<Omit<CreateRequisitionBody, "reference">>;
+export type UpdateRequisitionBody = Partial<
+  Omit<CreateRequisitionBody, "reference">
+>;
 
-export type CreateStageBody = { name: string; requiresScorecards?: boolean; order?: number };
+export type CreateStageBody = {
+  name: string;
+  requiresScorecards?: boolean;
+  order?: number;
+};
 export type UpdateStageBody = { name?: string; requiresScorecards?: boolean };
 
 export type ApplicationListParams = {
@@ -292,7 +292,11 @@ export type ApplicationListParams = {
   order?: "asc" | "desc";
 };
 
-export type CandidateListParams = { page?: number; pageSize?: number; q?: string };
+export type CandidateListParams = {
+  page?: number;
+  pageSize?: number;
+  q?: string;
+};
 
 export type UpdateCandidateBody = {
   phone?: string;
@@ -331,7 +335,12 @@ export type RescheduleInterviewBody = {
 export type SubmitScorecardBody = {
   recommendation?: ScorecardRecommendation | null;
   notes?: string;
-  ratings: { competency: string; score: number; weight?: number; comment?: string }[];
+  ratings: {
+    competency: string;
+    score: number;
+    weight?: number;
+    comment?: string;
+  }[];
 };
 
 export type OfferListParams = {
@@ -348,13 +357,19 @@ export type ApiAcceptOfferResult = ApiOffer & { rejectedOthers: number };
 /* -------------------------------------------------------------------- calls */
 
 export const recruitmentApi = {
-  listRequisitions: (params: RequisitionListParams = {}, signal?: AbortSignal) =>
+  listRequisitions: (
+    params: RequisitionListParams = {},
+    signal?: AbortSignal,
+  ) =>
     requestPaged<ApiRequisition>("/recruitment/requisitions", {
       query: { ...params },
       ...(signal ? { signal } : {}),
     }),
   createRequisition: (body: CreateRequisitionBody) =>
-    request<ApiRequisitionDetail>("/recruitment/requisitions", { method: "POST", body }),
+    request<ApiRequisitionDetail>("/recruitment/requisitions", {
+      method: "POST",
+      body,
+    }),
   getRequisition: (id: string, signal?: AbortSignal) =>
     request<ApiRequisitionDetail>(`/recruitment/requisitions/${id}`, {
       ...(signal ? { signal } : {}),
@@ -400,31 +415,44 @@ export const recruitmentApi = {
       method: "POST",
       body,
     }),
-  updateStage: (requisitionId: string, stageId: string, body: UpdateStageBody) =>
-    request<ApiStage>(`/recruitment/requisitions/${requisitionId}/stages/${stageId}`, {
-      method: "PATCH",
-      body,
-    }),
+  updateStage: (
+    requisitionId: string,
+    stageId: string,
+    body: UpdateStageBody,
+  ) =>
+    request<ApiStage>(
+      `/recruitment/requisitions/${requisitionId}/stages/${stageId}`,
+      {
+        method: "PATCH",
+        body,
+      },
+    ),
   deleteStage: (requisitionId: string, stageId: string) =>
     request<{ id: string; deleted: true }>(
       `/recruitment/requisitions/${requisitionId}/stages/${stageId}`,
       { method: "DELETE" },
     ),
   reorderStages: (requisitionId: string, stageIds: string[]) =>
-    request<ApiStage[]>(`/recruitment/requisitions/${requisitionId}/stages/reorder`, {
-      method: "POST",
-      body: { stageIds },
-    }),
+    request<ApiStage[]>(
+      `/recruitment/requisitions/${requisitionId}/stages/reorder`,
+      {
+        method: "POST",
+        body: { stageIds },
+      },
+    ),
 
   listApplications: (
     requisitionId: string,
     params: ApplicationListParams = {},
     signal?: AbortSignal,
   ) =>
-    requestPaged<ApiApplication>(`/recruitment/requisitions/${requisitionId}/applications`, {
-      query: { ...params },
-      ...(signal ? { signal } : {}),
-    }),
+    requestPaged<ApiApplication>(
+      `/recruitment/requisitions/${requisitionId}/applications`,
+      {
+        query: { ...params },
+        ...(signal ? { signal } : {}),
+      },
+    ),
   getApplication: (id: string, signal?: AbortSignal) =>
     request<ApiApplicationDetail>(`/recruitment/applications/${id}`, {
       ...(signal ? { signal } : {}),
@@ -455,7 +483,10 @@ export const recruitmentApi = {
       ...(signal ? { signal } : {}),
     }),
   updateCandidate: (id: string, body: UpdateCandidateBody) =>
-    request<ApiCandidate>(`/recruitment/candidates/${id}`, { method: "PATCH", body }),
+    request<ApiCandidate>(`/recruitment/candidates/${id}`, {
+      method: "PATCH",
+      body,
+    }),
 
   listInterviews: (params: InterviewListParams = {}, signal?: AbortSignal) =>
     requestPaged<ApiInterview>("/recruitment/interviews", {
@@ -467,23 +498,38 @@ export const recruitmentApi = {
       ...(signal ? { signal } : {}),
     }),
   scheduleInterview: (applicationId: string, body: ScheduleInterviewBody) =>
-    request<ApiInterviewDetail>(`/recruitment/applications/${applicationId}/interviews`, {
-      method: "POST",
-      body,
-    }),
+    request<ApiInterviewDetail>(
+      `/recruitment/applications/${applicationId}/interviews`,
+      {
+        method: "POST",
+        body,
+      },
+    ),
   rescheduleInterview: (id: string, body: RescheduleInterviewBody) =>
-    request<ApiInterviewDetail>(`/recruitment/interviews/${id}`, { method: "PATCH", body }),
-  cancelInterview: (id: string) =>
-    request<ApiInterviewDetail>(`/recruitment/interviews/${id}/cancel`, { method: "POST" }),
-  completeInterview: (id: string) =>
-    request<ApiInterviewDetail>(`/recruitment/interviews/${id}/complete`, { method: "POST" }),
-  noShowInterview: (id: string) =>
-    request<ApiInterviewDetail>(`/recruitment/interviews/${id}/no-show`, { method: "POST" }),
-  submitScorecard: (interviewId: string, body: SubmitScorecardBody) =>
-    request<ApiInterviewDetail>(`/recruitment/interviews/${interviewId}/scorecards`, {
-      method: "POST",
+    request<ApiInterviewDetail>(`/recruitment/interviews/${id}`, {
+      method: "PATCH",
       body,
     }),
+  cancelInterview: (id: string) =>
+    request<ApiInterviewDetail>(`/recruitment/interviews/${id}/cancel`, {
+      method: "POST",
+    }),
+  completeInterview: (id: string) =>
+    request<ApiInterviewDetail>(`/recruitment/interviews/${id}/complete`, {
+      method: "POST",
+    }),
+  noShowInterview: (id: string) =>
+    request<ApiInterviewDetail>(`/recruitment/interviews/${id}/no-show`, {
+      method: "POST",
+    }),
+  submitScorecard: (interviewId: string, body: SubmitScorecardBody) =>
+    request<ApiInterviewDetail>(
+      `/recruitment/interviews/${interviewId}/scorecards`,
+      {
+        method: "POST",
+        body,
+      },
+    ),
 
   listOffers: (params: OfferListParams = {}, signal?: AbortSignal) =>
     requestPaged<ApiOffer>("/recruitment/offers", {
@@ -491,7 +537,9 @@ export const recruitmentApi = {
       ...(signal ? { signal } : {}),
     }),
   getOffer: (id: string, signal?: AbortSignal) =>
-    request<ApiOffer>(`/recruitment/offers/${id}`, { ...(signal ? { signal } : {}) }),
+    request<ApiOffer>(`/recruitment/offers/${id}`, {
+      ...(signal ? { signal } : {}),
+    }),
   createOffer: (applicationId: string, body: CreateOfferBody) =>
     request<ApiOffer>(`/recruitment/applications/${applicationId}/offers`, {
       method: "POST",
@@ -506,7 +554,9 @@ export const recruitmentApi = {
   sendOffer: (id: string) =>
     request<ApiOffer>(`/recruitment/offers/${id}/send`, { method: "POST" }),
   acceptOffer: (id: string) =>
-    request<ApiAcceptOfferResult>(`/recruitment/offers/${id}/accept`, { method: "POST" }),
+    request<ApiAcceptOfferResult>(`/recruitment/offers/${id}/accept`, {
+      method: "POST",
+    }),
   declineOffer: (id: string, reason?: string) =>
     request<ApiOffer>(`/recruitment/offers/${id}/decline`, {
       method: "POST",
@@ -518,10 +568,15 @@ export const recruitmentApi = {
       body: reason ? { reason } : {},
     }),
   redoOffer: (id: string, body: CreateOfferBody) =>
-    request<ApiOffer>(`/recruitment/offers/${id}/redo`, { method: "POST", body }),
+    request<ApiOffer>(`/recruitment/offers/${id}/redo`, {
+      method: "POST",
+      body,
+    }),
 
   analytics: (signal?: AbortSignal) =>
-    request<ApiAnalytics>("/recruitment/analytics", { ...(signal ? { signal } : {}) }),
+    request<ApiAnalytics>("/recruitment/analytics", {
+      ...(signal ? { signal } : {}),
+    }),
 };
 
 export type PagedRequisitions = Paged<ApiRequisition>;

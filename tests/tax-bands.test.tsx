@@ -48,8 +48,18 @@ const REAL_WORKING = {
     annualKobo: 767_400_05,
     bands: [
       { widthKobo: 800_000_00, rate: 0, taxedKobo: 800_000_00, taxKobo: 0 },
-      { widthKobo: 2_200_000_00, rate: 0.15, taxedKobo: 2_200_000_00, taxKobo: 330_000_00 },
-      { widthKobo: null, rate: 0.18, taxedKobo: 1_800_000_00, taxKobo: 437_400_05 },
+      {
+        widthKobo: 2_200_000_00,
+        rate: 0.15,
+        taxedKobo: 2_200_000_00,
+        taxKobo: 330_000_00,
+      },
+      {
+        widthKobo: null,
+        rate: 0.18,
+        taxedKobo: 1_800_000_00,
+        taxKobo: 437_400_05,
+      },
     ],
   },
   /* Not what this file is about — `TaxBands` reads only `paye` — but the type
@@ -72,8 +82,12 @@ describe("the working explains the figure beside it", () => {
     /* And the figure on screen is that total, not a second one worked out
        here. Nothing in this component does arithmetic on money — see the
        fixture's note on why the five kobo are what proves it. */
-    expect(screen.getByText(formatKobo(REAL_WORKING.paye.annualKobo))).toBeInTheDocument();
-    expect(screen.queryByText(formatKobo(63_950_00 * 12))).not.toBeInTheDocument();
+    expect(
+      screen.getByText(formatKobo(REAL_WORKING.paye.annualKobo)),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(formatKobo(63_950_00 * 12)),
+    ).not.toBeInTheDocument();
   });
 
   it("divides by twelve to the payslip's own tax line", async () => {

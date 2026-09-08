@@ -3,11 +3,7 @@
 import { useMemo } from "react";
 import { TriangleAlert } from "lucide-react";
 import { Checkbox, Radio } from "@/components/ui";
-import type {
-  Catalogue,
-  MatrixCell,
-  MatrixRow,
-} from "@/lib/api/permissions";
+import type { Catalogue, MatrixCell, MatrixRow } from "@/lib/api/permissions";
 import {
   hasPermission,
   type PermissionAction,
@@ -158,7 +154,9 @@ function ModuleBlock({
 }) {
   /* Column order, so two modules with the same actions read the same way down
      the page rather than in whatever order the object happened to be built. */
-  const present = columns.filter((column) => row.cells[column.key] !== undefined);
+  const present = columns.filter(
+    (column) => row.cells[column.key] !== undefined,
+  );
 
   const granted = present.filter((column) => {
     const cell = row.cells[column.key]!;
@@ -173,9 +171,7 @@ function ModuleBlock({
         <h4 className="text-body font-medium">{row.title}</h4>
         {/* Says what the block adds up to without anybody counting ticks. */}
         <p className="shrink-0 text-meta text-faint">
-          {granted === 0
-            ? "Nothing"
-            : `${granted} of ${present.length}`}
+          {granted === 0 ? "Nothing" : `${granted} of ${present.length}`}
         </p>
       </div>
 
@@ -251,7 +247,9 @@ function Square({
           </span>
         }
         description={
-          blocked ? "You do not hold this, so you cannot give it out." : cell.label
+          blocked
+            ? "You do not hold this, so you cannot give it out."
+            : cell.label
         }
       />
     );
@@ -298,7 +296,10 @@ function Square({
               </span>
             }
             {...(blocked
-              ? { description: "You do not hold this, so you cannot give it out." }
+              ? {
+                  description:
+                    "You do not hold this, so you cannot give it out.",
+                }
               : {})}
           />
         );

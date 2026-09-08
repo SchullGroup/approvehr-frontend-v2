@@ -37,7 +37,10 @@ import { clashesWith } from "./leave";
  */
 
 /** One leave request, as the approver's queue sees it. */
-function leaveApproval(request: LeaveRequest, all: LeaveRequest[]): ApprovalItem {
+function leaveApproval(
+  request: LeaveRequest,
+  all: LeaveRequest[],
+): ApprovalItem {
   const employee = employeeById(request.employeeId);
   const who = employee ? fullName(employee) : "Unknown";
   const clashes = clashesWith(request, all);
@@ -148,8 +151,7 @@ export function decidedItems({
  * the record, never on a copy of it.
  */
 export type QueueRef =
-  | { store: "leave"; id: string }
-  | { store: "approval"; id: string };
+  { store: "leave"; id: string } | { store: "approval"; id: string };
 
 /**
  * A row in the inbox, from either source.

@@ -1,4 +1,8 @@
-import { AnnouncementBar, MarketingFooter, MarketingNav } from "@/components/marketing/chrome";
+import {
+  AnnouncementBar,
+  MarketingFooter,
+  MarketingNav,
+} from "@/components/marketing/chrome";
 
 export default function MarketingLayout({
   children,

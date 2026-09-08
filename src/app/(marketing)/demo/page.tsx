@@ -31,8 +31,8 @@ export default function DemoPage() {
               Let us show you how to transform your organisation.
             </h1>
             <p className="mt-6 text-lead text-slate-muted">
-              In ten minutes you will see exactly what ApproveHR can do for
-              your team, no setup, no slides, just the value.
+              In ten minutes you will see exactly what ApproveHR can do for your
+              team, no setup, no slides, just the value.
             </p>
 
             <ul className="mt-10 flex flex-col gap-5">
@@ -59,9 +59,7 @@ export default function DemoPage() {
                     />
                   </span>
                   <div>
-                    <h2 className="text-body font-medium">
-                      {item.title}
-                    </h2>
+                    <h2 className="text-body font-medium">{item.title}</h2>
                     <p className="mt-1 text-body-sm leading-relaxed text-slate-muted">
                       {item.body}
                     </p>

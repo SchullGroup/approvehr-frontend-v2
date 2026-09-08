@@ -1,7 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Banknote, CalendarClock, CreditCard, DoorOpen, Laptop } from "lucide-react";
+import {
+  Banknote,
+  CalendarClock,
+  CreditCard,
+  DoorOpen,
+  Laptop,
+} from "lucide-react";
 import {
   Badge,
   Button,
@@ -81,7 +87,12 @@ export function ExitDetailScreen({ id }: { id: string }) {
   if (exitState.loading) {
     return (
       <>
-        <PageHeader title="Exit" breadcrumb={[{ href: "/people/offboarding", label: "Exit management" }]} />
+        <PageHeader
+          title="Exit"
+          breadcrumb={[
+            { href: "/people/offboarding", label: "Exit management" },
+          ]}
+        />
         <PageBody className="flex flex-col gap-4">
           <Skeleton className="h-24" />
           <Skeleton className="h-64" />
@@ -96,14 +107,21 @@ export function ExitDetailScreen({ id }: { id: string }) {
   if (!exit || !readiness) {
     return (
       <>
-        <PageHeader title="Exit" breadcrumb={[{ href: "/people/offboarding", label: "Exit management" }]} />
+        <PageHeader
+          title="Exit"
+          breadcrumb={[
+            { href: "/people/offboarding", label: "Exit management" },
+          ]}
+        />
         <PageBody>
           <Card>
             <EmptyState
               icon={<DoorOpen aria-hidden="true" />}
               title="We could not find that exit"
               action={
-                <ButtonLink href="/people/offboarding">Back to exit management</ButtonLink>
+                <ButtonLink href="/people/offboarding">
+                  Back to exit management
+                </ButtonLink>
               }
             />
           </Card>
@@ -165,7 +183,9 @@ export function ExitDetailScreen({ id }: { id: string }) {
     }
   }
 
-  const held = readiness.assetsStillHeld.filter((asset) => asset.returnRequired);
+  const held = readiness.assetsStillHeld.filter(
+    (asset) => asset.returnRequired,
+  );
 
   /* Their own notice, theirs to take back. HR may cancel anybody's; the API
      enforces both and this only decides which button to offer. */
@@ -208,8 +228,8 @@ export function ExitDetailScreen({ id }: { id: string }) {
 
         {exit.status === "COMPLETED" && (
           <Callout tone="success" title="Closed">
-            {firstName}&rsquo;s record is archived, not deleted. Past payslips still
-            work. Their sign-in has been switched off.
+            {firstName}&rsquo;s record is archived, not deleted. Past payslips
+            still work. Their sign-in has been switched off.
           </Callout>
         )}
 
@@ -298,7 +318,9 @@ export function ExitDetailScreen({ id }: { id: string }) {
                     disabled={busy}
                     onClick={() => setWithdrawing(true)}
                   >
-                    {mine ? "I am staying after all" : `${firstName} is staying`}
+                    {mine
+                      ? "I am staying after all"
+                      : `${firstName} is staying`}
                   </Button>
                 )}
               </div>
@@ -456,7 +478,9 @@ export function ExitDetailScreen({ id }: { id: string }) {
           onWithdraw={async (reason) => {
             const ok = await run(
               () => exitState.withdraw(reason || undefined),
-              mine ? "Your notice has been withdrawn" : `${firstName} is staying`,
+              mine
+                ? "Your notice has been withdrawn"
+                : `${firstName} is staying`,
             );
             if (ok) setWithdrawing(false);
           }}
@@ -575,11 +599,7 @@ function DeclineDialog({
  * empty, and inventing a balance on the one screen whose argument is "the exit
  * reaches payroll" would be the worst possible place to make something up.
  */
-function FinalPayCard({
-  finalPay,
-}: {
-  finalPay: ApiExitFinalPay;
-}) {
+function FinalPayCard({ finalPay }: { finalPay: ApiExitFinalPay }) {
   const untaken = finalPay.untakenLeave.reduce((sum, row) => sum + row.days, 0);
 
   const rows: { icon: React.ReactNode; label: string; detail: string }[] = [

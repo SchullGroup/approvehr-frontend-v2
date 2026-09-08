@@ -209,7 +209,11 @@ export function deriveOvertime(input: DeriveInput): DerivedOvertime[] {
     const minutes = Math.min(beyond, policy.dailyCapMinutes);
     const kind = kindFor(entry.date, workingWeekdays, holidays);
     const rate = rateFor(policy, kind);
-    const hourly = hourlyRateKobo(gross, workingDaysPerMonth, policy.hoursPerDay);
+    const hourly = hourlyRateKobo(
+      gross,
+      workingDaysPerMonth,
+      policy.hoursPerDay,
+    );
 
     found.push({
       employeeId: entry.employeeId,

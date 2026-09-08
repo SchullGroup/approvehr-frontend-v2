@@ -116,7 +116,9 @@ export function RequestRow({
     <div
       className={cn(
         "flex flex-wrap items-center gap-3 rounded-md border p-3",
-        request.overdue ? "border-danger-line bg-danger-soft/40" : "border-line",
+        request.overdue
+          ? "border-danger-line bg-danger-soft/40"
+          : "border-line",
       )}
     >
       <div className="min-w-0 flex-1">
@@ -136,7 +138,9 @@ export function RequestRow({
           <p className="mt-0.5 text-body-sm text-muted">{secondary}</p>
         )}
       </div>
-      {actions && <div className="flex shrink-0 flex-wrap gap-1.5">{actions}</div>}
+      {actions && (
+        <div className="flex shrink-0 flex-wrap gap-1.5">{actions}</div>
+      )}
     </div>
   );
 }
@@ -170,7 +174,11 @@ export function DocumentRow({
             {CATEGORY_LABEL[document.category]}
           </Badge>
           {document.verified && (
-            <Badge tone="success" size="sm" icon={<ShieldCheck aria-hidden="true" />}>
+            <Badge
+              tone="success"
+              size="sm"
+              icon={<ShieldCheck aria-hidden="true" />}
+            >
               Checked
             </Badge>
           )}

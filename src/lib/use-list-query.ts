@@ -125,23 +125,20 @@ export function useListQuery<Filters extends Record<string, unknown>>({
     setPage(1);
   }, []);
 
-  const toggleSort = useCallback(
-    (column: string, startDescending = false) => {
-      setSorting((was) => ({
-        sort: column,
-        order:
-          was.sort === column
-            ? was.order === "asc"
-              ? "desc"
-              : "asc"
-            : startDescending
-              ? "desc"
-              : "asc",
-      }));
-      setPage(1);
-    },
-    [],
-  );
+  const toggleSort = useCallback((column: string, startDescending = false) => {
+    setSorting((was) => ({
+      sort: column,
+      order:
+        was.sort === column
+          ? was.order === "asc"
+            ? "desc"
+            : "asc"
+          : startDescending
+            ? "desc"
+            : "asc",
+    }));
+    setPage(1);
+  }, []);
 
   const setPageSize = useCallback((size: number) => {
     setPageSizeRaw(size);

@@ -318,7 +318,9 @@ function SetupPrompt() {
             </span>{" "}
             {/* Names the next one rather than only counting. A number alone is a
                 nag; a number and the next step is a thing somebody can finish. */}
-            <span className="text-muted">Next: {first.title.toLowerCase()}.</span>
+            <span className="text-muted">
+              Next: {first.title.toLowerCase()}.
+            </span>
           </p>
           <div className="flex flex-wrap items-center gap-2">
             {/* The way back to the walk. The guide offers itself once per

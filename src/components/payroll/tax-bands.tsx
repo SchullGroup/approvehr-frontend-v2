@@ -60,26 +60,47 @@ export function TaxBands({ slip }: { slip: Payslip }) {
       <dl className="flex flex-col gap-1 text-body-sm">
         <Row
           label="Taxable pay for the year"
-          value={formatKobo(working.taxableAnnualKobo + working.reliefAnnualKobo)}
+          value={formatKobo(
+            working.taxableAnnualKobo + working.reliefAnnualKobo,
+          )}
         />
-        <Row label="Less relief" value={`− ${formatKobo(working.reliefAnnualKobo)}`} />
-        <Row label="Taxed on" value={formatKobo(working.taxableAnnualKobo)} strong />
+        <Row
+          label="Less relief"
+          value={`− ${formatKobo(working.reliefAnnualKobo)}`}
+        />
+        <Row
+          label="Taxed on"
+          value={formatKobo(working.taxableAnnualKobo)}
+          strong
+        />
       </dl>
 
       <div className="scroll-x mt-3">
         <table className="w-full min-w-lg border-collapse text-left">
           <thead>
             <tr className="border-b border-line">
-              <th scope="col" className="pb-2 text-meta font-semibold text-muted">
+              <th
+                scope="col"
+                className="pb-2 text-meta font-semibold text-muted"
+              >
                 Band
               </th>
-              <th scope="col" className="pb-2 text-right text-meta font-semibold text-muted">
+              <th
+                scope="col"
+                className="pb-2 text-right text-meta font-semibold text-muted"
+              >
                 Rate
               </th>
-              <th scope="col" className="pb-2 text-right text-meta font-semibold text-muted">
+              <th
+                scope="col"
+                className="pb-2 text-right text-meta font-semibold text-muted"
+              >
                 Taxed
               </th>
-              <th scope="col" className="pb-2 text-right text-meta font-semibold text-muted">
+              <th
+                scope="col"
+                className="pb-2 text-right text-meta font-semibold text-muted"
+              >
                 Tax
               </th>
             </tr>
@@ -109,7 +130,10 @@ export function TaxBands({ slip }: { slip: Payslip }) {
           </tbody>
           <tfoot>
             <tr>
-              <td colSpan={3} className="pt-2 text-body-sm font-medium text-ink">
+              <td
+                colSpan={3}
+                className="pt-2 text-body-sm font-medium text-ink"
+              >
                 Tax for the year
               </td>
               {/* The column above sums to this exactly, by construction on the
@@ -153,7 +177,9 @@ function Row({
   return (
     <div className="flex items-baseline justify-between gap-4">
       <dt className={strong ? "text-ink" : "text-body"}>{label}</dt>
-      <dd className={`tabular ${strong ? "font-medium text-ink" : "text-body"}`}>
+      <dd
+        className={`tabular ${strong ? "font-medium text-ink" : "text-body"}`}
+      >
         {value}
       </dd>
     </div>

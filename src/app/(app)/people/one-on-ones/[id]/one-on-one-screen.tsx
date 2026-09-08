@@ -77,7 +77,11 @@ export function OneOnOneScreen({ seriesId }: { seriesId: string }) {
         }
         action={
           read.data ? (
-            <Button size="sm" variant="accent" onClick={() => setScheduling(true)}>
+            <Button
+              size="sm"
+              variant="accent"
+              onClick={() => setScheduling(true)}
+            >
               <Plus aria-hidden="true" className="size-4" />
               Put one in the diary
             </Button>
@@ -107,7 +111,11 @@ export function OneOnOneScreen({ seriesId }: { seriesId: string }) {
         ) : (
           <div className="flex flex-col gap-5">
             {read.data.map((meeting) => (
-              <Meeting key={meeting.id} meeting={meeting} onChanged={read.reload} />
+              <Meeting
+                key={meeting.id}
+                meeting={meeting}
+                onChanged={read.reload}
+              />
             ))}
           </div>
         )}
@@ -243,7 +251,11 @@ function Meeting({
             <p className="text-body-sm font-medium text-body">
               Actions and talking points
             </p>
-            <Button size="sm" variant="secondary" onClick={() => setAdding(true)}>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setAdding(true)}
+            >
               <Plus aria-hidden="true" className="size-4" />
               Add
             </Button>
@@ -408,7 +420,10 @@ function ScheduleDialog({
       }
     >
       <div className="flex flex-col gap-4">
-        <Field label="Which day" help="A one-to-one is a day, not a time — moving it from two o'clock to four is the same meeting.">
+        <Field
+          label="Which day"
+          help="A one-to-one is a day, not a time — moving it from two o'clock to four is the same meeting."
+        >
           <Input
             type="date"
             value={day}
@@ -523,8 +538,9 @@ function AddItemDialog({
               />
             </Field>
             <p className="text-meta text-faint">
-              It will be yours. An action belongs to one of the two people in the
-              one-to-one — work for anybody else belongs where they will see it.
+              It will be yours. An action belongs to one of the two people in
+              the one-to-one — work for anybody else belongs where they will see
+              it.
             </p>
           </>
         )}

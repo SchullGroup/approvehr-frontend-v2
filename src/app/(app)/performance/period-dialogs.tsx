@@ -679,7 +679,9 @@ function ChoiceEditor({
 
       {suggestions.length > 0 && (
         <div className="flex flex-col gap-1.5 border-t border-line pt-3">
-          <span className="text-meta text-muted">Suggested phrasing (click to add)</span>
+          <span className="text-meta text-muted">
+            Suggested phrasing (click to add)
+          </span>
           <div className="flex flex-wrap gap-1.5">
             {suggestions.slice(0, 8).map((phrase) => (
               <button

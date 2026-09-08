@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import { Button, Field, Input, Modal, Select, Switch } from "@/components/ui";
-import type { ApiAttendanceDevice, ApiWorkLocation } from "@/lib/api/attendance";
+import type {
+  ApiAttendanceDevice,
+  ApiWorkLocation,
+} from "@/lib/api/attendance";
 
 /**
  * Registering or editing one terminal.
@@ -81,7 +84,8 @@ export function DeviceForm({
       await onSave({
         serialNumber,
         label,
-        workLocationId: draft.workLocationId === "" ? null : draft.workLocationId,
+        workLocationId:
+          draft.workLocationId === "" ? null : draft.workLocationId,
         active: draft.active,
       });
     } finally {

@@ -50,4 +50,3 @@ export function formatMoney(
     maximumFractionDigits: decimals ? 2 : 0,
   })}`;
 }
-

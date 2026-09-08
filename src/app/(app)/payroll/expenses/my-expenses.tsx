@@ -54,7 +54,11 @@ export function MyExpenses({ className }: { className?: string }) {
           title="Expenses"
           level={3}
           action={
-            <Button variant="secondary" size="sm" onClick={() => setClaiming(true)}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setClaiming(true)}
+            >
               <Plus aria-hidden="true" className="size-3.5" />
               Claim
             </Button>
@@ -62,13 +66,19 @@ export function MyExpenses({ className }: { className?: string }) {
         />
 
         <CardBody className="flex flex-col gap-4">
-          <LoadFailure subject="your expense claims" error={mine.error}  onRetry={mine.reload}/>
+          <LoadFailure
+            subject="your expense claims"
+            error={mine.error}
+            onRetry={mine.reload}
+          />
 
           <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
             <div>
               <p className="text-body-sm text-muted">Owed to you</p>
               <p className="tabular mt-0.5 text-h4 text-ink">
-                {formatMoney(mine.outstanding.amount, "NGN", { decimals: true })}
+                {formatMoney(mine.outstanding.amount, "NGN", {
+                  decimals: true,
+                })}
               </p>
             </div>
             <div>
