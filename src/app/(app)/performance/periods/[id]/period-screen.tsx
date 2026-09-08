@@ -48,6 +48,7 @@ import {
   scoreLabel,
   weightLabel,
   type ApiAppraiserMap,
+  type ApiComponentScore,
   type ReviewCycleStage,
   type ApiAppraiserMapRow,
   type ApiCycleParticipants,
@@ -144,6 +145,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
 
   const [chasing, setChasing] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [confirmingStart, setConfirmingStart] = useState(false);
   const [questionsOpen, setQuestionsOpen] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [advancing, setAdvancing] = useState(false);
@@ -228,6 +230,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
       failed(error);
     } finally {
       setStarting(false);
+      setConfirmingStart(false);
     }
   };
 
@@ -322,6 +325,26 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                   Weights frozen
                 </Badge>
               )}
+              {/* Who this period covers. The scope was write-only: set once in
+                  the start-a-period dialog, sent to the API, and shown on no
+                  screen afterwards — so "who is in this appraisal" had no
+                  answer anywhere in the product, which is the restriction the
+                  feedback could not find. Empty means everybody, which is the
+                  default and the commonest case, and saying so beats a blank. */}
+              <Badge tone="neutral" size="sm">
+                {period.departmentIds.length === 0
+                  ? "Everybody"
+                  : `${period.departmentIds.length} ${period.departmentIds.length === 1 ? "department" : "departments"}`}
+              </Badge>
+              {period.managersCanAddQuestions && (
+                /* The manager question-writing flow exists, is guarded and is
+                   tested, and the feedback could not find it — it lives on the
+                   Overview tab behind this flag. Saying the flag is on is what
+                   makes the button somebody is looking for findable. */
+                <Badge tone="neutral" size="sm">
+                  Managers may add questions
+                </Badge>
+              )}
             </>
           ) : undefined
         }
@@ -394,7 +417,6 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
             <Card>
               <CardHeader
                 title="Set it up, then start it"
-                description="Nobody is asked anything until you start it. Add your own questions on top of the four competency groups, which are asked either way: once it has started the form is fixed."
                 action={
                   <Badge
                     tone={period.questionCount > 0 ? "neutral" : "warning"}
@@ -415,9 +437,8 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                   <Button
                     variant="accent"
                     size="sm"
-                    loading={starting}
                     disabled={period.questionCount === 0}
-                    onClick={() => void start()}
+                    onClick={() => setConfirmingStart(true)}
                   >
                     <Play aria-hidden="true" className="size-3.5" />
                     {/* The control says why it is dead, rather than leaving a
@@ -689,6 +710,22 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
           confirmLabel="Publish it"
           tone="primary"
           body={`Everybody in ${period.name} will be able to read what their manager wrote about them. This cannot be undone, and anybody with no mark finishes with none.`}
+        />
+      )}
+
+      {/* Moved here from the card's own description: the moment somebody is
+          about to press it is when "the form is fixed after this" actually
+          matters, not on page load before they have looked at anything. */}
+      {confirmingStart && period && (
+        <ConfirmDialog
+          open
+          onClose={() => setConfirmingStart(false)}
+          onConfirm={() => void start()}
+          loading={starting}
+          title="Start the period?"
+          confirmLabel="Start it"
+          tone="primary"
+          body="Everybody gets their form today, and the questions are fixed the moment it starts — add any more first."
         />
       )}
     </>
@@ -1303,6 +1340,7 @@ function RegisterRow({
                 Moved from {scoreLabel(row.calibration.originalBp)}
               </span>
             )}
+            <ScoreParts components={row.components} />
           </>
         )}
       </TD>
@@ -1360,6 +1398,49 @@ function RegisterRow({
  * Then unanswered, which is the exposure acknowledgement exists to close —
  * silence is not acceptance and this cell must never read as though it were.
  */
+/**
+ * What a mark is made of, under the mark.
+ *
+ * The feedback asks for the final score "broken down by specific metrics, such
+ * as behavioural competence and KPIs" — and the breakdown was already on the
+ * wire the whole time. `ApiComponentScore` carries a score, a weight, an
+ * effective weight and the API's own sentence for why a component was left
+ * out; three screens render it and the register, which is where a cycle owner
+ * actually reads a company's marks, showed only the final figure.
+ *
+ * Rendered as a line rather than behind a reveal. A total nobody can account
+ * for is the thing the whole scoring model exists to avoid, and hiding the
+ * account behind a click means most readers never see it.
+ *
+ * **Excluded components are named, not dropped.** A component with nothing
+ * recorded and a component weighted at nothing are different facts, and the
+ * API distinguishes them; showing only what counted would leave a reader
+ * wondering why four sections produced three figures. `scoreBp` null renders
+ * as an em dash and never as 0% — absent is not zero, here as everywhere.
+ */
+function ScoreParts({ components }: { components: ApiComponentScore[] }) {
+  if (components.length === 0) return null;
+  return (
+    <span className="mt-1 block text-meta leading-relaxed text-muted">
+      {components.map((part, index) => (
+        <span key={part.component}>
+          {index > 0 && <span aria-hidden="true"> · </span>}
+          <span
+            className={part.included ? undefined : "text-faint"}
+            /* The API's sentence for the exclusion, never one written here. */
+            {...(part.excludedNote ? { title: part.excludedNote } : {})}
+          >
+            {part.label}{" "}
+            <span className="tabular">
+              {part.scoreBp === null ? "—" : scoreLabel(part.scoreBp)}
+            </span>
+          </span>
+        </span>
+      ))}
+    </span>
+  );
+}
+
 function SignOffCell({ row }: { row: ApiScoreRow }) {
   const signOff = row.signOff;
 

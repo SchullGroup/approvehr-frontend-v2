@@ -1,7 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo } from "react";
-import { PERMISSION_KEYS, type PermissionKey } from "@/lib/permission-keys";
+import {
+  PERMISSION_KEYS,
+  PERMISSION_SHAPE,
+  type PermissionAction,
+  type PermissionKey,
+  type PermissionModule,
+  type PermissionScope,
+} from "@/lib/permission-keys";
 import {
   permissionsApi,
   type Catalogue,
@@ -63,8 +70,13 @@ import { createSharedResource } from "@/lib/shared-resource";
  * `lib/store/permissions.ts` is the deliberate way to see less.
  */
 
-export { PERMISSION_KEYS };
-export type { PermissionKey };
+export { PERMISSION_KEYS, PERMISSION_SHAPE };
+export type {
+  PermissionKey,
+  PermissionAction,
+  PermissionModule,
+  PermissionScope,
+};
 
 /**
  * A set of permissions.

@@ -18,6 +18,7 @@ import {
   type ApiCompetency,
   type ApiCycle,
   type ApiCycleParticipants,
+  type ApiSection,
   type ApiEmployeeScore,
   type ApiEmployeeCompetencies,
   type ApiFormQuestion,
@@ -58,6 +59,10 @@ import {
   type SubmitReviewBody,
 } from "@/lib/api/performance";
 import { EMPLOYEES, employeeById } from "@/lib/mock/people";
+/* `lib/permissions` does not import this module, so this closes no cycle —
+   unlike `lib/store/permissions`, which is why that one is reached through the
+   `permission-keys` leaf instead. */
+import { useIsManager } from "@/lib/permissions";
 import { createPersistedState } from "./persisted";
 import { useSession } from "./session";
 import { useRevalidation } from "@/lib/revalidate";
@@ -1631,14 +1636,24 @@ export function useObjectiveApprovals(): {
   const demo = useDemoState();
   const wide = can("EDIT_RECORDS");
 
-  /* Reports are read from the seed rather than the API even when connected:
-     `couldHaveQueue` only decides which empty-state sentence to show, and the
-     API's own answer to "is this queue empty because you manage nobody" is the
-     empty queue itself. */
-  const managesSomebody = useMemo(
-    () => EMPLOYEES.some((person) => person.managerId === actingId),
-    [actingId],
-  );
+  /* Asked of the live product, not of the demo seed.
+     
+     This read `EMPLOYEES.some(person => person.managerId === actingId)`, with
+     a comment arguing that the seed was fine here because "the API's own
+     answer to 'is this queue empty because you manage nobody' is the empty
+     queue itself". That reasoning is circular: `couldHaveQueue` is precisely
+     what decides which sentence to show *for* an empty queue.
+     
+     And `EMPLOYEES` is demo-gated — `[]` in a production build — so
+     `couldHaveQueue` collapsed to `can("EDIT_RECORDS")`, and every real line
+     manager with an empty queue was told **"You agree nobody's objectives"**
+     rather than "Nothing waiting". A manager being told they manage nobody is
+     not a cosmetic slip; it is the product contradicting the org chart.
+     
+     `useIsManager` is the one place that question is answered properly: the
+     API when connected, the local directory offline, and it distinguishes "not
+     answered yet" from a resolved zero. */
+  const managesSomebody = useIsManager();
 
   const load = useCallback(
     async (signal: AbortSignal) =>
@@ -2001,6 +2016,78 @@ export function useReview(id: string | null): {
 }
 
 /**
+ * The subject's own account of the period, beside the appraiser's form.
+ *
+ * The feedback asks for it plainly — *"once the employee submits their
+ * self-appraisal, the manager/assigned reviewer should be able to view the
+ * employee's submission before completing their own assessment"* — and every
+ * piece of it already existed and was wired to nothing.
+ *
+ * - `mayReadReview` on the API has always admitted an **assigned appraiser** to
+ *   the subject's self form, scoped to the `(cycle, subject)` pair.
+ * - `listReviews` has always accepted `?subjectId&kind=SELF&submitted=true`.
+ * - `performanceApi.reviews` was a working, typed wrapper with **zero
+ *   consumers** anywhere in the frontend.
+ *
+ * So no screen ever asked. This is the asking.
+ *
+ * ## Only a submitted one, and only for an appraiser's form
+ *
+ * `submitted: true` is not a convenience filter. A self-appraisal in progress
+ * is a draft somebody is still thinking about, and putting a half-written
+ * account of somebody's own year in front of the person marking them is worse
+ * than showing nothing — they cannot unread it, and the employee never chose to
+ * show it. The API's `submitReview` is the moment they chose.
+ *
+ * Returns `null` rather than an empty state when the review is not an
+ * appraiser's, when nothing has been sent, or offline. Absent is absent: "they
+ * have not sent it" is said by the gate that stops the manager submitting, not
+ * by an empty panel implying they wrote nothing.
+ */
+export function useSubjectSelfReview(review: ApiReviewDetail | null): {
+  selfReview: ApiReviewDetail | null;
+  loading: boolean;
+} {
+  const { isConnected } = useSession();
+
+  /* Only an appraiser's form has anything to compare against. A self form is
+     the account itself, and a peer form is not a mark. */
+  const wanted =
+    isConnected && review !== null && review.kind === "MANAGER" ? review : null;
+
+  const listLoad = useCallback(
+    async (signal: AbortSignal) =>
+      (
+        await performanceApi.reviews(
+          {
+            cycleId: wanted?.cycleId ?? "",
+            subjectId: wanted?.subjectId ?? "",
+            kind: "SELF",
+            submitted: true,
+            pageSize: 1,
+          },
+          signal,
+        )
+      ).data,
+    [wanted?.cycleId, wanted?.subjectId],
+  );
+
+  const listed = useFetched<ApiReview[]>(
+    `${wanted?.cycleId ?? "none"}:${wanted?.subjectId ?? "none"}`,
+    wanted !== null,
+    listLoad,
+  );
+
+  const selfId = listed.data?.[0]?.id ?? null;
+  const detail = useReview(selfId);
+
+  return {
+    selfReview: detail.review,
+    loading: listed.loading || detail.loading,
+  };
+}
+
+/**
  * Answering and sending a review.
  *
  * Both work in demo mode: this is a person writing about their own work, and
@@ -2205,6 +2292,38 @@ export type FrameworkGroup = {
   sectionName: string;
   competencies: ApiCompetency[];
 };
+
+/**
+ * The appraisal sections, with what each one is worth.
+ *
+ * `performanceApi.sections` existed and had **no consumer**: sections were
+ * created from inside the add-a-question dialog and never listed, so the
+ * question builder derived its headings from the competencies' own
+ * `sectionName` and could not say what any of them counted for.
+ *
+ * That is the feedback's complaint about appraisal creation — the sections
+ * configured in Settings do reach the builder, as `optgroup` labels, and reach
+ * it stripped of the one fact that makes the filing decision meaningful.
+ *
+ * Empty offline rather than seeded: a weight invented in a browser would be a
+ * figure nobody's marks are computed with, and the picker falls back to the
+ * headings it already had.
+ */
+export function useSections(): {
+  sections: ApiSection[];
+  loading: boolean;
+} {
+  const { isConnected } = useSession();
+  const load = useCallback(
+    async (signal: AbortSignal) => performanceApi.sections(signal),
+    [],
+  );
+  const fetched = useFetched<ApiSection[]>("sections", isConnected, load);
+  return {
+    sections: isConnected ? (fetched.data ?? []) : [],
+    loading: isConnected ? fetched.loading : false,
+  };
+}
 
 /** The competency framework, grouped by its four categories. */
 export function useFramework(): {
