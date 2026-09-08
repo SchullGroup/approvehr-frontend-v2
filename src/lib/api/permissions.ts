@@ -323,6 +323,87 @@ export const permissionsApi = {
   },
 
   /**
+   * Which roles each employee holds, keyed by employee id.
+   *
+   * Same gap and same shape as `assignable` above — there is no `GET /users`
+   * and no role field on the directory row, so this is one request per role.
+   * What it keeps and `assignable` deliberately throws away is **which** role
+   * each person holds, which is the whole of what a role column renders.
+   *
+   * Two properties a caller has to respect, both about absence:
+   *
+   * - An employee absent from `byEmployee` holds no role. That is a real state
+   *   the API can describe, and it is not the same as one we failed to read.
+   * - `failed` names the roles whose sweep did not complete. While it is
+   *   non-empty **anybody's** list may be short, so the caller must render an
+   *   absence rather than a role set. A role that failed to load is otherwise
+   *   indistinguishable from a role nobody holds, and the second is a claim
+   *   about somebody's access.
+   *
+   * Paged to exhaustion rather than capped, unlike `assignable`'s single
+   * `pageSize: 200`. A cap is defensible for a picker, where the search box is
+   * the way to reach somebody further down; it is not defensible here, because
+   * the 201st member of a role would render as holding none.
+   */
+  async rolesByEmployee(
+    roles: readonly { id: string; name: string }[],
+    signal?: AbortSignal,
+  ): Promise<{
+    byEmployee: Map<string, { id: string; name: string }[]>;
+    failed: string[];
+  }> {
+    const PAGE_SIZE = 200;
+    const byEmployee = new Map<string, { id: string; name: string }[]>();
+    const failed: string[] = [];
+
+    await Promise.all(
+      roles.map(async (role) => {
+        try {
+          for (let page = 1; ; page += 1) {
+            const result = await permissionsApi.members(
+              role.id,
+              { page, pageSize: PAGE_SIZE },
+              signal,
+            );
+            for (const member of result.data) {
+              /* An account with no employee record — a bookkeeper who was
+                 given a login and never a staff row. Nothing in a directory
+                 of employees can show it. */
+              if (member.employeeId === null) continue;
+              /* Narrowed to id and name rather than storing `role` itself:
+                 callers pass `ApiRole[]`, and a map holding every role's full
+                 permission list once per member is a lot of retained object
+                 for two fields a badge renders. */
+              const entry = { id: role.id, name: role.name };
+              const held = byEmployee.get(member.employeeId);
+              if (held) held.push(entry);
+              else byEmployee.set(member.employeeId, [entry]);
+            }
+            if (page * PAGE_SIZE >= result.meta.total) break;
+          }
+        } catch (error) {
+          /* An abort is the caller dropping the request, not a failed read.
+             Rethrowing keeps it out of `failed`, so nothing reports a role as
+             unreadable because somebody navigated away. */
+          if (error instanceof DOMException && error.name === "AbortError")
+            throw error;
+          failed.push(role.name);
+        }
+      }),
+    );
+
+    /* Sorted into the order the API listed the roles in, so one person's
+       badges render the same way on every load. Without this the order is
+       whichever request resolved first, which changes between reloads. */
+    const rank = new Map(roles.map((role, index) => [role.id, index]));
+    for (const held of byEmployee.values()) {
+      held.sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0));
+    }
+
+    return { byEmployee, failed };
+  },
+
+  /**
    * How many people report to an employee. Only the count is used.
    *
    * Lives here rather than in `endpoints.ts` for two reasons: that file is not

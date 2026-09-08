@@ -31,6 +31,7 @@ import {
   type PermissionModule,
   type PermissionScope,
 } from "@/lib/permission-keys";
+import { createSharedResource } from "@/lib/shared-resource";
 import { createPersistedState } from "./persisted";
 import { useSession } from "./session";
 import { useRevalidation } from "@/lib/revalidate";
@@ -1213,4 +1214,157 @@ export function useDemoRoles(
       .filter((role) => demoMembers(state, role.id).includes(employeeId))
       .map(({ id, name }) => ({ id, name }));
   }, [isConnected, state, employeeId]);
+}
+
+/* ==========================================================================
+ * Who holds which role, as one map
+ *
+ * `useDemoRoles` above answers it for one person and is a hook, so a table
+ * cannot call it per row. This is the map version, and it is the only thing on
+ * this side that can populate a role column.
+ * ======================================================================== */
+
+export type EmployeeRoleEntry = { id: string; name: string };
+
+type RoleSweep = {
+  /** Every role in the company, in the order the API listed them. */
+  roles: EmployeeRoleEntry[];
+  byEmployee: Map<string, EmployeeRoleEntry[]>;
+  /** Roles whose members could not be read, by name. */
+  failed: string[];
+  error: ApiError | null;
+};
+
+/** The one key: one answer per company per session. */
+const ROLE_SWEEP_KEY = "company";
+
+/**
+ * One sweep, shared by every row on the screen.
+ *
+ * Through `createSharedResource` rather than a `useEffect` for the reason that
+ * file was written for: a role column is read once per *row*, and a
+ * component-local fetch would issue one identical request per cell. The
+ * directory pages at 25.
+ *
+ * Outcome-not-value, like every other resource here: a rejection reaches a
+ * subscriber as `null`, which is indistinguishable from still loading, and
+ * "nobody holds a role" is a claim about a company's access rather than an
+ * empty state. So the failure travels *in* the value.
+ */
+const roleSweep = createSharedResource<RoleSweep>(async (_key, signal) => {
+  try {
+    const list = await permissionsApi.roles(signal);
+    const swept = await permissionsApi.rolesByEmployee(list.roles, signal);
+    return {
+      roles: list.roles.map(({ id, name }) => ({ id, name })),
+      byEmployee: swept.byEmployee,
+      failed: swept.failed,
+      error: null,
+    };
+  } catch (error) {
+    /* An abort is the resource dropping its own request, not an answer.
+       Rethrowing keeps it out of the cache so the next subscriber starts a
+       fresh load rather than inheriting a failure nobody experienced. */
+    if (error instanceof DOMException && error.name === "AbortError")
+      throw error;
+    return {
+      roles: [],
+      byEmployee: new Map(),
+      failed: [],
+      error: error instanceof ApiError ? error : null,
+    };
+  }
+});
+
+export type EmployeeRolesState = {
+  /**
+   * The roles somebody holds, or **null when it is not known**.
+   *
+   * The distinction is in the return type on purpose, so the compiler asks
+   * every caller what it wants to say about an absence. `[]` means the API
+   * described an account holding no role, which is a real and renderable
+   * state; `null` means we could not read it, and rendering that as "no role"
+   * would be a false claim about somebody's access — the same rule that keeps
+   * an absent payslip figure off a screen as an absence rather than a zero.
+   */
+  rolesFor: (employeeId: string) => EmployeeRoleEntry[] | null;
+  /** Every role in the company. For a legend, a filter, or a count. */
+  roles: EmployeeRoleEntry[];
+  loading: boolean;
+  error: ApiError | null;
+  /**
+   * Roles whose members could not be read, by name.
+   *
+   * Non-empty means a *successfully* read list may still be short, so a screen
+   * showing badges should say so. `rolesFor` already refuses to answer `[]`
+   * while this is non-empty — see below.
+   */
+  incomplete: string[];
+};
+
+/**
+ * Which roles each employee holds.
+ *
+ * Demo mode answers synchronously off the same store `/settings/roles` writes,
+ * so moving somebody into Payroll officer there changes their badge here — the
+ * whole reason the demo roles are editable.
+ */
+export function useEmployeeRoles(): EmployeeRolesState {
+  const { isConnected } = useSession();
+  const state = useSyncExternalStore(
+    demo.subscribe,
+    demo.read,
+    demo.getServerSnapshot,
+  );
+
+  const live = roleSweep.use(isConnected ? ROLE_SWEEP_KEY : null);
+
+  const offline = useMemo(() => {
+    if (isConnected) return null;
+    const roles = demoRoles(state).map(({ id, name }) => ({ id, name }));
+    const byEmployee = new Map<string, EmployeeRoleEntry[]>();
+    for (const role of roles) {
+      for (const employeeId of demoMembers(state, role.id)) {
+        const held = byEmployee.get(employeeId);
+        if (held) held.push(role);
+        else byEmployee.set(employeeId, [role]);
+      }
+    }
+    return { roles, byEmployee };
+  }, [isConnected, state]);
+
+  const byEmployee = offline?.byEmployee ?? live?.byEmployee ?? null;
+  /* A failed read must not answer for anybody. Offline never fails: the map is
+     built from a store already in memory. */
+  const readable = offline !== null || (live !== null && live.error === null);
+  /* Memoised rather than computed inline: the offline branch is a fresh `[]`
+     on every render, which would change `rolesFor`'s identity every render and
+     defeat the point of the callback. Suppressing `exhaustive-deps` here would
+     leave the next person to rediscover it. */
+  const failed = useMemo(
+    () => (offline !== null ? [] : (live?.failed ?? [])),
+    [offline, live],
+  );
+
+  const rolesFor = useCallback(
+    (employeeId: string): EmployeeRoleEntry[] | null => {
+      if (byEmployee === null || !readable) return null;
+      const held = byEmployee.get(employeeId);
+      /* Absent from every role we *could* read, while some role could not be
+         read, is not "no role" — they may well be in the one that failed. The
+         honest answer is that we do not know. Somebody who does appear keeps
+         their list, which may be short, and `incomplete` says so. */
+      if (held === undefined && failed.length > 0) return null;
+      return held ?? [];
+    },
+    [byEmployee, readable, failed],
+  );
+
+  return {
+    rolesFor,
+    roles: offline?.roles ?? live?.roles ?? [],
+    loading: offline === null && live === null,
+    error: offline !== null ? null : (live?.error ?? null),
+    incomplete: failed,
+  };
 }

@@ -59,6 +59,8 @@ import {
 import { naira } from "@/lib/api/payroll";
 import { useDepartments } from "@/lib/store/departments";
 import { useWorkLocations } from "@/lib/store/work-locations";
+import { useEmployeeRoles } from "@/lib/store/permissions";
+import { AccessRoleCell } from "@/components/people/access-role-cell";
 import { useListQuery } from "@/lib/use-list-query";
 import {
   fullName,
@@ -139,6 +141,12 @@ export function Directory({
   const router = useRouter();
   const toast = useToast();
   const mutations = useEmployeeMutations();
+
+  /* The **access** role — Administrator, HR manager and the rest — not the job
+     title, which is already the subtitle under each name. One sweep for the
+     whole page rather than a read per row; `useEmployeeRoles` explains why that
+     had to be a shared resource. */
+  const access = useEmployeeRoles();
 
   const list = useListQuery<Filters>({
     filters: { departmentId: "", workLocationId: "", status: "" },
@@ -587,9 +595,38 @@ export function Directory({
               />
             </div>
           )}
+          {/* A column of em dashes looks broken rather than honest, so when the
+              Role column cannot answer, something has to say why. Two different
+              facts, and they are not the same: nothing could be read at all, or
+              one role's member list failed and the rest came back. */}
+          {(access.error !== null || access.incomplete.length > 0) && (
+            <p className="text-meta border-b border-line px-4 py-2.5 text-muted">
+              {access.error !== null ? (
+                <>
+                  <span className="font-medium text-ink">
+                    Roles could not be read.
+                  </span>{" "}
+                  The Role column is blank for everybody &mdash; that is this
+                  screen not knowing, not people without access. Everything else
+                  here is unaffected.
+                </>
+              ) : (
+                <>
+                  <span className="font-medium text-ink">
+                    Some roles could not be read
+                  </span>{" "}
+                  &mdash; {access.incomplete.join(", ")}. Anybody who holds one
+                  of those shows as blank rather than as holding no role.
+                </>
+              )}
+            </p>
+          )}
           <TableWrap
             className="rounded-b-none border-0"
-            caption="Employee directory with role, department, salary and status"
+            /* "Access role" rather than "role": this caption said role when the
+               only role on the screen was the job title under each name, and
+               there are now two different things it could mean. */
+            caption="Employee directory with access role, job title, department, salary and status"
           >
             <THead>
               {mayEdit && (
@@ -619,6 +656,10 @@ export function Directory({
               >
                 Employee
               </SortableTH>
+              {/* Not sortable: the API sorts, and it has no role field to sort
+                  on. An arrow that reordered only the 25 rows on screen would
+                  claim to have sorted the directory. */}
+              <TH>Role</TH>
               <TH>Department</TH>
               <TH>Location</TH>
               <SortableTH
@@ -685,6 +726,13 @@ export function Directory({
                       }
                       subtitle={`${e.jobTitle} · ${e.employeeNo}`}
                     />
+                    <TD>
+                      <AccessRoleCell
+                        roles={access.rolesFor(e.id)}
+                        canLogin={e.canLogin}
+                        loading={access.loading}
+                      />
+                    </TD>
                     <TD>{e.department}</TD>
                     <TD>{e.location}</TD>
                     <TD align="right" className="tabular font-medium text-ink">
