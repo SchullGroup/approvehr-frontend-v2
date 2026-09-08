@@ -27,6 +27,7 @@ import {
 import {
   dayLabel,
   dayOf,
+  ratingWords,
   type ApiCycle,
   type ApiGoal,
   type ApiPeerFeedback,
@@ -432,7 +433,7 @@ export function WhatNeedsYouTab({
                   <p className="text-body-sm font-medium text-ink">
                     {review.cycleName}
                     {review.rating !== null
-                      ? ` · ${review.rating} out of 5`
+                      ? ` · ${ratingWords(review.rating)}`
                       : " · no overall mark"}
                   </p>
                   <p className="mt-1 text-meta text-muted">
@@ -906,7 +907,7 @@ function ReviewRow({
           {review.dueDate && <span>Due {dayLabel(review.dueDate)}</span>}
           {/* Absent, not zero: a form the author put no number on is not a form
               marked nought. */}
-          {review.rating !== null && <span>Mark {review.rating} out of 5</span>}
+          {review.rating !== null && <span>{ratingWords(review.rating)}</span>}
           <Badge tone={review.submitted ? "neutral" : "warning"} size="sm" dot>
             {review.submitted ? "Sent" : "Not sent"}
           </Badge>
@@ -987,6 +988,10 @@ function PeerBlock({ entry }: { entry: ApiPeerFeedback }) {
             <p className="text-meta font-medium text-muted">{answer.prompt}</p>
             {answer.averageRating !== null && (
               <p className="tabular mt-1 text-body-sm text-ink">
+                {/* The one place a mark stays a figure. An average of ordinal
+                    words is not a word: 3.4 and 2.6 both round to "Meets
+                    Expectations" and only one of them is nearer 2. Naming a
+                    level here would be a claim nobody made. rating-scale-prose */}
                 Average {answer.averageRating} out of 5, across{" "}
                 {answer.answered === 1
                   ? "1 answer"

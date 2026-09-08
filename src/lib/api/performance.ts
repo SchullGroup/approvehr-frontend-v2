@@ -2294,6 +2294,46 @@ export const RATING_MEANING: Record<number, string> = {
   2: "Falls short of what the role asks for in ways that need addressing.",
   1: "Well short of what the role asks for.",
 };
+/**
+ * A rating, in the words the company agreed on, wherever one is **read back**.
+ *
+ * The standup asked for *"descriptive ratings such as 'below expectation',
+ * 'meet expectation' and 'exceed expectation'"* **instead of** numerical
+ * values. That landed on the picker — the radio group a manager chooses from
+ * shows the words — and nowhere else: every screen that showed a mark somebody
+ * had already given still read `3 out of 5`, in eight places, including the
+ * confirmation dialog for making a mark final.
+ *
+ * So the scale was words while you were choosing and a number ever afterwards,
+ * which is the worst of the two: the reader has to remember what 3 was called
+ * to know whether it is good news, and the number is exactly the thing a
+ * defensible appraisal is trying not to be argued in.
+ *
+ * ## Why the number is dropped rather than shown beside the word
+ *
+ * `3 · Meets Expectations` reads as a score with a caption, and a reader's eye
+ * goes to the digit. The picker keeps its numbers because they are the
+ * coordinates people use to talk to each other while marking — "I gave her a
+ * four" — and because a radio group with five prose options and no ordering cue
+ * is hard to scan. A record is read, not scanned, and it should say what was
+ * decided.
+ *
+ * ## Null in, null out
+ *
+ * A form whose author put no number on it is not a form marked nought — the
+ * rule this codebase states everywhere. Callers render their own sentence for
+ * the absence, because "no overall mark" and "the answers were the judgement"
+ * are different sentences in different places.
+ *
+ * A level outside 1–5 cannot be written (`submitReviewSchema` refuses it) and
+ * could only arrive on a legacy row. That falls back to the bare figure: it
+ * states what is stored without inventing a word for it.
+ */
+export function ratingWords(level: number | null | undefined): string | null {
+  if (level === null || level === undefined) return null;
+  return RATING_LABELS[level] ?? `${level} out of ${Object.keys(RATING_LABELS).length}`;
+}
+
 
 /* -------------------------------------------------------------- the measures */
 

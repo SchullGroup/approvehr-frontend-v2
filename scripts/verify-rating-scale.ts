@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { RATING_LABELS, RATING_MEANING } from "../src/lib/api/performance";
 
@@ -126,7 +126,98 @@ function checkShape(): void {
   console.log("  ok    five levels, each with a label and what it means");
 }
 
+/**
+ * A mark that has been given is read back in **words**, never as a digit.
+ *
+ * The standup asked for descriptive ratings *instead of* numerical values, and
+ * the first pass put them on the picker only. Every screen that showed a mark
+ * somebody had already given still read `3 out of 5` — eight places, including
+ * the confirmation dialog for making a mark final. So the scale was words while
+ * you chose and a number ever afterwards, which is worse than either: the
+ * reader has to remember what 3 was called to know whether it is good news.
+ *
+ * `ratingWords` in `lib/api/performance.ts` is the one formatter. This bans the
+ * phrase that would mean somebody had gone round it, inside the appraisal
+ * screens only — `settings/performance` legitimately argues *about* the scale
+ * in prose ("rates themselves 5 out of 5 rather than 3 out of 5"), and the exit
+ * interview has its own unrelated recommendation score.
+ *
+ * Comments are stripped first, for the reason `verify-stores.ts` records: this
+ * repo's files are heavily commented, a comment renders nothing, and the
+ * *continuation* lines of a block comment start with neither `*` nor `/`, so a
+ * leading-marker test is not a comment test.
+ */
+const SCREENS = path.resolve(import.meta.dirname, "../src/app/(app)/performance");
+const BANNED = /\bout of (?:5|five)\b/i;
+const ESCAPE = "rating-scale-prose";
+
+function filesUnder(dir: string): string[] {
+  const out: string[] = [];
+  for (const entry of readdirSync(dir)) {
+    const full = path.join(dir, entry);
+    if (statSync(full).isDirectory()) out.push(...filesUnder(full));
+    else if (full.endsWith(".tsx") || full.endsWith(".ts")) out.push(full);
+  }
+  return out;
+}
+
+/** Each line with its comments removed. Lifted from `verify-stores.ts`. */
+function stripComments(lines: string[]): string[] {
+  let inBlock = false;
+  return lines.map((line) => {
+    let out = "";
+    let i = 0;
+    while (i < line.length) {
+      if (inBlock) {
+        const close = line.indexOf("*/", i);
+        if (close === -1) return out;
+        inBlock = false;
+        i = close + 2;
+        continue;
+      }
+      if (line.startsWith("//", i)) return out;
+      if (line.startsWith("/*", i)) {
+        inBlock = true;
+        i += 2;
+        continue;
+      }
+      out += line[i];
+      i += 1;
+    }
+    return out;
+  });
+}
+
+function checkNoBareNumbers(): void {
+  checks += 1;
+  const found: string[] = [];
+
+  for (const file of filesUnder(SCREENS)) {
+    const raw = readFileSync(file, "utf8").split("\n");
+    const code = stripComments(raw);
+    code.forEach((line, index) => {
+      if (!BANNED.test(line)) return;
+      /* An average of ordinal words has no word, and says so on its own line. */
+      if ((raw[index - 1] ?? "").includes(ESCAPE) || raw[index].includes(ESCAPE)) return;
+      found.push(`${path.relative(SCREENS, file)}:${index + 1}  ${line.trim()}`);
+    });
+  }
+
+  if (found.length > 0) {
+    failures += 1;
+    console.log(
+      `  FAIL  ${found.length} ${found.length === 1 ? "place renders" : "places render"} ` +
+        `a mark as a number. Use ratingWords, or add a "${ESCAPE}" comment if the ` +
+        `line is prose about the scale rather than a mark somebody gave.`,
+    );
+    for (const line of found) console.log(`        ${line}`);
+    return;
+  }
+  console.log("  ok    every mark in the appraisal screens is read back in words");
+}
+
 checkShape();
+checkNoBareNumbers();
 
 if (!existsSync(SOURCE)) {
   console.log(

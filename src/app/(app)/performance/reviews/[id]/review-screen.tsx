@@ -11,6 +11,7 @@ import {
   CardHeader,
   Callout,
   ConfirmDialog,
+  Disclosure,
   EmptyState,
   Spinner,
   Stat,
@@ -21,6 +22,7 @@ import { ApiError } from "@/lib/api/client";
 import {
   dayLabel,
   dayOf,
+  ratingWords,
   scoreLabel,
   weightLabel,
   type ApiComponentScore,
@@ -210,17 +212,22 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
       <PageBody>
         <div className="flex flex-col gap-6">
           {/* Which reading this is. One route serves every reader, so saying so
-              costs a line and saves somebody wondering why a colleague sees a
-              button they do not. */}
-          <p className="text-body-sm text-muted">
-            {isSubject
-              ? "You are reading this as the person it is about."
-              : review.mine
+              saves somebody wondering why a colleague sees a button they do not.
+
+              **Not to the subject.** "You are reading this as the person it is
+              about" tells somebody opening their own appraisal a thing they
+              knew before they clicked, at the top of the screen, in the place
+              a reader looks first. The line earns its space for the other
+              three readings, where the asymmetry is real. */}
+          {!isSubject && (
+            <p className="text-body-sm text-muted">
+              {review.mine
                 ? "You are reading this as the person who wrote it."
                 : canSeeCompany
                   ? "You are reading this with the records permission."
                   : "You are reading this as their manager."}
-          </p>
+            </p>
+          )}
 
           {owesAnswer && (
             <Callout
@@ -273,7 +280,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
                   value={
                     review.rating === null
                       ? "None given"
-                      : `${review.rating} out of 5`
+                      : (ratingWords(review.rating) as string)
                   }
                   {...(review.rating === null
                     ? { hint: "The answers were the judgement" }
@@ -296,16 +303,24 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
                       ? { hint: `Due ${dayLabel(review.dueDate)}` }
                       : {})}
                 />
-                <Stat
-                  label="Rating of record"
-                  value={review.finalised ? "Yes" : "Not yet"}
-                  hint={
-                    review.finalisedAt
-                      ? `Final on ${dayOf(review.finalisedAt)}`
-                      : "Until it is final, nothing has been told to anybody"
-                  }
-                />
               </div>
+
+              {/* The third Stat here used to read "Rating of record — Yes /
+                  Final on 3 September", which is what the "Final" badge at the
+                  top of the page already says, in a heavier register, six
+                  inches away. Two claims about one fact is the clutter the
+                  feedback named; the date is worth keeping and a Stat is not
+                  the shape for it.
+
+                  In every other state something else on the screen already
+                  says it: the callout above asks the subject for an answer, the
+                  card below records the one they gave, and the footer tells an
+                  appraiser what finalising will do. */}
+              {review.finalisedAt && (
+                <p className="text-body-sm text-muted">
+                  Made the rating of record on {dayOf(review.finalisedAt)}.
+                </p>
+              )}
 
               {review.appraiser && (
                 <AppraiserStrip
@@ -591,7 +606,7 @@ function FinaliseDialog({
           or dispute it.{" "}
           {review.rating === null
             ? "This form carries no overall mark, so what they read is the answers."
-            : `The mark of record becomes ${review.rating} out of 5.`}{" "}
+            : `The mark of record becomes "${ratingWords(review.rating)}".`}{" "}
           It cannot be re-marked afterwards.
         </span>
       }
@@ -657,14 +672,7 @@ function ScorePanel({
 
   return (
     <Card>
-      <CardHeader
-        title="What the mark is made of"
-        description={
-          score.weightsFrom === "snapshot"
-            ? "Scored on the weights locked in when this period started. Changing the company's weights later will not move this mark."
-            : "Scored on the company's weights as they stand today. This period never locked in its own copy, so changing the company's weights would recalculate this mark too, even though it has already been given."
-        }
-      />
+      <CardHeader title="What the mark is made of" />
       <CardBody className="flex flex-col gap-5">
         <div className="grid gap-4 sm:grid-cols-3">
           <Stat
@@ -736,15 +744,36 @@ function ScorePanel({
           </div>
         )}
 
-        <p className="flex items-start gap-2 text-body-sm text-muted">
-          <ShieldCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-          <span>
-            Every figure here is a whole number of basis points, so{" "}
-            {subjectName}&apos;s mark reproduces exactly. A score assembled from
-            decimals does not, and one that does not reproduce cannot be
-            defended.
-          </span>
-        </p>
+        {/* Two paragraphs about how the product computes, on the screen where
+            somebody reads what was decided about them. Both are true and worth
+            keeping — one is the difference between a mark that can be moved
+            later and one that cannot — and neither is what the reader came for.
+            `PARITY.md` Rule 5: reference-shaped detail goes behind a reveal,
+            and what needs acting on stays open. Nothing here needs acting on;
+            the exceptions above do, and they are outside it. */}
+        <Disclosure
+          level={4}
+          dense
+          title="How this score is put together"
+          hint="The weights it was scored on, and why the figures are whole numbers."
+        >
+          <div className="flex flex-col gap-3 text-body-sm leading-relaxed text-body">
+            <p>
+              {score.weightsFrom === "snapshot"
+                ? "Scored on the weights locked in when this period started. Changing the company's weights later will not move this mark."
+                : "Scored on the company's weights as they stand today. This period never locked in its own copy, so changing the company's weights would recalculate this mark too, even though it has already been given."}
+            </p>
+            <p className="flex items-start gap-2 text-muted">
+              <ShieldCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+              <span>
+                Every figure here is a whole number of basis points, so{" "}
+                {subjectName}&apos;s mark reproduces exactly. A score assembled
+                from decimals does not, and one that does not reproduce cannot
+                be defended.
+              </span>
+            </p>
+          </div>
+        </Disclosure>
       </CardBody>
     </Card>
   );
@@ -774,10 +803,25 @@ function ComponentRow({ component }: { component: ApiComponentScore }) {
         </span>
       </div>
 
-      <p className="mt-1.5 text-body-sm text-body">
-        {component.excludedNote ??
-          `Set at ${weightLabel(component.weightBp)} by the company, carried ${weightLabel(component.effectiveWeightBp)} here because components with no data were left out.`}
-      </p>
+      {/* A row said its own weights back on every component, so five components
+          produced five near-identical sentences — "Set at 40% by the company,
+          carried 40% here because components with no data were left out" —
+          under a badge that had just said "carried 40%". That is the clutter
+          the feedback named, and it drowned the one sentence per screen that
+          is actually specific to a row.
+
+          So: the API's own note when a component was left out or reweighted,
+          because that is different every time; and nothing where the weight it
+          carried is the weight the company set, because the badge said it. */}
+      {component.excludedNote ? (
+        <p className="mt-1.5 text-body-sm text-body">{component.excludedNote}</p>
+      ) : component.effectiveWeightBp !== component.weightBp ? (
+        <p className="mt-1.5 text-body-sm text-body">
+          Set at {weightLabel(component.weightBp)} by the company, carried{" "}
+          {weightLabel(component.effectiveWeightBp)} here because components with
+          no data were left out.
+        </p>
+      ) : null}
 
       <p className="mt-1 text-meta text-muted">
         {component.evidenceCount === 0

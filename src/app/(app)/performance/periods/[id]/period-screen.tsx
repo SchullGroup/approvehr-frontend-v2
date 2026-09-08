@@ -45,6 +45,7 @@ import {
   EXCEPTION_CODE_SUMMARY,
   dayLabel,
   groupExceptionsByCode,
+  ratingWords,
   scoreLabel,
   weightLabel,
   type ApiAppraiserMap,
@@ -1135,7 +1136,7 @@ function MultiAppraiserReviews({
                       ? "Written, not final"
                       : "Not written yet"}
                   {manager.rating !== null
-                    ? ` · ${manager.rating} out of 5`
+                    ? ` · ${ratingWords(manager.rating)}`
                     : ""}
                 </p>
               </div>
