@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   CheckCheck,
   ListChecks,
   Lock,
   Play,
+  Trash2,
   UserX,
   Users,
 } from "lucide-react";
@@ -139,6 +141,7 @@ const STAGE_NEXT_LABEL: Record<string, string> = {
 };
 
 export function PeriodScreen({ cycleId }: { cycleId: string }) {
+  const router = useRouter();
   const canSeeCompany = useCan("EDIT_RECORDS");
   const canManage = useCan("MANAGE_SETTINGS");
   const detail = useCycleRegister(cycleId, canSeeCompany);
@@ -148,6 +151,8 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
   const [chasing, setChasing] = useState(false);
   const [starting, setStarting] = useState(false);
   const [confirmingStart, setConfirmingStart] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [questionsOpen, setQuestionsOpen] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [advancing, setAdvancing] = useState(false);
@@ -233,6 +238,30 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
     } finally {
       setStarting(false);
       setConfirmingStart(false);
+    }
+  };
+
+  /**
+   * Delete the draft outright. Only ever offered on a draft — a running or
+   * published period is a record of what people were asked, and the API
+   * refuses it for exactly that reason if this is somehow reached anyway.
+   */
+  const deleteCycle = async () => {
+    if (!period) return;
+    setDeleting(true);
+    try {
+      await periods.deleteCycle(cycleId);
+      toast.push({
+        title: `${period.name} deleted`,
+        tone: "success",
+        detail: "Nothing was ever sent, so there is nothing to undo.",
+      });
+      router.push("/performance/periods");
+    } catch (error) {
+      failed(error);
+    } finally {
+      setDeleting(false);
+      setConfirmingDelete(false);
     }
   };
 
@@ -402,6 +431,21 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
             {canManage && running && (
               <Button size="sm" onClick={() => setPublishing(true)}>
                 Publish the results
+              </Button>
+            )}
+            {/* Draft only — a running or published period is a record of what
+                people were asked, and the API refuses deleting one anyway.
+                Quiet on purpose: this is the one destructive control on the
+                page and it must not compete with Start the period for
+                attention. */}
+            {canManage && draft && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setConfirmingDelete(true)}
+              >
+                <Trash2 aria-hidden="true" className="size-3.5" />
+                Delete this period
               </Button>
             )}
           </>
@@ -696,6 +740,19 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
           confirmLabel="Start it"
           tone="primary"
           body="Everybody gets their form today, and the questions are fixed the moment it starts — add any more first."
+        />
+      )}
+
+      {confirmingDelete && period && (
+        <ConfirmDialog
+          open
+          onClose={() => setConfirmingDelete(false)}
+          onConfirm={() => void deleteCycle()}
+          loading={deleting}
+          title="Delete this period?"
+          confirmLabel="Delete it"
+          tone="danger"
+          body={`Nothing has been sent for ${period.name}, so nothing is lost by deleting it — the questions go with it, and this cannot be undone.`}
         />
       )}
     </>
