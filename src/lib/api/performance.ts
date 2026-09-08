@@ -136,6 +136,17 @@ export type ApiGoal = {
   description: string | null;
   ownerId: string | null;
   ownerName: string | null;
+  departmentId: string | null;
+  departmentName: string | null;
+  /**
+   * Which rung of the cascade this is: **company → department → personal**.
+   *
+   * Derived by the API from which of `ownerId` and `departmentId` are set, so
+   * there is one answer rather than a stored column that can contradict them.
+   * Before this the screen guessed — a personal KPI that happened to have
+   * children was labelled "Team KPI".
+   */
+  level: "company" | "department" | "personal";
   /** No owner means a company goal: everybody can see it. */
   companyWide: boolean;
   parentId: string | null;
@@ -1246,6 +1257,18 @@ export type ApiMyTask = {
   createdAt: string;
 };
 
+/**
+ * What one assignment actually did.
+ *
+ * `alreadyHad` is the honest half: picking eight people and seeing six KPIs
+ * appear is a difference the screen has to be able to explain, so the people
+ * skipped come back named rather than counted.
+ */
+export type ApiAssignedObjectives = {
+  created: ApiGoal[];
+  alreadyHad: { employeeId: string; name: string; goalId: string }[];
+};
+
 /** One row in a manager's or HR's grading queue — named, so no follow-up lookup. */
 export type ApiTaskForGrading = {
   id: string;
@@ -1286,6 +1309,15 @@ export type CreateGoalBody = {
    */
   ownerId?: string | null;
   parentId?: string;
+  /**
+   * Which department this belongs to — the middle rung of the cascade.
+   *
+   * Absent means "inherit whatever the parent is filed under", which is what
+   * makes the ladder hold without anybody re-typing the department at every
+   * level. Set with `ownerId: null` it makes a **department objective**: a
+   * shared target the department's own head may raise and HR agrees.
+   */
+  departmentId?: string | null;
   /** `2026-Q1`. A quarter, not a date. */
   dueQuarter?: string;
   /** The period it will be scored in. Needed for anything that gets a mark. */
@@ -2142,6 +2174,28 @@ export const performanceApi = {
       ratingsKept: number;
       note: string;
     }>(`/performance/competencies/${id}`, { method: "DELETE" }),
+
+  /**
+   * Give one KPI to several people, under one objective.
+   *
+   * Creates a sibling per person rather than one row with many owners — see
+   * the API's own note on why one mark shared five ways is the wrong answer.
+   * Somebody who already has it is skipped and named in `alreadyHad`.
+   */
+  assignObjective: (
+    parentId: string,
+    body: {
+      title: string;
+      description?: string;
+      employeeIds: string[];
+      dueQuarter?: string;
+      reviewCycleId?: string;
+    },
+  ) =>
+    request<ApiAssignedObjectives>(`/performance/goals/${parentId}/assign`, {
+      method: "POST",
+      body,
+    }),
 
   /* ------------------------------------------------------------ weekly tasks */
 

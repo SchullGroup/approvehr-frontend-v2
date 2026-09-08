@@ -57,7 +57,12 @@ import {
   type KpiScope,
 } from "@/lib/store/performance";
 import { ApprovalReasonDialog } from "./approval-dialogs";
-import { AddMeasureDialog, NewKpiDialog, StopKpiDialog } from "./goal-dialogs";
+import {
+  AddMeasureDialog,
+  AssignKpiDialog,
+  NewKpiDialog,
+  StopKpiDialog,
+} from "./goal-dialogs";
 import { TaskLogPanel } from "./task-log";
 
 /**
@@ -122,6 +127,7 @@ export function KpisTab({
   const { actingId } = useSession();
 
   const [creating, setCreating] = useState<{ parentId?: string } | null>(null);
+  const [assigning, setAssigning] = useState<ApiGoal | null>(null);
   const [addingTo, setAddingTo] = useState<ApiGoal | null>(null);
   const [stopping, setStopping] = useState<ApiGoal | null>(null);
   const [completing, setCompleting] = useState<ApiGoal | null>(null);
@@ -331,6 +337,7 @@ export function KpisTab({
                     actingId={actingId}
                     onAddMeasure={setAddingTo}
                     onAddChild={(parentId) => setCreating({ parentId })}
+                    onAssign={setAssigning}
                     onComplete={setCompleting}
                     onStop={setStopping}
                     onShare={(goal) =>
@@ -363,6 +370,7 @@ export function KpisTab({
                 actingId={actingId}
                 onAddMeasure={setAddingTo}
                 onAddChild={(parentId) => setCreating({ parentId })}
+                onAssign={setAssigning}
                 onComplete={setCompleting}
                 onStop={setStopping}
                 onShare={(goal) =>
@@ -400,6 +408,41 @@ export function KpisTab({
           onCreate={async (body) => {
             const ok = await run(() => mutations.createGoal(body), "KPI added");
             if (ok) setCreating(null);
+          }}
+        />
+      )}
+
+      {assigning && (
+        <AssignKpiDialog
+          parent={{
+            id: assigning.id,
+            title: assigning.title,
+            departmentId: assigning.departmentId,
+            dueQuarter: assigning.dueQuarter,
+          }}
+          onClose={() => setAssigning(null)}
+          onAssign={async (parentId, body) => {
+            const result = await mutations.assignObjective(parentId, body);
+            /* The count, not the intent. Somebody who picked eight and saw six
+               appear is owed the two names rather than a tick — and "already
+               had it" is a perfectly good outcome, so it is not an error. */
+            toast.push({
+              title:
+                result.created.length === 1
+                  ? "1 KPI assigned"
+                  : `${result.created.length} KPIs assigned`,
+              tone: "success",
+              ...(result.alreadyHad.length > 0
+                ? {
+                    detail: `${result.alreadyHad
+                      .map((one) => one.name)
+                      .join(", ")} already had it.`,
+                  }
+                : {}),
+            });
+            kpis.reload();
+            setAssigning(null);
+            return result;
           }}
         />
       )}
@@ -480,6 +523,7 @@ function GoalBranch({
   actingId,
   onAddMeasure,
   onAddChild,
+  onAssign,
   onComplete,
   onStop,
   onShare,
@@ -493,6 +537,7 @@ function GoalBranch({
   actingId: string | null;
   onAddMeasure: (goal: ApiGoal) => void;
   onAddChild: (parentId: string) => void;
+  onAssign: (goal: ApiGoal) => void;
   onComplete: (goal: ApiGoal) => void;
   onStop: (goal: ApiGoal) => void;
   onShare: (goal: ApiGoal) => void;
@@ -528,6 +573,7 @@ function GoalBranch({
         actingId={actingId}
         onAddMeasure={onAddMeasure}
         onAddChild={onAddChild}
+        onAssign={onAssign}
         onComplete={onComplete}
         onStop={onStop}
         onShare={onShare}
@@ -547,6 +593,7 @@ function GoalBranch({
               actingId={actingId}
               onAddMeasure={onAddMeasure}
               onAddChild={onAddChild}
+              onAssign={onAssign}
               onComplete={onComplete}
               onStop={onStop}
               onShare={onShare}
@@ -566,6 +613,7 @@ function GoalBranch({
           actingId={actingId}
           onAddMeasure={onAddMeasure}
           onAddChild={onAddChild}
+          onAssign={onAssign}
           onComplete={onComplete}
           onStop={onStop}
           onShare={onShare}
@@ -579,9 +627,22 @@ function GoalBranch({
 }
 
 /** Which rung this is. Derived, so it cannot disagree with the data. */
+/**
+ * Which rung of the ladder this is, in words.
+ *
+ * From the API's own `level` rather than guessed. It used to read
+ * `childCount > 0 ? "Team KPI"`, which labelled a **personal** KPI that
+ * happened to have children as the team's — a guess that was wrong exactly
+ * where the cascade matters. A department objective names its department,
+ * because "Department objective" without saying which one is half a fact.
+ */
 function rungLabel(goal: ApiGoal): string {
-  if (goal.companyWide) return "Company KPI";
-  if (goal.childCount > 0) return "Team KPI";
+  if (goal.level === "company") return "Company KPI";
+  if (goal.level === "department") {
+    return goal.departmentName
+      ? `${goal.departmentName} objective`
+      : "Department objective";
+  }
   return "Personal KPI";
 }
 
@@ -592,6 +653,7 @@ function GoalCard({
   actingId,
   onAddMeasure,
   onAddChild,
+  onAssign,
   onComplete,
   onStop,
   onShare,
@@ -606,6 +668,7 @@ function GoalCard({
   actingId: string | null;
   onAddMeasure: (goal: ApiGoal) => void;
   onAddChild: (parentId: string) => void;
+  onAssign: (goal: ApiGoal) => void;
   onComplete: (goal: ApiGoal) => void;
   onStop: (goal: ApiGoal) => void;
   onShare: (goal: ApiGoal) => void;
@@ -712,7 +775,12 @@ function GoalCard({
                   <span className="truncate">{goal.ownerName}</span>
                 </>
               ) : (
-                <span>No owner</span>
+                /* A department's shared target reads as the department, the
+                   way a company's reads as "Everyone". Only a rung with
+                   neither is genuinely unowned. */
+                <span className="truncate">
+                  {goal.departmentName ?? "No owner"}
+                </span>
               )}
             </span>
 
@@ -750,6 +818,7 @@ function GoalCard({
         editable={editable}
         onAddMeasure={onAddMeasure}
         onAddChild={onAddChild}
+        onAssign={onAssign}
         onComplete={onComplete}
         onStop={onStop}
         onShare={onShare}
@@ -796,6 +865,7 @@ function GoalDetailModal({
   editable,
   onAddMeasure,
   onAddChild,
+  onAssign,
   onComplete,
   onStop,
   onShare,
@@ -815,6 +885,7 @@ function GoalDetailModal({
   editable: boolean;
   onAddMeasure: (goal: ApiGoal) => void;
   onAddChild: (parentId: string) => void;
+  onAssign: (goal: ApiGoal) => void;
   onComplete: (goal: ApiGoal) => void;
   onStop: (goal: ApiGoal) => void;
   onShare: (goal: ApiGoal) => void;
@@ -835,7 +906,10 @@ function GoalDetailModal({
     <Modal open={open} onClose={onClose} title={goal.title} size="lg">
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-2 text-meta text-muted">
-          <Badge tone={goal.companyWide ? "accent" : "neutral"} size="sm">
+          <Badge
+            tone={goal.level === "personal" ? "neutral" : "accent"}
+            size="sm"
+          >
             {rung}
           </Badge>
           <Badge tone={APPROVAL_TONE[goal.approval]} size="sm" dot>
@@ -852,7 +926,7 @@ function GoalDetailModal({
               {goal.ownerName}
             </span>
           ) : (
-            <span>No owner</span>
+            <span>{goal.departmentName ?? "No owner"}</span>
           )}
           {/* The appraisal period is what makes this scoreable; a bare quarter
               is what companies typed before periods existed and is still
@@ -968,6 +1042,14 @@ function GoalDetailModal({
               <Button size="sm" onClick={act(() => onAddChild(goal.id))}>
                 Add a KPI under this
               </Button>
+              {/* Only on a shared objective. Somebody's personal KPI is not a
+                  thing to give a team, and the API refuses it — so the button
+                  is absent rather than offering a refusal. */}
+              {goal.ownerId === null && (
+                <Button size="sm" onClick={act(() => onAssign(goal))}>
+                  Give a KPI to people
+                </Button>
+              )}
               {canShare && (
                 <Button size="sm" onClick={act(() => onShare(goal))}>
                   Tell the people affected
