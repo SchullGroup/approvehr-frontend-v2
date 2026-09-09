@@ -7,7 +7,6 @@ import { type ThemeChoice, useThemeChoice } from "@/lib/store/theme";
 const OPTIONS: { value: ThemeChoice; label: string }[] = [
   { value: "light", label: "Light" },
   { value: "dark", label: "Dark" },
-  { value: "system", label: "Match device" },
 ];
 
 /**
@@ -30,14 +29,15 @@ export function AppearanceScreen() {
             <div>
               <h2 className="text-body-md font-semibold text-ink">Theme</h2>
               <p className="mt-1 text-body-sm leading-relaxed text-body">
-                Light or dark, or match whatever your device is already set to.
+                Light by default. Switch to dark here whenever you want it —
+                this does not follow your device&apos;s own setting, so it
+                stays whichever you pick regardless of what your OS is doing.
                 Nobody else&apos;s screen changes, and nobody needs to let you
                 do this.
               </p>
               <p className="text-body-sm leading-relaxed text-body">
                 In this browser only — it will not be here on another device.
-                Signing in somewhere else starts back on &ldquo;Match
-                device.&rdquo;
+                Signing in somewhere else starts back on Light.
               </p>
             </div>
             <SegmentedControl<ThemeChoice>
