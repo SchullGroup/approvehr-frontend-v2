@@ -52,6 +52,39 @@ function renderWidget(id: string, me?: Data) {
   );
 }
 
+/**
+ * The precondition the grid's `empty:hidden` depends on.
+ *
+ * `dashboard-screen.tsx` wraps every widget in its span div and collapses the
+ * wrapper with `:empty` when the widget drew nothing, which is what closes the
+ * row up. That only works if a quiet widget leaves the wrapper with **no child
+ * nodes at all** — a stray `<></>` carrying whitespace, or an empty `<div>`
+ * "for layout", and `:empty` stops matching and the hole comes back silently.
+ *
+ * jsdom applies no CSS, so this cannot assert the collapse itself. It asserts
+ * the half that can regress in code, for the widget that actually left a gap
+ * on an owner's standard dashboard in production: `chart-headcount-trend`
+ * holding half a row, so Hiring sat alone beside white space. The other gap
+ * was `my-queue` for an admin account with no staff record, which the existing
+ * "no staff record" case already covers.
+ */
+describe("a quiet widget leaves nothing for the grid to hold", () => {
+  it("renders an empty container when there are no reports to chart", () => {
+    /* `reports: null` is the real state on a deployment whose API does not
+       serve them yet — which is exactly how the gap appeared. */
+    const { container } = renderWidget("chart-headcount-trend");
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  /* `my-queue` is deliberately **not** asserted here. It draws "Nothing needs
+     you" for somebody with a staff record and an empty queue — a genuine nil,
+     which this file's own rule says is a real answer and not an absence. The
+     state that leaves the gap is an account with *no staff record at all*, and
+     "renders NOTHING at all for an account with no staff record" below already
+     pins it. Asserting it twice with the wrong fixture is how a test comes to
+     describe something the product does not do. */
+});
+
 describe("what an employee's own card says", () => {
   it("renders NOTHING for a person no payroll has included", () => {
     const { container } = renderWidget("my-pay", base);
