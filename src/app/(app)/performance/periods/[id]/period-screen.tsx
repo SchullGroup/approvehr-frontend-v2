@@ -23,6 +23,7 @@ import {
   Callout,
   Checkbox,
   ConfirmDialog,
+  Disclosure,
   EmptyState,
   Field,
   Input,
@@ -48,13 +49,14 @@ import {
   EXCEPTION_CODE_SUMMARY,
   dayLabel,
   groupExceptionsByCode,
-  ratingWords,
+  ratingWordsFrom,
   scoreLabel,
   weightLabel,
   type ApiAppraiserMap,
   type ApiComponentScore,
   type ReviewCycleStage,
   type ApiAppraiserMapRow,
+  type ApiCycle,
   type ApiCycleParticipants,
   type ApiRevisionRequest,
   type ApiScoreRegister,
@@ -65,7 +67,9 @@ import {
   outstandingIn,
   useCycleMutations,
   useCycleRegister,
+  useRatingScale,
 } from "@/lib/store/performance";
+import { periodWords } from "../../review-parts";
 import { QuestionsDialog } from "../../period-dialogs";
 import { AppraisersDialog } from "../../appraiser-map";
 import { AskPeersButton } from "./ask-peers";
@@ -367,6 +371,15 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                   ? "Everybody"
                   : `${period.departmentIds.length} ${period.departmentIds.length === 1 ? "department" : "departments"}`}
               </Badge>
+              {/* What the period covers, which used to be inferable only from
+                  its name. Absent rather than "no period set": a badge saying
+                  a field is empty is noise on every period written before the
+                  field existed, and nothing was back-filled. */}
+              {periodWords(period.periodStart, period.periodEnd) && (
+                <Badge tone="neutral" size="sm">
+                  {periodWords(period.periodStart, period.periodEnd)}
+                </Badge>
+              )}
               {period.managersCanAddQuestions && (
                 /* The manager question-writing flow exists, is guarded and is
                    tested, and the feedback could not find it — it lives on the
@@ -499,6 +512,10 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 <ManagerQuestionsToggle
                   cycleId={period.id}
                   value={period.managersCanAddQuestions}
+                  onChanged={() => detail.reload()}
+                />
+                <PeriodFramingEditor
+                  period={period}
                   onChanged={() => detail.reload()}
                 />
               </CardBody>
@@ -1143,6 +1160,10 @@ function MultiAppraiserReviews({
 }: {
   participants: ApiCycleParticipants | null;
 }) {
+  /* Before the early returns: a hook cannot run conditionally. */
+  const { scale } = useRatingScale();
+  const ratingWords = ratingWordsFrom(scale.levels);
+
   if (!participants) return null;
   const rows = participants.rows.filter((row) => row.managers.length > 1);
   if (rows.length === 0) return null;
@@ -1548,6 +1569,162 @@ function SignOffCell({ row }: { row: ApiScoreRow }) {
  * the period has started, so a stale toggle here would fail loudly rather
  * than silently doing nothing.
  */
+/**
+ * What a draft period covers, and what to tell people — editable until it
+ * starts.
+ *
+ * ## Why it is here and not on the start dialog alone
+ *
+ * The dialog asks for all of this, and somebody creating a period in a hurry
+ * skips it. The scope cannot be offered here — the API reads `departmentIds`
+ * once, at activation, so a control for it after the fact would silently do
+ * nothing — but these four are read every time a form is opened, so they stay
+ * editable for as long as the period is a draft and there is no form yet.
+ *
+ * Behind a reveal, closed, with the current answer in the summary. It is not a
+ * blocker: a period with no stated instructions still runs.
+ *
+ * ## Both dates or neither
+ *
+ * Checked here, and the API checks the **resulting row** rather than the
+ * patch — `{ periodStart: null }` on its own leaves an end with no start, and
+ * looks perfectly consistent as a payload. Clearing is `null`, which is why
+ * the two dates are sent together as a pair either way.
+ */
+function PeriodFramingEditor({
+  period,
+  onChanged,
+}: {
+  period: ApiCycle;
+  onChanged: () => void;
+}) {
+  const periods = useCycleMutations();
+  const toast = useToast();
+
+  const [start, setStart] = useState(period.periodStart ?? "");
+  const [end, setEnd] = useState(period.periodEnd ?? "");
+  const [instructions, setInstructions] = useState(period.instructions ?? "");
+  const [guideUrl, setGuideUrl] = useState(period.guideUrl ?? "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const dirty =
+    start !== (period.periodStart ?? "") ||
+    end !== (period.periodEnd ?? "") ||
+    instructions !== (period.instructions ?? "") ||
+    guideUrl !== (period.guideUrl ?? "");
+
+  const save = async () => {
+    if (Boolean(start) !== Boolean(end)) {
+      setError("A period needs a start and an end. Set both, or clear both.");
+      return;
+    }
+    if (start && end && start > end) {
+      setError("The period ends before it starts.");
+      return;
+    }
+    if (guideUrl.trim() && !/^https?:\/\//i.test(guideUrl.trim())) {
+      setError("A guide link has to start with http:// or https://.");
+      return;
+    }
+    setError(null);
+    setSaving(true);
+    try {
+      await periods.updateCycle(period.id, {
+        /* Sent as a pair, and `null` where cleared — the API's rule is about
+           the row that results, not the fields that arrived. */
+        periodStart: start || null,
+        periodEnd: end || null,
+        instructions: instructions.trim() || null,
+        guideUrl: guideUrl.trim() || null,
+      });
+      onChanged();
+      toast.push({
+        title: "Saved",
+        tone: "success",
+        detail: "Everybody's form will show this above the first question.",
+      });
+    } catch (caught) {
+      setError(
+        caught instanceof ApiError
+          ? caught.message
+          : "Could not save that. Try again.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Disclosure
+      title="What this period covers, and what to tell people"
+      meta={
+        periodWords(period.periodStart, period.periodEnd) ??
+        (period.instructions ? "No dates set" : "Nothing set")
+      }
+      hint="Shown above the first question on everybody's form."
+    >
+      <div className="flex flex-col gap-3">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field optional label="Period covered — from">
+            <Input
+              type="date"
+              value={start}
+              onChange={(event) => setStart(event.target.value)}
+            />
+          </Field>
+          <Field optional label="to">
+            <Input
+              type="date"
+              value={end}
+              onChange={(event) => setEnd(event.target.value)}
+            />
+          </Field>
+        </div>
+        <Field optional label="Instructions">
+          <Textarea
+            rows={5}
+            value={instructions}
+            onChange={(event) => setInstructions(event.target.value)}
+          />
+        </Field>
+        <p className="text-meta text-muted">
+          Plain text. Line breaks are kept, so a blank line makes a new
+          paragraph.
+        </p>
+        <Field optional label="A link to your own guide">
+          <Input
+            type="url"
+            inputMode="url"
+            value={guideUrl}
+            placeholder="https://…"
+            onChange={(event) => setGuideUrl(event.target.value)}
+          />
+        </Field>
+        {error && (
+          <p
+            role="status"
+            className="rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-body-sm text-ink"
+          >
+            {error}
+          </p>
+        )}
+        <div>
+          <Button
+            variant="accent"
+            size="sm"
+            loading={saving}
+            disabled={!dirty}
+            onClick={() => void save()}
+          >
+            Save
+          </Button>
+        </div>
+      </div>
+    </Disclosure>
+  );
+}
+
 function ManagerQuestionsToggle({
   cycleId,
   value,
