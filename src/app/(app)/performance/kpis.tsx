@@ -156,6 +156,7 @@ export function KpisTab({
   const [addingTo, setAddingTo] = useState<ApiGoal | null>(null);
   const [stopping, setStopping] = useState<ApiGoal | null>(null);
   const [completing, setCompleting] = useState<ApiGoal | null>(null);
+  const [sending, setSending] = useState<ApiGoal | null>(null);
   const [reopening, setReopening] = useState<ApiGoal | null>(null);
 
   /**
@@ -685,12 +686,7 @@ export function KpisTab({
                         `"${goal.title}" shared`,
                       )
                     }
-                    onSubmit={(goal) =>
-                      void run(
-                        () => objectives.submit(goal.id),
-                        `"${goal.title}" sent to be agreed`,
-                      )
-                    }
+                    onSubmit={setSending}
                     onReopen={setReopening}
                     onRecord={async (measureId, value, note) => {
                       await mutations.recordProgress(measureId, value, note);
@@ -718,12 +714,7 @@ export function KpisTab({
                     `"${goal.title}" shared`,
                   )
                 }
-                onSubmit={(goal) =>
-                  void run(
-                    () => objectives.submit(goal.id),
-                    `"${goal.title}" sent to be agreed`,
-                  )
-                }
+                onSubmit={setSending}
                 onReopen={setReopening}
                 onRecord={async (measureId, value, note) => {
                   await mutations.recordProgress(measureId, value, note);
@@ -828,6 +819,56 @@ export function KpisTab({
           }}
         />
       )}
+
+      <ConfirmDialog
+        open={sending !== null}
+        onClose={() => setSending(null)}
+        title={`Send "${sending?.title ?? ""}" to be agreed?`}
+        confirmLabel="Send it"
+        tone="primary"
+        onConfirm={async () => {
+          if (!sending) return;
+          const ok = await run(
+            () => objectives.submit(sending.id),
+            `"${sending.title}" sent to be agreed`,
+          );
+          if (ok) setSending(null);
+        }}
+        body={
+          /* What is worth confirming is not the sending — that can be sent
+             back. It is what agreement does, because the next press is
+             somebody else's and there is no dialog in front of that one: the
+             target freezes and a measure can no longer be added at all.
+             Anybody who still means to add one has to know before this click
+             rather than after theirs. */
+          <>
+            <p>
+              {sending?.ownerName
+                ? `It goes to whoever agrees ${sending.ownerName}'s objectives — their manager, or somebody who can edit records. Nobody agrees their own.`
+                : "It goes to somebody who can agree it. Nobody agrees their own."}
+            </p>
+            <p className="mt-2">
+              Once it is agreed the target is fixed: the title, the period and
+              every measure&rsquo;s target stop moving, and no new measure can
+              be added. Progress still moves. Changing what was asked for after
+              that takes a recorded revision.
+            </p>
+            {sending !== null && sending.keyResults.length === 0 && (
+              <p className="mt-2 text-warning-text">
+                It has no measure on it, so it will be scored on a figure
+                somebody states by hand. Add one first if it should be measured.
+              </p>
+            )}
+            {sending !== null && sending.reviewCycleId === null && (
+              <p className="mt-2 text-warning-text">
+                It is not in an appraisal period, so agreeing it counts towards
+                nobody&rsquo;s mark — and the period is one of the fields that
+                freezes, so it cannot be added afterwards.
+              </p>
+            )}
+          </>
+        }
+      />
 
       <ConfirmDialog
         open={completing !== null}
