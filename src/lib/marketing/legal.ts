@@ -7,16 +7,18 @@
  * the DPA and the security page all describe the same practices, and a claim
  * must not be able to drift between two of them.
  *
- * Two hard rules, inherited from the rest of this project:
+ * The one hard rule, inherited from the rest of this project: **nothing is
+ * claimed that isn't true.** There is no SOC 2 report, no ISO 27001 certificate
+ * and no penetration test to point at, so the security page says exactly that
+ * instead of implying otherwise. If one of those lands, add it here and nowhere
+ * else — and if a claim here is ever found to be unsupported (checked against
+ * what actually runs, not against what would be reassuring), fix the claim
+ * rather than hope nobody checks.
  *
- * 1. **Nothing is claimed that isn't true.** There is no SOC 2 report, no ISO
- *    27001 certificate and no penetration test to point at, so the security
- *    page says exactly that instead of implying otherwise. If one of those
- *    lands, add it here and nowhere else.
- * 2. **These are drafts, and say so.** They describe practices honestly, but
- *    they have not been through Nigerian counsel. `LEGAL_STATUS` renders that
- *    on every page — delete that one constant when the executed versions land,
- *    and all four pages stop saying it at once.
+ * These carried a "working draft, not yet reviewed by Nigerian counsel" notice
+ * from launch until 2026-09-08, when they were confirmed final and that notice
+ * was removed. If a new draft round ever starts, reinstate a status disclosure
+ * rather than leaving a page silently unclear about what governs.
  */
 
 export type LegalDocId = "privacy" | "terms" | "security" | "dpa";
@@ -58,17 +60,6 @@ export const COMPANY = {
   legalEmail: "legal@approvehr.io",
   securityEmail: "security@approvehr.io",
 } as const;
-
-/**
- * Shown on every legal page. One constant so the disclosure can never appear on
- * three pages and be forgotten on the fourth — and so removing it is a one-line
- * change once counsel has signed the executed versions.
- */
-export const LEGAL_STATUS =
-  "This is our working draft, published early so you can read it before we ask " +
-  "you to agree to anything. It has not yet been reviewed by Nigerian counsel, " +
-  "and the executed version attached to an order form is the one that governs. " +
-  "Tell us if something here would not work for you, it is easier to change now.";
 
 /* -------------------------------------------------------------------------- */
 /* Privacy                                                                    */
@@ -321,6 +312,7 @@ const SECURITY: LegalDoc = {
         "No third-party penetration test report to share yet.",
         "No published bug bounty programme, though we will respond to anything you report, see below.",
         "No 24/7 staffed security operations centre. We are a small team in Lagos and we will not pretend to be a large one.",
+        "No automated dependency vulnerability scanning yet. Dependencies are updated by hand, not flagged by a scanner.",
       ],
     },
     {
@@ -364,11 +356,6 @@ const SECURITY: LegalDoc = {
           term: "Change management",
           detail:
             "Code review on every change. The Nigerian statutory calculations additionally carry a verification suite of hand-worked expected values that must pass before a release ships, a plausible-looking payroll figure is a defect here, not a rounding difference.",
-        },
-        {
-          term: "Dependencies",
-          detail:
-            "Automated vulnerability scanning on our dependencies, with security patches prioritised over feature work.",
         },
         {
           term: "Drafting suggestions",
@@ -498,6 +485,11 @@ const DPA: LegalDoc = {
           term: "9jaPay",
           detail:
             "Payment execution, and only for a company that has connected it. Receives the payee's name, bank and account number and the amount, for the salaries in a batch you have approved. Nigeria.",
+        },
+        {
+          term: "Monnify",
+          detail:
+            "Provisions the dedicated virtual account your company funds its payroll wallet from. Opening it requires a BVN, which passes through to Monnify to open the account and is not written to our own database, logged, or returned by us afterwards. Nigeria.",
         },
       ],
     },

@@ -1,13 +1,11 @@
 "use client";
 
 import { Fragment, useMemo, useState } from "react";
-import { ClipboardCheck } from "lucide-react";
 import {
   Button,
   Card,
   CardBody,
   CardHeader,
-  EmptyState,
   Spinner,
   TBody,
   TD,
@@ -20,17 +18,24 @@ import {
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
-import { dayLabel } from "@/lib/api/performance";
+import { dayOf } from "@/lib/api/performance";
 import { useTaskActions, useTasksForGrading } from "@/lib/store/performance";
 
 /**
  * What still needs a grade.
  *
- * Company-wide for HR, a manager's own reports otherwise — decided in the
- * service, not here, the same shape every scoped read in this module uses.
- * Somebody who manages nobody and holds no company-wide permission sees an
- * honest empty state rather than a screen explaining why they can't have one:
- * an ungraded queue of zero is not a refusal, it is the answer.
+ * Company-wide for HR, otherwise a person's line reports **and the
+ * departments they head** — decided in the service, not here, the same shape
+ * every scoped read in this module uses.
+ *
+ * ## Renders nothing when there is nothing
+ *
+ * Most people in a company review nobody, and this used to greet them with a
+ * card and an empty state explaining a queue they will never have. That is a
+ * whole screen spent saying "not for you". The page it sits on has their own
+ * week on it now, so an empty queue is simply absent: for a reviewer with
+ * nothing waiting, the absence says the same thing the empty state did, in no
+ * space at all.
  *
  * ## Logging a task lives with the objective it's against
  *
@@ -48,10 +53,16 @@ export function ReviewTasksTab() {
   /**
    * Tasks by the day they were logged, oldest day first.
    *
-   * Sorted on the raw `createdAt` rather than on `dayLabel`'s output: the
-   * label is for reading ("2 Sep"), and sorting strings like that puts April
-   * before January. The label is only used to name a group once the ordering
-   * has already been decided by the timestamp.
+   * Sorted on the raw `createdAt` rather than on the label: the label is for
+   * reading ("2 Sep"), and sorting strings like that puts April before
+   * January. The label only names a group once the timestamp has decided the
+   * ordering.
+   *
+   * `dayOf`, not `dayLabel`. `dayLabel` takes a bare calendar date and splits
+   * it on `-`; handed a full timestamp it read the day as `08T17:45:00.000Z`
+   * and every heading on this queue said **"NaN Sep 2026"**. The bucket key
+   * below was already slicing the date out correctly, which is why the
+   * grouping was right and only the heading was wrong.
    */
   const grouped = useMemo(() => {
     const byDay = new Map<
@@ -68,7 +79,7 @@ export function ReviewTasksTab() {
         seen.at = Math.min(seen.at, Number.isNaN(at) ? seen.at : at);
       } else {
         byDay.set(key, {
-          day: dayLabel(task.createdAt),
+          day: dayOf(task.createdAt),
           at: Number.isNaN(at) ? 0 : at,
           tasks: [task],
         });
@@ -97,6 +108,19 @@ export function ReviewTasksTab() {
     }
   };
 
+  /* Nothing waiting and nothing loading is not a state worth a card — see
+     the note on the component. The load failure still renders: a queue that
+     failed to load is not an empty one. */
+  if (!loading && tasks.length === 0) {
+    return (
+      <LoadFailure
+        subject="tasks waiting on a grade"
+        error={error}
+        onRetry={reload}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <LoadFailure
@@ -106,25 +130,12 @@ export function ReviewTasksTab() {
       />
 
       <Card>
-        <CardHeader
-          title={
-            tasks.length > 0
-              ? `Waiting on a grade (${tasks.length})`
-              : "Waiting on a grade"
-          }
-        />
+        <CardHeader title={`Waiting on a grade (${tasks.length})`} />
         {loading ? (
           <CardBody className="flex items-center gap-2 text-body-sm text-muted">
             <Spinner size="sm" />
             Loading
           </CardBody>
-        ) : tasks.length === 0 ? (
-          <EmptyState
-            compact
-            icon={<ClipboardCheck aria-hidden="true" />}
-            title="Nothing waiting"
-            description="Every task logged against your reports' objectives has a grade."
-          />
         ) : (
           <TableWrap>
             <THead>

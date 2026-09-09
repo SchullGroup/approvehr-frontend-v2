@@ -543,7 +543,7 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
     },
     {
       href: "/performance/review-tasks",
-      label: "Review tasks",
+      label: "Weekly tasks",
       icon: <ClipboardList aria-hidden="true" />,
       always: true,
     },

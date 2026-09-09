@@ -136,6 +136,17 @@ export type ApiGoal = {
   description: string | null;
   ownerId: string | null;
   ownerName: string | null;
+  departmentId: string | null;
+  departmentName: string | null;
+  /**
+   * Which rung of the cascade this is: **company → department → personal**.
+   *
+   * Derived by the API from which of `ownerId` and `departmentId` are set, so
+   * there is one answer rather than a stored column that can contradict them.
+   * Before this the screen guessed — a personal KPI that happened to have
+   * children was labelled "Team KPI".
+   */
+  level: "company" | "department" | "personal";
   /** No owner means a company goal: everybody can see it. */
   companyWide: boolean;
   parentId: string | null;
@@ -1226,6 +1237,38 @@ export type ApiTask = {
   createdAt: string;
 };
 
+/**
+ * One row in somebody's own record of what they logged.
+ *
+ * Carries the objective's title and the week, because this list is read on
+ * its own screen rather than inside the objective it belongs to — a task
+ * without what it was toward is a sentence with no subject.
+ */
+export type ApiMyTask = {
+  id: string;
+  goalId: string;
+  goalTitle: string;
+  keyResultId: string | null;
+  description: string;
+  grade: "COMPLETED" | "PARTIALLY_COMPLETED" | "NOT_COMPLETED" | null;
+  gradedAt: string | null;
+  weekStart: string;
+  weekEnd: string;
+  createdAt: string;
+};
+
+/**
+ * What one assignment actually did.
+ *
+ * `alreadyHad` is the honest half: picking eight people and seeing six KPIs
+ * appear is a difference the screen has to be able to explain, so the people
+ * skipped come back named rather than counted.
+ */
+export type ApiAssignedObjectives = {
+  created: ApiGoal[];
+  alreadyHad: { employeeId: string; name: string; goalId: string }[];
+};
+
 /** One row in a manager's or HR's grading queue — named, so no follow-up lookup. */
 export type ApiTaskForGrading = {
   id: string;
@@ -1266,6 +1309,15 @@ export type CreateGoalBody = {
    */
   ownerId?: string | null;
   parentId?: string;
+  /**
+   * Which department this belongs to — the middle rung of the cascade.
+   *
+   * Absent means "inherit whatever the parent is filed under", which is what
+   * makes the ladder hold without anybody re-typing the department at every
+   * level. Set with `ownerId: null` it makes a **department objective**: a
+   * shared target the department's own head may raise and HR agrees.
+   */
+  departmentId?: string | null;
   /** `2026-Q1`. A quarter, not a date. */
   dueQuarter?: string;
   /** The period it will be scored in. Needed for anything that gets a mark. */
@@ -1738,6 +1790,20 @@ export const performanceApi = {
     request<ApiCycle>(`/performance/cycles/${id}`, { method: "PATCH", body }),
 
   /**
+   * Delete a draft period outright.
+   *
+   * Refused once it has started — a running or published period is a record
+   * of what people were asked, not a mistake to undo — and refused if it
+   * somehow already has reviews on it. Both refusals are the API's own
+   * sentences.
+   */
+  deleteCycle: (id: string) =>
+    request<{ id: string; deleted: boolean; questionsRemoved: number }>(
+      `/performance/cycles/${id}`,
+      { method: "DELETE" },
+    ),
+
+  /**
    * Start this period's form from another period's.
    *
    * The reason appraisal periods stall: somebody has to write eight questions
@@ -2137,6 +2203,28 @@ export const performanceApi = {
       note: string;
     }>(`/performance/competencies/${id}`, { method: "DELETE" }),
 
+  /**
+   * Give one KPI to several people, under one objective.
+   *
+   * Creates a sibling per person rather than one row with many owners — see
+   * the API's own note on why one mark shared five ways is the wrong answer.
+   * Somebody who already has it is skipped and named in `alreadyHad`.
+   */
+  assignObjective: (
+    parentId: string,
+    body: {
+      title: string;
+      description?: string;
+      employeeIds: string[];
+      dueQuarter?: string;
+      reviewCycleId?: string;
+    },
+  ) =>
+    request<ApiAssignedObjectives>(`/performance/goals/${parentId}/assign`, {
+      method: "POST",
+      body,
+    }),
+
   /* ------------------------------------------------------------ weekly tasks */
 
   tasks: (goalId: string, signal?: AbortSignal) =>
@@ -2151,6 +2239,13 @@ export const performanceApi = {
       "/performance/tasks/for-grading",
       signalOf(signal),
     ),
+
+  /**
+   * My own tasks and the grades that came back. Empty for a sign-in with no
+   * linked staff record, rather than a refusal.
+   */
+  myTasks: (signal?: AbortSignal) =>
+    request<ApiMyTask[]>("/performance/tasks/mine", signalOf(signal)),
 
   /** Only the goal's own owner may log against it — see the API's own note. */
   submitTask: (

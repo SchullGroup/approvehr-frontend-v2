@@ -44,6 +44,7 @@ import {
   type ApiScoringWeightsSaved,
   type ApiTask,
   type ApiTaskForGrading,
+  type ApiMyTask,
   type ScoreBand,
   type ScoreComponent,
   type AnswerBody,
@@ -235,8 +236,17 @@ export function toCascade(goals: ApiGoal[]): GoalNode[] {
     }
   }
 
+  /* Shared targets above personal ones, and finished work last. The three
+     rungs sort in the order they cascade, so a department's objective sits
+     between the company's and the KPIs beneath it rather than among them. */
   const rank = (goal: ApiGoal) =>
-    goal.companyWide ? 0 : goal.status === "DONE" ? 2 : 1;
+    goal.level === "company"
+      ? 0
+      : goal.level === "department"
+        ? 1
+        : goal.status === "DONE"
+          ? 3
+          : 2;
 
   const build = (goal: ApiGoal, depth: number): GoalNode => ({
     ...goal,
@@ -951,6 +961,14 @@ function demoGoals(
       ownerId: goal.ownerId,
       ownerName: owner ? `${owner.firstName} ${owner.lastName}` : null,
       companyWide: goal.ownerId === null,
+      /* The demo has no department rung: its seeded ladder is company → person,
+         which is the shape a small company actually has. Null rather than an
+         invented department — a demo that shows a cascade nobody set up would
+         be teaching the screen rather than the product. */
+      departmentId: null,
+      departmentName: null,
+      level:
+        goal.ownerId === null ? ("company" as const) : ("personal" as const),
       parentId: goal.parentId,
       parentTitle: goal.parentId ? (titles.get(goal.parentId) ?? null) : null,
       status: goal.status,
@@ -1554,6 +1572,33 @@ export function useKpiMutations() {
             "against, and one kept in this browser would never reach their review.",
         );
         return performanceApi.createGoal(body);
+      },
+      [guard],
+    ),
+
+    /**
+     * Give one KPI to several people, under one objective.
+     *
+     * One sibling per person rather than one row with many owners — the API's
+     * own note says why. Refuses in demo mode: this writes several people's
+     * KPIs at once, and none of them would reach the review it is for.
+     */
+    assignObjective: useCallback(
+      async (
+        parentId: string,
+        body: {
+          title: string;
+          description?: string;
+          employeeIds: string[];
+          dueQuarter?: string;
+          reviewCycleId?: string;
+        },
+      ) => {
+        guard(
+          "Assigning a KPI needs the API. These are several people's targets, " +
+            "and ones kept in this browser would never reach their reviews.",
+        );
+        return performanceApi.assignObjective(parentId, body);
       },
       [guard],
     ),
@@ -2611,6 +2656,18 @@ export function useCycleMutations() {
     ),
 
     /**
+     * Delete a draft period outright. Refused once it has started — the
+     * API's own sentence explains why, and is shown verbatim.
+     */
+    deleteCycle: useCallback(
+      async (cycleId: string) => {
+        guard("Deleting a period needs the API.");
+        return performanceApi.deleteCycle(cycleId);
+      },
+      [guard],
+    ),
+
+    /**
      * Start a draft period's form from another period's.
      *
      * The reason periods stall: somebody writes eight questions from nothing,
@@ -2871,6 +2928,36 @@ export function useTasksForGrading(): {
     isConnected,
     load,
   );
+
+  return {
+    tasks: isConnected ? (fetched.data ?? []) : [],
+    loading: isConnected ? fetched.loading : false,
+    error: isConnected ? fetched.error : null,
+    reload: fetched.reload,
+  };
+}
+
+/**
+ * My own tasks and the grades that came back, newest first.
+ *
+ * The other half of `useTasksForGrading`. No demo simulation, same reason: a
+ * grade is something a manager gives and an employee reads, so one this
+ * browser invented would be a mark nobody awarded.
+ */
+export function useMyTasks(): {
+  tasks: ApiMyTask[];
+  loading: boolean;
+  error: ApiError | null;
+  reload: () => void;
+} {
+  const { isConnected } = useSession();
+
+  const load = useCallback(
+    async (signal: AbortSignal) => performanceApi.myTasks(signal),
+    [],
+  );
+
+  const fetched = useFetched<ApiMyTask[]>("my-tasks", isConnected, load);
 
   return {
     tasks: isConnected ? (fetched.data ?? []) : [],
