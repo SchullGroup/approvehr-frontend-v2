@@ -657,6 +657,15 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
             periods.updateQuestion(id, body).then(() => {})
           }
           onRemove={(id) => periods.removeQuestion(id).then(() => {})}
+          /* Every stage but published. The API refuses a rearrangement once
+             the form is a record, so the dialog drops the handles entirely
+             there rather than offering a drag that would be undone. */
+          {...(period.stage !== "PUBLISHED"
+            ? {
+                onReorder: (ids: string[]) =>
+                  periods.reorderQuestions(cycleId, ids).then(() => {}),
+              }
+            : {})}
           /* Only on a draft. The API refuses a copy onto a period that has
              started, and the dialog drops the whole offer without this prop
              rather than showing a button that would be refused. */
