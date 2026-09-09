@@ -71,6 +71,33 @@ export type DashboardLayoutState = {
   reset: () => Promise<void>;
 };
 
+/**
+ * What a reader is told when the arrangement will not load or save.
+ *
+ * **Never the server's own message.** Everywhere else in this codebase a 400,
+ * 403, 409 or 422 is shown verbatim, because the API knows which permission is
+ * missing or which figure does not reconcile and nothing on the client does.
+ * That rule does not reach here: nothing about a dashboard arrangement is
+ * refused for a reason a reader could act on, and the API's own `NotFoundError`
+ * sentence carries the **method and path** — so passing it through put
+ * `GET /api/v1/insights/dashboard/layout could not be found.` on screen in
+ * front of an employee, which is the status-code defect one worse.
+ *
+ * A 404 is separated out because the API does not serve this route at all
+ * today — only `/insights/dashboard` and `/insights/reports` exist — so it is
+ * not a fault, it is the ordinary state of every reader in every company.
+ */
+const READ_FAILED =
+  "Your dashboard arrangement did not load, so this is the standard one.";
+const SAVE_UNAVAILABLE =
+  "Saving an arrangement is not available on this server yet, so this has been " +
+  "put back the way it was.";
+const SAVE_FAILED =
+  "That did not save, so it has been put back the way it was.";
+
+const isMissingRoute = (caught: unknown): boolean =>
+  caught instanceof ApiError && caught.status === 404;
+
 export function useDashboardLayout(): DashboardLayoutState {
   const { isConnected, isLoading } = useSession();
   /* `local.read` handed over, never called — the render read. `local.current()`
@@ -117,14 +144,16 @@ export function useDashboardLayout(): DashboardLayoutState {
           return;
         /* Falling back to the defaults is right here and would be wrong for a
            figure: an arrangement nobody could read is a dashboard in its
-           out-of-the-box order, which is a usable screen. So the error is kept
-           for the drawer to mention and the screen carries on. */
+           out-of-the-box order, which is a usable screen. So the screen carries
+           on either way.
+
+           **A 404 says nothing at all.** `widgets: null` already means "has
+           never chosen one", and that is precisely what a reader gets when the
+           route is absent — the catalogue's defaults, which is the correct
+           screen. Warning them about a personalisation they never made, on
+           every load, is noise about a state that is not wrong. */
         setFetched({ connected: true, widgets: null });
-        setError(
-          caught instanceof ApiError
-            ? caught.message
-            : "Your dashboard arrangement did not load, so this is the standard one.",
-        );
+        setError(isMissingRoute(caught) ? null : READ_FAILED);
       }
     })();
     return () => {
@@ -142,6 +171,7 @@ export function useDashboardLayout(): DashboardLayoutState {
       /* Optimistic, then confirmed. The drawer is a direct-manipulation
          surface — a card dragged into place has to stay there while the
          request is in flight, or the drop appears to fail. */
+      const before = fetched;
       setFetched({ connected: true, widgets: [...widgets] });
       setSaving(true);
       setError(null);
@@ -152,17 +182,24 @@ export function useDashboardLayout(): DashboardLayoutState {
            decides what it stored. */
         setFetched({ connected: true, widgets: answer.layout?.widgets ?? [] });
       } catch (caught) {
-        setError(
-          caught instanceof ApiError
-            ? caught.message
-            : "That did not save. Try again in a moment.",
-        );
+        /* Put it back. The optimistic value was a guess at what the server
+           would store, and it did not store it — leaving the cards where they
+           were dropped is a drawer claiming an arrangement that does not exist,
+           and on the next load it silently reverts. Same rule as the questions
+           list on a refused reorder, and the same one the `reset` comment below
+           records paying for. */
+        setFetched(before);
+        setError(isMissingRoute(caught) ? SAVE_UNAVAILABLE : SAVE_FAILED);
         throw caught;
       } finally {
         setSaving(false);
       }
     },
-    [active],
+    /* `fetched` is here so the rollback above is the arrangement that was
+       actually on screen. Without it the closure holds whatever was there when
+       the callback was last built, which is the state before somebody's
+       previous save. */
+    [active, fetched],
   );
 
   const reset = useCallback(async () => {
@@ -176,22 +213,24 @@ export function useDashboardLayout(): DashboardLayoutState {
        "Reset it" button was a lie. Found by reading the row out of the
        database after pressing it, which is the only thing that could have
        found it: nothing on screen was wrong until you loaded the page again. */
+    const before = fetched;
     setFetched({ connected: true, widgets: null });
     setSaving(true);
     setError(null);
     try {
       await insightsApi.clearLayout();
     } catch (caught) {
+      setFetched(before);
       setError(
-        caught instanceof ApiError
-          ? caught.message
-          : "That did not reset. Try again in a moment.",
+        isMissingRoute(caught)
+          ? SAVE_UNAVAILABLE
+          : "That did not reset, so it has been put back the way it was.",
       );
       throw caught;
     } finally {
       setSaving(false);
     }
-  }, [active]);
+  }, [active, fetched]);
 
   if (!active) {
     return {
