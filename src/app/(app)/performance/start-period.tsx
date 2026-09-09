@@ -1,12 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarRange, Sparkles } from "lucide-react";
 import {
   Button,
-  ButtonLink,
-  Callout,
   Checkbox,
   Disclosure,
   Field,
@@ -16,6 +15,7 @@ import {
   type ButtonSize,
   type ButtonVariant,
 } from "@/components/ui";
+import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { ApiError } from "@/lib/api/client";
 import { useCan } from "@/lib/permissions";
 import { useDepartments } from "@/lib/store/departments";
@@ -146,24 +146,16 @@ export function StartPeriodDialog({
             description. Absent rather than disabled when no assistant is wired,
             because that screen would have nothing to do — same rule the Suggest
             buttons follow. */}
+        {/* A line above the first field, not a tinted pitch with a heading
+            and a paragraph inside a dialog somebody opened to type a name. */}
         {assistant.available && (
-          <Callout tone="accent" title="Not sure what to put in it?">
-            <p>
-              Describe the half in a sentence or two and get the company goals
-              and the review questions as a draft you edit. Nothing is created
-              until you have read it.
-            </p>
-            <p className="mt-2">
-              <ButtonLink
-                href="/performance/periods/new"
-                variant="secondary"
-                size="sm"
-              >
-                <Sparkles aria-hidden="true" className="size-3.5" />
-                Draft it from a description
-              </ButtonLink>
-            </p>
-          </Callout>
+          <NoticeLine tone="muted">
+            <Link href="/performance/periods/new" className={NOTICE_LINK}>
+              <Sparkles aria-hidden="true" className="mr-1 inline size-3.5" />
+              Draft it from a description
+            </Link>
+            <span>instead, and edit what comes back.</span>
+          </NoticeLine>
         )}
 
         <Field label="What to call it" required {...(error ? { error } : {})}>

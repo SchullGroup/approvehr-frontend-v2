@@ -36,53 +36,25 @@ import { useFramework, useScoringWeights } from "@/lib/store/performance";
  * Both hooks are inside components the `Disclosure` only mounts when it is
  * opened, so a reader who never opens this pays for no request.
  */
-/**
- * Four lines, on the screen somebody came to do their own review on.
+/*
+ * `HowItWorks` — four bullets headed "How your appraisal works", rendered on
+ * the performance landing — is deleted.
  *
- * This was the full seven-section explainer, opened from a disclosure. Most of
- * it is true and none of an employee's business: they cannot set the weights,
- * cannot freeze them, and can do nothing about a part with nothing recorded
- * against it. Read by somebody who came to write four sentences about their
- * year, it was the product explaining its internals.
+ * It had already been trimmed from a seven-section explainer, then removed
+ * from `now.tsx`, and was left **exported with no importers**: a second,
+ * shorter account of the same thing, sitting in the file next to the long one,
+ * waiting for somebody to mount it again. This codebase has paid for that
+ * exact shape before — three sets of rating labels, zero importers between
+ * them, and the one that actually rendered was the wrong one.
  *
- * What is left is what changes what they do: what a period is, what they owe,
- * what their mark is made of, and what happens when it is given. The rest is a
- * page away for anybody who wants it — and it is where whoever runs a period
- * should be reading it anyway.
+ * Kene's instruction was to get it off the page: *"I think this is taking too
+ * much space here… we shouldn't prioritise less important actions with so much
+ * space."* It was already off; this is the copy of it that could come back.
+ *
+ * Everything it said is in `HowItWorksBody` below, at length, on
+ * `/performance/how-it-works` — which is a page somebody chooses to open
+ * rather than one they have to scroll past.
  */
-export function HowItWorks() {
-  return (
-    <div className="flex flex-col gap-2 rounded-md border border-line bg-canvas px-4 py-3.5">
-      <p className="text-body-sm font-medium text-ink">
-        How your appraisal works
-      </p>
-      <ul className="flex list-disc flex-col gap-1 pl-4 text-body-sm text-body">
-        <li>
-          A period is a stretch of time. You get one form inside it, and nobody
-          is asked anything until it starts.
-        </li>
-        <li>
-          You write your own review. Your manager writes theirs, and theirs is
-          the rating of record.
-        </li>
-        <li>
-          The mark comes from your agreed objectives and your competencies, each
-          carrying a set share.
-        </li>
-        <li>
-          When it is final you are told, and you either acknowledge it or say
-          you disagree. Both are recorded.
-        </li>
-      </ul>
-      <Link
-        href="/performance/how-it-works"
-        className="text-meta font-medium text-accent-text underline-offset-2 hover:underline"
-      >
-        The whole thing, in detail
-      </Link>
-    </div>
-  );
-}
 
 export function HowItWorksBody() {
   const { weights, loading, source } = useScoringWeights();

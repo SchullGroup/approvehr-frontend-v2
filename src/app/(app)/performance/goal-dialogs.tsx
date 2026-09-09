@@ -23,6 +23,7 @@ import {
 import { useCan } from "@/lib/permissions";
 import { useObjectiveSuggestions } from "@/lib/store/ai";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
+import { useAppraisals } from "@/lib/store/performance";
 import { useSession } from "@/lib/store/session";
 import { TODAY } from "@/lib/today";
 
@@ -84,11 +85,22 @@ export function NewKpiDialog({
      gates it. The option is absent rather than disabled for the same reason. */
   const canSetCompanyWide = useCan("EDIT_RECORDS");
 
+  /**
+   * The appraisal periods an objective can be scored in.
+   *
+   * A published one is absent: its marks are a record, and filing a new
+   * objective into it would change a score somebody has already been told.
+   */
+  const { cycles } = useAppraisals();
+  const openPeriods = cycles.filter((cycle) => cycle.stage !== "PUBLISHED");
+
   const quarters = quarterOptions();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [owner, setOwner] = useState<string>("me");
   const [quarter, setQuarter] = useState(quarters[1] ?? quarters[0] ?? "");
+  /** Empty means no period, which is a real choice — see the copy below. */
+  const [reviewCycleId, setReviewCycleId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -115,6 +127,7 @@ export function NewKpiDialog({
       if (description.trim()) body.description = description.trim();
       if (parentId) body.parentId = parentId;
       if (quarter) body.dueQuarter = quarter;
+      if (reviewCycleId) body.reviewCycleId = reviewCycleId;
       if (owner === "company") body.ownerId = null;
       else if (owner !== "me") body.ownerId = owner;
       await onCreate(body);
@@ -229,6 +242,30 @@ export function NewKpiDialog({
             ))}
           </Select>
         </Field>
+
+        {openPeriods.length > 0 && (
+          <Field
+            optional
+            label="Scored in"
+            help={
+              reviewCycleId
+                ? "Counts towards this person's mark for that period, once somebody agrees it."
+                : "Nothing here reaches an appraisal mark. A quarter alone lets the objective be agreed and still score nothing."
+            }
+          >
+            <Select
+              value={reviewCycleId}
+              onChange={(event) => setReviewCycleId(event.target.value)}
+            >
+              <option value="">Not part of an appraisal period</option>
+              {openPeriods.map((period) => (
+                <option key={period.id} value={period.id}>
+                  {period.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
 
         <Field optional label="Any detail">
           <Textarea

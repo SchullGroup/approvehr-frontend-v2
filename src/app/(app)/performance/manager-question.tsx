@@ -15,7 +15,7 @@ import type { ReviewAudience, ReviewQuestionKind } from "@/lib/api/performance";
 import { useCycleMutations } from "@/lib/store/performance";
 
 const KINDS: { value: ReviewQuestionKind; label: string }[] = [
-  { value: "RATING", label: "A mark out of five" },
+  { value: "RATING", label: "A rating on the company scale" },
   { value: "TEXT", label: "In their own words" },
   { value: "BOOLEAN", label: "Yes or no" },
 ];

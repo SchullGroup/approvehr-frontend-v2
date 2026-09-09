@@ -34,7 +34,9 @@ import { ApiError } from "@/lib/api/client";
 import { leaveApi, type LeaveAccrualWire } from "@/lib/api/leave";
 import { EMPLOYEES } from "@/lib/mock/people";
 import { usePermissions } from "@/lib/permissions";
+import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { useCompanySettings } from "@/lib/store/company";
+import { FEATURE_COPY, useFeatureSettings } from "@/lib/store/features";
 import { useLeaveBalances } from "@/lib/store/leave-balances";
 import { useSession } from "@/lib/store/session";
 import { TODAY } from "@/lib/today";
@@ -425,6 +427,8 @@ function Policy() {
           booking form all move at once: there is no separate copy to keep in
           step.
         </Callout>
+
+        <ApprovalWorkflow />
 
         <Card>
           <CardHeader
@@ -932,5 +936,126 @@ function SaveState({ state }: { state: "idle" | "saving" | "saved" }) {
         </>
       )}
     </span>
+  );
+}
+
+/**
+ * Who approves a leave request, and in what order.
+ *
+ * ## Why this exists at all
+ *
+ * The two-step workflow was built — `approvalStageFor`, `AWAITING_HR`,
+ * `firstApprovedAt`, a decline terminal at either step, the employee hearing
+ * once — and shipped **with no way to switch it on.** `leaveTwoStepApproval`
+ * defaults off on `OrgFeatures`, the API enforced it faithfully, and no screen
+ * in the product mentioned it. The frontend features store did not even declare
+ * the key, so a patch containing it would have been dropped on the way out.
+ *
+ * That is the fourth time this codebase has shipped a capability nobody could
+ * find — after the company logo, the assistant, and the hand-entered tax
+ * figure. The rule it keeps re-learning: **a feature that is correct and
+ * unreachable is a feature the company does not have.**
+ *
+ * ## Why here and not `/settings/features`
+ *
+ * The feedback asks for it by location, twice — *"configurable from the
+ * Settings → Approval Workflows section"*, and *"Under Settings → Approval
+ * Workflows → Leave, the Owner/Admin should be able to configure the approval
+ * process."* And it is the right place on its own merits: somebody deciding
+ * whether a departmental lead approves first is looking at the leave types and
+ * the entitlements, not at a list of modules.
+ *
+ * ## What it says when there is nobody to be the first approver
+ *
+ * A company with no department heads set has nothing for the first step to
+ * route to, and turning it on would leave every request waiting on a person
+ * who does not exist. So the consequence is named and the way to fix it is
+ * beside it — rather than a switch that appears to work and quietly parks
+ * everybody's leave.
+ */
+function ApprovalWorkflow() {
+  const features = useFeatureSettings();
+  const [pending, setPending] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
+  const toast = useToast();
+
+  const on = features.flags.leaveTwoStepApproval;
+
+  const toggle = async (next: boolean) => {
+    setPending(true);
+    setFailed(null);
+    try {
+      /* `setFeature`, the same call `/settings/features` makes for every other
+         switch — so the demo path, the audit entry and the dependency rules
+         are the ones already in the store rather than a second copy here. */
+      await features.setFeature("leaveTwoStepApproval", next);
+      toast.push({
+        title: next
+          ? "Departmental leads approve first"
+          : "HR approves leave on its own again",
+        tone: "success",
+        detail: next
+          ? "Requests already waiting on HR are unaffected."
+          : "Anything already approved by a lead and waiting on HR still needs HR.",
+      });
+    } catch (error) {
+      /* The API's own sentence. It knows whether the flag was refused and
+         why; nothing here does. */
+      setFailed(
+        error instanceof ApiError
+          ? error.message
+          : "That did not save. Try again in a moment.",
+      );
+    } finally {
+      setPending(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader
+        title="Approval workflow"
+        description="Who signs off a leave request, and in what order. This saves as you change it."
+      />
+      <CardBody className="flex flex-col gap-3">
+        <Switch
+          label={FEATURE_COPY.leaveTwoStepApproval.label}
+          description={FEATURE_COPY.leaveTwoStepApproval.line}
+          checked={on}
+          disabled={!features.editable || features.loading || pending}
+          onChange={(event) => void toggle(event.target.checked)}
+        />
+
+        {/* Outside the switch's own description, because it is a thing to act
+            on rather than a thing to read. Only when it is on: a company that
+            has not turned this on has no requests waiting on anybody. */}
+        {on && (
+          <NoticeLine tone="muted">
+            <span>
+              The first approver is whoever heads the employee&apos;s
+              department.
+            </span>
+            <Link href="/people/departments" className={NOTICE_LINK}>
+              Set department heads
+            </Link>
+          </NoticeLine>
+        )}
+
+        {failed && (
+          <p
+            role="status"
+            className="rounded-md border border-danger-line bg-danger-soft px-3.5 py-2.5 text-body-sm text-ink"
+          >
+            {failed}
+          </p>
+        )}
+
+        {!features.editable && (
+          <p className="text-body-sm text-muted">
+            Changing this needs the settings permission.
+          </p>
+        )}
+      </CardBody>
+    </Card>
   );
 }

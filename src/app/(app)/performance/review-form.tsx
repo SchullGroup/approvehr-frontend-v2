@@ -21,6 +21,7 @@ import { useDevelopmentSuggestions } from "@/lib/store/ai";
 import { findingsAcross } from "@/lib/performance/review-language";
 import {
   dayLabel,
+  ratingWords,
   type AnswerBody,
   type ApiFormQuestion,
 } from "@/lib/api/performance";
@@ -319,7 +320,7 @@ export function ReviewFormModal({
           )}
           {review.rating !== null && (
             <span className="text-body-sm text-body">
-              Overall mark {review.rating} out of 5
+              Overall mark: {ratingWords(review.rating)}
             </span>
           )}
         </div>
