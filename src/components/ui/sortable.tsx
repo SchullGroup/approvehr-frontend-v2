@@ -5,6 +5,7 @@ import {
   useEffect,
   useId,
   useLayoutEffect,
+  useRef,
   useState,
 } from "react";
 import { GripVertical } from "lucide-react";
@@ -300,6 +301,25 @@ export function Sortable<T>({
     [measure, rowOf],
   );
 
+  /**
+   * The latest drag, for `up` to read at release.
+   *
+   * `drag` cannot be a dependency of the effect below — it changes on every
+   * `pointermove`, so the window listeners would be torn down and re-added
+   * every frame — and the closure's copy would be a frame stale, landing the
+   * row a slot off. A ref is the value that is both current and stable.
+   *
+   * `useLayoutEffect`, not `useEffect`: `move` sets state from a native
+   * listener, React flushes that render in a microtask, and layout effects run
+   * inside that flush — so the ref is current before the next macrotask, which
+   * is the `pointerup` that reads it. A passive effect runs after paint and
+   * could lose the race on a quick release.
+   */
+  const dragRef = useRef(drag);
+  useLayoutEffect(() => {
+    dragRef.current = drag;
+  }, [drag]);
+
   useEffect(() => {
     if (!drag?.pointer) return;
 
@@ -355,10 +375,22 @@ export function Sortable<T>({
     };
 
     const up = () => {
-      setDrag((current) => {
-        if (current) commit(current.from, current.to);
-        return null;
-      });
+      /* Read the release position from the ref, not from a `setDrag` updater.
+         ------------------------------------------------------------------
+         This used to be `setDrag((current) => { commit(...); return null; })`,
+         which is wrong for a reason nothing here could see: React runs an
+         updater **during the render phase**, and `commit` calls `onReorder`,
+         which is a parent's `setState`. So a caller that holds the new
+         arrangement in its own state got "Cannot update a component while
+         rendering a different component", and whether it fired at all depended
+         on whether React took its eager-evaluation path — which is why seven
+         callers shipped on top of this.
+
+         The keyboard path never had the bug: it calls `commit` then `setDrag`
+         as two statements in the handler. This now does the same thing. */
+      const current = dragRef.current;
+      setDrag(null);
+      if (current) commit(current.from, current.to);
     };
 
     /* On `window`, not the handle: a pointer released outside the drawer still
