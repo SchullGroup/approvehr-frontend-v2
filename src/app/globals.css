@@ -343,6 +343,33 @@
     scroll-behavior: smooth;
   }
 
+  /* A pointer over anything you can press.
+     ---------------------------------------------------------------------
+     Tailwind v4's preflight sets `button { cursor: default }`, reversing v3,
+     so **every button in this product showed an arrow** — the design system's
+     and the ones written by hand alike. Restored here in one rule rather than
+     as a class on each primitive, because the class version has to be
+     remembered by every author of every new button and this does not: it was
+     already missing from `button.tsx`, `tabs.tsx`, `disclosure.tsx`,
+     `modal.tsx`, `picker.tsx` and `misc.tsx`, which is what a rule nobody has
+     to remember is worth.
+
+     `:disabled` and `aria-disabled` are excluded rather than left to the
+     utility that sets `cursor-not-allowed`: a base rule that fought a utility
+     would win or lose depending on layer order, and a control that cannot be
+     pressed must never look like it can. */
+  button:not(:disabled):not([aria-disabled="true"]),
+  select:not(:disabled),
+  summary,
+  [role="button"]:not([aria-disabled="true"]),
+  [role="tab"]:not([aria-disabled="true"]),
+  [role="switch"]:not([aria-disabled="true"]),
+  [role="option"]:not([aria-disabled="true"]),
+  label:has(> input[type="checkbox"]:not(:disabled)),
+  label:has(> input[type="radio"]:not(:disabled)) {
+    cursor: pointer;
+  }
+
   /* No native step arrows on a number input, anywhere. They invite a scroll
      or an arrow-key tap to change a salary or a rent figure by one, silently
      — the `Input` component's own `onWheel` handler is the other half of
