@@ -197,3 +197,128 @@ describe("the catalogue and the components agree", () => {
     expect(widgetById("appraisals")?.feature).toBe("appraisals");
   });
 });
+
+/* ==========================================================================
+ * A report that arrived without one of its sections
+ * ======================================================================== */
+
+describe("a widget survives a report missing a section", () => {
+  /**
+   * From production, on a real customer's dashboard:
+   *
+   *     TypeError: Cannot read properties of undefined (reading 'trend')
+   *       at chart-headcount-trend
+   *
+   * `reports?.workforce.trend` — the `?.` guarded `reports`, which is null
+   * while loading, and **nothing guarded the section**. An API that does not
+   * send `workforce` therefore threw from inside a render, and the whole
+   * dashboard went behind the error boundary: not one broken card, the
+   * screen.
+   *
+   * A browser cannot pin the version of the API it is talking to. A deploy
+   * puts a new bundle in front of people while the API behind it is whatever
+   * it is, so *any* section this client treats as guaranteed is a promise it
+   * cannot keep. `DashboardData` already models that — `pay?`, `headcount?`,
+   * `approvals?` are optional because the API omits them by permission — and
+   * `ReportsData` was written as though the same module answered differently.
+   *
+   * `tsc` could not help while the type lied. The moment the sections were
+   * marked optional it found **26** unguarded reads across two screens: these
+   * five, and twenty-one more in `/reports`, which would have gone the same
+   * way for the same company on the next click.
+   *
+   * These assertions are deliberately about **not throwing** rather than about
+   * output. A widget with no data to draw renders nothing, which is already
+   * covered above; what this file could not previously catch is the render
+   * that takes the page down with it.
+   */
+  const SECTIONS = [
+    "workforce",
+    "headcount",
+    "operationalLoad",
+  ] as const satisfies readonly (keyof ReportsData)[];
+
+  /** A complete report, then one section deleted. */
+  function reportWithout(missing: (typeof SECTIONS)[number]): ReportsData {
+    const full: ReportsData = {
+      period: "2026-09",
+      payrollByDepartment: null,
+      grossBreakdown: null,
+      headcount: {
+        byDepartment: [{ name: "Engineering", count: 4 }],
+        byEmploymentType: [{ type: "FULL_TIME", count: 4 }],
+      },
+      operationalLoad: {
+        leaveRequests: 1,
+        ticketsOpen: 0,
+        approvalsPending: 2,
+        attendanceCorrections: 0,
+      },
+      workforce: {
+        trend: [
+          { month: "2026-07", headcount: 3, joiners: 1, leavers: 0 },
+          { month: "2026-08", headcount: 4, joiners: 1, leavers: 0 },
+        ],
+        turnoverBp: null,
+        turnoverWindowMonths: 12,
+        averageTenureMonths: null,
+        headcountNow: 4,
+      },
+    };
+    /* `delete` rather than `undefined`, because that is what a JSON body from
+       an older API actually looks like: the key is not there at all. */
+    const partial: ReportsData = { ...full };
+    delete partial[missing];
+    return partial;
+  }
+
+  /** Every widget in the catalogue that reads the reports payload. */
+  const reportWidgets = WIDGETS.filter((widget) => widget.source === "reports");
+
+  it("has report-backed widgets to test", () => {
+    /* If this ever hits zero the loop below is asserting nothing, which is the
+       way a test like this rots without failing. */
+    expect(reportWidgets.length).toBeGreaterThan(0);
+  });
+
+  for (const section of SECTIONS) {
+    it(`renders every report widget with no \`${section}\``, () => {
+      const reports = reportWithout(section);
+      for (const widget of reportWidgets) {
+        const Widget = WIDGET_COMPONENTS[widget.id];
+        if (!Widget) throw new Error(`No component for ${widget.id}`);
+        /* The assertion is the absence of a throw. `render` propagates one, so
+           a regression here fails this test rather than a browser three weeks
+           later. */
+        expect(() =>
+          render(
+            <Widget
+              dashboard={EMPTY}
+              reports={reports}
+              reportsLoading={false}
+            />,
+          ),
+        ).not.toThrow();
+      }
+    });
+  }
+
+  it("renders them all with an entirely empty report", () => {
+    /* The floor: a body with nothing but the period. Nothing here should draw
+       a figure, and nothing should throw reaching for one. */
+    const bare = {
+      period: "2026-09",
+      payrollByDepartment: null,
+      grossBreakdown: null,
+    } as ReportsData;
+    for (const widget of reportWidgets) {
+      const Widget = WIDGET_COMPONENTS[widget.id];
+      if (!Widget) throw new Error(`No component for ${widget.id}`);
+      expect(() =>
+        render(
+          <Widget dashboard={EMPTY} reports={bare} reportsLoading={false} />,
+        ),
+      ).not.toThrow();
+    }
+  });
+});
