@@ -2,7 +2,7 @@
 
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { Card, CardBody } from "@/components/ui";
-import { HowItWorksBody } from "../how-it-works";
+import { FrameworkDisclosure, HowItWorksBody } from "../how-it-works";
 
 /**
  * The whole explanation, on a page somebody chooses to open.
@@ -31,10 +31,25 @@ export function HowAppraisalsWorkScreen() {
         title="How appraisals work"
         breadcrumb={[{ href: "/performance", label: "Performance" }]}
       />
-      <PageBody>
+      <PageBody className="flex flex-col gap-6">
         <Card>
           <CardBody>
             <HowItWorksBody />
+          </CardBody>
+        </Card>
+
+        {/* The four competency groups. It was a closed reveal on the
+            performance landing, was taken off it, and then rendered
+            **nowhere** — exported with no importers, so a real piece of
+            reference had quietly left the product.
+
+            Here rather than back there: it is a framework, it does not change
+            between periods, and nobody has to act on it, which is the test for
+            reference content. This is the page for that, and the landing page
+            is for the one thing somebody came to do. */}
+        <Card>
+          <CardBody>
+            <FrameworkDisclosure />
           </CardBody>
         </Card>
       </PageBody>

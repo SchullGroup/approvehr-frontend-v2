@@ -239,6 +239,24 @@ export type PayslipLine = {
   taxable: boolean;
 };
 
+/**
+ * A rate, and what it was charged on.
+ *
+ * The answer to "8% of what?", which is the whole of what somebody querying a
+ * pension or housing-fund line wants. Sent by the API only where the rate
+ * multiplied by the base reproduces the stored figure exactly — so a screen
+ * showing this is never showing a base that did not produce the deduction.
+ */
+export type RateWorking = {
+  /** A fraction. `0.08` for 8%. */
+  rate: number;
+  baseKobo: number;
+  /** Equals the figure on the payslip, by construction on the API. */
+  amountKobo: number;
+  /** Which parts of the pay were counted, in the API's own words. */
+  baseLabel: string;
+};
+
 export type Payslip = {
   id: string;
   employeeId: string;
@@ -292,6 +310,50 @@ export type Payslip = {
   overriddenDeductions?: DeductionKind[];
   /** Why it does not come from the bands. Null when `payeOverridden` is false. */
   payeOverrideReason: string | null;
+  /**
+   * How the tax figure above was arrived at.
+   *
+   * Asked for in the standup: *"more transparency regarding how the system
+   * calculates tax and pension figures."* The inputs were already on this
+   * object — the taxable base, the relief — and what nobody could see was the
+   * **arithmetic between them**: a payslip said ₦63,950 and gave the reader no
+   * way to check it.
+   *
+   * `paye` is **null** far more often than not, and every reason it is null is
+   * a reason a band table would be a wrong claim: this employer operates no
+   * PAYE, a human typed the figure by hand, the tax came to nothing, or the
+   * derivation did not reproduce the charge. See `working.ts` on the API — it
+   * refuses rather than offering a working it cannot stand behind, so a
+   * renderer shows the table or shows nothing.
+   *
+   * Absent on a payslip from any list endpoint, and from an API that predates
+   * this. Only `GET /payroll/payslips/:id` carries it, because only the payslip
+   * document renders it.
+   *
+   * `pension` and `nhf` answer the other half of the same question — "8% of
+   * what?" — from the run's own frozen settings where it has them, and are
+   * null on the same terms. A rate that does not reproduce the deduction is
+   * refused rather than shown against a base that did not produce it, which is
+   * the case somebody with a pensionable allowance falls into.
+   */
+  workings?: {
+    paye: {
+      taxableAnnualKobo: number;
+      reliefAnnualKobo: number;
+      /** The year's tax. The band column sums to this exactly. */
+      annualKobo: number;
+      bands: {
+        /** `null` on the open-ended top band: "and everything above". */
+        widthKobo: number | null;
+        /** A fraction. `0.15` for 15%. */
+        rate: number;
+        taxedKobo: number;
+        taxKobo: number;
+      }[];
+    } | null;
+    pension: RateWorking | null;
+    nhf: RateWorking | null;
+  };
   /**
    * Which statutory deductions the run that produced this payslip operated.
    *
@@ -769,6 +831,36 @@ export type ComputedPayslip = {
   reliefKind: "CONSOLIDATED_RELIEF" | "RENT_RELIEF";
   /** Rent relief applies and nothing was declared, so none was granted. */
   reliefUnclaimed: boolean;
+  /**
+   * How each statutory figure was arrived at.
+   *
+   * Not new information — the inputs are all on this object already. It is the
+   * **arithmetic between them**, kept rather than discarded, so a reader can
+   * check a total instead of trusting it. Asked for in the standup:
+   * *"more transparency regarding how the system calculates tax and pension
+   * figures."*
+   *
+   * `paye.bands` is **empty** where no tax was computed. Empty is not "taxed
+   * at nothing" — read `operates.paye` first to know which, exactly as you
+   * already must for `payeKobo`.
+   *
+   * `widthKobo` is `null` on the top band, meaning "and everything above".
+   * `rate` is a fraction: `0.15` for 15%.
+   */
+  workings?: {
+    paye: {
+      taxableAnnualKobo: number;
+      reliefAnnualKobo: number;
+      bands: {
+        widthKobo: number | null;
+        rate: number;
+        taxedKobo: number;
+        taxKobo: number;
+      }[];
+    };
+    pension: { rate: number; employerRate: number; baseKobo: number };
+    nhf: { rate: number; baseKobo: number };
+  };
   payeKobo: number;
   postTaxDeductions: { code: string; label: string; amountKobo: number }[];
   postTaxDeductionsKobo: number;

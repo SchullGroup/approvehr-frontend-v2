@@ -66,6 +66,7 @@ import {
   isOtherPensionProvider,
 } from "@/lib/reference/lists";
 import { koboFromDecimal, naira } from "@/lib/api/payroll";
+import { QuoteWorkings } from "@/components/payroll/quote-workings";
 import { usePayslipQuote } from "@/lib/store/payslip-quote";
 import { RECORD_FIELD_KEYS, type RecordFieldKey } from "@/lib/api/setup";
 import { SKIP_CONSEQUENCE, useFeatures } from "@/lib/store/features";
@@ -2237,6 +2238,13 @@ function FirstPayslip({
                 ? " No yearly rent is declared, so they get no personal relief and the PAYE above is the full amount. Open “Set up tax” to declare it."
                 : ""}
             </p>
+            {/* The feedback's onboarding item: *"there's no visibility into how
+                their pay and pension are calculated… the onboarding flow
+                should show the pay computation logic and pension
+                setup/percentage, not just the final numbers."* The four rows
+                above were exactly the final numbers, and the pension
+                percentage appeared nowhere. */}
+            <QuoteWorkings slip={slip} />
           </>
         )}
       </CardBody>
