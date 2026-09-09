@@ -2723,6 +2723,22 @@ export function useCycleMutations() {
       [guard],
     ),
 
+    /**
+     * Rearrange the form.
+     *
+     * Takes every id on the cycle, once each. The caller holds the arranged
+     * list already — it is what the reader just dragged — so sending it whole
+     * is both what the API wants and the only shape that cannot leave two
+     * questions claiming one position.
+     */
+    reorderQuestions: useCallback(
+      async (cycleId: string, ids: string[]) => {
+        guard("Rearranging the form needs the API.");
+        return performanceApi.reorderQuestions(cycleId, ids);
+      },
+      [guard],
+    ),
+
     addQuestion: useCallback(
       async (cycleId: string, body: CreateQuestionBody) => {
         guard("Adding a question needs the API.");

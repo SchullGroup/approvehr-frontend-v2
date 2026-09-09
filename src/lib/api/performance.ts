@@ -2085,6 +2085,20 @@ export const performanceApi = {
       signalOf(signal),
     ),
 
+  /**
+   * The whole form, in the order it should be asked.
+   *
+   * Every id on the cycle, once each — the API refuses a partial list rather
+   * than inferring where the rest go, because a form half in one order and half
+   * in another is a form nobody arranged. Returns the questions renumbered, so
+   * a caller can render the answer instead of guessing at it.
+   */
+  reorderQuestions: (cycleId: string, ids: string[]) =>
+    request<ApiQuestion[]>(`/performance/cycles/${cycleId}/questions/reorder`, {
+      method: "POST",
+      body: { ids },
+    }),
+
   addQuestion: (cycleId: string, body: CreateQuestionBody) =>
     request<ApiQuestion>(`/performance/cycles/${cycleId}/questions`, {
       method: "POST",
