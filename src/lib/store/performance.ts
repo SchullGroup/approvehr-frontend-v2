@@ -2612,6 +2612,18 @@ export function useCycleMutations() {
     ),
 
     /**
+     * Delete a draft period outright. Refused once it has started — the
+     * API's own sentence explains why, and is shown verbatim.
+     */
+    deleteCycle: useCallback(
+      async (cycleId: string) => {
+        guard("Deleting a period needs the API.");
+        return performanceApi.deleteCycle(cycleId);
+      },
+      [guard],
+    ),
+
+    /**
      * Start a draft period's form from another period's.
      *
      * The reason periods stall: somebody writes eight questions from nothing,

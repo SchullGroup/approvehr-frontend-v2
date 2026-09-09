@@ -1758,6 +1758,20 @@ export const performanceApi = {
     request<ApiCycle>(`/performance/cycles/${id}`, { method: "PATCH", body }),
 
   /**
+   * Delete a draft period outright.
+   *
+   * Refused once it has started — a running or published period is a record
+   * of what people were asked, not a mistake to undo — and refused if it
+   * somehow already has reviews on it. Both refusals are the API's own
+   * sentences.
+   */
+  deleteCycle: (id: string) =>
+    request<{ id: string; deleted: boolean; questionsRemoved: number }>(
+      `/performance/cycles/${id}`,
+      { method: "DELETE" },
+    ),
+
+  /**
    * Start this period's form from another period's.
    *
    * The reason appraisal periods stall: somebody has to write eight questions
