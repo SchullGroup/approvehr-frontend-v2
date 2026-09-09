@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Check,
@@ -24,10 +24,13 @@ import {
   Modal,
   ProgressMeter,
   SegmentedControl,
+  FilterBar,
+  Select,
   Spinner,
   Stat,
   Textarea,
   useToast,
+  type AppliedFilter,
 } from "@/components/ui";
 import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { LoadFailure } from "@/components/portal/load-failure";
@@ -43,11 +46,13 @@ import {
   quarterLabel,
   type ApiGoal,
   type ApiKeyResult,
+  type GoalStatus,
 } from "@/lib/api/performance";
 import {
   APPROVAL_TONE,
   GOAL_STATUS_LABEL,
   GOAL_STATUS_TONE,
+  toCascade,
   SCOPE_LABEL,
   mayBeSubmitted,
   useKpiMutations,
@@ -111,6 +116,26 @@ import { TaskLogPanel } from "./task-log";
  * record: a target that moved with no account of why is the single most common
  * way an appraisal becomes indefensible.
  */
+/** Not a cycle id, so it cannot collide with one. */
+const NO_PERIOD = "none";
+
+/**
+ * How the list is ordered, when it is not the cascade's own order.
+ *
+ * The default is deliberately **not** a date. The cascade sorts by rung —
+ * company, then department, then personal — because the indentation is the
+ * argument the screen is making, and a date order destroys it. So choosing a
+ * date here **flattens the tree on purpose**, and the screen says so: what was
+ * asked for is a chronological list, and a list is what it gives.
+ */
+const ORDERS = [
+  ["updated", "Changed most recently"],
+  ["created", "Newest first"],
+  ["created-asc", "Oldest first"],
+] as const;
+
+type Order = (typeof ORDERS)[number][0];
+
 export function KpisTab({
   scope,
   scopes,
@@ -133,6 +158,36 @@ export function KpisTab({
   const [completing, setCompleting] = useState<ApiGoal | null>(null);
   const [reopening, setReopening] = useState<ApiGoal | null>(null);
 
+  /**
+   * Narrowing the cascade.
+   *
+   * **Client-side, and that is the decision rather than the shortcut.** The API
+   * filters this list perfectly well — `q` over title and description,
+   * `approval`, `status`, `ownerId` — and two things here make asking it wrong:
+   *
+   * - **The stats above must not move.** "24 KPIs being tracked" and "2 of 21
+   *   measures" are claims about the company. Fetching a narrowed list would
+   *   leave them describing the filter instead, under labels that say
+   *   otherwise — the same defect as a headcount true of the wrong noun.
+   * - **The cascade is a tree.** It is assembled here from a flat list, so
+   *   filtering the list and rebuilding is one call, while a filtered fetch
+   *   returns rows whose parents may be missing and hands the tree back
+   *   half-built.
+   *
+   * `useKpis` already loads a single page of 200 for exactly that reason, so
+   * everything being searched is in memory. A company past 200 objectives has
+   * an incomplete cascade today, filter or no filter, and that is `useKpis` to
+   * fix rather than this.
+   */
+  const [search, setSearch] = useState("");
+  const [approval, setApproval] = useState("");
+  const [progress, setProgress] = useState("");
+  const [owner, setOwner] = useState("");
+  /** A cycle id, or `NO_PERIOD` for the objectives that belong to none. */
+  const [period, setPeriod] = useState("");
+  /** Empty means the cascade's own rung order. */
+  const [order, setOrder] = useState<Order | "">("");
+
   /** Every write reports its own failure. The API's message is the useful part. */
   const run = async (action: () => Promise<unknown>, success: string) => {
     try {
@@ -153,11 +208,176 @@ export function KpisTab({
     }
   };
 
+  /**
+   * What each dropdown offers, taken from the objectives themselves.
+   *
+   * `approvalLabel` arrives on every row and `lib/store/performance.ts` says in
+   * as many words not to keep a second copy of those five strings, so the
+   * options are built from the data. Two things follow, both wanted: the
+   * wording cannot drift from the badges beside it, and a state nothing is in
+   * is never offered — a filter that can only ever return nothing is a dead
+   * control.
+   */
+  const approvalOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const goal of kpis.goals) {
+      if (!seen.has(goal.approval)) seen.set(goal.approval, goal.approvalLabel);
+    }
+    return [...seen];
+  }, [kpis.goals]);
+
+  const ownerOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const goal of kpis.goals) {
+      if (goal.ownerId && goal.ownerName && !seen.has(goal.ownerId)) {
+        seen.set(goal.ownerId, goal.ownerName);
+      }
+    }
+    return [...seen].sort((a, b) => a[1].localeCompare(b[1]));
+  }, [kpis.goals]);
+
+  /**
+   * The periods these objectives are filed against, plus the ones filed
+   * against none.
+   *
+   * `NO_PERIOD` earns its place. An objective with no `reviewCycleId` is
+   * invisible to every appraisal mark, and that is not a state anybody sets on
+   * purpose — it is what a cleared period leaves behind, or a KPI created
+   * before the field existed. Being able to ask "which of these count towards
+   * nothing" is most of the reason to filter on this at all.
+   */
+  const periodOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const goal of kpis.goals) {
+      if (goal.reviewCycleId && goal.reviewCycleName) {
+        seen.set(goal.reviewCycleId, goal.reviewCycleName);
+      }
+    }
+    const named: [string, string][] = [...seen].sort((a, b) =>
+      b[1].localeCompare(a[1]),
+    );
+    return kpis.goals.some((goal) => goal.reviewCycleId === null)
+      ? [...named, [NO_PERIOD, "Not in a period"] as [string, string]]
+      : named;
+  }, [kpis.goals]);
+
+  const term = search.trim().toLowerCase();
+  const narrowing =
+    term !== "" ||
+    approval !== "" ||
+    progress !== "" ||
+    owner !== "" ||
+    period !== "";
+
+  const matching = useMemo(() => {
+    if (!narrowing) return kpis.goals;
+    return kpis.goals.filter((goal) => {
+      /* Title and description — the same two columns the API's own `q` covers,
+         so searching here and searching there cannot come to mean different
+         things. */
+      if (
+        term !== "" &&
+        !goal.title.toLowerCase().includes(term) &&
+        !(goal.description ?? "").toLowerCase().includes(term)
+      ) {
+        return false;
+      }
+      if (approval !== "" && goal.approval !== approval) return false;
+      if (progress !== "" && goal.status !== progress) return false;
+      /* A company or department objective has no owner. It is not "somebody
+         else's", it is nobody's — so it drops out of an owner filter rather
+         than being counted against whoever is selected. */
+      if (owner !== "" && goal.ownerId !== owner) return false;
+      if (period === NO_PERIOD && goal.reviewCycleId !== null) return false;
+      if (
+        period !== "" &&
+        period !== NO_PERIOD &&
+        goal.reviewCycleId !== period
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [kpis.goals, narrowing, term, approval, progress, owner, period]);
+
+  const cascade = useMemo(() => {
+    if (order !== "") {
+      /* Flat, every row a root. The card reads correctly at depth 0 — that is
+         the path a company with no nesting already takes — and `parentTitle`
+         on the row keeps the context the indentation was carrying. */
+      const dated = [...matching].sort((a, b) => {
+        if (order === "updated") return b.updatedAt.localeCompare(a.updatedAt);
+        return order === "created"
+          ? b.createdAt.localeCompare(a.createdAt)
+          : a.createdAt.localeCompare(b.createdAt);
+      });
+      return dated.map((goal) => ({ ...goal, children: [], depth: 0 }));
+    }
+    /* `toCascade` already makes a goal whose parent is absent into a root
+       rather than dropping it — the documented behaviour, and exactly what a
+       search result wants: every match visible, with `parentTitle` to say what
+       it sits under. */
+    return narrowing ? toCascade(matching) : kpis.cascade;
+  }, [order, narrowing, matching, kpis.cascade]);
+
+  const clearFilters = () => {
+    setSearch("");
+    setApproval("");
+    setProgress("");
+    setOwner("");
+    setPeriod("");
+    setOrder("");
+  };
+
+  /* `label` is the dimension and `value` is the choice — the chip renders them
+     apart, so putting "Agreement: Agreed" in the label would read twice. */
+  const applied: AppliedFilter[] = [
+    ...(approval === ""
+      ? []
+      : [
+          {
+            label: "Agreement",
+            value:
+              approvalOptions.find(([key]) => key === approval)?.[1] ??
+              approval,
+            onClear: () => setApproval(""),
+          },
+        ]),
+    ...(progress === ""
+      ? []
+      : [
+          {
+            label: "Progress",
+            value: GOAL_STATUS_LABEL[progress as GoalStatus],
+            onClear: () => setProgress(""),
+          },
+        ]),
+    ...(owner === ""
+      ? []
+      : [
+          {
+            label: "Owner",
+            value: ownerOptions.find(([id]) => id === owner)?.[1] ?? "somebody",
+            onClear: () => setOwner(""),
+          },
+        ]),
+    ...(period === ""
+      ? []
+      : [
+          {
+            label: "Period",
+            value:
+              periodOptions.find(([id]) => id === period)?.[1] ?? "a period",
+            onClear: () => setPeriod(""),
+          },
+        ]),
+  ];
+
   /* Same rule as `GoalBranch` applies to a node's children, applied to the
      roots: no ladder between peers, so peers pair up, and anything heading a
      cascade keeps its own row. */
-  const rootLeaves = kpis.cascade.filter((node) => node.children.length === 0);
-  const rootBranches = kpis.cascade.filter((node) => node.children.length > 0);
+  const rootLeaves = cascade.filter((node) => node.children.length === 0);
+  const rootBranches = cascade.filter((node) => node.children.length > 0);
 
   const tracked = kpis.goals.filter((goal) => goal.status !== "DONE");
   const waiting = kpis.goals.filter(
@@ -291,11 +511,130 @@ export function KpisTab({
           title="The cascade"
           description="Company KPI at the top. Everything below ladders up to it."
         />
+        {kpis.goals.length > 0 && !kpis.loading && (
+          <CardBody className="pb-0">
+            <FilterBar
+              search={search}
+              onSearchChange={setSearch}
+              searchLabel="Search objectives by title or detail"
+              searchPlaceholder="Search objectives…"
+              applied={applied}
+              {...(narrowing || order !== ""
+                ? { onClearAll: clearFilters }
+                : {})}
+              count={narrowing ? matching.length : undefined}
+              noun={["objective", "objectives"]}
+              sort={
+                <Select
+                  aria-label="Order the list"
+                  value={order}
+                  onChange={(event) =>
+                    setOrder(event.target.value as Order | "")
+                  }
+                >
+                  <option value="">The cascade&rsquo;s own order</option>
+                  {ORDERS.map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
+                </Select>
+              }
+            >
+              <Select
+                aria-label="Filter by agreement"
+                value={approval}
+                onChange={(event) => setApproval(event.target.value)}
+              >
+                <option value="">Any agreement</option>
+                {approvalOptions.map(([key, label]) => (
+                  <option key={key} value={key}>
+                    {label}
+                  </option>
+                ))}
+              </Select>
+              <Select
+                aria-label="Filter by progress"
+                value={progress}
+                onChange={(event) => setProgress(event.target.value)}
+              >
+                <option value="">Any progress</option>
+                {(
+                  ["ON_TRACK", "AT_RISK", "OFF_TRACK", "DONE"] as GoalStatus[]
+                ).map((key) => (
+                  <option key={key} value={key}>
+                    {GOAL_STATUS_LABEL[key]}
+                  </option>
+                ))}
+              </Select>
+              {periodOptions.length > 0 && (
+                <Select
+                  aria-label="Filter by appraisal period"
+                  value={period}
+                  onChange={(event) => setPeriod(event.target.value)}
+                >
+                  <option value="">Any period</option>
+                  {periodOptions.map(([id, label]) => (
+                    <option key={id} value={id}>
+                      {label}
+                    </option>
+                  ))}
+                </Select>
+              )}
+              {ownerOptions.length > 0 && (
+                <Select
+                  aria-label="Filter by owner"
+                  value={owner}
+                  onChange={(event) => setOwner(event.target.value)}
+                >
+                  <option value="">Anybody</option>
+                  {ownerOptions.map(([id, name]) => (
+                    <option key={id} value={id}>
+                      {name}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            </FilterBar>
+            {(narrowing || order !== "") && (
+              /* Two separate facts, each said only when it is true.
+                 -------------------------------------------------------------
+                 The figures above are the company's and do not move with a
+                 filter: a reader who takes "24 being tracked" as the size of
+                 the list below has been misled by a number that was never
+                 about the list. And a date order flattens the cascade, which
+                 is a change to *what* they are looking at rather than to how
+                 much of it — so it is said whether or not anything is
+                 filtered. */
+              <p className="mt-3 text-meta text-muted">
+                {narrowing &&
+                  `Showing ${String(matching.length)} of ${String(kpis.goals.length)}. The figures above are for everything, not for what is filtered here.`}
+                {narrowing && order !== "" && " "}
+                {order !== "" &&
+                  "Ordered by date, so the ladder is flattened — nothing is nested while this is on."}
+              </p>
+            )}
+          </CardBody>
+        )}
         {kpis.loading ? (
           <CardBody className="flex items-center gap-2 text-body-sm text-muted">
             <Spinner size="sm" />
             Loading KPIs
           </CardBody>
+        ) : narrowing && matching.length === 0 ? (
+          /* Distinct from "No KPIs yet". Nothing matching a search is not a
+             company with no objectives, and offering "New KPI" to somebody who
+             mistyped a name would answer a question they did not ask. */
+          <EmptyState
+            icon={<Target aria-hidden="true" />}
+            title="Nothing matches that"
+            description={`${String(kpis.goals.length)} objectives are here, and none of them fits what you have narrowed to.`}
+            action={
+              <Button variant="ghost" onClick={clearFilters}>
+                Clear the filters
+              </Button>
+            }
+          />
         ) : kpis.cascade.length === 0 ? (
           <EmptyState
             icon={<Target aria-hidden="true" />}
