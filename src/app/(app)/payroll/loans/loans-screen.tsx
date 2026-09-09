@@ -26,6 +26,7 @@ import {
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { FeatureOffLine } from "@/components/portal/feature-off-line";
 import { ApiError } from "@/lib/api/client";
 import {
   naira,
@@ -246,6 +247,7 @@ export function LoansScreen() {
       />
 
       <PageBody className="flex flex-col gap-6">
+        <FeatureOffLine feature="loans" />
         {list.error && (
           <LoadFailure
             subject="the loans"

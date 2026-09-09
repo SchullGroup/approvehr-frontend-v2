@@ -30,6 +30,7 @@ import {
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { FeatureOffLine } from "@/components/portal/feature-off-line";
 import { ApiError } from "@/lib/api/client";
 import {
   addDays,
@@ -226,6 +227,7 @@ export function ShiftsScreen({ initialTab }: { initialTab: ShiftTab }) {
       />
 
       <PageBody>
+        <FeatureOffLine feature="shifts" />
         <Tabs items={TABS} value={tab} onChange={changeTab}>
           <div className="flex flex-col gap-6">
             <LoadFailure
