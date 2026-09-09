@@ -165,6 +165,28 @@ export type DashboardData = {
 };
 
 export type ReportsData = {
+  /**
+   * ## Every section here is optional, and that is not defensiveness
+   *
+   * A browser cannot pin the version of the API it is talking to. A deploy
+   * puts a new bundle in front of people while the API behind it is whatever
+   * it is, and any section this type declares as *present* is a promise the
+   * client cannot keep on its own.
+   *
+   * It was declared present, and a real company's dashboard went white:
+   *
+   *     TypeError: Cannot read properties of undefined (reading 'trend')
+   *       at chart-headcount-trend
+   *
+   * from `reports?.workforce.trend` — the `?.` guarded the object that can be
+   * null while loading, and nothing guarded the section. TypeScript could not
+   * help, because the type said the section was always there.
+   *
+   * `DashboardData` above already models this correctly: `pay?`, `headcount?`,
+   * `approvals?`, `today?` are optional because the API omits them by
+   * permission. This type is the same shape of answer from the same module and
+   * was written as though it were not.
+   */
   period: string;
   payrollByDepartment:
     | {
@@ -181,11 +203,11 @@ export type ReportsData = {
     allowancesKobo: number;
     employerPensionKobo: number;
   } | null;
-  headcount: {
+  headcount?: {
     byDepartment: { name: string; count: number }[];
     byEmploymentType: { type: string; count: number }[];
   };
-  operationalLoad: {
+  operationalLoad?: {
     leaveRequests: number;
     ticketsOpen: number;
     approvalsPending: number;
@@ -200,8 +222,11 @@ export type ReportsData = {
    *
    * Needs no `VIEW_SALARIES`, unlike everything else on this report: how many
    * people work here and how long they stay carries no money.
+   *
+   * Optional for the reason at the top of this type: an older API does not
+   * send it at all.
    */
-  workforce: {
+  workforce?: {
     /** Oldest first, one per month. */
     trend: {
       month: string;
