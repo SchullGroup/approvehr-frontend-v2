@@ -428,127 +428,176 @@ export function LeaveScreen() {
               }
             />
           ) : (
-            <TableWrap className="rounded-none border-0">
-              <THead>
-                <TH>Employee</TH>
-                <TH>Type</TH>
-                {/* `startDate` — the API's allow-list name, not the column's
-                    label. A name it does not recognise falls back to the queue,
-                    which is a header that appears to do nothing. */}
-                <SortableTH
-                  column="startDate"
-                  active={sort ?? ""}
-                  order={order}
-                  onSort={(column) => toggleSort(column, true)}
-                  startDescending
-                >
-                  Dates
-                </SortableTH>
-                <SortableTH
-                  column="days"
-                  active={sort ?? ""}
-                  order={order}
-                  onSort={(column) => toggleSort(column, true)}
-                  align="right"
-                  startDescending
-                >
-                  Days
-                </SortableTH>
-                <TH>Approver</TH>
-                <SortableTH
-                  column="status"
-                  active={sort ?? ""}
-                  order={order}
-                  onSort={(column) => toggleSort(column)}
-                >
-                  Status
-                </SortableTH>
-                <TH align="right">Decision</TH>
-                <TH align="right">
-                  <span className="sr-only">Open</span>
-                </TH>
-              </THead>
-              <TBody>
+            <>
+              {/* Eight columns of a request — employee, type, dates, days,
+                  approver, status, decision, open — is a lot to keep readable
+                  under 375px, so below `sm` this becomes one card per request
+                  instead of a table nobody can read a row of without scrolling
+                  it sideways. Same data, same actions, same `requests` map —
+                  never two competing reads of "what a request is". */}
+              <div className="hidden sm:block">
+                <TableWrap className="rounded-none border-0">
+                  <THead>
+                    <TH>Employee</TH>
+                    <TH>Type</TH>
+                    {/* `startDate` — the API's allow-list name, not the column's
+                        label. A name it does not recognise falls back to the queue,
+                        which is a header that appears to do nothing. */}
+                    <SortableTH
+                      column="startDate"
+                      active={sort ?? ""}
+                      order={order}
+                      onSort={(column) => toggleSort(column, true)}
+                      startDescending
+                    >
+                      Dates
+                    </SortableTH>
+                    <SortableTH
+                      column="days"
+                      active={sort ?? ""}
+                      order={order}
+                      onSort={(column) => toggleSort(column, true)}
+                      align="right"
+                      startDescending
+                    >
+                      Days
+                    </SortableTH>
+                    <TH>Approver</TH>
+                    <SortableTH
+                      column="status"
+                      active={sort ?? ""}
+                      order={order}
+                      onSort={(column) => toggleSort(column)}
+                    >
+                      Status
+                    </SortableTH>
+                    <TH align="right">Decision</TH>
+                    <TH align="right">
+                      <span className="sr-only">Open</span>
+                    </TH>
+                  </THead>
+                  <TBody>
+                    {requests.map((r) => (
+                      <TR key={r.id}>
+                        <TDPrimary
+                          title={
+                            <Link
+                              href={`/people/${r.employeeId}`}
+                              className="hover:text-accent-text hover:underline underline-offset-4"
+                            >
+                              {r.employeeName}
+                            </Link>
+                          }
+                          subtitle={r.reason ?? r.decisionNote ?? undefined}
+                        />
+                        <TD>{r.leaveType}</TD>
+                        <TD className="tabular whitespace-nowrap">
+                          {r.from} → {r.to}
+                        </TD>
+                        <TD
+                          align="right"
+                          className="tabular font-medium text-ink"
+                        >
+                          {r.days}
+                        </TD>
+                        <TD>
+                          {r.decidedByName ? (
+                            <>
+                              {r.decidedByName}
+                              {r.decidedByJobTitle && (
+                                <span className="mt-0.5 block text-meta text-faint">
+                                  {r.decidedByJobTitle}
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            (r.approverName ?? "—")
+                          )}
+                        </TD>
+                        <TD>
+                          <Badge tone={STATUS[r.status].tone} size="sm" dot>
+                            {STATUS[r.status].label}
+                          </Badge>
+                          {r.decidedAt && r.status !== "pending" && (
+                            <span className="mt-0.5 block text-meta text-faint">
+                              {shortDate(r.decidedAt)}
+                            </span>
+                          )}
+                        </TD>
+                        <TD align="right">
+                          {!canDecide ? (
+                            <span className="text-meta text-faint">—</span>
+                          ) : r.status === "pending" ? (
+                            <div className="flex justify-end gap-1.5">
+                              <Button
+                                variant="approve"
+                                size="sm"
+                                onClick={() => void approve(r)}
+                                aria-label={`Approve ${r.employeeName}'s leave`}
+                              >
+                                <Check
+                                  aria-hidden="true"
+                                  className="size-3.5"
+                                />
+                                Approve
+                              </Button>
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => setDeclining(r)}
+                                aria-label={`Send back ${r.employeeName}'s request`}
+                              >
+                                <X aria-hidden="true" className="size-3.5" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => void undo(r)}
+                              aria-label={`Undo the decision on ${r.employeeName}'s request`}
+                            >
+                              <Undo2 aria-hidden="true" className="size-3.5" />
+                              Undo
+                            </Button>
+                          )}
+                        </TD>
+                        <TD align="right">
+                          <IconButton
+                            label={`Open ${r.employeeName}'s ${r.leaveType} request`}
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setOpenId(r.id)}
+                          >
+                            <ChevronRight
+                              aria-hidden="true"
+                              className="size-4"
+                            />
+                          </IconButton>
+                        </TD>
+                      </TR>
+                    ))}
+                  </TBody>
+                </TableWrap>
+              </div>
+
+              <ul className="divide-y divide-line sm:hidden">
                 {requests.map((r) => (
-                  <TR key={r.id}>
-                    <TDPrimary
-                      title={
+                  <li key={r.id} className="flex flex-col gap-2 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
                         <Link
                           href={`/people/${r.employeeId}`}
-                          className="hover:text-accent-text hover:underline underline-offset-4"
+                          className="font-medium text-ink hover:text-accent-text hover:underline underline-offset-4"
                         >
                           {r.employeeName}
                         </Link>
-                      }
-                      subtitle={r.reason ?? r.decisionNote ?? undefined}
-                    />
-                    <TD>{r.leaveType}</TD>
-                    <TD className="tabular whitespace-nowrap">
-                      {r.from} → {r.to}
-                    </TD>
-                    <TD align="right" className="tabular font-medium text-ink">
-                      {r.days}
-                    </TD>
-                    <TD>
-                      {r.decidedByName ? (
-                        <>
-                          {r.decidedByName}
-                          {r.decidedByJobTitle && (
-                            <span className="mt-0.5 block text-meta text-faint">
-                              {r.decidedByJobTitle}
-                            </span>
-                          )}
-                        </>
-                      ) : (
-                        (r.approverName ?? "—")
-                      )}
-                    </TD>
-                    <TD>
-                      <Badge tone={STATUS[r.status].tone} size="sm" dot>
-                        {STATUS[r.status].label}
-                      </Badge>
-                      {r.decidedAt && r.status !== "pending" && (
-                        <span className="mt-0.5 block text-meta text-faint">
-                          {shortDate(r.decidedAt)}
-                        </span>
-                      )}
-                    </TD>
-                    <TD align="right">
-                      {!canDecide ? (
-                        <span className="text-meta text-faint">—</span>
-                      ) : r.status === "pending" ? (
-                        <div className="flex justify-end gap-1.5">
-                          <Button
-                            variant="approve"
-                            size="sm"
-                            onClick={() => void approve(r)}
-                            aria-label={`Approve ${r.employeeName}'s leave`}
-                          >
-                            <Check aria-hidden="true" className="size-3.5" />
-                            Approve
-                          </Button>
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => setDeclining(r)}
-                            aria-label={`Send back ${r.employeeName}'s request`}
-                          >
-                            <X aria-hidden="true" className="size-3.5" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => void undo(r)}
-                          aria-label={`Undo the decision on ${r.employeeName}'s request`}
-                        >
-                          <Undo2 aria-hidden="true" className="size-3.5" />
-                          Undo
-                        </Button>
-                      )}
-                    </TD>
-                    <TD align="right">
+                        {(r.reason ?? r.decisionNote) && (
+                          <p className="mt-0.5 text-body-sm text-muted">
+                            {r.reason ?? r.decisionNote}
+                          </p>
+                        )}
+                      </div>
                       <IconButton
                         label={`Open ${r.employeeName}'s ${r.leaveType} request`}
                         size="sm"
@@ -557,11 +606,64 @@ export function LeaveScreen() {
                       >
                         <ChevronRight aria-hidden="true" className="size-4" />
                       </IconButton>
-                    </TD>
-                  </TR>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
+                      <span>{r.leaveType}</span>
+                      <span className="tabular whitespace-nowrap">
+                        {r.from} → {r.to}
+                      </span>
+                      <span className="tabular">{daysLabel(r.days)}</span>
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <Badge tone={STATUS[r.status].tone} size="sm" dot>
+                          {STATUS[r.status].label}
+                        </Badge>
+                        {r.decidedAt && r.status !== "pending" && (
+                          <span className="ml-2 text-meta text-faint">
+                            {shortDate(r.decidedAt)}
+                          </span>
+                        )}
+                      </div>
+                      {canDecide &&
+                        (r.status === "pending" ? (
+                          <div className="flex gap-1.5">
+                            <Button
+                              variant="approve"
+                              size="sm"
+                              onClick={() => void approve(r)}
+                              aria-label={`Approve ${r.employeeName}'s leave`}
+                            >
+                              <Check aria-hidden="true" className="size-3.5" />
+                              Approve
+                            </Button>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => setDeclining(r)}
+                              aria-label={`Send back ${r.employeeName}'s request`}
+                            >
+                              <X aria-hidden="true" className="size-3.5" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => void undo(r)}
+                            aria-label={`Undo the decision on ${r.employeeName}'s request`}
+                          >
+                            <Undo2 aria-hidden="true" className="size-3.5" />
+                            Undo
+                          </Button>
+                        ))}
+                    </div>
+                  </li>
                 ))}
-              </TBody>
-            </TableWrap>
+              </ul>
+            </>
           )}
           {/* The API caps a page at 200 requests. Saying so beats a total
                 that quietly disagrees with the rows above it. Skipped for a
