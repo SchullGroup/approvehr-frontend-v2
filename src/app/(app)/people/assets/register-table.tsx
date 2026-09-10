@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Laptop } from "lucide-react";
+import { cn } from "@/lib/cn";
 import {
   Badge,
   Card,
@@ -128,51 +129,134 @@ export function RegisterTable({
           {...(emptyAction && !loading ? { action: emptyAction } : {})}
         />
       ) : (
-        <TableWrap className="rounded-none border-0" caption={title}>
-          <THead>
-            {column("name", "What it is")}
-            {column("tag", "Tag")}
-            <TH>Who has it</TH>
-            {column("status", "State")}
-            <TH>Given out</TH>
-            {/*
-              What it cost, the hand-over actions and a "Details" column used to
-              be here. All three moved to the item's own panel: a register is a
-              list you scan to find something, and eight buttons across ten rows
-              is eighty controls for a reader who wants one. The row itself opens
-              the panel now — see `rowClick` below — so there is nothing left for
-              a trailing column to do.
-            */}
-          </THead>
-          <TBody>
+        <>
+          <div className="hidden sm:block">
+            <TableWrap className="rounded-none border-0" caption={title}>
+              <THead>
+                {column("name", "What it is")}
+                {column("tag", "Tag")}
+                <TH>Who has it</TH>
+                {column("status", "State")}
+                <TH>Given out</TH>
+                {/*
+                  What it cost, the hand-over actions and a "Details" column
+                  used to be here. All three moved to the item's own panel: a
+                  register is a list you scan to find something, and eight
+                  buttons across ten rows is eighty controls for a reader who
+                  wants one. The row itself opens the panel now — see
+                  `rowClick` below — so there is nothing left for a trailing
+                  column to do.
+                */}
+              </THead>
+              <TBody>
+                {items.map((item) => (
+                  <TR
+                    key={item.id}
+                    interactive
+                    onClick={rowClick(() => onOpen(item))}
+                    className={item.archived ? "opacity-60" : undefined}
+                  >
+                    <TDPrimary
+                      title={
+                        <span className="hover:text-accent-text hover:underline underline-offset-4">
+                          {item.name}
+                        </span>
+                      }
+                      subtitle={
+                        [
+                          item.kind,
+                          [item.make, item.model].filter(Boolean).join(" "),
+                        ]
+                          .filter(Boolean)
+                          .join(" · ") || undefined
+                      }
+                    />
+
+                    <TD className="tabular whitespace-nowrap text-body-sm text-body">
+                      {item.tag}
+                    </TD>
+
+                    <TD>
+                      {item.holder ? (
+                        <Link
+                          href={`/people/${item.holder.employeeId}`}
+                          className="font-medium text-ink hover:text-accent-text hover:underline underline-offset-4"
+                        >
+                          {item.holder.name}
+                        </Link>
+                      ) : (
+                        <span className="text-body-sm text-muted">Nobody</span>
+                      )}
+                    </TD>
+
+                    <TD>
+                      <Badge tone={STATUS_TONE[item.status]} size="sm" dot>
+                        {STATUS_LABEL[item.status]}
+                      </Badge>
+                      {item.archived && (
+                        <span className="ml-1.5 text-meta text-muted">
+                          archived
+                        </span>
+                      )}
+                    </TD>
+
+                    <TD className="whitespace-nowrap">
+                      {item.holder ? (
+                        <>
+                          <span className="block text-body-sm text-body">
+                            {dayLabel(item.holder.assignedOn)}
+                          </span>
+                          <span className="block text-meta text-muted">
+                            {daysSince(item.holder.assignedOn)} days
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-body-sm text-faint">—</span>
+                      )}
+                    </TD>
+                  </TR>
+                ))}
+              </TBody>
+            </TableWrap>
+          </div>
+
+          <ul className="divide-y divide-line sm:hidden">
             {items.map((item) => (
-              <TR
+              <li
                 key={item.id}
-                interactive
                 onClick={rowClick(() => onOpen(item))}
-                className={item.archived ? "opacity-60" : undefined}
+                className={cn(
+                  "flex flex-col gap-2 p-4",
+                  item.archived && "opacity-60",
+                )}
               >
-                <TDPrimary
-                  title={
-                    <span className="hover:text-accent-text hover:underline underline-offset-4">
-                      {item.name}
-                    </span>
-                  }
-                  subtitle={
-                    [
-                      item.kind,
-                      [item.make, item.model].filter(Boolean).join(" "),
-                    ]
-                      .filter(Boolean)
-                      .join(" · ") || undefined
-                  }
-                />
+                <div className="min-w-0">
+                  <p className="text-body-sm font-medium text-ink">
+                    {item.name}
+                  </p>
+                  {[
+                    item.kind,
+                    [item.make, item.model].filter(Boolean).join(" "),
+                  ].filter(Boolean).length > 0 && (
+                    <p className="mt-0.5 text-meta text-muted">
+                      {[
+                        item.kind,
+                        [item.make, item.model].filter(Boolean).join(" "),
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                  )}
+                </div>
 
-                <TD className="tabular whitespace-nowrap text-body-sm text-body">
-                  {item.tag}
-                </TD>
-
-                <TD>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-body-sm text-muted">Tag</span>
+                  <span className="tabular text-body-sm text-body">
+                    {item.tag}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-body-sm text-muted">Who has it</span>
                   {item.holder ? (
                     <Link
                       href={`/people/${item.holder.employeeId}`}
@@ -183,37 +267,30 @@ export function RegisterTable({
                   ) : (
                     <span className="text-body-sm text-muted">Nobody</span>
                   )}
-                </TD>
+                </div>
 
-                <TD>
-                  <Badge tone={STATUS_TONE[item.status]} size="sm" dot>
-                    {STATUS_LABEL[item.status]}
-                  </Badge>
-                  {item.archived && (
-                    <span className="ml-1.5 text-meta text-muted">
-                      archived
+                <div className="flex items-center justify-between gap-3">
+                  <span className="flex items-center">
+                    <Badge tone={STATUS_TONE[item.status]} size="sm" dot>
+                      {STATUS_LABEL[item.status]}
+                    </Badge>
+                    {item.archived && (
+                      <span className="ml-1.5 text-meta text-muted">
+                        archived
+                      </span>
+                    )}
+                  </span>
+                  {item.holder && (
+                    <span className="text-right text-meta text-muted">
+                      {dayLabel(item.holder.assignedOn)} ·{" "}
+                      {daysSince(item.holder.assignedOn)} days
                     </span>
                   )}
-                </TD>
-
-                <TD className="whitespace-nowrap">
-                  {item.holder ? (
-                    <>
-                      <span className="block text-body-sm text-body">
-                        {dayLabel(item.holder.assignedOn)}
-                      </span>
-                      <span className="block text-meta text-muted">
-                        {daysSince(item.holder.assignedOn)} days
-                      </span>
-                    </>
-                  ) : (
-                    <span className="text-body-sm text-faint">—</span>
-                  )}
-                </TD>
-              </TR>
+                </div>
+              </li>
             ))}
-          </TBody>
-        </TableWrap>
+          </ul>
+        </>
       )}
 
       {paging && items.length > 0 && (

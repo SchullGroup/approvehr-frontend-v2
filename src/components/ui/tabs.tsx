@@ -187,7 +187,13 @@ export function SegmentedControl<T extends string>({
       role="radiogroup"
       aria-label={label}
       className={cn(
-        "inline-flex rounded-md border border-line bg-canvas p-0.5",
+        /* `flex-wrap`, not a plain `inline-flex` row: a control with four or
+           five longer labels (the equipment register's "Nobody has it" /
+           "With somebody" / "Being fixed" / "Lost" is the case that found
+           this) is wider than a 375px card on its own, and nothing upstream
+           of this component can make its own pills wrap for it. A no-op
+           wherever the options already fit on one line. */
+        "inline-flex flex-wrap rounded-md border border-line bg-canvas p-0.5",
         className,
       )}
     >
