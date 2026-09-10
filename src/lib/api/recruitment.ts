@@ -298,14 +298,30 @@ export type CandidateListParams = {
   q?: string;
 };
 
+/**
+ * Correcting what a screener recorded.
+ *
+ * **Absent leaves the fact alone; `null` takes it back.** The four screening
+ * answers are nullable for that reason — a salary expectation typed against
+ * somebody who never gave one used to be permanent, on the figure an offer gets
+ * measured against. Same rule the work-location geofence states.
+ *
+ * `noticeDays` keeps nought and null apart: nought days is "they can start
+ * immediately", null is "nobody asked". Sending `0` for an unasked question
+ * would make every unscreened candidate look available now.
+ *
+ * `phone`, `cvStorageKey` and `source` stay set-or-omit, matching the API,
+ * which refuses a null on each with a 400. The key is the only handle on a file
+ * that may exist and clearing it is not a correction.
+ */
 export type UpdateCandidateBody = {
   phone?: string;
   cvStorageKey?: string;
   source?: string;
-  noticeDays?: number;
-  currentSalaryKobo?: number;
-  expectedSalaryKobo?: number;
-  rightToWork?: boolean;
+  noticeDays?: number | null;
+  currentSalaryKobo?: number | null;
+  expectedSalaryKobo?: number | null;
+  rightToWork?: boolean | null;
 };
 
 export type InterviewListParams = {
