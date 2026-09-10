@@ -50,7 +50,10 @@ const EVERYTHING: ReadonlySet<PermissionKey> = new Set(PERMISSION_KEYS);
 
 const facts = (inIt: boolean): NavFacts => ({
   assistantWired: true,
-  rows: { "one-on-ones": inIt },
+  /* Signatures stays on throughout: this file is about one-to-ones, and a row
+     hidden for an unrelated reason would be a false negative. Its own rule is
+     asserted in `signatures-by-role.test.ts`. */
+  rows: { "one-on-ones": inIt, signatures: true },
 });
 
 const labels = (
