@@ -112,6 +112,11 @@ export function SignaturesScreen() {
             subject="signatures"
             error={read.error}
             onRetry={read.reload}
+            /* This screen lists a whole module, so a 404 is the API not
+             carrying it rather than a record somebody deleted — see
+             `MissingMeans`. Exactly the case that made production look
+             broken. */
+            missingMeans="module"
           />
         ) : read.loading || !read.data ? (
           <Spinner label="Loading" />
