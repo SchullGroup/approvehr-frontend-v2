@@ -736,6 +736,14 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                   periods.copyQuestions(cycleId, sourceCycleId),
               }
             : {})}
+          /* Same gate as `onCopyFrom`, same reason: the API refuses this
+             once the cycle has started. */
+          {...(period.stage === "DRAFT"
+            ? {
+                onAddStandard: () =>
+                  periods.addStandardQuestions(cycleId).then(() => {}),
+              }
+            : {})}
         />
       )}
 
