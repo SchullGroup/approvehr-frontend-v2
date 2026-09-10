@@ -903,35 +903,49 @@ export function EmployeeRecord({
                  * with a dozen branches is a list worth filtering rather than
                  * scrolling.
                  *
-                 * Connected only. `useEmployeeMutations().update` still drops
-                 * `workLocationId` in demo mode — `Employee.location` there is
-                 * a display name with no id behind it, the same gap
-                 * `departmentId` had before `demoDepartmentName` closed it,
-                 * and closing this one is a separate fix. Offering the picker
-                 * offline would save silently onto nothing, so it stays
-                 * read-only text in the identity rail there instead.
+                 * Offered in both modes now. This used to be connected-only,
+                 * because `useEmployeeMutations().update` dropped
+                 * `workLocationId` offline — `Employee.location` there is a
+                 * display name with no id behind it — so a picker would have
+                 * saved silently onto nothing. Dropping the control was the
+                 * right call while that was true; `demoWorkLocationName` in
+                 * `store/work-locations.ts` is the seam that makes it untrue,
+                 * and it is the counterpart to `demoDepartmentName` on the
+                 * field directly above.
+                 *
+                 * `locations.locations` is the demo list offline and the API's
+                 * list connected, so one options array serves both.
                  */
-                ...(connected
-                  ? [
-                      {
-                        key: "workLocationId" as const,
-                        clearsToNull: true,
-                        label: "Work location",
-                        type: "picker" as const,
-                        placeholder: "Not set",
-                        value: currentLocation?.id ?? "",
-                        format: () => employee.location,
-                        options: [
-                          { value: "", label: "Not set" },
-                          ...locations.locations.map((l) => ({
-                            value: l.id,
-                            label: l.name,
-                            ...(l.addressLine ? { hint: l.addressLine } : {}),
-                          })),
-                        ],
-                      },
-                    ]
-                  : []),
+                {
+                  key: "workLocationId" as const,
+                  clearsToNull: true,
+                  label: "Work location",
+                  type: "picker" as const,
+                  placeholder: "Not set",
+                  /* Said only when it is true, and it is true in both modes.
+                     `Employee.location` is free text and a work location is a
+                     row with an address and a geofence, so a record can carry
+                     "Lagos, NG" while every office is called something like
+                     "Lagos HQ" — which is exactly what the demo seed does. The
+                     picker then reads "Not set" beside a record that plainly
+                     says Lagos, and without a sentence that looks like a bug
+                     rather than two different facts. */
+                  ...(employee.location && !currentLocation
+                    ? {
+                        help: `This record says “${employee.location}”, which is not one of the offices below. Choosing one replaces it.`,
+                      }
+                    : {}),
+                  value: currentLocation?.id ?? "",
+                  format: () => employee.location,
+                  options: [
+                    { value: "", label: "Not set" },
+                    ...locations.locations.map((l) => ({
+                      value: l.id,
+                      label: l.name,
+                      ...(l.addressLine ? { hint: l.addressLine } : {}),
+                    })),
+                  ],
+                },
               ]}
             />
 
