@@ -299,6 +299,22 @@ export function Directory({
      the same two fields, not more. Without it the column is absent rather than
      present and refused. */
   const mayEdit = useCan("EDIT_RECORDS");
+
+  /** Shared by the desktop row and the mobile card, so a restore cannot behave
+   *  differently on the two. */
+  const restoreEmployee = async (e: Employee) => {
+    try {
+      await mutations.restore(e.id);
+      reload();
+      toast.push({ title: `${fullName(e)} restored`, tone: "success" });
+    } catch (error) {
+      toast.push({
+        title: "Could not restore that record",
+        tone: "danger",
+        detail: error instanceof Error ? error.message : undefined,
+      });
+    }
+  };
   const selection = useRowSelection();
   /* The rows on screen, never the whole filtered set: "select all" that
      silently ticks 300 people when 25 are visible is a control saying one thing
@@ -608,178 +624,238 @@ export function Directory({
               />
             </div>
           )}
-          <TableWrap
-            className="rounded-b-none border-0"
-            caption="Employee directory with role, department, salary and status"
-          >
-            <THead>
-              {mayEdit && (
-                <TH>
-                  <Checkbox
-                    /* A visually hidden label rather than `aria-label`:
+          <div className="hidden sm:block">
+            <TableWrap
+              className="rounded-b-none border-0"
+              caption="Employee directory with role, department, salary and status"
+            >
+              <THead>
+                {mayEdit && (
+                  <TH>
+                    <Checkbox
+                      /* A visually hidden label rather than `aria-label`:
                        `Checkbox` renders its label in a `<label>` tied to the
                        input, which is what makes the tick itself clickable and
                        is stronger than an attribute. In a table cell it must
                        not be drawn. */
-                    label={
-                      <span className="sr-only-focusable">
-                        Select every row on this page
-                      </span>
-                    }
-                    checked={selection.allSelected(pageIds)}
-                    indeterminate={selection.someSelected(pageIds)}
-                    onChange={() => selection.toggleAll(pageIds)}
-                  />
-                </TH>
-              )}
-              <SortableTH
-                column="lastName"
-                active={list.sort}
-                order={list.order}
-                onSort={list.toggleSort}
-              >
-                Employee
-              </SortableTH>
-              <TH>Department</TH>
-              <TH>Location</TH>
-              <SortableTH
-                column="grossMonthly"
-                active={list.sort}
-                order={list.order}
-                onSort={list.toggleSort}
-                align="right"
-                startDescending
-              >
-                Gross monthly
-              </SortableTH>
-              <SortableTH
-                column="startDate"
-                active={list.sort}
-                order={list.order}
-                onSort={list.toggleSort}
-                startDescending
-              >
-                Started
-              </SortableTH>
-              <TH>Status</TH>
-              <TH align="right">Actions</TH>
-            </THead>
-            <TBody>
-              {rows.map((e) => {
-                const gaps = payrollGapsFor(payrollFieldsForDisplay(e));
-                const blocking = gaps.filter((g) => g.blocking);
-                return (
-                  <TR
-                    key={e.id}
-                    interactive
-                    onClick={rowClick(() => router.push(`/people/${e.id}`))}
-                  >
-                    {mayEdit && (
-                      <TD>
-                        {/* The row navigates; the checkbox must not. Without
+                      label={
+                        <span className="sr-only-focusable">
+                          Select every row on this page
+                        </span>
+                      }
+                      checked={selection.allSelected(pageIds)}
+                      indeterminate={selection.someSelected(pageIds)}
+                      onChange={() => selection.toggleAll(pageIds)}
+                    />
+                  </TH>
+                )}
+                <SortableTH
+                  column="lastName"
+                  active={list.sort}
+                  order={list.order}
+                  onSort={list.toggleSort}
+                >
+                  Employee
+                </SortableTH>
+                <TH>Department</TH>
+                <TH>Location</TH>
+                <SortableTH
+                  column="grossMonthly"
+                  active={list.sort}
+                  order={list.order}
+                  onSort={list.toggleSort}
+                  align="right"
+                  startDescending
+                >
+                  Gross monthly
+                </SortableTH>
+                <SortableTH
+                  column="startDate"
+                  active={list.sort}
+                  order={list.order}
+                  onSort={list.toggleSort}
+                  startDescending
+                >
+                  Started
+                </SortableTH>
+                <TH>Status</TH>
+                <TH align="right">Actions</TH>
+              </THead>
+              <TBody>
+                {rows.map((e) => {
+                  const gaps = payrollGapsFor(payrollFieldsForDisplay(e));
+                  const blocking = gaps.filter((g) => g.blocking);
+                  return (
+                    <TR
+                      key={e.id}
+                      interactive
+                      onClick={rowClick(() => router.push(`/people/${e.id}`))}
+                    >
+                      {mayEdit && (
+                        <TD>
+                          {/* The row navigates; the checkbox must not. Without
                             this, ticking somebody opens their record and the
                             selection is lost on the way. */}
-                        <span
-                          onClick={(event) => event.stopPropagation()}
-                          role="presentation"
-                        >
-                          <Checkbox
-                            label={
-                              <span className="sr-only-focusable">
-                                Select {fullName(e)}
-                              </span>
-                            }
-                            checked={selection.isSelected(e.id)}
-                            onChange={() => selection.toggle(e.id)}
-                          />
-                        </span>
+                          <span
+                            onClick={(event) => event.stopPropagation()}
+                            role="presentation"
+                          >
+                            <Checkbox
+                              label={
+                                <span className="sr-only-focusable">
+                                  Select {fullName(e)}
+                                </span>
+                              }
+                              checked={selection.isSelected(e.id)}
+                              onChange={() => selection.toggle(e.id)}
+                            />
+                          </span>
+                        </TD>
+                      )}
+                      <TDPrimary
+                        title={
+                          <Link
+                            href={`/people/${e.id}`}
+                            className="hover:text-accent-text hover:underline underline-offset-4"
+                          >
+                            {fullName(e)}
+                          </Link>
+                        }
+                        subtitle={`${e.jobTitle} · ${e.employeeNo}`}
+                      />
+                      <TD>{e.department}</TD>
+                      <TD>{e.location}</TD>
+                      <TD
+                        align="right"
+                        className="tabular font-medium text-ink"
+                      >
+                        <Money amount={e.grossMonthly} />
                       </TD>
-                    )}
-                    <TDPrimary
-                      title={
-                        <Link
-                          href={`/people/${e.id}`}
-                          className="hover:text-accent-text hover:underline underline-offset-4"
-                        >
-                          {fullName(e)}
-                        </Link>
-                      }
-                      subtitle={`${e.jobTitle} · ${e.employeeNo}`}
-                    />
-                    <TD>{e.department}</TD>
-                    <TD>{e.location}</TD>
-                    <TD align="right" className="tabular font-medium text-ink">
-                      <Money amount={e.grossMonthly} />
-                    </TD>
-                    <TD className="tabular text-muted">{e.startDate}</TD>
-                    <TD>
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <Badge tone={STATUS[e.status].tone} size="sm" dot>
-                          {STATUS[e.status].label}
-                        </Badge>
-                        {gaps.length > 0 && (
-                          /* Red only when something here actually blocks a
+                      <TD className="tabular text-muted">{e.startDate}</TD>
+                      <TD>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <Badge tone={STATUS[e.status].tone} size="sm" dot>
+                            {STATUS[e.status].label}
+                          </Badge>
+                          {gaps.length > 0 && (
+                            /* Red only when something here actually blocks a
                              payslip (a missing bank account). A pension PIN or
                              TIN alone is worth fixing, not worth the same
                              colour as "will not be paid". */
-                          <span
-                            title={gaps
-                              .map((g) => `${g.label}: ${g.consequence}`)
-                              .join(" ")}
-                          >
-                            <Badge
-                              tone={blocking.length > 0 ? "danger" : "warning"}
-                              size="sm"
+                            <span
+                              title={gaps
+                                .map((g) => `${g.label}: ${g.consequence}`)
+                                .join(" ")}
                             >
-                              {gaps.length} missing
-                            </Badge>
-                          </span>
-                        )}
-                      </div>
-                    </TD>
-                    <TD align="right">
-                      {view === "archived" ? (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => {
-                            void (async () => {
-                              try {
-                                await mutations.restore(e.id);
-                                reload();
-                                toast.push({
-                                  title: `${fullName(e)} restored`,
-                                  tone: "success",
-                                });
-                              } catch (error) {
-                                toast.push({
-                                  title: "Could not restore that record",
-                                  tone: "danger",
-                                  detail:
-                                    error instanceof Error
-                                      ? error.message
-                                      : undefined,
-                                });
-                              }
-                            })();
-                          }}
-                        >
-                          <RotateCcw aria-hidden="true" className="size-3.5" />
-                          Restore
-                        </Button>
-                      ) : (
-                        <RowActions
+                              <Badge
+                                tone={
+                                  blocking.length > 0 ? "danger" : "warning"
+                                }
+                                size="sm"
+                              >
+                                {gaps.length} missing
+                              </Badge>
+                            </span>
+                          )}
+                        </div>
+                      </TD>
+                      <TD align="right">
+                        <DirectoryRowAction
                           employee={e}
                           gaps={gaps}
+                          archived={view === "archived"}
                           onFillMissing={() => setFilling(e.id)}
+                          onRestore={() => void restoreEmployee(e)}
                         />
-                      )}
-                    </TD>
-                  </TR>
-                );
-              })}
-            </TBody>
-          </TableWrap>
+                      </TD>
+                    </TR>
+                  );
+                })}
+              </TBody>
+            </TableWrap>
+          </div>
+
+          <ul className="divide-y divide-line sm:hidden">
+            {rows.map((e) => {
+              const gaps = payrollGapsFor(payrollFieldsForDisplay(e));
+              const blocking = gaps.filter((g) => g.blocking);
+              return (
+                <li
+                  key={e.id}
+                  onClick={rowClick(() => router.push(`/people/${e.id}`))}
+                  className="flex flex-col gap-2 p-4"
+                >
+                  <div className="flex items-start gap-3">
+                    {mayEdit && (
+                      <span
+                        onClick={(event) => event.stopPropagation()}
+                        role="presentation"
+                        className="pt-0.5"
+                      >
+                        <Checkbox
+                          label={
+                            <span className="sr-only-focusable">
+                              Select {fullName(e)}
+                            </span>
+                          }
+                          checked={selection.isSelected(e.id)}
+                          onChange={() => selection.toggle(e.id)}
+                        />
+                      </span>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <Link
+                        href={`/people/${e.id}`}
+                        className="block text-body-sm font-medium text-ink hover:text-accent-text hover:underline underline-offset-4"
+                      >
+                        {fullName(e)}
+                      </Link>
+                      <p className="mt-0.5 text-meta text-muted">
+                        {e.jobTitle} · {e.employeeNo}
+                      </p>
+                    </div>
+                    <DirectoryRowAction
+                      employee={e}
+                      gaps={gaps}
+                      archived={view === "archived"}
+                      onFillMissing={() => setFilling(e.id)}
+                      onRestore={() => void restoreEmployee(e)}
+                    />
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <Badge tone={STATUS[e.status].tone} size="sm" dot>
+                      {STATUS[e.status].label}
+                    </Badge>
+                    {gaps.length > 0 && (
+                      <span
+                        title={gaps
+                          .map((g) => `${g.label}: ${g.consequence}`)
+                          .join(" ")}
+                      >
+                        <Badge
+                          tone={blocking.length > 0 ? "danger" : "warning"}
+                          size="sm"
+                        >
+                          {gaps.length} missing
+                        </Badge>
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
+                    <span>{e.department}</span>
+                    <span>{e.location}</span>
+                    <span className="tabular">{e.startDate}</span>
+                  </div>
+
+                  <div className="tabular font-medium text-ink">
+                    <Money amount={e.grossMonthly} />
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
 
           {filling && (
             <MissingDetailsDialog
@@ -866,6 +942,37 @@ const count = (value: number | undefined): string =>
 /** A switcher option, with its count only once the count is known. */
 const label = (text: string, value: number | undefined): string =>
   value === undefined || value === 0 ? text : `${text} (${value})`;
+
+/**
+ * The row's trailing control, shared by the desktop `<TD>` and the mobile
+ * `<li>` so the two cannot offer different actions for the same row: restore
+ * on the archived view, the overflow menu everywhere else.
+ */
+function DirectoryRowAction({
+  employee,
+  gaps,
+  archived,
+  onFillMissing,
+  onRestore,
+}: {
+  employee: Employee;
+  gaps: PayrollGap[];
+  archived: boolean;
+  onFillMissing: () => void;
+  onRestore: () => void;
+}) {
+  if (archived) {
+    return (
+      <Button size="sm" variant="secondary" onClick={onRestore}>
+        <RotateCcw aria-hidden="true" className="size-3.5" />
+        Restore
+      </Button>
+    );
+  }
+  return (
+    <RowActions employee={employee} gaps={gaps} onFillMissing={onFillMissing} />
+  );
+}
 
 /**
  * The row's overflow menu. Renders nothing when there is nothing to put in
