@@ -142,6 +142,12 @@ const DEMO_COPY: Record<
     section: "people",
     sensitive: true,
   },
+  EDIT_RECORDS_DEPARTMENT: {
+    label: "Edit basic details for their department",
+    description:
+      "Contact details, address and next of kin — the same fields somebody may already correct on their own record. Not pay, bank details, tax, pension or date of birth.",
+    section: "people",
+  },
   MANAGE_HIRING: {
     label: "Hire",
     description: "Post roles, move candidates along, and make offers.",
@@ -283,6 +289,12 @@ const DEMO_COPY: Record<
       "Decide requests from anybody in a department they head — including people who do not report to them directly.",
     section: "timeOff",
   },
+  START_EXIT_DEPARTMENT: {
+    label: "Start an exit for their department",
+    description:
+      "Record a resignation or retirement for somebody in a department they head. Not a termination, an end of contract or a death in service — those are HR's.",
+    section: "people",
+  },
 };
 
 /** Reported, never blocked — a two-person company genuinely has one person doing both. */
@@ -313,6 +325,7 @@ const DEMO_MODULE_TITLES: Record<PermissionModule, string> = {
   people: "People",
   equipment: "Equipment",
   repairs: "Equipment repairs",
+  exits: "Exits",
   hiring: "Recruitment",
   leave: "Leave",
   payroll: "Payroll",
@@ -349,6 +362,7 @@ const DEMO_ACTIONS: { key: PermissionAction; title: string }[] = [
   { key: "approve", title: "Approve" },
   { key: "assign", title: "Assign" },
   { key: "report", title: "Report a fault" },
+  { key: "start", title: "Start an exit" },
   { key: "update", title: "Move it along" },
   { key: "confirm", title: "Confirm return" },
   { key: "run", title: "Prepare" },
@@ -401,18 +415,20 @@ function demoMatrix(): Matrix {
         sensitive: only.sensitive,
       };
     }
+    /* An unscoped permission beside a scoped one means "everyone" — see the
+       matching comment on the API's own `matrix()`, which this mirrors. */
     return {
       kind: "scoped",
       scopes: found
-        .filter((entry) => entry.scope !== undefined)
+        .map((entry) => ({ ...entry, scope: entry.scope ?? "all" }))
         .sort(
           (a, b) =>
-            DEMO_SCOPE_ORDER.indexOf(a.scope!) -
-            DEMO_SCOPE_ORDER.indexOf(b.scope!),
+            DEMO_SCOPE_ORDER.indexOf(a.scope) -
+            DEMO_SCOPE_ORDER.indexOf(b.scope),
         )
         .map((entry) => ({
-          scope: entry.scope!,
-          title: DEMO_SCOPE_TITLES[entry.scope!],
+          scope: entry.scope,
+          title: DEMO_SCOPE_TITLES[entry.scope],
           permission: entry.key,
           label: entry.label,
           description: entry.description,
