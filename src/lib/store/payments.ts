@@ -31,6 +31,7 @@ import {
   type UpdateAccountBody,
   type ApiBatchRecordedPaid,
   type ApiWallet,
+  type ApiWalletStatement,
 } from "@/lib/api/payments";
 import { EMPLOYEES } from "@/lib/mock/people";
 import { createPersistedState } from "./persisted";
@@ -811,6 +812,112 @@ export function useWallet(): WalletState {
   const matched = fetched !== null && fetched.rev === rev;
   return {
     wallet: matched ? fetched.wallet : null,
+    loading: !matched,
+    error: matched ? fetched.error : null,
+    live: true,
+    reload: bumpRevision,
+  };
+}
+
+/* ------------------------------------------------------- the wallet statement */
+
+export type WalletStatementState = {
+  /**
+   * Null while loading, on a failure, and offline — never an empty statement.
+   *
+   * Same rule as `WalletState.wallet` above and for a sharper reason: an empty
+   * array renders as "no movements yet", which is a statement about a
+   * company's money and would be the wrong one. A wallet that has never moved
+   * and a wallet whose statement failed to load must not look alike.
+   */
+  statement: ApiWalletStatement | null;
+  loading: boolean;
+  error: ApiError | null;
+  live: boolean;
+  reload: () => void;
+};
+
+/**
+ * A page of the wallet's movements.
+ *
+ * Separate hook from `useWallet` rather than more fields on it, matching the
+ * split at the API: turning a page must not re-fetch the four headline figures
+ * and make them flicker.
+ *
+ * `page` is a parameter rather than state held here, so the screen owns it. A
+ * hook that owned the page would reset it on every revalidation, which is
+ * exactly what happens after a payroll run credits or debits the wallet —
+ * you would be thrown back to page one while reading page three.
+ */
+export function useWalletStatement(params: {
+  page: number;
+  pageSize: number;
+}): WalletStatementState {
+  const { page, pageSize } = params;
+  const { isConnected, can } = useSession();
+  const mayRead = can("VIEW_SALARIES");
+  const rev = useRevision();
+  const revalidation = useRevalidation();
+
+  const [fetched, setFetched] = useState<{
+    rev: number;
+    page: number;
+    pageSize: number;
+    statement: ApiWalletStatement | null;
+    error: ApiError | null;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!isConnected || !mayRead) return;
+    let cancelled = false;
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const statement = await paymentsApi.walletStatement(
+          { page, pageSize },
+          controller.signal,
+        );
+        if (!cancelled) setFetched({ rev, page, pageSize, statement, error: null });
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (!cancelled) {
+          setFetched({
+            rev,
+            page,
+            pageSize,
+            statement: null,
+            error: error instanceof ApiError ? error : null,
+          });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [isConnected, mayRead, rev, revalidation, page, pageSize]);
+
+  if (!isConnected || !mayRead) {
+    return {
+      statement: null,
+      loading: false,
+      error: null,
+      live: false,
+      reload: bumpRevision,
+    };
+  }
+
+  /* The page is part of the match, not just the revision. Without it, asking
+     for page two renders page one's rows as though they were the answer until
+     the new request lands — the rows would be wrong rather than merely
+     stale. */
+  const matched =
+    fetched !== null &&
+    fetched.rev === rev &&
+    fetched.page === page &&
+    fetched.pageSize === pageSize;
+  return {
+    statement: matched ? fetched.statement : null,
     loading: !matched,
     error: matched ? fetched.error : null,
     live: true,

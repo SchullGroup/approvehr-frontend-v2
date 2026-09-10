@@ -664,6 +664,82 @@ export type ApiWallet = {
   }[];
 };
 
+/** One movement of the wallet, from the statement. */
+export type ApiWalletMovement = {
+  id: string;
+  /** `CREDIT` is money in, `DEBIT` is money out. */
+  direction: "CREDIT" | "DEBIT";
+  /**
+   * Which kind of event moved it.
+   *
+   * `PROVIDER_INFLOW` was confirmed by a provider and `MANUAL_FUNDING` was
+   * typed by a person — a wallet that cannot tell those apart cannot be
+   * audited, which is why this is on every row and never inferred from the
+   * direction.
+   */
+  source:
+    | "PROVIDER_INFLOW"
+    | "MANUAL_FUNDING"
+    | "PAYROLL_RUN"
+    | "PAYROLL_REVERSAL"
+    | "FEE"
+    | "ADJUSTMENT";
+  amountKobo: number;
+  /** Formatted once by the API, so no screen re-derives it. */
+  amount: string;
+  balanceBeforeKobo: number;
+  balanceBefore: string;
+  balanceAfterKobo: number;
+  balanceAfter: string;
+  /** The idempotency key — a provider event id, or a payroll run. */
+  reference: string;
+  note: string | null;
+  /** Set on movements a payroll run caused, so a row can link to its run. */
+  payrollRunId: string | null;
+  createdAt: string;
+};
+
+/**
+ * The wallet proper: a balance somebody can name, and the movements behind it.
+ *
+ * ## Not the same thing as `ApiWallet`
+ *
+ * `ApiWallet` is the position *derived* from the ledger — funded, paid out,
+ * committed, available. This is the stored wallet and its statement. They
+ * answer different questions and a screen wants both: the derived figures
+ * decide whether a payroll may go out, this one explains how the balance got
+ * where it is.
+ *
+ * ## `reconciled`
+ *
+ * The API sums the movements and compares them to the stored balance on every
+ * read of this endpoint. `false` means something wrote the balance without
+ * going through the wallet service, and it is reported rather than repaired —
+ * silently correcting the figure would hide whatever did it. A screen showing
+ * this must say so rather than quietly rendering a number it has been told
+ * not to trust.
+ */
+export type ApiWalletStatement = {
+  balanceKobo: number;
+  balance: string;
+  /** This page of movements, newest first. */
+  transactions: ApiWalletMovement[];
+  /** Every movement the wallet has, not just this page. */
+  total: number;
+  page: number;
+  pageSize: number;
+  reconciled: boolean;
+  /** Present only when `reconciled` is false, saying by how much. */
+  reconciliation?: {
+    /** What `Wallet.balance` says. */
+    storedKobo: number;
+    /** What the movements add up to. */
+    computedKobo: number;
+    agrees: boolean;
+    differenceKobo: number;
+  };
+};
+
 export type ApiPaymentsSummary = {
   provider: { connected: boolean; name: string | null; note: string | null };
   primaryAccount: ApiBankAccount | null;
@@ -983,6 +1059,29 @@ export const paymentsApi = {
   /** The wallet: what is in it, what is spoken for, and where money goes in. */
   wallet: (signal?: AbortSignal) =>
     request<ApiWallet>("/payments/wallet", { ...(signal ? { signal } : {}) }),
+
+  /**
+   * The wallet's statement: a page of movements, and the balance either side
+   * of each.
+   *
+   * A second request rather than fields on `wallet()` above, because the two
+   * change on different clocks. The figures that decide whether a payroll may
+   * go out are read once when the screen opens; the statement is paged
+   * through, and re-fetching four headline figures on every page turn would
+   * make them flicker for no reason.
+   *
+   * `pageSize` has a ceiling of 200 at the API and a larger one is **refused**
+   * rather than clamped, so do not pass a page size from user input without
+   * bounding it first.
+   */
+  walletStatement: (
+    params: { page: number; pageSize: number },
+    signal?: AbortSignal,
+  ) =>
+    request<ApiWalletStatement>("/payments/wallet/account", {
+      query: { page: params.page, pageSize: params.pageSize },
+      ...(signal ? { signal } : {}),
+    }),
 
   summary: (signal?: AbortSignal) =>
     request<ApiPaymentsSummary>("/payments/summary", {

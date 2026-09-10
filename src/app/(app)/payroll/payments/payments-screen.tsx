@@ -45,6 +45,7 @@ import { downloadCsv } from "@/lib/csv";
 import { FundingAccounts } from "../runs/new/pay-panel";
 import { longDate } from "./format";
 import { LedgerPanel } from "./ledger-panel";
+import { WalletStatement } from "./wallet-statement";
 
 /**
  * The wallet.
@@ -308,6 +309,8 @@ export function PaymentsScreen() {
             )}
           </CardBody>
         </Card>
+
+        <WalletStatement />
 
         <Card>
           <CardHeader
