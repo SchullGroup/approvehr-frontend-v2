@@ -2326,23 +2326,33 @@ function PayslipTable({
           </p>
         </CardBody>
       )}
-      <TableWrap className="rounded-none border-0">
-        <THead>
-          <TH>Employee</TH>
-          {anyUnpaid && <TH align="right">Unpaid days</TH>}
-          <TH align="right">Gross</TH>
-          {/* Overtime and bonus are entered here, in the cell, on the row.
+      {/* Up to eight columns, three of them a live input mid-edit, is the
+          densest row in the product — and the one where getting a figure
+          wrong actually moves money. Below `sm` this becomes a card per
+          payslip instead of a table nobody can read a row of without
+          scrolling it sideways while typing into it. Every inline editor —
+          `InlineHours`, `InlineMoney`, `CellValue`, `Deductions`,
+          `PayeByHand` — is reused exactly as the table uses it; only the
+          TR/TD arrangement changes to a label/value list, so there is no
+          second copy of what a figure is or how editing it works. */}
+      <div className="hidden sm:block">
+        <TableWrap className="rounded-none border-0">
+          <THead>
+            <TH>Employee</TH>
+            {anyUnpaid && <TH align="right">Unpaid days</TH>}
+            <TH align="right">Gross</TH>
+            {/* Overtime and bonus are entered here, in the cell, on the row.
               Housing fund came out to make room: it is a computed statutory
               line nobody edits from this screen, it is on the payslip, and a
               column somebody only reads is worth less than one they work in. */}
-          {showOvertime && <TH align="right">Overtime</TH>}
-          {showBonus && <TH align="right">Bonus</TH>}
-          {/* Pension came out with Housing fund, and for the same reason: it is
+            {showOvertime && <TH align="right">Overtime</TH>}
+            {showBonus && <TH align="right">Bonus</TH>}
+            {/* Pension came out with Housing fund, and for the same reason: it is
               a statutory figure nobody edits from this screen, it is on the
               payslip in full, and every column that is only read costs the ones
               that are worked in. What is left is the two figures somebody
               enters, the tax they may override, and the totals either side. */}
-          {/* PAYE, with no switch under it any more.
+            {/* PAYE, with no switch under it any more.
               ------------------------------------------------------------
               A toggle writing `PayrollSettings.payeEnabled` — the company's
               tax policy, for every payroll — used to sit in this header. A
@@ -2351,8 +2361,8 @@ function PayslipTable({
               column carry the widest decision on the screen. It is on
               `/settings/payroll` and in Pay setup → Extras, both of which
               have room for what switching it off means. */}
-          <TH align="right">PAYE</TH>
-          {/* Everything taken off besides PAYE, as one figure.
+            <TH align="right">PAYE</TH>
+            {/* Everything taken off besides PAYE, as one figure.
               -----------------------------------------------
               This was "Other", and it carried only the pre-tax and post-tax
               deduction lines — so with the Pension column gone and NHF never
@@ -2366,57 +2376,57 @@ function PayslipTable({
               Removing the pension column was right. Leaving the figure out of
               the arithmetic was not: a payroll table whose own figures do not
               reconcile is the defect this product is sold against. */}
-          <TH align="right">Deductions</TH>
-          <TH align="right">Net</TH>
-        </THead>
-        <TBody>
-          {payslips.map((slip) => {
-            const deductionLines = slip.lines.filter(
-              (l) => l.kind === "DEDUCTION",
-            );
-            const open = overriding?.id === slip.id;
-            return (
-              <Fragment key={slip.id}>
-                <TR>
-                  <TDPrimary
-                    title={
-                      <Link
-                        href={`/payroll/payslips/${slip.id}`}
-                        className="hover:text-accent-text hover:underline underline-offset-4"
-                      >
-                        {slip.name}
-                      </Link>
-                    }
-                    subtitle={slip.employeeNo}
-                  />
-                  {anyUnpaid && (
-                    <TD align="right" className="tabular">
-                      {slip.unpaidDays > 0 ? (
-                        <span className="text-warning-text">
-                          {slip.unpaidDays}
-                        </span>
-                      ) : (
-                        "—"
-                      )}
-                    </TD>
-                  )}
-                  <TD align="right" className="tabular text-body">
-                    <span className="flex flex-col items-end gap-0.5">
-                      <span>{formatKobo(slip.grossKobo)}</span>
-                      {/* What was added by hand, named under the figure. "Clearly
+            <TH align="right">Deductions</TH>
+            <TH align="right">Net</TH>
+          </THead>
+          <TBody>
+            {payslips.map((slip) => {
+              const deductionLines = slip.lines.filter(
+                (l) => l.kind === "DEDUCTION",
+              );
+              const open = overriding?.id === slip.id;
+              return (
+                <Fragment key={slip.id}>
+                  <TR>
+                    <TDPrimary
+                      title={
+                        <Link
+                          href={`/payroll/payslips/${slip.id}`}
+                          className="hover:text-accent-text hover:underline underline-offset-4"
+                        >
+                          {slip.name}
+                        </Link>
+                      }
+                      subtitle={slip.employeeNo}
+                    />
+                    {anyUnpaid && (
+                      <TD align="right" className="tabular">
+                        {slip.unpaidDays > 0 ? (
+                          <span className="text-warning-text">
+                            {slip.unpaidDays}
+                          </span>
+                        ) : (
+                          "—"
+                        )}
+                      </TD>
+                    )}
+                    <TD align="right" className="tabular text-body">
+                      <span className="flex flex-col items-end gap-0.5">
+                        <span>{formatKobo(slip.grossKobo)}</span>
+                        {/* What was added by hand, named under the figure. "Clearly
                           shown in the table" is the whole request: a gross that
                           moved with nothing saying why is the claim this product
                           exists to refuse. */}
-                      {adjustmentsOn(slip).map((line) => (
-                        <span
-                          key={line.id}
-                          className="text-meta font-normal text-accent-text"
-                        >
-                          +{formatKobo(line.amountKobo)}{" "}
-                          {shortLabel(line.label)}
-                        </span>
-                      ))}
-                      {/* "Change pay" used to sit under every gross figure —
+                        {adjustmentsOn(slip).map((line) => (
+                          <span
+                            key={line.id}
+                            className="text-meta font-normal text-accent-text"
+                          >
+                            +{formatKobo(line.amountKobo)}{" "}
+                            {shortLabel(line.label)}
+                          </span>
+                        ))}
+                        {/* "Change pay" used to sit under every gross figure —
                           ten times on a ten-person payroll, three hundred on a
                           real one, for an act almost nobody performs while
                           working a month up.
@@ -2432,47 +2442,47 @@ function PayslipTable({
                           employee name already links to. Editing stays in this
                           table for the three things that genuinely belong to
                           one period: overtime, a bonus, and the tax. */}
-                    </span>
-                  </TD>
-                  {/* Overtime: hours in, money out, in the cell. */}
-                  {showOvertime && (
-                    <TD align="right" className="tabular text-muted">
-                      {editingCell(slip, "overtime") ? (
-                        <InlineHours
-                          hourlyKobo={hourlyFor(
-                            monthlyOf(slip, employees),
-                            overtimePolicy.policy.hoursPerDay,
-                            workingDays,
-                            overtimePolicy.policy.hourlyBasis,
-                          )}
-                          rate={overtimePolicy.policy.weekdayRate}
-                          saving={adjustSaving === "overtime"}
-                          onSave={(hours) => void saveOvertime(slip, hours)}
-                          onCancel={closeAdjust}
-                        />
-                      ) : (
-                        <CellValue
-                          amountKobo={overtimeOn(slip)}
-                          editable={editable}
-                          addable={editable && overtimePolicy.policy.enabled}
-                          /* Names the unit: hours is what goes in the box and
+                      </span>
+                    </TD>
+                    {/* Overtime: hours in, money out, in the cell. */}
+                    {showOvertime && (
+                      <TD align="right" className="tabular text-muted">
+                        {editingCell(slip, "overtime") ? (
+                          <InlineHours
+                            hourlyKobo={hourlyFor(
+                              monthlyOf(slip, employees),
+                              overtimePolicy.policy.hoursPerDay,
+                              workingDays,
+                              overtimePolicy.policy.hourlyBasis,
+                            )}
+                            rate={overtimePolicy.policy.weekdayRate}
+                            saving={adjustSaving === "overtime"}
+                            onSave={(hours) => void saveOvertime(slip, hours)}
+                            onCancel={closeAdjust}
+                          />
+                        ) : (
+                          <CellValue
+                            amountKobo={overtimeOn(slip)}
+                            editable={editable}
+                            addable={editable && overtimePolicy.policy.enabled}
+                            /* Names the unit: hours is what goes in the box and
                            money is what comes out of it, which the column
                            heading alone does not say. The bonus cell just
                            reads "Add" — its heading already names the thing,
                            and two words wrap in a column this narrow. */
-                          addLabel="Add hours"
-                          onEdit={() => beginEdit(slip, "overtime")}
-                          onClear={
-                            hasManualOvertime(slip)
-                              ? () => void clearOvertime(slip)
-                              : undefined
-                          }
-                        />
-                      )}
-                    </TD>
-                  )}
+                            addLabel="Add hours"
+                            onEdit={() => beginEdit(slip, "overtime")}
+                            onClear={
+                              hasManualOvertime(slip)
+                                ? () => void clearOvertime(slip)
+                                : undefined
+                            }
+                          />
+                        )}
+                      </TD>
+                    )}
 
-                  {/* Bonus: one figure in the table, several named lines
+                    {/* Bonus: one figure in the table, several named lines
                       behind it.
                       -------------------------------------------------------
                       This was an inline amount, which could hold ₦70,000 and
@@ -2485,52 +2495,52 @@ function PayslipTable({
                       No inline clear beside it any more: an empty list saved
                       from the modal is the removal, and the button there says
                       so in words rather than a bin icon on a figure. */}
-                  {showBonus && (
-                    <TD align="right" className="tabular text-muted">
-                      <CellValue
-                        amountKobo={bonusOn(slip)?.amountKobo ?? 0}
-                        editable={editable}
-                        /* A bonus already on this person can still be opened with
+                    {showBonus && (
+                      <TD align="right" className="tabular text-muted">
+                        <CellValue
+                          amountKobo={bonusOn(slip)?.amountKobo ?? 0}
+                          editable={editable}
+                          /* A bonus already on this person can still be opened with
                            bonuses switched off — the modal is the only way to take
                            one off, and saving an empty list is a removal the API
                            allows. Somebody with none gets a dash instead of an
                            offer it would refuse. */
-                        addable={
-                          editable &&
-                          (paySettings.bonus.enabled ||
-                            (bonusOn(slip)?.amountKobo ?? 0) > 0)
-                        }
-                        addLabel="Add"
-                        onEdit={() =>
-                          setLinesOpen({
-                            employeeId: slip.employeeId,
-                            name: slip.name,
-                            kind: "bonus",
-                          })
-                        }
-                      />
-                    </TD>
-                  )}
+                          addable={
+                            editable &&
+                            (paySettings.bonus.enabled ||
+                              (bonusOn(slip)?.amountKobo ?? 0) > 0)
+                          }
+                          addLabel="Add"
+                          onEdit={() =>
+                            setLinesOpen({
+                              employeeId: slip.employeeId,
+                              name: slip.name,
+                              kind: "bonus",
+                            })
+                          }
+                        />
+                      </TD>
+                    )}
 
-                  {/* PAYE: one input in the cell, and nothing else.
+                    {/* PAYE: one input in the cell, and nothing else.
                       The expanding form that used to open here was the size of
                       the row it sat in. What it explained is said once above
                       the table; the reason is optional on the API for exactly
                       this. */}
-                  <TD align="right" className="tabular text-muted">
-                    {!wasDeducted(slip.operates, "paye") ? (
-                      <span className="text-faint">Not operated</span>
-                    ) : editingCell(slip, "paye") ? (
-                      <InlineMoney
-                        valueKobo={slip.payeKobo}
-                        saving={adjustSaving === "paye"}
-                        placeholder="PAYE"
-                        onSave={(kobo) => void savePaye(slip, kobo)}
-                        onCancel={closeAdjust}
-                      />
-                    ) : (
-                      <span className="flex flex-col items-end gap-0.5">
-                        {/* The tax is editable here and always has been — and
+                    <TD align="right" className="tabular text-muted">
+                      {!wasDeducted(slip.operates, "paye") ? (
+                        <span className="text-faint">Not operated</span>
+                      ) : editingCell(slip, "paye") ? (
+                        <InlineMoney
+                          valueKobo={slip.payeKobo}
+                          saving={adjustSaving === "paye"}
+                          placeholder="PAYE"
+                          onSave={(kobo) => void savePaye(slip, kobo)}
+                          onCancel={closeAdjust}
+                        />
+                      ) : (
+                        <span className="flex flex-col items-end gap-0.5">
+                          {/* The tax is editable here and always has been — and
                             like the two columns beside it, nothing on screen
                             said so.
 
@@ -2546,6 +2556,250 @@ function PayslipTable({
 
                             A reader who may not edit gets neither: the plain
                             figure, which is what it is. */}
+                          <button
+                            type="button"
+                            disabled={!editable}
+                            onClick={() => beginEdit(slip, "paye")}
+                            aria-label={`Change the PAYE for ${slip.name}`}
+                            className={cn(
+                              "rounded px-1 text-right disabled:pointer-events-none",
+                              slip.payeOverridden ? "text-ink" : undefined,
+                              editable &&
+                                "underline decoration-dotted underline-offset-2 hover:bg-canvas hover:text-accent-text focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent-text",
+                            )}
+                          >
+                            {formatKobo(slip.payeKobo)}
+                          </button>
+                          {editable && !slip.payeOverridden && (
+                            <button
+                              type="button"
+                              onClick={() => beginEdit(slip, "paye")}
+                              tabIndex={-1}
+                              className="text-meta whitespace-nowrap font-normal text-accent-text underline-offset-2 hover:underline"
+                            >
+                              Change
+                            </button>
+                          )}
+                          {slip.payeOverridden && (
+                            <button
+                              type="button"
+                              disabled={!editable}
+                              onClick={() => void clearPaye(slip)}
+                              title={slip.payeOverrideReason ?? undefined}
+                              className="text-meta font-normal text-muted underline-offset-2 hover:text-danger-text hover:underline disabled:pointer-events-none"
+                            >
+                              Edited · undo
+                            </button>
+                          )}
+                        </span>
+                      )}
+                    </TD>
+                    <TD align="right" className="tabular text-muted">
+                      <Deductions
+                        slip={slip}
+                        lines={deductionLines}
+                        editable={editable}
+                        editingKind={
+                          editingDeduction?.slipId === slip.id
+                            ? editingDeduction.kind
+                            : null
+                        }
+                        saving={adjustSaving === "deduction"}
+                        onEdit={(kind) =>
+                          setEditingDeduction({ slipId: slip.id, kind })
+                        }
+                        onCancelEdit={() => setEditingDeduction(null)}
+                        onSave={(kind, amountKobo) =>
+                          void saveDeduction(slip, kind, amountKobo)
+                        }
+                        onClear={(kind) => void clearDeduction(slip, kind)}
+                        onEditLines={() =>
+                          setLinesOpen({
+                            employeeId: slip.employeeId,
+                            name: slip.name,
+                            kind: "deduction",
+                          })
+                        }
+                      />
+                    </TD>
+                    <TD align="right" className="tabular font-medium text-ink">
+                      {formatKobo(slip.netKobo)}
+                    </TD>
+                  </TR>
+                  {/* One narrow row for an error, and only when there is one.
+                    The forms themselves are in the cells; nothing expands. */}
+                  {adjustError && editing?.slipId === slip.id && (
+                    <TR>
+                      <TD colSpan={columnCount} className="bg-danger-soft py-2">
+                        <span className="text-body-sm text-ink">
+                          {adjustError}
+                        </span>
+                      </TD>
+                    </TR>
+                  )}
+                  {open && (
+                    <TR>
+                      <TD colSpan={columnCount} className="bg-canvas p-0">
+                        <PayeByHand
+                          slip={slip}
+                          periodLabel={period}
+                          standingAlready={
+                            employees.find((e) => e.id === slip.employeeId)
+                              ?.payeManualOverride ?? false
+                          }
+                          saving={saving}
+                          error={overrideError}
+                          onCancel={close}
+                          onSave={(input) => void confirmOverride(input)}
+                          {...(slip.payeOverridden
+                            ? { onClear: () => void clearOverride() }
+                            : {})}
+                        />
+                      </TD>
+                    </TR>
+                  )}
+                </Fragment>
+              );
+            })}
+          </TBody>
+        </TableWrap>
+      </div>
+
+      <ul className="divide-y divide-line sm:hidden">
+        {payslips.map((slip) => {
+          const deductionLines = slip.lines.filter(
+            (l) => l.kind === "DEDUCTION",
+          );
+          const open = overriding?.id === slip.id;
+          return (
+            <Fragment key={slip.id}>
+              <li className="flex flex-col gap-3 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <Link
+                      href={`/payroll/payslips/${slip.id}`}
+                      className="font-medium text-ink hover:text-accent-text hover:underline underline-offset-4"
+                    >
+                      {slip.name}
+                    </Link>
+                    <p className="mt-0.5 text-body-sm text-muted">
+                      {slip.employeeNo}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-meta text-muted">Net</p>
+                    <p className="tabular font-medium text-ink">
+                      {formatKobo(slip.netKobo)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-[auto_1fr] items-baseline gap-x-3 gap-y-2 text-body-sm">
+                  {anyUnpaid && (
+                    <>
+                      <span className="text-muted">Unpaid days</span>
+                      <span className="tabular text-right">
+                        {slip.unpaidDays > 0 ? (
+                          <span className="text-warning-text">
+                            {slip.unpaidDays}
+                          </span>
+                        ) : (
+                          "—"
+                        )}
+                      </span>
+                    </>
+                  )}
+
+                  <span className="text-muted">Gross</span>
+                  <span className="tabular text-right text-body">
+                    <span className="flex flex-col items-end gap-0.5">
+                      <span>{formatKobo(slip.grossKobo)}</span>
+                      {adjustmentsOn(slip).map((line) => (
+                        <span
+                          key={line.id}
+                          className="text-meta font-normal text-accent-text"
+                        >
+                          +{formatKobo(line.amountKobo)}{" "}
+                          {shortLabel(line.label)}
+                        </span>
+                      ))}
+                    </span>
+                  </span>
+
+                  {showOvertime && (
+                    <>
+                      <span className="text-muted">Overtime</span>
+                      <span className="tabular text-right text-muted">
+                        {editingCell(slip, "overtime") ? (
+                          <InlineHours
+                            hourlyKobo={hourlyFor(
+                              monthlyOf(slip, employees),
+                              overtimePolicy.policy.hoursPerDay,
+                              workingDays,
+                              overtimePolicy.policy.hourlyBasis,
+                            )}
+                            rate={overtimePolicy.policy.weekdayRate}
+                            saving={adjustSaving === "overtime"}
+                            onSave={(hours) => void saveOvertime(slip, hours)}
+                            onCancel={closeAdjust}
+                          />
+                        ) : (
+                          <CellValue
+                            amountKobo={overtimeOn(slip)}
+                            editable={editable}
+                            addable={editable && overtimePolicy.policy.enabled}
+                            addLabel="Add hours"
+                            onEdit={() => beginEdit(slip, "overtime")}
+                            onClear={
+                              hasManualOvertime(slip)
+                                ? () => void clearOvertime(slip)
+                                : undefined
+                            }
+                          />
+                        )}
+                      </span>
+                    </>
+                  )}
+
+                  {showBonus && (
+                    <>
+                      <span className="text-muted">Bonus</span>
+                      <span className="tabular text-right text-muted">
+                        <CellValue
+                          amountKobo={bonusOn(slip)?.amountKobo ?? 0}
+                          editable={editable}
+                          addable={
+                            editable &&
+                            (paySettings.bonus.enabled ||
+                              (bonusOn(slip)?.amountKobo ?? 0) > 0)
+                          }
+                          addLabel="Add"
+                          onEdit={() =>
+                            setLinesOpen({
+                              employeeId: slip.employeeId,
+                              name: slip.name,
+                              kind: "bonus",
+                            })
+                          }
+                        />
+                      </span>
+                    </>
+                  )}
+
+                  <span className="text-muted">PAYE</span>
+                  <span className="tabular text-right text-muted">
+                    {!wasDeducted(slip.operates, "paye") ? (
+                      <span className="text-faint">Not operated</span>
+                    ) : editingCell(slip, "paye") ? (
+                      <InlineMoney
+                        valueKobo={slip.payeKobo}
+                        saving={adjustSaving === "paye"}
+                        placeholder="PAYE"
+                        onSave={(kobo) => void savePaye(slip, kobo)}
+                        onCancel={closeAdjust}
+                      />
+                    ) : (
+                      <span className="flex flex-col items-end gap-0.5">
                         <button
                           type="button"
                           disabled={!editable}
@@ -2583,8 +2837,10 @@ function PayslipTable({
                         )}
                       </span>
                     )}
-                  </TD>
-                  <TD align="right" className="tabular text-muted">
+                  </span>
+
+                  <span className="text-muted">Deductions</span>
+                  <span className="tabular text-right text-muted">
                     <Deductions
                       slip={slip}
                       lines={deductionLines}
@@ -2611,48 +2867,39 @@ function PayslipTable({
                         })
                       }
                     />
-                  </TD>
-                  <TD align="right" className="tabular font-medium text-ink">
-                    {formatKobo(slip.netKobo)}
-                  </TD>
-                </TR>
-                {/* One narrow row for an error, and only when there is one.
-                    The forms themselves are in the cells; nothing expands. */}
-                {adjustError && editing?.slipId === slip.id && (
-                  <TR>
-                    <TD colSpan={columnCount} className="bg-danger-soft py-2">
-                      <span className="text-body-sm text-ink">
-                        {adjustError}
-                      </span>
-                    </TD>
-                  </TR>
-                )}
-                {open && (
-                  <TR>
-                    <TD colSpan={columnCount} className="bg-canvas p-0">
-                      <PayeByHand
-                        slip={slip}
-                        periodLabel={period}
-                        standingAlready={
-                          employees.find((e) => e.id === slip.employeeId)
-                            ?.payeManualOverride ?? false
-                        }
-                        saving={saving}
-                        error={overrideError}
-                        onCancel={close}
-                        onSave={(input) => void confirmOverride(input)}
-                        {...(slip.payeOverridden
-                          ? { onClear: () => void clearOverride() }
-                          : {})}
-                      />
-                    </TD>
-                  </TR>
-                )}
-              </Fragment>
-            );
-          })}
-        </TBody>
-      </TableWrap>
+                  </span>
+                </div>
+              </li>
+
+              {adjustError && editing?.slipId === slip.id && (
+                <li className="bg-danger-soft px-4 py-2">
+                  <span className="text-body-sm text-ink">{adjustError}</span>
+                </li>
+              )}
+              {open && (
+                <li className="bg-canvas">
+                  <PayeByHand
+                    slip={slip}
+                    periodLabel={period}
+                    standingAlready={
+                      employees.find((e) => e.id === slip.employeeId)
+                        ?.payeManualOverride ?? false
+                    }
+                    saving={saving}
+                    error={overrideError}
+                    onCancel={close}
+                    onSave={(input) => void confirmOverride(input)}
+                    {...(slip.payeOverridden
+                      ? { onClear: () => void clearOverride() }
+                      : {})}
+                  />
+                </li>
+              )}
+            </Fragment>
+          );
+        })}
+      </ul>
+
       <CardBody className="border-t border-line">
         <p className="text-meta leading-relaxed text-muted">
           Employer pension is not in any column here. It is a company cost on
