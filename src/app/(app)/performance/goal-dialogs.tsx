@@ -764,9 +764,7 @@ export function StopKpiDialog({
 
   const submit = async () => {
     if (reason.trim().length < 3) {
-      setError(
-        "Say why in a few words. Everyone working towards this will see it.",
-      );
+      setError("Say why in a few words. Whoever owns this will be told.");
       return;
     }
     setError(null);
@@ -802,7 +800,13 @@ export function StopKpiDialog({
         label="Why are you stopping it"
         required
         {...(error ? { error } : {})}
-        help="It will show as off track, with this reason against it."
+        /* What actually happens, which is not what this used to promise.
+           `cancelGoal` sets the status to off track and sends the reason to
+           the objective's owner as a notification. It does **not** write it
+           onto the objective — there is no cancelled status and no reason
+           column — so "with this reason against it" was a claim the reader
+           would go looking for and not find. See BE-35. */
+        help="It will show as off track, and the reason goes to whoever owns it. It is not kept on the objective itself."
       >
         <Textarea
           rows={3}

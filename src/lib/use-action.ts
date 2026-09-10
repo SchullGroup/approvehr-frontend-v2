@@ -96,8 +96,7 @@ const capitalise = (text: string): string =>
   text.charAt(0).toUpperCase() + text.slice(1);
 
 export type ActionOutcome<T> =
-  | { ok: true; value: T }
-  | { ok: false; error: unknown };
+  { ok: true; value: T } | { ok: false; error: unknown };
 
 /**
  * Run a write, report it, and never let a status code reach a screen.
@@ -142,7 +141,7 @@ export function useAction(): {
   const [pending, setPending] = useState(false);
 
   const run = useCallback(
-    async <T,>(
+    async <T>(
       action: () => Promise<T>,
       options: {
         success?: string;

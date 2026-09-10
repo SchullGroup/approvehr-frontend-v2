@@ -786,11 +786,24 @@ export function KpisTab({
           goalTitle={stopping.title}
           onClose={() => setStopping(null)}
           onStop={async (reason) => {
-            const ok = await run(
+            /* `action.run` rather than the `run` wrapper, for `notice`: the
+               API returns a sentence saying what it could not do —
+               "Recorded as off track. Goal status has no separate cancelled
+               yet." — and nothing was showing it. So the card afterwards read
+               "Agreed · Off track", indistinguishable from an objective that
+               is merely going badly, with no account of the difference. The
+               server explaining its own limitation is worth more than
+               silence; the limitation itself is BE-35. */
+            const outcome = await action.run(
               () => mutations.cancelGoal(stopping.id, reason),
-              `"${stopping.title}" stopped`,
+              {
+                success: `"${stopping.title}" stopped`,
+                subject: "the objective",
+                notice: (goal) => goal.note,
+                onDone: kpis.reload,
+              },
             );
-            if (ok) setStopping(null);
+            if (outcome.ok) setStopping(null);
           }}
         />
       )}
