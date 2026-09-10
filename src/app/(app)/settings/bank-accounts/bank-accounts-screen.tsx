@@ -4,6 +4,7 @@ import { sourceNote } from "@/lib/demo";
 import { useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { cn } from "@/lib/cn";
 import { Archive, Landmark, Plus, RotateCcw, Star } from "lucide-react";
 import {
   Badge,
@@ -360,141 +361,118 @@ export function BankAccountsScreen() {
               }
             />
           ) : (
-            <TableWrap
-              className="rounded-none border-0"
-              caption="The company's bank accounts"
-            >
-              <THead>
-                <TH>Bank</TH>
-                <TH>Name on the account</TH>
-                <TH>Number</TH>
-                <TH>Used for</TH>
-                <TH>Added</TH>
-                <TH align="right">
-                  <span className="sr-only">Actions</span>
-                </TH>
-              </THead>
-              <TBody>
+            <>
+              <div className="hidden sm:block">
+                <TableWrap
+                  className="rounded-none border-0"
+                  caption="The company's bank accounts"
+                >
+                  <THead>
+                    <TH>Bank</TH>
+                    <TH>Name on the account</TH>
+                    <TH>Number</TH>
+                    <TH>Used for</TH>
+                    <TH>Added</TH>
+                    <TH align="right">
+                      <span className="sr-only">Actions</span>
+                    </TH>
+                  </THead>
+                  <TBody>
+                    {accounts.accounts.map((account) => (
+                      <TR
+                        key={account.id}
+                        className={account.archived ? "opacity-60" : ""}
+                      >
+                        <TDPrimary
+                          title={account.bankName}
+                          subtitle={account.accountType ?? undefined}
+                        />
+                        <TD>{account.accountName}</TD>
+                        <TD className="tabular">
+                          {account.accountNumberMasked}
+                        </TD>
+                        <TD>
+                          <BankAccountUsedFor account={account} />
+                        </TD>
+                        <TD className="text-body-sm text-muted">
+                          {longDate(account.addedOn)}
+                        </TD>
+                        <TD align="right">
+                          <BankAccountActions
+                            account={account}
+                            busy={busy}
+                            soleActiveAccount={accounts.counts.active === 1}
+                            onSwitchOn={() =>
+                              void run(
+                                () =>
+                                  accounts.update(account.id, {
+                                    active: true,
+                                  }),
+                                `${account.bankName} switched back on`,
+                              )
+                            }
+                            onPromote={() => setPromoting(account)}
+                            onEdit={() => setEditing(account)}
+                            onArchive={() => setArchiving(account)}
+                            className="justify-end"
+                          />
+                        </TD>
+                      </TR>
+                    ))}
+                  </TBody>
+                </TableWrap>
+              </div>
+
+              <ul className="divide-y divide-line sm:hidden">
                 {accounts.accounts.map((account) => (
-                  <TR
+                  <li
                     key={account.id}
-                    className={account.archived ? "opacity-60" : ""}
+                    className={cn(
+                      "flex flex-col gap-2 p-4",
+                      account.archived && "opacity-60",
+                    )}
                   >
-                    <TDPrimary
-                      title={account.bankName}
-                      subtitle={account.accountType ?? undefined}
-                    />
-                    <TD>{account.accountName}</TD>
-                    <TD className="tabular">{account.accountNumberMasked}</TD>
-                    <TD>
-                      <span className="flex flex-wrap items-center gap-1.5">
-                        {account.isPrimary && (
-                          <Badge
-                            tone="accent"
-                            size="sm"
-                            icon={<Star aria-hidden="true" />}
-                          >
-                            Salaries
-                          </Badge>
-                        )}
-                        {!account.active && !account.archived && (
-                          <Badge tone="warning" size="sm" dot>
-                            Switched off
-                          </Badge>
-                        )}
-                        {account.archived && (
-                          <Badge tone="neutral" size="sm">
-                            Archived
-                          </Badge>
-                        )}
-                        {!account.isPrimary &&
-                          account.active &&
-                          !account.archived && (
-                            <span className="text-body-sm text-muted">
-                              On file
-                            </span>
-                          )}
+                    <div className="min-w-0">
+                      <p className="text-body-sm font-medium text-ink">
+                        {account.bankName}
+                      </p>
+                      {account.accountType && (
+                        <p className="mt-0.5 text-meta text-muted">
+                          {account.accountType}
+                        </p>
+                      )}
+                    </div>
+
+                    <BankAccountUsedFor account={account} />
+
+                    <div className="flex items-center justify-between gap-3 text-body-sm text-muted">
+                      <span>{account.accountName}</span>
+                      <span className="tabular">
+                        {account.accountNumberMasked}
                       </span>
-                    </TD>
-                    <TD className="text-body-sm text-muted">
-                      {longDate(account.addedOn)}
-                    </TD>
-                    <TD align="right">
-                      <div className="flex justify-end gap-1.5">
-                        {/* An archived account carries no actions. There is no
-                            endpoint that un-archives one — it stays on file so
-                            past batches keep resolving, and that is all. */}
-                        {account.archived ? (
-                          <span className="text-body-sm text-muted">
-                            Kept for past batches
-                          </span>
-                        ) : (
-                          <>
-                            {!account.active && (
-                              <Button
-                                variant="secondary"
-                                size="sm"
-                                disabled={busy}
-                                onClick={() =>
-                                  void run(
-                                    () =>
-                                      accounts.update(account.id, {
-                                        active: true,
-                                      }),
-                                    `${account.bankName} switched back on`,
-                                  )
-                                }
-                              >
-                                <RotateCcw
-                                  aria-hidden="true"
-                                  className="size-3.5"
-                                />
-                                Switch on
-                              </Button>
-                            )}
-                            {!account.isPrimary && account.active && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setPromoting(account)}
-                              >
-                                Salaries come from here
-                              </Button>
-                            )}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setEditing(account)}
-                            >
-                              Edit
-                            </Button>
-                            {/* Archiving the salary account is refused while
-                                there is another one to promote, so the control
-                                is not offered there — the way to do it is to
-                                make another account the salary account first,
-                                which is the button beside this one. */}
-                            {(!account.isPrimary ||
-                              accounts.counts.active === 1) && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setArchiving(account)}
-                                aria-label={`Archive ${account.bankName} ${account.accountNumberMasked}`}
-                              >
-                                <Archive
-                                  aria-hidden="true"
-                                  className="size-3.5"
-                                />
-                              </Button>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </TD>
-                  </TR>
+                    </div>
+                    <p className="text-meta text-muted">
+                      Added {longDate(account.addedOn)}
+                    </p>
+
+                    <BankAccountActions
+                      account={account}
+                      busy={busy}
+                      soleActiveAccount={accounts.counts.active === 1}
+                      onSwitchOn={() =>
+                        void run(
+                          () => accounts.update(account.id, { active: true }),
+                          `${account.bankName} switched back on`,
+                        )
+                      }
+                      onPromote={() => setPromoting(account)}
+                      onEdit={() => setEditing(account)}
+                      onArchive={() => setArchiving(account)}
+                    />
+                  </li>
                 ))}
-              </TBody>
-            </TableWrap>
+              </ul>
+            </>
           )}
         </Card>
 
@@ -592,5 +570,99 @@ export function BankAccountsScreen() {
         body="Hidden, not deleted: past payment batches still point at it."
       />
     </>
+  );
+}
+
+/** Shared by the desktop `<TD>` and the mobile `<li>` so the badges cannot
+ *  read differently on the two. */
+function BankAccountUsedFor({ account }: { account: ApiBankAccount }) {
+  return (
+    <span className="flex flex-wrap items-center gap-1.5">
+      {account.isPrimary && (
+        <Badge tone="accent" size="sm" icon={<Star aria-hidden="true" />}>
+          Salaries
+        </Badge>
+      )}
+      {!account.active && !account.archived && (
+        <Badge tone="warning" size="sm" dot>
+          Switched off
+        </Badge>
+      )}
+      {account.archived && (
+        <Badge tone="neutral" size="sm">
+          Archived
+        </Badge>
+      )}
+      {!account.isPrimary && account.active && !account.archived && (
+        <span className="text-body-sm text-muted">On file</span>
+      )}
+    </span>
+  );
+}
+
+/** Shared by the desktop `<TD>` and the mobile `<li>` so the row's controls
+ *  cannot offer different actions on the two. */
+function BankAccountActions({
+  account,
+  busy,
+  soleActiveAccount,
+  onSwitchOn,
+  onPromote,
+  onEdit,
+  onArchive,
+  className,
+}: {
+  account: ApiBankAccount;
+  busy: boolean;
+  /** Archiving the salary account is refused while there is another one to
+   *  promote, so the control is not offered there — the way to do it is to
+   *  make another account the salary account first. */
+  soleActiveAccount: boolean;
+  onSwitchOn: () => void;
+  onPromote: () => void;
+  onEdit: () => void;
+  onArchive: () => void;
+  className?: string;
+}) {
+  /* An archived account carries no actions. There is no endpoint that
+     un-archives one — it stays on file so past batches keep resolving, and
+     that is all. */
+  if (account.archived) {
+    return (
+      <span className="text-body-sm text-muted">Kept for past batches</span>
+    );
+  }
+  return (
+    <div className={cn("flex flex-wrap gap-1.5", className)}>
+      {!account.active && (
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={busy}
+          onClick={onSwitchOn}
+        >
+          <RotateCcw aria-hidden="true" className="size-3.5" />
+          Switch on
+        </Button>
+      )}
+      {!account.isPrimary && account.active && (
+        <Button variant="ghost" size="sm" onClick={onPromote}>
+          Salaries come from here
+        </Button>
+      )}
+      <Button variant="ghost" size="sm" onClick={onEdit}>
+        Edit
+      </Button>
+      {(!account.isPrimary || soleActiveAccount) && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onArchive}
+          aria-label={`Archive ${account.bankName} ${account.accountNumberMasked}`}
+        >
+          <Archive aria-hidden="true" className="size-3.5" />
+        </Button>
+      )}
+    </div>
   );
 }
