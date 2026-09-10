@@ -42,7 +42,15 @@ export function CardHeader({
   return (
     <div
       className={cn(
-        "flex items-start justify-between gap-4 px-5 py-4 border-b border-line",
+        /* `flex-wrap`, not the plain row `PageHeader` had before its own
+           mobile fix: a wide `action` (a multi-option SegmentedControl is
+           the case that found this) beside a `min-w-0` title does not make
+           the title scroll or truncate — it squeezes it to a sliver one
+           character wide while the action claims the rest of the row, which
+           at 375px reads as the two overlapping. Wrapping the action onto
+           its own line under the title is what `PageHeader` already does
+           for the same shape of collision. */
+        "flex flex-wrap items-start justify-between gap-4 px-5 py-4 border-b border-line",
         className,
       )}
     >
