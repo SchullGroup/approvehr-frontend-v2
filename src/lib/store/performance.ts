@@ -1983,7 +1983,30 @@ export function useAppraisals(): {
   mine: ApiMyReviews;
   cycles: ApiCycle[];
   loading: boolean;
+  /**
+   * This screen has nothing to show — the company's list of periods failed.
+   *
+   * Safe to hand to `LoadFailure` with a subject naming the list, because it
+   * is only ever set when that list is genuinely absent.
+   */
   error: ApiError | null;
+  /**
+   * The **personal** half failed and the company list did not.
+   *
+   * Kept apart from `error`, and that separation is the fix for two defects
+   * that were one bug. Merged, a screen had no way to tell "the periods did
+   * not load" from "the periods loaded and *your* reviews did not", so
+   * `/performance/periods` printed "The appraisal periods did not load"
+   * directly above the periods, and `/performance` printed the raw server
+   * sentence with no title, no advice and no retry on every visit.
+   *
+   * Both surfaces guarded on `employeeId !== null` to suppress the common
+   * false positive — a founder's own account, which has no staff record and
+   * so has no reviews — and the guard could not tell that ordinary state from
+   * a real failure hitting the same account. `periods.tsx` said so in as many
+   * words: *"Splitting the two is a hook change, not a copy-paste fix."*
+   */
+  mineError: ApiError | null;
   source: Source;
   reload: () => void;
 } {
@@ -2055,11 +2078,102 @@ export function useAppraisals(): {
       fetched.data?.mine ?? { toComplete: [], aboutMe: [], peerFeedback: [] },
     cycles: isConnected ? (fetched.data?.cycles ?? []) : demoCycles,
     loading: fetched.loading,
-    /* The personal read's failure where the whole load did not fail — that is
-       what puts the "not linked to a staff record" banner above a list that is
-       now, correctly, still there. */
-    error: fetched.error ?? fetched.data?.mineError ?? null,
+    /* Two fields, never merged. `error` means this screen has nothing;
+       `mineError` means the list is fine and the personal half is not. */
+    error: fetched.error ?? null,
+    mineError: fetched.data?.mineError ?? null,
     source: isConnected ? "api" : "demo",
+    reload: fetched.reload,
+  };
+}
+
+/**
+ * Manager reviews this person has already sent.
+ *
+ * ## Why this hook exists at all
+ *
+ * `GET /reviews/mine` narrows `toComplete` to `submittedAt: null` — deliberately,
+ * because it is a work list and a sent form is not work. The consequence nobody
+ * had followed through: sending a manager review made it **unreachable**. It left
+ * "Waiting on you", it is not in `aboutMe` (that is reviews about *you*), and the
+ * only "Finalise" link in the product sits in the period register, which is gated
+ * on `EDIT_RECORDS` on both sides. So a line manager could write a rating, send
+ * it, and never open it again — while `mayFinalise` on the review page admits
+ * `review.mine` and was waiting for her the whole time.
+ *
+ * A control the product intends you to use and gives you no way to reach is the
+ * same defect as a feature nobody can find; this file's siblings record four of
+ * those. The fix is a link, and this is the read behind it.
+ *
+ * ## Why `GET /reviews` and not a new endpoint
+ *
+ * `listReviews` is ungated by permission and narrowed to the caller — one of its
+ * `or` clauses is `authorId: actor.employeeId`. So the reviews somebody wrote are
+ * already theirs to list, from a route that exists, with the filters already on
+ * `performanceApi.reviews`. Nothing on the API had to change.
+ *
+ * `submitted: true` is asked of the **server**, not filtered here: an unsent form
+ * is already a row in "Waiting on you", and two surfaces offering the same form
+ * is how somebody answers it twice. `finalised` is deliberately *not* filtered —
+ * the card is the record of what you wrote, and a finalised rating you can no
+ * longer change is exactly the thing somebody comes back to read.
+ *
+ * ## Offline
+ *
+ * Empty, and that is not a gap. The demo never gives anybody a manager review to
+ * write about somebody else — `demoMyReviews`'s `toComplete` is that person's own
+ * self-review and nothing else — so there is no sent review for this to lose. A
+ * refusal here would be explaining the absence of a thing that cannot exist.
+ */
+export function useReviewsIWrote(
+  cycleId: string | null,
+  enabled: boolean,
+): {
+  reviews: ApiReview[];
+  loading: boolean;
+  error: ApiError | null;
+  available: boolean;
+  reload: () => void;
+} {
+  const { isConnected, actingId } = useSession();
+  const active = cycleId !== null && enabled && isConnected;
+
+  const load = useCallback(
+    async (signal: AbortSignal) => {
+      const answer = await performanceApi.reviews(
+        {
+          cycleId: cycleId ?? undefined,
+          kind: "MANAGER",
+          submitted: true,
+          pageSize: PAGE,
+        },
+        signal,
+      );
+      /* The endpoint answers "reviews I may read", which is a wider question
+         than "reviews I wrote" — `listReviews` also admits the caller as the
+         *subject*, and once a cycle is published that includes their own
+         manager review. A card headed "Reviews you have written" that rendered
+         one of those would be making two wrong claims at once: that they wrote
+         it, and, before it is final, that they are entitled to the mark on it.
+         Today the published clause and this hook's own stage gate keep them
+         apart. That is a coupling to somebody else's `where`, so the claim is
+         made true here instead, where the sentence is written. */
+      return answer.data.filter((review) => review.authorId === actingId);
+    },
+    [cycleId, actingId],
+  );
+
+  const fetched = useFetched<ApiReview[]>(
+    `reviews-i-wrote|${cycleId ?? "none"}|${actingId ?? "nobody"}`,
+    active,
+    load,
+  );
+
+  return {
+    reviews: active ? (fetched.data ?? []) : [],
+    loading: fetched.loading,
+    error: fetched.error,
+    available: active,
     reload: fetched.reload,
   };
 }
@@ -2584,6 +2698,7 @@ export function useGaps(enabled: boolean): {
   gaps: ApiGap[];
   loading: boolean;
   error: ApiError | null;
+  reload: () => void;
 } {
   const { isConnected } = useSession();
   const load = useCallback(
@@ -2597,6 +2712,7 @@ export function useGaps(enabled: boolean): {
     gaps: isConnected ? (fetched.data ?? []) : enabled ? demoGaps() : [],
     loading: fetched.loading,
     error: fetched.error,
+    reload: fetched.reload,
   };
 }
 
@@ -2605,6 +2721,7 @@ export function useHeatmap(enabled: boolean): {
   heatmap: ApiHeatmap | null;
   loading: boolean;
   error: ApiError | null;
+  reload: () => void;
 } {
   const { isConnected } = useSession();
   const load = useCallback(
@@ -2621,6 +2738,7 @@ export function useHeatmap(enabled: boolean): {
     heatmap: isConnected ? fetched.data : enabled ? demoHeatmap() : null,
     loading: fetched.loading,
     error: fetched.error,
+    reload: fetched.reload,
   };
 }
 

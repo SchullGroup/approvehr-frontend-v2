@@ -7,10 +7,21 @@ import { Bell, ChevronDown, ChevronLeft, Menu, Search, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useCanGoBack } from "@/lib/nav-history";
 import { Logo } from "@/components/brand/logo";
-import { Avatar, Badge, MoneyPrivacyToggle } from "@/components/ui";
+import {
+  Avatar,
+  Badge,
+  MoneyPrivacyToggle,
+  ThemeToggle,
+} from "@/components/ui";
 import { CommandPalette } from "./command-palette";
 import { GuidedTour, openTour } from "./tour/guided-tour";
-import { NAV, visibleNav, type BadgeSource, type NavGroup } from "./nav";
+import {
+  NAV,
+  visibleNav,
+  type BadgeSource,
+  type NavFacts,
+  type NavGroup,
+} from "./nav";
 import { SessionRoleBadge } from "./role-badge";
 import {
   hasAnyPermission,
@@ -24,6 +35,8 @@ import { useUnreadCount } from "@/lib/store/notifications";
 import { useApprovalQueue } from "@/lib/store/approvals-api";
 import { useLeaveRequests } from "@/lib/store/leave-api";
 import { useAttendanceRoster } from "@/lib/store/attendance";
+import { useAmIInAOneOnOne } from "@/lib/store/one-on-ones";
+import { useHaveIAnySignatures } from "@/lib/store/signatures";
 import { APPROVE_PERMISSIONS } from "@/app/(app)/approvals/inbox";
 import { useSession } from "@/lib/store/session";
 import { useCompanyLogo } from "@/lib/store/company";
@@ -65,17 +78,63 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  /* The sidebar is filtered by who is looking, what the company turned on, and
-     whether an assistant is answering. All three hooks answer from a cache after
-     first load, so this is not a request per render — see their headers.
-     `useAssistantAvailable` was a per-component `useState` until the nav started
-     reading it; it is a session-wide singleton now for exactly this line. */
+  /* The sidebar is filtered by who is looking, what the company turned on,
+     whether an assistant is answering, and what the rows say. Every hook here
+     answers from a cache after first load, so this is not a request per
+     render — see their headers. `useAssistantAvailable` was a per-component
+     `useState` until the nav started reading it; it is a session-wide
+     singleton now for exactly this line. */
   const { permissions } = usePermissions();
   const features = useFeatures();
   const { available: assistantWired } = useAssistantAvailable();
+  /* Asked again here rather than lifted out of `useNavBadges`: the answer is a
+     shared, session-cached fact about one person (see `useIsManager`), so a
+     second reader is a map lookup, and threading it between two hooks in this
+     file would couple the sidebar's filter to the badge counts. */
+  const isManager = useIsManager();
+
+  /* One-to-ones: showing to somebody who manages people, or who is in one as
+     the report.
+     ---------------------------------------------------------------------
+     `isManager` is already in this component for the approvals badge, so the
+     first half costs nothing. The second half is a request, and it is skipped
+     for a manager — `enabled` is false there, so the hook passes a null key
+     and fetches nothing. The item is already showing on the first ground; a
+     second reason to show it is not worth a round trip.
+
+     Which puts the one request on exactly the people this is for: an employee
+     with no reports, once per session, and the answer is usually an empty
+     list. */
+  const inAOneOnOne = useAmIInAOneOnOne(!isManager);
+
+  /* Signatures: showing to somebody who can send, or who has one of their own.
+     ---------------------------------------------------------------------
+     Same shape as above and the same skip: `EDIT_RECORDS` is the permission
+     the API requires to send, so anybody holding it gets the row on that
+     ground and the request is not made for them. Everybody else pays one
+     request per session to find out whether the module is theirs. */
+  const canSendForSignature = hasPermission(permissions, "EDIT_RECORDS");
+  const haveSignatures = useHaveIAnySignatures(!canSendForSignature);
+
+  const facts: NavFacts = useMemo(
+    () => ({
+      assistantWired,
+      rows: {
+        "one-on-ones": isManager || inAOneOnOne,
+        signatures: canSendForSignature || haveSignatures,
+      },
+    }),
+    [
+      assistantWired,
+      isManager,
+      inAOneOnOne,
+      canSendForSignature,
+      haveSignatures,
+    ],
+  );
   const groups = useMemo(
-    () => visibleNav(NAV, permissions, features, assistantWired),
-    [permissions, features, assistantWired],
+    () => visibleNav(NAV, permissions, features, facts),
+    [permissions, features, facts],
   );
 
   const nav = (
@@ -143,6 +202,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 the row somebody forgot is the one that matters. It hides; what
                 decides who may *know* a salary is `VIEW_SALARIES` on the
                 server, which does not send the number at all. */}
+            {/* Light or dark. The preference and both halves that apply it
+                already existed; the only way to reach it was Settings →
+                Appearance, which is a page load away from wherever somebody
+                notices the room has got dark. The Appearance screen keeps the
+                explanation — including that this is per-browser and not synced
+                — and this is the same one setting, in the chrome. */}
+            <ThemeToggle />
+
             <MoneyPrivacyToggle />
 
             {/* Was a button that did nothing, labelled "3 unread" whatever the

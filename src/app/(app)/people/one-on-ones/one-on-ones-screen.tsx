@@ -36,14 +36,13 @@ import {
   type ApiCoverageState,
   type ApiOneOnOne,
 } from "@/lib/api/one-on-ones";
-import { fullName } from "@/lib/types";
-import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import {
   useMyOneOnOnes,
   useOneOnOneCoverage,
   useOneOnOneMutations,
+  useWhoICanStartWith,
 } from "@/lib/store/one-on-ones";
-import { useCan } from "@/lib/permissions";
+import { useCan, useIsManager } from "@/lib/permissions";
 
 /**
  * One-to-ones — mine, and (for HR) who is having them.
@@ -64,6 +63,19 @@ import { useCan } from "@/lib/permissions";
  * Whether somebody may open a 1:1 is a property of the row — are they one of
  * the two people — and no permission can say it. So the list is whatever the
  * API returns, and the detail screen renders the API's own 403 sentence.
+ *
+ * ## What *is* derived from the reporting line
+ *
+ * Starting one, and only starting one. `POST /one-on-ones` accepts a person
+ * when they report to the caller, so somebody with no reports cannot start
+ * anything — and this screen used to offer them the button anyway, with a
+ * picker containing every colleague in the company and a refusal behind each
+ * one. That was the feedback, and it was right.
+ *
+ * `useIsManager()` now decides whether the control exists at all, and
+ * `useWhoICanStartWith()` fills the picker from the same column the API
+ * checks. Neither is a permission; both are the reporting line, which is the
+ * thing that actually governs this module.
  */
 
 const CADENCES: readonly ApiCadence[] = [
@@ -93,6 +105,10 @@ const STATE_TONE: Record<
 
 export function OneOnOnesScreen() {
   const canSeeCompany = useCan("EDIT_RECORDS");
+  /* The reporting line, not a permission — see the header. An administrator
+     holding every grant in the catalogue and managing nobody still cannot
+     start a one-to-one, and the API is the thing that says so. */
+  const isManager = useIsManager();
   const [tab, setTab] = useState<"mine" | "coverage">("mine");
   const [starting, setStarting] = useState(false);
 
@@ -123,12 +139,18 @@ export function OneOnOnesScreen() {
           </span>
         }
         action={
-          /* Absent, not present-and-refusing. With no API `mutations.start`
-             can only ever throw the offline refusal, and a button whose sole
-             outcome is "that is refused" is a design failure two clicks
-             earlier. Found by the e2e suite, which runs in exactly the state a
-             developer never does: no API. */
-          mutations.available ? (
+          /* Absent, not present-and-refusing — twice over.
+             ----------------------------------------------------------------
+             With no API `mutations.start` can only ever throw the offline
+             refusal. And with nobody reporting to you it can only ever throw
+             the API's own "somebody who reports to you" 404, which is the
+             failure the feedback described: the button was here for every
+             employee and every choice inside it was refused.
+
+             A button whose sole outcome is "that is refused" is a design
+             failure two clicks earlier — this file already said that about the
+             offline case and then did not apply it to the commoner one. */
+          mutations.available && isManager ? (
             <Button
               size="sm"
               variant="accent"
@@ -154,7 +176,11 @@ export function OneOnOnesScreen() {
         }
       />
       <PageBody>
-        {tab === "mine" ? <Mine read={mine} /> : <Coverage read={coverage} />}
+        {tab === "mine" ? (
+          <Mine read={mine} isManager={isManager} />
+        ) : (
+          <Coverage read={coverage} />
+        )}
       </PageBody>
       {starting && (
         <StartDialog
@@ -169,7 +195,13 @@ export function OneOnOnesScreen() {
   );
 }
 
-function Mine({ read }: { read: ReturnType<typeof useMyOneOnOnes> }) {
+function Mine({
+  read,
+  isManager,
+}: {
+  read: ReturnType<typeof useMyOneOnOnes>;
+  isManager: boolean;
+}) {
   if (!read.available) {
     return (
       <Callout tone="info" title="This needs the API">
@@ -189,10 +221,25 @@ function Mine({ read }: { read: ReturnType<typeof useMyOneOnOnes> }) {
   }
   if (read.loading || !read.data) return <Spinner label="Loading" />;
   if (read.data.length === 0) {
-    return (
+    /* Two different nils, and they need two different sentences.
+       -------------------------------------------------------------------
+       A manager with none has something to do, and the button above says
+       what. Somebody with no reports has nothing to do here at all, and the
+       old copy — "if you manage somebody, start one with them" — was advice
+       they could not follow next to a button that refused them. Say who
+       starts it instead, so the screen is an answer rather than a dead end.
+
+       They mostly will not see this: the sidebar row is gone for them now.
+       This is the URL, the bookmark and the stale link. */
+    return isManager ? (
+      <EmptyState
+        title="You have not started any yet"
+        description="Start one with somebody who reports to you. They will see it too, and so will the notes — there is no private half."
+      />
+    ) : (
       <EmptyState
         title="You are not in any one-to-ones yet"
-        description="A one-to-one follows the reporting line. If you manage somebody, start one with them — they will see it too, and so will the notes."
+        description="A one-to-one follows the reporting line, and the manager starts it. If you would find a regular check-in useful, ask yours to set one up — it will appear here, and only the two of you will ever read it."
       />
     );
   }
@@ -406,10 +453,24 @@ function CoverageRow({ row }: { row: ApiCoverageRow }) {
 /**
  * Start a standing one-to-one with one of your reports.
  *
- * The picker is the whole directory — the API refuses anybody who is not a
- * report, in its own words, and that refusal names the rule. Filtering the list
- * to reports here would need a second definition of "who reports to me" on this
- * side, and the two would drift.
+ * ## The picker is your reports, and that took no second definition
+ *
+ * It used to be the whole directory, defended like this: *"the API refuses
+ * anybody who is not a report, in its own words, and that refusal names the
+ * rule. Filtering the list to reports here would need a second definition of
+ * 'who reports to me' on this side, and the two would drift."*
+ *
+ * The premise was right and the conclusion was wrong. There is no second
+ * definition, because the filter is not written here: `oneOnOnesApi.reports`
+ * asks `/employees?managerId=<me>`, and `managerId` is the same column with
+ * the same value that `POST /one-on-ones` compares before it accepts anybody.
+ * One predicate, asked twice — see that function's header.
+ *
+ * What the old design cost: an employee opened a dialog listing every
+ * colleague in the company, chose one, and got a 404 reading "somebody who
+ * reports to you". Then chose another, and got it again. The refusal did name
+ * the rule; naming a rule at the point of failure is not the same as an
+ * interface that only offers what will work.
  */
 function StartDialog({
   onClose,
@@ -419,12 +480,30 @@ function StartDialog({
   onDone: () => void;
 }) {
   const mutations = useOneOnOneMutations();
-  const directory = useEmployeeDirectory({ pageSize: 200 });
+  /* Fetched because the dialog is open — the hook takes `enabled` so a picker
+     nobody has opened costs nothing. */
+  const reports = useWhoICanStartWith(true);
   const toast = useToast();
   const [employeeId, setEmployeeId] = useState("");
   const [cadence, setCadence] = useState<ApiCadence>("FORTNIGHTLY");
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+
+  const people = reports.data ?? [];
+  /* Three states, not two. The button that opens this dialog is already gated
+     on `useIsManager()`, so a resolved empty list should be impossible — but
+     "should be impossible" is how a dialog ends up with a select containing
+     one option that says "Choose somebody". A team can also be archived
+     between the sidebar answering and this opening. Say which it is. */
+  const whoHelp = reports.loading
+    ? "Finding who reports to you…"
+    : people.length === 0
+      ? "Nobody reports to you at the moment, so there is nobody to start one with."
+      : "Everybody who reports to you.";
+  const whoError =
+    reports.error && !reports.loading
+      ? "Could not load who reports to you. Close this and try again."
+      : null;
 
   const start = async () => {
     setBusy(true);
@@ -467,15 +546,28 @@ function StartDialog({
       }
     >
       <div className="flex flex-col gap-4">
-        <Field label="Who">
+        <Field
+          label="Who"
+          help={whoHelp}
+          {...(whoError ? { error: whoError } : {})}
+        >
           <Select
             value={employeeId}
             onChange={(event) => setEmployeeId(event.target.value)}
+            disabled={people.length === 0}
           >
-            <option value="">Choose somebody</option>
-            {directory.employees.map((person) => (
+            <option value="">
+              {reports.loading ? "Loading…" : "Choose somebody"}
+            </option>
+            {/* Name and job title. The disambiguator a real team needs — two
+                Chinedus reporting to the same person is ordinary, and the old
+                whole-directory list was least usable in exactly the companies
+                big enough for that. */}
+            {people.map((person) => (
               <option key={person.id} value={person.id}>
-                {fullName(person)}
+                {person.jobTitle
+                  ? `${person.fullName} — ${person.jobTitle}`
+                  : person.fullName}
               </option>
             ))}
           </Select>
