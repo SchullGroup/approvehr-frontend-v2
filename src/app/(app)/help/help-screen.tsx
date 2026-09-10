@@ -403,7 +403,9 @@ function MyRequestsView() {
             triage={false}
             onOpen={setOpenId}
             emptyTitle={
-              view === "resolved" ? "No resolved requests yet" : "No requests yet"
+              view === "resolved"
+                ? "No resolved requests yet"
+                : "No requests yet"
             }
             emptyDescription={
               view === "resolved"
