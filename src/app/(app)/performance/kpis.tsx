@@ -34,6 +34,7 @@ import {
 } from "@/components/ui";
 import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { LoadFailure } from "@/components/portal/load-failure";
+import { useAction } from "@/lib/use-action";
 import {
   SuggestButton,
   SuggestionPanel,
@@ -189,25 +190,14 @@ export function KpisTab({
   /** Empty means the cascade's own rung order. */
   const [order, setOrder] = useState<Order | "">("");
 
-  /** Every write reports its own failure. The API's message is the useful part. */
-  const run = async (action: () => Promise<unknown>, success: string) => {
-    try {
-      await action();
-      toast.push({ title: success, tone: "success" });
-      kpis.reload();
-      return true;
-    } catch (error) {
-      toast.push({
-        title: "That did not work",
-        tone: "danger",
-        detail:
-          error instanceof ApiError
-            ? error.message
-            : "Something went wrong. Try again.",
-      });
-      return false;
-    }
-  };
+  /* Every write reports its own failure through the one place that decides
+     what a failure says — see `lib/use-action.ts`. Worth knowing what changed
+     when this stopped being hand-rolled: a write that *times out* no longer
+     claims nothing was saved, because on a POST that is a claim this side
+     cannot make. */
+  const action = useAction();
+  const run = async (act: () => Promise<unknown>, success: string) =>
+    (await action.run(act, { success, onDone: kpis.reload })).ok;
 
   /**
    * What each dropdown offers, taken from the objectives themselves.
@@ -796,11 +786,24 @@ export function KpisTab({
           goalTitle={stopping.title}
           onClose={() => setStopping(null)}
           onStop={async (reason) => {
-            const ok = await run(
+            /* `action.run` rather than the `run` wrapper, for `notice`: the
+               API returns a sentence saying what it could not do —
+               "Recorded as off track. Goal status has no separate cancelled
+               yet." — and nothing was showing it. So the card afterwards read
+               "Agreed · Off track", indistinguishable from an objective that
+               is merely going badly, with no account of the difference. The
+               server explaining its own limitation is worth more than
+               silence; the limitation itself is BE-35. */
+            const outcome = await action.run(
               () => mutations.cancelGoal(stopping.id, reason),
-              `"${stopping.title}" stopped`,
+              {
+                success: `"${stopping.title}" stopped`,
+                subject: "the objective",
+                notice: (goal) => goal.note,
+                onDone: kpis.reload,
+              },
             );
-            if (ok) setStopping(null);
+            if (outcome.ok) setStopping(null);
           }}
         />
       )}

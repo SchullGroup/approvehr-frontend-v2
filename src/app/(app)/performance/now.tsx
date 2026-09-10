@@ -31,6 +31,7 @@ import {
   type ApiReview,
   periodInPlay,
 } from "@/lib/api/performance";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { useCan } from "@/lib/permissions";
 import { useFeatures } from "@/lib/store/features";
 import { useSession } from "@/lib/store/session";
@@ -397,7 +398,19 @@ export function WhatNeedsYouTab({
         </div>
       )}
 
-      {/* Not shown to somebody with no employee record at all. That is not a
+      {/* The company's list of periods failing empties this whole screen, so
+          it is reported to everybody — including an account with no staff
+          record, for whom the page would otherwise be blank with nothing
+          saying why. `error` is only ever that failure now; see
+          `useAppraisals`. */}
+      <LoadFailure
+        subject="the appraisal periods"
+        error={appraisals.error}
+        onRetry={appraisals.reload}
+      />
+
+      {/* The personal half failing where the company list arrived.
+          Not shown to somebody with no employee record at all. That is not a
           failure to recover from — it is a founder's own account, exactly as
           created at registration, and `ownEmployeeId` on the API already
           tells this same person, the moment they try to act on a goal or a
@@ -409,11 +422,17 @@ export function WhatNeedsYouTab({
           broken personal state on an account that was never meant to have
           one. A caller who *does* have a record and still hit this is a real
           failure worth surfacing, so the check is on the session, not on
-          whether the error exists. */}
-      {appraisals.error && employeeId !== null && (
-        <p className="rounded-md border border-danger-line bg-danger-soft px-3.5 py-2.5 text-body-sm text-ink">
-          {appraisals.error.message}
-        </p>
+          whether the error exists.
+
+          It goes through `LoadFailure` like every other failed read in the
+          product. It used to print `error.message` into a bare red box: no
+          title saying what was missing, no advice, and no Try again. */}
+      {employeeId !== null && (
+        <LoadFailure
+          subject="your own appraisals"
+          error={appraisals.mineError}
+          onRetry={appraisals.reload}
+        />
       )}
 
       {/* The "Nobody is set to appraise you yet" notice used to be here, and

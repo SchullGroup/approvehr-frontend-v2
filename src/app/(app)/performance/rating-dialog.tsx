@@ -5,6 +5,7 @@ import { Button, Field, Modal, Select, Textarea } from "@/components/ui";
 import type { RateBody } from "@/lib/api/performance";
 import { useAppraisals, useFramework } from "@/lib/store/performance";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
+import { useCan } from "@/lib/permissions";
 import { useSession } from "@/lib/store/session";
 
 /**
@@ -48,6 +49,7 @@ export function RecordLevelDialog({
 }) {
   const { employees } = useEmployeeDirectory({ pageSize: 200 });
   const { employeeId } = useSession();
+  const canRateAnyone = useCan("EDIT_RECORDS");
   const framework = useFramework();
   const { cycles } = useAppraisals();
   /* `rateCompetency` refuses a published period outright, so it is never
@@ -63,9 +65,32 @@ export function RecordLevelDialog({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
+  /**
+   * The API's own rule, not a longer list than it will accept.
+   *
+   * `rateCompetency` refuses a self-rating outright, and then refuses anybody
+   * who is not a direct report unless the caller holds `EDIT_RECORDS`:
+   * *"You can rate the people who report to you. Anything wider needs the
+   * records permission."* `isManagerOf` on the API matches on `managerId`, so
+   * it is direct reports and not the whole chain below somebody.
+   *
+   * This filtered on self alone, so a line manager with two reports was
+   * offered all nine of their colleagues — their own manager included — and
+   * seven of the nine were refused only after the whole form had been filled
+   * in. The refusal is good and arrives too late to be useful.
+   *
+   * `goal-dialogs.tsx` in this same module already writes this rule out, with
+   * a comment about not putting "a name in front of them that the save would
+   * refuse". Twenty lines away, and this dialog did not have it.
+   */
   const options = useMemo(
-    () => employees.filter((one) => one.id !== employeeId),
-    [employees, employeeId],
+    () =>
+      employees.filter(
+        (one) =>
+          one.id !== employeeId &&
+          (canRateAnyone || one.managerId === employeeId),
+      ),
+    [employees, employeeId, canRateAnyone],
   );
 
   const chosen = framework.competencies.find((one) => one.id === competency);
