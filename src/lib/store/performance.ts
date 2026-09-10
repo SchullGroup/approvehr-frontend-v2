@@ -2862,6 +2862,20 @@ export function useCycleMutations() {
     ),
 
     /**
+     * The testing doc's six standard self/manager questions, in one call.
+     * Refuses connected-only — see `addStandardQuestions`'s own header on the
+     * API for why this is a button rather than something a cycle acquires by
+     * existing.
+     */
+    addStandardQuestions: useCallback(
+      async (cycleId: string) => {
+        guard("Adding the standard questions needs the API.");
+        return performanceApi.addStandardQuestions(cycleId);
+      },
+      [guard],
+    ),
+
+    /**
      * Whether managers may add their own questions, and the period's scope
      * and reminder — the three settings that only mean anything before a
      * period starts. Kept apart from `advance`, which is the same endpoint

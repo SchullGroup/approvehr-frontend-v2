@@ -78,6 +78,31 @@ export type NavItem = {
   permission?: PermissionKey;
 
   /**
+   * Where the same label goes for somebody who does **not** hold `permission`.
+   *
+   * The gap this closes: Documents and Equipment were gated on `EDIT_RECORDS`,
+   * so an employee — the person the whole flow is *for* — had no entry at all.
+   * Their own screens existed and were live; the only route to them was the
+   * account menu, `/profile`, or the notification, and somebody who went
+   * looking in the sidebar concluded the feature was missing. Which is what
+   * happened.
+   *
+   * The naive fixes are both worse. Ungating the register shows an employee a
+   * screen that loads nothing. Adding a second "My documents" entry gives HR
+   * two rows for one noun and grows a sidebar this product deliberately keeps
+   * short — the same argument that moved these three into the account menu in
+   * the first place.
+   *
+   * So: one row, one label, and the destination is the version that belongs to
+   * the reader. `visibleNav` swaps the href; nothing downstream changes.
+   *
+   * An item with this is never hidden by `permission`, because both audiences
+   * have somewhere to go. `feature` still hides it — a company with the module
+   * switched off has no screen for either of them.
+   */
+  personalHref?: string;
+
+  /**
    * Hidden unless the signed-in person holds at least one of these.
    *
    * For the rare item two different permissions each independently justify
@@ -271,6 +296,9 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       label: "Documents",
       icon: <FolderOpen aria-hidden="true" />,
       permission: "EDIT_RECORDS",
+      /* Everybody else lands on their own file — what the company holds, and
+         what it is asking them for, with somewhere to send it. */
+      personalHref: "/documents",
     },
     {
       /* Beside Documents, because that is what it is: the register says what
@@ -304,6 +332,11 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       label: "Equipment",
       icon: <Laptop aria-hidden="true" />,
       permission: "EDIT_RECORDS",
+      /* Their own kit, and a way to report a fault on it. This one used to
+         render only as a card inside `/profile`, with no route of its own —
+         thinner than documents, which at least had a notification pointing at
+         it. */
+      personalHref: "/equipment",
     },
     {
       href: "/people/import",
@@ -722,17 +755,30 @@ export function visibleNav(
   return groups
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) => {
+      items: group.items.flatMap((item) => {
         if (item.feature !== undefined && features[item.feature] === false) {
-          return false;
+          return [];
         }
-        if (item.assistant && !assistantWired) return false;
-        if (item.always) return true;
+        if (item.assistant && !assistantWired) return [];
+
+        /* Two destinations, one label. Resolved here rather than in the shell
+           so every consumer of `visibleNav` — the sidebar, the mobile sheet,
+           the command palette — gets the same answer without asking about
+           permissions again. See `personalHref`. */
+        if (item.personalHref !== undefined) {
+          const permitted =
+            item.permission === undefined || permissions.has(item.permission);
+          return [permitted ? item : { ...item, href: item.personalHref }];
+        }
+
+        if (item.always) return [item];
         if (item.anyPermission) {
-          return item.anyPermission.some((p) => permissions.has(p));
+          return item.anyPermission.some((p) => permissions.has(p))
+            ? [item]
+            : [];
         }
-        if (item.permission === undefined) return true;
-        return permissions.has(item.permission);
+        if (item.permission === undefined) return [item];
+        return permissions.has(item.permission) ? [item] : [];
       }),
     }))
     .filter((group) => group.items.length > 0);

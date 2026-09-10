@@ -149,6 +149,7 @@ export function QuestionsDialog({
   onRemove,
   onReorder,
   onCopyFrom,
+  onAddStandard,
 }: {
   cycleId: string;
   periodName: string;
@@ -164,6 +165,15 @@ export function QuestionsDialog({
   onReorder?: (ids: string[]) => Promise<void>;
   /** Absent on a period that has started — copying is refused there anyway. */
   onCopyFrom?: (sourceCycleId: string) => Promise<{ copied: number }>;
+  /**
+   * The testing doc's six standard self/manager questions — Key
+   * Achievements, Key Challenges, Reason for Rating; Achievements Observed,
+   * Areas for Improvement, Overall Assessment — added in one call. Absent
+   * once the period has started, same reason as `onCopyFrom`: the API
+   * refuses it there, so the button is not offered rather than offered and
+   * refused.
+   */
+  onAddStandard?: () => Promise<void>;
 }) {
   const { questions, loading, reload } = useCycleQuestions(cycleId);
   const framework = useFramework();
@@ -358,6 +368,24 @@ export function QuestionsDialog({
     }
   };
 
+  const addStandard = async () => {
+    if (!onAddStandard) return;
+    setError(null);
+    setSaving(true);
+    try {
+      await onAddStandard();
+      reload();
+    } catch (caught) {
+      setError(
+        caught instanceof ApiError
+          ? caught.message
+          : "Could not add the standard questions.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const competencyName = (id: string) =>
     framework.competencies.find((c) => c.id === id)?.name ?? null;
 
@@ -450,6 +478,25 @@ export function QuestionsDialog({
               </ul>
             )}
           </>
+        )}
+
+        {onAddStandard && !editing && (
+          /* The testing doc's six, offered whether or not HR has already
+             typed questions of their own — unlike `onCopyFrom`, this is not
+             confined to a blank form. Pressing it twice is refused by the
+             API in words naming which of the six are already there, rather
+             than hidden pre-emptively, so this needs no "already added"
+             tracking of its own. */
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="self-start"
+            loading={saving}
+            onClick={() => void addStandard()}
+          >
+            Add the standard self/manager questions
+          </Button>
         )}
 
         <div className="flex flex-col gap-4 border-t border-line pt-5">
