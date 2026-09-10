@@ -89,7 +89,12 @@ export function CardFooter({
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-3 px-5 py-3.5 border-t border-line bg-canvas rounded-b-lg",
+        /* Same collision as CardHeader, one component down: two children
+           (a note on the left, actions on the right, most often) that do not
+           fit side by side at 375px need to wrap onto their own lines rather
+           than squeeze one child to a sliver. Found the same way — a footer
+           note colliding with two pill buttons on the Overtime screen. */
+        "flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 border-t border-line bg-canvas rounded-b-lg",
         className,
       )}
       {...props}
