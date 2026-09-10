@@ -359,38 +359,69 @@ function DepartmentPerformance({
             Nobody is in this period.
           </p>
         ) : (
-          <TableWrap caption="Average mark, headcount and how many have one, by department">
-            <THead>
-              <TH>Department</TH>
-              <TH align="right">People</TH>
-              <TH align="right">With a mark</TH>
-              <TH align="right">Average</TH>
-            </THead>
-            <TBody>
+          <>
+            <div className="hidden sm:block">
+              <TableWrap caption="Average mark, headcount and how many have one, by department">
+                <THead>
+                  <TH>Department</TH>
+                  <TH align="right">People</TH>
+                  <TH align="right">With a mark</TH>
+                  <TH align="right">Average</TH>
+                </THead>
+                <TBody>
+                  {rollups.map((department) => (
+                    <TR key={department.name}>
+                      <TD>{department.name}</TD>
+                      <TD align="right">
+                        <span className="tabular">{department.people}</span>
+                      </TD>
+                      <TD align="right">
+                        <span className="tabular">
+                          {department.scored} of {department.people}
+                        </span>
+                      </TD>
+                      <TD align="right">
+                        {department.meanBp === null ? (
+                          <span className="text-muted">No marks yet</span>
+                        ) : (
+                          <span className="tabular font-medium text-ink">
+                            {scoreLabel(department.meanBp)}
+                          </span>
+                        )}
+                      </TD>
+                    </TR>
+                  ))}
+                </TBody>
+              </TableWrap>
+            </div>
+
+            <ul className="divide-y divide-line sm:hidden">
               {rollups.map((department) => (
-                <TR key={department.name}>
-                  <TD>{department.name}</TD>
-                  <TD align="right">
-                    <span className="tabular">{department.people}</span>
-                  </TD>
-                  <TD align="right">
-                    <span className="tabular">
-                      {department.scored} of {department.people}
-                    </span>
-                  </TD>
-                  <TD align="right">
+                <li
+                  key={department.name}
+                  className="flex items-center justify-between gap-3 p-4"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium text-ink">{department.name}</p>
+                    <p className="tabular text-body-sm text-muted">
+                      {department.scored} of {department.people} with a mark
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right">
                     {department.meanBp === null ? (
-                      <span className="text-muted">No marks yet</span>
+                      <span className="text-body-sm text-muted">
+                        No marks yet
+                      </span>
                     ) : (
                       <span className="tabular font-medium text-ink">
                         {scoreLabel(department.meanBp)}
                       </span>
                     )}
-                  </TD>
-                </TR>
+                  </div>
+                </li>
               ))}
-            </TBody>
-          </TableWrap>
+            </ul>
+          </>
         )}
       </CardBody>
     </Card>
@@ -422,34 +453,63 @@ function TopPerformers({ register }: { register: ApiScoreRegister | null }) {
         {ranked.length === 0 ? (
           <p className="p-4 text-body-sm text-muted">No marks yet.</p>
         ) : (
-          <TableWrap caption="The five highest marks in this period">
-            <THead>
-              <TH>Person</TH>
-              <TH>Department</TH>
-              <TH align="right">Mark</TH>
-            </THead>
-            <TBody>
+          <>
+            <div className="hidden sm:block">
+              <TableWrap caption="The five highest marks in this period">
+                <THead>
+                  <TH>Person</TH>
+                  <TH>Department</TH>
+                  <TH align="right">Mark</TH>
+                </THead>
+                <TBody>
+                  {ranked.map((row, index) => (
+                    <TR key={row.employeeId}>
+                      <TD>
+                        <span className="tabular text-muted">{index + 1}.</span>{" "}
+                        <Link
+                          href={`/performance/history/${row.employeeId}`}
+                          className="font-medium text-ink underline-offset-2 hover:text-accent-text hover:underline"
+                        >
+                          {row.employeeName}
+                        </Link>
+                      </TD>
+                      <TD>{row.departmentName ?? "—"}</TD>
+                      <TD align="right">
+                        <span className="tabular font-medium text-ink">
+                          {scoreLabel(row.scoreBp ?? 0)}
+                        </span>
+                      </TD>
+                    </TR>
+                  ))}
+                </TBody>
+              </TableWrap>
+            </div>
+
+            <ul className="divide-y divide-line sm:hidden">
               {ranked.map((row, index) => (
-                <TR key={row.employeeId}>
-                  <TD>
-                    <span className="tabular text-muted">{index + 1}.</span>{" "}
+                <li
+                  key={row.employeeId}
+                  className="flex items-center justify-between gap-3 p-4"
+                >
+                  <div className="min-w-0">
                     <Link
                       href={`/performance/history/${row.employeeId}`}
                       className="font-medium text-ink underline-offset-2 hover:text-accent-text hover:underline"
                     >
+                      <span className="tabular text-muted">{index + 1}.</span>{" "}
                       {row.employeeName}
                     </Link>
-                  </TD>
-                  <TD>{row.departmentName ?? "—"}</TD>
-                  <TD align="right">
-                    <span className="tabular font-medium text-ink">
-                      {scoreLabel(row.scoreBp ?? 0)}
-                    </span>
-                  </TD>
-                </TR>
+                    <p className="text-body-sm text-muted">
+                      {row.departmentName ?? "—"}
+                    </p>
+                  </div>
+                  <span className="tabular shrink-0 font-medium text-ink">
+                    {scoreLabel(row.scoreBp ?? 0)}
+                  </span>
+                </li>
               ))}
-            </TBody>
-          </TableWrap>
+            </ul>
+          </>
         )}
       </CardBody>
     </Card>
@@ -731,64 +791,108 @@ function Parts({ report }: { report: ApiCycleReport }) {
         }
       />
       <CardBody className="p-0">
-        <TableWrap caption="Each scoring component across this period">
-          <THead>
-            <TH>Part</TH>
-            <TH align="right">Weight</TH>
-            <TH align="right">Counted for</TH>
-            <TH align="right">Average over those people</TH>
-            <TH>Left out because</TH>
-          </THead>
-          <TBody>
-            {report.components.map((part) => (
-              <TR key={part.component}>
-                <TD>
-                  <span className="font-medium text-ink">{part.label}</span>
-                </TD>
-                <TD align="right">
-                  <span className="tabular">{weightLabel(part.weightBp)}</span>
-                </TD>
-                <TD align="right">
-                  <span className="tabular">
-                    {part.includedPeople} of {report.marks.people}
+        <div className="hidden sm:block">
+          <TableWrap caption="Each scoring component across this period">
+            <THead>
+              <TH>Part</TH>
+              <TH align="right">Weight</TH>
+              <TH align="right">Counted for</TH>
+              <TH align="right">Average over those people</TH>
+              <TH>Left out because</TH>
+            </THead>
+            <TBody>
+              {report.components.map((part) => (
+                <TR key={part.component}>
+                  <TD>
+                    <span className="font-medium text-ink">{part.label}</span>
+                  </TD>
+                  <TD align="right">
+                    <span className="tabular">
+                      {weightLabel(part.weightBp)}
+                    </span>
+                  </TD>
+                  <TD align="right">
+                    <span className="tabular">
+                      {part.includedPeople} of {report.marks.people}
+                    </span>
+                  </TD>
+                  <TD align="right">
+                    {/* Absent is absent: nothing counted is not an average of 0. */}
+                    {part.meanBp === null ? (
+                      <span className="text-muted">Counted for nobody</span>
+                    ) : (
+                      <span className="tabular font-medium text-ink">
+                        {scoreLabel(part.meanBp)}
+                      </span>
+                    )}
+                  </TD>
+                  <TD>
+                    {part.excluded.length === 0 ? (
+                      <span className="text-body-sm text-muted">
+                        Counted for everybody
+                      </span>
+                    ) : (
+                      <ul className="flex flex-col gap-1">
+                        {part.excluded.map((reason) => (
+                          <li
+                            key={reason.reason}
+                            className="text-body-sm text-body"
+                          >
+                            <span className="font-medium text-ink">
+                              {reason.people}{" "}
+                              {reason.people === 1 ? "person" : "people"}
+                            </span>{" "}
+                            — {reason.note}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </TD>
+                </TR>
+              ))}
+            </TBody>
+          </TableWrap>
+        </div>
+
+        <ul className="divide-y divide-line sm:hidden">
+          {report.components.map((part) => (
+            <li key={part.component} className="flex flex-col gap-2 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <p className="font-medium text-ink">{part.label}</p>
+                <span className="tabular shrink-0 text-body-sm text-muted">
+                  {weightLabel(part.weightBp)}
+                </span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
+                <span className="tabular">
+                  Counted for {part.includedPeople} of {report.marks.people}
+                </span>
+                {part.meanBp === null ? (
+                  <span>Counted for nobody</span>
+                ) : (
+                  <span className="tabular font-medium text-ink">
+                    Average {scoreLabel(part.meanBp)}
                   </span>
-                </TD>
-                <TD align="right">
-                  {/* Absent is absent: nothing counted is not an average of 0. */}
-                  {part.meanBp === null ? (
-                    <span className="text-muted">Counted for nobody</span>
-                  ) : (
-                    <span className="tabular font-medium text-ink">
-                      {scoreLabel(part.meanBp)}
-                    </span>
-                  )}
-                </TD>
-                <TD>
-                  {part.excluded.length === 0 ? (
-                    <span className="text-body-sm text-muted">
-                      Counted for everybody
-                    </span>
-                  ) : (
-                    <ul className="flex flex-col gap-1">
-                      {part.excluded.map((reason) => (
-                        <li
-                          key={reason.reason}
-                          className="text-body-sm text-body"
-                        >
-                          <span className="font-medium text-ink">
-                            {reason.people}{" "}
-                            {reason.people === 1 ? "person" : "people"}
-                          </span>{" "}
-                          — {reason.note}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </TD>
-              </TR>
-            ))}
-          </TBody>
-        </TableWrap>
+                )}
+              </div>
+
+              {part.excluded.length > 0 && (
+                <ul className="flex flex-col gap-1">
+                  {part.excluded.map((reason) => (
+                    <li key={reason.reason} className="text-body-sm text-body">
+                      <span className="font-medium text-ink">
+                        {reason.people}{" "}
+                        {reason.people === 1 ? "person" : "people"}
+                      </span>{" "}
+                      — {reason.note}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </li>
+          ))}
+        </ul>
       </CardBody>
     </Card>
   );
