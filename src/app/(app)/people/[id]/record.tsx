@@ -1280,50 +1280,93 @@ export function EmployeeRecord({
                   </p>
                 </CardBody>
               ) : (
-                <TableWrap className="rounded-none border-0">
-                  <THead>
-                    <TH>Type</TH>
-                    <TH align="right">Entitled</TH>
-                    <TH align="right">Taken</TH>
-                    <TH align="right">Pending</TH>
-                    <TH align="right">Remaining</TH>
-                  </THead>
-                  <TBody>
+                <>
+                  <div className="hidden sm:block">
+                    <TableWrap className="rounded-none border-0">
+                      <THead>
+                        <TH>Type</TH>
+                        <TH align="right">Entitled</TH>
+                        <TH align="right">Taken</TH>
+                        <TH align="right">Pending</TH>
+                        <TH align="right">Remaining</TH>
+                      </THead>
+                      <TBody>
+                        {balances.map((b) => (
+                          <TR key={`${b.leaveType}-${b.year}`}>
+                            <TDPrimary
+                              title={b.leaveType}
+                              {...(b.carriedIn > 0
+                                ? {
+                                    subtitle: `includes ${b.carriedIn} carried in`,
+                                  }
+                                : {})}
+                            />
+                            <TD align="right" className="tabular">
+                              {b.entitled}
+                            </TD>
+                            <TD align="right" className="tabular text-muted">
+                              {b.taken}
+                            </TD>
+                            <TD align="right" className="tabular text-muted">
+                              {b.pending || "—"}
+                            </TD>
+                            {/* The source's own figure, never re-derived here.
+                                Pending is held back on purpose — a day already
+                                asked for is not a day still available. */}
+                            <TD
+                              align="right"
+                              className={cn(
+                                "tabular font-medium",
+                                b.remaining <= 2
+                                  ? "text-warning-text"
+                                  : "text-ink",
+                              )}
+                            >
+                              {b.remaining}
+                            </TD>
+                          </TR>
+                        ))}
+                      </TBody>
+                    </TableWrap>
+                  </div>
+
+                  <ul className="divide-y divide-line sm:hidden">
                     {balances.map((b) => (
-                      <TR key={`${b.leaveType}-${b.year}`}>
-                        <TDPrimary
-                          title={b.leaveType}
-                          {...(b.carriedIn > 0
-                            ? {
-                                subtitle: `includes ${b.carriedIn} carried in`,
-                              }
-                            : {})}
-                        />
-                        <TD align="right" className="tabular">
-                          {b.entitled}
-                        </TD>
-                        <TD align="right" className="tabular text-muted">
-                          {b.taken}
-                        </TD>
-                        <TD align="right" className="tabular text-muted">
-                          {b.pending || "—"}
-                        </TD>
-                        {/* The source's own figure, never re-derived here.
-                            Pending is held back on purpose — a day already
-                            asked for is not a day still available. */}
-                        <TD
-                          align="right"
-                          className={cn(
-                            "tabular font-medium",
-                            b.remaining <= 2 ? "text-warning-text" : "text-ink",
+                      <li
+                        key={`${b.leaveType}-${b.year}`}
+                        className="flex flex-col gap-1 p-4"
+                      >
+                        <div className="flex items-baseline justify-between gap-3">
+                          <span className="text-body-sm font-medium text-ink">
+                            {b.leaveType}
+                          </span>
+                          <span
+                            className={cn(
+                              "tabular text-body-sm font-medium",
+                              b.remaining <= 2
+                                ? "text-warning-text"
+                                : "text-ink",
+                            )}
+                          >
+                            {b.remaining} left
+                          </span>
+                        </div>
+                        {b.carriedIn > 0 && (
+                          <p className="text-meta text-muted">
+                            includes {b.carriedIn} carried in
+                          </p>
+                        )}
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
+                          <span className="tabular">Entitled {b.entitled}</span>
+                          <span className="tabular">Taken {b.taken}</span>
+                          {b.pending > 0 && (
+                            <span className="tabular">Pending {b.pending}</span>
                           )}
-                        >
-                          {b.remaining}
-                        </TD>
-                      </TR>
+                        </div>
+                      </li>
                     ))}
-                  </TBody>
-                </TableWrap>
+                  </ul>
+                </>
               )}
             </Card>
 
@@ -1336,55 +1379,96 @@ export function EmployeeRecord({
                   </p>
                 </CardBody>
               ) : (
-                <TableWrap className="rounded-none border-0">
-                  <THead>
-                    <TH>Type</TH>
-                    <TH>Dates</TH>
-                    <TH align="right">Days</TH>
-                    <TH>Status</TH>
-                    <TH>Decided</TH>
-                  </THead>
-                  <TBody>
+                <>
+                  <div className="hidden sm:block">
+                    <TableWrap className="rounded-none border-0">
+                      <THead>
+                        <TH>Type</TH>
+                        <TH>Dates</TH>
+                        <TH align="right">Days</TH>
+                        <TH>Status</TH>
+                        <TH>Decided</TH>
+                      </THead>
+                      <TBody>
+                        {[...leaveRequests]
+                          .sort((a, b) => b.from.localeCompare(a.from))
+                          .map((r) => (
+                            <TR key={r.id}>
+                              <TDPrimary
+                                title={r.leaveType}
+                                {...((r.reason ?? r.decisionNote)
+                                  ? {
+                                      subtitle:
+                                        r.reason ?? r.decisionNote ?? "",
+                                    }
+                                  : {})}
+                              />
+                              <TD className="tabular whitespace-nowrap">
+                                {r.from} → {r.to}
+                              </TD>
+                              <TD align="right" className="tabular">
+                                {r.days}
+                              </TD>
+                              <TD>
+                                <Badge
+                                  tone={leaveStatusTone(r.status)}
+                                  size="sm"
+                                  dot
+                                >
+                                  {r.status[0].toUpperCase() +
+                                    r.status.slice(1)}
+                                </Badge>
+                              </TD>
+                              <TD className="text-muted">
+                                {r.decidedAt ? shortDate(r.decidedAt) : "—"}
+                              </TD>
+                            </TR>
+                          ))}
+                      </TBody>
+                    </TableWrap>
+                  </div>
+
+                  <ul className="divide-y divide-line sm:hidden">
                     {[...leaveRequests]
                       .sort((a, b) => b.from.localeCompare(a.from))
                       .map((r) => (
-                        <TR key={r.id}>
-                          <TDPrimary
-                            title={r.leaveType}
-                            {...((r.reason ?? r.decisionNote)
-                              ? { subtitle: r.reason ?? r.decisionNote ?? "" }
-                              : {})}
-                          />
-                          <TD className="tabular whitespace-nowrap">
-                            {r.from} → {r.to}
-                          </TD>
-                          <TD align="right" className="tabular">
-                            {r.days}
-                          </TD>
-                          <TD>
+                        <li key={r.id} className="flex flex-col gap-2 p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-body-sm font-medium text-ink">
+                                {r.leaveType}
+                              </p>
+                              {(r.reason ?? r.decisionNote) && (
+                                <p className="mt-0.5 text-meta text-muted">
+                                  {r.reason ?? r.decisionNote}
+                                </p>
+                              )}
+                            </div>
                             <Badge
-                              tone={
-                                r.status === "approved"
-                                  ? "success"
-                                  : r.status === "pending"
-                                    ? "warning"
-                                    : r.status === "declined"
-                                      ? "danger"
-                                      : "neutral"
-                              }
+                              tone={leaveStatusTone(r.status)}
                               size="sm"
                               dot
                             >
                               {r.status[0].toUpperCase() + r.status.slice(1)}
                             </Badge>
-                          </TD>
-                          <TD className="text-muted">
-                            {r.decidedAt ? shortDate(r.decidedAt) : "—"}
-                          </TD>
-                        </TR>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
+                            <span className="tabular">
+                              {r.from} → {r.to}
+                            </span>
+                            <span className="tabular">
+                              {r.days} {r.days === 1 ? "day" : "days"}
+                            </span>
+                            {r.decidedAt && (
+                              <span className="tabular">
+                                Decided {shortDate(r.decidedAt)}
+                              </span>
+                            )}
+                          </div>
+                        </li>
                       ))}
-                  </TBody>
-                </TableWrap>
+                  </ul>
+                </>
               )}
             </Card>
           </div>
@@ -1425,6 +1509,18 @@ export function EmployeeRecord({
 
 /** The record's tabs. One list, so URL validation and the tab strip agree. */
 const TAB_IDS = ["personal", "employment", "pay", "leave", "conduct"];
+
+/** Shared by the desktop `<TD>` and the mobile `<li>` so a request's badge
+ *  colour cannot read differently on the two. */
+function leaveStatusTone(status: string): BadgeTone {
+  return status === "approved"
+    ? "success"
+    : status === "pending"
+      ? "warning"
+      : status === "declined"
+        ? "danger"
+        : "neutral";
+}
 
 /* -------------------------------------------------------------------------- */
 
