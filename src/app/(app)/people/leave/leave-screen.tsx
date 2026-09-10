@@ -489,7 +489,20 @@ export function LeaveScreen() {
                     <TD align="right" className="tabular font-medium text-ink">
                       {r.days}
                     </TD>
-                    <TD>{r.approverName ?? "—"}</TD>
+                    <TD>
+                      {r.decidedByName ? (
+                        <>
+                          {r.decidedByName}
+                          {r.decidedByJobTitle && (
+                            <span className="mt-0.5 block text-meta text-faint">
+                              {r.decidedByJobTitle}
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        (r.approverName ?? "—")
+                      )}
+                    </TD>
                     <TD>
                       <Badge tone={STATUS[r.status].tone} size="sm" dot>
                         {STATUS[r.status].label}
@@ -829,7 +842,12 @@ function RequestPanel({
                   ? shortDate(request.requestedAt)
                   : "—",
               },
-              { term: "Approver", value: request.approverName ?? "Not routed" },
+              {
+                term: request.decidedByName ? "Decided by" : "Approver",
+                value: request.decidedByName
+                  ? `${request.decidedByName}${request.decidedByJobTitle ? `, ${request.decidedByJobTitle}` : ""}`
+                  : (request.approverName ?? "Not routed"),
+              },
               { term: "Reason given", value: request.reason ?? "None given" },
               {
                 term: "Decision note",
