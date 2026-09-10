@@ -513,104 +513,189 @@ function TicketTable({
   }
 
   return (
-    <TableWrap
-      className="rounded-none border-0 border-t"
-      caption="Requests, soonest promise first"
-    >
-      <THead>
-        <TH>Request</TH>
-        {triage && <TH>Raised by</TH>}
-        <TH>Category</TH>
-        <TH>Urgency</TH>
-        <TH>Waiting</TH>
-        {triage && <TH>Who has it</TH>}
-        <TH>Where it is up to</TH>
-      </THead>
-      <TBody>
+    <>
+      {/* Up to seven columns for a manager's queue — request, requester,
+          category, urgency, waiting, assignee, status — under 375px instead
+          becomes a card per request. Same click-opens-the-thread behaviour,
+          same badges, same `TicketClockBadge`; only the row becomes a card. */}
+      <div className="hidden sm:block">
+        <TableWrap
+          className="rounded-none border-0 border-t"
+          caption="Requests, soonest promise first"
+        >
+          <THead>
+            <TH>Request</TH>
+            {triage && <TH>Raised by</TH>}
+            <TH>Category</TH>
+            <TH>Urgency</TH>
+            <TH>Waiting</TH>
+            {triage && <TH>Who has it</TH>}
+            <TH>Where it is up to</TH>
+          </THead>
+          <TBody>
+            {tickets.map((ticket) => {
+              const late =
+                ticketClock(ticket, minutesPerDay).state === "overdue";
+              return (
+                <TR
+                  key={ticket.id}
+                  interactive
+                  onClick={() => onOpen(ticket.id)}
+                  className={late ? "bg-danger-soft" : undefined}
+                >
+                  <TDPrimary
+                    title={
+                      /* A button, not only a clickable row. A `tr` with an onClick
+                         is unreachable by keyboard and absent from the
+                         accessibility tree — the row click stays a convenience for
+                         a mouse, and this is the control that opens the thread. */
+                      <button
+                        type="button"
+                        className="text-left font-medium text-ink hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onOpen(ticket.id);
+                        }}
+                      >
+                        {ticket.subject}
+                      </button>
+                    }
+                    subtitle={`${ticket.reference} · ${ticket.commentCount} message${
+                      ticket.commentCount === 1 ? "" : "s"
+                    }`}
+                  />
+                  {triage && (
+                    <TD>
+                      {ticket.requester ? (
+                        <span className="flex items-center gap-2">
+                          <Avatar name={ticket.requester.name} size="xs" />
+                          <span className="truncate">
+                            {ticket.requester.name}
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="text-muted">Not recorded</span>
+                      )}
+                    </TD>
+                  )}
+                  <TD>
+                    <Badge tone="neutral" size="sm">
+                      {ticket.categoryName ?? ticket.category}
+                    </Badge>
+                  </TD>
+                  <TD>
+                    <Badge tone={PRIORITY[ticket.priority].tone} size="sm">
+                      {PRIORITY[ticket.priority].label}
+                    </Badge>
+                  </TD>
+                  <TD>
+                    <TicketClockBadge
+                      ticket={ticket}
+                      minutesPerDay={minutesPerDay}
+                      detail={triage}
+                    />
+                  </TD>
+                  {triage && (
+                    <TD>
+                      {ticket.assignee ? (
+                        ticket.assignee.name
+                      ) : (
+                        <Badge
+                          tone="warning"
+                          size="sm"
+                          icon={<UserPlus aria-hidden="true" />}
+                        >
+                          Nobody yet
+                        </Badge>
+                      )}
+                    </TD>
+                  )}
+                  <TD>
+                    <Badge tone={STATUS[ticket.status].tone} size="sm" dot>
+                      {STATUS[ticket.status].label}
+                    </Badge>
+                  </TD>
+                </TR>
+              );
+            })}
+          </TBody>
+        </TableWrap>
+      </div>
+
+      <ul className="divide-y divide-line border-t border-line sm:hidden">
         {tickets.map((ticket) => {
           const late = ticketClock(ticket, minutesPerDay).state === "overdue";
           return (
-            <TR
+            <li
               key={ticket.id}
-              interactive
               onClick={() => onOpen(ticket.id)}
-              className={late ? "bg-danger-soft" : undefined}
+              className={`flex flex-col gap-2 p-4 ${late ? "bg-danger-soft" : ""}`}
             >
-              <TDPrimary
-                title={
-                  /* A button, not only a clickable row. A `tr` with an onClick
-                     is unreachable by keyboard and absent from the
-                     accessibility tree — the row click stays a convenience for
-                     a mouse, and this is the control that opens the thread. */
-                  <button
-                    type="button"
-                    className="text-left font-medium text-ink hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onOpen(ticket.id);
-                    }}
-                  >
-                    {ticket.subject}
-                  </button>
-                }
-                subtitle={`${ticket.reference} · ${ticket.commentCount} message${
-                  ticket.commentCount === 1 ? "" : "s"
-                }`}
-              />
-              {triage && (
-                <TD>
-                  {ticket.requester ? (
-                    <span className="flex items-center gap-2">
-                      <Avatar name={ticket.requester.name} size="xs" />
-                      <span className="truncate">{ticket.requester.name}</span>
-                    </span>
-                  ) : (
-                    <span className="text-muted">Not recorded</span>
-                  )}
-                </TD>
-              )}
-              <TD>
+              <button
+                type="button"
+                className="text-left font-medium text-ink hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onOpen(ticket.id);
+                }}
+              >
+                {ticket.subject}
+              </button>
+              <p className="text-body-sm text-muted">
+                {ticket.reference} · {ticket.commentCount} message
+                {ticket.commentCount === 1 ? "" : "s"}
+              </p>
+
+              <div className="flex flex-wrap items-center gap-1.5">
                 <Badge tone="neutral" size="sm">
                   {ticket.categoryName ?? ticket.category}
                 </Badge>
-              </TD>
-              <TD>
                 <Badge tone={PRIORITY[ticket.priority].tone} size="sm">
                   {PRIORITY[ticket.priority].label}
                 </Badge>
-              </TD>
-              <TD>
-                <TicketClockBadge
-                  ticket={ticket}
-                  minutesPerDay={minutesPerDay}
-                  detail={triage}
-                />
-              </TD>
-              {triage && (
-                <TD>
-                  {ticket.assignee ? (
-                    ticket.assignee.name
-                  ) : (
-                    <Badge
-                      tone="warning"
-                      size="sm"
-                      icon={<UserPlus aria-hidden="true" />}
-                    >
-                      Nobody yet
-                    </Badge>
-                  )}
-                </TD>
-              )}
-              <TD>
                 <Badge tone={STATUS[ticket.status].tone} size="sm" dot>
                   {STATUS[ticket.status].label}
                 </Badge>
-              </TD>
-            </TR>
+              </div>
+
+              <TicketClockBadge
+                ticket={ticket}
+                minutesPerDay={minutesPerDay}
+                detail={triage}
+              />
+
+              {triage && (
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-body-sm text-muted">
+                  <span className="flex items-center gap-1.5">
+                    {ticket.requester ? (
+                      <>
+                        <Avatar name={ticket.requester.name} size="xs" />
+                        {ticket.requester.name}
+                      </>
+                    ) : (
+                      "Not recorded"
+                    )}
+                  </span>
+                  <span>
+                    {ticket.assignee ? (
+                      ticket.assignee.name
+                    ) : (
+                      <Badge
+                        tone="warning"
+                        size="sm"
+                        icon={<UserPlus aria-hidden="true" />}
+                      >
+                        Nobody yet
+                      </Badge>
+                    )}
+                  </span>
+                </div>
+              )}
+            </li>
           );
         })}
-      </TBody>
-    </TableWrap>
+      </ul>
+    </>
   );
 }
 
