@@ -605,93 +605,166 @@ function DayTable({
             : `${roster.recorded} ${roster.recorded === 1 ? "clock-in" : "clock-ins"} on file. Exceptions first: anyone on approved leave is shown as on leave, never as a no-show.`
         }
       />
-      <TableWrap className="rounded-none border-0">
-        <THead>
-          <TH>Employee</TH>
-          <TH>Status</TH>
-          <TH>In</TH>
-          <TH>Out</TH>
-          <TH>Where</TH>
-        </THead>
-        <TBody>
-          {roster.rows.map((row) => {
-            const shift = rota.shiftOn(row.employeeId, roster.date);
-            const off = offThatDay(row);
-            return (
-              <TR key={row.employeeId}>
-                <TDPrimary
-                  title={
-                    <Link
-                      href={`/people/${row.employeeId}`}
-                      className="hover:text-accent-text hover:underline underline-offset-4"
-                    >
-                      {row.employeeName}
-                    </Link>
-                  }
-                  subtitle={row.jobTitle}
-                />
-                <TD>
-                  <Badge tone={STATUS_TONE[row.status]} size="sm" dot>
-                    {STATUS_LABEL[row.status]}
-                  </Badge>
-                  {row.lateByMinutes > 0 && (
-                    <span className="mt-0.5 block text-meta text-warning-text">
-                      {row.lateByMinutes} min late
-                    </span>
-                  )}
-                  {row.leave && (
-                    <span className="mt-0.5 block text-meta text-faint">
-                      {row.leave.type}, to {shortDate(row.leave.endDate)}
-                    </span>
-                  )}
-                  {row.anomaly && (
-                    <span className="mt-0.5 block text-meta font-medium text-warning-text">
-                      {row.anomaly}
-                    </span>
-                  )}
-                  {/* A day off on a rota is a rest day whatever the office
-                      calendar says, and payroll agrees — so saying it here is
-                      what keeps this row and the payslip from contradicting
-                      each other about the same date. */}
-                  {shift ? (
-                    <span className="mt-0.5 block text-meta text-faint">
-                      On the rota: {shift.shiftName}, {timesLabel(shift)}
-                    </span>
-                  ) : off ? (
-                    <span className="mt-0.5 block text-meta text-muted">
-                      {row.clockIn
-                        ? "Worked a rest day on their rota"
-                        : "Rest day on their rota: no pay is held back"}
-                    </span>
-                  ) : null}
-                  {row.correctionNote && (
-                    <span className="mt-0.5 block text-meta text-faint">
-                      Corrected: {row.correctionNote}
-                    </span>
-                  )}
-                </TD>
-                <TD className="tabular">{row.clockIn ?? "—"}</TD>
-                <TD className="tabular text-muted">
-                  {row.clockOut ?? (row.clockIn ? "no clock-out" : "—")}
-                </TD>
-                <TD className="text-muted">
-                  {row.workLocation ? (
-                    <span className="inline-flex items-center gap-1.5">
-                      <MapPin
-                        aria-hidden="true"
-                        className="size-3.5 text-faint"
-                      />
-                      {row.workLocation}
-                    </span>
-                  ) : (
-                    <span className={cn("text-faint")}>—</span>
-                  )}
-                </TD>
-              </TR>
-            );
-          })}
-        </TBody>
-      </TableWrap>
+      <div className="hidden sm:block">
+        <TableWrap className="rounded-none border-0">
+          <THead>
+            <TH>Employee</TH>
+            <TH>Status</TH>
+            <TH>In</TH>
+            <TH>Out</TH>
+            <TH>Where</TH>
+          </THead>
+          <TBody>
+            {roster.rows.map((row) => {
+              const shift = rota.shiftOn(row.employeeId, roster.date);
+              const off = offThatDay(row);
+              return (
+                <TR key={row.employeeId}>
+                  <TDPrimary
+                    title={
+                      <Link
+                        href={`/people/${row.employeeId}`}
+                        className="hover:text-accent-text hover:underline underline-offset-4"
+                      >
+                        {row.employeeName}
+                      </Link>
+                    }
+                    subtitle={row.jobTitle}
+                  />
+                  <TD>
+                    <Badge tone={STATUS_TONE[row.status]} size="sm" dot>
+                      {STATUS_LABEL[row.status]}
+                    </Badge>
+                    {row.lateByMinutes > 0 && (
+                      <span className="mt-0.5 block text-meta text-warning-text">
+                        {row.lateByMinutes} min late
+                      </span>
+                    )}
+                    {row.leave && (
+                      <span className="mt-0.5 block text-meta text-faint">
+                        {row.leave.type}, to {shortDate(row.leave.endDate)}
+                      </span>
+                    )}
+                    {row.anomaly && (
+                      <span className="mt-0.5 block text-meta font-medium text-warning-text">
+                        {row.anomaly}
+                      </span>
+                    )}
+                    {/* A day off on a rota is a rest day whatever the office
+                        calendar says, and payroll agrees — so saying it here
+                        is what keeps this row and the payslip from
+                        contradicting each other about the same date. */}
+                    {shift ? (
+                      <span className="mt-0.5 block text-meta text-faint">
+                        On the rota: {shift.shiftName}, {timesLabel(shift)}
+                      </span>
+                    ) : off ? (
+                      <span className="mt-0.5 block text-meta text-muted">
+                        {row.clockIn
+                          ? "Worked a rest day on their rota"
+                          : "Rest day on their rota: no pay is held back"}
+                      </span>
+                    ) : null}
+                    {row.correctionNote && (
+                      <span className="mt-0.5 block text-meta text-faint">
+                        Corrected: {row.correctionNote}
+                      </span>
+                    )}
+                  </TD>
+                  <TD className="tabular">{row.clockIn ?? "—"}</TD>
+                  <TD className="tabular text-muted">
+                    {row.clockOut ?? (row.clockIn ? "no clock-out" : "—")}
+                  </TD>
+                  <TD className="text-muted">
+                    {row.workLocation ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <MapPin
+                          aria-hidden="true"
+                          className="size-3.5 text-faint"
+                        />
+                        {row.workLocation}
+                      </span>
+                    ) : (
+                      <span className={cn("text-faint")}>—</span>
+                    )}
+                  </TD>
+                </TR>
+              );
+            })}
+          </TBody>
+        </TableWrap>
+      </div>
+
+      <ul className="divide-y divide-line sm:hidden">
+        {roster.rows.map((row) => {
+          const shift = rota.shiftOn(row.employeeId, roster.date);
+          const off = offThatDay(row);
+          return (
+            <li key={row.employeeId} className="flex flex-col gap-1.5 p-4">
+              <div className="min-w-0">
+                <Link
+                  href={`/people/${row.employeeId}`}
+                  className="text-body-sm font-medium text-ink hover:text-accent-text hover:underline underline-offset-4"
+                >
+                  {row.employeeName}
+                </Link>
+                <p className="mt-0.5 text-meta text-muted">{row.jobTitle}</p>
+              </div>
+
+              <Badge tone={STATUS_TONE[row.status]} size="sm" dot>
+                {STATUS_LABEL[row.status]}
+              </Badge>
+              {row.lateByMinutes > 0 && (
+                <p className="text-meta text-warning-text">
+                  {row.lateByMinutes} min late
+                </p>
+              )}
+              {row.leave && (
+                <p className="text-meta text-faint">
+                  {row.leave.type}, to {shortDate(row.leave.endDate)}
+                </p>
+              )}
+              {row.anomaly && (
+                <p className="text-meta font-medium text-warning-text">
+                  {row.anomaly}
+                </p>
+              )}
+              {shift ? (
+                <p className="text-meta text-faint">
+                  On the rota: {shift.shiftName}, {timesLabel(shift)}
+                </p>
+              ) : off ? (
+                <p className="text-meta text-muted">
+                  {row.clockIn
+                    ? "Worked a rest day on their rota"
+                    : "Rest day on their rota: no pay is held back"}
+                </p>
+              ) : null}
+              {row.correctionNote && (
+                <p className="text-meta text-faint">
+                  Corrected: {row.correctionNote}
+                </p>
+              )}
+
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
+                <span className="tabular">In {row.clockIn ?? "—"}</span>
+                <span className="tabular">
+                  Out {row.clockOut ?? (row.clockIn ? "no clock-out" : "—")}
+                </span>
+                {row.workLocation && (
+                  <span className="inline-flex items-center gap-1">
+                    <MapPin
+                      aria-hidden="true"
+                      className="size-3.5 text-faint"
+                    />
+                    {row.workLocation}
+                  </span>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
     </Card>
   );
 }
