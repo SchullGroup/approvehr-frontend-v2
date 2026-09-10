@@ -224,6 +224,13 @@ const THEMES: Record<"light" | "dark", Theme> = {
         3.0,
         "fixed fill, both themes — switch thumb against an on track",
       ],
+      [
+        "logo-wordmark on surface",
+        "#273f90",
+        "#ffffff",
+        4.5,
+        "light-mode logo lockup, header/sidebar",
+      ],
     ],
   },
   dark: {
@@ -375,6 +382,13 @@ const THEMES: Record<"light" | "dark", Theme> = {
         "#529546",
         3.0,
         "fixed fill, both themes — switch thumb against an on track",
+      ],
+      [
+        "logo-wordmark on surface",
+        "#ffffff",
+        "#141e2a",
+        4.5,
+        "dark-mode logo lockup, header/sidebar",
       ],
     ],
   },

@@ -49,6 +49,14 @@
   --color-control-line: #6b7c89; /* 4.3:1  Buttons, pickers, hover accents */
   --color-field-line: #8492a0; /* 3.2:1  Resting border, text/select inputs */
 
+  /* The logo wordmark's own indigo, kept apart from --color-accent above —
+     the two are close but not identical (#273f90 vs #2b3990), and unifying
+     them was not asked for. Indigo on the light canvas, white on dark: the
+     logo file supplied for dark mode uses #fff for the letterforms and
+     leaves the checkmark green (#8ac97d) untouched on every ground, so only
+     this one flips. */
+  --color-logo-wordmark: #273f90;
+
   /* ---- Accent. ApproveHR indigo. ------------------------------------- */
   /* Unlike a light accent, this one is dark enough to carry white text,
      so accent and accent-text are the same value.                       */
@@ -272,6 +280,8 @@
    ========================================================================== */
 
 :root[data-theme="dark"] {
+  --color-logo-wordmark: #fff;
+
   --color-ink: #edf1f4;
   --color-ink-soft: #c7d1da;
   --color-body: #9ba9b5;
