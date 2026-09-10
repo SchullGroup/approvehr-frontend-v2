@@ -23,7 +23,7 @@ import { ApiError } from "@/lib/api/client";
 import {
   dayLabel,
   dayOf,
-  ratingWords,
+  ratingWordsFrom,
   scoreLabel,
   weightLabel,
   type ApiComponentScore,
@@ -34,12 +34,18 @@ import { useCan } from "@/lib/permissions";
 import { useSession } from "@/lib/store/session";
 import {
   useEmployeeScore,
+  useRatingScale,
   useReview,
   useSignOff,
   useSubjectSelfReview,
 } from "@/lib/store/performance";
 import { ReviewFormModal } from "../../review-form";
-import { AppraiserStrip, ReadAnswer, draftFrom } from "../../review-parts";
+import {
+  AppraiserStrip,
+  PeriodFraming,
+  ReadAnswer,
+  draftFrom,
+} from "../../review-parts";
 import { SignOffDialog, type SignOffAct } from "./sign-off-dialog";
 
 /**
@@ -78,6 +84,11 @@ import { SignOffDialog, type SignOffAct } from "./sign-off-dialog";
  */
 export function ReviewScreen({ reviewId }: { reviewId: string }) {
   const { review, loading, error, reload } = useReview(reviewId);
+  /* The company's own words. A record of a mark is the last place that should
+     be quoting a scale the company renamed — it is the screen somebody reads
+     when they are deciding whether to dispute it. */
+  const { scale } = useRatingScale();
+  const ratingWords = ratingWordsFrom(scale.levels);
   const { actingId } = useSession();
   const canSeeCompany = useCan("EDIT_RECORDS");
   const signOff = useSignOff();
@@ -454,11 +465,21 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
               />
             ) : (
               <CardBody className="flex flex-col gap-4">
+                {/* Above the answers, because this is the record of a mark and
+                    what period it covers is part of the record. Renders
+                    nothing when the period states nothing. */}
+                <PeriodFraming
+                  periodStart={review.periodStart}
+                  periodEnd={review.periodEnd}
+                  instructions={review.instructions}
+                  guideUrl={review.guideUrl}
+                />
                 {review.questions.map((question) => (
                   <ReadAnswer
                     key={question.id}
                     question={question}
                     held={draftFrom(question)}
+                    reviewId={review.id}
                   />
                 ))}
               </CardBody>
@@ -590,6 +611,10 @@ function TheirOwnAccount({
               key={question.id}
               question={question}
               held={draftFrom(question)}
+              /* So an appraiser can open the evidence the employee attached to
+                 their own account of the half. This is the side-by-side read
+                 that evidence exists for. */
+              reviewId={review.id}
             />
           ))}
         </CardBody>
@@ -609,6 +634,13 @@ function FinaliseDialog({
   onClose: () => void;
   onConfirm: () => void;
 }) {
+  /* Its own read of the same cached scale rather than a prop. This dialog
+     quotes the mark somebody is about to make final, and quoting it in the
+     default words while the screen behind it uses the company's would be the
+     picker-versus-record split all over again, inside one screen. */
+  const { scale } = useRatingScale();
+  const ratingWords = ratingWordsFrom(scale.levels);
+
   return (
     <ConfirmDialog
       open={open}

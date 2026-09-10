@@ -12,6 +12,8 @@ import type { BadgeTone } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import {
   FULL_WEIGHT_BP,
+  RATING_LABELS,
+  RATING_MEANING,
   parseMeasure,
   performanceApi,
   type ApiAnswer,
@@ -38,12 +40,15 @@ import {
   type ApiCycleReport,
   type ApiNineBox,
   type ApiPotentialLevel,
+  type ApiRatingLevel,
+  type ApiRatingScale,
   type ApiScoreHistory,
   type ApiScoreRegister,
   type ApiScoringWeights,
   type ApiScoringWeightsSaved,
   type ApiTask,
   type ApiTaskForGrading,
+  type ApiMyTask,
   type ScoreBand,
   type ScoreComponent,
   type AnswerBody,
@@ -235,8 +240,17 @@ export function toCascade(goals: ApiGoal[]): GoalNode[] {
     }
   }
 
+  /* Shared targets above personal ones, and finished work last. The three
+     rungs sort in the order they cascade, so a department's objective sits
+     between the company's and the KPIs beneath it rather than among them. */
   const rank = (goal: ApiGoal) =>
-    goal.companyWide ? 0 : goal.status === "DONE" ? 2 : 1;
+    goal.level === "company"
+      ? 0
+      : goal.level === "department"
+        ? 1
+        : goal.status === "DONE"
+          ? 3
+          : 2;
 
   const build = (goal: ApiGoal, depth: number): GoalNode => ({
     ...goal,
@@ -700,6 +714,20 @@ const demoCycles: ApiCycle[] = [
     stage: "MANAGER",
     stageLabel: "manager review",
     dueDate: "2026-08-31",
+    /* A stated period, because the demo is meant to show the product rather
+       than the subset of it that needs no setting up. Note it is not the same
+       as the deadline: the half runs to June and the forms are owed in
+       August, which is the distinction a screen showing only `dueDate` used
+       to hide. */
+    periodStart: "2026-01-01",
+    periodEnd: "2026-06-30",
+    instructions:
+      "This is a mandatory mid-year appraisal covering January to June.\n\n" +
+      "It exists to assess how the half went, agree what the next one is for, " +
+      "and name anything you need in order to do it.\n\n" +
+      "Write it in your own words. Nothing here changes anybody's pay " +
+      "automatically.",
+    guideUrl: null,
     questionCount: 5,
     reviewCount: 18,
     /* Both demo cycles have started, and a cycle that has started has its
@@ -718,6 +746,14 @@ const demoCycles: ApiCycle[] = [
     stage: "PUBLISHED",
     stageLabel: "published",
     dueDate: "2026-06-30",
+    periodStart: "2025-07-01",
+    periodEnd: "2025-12-31",
+    /* Null on the published one, and that is the honest shape rather than an
+       oversight: most companies' older periods were run before anybody wrote
+       an instruction, and a screen has to read correctly when there is
+       nothing to read. */
+    instructions: null,
+    guideUrl: null,
     questionCount: 5,
     reviewCount: 18,
     scoringFrozen: true,
@@ -758,6 +794,16 @@ const SEED_QUESTIONS: readonly SeedQuestion[] = DEMO_ENABLED
         prompt: "Rate your own delivery against your objectives.",
         kind: "RATING",
         required: true,
+        audience: "SELF",
+      },
+      {
+        id: "demo-q-self-evidence",
+        prompt: "Attach any supporting evidence — a report, a dashboard.",
+        kind: "FILE",
+        /* Not required, and that is the honest default for evidence: somebody
+           whose work leaves no artefact should not be held out of their own
+           appraisal by a file picker. The API lets a company require it. */
+        required: false,
         audience: "SELF",
       },
       {
@@ -951,6 +997,14 @@ function demoGoals(
       ownerId: goal.ownerId,
       ownerName: owner ? `${owner.firstName} ${owner.lastName}` : null,
       companyWide: goal.ownerId === null,
+      /* The demo has no department rung: its seeded ladder is company → person,
+         which is the shape a small company actually has. Null rather than an
+         invented department — a demo that shows a cascade nobody set up would
+         be teaching the screen rather than the product. */
+      departmentId: null,
+      departmentName: null,
+      level:
+        goal.ownerId === null ? ("company" as const) : ("personal" as const),
       parentId: goal.parentId,
       parentTitle: goal.parentId ? (titles.get(goal.parentId) ?? null) : null,
       status: goal.status,
@@ -1123,6 +1177,10 @@ function demoReview(
     cycleName: cycle.name,
     cycleStage: cycle.stage,
     dueDate: cycle.dueDate,
+    /* From the cycle, never invented here. A form claiming a period its own
+       cycle does not state is the drift this field exists to remove. */
+    periodStart: cycle.periodStart,
+    periodEnd: cycle.periodEnd,
     kind,
     kindLabel: kind === "SELF" ? "Self-review" : "Manager review",
     anonymous: false,
@@ -1304,6 +1362,10 @@ function demoReviewDetail(
   return {
     ...base,
     mine: base.authorId === me,
+    /* The framing, from the cycle. This is the whole point of the field: an
+       employee opening a form reads why they are filling it in. */
+    instructions: cycle.instructions,
+    guideUrl: cycle.guideUrl,
     questions,
     outstanding: questions
       .filter((q) => q.required && q.answer === null)
@@ -1554,6 +1616,33 @@ export function useKpiMutations() {
             "against, and one kept in this browser would never reach their review.",
         );
         return performanceApi.createGoal(body);
+      },
+      [guard],
+    ),
+
+    /**
+     * Give one KPI to several people, under one objective.
+     *
+     * One sibling per person rather than one row with many owners — the API's
+     * own note says why. Refuses in demo mode: this writes several people's
+     * KPIs at once, and none of them would reach the review it is for.
+     */
+    assignObjective: useCallback(
+      async (
+        parentId: string,
+        body: {
+          title: string;
+          description?: string;
+          employeeIds: string[];
+          dueQuarter?: string;
+          reviewCycleId?: string;
+        },
+      ) => {
+        guard(
+          "Assigning a KPI needs the API. These are several people's targets, " +
+            "and ones kept in this browser would never reach their reviews.",
+        );
+        return performanceApi.assignObjective(parentId, body);
       },
       [guard],
     ),
@@ -2111,6 +2200,28 @@ export function useReviewMutations() {
               textValue: answer.textValue ?? null,
               choiceValue: answer.choiceValue ?? null,
               boolValue: answer.boolValue ?? null,
+              /* The metadata, and deliberately **not** the bytes. A 10MB
+                 base64 string in `localStorage` would exceed the quota and
+                 take the whole demo state down with it, so the demo can say
+                 what was attached and cannot hand it back. The download is
+                 absent rather than broken on that screen — the honest-absence
+                 rule this codebase already follows. */
+              attachment: answer.file
+                ? {
+                    id: `demo-file-${answer.questionId}`,
+                    filename: answer.file.filename,
+                    contentType: answer.file.contentType,
+                    /* From the base64 length, not from the File object, which
+                       is gone by here: 4 characters carry 3 bytes, less the
+                       padding. Close enough to render, and never stored as a
+                       fact anybody reconciles. */
+                    sizeBytes: Math.floor(
+                      (answer.file.contentBase64.replace(/=+$/, "").length *
+                        3) /
+                        4,
+                    ),
+                  }
+                : null,
               answeredAt: new Date().toISOString(),
             };
           }
@@ -2585,11 +2696,22 @@ export function useCycleMutations() {
       async (
         name: string,
         dueDate?: string,
-        /** Scope, reminder and the manager-question toggle. All optional. */
+        /**
+         * Scope, reminder, the manager-question toggle, and what the period
+         * covers. All optional.
+         *
+         * `periodStart`/`periodEnd` are the months being appraised, which is
+         * **not** `dueDate` — a half runs January to July and is answered in
+         * August. The API refuses one without the other.
+         */
         options?: {
           departmentIds?: string[];
           remindDaysBefore?: number;
           managersCanAddQuestions?: boolean;
+          periodStart?: string;
+          periodEnd?: string;
+          instructions?: string;
+          guideUrl?: string;
         },
       ) => {
         guard("Creating an appraisal period needs the API.");
@@ -2605,7 +2727,35 @@ export function useCycleMutations() {
           ...(options?.managersCanAddQuestions
             ? { managersCanAddQuestions: true }
             : {}),
+          /* Both or neither, decided here rather than sent half-formed for the
+             API to refuse. A dialog that lets somebody fill in one date and
+             then reports a server error has asked a question it could have
+             answered. */
+          ...(options?.periodStart && options.periodEnd
+            ? {
+                periodStart: options.periodStart,
+                periodEnd: options.periodEnd,
+              }
+            : {}),
+          ...(options?.instructions?.trim()
+            ? { instructions: options.instructions.trim() }
+            : {}),
+          ...(options?.guideUrl?.trim()
+            ? { guideUrl: options.guideUrl.trim() }
+            : {}),
         });
+      },
+      [guard],
+    ),
+
+    /**
+     * Delete a draft period outright. Refused once it has started — the
+     * API's own sentence explains why, and is shown verbatim.
+     */
+    deleteCycle: useCallback(
+      async (cycleId: string) => {
+        guard("Deleting a period needs the API.");
+        return performanceApi.deleteCycle(cycleId);
       },
       [guard],
     ),
@@ -2724,6 +2874,11 @@ export function useCycleMutations() {
           departmentIds?: string[];
           remindDaysBefore?: number | null;
           managersCanAddQuestions?: boolean;
+          /** Nullable, unlike on create: clearing a period is a real edit. */
+          periodStart?: string | null;
+          periodEnd?: string | null;
+          instructions?: string | null;
+          guideUrl?: string | null;
         },
       ) => {
         guard("Changing a period's settings needs the API.");
@@ -2871,6 +3026,36 @@ export function useTasksForGrading(): {
     isConnected,
     load,
   );
+
+  return {
+    tasks: isConnected ? (fetched.data ?? []) : [],
+    loading: isConnected ? fetched.loading : false,
+    error: isConnected ? fetched.error : null,
+    reload: fetched.reload,
+  };
+}
+
+/**
+ * My own tasks and the grades that came back, newest first.
+ *
+ * The other half of `useTasksForGrading`. No demo simulation, same reason: a
+ * grade is something a manager gives and an employee reads, so one this
+ * browser invented would be a mark nobody awarded.
+ */
+export function useMyTasks(): {
+  tasks: ApiMyTask[];
+  loading: boolean;
+  error: ApiError | null;
+  reload: () => void;
+} {
+  const { isConnected } = useSession();
+
+  const load = useCallback(
+    async (signal: AbortSignal) => performanceApi.myTasks(signal),
+    [],
+  );
+
+  const fetched = useFetched<ApiMyTask[]>("my-tasks", isConnected, load);
 
   return {
     tasks: isConnected ? (fetched.data ?? []) : [],
@@ -3554,6 +3739,99 @@ const DEMO_WEIGHTS: ApiScoringWeights = {
  * is scored, and a locally stored set would move no mark on any screen in this
  * product — the same failure as a green "Paid" that transferred nothing.
  */
+/* ==========================================================================
+ * What a mark is called
+ * ======================================================================== */
+
+const SCALE_SAVE_OFFLINE =
+  "Renaming the scale needs the API. The words are the company's, stored " +
+  "once and frozen onto every period as it starts — there is nothing in this " +
+  "browser for a period to freeze.";
+
+/**
+ * The demo's scale: the defaults, reported as the defaults.
+ *
+ * `source: "default"` and not `"saved"`, and the distinction is the point. A
+ * demo that claimed somebody had chosen these words would make the settings
+ * screen's "reset to the built-in five" a button with nothing to do, and that
+ * button is how a company gets back out of a change it regrets.
+ */
+const DEMO_SCALE: ApiRatingScale = {
+  levels: Object.keys(RATING_LABELS)
+    .map(Number)
+    .sort((a, b) => a - b)
+    .map((level) => ({
+      level,
+      label: RATING_LABELS[level] ?? String(level),
+      meaning: RATING_MEANING[level] ?? "",
+    })),
+  source: "default",
+  max: Object.keys(RATING_LABELS).length,
+};
+
+/**
+ * The five words this company reads a mark in.
+ *
+ * **Every screen that renders a rating should use this rather than
+ * `RATING_LABELS`.** The constant is the fallback the API serves when nobody
+ * has chosen; the moment a company renames a 4, a screen still importing the
+ * constant is quoting a scale that company does not use — and the picker and
+ * the record disagreeing about what a 4 is called is the exact failure
+ * `verify-rating-scale` was written for, one level up.
+ *
+ * No permission is asked and none is needed: the API gates the write and
+ * leaves the read open, because a scale you are measured against but cannot
+ * read is absurd.
+ */
+export function useRatingScale(): {
+  scale: ApiRatingScale;
+  loading: boolean;
+  error: ApiError | null;
+  source: Source;
+  /** False offline. The editor renders read-only and says why. */
+  editable: boolean;
+  refusal: string;
+  /** The whole set. There is no endpoint that saves one level — see the API wrapper. */
+  save: (levels: ApiRatingLevel[]) => Promise<ApiRatingScale>;
+  reload: () => void;
+} {
+  const { isConnected } = useSession();
+
+  const load = useCallback(
+    async (signal: AbortSignal) => performanceApi.ratingScale(signal),
+    [],
+  );
+  const fetched = useFetched<ApiRatingScale>("rating-scale", isConnected, load);
+  const { reload } = fetched;
+
+  return {
+    /**
+     * Never null, unlike the other hooks here.
+     *
+     * A screen with no scale yet cannot render "Pick a mark" as five blanks
+     * while a request is in flight, and every consumer would otherwise write
+     * the same `?? defaults` fallback — differently. The defaults are a
+     * constant, so there is nothing to synchronise and nothing to wait for.
+     */
+    scale: isConnected ? (fetched.data ?? DEMO_SCALE) : DEMO_SCALE,
+    loading: isConnected ? fetched.loading : false,
+    error: isConnected ? fetched.error : null,
+    source: isConnected ? "api" : "demo",
+    editable: isConnected,
+    refusal: SCALE_SAVE_OFFLINE,
+    save: useCallback(
+      async (levels: ApiRatingLevel[]) => {
+        if (!isConnected) offline(SCALE_SAVE_OFFLINE);
+        const saved = await performanceApi.setRatingScale(levels);
+        reload();
+        return saved;
+      },
+      [isConnected, reload],
+    ),
+    reload,
+  };
+}
+
 export function useScoringWeights(): {
   weights: ApiScoringWeights | null;
   loading: boolean;

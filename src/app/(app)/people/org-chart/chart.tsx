@@ -50,7 +50,7 @@ import {
   type ChartNode,
   type ChartPerson,
 } from "./model";
-import { useDragInto } from "./use-drag-into";
+import { DragGhost, useDragInto } from "@/components/ui/drag-into";
 
 /**
  * The org chart: who is where, and a way to change it.
@@ -594,16 +594,12 @@ export function OrgChartScreen() {
         />
       )}
 
-      {/* What is in the hand, following the pointer. `pointer-events: none` so
-          it never becomes the thing under the cursor and breaks the hit test. */}
+      {/* What is in the hand. `DragGhost` owns `pointer-events: none`, which is
+          the detail that silently breaks every drop if it is ever dropped. */}
       {drag && (
-        <div
-          aria-hidden="true"
-          className="pointer-events-none fixed z-50 rounded-md border border-accent-line bg-surface px-3 py-1.5 text-body-sm text-ink shadow-lg"
-          style={{ left: drag.x + 12, top: drag.y + 12 }}
-        >
+        <DragGhost x={drag.x} y={drag.y}>
           Moving…
-        </div>
+        </DragGhost>
       )}
     </>
   );

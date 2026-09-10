@@ -32,6 +32,7 @@ import {
   useFrameworkActions,
   useSections,
 } from "@/lib/store/performance";
+import { NoticeLine } from "@/components/portal/notice-line";
 import { QUESTION_BANK } from "@/lib/performance/question-bank";
 
 /** Who a question is put to. `REPORT` exists in the enum and nothing reaches it. */
@@ -65,6 +66,7 @@ const KINDS: { value: ReviewQuestionKind; label: string }[] = [
   { value: "RATING", label: "A rating on the company scale" },
   { value: "BOOLEAN", label: "Yes or no" },
   { value: "CHOICE", label: "Pick from a list" },
+  { value: "FILE", label: "A file — a report, a dashboard, a screenshot" },
 ];
 
 const AUDIENCE_LABEL: Record<ReviewAudience, string> = {
@@ -79,7 +81,42 @@ const KIND_LABEL: Record<ReviewQuestionKind, string> = {
   RATING: "Rating",
   BOOLEAN: "Yes or no",
   CHOICE: "Pick one",
+  FILE: "A file",
 };
+
+/**
+ * Why an evidence question cannot be asked of colleagues.
+ *
+ * Returns null when the set is fine, and the API's own rule otherwise, checked
+ * here so the refusal arrives while somebody is still writing the question
+ * rather than after they press save.
+ *
+ * The rule itself: a peer answer carries **no respondent** by design, and a
+ * file carries its author in its metadata and usually in its name. Anonymity a
+ * file quietly breaks is worse than none, because people answered believing
+ * it. And "everyone on the form" includes colleagues, so an evidence question
+ * has to say who it is for.
+ */
+function evidenceAudienceRefusal(
+  kind: ReviewQuestionKind,
+  narrowed: boolean,
+  audiences: readonly ReviewAudience[],
+): string | null {
+  if (kind !== "FILE") return null;
+  if (!narrowed) {
+    return (
+      "Say who is asked for a file. Left as everyone it would include " +
+      "colleagues, and peer feedback is anonymous."
+    );
+  }
+  if (audiences.includes("PEER")) {
+    return (
+      "A file cannot be asked of colleagues. Peer feedback is anonymous, and " +
+      "a document carries its author's name in ways we cannot strip out."
+    );
+  }
+  return null;
+}
 
 /**
  * The questions on one appraisal period.
@@ -242,6 +279,11 @@ export function QuestionsDialog({
         "Choose who is asked, or set it back to everyone on the form. " +
           "A question nobody is asked is never answered.",
       );
+      return;
+    }
+    const evidenceRefusal = evidenceAudienceRefusal(kind, narrowed, audiences);
+    if (evidenceRefusal) {
+      setError(evidenceRefusal);
       return;
     }
     setError(null);
@@ -451,6 +493,15 @@ export function QuestionsDialog({
 
           {narrowed && (
             <AudiencePicker value={audiences} onChange={setAudiences} />
+          )}
+
+          {/* The rule while somebody is choosing, not after they save.
+              `evidenceAudienceRefusal` is the same function `save` calls, so
+              the note and the refusal cannot come to say different things. */}
+          {evidenceAudienceRefusal(kind, narrowed, audiences) && (
+            <NoticeLine tone="warning">
+              <span>{evidenceAudienceRefusal(kind, narrowed, audiences)}</span>
+            </NoticeLine>
           )}
 
           <SubsectionPicker value={competencyId} onChange={setCompetencyId} />
