@@ -55,6 +55,49 @@ import { MODULES, type ModuleId } from "@/lib/marketing/modules";
 export type BadgeSource =
   "approvals" | "pendingLeave" | "notClockedIn" | "unreadNotifications";
 
+/**
+ * A question about the rows rather than about the reader.
+ *
+ * A string union rather than a boolean per item, so that a second module
+ * wanting the same treatment — Signatures is the obvious candidate, gated
+ * `always` today for the identical reason — adds a member here and is then
+ * *forced* to answer it: `NavFacts.rows` is a total `Record`, so an
+ * unanswered fact does not compile. The alternative, a predicate function on
+ * the item, would let one be added that nobody ever calls.
+ */
+export type NavRowFact = "one-on-ones";
+
+/**
+ * What the sidebar knows that is neither a permission nor a feature flag.
+ *
+ * Both members default to **false**, and that direction is deliberate in both
+ * cases: the answers arrive a moment after the sidebar does, and an item that
+ * appears late is better than one that appears and then vanishes under
+ * somebody's pointer. `useAssistantAvailable` and `useIsManager` each record
+ * the same call for the same reason.
+ */
+export type NavFacts = {
+  /**
+   * Whether an assistant is answering — a fact about the server, read from a
+   * cache the shell already holds (`lib/store/ai.ts`).
+   */
+  assistantWired: boolean;
+  /** One answer per row-level question. Total, so none can be forgotten. */
+  rows: Record<NavRowFact, boolean>;
+};
+
+/**
+ * The state the sidebar renders in before anything has answered.
+ *
+ * Named rather than inlined so that adding a `NavRowFact` stops *this* line
+ * compiling, which is the moment somebody decides what the honest default for
+ * the new question is.
+ */
+export const NOTHING_ANSWERED_YET: NavFacts = {
+  assistantWired: false,
+  rows: { "one-on-ones": false },
+};
+
 export type NavItem = {
   href: string;
   label: string;
@@ -141,6 +184,26 @@ export type NavItem = {
    * different job and a different screen.
    */
   assistant?: true;
+
+  /**
+   * Hidden unless the **rows** say this is the reader's.
+   *
+   * A fourth question, and separate from the three above for the same reason
+   * `assistant` is separate from `permission` and `feature`: it is about
+   * neither the person's grants, the company's flags, nor the server. It is
+   * about whether there is anything behind the door *for them*.
+   *
+   * It exists because `always: true` was the wrong answer to a right
+   * observation. One-to-ones are readable by their two participants, which no
+   * `useCan` can express — and the conclusion drawn from that was to show the
+   * row to everybody and let the API refuse. The feedback was exact: *"I
+   * shouldn't have one-to-ones if I am not a departmental manager and above,
+   * as this creates always errors for the employee role."*
+   *
+   * Row-level is not the same as unanswerable. The rows can be asked, and the
+   * shell asks them — see `NavFacts` and `NOTHING_ANSWERED_YET`.
+   */
+  rows?: NavRowFact;
 
   /**
    * Always visible, whatever the flags say.
@@ -313,15 +376,20 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       always: true,
     },
     {
-      /* `always`, and no permission: a one-to-one is between two people, so
-         "may I see this" is a property of the rows rather than of the caller
-         — the API answers it and no `useCan` here can. Somebody in none at
-         all gets an empty screen offering to start one with their reports,
-         which is the honest answer and is also how the feature is found. */
+      /* No permission, because none of them is the question: a one-to-one is
+         readable by its two participants, which is a property of the rows.
+         That much was always right. What followed from it was not — the item
+         was `always: true`, so every employee carried a sidebar row whose only
+         control offered the whole directory and had each choice refused.
+
+         `rows` asks the rows instead: showing to somebody who manages people,
+         or who is already in one as the report. Everybody else has nothing
+         behind this door yet, and the honest sidebar says so by not having
+         it. It comes back the moment their manager starts one. */
       href: "/people/one-on-ones",
       label: "One-to-ones",
       icon: <MessagesSquare aria-hidden="true" />,
-      always: true,
+      rows: "one-on-ones",
     },
     {
       /* Laptops, phones and SIM cards. Gated to the register's audience
@@ -720,13 +788,16 @@ export const NAV: NavGroup[] = [
  *
  * - **Assistant** is about the server. Nobody sees the assistant until a
  *   credential is set on the API, because until then there is nothing behind the
- *   door. `assistantWired` is `useAssistantAvailable().available`, read from a
- *   cache the shell already holds — see `lib/store/ai.ts`.
+ *   door. `facts.assistantWired` is `useAssistantAvailable().available`, read
+ *   from a cache the shell already holds — see `lib/store/ai.ts`.
+ * - **Rows** is about neither. Some things are the reader's because of what is
+ *   in the table, not because of a grant: a one-to-one belongs to its two
+ *   participants. `facts.rows` carries those answers — see `NavRowFact`.
  *
- * An item needs to pass all three. `always: true` opts out of the permission
+ * An item needs to pass all four. `always: true` opts out of the **permission**
  * check only — a feature flag still hides an item, because a capability the
- * company has switched off has no screen to show, and neither of the other two
- * questions is about the reader.
+ * company has switched off has no screen to show, and none of the other three
+ * questions is about the reader's grants.
  *
  * A group whose every item is filtered out disappears with its heading. A
  * heading over nothing is worse than no heading, and with the groups now named
@@ -744,13 +815,11 @@ export function visibleNav(
   permissions: ReadonlySet<PermissionKey>,
   features: Partial<Record<FeatureKey, boolean>>,
   /**
-   * Whether an assistant is answering. **Defaults to false**, deliberately: the
-   * status arrives a moment after the sidebar does, and an item that appears
-   * late is better than one that appears and then vanishes under somebody's
-   * pointer. Same reasoning `useAssistantAvailable` gives for returning `false`
-   * while it is still loading.
+   * The answers that are about neither the person nor the company — see
+   * `NavFacts`. Defaults to `NOTHING_ANSWERED_YET`, which hides everything
+   * that depends on one; the reasoning for that direction is on the type.
    */
-  assistantWired = false,
+  facts: NavFacts = NOTHING_ANSWERED_YET,
 ): NavGroup[] {
   return groups
     .map((group) => ({
@@ -759,7 +828,11 @@ export function visibleNav(
         if (item.feature !== undefined && features[item.feature] === false) {
           return [];
         }
-        if (item.assistant && !assistantWired) return [];
+        if (item.assistant && !facts.assistantWired) return [];
+        /* Before the permission checks, and before `always`, because it is a
+           different question from all of them: `always` opts out of asking
+           about the *reader*, and this is not about the reader. */
+        if (item.rows !== undefined && !facts.rows[item.rows]) return [];
 
         /* Two destinations, one label. Resolved here rather than in the shell
            so every consumer of `visibleNav` — the sidebar, the mobile sheet,

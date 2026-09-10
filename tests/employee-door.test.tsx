@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { NAV, visibleNav } from "@/components/portal/nav";
+import { NAV, visibleNav, type NavFacts } from "@/components/portal/nav";
 import { failureMessage } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
 import type { PermissionKey } from "@/lib/permission-keys";
@@ -23,9 +23,22 @@ import type { PermissionKey } from "@/lib/permission-keys";
 const HR = new Set<PermissionKey>(["EDIT_RECORDS"]);
 const EMPLOYEE = new Set<PermissionKey>([]);
 const ALL_FEATURES = {};
+/* The row-level answers this file does not care about, set to whatever keeps
+   the most items on screen — these tests are about permissions and feature
+   flags, and a hidden row would be a false negative rather than a finding.
+   `one-on-ones` is exercised properly in `one-on-one-by-role.test.ts`. */
+const EVERYTHING_ANSWERED: NavFacts = {
+  assistantWired: true,
+  rows: { "one-on-ones": true },
+};
 
 const hrefFor = (label: string, permissions: ReadonlySet<PermissionKey>) => {
-  for (const group of visibleNav(NAV, permissions, ALL_FEATURES, true)) {
+  for (const group of visibleNav(
+    NAV,
+    permissions,
+    ALL_FEATURES,
+    EVERYTHING_ANSWERED,
+  )) {
     const item = group.items.find((candidate) => candidate.label === label);
     if (item) return item.href;
   }
@@ -50,9 +63,12 @@ describe("one label, the destination that belongs to the reader", () => {
     /* The obvious alternative — a second "My documents" entry — grows a
        sidebar this product deliberately keeps short, which is the argument
        that moved these into the account menu in the first place. */
-    const labels = visibleNav(NAV, HR, ALL_FEATURES, true).flatMap((group) =>
-      group.items.map((item) => item.label),
-    );
+    const labels = visibleNav(
+      NAV,
+      HR,
+      ALL_FEATURES,
+      EVERYTHING_ANSWERED,
+    ).flatMap((group) => group.items.map((item) => item.label));
     expect(labels.filter((l) => l === "Documents")).toHaveLength(1);
     expect(labels.filter((l) => l === "Equipment")).toHaveLength(1);
   });
@@ -82,11 +98,16 @@ describe("one label, the destination that belongs to the reader", () => {
     ];
 
     expect(
-      visibleNav(group, EMPLOYEE, { loans: true }, true)[0]?.items[0]?.href,
+      visibleNav(group, EMPLOYEE, { loans: true }, EVERYTHING_ANSWERED)[0]
+        ?.items[0]?.href,
     ).toBe("/loans");
-    expect(visibleNav(group, EMPLOYEE, { loans: false }, true)).toEqual([]);
+    expect(
+      visibleNav(group, EMPLOYEE, { loans: false }, EVERYTHING_ANSWERED),
+    ).toEqual([]);
     /* And for HR too — the flag is about the company, not the reader. */
-    expect(visibleNav(group, HR, { loans: false }, true)).toEqual([]);
+    expect(
+      visibleNav(group, HR, { loans: false }, EVERYTHING_ANSWERED),
+    ).toEqual([]);
   });
 });
 
