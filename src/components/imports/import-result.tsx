@@ -228,43 +228,72 @@ export function ImportOutcome({
             title={`The ${count(missed)} ${missed === 1 ? "row" : "rows"} that did not import`}
             description="Named, not counted. Every one of these is still exactly as it was in your file."
           />
-          <TableWrap
-            className="rounded-none border-0 border-t border-line"
-            caption="Rows that did not import"
-          >
-            <THead>
-              <TH className="w-20">Row</TH>
-              <TH>Who</TH>
-              <TH>Why it did not import</TH>
-            </THead>
-            <TBody>
-              {result.notImported.slice(0, 60).map((row) => {
-                const line = byRow.get(row);
-                return (
-                  <TR key={row}>
-                    <TD className="tabular align-top font-medium text-ink">
-                      {row}
-                    </TD>
-                    <TD className="align-top">
-                      <span className="text-meta text-ink">
-                        {line?.name ?? line?.employeeNo ?? "—"}
-                      </span>
-                    </TD>
-                    <TD className="align-top">
-                      <span className="text-meta text-body">
-                        {line?.duplicate?.decision === "skip"
-                          ? `You chose to leave ${line.duplicate.name} alone.`
-                          : (line?.problems.find(
-                              (issue) => issue.severity === "error",
-                            )?.problem ??
-                            "This row was not sent, because an earlier part failed.")}
-                      </span>
-                    </TD>
-                  </TR>
-                );
-              })}
-            </TBody>
-          </TableWrap>
+          <div className="hidden sm:block">
+            <TableWrap
+              className="rounded-none border-0 border-t border-line"
+              caption="Rows that did not import"
+            >
+              <THead>
+                <TH className="w-20">Row</TH>
+                <TH>Who</TH>
+                <TH>Why it did not import</TH>
+              </THead>
+              <TBody>
+                {result.notImported.slice(0, 60).map((row) => {
+                  const line = byRow.get(row);
+                  return (
+                    <TR key={row}>
+                      <TD className="tabular align-top font-medium text-ink">
+                        {row}
+                      </TD>
+                      <TD className="align-top">
+                        <span className="text-meta text-ink">
+                          {line?.name ?? line?.employeeNo ?? "—"}
+                        </span>
+                      </TD>
+                      <TD className="align-top">
+                        <span className="text-meta text-body">
+                          {line?.duplicate?.decision === "skip"
+                            ? `You chose to leave ${line.duplicate.name} alone.`
+                            : (line?.problems.find(
+                                (issue) => issue.severity === "error",
+                              )?.problem ??
+                              "This row was not sent, because an earlier part failed.")}
+                        </span>
+                      </TD>
+                    </TR>
+                  );
+                })}
+              </TBody>
+            </TableWrap>
+          </div>
+
+          <ul className="divide-y divide-line border-t border-line sm:hidden">
+            {result.notImported.slice(0, 60).map((row) => {
+              const line = byRow.get(row);
+              return (
+                <li key={row} className="flex flex-col gap-1.5 p-4">
+                  <div className="flex items-center gap-2">
+                    <span className="tabular text-body-sm font-medium text-ink">
+                      Row {row}
+                    </span>
+                    <span className="text-meta text-ink">
+                      {line?.name ?? line?.employeeNo ?? "—"}
+                    </span>
+                  </div>
+                  <p className="text-meta text-body">
+                    {line?.duplicate?.decision === "skip"
+                      ? `You chose to leave ${line.duplicate.name} alone.`
+                      : (line?.problems.find(
+                          (issue) => issue.severity === "error",
+                        )?.problem ??
+                        "This row was not sent, because an earlier part failed.")}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+
           {missed > 60 && (
             <CardBody className="py-3.5 text-meta text-muted">
               The first 60 are listed. Download the file above for all{" "}

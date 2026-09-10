@@ -28,6 +28,44 @@ import {
 } from "@/lib/imports/mapping";
 import type { Dictionary } from "@/lib/imports/spec";
 
+/** The "Becomes" select — one copy shared by the desktop row and the mobile
+    card, so a taken field disables in both the same way. */
+function ColumnMapSelect({
+  heading,
+  field,
+  options,
+  claimedBy,
+  onChange,
+}: {
+  heading: string;
+  field: string;
+  options: ReturnType<typeof fieldOptions>;
+  claimedBy: Map<string, string>;
+  onChange: (heading: string, field: string) => void;
+}) {
+  return (
+    <Select
+      aria-label={`What the ${heading} column becomes`}
+      value={field}
+      className="sm:min-w-52"
+      onChange={(event) => onChange(heading, event.currentTarget.value)}
+    >
+      <option value="">Do not import</option>
+      {options.map((option) => {
+        const holder = claimedBy.get(option.field);
+        const taken = holder !== undefined && holder !== heading;
+        return (
+          <option key={option.field} value={option.field} disabled={taken}>
+            {option.label}
+            {option.required ? " (needed)" : ""}
+            {taken ? `, already ${holder}` : ""}
+          </option>
+        );
+      })}
+    </Select>
+  );
+}
+
 /**
  * Step two: match the columns. Entity-agnostic — every column, heading, note and
  * required-set comes off the dictionary it is given.
@@ -199,80 +237,106 @@ export function MatchColumns({
             </div>
           </div>
 
-          <TableWrap caption="Each column in your file and what it becomes">
-            <THead>
-              <TH>In your file</TH>
-              <TH>An example from it</TH>
-              <TH>Becomes</TH>
-              <TH>What goes in it</TH>
-            </THead>
-            <TBody>
-              {shown.map((heading) => {
-                const field = mapping[heading] ?? "";
-                const sample = sampleOf(heading);
-                return (
-                  <TR key={heading}>
-                    <TD className="align-top">
-                      <span className="block text-meta font-medium text-ink break-words">
-                        {heading}
-                      </span>
-                      {!field && (
-                        <Badge tone="neutral" size="sm" className="mt-1">
-                          Not imported
-                        </Badge>
-                      )}
-                    </TD>
-                    <TD className="align-top">
-                      {sample ? (
-                        <span className="text-meta text-body break-words">
-                          {sample}
+          <div className="hidden sm:block">
+            <TableWrap caption="Each column in your file and what it becomes">
+              <THead>
+                <TH>In your file</TH>
+                <TH>An example from it</TH>
+                <TH>Becomes</TH>
+                <TH>What goes in it</TH>
+              </THead>
+              <TBody>
+                {shown.map((heading) => {
+                  const field = mapping[heading] ?? "";
+                  const sample = sampleOf(heading);
+                  return (
+                    <TR key={heading}>
+                      <TD className="align-top">
+                        <span className="block text-meta font-medium text-ink break-words">
+                          {heading}
                         </span>
-                      ) : (
-                        <span className="text-meta text-faint">
-                          Empty in the first rows
+                        {!field && (
+                          <Badge tone="neutral" size="sm" className="mt-1">
+                            Not imported
+                          </Badge>
+                        )}
+                      </TD>
+                      <TD className="align-top">
+                        {sample ? (
+                          <span className="text-meta text-body break-words">
+                            {sample}
+                          </span>
+                        ) : (
+                          <span className="text-meta text-faint">
+                            Empty in the first rows
+                          </span>
+                        )}
+                      </TD>
+                      <TD className="align-top">
+                        <ColumnMapSelect
+                          heading={heading}
+                          field={field}
+                          options={options}
+                          claimedBy={claimedBy}
+                          onChange={onChange}
+                        />
+                      </TD>
+                      <TD className="align-top">
+                        <span className="text-meta text-muted">
+                          {field
+                            ? noteFor(dictionary, field)
+                            : "This column stays in your file."}
                         </span>
-                      )}
-                    </TD>
-                    <TD className="align-top">
-                      <Select
-                        aria-label={`What the ${heading} column becomes`}
-                        value={field}
-                        className="min-w-52"
-                        onChange={(event) =>
-                          onChange(heading, event.currentTarget.value)
-                        }
-                      >
-                        <option value="">Do not import</option>
-                        {options.map((option) => {
-                          const holder = claimedBy.get(option.field);
-                          const taken =
-                            holder !== undefined && holder !== heading;
-                          return (
-                            <option
-                              key={option.field}
-                              value={option.field}
-                              disabled={taken}
-                            >
-                              {option.label}
-                              {option.required ? " (needed)" : ""}
-                              {taken ? `, already ${holder}` : ""}
-                            </option>
-                          );
-                        })}
-                      </Select>
-                    </TD>
-                    <TD className="align-top">
-                      <span className="text-meta text-muted">
-                        {field
-                          ? noteFor(dictionary, field)
-                          : "This column stays in your file."}
-                      </span>
-                    </TD>
-                  </TR>
-                );
-              })}
-            </TBody>
-          </TableWrap>
+                      </TD>
+                    </TR>
+                  );
+                })}
+              </TBody>
+            </TableWrap>
+          </div>
+
+          <ul className="divide-y divide-line sm:hidden">
+            {shown.map((heading) => {
+              const field = mapping[heading] ?? "";
+              const sample = sampleOf(heading);
+              return (
+                <li key={heading} className="flex flex-col gap-2 py-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-body-sm font-medium text-ink break-words">
+                      {heading}
+                    </span>
+                    {!field && (
+                      <Badge tone="neutral" size="sm">
+                        Not imported
+                      </Badge>
+                    )}
+                  </div>
+
+                  {sample ? (
+                    <p className="text-meta text-body break-words">{sample}</p>
+                  ) : (
+                    <p className="text-meta text-faint">
+                      Empty in the first rows
+                    </p>
+                  )}
+
+                  <ColumnMapSelect
+                    heading={heading}
+                    field={field}
+                    options={options}
+                    claimedBy={claimedBy}
+                    onChange={onChange}
+                  />
+
+                  <p className="text-meta text-muted">
+                    {field
+                      ? noteFor(dictionary, field)
+                      : "This column stays in your file."}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
 
           {shown.length === 0 && (
             <p className="py-6 text-center text-meta text-muted">
