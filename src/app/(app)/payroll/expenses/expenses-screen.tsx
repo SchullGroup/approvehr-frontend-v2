@@ -20,6 +20,7 @@ import {
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { FeatureOffLine } from "@/components/portal/feature-off-line";
 import { ApiError } from "@/lib/api/client";
 import { usePermissions } from "@/lib/permissions";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
@@ -276,6 +277,7 @@ export function ExpensesScreen() {
       />
 
       <PageBody className="flex flex-col gap-6">
+        <FeatureOffLine feature="expenses" />
         {DEMO_ENABLED && mode === "offline" && (
           <p className="flex flex-wrap items-center gap-2 text-body-sm text-muted">
             <Badge tone="warning" size="sm">

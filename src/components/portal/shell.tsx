@@ -10,7 +10,13 @@ import { Logo } from "@/components/brand/logo";
 import { Avatar, Badge, MoneyPrivacyToggle } from "@/components/ui";
 import { CommandPalette } from "./command-palette";
 import { GuidedTour, openTour } from "./tour/guided-tour";
-import { NAV, visibleNav, type BadgeSource, type NavGroup } from "./nav";
+import {
+  NAV,
+  visibleNav,
+  type BadgeSource,
+  type NavFacts,
+  type NavGroup,
+} from "./nav";
 import { SessionRoleBadge } from "./role-badge";
 import {
   hasAnyPermission,
@@ -24,9 +30,12 @@ import { useUnreadCount } from "@/lib/store/notifications";
 import { useApprovalQueue } from "@/lib/store/approvals-api";
 import { useLeaveRequests } from "@/lib/store/leave-api";
 import { useAttendanceRoster } from "@/lib/store/attendance";
+import { useAmIInAOneOnOne } from "@/lib/store/one-on-ones";
+import { useHaveIAnySignatures } from "@/lib/store/signatures";
 import { APPROVE_PERMISSIONS } from "@/app/(app)/approvals/inbox";
 import { useSession } from "@/lib/store/session";
 import { useCompanyLogo } from "@/lib/store/company";
+import { InstallPrompt } from "./install-prompt";
 import { VerificationBanner } from "./verification-banner";
 
 /**
@@ -64,17 +73,63 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  /* The sidebar is filtered by who is looking, what the company turned on, and
-     whether an assistant is answering. All three hooks answer from a cache after
-     first load, so this is not a request per render — see their headers.
-     `useAssistantAvailable` was a per-component `useState` until the nav started
-     reading it; it is a session-wide singleton now for exactly this line. */
+  /* The sidebar is filtered by who is looking, what the company turned on,
+     whether an assistant is answering, and what the rows say. Every hook here
+     answers from a cache after first load, so this is not a request per
+     render — see their headers. `useAssistantAvailable` was a per-component
+     `useState` until the nav started reading it; it is a session-wide
+     singleton now for exactly this line. */
   const { permissions } = usePermissions();
   const features = useFeatures();
   const { available: assistantWired } = useAssistantAvailable();
+  /* Asked again here rather than lifted out of `useNavBadges`: the answer is a
+     shared, session-cached fact about one person (see `useIsManager`), so a
+     second reader is a map lookup, and threading it between two hooks in this
+     file would couple the sidebar's filter to the badge counts. */
+  const isManager = useIsManager();
+
+  /* One-to-ones: showing to somebody who manages people, or who is in one as
+     the report.
+     ---------------------------------------------------------------------
+     `isManager` is already in this component for the approvals badge, so the
+     first half costs nothing. The second half is a request, and it is skipped
+     for a manager — `enabled` is false there, so the hook passes a null key
+     and fetches nothing. The item is already showing on the first ground; a
+     second reason to show it is not worth a round trip.
+
+     Which puts the one request on exactly the people this is for: an employee
+     with no reports, once per session, and the answer is usually an empty
+     list. */
+  const inAOneOnOne = useAmIInAOneOnOne(!isManager);
+
+  /* Signatures: showing to somebody who can send, or who has one of their own.
+     ---------------------------------------------------------------------
+     Same shape as above and the same skip: `EDIT_RECORDS` is the permission
+     the API requires to send, so anybody holding it gets the row on that
+     ground and the request is not made for them. Everybody else pays one
+     request per session to find out whether the module is theirs. */
+  const canSendForSignature = hasPermission(permissions, "EDIT_RECORDS");
+  const haveSignatures = useHaveIAnySignatures(!canSendForSignature);
+
+  const facts: NavFacts = useMemo(
+    () => ({
+      assistantWired,
+      rows: {
+        "one-on-ones": isManager || inAOneOnOne,
+        signatures: canSendForSignature || haveSignatures,
+      },
+    }),
+    [
+      assistantWired,
+      isManager,
+      inAOneOnOne,
+      canSendForSignature,
+      haveSignatures,
+    ],
+  );
   const groups = useMemo(
-    () => visibleNav(NAV, permissions, features, assistantWired),
-    [permissions, features, assistantWired],
+    () => visibleNav(NAV, permissions, features, facts),
+    [permissions, features, facts],
   );
 
   const nav = (
@@ -207,6 +262,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               so it stays on screen through a scroll rather than scrolling
               away with the page. */}
           <VerificationBanner />
+          {/* Below the verification strip, because verifying an email is
+              something you have to do and installing the app is a suggestion.
+              Renders nothing on a desktop, nothing if it is already installed,
+              and nothing in a browser that cannot install — see the component. */}
+          <InstallPrompt />
           {children}
         </main>
       </div>
@@ -657,6 +717,7 @@ export function PageHeader({
   breadcrumb,
   action,
   meta,
+  description,
   tabs,
 }: {
   title: string;
@@ -664,6 +725,20 @@ export function PageHeader({
   action?: React.ReactNode;
   /** Small status chips shown beside the title. */
   meta?: React.ReactNode;
+  /**
+   * One sentence saying what this screen is, under the title.
+   *
+   * Distinct from `meta`, which is chips *beside* the title — a status, a
+   * count, a padlock. This is for a screen whose name does not explain it, and
+   * it exists because "One-to-ones" with a padlock reading "private to the two
+   * people in them" told somebody what the permissions were and nothing about
+   * what the thing was or why it was theirs.
+   *
+   * Use it sparingly. Most screens in this product are named after the noun
+   * they list and a sentence under them is furniture; the ones that need it are
+   * the ones somebody clicks once and leaves.
+   */
+  description?: string;
   tabs?: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -771,6 +846,14 @@ export function PageHeader({
               <h1 className="text-h3 text-ink">{title}</h1>
               {meta}
             </div>
+            {description && (
+              /* `max-w-2xl` so a sentence does not run the full width of a
+                 desktop — a line somebody has to track across 1600px is a line
+                 they skip, which defeats the point of having written it. */
+              <p className="mt-1.5 max-w-2xl text-body-sm leading-relaxed text-body">
+                {description}
+              </p>
+            )}
           </div>
           {action && (
             /* Wraps, and is allowed to shrink.

@@ -304,6 +304,15 @@ function ObjectiveCard({
               <Badge tone="accent" size="sm">
                 Company objective
               </Badge>
+            ) : goal.level === "department" ? (
+              /* A department's shared target, which HR agrees — the approval
+                 step the cascade puts between it and the KPIs beneath it. So
+                 this queue has to say which department, not "No owner". */
+              <Badge tone="accent" size="sm">
+                {goal.departmentName
+                  ? `${goal.departmentName} objective`
+                  : "Department objective"}
+              </Badge>
             ) : goal.ownerName ? (
               <span className="flex items-center gap-1.5">
                 <Avatar name={goal.ownerName} size="xs" />
@@ -354,6 +363,33 @@ function ObjectiveCard({
                 {formatMeasure(measure.targetValue, measure.unit)}
               </span>
               {measure.lowerIsBetter && " (counting down)"}
+              {/* Where it stands now, beside what is being asked for.
+                  ----------------------------------------------------------
+                  Not decoration on an approval screen. Somebody agreeing a
+                  target has to be able to see that the work is already done:
+                  an objective sitting at its target before anybody agreed it
+                  is the post-hoc target this whole lifecycle exists to catch,
+                  and the range alone cannot show it.
+
+                  Three readings, kept apart, because "no progress recorded"
+                  and "recorded as still at the starting figure" are the same
+                  number and not the same fact — the first is silence and the
+                  second is a measurement. `currentValue` equal to
+                  `startValue` is the API's own way of saying nothing has been
+                  recorded, so it is not dressed up as a reading. */}
+              {measure.met ? (
+                <span className="ml-1.5 font-medium text-warning-text">
+                  · already at target
+                </span>
+              ) : measure.currentValue === measure.startValue ? (
+                <span className="ml-1.5 text-muted">
+                  · nothing recorded yet
+                </span>
+              ) : (
+                <span className="ml-1.5 tabular text-muted">
+                  · now {formatMeasure(measure.currentValue, measure.unit)}
+                </span>
+              )}
             </li>
           ))}
         </ul>

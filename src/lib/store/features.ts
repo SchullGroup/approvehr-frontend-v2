@@ -138,6 +138,9 @@ const BASE_FLAGS: FeatureFlags = {
   /* Off, like every module. A company with one manager per person must never be
      shown a weighting table it did not ask for. */
   multiAppraiser: false,
+  /* Off, matching the API's own default: a company that has not asked for a
+     second approver keeps the one-step flow it already had. */
+  leaveTwoStepApproval: false,
   twoFactor: false,
 };
 
@@ -249,6 +252,13 @@ export const FEATURE_COPY: Record<
   twoFactor: {
     label: "Ask for a code from email",
     line: "People who have set it up are asked for a six-digit code when they sign in. You choose separately which actions also need one.",
+  },
+  /* Rendered on `/settings/leave` rather than `/settings/features` — see
+     `WORKFLOW_FEATURE_KEYS`. The copy lives here anyway so the label and the
+     consequence are written once, wherever the switch is placed. */
+  leaveTwoStepApproval: {
+    label: "The departmental lead approves leave first",
+    line: "A request goes to the person who heads their department, and to HR only once that is approved. A decline at either step is final and the employee hears once.",
   },
 };
 
@@ -571,7 +581,17 @@ function demoDefaults(): DemoState {
     flags: BASE_FLAGS,
     headcountBand: "UNDER_10",
     setupStep: 0,
-    setupCompletedAt: null,
+    /* `null` for the self-serve demo — a genuinely new company should meet the
+       wizard, the same as the real thing. The standalone sales build cannot
+       afford it: a prospect opening the link on a fresh laptop or in a fresh
+       incognito window would land on setup rather than the product, with
+       nobody there to explain. So `SALES_SCRIPT_ENABLED` starts the seeded
+       company already through it — see `lib/sales-script.ts`.
+
+       The **only** field that flag changes about `DemoState`. Everything else
+       a prospect sees is the same demo everybody else gets, which is what
+       keeps this a different door rather than a different product. */
+    setupCompletedAt: SALES_SCRIPT_ENABLED ? "2026-01-01T00:00:00.000Z" : null,
     /* PAYE and pension on, matching the API's own defaults — a company that
        has answered nothing deducts what the law already expected of it. NHF
        off, also matching the API: there is no equivalent history for NHF,
@@ -653,6 +673,7 @@ function fromApi(features: ApiFeatures): State {
       pensionSetup: features.pensionSetup,
       bankDetails: features.bankDetails,
       multiAppraiser: features.multiAppraiser,
+      leaveTwoStepApproval: features.leaveTwoStepApproval,
     },
     headcountBand: features.headcountBand,
     setupStep: features.setupStep,
@@ -853,6 +874,7 @@ export function useFeatureSettings() {
           pensionSetup: features.pensionSetup,
           bankDetails: features.bankDetails,
           multiAppraiser: features.multiAppraiser,
+          leaveTwoStepApproval: features.leaveTwoStepApproval,
           headcountBand: features.headcountBand,
         };
       } finally {

@@ -2675,5 +2675,18 @@ export function useRepairActions() {
       },
       [isConnected],
     ),
+    confirmReturn: useCallback(
+      async (id: string) => {
+        if (!isConnected) {
+          throw unprocessable(
+            "Confirming a return needs the API. In the demo nothing was ever away.",
+          );
+        }
+        const closed = await api.confirmRepairReturn(id);
+        bumpRevision();
+        return closed;
+      },
+      [isConnected],
+    ),
   };
 }

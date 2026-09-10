@@ -353,6 +353,33 @@
     scroll-behavior: smooth;
   }
 
+  /* A pointer over anything you can press.
+     ---------------------------------------------------------------------
+     Tailwind v4's preflight sets `button { cursor: default }`, reversing v3,
+     so **every button in this product showed an arrow** — the design system's
+     and the ones written by hand alike. Restored here in one rule rather than
+     as a class on each primitive, because the class version has to be
+     remembered by every author of every new button and this does not: it was
+     already missing from `button.tsx`, `tabs.tsx`, `disclosure.tsx`,
+     `modal.tsx`, `picker.tsx` and `misc.tsx`, which is what a rule nobody has
+     to remember is worth.
+
+     `:disabled` and `aria-disabled` are excluded rather than left to the
+     utility that sets `cursor-not-allowed`: a base rule that fought a utility
+     would win or lose depending on layer order, and a control that cannot be
+     pressed must never look like it can. */
+  button:not(:disabled):not([aria-disabled="true"]),
+  select:not(:disabled),
+  summary,
+  [role="button"]:not([aria-disabled="true"]),
+  [role="tab"]:not([aria-disabled="true"]),
+  [role="switch"]:not([aria-disabled="true"]),
+  [role="option"]:not([aria-disabled="true"]),
+  label:has(> input[type="checkbox"]:not(:disabled)),
+  label:has(> input[type="radio"]:not(:disabled)) {
+    cursor: pointer;
+  }
+
   /* No native step arrows on a number input, anywhere. They invite a scroll
      or an arrow-key tap to change a salary or a rent figure by one, silently
      — the `Input` component's own `onWheel` handler is the other half of
@@ -882,4 +909,118 @@
     outline: 2px solid var(--color-accent-text);
     outline-offset: 2px;
   }
+}
+
+/* --------------------------------------------------------------------------
+   The assistant's presence. One brand-coloured orb, reused wherever the chat
+   needs to say "something is happening" without inventing a step that is not
+   real. `/ai/chat` is one round trip per turn, not a named pipeline with
+   stages to report — so the honest version of progress is a calm, alive
+   presence rather than a fake checklist. See `components/portal/assistant-orb`.
+
+   Three phases, one shape:
+   - resting (no modifier class): a still brand mark — message avatars, the
+     empty state. No animation at all, deliberately, so a transcript of many
+     messages does not turn into a row of independently pulsing dots.
+   - `--thinking`: a turn is in flight. The only place this should appear.
+   - `--arrive`: plays once, on mount, then settles to the same look as
+     resting. A freshly-landed assistant message mounts with this — since
+     the transcript is append-only and nothing is persisted (`store/ai-chat`),
+     every assistant turn is created exactly once, so this always plays
+     exactly when its answer actually arrives, never on a re-render.
+   -------------------------------------------------------------------------- */
+
+@keyframes ahr-orb-drift-a {
+  0%,
+  100% {
+    transform: translate(-10%, -8%) scale(1);
+  }
+  50% {
+    transform: translate(8%, 10%) scale(1.18);
+  }
+}
+
+@keyframes ahr-orb-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+/* A brief warm-to-brand-green sweep, then back to rest. Green is not
+   decorative in this system — see `--color-success`'s own note above,
+   "approved is the product's core verb" — so reusing that exact hue for
+   "the assistant has settled on an answer" is the same idea applied here
+   rather than a new one invented for this component. */
+@keyframes ahr-orb-arrive {
+  0% {
+    filter: hue-rotate(0deg) saturate(1) brightness(1);
+  }
+  35% {
+    filter: hue-rotate(55deg) saturate(1.5) brightness(1.1);
+  }
+  100% {
+    filter: hue-rotate(0deg) saturate(1) brightness(1);
+  }
+}
+
+.assistant-orb {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+  width: var(--orb-size, 32px);
+  height: var(--orb-size, 32px);
+  border-radius: 50%;
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--color-accent-soft);
+  box-shadow: 0 0 calc(var(--orb-size, 32px) * 0.45)
+    color-mix(in srgb, var(--color-accent) 30%, transparent);
+}
+
+.assistant-orb::before,
+.assistant-orb::after {
+  content: "";
+  position: absolute;
+  inset: -35%;
+  border-radius: 50%;
+}
+
+/* The blobs. Two soft, overlapping fields in the brand indigo and the
+   categorical teal — blurred proportionally to size so a 24px avatar and a
+   40px hero orb both read as soft rather than one of them looking smudged. */
+.assistant-orb::before {
+  background:
+    radial-gradient(circle at 32% 30%, var(--color-accent) 0%, transparent 62%),
+    radial-gradient(circle at 68% 68%, var(--color-cat-2) 0%, transparent 58%);
+  filter: blur(calc(var(--orb-size, 32px) * 0.16));
+}
+
+/* A thin iridescent ring on top — violet through to the brand green — kept to
+   two narrow arcs and blended with `overlay` so it reads as depth on the
+   sphere rather than a second, competing gradient. This is the layer that
+   keeps the orb from reading as the generic purple-on-white AI blob: the
+   violet never gets more than a sliver, and the dominant hue underneath is
+   always the brand indigo. */
+.assistant-orb::after {
+  background: conic-gradient(
+    from 210deg at 50% 50%,
+    var(--color-cat-4) 0deg,
+    transparent 80deg,
+    var(--color-success) 200deg,
+    transparent 300deg
+  );
+  mix-blend-mode: overlay;
+  opacity: 0.75;
+}
+
+.assistant-orb--thinking::before {
+  animation: ahr-orb-drift-a 3.4s var(--ease-in-out-soft) infinite;
+}
+
+.assistant-orb--thinking::after {
+  animation: ahr-orb-spin 6s linear infinite;
+}
+
+.assistant-orb--arrive {
+  animation: ahr-orb-arrive 1.1s var(--ease-out-soft) both;
 }
