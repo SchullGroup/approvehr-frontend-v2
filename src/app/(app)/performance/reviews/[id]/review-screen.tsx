@@ -486,7 +486,11 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
             )}
           </Card>
 
-          <TheirOwnAccount review={selfReview} loading={selfLoading} />
+          <TheirOwnAccount
+            review={selfReview}
+            loading={selfLoading}
+            ratingWords={ratingWords}
+          />
         </div>
       </PageBody>
 
@@ -566,9 +570,15 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
 function TheirOwnAccount({
   review,
   loading,
+  ratingWords,
 }: {
   review: ApiReviewDetail | null;
   loading: boolean;
+  /* Same convention as the rating displayed for the review being read on this
+     page (see the "Overall mark" Stat above): the word, not the digit, in
+     this company's own scale. Passed down rather than recomputed so the two
+     cannot ever quote a different scale. */
+  ratingWords: (level: number | null | undefined) => string | null;
 }) {
   if (loading) {
     return (
@@ -593,6 +603,22 @@ function TheirOwnAccount({
             : "Their answers, as they sent them. Yours are above."
         }
       />
+      {/* Their own overall mark, beside the manager's on the card above —
+          the comparison the doc feedback asked for: what did they rate
+          themselves, before you rate them. Absent, never zero. */}
+      <CardBody className="pb-0">
+        <Stat
+          label="Their overall mark"
+          value={
+            review.rating === null
+              ? "None given"
+              : (ratingWords(review.rating) as string)
+          }
+          {...(review.rating === null
+            ? { hint: "The answers were the judgement" }
+            : {})}
+        />
+      </CardBody>
       {review.summary && (
         <CardBody className="pb-0">
           <p className="text-body-sm leading-relaxed text-body">

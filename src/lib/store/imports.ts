@@ -120,6 +120,7 @@ const EXTRA_KEYS = [
   "kindsAdded",
   "parentsLinked",
   "headsSet",
+  "invited",
 ] as const satisfies readonly (keyof ApiApplyExtras)[];
 
 export type LoadedFile = {
