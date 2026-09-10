@@ -1161,6 +1161,39 @@ function Outstanding({
   if (!participants) return null;
   const { counts } = participants;
 
+  /**
+   * Both halves of each ratio, from one source.
+   *
+   * The manager denominator was `counts.people` — the headcount — and that is
+   * only right for a company where everybody has exactly one appraiser. It
+   * read *"Manager reviews in 0 of 10"* on a period where one of the ten has
+   * no manager review at all, on the same card that said 18 forms were
+   * outstanding (9 self + 9 manager), and two clicks away the overview strip
+   * reported 0 of 9 for the same figure.
+   *
+   * A manager review is a **review**, not a person: somebody with two
+   * appraisers owes two and somebody with none owes none. So the denominator
+   * is how many exist, counted off the same rows the numerator is counted
+   * off. `period-status.tsx` already states this rule for the report
+   * endpoint's `managerIn + managerOutstanding`; this screen reads a
+   * different endpoint and had not been given it.
+   *
+   * Self is derived the same way rather than kept on `counts.people`. It is
+   * very nearly always the headcount — everybody gets one — but `self` is
+   * nullable on a participant, and a ratio whose two halves come from
+   * different places is exactly the defect above.
+   */
+  const managerTotal = participants.rows.reduce(
+    (total, row) => total + row.managers.length,
+    0,
+  );
+  const managerIn = participants.rows.reduce(
+    (total, row) => total + row.managers.filter((one) => one.submitted).length,
+    0,
+  );
+  const selfTotal = participants.rows.filter((row) => row.self !== null).length;
+  const selfIn = participants.rows.filter((row) => row.self?.submitted).length;
+
   return (
     <Card>
       <CardHeader
@@ -1176,17 +1209,17 @@ function Outstanding({
           <Stat
             label="Self-reviews in"
             value={
-              counts.people === 0
+              selfTotal === 0
                 ? "Nobody has a form yet"
-                : `${counts.selfDone} of ${counts.people}`
+                : `${selfIn} of ${selfTotal}`
             }
           />
           <Stat
             label="Manager reviews in"
             value={
-              counts.people === 0
+              managerTotal === 0
                 ? "No manager review is due yet"
-                : `${counts.managerDone} of ${counts.people}`
+                : `${managerIn} of ${managerTotal}`
             }
           />
           <Stat label="Forms outstanding" value={String(rows.length)} />

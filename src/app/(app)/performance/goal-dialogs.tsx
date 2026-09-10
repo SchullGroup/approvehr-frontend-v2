@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Button,
   Checkbox,
@@ -27,6 +27,60 @@ import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { useAppraisals } from "@/lib/store/performance";
 import { useSession } from "@/lib/store/session";
 import { TODAY } from "@/lib/today";
+
+/**
+ * Whose work this caller leads — a mirror of the API's `leadsWorkOf`.
+ *
+ * Kept as one function because two dialogs in this file ask it and they had
+ * drifted in **opposite** directions, which is what two copies of a rule do:
+ *
+ * - the owner select offered `managerId === employeeId` only, so a department
+ *   head could not pick somebody in their own department even though
+ *   `createGoal` accepts exactly that. It under-offered.
+ * - the bulk assign dialog narrowed by the parent objective's department and
+ *   not by the caller at all, so an employee was shown ten colleagues and the
+ *   API refused every one. It over-offered.
+ *
+ * The rule on the API is `reviewableTeamOf`: everybody with `EDIT_RECORDS`,
+ * otherwise the caller's direct reports plus everybody in a department they
+ * head. `headedDepartmentIds` matches on `headId` alone, so it is the
+ * departments somebody heads and **not** the sub-departments beneath them.
+ *
+ * Matched on the department **name** rather than an id because `Employee`
+ * carries `department: string` and no `departmentId` — the API sends a name
+ * there too. Names are refused as duplicates on both sides, so the match is
+ * sound; give `Employee` a `departmentId` and this should move to it.
+ *
+ * Self is `true` here: `createGoal` and `assignGoal` both let somebody set
+ * their own. A call site that wants "somebody else" says so itself, because
+ * only it knows whether it offers a separate "me" option.
+ */
+function headedDepartmentNames(
+  departments: readonly { name: string; headId: string | null }[],
+  employeeId: string | null,
+): Set<string> {
+  if (!employeeId) return new Set<string>();
+  return new Set(
+    departments
+      .filter((one) => one.headId === employeeId)
+      .map((one) => one.name),
+  );
+}
+
+function leadsWorkOf(
+  person: { id: string; managerId: string | null; department: string },
+  actor: {
+    employeeId: string | null;
+    canSetCompanyWide: boolean;
+    headed: Set<string>;
+  },
+): boolean {
+  if (actor.canSetCompanyWide) return true;
+  if (actor.employeeId === null) return false;
+  if (person.id === actor.employeeId) return true;
+  if (person.managerId === actor.employeeId) return true;
+  return actor.headed.has(person.department);
+}
 
 /**
  * The three KPI forms.
@@ -101,6 +155,10 @@ export function NewKpiDialog({
    * refuse puts a name in front of somebody that does not work.
    */
   const { flat: departments } = useDepartments();
+  const headedHere = useMemo(
+    () => headedDepartmentNames(departments, employeeId),
+    [departments, employeeId],
+  );
   const mine = departments.filter(
     (department) =>
       canSetCompanyWide ||
@@ -246,17 +304,28 @@ export function NewKpiDialog({
                 {department.name} — the whole department
               </option>
             ))}
-            {/* The API's own rule, not a longer list than it will accept.
-                `assertMayApproveGoal` lets somebody set an objective for
-                themselves or a direct report, and anybody else only with
-                EDIT_RECORDS — which is exactly `canSetCompanyWide`. Offering
-                every colleague to a line manager or an employee put a name in
-                front of them that the save would refuse. */}
+            {/* The API's own rule, not a longer list than it will accept,
+                and not a shorter one either. `createGoal` refuses anybody who
+                is not the caller, a direct report, somebody in a department
+                the caller heads, or anybody at all with EDIT_RECORDS.
+
+                This used to read `managerId === employeeId`, which was the
+                rule when the comment was written and is narrower than the one
+                the API now applies — so a department head was not offered
+                their own department. `leadsWorkOf` above is the current rule,
+                shared with the assign dialog so the two cannot drift again.
+
+                `person.id !== employeeId` stays here rather than in the
+                helper: this select has its own "me" option above. */}
             {employees
               .filter(
                 (person) =>
                   person.id !== employeeId &&
-                  (canSetCompanyWide || person.managerId === employeeId),
+                  leadsWorkOf(person, {
+                    employeeId,
+                    canSetCompanyWide,
+                    headed: headedHere,
+                  }),
               )
               .map((person) => (
                 <option key={person.id} value={person.id}>
@@ -374,11 +443,30 @@ export function AssignKpiDialog({
   /* Everybody when the objective is the company's; the department's own people
      when it is a department's. Filing a Sales KPI under Marketing's target is
      something the API refuses, so the list does not offer it. */
-  const { employees } = useEmployeeDirectory(
+  const { employees: inScope } = useEmployeeDirectory(
     parent.departmentId
       ? { departmentId: parent.departmentId, pageSize: 200 }
       : { pageSize: 200 },
   );
+  const { employeeId } = useSession();
+  const canSetCompanyWide = useCan("EDIT_RECORDS");
+  const { flat: departments } = useDepartments();
+
+  /**
+   * ...and then the caller's own reach, which this did not apply at all.
+   *
+   * Narrowing by the parent's department answers "whose KPI could this be" and
+   * not "whose KPI may *you* set". So the dialog was identical for every role
+   * tested: ten checkboxes and no narrowing, on a control that reads as a bulk
+   * action, while `assignGoal` refuses each name one at a time — *"… is not
+   * somebody you set goals for."* For an employee every box was a dead option.
+   */
+  const employees = useMemo(() => {
+    const headed = headedDepartmentNames(departments, employeeId);
+    return inScope.filter((person) =>
+      leadsWorkOf(person, { employeeId, canSetCompanyWide, headed }),
+    );
+  }, [inScope, departments, employeeId, canSetCompanyWide]);
 
   const quarters = quarterOptions();
   const [title, setTitle] = useState("");
@@ -480,8 +568,9 @@ export function AssignKpiDialog({
         >
           {employees.length === 0 ? (
             <p className="text-body-sm text-muted">
-              Nobody is in this department yet, so there is nobody to give it
-              to.
+              {inScope.length === 0
+                ? "Nobody is in this department yet, so there is nobody to give it to."
+                : "Nobody here is yours to set goals for. You can assign to the people who report to you and to the departments you head."}
             </p>
           ) : (
             /* Scrolls rather than growing the modal past the screen. A

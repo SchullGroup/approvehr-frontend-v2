@@ -3,6 +3,7 @@
 import { RotateCw } from "lucide-react";
 import { Button, Callout } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
+import { kindOf, retryCouldHelp, serverSentence } from "@/lib/api/failure";
 
 /**
  * A read that failed, rendered as a sentence somebody can act on.
@@ -86,15 +87,6 @@ function titleFor(error: unknown, subject: string): string {
   return `${capitalise(subject)} did not load`;
 }
 
-/** True when the API wrote a sentence about this specific refusal. */
-function apiSentenceIsBetter(error: ApiError): boolean {
-  if (error.status === 403) return true;
-  if (error.status === 409 || error.status === 422) return true;
-  /* A validation failure names the field. Nothing here can. */
-  if (error.status === 400) return true;
-  return false;
-}
-
 /**
  * The sentence `LoadFailure` would show, for the few places that need a string.
  *
@@ -135,73 +127,47 @@ function adviceFor(
   subject: string,
   missingMeans: MissingMeans = "record",
 ): string {
-  if (!(error instanceof ApiError)) {
-    return (
-      `Something went wrong while loading ${subject}. Try again in a moment; ` +
-      "if it keeps happening, tell your administrator."
-    );
-  }
-  if (apiSentenceIsBetter(error)) return error.message;
+  /* Where the API wrote a sentence about this refusal, it is the sentence.
+     `serverSentence` is the shared rule — see `lib/api/failure.ts`. */
+  const said = serverSentence(error);
+  if (said) return said;
 
-  switch (true) {
-    case error.status === 0:
+  switch (kindOf(error)) {
+    case "offline":
       return (
         "The app cannot reach the server. Check your internet connection, " +
         "then try again."
       );
-    case error.status === 401:
+    case "session":
       return "Your session has ended. Sign in again to carry on.";
-    case error.status === 404:
+    case "missing":
       return missingMeans === "module"
         ? `${capitalise(subject)} is not switched on for this deployment yet. ` +
             "Nothing is missing from your company's records — the part of the " +
             "service that answers for it has not been released here. Tell your " +
             "administrator if you were expecting it."
         : `${capitalise(subject)} is not here, it may have been removed.`;
-    case error.status === 408 || error.status === 504:
+    case "timeout":
       return `The server took too long to send ${subject}. Try again in a moment.`;
-    case error.status === 429:
+    case "throttled":
       return "Too many requests at once. Wait a moment, then try again.";
-    case error.status >= 500:
+    case "server":
       return (
         `Something went wrong on our side, so ${subject} did not load. Try ` +
         "again in a moment; if it keeps happening, tell your administrator."
       );
     default:
-      /* Anything else the API did write a sentence for. Better than a guess. */
-      return error.message;
+      /* "unknown" — not an ApiError at all. "refused" and "other" cannot reach
+         here: both answer with the server's own sentence above. */
+      return (
+        `Something went wrong while loading ${subject}. Try again in a moment; ` +
+        "if it keeps happening, tell your administrator."
+      );
   }
 }
 
 const capitalise = (text: string): string =>
   text.charAt(0).toUpperCase() + text.slice(1);
-
-/**
- * Whether pressing "Try again" could plausibly change the answer.
- *
- * The advice above tells somebody to try again for five of these classes and,
- * until now, gave them nothing to try with — a sentence naming an action the
- * screen does not offer, which is the shape of dead end this component was
- * created to remove. It was the last one left, and the widest: forty screens
- * render this.
- *
- * The list is short on purpose. A 403 will refuse identically for as long as
- * the permission is missing, a 404 will stay missing, and a 409 or a 422 is a
- * refusal about the request rather than a failure of it — offering a retry on
- * any of those teaches people to press a button that cannot work, which is the
- * same defect one step along. Retrying an ended session is worse than useless:
- * the honest action there is signing in, which the advice already says.
- *
- * So: no connection, a timeout, a rate limit, and anything 5xx. Those are the
- * four where the request was sound and the moment was wrong.
- */
-function retryCouldHelp(error: unknown): boolean {
-  if (!(error instanceof ApiError)) return true;
-  if (error.status === 0) return true;
-  if (error.status === 408 || error.status === 504) return true;
-  if (error.status === 429) return true;
-  return error.status >= 500;
-}
 
 export function LoadFailure({
   /**
