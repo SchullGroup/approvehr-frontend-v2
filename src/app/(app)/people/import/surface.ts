@@ -39,5 +39,10 @@ export const EMPLOYEE_IMPORT_SURFACE: ImportSurface = {
       label: "Reporting lines set",
       hint: "managers matched by staff number or name",
     },
+    {
+      key: "invited",
+      label: "Invited",
+      hint: "rows carrying both a role and an email",
+    },
   ],
 };

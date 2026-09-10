@@ -2252,6 +2252,22 @@ export const performanceApi = {
     }),
 
   /**
+   * The testing doc's six standard self/manager questions — Key
+   * Achievements, Key Challenges, Reason for Rating on the self side,
+   * Achievements Observed, Areas for Improvement, Overall Assessment on the
+   * manager's — added to a draft cycle in one call. Returns the cycle's
+   * whole question list afterwards, the same "bulk write, list back" shape
+   * `reorderQuestions` already uses above.
+   */
+  addStandardQuestions: (cycleId: string) =>
+    request<ApiQuestion[]>(
+      `/performance/cycles/${cycleId}/standard-questions`,
+      {
+        method: "POST",
+      },
+    ),
+
+  /**
    * A manager's own question, on top of HR's set.
    *
    * No permission needed on this call: the API checks the cycle's
