@@ -23,7 +23,6 @@ import {
   EmptyState,
   Input,
   Modal,
-  Money,
   Select,
   Skeleton,
   Stat,
@@ -93,12 +92,29 @@ import { DragGhost, useDragInto } from "@/components/ui/drag-into";
  * 27 in one; a real customer has three hundred. Expanding is per department and
  * remembered while the page is open, so opening one does not open all of them.
  *
- * ## No salary in the tree
+ * ## No money on this screen at all
  *
- * The org-chart payload carries none at any permission. `payrollKobo` on a
- * department is gated on `VIEW_SALARIES` and arrives **null** otherwise, which
- * renders as nothing rather than `₦0.00` — a zero would say the department
- * costs nothing.
+ * The org-chart payload carries no pay at any permission, and this screen no
+ * longer renders the department total either — even for a reader who holds
+ * `VIEW_SALARIES` and could see it.
+ *
+ * The gate was working: `payrollKobo` arrives null without the permission, so
+ * a colleague never saw it. The reason it is gone anyway is what a total means
+ * on a *small* department. "1 person here · ₦550,000.00 a month" is not an
+ * aggregate — **it is that person's salary, printed next to their name**, and
+ * two people is a subtraction away. An org chart is the one screen that gets
+ * put on a projector, screenshared in a standup and read over a shoulder, so
+ * the reader holding the permission is not the only person who ends up seeing
+ * it.
+ *
+ * Department cost still exists, on `/people/departments`, which is a screen
+ * somebody opens to look at cost. Nothing is lost; it is asked for rather than
+ * ambient.
+ *
+ * `walk-payroll` found pay riding along on the "an org chart is not
+ * privileged" argument in three separate API routes. This is the fourth
+ * instance of the same mistake, one layer up: the payload was clean and the
+ * screen put the money back.
  */
 
 const SHOWN_BY_DEFAULT = 6;
@@ -724,13 +740,6 @@ function DepartmentCard({
               {department.totalEmployees !== department.directEmployees &&
                 ` · ${String(department.totalEmployees)} including below`}
             </span>
-            {/* Null means the reader may not see pay. An absence, never ₦0.00. */}
-            {department.payrollKobo !== null && (
-              <span className="flex items-center gap-1">
-                <Money amount={department.payrollKobo / 100} decimals />
-                <span>a month</span>
-              </span>
-            )}
           </p>
         </div>
 
