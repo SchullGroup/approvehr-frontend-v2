@@ -663,6 +663,7 @@ export function PageHeader({
   breadcrumb,
   action,
   meta,
+  description,
   tabs,
 }: {
   title: string;
@@ -670,6 +671,20 @@ export function PageHeader({
   action?: React.ReactNode;
   /** Small status chips shown beside the title. */
   meta?: React.ReactNode;
+  /**
+   * One sentence saying what this screen is, under the title.
+   *
+   * Distinct from `meta`, which is chips *beside* the title — a status, a
+   * count, a padlock. This is for a screen whose name does not explain it, and
+   * it exists because "One-to-ones" with a padlock reading "private to the two
+   * people in them" told somebody what the permissions were and nothing about
+   * what the thing was or why it was theirs.
+   *
+   * Use it sparingly. Most screens in this product are named after the noun
+   * they list and a sentence under them is furniture; the ones that need it are
+   * the ones somebody clicks once and leaves.
+   */
+  description?: string;
   tabs?: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -777,6 +792,14 @@ export function PageHeader({
               <h1 className="text-h3 text-ink">{title}</h1>
               {meta}
             </div>
+            {description && (
+              /* `max-w-2xl` so a sentence does not run the full width of a
+                 desktop — a line somebody has to track across 1600px is a line
+                 they skip, which defeats the point of having written it. */
+              <p className="mt-1.5 max-w-2xl text-body-sm leading-relaxed text-body">
+                {description}
+              </p>
+            )}
           </div>
           {action && (
             /* Wraps, and is allowed to shrink.
