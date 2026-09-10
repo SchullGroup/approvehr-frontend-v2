@@ -345,6 +345,27 @@ export function Directory({
     };
   };
 
+  /**
+   * The nav already hides this route behind `EDIT_RECORDS` — see
+   * `nav.tsx`. That hides it from the sidebar; it does not stop somebody who
+   * types the URL, and the API answers with the same narrowed row it gives
+   * the header search rather than a refusal (nobody's colleague list should
+   * 403). This is the other half: a direct visit gets the same honest
+   * "cannot load this" the rest of the product gives an under-permissioned
+   * route, rather than a table quietly missing most of its columns.
+   */
+  if (!mayEdit) {
+    return (
+      <div className="flex flex-col gap-6">
+        <EmptyState
+          icon={<ShieldAlert aria-hidden="true" />}
+          title="You do not have access to the employee directory"
+          description="This needs Edit records, which your role does not hold. Ask whoever manages your company's roles if you need it."
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {/* Which source the numbers came from, stated rather than implied. */}

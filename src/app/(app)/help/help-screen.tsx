@@ -403,14 +403,12 @@ function MyRequestsView() {
             triage={false}
             onOpen={setOpenId}
             emptyTitle={
-              view === "resolved"
-                ? "Nothing sorted yet"
-                : "You have not asked anything"
+              view === "resolved" ? "No resolved requests yet" : "No requests yet"
             }
             emptyDescription={
               view === "resolved"
-                ? "Anything HR closes off shows up here with what they did about it."
-                : "Ask a question and it lands with whoever handles that kind of thing."
+                ? "Closed requests appear here with how they were resolved."
+                : "Submit a request and it will be routed to the right team."
             }
             emptyAction={
               view === "open" ? (

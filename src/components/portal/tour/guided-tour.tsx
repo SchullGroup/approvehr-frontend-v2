@@ -62,15 +62,22 @@ type Step = {
   id: string;
   title: string;
   /**
-   * A function where the sentence has to know how many steps there are.
+   * A function where the sentence needs more than its own words.
    *
-   * Two of the five steps are dropped for somebody who approves nothing or
-   * manages no settings, so the total is 3, 4 or 5 depending on the role —
-   * and the welcome step used to say "Four things" directly under a counter
-   * reading "1 of 3". One screen, two counts, neither role ever seeing both
-   * agree.
+   * `total` is for the welcome step: two of the five steps are dropped for
+   * somebody who approves nothing or manages no settings, so the count is 3,
+   * 4 or 5 depending on the role, and it used to say "Four things" directly
+   * under a counter reading "1 of 3" — one screen, two counts, neither role
+   * ever seeing both agree.
+   *
+   * `canSettings` is for the nav step, and it is a narrower fix than `when`
+   * below: the step itself is worth showing to everyone — knowing the menu
+   * reflects the company's own setup is not a settings-manager-only fact —
+   * but its Loans example used to end "turn one on in Settings", telling
+   * every reader they personally could, which is exactly the ability the
+   * settings step two entries down is already withheld from them for.
    */
-  body: string | ((total: number) => string);
+  body: string | ((ctx: { total: number; canSettings: boolean }) => string);
   /** Tried in order — the first rendered and visible one is pointed at. */
   target: readonly string[];
   /** Left out entirely when false. Absent means always. */
@@ -87,7 +94,7 @@ const STEPS: readonly Step[] = [
   {
     id: "welcome",
     title: "A quick look round",
-    body: (total) =>
+    body: ({ total }) =>
       `${WORD[total] ?? total} things, about half a minute. You can leave at ` +
       "any point and pick it up again from your account menu.",
     target: [],
@@ -95,10 +102,15 @@ const STEPS: readonly Step[] = [
   {
     id: "nav",
     title: "Only what you actually use",
-    body:
-      "The menu is built from the answers you gave during setup. A company " +
-      "that does not lend to staff has no Loans; turn one on in Settings and " +
-      "it appears here.",
+    body: ({ canSettings }) =>
+      canSettings
+        ? "The menu is built from the answers you gave during setup. A " +
+          "company that does not lend to staff has no Loans; turn one on " +
+          "in Settings and it appears here."
+        : "The menu only shows what your company has actually turned on " +
+          "— a company that does not lend to staff has no Loans, for " +
+          "instance. Whoever manages your company's settings controls " +
+          "what's here.",
     target: ['[data-tour="nav"]', '[data-tour="nav-toggle"]'],
   },
   {
@@ -203,7 +215,9 @@ export function GuidedTour() {
       </p>
       <h2 className="mt-1.5 text-body font-semibold text-ink">{step.title}</h2>
       <p className="mt-1.5 text-body-sm leading-relaxed text-body">
-        {typeof step.body === "function" ? step.body(steps.length) : step.body}
+        {typeof step.body === "function"
+          ? step.body({ total: steps.length, canSettings })
+          : step.body}
       </p>
 
       <div className="mt-4 flex items-center justify-between gap-3">
