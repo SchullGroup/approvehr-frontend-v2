@@ -1168,7 +1168,11 @@ function NotFoundHere({
             description={
               error
                 ? error.message
-                : "No careers-page application and no seeded pipeline candidate carries this id. If they were screened in from another browser, open the applications queue and find them by name."
+                : /* Names all three lookups, because the message is read by
+                     somebody holding a link that did not work and the useful
+                     thing is knowing what was tried. It used to name two, and
+                     an id in the URL is now also tried as a candidate. */
+                  "Nothing carries this id: not a pipeline application, not a candidate, and not a careers-page application. If they were screened in from another browser, open the applications queue and find them by name."
             }
             action={
               <div className="flex flex-wrap items-center gap-2">
