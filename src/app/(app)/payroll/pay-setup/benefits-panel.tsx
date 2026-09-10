@@ -27,7 +27,11 @@ import {
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
-import type { ApiBenefitKind, ApiBenefitPlan } from "@/lib/api/benefits";
+import type {
+  ApiBenefitEnrolment,
+  ApiBenefitKind,
+  ApiBenefitPlan,
+} from "@/lib/api/benefits";
 import {
   useBenefitCost,
   useBenefitEnrolments,
@@ -261,6 +265,25 @@ function Plans({
 
   const anyPreTax = plans.some((plan) => plan.preTax);
 
+  /* One copy, so the desktop row's button and the mobile card's button
+     cannot end up toggling a plan two different ways. */
+  async function togglePlan(plan: ApiBenefitPlan) {
+    try {
+      await mutations.updatePlan(plan.id, { archived: !plan.archived });
+      toast.push({
+        tone: "success",
+        title: plan.archived ? "Switched back on" : "Switched off",
+      });
+      onChanged();
+    } catch (error) {
+      toast.push({
+        tone: "danger",
+        title:
+          error instanceof ApiError ? error.message : "Could not change it.",
+      });
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
       {anyPreTax && preTaxNotice && (
@@ -272,93 +295,140 @@ function Plans({
           {preTaxNotice}
         </Callout>
       )}
-      <TableWrap caption="Benefit plans, with what each costs the company and the employee">
-        <THead>
-          <TR>
-            <TH>Benefit</TH>
-            <TH>Provider</TH>
-            <TH align="right">Company pays</TH>
-            <TH align="right">Employee pays</TH>
-            <TH align="right">On it</TH>
-            <TH>Tax</TH>
-            <TH align="right">
-              <span className="sr-only">Actions</span>
-            </TH>
-          </TR>
-        </THead>
-        <TBody>
-          {plans.map((plan) => (
-            <TR key={plan.id}>
-              <TD>
-                <span className="font-medium text-body">{plan.name}</span>
-                <span className="block text-meta text-faint">
+      {/* Seven columns, one of them two stacked buttons, is a table nobody
+          reads a row of at 375px without scrolling sideways. Below `sm` this
+          becomes a card per plan; the switch-plan mutation is the one copy
+          both `onClick`s below and the card's own button call, so a plan
+          cannot go stale on one surface and current on the other. */}
+      <div className="hidden sm:block">
+        <TableWrap caption="Benefit plans, with what each costs the company and the employee">
+          <THead>
+            <TR>
+              <TH>Benefit</TH>
+              <TH>Provider</TH>
+              <TH align="right">Company pays</TH>
+              <TH align="right">Employee pays</TH>
+              <TH align="right">On it</TH>
+              <TH>Tax</TH>
+              <TH align="right">
+                <span className="sr-only">Actions</span>
+              </TH>
+            </TR>
+          </THead>
+          <TBody>
+            {plans.map((plan) => (
+              <TR key={plan.id}>
+                <TD>
+                  <span className="font-medium text-body">{plan.name}</span>
+                  <span className="block text-meta text-faint">
+                    {plan.kindLabel}
+                    {plan.archived ? " · switched off" : ""}
+                  </span>
+                </TD>
+                <TD>
+                  {plan.provider ?? <span className="text-faint">—</span>}
+                </TD>
+                <TD align="right">
+                  <Money amount={plan.employerMonthlyKobo / 100} decimals />
+                </TD>
+                <TD align="right">
+                  <Money amount={plan.employeeMonthlyKobo / 100} decimals />
+                </TD>
+                <TD align="right">{plan.enrolled}</TD>
+                <TD>
+                  {/* The distinction that decides whether PAYE is right. */}
+                  <Badge tone={plan.preTax ? "warning" : "neutral"} size="sm">
+                    {plan.preTax ? "Before PAYE" : "After PAYE"}
+                  </Badge>
+                </TD>
+                <TD align="right">
+                  <div className="flex flex-wrap justify-end gap-2">
+                    {canEnrol && !plan.archived && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => onEnrol(plan)}
+                      >
+                        Put somebody on
+                      </Button>
+                    )}
+                    {canPrice && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => void togglePlan(plan)}
+                      >
+                        {plan.archived ? "Switch on" : "Switch off"}
+                      </Button>
+                    )}
+                  </div>
+                </TD>
+              </TR>
+            ))}
+          </TBody>
+        </TableWrap>
+      </div>
+
+      <ul className="divide-y divide-line sm:hidden">
+        {plans.map((plan) => (
+          <li key={plan.id} className="flex flex-col gap-2 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-medium text-body">{plan.name}</p>
+                <p className="text-meta text-faint">
                   {plan.kindLabel}
                   {plan.archived ? " · switched off" : ""}
-                </span>
-              </TD>
-              <TD>{plan.provider ?? <span className="text-faint">—</span>}</TD>
-              <TD align="right">
-                <Money amount={plan.employerMonthlyKobo / 100} decimals />
-              </TD>
-              <TD align="right">
-                <Money amount={plan.employeeMonthlyKobo / 100} decimals />
-              </TD>
-              <TD align="right">{plan.enrolled}</TD>
-              <TD>
-                {/* The distinction that decides whether PAYE is right. */}
-                <Badge tone={plan.preTax ? "warning" : "neutral"} size="sm">
-                  {plan.preTax ? "Before PAYE" : "After PAYE"}
-                </Badge>
-              </TD>
-              <TD align="right">
-                <div className="flex flex-wrap justify-end gap-2">
-                  {canEnrol && !plan.archived && (
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => onEnrol(plan)}
-                    >
-                      Put somebody on
-                    </Button>
-                  )}
-                  {canPrice && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => {
-                        void (async () => {
-                          try {
-                            await mutations.updatePlan(plan.id, {
-                              archived: !plan.archived,
-                            });
-                            toast.push({
-                              tone: "success",
-                              title: plan.archived
-                                ? "Switched back on"
-                                : "Switched off",
-                            });
-                            onChanged();
-                          } catch (error) {
-                            toast.push({
-                              tone: "danger",
-                              title:
-                                error instanceof ApiError
-                                  ? error.message
-                                  : "Could not change it.",
-                            });
-                          }
-                        })();
-                      }}
-                    >
-                      {plan.archived ? "Switch on" : "Switch off"}
-                    </Button>
-                  )}
-                </div>
-              </TD>
-            </TR>
-          ))}
-        </TBody>
-      </TableWrap>
+                  {plan.provider ? ` · ${plan.provider}` : ""}
+                </p>
+              </div>
+              <Badge tone={plan.preTax ? "warning" : "neutral"} size="sm">
+                {plan.preTax ? "Before PAYE" : "After PAYE"}
+              </Badge>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-body-sm text-muted">
+              <span>
+                Company{" "}
+                <Money
+                  amount={plan.employerMonthlyKobo / 100}
+                  decimals
+                  className="tabular text-ink"
+                />
+              </span>
+              <span>
+                Employee{" "}
+                <Money
+                  amount={plan.employeeMonthlyKobo / 100}
+                  decimals
+                  className="tabular text-ink"
+                />
+              </span>
+              <span>{plan.enrolled} on it</span>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {canEnrol && !plan.archived && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => onEnrol(plan)}
+                >
+                  Put somebody on
+                </Button>
+              )}
+              {canPrice && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => void togglePlan(plan)}
+                >
+                  {plan.archived ? "Switch on" : "Switch off"}
+                </Button>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -394,6 +464,22 @@ function People({
     );
   }
 
+  async function endEnrolment(row: ApiBenefitEnrolment) {
+    try {
+      await mutations.endEnrolment(
+        row.id,
+        new Date().toISOString().slice(0, 10),
+      );
+      toast.push({ tone: "success", title: "Cover ended" });
+      read.reload();
+    } catch (error) {
+      toast.push({
+        tone: "danger",
+        title: error instanceof ApiError ? error.message : "Could not end it.",
+      });
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
       {wholeMonthNotice && (
@@ -405,86 +491,132 @@ function People({
           {wholeMonthNotice}
         </Callout>
       )}
-      <TableWrap caption="Who is on which benefit, and what each of them costs">
-        <THead>
-          <TR>
-            <TH>Person</TH>
-            <TH>Benefit</TH>
-            <TH align="right">Dependants</TH>
-            <TH align="right">Company pays</TH>
-            <TH align="right">They pay</TH>
-            <TH>Cover</TH>
-            <TH align="right">
-              <span className="sr-only">Actions</span>
-            </TH>
-          </TR>
-        </THead>
-        <TBody>
-          {read.data.map((row) => (
-            <TR key={row.id}>
-              <TD>{row.employeeName}</TD>
-              <TD>
-                {row.planName}
-                {/* Says the figure came from this enrolment rather than the
-                    plan, so somebody comparing two rows knows why they differ. */}
-                {row.priced && (
-                  <Badge tone="neutral" size="sm" className="ml-2">
-                    Priced for them
-                  </Badge>
-                )}
-              </TD>
-              <TD align="right">{row.dependants}</TD>
-              <TD align="right">
-                <Money amount={row.employerMonthlyKobo / 100} decimals />
-              </TD>
-              <TD align="right">
-                <Money amount={row.employeeMonthlyKobo / 100} decimals />
-              </TD>
-              <TD>
-                {row.active ? (
-                  <Badge tone="success" size="sm" dot>
-                    From {row.startedOn}
-                  </Badge>
-                ) : (
-                  <Badge tone="neutral" size="sm">
-                    Ended {row.endedOn}
-                  </Badge>
-                )}
-              </TD>
-              <TD align="right">
-                {canEnrol && row.active && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      void (async () => {
-                        try {
-                          await mutations.endEnrolment(
-                            row.id,
-                            new Date().toISOString().slice(0, 10),
-                          );
-                          toast.push({ tone: "success", title: "Cover ended" });
-                          read.reload();
-                        } catch (error) {
-                          toast.push({
-                            tone: "danger",
-                            title:
-                              error instanceof ApiError
-                                ? error.message
-                                : "Could not end it.",
-                          });
-                        }
-                      })();
-                    }}
-                  >
-                    End cover
-                  </Button>
-                )}
-              </TD>
+      <div className="hidden sm:block">
+        <TableWrap caption="Who is on which benefit, and what each of them costs">
+          <THead>
+            <TR>
+              <TH>Person</TH>
+              <TH>Benefit</TH>
+              <TH align="right">Dependants</TH>
+              <TH align="right">Company pays</TH>
+              <TH align="right">They pay</TH>
+              <TH>Cover</TH>
+              <TH align="right">
+                <span className="sr-only">Actions</span>
+              </TH>
             </TR>
-          ))}
-        </TBody>
-      </TableWrap>
+          </THead>
+          <TBody>
+            {read.data.map((row) => (
+              <TR key={row.id}>
+                <TD>{row.employeeName}</TD>
+                <TD>
+                  {row.planName}
+                  {/* Says the figure came from this enrolment rather than the
+                      plan, so somebody comparing two rows knows why they differ. */}
+                  {row.priced && (
+                    <Badge tone="neutral" size="sm" className="ml-2">
+                      Priced for them
+                    </Badge>
+                  )}
+                </TD>
+                <TD align="right">{row.dependants}</TD>
+                <TD align="right">
+                  <Money amount={row.employerMonthlyKobo / 100} decimals />
+                </TD>
+                <TD align="right">
+                  <Money amount={row.employeeMonthlyKobo / 100} decimals />
+                </TD>
+                <TD>
+                  {row.active ? (
+                    <Badge tone="success" size="sm" dot>
+                      From {row.startedOn}
+                    </Badge>
+                  ) : (
+                    <Badge tone="neutral" size="sm">
+                      Ended {row.endedOn}
+                    </Badge>
+                  )}
+                </TD>
+                <TD align="right">
+                  {canEnrol && row.active && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => void endEnrolment(row)}
+                    >
+                      End cover
+                    </Button>
+                  )}
+                </TD>
+              </TR>
+            ))}
+          </TBody>
+        </TableWrap>
+      </div>
+
+      <ul className="divide-y divide-line sm:hidden">
+        {read.data.map((row) => (
+          <li key={row.id} className="flex flex-col gap-2 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-medium text-body">{row.employeeName}</p>
+                <p className="text-body-sm text-muted">
+                  {row.planName}
+                  {row.priced && (
+                    <Badge tone="neutral" size="sm" className="ml-2">
+                      Priced for them
+                    </Badge>
+                  )}
+                </p>
+              </div>
+              {row.active ? (
+                <Badge tone="success" size="sm" dot>
+                  From {row.startedOn}
+                </Badge>
+              ) : (
+                <Badge tone="neutral" size="sm">
+                  Ended {row.endedOn}
+                </Badge>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-body-sm text-muted">
+              <span>
+                Company{" "}
+                <Money
+                  amount={row.employerMonthlyKobo / 100}
+                  decimals
+                  className="tabular text-ink"
+                />
+              </span>
+              <span>
+                They{" "}
+                <Money
+                  amount={row.employeeMonthlyKobo / 100}
+                  decimals
+                  className="tabular text-ink"
+                />
+              </span>
+              <span>
+                {row.dependants} dependant{row.dependants === 1 ? "" : "s"}
+              </span>
+            </div>
+
+            {canEnrol && row.active && (
+              <div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => void endEnrolment(row)}
+                >
+                  End cover
+                </Button>
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
