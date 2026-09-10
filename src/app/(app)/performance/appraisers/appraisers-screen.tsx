@@ -3,6 +3,7 @@
 import { ToggleRight } from "lucide-react";
 import { ButtonLink, EmptyState, Spinner } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { FeatureOffLine } from "@/components/portal/feature-off-line";
 import { useCan } from "@/lib/permissions";
 import { useFeatures } from "@/lib/store/features";
 import { AppraiserMapTab } from "../appraiser-map";
@@ -85,6 +86,7 @@ export function AppraisersScreen() {
         title="Who appraises whom"
       />
       <PageBody>
+        <FeatureOffLine feature="multiAppraiser" />
         <AppraiserMapTab />
       </PageBody>
     </>

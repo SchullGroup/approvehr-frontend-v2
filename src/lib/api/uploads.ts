@@ -1,4 +1,5 @@
 import { ApiError, request } from "./client";
+import { downloadBlob, fetchBinary } from "./download";
 
 /**
  * Putting a file somewhere, from the browser.
@@ -168,6 +169,116 @@ export async function upload(
 }
 
 /**
+ * 10MB, matching `MAX_DOCUMENT_BYTES` on the API.
+ *
+ * Duplicated rather than fetched, and the duplication is the lesser evil: the
+ * point of checking here is to refuse a 40MB video **before** spending a
+ * minute base64-ing it and pushing it up the wire. The API checks the decoded
+ * length itself and its refusal is the one that counts; this is only so the
+ * answer arrives immediately.
+ */
+export const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
+
+/**
+ * A file, ready to be sent with whatever record it belongs to.
+ *
+ * Two shapes because there are two places a file can be, and a caller has to
+ * send a different field for each. Never both — see `addDocumentSchema` on the
+ * API, which refuses a write carrying two answers.
+ */
+/**
+ * A file read into memory, ready to send with the record it belongs to.
+ *
+ * Narrower than `AttachedFile` on purpose: `readAsAttachment` and `FileField`
+ * only ever produce this one, so a caller does not have to narrow a union
+ * against a branch that cannot occur.
+ */
+export type InlineFile = Extract<AttachedFile, { kind: "inline" }>;
+
+export type AttachedFile =
+  | {
+      kind: "inline";
+      /** The file itself. Goes in the create call as `contentBase64`. */
+      contentBase64: string;
+      filename: string;
+      mimeType: string;
+      sizeBytes: number;
+    }
+  | {
+      kind: "storage";
+      storageKey: string;
+      filename: string;
+      mimeType: string;
+      sizeBytes: number;
+    };
+
+/**
+ * Read a file into an inline attachment.
+ *
+ * `readAsDataURL` and then the part after the comma, rather than reading an
+ * ArrayBuffer and encoding it by hand: `btoa` on a binary string throws on any
+ * byte above 0xff once the string has been through a `String.fromCharCode`
+ * round trip, which is every PDF. The browser's own base64 is correct and is
+ * already there.
+ *
+ * `onProgress` reports the **read**, which is honest about what is happening:
+ * the upload itself is one request whose progress `fetch` does not expose, so
+ * a bar that claimed to track it would be a decoration. It reaches 1 when the
+ * bytes are in memory and the request is about to go.
+ */
+export function readAsAttachment(
+  file: File,
+  onProgress?: (fraction: number) => void,
+): Promise<InlineFile> {
+  if (file.size === 0) {
+    return Promise.reject(
+      new UploadRefused("That file is empty. Pick it again."),
+    );
+  }
+  if (file.size > MAX_DOCUMENT_BYTES) {
+    return Promise.reject(
+      new UploadRefused(
+        `That file is ${Math.ceil(file.size / 1024 / 1024)} MB. Keep ` +
+          `documents under ${Math.floor(MAX_DOCUMENT_BYTES / 1024 / 1024)} MB.`,
+      ),
+    );
+  }
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0) {
+        onProgress?.(event.loaded / event.total);
+      }
+    };
+    reader.onerror = () =>
+      reject(new UploadRefused("That file could not be read. Pick it again."));
+    reader.onload = () => {
+      const result = String(reader.result);
+      const comma = result.indexOf(",");
+      if (comma === -1) {
+        reject(
+          new UploadRefused("That file could not be read. Pick it again."),
+        );
+        return;
+      }
+      onProgress?.(1);
+      resolve({
+        kind: "inline",
+        contentBase64: result.slice(comma + 1),
+        filename: file.name,
+        /* The browser's guess, or nothing. The API defaults an absent type to
+           `application/octet-stream` and sends it as an attachment either way,
+           so an empty string here is not a hole. */
+        mimeType: file.type || "application/octet-stream",
+        sizeBytes: file.size,
+      });
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
  * What one stored document can be opened with, or why it cannot be.
  *
  * `url` is null with a `note` whenever there is nothing to open — no bucket on
@@ -178,6 +289,15 @@ export type FileAccess = {
   id: string;
   employeeId: string;
   name: string;
+  /**
+   * Which mechanism opens this file, or null when nothing does.
+   *
+   * `"inline"` — the file is in the database; fetch it with the caller's token
+   * through `saveDocument` below. There is no `url` and deliberately no signed
+   * one: a credential-free link to somebody's passport is forwardable to
+   * anybody. `"storage"` — open `url`, which is presigned and short-lived.
+   */
+  source: "inline" | "storage" | null;
   url: string | null;
   expiresAt: string | null;
   note: string | null;
@@ -186,6 +306,23 @@ export type FileAccess = {
 /** A short-lived link for one employee document. Gated and audited on the API. */
 export const documentFile = (id: string): Promise<FileAccess> =>
   request<FileAccess>(`/documents/${id}/file`);
+
+/**
+ * Fetch a document held in the database and hand it to the browser.
+ *
+ * Through `fetchBinary`, which already carries the token, sets `no-store` and
+ * pulls the filename out of `Content-Disposition` — so the name somebody sees
+ * in their downloads folder is the one the API sent rather than one invented
+ * here. `response.text()` would corrupt it: a PDF decoded as UTF-8 loses every
+ * byte above 0x7f and opens in nothing.
+ */
+export async function saveDocument(
+  id: string,
+  fallbackName: string,
+): Promise<void> {
+  const file = await fetchBinary(`/documents/${id}/content`, fallbackName, "");
+  downloadBlob(file.filename, file.blob);
+}
 
 /* There is deliberately no `uploadsAvailable()` here.
    ------------------------------------------------------------------

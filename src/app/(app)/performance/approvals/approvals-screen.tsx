@@ -304,6 +304,15 @@ function ObjectiveCard({
               <Badge tone="accent" size="sm">
                 Company objective
               </Badge>
+            ) : goal.level === "department" ? (
+              /* A department's shared target, which HR agrees — the approval
+                 step the cascade puts between it and the KPIs beneath it. So
+                 this queue has to say which department, not "No owner". */
+              <Badge tone="accent" size="sm">
+                {goal.departmentName
+                  ? `${goal.departmentName} objective`
+                  : "Department objective"}
+              </Badge>
             ) : goal.ownerName ? (
               <span className="flex items-center gap-1.5">
                 <Avatar name={goal.ownerName} size="xs" />
