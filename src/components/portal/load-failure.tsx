@@ -102,11 +102,39 @@ function apiSentenceIsBetter(error: ApiError): boolean {
  * cannot render the component still says the same thing the component would —
  * the whole point of having one place that turns a failure into words.
  */
-export function failureMessage(error: unknown, subject: string): string {
-  return adviceFor(error, subject);
+export function failureMessage(
+  error: unknown,
+  subject: string,
+  missingMeans: MissingMeans = "record",
+): string {
+  return adviceFor(error, subject, missingMeans);
 }
 
-function adviceFor(error: unknown, subject: string): string {
+/**
+ * What a 404 means for this screen.
+ *
+ * `"record"` — the thing had an id and is not there. The default, and right
+ * for almost everything: an employee, a payroll run, a requisition somebody
+ * followed a stale link to.
+ *
+ * `"module"` — the screen asked for a *list* and the route itself is absent,
+ * which does not mean anybody deleted anything. It means this deployment does
+ * not have that part of the API yet.
+ *
+ * The distinction is not pedantry. Signatures and One-to-ones sat in the
+ * sidebar of a production deployment whose API did not carry those modules, and
+ * both said **"is not here, it may have been removed"** — so the product
+ * looked broken, and the feedback was "why did we add signatures, I can't find
+ * any flows". A gap that says it is a gap is a different conversation from one
+ * that reads as a bug.
+ */
+export type MissingMeans = "record" | "module";
+
+function adviceFor(
+  error: unknown,
+  subject: string,
+  missingMeans: MissingMeans = "record",
+): string {
   if (!(error instanceof ApiError)) {
     return (
       `Something went wrong while loading ${subject}. Try again in a moment; ` +
@@ -124,7 +152,12 @@ function adviceFor(error: unknown, subject: string): string {
     case error.status === 401:
       return "Your session has ended. Sign in again to carry on.";
     case error.status === 404:
-      return `${capitalise(subject)} is not here, it may have been removed.`;
+      return missingMeans === "module"
+        ? `${capitalise(subject)} is not switched on for this deployment yet. ` +
+            "Nothing is missing from your company's records — the part of the " +
+            "service that answers for it has not been released here. Tell your " +
+            "administrator if you were expecting it."
+        : `${capitalise(subject)} is not here, it may have been removed.`;
     case error.status === 408 || error.status === 504:
       return `The server took too long to send ${subject}. Try again in a moment.`;
     case error.status === 429:
@@ -189,18 +222,25 @@ export function LoadFailure({
    * being a dead end.
    */
   onRetry,
+  /**
+   * What a 404 means here. `"module"` for a screen that lists a whole module
+   * and can therefore only 404 because the API does not carry it — see
+   * `MissingMeans`.
+   */
+  missingMeans = "record",
   /** Extra guidance the screen itself knows, shown under the advice. */
   children,
 }: {
   subject: string;
   error: unknown;
   onRetry?: (() => void) | undefined;
+  missingMeans?: MissingMeans;
   children?: React.ReactNode;
 }) {
   if (!error) return null;
   return (
     <Callout tone="danger" title={titleFor(error, subject)}>
-      <p>{adviceFor(error, subject)}</p>
+      <p>{adviceFor(error, subject, missingMeans)}</p>
       {children ? <div className="mt-2">{children}</div> : null}
       {onRetry && retryCouldHelp(error) && (
         <Button

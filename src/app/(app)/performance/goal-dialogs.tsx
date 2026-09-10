@@ -22,6 +22,7 @@ import {
 } from "@/lib/api/performance";
 import { useCan } from "@/lib/permissions";
 import { useObjectiveSuggestions } from "@/lib/store/ai";
+import { useDepartments } from "@/lib/store/departments";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { useAppraisals } from "@/lib/store/performance";
 import { useSession } from "@/lib/store/session";
@@ -86,6 +87,27 @@ export function NewKpiDialog({
   const canSetCompanyWide = useCan("EDIT_RECORDS");
 
   /**
+   * The departments this person may file a shared target under.
+   *
+   * The cascade's middle rung, and it rides in the **same control** as the
+   * owner rather than a second field beside it. "Whose is this" has exactly
+   * three kinds of answer — the company's, a department's, or a person's —
+   * so one select is the question, and a separate department picker that only
+   * applies when the owner is nobody would be two controls describing one
+   * choice.
+   *
+   * Only the ones the API will accept: heading it is enough, and
+   * `EDIT_RECORDS` covers all of them. Offering a department the save would
+   * refuse puts a name in front of somebody that does not work.
+   */
+  const { flat: departments } = useDepartments();
+  const mine = departments.filter(
+    (department) =>
+      canSetCompanyWide ||
+      (employeeId !== null && department.headId === employeeId),
+  );
+
+  /**
    * The appraisal periods an objective can be scored in.
    *
    * A published one is absent: its marks are a record, and filing a new
@@ -129,7 +151,12 @@ export function NewKpiDialog({
       if (quarter) body.dueQuarter = quarter;
       if (reviewCycleId) body.reviewCycleId = reviewCycleId;
       if (owner === "company") body.ownerId = null;
-      else if (owner !== "me") body.ownerId = owner;
+      else if (owner.startsWith("dept:")) {
+        /* A shared target: nobody owns it, and the department is what makes it
+           a department objective rather than a company one. */
+        body.ownerId = null;
+        body.departmentId = owner.slice("dept:".length);
+      } else if (owner !== "me") body.ownerId = owner;
       await onCreate(body);
     } finally {
       setSaving(false);
@@ -210,6 +237,15 @@ export function NewKpiDialog({
                 The whole company (everyone sees it)
               </option>
             )}
+            {/* The middle rung. A department's target is nobody's personally,
+                so it lives with "the whole company" rather than among the
+                names — and each one says which department, because "a
+                department" without saying which is half a fact. */}
+            {mine.map((department) => (
+              <option key={department.id} value={`dept:${department.id}`}>
+                {department.name} — the whole department
+              </option>
+            ))}
             {/* The API's own rule, not a longer list than it will accept.
                 `assertMayApproveGoal` lets somebody set an objective for
                 themselves or a direct report, and anybody else only with
@@ -289,6 +325,200 @@ export function NewKpiDialog({
  * below where you started — tick the box if it is meant to come down" is worth
  * saying while somebody is still looking at the two fields.
  */
+/**
+ * Give one KPI to several people, under a shared objective.
+ *
+ * The feedback's first point was that *"a KPI can only be assigned to a single
+ * person, so there is no way to give the same KPI to a team"*.
+ *
+ * What this does **not** do is hand several people one shared row. Five people
+ * on one KPI share one progress figure and therefore one mark, so one quiet
+ * quarter drags four appraisals down and nobody reading the score could tell
+ * which. So the shared thing is the objective above — a department's target,
+ * which genuinely is one commitment — and each person gets their own KPI
+ * beneath it, with their own measures, tasks and mark.
+ *
+ * ## A modal, and only offered on a shared objective
+ *
+ * This is not the everyday act: most KPIs are one person writing down what
+ * they will do. It is the quarterly one, done once by whoever runs a
+ * department, so it earns a button and not a panel — a form this size sitting
+ * open on the KPI screen is exactly the layout complaint that started this.
+ *
+ * Every KPI it creates is a **draft**. Assigning is not agreeing; the person
+ * it belongs to still sends it to be agreed, which is what makes an agreement
+ * worth anything.
+ */
+export function AssignKpiDialog({
+  parent,
+  onClose,
+  onAssign,
+}: {
+  parent: {
+    id: string;
+    title: string;
+    departmentId: string | null;
+    dueQuarter: string | null;
+  };
+  onClose: () => void;
+  onAssign: (
+    parentId: string,
+    body: {
+      title: string;
+      description?: string;
+      employeeIds: string[];
+      dueQuarter?: string;
+    },
+  ) => Promise<{ created: unknown[]; alreadyHad: { name: string }[] }>;
+}) {
+  /* Everybody when the objective is the company's; the department's own people
+     when it is a department's. Filing a Sales KPI under Marketing's target is
+     something the API refuses, so the list does not offer it. */
+  const { employees } = useEmployeeDirectory(
+    parent.departmentId
+      ? { departmentId: parent.departmentId, pageSize: 200 }
+      : { pageSize: 200 },
+  );
+
+  const quarters = quarterOptions();
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [chosen, setChosen] = useState<string[]>([]);
+  const [quarter, setQuarter] = useState(
+    parent.dueQuarter ?? quarters[1] ?? quarters[0] ?? "",
+  );
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const toggle = (id: string) =>
+    setChosen((was) =>
+      was.includes(id) ? was.filter((one) => one !== id) : [...was, id],
+    );
+
+  const submit = async () => {
+    if (title.trim().length < 3) {
+      setError("Give it a title of at least three characters.");
+      return;
+    }
+    if (chosen.length === 0) {
+      setError("Pick at least one person.");
+      return;
+    }
+    setError(null);
+    setSaving(true);
+    try {
+      const body: {
+        title: string;
+        description?: string;
+        employeeIds: string[];
+        dueQuarter?: string;
+      } = { title: title.trim(), employeeIds: chosen };
+      if (description.trim()) body.description = description.trim();
+      if (quarter) body.dueQuarter = quarter;
+      await onAssign(parent.id, body);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={`Give a KPI to people under "${parent.title}"`}
+      size="md"
+      footer={
+        <>
+          <Button onClick={onClose}>Cancel</Button>
+          <Button
+            variant="accent"
+            loading={saving}
+            onClick={() => void submit()}
+          >
+            {chosen.length === 1
+              ? "Assign to 1 person"
+              : `Assign to ${chosen.length} people`}
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <Field
+          label="What each of them will do"
+          required
+          {...(error ? { error } : {})}
+          help="The same KPI, worded once. Each person gets their own copy to track."
+        >
+          <Input
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            placeholder="Ship one customer story a month"
+          />
+        </Field>
+
+        <Field label="Due by the end of" required>
+          <Select
+            value={quarter}
+            onChange={(event) => setQuarter(event.target.value)}
+          >
+            {quarters.map((option) => (
+              <option key={option} value={option}>
+                {quarterText(option)}
+              </option>
+            ))}
+          </Select>
+        </Field>
+
+        <Field
+          label="Who gets it"
+          required
+          help={
+            parent.departmentId
+              ? "The people in this department."
+              : "Anybody, since this is a company objective."
+          }
+        >
+          {employees.length === 0 ? (
+            <p className="text-body-sm text-muted">
+              Nobody is in this department yet, so there is nobody to give it
+              to.
+            </p>
+          ) : (
+            /* Scrolls rather than growing the modal past the screen. A
+               hundred-person department is the case this feature exists for. */
+            <div className="flex max-h-64 flex-col gap-1 overflow-y-auto rounded-md border border-line p-2">
+              {employees.map((person) => (
+                <Checkbox
+                  key={person.id}
+                  checked={chosen.includes(person.id)}
+                  onChange={() => toggle(person.id)}
+                  label={`${person.firstName} ${person.lastName} · ${person.jobTitle}`}
+                />
+              ))}
+            </div>
+          )}
+        </Field>
+
+        <Field optional label="Any detail">
+          <Textarea
+            rows={2}
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+          />
+        </Field>
+
+        {/* Said before the button, not after the save. Somebody assigning eight
+            KPIs should know they are drafts, or they will wonder why nothing is
+            agreed. */}
+        <p className="text-body-sm text-muted">
+          Each person gets their own KPI as a draft. They send it to be agreed —
+          assigning it is not the same as agreeing it.
+        </p>
+      </div>
+    </Modal>
+  );
+}
+
 export function AddMeasureDialog({
   goalTitle,
   onClose,

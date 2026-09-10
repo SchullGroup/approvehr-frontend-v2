@@ -37,6 +37,7 @@ import {
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { FeatureOffLine } from "@/components/portal/feature-off-line";
 import { ApiError } from "@/lib/api/client";
 import { useCan } from "@/lib/permissions";
 import { isUnassigned } from "@/lib/store/demo-structure";
@@ -234,6 +235,7 @@ export function DepartmentsScreen() {
       />
 
       <PageBody className="flex flex-col gap-6">
+        <FeatureOffLine feature="departments" />
         {/* The warning that replaced the refusal. It is the honest half of the
             old callout: local structure is real and editable, and it does not
             reach a payroll run. Rendered on both tabs because both write to the

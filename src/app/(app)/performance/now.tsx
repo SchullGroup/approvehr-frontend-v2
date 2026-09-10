@@ -13,7 +13,6 @@ import {
   Badge,
   Button,
   ButtonLink,
-  Callout,
   Card,
   CardBody,
   CardHeader,
@@ -26,8 +25,7 @@ import {
 import {
   dayLabel,
   dayOf,
-  ratingWords,
-  type ApiCycle,
+  ratingWordsFrom,
   type ApiGoal,
   type ApiPeerFeedback,
   type ApiReview,
@@ -41,6 +39,7 @@ import {
   useKpis,
   useMyAppraisers,
   useObjectiveApprovals,
+  useRatingScale,
 } from "@/lib/store/performance";
 import { AppraisersDialog } from "./appraiser-map";
 import { ManagerQuestionButton } from "./manager-question";
@@ -115,6 +114,8 @@ export function WhatNeedsYouTab({
   const features = useFeatures();
   const appraisals = useAppraisals();
   const approvals = useObjectiveApprovals();
+  const { scale } = useRatingScale();
+  const ratingWords = ratingWordsFrom(scale.levels);
   const mineGoals = useKpis("mine");
   const { isConnected, actingId, employeeId } = useSession();
 
@@ -180,16 +181,6 @@ export function WhatNeedsYouTab({
     openPeriod && openPeriod.stage !== "PUBLISHED" ? openPeriod.id : null,
     meOrNobody,
   );
-  /* Only the API saying "the list is empty" means nobody is appraising them.
-     A row with no `appraisers` field at all is a different fact — an answer to
-     a question we did not ask — and reading it as an empty list would put a
-     "nobody is appraising you" callout on somebody who has an appraiser, on
-     top of throwing on `.length`. Absent is not empty; the presence check is
-     the claim, not defensiveness. */
-  const noAppraiser =
-    Array.isArray(mine.row?.appraisers) && mine.row.appraisers.length === 0
-      ? mine.row.exceptions?.find((issue) => issue.code === "NO_APPRAISER")
-      : undefined;
   const appraisingMe = mine.row?.appraisers ?? [];
 
   /* Whoever may change the mapping — the API gates `PUT /cycles/:id/appraisers`
@@ -202,7 +193,6 @@ export function WhatNeedsYouTab({
      it" on a draft period and "Turn appraisals on", both of which land on a
      screen that is read-only for them. */
   const canManagePeriods = useCan("MANAGE_SETTINGS");
-  const canAssignAppraiser = canManagePeriods;
   const [assigningSelf, setAssigningSelf] = useState(false);
 
   /* My own objectives, split by who the next move belongs to. `mine` scope also
@@ -936,6 +926,11 @@ function ReviewRow({
   actionLabel: string;
   onOpen: () => void;
 }) {
+  /* The company's own words for the mark on this row. One cached request
+     however many rows render it. */
+  const { scale } = useRatingScale();
+  const ratingWords = ratingWordsFrom(scale.levels);
+
   /* In the record list the subject is always you, so an author who *is* the
      subject would print your own name back at you — which is what a first draft
      did, as "Self-review · from Adaeze Okonkwo". */

@@ -237,7 +237,6 @@ export function EmployeeFileDrawer({
       {adding && file.file && (
         <AddDocumentModal
           whose={`${file.file.employeeName.split(" ")[0] ?? name}’s`}
-          employeeId={file.file.employeeId}
           onClose={() => setAdding(false)}
           onAdd={async (body) => {
             await file.add(body);

@@ -10,7 +10,7 @@ import {
   type ApiDocumentRequest,
 } from "@/lib/api/documents";
 import { dueLabel } from "@/lib/store/documents";
-import { documentFile } from "@/lib/api/uploads";
+import { documentFile, saveDocument } from "@/lib/api/uploads";
 
 /**
  * The two rows every documents screen is built from.
@@ -199,7 +199,11 @@ export function DocumentRow({
         <p className="mt-0.5 truncate text-body-sm text-muted">
           Added {readableDate(document.uploadedAt)}
         </p>
-        <OpenDocument id={document.id} />
+        <OpenDocument
+          id={document.id}
+          name={document.name}
+          hasFile={document.hasFile}
+        />
       </div>
       {action && <div className="flex shrink-0 gap-1.5">{action}</div>}
     </div>
@@ -209,18 +213,32 @@ export function DocumentRow({
 /**
  * Open one document.
  *
- * The link is minted on click rather than rendered up front, for two reasons.
- * A presigned URL is a bearer token for that file and expires in minutes, so
- * one issued when a list rendered would be dead by the time anybody scrolled
- * to it — and every mint is **audited** on the API, so a page of twenty
- * documents would otherwise write twenty download entries for a page nobody
- * read.
+ * Nothing happens until the press, for two reasons that both still hold: a
+ * presigned URL is a bearer token for that file and expires in minutes, so one
+ * issued when a list rendered would be dead before anybody scrolled to it — and
+ * every read is **audited** on the API, so a page of twenty documents would
+ * otherwise write twenty download entries for a page nobody read.
  *
- * When there is nothing behind the key the API says so in its own sentence —
- * no bucket on this deployment, or a row recorded before storage existed — and
+ * ## Two kinds of file
+ *
+ * A document held in the database is fetched **with the caller's token** and
+ * handed to the browser as a download. There is no link to open, and
+ * deliberately no signed one: a credential-free URL to somebody's passport is
+ * forwardable to anybody. One in a bucket still opens its presigned URL.
+ * `source` on the API's answer says which, so this does not guess.
+ *
+ * When there is nothing behind the row the API says so in its own sentence, and
  * that is shown rather than a dead link.
  */
-function OpenDocument({ id }: { id: string }) {
+function OpenDocument({
+  id,
+  name,
+  hasFile,
+}: {
+  id: string;
+  name: string;
+  hasFile: boolean;
+}) {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
@@ -234,15 +252,22 @@ function OpenDocument({ id }: { id: string }) {
         onClick={() => {
           setBusy(true);
           setNote(null);
-          void documentFile(id)
-            .then((access) => {
-              if (access.url) {
-                /* `noopener` because the target is somebody else's origin. */
-                window.open(access.url, "_blank", "noopener,noreferrer");
-                return;
-              }
-              setNote(access.note ?? "There is nothing to open.");
-            })
+          /* `hasFile` short-circuits the round trip for a row that has no file
+             — the answer is already known, and asking would write an audit
+             entry for a download that cannot happen. */
+          const open = hasFile
+            ? saveDocument(id, name)
+            : documentFile(id).then((access) => {
+                if (access.source === "inline") return saveDocument(id, name);
+                if (access.url) {
+                  /* `noopener` because the target is somebody else's origin. */
+                  window.open(access.url, "_blank", "noopener,noreferrer");
+                  return;
+                }
+                setNote(access.note ?? "There is nothing to open.");
+              });
+
+          void open
             .catch((error: unknown) =>
               setNote(
                 error instanceof Error
@@ -254,7 +279,7 @@ function OpenDocument({ id }: { id: string }) {
         }}
       >
         <Download aria-hidden="true" className="size-3.5" />
-        {busy ? "Opening…" : "Open"}
+        {busy ? "Opening…" : hasFile ? "Download" : "Open"}
       </Button>
       {note && (
         <span className="text-meta text-muted" role="status">

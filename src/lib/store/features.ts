@@ -581,7 +581,17 @@ function demoDefaults(): DemoState {
     flags: BASE_FLAGS,
     headcountBand: "UNDER_10",
     setupStep: 0,
-    setupCompletedAt: null,
+    /* `null` for the self-serve demo — a genuinely new company should meet the
+       wizard, the same as the real thing. The standalone sales build cannot
+       afford it: a prospect opening the link on a fresh laptop or in a fresh
+       incognito window would land on setup rather than the product, with
+       nobody there to explain. So `SALES_SCRIPT_ENABLED` starts the seeded
+       company already through it — see `lib/sales-script.ts`.
+
+       The **only** field that flag changes about `DemoState`. Everything else
+       a prospect sees is the same demo everybody else gets, which is what
+       keeps this a different door rather than a different product. */
+    setupCompletedAt: SALES_SCRIPT_ENABLED ? "2026-01-01T00:00:00.000Z" : null,
     /* PAYE and pension on, matching the API's own defaults — a company that
        has answered nothing deducts what the law already expected of it. NHF
        off, also matching the API: there is no equivalent history for NHF,
