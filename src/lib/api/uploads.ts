@@ -229,17 +229,27 @@ export type AttachedFile =
 export function readAsAttachment(
   file: File,
   onProgress?: (fraction: number) => void,
+  /**
+   * A tighter cap than `MAX_DOCUMENT_BYTES`, where the endpoint has one.
+   *
+   * Signatures do: `MAX_SIGNABLE_BYTES` is 5MB, because a document to sign is
+   * kept whole in the record so the signature keeps meaning something. Without
+   * this the browser would happily spend a minute encoding an 8MB scan and
+   * then hand it to an API that refuses it — the refusal would be honest and
+   * the wait would be wasted.
+   */
+  maxBytes = MAX_DOCUMENT_BYTES,
 ): Promise<InlineFile> {
   if (file.size === 0) {
     return Promise.reject(
       new UploadRefused("That file is empty. Pick it again."),
     );
   }
-  if (file.size > MAX_DOCUMENT_BYTES) {
+  if (file.size > maxBytes) {
     return Promise.reject(
       new UploadRefused(
         `That file is ${Math.ceil(file.size / 1024 / 1024)} MB. Keep ` +
-          `documents under ${Math.floor(MAX_DOCUMENT_BYTES / 1024 / 1024)} MB.`,
+          `documents under ${Math.floor(maxBytes / 1024 / 1024)} MB.`,
       ),
     );
   }

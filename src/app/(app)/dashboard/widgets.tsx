@@ -469,7 +469,15 @@ const Hiring: WidgetComponent = ({ dashboard }) => {
 
 const HeadcountTrend: WidgetComponent = ({ reports, reportsLoading }) => {
   if (reportsLoading) return <ChartLoading title="Headcount over time" />;
-  const trend = reports?.workforce.trend ?? [];
+  /* `?.` on the **section**, not only on `reports`.
+     ------------------------------------------------------------------------
+     `reports?.workforce.trend` is what put a real company's dashboard behind
+     the error boundary: the first `?.` guards the object that is null while
+     loading, and nothing guarded the section, so an API that does not send
+     `workforce` threw `Cannot read properties of undefined (reading 'trend')`
+     from inside a render. See the note at the top of `ReportsData` — every
+     section is optional now, and the compiler found the other four. */
+  const trend = reports?.workforce?.trend ?? [];
   /* One point is not a trend, and a chart with a single dot on it reads as a
      broken chart rather than as a young company. */
   if (trend.length < 2) return null;
@@ -492,7 +500,7 @@ const HeadcountTrend: WidgetComponent = ({ reports, reportsLoading }) => {
 
 const JoinersLeavers: WidgetComponent = ({ reports, reportsLoading }) => {
   if (reportsLoading) return <ChartLoading title="Joiners and leavers" />;
-  const trend = reports?.workforce.trend ?? [];
+  const trend = reports?.workforce?.trend ?? [];
   if (trend.length < 2) return null;
   const anyMovement = trend.some((row) => row.joiners > 0 || row.leavers > 0);
   /* Nobody has joined or left in the window. A pair of flat empty axes is not
@@ -545,7 +553,7 @@ const StatTurnover: WidgetComponent = ({ reports, reportsLoading }) => {
 
 const StatTenure: WidgetComponent = ({ reports, reportsLoading }) => {
   if (reportsLoading) return null;
-  const months = reports?.workforce.averageTenureMonths;
+  const months = reports?.workforce?.averageTenureMonths;
   if (months === null || months === undefined) return null;
   return (
     <Stat
@@ -565,7 +573,7 @@ const HeadcountByDepartment: WidgetComponent = ({
   reportsLoading,
 }) => {
   if (reportsLoading) return <ChartLoading title="Headcount by department" />;
-  const rows = reports?.headcount.byDepartment ?? [];
+  const rows = reports?.headcount?.byDepartment ?? [];
   if (rows.length === 0) return null;
   return (
     <Panel title="Headcount by department" description="Largest first.">
@@ -580,7 +588,7 @@ const HeadcountByDepartment: WidgetComponent = ({
 
 const EmploymentTypes: WidgetComponent = ({ reports, reportsLoading }) => {
   if (reportsLoading) return <ChartLoading title="Contract types" />;
-  const rows = reports?.headcount.byEmploymentType ?? [];
+  const rows = reports?.headcount?.byEmploymentType ?? [];
   if (rows.length === 0) return null;
   return (
     <Panel title="Contract types">

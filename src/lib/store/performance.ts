@@ -12,6 +12,8 @@ import type { BadgeTone } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import {
   FULL_WEIGHT_BP,
+  RATING_LABELS,
+  RATING_MEANING,
   parseMeasure,
   performanceApi,
   type ApiAnswer,
@@ -38,6 +40,8 @@ import {
   type ApiCycleReport,
   type ApiNineBox,
   type ApiPotentialLevel,
+  type ApiRatingLevel,
+  type ApiRatingScale,
   type ApiScoreHistory,
   type ApiScoreRegister,
   type ApiScoringWeights,
@@ -710,6 +714,20 @@ const demoCycles: ApiCycle[] = [
     stage: "MANAGER",
     stageLabel: "manager review",
     dueDate: "2026-08-31",
+    /* A stated period, because the demo is meant to show the product rather
+       than the subset of it that needs no setting up. Note it is not the same
+       as the deadline: the half runs to June and the forms are owed in
+       August, which is the distinction a screen showing only `dueDate` used
+       to hide. */
+    periodStart: "2026-01-01",
+    periodEnd: "2026-06-30",
+    instructions:
+      "This is a mandatory mid-year appraisal covering January to June.\n\n" +
+      "It exists to assess how the half went, agree what the next one is for, " +
+      "and name anything you need in order to do it.\n\n" +
+      "Write it in your own words. Nothing here changes anybody's pay " +
+      "automatically.",
+    guideUrl: null,
     questionCount: 5,
     reviewCount: 18,
     /* Both demo cycles have started, and a cycle that has started has its
@@ -728,6 +746,14 @@ const demoCycles: ApiCycle[] = [
     stage: "PUBLISHED",
     stageLabel: "published",
     dueDate: "2026-06-30",
+    periodStart: "2025-07-01",
+    periodEnd: "2025-12-31",
+    /* Null on the published one, and that is the honest shape rather than an
+       oversight: most companies' older periods were run before anybody wrote
+       an instruction, and a screen has to read correctly when there is
+       nothing to read. */
+    instructions: null,
+    guideUrl: null,
     questionCount: 5,
     reviewCount: 18,
     scoringFrozen: true,
@@ -768,6 +794,16 @@ const SEED_QUESTIONS: readonly SeedQuestion[] = DEMO_ENABLED
         prompt: "Rate your own delivery against your objectives.",
         kind: "RATING",
         required: true,
+        audience: "SELF",
+      },
+      {
+        id: "demo-q-self-evidence",
+        prompt: "Attach any supporting evidence — a report, a dashboard.",
+        kind: "FILE",
+        /* Not required, and that is the honest default for evidence: somebody
+           whose work leaves no artefact should not be held out of their own
+           appraisal by a file picker. The API lets a company require it. */
+        required: false,
         audience: "SELF",
       },
       {
@@ -1141,6 +1177,10 @@ function demoReview(
     cycleName: cycle.name,
     cycleStage: cycle.stage,
     dueDate: cycle.dueDate,
+    /* From the cycle, never invented here. A form claiming a period its own
+       cycle does not state is the drift this field exists to remove. */
+    periodStart: cycle.periodStart,
+    periodEnd: cycle.periodEnd,
     kind,
     kindLabel: kind === "SELF" ? "Self-review" : "Manager review",
     anonymous: false,
@@ -1322,6 +1362,10 @@ function demoReviewDetail(
   return {
     ...base,
     mine: base.authorId === me,
+    /* The framing, from the cycle. This is the whole point of the field: an
+       employee opening a form reads why they are filling it in. */
+    instructions: cycle.instructions,
+    guideUrl: cycle.guideUrl,
     questions,
     outstanding: questions
       .filter((q) => q.required && q.answer === null)
@@ -2247,6 +2291,28 @@ export function useReviewMutations() {
               textValue: answer.textValue ?? null,
               choiceValue: answer.choiceValue ?? null,
               boolValue: answer.boolValue ?? null,
+              /* The metadata, and deliberately **not** the bytes. A 10MB
+                 base64 string in `localStorage` would exceed the quota and
+                 take the whole demo state down with it, so the demo can say
+                 what was attached and cannot hand it back. The download is
+                 absent rather than broken on that screen — the honest-absence
+                 rule this codebase already follows. */
+              attachment: answer.file
+                ? {
+                    id: `demo-file-${answer.questionId}`,
+                    filename: answer.file.filename,
+                    contentType: answer.file.contentType,
+                    /* From the base64 length, not from the File object, which
+                       is gone by here: 4 characters carry 3 bytes, less the
+                       padding. Close enough to render, and never stored as a
+                       fact anybody reconciles. */
+                    sizeBytes: Math.floor(
+                      (answer.file.contentBase64.replace(/=+$/, "").length *
+                        3) /
+                        4,
+                    ),
+                  }
+                : null,
               answeredAt: new Date().toISOString(),
             };
           }
@@ -2609,6 +2675,7 @@ export function useGaps(enabled: boolean): {
   gaps: ApiGap[];
   loading: boolean;
   error: ApiError | null;
+  reload: () => void;
 } {
   const { isConnected } = useSession();
   const load = useCallback(
@@ -2622,6 +2689,7 @@ export function useGaps(enabled: boolean): {
     gaps: isConnected ? (fetched.data ?? []) : enabled ? demoGaps() : [],
     loading: fetched.loading,
     error: fetched.error,
+    reload: fetched.reload,
   };
 }
 
@@ -2630,6 +2698,7 @@ export function useHeatmap(enabled: boolean): {
   heatmap: ApiHeatmap | null;
   loading: boolean;
   error: ApiError | null;
+  reload: () => void;
 } {
   const { isConnected } = useSession();
   const load = useCallback(
@@ -2646,6 +2715,7 @@ export function useHeatmap(enabled: boolean): {
     heatmap: isConnected ? fetched.data : enabled ? demoHeatmap() : null,
     loading: fetched.loading,
     error: fetched.error,
+    reload: fetched.reload,
   };
 }
 
@@ -2721,11 +2791,22 @@ export function useCycleMutations() {
       async (
         name: string,
         dueDate?: string,
-        /** Scope, reminder and the manager-question toggle. All optional. */
+        /**
+         * Scope, reminder, the manager-question toggle, and what the period
+         * covers. All optional.
+         *
+         * `periodStart`/`periodEnd` are the months being appraised, which is
+         * **not** `dueDate` — a half runs January to July and is answered in
+         * August. The API refuses one without the other.
+         */
         options?: {
           departmentIds?: string[];
           remindDaysBefore?: number;
           managersCanAddQuestions?: boolean;
+          periodStart?: string;
+          periodEnd?: string;
+          instructions?: string;
+          guideUrl?: string;
         },
       ) => {
         guard("Creating an appraisal period needs the API.");
@@ -2740,6 +2821,22 @@ export function useCycleMutations() {
             : {}),
           ...(options?.managersCanAddQuestions
             ? { managersCanAddQuestions: true }
+            : {}),
+          /* Both or neither, decided here rather than sent half-formed for the
+             API to refuse. A dialog that lets somebody fill in one date and
+             then reports a server error has asked a question it could have
+             answered. */
+          ...(options?.periodStart && options.periodEnd
+            ? {
+                periodStart: options.periodStart,
+                periodEnd: options.periodEnd,
+              }
+            : {}),
+          ...(options?.instructions?.trim()
+            ? { instructions: options.instructions.trim() }
+            : {}),
+          ...(options?.guideUrl?.trim()
+            ? { guideUrl: options.guideUrl.trim() }
             : {}),
         });
       },
@@ -2860,6 +2957,20 @@ export function useCycleMutations() {
     ),
 
     /**
+     * The testing doc's six standard self/manager questions, in one call.
+     * Refuses connected-only — see `addStandardQuestions`'s own header on the
+     * API for why this is a button rather than something a cycle acquires by
+     * existing.
+     */
+    addStandardQuestions: useCallback(
+      async (cycleId: string) => {
+        guard("Adding the standard questions needs the API.");
+        return performanceApi.addStandardQuestions(cycleId);
+      },
+      [guard],
+    ),
+
+    /**
      * Whether managers may add their own questions, and the period's scope
      * and reminder — the three settings that only mean anything before a
      * period starts. Kept apart from `advance`, which is the same endpoint
@@ -2872,6 +2983,11 @@ export function useCycleMutations() {
           departmentIds?: string[];
           remindDaysBefore?: number | null;
           managersCanAddQuestions?: boolean;
+          /** Nullable, unlike on create: clearing a period is a real edit. */
+          periodStart?: string | null;
+          periodEnd?: string | null;
+          instructions?: string | null;
+          guideUrl?: string | null;
         },
       ) => {
         guard("Changing a period's settings needs the API.");
@@ -3732,6 +3848,99 @@ const DEMO_WEIGHTS: ApiScoringWeights = {
  * is scored, and a locally stored set would move no mark on any screen in this
  * product — the same failure as a green "Paid" that transferred nothing.
  */
+/* ==========================================================================
+ * What a mark is called
+ * ======================================================================== */
+
+const SCALE_SAVE_OFFLINE =
+  "Renaming the scale needs the API. The words are the company's, stored " +
+  "once and frozen onto every period as it starts — there is nothing in this " +
+  "browser for a period to freeze.";
+
+/**
+ * The demo's scale: the defaults, reported as the defaults.
+ *
+ * `source: "default"` and not `"saved"`, and the distinction is the point. A
+ * demo that claimed somebody had chosen these words would make the settings
+ * screen's "reset to the built-in five" a button with nothing to do, and that
+ * button is how a company gets back out of a change it regrets.
+ */
+const DEMO_SCALE: ApiRatingScale = {
+  levels: Object.keys(RATING_LABELS)
+    .map(Number)
+    .sort((a, b) => a - b)
+    .map((level) => ({
+      level,
+      label: RATING_LABELS[level] ?? String(level),
+      meaning: RATING_MEANING[level] ?? "",
+    })),
+  source: "default",
+  max: Object.keys(RATING_LABELS).length,
+};
+
+/**
+ * The five words this company reads a mark in.
+ *
+ * **Every screen that renders a rating should use this rather than
+ * `RATING_LABELS`.** The constant is the fallback the API serves when nobody
+ * has chosen; the moment a company renames a 4, a screen still importing the
+ * constant is quoting a scale that company does not use — and the picker and
+ * the record disagreeing about what a 4 is called is the exact failure
+ * `verify-rating-scale` was written for, one level up.
+ *
+ * No permission is asked and none is needed: the API gates the write and
+ * leaves the read open, because a scale you are measured against but cannot
+ * read is absurd.
+ */
+export function useRatingScale(): {
+  scale: ApiRatingScale;
+  loading: boolean;
+  error: ApiError | null;
+  source: Source;
+  /** False offline. The editor renders read-only and says why. */
+  editable: boolean;
+  refusal: string;
+  /** The whole set. There is no endpoint that saves one level — see the API wrapper. */
+  save: (levels: ApiRatingLevel[]) => Promise<ApiRatingScale>;
+  reload: () => void;
+} {
+  const { isConnected } = useSession();
+
+  const load = useCallback(
+    async (signal: AbortSignal) => performanceApi.ratingScale(signal),
+    [],
+  );
+  const fetched = useFetched<ApiRatingScale>("rating-scale", isConnected, load);
+  const { reload } = fetched;
+
+  return {
+    /**
+     * Never null, unlike the other hooks here.
+     *
+     * A screen with no scale yet cannot render "Pick a mark" as five blanks
+     * while a request is in flight, and every consumer would otherwise write
+     * the same `?? defaults` fallback — differently. The defaults are a
+     * constant, so there is nothing to synchronise and nothing to wait for.
+     */
+    scale: isConnected ? (fetched.data ?? DEMO_SCALE) : DEMO_SCALE,
+    loading: isConnected ? fetched.loading : false,
+    error: isConnected ? fetched.error : null,
+    source: isConnected ? "api" : "demo",
+    editable: isConnected,
+    refusal: SCALE_SAVE_OFFLINE,
+    save: useCallback(
+      async (levels: ApiRatingLevel[]) => {
+        if (!isConnected) offline(SCALE_SAVE_OFFLINE);
+        const saved = await performanceApi.setRatingScale(levels);
+        reload();
+        return saved;
+      },
+      [isConnected, reload],
+    ),
+    reload,
+  };
+}
+
 export function useScoringWeights(): {
   weights: ApiScoringWeights | null;
   loading: boolean;

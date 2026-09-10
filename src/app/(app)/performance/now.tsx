@@ -25,7 +25,7 @@ import {
 import {
   dayLabel,
   dayOf,
-  ratingWords,
+  ratingWordsFrom,
   type ApiGoal,
   type ApiPeerFeedback,
   type ApiReview,
@@ -39,6 +39,7 @@ import {
   useKpis,
   useMyAppraisers,
   useObjectiveApprovals,
+  useRatingScale,
   useReviewsIWrote,
 } from "@/lib/store/performance";
 import { AppraisersDialog } from "./appraiser-map";
@@ -114,6 +115,8 @@ export function WhatNeedsYouTab({
   const features = useFeatures();
   const appraisals = useAppraisals();
   const approvals = useObjectiveApprovals();
+  const { scale } = useRatingScale();
+  const ratingWords = ratingWordsFrom(scale.levels);
   const mineGoals = useKpis("mine");
   const { isConnected, actingId, employeeId } = useSession();
 
@@ -449,7 +452,7 @@ export function WhatNeedsYouTab({
                 <span className="tabular text-h2 font-semibold text-ink">
                   {waitingOnMe}
                 </span>
-                <span className="text-body font-semibold text-ink">
+                <span className="font-semibold text-ink">
                   {waitingOnMe === 1 ? "thing needs you" : "things need you"}
                 </span>
               </p>
@@ -457,9 +460,7 @@ export function WhatNeedsYouTab({
             </>
           ) : (
             <>
-              <p className="text-body font-semibold text-ink">
-                Nothing needs you here
-              </p>
+              <p className="font-semibold text-ink">Nothing needs you here</p>
               <p className="text-body-sm text-muted">{needsYouLine}</p>
             </>
           )}
@@ -1114,6 +1115,11 @@ function ReviewRow({
   actionLabel: string;
   onOpen: () => void;
 }) {
+  /* The company's own words for the mark on this row. One cached request
+     however many rows render it. */
+  const { scale } = useRatingScale();
+  const ratingWords = ratingWordsFrom(scale.levels);
+
   /* In the record list the subject is always you, so an author who *is* the
      subject would print your own name back at you — which is what a first draft
      did, as "Self-review · from Adaeze Okonkwo". */

@@ -3,12 +3,28 @@
 import { useMemo, useState } from "react";
 import { Button, Field, Modal, Select, Textarea } from "@/components/ui";
 import type { RateBody } from "@/lib/api/performance";
-import { useFramework } from "@/lib/store/performance";
+import { useAppraisals, useFramework } from "@/lib/store/performance";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { useSession } from "@/lib/store/session";
 
 /**
  * Recording somebody's level on one skill.
+ *
+ * ## A rating only reaches a mark if it names the period
+ *
+ * `scoreRegister` reads `where: { reviewCycleId: cycle.id }`, so a rating with
+ * no period is invisible to the score. This dialog had no period field at all
+ * and was the only caller of `rate` in the app, which made the competency
+ * components — 55% of every mark, core plus behavioural plus leadership —
+ * permanently `NO_DATA`. Rating somebody saved, filled the gap table and the
+ * heatmap, and moved no mark, with nothing on screen saying why.
+ *
+ * Both readings are real, which is why this is a choice rather than a default:
+ * a rating inside a period is the assessment of record for it, and one without
+ * is a point-in-time reading that accumulates so \"did they improve\" stays
+ * answerable. See the comment on `rateCompetency`. What was wrong was that only
+ * one of the two was reachable. The help text carries the consequence, the same
+ * way `NewKpiDialog`'s does for the identical field.
  *
  * ## The signed-in person is not in the picker
  *
@@ -33,8 +49,13 @@ export function RecordLevelDialog({
   const { employees } = useEmployeeDirectory({ pageSize: 200 });
   const { employeeId } = useSession();
   const framework = useFramework();
+  const { cycles } = useAppraisals();
+  /* `rateCompetency` refuses a published period outright, so it is never
+     offered rather than offered and then rejected. */
+  const openPeriods = cycles.filter((cycle) => cycle.stage !== "PUBLISHED");
 
   const [person, setPerson] = useState("");
+  const [reviewCycleId, setReviewCycleId] = useState("");
   const [competency, setCompetency] = useState("");
   const [level, setLevel] = useState("");
   const [target, setTarget] = useState("");
@@ -62,6 +83,7 @@ export function RecordLevelDialog({
     setSaving(true);
     try {
       const body: RateBody = { employeeId: person, level: Number(level) };
+      if (reviewCycleId) body.reviewCycleId = reviewCycleId;
       if (target) body.target = Number(target);
       if (note.trim()) body.note = note.trim();
       await onSave(competency, body);
@@ -170,6 +192,30 @@ export function RecordLevelDialog({
             </Select>
           </Field>
         </div>
+
+        {openPeriods.length > 0 && (
+          <Field
+            optional
+            label="Scored in"
+            help={
+              reviewCycleId
+                ? "Counts towards this person's mark for that period. One rating of record per period, so rating them again is a correction to this one."
+                : "Nothing here reaches an appraisal mark. It is a point-in-time reading \u2014 it fills the gap table and the heatmap, and scores nothing."
+            }
+          >
+            <Select
+              value={reviewCycleId}
+              onChange={(event) => setReviewCycleId(event.target.value)}
+            >
+              <option value="">Not part of an appraisal period</option>
+              {openPeriods.map((period) => (
+                <option key={period.id} value={period.id}>
+                  {period.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
 
         <Field optional label="Anything to add" help="They will see it.">
           <Textarea

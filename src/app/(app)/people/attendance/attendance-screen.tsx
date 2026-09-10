@@ -11,6 +11,7 @@ import {
   Card,
   CardBody,
   CardHeader,
+  Checkbox,
   Field,
   Input,
   Modal,
@@ -608,6 +609,11 @@ function RowActions({
 function TimesheetView({ sheet }: { sheet: TimesheetState }) {
   const rota = useRotaContext(sheet.from, sheet.to);
   const mayExport = useCan("EXPORT_DATA");
+  /* Download-only: the on-screen table stays the full roster, since the
+     "Needs looking at" column already reads as "nothing to look at" on a
+     clean row. The file is the artefact somebody actually filters, files
+     or hands to auditing — the feedback's own words. */
+  const [exceptionsOnly, setExceptionsOnly] = useState(false);
 
   return (
     <Card>
@@ -624,12 +630,23 @@ function TimesheetView({ sheet }: { sheet: TimesheetState }) {
                 that is a salary figure wearing an attendance label, on the one
                 export that does not need the pay permission. */}
             {sheet.source === "api" && mayExport && (
-              <ExportButton
-                label="Download"
-                download={() =>
-                  attendanceCsv({ days: TIMESHEET_DAYS, to: sheet.to })
-                }
-              />
+              <>
+                <Checkbox
+                  label="Exceptions only"
+                  checked={exceptionsOnly}
+                  onChange={(e) => setExceptionsOnly(e.target.checked)}
+                />
+                <ExportButton
+                  label="Download"
+                  download={() =>
+                    attendanceCsv({
+                      days: TIMESHEET_DAYS,
+                      to: sheet.to,
+                      ...(exceptionsOnly ? { exceptionsOnly: true } : {}),
+                    })
+                  }
+                />
+              </>
             )}
             <ButtonLink href="/people/overtime" variant="secondary" size="sm">
               <Timer aria-hidden="true" className="size-4" />

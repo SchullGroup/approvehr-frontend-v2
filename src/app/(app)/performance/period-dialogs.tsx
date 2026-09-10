@@ -32,6 +32,7 @@ import {
   useFrameworkActions,
   useSections,
 } from "@/lib/store/performance";
+import { NoticeLine } from "@/components/portal/notice-line";
 import { QUESTION_BANK } from "@/lib/performance/question-bank";
 
 /** Who a question is put to. `REPORT` exists in the enum and nothing reaches it. */
@@ -65,6 +66,7 @@ const KINDS: { value: ReviewQuestionKind; label: string }[] = [
   { value: "RATING", label: "A rating on the company scale" },
   { value: "BOOLEAN", label: "Yes or no" },
   { value: "CHOICE", label: "Pick from a list" },
+  { value: "FILE", label: "A file — a report, a dashboard, a screenshot" },
 ];
 
 const AUDIENCE_LABEL: Record<ReviewAudience, string> = {
@@ -79,7 +81,42 @@ const KIND_LABEL: Record<ReviewQuestionKind, string> = {
   RATING: "Rating",
   BOOLEAN: "Yes or no",
   CHOICE: "Pick one",
+  FILE: "A file",
 };
+
+/**
+ * Why an evidence question cannot be asked of colleagues.
+ *
+ * Returns null when the set is fine, and the API's own rule otherwise, checked
+ * here so the refusal arrives while somebody is still writing the question
+ * rather than after they press save.
+ *
+ * The rule itself: a peer answer carries **no respondent** by design, and a
+ * file carries its author in its metadata and usually in its name. Anonymity a
+ * file quietly breaks is worse than none, because people answered believing
+ * it. And "everyone on the form" includes colleagues, so an evidence question
+ * has to say who it is for.
+ */
+function evidenceAudienceRefusal(
+  kind: ReviewQuestionKind,
+  narrowed: boolean,
+  audiences: readonly ReviewAudience[],
+): string | null {
+  if (kind !== "FILE") return null;
+  if (!narrowed) {
+    return (
+      "Say who is asked for a file. Left as everyone it would include " +
+      "colleagues, and peer feedback is anonymous."
+    );
+  }
+  if (audiences.includes("PEER")) {
+    return (
+      "A file cannot be asked of colleagues. Peer feedback is anonymous, and " +
+      "a document carries its author's name in ways we cannot strip out."
+    );
+  }
+  return null;
+}
 
 /**
  * The questions on one appraisal period.
@@ -112,6 +149,7 @@ export function QuestionsDialog({
   onRemove,
   onReorder,
   onCopyFrom,
+  onAddStandard,
 }: {
   cycleId: string;
   periodName: string;
@@ -127,6 +165,15 @@ export function QuestionsDialog({
   onReorder?: (ids: string[]) => Promise<void>;
   /** Absent on a period that has started — copying is refused there anyway. */
   onCopyFrom?: (sourceCycleId: string) => Promise<{ copied: number }>;
+  /**
+   * The testing doc's six standard self/manager questions — Key
+   * Achievements, Key Challenges, Reason for Rating; Achievements Observed,
+   * Areas for Improvement, Overall Assessment — added in one call. Absent
+   * once the period has started, same reason as `onCopyFrom`: the API
+   * refuses it there, so the button is not offered rather than offered and
+   * refused.
+   */
+  onAddStandard?: () => Promise<void>;
 }) {
   const { questions, loading, reload } = useCycleQuestions(cycleId);
   const framework = useFramework();
@@ -244,6 +291,11 @@ export function QuestionsDialog({
       );
       return;
     }
+    const evidenceRefusal = evidenceAudienceRefusal(kind, narrowed, audiences);
+    if (evidenceRefusal) {
+      setError(evidenceRefusal);
+      return;
+    }
     setError(null);
     setSaving(true);
     try {
@@ -310,6 +362,24 @@ export function QuestionsDialog({
         caught instanceof ApiError
           ? caught.message
           : "Could not copy those questions.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const addStandard = async () => {
+    if (!onAddStandard) return;
+    setError(null);
+    setSaving(true);
+    try {
+      await onAddStandard();
+      reload();
+    } catch (caught) {
+      setError(
+        caught instanceof ApiError
+          ? caught.message
+          : "Could not add the standard questions.",
       );
     } finally {
       setSaving(false);
@@ -410,6 +480,25 @@ export function QuestionsDialog({
           </>
         )}
 
+        {onAddStandard && !editing && (
+          /* The testing doc's six, offered whether or not HR has already
+             typed questions of their own — unlike `onCopyFrom`, this is not
+             confined to a blank form. Pressing it twice is refused by the
+             API in words naming which of the six are already there, rather
+             than hidden pre-emptively, so this needs no "already added"
+             tracking of its own. */
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="self-start"
+            loading={saving}
+            onClick={() => void addStandard()}
+          >
+            Add the standard self/manager questions
+          </Button>
+        )}
+
         <div className="flex flex-col gap-4 border-t border-line pt-5">
           <Field
             label={editing ? "Edit the question" : "Add a question"}
@@ -451,6 +540,15 @@ export function QuestionsDialog({
 
           {narrowed && (
             <AudiencePicker value={audiences} onChange={setAudiences} />
+          )}
+
+          {/* The rule while somebody is choosing, not after they save.
+              `evidenceAudienceRefusal` is the same function `save` calls, so
+              the note and the refusal cannot come to say different things. */}
+          {evidenceAudienceRefusal(kind, narrowed, audiences) && (
+            <NoticeLine tone="warning">
+              <span>{evidenceAudienceRefusal(kind, narrowed, audiences)}</span>
+            </NoticeLine>
           )}
 
           <SubsectionPicker value={competencyId} onChange={setCompetencyId} />
