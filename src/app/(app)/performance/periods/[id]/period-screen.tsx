@@ -1387,33 +1387,59 @@ function Register({
         }
       />
       <CardBody className="p-0">
-        <TableWrap caption="Everybody in this period, their score and their sign-off">
-          <THead>
-            <TH>Person</TH>
-            <TH>Objectives agreed</TH>
-            <TH align="right">Score</TH>
-            <TH>Sign-off</TH>
-            {canAskPeers && <TH>Feedback</TH>}
-            {canCalibrate && <TH>Calibration</TH>}
-            {canRequestRevision && !revisionsUnavailable && <TH>Revision</TH>}
-          </THead>
-          <TBody>
-            {register.rows.map((row) => (
-              <RegisterRow
-                key={row.employeeId}
-                row={row}
-                cycleId={cycleId}
-                canAskPeers={canAskPeers}
-                canCalibrate={canCalibrate}
-                canRequestRevision={canRequestRevision && !revisionsUnavailable}
-                existingRevision={revisionRequests.find(
-                  (request) => request.employeeId === row.employeeId,
-                )}
-                onAsked={onAsked}
-              />
-            ))}
-          </TBody>
-        </TableWrap>
+        {/* Up to seven columns, one of them (Score) already two lines and a
+            breakdown, is unreadable under 375px. Below `sm` this becomes a
+            card per person — `RegisterCard` is `RegisterRow`'s sibling, same
+            `SignOffCell` / `ScoreParts` / action buttons, arranged as a list
+            instead of columns. */}
+        <div className="hidden sm:block">
+          <TableWrap caption="Everybody in this period, their score and their sign-off">
+            <THead>
+              <TH>Person</TH>
+              <TH>Objectives agreed</TH>
+              <TH align="right">Score</TH>
+              <TH>Sign-off</TH>
+              {canAskPeers && <TH>Feedback</TH>}
+              {canCalibrate && <TH>Calibration</TH>}
+              {canRequestRevision && !revisionsUnavailable && <TH>Revision</TH>}
+            </THead>
+            <TBody>
+              {register.rows.map((row) => (
+                <RegisterRow
+                  key={row.employeeId}
+                  row={row}
+                  cycleId={cycleId}
+                  canAskPeers={canAskPeers}
+                  canCalibrate={canCalibrate}
+                  canRequestRevision={
+                    canRequestRevision && !revisionsUnavailable
+                  }
+                  existingRevision={revisionRequests.find(
+                    (request) => request.employeeId === row.employeeId,
+                  )}
+                  onAsked={onAsked}
+                />
+              ))}
+            </TBody>
+          </TableWrap>
+        </div>
+
+        <ul className="divide-y divide-line sm:hidden">
+          {register.rows.map((row) => (
+            <RegisterCard
+              key={row.employeeId}
+              row={row}
+              cycleId={cycleId}
+              canAskPeers={canAskPeers}
+              canCalibrate={canCalibrate}
+              canRequestRevision={canRequestRevision && !revisionsUnavailable}
+              existingRevision={revisionRequests.find(
+                (request) => request.employeeId === row.employeeId,
+              )}
+              onAsked={onAsked}
+            />
+          ))}
+        </ul>
       </CardBody>
     </Card>
   );
@@ -1535,6 +1561,108 @@ function RegisterRow({
         </TD>
       )}
     </TR>
+  );
+}
+
+/** `RegisterRow`'s sibling: the same person, as a card instead of a row. */
+function RegisterCard({
+  row,
+  cycleId,
+  canAskPeers,
+  canCalibrate,
+  canRequestRevision,
+  existingRevision,
+  onAsked,
+}: {
+  row: ApiScoreRow;
+  cycleId: string;
+  canAskPeers: boolean;
+  canCalibrate: boolean;
+  canRequestRevision: boolean;
+  existingRevision: ApiRevisionRequest | undefined;
+  onAsked: () => void;
+}) {
+  return (
+    <li className="flex flex-col gap-2 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <Link
+            href={`/performance/history/${row.employeeId}`}
+            className="font-medium text-ink underline-offset-2 hover:text-accent-text hover:underline"
+          >
+            {row.employeeName}
+          </Link>
+          <p className="mt-0.5 text-meta text-muted">
+            {row.jobTitle}
+            {row.departmentName ? ` · ${row.departmentName}` : ""}
+          </p>
+        </div>
+        <div className="shrink-0 text-right">
+          {row.scoreBp === null ? (
+            <span className="text-body-sm text-muted">No mark</span>
+          ) : (
+            <span className="tabular font-medium text-ink">
+              {scoreLabel(row.scoreBp)}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {row.scoreBp !== null && (
+        <div>
+          {row.calibration && (
+            <p className="text-meta text-muted" title={row.calibration.reason}>
+              Moved from {scoreLabel(row.calibration.originalBp)}
+            </p>
+          )}
+          <ScoreParts components={row.components} />
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
+        <span className="tabular">
+          {row.objectives.agreed} objective
+          {row.objectives.agreed === 1 ? "" : "s"} agreed
+          {row.objectives.awaitingApproval > 0 &&
+            ` · ${row.objectives.awaitingApproval} waiting`}
+        </span>
+      </div>
+
+      <div>
+        <SignOffCell row={row} />
+      </div>
+
+      {(canAskPeers || canCalibrate || canRequestRevision) && (
+        <div className="flex flex-wrap items-center gap-3 border-t border-line pt-2">
+          {canAskPeers && (
+            <AskPeersButton
+              cycleId={cycleId}
+              subjectId={row.employeeId}
+              subjectName={row.employeeName}
+              onAsked={onAsked}
+            />
+          )}
+          {canCalibrate &&
+            (row.scoreBp === null ? (
+              <span className="text-meta text-muted">No mark yet</span>
+            ) : (
+              <CalibrateButton
+                cycleId={cycleId}
+                row={row}
+                onChanged={onAsked}
+              />
+            ))}
+          {canRequestRevision && (
+            <RevisionButton
+              cycleId={cycleId}
+              row={row}
+              existing={existingRevision}
+              onChanged={onAsked}
+            />
+          )}
+        </div>
+      )}
+    </li>
   );
 }
 
