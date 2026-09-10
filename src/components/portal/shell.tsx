@@ -27,6 +27,7 @@ import { useAttendanceRoster } from "@/lib/store/attendance";
 import { APPROVE_PERMISSIONS } from "@/app/(app)/approvals/inbox";
 import { useSession } from "@/lib/store/session";
 import { useCompanyLogo } from "@/lib/store/company";
+import { InstallPrompt } from "./install-prompt";
 import { VerificationBanner } from "./verification-banner";
 
 /**
@@ -207,6 +208,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               so it stays on screen through a scroll rather than scrolling
               away with the page. */}
           <VerificationBanner />
+          {/* Below the verification strip, because verifying an email is
+              something you have to do and installing the app is a suggestion.
+              Renders nothing on a desktop, nothing if it is already installed,
+              and nothing in a browser that cannot install — see the component. */}
+          <InstallPrompt />
           {children}
         </main>
       </div>
