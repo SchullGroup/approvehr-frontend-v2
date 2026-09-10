@@ -156,70 +156,149 @@ export function ClaimsRegister({
             {...(emptyAction && !loading ? { action: emptyAction } : {})}
           />
         ) : (
-          <TableWrap className="rounded-none border-0" caption={title}>
-            <THead>
-              {showWho && <TH>Who</TH>}
-              <TH>What for</TH>
-              {column("incurredOn", "Spent on", { startDescending: true })}
-              {column("amount", "Amount", {
-                align: "right",
-                startDescending: true,
-              })}
-              <TH>Receipt</TH>
-              {column("status", "State")}
-              <TH align="right">
-                <span className="sr-only">Actions</span>
-              </TH>
-            </THead>
-            <TBody>
+          <>
+            <div className="hidden sm:block">
+              <TableWrap className="rounded-none border-0" caption={title}>
+                <THead>
+                  {showWho && <TH>Who</TH>}
+                  <TH>What for</TH>
+                  {column("incurredOn", "Spent on", { startDescending: true })}
+                  {column("amount", "Amount", {
+                    align: "right",
+                    startDescending: true,
+                  })}
+                  <TH>Receipt</TH>
+                  {column("status", "State")}
+                  <TH align="right">
+                    <span className="sr-only">Actions</span>
+                  </TH>
+                </THead>
+                <TBody>
+                  {claims.map((claim) => {
+                    const mine = claim.employeeId === myEmployeeId;
+                    return (
+                      <TR key={claim.id}>
+                        {showWho && (
+                          <TD>
+                            <span className="block font-medium text-ink">
+                              {claim.employeeName}
+                            </span>
+                            <span className="block text-meta text-muted">
+                              {claim.employeeNo}
+                            </span>
+                          </TD>
+                        )}
+
+                        <TD className="max-w-88">
+                          <span className="block text-ink">
+                            {claim.description}
+                          </span>
+                          <span className="block text-meta text-muted">
+                            {claim.type}
+                          </span>
+                          {claim.status === "DECLINED" &&
+                            claim.declinedReason && (
+                              <span className="mt-1 block text-body-sm text-body">
+                                {claim.approvedByName
+                                  ? `${claim.approvedByName}: `
+                                  : ""}
+                                {claim.declinedReason}
+                              </span>
+                            )}
+                        </TD>
+
+                        <TD className="tabular text-body">
+                          {claim.incurredOn}
+                        </TD>
+
+                        <TD
+                          align="right"
+                          className="tabular font-medium text-ink"
+                        >
+                          <Money amount={claim.amount} decimals />
+                        </TD>
+
+                        <TD>
+                          <ReceiptCell claim={claim} types={types} />
+                        </TD>
+
+                        <TD>
+                          <StatusBadge claim={claim} />
+                        </TD>
+
+                        <TD align="right">
+                          <div className="flex justify-end gap-1.5">
+                            {claim.editable && mine && onEdit && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => onEdit(claim)}
+                              >
+                                Edit
+                              </Button>
+                            )}
+                            {claim.outstanding && canSettle && onMarkPaid && (
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => setSettling(claim)}
+                              >
+                                Mark paid
+                              </Button>
+                            )}
+                          </div>
+                        </TD>
+                      </TR>
+                    );
+                  })}
+                </TBody>
+              </TableWrap>
+            </div>
+
+            <ul className="divide-y divide-line sm:hidden">
               {claims.map((claim) => {
                 const mine = claim.employeeId === myEmployeeId;
                 return (
-                  <TR key={claim.id}>
-                    {showWho && (
-                      <TD>
-                        <span className="block font-medium text-ink">
-                          {claim.employeeName}
-                        </span>
-                        <span className="block text-meta text-muted">
-                          {claim.employeeNo}
-                        </span>
-                      </TD>
+                  <li key={claim.id} className="flex flex-col gap-2 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        {showWho && (
+                          <>
+                            <p className="font-medium text-ink">
+                              {claim.employeeName}
+                            </p>
+                            <p className="text-meta text-muted">
+                              {claim.employeeNo}
+                            </p>
+                          </>
+                        )}
+                        <p className={showWho ? "mt-1 text-ink" : "text-ink"}>
+                          {claim.description}
+                        </p>
+                        <p className="text-meta text-muted">
+                          {claim.type} · {claim.incurredOn}
+                        </p>
+                      </div>
+                      <span className="tabular shrink-0 font-medium text-ink">
+                        <Money amount={claim.amount} decimals />
+                      </span>
+                    </div>
+
+                    {claim.status === "DECLINED" && claim.declinedReason && (
+                      <p className="text-body-sm text-body">
+                        {claim.approvedByName
+                          ? `${claim.approvedByName}: `
+                          : ""}
+                        {claim.declinedReason}
+                      </p>
                     )}
 
-                    <TD className="max-w-88">
-                      <span className="block text-ink">
-                        {claim.description}
-                      </span>
-                      <span className="block text-meta text-muted">
-                        {claim.type}
-                      </span>
-                      {claim.status === "DECLINED" && claim.declinedReason && (
-                        <span className="mt-1 block text-body-sm text-body">
-                          {claim.approvedByName
-                            ? `${claim.approvedByName}: `
-                            : ""}
-                          {claim.declinedReason}
-                        </span>
-                      )}
-                    </TD>
-
-                    <TD className="tabular text-body">{claim.incurredOn}</TD>
-
-                    <TD align="right" className="tabular font-medium text-ink">
-                      <Money amount={claim.amount} decimals />
-                    </TD>
-
-                    <TD>
-                      <ReceiptCell claim={claim} types={types} />
-                    </TD>
-
-                    <TD>
-                      <StatusBadge claim={claim} />
-                    </TD>
-
-                    <TD align="right">
-                      <div className="flex justify-end gap-1.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-3">
+                        <StatusBadge claim={claim} />
+                        <ReceiptCell claim={claim} types={types} />
+                      </div>
+                      <div className="flex gap-1.5">
                         {claim.editable && mine && onEdit && (
                           <Button
                             variant="ghost"
@@ -239,12 +318,12 @@ export function ClaimsRegister({
                           </Button>
                         )}
                       </div>
-                    </TD>
-                  </TR>
+                    </div>
+                  </li>
                 );
               })}
-            </TBody>
-          </TableWrap>
+            </ul>
+          </>
         )}
 
         {paging && claims.length > 0 && (
