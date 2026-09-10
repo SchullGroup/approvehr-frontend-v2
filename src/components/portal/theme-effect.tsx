@@ -12,9 +12,12 @@ import { applyTheme, themeStore } from "@/lib/store/theme";
  * via `dangerouslySetInnerHTML` never executes when React mounts it through
  * client-side reconciliation rather than parsing fresh HTML, which is a DOM
  * behaviour, not a Next quirk. This closes that gap unconditionally, at
- * negligible cost, and also carries the two things that can only happen after
- * mount: reapplying live when the Appearance screen changes the choice, and
- * tracking a live OS-level change while "system" is selected.
+ * negligible cost, and also carries the one thing that can only happen after
+ * mount: reapplying live when the Appearance screen changes the choice.
+ *
+ * No `matchMedia` listener here, on purpose — see `lib/store/theme.ts`'s
+ * header. This never reacts to an OS-level scheme change, because there is no
+ * `"system"` choice left for one to matter to.
  */
 export function ThemeEffect() {
   useLayoutEffect(() => {
@@ -24,15 +27,8 @@ export function ThemeEffect() {
       applyTheme(themeStore.current().choice);
     });
 
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const onSystemChange = () => {
-      if (themeStore.current().choice === "system") applyTheme("system");
-    };
-    media.addEventListener("change", onSystemChange);
-
     return () => {
       unsubscribe();
-      media.removeEventListener("change", onSystemChange);
       document.documentElement.removeAttribute("data-theme");
     };
   }, []);

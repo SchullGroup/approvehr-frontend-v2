@@ -52,6 +52,7 @@ export function FileField({
   help,
   accept = ".pdf,.jpg,.jpeg,.png,.webp,.heic,.doc,.docx,.xls,.xlsx",
   required,
+  maxBytes,
   onAttached,
   onBusyChange,
   className,
@@ -60,6 +61,14 @@ export function FileField({
   help?: string;
   accept?: string;
   required?: boolean;
+  /**
+   * A tighter cap than the document one, for an endpoint that has its own.
+   *
+   * Signatures cap at 5MB rather than 10 — see `MAX_SIGNABLE_BYTES`. Checked
+   * before the read for the reason in the header: the answer should arrive
+   * before a minute is spent encoding a file that is going to be refused.
+   */
+  maxBytes?: number;
   /**
    * Fires with the file, ready to send. Null when the choice is cleared or the
    * read failed, so a form can never save a record with a stale attachment.
@@ -95,7 +104,7 @@ export function FileField({
     setWorking(true);
     setProgress(0);
     try {
-      onAttached(await readAsAttachment(file, setProgress));
+      onAttached(await readAsAttachment(file, setProgress, maxBytes));
     } catch (caught) {
       /* Every one of these is a sentence somebody can act on — an empty file,
          one over the cap, or a read that failed. None of them is a status

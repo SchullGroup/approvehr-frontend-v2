@@ -16,12 +16,12 @@ import {
   Card,
   CardBody,
   CardHeader,
-  Spinner,
   Textarea,
 } from "@/components/ui";
 import { MAX_CHAT_MESSAGE_CHARS } from "@/lib/api/ai";
 import { useAssistantAvailable } from "@/lib/store/ai";
 import { useAssistantChat, type ChatTurn } from "@/lib/store/ai-chat";
+import { AssistantOrb } from "./assistant-orb";
 
 /**
  * A conversation with the assistant, and the one place it can propose a change.
@@ -67,11 +67,31 @@ import { useAssistantChat, type ChatTurn } from "@/lib/store/ai-chat";
  */
 
 /** Three openers, so an empty box is not a blank page. */
-const OPENERS = [
-  "How many people have no bank account?",
-  "Whose leave requests are still waiting?",
-  "What can you do for me?",
-];
+/**
+ * The questions offered as buttons.
+ *
+ * In the standalone sales build these **must** be questions
+ * `mock/sales-script-qa.ts` has answers for — a button that lands on the
+ * "not one of the prepared questions" fallback is worse than no button, since
+ * a prospect clicking through unattended would read it as the assistant
+ * failing rather than as an honest edge. There are five prepared; these are
+ * the four worth opening with.
+ *
+ * Elsewhere they are only suggestions, and a real assistant answers whatever
+ * is typed, so the third is a question about itself rather than about data.
+ */
+const OPENERS = SALES_SCRIPT_ENABLED
+  ? [
+      "How many people have no bank account?",
+      "Whose leave requests are still waiting?",
+      "Is anyone missing something before payday?",
+      "How's the H2 2026 review going?",
+    ]
+  : [
+      "How many people have no bank account?",
+      "Whose leave requests are still waiting?",
+      "What can you do for me?",
+    ];
 
 export function AssistantChat() {
   const assistant = useAssistantAvailable();
@@ -114,10 +134,16 @@ export function AssistantChat() {
       <CardBody className="flex flex-col gap-4">
         {chat.turns.length === 0 ? (
           <div className="flex flex-col gap-3">
-            <p className="text-body-sm text-muted">
-              Ask about your people, your leave, your payroll runs, or what you
-              deduct. Try one of these:
-            </p>
+            <div className="flex items-start gap-3">
+              {/* `resting` — a still mark, no animation. An empty state that
+                  pulsed would be claiming something is happening before
+                  anybody has asked anything. */}
+              <AssistantOrb size={36} className="mt-0.5 shrink-0" />
+              <p className="text-body-sm text-muted">
+                Ask about your people, your leave, your payroll runs, or what
+                you deduct. Try one of these:
+              </p>
+            </div>
             <div className="flex flex-wrap gap-2">
               {OPENERS.map((opener) => (
                 <button
@@ -149,7 +175,11 @@ export function AssistantChat() {
 
         {chat.sending && (
           <span className="flex items-center gap-2 text-body-sm text-muted">
-            <Spinner size="sm" />
+            {/* The assistant's own presence rather than a generic spinner —
+                and `thinking` is the only place it belongs, per the
+                component's note. One round trip per turn, so there are no
+                named steps to report and this claims none. */}
+            <AssistantOrb size={20} phase="thinking" />
             Looking through your records
           </span>
         )}

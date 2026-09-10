@@ -219,6 +219,8 @@ export type ApiApplyExtras = {
   parentsLinked?: number;
   /** Departments: heads matched by work email or staff number. */
   headsSet?: number;
+  /** Employees: invitations sent to a row carrying both a role and an email. */
+  invited?: number;
 };
 
 /** `POST /:entity/:batchId/apply`. */

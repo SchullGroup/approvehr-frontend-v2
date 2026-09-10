@@ -41,6 +41,7 @@ import { ItemForm } from "./item-form";
 import { ItemPanel } from "./item-panel";
 import { AddKindDialog, KindsPanel } from "./kinds-panel";
 import { MyAssets } from "./my-equipment";
+import { TeamEquipment } from "./team-equipment";
 import { useListQuery } from "@/lib/use-list-query";
 import { RegisterTable } from "./register-table";
 import { RepairDialog } from "./repair-dialog";
@@ -91,6 +92,15 @@ const money = (amount: number) =>
 export function EquipmentScreen() {
   const { can, loading: permissionsLoading } = usePermissions();
   const canEdit = can("EDIT_RECORDS");
+  /* The feedback's middle row: a Departmental Lead who cannot manage the
+     register still holds one of these — see `assetScope` on the API, which
+     is what actually narrows what they get back. Branch is a real fourth
+     tier on the API's own permission matrix, and this repo's frontend
+     catalogue (`lib/permission-keys.ts`) does not expose it at all yet for
+     equipment or repairs — that is a wider, pre-existing gap and not this
+     fix's to close. */
+  const canSeeTeam =
+    can("VIEW_EQUIPMENT_DEPARTMENT") || can("VIEW_EQUIPMENT_ALL");
 
   /* Nothing is granted while the session resolves, so a register that rendered
      on the first pass would flash the employee's own view at an HR user. */
@@ -106,7 +116,9 @@ export function EquipmentScreen() {
     );
   }
 
-  return canEdit ? <Register /> : <OwnKitOnly />;
+  if (canEdit) return <Register />;
+  if (canSeeTeam) return <TeamEquipment />;
+  return <OwnKitOnly />;
 }
 
 /* ------------------------------------------------------------ staff view */
