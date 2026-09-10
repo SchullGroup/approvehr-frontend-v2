@@ -2518,6 +2518,7 @@ export function useGaps(enabled: boolean): {
   gaps: ApiGap[];
   loading: boolean;
   error: ApiError | null;
+  reload: () => void;
 } {
   const { isConnected } = useSession();
   const load = useCallback(
@@ -2531,6 +2532,7 @@ export function useGaps(enabled: boolean): {
     gaps: isConnected ? (fetched.data ?? []) : enabled ? demoGaps() : [],
     loading: fetched.loading,
     error: fetched.error,
+    reload: fetched.reload,
   };
 }
 
@@ -2539,6 +2541,7 @@ export function useHeatmap(enabled: boolean): {
   heatmap: ApiHeatmap | null;
   loading: boolean;
   error: ApiError | null;
+  reload: () => void;
 } {
   const { isConnected } = useSession();
   const load = useCallback(
@@ -2555,6 +2558,7 @@ export function useHeatmap(enabled: boolean): {
     heatmap: isConnected ? fetched.data : enabled ? demoHeatmap() : null,
     loading: fetched.loading,
     error: fetched.error,
+    reload: fetched.reload,
   };
 }
 
