@@ -19,7 +19,7 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-dvh flex-col bg-canvas lg:flex-row">
       <div className="flex flex-1 flex-col">
-        <header className="border-b border-line bg-surface">
+        <header className="bg-surface">
           <div className="flex h-14 items-center px-5 lg:px-10">
             <Logo size={24} className="text-ink" />
           </div>
@@ -32,7 +32,7 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
           {children}
         </main>
 
-        <footer className="border-t border-line bg-surface">
+        <footer className="bg-surface">
           <div className="flex h-14 flex-wrap items-center gap-x-5 gap-y-1 px-5 text-body-sm text-muted lg:px-10">
             <span>Schull Technologies</span>
             <Link href="/privacy" className="transition-colors hover:text-ink">
