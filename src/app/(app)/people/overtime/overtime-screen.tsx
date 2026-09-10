@@ -375,41 +375,67 @@ function AllOvertime() {
               }
             />
           ) : (
-            <TableWrap
-              className="rounded-none border-0 border-t"
-              caption={`Overtime in ${monthLabel(period)}`}
-            >
-              <THead>
-                <TH>Who</TH>
-                <TH>Day</TH>
-                <TH align="right">Hours</TH>
-                <TH>Kind</TH>
-                <TH align="right">Comes to</TH>
-                <TH>Status</TH>
-                <TH>
-                  <span className="sr-only-focusable">Decision</span>
-                </TH>
-              </THead>
-              <TBody>
+            <>
+              <div className="hidden sm:block">
+                <TableWrap
+                  className="rounded-none border-0 border-t"
+                  caption={`Overtime in ${monthLabel(period)}`}
+                >
+                  <THead>
+                    <TH>Who</TH>
+                    <TH>Day</TH>
+                    <TH align="right">Hours</TH>
+                    <TH>Kind</TH>
+                    <TH align="right">Comes to</TH>
+                    <TH>Status</TH>
+                    <TH>
+                      <span className="sr-only-focusable">Decision</span>
+                    </TH>
+                  </THead>
+                  <TBody>
+                    {overtime.rows.map((row) => (
+                      <Fragment key={row.id}>
+                        <OvertimeTableRow
+                          row={row}
+                          policy={policy}
+                          own={row.employeeId === overtime.ownEmployeeId}
+                          canDecide={canDecide}
+                          busy={busy === row.id}
+                          onApprove={async () => {
+                            setBusy(row.id);
+                            await run(
+                              () => overtime.approve(row.id),
+                              "Approved",
+                            );
+                            setBusy(null);
+                          }}
+                          onDecline={() => setDeclining(row)}
+                        />
+                      </Fragment>
+                    ))}
+                  </TBody>
+                </TableWrap>
+              </div>
+
+              <ul className="divide-y divide-line border-t border-line sm:hidden">
                 {overtime.rows.map((row) => (
-                  <Fragment key={row.id}>
-                    <OvertimeTableRow
-                      row={row}
-                      policy={policy}
-                      own={row.employeeId === overtime.ownEmployeeId}
-                      canDecide={canDecide}
-                      busy={busy === row.id}
-                      onApprove={async () => {
-                        setBusy(row.id);
-                        await run(() => overtime.approve(row.id), "Approved");
-                        setBusy(null);
-                      }}
-                      onDecline={() => setDeclining(row)}
-                    />
-                  </Fragment>
+                  <OvertimeCard
+                    key={row.id}
+                    row={row}
+                    policy={policy}
+                    own={row.employeeId === overtime.ownEmployeeId}
+                    canDecide={canDecide}
+                    busy={busy === row.id}
+                    onApprove={async () => {
+                      setBusy(row.id);
+                      await run(() => overtime.approve(row.id), "Approved");
+                      setBusy(null);
+                    }}
+                    onDecline={() => setDeclining(row)}
+                  />
                 ))}
-              </TBody>
-            </TableWrap>
+              </ul>
+            </>
           )}
 
           <CardFooter>
@@ -577,5 +603,112 @@ function OvertimeTableRow({
         </TR>
       )}
     </>
+  );
+}
+
+/** `OvertimeTableRow`'s sibling: the same entry, as a card instead of a row. */
+function OvertimeCard({
+  row,
+  policy,
+  own,
+  canDecide,
+  busy,
+  onApprove,
+  onDecline,
+}: {
+  row: OvertimeRow;
+  policy: OvertimePolicy;
+  own: boolean;
+  canDecide: boolean;
+  busy: boolean;
+  onApprove: () => void;
+  onDecline: () => void;
+}) {
+  const cappedLine =
+    row.rawMinutes !== null && row.rawMinutes > row.minutes
+      ? `The clock said ${hoursLabel(row.rawMinutes)}. Capped at ${spokenHours(policy.dailyCapMinutes)}. Check whether they forgot to clock out.`
+      : `Capped at ${spokenHours(policy.dailyCapMinutes)}. Check whether they forgot to clock out.`;
+
+  return (
+    <li className="flex flex-col gap-2 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-medium text-ink">{row.name}</p>
+          {row.employeeNo && (
+            <p className="text-meta text-muted">{row.employeeNo}</p>
+          )}
+        </div>
+        <div className="shrink-0 text-right">
+          <p className="tabular font-medium text-ink">
+            {hoursLabel(row.minutes)}
+          </p>
+          <p className="tabular text-body-sm text-muted">
+            <Money amount={naira(row.amountKobo)} decimals />
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="tabular text-body-sm text-muted">
+          {dayLabel(row.onDate)}
+        </span>
+        <Badge tone={KIND_TONE[row.kind]} size="sm">
+          {KIND_LABEL[row.kind]} {row.rate}&times;
+        </Badge>
+        <Badge tone={STATUS_TONE[row.status]} size="sm" dot>
+          {STATUS_LABEL[row.status]}
+        </Badge>
+      </div>
+
+      {row.atCap && (
+        <p className="flex items-start gap-2 text-body-sm text-body">
+          <TriangleAlert
+            aria-hidden="true"
+            className="mt-0.5 size-4 shrink-0 text-warning-text"
+          />
+          {cappedLine}
+        </p>
+      )}
+      {row.atCap && (
+        <div>
+          <ButtonLink size="sm" href="/people/attendance">
+            Fix record
+          </ButtonLink>
+        </div>
+      )}
+      {row.declinedReason && (
+        <p className="text-body-sm text-body">
+          Turned down &mdash; {row.declinedReason}
+        </p>
+      )}
+
+      {row.status === "PAID" ? (
+        <p className="text-body-sm text-muted">A payroll run took it</p>
+      ) : own ? (
+        <p className="text-body-sm text-muted">
+          Yours: somebody else approves it
+        </p>
+      ) : (
+        canDecide && (
+          <div className="flex gap-1.5">
+            {row.status !== "APPROVED" && (
+              <Button
+                variant="approve"
+                size="sm"
+                loading={busy}
+                onClick={onApprove}
+              >
+                Approve
+              </Button>
+            )}
+            {row.status !== "DECLINED" && (
+              <Button size="sm" disabled={busy} onClick={onDecline}>
+                Decline
+              </Button>
+            )}
+          </div>
+        )
+      )}
+    </li>
   );
 }
