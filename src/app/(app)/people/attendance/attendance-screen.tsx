@@ -34,8 +34,17 @@ import { BulkInviteButton } from "@/components/portal/bulk-invite";
 import { MyClockCard } from "@/components/portal/my-clock-card";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
-import { type ApiRosterRow, type ApiWorkLocation } from "@/lib/api/attendance";
-import { addDays, hoursLabel, timesLabel } from "@/lib/api/shifts";
+import {
+  type ApiRosterRow,
+  type ApiTimesheetRow,
+  type ApiWorkLocation,
+} from "@/lib/api/attendance";
+import {
+  addDays,
+  hoursLabel,
+  timesLabel,
+  type ApiRotaCell,
+} from "@/lib/api/shifts";
 import { useCan, useIsManager } from "@/lib/permissions";
 import { attendanceCsv } from "@/lib/api/exports";
 import { ExportButton } from "@/components/portal/export-button";
@@ -412,103 +421,176 @@ function TodayView({
 
       <Card>
         <CardHeader title={`Roster · ${shortDate(roster.date)}`} />
-        <TableWrap className="rounded-none border-0">
-          <THead>
-            <TH>Employee</TH>
-            <TH>Status</TH>
-            <TH>In</TH>
-            <TH>Out</TH>
-            <TH align="right">Actions</TH>
-          </THead>
-          <TBody>
-            {roster.rows.map((row) => {
-              const shift = rota.shiftOn(row.employeeId, roster.date);
-              const off = offToday(row);
-              return (
-                <TR key={row.employeeId} interactive>
-                  <TDPrimary
-                    title={
-                      <Link
-                        href={`/people/${row.employeeId}`}
-                        className="hover:text-accent-text hover:underline underline-offset-4"
-                      >
-                        {row.employeeName}
-                      </Link>
-                    }
-                    subtitle={row.jobTitle}
-                  />
-                  <TD>
+        {/* Status alone can carry five optional lines — late, leave, an
+            anomaly, the rota, a correction — on top of the name, times and
+            actions. Five columns of that is unreadable under 375px, so below
+            `sm` this becomes a card per person instead. `RosterStatusDetails`
+            is the one copy of what those lines say, read by both. */}
+        <div className="hidden sm:block">
+          <TableWrap className="rounded-none border-0">
+            <THead>
+              <TH>Employee</TH>
+              <TH>Status</TH>
+              <TH>In</TH>
+              <TH>Out</TH>
+              <TH align="right">Actions</TH>
+            </THead>
+            <TBody>
+              {roster.rows.map((row) => {
+                const shift = rota.shiftOn(row.employeeId, roster.date);
+                const off = offToday(row);
+                return (
+                  <TR key={row.employeeId} interactive>
+                    <TDPrimary
+                      title={
+                        <Link
+                          href={`/people/${row.employeeId}`}
+                          className="hover:text-accent-text hover:underline underline-offset-4"
+                        >
+                          {row.employeeName}
+                        </Link>
+                      }
+                      subtitle={row.jobTitle}
+                    />
+                    <TD>
+                      <Badge tone={STATUS_TONE[row.status]} size="sm" dot>
+                        {STATUS_LABEL[row.status]}
+                      </Badge>
+                      <RosterStatusDetails row={row} shift={shift} off={off} />
+                    </TD>
+                    <TD className="tabular">{row.clockIn ?? "—"}</TD>
+                    <TD className="tabular text-muted">
+                      {row.clockOut ?? (row.clockIn ? "still in" : "—")}
+                    </TD>
+                    <TD align="right">
+                      <RowActions
+                        row={row}
+                        off={off}
+                        canCorrect={canCorrect}
+                        onCorrect={onCorrect}
+                      />
+                    </TD>
+                  </TR>
+                );
+              })}
+            </TBody>
+          </TableWrap>
+        </div>
+
+        <ul className="divide-y divide-line sm:hidden">
+          {roster.rows.map((row) => {
+            const shift = rota.shiftOn(row.employeeId, roster.date);
+            const off = offToday(row);
+            return (
+              <li key={row.employeeId} className="flex flex-col gap-2 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <Link
+                      href={`/people/${row.employeeId}`}
+                      className="font-medium text-ink hover:text-accent-text hover:underline underline-offset-4"
+                    >
+                      {row.employeeName}
+                    </Link>
+                    {row.jobTitle && (
+                      <p className="mt-0.5 text-body-sm text-muted">
+                        {row.jobTitle}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
                     <Badge tone={STATUS_TONE[row.status]} size="sm" dot>
                       {STATUS_LABEL[row.status]}
                     </Badge>
-                    {row.lateByMinutes > 0 && (
-                      <span className="mt-0.5 block text-meta text-warning-text">
-                        {row.lateByMinutes > 60
-                          ? hoursLabel(row.lateByMinutes)
-                          : `${row.lateByMinutes} min`}{" "}
-                        late
-                      </span>
-                    )}
-                    {row.leave && (
-                      <span className="mt-0.5 block text-meta text-faint">
-                        {row.leave.type}, to {row.leave.endDate}
-                      </span>
-                    )}
-                    {row.anomaly && (
-                      <span className="mt-0.5 block text-meta font-medium text-warning-text">
-                        {row.anomaly}
-                      </span>
-                    )}
-                    {/* The rota, where there is one. A day off on a rota is a
-                        rest day whatever the office calendar says, so saying so
-                        here is what keeps this row and the payslip agreeing —
-                        and a rest day somebody worked anyway is money owed, on
-                        a surface this screen does not own. */}
-                    {shift ? (
-                      <span className="mt-0.5 block text-meta text-faint">
-                        On the rota: {shift.shiftName}, {timesLabel(shift)}
-                      </span>
-                    ) : off ? (
-                      row.clockIn ? (
-                        <span className="mt-0.5 block text-meta text-muted">
-                          Worked a rest day on their rota,{" "}
-                          <Link
-                            href="/people/overtime"
-                            className="font-medium text-accent-text underline underline-offset-4"
-                          >
-                            check overtime
-                          </Link>
-                        </span>
-                      ) : (
-                        <span className="mt-0.5 block text-meta text-muted">
-                          Rest day on their rota: no pay is held back
-                        </span>
-                      )
-                    ) : null}
-                    {row.correctionNote && (
-                      <span className="mt-0.5 block text-meta text-faint">
-                        Corrected: {row.correctionNote}
-                      </span>
-                    )}
-                  </TD>
-                  <TD className="tabular">{row.clockIn ?? "—"}</TD>
-                  <TD className="tabular text-muted">
-                    {row.clockOut ?? (row.clockIn ? "still in" : "—")}
-                  </TD>
-                  <TD align="right">
                     <RowActions
                       row={row}
                       off={off}
                       canCorrect={canCorrect}
                       onCorrect={onCorrect}
                     />
-                  </TD>
-                </TR>
-              );
-            })}
-          </TBody>
-        </TableWrap>
+                  </div>
+                </div>
+
+                <RosterStatusDetails row={row} shift={shift} off={off} />
+
+                <div className="flex items-center gap-4 text-body-sm tabular text-muted">
+                  <span>In {row.clockIn ?? "—"}</span>
+                  <span>
+                    Out {row.clockOut ?? (row.clockIn ? "still in" : "—")}
+                  </span>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
       </Card>
+    </>
+  );
+}
+
+/**
+ * The optional lines under a roster status — late, leave, an anomaly, the
+ * rota, a correction. One copy read by both the desktop cell and the mobile
+ * card, so a sixth line added here reaches both without being written twice.
+ */
+function RosterStatusDetails({
+  row,
+  shift,
+  off,
+}: {
+  row: ApiRosterRow;
+  shift: ApiRotaCell | null;
+  off: boolean;
+}) {
+  return (
+    <>
+      {row.lateByMinutes > 0 && (
+        <span className="mt-0.5 block text-meta text-warning-text">
+          {row.lateByMinutes > 60
+            ? hoursLabel(row.lateByMinutes)
+            : `${row.lateByMinutes} min`}{" "}
+          late
+        </span>
+      )}
+      {row.leave && (
+        <span className="mt-0.5 block text-meta text-faint">
+          {row.leave.type}, to {row.leave.endDate}
+        </span>
+      )}
+      {row.anomaly && (
+        <span className="mt-0.5 block text-meta font-medium text-warning-text">
+          {row.anomaly}
+        </span>
+      )}
+      {/* The rota, where there is one. A day off on a rota is a rest day
+          whatever the office calendar says, so saying so here is what keeps
+          this row and the payslip agreeing — and a rest day somebody worked
+          anyway is money owed, on a surface this screen does not own. */}
+      {shift ? (
+        <span className="mt-0.5 block text-meta text-faint">
+          On the rota: {shift.shiftName}, {timesLabel(shift)}
+        </span>
+      ) : off ? (
+        row.clockIn ? (
+          <span className="mt-0.5 block text-meta text-muted">
+            Worked a rest day on their rota,{" "}
+            <Link
+              href="/people/overtime"
+              className="font-medium text-accent-text underline underline-offset-4"
+            >
+              check overtime
+            </Link>
+          </span>
+        ) : (
+          <span className="mt-0.5 block text-meta text-muted">
+            Rest day on their rota: no pay is held back
+          </span>
+        )
+      ) : null}
+      {row.correctionNote && (
+        <span className="mt-0.5 block text-meta text-faint">
+          Corrected: {row.correctionNote}
+        </span>
+      )}
     </>
   );
 }
@@ -655,63 +737,152 @@ function TimesheetView({ sheet }: { sheet: TimesheetState }) {
           </div>
         }
       />
-      <TableWrap className="rounded-none border-0">
-        <THead>
-          <TH>Employee</TH>
-          <TH align="right">Present</TH>
-          <TH align="right">Late</TH>
-          <TH align="right">On leave</TH>
-          <TH align="right">Unexplained</TH>
-          <TH align="right">Hours</TH>
-          {/* What actually needs looking at. The columns to the left are
-              figures a reader has to interpret; this is the product saying
-              which of them is a problem — the feedback's "automatically pick
-              up attendance exceptions". */}
-          <TH>Needs looking at</TH>
-          <TH align="right">Payroll effect</TH>
-        </THead>
-        <TBody>
-          {[...sheet.rows]
-            .sort((a, b) => b.daysUnexplained - a.daysUnexplained)
-            .map((row) => {
-              const onRota = rota.onRota.has(row.employeeId);
-              const rostered = rota.rosteredDays.get(row.employeeId) ?? 0;
-              return (
-                <TR key={row.employeeId} interactive>
-                  <TDPrimary
-                    title={
-                      <Link
-                        href={`/people/${row.employeeId}`}
-                        className="hover:text-accent-text hover:underline underline-offset-4"
-                      >
-                        {row.employeeName}
-                      </Link>
-                    }
-                    subtitle={
-                      onRota
-                        ? `${rostered} rostered days in this window`
-                        : `${row.daysPresent} of ${row.workingDays} working days`
-                    }
-                  />
-                  <TD align="right" className="tabular font-medium text-ink">
+      {/* Eight columns — five figures, exceptions, and a payroll effect that
+          can itself carry two lines — is the densest table in the product.
+          Below `sm` it becomes a card per person: the five figures as a
+          label/value grid, everything else stacked underneath. Both
+          `TimesheetExceptions` and `TimesheetPayrollEffect` are one copy read
+          by the table cell and the card, so a label changed here cannot drift
+          between the two. */}
+      <div className="hidden sm:block">
+        <TableWrap className="rounded-none border-0">
+          <THead>
+            <TH>Employee</TH>
+            <TH align="right">Present</TH>
+            <TH align="right">Late</TH>
+            <TH align="right">On leave</TH>
+            <TH align="right">Unexplained</TH>
+            <TH align="right">Hours</TH>
+            {/* What actually needs looking at. The columns to the left are
+                figures a reader has to interpret; this is the product saying
+                which of them is a problem — the feedback's "automatically pick
+                up attendance exceptions". */}
+            <TH>Needs looking at</TH>
+            <TH align="right">Payroll effect</TH>
+          </THead>
+          <TBody>
+            {[...sheet.rows]
+              .sort((a, b) => b.daysUnexplained - a.daysUnexplained)
+              .map((row) => {
+                const onRota = rota.onRota.has(row.employeeId);
+                const rostered = rota.rosteredDays.get(row.employeeId) ?? 0;
+                return (
+                  <TR key={row.employeeId} interactive>
+                    <TDPrimary
+                      title={
+                        <Link
+                          href={`/people/${row.employeeId}`}
+                          className="hover:text-accent-text hover:underline underline-offset-4"
+                        >
+                          {row.employeeName}
+                        </Link>
+                      }
+                      subtitle={
+                        onRota
+                          ? `${rostered} rostered days in this window`
+                          : `${row.daysPresent} of ${row.workingDays} working days`
+                      }
+                    />
+                    <TD align="right" className="tabular font-medium text-ink">
+                      {row.daysPresent}
+                    </TD>
+                    <TD
+                      align="right"
+                      className={cn(
+                        "tabular",
+                        row.daysLate > 2 ? "text-warning-text" : "text-muted",
+                      )}
+                    >
+                      {row.daysLate || "—"}
+                    </TD>
+                    <TD align="right" className="tabular text-muted">
+                      {row.daysOnLeave || "—"}
+                    </TD>
+                    <TD
+                      align="right"
+                      className={cn(
+                        "tabular",
+                        onRota
+                          ? "text-muted"
+                          : row.daysUnexplained > 0
+                            ? "font-medium text-danger-text"
+                            : "text-muted",
+                      )}
+                    >
+                      {/* An office-week count means nothing for somebody on a
+                          rota, so it is not shown as though it did. */}
+                      {onRota ? "—" : row.daysUnexplained || "—"}
+                    </TD>
+                    <TD align="right" className="tabular text-muted">
+                      {row.hours || "—"}
+                    </TD>
+                    {/* The API's own labels, and its own counts. A second copy
+                        of these four names here is how the screen and the
+                        downloaded report come to describe the same day
+                        differently. Empty reads as "nothing to look at", which
+                        is exactly right — a word like "none" is one more thing
+                        to scan past on a clean month. */}
+                    <TD>
+                      <TimesheetExceptions row={row} />
+                    </TD>
+                    <TD align="right" className="tabular">
+                      <TimesheetPayrollEffect
+                        row={row}
+                        onRota={onRota}
+                        loading={rota.loading}
+                      />
+                    </TD>
+                  </TR>
+                );
+              })}
+          </TBody>
+        </TableWrap>
+      </div>
+
+      <ul className="divide-y divide-line sm:hidden">
+        {[...sheet.rows]
+          .sort((a, b) => b.daysUnexplained - a.daysUnexplained)
+          .map((row) => {
+            const onRota = rota.onRota.has(row.employeeId);
+            const rostered = rota.rosteredDays.get(row.employeeId) ?? 0;
+            return (
+              <li key={row.employeeId} className="flex flex-col gap-3 p-4">
+                <div>
+                  <Link
+                    href={`/people/${row.employeeId}`}
+                    className="font-medium text-ink hover:text-accent-text hover:underline underline-offset-4"
+                  >
+                    {row.employeeName}
+                  </Link>
+                  <p className="mt-0.5 text-body-sm text-muted">
+                    {onRota
+                      ? `${rostered} rostered days in this window`
+                      : `${row.daysPresent} of ${row.workingDays} working days`}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-body-sm">
+                  <span className="text-muted">Present</span>
+                  <span className="text-right tabular font-medium text-ink">
                     {row.daysPresent}
-                  </TD>
-                  <TD
-                    align="right"
+                  </span>
+                  <span className="text-muted">Late</span>
+                  <span
                     className={cn(
-                      "tabular",
+                      "text-right tabular",
                       row.daysLate > 2 ? "text-warning-text" : "text-muted",
                     )}
                   >
                     {row.daysLate || "—"}
-                  </TD>
-                  <TD align="right" className="tabular text-muted">
+                  </span>
+                  <span className="text-muted">On leave</span>
+                  <span className="text-right tabular text-muted">
                     {row.daysOnLeave || "—"}
-                  </TD>
-                  <TD
-                    align="right"
+                  </span>
+                  <span className="text-muted">Unexplained</span>
+                  <span
                     className={cn(
-                      "tabular",
+                      "text-right tabular",
                       onRota
                         ? "text-muted"
                         : row.daysUnexplained > 0
@@ -719,70 +890,89 @@ function TimesheetView({ sheet }: { sheet: TimesheetState }) {
                           : "text-muted",
                     )}
                   >
-                    {/* An office-week count means nothing for somebody on a
-                        rota, so it is not shown as though it did. */}
                     {onRota ? "—" : row.daysUnexplained || "—"}
-                  </TD>
-                  <TD align="right" className="tabular text-muted">
+                  </span>
+                  <span className="text-muted">Hours</span>
+                  <span className="text-right tabular text-muted">
                     {row.hours || "—"}
-                  </TD>
-                  {/* The API's own labels, and its own counts. A second copy
-                      of these four names here is how the screen and the
-                      downloaded report come to describe the same day
-                      differently. Empty reads as "nothing to look at", which
-                      is exactly right — a word like "none" is one more thing
-                      to scan past on a clean month. */}
-                  <TD>
-                    {row.exceptions.length === 0 ? (
-                      <span className="text-faint">—</span>
-                    ) : (
-                      <span className="flex flex-wrap gap-1">
-                        {row.exceptions.map((issue) => (
-                          <Badge key={issue.code} tone="warning" size="sm">
-                            {issue.label}
-                            {issue.days > 1 ? ` ×${issue.days}` : ""}
-                          </Badge>
-                        ))}
-                      </span>
-                    )}
-                  </TD>
-                  <TD align="right" className="tabular">
-                    {rota.loading ? (
-                      <Skeleton className="ml-auto h-4 w-20" />
-                    ) : onRota ? (
-                      <Link
-                        href="/people/shifts"
-                        className="text-body-sm font-medium text-accent-text underline underline-offset-4"
-                      >
-                        From their rota
-                      </Link>
-                    ) : (row.proration.amount ?? 0) > 0 ? (
-                      <span className="inline-flex flex-col items-end">
-                        <span className="inline-flex items-center gap-1.5 font-medium text-danger-text">
-                          <TriangleAlert
-                            aria-hidden="true"
-                            className="size-3.5"
-                          />
-                          {`−${formatMoney(row.proration.amount ?? 0, "NGN", {
-                            decimals: true,
-                          })}`}
-                        </span>
-                        <span className="text-meta text-muted">
-                          {row.proration.unpaidDays} of{" "}
-                          {row.proration.workingDaysPerMonth} days
-                        </span>
-                      </span>
-                    ) : (
-                      <span className="text-faint">Full pay</span>
-                    )}
-                  </TD>
-                </TR>
-              );
-            })}
-        </TBody>
-      </TableWrap>
+                  </span>
+                </div>
+
+                <div>
+                  <p className="mb-1 text-meta text-faint">Needs looking at</p>
+                  <TimesheetExceptions row={row} />
+                </div>
+
+                <div className="flex items-center justify-between gap-2 text-body-sm">
+                  <span className="text-muted">Payroll effect</span>
+                  <TimesheetPayrollEffect
+                    row={row}
+                    onRota={onRota}
+                    loading={rota.loading}
+                  />
+                </div>
+              </li>
+            );
+          })}
+      </ul>
     </Card>
   );
+}
+
+/** The exception badges for one timesheet row, or an em dash for none. */
+function TimesheetExceptions({ row }: { row: ApiTimesheetRow }) {
+  if (row.exceptions.length === 0) return <span className="text-faint">—</span>;
+  return (
+    <span className="flex flex-wrap gap-1">
+      {row.exceptions.map((issue) => (
+        <Badge key={issue.code} tone="warning" size="sm">
+          {issue.label}
+          {issue.days > 1 ? ` ×${issue.days}` : ""}
+        </Badge>
+      ))}
+    </span>
+  );
+}
+
+/**
+ * What a timesheet row costs — on their rota, unpaid days proration, or full
+ * pay. One copy so the table cell and the mobile card cannot describe a
+ * person's pay differently.
+ */
+function TimesheetPayrollEffect({
+  row,
+  onRota,
+  loading,
+}: {
+  row: ApiTimesheetRow;
+  onRota: boolean;
+  loading: boolean;
+}) {
+  if (loading) return <Skeleton className="ml-auto h-4 w-20" />;
+  if (onRota) {
+    return (
+      <Link
+        href="/people/shifts"
+        className="text-body-sm font-medium text-accent-text underline underline-offset-4"
+      >
+        From their rota
+      </Link>
+    );
+  }
+  if ((row.proration.amount ?? 0) > 0) {
+    return (
+      <span className="inline-flex flex-col items-end">
+        <span className="inline-flex items-center gap-1.5 font-medium text-danger-text">
+          <TriangleAlert aria-hidden="true" className="size-3.5" />
+          {`−${formatMoney(row.proration.amount ?? 0, "NGN", { decimals: true })}`}
+        </span>
+        <span className="text-meta text-muted">
+          {row.proration.unpaidDays} of {row.proration.workingDaysPerMonth} days
+        </span>
+      </span>
+    );
+  }
+  return <span className="text-faint">Full pay</span>;
 }
 
 /* -------------------------------------------------------------------------- */
