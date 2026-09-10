@@ -2020,6 +2020,97 @@ export function useAppraisals(): {
   };
 }
 
+/**
+ * Manager reviews this person has already sent.
+ *
+ * ## Why this hook exists at all
+ *
+ * `GET /reviews/mine` narrows `toComplete` to `submittedAt: null` — deliberately,
+ * because it is a work list and a sent form is not work. The consequence nobody
+ * had followed through: sending a manager review made it **unreachable**. It left
+ * "Waiting on you", it is not in `aboutMe` (that is reviews about *you*), and the
+ * only "Finalise" link in the product sits in the period register, which is gated
+ * on `EDIT_RECORDS` on both sides. So a line manager could write a rating, send
+ * it, and never open it again — while `mayFinalise` on the review page admits
+ * `review.mine` and was waiting for her the whole time.
+ *
+ * A control the product intends you to use and gives you no way to reach is the
+ * same defect as a feature nobody can find; this file's siblings record four of
+ * those. The fix is a link, and this is the read behind it.
+ *
+ * ## Why `GET /reviews` and not a new endpoint
+ *
+ * `listReviews` is ungated by permission and narrowed to the caller — one of its
+ * `or` clauses is `authorId: actor.employeeId`. So the reviews somebody wrote are
+ * already theirs to list, from a route that exists, with the filters already on
+ * `performanceApi.reviews`. Nothing on the API had to change.
+ *
+ * `submitted: true` is asked of the **server**, not filtered here: an unsent form
+ * is already a row in "Waiting on you", and two surfaces offering the same form
+ * is how somebody answers it twice. `finalised` is deliberately *not* filtered —
+ * the card is the record of what you wrote, and a finalised rating you can no
+ * longer change is exactly the thing somebody comes back to read.
+ *
+ * ## Offline
+ *
+ * Empty, and that is not a gap. The demo never gives anybody a manager review to
+ * write about somebody else — `demoMyReviews`'s `toComplete` is that person's own
+ * self-review and nothing else — so there is no sent review for this to lose. A
+ * refusal here would be explaining the absence of a thing that cannot exist.
+ */
+export function useReviewsIWrote(
+  cycleId: string | null,
+  enabled: boolean,
+): {
+  reviews: ApiReview[];
+  loading: boolean;
+  error: ApiError | null;
+  available: boolean;
+  reload: () => void;
+} {
+  const { isConnected, actingId } = useSession();
+  const active = cycleId !== null && enabled && isConnected;
+
+  const load = useCallback(
+    async (signal: AbortSignal) => {
+      const answer = await performanceApi.reviews(
+        {
+          cycleId: cycleId ?? undefined,
+          kind: "MANAGER",
+          submitted: true,
+          pageSize: PAGE,
+        },
+        signal,
+      );
+      /* The endpoint answers "reviews I may read", which is a wider question
+         than "reviews I wrote" — `listReviews` also admits the caller as the
+         *subject*, and once a cycle is published that includes their own
+         manager review. A card headed "Reviews you have written" that rendered
+         one of those would be making two wrong claims at once: that they wrote
+         it, and, before it is final, that they are entitled to the mark on it.
+         Today the published clause and this hook's own stage gate keep them
+         apart. That is a coupling to somebody else's `where`, so the claim is
+         made true here instead, where the sentence is written. */
+      return answer.data.filter((review) => review.authorId === actingId);
+    },
+    [cycleId, actingId],
+  );
+
+  const fetched = useFetched<ApiReview[]>(
+    `reviews-i-wrote|${cycleId ?? "none"}|${actingId ?? "nobody"}`,
+    active,
+    load,
+  );
+
+  return {
+    reviews: active ? (fetched.data ?? []) : [],
+    loading: fetched.loading,
+    error: fetched.error,
+    available: active,
+    reload: fetched.reload,
+  };
+}
+
 /** One review with its form. `null` id means nothing is open. */
 export function useReview(id: string | null): {
   review: ApiReviewDetail | null;
