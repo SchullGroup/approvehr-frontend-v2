@@ -65,7 +65,7 @@ export type BadgeSource =
  * unanswered fact does not compile. The alternative, a predicate function on
  * the item, would let one be added that nobody ever calls.
  */
-export type NavRowFact = "one-on-ones";
+export type NavRowFact = "one-on-ones" | "signatures";
 
 /**
  * What the sidebar knows that is neither a permission nor a feature flag.
@@ -95,7 +95,7 @@ export type NavFacts = {
  */
 export const NOTHING_ANSWERED_YET: NavFacts = {
   assistantWired: false,
-  rows: { "one-on-ones": false },
+  rows: { "one-on-ones": false, signatures: false },
 };
 
 export type NavItem = {
@@ -367,13 +367,22 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       /* Beside Documents, because that is what it is: the register says what
          is on file, and this says what is waiting to be signed.
 
-         `always`, no permission: whether somebody has a document to sign is a
-         property of the rows, and the API is the only thing that can answer it
-         — an administrator holding every permission is refused the button. */
+         No permission, and the reason is worth keeping: whether somebody has a
+         document to *sign* is a property of the rows, and the API is the only
+         thing that can answer it — an administrator holding every permission
+         is refused the button.
+
+         What did not follow was `always: true`. An employee with nothing to
+         sign, and no permission to send, carried a permanent door to an empty
+         screen — half of "it is just showing at the side bar for both HR and
+         Employee". `rows` shows it to somebody who can send (`EDIT_RECORDS`,
+         which the shell folds in) or who has a signature of their own, in any
+         state: signing your contract in March should not remove the row in
+         September, because September is when somebody looks for it. */
       href: "/people/signatures",
       label: "Signatures",
       icon: <FileSignature aria-hidden="true" />,
-      always: true,
+      rows: "signatures",
     },
     {
       /* No permission, because none of them is the question: a one-to-one is

@@ -29,7 +29,7 @@ const ALL_FEATURES = {};
    `one-on-ones` is exercised properly in `one-on-one-by-role.test.ts`. */
 const EVERYTHING_ANSWERED: NavFacts = {
   assistantWired: true,
-  rows: { "one-on-ones": true },
+  rows: { "one-on-ones": true, signatures: true },
 };
 
 const hrefFor = (label: string, permissions: ReadonlySet<PermissionKey>) => {

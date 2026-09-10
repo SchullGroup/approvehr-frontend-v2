@@ -31,6 +31,7 @@ import { useApprovalQueue } from "@/lib/store/approvals-api";
 import { useLeaveRequests } from "@/lib/store/leave-api";
 import { useAttendanceRoster } from "@/lib/store/attendance";
 import { useAmIInAOneOnOne } from "@/lib/store/one-on-ones";
+import { useHaveIAnySignatures } from "@/lib/store/signatures";
 import { APPROVE_PERMISSIONS } from "@/app/(app)/approvals/inbox";
 import { useSession } from "@/lib/store/session";
 import { useCompanyLogo } from "@/lib/store/company";
@@ -100,12 +101,31 @@ export function AppShell({ children }: { children: React.ReactNode }) {
      with no reports, once per session, and the answer is usually an empty
      list. */
   const inAOneOnOne = useAmIInAOneOnOne(!isManager);
+
+  /* Signatures: showing to somebody who can send, or who has one of their own.
+     ---------------------------------------------------------------------
+     Same shape as above and the same skip: `EDIT_RECORDS` is the permission
+     the API requires to send, so anybody holding it gets the row on that
+     ground and the request is not made for them. Everybody else pays one
+     request per session to find out whether the module is theirs. */
+  const canSendForSignature = hasPermission(permissions, "EDIT_RECORDS");
+  const haveSignatures = useHaveIAnySignatures(!canSendForSignature);
+
   const facts: NavFacts = useMemo(
     () => ({
       assistantWired,
-      rows: { "one-on-ones": isManager || inAOneOnOne },
+      rows: {
+        "one-on-ones": isManager || inAOneOnOne,
+        signatures: canSendForSignature || haveSignatures,
+      },
     }),
-    [assistantWired, isManager, inAOneOnOne],
+    [
+      assistantWired,
+      isManager,
+      inAOneOnOne,
+      canSendForSignature,
+      haveSignatures,
+    ],
   );
   const groups = useMemo(
     () => visibleNav(NAV, permissions, features, facts),
