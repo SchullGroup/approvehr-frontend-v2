@@ -120,62 +120,116 @@ export function SchedulesTable() {
           </Callout>
         )}
 
-        <TableWrap>
-          <THead>
-            <TH>Body</TH>
-            <TH>Goes to</TH>
-            <TH align="right">People</TH>
-            <TH align="right">Amount</TH>
-            <TH>Due</TH>
-            <TH>
-              <span className="sr-only-focusable">Actions</span>
-            </TH>
-          </THead>
-          <TBody>
-            {state.schedules.map((row) => (
-              <TR key={row.id}>
-                <TDPrimary title={KIND_LABEL[row.kind]} />
-                <TD>{row.recipient}</TD>
-                <TD align="right" className="tabular">
+        <div className="hidden sm:block">
+          <TableWrap>
+            <THead>
+              <TH>Body</TH>
+              <TH>Goes to</TH>
+              <TH align="right">People</TH>
+              <TH align="right">Amount</TH>
+              <TH>Due</TH>
+              <TH>
+                <span className="sr-only-focusable">Actions</span>
+              </TH>
+            </THead>
+            <TBody>
+              {state.schedules.map((row) => (
+                <TR key={row.id}>
+                  <TDPrimary title={KIND_LABEL[row.kind]} />
+                  <TD>{row.recipient}</TD>
+                  <TD align="right" className="tabular">
+                    {row.employeeCount}
+                  </TD>
+                  <TD align="right" className="tabular">
+                    {formatKobo(row.amountKobo)}
+                  </TD>
+                  <TD>
+                    <span className="flex flex-col gap-0.5">
+                      {/* The statute is a title rather than a paragraph per
+                          row: it is what somebody checks the date against,
+                          and eight citations down a table is a wall nobody
+                          reads. */}
+                      <span title={row.dueDateBasis}>{row.dueDate}</span>
+                      {row.filedAt === null && (
+                        <span className="text-meta text-faint">
+                          {dueIn(row.dueDate)}
+                        </span>
+                      )}
+                    </span>
+                  </TD>
+                  <TD>
+                    <span className="flex flex-wrap items-center gap-2">
+                      {row.filedAt ? (
+                        <Badge tone="success" size="sm">
+                          Filed · {row.reference}
+                        </Badge>
+                      ) : (
+                        mayFile && (
+                          <FileButton id={row.id} onFiled={state.reload} />
+                        )
+                      )}
+                      <ExportButton
+                        label="Schedule"
+                        download={() => statutory.file(row.id)}
+                      />
+                    </span>
+                  </TD>
+                </TR>
+              ))}
+            </TBody>
+          </TableWrap>
+        </div>
+
+        <ul className="divide-y divide-line rounded-lg border border-line sm:hidden">
+          {state.schedules.map((row) => (
+            <li key={row.id} className="flex flex-col gap-2 p-4">
+              <div>
+                <p className="text-body-sm font-medium text-ink">
+                  {KIND_LABEL[row.kind]}
+                </p>
+                <p className="mt-0.5 text-meta text-muted">{row.recipient}</p>
+              </div>
+
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-body-sm text-muted">People</span>
+                <span className="tabular text-body-sm text-ink">
                   {row.employeeCount}
-                </TD>
-                <TD align="right" className="tabular">
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-body-sm text-muted">Amount</span>
+                <span className="tabular text-body-sm font-medium text-ink">
                   {formatKobo(row.amountKobo)}
-                </TD>
-                <TD>
-                  <span className="flex flex-col gap-0.5">
-                    {/* The statute is a title rather than a paragraph per row:
-                        it is what somebody checks the date against, and eight
-                        citations down a table is a wall nobody reads. */}
-                    <span title={row.dueDateBasis}>{row.dueDate}</span>
-                    {row.filedAt === null && (
-                      <span className="text-meta text-faint">
-                        {dueIn(row.dueDate)}
-                      </span>
-                    )}
-                  </span>
-                </TD>
-                <TD>
-                  <span className="flex flex-wrap items-center gap-2">
-                    {row.filedAt ? (
-                      <Badge tone="success" size="sm">
-                        Filed · {row.reference}
-                      </Badge>
-                    ) : (
-                      mayFile && (
-                        <FileButton id={row.id} onFiled={state.reload} />
-                      )
-                    )}
-                    <ExportButton
-                      label="Schedule"
-                      download={() => statutory.file(row.id)}
-                    />
-                  </span>
-                </TD>
-              </TR>
-            ))}
-          </TBody>
-        </TableWrap>
+                </span>
+              </div>
+              <div className="flex items-start justify-between gap-3">
+                <span className="text-body-sm text-muted">Due</span>
+                <span className="text-right text-body-sm text-ink">
+                  <span title={row.dueDateBasis}>{row.dueDate}</span>
+                  {row.filedAt === null && (
+                    <span className="block text-meta text-faint">
+                      {dueIn(row.dueDate)}
+                    </span>
+                  )}
+                </span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {row.filedAt ? (
+                  <Badge tone="success" size="sm">
+                    Filed · {row.reference}
+                  </Badge>
+                ) : (
+                  mayFile && <FileButton id={row.id} onFiled={state.reload} />
+                )}
+                <ExportButton
+                  label="Schedule"
+                  download={() => statutory.file(row.id)}
+                />
+              </div>
+            </li>
+          ))}
+        </ul>
       </CardBody>
     </Card>
   );
