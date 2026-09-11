@@ -129,21 +129,21 @@ review** → **Move to calibration** → **Publish the results**. All four are o
 flowchart LR
   subgraph HR ["HR / Owner"]
     direction TB
-    A["1–7<br/>Set it up<br/><i>scale, weights, questions</i>"]
-    D["13<br/>Start the period<br/><i>forms written, people told</i>"]
-    G["21–23<br/>Calibration<br/><i>compare, move marks, nine-box</i>"]
-    J["27–28<br/>Publish, then read<br/><i>the report and the trend</i>"]
+    A["1–7<br/>Set it up<br/>scale, weights, questions"]
+    D["13<br/>Start the period<br/>forms written, people told"]
+    G["21–23<br/>Calibration<br/>compare, move marks, nine-box"]
+    J["27–28<br/>Publish, then read<br/>the report and the trend"]
   end
   subgraph MG ["Line manager"]
     direction TB
     C{"12<br/>Agree it?"}
-    F["18–19<br/>Manager review<br/><i>write it, rate competencies</i>"]
-    H["24<br/>Make it final<br/><i>the rating of record</i>"]
+    F["18–19<br/>Manager review<br/>write it, rate competencies"]
+    H["24<br/>Make it final<br/>the rating of record"]
   end
   subgraph EM ["The person"]
     direction TB
-    B["8–11<br/>Set a target<br/><i>objective, measure, send it</i>"]
-    E["14<br/>Self-review<br/><i>answer it and send</i>"]
+    B["8–11<br/>Set a target<br/>objective, measure, send it"]
+    E["14<br/>Self-review<br/>answer it and send"]
     I{"25<br/>Answer it?"}
   end
 
@@ -404,10 +404,10 @@ There are three answers, and they end differently:
 
 ```mermaid
 flowchart TD
-  S["Waiting to be agreed<br/><i>the target is out with whoever agrees it — nothing is fixed yet</i>"]
-  S --> A["<b>Agree it</b><br/>the target freezes. Nobody can change the title,<br/>the period or any target on it from here on.<br/>It is now scoreable."]
-  S --> B["<b>Send it back</b><br/>needs a written reason, which the owner reads.<br/>They edit it and press “Send it again”.<br/>Nothing is agreed and nothing is refused."]
-  S --> C["<b>Refuse it</b><br/>final. A refused objective cannot be sent again —<br/>the answer to one is a <i>different</i> objective,<br/>so the refusal stays on the record."]
+  S["Waiting to be agreed<br/>the target is out with whoever agrees it — nothing is fixed yet"]
+  S --> A["Agree it<br/>the target freezes. Nobody can change the title,<br/>the period or any target on it from here on.<br/>It is now scoreable."]
+  S --> B["Send it back<br/>needs a written reason, which the owner reads.<br/>They edit it and press “Send it again”.<br/>Nothing is agreed and nothing is refused."]
+  S --> C["Refuse it<br/>final. A refused objective cannot be sent again —<br/>the answer to one is a different objective,<br/>so the refusal stays on the record."]
   B -. "send it again" .-> S
 ```
 
@@ -626,9 +626,9 @@ deliberately not one of the options.
 
 ```mermaid
 flowchart TD
-  F["Final, and they have been told<br/><i>the rating stands. The sign-off is open and stays open<br/>until one of the two below.</i>"]
-  F --> A["<b>I have seen this</b><br/>a comment is optional. Acknowledging is <i>not</i> agreeing —<br/>the screen says so in as many words. It records that<br/>they were shown it and nothing more."]
-  F --> D["<b>I do not accept it</b><br/>grounds are required and must be specific.<br/>The rating still stands; the dispute sits<br/>beside it permanently."]
+  F["Final, and they have been told<br/>the rating stands. The sign-off is open and stays open<br/>until one of the two below."]
+  F --> A["I have seen this<br/>a comment is optional. Acknowledging is not agreeing —<br/>the screen says so in as many words. It records that<br/>they were shown it and nothing more."]
+  F --> D["I do not accept it<br/>grounds are required and must be specific.<br/>The rating still stands; the dispute sits<br/>beside it permanently."]
 ```
 
 > ⚠️ **One answer only.** The dialog says it before you press: you can do this once, and it cannot be
