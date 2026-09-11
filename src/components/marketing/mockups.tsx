@@ -246,9 +246,7 @@ export function PayrollCardMockup({ className }: { className?: string }) {
     <DayFrame className={cn("p-3.5", className)}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-meta text-slate/40">
-            August payroll
-          </p>
+          <p className="text-meta text-slate/40">August payroll</p>
           <p className="mt-0.5 text-body-lg font-medium tabular-nums text-slate">
             ₦93,004,500
           </p>
@@ -272,7 +270,10 @@ export function PayrollCardMockup({ className }: { className?: string }) {
         ].map(([tone, w]) => (
           <span
             key={tone}
-            className={cn("h-full transition-[width] duration-700 ease-out-soft", tone)}
+            className={cn(
+              "h-full transition-[width] duration-700 ease-out-soft",
+              tone,
+            )}
             style={{ width: w }}
           />
         ))}
@@ -399,9 +400,7 @@ export function RecordMockup({ className }: { className?: string }) {
           "Location",
         ].map((label, i) => (
           <div key={label}>
-            <p className="text-meta text-slate/35">
-              {label}
-            </p>
+            <p className="text-meta text-slate/35">{label}</p>
             <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-slate/6">
               <span
                 className="block h-full w-0 rounded-full bg-slate/20 transition-[width] duration-500 ease-out-soft"
@@ -543,16 +542,16 @@ export function StatutoryMockup({ className }: { className?: string }) {
   return (
     <NightFrame className={className}>
       <div className="p-5">
-        <p className="text-meta text-white/40">
-          August remittances
-        </p>
+        <p className="text-meta text-white/40">August remittances</p>
         <div className="mt-4 flex flex-col gap-3">
           {rows.map((r) => (
             <div key={r.label} className="flex items-center gap-3">
               <span
                 className={cn(
                   "flex size-5 shrink-0 items-center justify-center rounded-full text-meta",
-                  r.done ? "bg-success text-slate" : "border border-white/20 text-white/40",
+                  r.done
+                    ? "bg-success text-slate"
+                    : "border border-white/20 text-white/40",
                 )}
               >
                 {r.done ? "✓" : ""}

@@ -24,7 +24,8 @@ import { fetchBinary, type BinaryDownload } from "./download";
  * own answer to "is this yours" — and never on a `useCan`.
  */
 
-export type ApiSignatureStatus = "PENDING" | "SIGNED" | "DECLINED" | "CANCELLED";
+export type ApiSignatureStatus =
+  "PENDING" | "SIGNED" | "DECLINED" | "CANCELLED";
 
 export type ApiSignature = {
   id: string;
@@ -61,6 +62,33 @@ export const SIGNING_WORDING =
   "By typing my full name below and pressing Sign, I adopt this as my " +
   "signature on this document, and I agree that it has the same effect as " +
   "signing it by hand.";
+
+/**
+ * 5MB, matching `MAX_SIGNABLE_BYTES` on the API — and **tighter than
+ * `MAX_DOCUMENT_BYTES`**, which is 10MB.
+ *
+ * The difference is not arbitrary. An ordinary personnel document is a copy;
+ * a document sent for signature is kept whole in the record, because the
+ * signature is over those exact bytes and a record pointing at bytes nobody
+ * kept proves nothing. So the ceiling is lower here, and
+ * `verify-signature-wording` compares this figure with the API's.
+ *
+ * Enforced in the browser only to save somebody a minute of encoding before an
+ * honest refusal. The API measures the decoded length and its answer is the
+ * one that counts.
+ */
+export const MAX_SIGNABLE_BYTES = 5 * 1024 * 1024;
+
+/**
+ * PDF only, and the reason belongs on the screen rather than in a validator.
+ *
+ * It is the one format that renders the same for the signer as it does for
+ * whoever sent it — which is what makes a signature over it mean anything. A
+ * .docx repaginates on a different machine, and "I signed something that
+ * looked different" is the argument this feature exists to prevent.
+ */
+export const SIGNABLE_ACCEPT = ".pdf";
+export const SIGNABLE_CONTENT_TYPE = "application/pdf";
 
 export const STATUS_LABELS: Record<ApiSignatureStatus, string> = {
   PENDING: "Waiting to be signed",

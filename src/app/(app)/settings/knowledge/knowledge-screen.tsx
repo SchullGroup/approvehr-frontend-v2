@@ -2,14 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import {
-  BookOpen,
-  Eye,
-  Pencil,
-  Plus,
-  SearchX,
-  ThumbsDown,
-} from "lucide-react";
+import { BookOpen, Eye, Pencil, Plus, SearchX, ThumbsDown } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
   Badge,
@@ -92,12 +85,14 @@ import { SectionsPanel } from "./sections-panel";
 type Filter = "all" | "published" | "draft";
 type Order = "views" | "updatedAt" | "title";
 
-const SORTS: Record<Order, { sort: KbArticleListParams["sort"]; order: "asc" | "desc" }> =
-  {
-    views: { sort: "views", order: "desc" },
-    updatedAt: { sort: "updatedAt", order: "desc" },
-    title: { sort: "title", order: "asc" },
-  };
+const SORTS: Record<
+  Order,
+  { sort: KbArticleListParams["sort"]; order: "asc" | "desc" }
+> = {
+  views: { sort: "views", order: "desc" },
+  updatedAt: { sort: "updatedAt", order: "desc" },
+  title: { sort: "title", order: "asc" },
+};
 
 export function KnowledgeScreen() {
   const toast = useToast();
@@ -127,8 +122,12 @@ export function KnowledgeScreen() {
     ...(search.trim() ? { q: search.trim() } : {}),
   });
 
-  const [hiding, setHiding] = useState<{ id: string; title: string } | null>(null);
-  const [writing, setWriting] = useState<{ suggestedTitle?: string } | null>(null);
+  const [hiding, setHiding] = useState<{ id: string; title: string } | null>(
+    null,
+  );
+  const [writing, setWriting] = useState<{ suggestedTitle?: string } | null>(
+    null,
+  );
   const [editingId, setEditingId] = useState<string | null>(null);
   const editing = useKbArticle(editingId);
 
@@ -191,11 +190,7 @@ export function KnowledgeScreen() {
               Open the help centre
             </ButtonLink>
             {articles.editable && (
-              <Button
-                variant="accent"
-                size="sm"
-                onClick={() => setWriting({})}
-              >
+              <Button variant="accent" size="sm" onClick={() => setWriting({})}>
                 <Plus aria-hidden="true" className="size-4" />
                 Write an article
               </Button>
@@ -207,8 +202,8 @@ export function KnowledgeScreen() {
       <PageBody className="flex flex-col gap-6">
         {DEMO_ENABLED && !articles.editable && (
           <Callout tone="warning" title="Read-only in demo mode">
-            Publishing an article needs the API. Everything on this screen can be
-            read; nothing can be saved.
+            Publishing an article needs the API. Everything on this screen can
+            be read; nothing can be saved.
           </Callout>
         )}
 
@@ -288,7 +283,9 @@ export function KnowledgeScreen() {
                     <TD align="right" className="tabular">
                       {miss.searches}
                     </TD>
-                    <TD className="text-muted">{dayLabel(miss.lastSearchedAt)}</TD>
+                    <TD className="text-muted">
+                      {dayLabel(miss.lastSearchedAt)}
+                    </TD>
                     <TD align="right">
                       {articles.editable && (
                         <Button
@@ -394,7 +391,8 @@ export function KnowledgeScreen() {
               <LoadFailure
                 subject="the knowledge base"
                 error={articles.error}
-               onRetry={articles.reload}/>
+                onRetry={articles.reload}
+              />
             </CardBody>
           )}
 
@@ -405,7 +403,9 @@ export function KnowledgeScreen() {
           ) : articles.articles.length === 0 ? (
             <EmptyState
               icon={<BookOpen aria-hidden="true" />}
-              title={search.trim() ? "No article with that title" : "No articles yet"}
+              title={
+                search.trim() ? "No article with that title" : "No articles yet"
+              }
               description={
                 search.trim()
                   ? "Try fewer words: this searches titles only."
@@ -441,7 +441,9 @@ export function KnowledgeScreen() {
                 {articles.articles.map((article) => {
                   const votes = article.helpful + article.notHelpful;
                   const poor =
-                    !unavailable && article.notHelpful > article.helpful && votes > 0;
+                    !unavailable &&
+                    article.notHelpful > article.helpful &&
+                    votes > 0;
                   return (
                     <TR key={article.id}>
                       <TDPrimary
@@ -520,7 +522,9 @@ export function KnowledgeScreen() {
                                 onClick={() =>
                                   void articles
                                     .publish(article.id)
-                                    .then(() => done(`${article.title} is live`))
+                                    .then(() =>
+                                      done(`${article.title} is live`),
+                                    )
                                     .catch(report)
                                 }
                               >
@@ -564,7 +568,11 @@ export function KnowledgeScreen() {
         <SectionsPanel
           sections={sections}
           onProblem={(message) =>
-            toast.push({ title: "That did not work", tone: "danger", detail: message })
+            toast.push({
+              title: "That did not work",
+              tone: "danger",
+              detail: message,
+            })
           }
           onDone={done}
         />

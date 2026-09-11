@@ -159,7 +159,9 @@ export function checkMappedRows(
          the column — an empty rent cell is undeclared and is never turned into a
          zero, because that would be declaring on somebody's behalf. */
       const parsed = parseImportMoneyKobo(value, {
-        ...(cell.zeroAllowed === undefined ? {} : { zeroAllowed: cell.zeroAllowed }),
+        ...(cell.zeroAllowed === undefined
+          ? {}
+          : { zeroAllowed: cell.zeroAllowed }),
         ...(cell.subject === undefined ? {} : { subject: cell.subject }),
       });
       if (!parsed.ok) error(spec.field, parsed.problem);

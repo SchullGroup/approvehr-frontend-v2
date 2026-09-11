@@ -20,6 +20,7 @@ import {
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { FeatureOffLine } from "@/components/portal/feature-off-line";
 import { ApiError } from "@/lib/api/client";
 import { usePermissions } from "@/lib/permissions";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
@@ -76,7 +77,8 @@ const STATE_LABEL: Record<ClaimStatus, string> = {
   DECLINED: "Declined",
 };
 
-const money = (amount: number) => formatMoney(amount, "NGN", { decimals: true });
+const money = (amount: number) =>
+  formatMoney(amount, "NGN", { decimals: true });
 
 export function ExpensesScreen() {
   const { mode } = useSession();
@@ -107,7 +109,12 @@ export function ExpensesScreen() {
    * March", and `incurredOn` is the date that answers it. Not `submittedAt`: a
    * receipt filed in April for a March taxi belongs to March.
    */
-  const list = useListQuery<{ status: StatusFilter; typeId: string; from: string; to: string }>({
+  const list = useListQuery<{
+    status: StatusFilter;
+    typeId: string;
+    from: string;
+    to: string;
+  }>({
     filters: { status: "ALL", typeId: "", from: "", to: "" },
     sort: "incurredOn",
     order: "desc",
@@ -133,7 +140,9 @@ export function ExpensesScreen() {
     ...(from ? { from } : {}),
     ...(to ? { to } : {}),
     ...(list.params.q ? { q: list.params.q } : {}),
-    ...(list.sort ? { sort: list.sort as "incurredOn" | "amount" | "createdAt" | "status" } : {}),
+    ...(list.sort
+      ? { sort: list.sort as "incurredOn" | "amount" | "createdAt" | "status" }
+      : {}),
     order: list.order,
   });
   const queue = useExpenseClaims("pending", {}, canApprove);
@@ -194,7 +203,12 @@ export function ExpensesScreen() {
       ? [
           {
             label: "Money went out",
-            value: from && to ? `${from} to ${to}` : from ? `from ${from}` : `to ${to}`,
+            value:
+              from && to
+                ? `${from} to ${to}`
+                : from
+                  ? `from ${from}`
+                  : `to ${to}`,
             onClear: () => {
               list.setFilter("from", "");
               list.setFilter("to", "");
@@ -263,6 +277,7 @@ export function ExpensesScreen() {
       />
 
       <PageBody className="flex flex-col gap-6">
+        <FeatureOffLine feature="expenses" />
         {DEMO_ENABLED && mode === "offline" && (
           <p className="flex flex-wrap items-center gap-2 text-body-sm text-muted">
             <Badge tone="warning" size="sm">
@@ -273,9 +288,7 @@ export function ExpensesScreen() {
           </p>
         )}
 
-        {loadError && (
-          <LoadFailure subject="expenses" error={loadError} />
-        )}
+        {loadError && <LoadFailure subject="expenses" error={loadError} />}
 
         {/* The liability, first. */}
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
@@ -357,7 +370,11 @@ export function ExpensesScreen() {
                 </p>
               </div>
               {canApprove && awaiting.claimCount > 0 && (
-                <Button variant="accent" size="sm" onClick={() => setTab("queue")}>
+                <Button
+                  variant="accent"
+                  size="sm"
+                  onClick={() => setTab("queue")}
+                >
                   Decide them
                 </Button>
               )}
@@ -365,11 +382,7 @@ export function ExpensesScreen() {
           </Card>
         </div>
 
-        <Tabs
-          items={tabs}
-          value={tab}
-          onChange={(next) => setTab(next as Tab)}
-        >
+        <Tabs items={tabs} value={tab} onChange={(next) => setTab(next as Tab)}>
           {tab === "claims" && (
             <ClaimsRegister
               title={seesEverybody ? "All claims" : "My claims"}
@@ -392,7 +405,11 @@ export function ExpensesScreen() {
                 )
               }
               emptyAction={
-                <Button variant="accent" size="sm" onClick={() => setClaiming(true)}>
+                <Button
+                  variant="accent"
+                  size="sm"
+                  onClick={() => setClaiming(true)}
+                >
                   Claim an expense
                 </Button>
               }
@@ -454,7 +471,9 @@ export function ExpensesScreen() {
                          clock in render is the hydration trap HANDOVER
                          documents, and a future date simply matches nothing. */
                       max={to || undefined}
-                      onChange={(event) => list.setFilter("from", event.target.value)}
+                      onChange={(event) =>
+                        list.setFilter("from", event.target.value)
+                      }
                     />
                   </Field>
                   <Field label="…to">
@@ -462,7 +481,9 @@ export function ExpensesScreen() {
                       type="date"
                       value={to}
                       min={from || undefined}
-                      onChange={(event) => list.setFilter("to", event.target.value)}
+                      onChange={(event) =>
+                        list.setFilter("to", event.target.value)
+                      }
                     />
                   </Field>
                 </FilterBar>

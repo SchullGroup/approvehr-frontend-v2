@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FileSignature, Info, ShieldCheck } from "lucide-react";
+import { FileSignature, Info, Send, ShieldCheck } from "lucide-react";
 import {
   Badge,
   Button,
@@ -9,6 +9,7 @@ import {
   Card,
   CardBody,
   CardHeader,
+  Disclosure,
   EmptyState,
   Field,
   Input,
@@ -21,6 +22,7 @@ import {
 import { ExportButton } from "@/components/portal/export-button";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { SendDialog } from "./send-dialog";
 import { ApiError } from "@/lib/api/client";
 import {
   SIGNATURE_KIND,
@@ -49,21 +51,74 @@ import { useCan } from "@/lib/permissions";
  * that opens it either — an administrator holding the whole enum is refused,
  * and a signature somebody else applied is not a signature.
  *
- * ## The fingerprint is on screen, not buried
+ * ## The two roles, and why only one of them is a permission
  *
- * Somebody is being asked to adopt a document. What makes that record mean
- * anything later is that it names the exact bytes, so the fingerprint is beside
- * the document rather than in a detail panel — and `SIGNATURE_KIND` says in as
- * many words that this is not a cryptographic digital signature.
+ * **Sending** needs `EDIT_RECORDS` — it puts a document in front of a named
+ * member of staff over the company's name. **Signing** needs no permission and
+ * cannot be granted one: the API refuses everybody but the named signer,
+ * including an administrator holding the whole enum, because a signature
+ * somebody else applied is not a signature.
+ *
+ * So the Send button is gated on a `useCan` and the Sign button never is.
+ *
+ * ## What was missing, and what it did to the module
+ *
+ * There was no way to send. `POST /signatures` was complete, `signaturesApi.send`
+ * was written, `useSignatureMutations().send` was written, and **nothing called
+ * it** — so nothing could ever be sent, so every tab here was permanently empty
+ * for everybody. The feedback was the only thing it could have been: *"Why did
+ * we add signatures? I can't find any flows for signature, it is just showing at
+ * the side bar for both HR and Employee."* See `send-dialog.tsx`.
+ *
+ * ## The fingerprint is available, not ambient
+ *
+ * Somebody being asked to adopt a document needs to know it names the exact
+ * bytes, so in the **Sign dialog** the fingerprint is prominent and unavoidable:
+ * that is where the decision happens.
+ *
+ * On a **card in a list** it was two full-width monospace lines in every row —
+ * so a queue of ten documents was twenty lines of hex, given more of the screen
+ * than the ten titles. That is the reading of "the styling feels weird" that
+ * held up: a verification detail with the visual weight of the subject. It is
+ * behind a disclosure now, named, one press away, and still on the same screen.
+ * `SIGNATURE_KIND` stays wherever a signature is explained.
  */
 
-const TONE: Record<ApiSignatureStatus, "warning" | "success" | "danger" | "neutral"> =
-  {
-    PENDING: "warning",
-    SIGNED: "success",
-    DECLINED: "danger",
-    CANCELLED: "neutral",
-  };
+const TONE: Record<
+  ApiSignatureStatus,
+  "warning" | "success" | "danger" | "neutral"
+> = {
+  PENDING: "warning",
+  SIGNED: "success",
+  DECLINED: "danger",
+  CANCELLED: "neutral",
+};
+
+/**
+ * How many days late a pending document is, or null.
+ *
+ * Null for three different reasons and they all mean "do not say overdue":
+ * there is no due date, it has not arrived, or the document is already settled.
+ * A signed document with a due date in the past was not late — it was signed.
+ *
+ * Dates only, both sides. `dueDate` is a date with no time on it, so comparing
+ * it against a timestamp makes a document due today read as overdue from one
+ * minute past midnight, and the reader is looking at a calendar rather than a
+ * clock.
+ */
+function overdueBy(record: ApiSignature): number | null {
+  if (record.status !== "PENDING" || !record.dueDate) return null;
+  const due = Date.parse(`${record.dueDate}T00:00:00Z`);
+  if (Number.isNaN(due)) return null;
+  const now = new Date();
+  const today = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate(),
+  );
+  const days = Math.round((today - due) / 86_400_000);
+  return days >= 0 ? days : null;
+}
 
 export function SignaturesScreen() {
   const canManage = useCan("EDIT_RECORDS");
@@ -71,6 +126,7 @@ export function SignaturesScreen() {
   const mine = useMySignatures();
   const all = useSignatures();
   const [signing, setSigning] = useState<ApiSignature | null>(null);
+  const [sending, setSending] = useState(false);
 
   const read = tab === "mine" ? mine : all;
 
@@ -79,11 +135,33 @@ export function SignaturesScreen() {
       <PageHeader
         breadcrumb={[{ href: "/people", label: "People" }]}
         title="Signatures"
+        /* Said on the screen, because the name does not say it — and the
+           feedback on this module opened with "why did we add signatures".
+           Two audiences, two sentences: somebody who can send needs to know
+           what sending does, and somebody who cannot needs to know why a
+           document is in front of them and that nobody can sign it for them. */
+        description={
+          canManage
+            ? "Send a document to a member of staff and record that they adopted it — a contract, an offer letter, a policy. Only the person it was sent to can sign it: not their manager, and not you."
+            : "Documents somebody has asked you to read and adopt as signed. Only you can sign the ones addressed to you, and what you sign is kept exactly as you saw it."
+        }
         meta={
           <span className="inline-flex items-center gap-1 text-meta text-faint">
             <ShieldCheck aria-hidden="true" className="size-3.5" />
             Each one names the exact document by its fingerprint
           </span>
+        }
+        action={
+          /* Absent without the permission rather than present and refusing —
+             the API answers a send from anybody else with a 422 naming
+             `EDIT_RECORDS`, and a button whose only outcome is that refusal is
+             a design failure two clicks earlier. */
+          canManage ? (
+            <Button size="sm" variant="accent" onClick={() => setSending(true)}>
+              <Send aria-hidden="true" className="size-4" />
+              Send for signature
+            </Button>
+          ) : undefined
         }
         tabs={
           <SegmentedControl
@@ -92,7 +170,10 @@ export function SignaturesScreen() {
             onChange={(value) => setTab(value as "mine" | "all")}
             options={[
               { value: "mine", label: "Waiting on me" },
-              { value: "all", label: canManage ? "Everything" : "Sent and signed" },
+              {
+                value: "all",
+                label: canManage ? "Everything" : "Sent and signed",
+              },
             ]}
           />
         }
@@ -107,6 +188,11 @@ export function SignaturesScreen() {
             subject="signatures"
             error={read.error}
             onRetry={read.reload}
+            /* This screen lists a whole module, so a 404 is the API not
+             carrying it rather than a record somebody deleted — see
+             `MissingMeans`. Exactly the case that made production look
+             broken. */
+            missingMeans="module"
           />
         ) : read.loading || !read.data ? (
           <Spinner label="Loading" />
@@ -119,8 +205,14 @@ export function SignaturesScreen() {
             }
             description={
               tab === "mine"
-                ? "When somebody sends you a document to sign, it appears here."
-                : "A contract, an offer letter or a policy can be sent to somebody to sign."
+                ? "When somebody sends you a document to sign, it appears here — and nobody else can sign it for you."
+                : canManage
+                  ? /* Points at the control rather than describing the
+                       capability. The old copy said a contract "can be sent",
+                       which was true and was not actionable, on a screen that
+                       until now had no way to send one. */
+                    "Use “Send for signature” above to put a contract, offer letter or policy in front of somebody."
+                  : "Documents you send or are asked to sign will be listed here."
             }
           />
         ) : (
@@ -147,6 +239,20 @@ export function SignaturesScreen() {
           }}
         />
       )}
+      {sending && (
+        <SendDialog
+          onClose={() => setSending(false)}
+          onSent={() => {
+            setSending(false);
+            /* Both, and then the tab moves. What was just sent is not waiting
+               on the sender, so leaving them on "Waiting on me" would answer a
+               successful send with an empty screen. */
+            mine.reload();
+            all.reload();
+            setTab("all");
+          }}
+        />
+      )}
     </>
   );
 }
@@ -164,6 +270,15 @@ function SignatureCard({
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const [first, second] = fingerprintHalves(record.documentSha256);
+  const overdueDays = overdueBy(record);
+  /* "due 2026-08-01" for something not yet late, and nothing at all for
+     something settled: a due date on a document signed last month is noise,
+     and on one taken back it is noise about a document that no longer
+     exists. */
+  const due =
+    record.status === "PENDING" && record.dueDate && overdueDays === null
+      ? `due ${record.dueDate}`
+      : null;
 
   return (
     <Card>
@@ -172,27 +287,32 @@ function SignatureCard({
         title={record.title}
         description={
           record.mine
-            ? `Sent to you${record.dueDate ? ` · due ${record.dueDate}` : ""}`
-            : `For ${record.signerName}${record.dueDate ? ` · due ${record.dueDate}` : ""}`
+            ? `Sent to you${due ? ` · ${due}` : ""}`
+            : `For ${record.signerName}${due ? ` · ${due}` : ""}`
         }
         action={
-          <Badge tone={TONE[record.status]} size="sm" dot>
-            {STATUS_LABELS[record.status]}
-          </Badge>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Before the status badge, because it is the one thing on this
+                card that asks for something today. A row reading "Waiting to
+                be signed · due 2026-08-01" made the reader do the date
+                arithmetic; nine of them made them do it nine times. */}
+            {overdueDays !== null && (
+              <Badge tone="danger" size="sm" dot>
+                {overdueDays === 0
+                  ? "Due today"
+                  : `${String(overdueDays)} ${overdueDays === 1 ? "day" : "days"} overdue`}
+              </Badge>
+            )}
+            <Badge tone={TONE[record.status]} size="sm" dot>
+              {STATUS_LABELS[record.status]}
+            </Badge>
+          </div>
         }
       />
       <CardBody className="flex flex-col gap-4">
         {record.message && (
           <p className="text-body-sm text-body">{record.message}</p>
         )}
-
-        <div className="flex flex-col gap-1">
-          <p className="text-meta text-faint">Document fingerprint (SHA-256)</p>
-          {/* On screen rather than in a panel: it is what makes the record mean
-              anything later, and the certificate splits it the same way. */}
-          <p className="font-mono text-meta text-body">{first}</p>
-          <p className="font-mono text-meta text-body">{second}</p>
-        </div>
 
         {record.status === "SIGNED" && (
           <Callout
@@ -219,6 +339,19 @@ function SignatureCard({
           </Callout>
         )}
 
+        {/* Named, one press away, on the same screen — see the file header for
+            why it is no longer two monospace lines in every row. `dense`
+            because this sits inside a list of cards rather than heading a
+            section of one. */}
+        <Disclosure
+          dense
+          title="Document fingerprint"
+          hint="The SHA-256 of the exact bytes. What the signature is over, and how the certificate identifies it."
+        >
+          <p className="font-mono text-meta text-body">{first}</p>
+          <p className="font-mono text-meta text-body">{second}</p>
+        </Disclosure>
+
         <div className="flex flex-wrap items-center gap-2 border-t border-line pt-4">
           <ExportButton
             label="Read the document"
@@ -228,7 +361,10 @@ function SignatureCard({
             <ExportButton
               label="Certificate"
               download={() =>
-                signaturesApi.certificate(record.id, `certificate-${record.title}`)
+                signaturesApi.certificate(
+                  record.id,
+                  `certificate-${record.title}`,
+                )
               }
             />
           )}
@@ -330,14 +466,21 @@ function DeclineButton({
               >
                 Decline it
               </Button>
-              <Button variant="ghost" onClick={() => setOpen(false)} disabled={busy}>
+              <Button
+                variant="ghost"
+                onClick={() => setOpen(false)}
+                disabled={busy}
+              >
                 Cancel
               </Button>
             </div>
           }
         >
           <div className="flex flex-col gap-4">
-            <Field label="Why" help="Required — it is the only thing the sender gets.">
+            <Field
+              label="Why"
+              help="Required — it is the only thing the sender gets."
+            >
               <Textarea
                 rows={3}
                 value={reason}
@@ -421,7 +564,11 @@ function SignDialog({
       }
     >
       <div className="flex flex-col gap-4">
-        <Callout tone="info" title="Read it first" icon={<Info aria-hidden="true" />}>
+        <Callout
+          tone="info"
+          title="Read it first"
+          icon={<Info aria-hidden="true" />}
+        >
           Open the document before you sign. What you are signing is the exact
           file with this fingerprint:
           <span className="mt-1 block font-mono text-meta">{first}</span>

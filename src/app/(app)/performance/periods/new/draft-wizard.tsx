@@ -258,7 +258,9 @@ export function DraftPeriodWizard() {
   /* The edits, over the draft. Nothing seeds these — see `GoalEdit`. */
   const [goalEdits, setGoalEdits] = useState<Record<string, GoalEdit>>({});
   const [goalsDropped, setGoalsDropped] = useState<string[]>([]);
-  const [questionEdits, setQuestionEdits] = useState<Record<string, string>>({});
+  const [questionEdits, setQuestionEdits] = useState<Record<string, string>>(
+    {},
+  );
   const [questionsDropped, setQuestionsDropped] = useState<string[]>([]);
 
   const drafting = goalDraft.loading || questionDraft.loading;
@@ -311,6 +313,39 @@ export function DraftPeriodWizard() {
      one that was never there. Here it is the whole screen, so the same mistake
      is louder: the form rendered, then vanished under somebody who might
      already have typed the period's name into it. */
+  /**
+   * The permission, before anything else on this screen.
+   *
+   * `/performance/periods` refuses an employee with "Not yours to run". This
+   * route had no gate at all, so all six roles rendered it byte for byte.
+   *
+   * It was harmless only by accident: no assistant is wired here, so every
+   * role lands on the same "No assistant is connected" empty state below.
+   * Connect one and five of the six get the whole drafting wizard, type a
+   * period into it, and meet a 403 from `POST /cycles` at the end. Worth
+   * closing before the credential is set rather than after.
+   *
+   * `MANAGE_SETTINGS` and not the list screen's `canManage || canSeeCompany`:
+   * this screen only creates, and creating is what `POST /cycles` needs.
+   * Reading across the company is what gets somebody the list.
+   */
+  if (!canManage) {
+    return (
+      <>
+        <PageHeader
+          breadcrumb={[{ href: "/performance", label: "Performance" }]}
+          title="Draft a period"
+        />
+        <PageBody>
+          <EmptyState
+            title="Not yours to run"
+            description="Starting an appraisal period is done by whoever runs them. Ask them to open one."
+          />
+        </PageBody>
+      </>
+    );
+  }
+
   if (assistant.loading) {
     return (
       <>
@@ -549,171 +584,43 @@ export function DraftPeriodWizard() {
         {/* ---------------------------------------------------------- goals */}
         {step === "goals" && (
           <Card>
-              <CardHeader
-                title="The company goals"
-                description="Edit anything. Delete what you would not have written. Each measure needs a target from you: one without a figure is not created, because a target nobody set is not a target."
-              />
-              <CardBody className="flex flex-col gap-4">
-                {goalDraft.outcome?.available === false ? (
-                  <Callout tone="warning" title="Nothing was drafted">
-                    {goalDraft.outcome.reason}
-                  </Callout>
-                ) : goals.length === 0 ? (
-                  <EmptyState
-                    compact
-                    title="No goals came back"
-                    description="Write them on the period itself instead."
-                  />
-                ) : (
-                  goals.map((goal, index) => (
-                    <div
-                      key={goal.id}
-                      className="flex flex-col gap-3 rounded-md border border-line p-4"
-                    >
-                      <div className="flex items-start gap-2">
-                        <span className="min-w-0 flex-1">
-                          <div className="mb-1.5 flex items-center gap-1.5">
-                            <Target
-                              aria-hidden="true"
-                              className="size-4 shrink-0 text-accent"
-                            />
-                            <span className="text-body-sm font-medium text-ink">
-                              Goal {index + 1}
-                            </span>
-                          </div>
-                          <Field label={`Goal ${String(index + 1)}`} hideLabel>
-                            <Input
-                              value={goal.title}
-                              onChange={(event) =>
-                                editGoal(goal.id, { title: event.target.value })
-                              }
-                            />
-                          </Field>
-                        </span>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="mt-6"
-                          onClick={() =>
-                            setGoalsDropped((ids) => [...ids, goal.id])
-                          }
-                        >
-                          <Trash2 aria-hidden="true" className="size-4" />
-                          <span className="sr-only">Delete this goal</span>
-                        </Button>
-                      </div>
-
-                      <Field label="What delivering it looks like">
-                        <Textarea
-                          rows={2}
-                          value={goal.detail}
-                          onChange={(event) =>
-                            editGoal(goal.id, { detail: event.target.value })
-                          }
-                        />
-                      </Field>
-
-                      {goal.measures.length > 0 && (
-                        <div className="flex flex-col gap-1.5">
-                          <div className="flex items-center gap-2">
-                            <p className="min-w-0 flex-1 text-meta font-semibold text-muted">
-                              Measures
-                            </p>
-                            <p className="w-32 shrink-0 text-meta font-semibold text-muted">
-                              Target
-                            </p>
-                          </div>
-                          {goal.measures.map((measure, at) => (
-                            <div
-                              key={`${goal.id}-${String(at)}`}
-                              className="flex items-center gap-2"
-                            >
-                              <span className="min-w-40 flex-1 text-body-sm text-body">
-                                {measure.label}
-                                {measure.unit && (
-                                  <span className="text-muted">
-                                    {" "}
-                                    ({measure.unit})
-                                  </span>
-                                )}
-                              </span>
-                              <Input
-                                inputMode="decimal"
-                                value={measure.target}
-                                placeholder="You set this"
-                                aria-label={`Target for ${measure.label}`}
-                                onChange={(event) =>
-                                  setTarget(goal.id, at, event.target.value)
-                                }
-                                className="w-32 shrink-0"
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))
-                )}
-
-                {goalDraft.outcome && (
-                  <Grounded grounding={goalDraft.outcome.groundedIn} />
-                )}
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => setStep("describe")}
+            <CardHeader
+              title="The company goals"
+              description="Edit anything. Delete what you would not have written. Each measure needs a target from you: one without a figure is not created, because a target nobody set is not a target."
+            />
+            <CardBody className="flex flex-col gap-4">
+              {goalDraft.outcome?.available === false ? (
+                <Callout tone="warning" title="Nothing was drafted">
+                  {goalDraft.outcome.reason}
+                </Callout>
+              ) : goals.length === 0 ? (
+                <EmptyState
+                  compact
+                  title="No goals came back"
+                  description="Write them on the period itself instead."
+                />
+              ) : (
+                goals.map((goal, index) => (
+                  <div
+                    key={goal.id}
+                    className="flex flex-col gap-3 rounded-md border border-line p-4"
                   >
-                    <ArrowLeft aria-hidden="true" className="size-3.5" />
-                    Back
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="accent"
-                    onClick={() => setStep("questions")}
-                  >
-                    Next: the questions
-                    <ArrowRight aria-hidden="true" className="size-3.5" />
-                  </Button>
-                </div>
-              </CardBody>
-          </Card>
-        )}
-
-        {/* ------------------------------------------------------ questions */}
-        {step === "questions" && (
-          <Card>
-              <CardHeader
-                title="What the form asks"
-                description="Everybody answers these about their own work, and their manager answers the same ones about it. More can be added on the period itself."
-              />
-              <CardBody className="flex flex-col gap-4">
-                {questionDraft.outcome?.available === false ? (
-                  <Callout tone="warning" title="No questions were drafted">
-                    {questionDraft.outcome.reason} You can write them on the
-                    period itself.
-                  </Callout>
-                ) : questions.length === 0 ? (
-                  <EmptyState
-                    compact
-                    title="No questions came back"
-                    description="Write them on the period itself instead. A period cannot start without at least one."
-                  />
-                ) : (
-                  questions.map((question, index) => (
-                    <div key={question.id} className="flex items-start gap-2">
+                    <div className="flex items-start gap-2">
                       <span className="min-w-0 flex-1">
-                        <Field label={`Question ${String(index + 1)}`}>
-                          <Textarea
-                            rows={2}
-                            value={question.prompt}
+                        <div className="mb-1.5 flex items-center gap-1.5">
+                          <Target
+                            aria-hidden="true"
+                            className="size-4 shrink-0 text-accent"
+                          />
+                          <span className="text-body-sm font-medium text-ink">
+                            Goal {index + 1}
+                          </span>
+                        </div>
+                        <Field label={`Goal ${String(index + 1)}`} hideLabel>
+                          <Input
+                            value={goal.title}
                             onChange={(event) =>
-                              setQuestionEdits((rows) => ({
-                                ...rows,
-                                [question.id]: event.target.value,
-                              }))
+                              editGoal(goal.id, { title: event.target.value })
                             }
                           />
                         </Field>
@@ -724,39 +631,167 @@ export function DraftPeriodWizard() {
                         size="sm"
                         className="mt-6"
                         onClick={() =>
-                          setQuestionsDropped((ids) => [...ids, question.id])
+                          setGoalsDropped((ids) => [...ids, goal.id])
                         }
                       >
                         <Trash2 aria-hidden="true" className="size-4" />
-                        <span className="sr-only">Delete this question</span>
+                        <span className="sr-only">Delete this goal</span>
                       </Button>
                     </div>
-                  ))
-                )}
 
-                {questionDraft.outcome && (
-                  <Grounded grounding={questionDraft.outcome.groundedIn} />
-                )}
+                    <Field label="What delivering it looks like">
+                      <Textarea
+                        rows={2}
+                        value={goal.detail}
+                        onChange={(event) =>
+                          editGoal(goal.id, { detail: event.target.value })
+                        }
+                      />
+                    </Field>
 
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => setStep("goals")}
-                  >
-                    <ArrowLeft aria-hidden="true" className="size-3.5" />
-                    Back
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="accent"
-                    onClick={() => setStep("review")}
-                  >
-                    Next: review it
-                    <ArrowRight aria-hidden="true" className="size-3.5" />
-                  </Button>
-                </div>
-              </CardBody>
+                    {goal.measures.length > 0 && (
+                      <div className="flex flex-col gap-1.5">
+                        <div className="flex items-center gap-2">
+                          <p className="min-w-0 flex-1 text-meta font-semibold text-muted">
+                            Measures
+                          </p>
+                          <p className="w-32 shrink-0 text-meta font-semibold text-muted">
+                            Target
+                          </p>
+                        </div>
+                        {goal.measures.map((measure, at) => (
+                          <div
+                            key={`${goal.id}-${String(at)}`}
+                            className="flex items-center gap-2"
+                          >
+                            <span className="min-w-40 flex-1 text-body-sm text-body">
+                              {measure.label}
+                              {measure.unit && (
+                                <span className="text-muted">
+                                  {" "}
+                                  ({measure.unit})
+                                </span>
+                              )}
+                            </span>
+                            <Input
+                              inputMode="decimal"
+                              value={measure.target}
+                              placeholder="You set this"
+                              aria-label={`Target for ${measure.label}`}
+                              onChange={(event) =>
+                                setTarget(goal.id, at, event.target.value)
+                              }
+                              className="w-32 shrink-0"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+
+              {goalDraft.outcome && (
+                <Grounded grounding={goalDraft.outcome.groundedIn} />
+              )}
+
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setStep("describe")}
+                >
+                  <ArrowLeft aria-hidden="true" className="size-3.5" />
+                  Back
+                </Button>
+                <Button
+                  type="button"
+                  variant="accent"
+                  onClick={() => setStep("questions")}
+                >
+                  Next: the questions
+                  <ArrowRight aria-hidden="true" className="size-3.5" />
+                </Button>
+              </div>
+            </CardBody>
+          </Card>
+        )}
+
+        {/* ------------------------------------------------------ questions */}
+        {step === "questions" && (
+          <Card>
+            <CardHeader
+              title="What the form asks"
+              description="Everybody answers these about their own work, and their manager answers the same ones about it. More can be added on the period itself."
+            />
+            <CardBody className="flex flex-col gap-4">
+              {questionDraft.outcome?.available === false ? (
+                <Callout tone="warning" title="No questions were drafted">
+                  {questionDraft.outcome.reason} You can write them on the
+                  period itself.
+                </Callout>
+              ) : questions.length === 0 ? (
+                <EmptyState
+                  compact
+                  title="No questions came back"
+                  description="Write them on the period itself instead. A period cannot start without at least one."
+                />
+              ) : (
+                questions.map((question, index) => (
+                  <div key={question.id} className="flex items-start gap-2">
+                    <span className="min-w-0 flex-1">
+                      <Field label={`Question ${String(index + 1)}`}>
+                        <Textarea
+                          rows={2}
+                          value={question.prompt}
+                          onChange={(event) =>
+                            setQuestionEdits((rows) => ({
+                              ...rows,
+                              [question.id]: event.target.value,
+                            }))
+                          }
+                        />
+                      </Field>
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="mt-6"
+                      onClick={() =>
+                        setQuestionsDropped((ids) => [...ids, question.id])
+                      }
+                    >
+                      <Trash2 aria-hidden="true" className="size-4" />
+                      <span className="sr-only">Delete this question</span>
+                    </Button>
+                  </div>
+                ))
+              )}
+
+              {questionDraft.outcome && (
+                <Grounded grounding={questionDraft.outcome.groundedIn} />
+              )}
+
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setStep("goals")}
+                >
+                  <ArrowLeft aria-hidden="true" className="size-3.5" />
+                  Back
+                </Button>
+                <Button
+                  type="button"
+                  variant="accent"
+                  onClick={() => setStep("review")}
+                >
+                  Next: review it
+                  <ArrowRight aria-hidden="true" className="size-3.5" />
+                </Button>
+              </div>
+            </CardBody>
           </Card>
         )}
 
@@ -805,7 +840,8 @@ export function DraftPeriodWizard() {
               {questions.length === 0 && (
                 <Callout tone="warning" title="No questions yet">
                   A period cannot start without at least one question. The
-                  period will be created as a draft and you can write them on it.
+                  period will be created as a draft and you can write them on
+                  it.
                 </Callout>
               )}
 

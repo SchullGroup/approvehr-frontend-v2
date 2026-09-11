@@ -127,7 +127,12 @@ export type SessionRoles = {
 };
 
 export function useSessionRoles(): SessionRoles {
-  const { isLoading, isConnected, employeeId, roles: fromSession } = useSession();
+  const {
+    isLoading,
+    isConnected,
+    employeeId,
+    roles: fromSession,
+  } = useSession();
   const { roles: fromAccess, previewingRole } = usePermissions();
   const demo = useDemoRoles(employeeId);
   const isManager = useIsManager();

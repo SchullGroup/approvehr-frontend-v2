@@ -1,7 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarDays, ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
+import {
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import {
   Badge,
   Button,
@@ -171,7 +177,11 @@ export function HolidaysPanel({ defaultYear }: { defaultYear: number }) {
                 </IconButton>
               </div>
               {canManage && (
-                <Button variant="accent" size="sm" onClick={() => setAdding(true)}>
+                <Button
+                  variant="accent"
+                  size="sm"
+                  onClick={() => setAdding(true)}
+                >
                   <Plus aria-hidden="true" className="size-4" />
                   Add a holiday
                 </Button>
@@ -184,7 +194,8 @@ export function HolidaysPanel({ defaultYear }: { defaultYear: number }) {
           <LoadFailure
             subject={`the ${year} holiday calendar`}
             error={calendar.error}
-           onRetry={calendar.reload}/>
+            onRetry={calendar.reload}
+          />
 
           {/* Demo mode has one honest gap the connected product does not, and it
               is exactly the kind of thing somebody would otherwise discover by
@@ -341,7 +352,10 @@ export function HolidaysPanel({ defaultYear }: { defaultYear: number }) {
           holiday={editing}
           onClose={() => setEditing(null)}
           onSave={async (body) => {
-            const ok = await run(() => mutations.update(editing.id, body), "Saved");
+            const ok = await run(
+              () => mutations.update(editing.id, body),
+              "Saved",
+            );
             if (ok) setEditing(null);
           }}
         />
@@ -380,8 +394,8 @@ export function HolidaysPanel({ defaultYear }: { defaultYear: number }) {
             </span>
             {deleting && !deleting.confirmed && (
               <span>
-                {deleting.name} is not gazetted yet, so the timesheet and the help
-                desk&rsquo;s clock never counted it. Payroll proration and
+                {deleting.name} is not gazetted yet, so the timesheet and the
+                help desk&rsquo;s clock never counted it. Payroll proration and
                 overtime did.
               </span>
             )}

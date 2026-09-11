@@ -21,6 +21,7 @@ import {
   Stat,
   type BadgeTone,
 } from "@/components/ui";
+import { NoticeLine } from "@/components/portal/notice-line";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import {
@@ -108,7 +109,8 @@ export function ScoreHistoryScreen({ employeeId }: { employeeId: string }) {
         <LoadFailure
           subject="this person's score history"
           error={detail.error}
-         onRetry={detail.reload}/>
+          onRetry={detail.reload}
+        />
 
         {detail.loading && (
           <Card>
@@ -123,10 +125,10 @@ export function ScoreHistoryScreen({ employeeId }: { employeeId: string }) {
           <>
             <Who history={history} />
 
+            {/* The API's own sentence, on its own line. The heading over it
+                said what the sentence already says. */}
             {history.withheldNote && (
-              <Callout tone="info" title="A period is still in progress">
-                <p>{history.withheldNote}</p>
-              </Callout>
+              <NoticeLine tone="muted">{history.withheldNote}</NoticeLine>
             )}
 
             {history.points.length === 0 ? (
@@ -307,18 +309,16 @@ function Trend({ history }: { history: ApiScoreHistory }) {
 
 /** The periods with no mark, by name, and why that is not a nought. */
 function NoMark({ cycles }: { cycles: string[] }) {
+  /* Named, on a line. The paragraph explaining that an absence is not a
+     nought was arguing with a reader who had not disagreed — and the chart
+     beside it already leaves the period out, which is the argument made
+     visually. The names are the part worth keeping. */
   return (
-    <Callout
-      tone="warning"
-      title={`${cycles.length === 1 ? "One period" : `${cycles.length} periods`} with no mark`}
-    >
-      <p>
-        {cycles.join(", ")} recorded nothing that counts towards a mark: no
-        agreed objective, no competency rating against a weighted part. That is
-        not a mark of nought and it is not on the chart, because the two say
-        opposite things about the person.
-      </p>
-    </Callout>
+    <NoticeLine tone="muted">
+      {cycles.length === 1
+        ? `No mark was recorded in ${cycles[0]}.`
+        : `No mark was recorded in ${cycles.length} periods: ${cycles.join(", ")}.`}
+    </NoticeLine>
   );
 }
 
@@ -506,12 +506,33 @@ function SignOff({ point }: { point: ApiHistoryPoint }) {
                 ? "None yet"
                 : "Not asked yet",
         },
-        {
-          term: "What they said",
-          value:
-            signOff.employeeComment ??
-            "Nothing, which they were not obliged to add",
-        },
+        /**
+         * Only where they have actually said something.
+         *
+         * This rendered `employeeComment` unconditionally, so one card showed
+         * *"Their answer — Not asked yet"* and, in the next cell,
+         * *"What they said — 'I do not accept this mark…'"*, 532 characters
+         * of it. The comment outlives the state that produced it: a dispute
+         * that a send-back reversed leaves the text on the column with the
+         * flags cleared, which is **BE-21** and is fixed on the API, not here.
+         *
+         * What is this screen's to fix is which of the two it believes. The
+         * flags are the fact; a quote under a flag saying no answer exists is
+         * the card contradicting itself, and the reader has no way to know
+         * which half is stale. So the quote follows the flag, and the row is
+         * absent rather than empty when nobody has answered — the same
+         * distinction the three fields above it are drawn around.
+         */
+        ...(signOff.acknowledged || signOff.disputed
+          ? [
+              {
+                term: "What they said",
+                value:
+                  signOff.employeeComment ??
+                  "Nothing, which they were not obliged to add",
+              },
+            ]
+          : []),
         ...(signOff.reviewId
           ? [
               {

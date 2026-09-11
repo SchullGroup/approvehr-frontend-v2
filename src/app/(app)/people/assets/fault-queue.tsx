@@ -122,7 +122,10 @@ export function FaultQueuePanel() {
                   <span className="tabular text-meta font-normal text-muted">
                     {request.assetTag}
                   </span>
-                  <Badge tone={isOpen(request) ? "warning" : "neutral"} size="sm">
+                  <Badge
+                    tone={isOpen(request) ? "warning" : "neutral"}
+                    size="sm"
+                  >
                     {/* The API's wording, never a second copy of the seven. */}
                     {request.statusLabel}
                   </Badge>
@@ -245,7 +248,11 @@ function MoveDialog({
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="accent" loading={saving} onClick={() => void submit()}>
+          <Button
+            variant="accent"
+            loading={saving}
+            onClick={() => void submit()}
+          >
             {ACTION_LABEL[to]}
           </Button>
         </div>

@@ -1,10 +1,12 @@
 import { cn } from "@/lib/cn";
 import { LogoMark } from "@/components/brand/logo";
+import { TaxBands } from "@/components/payroll/tax-bands";
 import {
   formatKobo,
   naira,
   wasDeducted,
   type Payslip,
+  type RateWorking,
   type StatutoryOperation,
 } from "@/lib/api/payroll";
 
@@ -243,7 +245,10 @@ export function reliefLine(slip: Payslip): {
  * Returns null for anything that is not overtime, and for a line whose hours
  * are zero or unreadable — a working somebody cannot check is worse than none.
  */
-export function overtimeWorking(label: string, amountKobo: number): string | null {
+export function overtimeWorking(
+  label: string,
+  amountKobo: number,
+): string | null {
   if (!label.startsWith("Overtime")) return null;
 
   const hours = Number(/\(([\d.]+)\s*h/i.exec(label)?.[1]);
@@ -286,25 +291,23 @@ function displayLabel(label: string): string {
 export function notOperated(
   operates: StatutoryOperation | undefined,
 ): { key: keyof StatutoryOperation; label: string; because: string }[] {
-  return (
-    [
-      {
-        key: "pension" as const,
-        label: "Pension",
-        because: "this employer does not operate a pension scheme",
-      },
-      {
-        key: "nhf" as const,
-        label: "National Housing Fund",
-        because: "this employer does not deduct a housing fund contribution",
-      },
-      {
-        key: "paye" as const,
-        label: "PAYE income tax",
-        because: "this employer does not deduct PAYE",
-      },
-    ]
-  ).filter((row) => !wasDeducted(operates, row.key));
+  return [
+    {
+      key: "pension" as const,
+      label: "Pension",
+      because: "this employer does not operate a pension scheme",
+    },
+    {
+      key: "nhf" as const,
+      label: "National Housing Fund",
+      because: "this employer does not deduct a housing fund contribution",
+    },
+    {
+      key: "paye" as const,
+      label: "PAYE income tax",
+      because: "this employer does not deduct PAYE",
+    },
+  ].filter((row) => !wasDeducted(operates, row.key));
 }
 
 export function PayslipDocument({
@@ -345,7 +348,12 @@ export function PayslipDocument({
    * the company has uploaded one — never a remote URL, so opening a saved
    * payslip fetches nothing from anybody's server. See `Organization.logoUrl`.
    */
-  company?: { name: string; rc: string; address: string; logoUrl?: string | null };
+  company?: {
+    name: string;
+    rc: string;
+    address: string;
+    logoUrl?: string | null;
+  };
   rates?: PayslipRates;
   ytd?: YearToDateKobo;
   className?: string;
@@ -421,6 +429,13 @@ export function PayslipDocument({
             label: rates
               ? `Pension contribution (${pct(rates.pensionEmployee)})`
               : "Pension contribution",
+            /* "8% of what?" — the whole of what somebody querying this line
+               wants, and until now the payslip could not say. `workings` is
+               sent only where the rate times the base reproduces the figure
+               beside it exactly, so this can never quote a base that did not
+               produce the deduction. Absent for a payslip whose rates cannot
+               be known, which is the ordinary case for an older row. */
+            note: rateWorking(slip.workings?.pension),
             kobo: slip.pensionEmployeeKobo,
           },
         ]
@@ -431,6 +446,7 @@ export function PayslipDocument({
             label: rates
               ? `National Housing Fund (${pct(rates.nhf)} of ${rates.nhfBasis})`
               : "National Housing Fund",
+            note: rateWorking(slip.workings?.nhf),
             kobo: slip.nhfKobo,
           },
         ]
@@ -485,9 +501,7 @@ export function PayslipDocument({
           </p>
         </div>
         <div className="text-right">
-          <p className="text-meta font-semibold text-muted">
-            Payslip
-          </p>
+          <p className="text-meta font-semibold text-muted">Payslip</p>
           <p className="mt-1 text-h4 text-ink">{period}</p>
           {/* The scheduled date, said as a schedule. `run.payDate` is when the
               money is *due* — it is set at prepare time and nothing ever
@@ -535,8 +549,8 @@ export function PayslipDocument({
       {slip.unpaidDays > 0 && (
         <section className="mt-5 rounded-md border border-warning-line bg-warning-soft p-4">
           <p className="text-body-sm font-medium text-ink">
-            {slip.unpaidDays} unpaid {slip.unpaidDays === 1 ? "day" : "days"} this
-            month
+            {slip.unpaidDays} unpaid {slip.unpaidDays === 1 ? "day" : "days"}{" "}
+            this month
           </p>
           <p className="mt-1 text-meta leading-relaxed text-body">
             {formatKobo(slip.proratedDeductionKobo)} was taken off the
@@ -570,6 +584,7 @@ export function PayslipDocument({
                 key={`${line.label}-${i}`}
                 label={line.label}
                 kobo={line.kobo}
+                note={"note" in line ? line.note : null}
               />
             ))}
             <LineItem label="Total deductions" kobo={takenKobo} total />
@@ -599,7 +614,8 @@ export function PayslipDocument({
               distinction is the audience, not the fact. */}
           {carried > 0 && (
             <p className="mt-2 text-meta leading-relaxed text-body">
-              {formatKobo(carried)} of the above could not be taken this month: there was not enough pay left after tax. It carries over to next
+              {formatKobo(carried)} of the above could not be taken this month:
+              there was not enough pay left after tax. It carries over to next
               month rather than being written off.
             </p>
           )}
@@ -617,8 +633,8 @@ export function PayslipDocument({
         <section className="mt-6 rounded-md border border-line bg-canvas p-4">
           <ColumnHead>Paid by your employer</ColumnHead>
           <p className="mt-1.5 text-meta leading-relaxed text-muted">
-            Paid by {company?.name ?? "your employer"} on your behalf. These are not deducted from
-            your pay and do not reduce the net figure above.
+            Paid by {company?.name ?? "your employer"} on your behalf. These are
+            not deducted from your pay and do not reduce the net figure above.
           </p>
           <dl className="mt-3 flex flex-col">
             {employerLines.map((line) => (
@@ -657,11 +673,14 @@ export function PayslipDocument({
             filing your own return with your state tax authority.
           </p>
         ) : (
-        <dl className="mt-3 flex flex-col">
-          <LineItem label={relief.label} kobo={slip.reliefKobo} />
-          <LineItem label="Taxable pay (per month)" kobo={slip.taxableIncomeKobo} />
-          <LineItem label="PAYE" kobo={slip.payeKobo} total />
-        </dl>
+          <dl className="mt-3 flex flex-col">
+            <LineItem label={relief.label} kobo={slip.reliefKobo} />
+            <LineItem
+              label="Taxable pay (per month)"
+              kobo={slip.taxableIncomeKobo}
+            />
+            <LineItem label="PAYE" kobo={slip.payeKobo} total />
+          </dl>
         )}
         {/* Prints. A relief nobody has claimed is the one thing on this document
             the employee themselves can do something about, so it is not hidden
@@ -672,6 +691,12 @@ export function PayslipDocument({
             {relief.note}
           </p>
         )}
+        {/* And the step between those three lines, for the reader who wants to
+            check the figure rather than take it. Renders nothing whenever the
+            API cannot stand behind a working — a hand-entered tax figure being
+            the case worth knowing about, since the reason for that one is
+            printed above instead. */}
+        <TaxBands slip={slip} />
       </section>
 
       {/* Year to date */}
@@ -682,15 +707,17 @@ export function PayslipDocument({
             <table className="w-full min-w-lg border-collapse text-left">
               <thead>
                 <tr className="border-b border-line">
-                  {["Gross", "PAYE", "Pension", "Housing fund", "Net"].map((head) => (
-                    <th
-                      key={head}
-                      scope="col"
-                      className="pb-2 text-meta font-semibold text-muted last:text-right"
-                    >
-                      {head}
-                    </th>
-                  ))}
+                  {["Gross", "PAYE", "Pension", "Housing fund", "Net"].map(
+                    (head) => (
+                      <th
+                        key={head}
+                        scope="col"
+                        className="pb-2 text-meta font-semibold text-muted last:text-right"
+                      >
+                        {head}
+                      </th>
+                    ),
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -746,11 +773,7 @@ export function PayslipDocument({
 /* -------------------------------------------------------------------------- */
 
 function ColumnHead({ children }: { children: React.ReactNode }) {
-  return (
-    <h2 className="text-meta font-semibold text-muted">
-      {children}
-    </h2>
-  );
+  return <h2 className="text-meta font-semibold text-muted">{children}</h2>;
 }
 
 function Detail({
@@ -775,6 +798,24 @@ function Detail({
       </dd>
     </div>
   );
+}
+
+/**
+ * "8% of ₦500,000.00 — basic, housing and transport."
+ *
+ * The one sentence a pension or housing-fund line was missing. Everything in
+ * it comes from the API, which sends a working only where the rate multiplied
+ * by the base reproduces the figure on the payslip — so this is the arithmetic
+ * that actually ran, not a percentage derived back out of the result.
+ *
+ * Null in, null out. A payslip whose rates cannot be known prints the line
+ * with no working under it, exactly as it always did.
+ */
+function rateWorking(working: RateWorking | null | undefined): string | null {
+  if (!working) return null;
+  const rate = working.rate * 100;
+  const percent = Number.isInteger(rate) ? rate : rate.toFixed(2);
+  return `${percent}% of ${formatKobo(working.baseKobo)} — ${working.baseLabel}`;
 }
 
 function LineItem({
@@ -804,7 +845,9 @@ function LineItem({
       >
         {label}
         {note && (
-          <span className="block text-meta leading-tight text-muted">{note}</span>
+          <span className="block text-meta leading-tight text-muted">
+            {note}
+          </span>
         )}
       </dt>
       <dd

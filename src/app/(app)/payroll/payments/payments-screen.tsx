@@ -18,9 +18,7 @@ import {
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
-import {
-  naira,
-} from "@/lib/api/payments";
+import { naira } from "@/lib/api/payments";
 import { usePermissions } from "@/lib/permissions";
 import {
   usePaymentsSummary,
@@ -73,7 +71,6 @@ export function PaymentsScreen() {
   const [pageSize, setPageSize] = useState(25);
   const statement = useWalletStatement({ page, pageSize });
   const summary = usePaymentsSummary();
-
 
   if (permissionsLoading) {
     return (
@@ -166,7 +163,11 @@ export function PaymentsScreen() {
             label="Wallet balance"
             value={
               statementHeld ? (
-                <Money amount={naira(statementHeld.balanceKobo)} decimals size="xl" />
+                <Money
+                  amount={naira(statementHeld.balanceKobo)}
+                  decimals
+                  size="xl"
+                />
               ) : (
                 <Unknown />
               )
@@ -240,7 +241,11 @@ export function PaymentsScreen() {
                 No account for salaries to be paid <em>from</em> yet. A payroll
                 cannot build its payment without one.
               </p>
-              <ButtonLink href="/settings/bank-accounts" variant="accent" size="sm">
+              <ButtonLink
+                href="/settings/bank-accounts"
+                variant="accent"
+                size="sm"
+              >
                 <Landmark aria-hidden="true" className="size-4" />
                 Add a bank account
               </ButtonLink>
@@ -261,25 +266,25 @@ export function PaymentsScreen() {
         />
 
         {/* The payments list was here, and is gone at the product owner's
-          * request. It listed each batch a payroll built, with the batch page
-          * behind an "Open" and the bank file behind a download.
-          *
-          * Two things went with it and are worth knowing: this was the only
-          * route on this screen to `/payroll/payments/<id>`, and the only
-          * place a company could fetch an approved batch's bank file again
-          * after losing the first download. Both still exist; nothing here
-          * points at them any more. */}
+         * request. It listed each batch a payroll built, with the batch page
+         * behind an "Open" and the bank file behind a download.
+         *
+         * Two things went with it and are worth knowing: this was the only
+         * route on this screen to `/payroll/payments/<id>`, and the only
+         * place a company could fetch an approved batch's bank file again
+         * after losing the first download. Both still exist; nothing here
+         * points at them any more. */}
         {/* Account activity was here — `LedgerEntry`, what the bank did.
-          * Removed because it was a second table about the same money that
-          * disagreed with the first: the ledger held two provider deposits the
-          * wallet never received (₦8,750), while the payroll debit that left
-          * the wallet wrote no ledger row, so it reported "Out ₦0.00" after a
-          * payroll had gone out. Its balances were null unless somebody typed
-          * them off a statement, and its own comment forbade computing them.
-          *
-          * The wallet statement is the honest record and it is the one that
-          * stayed. `GET /payments/ledger` still exists and the entries are
-          * still written; nothing displays them. */}
+         * Removed because it was a second table about the same money that
+         * disagreed with the first: the ledger held two provider deposits the
+         * wallet never received (₦8,750), while the payroll debit that left
+         * the wallet wrote no ledger row, so it reported "Out ₦0.00" after a
+         * payroll had gone out. Its balances were null unless somebody typed
+         * them off a statement, and its own comment forbade computing them.
+         *
+         * The wallet statement is the honest record and it is the one that
+         * stayed. `GET /payments/ledger` still exists and the entries are
+         * still written; nothing displays them. */}
       </PageBody>
     </>
   );

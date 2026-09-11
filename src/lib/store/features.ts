@@ -138,6 +138,9 @@ const BASE_FLAGS: FeatureFlags = {
   /* Off, like every module. A company with one manager per person must never be
      shown a weighting table it did not ask for. */
   multiAppraiser: false,
+  /* Off, matching the API's own default: a company that has not asked for a
+     second approver keeps the one-step flow it already had. */
+  leaveTwoStepApproval: false,
   twoFactor: false,
 };
 
@@ -250,6 +253,13 @@ export const FEATURE_COPY: Record<
     label: "Ask for a code from email",
     line: "People who have set it up are asked for a six-digit code when they sign in. You choose separately which actions also need one.",
   },
+  /* Rendered on `/settings/leave` rather than `/settings/features` — see
+     `WORKFLOW_FEATURE_KEYS`. The copy lives here anyway so the label and the
+     consequence are written once, wherever the switch is placed. */
+  leaveTwoStepApproval: {
+    label: "The departmental lead approves leave first",
+    line: "A request goes to the person who heads their department, and to HR only once that is approved. A decline at either step is final and the employee hears once.",
+  },
 };
 
 /**
@@ -291,174 +301,199 @@ export const HEADCOUNT_LABELS: Record<HeadcountBand, string> = {
  * argument — can be shown on a laptop in a room with no backend. It is read
  * only when `useSession().isConnected` is false.
  */
-const DEMO_QUESTIONS: ApiWizardQuestion[] = DEMO_ENABLED ? [
-  {
-    id: "headcount",
-    step: 1,
-    question: "How many people do you pay?",
-    help: "Everyone on the payroll, full-time or not.",
-    options: [
+const DEMO_QUESTIONS: ApiWizardQuestion[] = DEMO_ENABLED
+  ? [
       {
-        value: "UNDER_10",
-        label: "Fewer than 10",
-        sets: { headcountBand: "UNDER_10", departments: false, grades: false },
+        id: "headcount",
+        step: 1,
+        question: "How many people do you pay?",
+        help: "Everyone on the payroll, full-time or not.",
+        options: [
+          {
+            value: "UNDER_10",
+            label: "Fewer than 10",
+            sets: {
+              headcountBand: "UNDER_10",
+              departments: false,
+              grades: false,
+            },
+          },
+          {
+            value: "FROM_10_TO_50",
+            label: "10 to 50",
+            sets: {
+              headcountBand: "FROM_10_TO_50",
+              departments: true,
+              grades: false,
+            },
+          },
+          {
+            value: "FROM_50_TO_250",
+            label: "50 to 250",
+            sets: {
+              headcountBand: "FROM_50_TO_250",
+              departments: true,
+              grades: true,
+            },
+          },
+          {
+            value: "OVER_250",
+            label: "More than 250",
+            sets: {
+              headcountBand: "OVER_250",
+              departments: true,
+              grades: true,
+            },
+          },
+        ],
       },
       {
-        value: "FROM_10_TO_50",
-        label: "10 to 50",
-        sets: {
-          headcountBand: "FROM_10_TO_50",
-          departments: true,
-          grades: false,
-        },
+        id: "shifts",
+        step: 2,
+        question: "Does anyone work shifts or nights?",
+        help: "A rota, night duty, or weekend cover.",
+        options: [
+          { value: "yes", label: "Yes", sets: { shifts: true } },
+          { value: "no", label: "No", sets: { shifts: false } },
+        ],
       },
       {
-        value: "FROM_50_TO_250",
-        label: "50 to 250",
-        sets: {
-          headcountBand: "FROM_50_TO_250",
-          departments: true,
-          grades: true,
-        },
+        id: "loans",
+        step: 3,
+        question: "Do you give staff loans or salary advances?",
+        help: "Money you recover from their salary later.",
+        options: [
+          { value: "yes", label: "Yes", sets: { loans: true } },
+          { value: "no", label: "No", sets: { loans: false } },
+        ],
       },
       {
-        value: "OVER_250",
-        label: "More than 250",
-        sets: { headcountBand: "OVER_250", departments: true, grades: true },
+        id: "expenses",
+        step: 4,
+        question: "Do staff claim money back from you?",
+        help: "Transport, airtime, anything they paid for and you refund.",
+        options: [
+          { value: "yes", label: "Yes", sets: { expenses: true } },
+          { value: "no", label: "No", sets: { expenses: false } },
+        ],
       },
-    ],
-  },
-  {
-    id: "shifts",
-    step: 2,
-    question: "Does anyone work shifts or nights?",
-    help: "A rota, night duty, or weekend cover.",
-    options: [
-      { value: "yes", label: "Yes", sets: { shifts: true } },
-      { value: "no", label: "No", sets: { shifts: false } },
-    ],
-  },
-  {
-    id: "loans",
-    step: 3,
-    question: "Do you give staff loans or salary advances?",
-    help: "Money you recover from their salary later.",
-    options: [
-      { value: "yes", label: "Yes", sets: { loans: true } },
-      { value: "no", label: "No", sets: { loans: false } },
-    ],
-  },
-  {
-    id: "expenses",
-    step: 4,
-    question: "Do staff claim money back from you?",
-    help: "Transport, airtime, anything they paid for and you refund.",
-    options: [
-      { value: "yes", label: "Yes", sets: { expenses: true } },
-      { value: "no", label: "No", sets: { expenses: false } },
-    ],
-  },
-  {
-    id: "appraisals",
-    step: 5,
-    question: "Do you run formal appraisals?",
-    help: "Scored reviews inside an appraisal period, not just shared goals.",
-    options: [
-      { value: "yes", label: "Yes", sets: { appraisals: true } },
-      { value: "no", label: "No", sets: { appraisals: false } },
-    ],
-  },
-  /* The last two write the payroll engine's settings rather than a feature flag,
+      {
+        id: "appraisals",
+        step: 5,
+        question: "Do you run formal appraisals?",
+        help: "Scored reviews inside an appraisal period, not just shared goals.",
+        options: [
+          { value: "yes", label: "Yes", sets: { appraisals: true } },
+          { value: "no", label: "No", sets: { appraisals: false } },
+        ],
+      },
+      /* The last two write the payroll engine's settings rather than a feature flag,
      so their options carry `payroll` and their "No" carries the consequence. See
      `PayrollDeductions` in `lib/api/setup.ts` for why that is a second patch. */
-  {
-    id: "paye",
-    step: 6,
-    question: "Do you deduct PAYE from your staff\u2019s pay?",
-    help: "Income tax you take off salaries and pay to the state tax office.",
-    options: [
-      { value: "yes", label: "Yes", sets: {}, payroll: { payeEnabled: true } },
       {
-        value: "no",
-        label: "No \u2014 staff handle their own tax",
-        sets: {},
-        payroll: { payeEnabled: false },
-        consequence:
-          "No tax comes off anybody\u2019s pay, payslips show no PAYE at all and " +
-          "there is no monthly schedule to file. Under the Personal Income Tax " +
-          "Act it is the employer who has to deduct and remit, so keep your " +
-          "staff\u2019s own evidence of filing. You can switch this on later.",
+        id: "paye",
+        step: 6,
+        question: "Do you deduct PAYE from your staff\u2019s pay?",
+        help: "Income tax you take off salaries and pay to the state tax office.",
+        options: [
+          {
+            value: "yes",
+            label: "Yes",
+            sets: {},
+            payroll: { payeEnabled: true },
+          },
+          {
+            value: "no",
+            label: "No \u2014 staff handle their own tax",
+            sets: {},
+            payroll: { payeEnabled: false },
+            consequence:
+              "No tax comes off anybody\u2019s pay, payslips show no PAYE at all and " +
+              "there is no monthly schedule to file. Under the Personal Income Tax " +
+              "Act it is the employer who has to deduct and remit, so keep your " +
+              "staff\u2019s own evidence of filing. You can switch this on later.",
+          },
+        ],
       },
-    ],
-  },
-  {
-    id: "pension",
-    step: 7,
-    question: "Do you run a pension scheme for your staff?",
-    help: "Contributions to a PFA \u2014 8% from them, 10% from you, or more.",
-    options: [
-      { value: "yes", label: "Yes", sets: {}, payroll: { pensionEnabled: true } },
       {
-        value: "no",
-        label: "No (we have no scheme)",
-        sets: {},
-        payroll: { pensionEnabled: false },
-        consequence:
-          "Nothing is deducted for pension, nothing is added on top, and there " +
-          "is no schedule for a fund administrator. The Pension Reform Act 2014 " +
-          "requires a scheme once you employ 15 or more people. You can switch " +
-          "this on later.",
+        id: "pension",
+        step: 7,
+        question: "Do you run a pension scheme for your staff?",
+        help: "Contributions to a PFA \u2014 8% from them, 10% from you, or more.",
+        options: [
+          {
+            value: "yes",
+            label: "Yes",
+            sets: {},
+            payroll: { pensionEnabled: true },
+          },
+          {
+            value: "no",
+            label: "No (we have no scheme)",
+            sets: {},
+            payroll: { pensionEnabled: false },
+            consequence:
+              "Nothing is deducted for pension, nothing is added on top, and there " +
+              "is no schedule for a fund administrator. The Pension Reform Act 2014 " +
+              "requires a scheme once you employ 15 or more people. You can switch " +
+              "this on later.",
+          },
+        ],
       },
-    ],
-  },
-  {
-    id: "attendance",
-    step: 8,
-    question: "Do you want staff to check in and out on ApproveHR?",
-    help: "A clock-in button, today's roster, and a calendar of who came in.",
-    options: [
-      { value: "yes", label: "Yes", sets: { attendance: true } },
       {
-        value: "no",
-        label: "No — we do not track attendance",
-        sets: { attendance: false },
-        consequence:
-          "Nobody sees a check-in button, and there is no roster or attendance " +
-          "calendar. Payroll already does not deduct for unattended days at a " +
-          "company that has never used this, so switching it off changes what " +
-          "staff see, not what they are paid. You can switch this on later.",
+        id: "attendance",
+        step: 8,
+        question: "Do you want staff to check in and out on ApproveHR?",
+        help: "A clock-in button, today's roster, and a calendar of who came in.",
+        options: [
+          { value: "yes", label: "Yes", sets: { attendance: true } },
+          {
+            value: "no",
+            label: "No — we do not track attendance",
+            sets: { attendance: false },
+            consequence:
+              "Nobody sees a check-in button, and there is no roster or attendance " +
+              "calendar. Payroll already does not deduct for unattended days at a " +
+              "company that has never used this, so switching it off changes what " +
+              "staff see, not what they are paid. You can switch this on later.",
+          },
+        ],
       },
-    ],
-  },
-  {
-    id: "roles",
-    step: 9,
-    question: "Any other roles this company needs?",
-    help:
-      "Owner, Administrator, HR manager, Payroll analyst, Payroll officer, " +
-      "Finance approver, Line manager and Employee are already set up.",
-    options: [{ value: "continue", label: "Continue", sets: {} }],
-  },
-  /* Appended last, matching the API's own question — see its header in
+      {
+        id: "roles",
+        step: 9,
+        question: "Any other roles this company needs?",
+        help:
+          "Owner, Administrator, HR manager, Payroll analyst, Payroll officer, " +
+          "Finance approver, Line manager and Employee are already set up.",
+        options: [{ value: "continue", label: "Continue", sets: {} }],
+      },
+      /* Appended last, matching the API's own question — see its header in
      `setup/service.ts`. `nhfEnabled` defaults to `false` now, deliberately
      unlike `payeEnabled`/`pensionEnabled`: deductions are sensitive, and this
      one needs a "yes" rather than inheriting an "on" nobody agreed to. */
-  {
-    id: "nhf",
-    step: 10,
-    question: "Do you deduct a National Housing Fund contribution?",
-    help: "2.5% of basic salary, remitted to the Federal Mortgage Bank of Nigeria.",
-    options: [
-      { value: "yes", label: "Yes", sets: {}, payroll: { nhfEnabled: true } },
       {
-        value: "no",
-        label: "No (we do not run this)",
-        sets: {},
-        payroll: { nhfEnabled: false },
+        id: "nhf",
+        step: 10,
+        question: "Do you deduct a National Housing Fund contribution?",
+        help: "2.5% of basic salary, remitted to the Federal Mortgage Bank of Nigeria.",
+        options: [
+          {
+            value: "yes",
+            label: "Yes",
+            sets: {},
+            payroll: { nhfEnabled: true },
+          },
+          {
+            value: "no",
+            label: "No (we do not run this)",
+            sets: {},
+            payroll: { nhfEnabled: false },
+          },
+        ],
       },
-    ],
-  },
-] : [];
+    ]
+  : [];
 
 const DEMO_KEY = "approvehr.features.demo";
 /* 2: `deductions` arrived with the two payroll questions. A version 1 payload is
@@ -546,7 +581,17 @@ function demoDefaults(): DemoState {
     flags: BASE_FLAGS,
     headcountBand: "UNDER_10",
     setupStep: 0,
-    setupCompletedAt: null,
+    /* `null` for the self-serve demo — a genuinely new company should meet the
+       wizard, the same as the real thing. The standalone sales build cannot
+       afford it: a prospect opening the link on a fresh laptop or in a fresh
+       incognito window would land on setup rather than the product, with
+       nobody there to explain. So `SALES_SCRIPT_ENABLED` starts the seeded
+       company already through it — see `lib/sales-script.ts`.
+
+       The **only** field that flag changes about `DemoState`. Everything else
+       a prospect sees is the same demo everybody else gets, which is what
+       keeps this a different door rather than a different product. */
+    setupCompletedAt: SALES_SCRIPT_ENABLED ? "2026-01-01T00:00:00.000Z" : null,
     /* PAYE and pension on, matching the API's own defaults — a company that
        has answered nothing deducts what the law already expected of it. NHF
        off, also matching the API: there is no equivalent history for NHF,
@@ -628,6 +673,7 @@ function fromApi(features: ApiFeatures): State {
       pensionSetup: features.pensionSetup,
       bankDetails: features.bankDetails,
       multiAppraiser: features.multiAppraiser,
+      leaveTwoStepApproval: features.leaveTwoStepApproval,
     },
     headcountBand: features.headcountBand,
     setupStep: features.setupStep,
@@ -704,7 +750,11 @@ function commit(features: ApiFeatures) {
 
 function useLoadedState(): State {
   const { isConnected, isLoading, user } = useSession();
-  const state = useSyncExternalStore(subscribe, () => cache, () => LOADING);
+  const state = useSyncExternalStore(
+    subscribe,
+    () => cache,
+    () => LOADING,
+  );
 
   const key = isConnected ? `api:${user?.organizationId ?? "self"}` : "demo";
 
@@ -760,7 +810,10 @@ export function useFeatures(): FeatureFlags & {
   const { isConnected, user } = useSession();
 
   const reload = useCallback(() => {
-    void ensure(isConnected ? `api:${user?.organizationId ?? "self"}` : "demo", true);
+    void ensure(
+      isConnected ? `api:${user?.organizationId ?? "self"}` : "demo",
+      true,
+    );
   }, [isConnected, user?.organizationId]);
 
   return {
@@ -787,7 +840,9 @@ export function useFeatures(): FeatureFlags & {
 export function useFeatureSettings() {
   const state = useLoadedState();
   const { isConnected, can } = useSession();
-  const [saving, setSaving] = useState<FeatureKey | "headcountBand" | null>(null);
+  const [saving, setSaving] = useState<FeatureKey | "headcountBand" | null>(
+    null,
+  );
 
   const editable = !isConnected || can("MANAGE_SETTINGS");
 
@@ -819,6 +874,7 @@ export function useFeatureSettings() {
           pensionSetup: features.pensionSetup,
           bankDetails: features.bankDetails,
           multiAppraiser: features.multiAppraiser,
+          leaveTwoStepApproval: features.leaveTwoStepApproval,
           headcountBand: features.headcountBand,
         };
       } finally {
@@ -847,7 +903,8 @@ export function useFeatureSettings() {
       [save],
     ),
     setHeadcountBand: useCallback(
-      (headcountBand: HeadcountBand) => save({ headcountBand }, "headcountBand"),
+      (headcountBand: HeadcountBand) =>
+        save({ headcountBand }, "headcountBand"),
       [save],
     ),
     /**
@@ -859,8 +916,7 @@ export function useFeatureSettings() {
      * So the caller sends the array it wants to end up with.
      */
     setStepUpActions: useCallback(
-      (stepUpActions: StepUpAction[]) =>
-        save({ stepUpActions }, "twoFactor"),
+      (stepUpActions: StepUpAction[]) => save({ stepUpActions }, "twoFactor"),
       [save],
     ),
     stepUpActions: state.stepUpActions,
@@ -992,7 +1048,11 @@ export function useWizard() {
           setupStep: Math.max(current.setupStep, question.step),
         });
         set(fromDemo(next));
-        setState((s) => ({ ...s, step: next.setupStep, deductions: next.deductions }));
+        setState((s) => ({
+          ...s,
+          step: next.setupStep,
+          deductions: next.deductions,
+        }));
         return;
       }
       const result = await setup.answer(questionId, value);

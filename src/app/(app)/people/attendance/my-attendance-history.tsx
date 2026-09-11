@@ -156,7 +156,10 @@ export function MyAttendanceHistoryPanel() {
         </FilterBar>
 
         {history.error && (
-          <LoadFailure subject="your attendance history" error={history.error} />
+          <LoadFailure
+            subject="your attendance history"
+            error={history.error}
+          />
         )}
 
         {history.loading ? (
@@ -205,7 +208,9 @@ export function MyAttendanceHistoryPanel() {
                           Correction pending
                         </span>
                       ) : (
-                        (row.status === "PRESENT" || row.status === "LATE" || row.status === "ABSENT") && (
+                        (row.status === "PRESENT" ||
+                          row.status === "LATE" ||
+                          row.status === "ABSENT") && (
                           <Button
                             variant="ghost"
                             size="sm"
@@ -271,7 +276,8 @@ function RequestCorrectionDialog({
 
   const send = async () => {
     const changedIn = clockIn && clockIn !== row.clockIn ? clockIn : undefined;
-    const changedOut = clockOut && clockOut !== row.clockOut ? clockOut : undefined;
+    const changedOut =
+      clockOut && clockOut !== row.clockOut ? clockOut : undefined;
     if (!changedIn && !changedOut) {
       setError("Change the clock-in or the clock-out time first.");
       return;

@@ -150,11 +150,7 @@ export type ApiDuplicateCounts = {
 };
 
 export type ImportBatchStatus =
-  | "PENDING"
-  | "VALIDATED"
-  | "APPLYING"
-  | "COMPLETED"
-  | "FAILED";
+  "PENDING" | "VALIDATED" | "APPLYING" | "COMPLETED" | "FAILED";
 
 /** `POST /employees/validate`. Creates the batch; changes no employee data. */
 export type ApiValidateResult = {
@@ -223,6 +219,8 @@ export type ApiApplyExtras = {
   parentsLinked?: number;
   /** Departments: heads matched by work email or staff number. */
   headsSet?: number;
+  /** Employees: invitations sent to a row carrying both a role and an email. */
+  invited?: number;
 };
 
 /** `POST /:entity/:batchId/apply`. */

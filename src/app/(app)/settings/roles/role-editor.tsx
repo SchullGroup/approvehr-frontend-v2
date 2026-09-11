@@ -137,7 +137,10 @@ export function RoleEditor({
     if (description.trim() !== (role.description ?? "")) {
       patch.description = description.trim() === "" ? null : description.trim();
     }
-    if (!grantsLocked && (changes.added.length > 0 || changes.removed.length > 0)) {
+    if (
+      !grantsLocked &&
+      (changes.added.length > 0 || changes.removed.length > 0)
+    ) {
       patch.permissions = draft;
     }
     const ok = await onSave(patch);
@@ -255,7 +258,6 @@ function PermissionsTab({
   description: string;
   setDescription: (next: string) => void;
 }) {
-
   return (
     <div className="flex flex-col gap-6">
       {readOnly && !grantsLocked && (

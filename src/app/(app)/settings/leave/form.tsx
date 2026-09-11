@@ -34,7 +34,9 @@ import { ApiError } from "@/lib/api/client";
 import { leaveApi, type LeaveAccrualWire } from "@/lib/api/leave";
 import { EMPLOYEES } from "@/lib/mock/people";
 import { usePermissions } from "@/lib/permissions";
+import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { useCompanySettings } from "@/lib/store/company";
+import { FEATURE_COPY, useFeatureSettings } from "@/lib/store/features";
 import { useLeaveBalances } from "@/lib/store/leave-balances";
 import { useSession } from "@/lib/store/session";
 import { TODAY } from "@/lib/today";
@@ -261,10 +263,13 @@ function Policy() {
     requiresEvidence: type.requiresEvidence,
   }));
 
-  const types = isConnected ? fetched?.rows ?? [] : demoRows;
+  const types = isConnected ? (fetched?.rows ?? []) : demoRows;
   const typesLoading = isConnected && fetched === null;
 
-  async function editType(row: TypeRow, patch: Partial<Omit<TypeRow, "id" | "name">>) {
+  async function editType(
+    row: TypeRow,
+    patch: Partial<Omit<TypeRow, "id" | "name">>,
+  ) {
     if (!isConnected) {
       updateLeaveType(row.name, patch);
       /* Demo mode saves too — locally — so the indicator says so rather than
@@ -284,7 +289,9 @@ function Policy() {
     );
     try {
       await leaveApi.updateType(row.id, {
-        ...(patch.entitled !== undefined ? { entitledDays: patch.entitled } : {}),
+        ...(patch.entitled !== undefined
+          ? { entitledDays: patch.entitled }
+          : {}),
         ...(patch.accrual !== undefined
           ? { accrual: LOCAL_TO_WIRE_ACCRUAL[patch.accrual] }
           : {}),
@@ -302,13 +309,19 @@ function Policy() {
     } catch (error) {
       setSaveState("idle");
       setFetched(
-        (s) => s && { ...s, rows: s.rows.map((r) => (r.id === row.id ? before : r)) },
+        (s) =>
+          s && {
+            ...s,
+            rows: s.rows.map((r) => (r.id === row.id ? before : r)),
+          },
       );
       toast.push({
         title: "That did not save",
         tone: "danger",
         detail:
-          error instanceof ApiError ? error.message : "Something went wrong. Try again.",
+          error instanceof ApiError
+            ? error.message
+            : "Something went wrong. Try again.",
       });
     }
   }
@@ -350,7 +363,9 @@ function Policy() {
         title: "That did not switch off",
         tone: "danger",
         detail:
-          error instanceof ApiError ? error.message : "Something went wrong. Try again.",
+          error instanceof ApiError
+            ? error.message
+            : "Something went wrong. Try again.",
       });
     } finally {
       setArchiveBusy(false);
@@ -372,7 +387,9 @@ function Policy() {
         title: "That did not restore",
         tone: "danger",
         detail:
-          error instanceof ApiError ? error.message : "Something went wrong. Try again.",
+          error instanceof ApiError
+            ? error.message
+            : "Something went wrong. Try again.",
       });
     }
   }
@@ -410,6 +427,8 @@ function Policy() {
           booking form all move at once: there is no separate copy to keep in
           step.
         </Callout>
+
+        <ApprovalWorkflow />
 
         <Card>
           <CardHeader
@@ -524,9 +543,13 @@ function Policy() {
                     <TD>
                       <Switch
                         checked={type.requiresEvidence}
-                        label={type.requiresEvidence ? "Required" : "Not required"}
+                        label={
+                          type.requiresEvidence ? "Required" : "Not required"
+                        }
                         onChange={(e) =>
-                          void editType(type, { requiresEvidence: e.target.checked })
+                          void editType(type, {
+                            requiresEvidence: e.target.checked,
+                          })
                         }
                       />
                     </TD>
@@ -555,8 +578,8 @@ function Policy() {
           {!isConnected && (
             <CardBody className="border-t border-line">
               <p className="text-body-sm leading-relaxed text-muted">
-                Adding a leave type writes to the company&rsquo;s own record, so it
-                needs a live company. Demo mode ships this fixed set of five.
+                Adding a leave type writes to the company&rsquo;s own record, so
+                it needs a live company. Demo mode ships this fixed set of five.
               </p>
             </CardBody>
           )}
@@ -589,21 +612,25 @@ function Policy() {
                     </Badge>
                     {row.total > 0 && (
                       <span className="text-meta text-muted">
-                        {row.total} request{row.total === 1 ? "" : "s"} kept on the
-                        books
+                        {row.total} request{row.total === 1 ? "" : "s"} kept on
+                        the books
                       </span>
                     )}
                   </span>
-                  <Button variant="secondary" size="sm" onClick={() => void restoreType(row)}>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => void restoreType(row)}
+                  >
                     <RotateCcw aria-hidden="true" className="size-3.5" />
                     Turn it back on
                   </Button>
                 </div>
               ))}
               <p className="text-meta leading-relaxed text-muted">
-                This list lasts as long as this page: the server does not yet let
-                the interface see switched-off types, so leaving here puts turning
-                one back on out of reach until it does.
+                This list lasts as long as this page: the server does not yet
+                let the interface see switched-off types, so leaving here puts
+                turning one back on out of reach until it does.
               </p>
             </CardBody>
           </Card>
@@ -670,7 +697,9 @@ function Policy() {
               >
                 <Switch
                   checked={policy.reservePendingDays}
-                  label={policy.reservePendingDays ? "Held back" : "Not held back"}
+                  label={
+                    policy.reservePendingDays ? "Held back" : "Not held back"
+                  }
                   onChange={(e) =>
                     updateLeave({ reservePendingDays: e.target.checked })
                   }
@@ -687,10 +716,19 @@ function Policy() {
                 level={3}
               />
               <CardBody className="flex flex-col gap-3 text-body-sm leading-relaxed text-body">
-                <p>The table above edits this company&rsquo;s real leave types, so a change here moves everybody&rsquo;s balance immediately. This card cannot show a live roster of who that affects (that is a per-employee read, not a company-wide one) without fetching every employee&rsquo;s balance individually.</p>
+                <p>
+                  The table above edits this company&rsquo;s real leave types,
+                  so a change here moves everybody&rsquo;s balance immediately.
+                  This card cannot show a live roster of who that affects (that
+                  is a per-employee read, not a company-wide one) without
+                  fetching every employee&rsquo;s balance individually.
+                </p>
                 <p>
                   See a real person&rsquo;s balance move on{" "}
-                  <Link href="/people/leave" className="font-medium text-accent-text underline">
+                  <Link
+                    href="/people/leave"
+                    className="font-medium text-accent-text underline"
+                  >
                     /people/leave
                   </Link>
                   , or on their own record.
@@ -706,7 +744,10 @@ function Policy() {
               />
               <CardBody className="flex flex-col gap-3.5">
                 {overdrawn > 0 && (
-                  <Callout tone="warning" title={`${overdrawn} people are now over`}>
+                  <Callout
+                    tone="warning"
+                    title={`${overdrawn} people are now over`}
+                  >
                     Reducing the entitlement does not cancel leave already
                     approved. These balances are negative until the next accrual
                     year.
@@ -728,15 +769,24 @@ function Policy() {
                         value={Math.min(balance!.taken, balance!.entitled)}
                         max={Math.max(balance!.entitled, 1)}
                         size="sm"
-                        tone={remaining < 0 ? "danger" : remaining <= 3 ? "warning" : "accent"}
+                        tone={
+                          remaining < 0
+                            ? "danger"
+                            : remaining <= 3
+                              ? "warning"
+                              : "accent"
+                        }
                       />
                     </div>
                   );
                 })}
                 <p className="mt-1 flex gap-2 text-meta leading-relaxed text-muted">
-                  <Info aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
-                  Days taken before the tracked period are included, which is why
-                  nobody starts at a full entitlement.
+                  <Info
+                    aria-hidden="true"
+                    className="mt-0.5 size-3.5 shrink-0"
+                  />
+                  Days taken before the tracked period are included, which is
+                  why nobody starts at a full entitlement.
                 </p>
               </CardBody>
             </Card>
@@ -789,7 +839,9 @@ function AddLeaveTypeDialog({
       await onSave({ name: trimmed, entitledDays });
     } catch (caught) {
       setError(
-        caught instanceof ApiError ? caught.message : "That did not save. Try again.",
+        caught instanceof ApiError
+          ? caught.message
+          : "That did not save. Try again.",
       );
     } finally {
       setBusy(false);
@@ -828,7 +880,11 @@ function AddLeaveTypeDialog({
             onChange={(e) => setName(e.target.value)}
           />
         </Field>
-        <Field label="Days a year" required help="Every other setting can be changed afterwards.">
+        <Field
+          label="Days a year"
+          required
+          help="Every other setting can be changed afterwards."
+        >
           <Input
             type="number"
             min={0}
@@ -880,5 +936,126 @@ function SaveState({ state }: { state: "idle" | "saving" | "saved" }) {
         </>
       )}
     </span>
+  );
+}
+
+/**
+ * Who approves a leave request, and in what order.
+ *
+ * ## Why this exists at all
+ *
+ * The two-step workflow was built — `approvalStageFor`, `AWAITING_HR`,
+ * `firstApprovedAt`, a decline terminal at either step, the employee hearing
+ * once — and shipped **with no way to switch it on.** `leaveTwoStepApproval`
+ * defaults off on `OrgFeatures`, the API enforced it faithfully, and no screen
+ * in the product mentioned it. The frontend features store did not even declare
+ * the key, so a patch containing it would have been dropped on the way out.
+ *
+ * That is the fourth time this codebase has shipped a capability nobody could
+ * find — after the company logo, the assistant, and the hand-entered tax
+ * figure. The rule it keeps re-learning: **a feature that is correct and
+ * unreachable is a feature the company does not have.**
+ *
+ * ## Why here and not `/settings/features`
+ *
+ * The feedback asks for it by location, twice — *"configurable from the
+ * Settings → Approval Workflows section"*, and *"Under Settings → Approval
+ * Workflows → Leave, the Owner/Admin should be able to configure the approval
+ * process."* And it is the right place on its own merits: somebody deciding
+ * whether a departmental lead approves first is looking at the leave types and
+ * the entitlements, not at a list of modules.
+ *
+ * ## What it says when there is nobody to be the first approver
+ *
+ * A company with no department heads set has nothing for the first step to
+ * route to, and turning it on would leave every request waiting on a person
+ * who does not exist. So the consequence is named and the way to fix it is
+ * beside it — rather than a switch that appears to work and quietly parks
+ * everybody's leave.
+ */
+function ApprovalWorkflow() {
+  const features = useFeatureSettings();
+  const [pending, setPending] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
+  const toast = useToast();
+
+  const on = features.flags.leaveTwoStepApproval;
+
+  const toggle = async (next: boolean) => {
+    setPending(true);
+    setFailed(null);
+    try {
+      /* `setFeature`, the same call `/settings/features` makes for every other
+         switch — so the demo path, the audit entry and the dependency rules
+         are the ones already in the store rather than a second copy here. */
+      await features.setFeature("leaveTwoStepApproval", next);
+      toast.push({
+        title: next
+          ? "Departmental leads approve first"
+          : "HR approves leave on its own again",
+        tone: "success",
+        detail: next
+          ? "Requests already waiting on HR are unaffected."
+          : "Anything already approved by a lead and waiting on HR still needs HR.",
+      });
+    } catch (error) {
+      /* The API's own sentence. It knows whether the flag was refused and
+         why; nothing here does. */
+      setFailed(
+        error instanceof ApiError
+          ? error.message
+          : "That did not save. Try again in a moment.",
+      );
+    } finally {
+      setPending(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader
+        title="Approval workflow"
+        description="Who signs off a leave request, and in what order. This saves as you change it."
+      />
+      <CardBody className="flex flex-col gap-3">
+        <Switch
+          label={FEATURE_COPY.leaveTwoStepApproval.label}
+          description={FEATURE_COPY.leaveTwoStepApproval.line}
+          checked={on}
+          disabled={!features.editable || features.loading || pending}
+          onChange={(event) => void toggle(event.target.checked)}
+        />
+
+        {/* Outside the switch's own description, because it is a thing to act
+            on rather than a thing to read. Only when it is on: a company that
+            has not turned this on has no requests waiting on anybody. */}
+        {on && (
+          <NoticeLine tone="muted">
+            <span>
+              The first approver is whoever heads the employee&apos;s
+              department.
+            </span>
+            <Link href="/people/departments" className={NOTICE_LINK}>
+              Set department heads
+            </Link>
+          </NoticeLine>
+        )}
+
+        {failed && (
+          <p
+            role="status"
+            className="rounded-md border border-danger-line bg-danger-soft px-3.5 py-2.5 text-body-sm text-ink"
+          >
+            {failed}
+          </p>
+        )}
+
+        {!features.editable && (
+          <p className="text-body-sm text-muted">
+            Changing this needs the settings permission.
+          </p>
+        )}
+      </CardBody>
+    </Card>
   );
 }

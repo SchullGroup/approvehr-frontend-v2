@@ -23,6 +23,7 @@ import {
   type DocumentCategory,
   type FulfilBody,
 } from "@/lib/api/documents";
+import type { InlineFile } from "@/lib/api/uploads";
 import { chaseMessage, firstNameOf } from "@/lib/store/documents";
 
 /**
@@ -171,7 +172,11 @@ export function AskForDocumentModal({
           </Select>
         </Field>
 
-        <Field label="What you need" required help="Work permit, NYSC certificate, degree.">
+        <Field
+          label="What you need"
+          required
+          help="Work permit, NYSC certificate, degree."
+        >
           <Input
             value={name}
             autoFocus
@@ -184,7 +189,10 @@ export function AskForDocumentModal({
 
         <CategoryField value={category} onChange={setCategory} />
 
-        <Field label="Why you need it" help="They see this. One line is enough.">
+        <Field
+          label="Why you need it"
+          help="They see this. One line is enough."
+        >
           <Textarea
             rows={2}
             value={reason}
@@ -195,7 +203,11 @@ export function AskForDocumentModal({
           />
         </Field>
 
-        <Field optional label="Needed by" help="Leave it blank and nobody is reminded to bring it in.">
+        <Field
+          optional
+          label="Needed by"
+          help="Leave it blank and nobody is reminded to bring it in."
+        >
           <Input
             type="date"
             value={dueOn}
@@ -235,21 +247,24 @@ export function AttachDocumentModal({
   onAttach: (body: FulfilBody) => Promise<void>;
   subject: "self" | "other";
 }) {
-  const candidates = onFile.filter((d) => !d.archived && d.fulfilsRequestId === null);
+  const candidates = onFile.filter(
+    (d) => !d.archived && d.fulfilsRequestId === null,
+  );
   const [mode, setMode] = useState<"existing" | "new">(
     candidates.length > 0 ? "existing" : "new",
   );
   const [documentId, setDocumentId] = useState(candidates[0]?.id ?? "");
-  const [storageKey, setStorageKey] = useState("");
+  const [file, setFile] = useState<InlineFile | null>(null);
   const [name, setName] = useState(request.name);
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  /* Same rule as the add dialog: a key exists only once the upload finished,
-     and `uploading` keeps the button shut while bytes are still moving. */
+  /* The file is set only once it has been read, and `uploading` keeps the
+     button shut while it is being read. So a press can never send a record
+     with nothing attached. */
   const ready =
-    mode === "existing" ? documentId !== "" : storageKey !== "" && !uploading;
+    mode === "existing" ? documentId !== "" : file !== null && !uploading;
 
   const who =
     subject === "self" ? "your" : `${firstNameOf(request.employeeName)}’s`;
@@ -271,12 +286,13 @@ export function AttachDocumentModal({
               setBusy(true);
               setError(null);
               const body: FulfilBody =
-                mode === "existing"
+                mode === "existing" || file === null
                   ? { documentId }
                   : {
-                      storageKey,
+                      contentBase64: file.contentBase64,
                       name: name.trim() || request.name,
                       category: request.category,
+                      mimeType: file.mimeType,
                     };
               void onAttach(body)
                 .catch((e: unknown) => setError(messageOf(e)))
@@ -337,10 +353,9 @@ export function AttachDocumentModal({
             <FileField
               label="The file"
               required
-              help="A PDF, an image, or an Office document. Up to 25MB."
-              scope={{ kind: "employee-document", employeeId: request.employeeId }}
+              help="A PDF, an image, or an Office document. Up to 10MB."
               onBusyChange={setUploading}
-              onUploaded={(key) => setStorageKey(key ?? "")}
+              onAttached={setFile}
             />
           </>
         )}
@@ -354,32 +369,33 @@ export function AttachDocumentModal({
 /** A document nobody asked for: a contract, an ID, whatever arrives. */
 export function AddDocumentModal({
   whose,
-  employeeId,
   onClose,
   onAdd,
 }: {
   /** Already possessive: `your`, or `Adaeze’s`. */
   whose: string;
-  /** Whose file this attaches to — the upload is gated on it, same as the save. */
-  employeeId: string;
+  /* No `employeeId`. It existed only to scope the presigned upload, and the
+     file now goes up with the record — whose file it is, is decided by the
+     caller's own save, which was always the gate that mattered. */
   onClose: () => void;
   onAdd: (body: {
     name: string;
     category: DocumentCategory;
-    storageKey: string;
+    contentBase64: string;
+    mimeType: string;
   }) => Promise<void>;
 }) {
   const [name, setName] = useState("");
   const [category, setCategory] = useState<DocumentCategory>("OTHER");
-  const [storageKey, setStorageKey] = useState("");
+  const [file, setFile] = useState<InlineFile | null>(null);
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  /* `storageKey` is only ever set by a finished upload, so a non-empty one
-     means the bytes are in storage. `uploading` keeps the save shut while they
-     are still moving. */
-  const ready = name.trim().length >= 2 && storageKey !== "" && !uploading;
+  /* `file` is set only once it has been read, so a non-null one means the bytes
+     are in hand and go up with the record itself. `uploading` keeps the save
+     shut while the read is running. */
+  const ready = name.trim().length >= 2 && file !== null && !uploading;
 
   return (
     <Modal
@@ -397,10 +413,12 @@ export function AddDocumentModal({
             onClick={() => {
               setBusy(true);
               setError(null);
+              if (!file) return;
               void onAdd({
                 name: name.trim(),
                 category,
-                storageKey: storageKey.trim(),
+                contentBase64: file.contentBase64,
+                mimeType: file.mimeType,
               })
                 .catch((e: unknown) => setError(messageOf(e)))
                 .finally(() => setBusy(false));
@@ -432,15 +450,14 @@ export function AddDocumentModal({
         <FileField
           label="The file"
           required
-          help="A PDF, an image, or an Office document. Up to 25MB."
-          scope={{ kind: "employee-document", employeeId }}
+          help="A PDF, an image, or an Office document. Up to 10MB."
           onBusyChange={setUploading}
-          onUploaded={(key, filename) => {
-            setStorageKey(key ?? "");
+          onAttached={(attached) => {
+            setFile(attached);
             /* Name it after the file if nobody has typed a name — the common
                case is a contract called exactly what the file is called. */
-            if (key && filename && name.trim() === "") {
-              setName(filename.replace(/\.[^.]+$/, ""));
+            if (attached && name.trim() === "") {
+              setName(attached.filename.replace(/\.[^.]+$/, ""));
             }
           }}
         />
@@ -520,7 +537,8 @@ export function RemindModal({
           setState({ phase: result.notifiedEmployee ? "sent" : "no-account" });
         }
       } catch (error) {
-        if (!cancelled) setState({ phase: "failed", message: messageOf(error) });
+        if (!cancelled)
+          setState({ phase: "failed", message: messageOf(error) });
       }
     })();
     return () => {

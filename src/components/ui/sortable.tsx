@@ -5,10 +5,15 @@ import {
   useEffect,
   useId,
   useLayoutEffect,
+  useRef,
   useState,
 } from "react";
 import { GripVertical } from "lucide-react";
 import { cn } from "@/lib/cn";
+/* One implementation of "which ancestor scrolls", shared with `drag-into`.
+   It grew an axis when the hiring board needed the horizontal answer; this
+   list only ever wants the vertical one. */
+import { scrollParent } from "./drag-into";
 
 /**
  * A vertical list somebody arranges by dragging, with a keyboard path that is
@@ -300,6 +305,25 @@ export function Sortable<T>({
     [measure, rowOf],
   );
 
+  /**
+   * The latest drag, for `up` to read at release.
+   *
+   * `drag` cannot be a dependency of the effect below — it changes on every
+   * `pointermove`, so the window listeners would be torn down and re-added
+   * every frame — and the closure's copy would be a frame stale, landing the
+   * row a slot off. A ref is the value that is both current and stable.
+   *
+   * `useLayoutEffect`, not `useEffect`: `move` sets state from a native
+   * listener, React flushes that render in a microtask, and layout effects run
+   * inside that flush — so the ref is current before the next macrotask, which
+   * is the `pointerup` that reads it. A passive effect runs after paint and
+   * could lose the race on a quick release.
+   */
+  const dragRef = useRef(drag);
+  useLayoutEffect(() => {
+    dragRef.current = drag;
+  }, [drag]);
+
   useEffect(() => {
     if (!drag?.pointer) return;
 
@@ -342,7 +366,7 @@ export function Sortable<T>({
       /* Auto-scroll near the edges of whatever is actually scrolling — the
          drawer's own body, usually, not the window. Without it a list longer
          than the panel cannot be reordered past the fold at all. */
-      const scroller = scrollParent(rowsOf()[0] ?? null);
+      const scroller = scrollParent(rowsOf()[0] ?? null, "y");
       if (scroller) {
         const box =
           scroller === document.scrollingElement
@@ -355,10 +379,22 @@ export function Sortable<T>({
     };
 
     const up = () => {
-      setDrag((current) => {
-        if (current) commit(current.from, current.to);
-        return null;
-      });
+      /* Read the release position from the ref, not from a `setDrag` updater.
+         ------------------------------------------------------------------
+         This used to be `setDrag((current) => { commit(...); return null; })`,
+         which is wrong for a reason nothing here could see: React runs an
+         updater **during the render phase**, and `commit` calls `onReorder`,
+         which is a parent's `setState`. So a caller that holds the new
+         arrangement in its own state got "Cannot update a component while
+         rendering a different component", and whether it fired at all depended
+         on whether React took its eager-evaluation path — which is why seven
+         callers shipped on top of this.
+
+         The keyboard path never had the bug: it calls `commit` then `setDrag`
+         as two statements in the handler. This now does the same thing. */
+      const current = dragRef.current;
+      setDrag(null);
+      if (current) commit(current.from, current.to);
     };
 
     /* On `window`, not the handle: a pointer released outside the drawer still
@@ -550,26 +586,4 @@ export function Sortable<T>({
       </p>
     </>
   );
-}
-
-/**
- * The nearest ancestor that actually scrolls.
- *
- * Needed because the list is usually inside a drawer with its own
- * `overflow-y: auto`, and scrolling the window instead would move nothing.
- * Falls back to the document, which is right for a list on a plain page.
- */
-function scrollParent(node: HTMLElement | null): HTMLElement | null {
-  let current = node?.parentElement ?? null;
-  while (current) {
-    const style = window.getComputedStyle(current);
-    if (
-      /auto|scroll|overlay/.test(style.overflowY) &&
-      current.scrollHeight > current.clientHeight
-    ) {
-      return current;
-    }
-    current = current.parentElement;
-  }
-  return document.scrollingElement as HTMLElement | null;
 }

@@ -89,8 +89,19 @@ export type ApiDocument = {
   employeeId: string;
   name: string;
   category: DocumentCategory;
-  /** An object-storage key. There is nothing to fetch it with yet. */
-  storageKey: string;
+  /**
+   * An object-storage key, for a row that has one. Null for a document held
+   * in the database — read `hasFile` instead of this.
+   */
+  storageKey: string | null;
+  /**
+   * Whether there is a file to open.
+   *
+   * **Read this before offering a download.** A row with only a key, on a
+   * deployment with no bucket, is a document by name and nothing else, and a
+   * button that cannot work is worse than no button.
+   */
+  hasFile: boolean;
   sizeBytes: number | null;
   mimeType: string | null;
   /** Somebody has checked it is what it claims to be. */
@@ -215,6 +226,14 @@ export type CreateRequestBody = {
  */
 export type FulfilBody =
   | { documentId: string }
+  /* The file itself. No `sizeBytes`: the API measures the buffer, and a length
+     sent about a file sent alongside it is a number that can disagree. */
+  | {
+      contentBase64: string;
+      name?: string;
+      category?: DocumentCategory;
+      mimeType?: string;
+    }
   | {
       storageKey: string;
       name?: string;
@@ -226,17 +245,22 @@ export type FulfilBody =
 export type AddDocumentBody = {
   name: string;
   category?: DocumentCategory;
-  storageKey: string;
-  sizeBytes?: number;
   mimeType?: string;
-};
+} & (
+  | { contentBase64: string; storageKey?: never; sizeBytes?: never }
+  | { storageKey: string; contentBase64?: never; sizeBytes?: number }
+);
 
 /* ------------------------------------------------------------------- calls */
 
 export const documentsApi = {
   /** What is being asked of me. Takes no employee id, so there is nothing to tamper with. */
   myRequests(
-    params: { page?: number; pageSize?: number; status?: DocumentRequestStatus } = {},
+    params: {
+      page?: number;
+      pageSize?: number;
+      status?: DocumentRequestStatus;
+    } = {},
     signal?: AbortSignal,
   ): Promise<Paged<ApiDocumentRequest>> {
     return requestPaged<ApiDocumentRequest>("/documents/me/requests", {
@@ -324,7 +348,9 @@ export const documentsApi = {
   },
 
   /** Archive, not delete. Refused while it answers a fulfilled request. */
-  archive(id: string): Promise<{ id: string; employeeId: string; archived: boolean }> {
+  archive(
+    id: string,
+  ): Promise<{ id: string; employeeId: string; archived: boolean }> {
     return request<{ id: string; employeeId: string; archived: boolean }>(
       `/documents/${id}`,
       { method: "DELETE" },
@@ -336,7 +362,9 @@ export const documentsApi = {
    * subject's own file — the point of checking is that somebody other than
    * whoever attached it looks it over.
    */
-  verify(id: string): Promise<{ id: string; employeeId: string; verified: boolean }> {
+  verify(
+    id: string,
+  ): Promise<{ id: string; employeeId: string; verified: boolean }> {
     return request<{ id: string; employeeId: string; verified: boolean }>(
       `/documents/${id}/verify`,
       { method: "POST" },

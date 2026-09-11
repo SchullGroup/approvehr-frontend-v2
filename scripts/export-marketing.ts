@@ -7,9 +7,24 @@
  * Run this, commit the result, and the two are identical by construction.
  *
  *   npx tsx scripts/export-marketing.ts [targetDir]
+ *   npx tsx scripts/export-marketing.ts --check
  *
  * Defaults to `../../approvehr-marketing` (a sibling of the ApproveHR repo, so
  * it is never nested inside this git worktree).
+ *
+ * ## `--check` exists because somebody typed it and got a directory
+ *
+ * The target used to be `process.argv[2]` with no validation, so
+ * `export-marketing.ts --check` exported the whole site into a directory
+ * literally named `--check`, and **59 files of it were committed**. Nothing
+ * read it, `assertSafeTarget` never fired because the path did not exist yet,
+ * and it sat in the repo for weeks — until a change to `lib/marketing/pricing`
+ * broke the stale copy's imports and took `npm run typecheck` down with it.
+ *
+ * So an argument beginning with `-` is now refused unless it is a flag this
+ * script knows, and the flag somebody plainly wanted does what they meant: it
+ * exports into a temporary directory, runs the closure assertions against it,
+ * and deletes it. No target is touched and nothing is left behind.
  *
  * The script is destructive inside the directories it owns (`src/`, `public/`
  * and the generated config files) and leaves everything else in the target
@@ -24,11 +39,80 @@
  */
 
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 const WEB_ROOT = path.resolve(import.meta.dirname, "..");
-const DEFAULT_TARGET = path.resolve(WEB_ROOT, "..", "..", "approvehr-marketing");
-const TARGET = path.resolve(process.argv[2] ?? DEFAULT_TARGET);
+const DEFAULT_TARGET = path.resolve(
+  WEB_ROOT,
+  "..",
+  "..",
+  "approvehr-marketing",
+);
+
+/**
+ * What was asked for, with a flag never mistaken for a path.
+ *
+ * The one rule worth stating: **anything starting with `-` is a flag, and an
+ * unknown flag is refused rather than resolved.** See the note at the top of
+ * this file for the directory that got committed because it was not.
+ */
+function parseArgs(argv: string[]): { target: string; checkOnly: boolean } {
+  const args = argv.slice(2);
+  let checkOnly = false;
+  let target: string | null = null;
+
+  for (const arg of args) {
+    if (arg === "--check") {
+      checkOnly = true;
+      continue;
+    }
+    if (arg.startsWith("-")) {
+      fail(
+        `Unknown option ${arg}. This script takes an optional target ` +
+          `directory and --check, nothing else. A path starting with "-" ` +
+          `has to be written as ./${arg} so it cannot be read as a flag.`,
+      );
+    }
+    if (target !== null) {
+      fail(`Two target directories given: ${target} and ${arg}. Pass one.`);
+    }
+    target = arg;
+  }
+
+  if (checkOnly && target !== null) {
+    fail(
+      `--check exports into a temporary directory and deletes it, so it ` +
+        `cannot be combined with a target (${target}). Drop one.`,
+    );
+  }
+
+  return {
+    /* A throwaway inside the OS temp dir, never beside the repo: a check that
+       leaves anything behind is how this whole mess started. */
+    target: checkOnly
+      ? fs.mkdtempSync(path.join(os.tmpdir(), "approvehr-marketing-check-"))
+      : path.resolve(target ?? DEFAULT_TARGET),
+    checkOnly,
+  };
+}
+
+const { target: TARGET, checkOnly: CHECK_ONLY } = parseArgs(process.argv);
+
+/**
+ * A check leaves nothing behind, including when it fails.
+ *
+ * On `exit` rather than after the assertions, because `assertClosure` ends the
+ * process itself on a violation — so a cleanup written at the bottom of this
+ * file would run on success only, and the run that actually needs looking at
+ * would be the one that littered `/tmp` with a copy of the site. `mkdtemp`
+ * owns this path, so removing it recursively cannot reach anything else.
+ */
+if (CHECK_ONLY) {
+  process.on("exit", () => {
+    fs.rmSync(TARGET, { recursive: true, force: true });
+  });
+}
 
 /* -------------------------------------------------------------------------- */
 /* What ships                                                                 */
@@ -148,7 +232,10 @@ function assertSafeTarget() {
 function resolveVersion(name: string): string {
   const pkg = JSON.parse(
     fs.readFileSync(path.join(WEB_ROOT, "package.json"), "utf8"),
-  ) as { dependencies: Record<string, string>; devDependencies: Record<string, string> };
+  ) as {
+    dependencies: Record<string, string>;
+    devDependencies: Record<string, string>;
+  };
   const version = pkg.dependencies[name] ?? pkg.devDependencies[name];
   if (!version) fail(`${name} is not a dependency of web/package.json`);
   return version;
@@ -337,7 +424,8 @@ function clean() {
 function copy() {
   for (const rel of COPY) {
     const from = path.join(WEB_ROOT, rel);
-    if (!fs.existsSync(from)) fail(`${rel} does not exist in web/ — stale COPY manifest`);
+    if (!fs.existsSync(from))
+      fail(`${rel} does not exist in web/ — stale COPY manifest`);
     const to = path.join(TARGET, rel);
     fs.mkdirSync(path.dirname(to), { recursive: true });
     fs.cpSync(from, to, { recursive: true });
@@ -352,7 +440,10 @@ function generate() {
     [".gitignore", GITIGNORE],
     [".env.example", ENV_EXAMPLE],
     ["README.md", readme()],
-    ["tsconfig.json", fs.readFileSync(path.join(WEB_ROOT, "tsconfig.json"), "utf8")],
+    [
+      "tsconfig.json",
+      fs.readFileSync(path.join(WEB_ROOT, "tsconfig.json"), "utf8"),
+    ],
     [
       "postcss.config.mjs",
       fs.readFileSync(path.join(WEB_ROOT, "postcss.config.mjs"), "utf8"),
@@ -409,7 +500,8 @@ function assertClosure() {
 
   /* Marketing pages must not link at app routes directly — they go through
      lib/marketing/links.ts so an undeployed app degrades instead of 404ing. */
-  const appRoutes = /href="\/(dashboard|approvals|payroll|hiring|performance|reports|settings|design-system|people)(\/|")/;
+  const appRoutes =
+    /href="\/(dashboard|approvals|payroll|hiring|performance|reports|settings|design-system|people)(\/|")/;
   for (const file of files) {
     if (file.endsWith(".css")) continue;
     const rel = path.relative(TARGET, file);
@@ -442,7 +534,11 @@ function assertClosure() {
 
 /* -------------------------------------------------------------------------- */
 
-console.log(`\nExporting marketing site → ${TARGET}\n`);
+console.log(
+  CHECK_ONLY
+    ? `\nChecking the marketing export closure\n`
+    : `\nExporting marketing site → ${TARGET}\n`,
+);
 
 assertSafeTarget();
 fs.mkdirSync(TARGET, { recursive: true });
@@ -451,6 +547,12 @@ copy();
 generate();
 assertClosure();
 
-console.log(`\n✓ Exported (${humanSize(exportedBytes())}). Next:\n`);
-console.log(`    cd ${TARGET}`);
-console.log(`    npm install && npm run check\n`);
+if (CHECK_ONLY) {
+  console.log(
+    `\n✓ The marketing surface is self-contained. Nothing written.\n`,
+  );
+} else {
+  console.log(`\n✓ Exported (${humanSize(exportedBytes())}). Next:\n`);
+  console.log(`    cd ${TARGET}`);
+  console.log(`    npm install && npm run check\n`);
+}

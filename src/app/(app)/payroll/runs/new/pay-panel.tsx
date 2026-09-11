@@ -1,7 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowDownToLine, Banknote, CheckCircle2, Landmark } from "lucide-react";
+import {
+  ArrowDownToLine,
+  Banknote,
+  CheckCircle2,
+  Landmark,
+} from "lucide-react";
 import {
   Badge,
   Button,
@@ -113,7 +118,9 @@ export function PayPanel({
 
     const gate = await actions.check(id);
     if (!gate.ok) {
-      const blockers = gate.discrepancies.filter((d) => d.severity === "BLOCKER");
+      const blockers = gate.discrepancies.filter(
+        (d) => d.severity === "BLOCKER",
+      );
       setProblems(blockers.length > 0 ? blockers : gate.discrepancies);
       setRefused(
         "This payment does not add up against the payroll it came from, so " +
@@ -253,7 +260,11 @@ export function PayPanel({
               >
                 Prepare the payment
               </Button>
-              <ButtonLink variant="ghost" size="sm" href="/settings/bank-accounts">
+              <ButtonLink
+                variant="ghost"
+                size="sm"
+                href="/settings/bank-accounts"
+              >
                 Bank accounts
               </ButtonLink>
             </div>
@@ -325,7 +336,9 @@ export function PayPanel({
                 disabled={busy !== null}
                 onClick={() => void pay()}
               >
-                {busy !== "pay" && <Banknote aria-hidden="true" className="size-4" />}
+                {busy !== "pay" && (
+                  <Banknote aria-hidden="true" className="size-4" />
+                )}
                 Pay {formatKobo(run.netKobo)} to {paidPeopleLabel(run)}
               </Button>
               <Button
@@ -586,10 +599,7 @@ export function FundingAccounts({
                     which matters here, because `navigator.clipboard` is
                     unavailable over plain http and a dead Copy button on a
                     payment instruction is worse than none. */}
-                <CopyButton
-                  value={account.accountNumber}
-                  label="Copy number"
-                />
+                <CopyButton value={account.accountNumber} label="Copy number" />
                 {/* Only worth saying when there is a choice to make. On a
                     single account it is a badge on the only option, and it
                     would also imply the others are somehow lesser — which is
@@ -611,7 +621,9 @@ export function FundingAccounts({
                   <span className="tabular text-body">{account.bankCode}</span>
                 </span>
               )}
-              <span className="text-meta text-muted">{account.accountName}</span>
+              <span className="text-meta text-muted">
+                {account.accountName}
+              </span>
             </div>
           </li>
         ))}

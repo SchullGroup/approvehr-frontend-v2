@@ -13,7 +13,6 @@ import {
   Badge,
   Button,
   ButtonLink,
-  Callout,
   Card,
   CardBody,
   CardHeader,
@@ -26,12 +25,13 @@ import {
 import {
   dayLabel,
   dayOf,
-  type ApiCycle,
+  ratingWordsFrom,
   type ApiGoal,
   type ApiPeerFeedback,
   type ApiReview,
   periodInPlay,
 } from "@/lib/api/performance";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { useCan } from "@/lib/permissions";
 import { useFeatures } from "@/lib/store/features";
 import { useSession } from "@/lib/store/session";
@@ -40,6 +40,8 @@ import {
   useKpis,
   useMyAppraisers,
   useObjectiveApprovals,
+  useRatingScale,
+  useReviewsIWrote,
 } from "@/lib/store/performance";
 import { AppraisersDialog } from "./appraiser-map";
 import { ManagerQuestionButton } from "./manager-question";
@@ -114,6 +116,8 @@ export function WhatNeedsYouTab({
   const features = useFeatures();
   const appraisals = useAppraisals();
   const approvals = useObjectiveApprovals();
+  const { scale } = useRatingScale();
+  const ratingWords = ratingWordsFrom(scale.levels);
   const mineGoals = useKpis("mine");
   const { isConnected, actingId, employeeId } = useSession();
 
@@ -166,6 +170,66 @@ export function WhatNeedsYouTab({
   const openPeriod = periodInPlay(appraisals.cycles);
 
   /**
+   * Manager reviews this person has already sent, and the ones still to
+   * finalise.
+   *
+   * Sending a manager review used to make it unreachable: `toComplete` drops it
+   * the moment it is submitted, `aboutMe` is reviews about *you*, and the only
+   * "Finalise" link in the product is in the period register, behind
+   * `EDIT_RECORDS`. A line manager could write a rating and never open it
+   * again, while the review page's own `mayFinalise` admitted them the whole
+   * time. `useReviewsIWrote` is that read; the card near the bottom is the link
+   * back.
+   *
+   * Gated on the period being in play rather than on being somebody's manager.
+   * An assigned appraiser who is not a line manager writes manager reviews too
+   * and has no register to fall back on, so gating on `isManager` would leave
+   * the defect standing for exactly the person least able to work around it.
+   * The cost is one request while a period is running, and none when it is not.
+   */
+  const written = useReviewsIWrote(
+    openPeriod &&
+      openPeriod.stage !== "DRAFT" &&
+      openPeriod.stage !== "PUBLISHED"
+      ? openPeriod.id
+      : null,
+    scored,
+  );
+
+  /**
+   * Ratings of record still to be picked, and only once calibration is running.
+   *
+   * Finalising is irreversible — it is what the person is told, and it cannot be
+   * re-marked — and the API imposes no stage of its own, so a manager can lock a
+   * mark during SELF or MANAGER and there is nothing to stop them. Prompting for
+   * it before CALIBRATION would make this screen quietly recommend skipping the
+   * stage the period itself defines. So the reviews stay reachable throughout,
+   * in the card below, and the *prompt* waits.
+   */
+  const toFinalise = written.reviews.filter((review) => !review.finalised);
+  const finaliseNow = openPeriod?.stage === "CALIBRATION" ? toFinalise : [];
+
+  /**
+   * Ratings this person has made final, that the person they are about has not
+   * answered.
+   *
+   * The other half of `toFinalise`, and it belongs in the other tab: once a
+   * rating is final the next move is not the appraiser's, it is the subject's —
+   * they acknowledge it or they formally dispute it, and until one of those
+   * happens the sign-off is open. That is the definition of waiting on somebody
+   * else, and it was the one thing genuinely of this person's that had nowhere
+   * on this screen to be.
+   *
+   * All three flags, never `!acknowledged` alone. Not acknowledged usually
+   * means nobody has been asked yet, which is a third state and the common one
+   * — the same rule `owesAnswer` above follows for the same reason, one side of
+   * the same fact along.
+   */
+  const awaitingAnswer = written.reviews.filter(
+    (review) => review.finalised && !review.acknowledged && !review.disputed,
+  );
+
+  /**
    * Whether anybody is appraising this person in the period that is running.
    *
    * Asked directly rather than inferred from the lists above, and the difference
@@ -179,16 +243,6 @@ export function WhatNeedsYouTab({
     openPeriod && openPeriod.stage !== "PUBLISHED" ? openPeriod.id : null,
     meOrNobody,
   );
-  /* Only the API saying "the list is empty" means nobody is appraising them.
-     A row with no `appraisers` field at all is a different fact — an answer to
-     a question we did not ask — and reading it as an empty list would put a
-     "nobody is appraising you" callout on somebody who has an appraiser, on
-     top of throwing on `.length`. Absent is not empty; the presence check is
-     the claim, not defensiveness. */
-  const noAppraiser =
-    Array.isArray(mine.row?.appraisers) && mine.row.appraisers.length === 0
-      ? mine.row.exceptions?.find((issue) => issue.code === "NO_APPRAISER")
-      : undefined;
   const appraisingMe = mine.row?.appraisers ?? [];
 
   /* Whoever may change the mapping — the API gates `PUT /cycles/:id/appraisers`
@@ -201,7 +255,6 @@ export function WhatNeedsYouTab({
      it" on a draft period and "Turn appraisals on", both of which land on a
      screen that is read-only for them. */
   const canManagePeriods = useCan("MANAGE_SETTINGS");
-  const canAssignAppraiser = canManagePeriods;
   const [assigningSelf, setAssigningSelf] = useState(false);
 
   /* My own objectives, split by who the next move belongs to. `mine` scope also
@@ -222,10 +275,13 @@ export function WhatNeedsYouTab({
   const waitingOnMe =
     owedNow.length +
     (scored ? owesAnswer.length : 0) +
+    finaliseNow.length +
     queue.length +
     toSend.length;
   const waitingOnOthers =
-    sentForApproval.length + (scored ? appraisingMe.length : 0);
+    sentForApproval.length +
+    awaitingAnswer.length +
+    (scored ? appraisingMe.length : 0);
 
   /**
    * The whole of what used to be three stat tiles, as one sentence.
@@ -239,7 +295,9 @@ export function WhatNeedsYouTab({
     const parts: string[] = [];
     if (owedNow.length > 0) {
       parts.push(
-        owedNow.length === 1 ? "1 review to write" : `${owedNow.length} reviews to write`,
+        owedNow.length === 1
+          ? "1 review to write"
+          : `${owedNow.length} reviews to write`,
       );
     }
     if (scored && owesAnswer.length > 0) {
@@ -247,6 +305,13 @@ export function WhatNeedsYouTab({
         owesAnswer.length === 1
           ? "1 rating to answer"
           : `${owesAnswer.length} ratings to answer`,
+      );
+    }
+    if (finaliseNow.length > 0) {
+      parts.push(
+        finaliseNow.length === 1
+          ? "1 rating to finalise"
+          : `${finaliseNow.length} ratings to finalise`,
       );
     }
     if (queue.length > 0) {
@@ -333,7 +398,19 @@ export function WhatNeedsYouTab({
         </div>
       )}
 
-      {/* Not shown to somebody with no employee record at all. That is not a
+      {/* The company's list of periods failing empties this whole screen, so
+          it is reported to everybody — including an account with no staff
+          record, for whom the page would otherwise be blank with nothing
+          saying why. `error` is only ever that failure now; see
+          `useAppraisals`. */}
+      <LoadFailure
+        subject="the appraisal periods"
+        error={appraisals.error}
+        onRetry={appraisals.reload}
+      />
+
+      {/* The personal half failing where the company list arrived.
+          Not shown to somebody with no employee record at all. That is not a
           failure to recover from — it is a founder's own account, exactly as
           created at registration, and `ownEmployeeId` on the API already
           tells this same person, the moment they try to act on a goal or a
@@ -345,58 +422,32 @@ export function WhatNeedsYouTab({
           broken personal state on an account that was never meant to have
           one. A caller who *does* have a record and still hit this is a real
           failure worth surfacing, so the check is on the session, not on
-          whether the error exists. */}
-      {appraisals.error && employeeId !== null && (
-        <p className="rounded-md border border-danger-line bg-danger-soft px-3.5 py-2.5 text-body-sm text-ink">
-          {appraisals.error.message}
-        </p>
+          whether the error exists.
+
+          It goes through `LoadFailure` like every other failed read in the
+          product. It used to print `error.message` into a bare red box: no
+          title saying what was missing, no advice, and no Try again. */}
+      {employeeId !== null && (
+        <LoadFailure
+          subject="your own appraisals"
+          error={appraisals.mineError}
+          onRetry={appraisals.reload}
+        />
       )}
 
-      {/* Outside every reveal, by Rule 5's own test: somebody who never opens a
-          disclosure must not be able to be surprised by this. Being the last to
-          hear about your own missing appraiser is the worst possible order to
-          find out in. */}
-      {scored && noAppraiser && (
-        /* One line, not four.
-           ---------------------
-           This used to explain the mechanism — that the cycle falls back to a
-           line manager, that the self-review still counts, what a manager
-           review is for. All true, and none of it this person's job: they
-           cannot set their own appraiser and nothing here changes what they
-           should do next. What they need is that somebody has to fix it and it
-           is not them.
+      {/* The "Nobody is set to appraise you yet" notice used to be here, and
+          Kene asked for it off this screen: *"Remove this from here."*
 
-           The API's own `message` named the employee in the third person
-           ("Ekemini Adowoima has no appraiser yet") on the employee's own
-           screen, which reads as a note written about them rather than to
-           them. Dropped for the same reason. */
-        <Callout tone="warning" title="Nobody is set to appraise you yet">
-          {/* Two readers, two different sentences.
-              --------------------------------------
-              Somebody who can set an appraiser gets to do it here, in a dialog,
-              without leaving the screen they are on — the standing rule is that
-              a problem the reader can fix must never be stated without the fix
-              beside it.
+          It was the first thing on the performance landing, above the figures,
+          for a problem the reader usually cannot fix — an employee cannot
+          assign their own appraiser, so it was a coloured sentence telling
+          somebody about somebody else's job before they had read anything they
+          came for.
 
-              An ordinary employee cannot, and for them the honest answer is who
-              can. Offering a button that the API would refuse is the failure
-              this rule exists to prevent, one step further along. */}
-          {canAssignAppraiser && mine.row && openPeriod ? (
-            <span className="flex flex-wrap items-center gap-3">
-              <span>Set one now and this clears.</span>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setAssigningSelf(true)}
-              >
-                Assign an appraiser
-              </Button>
-            </span>
-          ) : (
-            "Ask whoever runs this period to assign one."
-          )}
-        </Callout>
-      )}
+          Nothing is lost. `appraiser-map.tsx` raises it against the people it
+          belongs to, the period screen raises it in the exception lines
+          `PeriodStatus` renders, and both are read by whoever actually sets
+          appraisers. The employee's own copy was the one nobody could act on. */}
 
       {/*
        * One figure, not four tiles.
@@ -420,7 +471,7 @@ export function WhatNeedsYouTab({
                 <span className="tabular text-h2 font-semibold text-ink">
                   {waitingOnMe}
                 </span>
-                <span className="text-body font-semibold text-ink">
+                <span className="font-semibold text-ink">
                   {waitingOnMe === 1 ? "thing needs you" : "things need you"}
                 </span>
               </p>
@@ -428,9 +479,7 @@ export function WhatNeedsYouTab({
             </>
           ) : (
             <>
-              <p className="text-body font-semibold text-ink">
-                Nothing needs you here
-              </p>
+              <p className="font-semibold text-ink">Nothing needs you here</p>
               <p className="text-body-sm text-muted">{needsYouLine}</p>
             </>
           )}
@@ -497,7 +546,7 @@ export function WhatNeedsYouTab({
                   <p className="text-body-sm font-medium text-ink">
                     {review.cycleName}
                     {review.rating !== null
-                      ? ` · ${review.rating} out of 5`
+                      ? ` · ${ratingWords(review.rating)}`
                       : " · no overall mark"}
                   </p>
                   <p className="mt-1 text-meta text-muted">
@@ -640,6 +689,7 @@ export function WhatNeedsYouTab({
                 Loading
               </CardBody>
             ) : owedNow.length === 0 &&
+              finaliseNow.length === 0 &&
               queue.length === 0 &&
               toSend.length === 0 ? (
               <EmptyState
@@ -690,6 +740,22 @@ export function WhatNeedsYouTab({
                     onOpen={() => setOpened(review.id)}
                   />
                 ))}
+
+                {/* One row per rating rather than one row with a count, because
+                    each is a separate irreversible decision about a named
+                    person and the link has to reach that person's review.
+                    Counting them into a single row would land somewhere that
+                    then asks which. */}
+                {finaliseNow.map((review) => (
+                  <TaskRow
+                    key={review.id}
+                    icon={<ShieldCheck aria-hidden="true" />}
+                    title={`${review.subjectName}'s rating is written and not final`}
+                    detail="Calibration is running. Finalising makes this the rating of record and tells them, and it cannot be re-marked."
+                    href={`/performance/reviews/${review.id}`}
+                    action="Open it"
+                  />
+                ))}
               </CardBody>
             )}
           </Card>
@@ -703,7 +769,7 @@ export function WhatNeedsYouTab({
                 compact
                 icon={<Clock aria-hidden="true" />}
                 title="Nothing is out with anybody"
-                description="Objectives you send for approval, and the appraiser writing about you, show up here."
+                description="Objectives you send for approval, ratings you have made final that nobody has answered, and the appraiser writing about you, all show up here."
               />
             ) : (
               <CardBody className="flex flex-col gap-2">
@@ -720,6 +786,27 @@ export function WhatNeedsYouTab({
                     action="See them"
                   />
                 )}
+
+                {/* After the objectives, which are also yours and out with
+                    somebody, and before the aggregate below — this is a named
+                    person and a specific thing you did, which is the more
+                    actionable of the two. One row each rather than a count:
+                    what a reader does with this is chase a person, and a
+                    number names nobody. */}
+                {awaitingAnswer.map((review) => (
+                  <TaskRow
+                    key={review.id}
+                    icon={<ShieldCheck aria-hidden="true" />}
+                    title={`${review.subjectName} has not answered their rating`}
+                    detail={`${
+                      review.finalisedAt
+                        ? `Final on ${dayOf(review.finalisedAt)}. `
+                        : ""
+                    }They either acknowledge it or formally dispute it, and the sign-off stays open until one of those.`}
+                    href={`/performance/reviews/${review.id}`}
+                    action="Open it"
+                  />
+                ))}
 
                 {showOutstandingLink && openPeriod && (
                   <TaskRow
@@ -780,7 +867,9 @@ export function WhatNeedsYouTab({
        * on the landing page has not shown you the thing.
        *
        * Nothing is lost. The whole explanation is still one link away, and
-       * `PeriodStatus` carries the link.
+       * `PeriodStatus` carries the link. The component itself is now deleted
+       * rather than left exported with no importers — see the note in
+       * `how-it-works.tsx` for why a spare copy is worse than none.
        */}
 
       {scored && (
@@ -829,6 +918,88 @@ export function WhatNeedsYouTab({
               ))}
             </div>
           )}
+        </Disclosure>
+      )}
+
+      {/*
+       * The other side of the same fact: "What was said about you" above is
+       * every review *about* this person, and this is every one they *wrote*.
+       * Between them a review is reachable from whichever end you come at it
+       * from, which was the whole defect — the author's end had no door at all.
+       *
+       * Open when something is still to finalise, closed once everything is
+       * settled. A reveal that hides an act somebody still has to perform is
+       * the failure mode a reveal has; a reveal over a finished record is what
+       * one is for.
+       */}
+      {scored && written.reviews.length > 0 && (
+        <Disclosure
+          title="Reviews you have written"
+          defaultOpen={toFinalise.length > 0}
+          meta={
+            <Badge tone="neutral" size="sm">
+              {written.reviews.length === 1
+                ? "1 review"
+                : `${written.reviews.length} reviews`}
+            </Badge>
+          }
+          hint={
+            toFinalise.length === 0
+              ? "All final. Yours to read."
+              : toFinalise.length === 1
+                ? "1 is written and not final yet."
+                : `${toFinalise.length} are written and not final yet.`
+          }
+          level={2}
+        >
+          <div className="flex flex-col gap-2">
+            {written.reviews.map((review) => (
+              <div
+                key={review.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3"
+              >
+                <div className="min-w-0">
+                  <p className="text-body-sm font-medium text-ink">
+                    {review.subjectName}
+                    {review.rating !== null
+                      ? ` · ${ratingWords(review.rating)}`
+                      : " · no overall mark"}
+                  </p>
+                  <p className="mt-1 flex flex-wrap items-center gap-2 text-meta text-muted">
+                    <span>{review.cycleName}</span>
+                    {/* Four states, never three: not answered is not the same
+                        fact as disagreed, and nobody having been asked yet is
+                        the common one. Same rule the register's sign-off
+                        column follows. */}
+                    {review.disputed ? (
+                      <Badge tone="danger" size="sm" dot>
+                        Disputed
+                      </Badge>
+                    ) : review.acknowledged ? (
+                      <Badge tone="success" size="sm" dot>
+                        Acknowledged
+                      </Badge>
+                    ) : review.finalised ? (
+                      <Badge tone="warning" size="sm" dot>
+                        Final, not answered yet
+                      </Badge>
+                    ) : (
+                      <Badge tone="info" size="sm" dot>
+                        Written, not final
+                      </Badge>
+                    )}
+                  </p>
+                </div>
+                <ButtonLink
+                  variant="accent"
+                  size="sm"
+                  href={`/performance/reviews/${review.id}`}
+                >
+                  {review.finalised ? "Read it" : "Open it"}
+                </ButtonLink>
+              </div>
+            ))}
+          </div>
         </Disclosure>
       )}
 
@@ -963,6 +1134,11 @@ function ReviewRow({
   actionLabel: string;
   onOpen: () => void;
 }) {
+  /* The company's own words for the mark on this row. One cached request
+     however many rows render it. */
+  const { scale } = useRatingScale();
+  const ratingWords = ratingWordsFrom(scale.levels);
+
   /* In the record list the subject is always you, so an author who *is* the
      subject would print your own name back at you — which is what a first draft
      did, as "Self-review · from Adaeze Okonkwo". */
@@ -987,7 +1163,7 @@ function ReviewRow({
           {review.dueDate && <span>Due {dayLabel(review.dueDate)}</span>}
           {/* Absent, not zero: a form the author put no number on is not a form
               marked nought. */}
-          {review.rating !== null && <span>Mark {review.rating} out of 5</span>}
+          {review.rating !== null && <span>{ratingWords(review.rating)}</span>}
           <Badge tone={review.submitted ? "neutral" : "warning"} size="sm" dot>
             {review.submitted ? "Sent" : "Not sent"}
           </Badge>
@@ -1010,16 +1186,35 @@ function ReviewRow({
         </p>
       </div>
       <div className="flex flex-wrap gap-2">
-        {/* One button, chosen by whether there is a form left to fill in.
-            Before submission the only sensible act is opening it — the full
-            page has nothing on it yet ("Overall mark: None given", "What
-            went wrong this period: Not answered"), a record of nothing that
-            reads as lost answers rather than ones still waiting. After
-            submission the full page is strictly more than the same modal
-            reopened: the components behind the mark, who else appraised,
-            the acknowledgement. Two buttons that both just "showed the
-            review" used to sit here side by side with no way to tell why
-            there were two. */}
+        {/*
+         * Two acts on an unsent form, and one on a sent one.
+         *
+         * This was a single button, and the reason is worth keeping because it
+         * is still half true: two buttons that both merely "showed the review"
+         * sat here once with no way to tell why there were two, and the record
+         * page for an unsent form was a column of "Not answered" reading as
+         * lost answers rather than ones still waiting.
+         *
+         * The second half of that stopped being true. The page now heads that
+         * card "3 questions still unanswered" and carries its own "Fill it in",
+         * so it says *waiting*, not *lost* — and it holds what the modal cannot:
+         * the appraiser strip, the components behind the mark, the whole record.
+         *
+         * So both are offered, and the objection is answered by making them
+         * plainly different rather than by dropping one. Filling it in is the
+         * primary act and happens in place; opening the record is secondary and
+         * goes somewhere. The labels name the destination, not the thing.
+         *
+         * A sent form keeps one button, because there is no form left to fill —
+         * a second control here would go where the first one goes.
+         *
+         * And only in the work list. The same row renders under "What was said
+         * about you", which is a reading surface: an unsent form reaches it
+         * only as this person's own self-review, which is already in the work
+         * list above with both acts on it. Offering "Read it" beside "Open the
+         * record" there would be two buttons that both just show the review,
+         * which is the exact thing this comment starts by warning about.
+         */}
         {review.submitted ? (
           <ButtonLink
             variant="accent"
@@ -1029,9 +1224,20 @@ function ReviewRow({
             Read the review
           </ButtonLink>
         ) : (
-          <Button variant="accent" size="sm" onClick={onOpen}>
-            {actionLabel}
-          </Button>
+          <>
+            <Button variant="accent" size="sm" onClick={onOpen}>
+              {actionLabel}
+            </Button>
+            {context === "owed" && (
+              <ButtonLink
+                variant="secondary"
+                size="sm"
+                href={`/performance/reviews/${review.id}`}
+              >
+                Open the record
+              </ButtonLink>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -1068,6 +1274,10 @@ function PeerBlock({ entry }: { entry: ApiPeerFeedback }) {
             <p className="text-meta font-medium text-muted">{answer.prompt}</p>
             {answer.averageRating !== null && (
               <p className="tabular mt-1 text-body-sm text-ink">
+                {/* The one place a mark stays a figure. An average of ordinal
+                    words is not a word: 3.4 and 2.6 both round to "Meets
+                    Expectations" and only one of them is nearer 2. Naming a
+                    level here would be a claim nobody made. rating-scale-prose */}
                 Average {answer.averageRating} out of 5, across{" "}
                 {answer.answered === 1
                   ? "1 answer"

@@ -17,7 +17,9 @@ import { useSessionRoles, roleTier, type RoleTier } from "@/lib/roles";
 import { useDashboard, useReports } from "@/lib/store/insights";
 import { useDashboardLayout } from "@/lib/store/dashboard-layout";
 import { useSetupChecklist } from "@/lib/store/setup-checklist";
+import { cn } from "@/lib/cn";
 import { checklistRows } from "../settings/checklist";
+import { SetupGuide } from "./setup-guide";
 import { DashboardHeader } from "./header";
 import { CustomizeDrawer } from "./customize-drawer";
 import { WIDGET_COMPONENTS } from "./widgets";
@@ -238,7 +240,30 @@ export function DashboardScreen() {
               const Widget = WIDGET_COMPONENTS[widget.id];
               if (!Widget) return null;
               return (
-                <div key={widget.id} className={SPAN_CLASS[widget.span]}>
+                <div
+                  key={widget.id}
+                  /* `empty:hidden` is what makes the paragraph above true.
+                     ------------------------------------------------------
+                     Every widget returns `null` when it has nothing to draw,
+                     and the header has always claimed that leaves no hole —
+                     but this wrapper was emitted either way, so a quiet widget
+                     kept its columns and the grid held a gap where it used to
+                     be. On an owner's standard dashboard that was two gaps:
+                     `my-queue` holding the first quarter of the stat row while
+                     drawing nothing, and `chart-headcount-trend` holding half a
+                     row, which left Hiring stranded beside white space.
+
+                     A `null` child leaves the div with no child nodes at all,
+                     so `:empty` matches it and `display: none` takes it out of
+                     the grid — the row closes up and the next widget moves
+                     into the slot. It cannot false-positive on a widget that
+                     drew something, because anything rendered is a child node.
+
+                     Applied here rather than inside each widget so the rule
+                     holds for all of them, including the next one somebody
+                     adds. */
+                  className={cn(SPAN_CLASS[widget.span], "empty:hidden")}
+                >
                   <Widget {...props} />
                 </div>
               );
@@ -277,8 +302,24 @@ export function DashboardScreen() {
 function SetupPrompt() {
   const canManage = useCan("MANAGE_SETTINGS");
   const { facts, loading } = useSetupChecklist();
+  /* Held here rather than inside the guide, because this callout owns the
+     button that reopens it and the guide owns the once-per-browser offer. Two
+     components, one piece of open/closed state, and it lives with the one that
+     renders on every load. */
+  const [guiding, setGuiding] = useState(false);
 
-  if (!canManage || loading || !facts) return null;
+  /* Mounted before the permission and completeness checks below, because the
+     guide answers both for itself — and because a hook cannot be skipped. It
+     renders nothing when there is nothing to walk through. */
+  const guide = (
+    <SetupGuide
+      open={guiding}
+      onOpen={() => setGuiding(true)}
+      onClose={() => setGuiding(false)}
+    />
+  );
+
+  if (!canManage || loading || !facts) return guide;
 
   /* `optional` and `unknown` are left out of the denominator for the reason
      the checklist's own header gives: a row that cannot be incomplete would
@@ -288,24 +329,38 @@ function SetupPrompt() {
     (row) => row.status !== "optional" && row.status !== "unknown",
   );
   const outstanding = rows.filter((row) => row.status !== "done");
-  if (outstanding.length === 0) return null;
+  if (outstanding.length === 0) return guide;
 
   const first = outstanding[0]!;
   return (
-    <Callout tone="info" className="mb-4">
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <p className="text-body-sm">
-          <span className="font-medium">
-            {outstanding.length} of {rows.length} still to set up.
-          </span>{" "}
-          {/* Names the next one rather than only counting. A number alone is a
-              nag; a number and the next step is a thing somebody can finish. */}
-          <span className="text-muted">Next: {first.title.toLowerCase()}.</span>
-        </p>
-        <ButtonLink size="sm" variant="secondary" href={first.href}>
-          {first.linkLabel}
-        </ButtonLink>
-      </div>
-    </Callout>
+    <>
+      <Callout tone="info" className="mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <p className="text-body-sm">
+            <span className="font-medium">
+              {outstanding.length} of {rows.length} still to set up.
+            </span>{" "}
+            {/* Names the next one rather than only counting. A number alone is a
+                nag; a number and the next step is a thing somebody can finish. */}
+            <span className="text-muted">
+              Next: {first.title.toLowerCase()}.
+            </span>
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* The way back to the walk. The guide offers itself once per
+                browser; without this, somebody who dismissed it — or who
+                arrived after a colleague dismissed it on a shared machine —
+                has no way to ask for it again. */}
+            <Button size="sm" variant="ghost" onClick={() => setGuiding(true)}>
+              Walk me through it
+            </Button>
+            <ButtonLink size="sm" variant="secondary" href={first.href}>
+              {first.linkLabel}
+            </ButtonLink>
+          </div>
+        </div>
+      </Callout>
+      {guide}
+    </>
   );
 }

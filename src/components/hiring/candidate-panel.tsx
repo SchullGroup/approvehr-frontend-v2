@@ -116,9 +116,11 @@ export function CandidatePanel({
   const target =
     to && card.requisition.activeStages.includes(to)
       ? to
-      : card.requisition.activeStages.find(
-          (s) => STAGES.findIndex((x) => x.id === s) > STAGES.findIndex((x) => x.id === card.stage),
-        ) ?? null;
+      : (card.requisition.activeStages.find(
+          (s) =>
+            STAGES.findIndex((x) => x.id === s) >
+            STAGES.findIndex((x) => x.id === card.stage),
+        ) ?? null);
 
   const stageDef = STAGES.find((s) => s.id === card.stage)!;
   const submitted = card.scorecards.filter((s) => s.submittedAt);
@@ -197,7 +199,10 @@ export function CandidatePanel({
             </div>
             {card.rating !== null && (
               <span className="tabular flex shrink-0 items-center gap-1 rounded-md border border-line px-2 py-1 text-body-sm font-semibold text-ink">
-                <Star aria-hidden="true" className="size-3.5 fill-warning text-warning" />
+                <Star
+                  aria-hidden="true"
+                  className="size-3.5 fill-warning text-warning"
+                />
                 {card.rating}.0
               </span>
             )}
@@ -222,8 +227,16 @@ export function CandidatePanel({
             items={[
               { id: "overview", label: "Overview" },
               { id: "screening", label: "Screening" },
-              { id: "interviews", label: "Interviews", count: card.interviews.length },
-              { id: "scorecards", label: "Scorecards", count: card.scorecards.length },
+              {
+                id: "interviews",
+                label: "Interviews",
+                count: card.interviews.length,
+              },
+              {
+                id: "scorecards",
+                label: "Scorecards",
+                count: card.scorecards.length,
+              },
             ]}
           />
 
@@ -232,10 +245,37 @@ export function CandidatePanel({
               <DescriptionList
                 columns={2}
                 items={[
-                  { term: "Email", value: <ContactLine icon={<Mail />} text={card.candidate.email} /> },
-                  { term: "Phone", value: <ContactLine icon={<Phone />} text={card.candidate.phone} /> },
-                  { term: "Location", value: <ContactLine icon={<MapPin />} text={card.candidate.location} /> },
-                  { term: "Experience", value: `${card.candidate.yearsExperience} years` },
+                  {
+                    term: "Email",
+                    value: (
+                      <ContactLine
+                        icon={<Mail />}
+                        text={card.candidate.email}
+                      />
+                    ),
+                  },
+                  {
+                    term: "Phone",
+                    value: (
+                      <ContactLine
+                        icon={<Phone />}
+                        text={card.candidate.phone}
+                      />
+                    ),
+                  },
+                  {
+                    term: "Location",
+                    value: (
+                      <ContactLine
+                        icon={<MapPin />}
+                        text={card.candidate.location}
+                      />
+                    ),
+                  },
+                  {
+                    term: "Experience",
+                    value: `${card.candidate.yearsExperience} years`,
+                  },
                   {
                     term: "Expected salary",
                     value: card.candidate.expectedSalary ? (
@@ -264,7 +304,10 @@ export function CandidatePanel({
                   queue uses, rather than offering a button that opens nothing. */}
               <div className="rounded-lg border border-line bg-canvas p-3">
                 <div className="flex flex-wrap items-center gap-2.5">
-                  <FileText aria-hidden="true" className="size-4 shrink-0 text-faint" />
+                  <FileText
+                    aria-hidden="true"
+                    className="size-4 shrink-0 text-faint"
+                  />
                   <span className="min-w-0 flex-1 truncate text-body-sm text-ink">
                     {card.candidate.cvFileName}
                   </span>
@@ -330,7 +373,10 @@ export function CandidatePanel({
                   key={iv.id}
                   className="flex items-start gap-3 rounded-lg border border-line p-3"
                 >
-                  <CalendarClock aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-faint" />
+                  <CalendarClock
+                    aria-hidden="true"
+                    className="mt-0.5 size-4 shrink-0 text-faint"
+                  />
                   <div className="min-w-0 flex-1">
                     <p className="text-body-sm font-medium text-ink">
                       {INTERVIEW_LABEL[iv.kind]}
@@ -382,7 +428,10 @@ export function CandidatePanel({
           {tab === "scorecards" && (
             <div className="flex flex-col gap-3">
               {pending.length > 0 && (
-                <Callout tone="warning" title={`${pending.length} scorecard awaiting submission`}>
+                <Callout
+                  tone="warning"
+                  title={`${pending.length} scorecard awaiting submission`}
+                >
                   {pending
                     .map((s) => {
                       const e = employeeById(s.interviewerId);
@@ -400,7 +449,10 @@ export function CandidatePanel({
                   sc.ratings.reduce((sum, r) => sum + r.score, 0) /
                   (sc.ratings.length || 1);
                 return (
-                  <div key={sc.id} className="rounded-lg border border-line p-3.5">
+                  <div
+                    key={sc.id}
+                    className="rounded-lg border border-line p-3.5"
+                  >
                     <div className="flex items-center gap-2.5">
                       <Avatar
                         name={interviewer ? fullName(interviewer) : "?"}
@@ -410,7 +462,10 @@ export function CandidatePanel({
                         {interviewer ? fullName(interviewer) : "Unknown"}
                       </span>
                       {sc.recommendation && (
-                        <Badge tone={RECOMMENDATION[sc.recommendation].tone} size="sm">
+                        <Badge
+                          tone={RECOMMENDATION[sc.recommendation].tone}
+                          size="sm"
+                        >
                           {RECOMMENDATION[sc.recommendation].label}
                         </Badge>
                       )}
@@ -424,7 +479,13 @@ export function CandidatePanel({
                           max={5}
                           label={r.competency}
                           size="sm"
-                          tone={r.score >= 4 ? "success" : r.score >= 3 ? "accent" : "warning"}
+                          tone={
+                            r.score >= 4
+                              ? "success"
+                              : r.score >= 3
+                                ? "accent"
+                                : "warning"
+                          }
                         />
                       ))}
                     </div>
@@ -449,7 +510,6 @@ export function CandidatePanel({
               )}
             </div>
           )}
-
         </div>
       </Drawer>
 
@@ -494,13 +554,7 @@ export function CandidatePanel({
 
 /* -------------------------------------------------------------------------- */
 
-function ContactLine({
-  icon,
-  text,
-}: {
-  icon: React.ReactNode;
-  text: string;
-}) {
+function ContactLine({ icon, text }: { icon: React.ReactNode; text: string }) {
   return (
     <span className="flex items-center gap-1.5">
       <span aria-hidden="true" className="shrink-0 text-faint [&>svg]:size-3.5">

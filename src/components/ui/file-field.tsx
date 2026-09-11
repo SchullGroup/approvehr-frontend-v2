@@ -7,32 +7,38 @@ import { Field } from "./field";
 import { cn } from "@/lib/cn";
 import {
   UploadRefused,
-  upload,
-  type UploadScope,
+  readAsAttachment,
+  type InlineFile,
 } from "@/lib/api/uploads";
 
 /**
  * Attach one file.
  *
- * ## It uploads before it reports a key, and that ordering is the feature
+ * ## It hands over the file, not a key
  *
- * `onUploaded` fires only once the bytes are actually in storage. A form that
- * recorded the key beside the request would produce the failure this product is
- * built to avoid — a personnel file listing a work permit with nothing behind
- * it, which fails the one inspection it exists for.
+ * `onAttached` fires with the bytes once they are read, and the surrounding
+ * form sends them **with** the record it is creating. One request, so there is
+ * no window in which a personnel file lists a work permit with nothing behind
+ * it — the failure this product exists to avoid, and which a two-step
+ * presign-then-save could always produce if the second step failed.
  *
- * So the caller's save is disabled while `busy` is true and receives a key that
- * is already good. Nothing here writes to the database; the surrounding form
- * does that after.
+ * It used to presign and PUT to object storage and report the key.
+ * `S3_BUCKET` has never been set on any deployment, so that path refused every
+ * time, honestly, and the field could not attach anything. Documents hold their
+ * own bytes now — see `EmployeeDocument.content` — and this reads them.
  *
- * ## Refusals are the server's own words
+ * `presign`/`upload` are still in `lib/api/uploads.ts` for the receipt and CV
+ * scopes and for a deployment that does configure a bucket. Nothing in the
+ * interface calls them today, which is why the `scope` prop is gone: it only
+ * ever chose a storage prefix, and a prop that no longer decides anything is
+ * worse than no prop.
  *
- * `UploadRefused` carries the API's sentence — the wrong kind of file, one over
- * the cap, or a deployment with no storage configured. It is rendered verbatim,
- * because the API knows which of the three it is and this component does not.
- * That also means a deployment with no bucket says so **at the moment somebody
- * tries**, rather than the control being hidden by a probe that guessed at page
- * load.
+ * ## Refusals are sentences, not status codes
+ *
+ * `UploadRefused` carries one — an empty file, or one over the cap. The size is
+ * checked here so the answer arrives before a minute is spent encoding a video
+ * somebody attached by mistake; the API checks the decoded length itself and
+ * its refusal is the one that counts.
  *
  * ## Not a drop zone
  *
@@ -44,20 +50,30 @@ import {
 export function FileField({
   label,
   help,
-  scope,
   accept = ".pdf,.jpg,.jpeg,.png,.webp,.heic,.doc,.docx,.xls,.xlsx",
   required,
-  onUploaded,
+  maxBytes,
+  onAttached,
   onBusyChange,
   className,
 }: {
   label: string;
   help?: string;
-  scope: UploadScope;
   accept?: string;
   required?: boolean;
-  /** Fires with the storage key, only once the file is genuinely stored. */
-  onUploaded: (key: string | null, filename: string | null) => void;
+  /**
+   * A tighter cap than the document one, for an endpoint that has its own.
+   *
+   * Signatures cap at 5MB rather than 10 — see `MAX_SIGNABLE_BYTES`. Checked
+   * before the read for the reason in the header: the answer should arrive
+   * before a minute is spent encoding a file that is going to be refused.
+   */
+  maxBytes?: number;
+  /**
+   * Fires with the file, ready to send. Null when the choice is cleared or the
+   * read failed, so a form can never save a record with a stale attachment.
+   */
+  onAttached: (file: InlineFile | null) => void;
   /** So the surrounding form can disable its own save while bytes are moving. */
   onBusyChange?: (busy: boolean) => void;
   className?: string;
@@ -78,7 +94,7 @@ export function FileField({
     setChosen(null);
     setProgress(0);
     setFailed(null);
-    onUploaded(null, null);
+    onAttached(null);
     if (inputRef.current) inputRef.current.value = "";
   }
 
@@ -88,19 +104,18 @@ export function FileField({
     setWorking(true);
     setProgress(0);
     try {
-      const key = await upload(file, scope, setProgress);
-      onUploaded(key, file.name);
+      onAttached(await readAsAttachment(file, setProgress, maxBytes));
     } catch (caught) {
-      /* Every one of these is a sentence somebody can act on: the API's own
-         refusal, or one of the two transport messages `putToStorage` writes.
-         None of them is a status code. */
+      /* Every one of these is a sentence somebody can act on — an empty file,
+         one over the cap, or a read that failed. None of them is a status
+         code. */
       setFailed(
         caught instanceof UploadRefused || caught instanceof Error
           ? caught.message
           : "The file could not be attached. Try again.",
       );
       setChosen(null);
-      onUploaded(null, null);
+      onAttached(null);
       if (inputRef.current) inputRef.current.value = "";
     } finally {
       setWorking(false);

@@ -97,7 +97,8 @@ function depths(code: string[]): number[] {
   let depth = 0;
   return code.map((line) => {
     const at = depth;
-    depth += (line.match(/\{/g) ?? []).length - (line.match(/\}/g) ?? []).length;
+    depth +=
+      (line.match(/\{/g) ?? []).length - (line.match(/\}/g) ?? []).length;
     return at;
   });
 }

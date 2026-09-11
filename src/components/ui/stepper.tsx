@@ -102,7 +102,11 @@ export function StepIndicator({
               key={s.id}
               className={cn(
                 "h-1 flex-1 rounded-full transition-colors duration-300",
-                i < index ? "bg-success" : i === index ? "bg-accent" : "bg-sunken",
+                i < index
+                  ? "bg-success"
+                  : i === index
+                    ? "bg-accent"
+                    : "bg-sunken",
               )}
             />
           ))}
@@ -124,14 +128,20 @@ export function StepIndicator({
                   "flex size-7 shrink-0 items-center justify-center rounded-full border text-meta font-semibold tabular transition-colors duration-200",
                   isCurrent &&
                     "border-accent bg-accent text-white ring-4 ring-accent/20",
-                  isDone && !isCurrent && "border-success bg-success text-fill-strong",
+                  isDone &&
+                    !isCurrent &&
+                    "border-success bg-success text-fill-strong",
                   !isDone &&
                     !isCurrent &&
                     "border-line-strong bg-surface text-muted",
                 )}
               >
                 {isDone && !isCurrent ? (
-                  <Check aria-hidden="true" className="size-3.5" strokeWidth={3} />
+                  <Check
+                    aria-hidden="true"
+                    className="size-3.5"
+                    strokeWidth={3}
+                  />
                 ) : (
                   i + 1
                 )}
@@ -141,15 +151,17 @@ export function StepIndicator({
                 <span
                   className={cn(
                     "block text-body-sm font-medium leading-tight",
-                    isCurrent ? "text-ink" : isDone ? "text-body" : "text-muted",
+                    isCurrent
+                      ? "text-ink"
+                      : isDone
+                        ? "text-body"
+                        : "text-muted",
                   )}
                 >
                   {step.label}
                 </span>
                 {step.optional && (
-                  <span className="block text-meta text-faint">
-                    Optional
-                  </span>
+                  <span className="block text-meta text-faint">Optional</span>
                 )}
               </span>
             </>

@@ -59,7 +59,8 @@ function useRead<T>(
         const data = await load(controller.signal);
         if (!cancelled) setFetched({ key: full, data, error: null });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
           setFetched({
             key: full,
@@ -101,8 +102,7 @@ export function useMyAdvance(): Read<{
 export function useAdvances(status?: ApiAdvanceStatus): Read<ApiAdvance[]> {
   const { isConnected } = useSession();
   const load = useCallback(
-    (signal: AbortSignal) =>
-      advancesApi.list(status ? { status } : {}, signal),
+    (signal: AbortSignal) => advancesApi.list(status ? { status } : {}, signal),
     [status],
   );
   return useRead(`advances|${status ?? "all"}`, isConnected, load);
@@ -110,7 +110,10 @@ export function useAdvances(status?: ApiAdvanceStatus): Read<ApiAdvance[]> {
 
 export function useAdvancePolicy(): Read<ApiAdvancePolicy> {
   const { isConnected } = useSession();
-  const load = useCallback((signal: AbortSignal) => advancesApi.policy(signal), []);
+  const load = useCallback(
+    (signal: AbortSignal) => advancesApi.policy(signal),
+    [],
+  );
   return useRead("policy", isConnected, load);
 }
 

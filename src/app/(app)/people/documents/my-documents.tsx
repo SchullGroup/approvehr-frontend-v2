@@ -14,7 +14,6 @@ import {
 import { LoadFailure } from "@/components/portal/load-failure";
 import type { ApiDocumentRequest } from "@/lib/api/documents";
 import { useMyDocuments } from "@/lib/store/documents";
-import { useSession } from "@/lib/store/session";
 import { AddDocumentModal, AttachDocumentModal } from "./dialogs";
 import { DocumentRow, RequestRow } from "./document-rows";
 
@@ -54,10 +53,6 @@ export function MyDocuments({
   const toast = useToast();
 
   const [attaching, setAttaching] = useState<ApiDocumentRequest | null>(null);
-  /* The upload is gated on whose file it is, so the attach control needs the
-     signed-in person's own employee id — the same id the API would resolve
-     from the session, asked for explicitly rather than implied. */
-  const { employeeId } = useSession();
   const [adding, setAdding] = useState(false);
 
   const addButton =
@@ -98,7 +93,11 @@ export function MyDocuments({
             <>
               {mine.error && (
                 <div role="alert">
-                  <LoadFailure subject="your documents" error={mine.error}  onRetry={mine.reload}/>
+                  <LoadFailure
+                    subject="your documents"
+                    error={mine.error}
+                    onRetry={mine.reload}
+                  />
                 </div>
               )}
 
@@ -184,7 +183,6 @@ export function MyDocuments({
       {adding && (
         <AddDocumentModal
           whose="your"
-          employeeId={employeeId ?? ""}
           onClose={() => setAdding(false)}
           onAdd={async (body) => {
             await mine.add(body);

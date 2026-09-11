@@ -55,11 +55,7 @@ import { request, requestPaged, type Paged } from "@/lib/api/client";
 
 /** Where the thing is. `ASSIGNED` is derived, never sent. */
 export type AssetStatus =
-  | "AVAILABLE"
-  | "ASSIGNED"
-  | "IN_REPAIR"
-  | "RETIRED"
-  | "LOST";
+  "AVAILABLE" | "ASSIGNED" | "IN_REPAIR" | "RETIRED" | "LOST";
 
 /** What a person may set directly. `ASSIGNED` is deliberately absent. */
 export type SettableStatus = Exclude<AssetStatus, "ASSIGNED">;
@@ -212,6 +208,21 @@ export type ApiRepairRequest = {
    * broken.
    */
   nextStatuses: RepairRequestStatus[];
+  /**
+   * Whether **this** reader can confirm they have the item back.
+   *
+   * Its own field rather than a `CLOSED` entry in `nextStatuses`, and the
+   * distinction is the point: `nextStatuses` is the lifecycle as somebody who
+   * manages repairs may move it, and `RETURNED` legally goes back to
+   * `IN_REPAIR`. Confirming receipt is the holder saying one thing about their
+   * own equipment. Reading this off `nextStatuses` would have offered an
+   * employee a button that sends their own laptop back to the workshop.
+   *
+   * The API answers it — status is `RETURNED`, the reader holds
+   * `CONFIRM_EQUIPMENT_RETURN`, and they raised it — so nothing here
+   * recomputes any of that.
+   */
+  mayConfirmReturn: boolean;
 };
 
 /** `GET /:id` — one item, plus who had it when and what has been fixed. */
@@ -315,7 +326,8 @@ export type AssetListParams = {
   includeArchived?: boolean;
   /** Covers tag, name, serial, make and model. */
   q?: string;
-  sort?: "tag" | "name" | "status" | "purchasedOn" | "purchaseCost" | "createdAt";
+  sort?:
+    "tag" | "name" | "status" | "purchasedOn" | "purchaseCost" | "createdAt";
   order?: "asc" | "desc";
 };
 
@@ -466,6 +478,19 @@ export const assetsApi = {
    * Move one along. The API refuses a transition the lifecycle forbids and
    * names what it would accept — show that message, never one written here.
    */
+  /**
+   * The holder saying they have it back, which closes the request.
+   *
+   * A named endpoint, not `advanceRepair` with a status — see
+   * `mayConfirmReturn`. `CONFIRM_EQUIPMENT_RETURN` is all it needs, and it is
+   * the one permission the feedback's table gives an Employee and withholds
+   * from a Departmental Lead.
+   */
+  confirmRepairReturn: (id: string) =>
+    request<ApiRepairRequest>(`/assets/repairs/${id}/confirm-return`, {
+      method: "POST",
+    }),
+
   advanceRepair: (
     id: string,
     body: { status: RepairRequestStatus; note?: string },

@@ -1,6 +1,7 @@
 "use client";
 
 import { request, requestPaged, type Paged } from "@/lib/api/client";
+import { downloadBlob, fetchBinary } from "@/lib/api/download";
 
 /**
  * KPIs, appraisals and skills — `/api/v1/performance`.
@@ -105,7 +106,13 @@ export type ReviewKind = "SELF" | "MANAGER" | "PEER";
 /** `REPORT` exists in the enum and no `ReviewKind` reaches it. Handle it anyway. */
 export type ReviewAudience = "SELF" | "MANAGER" | "PEER" | "REPORT";
 
-export type ReviewQuestionKind = "RATING" | "TEXT" | "CHOICE" | "BOOLEAN";
+export type ReviewQuestionKind =
+  | "RATING"
+  | "TEXT"
+  | "CHOICE"
+  | "BOOLEAN"
+  /** The answer **is** a file. No value field is set — see `ApiAnswer`. */
+  | "FILE";
 
 /**
  * One measured number on a goal.
@@ -136,6 +143,17 @@ export type ApiGoal = {
   description: string | null;
   ownerId: string | null;
   ownerName: string | null;
+  departmentId: string | null;
+  departmentName: string | null;
+  /**
+   * Which rung of the cascade this is: **company → department → personal**.
+   *
+   * Derived by the API from which of `ownerId` and `departmentId` are set, so
+   * there is one answer rather than a stored column that can contradict them.
+   * Before this the screen guessed — a personal KPI that happened to have
+   * children was labelled "Team KPI".
+   */
+  level: "company" | "department" | "personal";
   /** No owner means a company goal: everybody can see it. */
   companyWide: boolean;
   parentId: string | null;
@@ -370,6 +388,27 @@ export type ApiCycle = {
   /** The API's own wording for the stage. Use it rather than a second copy. */
   stageLabel: string;
   dueDate: string | null;
+  /**
+   * What the period covers. Both dates or neither — the API refuses half of a
+   * range, in the payload *and* in the resulting row.
+   *
+   * Null on every cycle written before this existed, and **nothing was
+   * back-filled**: a period derived from a name would be a guess presented as
+   * a record. "H2 2026 appraisal" is not evidence that July is the start.
+   */
+  periodStart: string | null;
+  periodEnd: string | null;
+  /**
+   * What the company wants to say above question 1, in its own words.
+   *
+   * Plain text rendered with its line breaks, deliberately **not** markdown: a
+   * parser here is a second rendering path for HR-authored content on a screen
+   * every employee opens, and the one thing anybody needs a link for has its
+   * own field.
+   */
+  instructions: string | null;
+  /** A link to the company's own guide. `http(s)` only — the API refuses the rest. */
+  guideUrl: string | null;
   questionCount: number;
   reviewCount: number;
   /**
@@ -493,6 +532,23 @@ export type ApiAnswer = {
   textValue: string | null;
   choiceValue: string | null;
   boolValue: boolean | null;
+  /**
+   * The evidence attached to this answer, or null.
+   *
+   * **Metadata only, never the bytes.** The file comes down its own route —
+   * `evidenceFile` below — so a form with three attachments is three small
+   * numbers here rather than thirty megabytes of base64 in a JSON body
+   * somebody's phone has to parse.
+   *
+   * Only ever set on a `FILE` question, where every value field above is null:
+   * the file is the answer rather than a decoration on one.
+   */
+  attachment: {
+    id: string;
+    filename: string;
+    contentType: string;
+    sizeBytes: number;
+  } | null;
   answeredAt: string;
 };
 
@@ -502,6 +558,14 @@ export type ApiReview = {
   cycleName: string;
   cycleStage: ReviewCycleStage;
   dueDate: string | null;
+  /**
+   * The period this form is about, on a list row as well as a form.
+   *
+   * "January to July 2026" is what a person recognises; the cycle's name is
+   * what somebody in HR typed. Null where the cycle states no period.
+   */
+  periodStart: string | null;
+  periodEnd: string | null;
   kind: ReviewKind;
   /** The API's wording: "Self-review", "Manager review", "Peer feedback". */
   kindLabel: string;
@@ -586,6 +650,15 @@ export type ApiReviewDetail = ApiReview & {
    * be a wrong claim rather than a blank. Check for the key, not for a value.
    */
   appraiser?: ApiAppraiserContext;
+  /**
+   * Why this form exists, and where the guide is. **On the detail only.**
+   *
+   * The API does not put these on a list row and this type does not either:
+   * four paragraphs belong on the screen somebody is filling in, not on
+   * twenty-five rows they are scanning.
+   */
+  instructions: string | null;
+  guideUrl: string | null;
   questions: ApiFormQuestion[];
   /** Prompts, not ids: a refusal that names the questions is a refusal you can act on. */
   outstanding: string[];
@@ -1226,6 +1299,38 @@ export type ApiTask = {
   createdAt: string;
 };
 
+/**
+ * One row in somebody's own record of what they logged.
+ *
+ * Carries the objective's title and the week, because this list is read on
+ * its own screen rather than inside the objective it belongs to — a task
+ * without what it was toward is a sentence with no subject.
+ */
+export type ApiMyTask = {
+  id: string;
+  goalId: string;
+  goalTitle: string;
+  keyResultId: string | null;
+  description: string;
+  grade: "COMPLETED" | "PARTIALLY_COMPLETED" | "NOT_COMPLETED" | null;
+  gradedAt: string | null;
+  weekStart: string;
+  weekEnd: string;
+  createdAt: string;
+};
+
+/**
+ * What one assignment actually did.
+ *
+ * `alreadyHad` is the honest half: picking eight people and seeing six KPIs
+ * appear is a difference the screen has to be able to explain, so the people
+ * skipped come back named rather than counted.
+ */
+export type ApiAssignedObjectives = {
+  created: ApiGoal[];
+  alreadyHad: { employeeId: string; name: string; goalId: string }[];
+};
+
 /** One row in a manager's or HR's grading queue — named, so no follow-up lookup. */
 export type ApiTaskForGrading = {
   id: string;
@@ -1266,6 +1371,15 @@ export type CreateGoalBody = {
    */
   ownerId?: string | null;
   parentId?: string;
+  /**
+   * Which department this belongs to — the middle rung of the cascade.
+   *
+   * Absent means "inherit whatever the parent is filed under", which is what
+   * makes the ladder hold without anybody re-typing the department at every
+   * level. Set with `ownerId: null` it makes a **department objective**: a
+   * shared target the department's own head may raise and HR agrees.
+   */
+  departmentId?: string | null;
   /** `2026-Q1`. A quarter, not a date. */
   dueQuarter?: string;
   /** The period it will be scored in. Needed for anything that gets a mark. */
@@ -1382,6 +1496,21 @@ export type AnswerBody = {
   textValue?: string;
   choiceValue?: string;
   boolValue?: boolean;
+  /**
+   * For a `FILE` question. `readAsAttachment` in `lib/api/uploads.ts` produces
+   * the shape — base64 in the body, the same way a document and a signature
+   * already travel, because every other write here is JSON and one endpoint
+   * with a different content type is a second code path in every client.
+   *
+   * Sending one for a question that does not ask for a file is **refused**,
+   * not ignored: a file somebody attached and we discarded looks to them
+   * exactly like one we kept.
+   */
+  file?: {
+    filename: string;
+    contentType: string;
+    contentBase64: string;
+  };
 };
 
 export type SubmitReviewBody = { rating?: number; summary?: string };
@@ -1704,6 +1833,20 @@ export const performanceApi = {
     name: string;
     dueDate?: string;
     /**
+     * What the period covers. **Both or neither**, and not backwards — the API
+     * refuses half a range rather than storing an end with no start.
+     *
+     * Distinct from `dueDate`, which is when the form is owed. A period runs
+     * January to July and is answered in August; conflating the two is how a
+     * report ends up describing the wrong months.
+     */
+    periodStart?: string;
+    periodEnd?: string;
+    /** What to say above question 1. Plain text; line breaks are kept. */
+    instructions?: string;
+    /** The company's own guide. `http(s)` only. */
+    guideUrl?: string;
+    /**
      * Who the period covers. **Empty means everybody**, which is the default
      * and what every period did before scoping existed.
      *
@@ -1733,9 +1876,33 @@ export const performanceApi = {
       departmentIds?: string[];
       remindDaysBefore?: number | null;
       managersCanAddQuestions?: boolean;
+      /**
+       * Nullable, unlike on create: clearing a period is a real edit, and
+       * `null` is how it is said. Both together or neither — the API checks the
+       * **resulting row**, so `{ periodStart: null }` on its own is refused
+       * even though the payload looks consistent.
+       */
+      periodStart?: string | null;
+      periodEnd?: string | null;
+      instructions?: string | null;
+      guideUrl?: string | null;
     },
   ) =>
     request<ApiCycle>(`/performance/cycles/${id}`, { method: "PATCH", body }),
+
+  /**
+   * Delete a draft period outright.
+   *
+   * Refused once it has started — a running or published period is a record
+   * of what people were asked, not a mistake to undo — and refused if it
+   * somehow already has reviews on it. Both refusals are the API's own
+   * sentences.
+   */
+  deleteCycle: (id: string) =>
+    request<{ id: string; deleted: boolean; questionsRemoved: number }>(
+      `/performance/cycles/${id}`,
+      { method: "DELETE" },
+    ),
 
   /**
    * Start this period's form from another period's.
@@ -1905,6 +2072,37 @@ export const performanceApi = {
       method: "POST",
     }),
 
+  /* ------------------------------------------------------------ the scale */
+
+  /**
+   * The five words this company reads a mark in.
+   *
+   * **No permission on the API, deliberately.** The words are on every
+   * appraisal form the reader fills in, so gating them would hide from
+   * somebody the scale they are being marked against.
+   */
+  ratingScale: (signal?: AbortSignal) =>
+    request<ApiRatingScale>("/performance/rating-scale", signalOf(signal)),
+
+  /**
+   * Set them. The whole set, never one level.
+   *
+   * Same shape and same reason as `setScoringWeights`: a per-level endpoint
+   * could not check that the five words are distinct, so the check would end
+   * up in a form and be a suggestion. Two levels sharing a word is not a
+   * scale — a reader cannot tell a 2 from a 4 — and it is the one mistake
+   * somebody editing five text boxes will actually make.
+   *
+   * Needs `MANAGE_SETTINGS`. Already-running cycles keep their own frozen
+   * copy: a mark from 2026 has to explain itself in 2029, in the words it was
+   * given in.
+   */
+  setRatingScale: (levels: ApiRatingLevel[]) =>
+    request<ApiRatingScale>("/performance/rating-scale", {
+      method: "PUT",
+      body: { levels },
+    }),
+
   /* ---------------------------------------------------------------- scoring */
 
   /** Open to everybody: a scale you are measured against but cannot read is absurd. */
@@ -2033,11 +2231,41 @@ export const performanceApi = {
       signalOf(signal),
     ),
 
+  /**
+   * The whole form, in the order it should be asked.
+   *
+   * Every id on the cycle, once each — the API refuses a partial list rather
+   * than inferring where the rest go, because a form half in one order and half
+   * in another is a form nobody arranged. Returns the questions renumbered, so
+   * a caller can render the answer instead of guessing at it.
+   */
+  reorderQuestions: (cycleId: string, ids: string[]) =>
+    request<ApiQuestion[]>(`/performance/cycles/${cycleId}/questions/reorder`, {
+      method: "POST",
+      body: { ids },
+    }),
+
   addQuestion: (cycleId: string, body: CreateQuestionBody) =>
     request<ApiQuestion>(`/performance/cycles/${cycleId}/questions`, {
       method: "POST",
       body,
     }),
+
+  /**
+   * The testing doc's six standard self/manager questions — Key
+   * Achievements, Key Challenges, Reason for Rating on the self side,
+   * Achievements Observed, Areas for Improvement, Overall Assessment on the
+   * manager's — added to a draft cycle in one call. Returns the cycle's
+   * whole question list afterwards, the same "bulk write, list back" shape
+   * `reorderQuestions` already uses above.
+   */
+  addStandardQuestions: (cycleId: string) =>
+    request<ApiQuestion[]>(
+      `/performance/cycles/${cycleId}/standard-questions`,
+      {
+        method: "POST",
+      },
+    ),
 
   /**
    * A manager's own question, on top of HR's set.
@@ -2123,6 +2351,28 @@ export const performanceApi = {
       note: string;
     }>(`/performance/competencies/${id}`, { method: "DELETE" }),
 
+  /**
+   * Give one KPI to several people, under one objective.
+   *
+   * Creates a sibling per person rather than one row with many owners — see
+   * the API's own note on why one mark shared five ways is the wrong answer.
+   * Somebody who already has it is skipped and named in `alreadyHad`.
+   */
+  assignObjective: (
+    parentId: string,
+    body: {
+      title: string;
+      description?: string;
+      employeeIds: string[];
+      dueQuarter?: string;
+      reviewCycleId?: string;
+    },
+  ) =>
+    request<ApiAssignedObjectives>(`/performance/goals/${parentId}/assign`, {
+      method: "POST",
+      body,
+    }),
+
   /* ------------------------------------------------------------ weekly tasks */
 
   tasks: (goalId: string, signal?: AbortSignal) =>
@@ -2137,6 +2387,13 @@ export const performanceApi = {
       "/performance/tasks/for-grading",
       signalOf(signal),
     ),
+
+  /**
+   * My own tasks and the grades that came back. Empty for a sign-in with no
+   * linked staff record, rather than a refusal.
+   */
+  myTasks: (signal?: AbortSignal) =>
+    request<ApiMyTask[]>("/performance/tasks/mine", signalOf(signal)),
 
   /** Only the goal's own owner may log against it — see the API's own note. */
   submitTask: (
@@ -2187,6 +2444,36 @@ export const performanceApi = {
   /** 404 rather than 403 when it is not yours to read. That is deliberate. */
   review: (id: string, signal?: AbortSignal) =>
     request<ApiReviewDetail>(`/performance/reviews/${id}`, signalOf(signal)),
+
+  /**
+   * Open the evidence somebody attached to one answer.
+   *
+   * Addressed by review and question, which is what the form already knows —
+   * and it means the API checks the gate against the review the file belongs
+   * to rather than against an id on its own.
+   *
+   * Through `fetchBinary`, which carries the token, sets `no-store` and takes
+   * the filename from `Content-Disposition`, so the name in somebody's
+   * downloads folder is the one the API sent rather than one invented here.
+   * `response.text()` would corrupt it: a PDF decoded as UTF-8 loses every
+   * byte above 0x7f and opens in nothing.
+   *
+   * There is deliberately no signed URL. A credential-free link to somebody's
+   * appraisal evidence is forwardable to anybody — the same reason
+   * `saveDocument` fetches rather than links.
+   */
+  saveEvidence: async (
+    reviewId: string,
+    questionId: string,
+    fallbackName: string,
+  ): Promise<void> => {
+    const file = await fetchBinary(
+      `/performance/reviews/${reviewId}/questions/${questionId}/attachment`,
+      fallbackName,
+      "",
+    );
+    downloadBlob(file.filename, file.blob);
+  },
 
   /** Saves answers. Nothing is sent yet, and re-answering replaces. */
   respond: (id: string, answers: AnswerBody[]) =>
@@ -2258,14 +2545,26 @@ export const performanceApi = {
 export type PagedGoals = Paged<ApiGoal>;
 
 /**
- * What each point on the 1–5 scale is called, everywhere a rating renders:
- * `Review.rating`, an answer's `ratingValue`, a competency `level`.
+ * What each point on the 1–5 scale is called **when a company has not said**.
  *
- * **One set, and it is a mirror.** The authority is `RATING_LABELS` in the
- * API's `scoring.ts`, which ships with the engine that scores them;
- * `npm run verify-rating-scale` parses that file and fails the build if these
- * drift. A screen that can reach the API should prefer `GET
- * /performance/rating-scale`, which also carries what each level *means*.
+ * ## These are the defaults now, not the scale
+ *
+ * They used to be the scale: one set, mirrored from the API's `scoring.ts`
+ * under `npm run verify-rating-scale`. The company can set its own five words
+ * now — `RatingScaleLevel` on the API — so the authority for what a 4 is
+ * called on any given screen is `GET /performance/rating-scale`, and **this is
+ * what that endpoint falls back to.**
+ *
+ * The gate still holds and still matters: the two sides must agree about the
+ * *fallback*, because a company that has never chosen sees this set on the
+ * form and the engine freezes that same set onto the cycle. Disagreeing about
+ * the default is disagreeing about the scale for every tenant who never
+ * visited the settings screen — which is most of them.
+ *
+ * **Anything rendering a mark on a connected screen should read the company's
+ * scale, not these.** `useRatingScale` in `store/performance.ts` is the hook,
+ * and `ratingWordsFrom` below turns its levels into the same read-back
+ * function `ratingWords` provides for the defaults.
  *
  * This existed before with different words and **zero importers**, alongside a
  * second set in `review-parts.tsx` that read "3: Did what was needed" and was
@@ -2294,6 +2593,98 @@ export const RATING_MEANING: Record<number, string> = {
   2: "Falls short of what the role asks for in ways that need addressing.",
   1: "Well short of what the role asks for.",
 };
+/** One point on the scale: the number, the word, and what the word means. */
+export type ApiRatingLevel = {
+  level: number;
+  label: string;
+  meaning: string;
+};
+
+/**
+ * The scale this company reads a mark in.
+ *
+ * `source` is the field to care about. **"has not chosen" and "chose the
+ * defaults" are different states**, and they behave differently the day the
+ * defaults move: a saved set stays exactly as it was written, and an unsaved
+ * one follows whatever the product ships. The settings screen has to be able
+ * to say which one somebody is looking at, or "reset to the defaults" is a
+ * button with no observable effect.
+ */
+export type ApiRatingScale = {
+  levels: ApiRatingLevel[];
+  source: "saved" | "default";
+  /** 5 today. Read it rather than assuming — `REVIEW_RATING_MAX` owns it. */
+  max: number;
+};
+
+/**
+ * A rating, in the words the company agreed on, wherever one is **read back**.
+ *
+ * The standup asked for *"descriptive ratings such as 'below expectation',
+ * 'meet expectation' and 'exceed expectation'"* **instead of** numerical
+ * values. That landed on the picker — the radio group a manager chooses from
+ * shows the words — and nowhere else: every screen that showed a mark somebody
+ * had already given still read `3 out of 5`, in eight places, including the
+ * confirmation dialog for making a mark final.
+ *
+ * So the scale was words while you were choosing and a number ever afterwards,
+ * which is the worst of the two: the reader has to remember what 3 was called
+ * to know whether it is good news, and the number is exactly the thing a
+ * defensible appraisal is trying not to be argued in.
+ *
+ * ## Why the number is dropped rather than shown beside the word
+ *
+ * `3 · Meets Expectations` reads as a score with a caption, and a reader's eye
+ * goes to the digit. The picker keeps its numbers because they are the
+ * coordinates people use to talk to each other while marking — "I gave her a
+ * four" — and because a radio group with five prose options and no ordering cue
+ * is hard to scan. A record is read, not scanned, and it should say what was
+ * decided.
+ *
+ * ## Null in, null out
+ *
+ * A form whose author put no number on it is not a form marked nought — the
+ * rule this codebase states everywhere. Callers render their own sentence for
+ * the absence, because "no overall mark" and "the answers were the judgement"
+ * are different sentences in different places.
+ *
+ * A level outside 1–5 cannot be written (`submitReviewSchema` refuses it) and
+ * could only arrive on a legacy row. That falls back to the bare figure: it
+ * states what is stored without inventing a word for it.
+ */
+export function ratingWords(level: number | null | undefined): string | null {
+  return ratingWordsFrom(null)(level);
+}
+
+/**
+ * The same read-back, in **this company's** words.
+ *
+ * Pass the levels from `useRatingScale`; pass null to get the defaults, which
+ * is what `ratingWords` above does and what an offline screen has.
+ *
+ * A separate function rather than an optional second argument on
+ * `ratingWords`, because the scale is not a per-call decision: a screen either
+ * has the company's words or it does not, and threading `undefined` through
+ * eight call sites is how half of them end up quoting the defaults at somebody
+ * whose company renamed a 4. Build it once from the hook and pass it down.
+ *
+ * The fallback for a level outside the scale is deliberately the bare figure.
+ * It states what is stored without inventing a word for it — the only way a
+ * legacy row outside 1–5 can be rendered honestly.
+ */
+export function ratingWordsFrom(
+  levels: readonly ApiRatingLevel[] | null,
+): (level: number | null | undefined) => string | null {
+  const words: Record<number, string> = levels
+    ? Object.fromEntries(levels.map((entry) => [entry.level, entry.label]))
+    : RATING_LABELS;
+  const max = levels ? levels.length : Object.keys(RATING_LABELS).length;
+
+  return (level) => {
+    if (level === null || level === undefined) return null;
+    return words[level] ?? `${level} out of ${max}`;
+  };
+}
 
 /* -------------------------------------------------------------- the measures */
 

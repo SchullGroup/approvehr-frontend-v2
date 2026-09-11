@@ -144,7 +144,11 @@ export function ConductPanel({
           {...(conduct.loading || !headline ? {} : { description: headline })}
           action={
             canEdit && conduct.editable ? (
-              <Button variant="secondary" size="sm" onClick={() => setRecording(true)}>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setRecording(true)}
+              >
                 <Plus aria-hidden="true" className="size-3.5" />
                 Record a warning
               </Button>
@@ -166,7 +170,8 @@ export function ConductPanel({
             <LoadFailure
               subject="this person's conduct record"
               error={conduct.error}
-             onRetry={conduct.reload}/>
+              onRetry={conduct.reload}
+            />
           ) : actions.length === 0 ? (
             <p className="text-body-sm text-body">
               No warnings have been recorded.
@@ -238,7 +243,9 @@ export function ConductPanel({
           onConfirm={async (body) => {
             const ok = await run(
               () => conduct.confirm(confirming.id, body),
-              body.dispute ? "Confirmed, and your disagreement is on the record" : "Confirmed",
+              body.dispute
+                ? "Confirmed, and your disagreement is on the record"
+                : "Confirmed",
             );
             if (ok) setConfirming(null);
           }}
@@ -251,7 +258,10 @@ export function ConductPanel({
           action={editing}
           onClose={() => setEditing(null)}
           onSave={async (body) => {
-            const ok = await run(() => conduct.update(editing.id, body), "Saved");
+            const ok = await run(
+              () => conduct.update(editing.id, body),
+              "Saved",
+            );
             if (ok) setEditing(null);
           }}
         />
@@ -415,7 +425,9 @@ function RecordWarningModal({
           : undefined;
 
   const ready =
-    level !== "" && summary.trim().length >= MIN_SUMMARY && dateProblem === undefined;
+    level !== "" &&
+    summary.trim().length >= MIN_SUMMARY &&
+    dateProblem === undefined;
 
   return (
     <Modal
@@ -539,7 +551,8 @@ function RecordWarningModal({
         <Field
           optional
           label="What was decided"
-          help="Often written up after the meeting.">
+          help="Often written up after the meeting."
+        >
           <Textarea
             rows={3}
             value={outcome}
@@ -572,7 +585,10 @@ function ConfirmToldModal({
 }: {
   action: ApiAction;
   onClose: () => void;
-  onConfirm: (body: { dispute: boolean; disputeNote?: string }) => Promise<void>;
+  onConfirm: (body: {
+    dispute: boolean;
+    disputeNote?: string;
+  }) => Promise<void>;
 }) {
   const [dispute, setDispute] = useState(false);
   const [note, setNote] = useState("");
@@ -727,7 +743,9 @@ function EditActionModal({
                 ...(open
                   ? {
                       ...(level !== action.level ? { level } : {}),
-                      ...(incidentOn !== action.incidentOn ? { incidentOn } : {}),
+                      ...(incidentOn !== action.incidentOn
+                        ? { incidentOn }
+                        : {}),
                       ...(summary.trim() !== action.summary
                         ? { summary: summary.trim() }
                         : {}),
@@ -803,7 +821,8 @@ function EditActionModal({
                 {LEVEL_LABEL[action.level]}
               </Badge>
               <Badge tone="neutral" size="sm">
-                Confirmed {dayLabel(action.acknowledgedAt?.slice(0, 10) ?? null)}
+                Confirmed{" "}
+                {dayLabel(action.acknowledgedAt?.slice(0, 10) ?? null)}
               </Badge>
             </p>
             <p className="mt-1 text-body leading-relaxed text-ink">

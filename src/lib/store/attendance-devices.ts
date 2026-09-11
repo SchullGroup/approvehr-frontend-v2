@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { ApiError } from "@/lib/api/client";
 import {
   DEVICE_SECRET_NEEDS_API,
@@ -131,7 +137,9 @@ const NO_DEVICES: ApiAttendanceDevice[] = [];
  * reason `useWorkLocationList` makes it one: the two answers are for different
  * callers and getting it wrong is invisible.
  */
-export function useAttendanceDevices(includeArchived: boolean): DeviceListState {
+export function useAttendanceDevices(
+  includeArchived: boolean,
+): DeviceListState {
   const { isConnected } = useSession();
   const demo = useSyncExternalStore(
     demoStore.subscribe,
@@ -161,7 +169,8 @@ export function useAttendanceDevices(includeArchived: boolean): DeviceListState 
         );
         if (!cancelled) setFetched({ key, devices, error: null });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
           setFetched({
             key,
@@ -184,9 +193,12 @@ export function useAttendanceDevices(includeArchived: boolean): DeviceListState 
       ...device,
       /* Recomputed on read rather than stored, so a mapping written by the
          enrolment hook cannot leave a stale count on the device row. */
-      enrolments: demo.enrolments.filter((row) => row.deviceId === device.id).length,
+      enrolments: demo.enrolments.filter((row) => row.deviceId === device.id)
+        .length,
     }));
-    return (includeArchived ? rows : rows.filter((row) => row.archivedAt === null))
+    return (
+      includeArchived ? rows : rows.filter((row) => row.archivedAt === null)
+    )
       .slice()
       .sort(byLabel);
   }, [demo, includeArchived]);
@@ -194,7 +206,13 @@ export function useAttendanceDevices(includeArchived: boolean): DeviceListState 
   const matched = fetched !== null && fetched.key === key;
 
   if (!isConnected) {
-    return { devices: demoDevices, loading: false, error: null, source: "demo", reload };
+    return {
+      devices: demoDevices,
+      loading: false,
+      error: null,
+      source: "demo",
+      reload,
+    };
   }
 
   return {
@@ -258,7 +276,8 @@ export function useDeviceEnrolments(
         );
         if (!cancelled) setFetched({ key, enrolments, error: null });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
           setFetched({
             key,
@@ -360,7 +379,8 @@ export function useDeviceMutations(): DeviceMutations {
       const state = demoStore.current();
       const serialNumber = input.serialNumber.trim();
       const clash = state.devices.find(
-        (device) => device.serialNumber.toLowerCase() === serialNumber.toLowerCase(),
+        (device) =>
+          device.serialNumber.toLowerCase() === serialNumber.toLowerCase(),
       );
       if (clash) {
         refuse(
@@ -402,7 +422,8 @@ export function useDeviceMutations(): DeviceMutations {
 
       const state = demoStore.current();
       const existing = state.devices.find((device) => device.id === id);
-      if (!existing) refuse(404, "not_found", "That device could not be found.");
+      if (!existing)
+        refuse(404, "not_found", "That device could not be found.");
 
       const next: ApiAttendanceDevice = {
         ...existing,
@@ -415,7 +436,9 @@ export function useDeviceMutations(): DeviceMutations {
       };
       demoStore.commit({
         ...state,
-        devices: state.devices.map((device) => (device.id === id ? next : device)),
+        devices: state.devices.map((device) =>
+          device.id === id ? next : device,
+        ),
       });
       return next;
     },
@@ -426,7 +449,8 @@ export function useDeviceMutations(): DeviceMutations {
     async (id: string, archived: boolean): Promise<ApiAttendanceDevice> => {
       const state = demoStore.current();
       const existing = state.devices.find((device) => device.id === id);
-      if (!existing) refuse(404, "not_found", "That device could not be found.");
+      if (!existing)
+        refuse(404, "not_found", "That device could not be found.");
       if (archived && existing.archivedAt) {
         refuse(409, "conflict", `${existing.label} is already off.`);
       }
@@ -443,7 +467,9 @@ export function useDeviceMutations(): DeviceMutations {
       };
       demoStore.commit({
         ...state,
-        devices: state.devices.map((device) => (device.id === id ? next : device)),
+        devices: state.devices.map((device) =>
+          device.id === id ? next : device,
+        ),
       });
       return next;
     },
@@ -502,7 +528,12 @@ export function useDeviceMutations(): DeviceMutations {
         ...state,
         enrolments: [
           ...state.enrolments,
-          { id: demoId("de"), deviceId, deviceUserId, employeeId: body.employeeId },
+          {
+            id: demoId("de"),
+            deviceId,
+            deviceUserId,
+            employeeId: body.employeeId,
+          },
         ],
       });
 
@@ -530,13 +561,15 @@ export function useDeviceMutations(): DeviceMutations {
       deviceId: string,
       enrolmentId: string,
     ): Promise<{ removed: string; note: string }> => {
-      if (isConnected) return attendanceApi.unmapDeviceEnrolment(deviceId, enrolmentId);
+      if (isConnected)
+        return attendanceApi.unmapDeviceEnrolment(deviceId, enrolmentId);
 
       const state = demoStore.current();
       const existing = state.enrolments.find(
         (row) => row.id === enrolmentId && row.deviceId === deviceId,
       );
-      if (!existing) refuse(404, "not_found", "That mapping could not be found.");
+      if (!existing)
+        refuse(404, "not_found", "That mapping could not be found.");
 
       demoStore.commit({
         ...state,

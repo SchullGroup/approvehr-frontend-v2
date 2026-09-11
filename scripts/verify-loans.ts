@@ -91,7 +91,11 @@ const d = buildSchedule({
   startPeriod: "2026-09-01",
 });
 push("the regular instalment floors", d.instalmentKobo, 4_285_714);
-push("the last one balances", d.finalInstalmentKobo, 30_000_000 - 4_285_714 * 6);
+push(
+  "the last one balances",
+  d.finalInstalmentKobo,
+  30_000_000 - 4_285_714 * 6,
+);
 push("and it still sums exactly", sum(d.lines), 30_000_000);
 push(
   "only the last line differs",
@@ -105,7 +109,9 @@ let combinations = 0;
 let mismatched = 0;
 let fractional = 0;
 let wrongLength = 0;
-for (const principalKobo of [1_000, 12_345, 5_000_000, 60_000_000, 9_000_000_000]) {
+for (const principalKobo of [
+  1_000, 12_345, 5_000_000, 60_000_000, 9_000_000_000,
+]) {
   for (let termMonths = 1; termMonths <= 24; termMonths += 1) {
     for (const interestRate of [0, 0.01, 0.05, 0.125, 0.3]) {
       const priced = priceLoan({
@@ -117,7 +123,8 @@ for (const principalKobo of [1_000, 12_345, 5_000_000, 60_000_000, 9_000_000_000
       if (!priced) continue;
       combinations += 1;
       if (sum(priced.lines) !== priced.totalKobo) mismatched += 1;
-      if (priced.lines.some((l) => !Number.isInteger(l.amountKobo))) fractional += 1;
+      if (priced.lines.some((l) => !Number.isInteger(l.amountKobo)))
+        fractional += 1;
       if (priced.lines.length !== termMonths) wrongLength += 1;
     }
   }
@@ -128,12 +135,24 @@ push("every schedule has one line per month", wrongLength, 0);
 
 /* --- The period calendar ----------------------------------------------- */
 
-push("due dates pin to the first of the month", monthStart("2026-11-17"), "2026-11-01");
-push("months cross the year boundary", addMonths("2026-11-01", 3), "2027-02-01");
+push(
+  "due dates pin to the first of the month",
+  monthStart("2026-11-17"),
+  "2026-11-01",
+);
+push(
+  "months cross the year boundary",
+  addMonths("2026-11-01", 3),
+  "2027-02-01",
+);
 push("a mid-month start normalises", addMonths("2026-11-17", 0), "2026-11-01");
 push("months read as words", monthLabel("2027-02-01"), "February 2027");
 push("and shorten for a table", shortMonthLabel("2027-02-01"), "Feb 2027");
-push("an earlier month is before", isBeforeMonth("2026-07-01", "2026-08-19"), true);
+push(
+  "an earlier month is before",
+  isBeforeMonth("2026-07-01", "2026-08-19"),
+  true,
+);
 push("the same month is not", isBeforeMonth("2026-08-01", "2026-08-19"), false);
 
 /* --- Not-yet-a-loan inputs price to null rather than throwing ----------- */
@@ -170,7 +189,9 @@ const rows = checks.map((check) => {
 console.log(rows.join("\n"));
 
 if (failures.length) {
-  console.error(`\nLoan check failed:\n${failures.map((f) => "  " + f).join("\n")}`);
+  console.error(
+    `\nLoan check failed:\n${failures.map((f) => "  " + f).join("\n")}`,
+  );
   process.exit(1);
 }
 console.log(

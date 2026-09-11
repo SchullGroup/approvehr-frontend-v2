@@ -5,7 +5,8 @@ import { PayrollRunWizard } from "./wizard";
 
 export const metadata: Metadata = {
   title: "Run payroll",
-  description: "Calculate a month's pay, fix what it flags, then approve it. Nothing is paid until you approve.",
+  description:
+    "Calculate a month's pay, fix what it flags, then approve it. Nothing is paid until you approve.",
 };
 
 export default function NewPayrollRunPage() {
@@ -23,9 +24,7 @@ export default function NewPayrollRunPage() {
             and `useSearchParams` needs a boundary for this route to stay
             prerenderable. */}
         <Suspense
-          fallback={
-            <p className="text-body-sm text-muted">Loading the run…</p>
-          }
+          fallback={<p className="text-body-sm text-muted">Loading the run…</p>}
         >
           <PayrollRunWizard />
         </Suspense>

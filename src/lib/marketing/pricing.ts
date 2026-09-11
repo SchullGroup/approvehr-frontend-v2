@@ -103,8 +103,9 @@ export const ANNUAL_MONTHS_CHARGED = 10;
 
 export function tierFor(headcount: number): Tier {
   return (
-    TIERS.find((t) => headcount >= t.min && (t.max === null || headcount <= t.max)) ??
-    TIERS[TIERS.length - 1]
+    TIERS.find(
+      (t) => headcount >= t.min && (t.max === null || headcount <= t.max),
+    ) ?? TIERS[TIERS.length - 1]
   );
 }
 
@@ -155,24 +156,3 @@ export function cumulativeIncludes(tierId: TierId): string[] {
   const index = TIERS.findIndex((t) => t.id === tierId);
   return TIERS.slice(0, index + 1).flatMap((t) => [...t.includes, ...t.adds]);
 }
-
-export const ADD_ONS = [
-  {
-    name: "Earned wage access",
-    price: "No platform fee",
-    detail:
-      "Staff draw part of salary already earned. Priced per transaction, settled against your payroll run.",
-  },
-  {
-    name: "Job board syndication",
-    price: "₦45,000 / month",
-    detail:
-      "Push every open role to Jobberman, LinkedIn and your careers page from one place.",
-  },
-  {
-    name: "Implementation and migration",
-    price: "From ₦250,000 once",
-    detail:
-      "We move your existing employee records, balances and payroll history and reconcile the first run with you.",
-  },
-];

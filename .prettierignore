@@ -1,4 +1,27 @@
-
+# Build output. `.next-*/` does not match `.next/` — the glob needs the dash —
+# so both are listed. A production build is dropped into `.next-verify/` by
+# `npm run verify-demo:build`, which is why the wildcard exists at all.
+.next
 .next-*/
 test-results/
 playwright-report/
+node_modules
+
+# Generated. `--check/` is a marketing export somebody produced by running
+# `scripts/export-marketing.ts --check`, where the script read the flag as its
+# output path. It is 59 tracked files nothing should read — and a directory
+# whose name starts with `--` is a live hazard for a tool invoked as
+# `prettier --check`, so it is excluded rather than left to be shell-expanded
+# into an argument.
+--check/
+
+# Lockfiles. Rewriting one to satisfy a formatter is how a lockfile stops
+# matching what the package manager would produce.
+package-lock.json
+pnpm-lock.yaml
+
+# Agent worktrees. `.git/info/exclude` keeps these out of git's view, but that
+# file is local and uncommitted, so every other tool in the repo still walks
+# into them. This has twice made a gate report errors in files nobody here
+# wrote — once in ESLint, once in the API repo's own `format:check`.
+.claude

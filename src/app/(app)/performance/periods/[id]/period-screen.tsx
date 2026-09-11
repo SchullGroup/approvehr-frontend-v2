@@ -2,14 +2,17 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   CheckCheck,
   ListChecks,
   Lock,
   Play,
+  Trash2,
   UserX,
   Users,
+  Wand2,
 } from "lucide-react";
 import {
   Badge,
@@ -21,6 +24,7 @@ import {
   Callout,
   Checkbox,
   ConfirmDialog,
+  Disclosure,
   EmptyState,
   Field,
   Input,
@@ -37,6 +41,7 @@ import {
   Textarea,
   useToast,
 } from "@/components/ui";
+import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { cn } from "@/lib/cn";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -45,12 +50,14 @@ import {
   EXCEPTION_CODE_SUMMARY,
   dayLabel,
   groupExceptionsByCode,
+  ratingWordsFrom,
   scoreLabel,
   weightLabel,
   type ApiAppraiserMap,
   type ApiComponentScore,
   type ReviewCycleStage,
   type ApiAppraiserMapRow,
+  type ApiCycle,
   type ApiCycleParticipants,
   type ApiRevisionRequest,
   type ApiScoreRegister,
@@ -59,9 +66,12 @@ import {
 import { useCan } from "@/lib/permissions";
 import {
   outstandingIn,
+  useAppraiserMutations,
   useCycleMutations,
   useCycleRegister,
+  useRatingScale,
 } from "@/lib/store/performance";
+import { periodWords } from "../../review-parts";
 import { QuestionsDialog } from "../../period-dialogs";
 import { AppraisersDialog } from "../../appraiser-map";
 import { AskPeersButton } from "./ask-peers";
@@ -137,6 +147,7 @@ const STAGE_NEXT_LABEL: Record<string, string> = {
 };
 
 export function PeriodScreen({ cycleId }: { cycleId: string }) {
+  const router = useRouter();
   const canSeeCompany = useCan("EDIT_RECORDS");
   const canManage = useCan("MANAGE_SETTINGS");
   const detail = useCycleRegister(cycleId, canSeeCompany);
@@ -146,6 +157,8 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
   const [chasing, setChasing] = useState(false);
   const [starting, setStarting] = useState(false);
   const [confirmingStart, setConfirmingStart] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [questionsOpen, setQuestionsOpen] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [advancing, setAdvancing] = useState(false);
@@ -231,6 +244,30 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
     } finally {
       setStarting(false);
       setConfirmingStart(false);
+    }
+  };
+
+  /**
+   * Delete the draft outright. Only ever offered on a draft — a running or
+   * published period is a record of what people were asked, and the API
+   * refuses it for exactly that reason if this is somehow reached anyway.
+   */
+  const deleteCycle = async () => {
+    if (!period) return;
+    setDeleting(true);
+    try {
+      await periods.deleteCycle(cycleId);
+      toast.push({
+        title: `${period.name} deleted`,
+        tone: "success",
+        detail: "Nothing was ever sent, so there is nothing to undo.",
+      });
+      router.push("/performance/periods");
+    } catch (error) {
+      failed(error);
+    } finally {
+      setDeleting(false);
+      setConfirmingDelete(false);
     }
   };
 
@@ -336,6 +373,15 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                   ? "Everybody"
                   : `${period.departmentIds.length} ${period.departmentIds.length === 1 ? "department" : "departments"}`}
               </Badge>
+              {/* What the period covers, which used to be inferable only from
+                  its name. Absent rather than "no period set": a badge saying
+                  a field is empty is noise on every period written before the
+                  field existed, and nothing was back-filled. */}
+              {periodWords(period.periodStart, period.periodEnd) && (
+                <Badge tone="neutral" size="sm">
+                  {periodWords(period.periodStart, period.periodEnd)}
+                </Badge>
+              )}
               {period.managersCanAddQuestions && (
                 /* The manager question-writing flow exists, is guarded and is
                    tested, and the feedback could not find it — it lives on the
@@ -402,6 +448,21 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 Publish the results
               </Button>
             )}
+            {/* Draft only — a running or published period is a record of what
+                people were asked, and the API refuses deleting one anyway.
+                Quiet on purpose: this is the one destructive control on the
+                page and it must not compete with Start the period for
+                attention. */}
+            {canManage && draft && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setConfirmingDelete(true)}
+              >
+                <Trash2 aria-hidden="true" className="size-3.5" />
+                Delete this period
+              </Button>
+            )}
           </>
         }
       />
@@ -455,86 +516,58 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                   value={period.managersCanAddQuestions}
                   onChanged={() => detail.reload()}
                 />
+                <PeriodFramingEditor
+                  period={period}
+                  onChanged={() => detail.reload()}
+                />
               </CardBody>
             </Card>
           )}
 
-          {/* Not a toast. Somebody has to act on these, and a toast is gone in
-              six seconds. They stay until the page is left or somebody dismisses
-              them. */}
-          {noAppraiser && (
-            <Callout
-              tone="danger"
-              title="Some people have nobody appraising them"
-            >
-              <p>
-                {noAppraiser.join(", ")}{" "}
-                {noAppraiser.length === 1 ? "has" : "have"} no manager, so
-                starting this period gave them no appraiser. They will finish it
-                with no mark unless somebody is assigned.
-              </p>
-              {/* Dismiss used to be the only button here, on a message whose
-                  own last sentence told somebody to assign an appraiser. The
-                  card that does that is on this page — this takes them to it,
-                  where every one of these people now has an Assign button
-                  beside their name.
+          {/* A line each. These were two tinted panels, each with a heading, a
+              paragraph explaining the consequence, an action and a Dismiss —
+              stacked, immediately after pressing Start, on the screen that
+              fixes both. The names are what somebody needs; the essay about
+              how a missing part is carried by the rest of the score belongs
+              where the score is explained, not over the top of a list of
+              people. See `NoticeLine`.
 
-                  `withoutAppraiser` is a list of names and not rows (see
-                  `activateCycle`), so the callout cannot open the dialog on one
-                  person directly. Sending them to the card that can is the
-                  honest affordance rather than a button that guesses. */}
-              <p className="mt-2 flex flex-wrap items-center gap-2">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => {
-                    document
-                      .getElementById(APPRAISER_EXCEPTIONS_ANCHOR)
-                      ?.scrollIntoView({ behavior: "smooth", block: "start" });
-                  }}
-                >
-                  Assign appraisers
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setNoAppraiser(null)}
-                >
-                  Dismiss
-                </Button>
-              </p>
-            </Callout>
+              `withoutAppraiser` is a list of names and not rows (see
+              `activateCycle`), so this cannot open the dialog on one person
+              directly. Scrolling to the card that can is the honest
+              affordance rather than a control that guesses. */}
+          {noAppraiser && (
+            <NoticeLine tone="danger">
+              <span>
+                {noAppraiser.length === 1
+                  ? `${noAppraiser[0]} has no appraiser`
+                  : `${noAppraiser.length} people have no appraiser: ${noAppraiser.join(", ")}`}
+              </span>
+              <button
+                type="button"
+                className={NOTICE_LINK}
+                onClick={() => {
+                  document
+                    .getElementById(APPRAISER_EXCEPTIONS_ANCHOR)
+                    ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }}
+              >
+                Assign appraisers
+              </button>
+            </NoticeLine>
           )}
 
           {noObjectives && (
-            <Callout
-              tone="warning"
-              title="Some people have nothing agreed to be judged on"
-            >
-              <p>
-                {noObjectives.join(", ")}{" "}
-                {noObjectives.length === 1 ? "has" : "have"} no agreed objective
-                in this period. Delivery against objectives is one of the four
-                parts an appraisal is made of, so that part of their mark cannot
-                be worked out: it is left out rather than scored zero, and the
-                rest of their score carries the difference.
-              </p>
-              <p className="mt-2 flex flex-wrap items-center gap-3">
-                <Link
-                  href="/performance/approvals"
-                  className="font-medium underline-offset-2 hover:underline"
-                >
-                  Agree what is waiting
-                </Link>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setNoObjectives(null)}
-                >
-                  Dismiss
-                </Button>
-              </p>
-            </Callout>
+            <NoticeLine tone="warning">
+              <span>
+                {noObjectives.length === 1
+                  ? `${noObjectives[0]} has no agreed objective`
+                  : `${noObjectives.length} people have no agreed objective: ${noObjectives.join(", ")}`}
+              </span>
+              <Link href="/performance/approvals" className={NOTICE_LINK}>
+                Agree what is waiting
+              </Link>
+            </NoticeLine>
           )}
 
           {/* Not a permission problem and not an outage. Two different sentences,
@@ -648,6 +681,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
             <NobodyAppraising
               cycleId={cycleId}
               exceptions={stableExceptions}
+              draft={draft}
               onFixed={() => detail.reload()}
             />
           )}
@@ -687,6 +721,15 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
             periods.updateQuestion(id, body).then(() => {})
           }
           onRemove={(id) => periods.removeQuestion(id).then(() => {})}
+          /* Every stage but published. The API refuses a rearrangement once
+             the form is a record, so the dialog drops the handles entirely
+             there rather than offering a drag that would be undone. */
+          {...(period.stage !== "PUBLISHED"
+            ? {
+                onReorder: (ids: string[]) =>
+                  periods.reorderQuestions(cycleId, ids).then(() => {}),
+              }
+            : {})}
           /* Only on a draft. The API refuses a copy onto a period that has
              started, and the dialog drops the whole offer without this prop
              rather than showing a button that would be refused. */
@@ -694,6 +737,14 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
             ? {
                 onCopyFrom: (sourceCycleId: string) =>
                   periods.copyQuestions(cycleId, sourceCycleId),
+              }
+            : {})}
+          /* Same gate as `onCopyFrom`, same reason: the API refuses this
+             once the cycle has started. */
+          {...(period.stage === "DRAFT"
+            ? {
+                onAddStandard: () =>
+                  periods.addStandardQuestions(cycleId).then(() => {}),
               }
             : {})}
         />
@@ -726,6 +777,19 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
           confirmLabel="Start it"
           tone="primary"
           body="Everybody gets their form today, and the questions are fixed the moment it starts — add any more first."
+        />
+      )}
+
+      {confirmingDelete && period && (
+        <ConfirmDialog
+          open
+          onClose={() => setConfirmingDelete(false)}
+          onConfirm={() => void deleteCycle()}
+          loading={deleting}
+          title="Delete this period?"
+          confirmLabel="Delete it"
+          tone="danger"
+          body={`Nothing has been sent for ${period.name}, so nothing is lost by deleting it — the questions go with it, and this cannot be undone.`}
         />
       )}
     </>
@@ -766,12 +830,69 @@ const APPRAISER_EXCEPTIONS_ANCHOR = "appraiser-exceptions";
 function NobodyAppraising({
   cycleId,
   exceptions,
+  draft,
   onFixed,
 }: {
   cycleId: string;
   exceptions: ApiAppraiserMap | null;
+  /** Before the period starts, when starting it is itself the fix. */
+  draft: boolean;
   onFixed: () => void;
 }) {
+  const appraisers = useAppraiserMutations();
+  const toast = useToast();
+  const [filling, setFilling] = useState(false);
+
+  /**
+   * The same act `activateCycle` performs, on its own button.
+   *
+   * A second control for one mutation is usually how two screens come to
+   * disagree, and it is safe here for a reason worth stating: `auto` is
+   * **idempotent and only ever fills blanks** — `autoAssignFromReportingLine`
+   * skips anybody already mapped — so pressing it twice, or pressing it and
+   * then starting the period, cannot double-assign or overwrite a mapping
+   * somebody built by hand. That is not true of the payment batch this
+   * codebase refuses to give two doors.
+   *
+   * It exists because the alternative was navigating away from the screen that
+   * raised the problem to find the button that answers it.
+   */
+  const fillFromReportingLine = async () => {
+    setFilling(true);
+    try {
+      const result = await appraisers.autoAssign(cycleId);
+      toast.push({
+        title:
+          result.created === 0
+            ? "Everybody already has an appraiser"
+            : result.created === 1
+              ? "1 person given their line manager"
+              : `${result.created} people given their line manager`,
+        tone: "success",
+        /* Named, not counted. These are the people who would otherwise finish
+           the period with no mark at all, and a number tells nobody who to go
+           and look at. */
+        ...(result.withoutManager.length > 0
+          ? {
+              detail: `Still nobody appraising: ${result.withoutManager.join(", ")}. They have no manager either, so assign somebody by hand.`,
+            }
+          : {}),
+      });
+      onFixed();
+    } catch (caught) {
+      toast.push({
+        title: "That did not work",
+        tone: "danger",
+        detail:
+          caught instanceof ApiError
+            ? caught.message
+            : "Something went wrong. Try again.",
+      });
+    } finally {
+      setFilling(false);
+    }
+  };
+
   const [reviewing, setReviewing] = useState<{
     code: string;
     severity: "BLOCKER" | "WARNING";
@@ -813,9 +934,17 @@ function NobodyAppraising({
       <CardHeader
         title="Who is appraising whom"
         description={
-          exceptions.counts.unassigned > 0
-            ? "Somebody with no appraiser finishes this period with no mark. Set a manager on their record, or assign an appraiser."
-            : "What is wrong with the mapping, by name."
+          exceptions.counts.unassigned === 0
+            ? "What is wrong with the mapping, by name."
+            : draft
+              ? /* The sentence this replaced said only "set a manager on their
+                   record, or assign an appraiser" — true, and it invited
+                   somebody to do by hand what starting the period does for
+                   everybody at once. On a draft that is a hundred clicks
+                   offered in place of one, and it was reported as exactly
+                   that. */
+                "Starting the period gives everybody their line manager automatically — nobody here needs assigning by hand first. Do it now with the button below if you would rather see the mapping before you start, and assign anybody the reporting line cannot cover."
+              : "Somebody with no appraiser finishes this period with no mark. Set a manager on their record, or assign an appraiser."
         }
         action={
           <Badge
@@ -830,6 +959,20 @@ function NobodyAppraising({
         }
       />
       <CardBody className="flex flex-col gap-2">
+        {exceptions.counts.unassigned > 0 && (
+          <div>
+            <Button
+              variant="secondary"
+              size="sm"
+              loading={filling}
+              disabled={filling}
+              onClick={() => void fillFromReportingLine()}
+            >
+              <Wand2 aria-hidden="true" className="size-4" />
+              Fill in from the reporting line
+            </Button>
+          </div>
+        )}
         {groupExceptionsByCode(flat).map((group) => {
           const tone =
             group.severity === "BLOCKER"
@@ -1018,6 +1161,39 @@ function Outstanding({
   if (!participants) return null;
   const { counts } = participants;
 
+  /**
+   * Both halves of each ratio, from one source.
+   *
+   * The manager denominator was `counts.people` — the headcount — and that is
+   * only right for a company where everybody has exactly one appraiser. It
+   * read *"Manager reviews in 0 of 10"* on a period where one of the ten has
+   * no manager review at all, on the same card that said 18 forms were
+   * outstanding (9 self + 9 manager), and two clicks away the overview strip
+   * reported 0 of 9 for the same figure.
+   *
+   * A manager review is a **review**, not a person: somebody with two
+   * appraisers owes two and somebody with none owes none. So the denominator
+   * is how many exist, counted off the same rows the numerator is counted
+   * off. `period-status.tsx` already states this rule for the report
+   * endpoint's `managerIn + managerOutstanding`; this screen reads a
+   * different endpoint and had not been given it.
+   *
+   * Self is derived the same way rather than kept on `counts.people`. It is
+   * very nearly always the headcount — everybody gets one — but `self` is
+   * nullable on a participant, and a ratio whose two halves come from
+   * different places is exactly the defect above.
+   */
+  const managerTotal = participants.rows.reduce(
+    (total, row) => total + row.managers.length,
+    0,
+  );
+  const managerIn = participants.rows.reduce(
+    (total, row) => total + row.managers.filter((one) => one.submitted).length,
+    0,
+  );
+  const selfTotal = participants.rows.filter((row) => row.self !== null).length;
+  const selfIn = participants.rows.filter((row) => row.self?.submitted).length;
+
   return (
     <Card>
       <CardHeader
@@ -1033,17 +1209,17 @@ function Outstanding({
           <Stat
             label="Self-reviews in"
             value={
-              counts.people === 0
+              selfTotal === 0
                 ? "Nobody has a form yet"
-                : `${counts.selfDone} of ${counts.people}`
+                : `${selfIn} of ${selfTotal}`
             }
           />
           <Stat
             label="Manager reviews in"
             value={
-              counts.people === 0
+              managerTotal === 0
                 ? "No manager review is due yet"
-                : `${counts.managerDone} of ${counts.people}`
+                : `${managerIn} of ${managerTotal}`
             }
           />
           <Stat label="Forms outstanding" value={String(rows.length)} />
@@ -1107,6 +1283,10 @@ function MultiAppraiserReviews({
 }: {
   participants: ApiCycleParticipants | null;
 }) {
+  /* Before the early returns: a hook cannot run conditionally. */
+  const { scale } = useRatingScale();
+  const ratingWords = ratingWordsFrom(scale.levels);
+
   if (!participants) return null;
   const rows = participants.rows.filter((row) => row.managers.length > 1);
   if (rows.length === 0) return null;
@@ -1135,7 +1315,7 @@ function MultiAppraiserReviews({
                       ? "Written, not final"
                       : "Not written yet"}
                   {manager.rating !== null
-                    ? ` · ${manager.rating} out of 5`
+                    ? ` · ${ratingWords(manager.rating)}`
                     : ""}
                 </p>
               </div>
@@ -1370,11 +1550,7 @@ function RegisterRow({
           {row.scoreBp === null ? (
             <span className="text-meta text-muted">No mark yet</span>
           ) : (
-            <CalibrateButton
-              cycleId={cycleId}
-              row={row}
-              onChanged={onAsked}
-            />
+            <CalibrateButton cycleId={cycleId} row={row} onChanged={onAsked} />
           )}
         </TD>
       )}
@@ -1516,6 +1692,162 @@ function SignOffCell({ row }: { row: ApiScoreRow }) {
  * the period has started, so a stale toggle here would fail loudly rather
  * than silently doing nothing.
  */
+/**
+ * What a draft period covers, and what to tell people — editable until it
+ * starts.
+ *
+ * ## Why it is here and not on the start dialog alone
+ *
+ * The dialog asks for all of this, and somebody creating a period in a hurry
+ * skips it. The scope cannot be offered here — the API reads `departmentIds`
+ * once, at activation, so a control for it after the fact would silently do
+ * nothing — but these four are read every time a form is opened, so they stay
+ * editable for as long as the period is a draft and there is no form yet.
+ *
+ * Behind a reveal, closed, with the current answer in the summary. It is not a
+ * blocker: a period with no stated instructions still runs.
+ *
+ * ## Both dates or neither
+ *
+ * Checked here, and the API checks the **resulting row** rather than the
+ * patch — `{ periodStart: null }` on its own leaves an end with no start, and
+ * looks perfectly consistent as a payload. Clearing is `null`, which is why
+ * the two dates are sent together as a pair either way.
+ */
+function PeriodFramingEditor({
+  period,
+  onChanged,
+}: {
+  period: ApiCycle;
+  onChanged: () => void;
+}) {
+  const periods = useCycleMutations();
+  const toast = useToast();
+
+  const [start, setStart] = useState(period.periodStart ?? "");
+  const [end, setEnd] = useState(period.periodEnd ?? "");
+  const [instructions, setInstructions] = useState(period.instructions ?? "");
+  const [guideUrl, setGuideUrl] = useState(period.guideUrl ?? "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const dirty =
+    start !== (period.periodStart ?? "") ||
+    end !== (period.periodEnd ?? "") ||
+    instructions !== (period.instructions ?? "") ||
+    guideUrl !== (period.guideUrl ?? "");
+
+  const save = async () => {
+    if (Boolean(start) !== Boolean(end)) {
+      setError("A period needs a start and an end. Set both, or clear both.");
+      return;
+    }
+    if (start && end && start > end) {
+      setError("The period ends before it starts.");
+      return;
+    }
+    if (guideUrl.trim() && !/^https?:\/\//i.test(guideUrl.trim())) {
+      setError("A guide link has to start with http:// or https://.");
+      return;
+    }
+    setError(null);
+    setSaving(true);
+    try {
+      await periods.updateCycle(period.id, {
+        /* Sent as a pair, and `null` where cleared — the API's rule is about
+           the row that results, not the fields that arrived. */
+        periodStart: start || null,
+        periodEnd: end || null,
+        instructions: instructions.trim() || null,
+        guideUrl: guideUrl.trim() || null,
+      });
+      onChanged();
+      toast.push({
+        title: "Saved",
+        tone: "success",
+        detail: "Everybody's form will show this above the first question.",
+      });
+    } catch (caught) {
+      setError(
+        caught instanceof ApiError
+          ? caught.message
+          : "Could not save that. Try again.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Disclosure
+      title="What this period covers, and what to tell people"
+      meta={
+        periodWords(period.periodStart, period.periodEnd) ??
+        (period.instructions ? "No dates set" : "Nothing set")
+      }
+      hint="Shown above the first question on everybody's form."
+    >
+      <div className="flex flex-col gap-3">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field optional label="Period covered — from">
+            <Input
+              type="date"
+              value={start}
+              onChange={(event) => setStart(event.target.value)}
+            />
+          </Field>
+          <Field optional label="to">
+            <Input
+              type="date"
+              value={end}
+              onChange={(event) => setEnd(event.target.value)}
+            />
+          </Field>
+        </div>
+        <Field optional label="Instructions">
+          <Textarea
+            rows={5}
+            value={instructions}
+            onChange={(event) => setInstructions(event.target.value)}
+          />
+        </Field>
+        <p className="text-meta text-muted">
+          Plain text. Line breaks are kept, so a blank line makes a new
+          paragraph.
+        </p>
+        <Field optional label="A link to your own guide">
+          <Input
+            type="url"
+            inputMode="url"
+            value={guideUrl}
+            placeholder="https://…"
+            onChange={(event) => setGuideUrl(event.target.value)}
+          />
+        </Field>
+        {error && (
+          <p
+            role="status"
+            className="rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-body-sm text-ink"
+          >
+            {error}
+          </p>
+        )}
+        <div>
+          <Button
+            variant="accent"
+            size="sm"
+            loading={saving}
+            disabled={!dirty}
+            onClick={() => void save()}
+          >
+            Save
+          </Button>
+        </div>
+      </div>
+    </Disclosure>
+  );
+}
+
 function ManagerQuestionsToggle({
   cycleId,
   value,
@@ -1693,7 +2025,11 @@ function CalibrateButton({
               {/* Only offered where there is something to undo, and away from
                   the save button — it is the destructive half. */}
               {existing ? (
-                <Button variant="ghost" disabled={busy} onClick={() => void clear()}>
+                <Button
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={() => void clear()}
+                >
                   Put it back
                 </Button>
               ) : (
@@ -1811,9 +2147,7 @@ function RevisionButton({
   const toast = useToast();
 
   const [open, setOpen] = useState(false);
-  const [targetStage, setTargetStage] = useState<"SELF" | "MANAGER">(
-    "MANAGER",
-  );
+  const [targetStage, setTargetStage] = useState<"SELF" | "MANAGER">("MANAGER");
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);

@@ -61,11 +61,7 @@ export type PaymentBatchStatus =
 
 /** Mirrors `PaymentInstructionStatus`. `REVERSED` means the money came back. */
 export type PaymentInstructionStatus =
-  | "PENDING"
-  | "SUBMITTED"
-  | "SETTLED"
-  | "FAILED"
-  | "REVERSED";
+  "PENDING" | "SUBMITTED" | "SETTLED" | "FAILED" | "REVERSED";
 
 /** Mirrors `LedgerKind`. */
 export type LedgerKind =
@@ -501,7 +497,8 @@ export function paymentOutcome(row: {
       return {
         label: "Failed",
         tone: "danger",
-        hint: row.failureReason ?? "The transfer was attempted and did not work.",
+        hint:
+          row.failureReason ?? "The transfer was attempted and did not work.",
         moved: "no",
       };
     case "REVERSED":
@@ -920,7 +917,10 @@ export const paymentsApi = {
     request<ApiAccountCreated>("/payments/accounts", { method: "POST", body }),
 
   updateAccount: (id: string, body: UpdateAccountBody) =>
-    request<ApiBankAccount>(`/payments/accounts/${id}`, { method: "PATCH", body }),
+    request<ApiBankAccount>(`/payments/accounts/${id}`, {
+      method: "PATCH",
+      body,
+    }),
 
   /** Archived, not deleted — past batches still point at it. */
   archiveAccount: (id: string) =>
@@ -972,7 +972,9 @@ export const paymentsApi = {
 
   /** The money door. Re-runs the gate and refuses if anything moved. */
   approve: (id: string) =>
-    request<ApiBatchApproved>(`/payments/batches/${id}/approve`, { method: "POST" }),
+    request<ApiBatchApproved>(`/payments/batches/${id}/approve`, {
+      method: "POST",
+    }),
 
   /**
    * Hands the batch to the provider. **There is no provider.**
@@ -983,7 +985,9 @@ export const paymentsApi = {
    * error the user did something wrong; it is the state of the product.
    */
   release: (id: string) =>
-    request<ApiBatchSubmitted>(`/payments/batches/${id}/submit`, { method: "POST" }),
+    request<ApiBatchSubmitted>(`/payments/batches/${id}/submit`, {
+      method: "POST",
+    }),
 
   /**
    * Record that a bank paid this batch.

@@ -12,6 +12,7 @@ import {
   CardHeader,
   Callout,
   ConfirmDialog,
+  Disclosure,
   EmptyState,
   Spinner,
   Stat,
@@ -22,6 +23,7 @@ import { ApiError } from "@/lib/api/client";
 import {
   dayLabel,
   dayOf,
+  ratingWordsFrom,
   scoreLabel,
   weightLabel,
   type ApiComponentScore,
@@ -32,12 +34,18 @@ import { useCan } from "@/lib/permissions";
 import { useSession } from "@/lib/store/session";
 import {
   useEmployeeScore,
+  useRatingScale,
   useReview,
   useSignOff,
   useSubjectSelfReview,
 } from "@/lib/store/performance";
 import { ReviewFormModal } from "../../review-form";
-import { AppraiserStrip, ReadAnswer, draftFrom } from "../../review-parts";
+import {
+  AppraiserStrip,
+  PeriodFraming,
+  ReadAnswer,
+  draftFrom,
+} from "../../review-parts";
 import { SignOffDialog, type SignOffAct } from "./sign-off-dialog";
 
 /**
@@ -74,8 +82,59 @@ import { SignOffDialog, type SignOffAct } from "./sign-off-dialog";
  * read-only copy of a form drifts until it renders a question the form has
  * stopped asking.
  */
+/**
+ * How much of this form is still to do, in a sentence whose noun is true.
+ *
+ * `outstanding` is **required** questions only — the API filters on
+ * `question.required && answer === null`, which is the right thing for it to
+ * carry, because required-and-unanswered is what refuses a submit. The
+ * description read *"2 questions still unanswered"* above three questions
+ * each showing "Not answered": the number was right and the noun was not.
+ *
+ * Naming the requirement also makes the number useful rather than merely
+ * accurate — what a reader wants to know is what is standing between them and
+ * sending the form. The optional ones are still counted, separately, because
+ * silently dropping an unanswered question from a summary is how a form gets
+ * sent with a blank nobody meant to leave.
+ *
+ * The same rule the payroll side keeps a helper pair for: a number under a
+ * label has to be true of the thing the label names.
+ */
+function unansweredLine(review: {
+  outstanding: string[];
+  questions: { required: boolean; answer: unknown }[];
+}): string {
+  const required = review.outstanding.length;
+  const optional = review.questions.filter(
+    (question) => !question.required && question.answer === null,
+  ).length;
+
+  const optionalPart =
+    optional === 0
+      ? ""
+      : optional === 1
+        ? " One optional question is also unanswered."
+        : ` ${String(optional)} optional questions are also unanswered.`;
+
+  if (required === 0) {
+    return optional === 0
+      ? "Every question on this form is answered."
+      : `Every required question is answered.${optionalPart}`;
+  }
+  const requiredPart =
+    required === 1
+      ? "1 required question still to answer."
+      : `${String(required)} required questions still to answer.`;
+  return `${requiredPart}${optionalPart}`;
+}
+
 export function ReviewScreen({ reviewId }: { reviewId: string }) {
   const { review, loading, error, reload } = useReview(reviewId);
+  /* The company's own words. A record of a mark is the last place that should
+     be quoting a scale the company renamed — it is the screen somebody reads
+     when they are deciding whether to dispute it. */
+  const { scale } = useRatingScale();
+  const ratingWords = ratingWordsFrom(scale.levels);
   const { actingId } = useSession();
   const canSeeCompany = useCan("EDIT_RECORDS");
   const signOff = useSignOff();
@@ -227,17 +286,22 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
       <PageBody>
         <div className="flex flex-col gap-6">
           {/* Which reading this is. One route serves every reader, so saying so
-              costs a line and saves somebody wondering why a colleague sees a
-              button they do not. */}
-          <p className="text-body-sm text-muted">
-            {isSubject
-              ? "You are reading this as the person it is about."
-              : review.mine
+              saves somebody wondering why a colleague sees a button they do not.
+
+              **Not to the subject.** "You are reading this as the person it is
+              about" tells somebody opening their own appraisal a thing they
+              knew before they clicked, at the top of the screen, in the place
+              a reader looks first. The line earns its space for the other
+              three readings, where the asymmetry is real. */}
+          {!isSubject && (
+            <p className="text-body-sm text-muted">
+              {review.mine
                 ? "You are reading this as the person who wrote it."
                 : canSeeCompany
                   ? "You are reading this with the records permission."
                   : "You are reading this as their manager."}
-          </p>
+            </p>
+          )}
 
           {owesAnswer && (
             <Callout
@@ -290,7 +354,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
                   value={
                     review.rating === null
                       ? "None given"
-                      : `${review.rating} out of 5`
+                      : (ratingWords(review.rating) as string)
                   }
                   {...(review.rating === null
                     ? { hint: "The answers were the judgement" }
@@ -313,16 +377,24 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
                       ? { hint: `Due ${dayLabel(review.dueDate)}` }
                       : {})}
                 />
-                <Stat
-                  label="Rating of record"
-                  value={review.finalised ? "Yes" : "Not yet"}
-                  hint={
-                    review.finalisedAt
-                      ? `Final on ${dayOf(review.finalisedAt)}`
-                      : "Until it is final, nothing has been told to anybody"
-                  }
-                />
               </div>
+
+              {/* The third Stat here used to read "Rating of record — Yes /
+                  Final on 3 September", which is what the "Final" badge at the
+                  top of the page already says, in a heavier register, six
+                  inches away. Two claims about one fact is the clutter the
+                  feedback named; the date is worth keeping and a Stat is not
+                  the shape for it.
+
+                  In every other state something else on the screen already
+                  says it: the callout above asks the subject for an answer, the
+                  card below records the one they gave, and the footer tells an
+                  appraiser what finalising will do. */}
+              {review.finalisedAt && (
+                <p className="text-body-sm text-muted">
+                  Made the rating of record on {dayOf(review.finalisedAt)}.
+                </p>
+              )}
 
               {review.appraiser && (
                 <AppraiserStrip
@@ -411,11 +483,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
           <Card>
             <CardHeader
               title="What was asked, and what was answered"
-              description={
-                review.outstanding.length === 0
-                  ? "Every question on this form."
-                  : `${review.outstanding.length === 1 ? "1 question" : `${review.outstanding.length} questions`} still unanswered.`
-              }
+              description={unansweredLine(review)}
               {...(review.mine && !review.submitted
                 ? {
                     action: (
@@ -439,18 +507,32 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
               />
             ) : (
               <CardBody className="flex flex-col gap-4">
+                {/* Above the answers, because this is the record of a mark and
+                    what period it covers is part of the record. Renders
+                    nothing when the period states nothing. */}
+                <PeriodFraming
+                  periodStart={review.periodStart}
+                  periodEnd={review.periodEnd}
+                  instructions={review.instructions}
+                  guideUrl={review.guideUrl}
+                />
                 {review.questions.map((question) => (
                   <ReadAnswer
                     key={question.id}
                     question={question}
                     held={draftFrom(question)}
+                    reviewId={review.id}
                   />
                 ))}
               </CardBody>
             )}
           </Card>
 
-          <TheirOwnAccount review={selfReview} loading={selfLoading} />
+          <TheirOwnAccount
+            review={selfReview}
+            loading={selfLoading}
+            ratingWords={ratingWords}
+          />
         </div>
       </PageBody>
 
@@ -530,9 +612,15 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
 function TheirOwnAccount({
   review,
   loading,
+  ratingWords,
 }: {
   review: ApiReviewDetail | null;
   loading: boolean;
+  /* Same convention as the rating displayed for the review being read on this
+     page (see the "Overall mark" Stat above): the word, not the digit, in
+     this company's own scale. Passed down rather than recomputed so the two
+     cannot ever quote a different scale. */
+  ratingWords: (level: number | null | undefined) => string | null;
 }) {
   if (loading) {
     return (
@@ -557,6 +645,22 @@ function TheirOwnAccount({
             : "Their answers, as they sent them. Yours are above."
         }
       />
+      {/* Their own overall mark, beside the manager's on the card above —
+          the comparison the doc feedback asked for: what did they rate
+          themselves, before you rate them. Absent, never zero. */}
+      <CardBody className="pb-0">
+        <Stat
+          label="Their overall mark"
+          value={
+            review.rating === null
+              ? "None given"
+              : (ratingWords(review.rating) as string)
+          }
+          {...(review.rating === null
+            ? { hint: "The answers were the judgement" }
+            : {})}
+        />
+      </CardBody>
       {review.summary && (
         <CardBody className="pb-0">
           <p className="text-body-sm leading-relaxed text-body">
@@ -575,6 +679,10 @@ function TheirOwnAccount({
               key={question.id}
               question={question}
               held={draftFrom(question)}
+              /* So an appraiser can open the evidence the employee attached to
+                 their own account of the half. This is the side-by-side read
+                 that evidence exists for. */
+              reviewId={review.id}
             />
           ))}
         </CardBody>
@@ -594,6 +702,13 @@ function FinaliseDialog({
   onClose: () => void;
   onConfirm: () => void;
 }) {
+  /* Its own read of the same cached scale rather than a prop. This dialog
+     quotes the mark somebody is about to make final, and quoting it in the
+     default words while the screen behind it uses the company's would be the
+     picker-versus-record split all over again, inside one screen. */
+  const { scale } = useRatingScale();
+  const ratingWords = ratingWordsFrom(scale.levels);
+
   return (
     <ConfirmDialog
       open={open}
@@ -608,7 +723,7 @@ function FinaliseDialog({
           or dispute it.{" "}
           {review.rating === null
             ? "This form carries no overall mark, so what they read is the answers."
-            : `The mark of record becomes ${review.rating} out of 5.`}{" "}
+            : `The mark of record becomes "${ratingWords(review.rating)}".`}{" "}
           It cannot be re-marked afterwards.
         </span>
       }
@@ -674,14 +789,7 @@ function ScorePanel({
 
   return (
     <Card>
-      <CardHeader
-        title="What the mark is made of"
-        description={
-          score.weightsFrom === "snapshot"
-            ? "Scored on the weights locked in when this period started. Changing the company's weights later will not move this mark."
-            : "Scored on the company's weights as they stand today. This period never locked in its own copy, so changing the company's weights would recalculate this mark too, even though it has already been given."
-        }
-      />
+      <CardHeader title="What the mark is made of" />
       <CardBody className="flex flex-col gap-5">
         <div className="grid gap-4 sm:grid-cols-3">
           <Stat
@@ -753,15 +861,39 @@ function ScorePanel({
           </div>
         )}
 
-        <p className="flex items-start gap-2 text-body-sm text-muted">
-          <ShieldCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-          <span>
-            Every figure here is a whole number of basis points, so{" "}
-            {subjectName}&apos;s mark reproduces exactly. A score assembled from
-            decimals does not, and one that does not reproduce cannot be
-            defended.
-          </span>
-        </p>
+        {/* Two paragraphs about how the product computes, on the screen where
+            somebody reads what was decided about them. Both are true and worth
+            keeping — one is the difference between a mark that can be moved
+            later and one that cannot — and neither is what the reader came for.
+            `PARITY.md` Rule 5: reference-shaped detail goes behind a reveal,
+            and what needs acting on stays open. Nothing here needs acting on;
+            the exceptions above do, and they are outside it. */}
+        <Disclosure
+          level={4}
+          dense
+          title="How this score is put together"
+          hint="The weights it was scored on, and why the figures are whole numbers."
+        >
+          <div className="flex flex-col gap-3 text-body-sm leading-relaxed text-body">
+            <p>
+              {score.weightsFrom === "snapshot"
+                ? "Scored on the weights locked in when this period started. Changing the company's weights later will not move this mark."
+                : "Scored on the company's weights as they stand today. This period never locked in its own copy, so changing the company's weights would recalculate this mark too, even though it has already been given."}
+            </p>
+            <p className="flex items-start gap-2 text-muted">
+              <ShieldCheck
+                aria-hidden="true"
+                className="mt-0.5 size-4 shrink-0"
+              />
+              <span>
+                Every figure here is a whole number of basis points, so{" "}
+                {subjectName}&apos;s mark reproduces exactly. A score assembled
+                from decimals does not, and one that does not reproduce cannot
+                be defended.
+              </span>
+            </p>
+          </div>
+        </Disclosure>
       </CardBody>
     </Card>
   );
@@ -791,10 +923,27 @@ function ComponentRow({ component }: { component: ApiComponentScore }) {
         </span>
       </div>
 
-      <p className="mt-1.5 text-body-sm text-body">
-        {component.excludedNote ??
-          `Set at ${weightLabel(component.weightBp)} by the company, carried ${weightLabel(component.effectiveWeightBp)} here because components with no data were left out.`}
-      </p>
+      {/* A row said its own weights back on every component, so five components
+          produced five near-identical sentences — "Set at 40% by the company,
+          carried 40% here because components with no data were left out" —
+          under a badge that had just said "carried 40%". That is the clutter
+          the feedback named, and it drowned the one sentence per screen that
+          is actually specific to a row.
+
+          So: the API's own note when a component was left out or reweighted,
+          because that is different every time; and nothing where the weight it
+          carried is the weight the company set, because the badge said it. */}
+      {component.excludedNote ? (
+        <p className="mt-1.5 text-body-sm text-body">
+          {component.excludedNote}
+        </p>
+      ) : component.effectiveWeightBp !== component.weightBp ? (
+        <p className="mt-1.5 text-body-sm text-body">
+          Set at {weightLabel(component.weightBp)} by the company, carried{" "}
+          {weightLabel(component.effectiveWeightBp)} here because components
+          with no data were left out.
+        </p>
+      ) : null}
 
       <p className="mt-1 text-meta text-muted">
         {component.evidenceCount === 0

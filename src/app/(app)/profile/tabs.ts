@@ -27,7 +27,12 @@
  * one that carries anything live — an exit already in progress renders there,
  * and a tab nobody selects is a reveal.
  */
-export const PROFILE_TABS = ["details", "pay", "time-off", "equipment"] as const;
+export const PROFILE_TABS = [
+  "details",
+  "pay",
+  "time-off",
+  "equipment",
+] as const;
 
 export type ProfileTab = (typeof PROFILE_TABS)[number];
 

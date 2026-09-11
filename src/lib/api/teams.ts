@@ -53,7 +53,7 @@ export type ApiTeamMember = {
   departmentId: string | null;
   departmentName: string | null;
   /** Null where no pay is agreed; left out of totals, never zeroed. */
-    grossMonthlyKobo: number | null;
+  grossMonthlyKobo: number | null;
   /**
    * Their department disagrees with the team's.
    *
@@ -76,7 +76,11 @@ export type ApiTeamDetail = ApiTeam & {
 };
 
 /** Whoever the rule moved. Names, because a count cannot be checked by a human. */
-export type ApiMoved = { employeeId: string; name: string; from: string | null };
+export type ApiMoved = {
+  employeeId: string;
+  name: string;
+  from: string | null;
+};
 
 export type ApiTeamUpdated = ApiTeamDetail & { moved: ApiMoved[] };
 

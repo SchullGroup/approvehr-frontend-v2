@@ -4,7 +4,7 @@ import { Pill } from "@/components/marketing/pill";
 import { Reveal } from "@/components/marketing/motion";
 import { SectionHeading } from "@/components/marketing/sections";
 import { ClientLogos } from "@/components/marketing/social-proof";
-import { ADD_ONS, TIERS } from "@/lib/marketing/pricing";
+import { TIERS } from "@/lib/marketing/pricing";
 import { cn } from "@/lib/cn";
 import { PricingCalculator } from "./calculator";
 
@@ -100,28 +100,55 @@ const COMPARISON: TableSection[] = [
   {
     module: "Core HR",
     rows: [
-      { label: "Employee records & documents", cells: [true, true, true, true] },
-      { label: "Employee self-service portal", cells: [true, true, true, true] },
+      {
+        label: "Employee records & documents",
+        cells: [true, true, true, true],
+      },
+      {
+        label: "Employee self-service portal",
+        cells: [true, true, true, true],
+      },
       { label: "Org chart & departments", cells: [true, true, true, true] },
-      { label: "Letters & contract templates", cells: [true, true, true, true] },
-      { label: "Multiple entities & locations", cells: [false, false, true, true] },
-      { label: "Custom roles & permissions", cells: [false, false, true, true] },
+      {
+        label: "Letters & contract templates",
+        cells: [true, true, true, true],
+      },
+      {
+        label: "Multiple entities & locations",
+        cells: [false, false, true, true],
+      },
+      {
+        label: "Custom roles & permissions",
+        cells: [false, false, true, true],
+      },
     ],
   },
   {
     module: "Payroll",
     rows: [
       { label: "Payslip generation", cells: [true, true, true, true] },
-      { label: "Full payroll, PAYE, pension, NHF", cells: [false, true, true, true] },
-      { label: "Remittance schedules (state IRS & PFAs)", cells: [false, true, true, true] },
+      {
+        label: "Full payroll, PAYE, pension, NHF",
+        cells: [false, true, true, true],
+      },
+      {
+        label: "Remittance schedules (state IRS & PFAs)",
+        cells: [false, true, true, true],
+      },
       { label: "Loans & salary advances", cells: [false, true, true, true] },
     ],
   },
   {
     module: "Recruitment",
     rows: [
-      { label: "Applicant tracking (unlimited roles)", cells: [false, true, true, true] },
-      { label: "Configurable hiring pipelines", cells: [false, true, true, true] },
+      {
+        label: "Applicant tracking (unlimited roles)",
+        cells: [false, true, true, true],
+      },
+      {
+        label: "Configurable hiring pipelines",
+        cells: [false, true, true, true],
+      },
       { label: "Interview scorecards", cells: [false, true, true, true] },
       { label: "Offer management", cells: [false, true, true, true] },
     ],
@@ -129,9 +156,18 @@ const COMPARISON: TableSection[] = [
   {
     module: "Time & Leave",
     rows: [
-      { label: "Leave management & approval chains", cells: [true, true, true, true] },
-      { label: "Nigerian public holidays maintained", cells: [true, true, true, true] },
-      { label: "Attendance & clock-in / clock-out", cells: [false, true, true, true] },
+      {
+        label: "Leave management & approval chains",
+        cells: [true, true, true, true],
+      },
+      {
+        label: "Nigerian public holidays maintained",
+        cells: [true, true, true, true],
+      },
+      {
+        label: "Attendance & clock-in / clock-out",
+        cells: [false, true, true, true],
+      },
       { label: "Shift scheduling", cells: [false, true, true, true] },
     ],
   },
@@ -139,8 +175,14 @@ const COMPARISON: TableSection[] = [
     module: "Performance",
     rows: [
       { label: "Goal setting & cascade", cells: [false, false, true, true] },
-      { label: "Review cycles (self, manager, peer)", cells: [false, false, true, true] },
-      { label: "Competency scoring & calibration", cells: [false, false, true, true] },
+      {
+        label: "Review cycles (self, manager, peer)",
+        cells: [false, false, true, true],
+      },
+      {
+        label: "Competency scoring & calibration",
+        cells: [false, false, true, true],
+      },
     ],
   },
   {
@@ -156,9 +198,18 @@ const COMPARISON: TableSection[] = [
     rows: [
       { label: "Reporting & analytics", cells: [false, false, true, true] },
       { label: "API access", cells: [false, false, true, true] },
-      { label: "Single sign-on & directory sync", cells: [false, false, false, true] },
-      { label: "Uptime SLA & priority support", cells: [false, false, false, true] },
-      { label: "Dedicated customer success manager", cells: [false, false, false, true] },
+      {
+        label: "Single sign-on & directory sync",
+        cells: [false, false, false, true],
+      },
+      {
+        label: "Uptime SLA & priority support",
+        cells: [false, false, false, true],
+      },
+      {
+        label: "Dedicated customer success manager",
+        cells: [false, false, false, true],
+      },
     ],
   },
 ];
@@ -232,8 +283,8 @@ export default function PricingPage() {
               Work out what it costs your company
             </h2>
             <p className="mt-3 max-w-xl text-body-sm leading-relaxed text-slate-muted">
-              Move the number to your headcount: the tier and the price
-              follow it.
+              Move the number to your headcount: the tier and the price follow
+              it.
             </p>
           </Reveal>
           <Reveal delay={80}>
@@ -250,7 +301,8 @@ export default function PricingPage() {
           <Reveal>
             <h2 className="text-h2 text-slate">Find your plan</h2>
             <p className="mt-3 max-w-xl text-body-sm leading-relaxed text-slate-muted">
-              Four tiers, one price per head. Every plan starts with a free month and free migration, no module fees bolted on later.
+              Four tiers, one price per head. Every plan starts with a free
+              month and free migration, no module fees bolted on later.
             </p>
           </Reveal>
 
@@ -258,59 +310,67 @@ export default function PricingPage() {
             {PLANS.map((plan, i) => {
               const tier = TIERS.find((t) => t.id === plan.id)!;
               return (
-              <Reveal key={plan.id} as="div" delay={i * 60}>
-                <div
-                  className={cn(
-                    "flex h-full flex-col rounded-2xl border p-6",
-                    plan.featured
-                      ? "border-accent bg-accent/5 ring-1 ring-accent/20"
-                      : "border-sand-line bg-white/60",
-                  )}
-                >
-                  {plan.featured && (
-                    <span className="mb-3 self-start rounded-full bg-accent px-2.5 py-0.5 text-meta font-semibold text-white">
-                      Most popular
-                    </span>
-                  )}
-                  <h3 className="text-h4 text-slate">{plan.name}</h3>
-                  <p className="mt-0.5 text-meta text-slate-muted">{plan.band}</p>
-                  <p className="mt-4 text-[1.5rem] font-medium tracking-tight text-slate">
-                    {tier.pepm === null
-                      ? "Custom"
-                      : `₦${tier.pepm.toLocaleString("en-NG")}`}
-                  </p>
-                  {tier.pepm !== null && (
-                    <p className="text-meta text-slate-muted">
-                      per employee / month
+                <Reveal key={plan.id} as="div" delay={i * 60}>
+                  <div
+                    className={cn(
+                      "flex h-full flex-col rounded-2xl border p-6",
+                      plan.featured
+                        ? "border-accent bg-accent/5 ring-1 ring-accent/20"
+                        : "border-sand-line bg-white/60",
+                    )}
+                  >
+                    {plan.featured && (
+                      <span className="mb-3 self-start rounded-full bg-accent px-2.5 py-0.5 text-meta font-semibold text-white">
+                        Most popular
+                      </span>
+                    )}
+                    <h3 className="text-h4 text-slate">{plan.name}</h3>
+                    <p className="mt-0.5 text-meta text-slate-muted">
+                      {plan.band}
                     </p>
-                  )}
-                  <p className="mt-4 text-meta leading-relaxed text-slate-soft">
-                    {plan.tagline}
-                  </p>
+                    <p className="mt-4 text-[1.5rem] font-medium tracking-tight text-slate">
+                      {tier.pepm === null
+                        ? "Custom"
+                        : `₦${tier.pepm.toLocaleString("en-NG")}`}
+                    </p>
+                    {tier.pepm !== null && (
+                      <p className="text-meta text-slate-muted">
+                        per employee / month
+                      </p>
+                    )}
+                    <p className="mt-4 text-meta leading-relaxed text-slate-soft">
+                      {plan.tagline}
+                    </p>
 
-                  <ul className="mt-5 flex flex-col gap-2.5 border-t border-sand-line pt-5">
-                    {plan.features.map((f) => (
-                      <li key={f} className="flex gap-2">
-                        <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-success">
-                          <Check className="size-2.5 text-slate" strokeWidth={3} aria-hidden />
-                        </span>
-                        <span className="text-meta leading-snug text-slate-soft">{f}</span>
-                      </li>
-                    ))}
-                  </ul>
+                    <ul className="mt-5 flex flex-col gap-2.5 border-t border-sand-line pt-5">
+                      {plan.features.map((f) => (
+                        <li key={f} className="flex gap-2">
+                          <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-success">
+                            <Check
+                              className="size-2.5 text-slate"
+                              strokeWidth={3}
+                              aria-hidden
+                            />
+                          </span>
+                          <span className="text-meta leading-snug text-slate-soft">
+                            {f}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
 
-                  <div className="mt-auto pt-7">
-                    <Pill
-                      href="/demo"
-                      variant={plan.featured ? "solid" : "quiet"}
-                      className="w-full justify-center"
-                      arrow
-                    >
-                      {plan.cta}
-                    </Pill>
+                    <div className="mt-auto pt-7">
+                      <Pill
+                        href="/demo"
+                        variant={plan.featured ? "solid" : "quiet"}
+                        className="w-full justify-center"
+                        arrow
+                      >
+                        {plan.cta}
+                      </Pill>
+                    </div>
                   </div>
-                </div>
-              </Reveal>
+                </Reveal>
               );
             })}
           </div>
@@ -326,7 +386,8 @@ export default function PricingPage() {
           <Reveal>
             <h2 className="text-h2 text-slate">Compare plans</h2>
             <p className="mt-3 max-w-xl text-body-sm leading-relaxed text-slate-muted">
-              Every feature, by module. Higher tiers carry everything below them.
+              Every feature, by module. Higher tiers carry everything below
+              them.
             </p>
           </Reveal>
 
@@ -352,7 +413,10 @@ export default function PricingPage() {
                   {COMPARISON.map((section, si) => (
                     <>
                       {/* Module header row */}
-                      <tr key={`section-${si}`} className="border-t border-sand-line bg-sand/60">
+                      <tr
+                        key={`section-${si}`}
+                        className="border-t border-sand-line bg-sand/60"
+                      >
                         <td
                           colSpan={5}
                           className="py-2.5 pl-6 pr-4 text-meta font-semibold text-slate"
@@ -366,7 +430,9 @@ export default function PricingPage() {
                           key={`${si}-${ri}`}
                           className="border-t border-sand-line/60 hover:bg-sand/30 transition-colors duration-100"
                         >
-                          <td className="py-3 pl-6 pr-4 text-slate-soft">{row.label}</td>
+                          <td className="py-3 pl-6 pr-4 text-slate-soft">
+                            {row.label}
+                          </td>
                           {row.cells.map((included, ci) => (
                             <td key={ci} className="px-4 py-3 text-center">
                               {included ? (
@@ -397,32 +463,6 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* Add-ons */}
-      <section className="border-y border-sand-line bg-sand-deep px-4 py-16">
-        <div className="container-page">
-          <Reveal>
-            <h2 className="text-h2 text-slate">Add-ons</h2>
-          </Reveal>
-          <div className="mt-9 grid gap-5 md:grid-cols-3">
-            {ADD_ONS.map((a, i) => (
-              <Reveal key={a.name} as="div" delay={i * 60}>
-                <div className="h-full rounded-2xl border border-sand-line bg-sand p-6">
-                  <h3 className="text-body-lg font-medium text-slate">
-                    {a.name}
-                  </h3>
-                  <p className="mt-1.5 text-body-sm font-medium text-success-text">
-                    {a.price}
-                  </p>
-                  <p className="mt-3 text-body-sm leading-relaxed text-slate-muted">
-                    {a.detail}
-                  </p>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* FAQ */}
       <section className="px-4 py-20">
         <div className="container-page grid gap-12 lg:grid-cols-[0.8fr_1.2fr]">
@@ -433,7 +473,9 @@ export default function PricingPage() {
             <dl className="flex flex-col divide-y divide-sand-line border-t border-sand-line">
               {FAQ.map((item) => (
                 <div key={item.q} className="py-6">
-                  <dt className="text-body-lg font-medium text-slate">{item.q}</dt>
+                  <dt className="text-body-lg font-medium text-slate">
+                    {item.q}
+                  </dt>
                   <dd className="mt-2.5 text-body-sm leading-relaxed text-slate-muted">
                     {item.a}
                   </dd>
@@ -453,7 +495,8 @@ export default function PricingPage() {
                 Start free. We move your data. You pay from month two.
               </h2>
               <p className="mx-auto mt-5 max-w-lg text-body-lg leading-relaxed text-white/60">
-                Book a demo on your own numbers. If it fits, we migrate your existing records and you run your first payroll at no cost.
+                Book a demo on your own numbers. If it fits, we migrate your
+                existing records and you run your first payroll at no cost.
               </p>
               <div className="mt-9 flex flex-wrap justify-center gap-3">
                 <Pill href="/demo" variant="solid" size="lg" arrow>

@@ -254,7 +254,11 @@ export function OvertimePolicyForm() {
               <CardBody className="grid gap-5 sm:grid-cols-2">
                 <Field
                   label="Weekday rate"
-                  help={rateHelp("Weekday rate", value.weekdayRate, "of overtime")}
+                  help={rateHelp(
+                    "Weekday rate",
+                    value.weekdayRate,
+                    "of overtime",
+                  )}
                 >
                   <RateSelect
                     value={value.weekdayRate}
@@ -301,11 +305,13 @@ export function OvertimePolicyForm() {
                       set("hoursPerDay", next);
                     }}
                   >
-                    {withCurrent(HOURS_CHOICES, value.hoursPerDay).map((hours) => (
-                      <option key={hours} value={hours}>
-                        {hours} hours
-                      </option>
-                    ))}
+                    {withCurrent(HOURS_CHOICES, value.hoursPerDay).map(
+                      (hours) => (
+                        <option key={hours} value={hours}>
+                          {hours} hours
+                        </option>
+                      ),
+                    )}
                   </Select>
                 </Field>
               </CardBody>
@@ -343,7 +349,11 @@ export function OvertimePolicyForm() {
               panelClassName="flex flex-col gap-4 p-5"
             >
               <ExampleFigures policy={value} hourly={hourly} />
-              <ButtonLink size="sm" href="/settings/payroll" className="self-start">
+              <ButtonLink
+                size="sm"
+                href="/settings/payroll"
+                className="self-start"
+              >
                 Working days
               </ButtonLink>
             </Disclosure>
@@ -461,7 +471,11 @@ function ExampleFigures({
           value: (
             <Money
               amount={naira(
-                amountKoboFor(hourly, policy.dailyCapMinutes, policy.weekdayRate),
+                amountKoboFor(
+                  hourly,
+                  policy.dailyCapMinutes,
+                  policy.weekdayRate,
+                ),
               )}
               decimals
             />

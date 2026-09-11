@@ -30,6 +30,7 @@ import {
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { FeatureOffLine } from "@/components/portal/feature-off-line";
 import { ApiError } from "@/lib/api/client";
 import {
   addDays,
@@ -44,7 +45,11 @@ import {
 import { Can, useCan } from "@/lib/permissions";
 import { useFeatures } from "@/lib/store/features";
 import { useSession } from "@/lib/store/session";
-import { useRota, useShiftCatalogue, useShiftMutations } from "@/lib/store/shifts";
+import {
+  useRota,
+  useShiftCatalogue,
+  useShiftMutations,
+} from "@/lib/store/shifts";
 import { TODAY } from "@/lib/today";
 import { AssignPatternModal } from "./assign-pattern";
 import { SHIFT_TABS, isShiftTab, type ShiftTab } from "./tabs";
@@ -222,9 +227,14 @@ export function ShiftsScreen({ initialTab }: { initialTab: ShiftTab }) {
       />
 
       <PageBody>
+        <FeatureOffLine feature="shifts" />
         <Tabs items={TABS} value={tab} onChange={changeTab}>
           <div className="flex flex-col gap-6">
-            <LoadFailure subject="the rota" error={grid.error}  onRetry={grid.reload}/>
+            <LoadFailure
+              subject="the rota"
+              error={grid.error}
+              onRetry={grid.reload}
+            />
 
             {tab === "rota" ? (
               <>
@@ -265,7 +275,10 @@ export function ShiftsScreen({ initialTab }: { initialTab: ShiftTab }) {
                           <ChevronLeft aria-hidden="true" className="size-4" />
                           <span className="sr-only">Previous week</span>
                         </Button>
-                        <Button size="sm" onClick={() => setWeekOf(weekStart(anchor))}>
+                        <Button
+                          size="sm"
+                          onClick={() => setWeekOf(weekStart(anchor))}
+                        >
                           This week
                         </Button>
                         <Button
@@ -310,7 +323,9 @@ export function ShiftsScreen({ initialTab }: { initialTab: ShiftTab }) {
                         compact
                         icon={<CalendarRange aria-hidden="true" />}
                         title={
-                          noShiftsYet ? "No shifts defined yet" : "Nobody on this week"
+                          noShiftsYet
+                            ? "No shifts defined yet"
+                            : "Nobody on this week"
                         }
                         description={
                           noShiftsYet
@@ -433,7 +448,9 @@ function DayPanel({
   const [asking, setAsking] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const full = cell ? shifts.find((shift) => shift.id === cell.shiftId) : undefined;
+  const full = cell
+    ? shifts.find((shift) => shift.id === cell.shiftId)
+    : undefined;
 
   const put = async () => {
     setBusy(true);
@@ -588,9 +605,9 @@ function DayPanel({
         loading={busy}
         body={
           <>
-            The day comes off the rota, and any cover request on it is withdrawn.
-            Payroll counts rostered days, so this changes what that month divides
-            by.
+            The day comes off the rota, and any cover request on it is
+            withdrawn. Payroll counts rostered days, so this changes what that
+            month divides by.
           </>
         }
       />

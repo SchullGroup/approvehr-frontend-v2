@@ -151,12 +151,16 @@ const named = (prefix: string): Set<string> =>
       .filter((name) => name !== "" && !name.endsWith("--line-height")),
   );
 
-const collisions = [...named("text")].filter((name) => named("color").has(name)).sort();
+const collisions = [...named("text")]
+  .filter((name) => named("color").has(name))
+  .sort();
 if (collisions.length > 0) {
   console.error(
     `\nThese tokens exist as BOTH a size and a colour, so the size generates\n` +
       `nothing and any class using it silently has no font-size:\n\n` +
-      collisions.map((name) => `  --text-${name}  vs  --color-${name}`).join("\n") +
+      collisions
+        .map((name) => `  --text-${name}  vs  --color-${name}`)
+        .join("\n") +
       `\n\nRename the size — the colour is what every existing call site means.\n` +
       `See the body-scale note in src/app/globals.css.\n`,
   );

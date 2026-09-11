@@ -37,6 +37,7 @@ import {
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { FeatureOffLine } from "@/components/portal/feature-off-line";
 import { ApiError } from "@/lib/api/client";
 import { useCan } from "@/lib/permissions";
 import { isUnassigned } from "@/lib/store/demo-structure";
@@ -109,7 +110,9 @@ export function DepartmentsScreen() {
   const [assigning, setAssigning] = useState<DepartmentNode | null>(null);
   const [assignBusy, setAssignBusy] = useState(false);
   const [assignFailed, setAssignFailed] = useState<string | null>(null);
-  const [assigningHead, setAssigningHead] = useState<DepartmentNode | null>(null);
+  const [assigningHead, setAssigningHead] = useState<DepartmentNode | null>(
+    null,
+  );
   const [headBusy, setHeadBusy] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -130,7 +133,9 @@ export function DepartmentsScreen() {
         id: person.id,
         name: `${person.firstName} ${person.lastName}`,
         jobTitle: person.jobTitle,
-        departmentName: isUnassigned(person.department) ? null : person.department,
+        departmentName: isUnassigned(person.department)
+          ? null
+          : person.department,
       })),
     [employees],
   );
@@ -144,7 +149,10 @@ export function DepartmentsScreen() {
    * shows. `unassignedEmployees` is taken from `counts` because it is a fact
    * about people rather than about the rows returned.
    */
-  const liveTree = useMemo(() => withoutArchived(departments.tree), [departments.tree]);
+  const liveTree = useMemo(
+    () => withoutArchived(departments.tree),
+    [departments.tree],
+  );
   const archivedUnits = useMemo(
     () => departments.flat.filter((unit) => unit.archived),
     [departments.flat],
@@ -218,11 +226,7 @@ export function DepartmentsScreen() {
         }
         action={
           canManage && tab === "structure" ? (
-            <Button
-              variant="accent"
-              size="sm"
-              onClick={() => setCreating({})}
-            >
+            <Button variant="accent" size="sm" onClick={() => setCreating({})}>
               <Plus aria-hidden="true" className="size-4" />
               Add department
             </Button>
@@ -231,6 +235,7 @@ export function DepartmentsScreen() {
       />
 
       <PageBody className="flex flex-col gap-6">
+        <FeatureOffLine feature="departments" />
         {/* The warning that replaced the refusal. It is the honest half of the
             old callout: local structure is real and editable, and it does not
             reach a payroll run. Rendered on both tabs because both write to the
@@ -242,7 +247,11 @@ export function DepartmentsScreen() {
         )}
 
         {departments.error && (
-          <LoadFailure subject="the company structure" error={departments.error}  onRetry={departments.reload}/>
+          <LoadFailure
+            subject="the company structure"
+            error={departments.error}
+            onRetry={departments.reload}
+          />
         )}
 
         <Tabs
@@ -270,7 +279,9 @@ export function DepartmentsScreen() {
                 {totalPayroll !== null && (
                   <Stat
                     label="Monthly payroll"
-                    value={<Money amount={totalPayroll / 100} compact size="xl" />}
+                    value={
+                      <Money amount={totalPayroll / 100} compact size="xl" />
+                    }
                     hint="across every unit"
                   />
                 )}
@@ -287,7 +298,10 @@ export function DepartmentsScreen() {
               </div>
 
               {departments.counts.unassignedEmployees > 0 && (
-                <Callout tone="warning" title="Some people are in no department">
+                <Callout
+                  tone="warning"
+                  title="Some people are in no department"
+                >
                   They will not appear in any department payroll report, and no
                   head is responsible for them. Use{" "}
                   <strong>Assign people</strong> on the department they belong
@@ -303,7 +317,9 @@ export function DepartmentsScreen() {
                 {liveTree.length === 0 ? (
                   <EmptyState
                     icon={<Building2 aria-hidden="true" />}
-                    title={departments.loading ? "Loading…" : "No departments yet"}
+                    title={
+                      departments.loading ? "Loading…" : "No departments yet"
+                    }
                     description={
                       departments.loading
                         ? "Reading your structure."
@@ -311,7 +327,10 @@ export function DepartmentsScreen() {
                     }
                     action={
                       canManage && !departments.loading ? (
-                        <Button variant="accent" onClick={() => setCreating({})}>
+                        <Button
+                          variant="accent"
+                          onClick={() => setCreating({})}
+                        >
                           Add the first department
                         </Button>
                       ) : undefined
@@ -400,7 +419,10 @@ export function DepartmentsScreen() {
             setAssignFailed(null);
             void (async () => {
               try {
-                const result = await departments.assign(assigning.id, employeeIds);
+                const result = await departments.assign(
+                  assigning.id,
+                  employeeIds,
+                );
                 toast.push({
                   title:
                     result.moved === 1
@@ -559,7 +581,9 @@ function ArchivedRow({
             Archived
           </Badge>
           {unit.costCentre && (
-            <span className="tabular text-meta text-muted">{unit.costCentre}</span>
+            <span className="tabular text-meta text-muted">
+              {unit.costCentre}
+            </span>
           )}
         </p>
         <p className="mt-0.5 text-body-sm text-muted">
@@ -635,7 +659,10 @@ function DepartmentRow({
         ) : (
           <span aria-hidden="true" className="inline-block size-5">
             {isNested && (
-              <CornerDownRight className="size-4 text-faint" aria-hidden="true" />
+              <CornerDownRight
+                className="size-4 text-faint"
+                aria-hidden="true"
+              />
             )}
           </span>
         )}
@@ -644,10 +671,16 @@ function DepartmentRow({
           aria-hidden="true"
           className={cn(
             "flex size-8 shrink-0 items-center justify-center rounded-md [&>svg]:size-4",
-            isNested ? "bg-sunken text-muted" : "bg-accent-soft text-accent-text",
+            isNested
+              ? "bg-sunken text-muted"
+              : "bg-accent-soft text-accent-text",
           )}
         >
-          {isNested ? <Users aria-hidden="true" /> : <Building2 aria-hidden="true" />}
+          {isNested ? (
+            <Users aria-hidden="true" />
+          ) : (
+            <Building2 aria-hidden="true" />
+          )}
         </span>
 
         <div className="min-w-0 flex-1">
@@ -688,7 +721,7 @@ function DepartmentRow({
           </p>
         </div>
 
-{/*
+        {/*
          * Two numbers, not four.
          *
          * `Direct` and `Rolled up` answered different questions and were shown
@@ -711,17 +744,13 @@ function DepartmentRow({
          */}
         <div className="flex shrink-0 items-center gap-6 text-right">
           <div>
-            <p className="text-meta text-faint">
-              People
-            </p>
+            <p className="text-meta text-faint">People</p>
             <p className="tabular text-body-sm font-medium text-ink">
               {node.totalEmployees}
             </p>
           </div>
           <div className="hidden sm:block">
-            <p className="text-meta text-faint">
-              Monthly
-            </p>
+            <p className="text-meta text-faint">Monthly</p>
             <p className="tabular text-body-sm font-medium text-ink">
               {node.payrollKobo === null ? (
                 <span className="text-faint">—</span>
@@ -862,7 +891,11 @@ function CreateDialog({
               }).finally(() => setBusy(false));
             }}
           >
-            {busy ? "Adding…" : parentId ? "Add sub-department" : "Add department"}
+            {busy
+              ? "Adding…"
+              : parentId
+                ? "Add sub-department"
+                : "Add department"}
           </Button>
         </div>
       }
@@ -881,7 +914,8 @@ function CreateDialog({
         <Field
           optional
           label="Cost centre"
-          help="Used to group this unit in payroll reporting.">
+          help="Used to group this unit in payroll reporting."
+        >
           <Input
             value={costCentre}
             placeholder="CC-ENG-01"
@@ -949,7 +983,8 @@ function EditDialog({
               void onSave(
                 {
                   ...(name.trim() !== node.name ? { name: name.trim() } : {}),
-                  costCentre: costCentre.trim() === "" ? null : costCentre.trim(),
+                  costCentre:
+                    costCentre.trim() === "" ? null : costCentre.trim(),
                 },
                 parentId === "" ? null : parentId,
               ).finally(() => setBusy(false));
@@ -984,7 +1019,9 @@ function EditDialog({
           >
             <option value="">Top level (a department)</option>
             {options
-              .filter((option) => !descendantIds.has(option.id) && !option.archived)
+              .filter(
+                (option) => !descendantIds.has(option.id) && !option.archived,
+              )
               .map((option) => (
                 <option key={option.id} value={option.id}>
                   {"— ".repeat(option.depth)}

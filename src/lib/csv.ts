@@ -256,7 +256,8 @@ export function fileFromRecords(
    * data is kept and named, exactly as before.
    */
   const isSeparator = (index: number): boolean =>
-    unlabelled.has(index) && kept.every((record) => (record[index] ?? "").trim() === "");
+    unlabelled.has(index) &&
+    kept.every((record) => (record[index] ?? "").trim() === "");
   const separators = [...unlabelled].filter(isSeparator);
 
   /* Reported here rather than in `nameHeaders`, which cannot yet know which
@@ -274,7 +275,9 @@ export function fileFromRecords(
     );
   }
   const headers = named.filter((_, index) => !separators.includes(index));
-  const keptIndexes = named.map((_, index) => index).filter((i) => !separators.includes(i));
+  const keptIndexes = named
+    .map((_, index) => index)
+    .filter((i) => !separators.includes(i));
 
   const rows: CsvRow[] = [];
   const out: string[][] = [];
@@ -362,8 +365,7 @@ function nameOf(delimiter: string): string {
  */
 export function csvCell(value: string): string {
   if (value === "") return "";
-  const needsQuotes =
-    /["\n\r,;\t|]/.test(value) || value !== value.trim();
+  const needsQuotes = /["\n\r,;\t|]/.test(value) || value !== value.trim();
   return needsQuotes ? `"${value.replace(/"/g, '""')}"` : value;
 }
 

@@ -76,15 +76,51 @@ export type LeavePolicy = {
 /* --------------------------------------------------------------------- Roles */
 
 export const PERMISSIONS = [
-  { id: "view_salaries", label: "See salaries", detail: "Any employee's gross pay and payslips." },
-  { id: "run_payroll", label: "Prepare a payroll run", detail: "Build and review a run, but not release it." },
-  { id: "approve_payroll", label: "Approve a payroll run", detail: "Release the payment file. The highest-risk permission here." },
-  { id: "edit_records", label: "Edit employee records", detail: "Change pay, bank details and employment terms." },
-  { id: "approve_leave", label: "Approve leave", detail: "Decide leave for their own reports." },
-  { id: "approve_leave_all", label: "Approve leave company-wide", detail: "Decide leave for anyone." },
-  { id: "manage_hiring", label: "Manage hiring", detail: "Open requisitions and move candidates." },
-  { id: "export_data", label: "Export employee data", detail: "Download the directory or a payroll register." },
-  { id: "manage_settings", label: "Change company settings", detail: "Everything on this page, including roles." },
+  {
+    id: "view_salaries",
+    label: "See salaries",
+    detail: "Any employee's gross pay and payslips.",
+  },
+  {
+    id: "run_payroll",
+    label: "Prepare a payroll run",
+    detail: "Build and review a run, but not release it.",
+  },
+  {
+    id: "approve_payroll",
+    label: "Approve a payroll run",
+    detail: "Release the payment file. The highest-risk permission here.",
+  },
+  {
+    id: "edit_records",
+    label: "Edit employee records",
+    detail: "Change pay, bank details and employment terms.",
+  },
+  {
+    id: "approve_leave",
+    label: "Approve leave",
+    detail: "Decide leave for their own reports.",
+  },
+  {
+    id: "approve_leave_all",
+    label: "Approve leave company-wide",
+    detail: "Decide leave for anyone.",
+  },
+  {
+    id: "manage_hiring",
+    label: "Manage hiring",
+    detail: "Open requisitions and move candidates.",
+  },
+  {
+    id: "export_data",
+    label: "Export employee data",
+    detail: "Download the directory or a payroll register.",
+  },
+  {
+    id: "manage_settings",
+    label: "Change company settings",
+    detail: "Everything on this page, including roles.",
+  },
 ] as const;
 
 export type PermissionId = (typeof PERMISSIONS)[number]["id"];
@@ -117,7 +153,8 @@ export type IntegrationStatus = "unavailable" | "requested";
 export type Integration = {
   id: string;
   name: string;
-  category: "Accounting" | "Attendance" | "Identity" | "Communication" | "Banking";
+  category:
+    "Accounting" | "Attendance" | "Identity" | "Communication" | "Banking";
   detail: string;
   status: IntegrationStatus;
 };
@@ -152,32 +189,32 @@ export const DEFAULT_COMPANY: {
    */
   profile: DEMO_ENABLED
     ? {
-    legalName: "Schull Technologies Limited",
-    tradingName: "Schull Technologies",
-    rcNumber: "RC 1544820",
-    tin: "2019384756",
-    industry: "Software and IT services",
-    address: "12B Adeola Odeku Street, Victoria Island",
-    city: "Lagos",
-    state: "Lagos",
-    entities: [
-      {
-        id: "ent-01",
-        name: "Schull Technologies Limited",
+        legalName: "Schull Technologies Limited",
+        tradingName: "Schull Technologies",
         rcNumber: "RC 1544820",
-        taxState: "Lagos",
-        address: "12B Adeola Odeku Street, Victoria Island, Lagos",
-        isPrimary: true,
-      },
-      {
-        id: "ent-02",
-        name: "Schull Technologies (Abuja) Limited",
-        rcNumber: "RC 1698204",
-        taxState: "FCT",
-        address: "Plot 44, Central Business District, Abuja",
-        isPrimary: false,
-      },
-    ],
+        tin: "2019384756",
+        industry: "Software and IT services",
+        address: "12B Adeola Odeku Street, Victoria Island",
+        city: "Lagos",
+        state: "Lagos",
+        entities: [
+          {
+            id: "ent-01",
+            name: "Schull Technologies Limited",
+            rcNumber: "RC 1544820",
+            taxState: "Lagos",
+            address: "12B Adeola Odeku Street, Victoria Island, Lagos",
+            isPrimary: true,
+          },
+          {
+            id: "ent-02",
+            name: "Schull Technologies (Abuja) Limited",
+            rcNumber: "RC 1698204",
+            taxState: "FCT",
+            address: "Plot 44, Central Business District, Abuja",
+            isPrimary: false,
+          },
+        ],
       }
     : {
         /* Production: nothing. Empty strings rather than omitted fields so the
@@ -248,7 +285,8 @@ export const DEFAULT_COMPANY: {
     {
       id: "role-admin",
       name: "Administrator",
-      description: "Full access. Keep this to as few people as the work allows.",
+      description:
+        "Full access. Keep this to as few people as the work allows.",
       permissions: PERMISSIONS.map((p) => p.id),
       system: true,
     },
@@ -298,7 +336,8 @@ export const DEFAULT_COMPANY: {
     {
       id: "n-payroll-approval",
       event: "A payroll run needs approval",
-      detail: "Sent when a run moves to review, and again 24 hours before the bank cut-off.",
+      detail:
+        "Sent when a run moves to review, and again 24 hours before the bank cut-off.",
       email: true,
       inApp: true,
       recipients: "Anyone with Approve a payroll run",
@@ -338,7 +377,8 @@ export const DEFAULT_COMPANY: {
     {
       id: "n-record-change",
       event: "Bank details changed",
-      detail: "Sent whenever a bank account is edited, including by the employee. Turning this off is not recommended.",
+      detail:
+        "Sent whenever a bank account is edited, including by the employee. Turning this off is not recommended.",
       email: true,
       inApp: true,
       recipients: "Anyone with Edit employee records",
@@ -346,7 +386,8 @@ export const DEFAULT_COMPANY: {
     {
       id: "n-attendance-exception",
       event: "Unexplained absence",
-      detail: "A daily digest of anyone with no clock-in and no approved leave.",
+      detail:
+        "A daily digest of anyone with no clock-in and no approved leave.",
       email: false,
       inApp: true,
       recipients: "Line managers",
@@ -354,22 +395,78 @@ export const DEFAULT_COMPANY: {
     {
       id: "n-offer-approval",
       event: "An offer needs approval",
-      detail: "Sent when an offer is raised above or outside the approved band.",
+      detail:
+        "Sent when an offer is raised above or outside the approved band.",
       email: true,
       inApp: true,
       recipients: "The budget holder",
     },
   ],
   integrations: [
-    { id: "int-quickbooks", name: "QuickBooks", category: "Accounting", detail: "Post the payroll journal after a run is released.", status: "unavailable" },
-    { id: "int-sage", name: "Sage", category: "Accounting", detail: "Post the payroll journal after a run is released.", status: "unavailable" },
-    { id: "int-xero", name: "Xero", category: "Accounting", detail: "Post the payroll journal after a run is released.", status: "unavailable" },
-    { id: "int-biometric", name: "Biometric clock-in devices", category: "Attendance", detail: "Pull clock-in and clock-out events from ZKTeco and similar terminals.", status: "unavailable" },
-    { id: "int-google", name: "Google Workspace", category: "Identity", detail: "Single sign-on, and provision accounts for new starters.", status: "unavailable" },
-    { id: "int-microsoft", name: "Microsoft Entra ID", category: "Identity", detail: "Single sign-on and directory sync.", status: "unavailable" },
-    { id: "int-slack", name: "Slack", category: "Communication", detail: "Approval reminders where your team already is.", status: "unavailable" },
-    { id: "int-paystack", name: "Paystack", category: "Banking", detail: "Execute the payment file after a run is approved.", status: "unavailable" },
-    { id: "int-flutterwave", name: "Flutterwave", category: "Banking", detail: "Execute the payment file after a run is approved.", status: "unavailable" },
+    {
+      id: "int-quickbooks",
+      name: "QuickBooks",
+      category: "Accounting",
+      detail: "Post the payroll journal after a run is released.",
+      status: "unavailable",
+    },
+    {
+      id: "int-sage",
+      name: "Sage",
+      category: "Accounting",
+      detail: "Post the payroll journal after a run is released.",
+      status: "unavailable",
+    },
+    {
+      id: "int-xero",
+      name: "Xero",
+      category: "Accounting",
+      detail: "Post the payroll journal after a run is released.",
+      status: "unavailable",
+    },
+    {
+      id: "int-biometric",
+      name: "Biometric clock-in devices",
+      category: "Attendance",
+      detail:
+        "Pull clock-in and clock-out events from ZKTeco and similar terminals.",
+      status: "unavailable",
+    },
+    {
+      id: "int-google",
+      name: "Google Workspace",
+      category: "Identity",
+      detail: "Single sign-on, and provision accounts for new starters.",
+      status: "unavailable",
+    },
+    {
+      id: "int-microsoft",
+      name: "Microsoft Entra ID",
+      category: "Identity",
+      detail: "Single sign-on and directory sync.",
+      status: "unavailable",
+    },
+    {
+      id: "int-slack",
+      name: "Slack",
+      category: "Communication",
+      detail: "Approval reminders where your team already is.",
+      status: "unavailable",
+    },
+    {
+      id: "int-paystack",
+      name: "Paystack",
+      category: "Banking",
+      detail: "Execute the payment file after a run is approved.",
+      status: "unavailable",
+    },
+    {
+      id: "int-flutterwave",
+      name: "Flutterwave",
+      category: "Banking",
+      detail: "Execute the payment file after a run is approved.",
+      status: "unavailable",
+    },
   ],
 };
 
@@ -567,11 +664,16 @@ export type ProfileError = { field: keyof CompanyProfile; message: string };
  * Checked against what the Corporate Affairs Commission and the tax offices
  * actually accept, so a profile that passes here is one you could file with.
  */
-export function validateProfile(patch: Partial<CompanyProfile>): ProfileError[] {
+export function validateProfile(
+  patch: Partial<CompanyProfile>,
+): ProfileError[] {
   const errors: ProfileError[] = [];
 
   if (patch.legalName !== undefined && !patch.legalName.trim()) {
-    errors.push({ field: "legalName", message: "The registered name is required." });
+    errors.push({
+      field: "legalName",
+      message: "The registered name is required.",
+    });
   }
   if (patch.rcNumber !== undefined && patch.rcNumber.trim()) {
     if (!/^(RC\s?)?\d{4,8}$/i.test(patch.rcNumber.trim())) {
@@ -612,7 +714,9 @@ export function useOrgTaxState() {
      never reads this and `taxState` below never depends on it disconnected,
      so there is nothing to reset when `isConnected` flips and the effect can
      skip doing anything at all rather than writing state back to empty. */
-  const [remote, setRemote] = useState<{ taxState: string | null } | null>(null);
+  const [remote, setRemote] = useState<{ taxState: string | null } | null>(
+    null,
+  );
   const [saving, setSaving] = useState(false);
 
   /* Re-ask when somebody comes back to the window. Not in the key below,
@@ -653,7 +757,7 @@ export function useOrgTaxState() {
   const loading = isConnected && remote === null;
   const taxState = isConnected
     ? (remote?.taxState ?? null)
-    : (demo.settings.profile.state || null);
+    : demo.settings.profile.state || null;
 
   const setTaxState = useCallback(
     async (state: string): Promise<boolean> => {

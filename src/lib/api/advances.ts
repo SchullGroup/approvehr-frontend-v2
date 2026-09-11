@@ -30,12 +30,7 @@ import { request } from "@/lib/api/client";
  */
 
 export type ApiAdvanceStatus =
-  | "REQUESTED"
-  | "APPROVED"
-  | "PAID"
-  | "DECLINED"
-  | "CANCELLED"
-  | "RECOVERED";
+  "REQUESTED" | "APPROVED" | "PAID" | "DECLINED" | "CANCELLED" | "RECOVERED";
 
 export const STATUS_LABELS: Record<ApiAdvanceStatus, string> = {
   REQUESTED: "Waiting on a decision",
@@ -120,7 +115,8 @@ export const advancesApi = {
     maxAmountKobo?: number | null;
     maxPerPeriod?: number;
     feeKobo?: number;
-  }) => request<ApiAdvancePolicy>("/advances/policy", { method: "PATCH", body }),
+  }) =>
+    request<ApiAdvancePolicy>("/advances/policy", { method: "PATCH", body }),
 
   /** What the caller has earned, and what they could draw. No permission. */
   me: (signal?: AbortSignal) =>

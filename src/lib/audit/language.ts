@@ -177,7 +177,9 @@ const VERBS: Record<string, (c: Ctx) => string> = {
   imported: (c) => `imported ${c.it}`,
   applied: (c) => `applied for ${c.it}`,
   bank_changed: (c) =>
-    c.personal ? `changed ${c.its} bank account` : `changed the bank account on ${c.it}`,
+    c.personal
+      ? `changed ${c.its} bank account`
+      : `changed the bank account on ${c.it}`,
 
   /* Decisions — the product is named after these */
   approved: (c) => `approved ${c.it}`,
@@ -203,7 +205,9 @@ const VERBS: Record<string, (c: Ctx) => string> = {
   answered: (c) => `answered ${c.it}`,
   recorded: (c) => `recorded ${c.it}`,
   action_recorded: (c) =>
-    c.personal ? `recorded a disciplinary action for ${c.it}` : `recorded ${c.it}`,
+    c.personal
+      ? `recorded a disciplinary action for ${c.it}`
+      : `recorded ${c.it}`,
 
   /* Money */
   paid: (c) => `paid ${c.it}`,
@@ -234,13 +238,19 @@ const VERBS: Record<string, (c: Ctx) => string> = {
 
   /* Accounts */
   email_verified: (c) =>
-    c.personal ? `confirmed ${c.its} email address` : `confirmed an email address`,
-  password_reset: (c) => (c.personal ? `reset ${c.its} password` : "reset a password"),
+    c.personal
+      ? `confirmed ${c.its} email address`
+      : `confirmed an email address`,
+  password_reset: (c) =>
+    c.personal ? `reset ${c.its} password` : "reset a password",
   password_reset_requested: (c) =>
-    c.personal ? `asked for a password reset for ${c.it}` : "asked for a password reset",
+    c.personal
+      ? `asked for a password reset for ${c.it}`
+      : "asked for a password reset",
 
   /* Setup */
-  features_updated: () => "changed which parts of the product this company uses",
+  features_updated: () =>
+    "changed which parts of the product this company uses",
 };
 
 /**
@@ -274,7 +284,9 @@ const READS: Record<string, (c: Ctx) => string> = {
   "audit_log.actors_read": () => "opened the audit log",
   "audit_log.event_read": () => "opened one entry in the audit log",
   "audit_log.entity_read": (c) =>
-    c.personal ? `looked at ${c.its} history` : `looked at the history of ${c.it}`,
+    c.personal
+      ? `looked at ${c.its} history`
+      : `looked at the history of ${c.it}`,
 };
 
 export type Described = {
@@ -311,7 +323,9 @@ export function describe(entry: DescribableEntry): Described {
     its: possessive(it),
     personal,
     noun: entry.entity.noun,
-    fields: entry.changedFields.map((field) => prettyField(field).toLowerCase()),
+    fields: entry.changedFields.map((field) =>
+      prettyField(field).toLowerCase(),
+    ),
   };
 
   const read = READS[entry.action];
@@ -362,7 +376,10 @@ const pad = (n: number) => String(n).padStart(2, "0");
 
 /** Field names that hold integer kobo. The one place money crosses over. */
 const isKoboField = (field: string): boolean =>
-  field.toLowerCase().replace(/[^a-z0-9]/g, "").endsWith("kobo");
+  field
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "")
+    .endsWith("kobo");
 
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 const TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
@@ -389,8 +406,12 @@ const TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
  * 4. **The API's own redaction tokens are translated.** `[redacted]` and
  *    `[changed]` are protocol, not English.
  */
-export function formatFieldValue(field: string, value: unknown): FormattedValue {
-  if (value === null || value === undefined) return { text: "Not set", kind: "empty" };
+export function formatFieldValue(
+  field: string,
+  value: unknown,
+): FormattedValue {
+  if (value === null || value === undefined)
+    return { text: "Not set", kind: "empty" };
 
   if (typeof value === "boolean") {
     return { text: value ? "Yes" : "No", kind: "value" };
@@ -418,7 +439,8 @@ export function formatFieldValue(field: string, value: unknown): FormattedValue 
         kind: "value",
       };
     }
-    if (DATE_ONLY.test(value)) return { text: readableDate(value), kind: "value" };
+    if (DATE_ONLY.test(value))
+      return { text: readableDate(value), kind: "value" };
     if (TIMESTAMP.test(value)) return { text: fullStamp(value), kind: "value" };
     return { text: value, kind: "value" };
   }
@@ -505,7 +527,10 @@ export function dayHeading(iso: string, now: Date): string {
 export function timeLabel(iso: string, now: Date): string {
   const then = new Date(iso);
   if (Number.isNaN(then.getTime())) return iso;
-  const minutes = Math.max(0, Math.round((now.getTime() - then.getTime()) / 60_000));
+  const minutes = Math.max(
+    0,
+    Math.round((now.getTime() - then.getTime()) / 60_000),
+  );
   if (minutes < 1) return "Just now";
   if (minutes < 60) return `${minutes} min ago`;
   const hours = Math.round(minutes / 60);

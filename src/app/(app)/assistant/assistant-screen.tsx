@@ -60,7 +60,9 @@ export function AssistantScreen() {
           </p>
         )}
 
-        {!loading && !available && <NotWired connected={isConnected} reason={reason} />}
+        {!loading && !available && (
+          <NotWired connected={isConnected} reason={reason} />
+        )}
 
         {/* Renders nothing on its own when no assistant is wired — the check
             above is what puts a sentence in its place, not what makes it safe. */}
@@ -124,7 +126,8 @@ function NotWired({
           </p>
         )}
         <p className="text-body-sm text-muted">
-          Nothing else is affected. Every screen in the product works without it.
+          Nothing else is affected. Every screen in the product works without
+          it.
         </p>
         {connected && (
           <ButtonLink href="/settings/ai" variant="secondary" size="sm">
@@ -196,7 +199,15 @@ function WhatItCanDo() {
         </ul>
       )}
 
-      <Callout tone="neutral" title="Nothing happens on its own" className="mt-4">Asking cannot change anything. When a change is worth making the assistant describes it (read out of your own records, not written by it) and it is made only when you press Confirm.</Callout>
+      <Callout
+        tone="neutral"
+        title="Nothing happens on its own"
+        className="mt-4"
+      >
+        Asking cannot change anything. When a change is worth making the
+        assistant describes it (read out of your own records, not written by it)
+        and it is made only when you press Confirm.
+      </Callout>
     </Disclosure>
   );
 }

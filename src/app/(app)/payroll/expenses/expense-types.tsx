@@ -83,7 +83,11 @@ export function ExpenseTypes({
                 onChange={(e) => onIncludeArchivedChange(e.target.checked)}
               />
               {canManage && (
-                <Button variant="secondary" size="sm" onClick={() => setCreating(true)}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setCreating(true)}
+                >
                   <Plus aria-hidden="true" className="size-3.5" />
                   Add a type
                 </Button>
@@ -104,7 +108,11 @@ export function ExpenseTypes({
             {...(canManage && !loading
               ? {
                   action: (
-                    <Button variant="accent" size="sm" onClick={() => setCreating(true)}>
+                    <Button
+                      variant="accent"
+                      size="sm"
+                      onClick={() => setCreating(true)}
+                    >
                       Add a type
                     </Button>
                   ),
@@ -150,7 +158,9 @@ export function ExpenseTypes({
                         Needed
                       </Badge>
                     ) : (
-                      <span className="text-body-sm text-muted">Not needed</span>
+                      <span className="text-body-sm text-muted">
+                        Not needed
+                      </span>
                     )}
                   </TD>
 
@@ -173,9 +183,14 @@ export function ExpenseTypes({
                           <Button
                             variant="secondary"
                             size="sm"
-                            onClick={() => void onUpdate(type.id, { active: true })}
+                            onClick={() =>
+                              void onUpdate(type.id, { active: true })
+                            }
                           >
-                            <RotateCcw aria-hidden="true" className="size-3.5" />
+                            <RotateCcw
+                              aria-hidden="true"
+                              className="size-3.5"
+                            />
                             Switch back on
                           </Button>
                         ) : (
@@ -294,7 +309,9 @@ function TypeDialog({
               setBusy(true);
               void onSave({
                 name: name.trim(),
-                ...(description.trim() ? { description: description.trim() } : {}),
+                ...(description.trim()
+                  ? { description: description.trim() }
+                  : {}),
                 requiresReceipt,
                 cap,
               }).finally(() => setBusy(false));
@@ -331,7 +348,9 @@ function TypeDialog({
         <Field
           label="Cap a claim, in naira"
           help="Leave it empty for no cap. Anything over this is refused on the claim form, with the figure shown."
-          {...(capBroken ? { error: "Enter an amount like 25000 or 25000.00." } : {})}
+          {...(capBroken
+            ? { error: "Enter an amount like 25000 or 25000.00." }
+            : {})}
         >
           <Input
             className="w-40"

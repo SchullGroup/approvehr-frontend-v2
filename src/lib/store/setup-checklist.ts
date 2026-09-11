@@ -132,7 +132,8 @@ export function useSetupChecklist(): ChecklistState {
         const facts = await setup.checklist(undefined, controller.signal);
         if (!cancelled) setFetched({ key, facts, error: null });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
           setFetched({
             key,
@@ -218,18 +219,32 @@ export function useSetupChecklist(): ChecklistState {
         employees: staff.length,
         requireBankAccount: payroll.exceptions.requireBankAccount,
         requirePensionPin: payroll.exceptions.requirePensionPin,
-        missingBankAccount: staff.filter((person) => !person.bankAccount).length,
+        missingBankAccount: staff.filter((person) => !person.bankAccount)
+          .length,
         missingPensionPin: staff.filter((person) => !person.pensionPin).length,
       },
     };
-  }, [company.settings, demoHolidays, demoLocations, employees.directory, features, payroll]);
+  }, [
+    company.settings,
+    demoHolidays,
+    demoLocations,
+    employees.directory,
+    features,
+    payroll,
+  ]);
 
   /* Staleness by comparing the key during render, not by clearing state in an
      effect — which would be a synchronous setState and a cascaded render. */
   const matched = fetched !== null && fetched.key === key;
 
   if (!isConnected) {
-    return { facts: demoFacts, loading: false, error: null, source: "demo", reload };
+    return {
+      facts: demoFacts,
+      loading: false,
+      error: null,
+      source: "demo",
+      reload,
+    };
   }
 
   return {

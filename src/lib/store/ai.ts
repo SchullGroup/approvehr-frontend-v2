@@ -20,6 +20,8 @@ import {
   type ApiSuggestOutcome,
 } from "@/lib/api/ai";
 import { useSession } from "./session";
+import { findScriptedAnswer } from "@/lib/mock/sales-script-qa";
+import { salesScriptAssistantName, scriptedFallback } from "@/lib/sales-script";
 
 /**
  * Suggestions, as three hooks and one gate.
@@ -181,6 +183,21 @@ export function useAssistantAvailable(): {
     void ensureStatus(key);
   }, [isConnected, isLoading, key]);
 
+  /* The standalone sales build answers from a prepared set — see
+     `lib/sales-script.ts` for why that is not the fabrication this module's
+     header warns about. Reported available, and asked first, so the chat, the
+     Ask panel and the nav item all render exactly as they do against a real
+     key: a prospect should see the assistant the product has, not a disabled
+     shell. `assistant` names what it actually is rather than a vendor model,
+     so reading that one string is still an honest answer to "is this real". */
+  if (SALES_SCRIPT_ENABLED)
+    return {
+      available: true,
+      loading: false,
+      assistant: salesScriptAssistantName(),
+      reason: null,
+    };
+
   if (isLoading)
     return { available: false, loading: true, assistant: null, reason: null };
   if (!isConnected)
@@ -295,7 +312,6 @@ export const usePeriodGoalDraft = () =>
 export const usePeriodQuestionDraft = () =>
   useSuggestion<{ text: string; count?: number }>(draftPeriodQuestions);
 
-
 /**
  * Asking a question about the company's records.
  *
@@ -319,6 +335,25 @@ export function useAsk(): {
 
   const run = useCallback(
     async (question: string) => {
+      /* The standalone sales build — see `lib/sales-script.ts`. Resolved
+         **synchronously**, and that is the point rather than an optimisation:
+         nothing on this path can be slow or fail for a prospect clicking
+         through with nobody there to explain a spinner that never resolves.
+         Asked before the offline refusal below, because this build is offline
+         and does have something to answer from. */
+      if (SALES_SCRIPT_ENABLED) {
+        const found = findScriptedAnswer(question);
+        setError(null);
+        setAnswer({
+          available: true,
+          /* A miss says so, rather than stretching the prepared set to cover
+             it. That refusal is the honesty the whole feature turns on. */
+          text: found ? found.answer : scriptedFallback(),
+          used: found?.used ?? [],
+        });
+        return;
+      }
+
       if (!isConnected) {
         setError(
           "Asking needs the API. The demo has no records behind it to answer from.",
@@ -334,7 +369,9 @@ export function useAsk(): {
            was a rate limit, a refusal or a bad question, and nothing here
            does. */
         setError(
-          caught instanceof ApiError ? caught.message : "That did not go through. Try again.",
+          caught instanceof ApiError
+            ? caught.message
+            : "That did not go through. Try again.",
         );
       } finally {
         setAsking(false);

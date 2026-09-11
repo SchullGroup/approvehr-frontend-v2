@@ -11,9 +11,12 @@ import {
   type ApiActionResult,
   type ApiAssistantAction,
   type ApiChatMessage,
+  type ApiChatReply,
   type ApiProposedAction,
 } from "@/lib/api/ai";
 import { useSession } from "./session";
+import { findScriptedAnswer } from "@/lib/mock/sales-script-qa";
+import { scriptedFallback } from "@/lib/sales-script";
 
 /**
  * The assistant conversation.
@@ -190,78 +193,106 @@ export function useAssistantChat(): ChatState & ChatActions {
   const sequence = useRef(0);
 
   /** Everything after this point is a click, so `turns` is never read in render. */
-  const exchange = useCallback(
-    async (next: ChatTurn[]): Promise<boolean> => {
-      const mine = ++sequence.current;
-      setTurns(next);
-      setSending(true);
-      setError(null);
+  /**
+   * A prepared reply for the last thing the visitor typed.
+   *
+   * Shaped as an `ApiChatReply` so the whole transcript path below — the
+   * out-of-order guard, the unavailable branch, the proposal handling — runs
+   * unchanged. The alternative was a second code path through the chat, which is
+   * how the scripted build and the real one drift apart.
+   *
+   * The **last** user turn, not the whole conversation: there is no model here
+   * to carry context, so pretending otherwise would be the fabrication
+   * `store/ai.ts` warns about. A prospect asking a follow-up gets an answer to
+   * the follow-up, or an honest miss.
+   */
+  function scriptedReplyFor(turns: readonly ChatTurn[]): ApiChatReply {
+    const lastUser = [...turns].reverse().find((turn) => turn.role === "user");
+    const found = lastUser ? findScriptedAnswer(lastUser.content) : null;
+    return {
+      available: true,
+      text: found ? found.answer : scriptedFallback(),
+      used: found?.used ?? [],
+    };
+  }
 
-      try {
-        const reply = await chat(toWire(next));
-        if (sequence.current !== mine) return false;
+  const exchange = useCallback(async (next: ChatTurn[]): Promise<boolean> => {
+    const mine = ++sequence.current;
+    setTurns(next);
+    setSending(true);
+    setError(null);
 
-        /* An assistant that went away mid-conversation. `reason` is not an
+    try {
+      /* Prepared, or live. One assignment rather than two paths, so
+         everything below this line is the same code in both builds — see
+         `scriptedReplyFor`. */
+      const reply: ApiChatReply = SALES_SCRIPT_ENABLED
+        ? scriptedReplyFor(next)
+        : await chat(toWire(next));
+      if (sequence.current !== mine) return false;
+
+      /* An assistant that went away mid-conversation. `reason` is not an
            answer and must not be appended as one — putting it in the transcript
            would send it back next turn as though the assistant had said it. */
-        if (!reply.available) {
-          setError(
-            reply.reason ??
-              "The assistant is not available. Nothing was sent to it.",
-          );
-          return true;
-        }
+      if (!reply.available) {
+        setError(
+          reply.reason ??
+            "The assistant is not available. Nothing was sent to it.",
+        );
+        return true;
+      }
 
-        /* `text` when there is prose; the proposal's own summary when there is
+      /* `text` when there is prose; the proposal's own summary when there is
            not. See the field's own note above. */
-        const content = reply.text ?? reply.proposed?.proposal.summary ?? "";
+      const content = reply.text ?? reply.proposed?.proposal.summary ?? "";
 
-        /* Neither is a shape the API says it produces. Appending it anyway
+      /* Neither is a shape the API says it produces. Appending it anyway
            would put an empty assistant message in the transcript, and the very
            next turn would come back 400 — "An empty message says nothing" —
            about a message nobody typed, which is an unrecoverable conversation.
            Reported as a turn that did not go through instead, which it is. */
-        if (content.trim().length === 0) {
-          setError("The assistant answered with nothing. Ask again.");
-          return true;
-        }
-
-        setTurns([
-          ...next,
-          {
-            id: nextId(),
-            role: "assistant",
-            content,
-            used: reply.used,
-            ...(reply.proposed ? { proposed: reply.proposed } : {}),
-          },
-        ]);
+      if (content.trim().length === 0) {
+        setError("The assistant answered with nothing. Ask again.");
         return true;
-      } catch (caught) {
-        if (sequence.current !== mine) return false;
-        /* The API's own sentence where it wrote one — it knows whether this was
+      }
+
+      setTurns([
+        ...next,
+        {
+          id: nextId(),
+          role: "assistant",
+          content,
+          used: reply.used,
+          ...(reply.proposed ? { proposed: reply.proposed } : {}),
+        },
+      ]);
+      return true;
+    } catch (caught) {
+      if (sequence.current !== mine) return false;
+      /* The API's own sentence where it wrote one — it knows whether this was
            a rate limit, a malformed transcript or a refusal, and nothing here
            does. Paraphrasing a server message locally is how the two stop
            agreeing. */
-        setError(
-          caught instanceof ApiError
-            ? caught.message
-            : "That did not go through. Try again.",
-        );
-        return true;
-      } finally {
-        if (sequence.current === mine) setSending(false);
-      }
-    },
-    [],
-  );
+      setError(
+        caught instanceof ApiError
+          ? caught.message
+          : "That did not go through. Try again.",
+      );
+      return true;
+    } finally {
+      if (sequence.current === mine) setSending(false);
+    }
+  }, []);
 
   const send = useCallback(
     async (text: string): Promise<boolean> => {
       const trimmed = text.trim();
       if (trimmed.length === 0 || sending) return false;
 
-      if (!isConnected) {
+      /* The scripted build is offline **and** has something to answer from, so
+         the refusal below is not true of it. Every other offline build still
+         gets it. */
+      if (!SALES_SCRIPT_ENABLED && !isConnected) {
         setError(
           "The assistant needs the API. There are no records here for it to read.",
         );
@@ -451,7 +482,8 @@ export function useAssistantActions(): AssistantActionsState {
           setFetched({ actions: answer.actions, loading: false, error: null });
         }
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
           setFetched({ actions: NO_ACTIONS, loading: false, error });
         }

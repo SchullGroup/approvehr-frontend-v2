@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import { ReviewTasksScreen } from "./review-tasks-screen";
 
 export const metadata: Metadata = {
-  title: "Review tasks",
-  description: "What people logged against their objectives, waiting for a grade.",
+  title: "Weekly tasks",
+  description:
+    "Log what you did toward your objectives, and grade what your team did.",
 };
 
 export default function PerformanceReviewTasksPage() {

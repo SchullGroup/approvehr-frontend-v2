@@ -165,7 +165,10 @@ export function createPersistedState<T extends object>({
     commit(next: T) {
       cache = next;
       try {
-        window.localStorage.setItem(key, JSON.stringify({ v: version, data: next }));
+        window.localStorage.setItem(
+          key,
+          JSON.stringify({ v: version, data: next }),
+        );
       } catch {
         /* Private browsing, or storage full. The in-memory cache still holds
            for this session, so the UI stays consistent — it just will not

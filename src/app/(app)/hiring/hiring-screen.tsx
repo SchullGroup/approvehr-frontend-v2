@@ -31,6 +31,7 @@ import {
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { SourceBadge } from "@/components/hiring/source-badge";
+import { FeatureOffLine } from "@/components/portal/feature-off-line";
 import { usePermissions } from "@/lib/permissions";
 import type { RoleRow } from "@/lib/api/hiring";
 import { pipelineSnapshot, useHiringOverview } from "@/lib/store/hiring";
@@ -72,7 +73,9 @@ export function HiringScreen() {
         <PageHeader title="Hiring" />
         <PageBody>
           <Skeleton className="h-40 w-full" />
-          <span className="sr-only-focusable">Loading your hiring pipeline</span>
+          <span className="sr-only-focusable">
+            Loading your hiring pipeline
+          </span>
         </PageBody>
       </>
     );
@@ -101,7 +104,8 @@ export function HiringScreen() {
 /* -------------------------------------------------------------------------- */
 
 function Overview() {
-  const { live, loading, error, roles, numbers, bars, reload } = useHiringOverview();
+  const { live, loading, error, roles, numbers, bars, reload } =
+    useHiringOverview();
   const { isConnected } = useSession();
   const pipeline = pipelineSnapshot();
 
@@ -115,7 +119,11 @@ function Overview() {
               <Megaphone aria-hidden="true" className="size-4" />
               Job adverts
             </ButtonLink>
-            <ButtonLink href="/hiring/requisitions/new" variant="accent" size="sm">
+            <ButtonLink
+              href="/hiring/requisitions/new"
+              variant="accent"
+              size="sm"
+            >
               <Plus aria-hidden="true" className="size-4" />
               New role
             </ButtonLink>
@@ -124,6 +132,7 @@ function Overview() {
       />
 
       <PageBody className="flex flex-col gap-6">
+        <FeatureOffLine feature="hiring" />
         <div className="flex flex-wrap items-center gap-3">
           <SourceBadge live={live} />
           {loading && <span className="text-meta text-muted">Loading…</span>}
@@ -149,12 +158,17 @@ function Overview() {
                 : `${numbers.adverts - numbers.liveAdverts} draft or closed`
             }
           />
-          <Stat label="People who applied" value={String(numbers.applications)} />
+          <Stat
+            label="People who applied"
+            value={String(numbers.applications)}
+          />
           <Stat
             label="Waiting to be screened"
             value={String(numbers.waiting)}
             icon={<TriangleAlert aria-hidden="true" />}
-            hint={numbers.waiting > 0 ? "nobody has looked yet" : "queue is clear"}
+            hint={
+              numbers.waiting > 0 ? "nobody has looked yet" : "queue is clear"
+            }
           />
           <Stat
             label="Screened in"
@@ -191,7 +205,11 @@ function Overview() {
                 title="No adverts yet"
                 description="Write one and candidates can apply to it directly."
                 action={
-                  <ButtonLink href="/hiring/postings" variant="accent" size="sm">
+                  <ButtonLink
+                    href="/hiring/postings"
+                    variant="accent"
+                    size="sm"
+                  >
                     Write an advert
                   </ButtonLink>
                 }
@@ -252,7 +270,11 @@ function Overview() {
                       candidates have sat in one stage for a week or more.
                     </p>
                   )}
-                  <ButtonLink href="/hiring/interviews" variant="secondary" size="sm">
+                  <ButtonLink
+                    href="/hiring/interviews"
+                    variant="secondary"
+                    size="sm"
+                  >
                     <CalendarClock aria-hidden="true" className="size-3.5" />
                     Open interviews
                   </ButtonLink>
@@ -264,10 +286,15 @@ function Overview() {
               <LiveOffersCard />
             ) : (
               <Card>
-                <CardHeader title="Offers out" action={<SourceBadge live={false} />} />
+                <CardHeader
+                  title="Offers out"
+                  action={<SourceBadge live={false} />}
+                />
                 <CardBody className="flex flex-col gap-3">
                   {pipeline.offersOut.length === 0 && (
-                    <p className="text-body-sm text-muted">No offers pending.</p>
+                    <p className="text-body-sm text-muted">
+                      No offers pending.
+                    </p>
                   )}
                   {pipeline.offersOut.map((card) => (
                     /* A plain wrapper with the link stretched over it by
@@ -298,7 +325,9 @@ function Overview() {
                           })}
                         </p>
                         <Badge
-                          tone={card.offer!.status === "sent" ? "info" : "warning"}
+                          tone={
+                            card.offer!.status === "sent" ? "info" : "warning"
+                          }
                           size="sm"
                         >
                           {card.offer!.status === "sent"
@@ -308,7 +337,11 @@ function Overview() {
                       </div>
                     </div>
                   ))}
-                  <ButtonLink href="/hiring/offers" variant="secondary" size="sm">
+                  <ButtonLink
+                    href="/hiring/offers"
+                    variant="secondary"
+                    size="sm"
+                  >
                     Open offer approvals
                     <ArrowRight aria-hidden="true" className="size-3.5" />
                   </ButtonLink>
@@ -333,7 +366,8 @@ function Overview() {
  */
 function payRange(min: number | null, max: number | null): string {
   const low = min === null ? null : formatMoney(min, "NGN", { decimals: true });
-  const high = max === null ? null : formatMoney(max, "NGN", { decimals: true });
+  const high =
+    max === null ? null : formatMoney(max, "NGN", { decimals: true });
   if (low && high) return low === high ? low : `${low} – ${high}`;
   if (low) return `${low} and up`;
   if (high) return `Up to ${high}`;
@@ -506,7 +540,9 @@ function LiveOffersCard() {
             )}
             {sent.total > 0 && (
               <li className="text-body-sm text-body">
-                <span className="tabular font-medium text-ink">{sent.total}</span>{" "}
+                <span className="tabular font-medium text-ink">
+                  {sent.total}
+                </span>{" "}
                 with the candidate.
               </li>
             )}

@@ -41,6 +41,7 @@ import { ItemForm } from "./item-form";
 import { ItemPanel } from "./item-panel";
 import { AddKindDialog, KindsPanel } from "./kinds-panel";
 import { MyAssets } from "./my-equipment";
+import { TeamEquipment } from "./team-equipment";
 import { useListQuery } from "@/lib/use-list-query";
 import { RegisterTable } from "./register-table";
 import { RepairDialog } from "./repair-dialog";
@@ -85,11 +86,21 @@ const FILTER_LABEL: Record<Filter, string> = {
   LOST: "Lost",
 };
 
-const money = (amount: number) => formatMoney(amount, "NGN", { decimals: true });
+const money = (amount: number) =>
+  formatMoney(amount, "NGN", { decimals: true });
 
 export function EquipmentScreen() {
   const { can, loading: permissionsLoading } = usePermissions();
   const canEdit = can("EDIT_RECORDS");
+  /* The feedback's middle row: a Departmental Lead who cannot manage the
+     register still holds one of these — see `assetScope` on the API, which
+     is what actually narrows what they get back. Branch is a real fourth
+     tier on the API's own permission matrix, and this repo's frontend
+     catalogue (`lib/permission-keys.ts`) does not expose it at all yet for
+     equipment or repairs — that is a wider, pre-existing gap and not this
+     fix's to close. */
+  const canSeeTeam =
+    can("VIEW_EQUIPMENT_DEPARTMENT") || can("VIEW_EQUIPMENT_ALL");
 
   /* Nothing is granted while the session resolves, so a register that rendered
      on the first pass would flash the employee's own view at an HR user. */
@@ -105,7 +116,9 @@ export function EquipmentScreen() {
     );
   }
 
-  return canEdit ? <Register /> : <OwnKitOnly />;
+  if (canEdit) return <Register />;
+  if (canSeeTeam) return <TeamEquipment />;
+  return <OwnKitOnly />;
 }
 
 /* ------------------------------------------------------------ staff view */
@@ -119,9 +132,7 @@ export function EquipmentScreen() {
 function OwnKitOnly() {
   return (
     <>
-      <PageHeader
-        title="Equipment"
-      />
+      <PageHeader title="Equipment" />
       <PageBody>
         <MyAssets />
       </PageBody>
@@ -148,7 +159,11 @@ function Register() {
    * had 200 of them unreachable, with no control on screen to say so and a table
    * that looked complete. Sorting was a `localeCompare` on whatever arrived.
    */
-  const list = useListQuery<{ filter: Filter; kindId: string; archived: boolean }>({
+  const list = useListQuery<{
+    filter: Filter;
+    kindId: string;
+    archived: boolean;
+  }>({
     filters: { filter: "ALL", kindId: "", archived: false },
     sort: "tag",
     pageSize: 25,
@@ -316,7 +331,11 @@ function Register() {
             already know about.
           */
           <div className="flex flex-wrap items-center gap-2">
-            <ButtonLink href="/people/assets/import" variant="secondary" size="sm">
+            <ButtonLink
+              href="/people/assets/import"
+              variant="secondary"
+              size="sm"
+            >
               <Upload aria-hidden="true" className="size-4" />
               Import from a spreadsheet
             </ButtonLink>
@@ -385,7 +404,11 @@ function Register() {
           click, so the banner was a second route to something one tab away.
         */}
 
-        <Tabs items={tabs} value={tab} onChange={(next) => setTab(next as typeof tab)}>
+        <Tabs
+          items={tabs}
+          value={tab}
+          onChange={(next) => setTab(next as typeof tab)}
+        >
           {tab === "register" && (
             <RegisterTable
               title="The register"
@@ -398,7 +421,11 @@ function Register() {
                  thing — and the panel already had all three. */
               onOpen={(item) => setPanelId(item.id)}
               emptyAction={
-                <Button variant="accent" size="sm" onClick={() => setAdding(true)}>
+                <Button
+                  variant="accent"
+                  size="sm"
+                  onClick={() => setAdding(true)}
+                >
                   Add equipment
                 </Button>
               }
@@ -498,7 +525,9 @@ function Register() {
               onAdd={(input) =>
                 run(() => kinds.addKind(input), `${input.name} added`)
               }
-              onEdit={(id, input) => run(() => kinds.editKind(id, input), "Saved")}
+              onEdit={(id, input) =>
+                run(() => kinds.editKind(id, input), "Saved")
+              }
             />
           )}
         </Tabs>
@@ -579,7 +608,9 @@ function Register() {
            as this closes. */
         <AddKindDialog
           onClose={() => setAddingKind(false)}
-          onAdd={(input) => run(() => kinds.addKind(input), `${input.name} added`)}
+          onAdd={(input) =>
+            run(() => kinds.addKind(input), `${input.name} added`)
+          }
         />
       )}
 

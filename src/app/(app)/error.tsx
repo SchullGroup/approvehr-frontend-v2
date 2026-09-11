@@ -91,7 +91,9 @@ export default function AppError({
             {error.digest && (
               <p className="text-meta text-faint">
                 Reference{" "}
-                <span className="font-mono tabular text-muted">{error.digest}</span>
+                <span className="font-mono tabular text-muted">
+                  {error.digest}
+                </span>
               </p>
             )}
           </CardBody>

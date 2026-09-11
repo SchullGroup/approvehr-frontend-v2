@@ -183,7 +183,7 @@ function Rules() {
     isProtected: PROTECTED.includes(rule.id),
   }));
 
-  const rules = isConnected ? fetched?.rows ?? [] : demoRules;
+  const rules = isConnected ? (fetched?.rows ?? []) : demoRules;
   const rulesLoading = isConnected && fetched === null;
 
   const silenced = rules.filter((r) => !r.email && !r.inApp);
@@ -241,13 +241,19 @@ function Rules() {
       /* Revert. A switch that stays flipped after the save failed is a lie
          about what is actually configured. */
       setFetched(
-        (s) => s && { ...s, rows: s.rows.map((r) => (r.id === rule.id ? before : r)) },
+        (s) =>
+          s && {
+            ...s,
+            rows: s.rows.map((r) => (r.id === rule.id ? before : r)),
+          },
       );
       toast.push({
         title: "That did not save",
         tone: "danger",
         detail:
-          error instanceof ApiError ? error.message : "Something went wrong. Try again.",
+          error instanceof ApiError
+            ? error.message
+            : "Something went wrong. Try again.",
       });
     }
   }
@@ -260,7 +266,10 @@ function Rules() {
         <PushPanel />
 
         {isConnected && fetched?.error && (
-          <LoadFailure subject="your notification settings" error={fetched.error}/>
+          <LoadFailure
+            subject="your notification settings"
+            error={fetched.error}
+          />
         )}
 
         {protectedOff.length > 0 && (
@@ -268,9 +277,10 @@ function Rules() {
             tone="danger"
             title={`${protectedOff[0].event} is now silent`}
           >
-            This one is a control, not a convenience. With it off, a bank account
-            can be changed or a remittance deadline can pass and nobody is told.
-            Turn it back on unless you have another process covering it.
+            This one is a control, not a convenience. With it off, a bank
+            account can be changed or a remittance deadline can pass and nobody
+            is told. Turn it back on unless you have another process covering
+            it.
           </Callout>
         )}
 
@@ -381,8 +391,9 @@ function Rules() {
                   className="mt-0.5 size-4 shrink-0 text-faint"
                 />
                 <span>
-                  In-app notifications appear in the bell in the top bar and stay
-                  until actioned. Approvals are never cleared by being read.
+                  In-app notifications appear in the bell in the top bar and
+                  stay until actioned. Approvals are never cleared by being
+                  read.
                 </span>
               </p>
               <p className="flex gap-2.5">
@@ -392,8 +403,9 @@ function Rules() {
                 />
                 <span>
                   Sending is not wired up in this prototype: there is no mail
-                  server behind it. These are the rules the product will send on,
-                  recorded honestly rather than demonstrated with a fake inbox.
+                  server behind it. These are the rules the product will send
+                  on, recorded honestly rather than demonstrated with a fake
+                  inbox.
                 </span>
               </p>
             </CardBody>
@@ -407,13 +419,17 @@ function Rules() {
             />
             <CardBody className="flex flex-col gap-3 text-body-sm leading-relaxed text-body">
               <p>
-                <strong className="text-ink">A security event on your own account.</strong>{" "}
+                <strong className="text-ink">
+                  A security event on your own account.
+                </strong>{" "}
                 A sign-in from a new device, or a password change. Nobody should
                 be able to switch off the alert that tells them they have been
                 compromised.
               </p>
               <p>
-                <strong className="text-ink">A data breach notification.</strong>{" "}
+                <strong className="text-ink">
+                  A data breach notification.
+                </strong>{" "}
                 The Nigeria Data Protection Act requires it within 72 hours, and
                 it is not ours to make optional.
               </p>

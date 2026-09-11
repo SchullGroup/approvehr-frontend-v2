@@ -27,5 +27,7 @@ export default async function ProfilePage({
 }) {
   const { tab } = await searchParams;
   const single = Array.isArray(tab) ? tab[0] : tab;
-  return <ProfileScreen initialTab={isProfileTab(single) ? single : "details"} />;
+  return (
+    <ProfileScreen initialTab={isProfileTab(single) ? single : "details"} />
+  );
 }

@@ -1,7 +1,4 @@
-import {
-  entitlementsFor,
-  type LeaveBalance,
-} from "@/lib/mock/people";
+import { entitlementsFor, type LeaveBalance } from "@/lib/mock/people";
 import type { LeaveRequest, LeaveStatus } from "@/lib/mock/workflows";
 import type { LeaveTypePolicy } from "@/lib/store/company";
 

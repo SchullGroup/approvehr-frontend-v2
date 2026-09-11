@@ -89,7 +89,10 @@ export function useEmployeeDirectory(params: EmployeeListParams = {}) {
 
     setState((s) => ({ ...s, loading: true, error: null }));
     try {
-      const page = await api.list(JSON.parse(key) as EmployeeListParams, controller.signal);
+      const page = await api.list(
+        JSON.parse(key) as EmployeeListParams,
+        controller.signal,
+      );
       if (ticket !== latest.current) return;
       setState({
         employees: page.data.map(toEmployee),
@@ -127,7 +130,9 @@ export function useEmployeeDirectory(params: EmployeeListParams = {}) {
        moment a database arrives. */
     const parsed = JSON.parse(key) as EmployeeListParams;
     const rows = filterLocally(
-      parsed.archivedOnly || parsed.includeArchived ? local.all : local.directory,
+      parsed.archivedOnly || parsed.includeArchived
+        ? local.all
+        : local.directory,
       parsed,
       new Set(local.archived),
     );
@@ -325,7 +330,8 @@ export function useDirectorySummary(
         );
         if (!cancelled) setState({ key, row, error: null });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
           setState({
             key,
@@ -347,7 +353,9 @@ export function useDirectorySummary(
     const parsed = JSON.parse(key) as EmployeeListParams;
     const archivedIds = new Set(local.archived);
     const rows = filterLocally(
-      parsed.archivedOnly || parsed.includeArchived ? local.all : local.directory,
+      parsed.archivedOnly || parsed.includeArchived
+        ? local.all
+        : local.directory,
       parsed,
       archivedIds,
     );
@@ -364,7 +372,8 @@ export function useDirectorySummary(
          adds nothing rather than a zero — a zero cannot be told apart from a
          real ₦0 and would make the total quietly wrong. */
       grossMonthlyKobo: rows.reduce(
-        (sum, e) => sum + (e.grossMonthly === null ? 0 : toKobo(e.grossMonthly)),
+        (sum, e) =>
+          sum + (e.grossMonthly === null ? 0 : toKobo(e.grossMonthly)),
         0,
       ),
       incomplete: rows.filter((e) => missingForPayroll(e).length > 0).length,
@@ -508,7 +517,8 @@ export function useEmployee(id: string): EmployeeRecordState {
         const row = await api.get(id, controller.signal);
         if (!cancelled) setFetched({ id, nonce, row, error: null });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
           setFetched({
             id,
@@ -546,7 +556,9 @@ export function useEmployee(id: string): EmployeeRecordState {
 
   if (!active) {
     const employee = local.get(id) ?? null;
-    const manager = employee?.managerId ? local.get(employee.managerId) : undefined;
+    const manager = employee?.managerId
+      ? local.get(employee.managerId)
+      : undefined;
     return {
       employee,
       missing: employee ? missingForPayroll(employee) : [],
@@ -707,14 +719,23 @@ export function useEmployeeMutations() {
 
   const update = useCallback(
     async (id: string, patch: EmployeePatch) => {
-      const { departmentId, workLocationId, managerId, salaryGradeId, ...fields } =
-        patch;
+      const {
+        departmentId,
+        workLocationId,
+        managerId,
+        salaryGradeId,
+        ...fields
+      } = patch;
       /* Unlike `departmentId`, these two are already ids in both modes — no
          display name stands in for them locally, so the only conversion
          either needs is the same one every nullable id field needs: `""`,
          the picker's "not one of these", crosses as `null`. */
       const normalizedManagerId =
-        managerId === undefined ? undefined : managerId === "" ? null : managerId;
+        managerId === undefined
+          ? undefined
+          : managerId === ""
+            ? null
+            : managerId;
       const normalizedSalaryGradeId =
         salaryGradeId === undefined
           ? undefined

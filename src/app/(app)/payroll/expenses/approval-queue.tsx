@@ -19,7 +19,11 @@ import {
   TableWrap,
   Textarea,
 } from "@/components/ui";
-import { daysSince, type Claim, type ExpenseType } from "@/lib/store/reimbursements";
+import {
+  daysSince,
+  type Claim,
+  type ExpenseType,
+} from "@/lib/store/reimbursements";
 
 /**
  * The approval queue.
@@ -143,7 +147,9 @@ export function ApprovalQueue({
                     </TD>
 
                     <TD className="max-w-[22rem]">
-                      <span className="block text-ink">{claim.description}</span>
+                      <span className="block text-ink">
+                        {claim.description}
+                      </span>
                       <span className="block text-meta text-muted">
                         {claim.type}
                       </span>
@@ -234,7 +240,10 @@ export function ReceiptCell({
   if (claim.hasReceipt) {
     return (
       <span className="flex min-w-0 items-center gap-1.5">
-        <Paperclip aria-hidden="true" className="size-3.5 shrink-0 text-muted" />
+        <Paperclip
+          aria-hidden="true"
+          className="size-3.5 shrink-0 text-muted"
+        />
         <span
           className="max-w-[10rem] truncate text-body-sm text-body"
           title={claim.receiptKey ?? undefined}
@@ -300,11 +309,7 @@ function DeclineDialog({
         </div>
       }
     >
-      <Field
-        label="Why"
-        required
-        help="Say why, so they know what to change."
-      >
+      <Field label="Why" required help="Say why, so they know what to change.">
         <Textarea
           autoFocus
           rows={3}

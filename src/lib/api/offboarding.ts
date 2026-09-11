@@ -60,11 +60,7 @@ export type ExitStatus =
 
 /** Mirrors `ExitTaskKind`. The five groups the checklist reads in, in order. */
 export type ExitTaskKind =
-  | "HANDOVER"
-  | "EQUIPMENT"
-  | "ACCESS"
-  | "PAYROLL"
-  | "PAPERWORK";
+  "HANDOVER" | "EQUIPMENT" | "ACCESS" | "PAYROLL" | "PAPERWORK";
 
 /**
  * Mirrors `ExitTaskOutcome`.
@@ -75,11 +71,7 @@ export type ExitTaskKind =
  * a claim somebody will be asked about later.
  */
 export type ExitTaskOutcome =
-  | "DONE"
-  | "RETURNED"
-  | "DAMAGED"
-  | "NOT_RETURNED"
-  | "WAIVED";
+  "DONE" | "RETURNED" | "DAMAGED" | "NOT_RETURNED" | "WAIVED";
 
 /* ----------------------------------------------------------------- shapes */
 
@@ -529,7 +521,10 @@ export const offboardingApi = {
     }),
 
   createTemplate: (body: TemplateBody) =>
-    request<ApiExitTemplate>("/offboarding/templates", { method: "POST", body }),
+    request<ApiExitTemplate>("/offboarding/templates", {
+      method: "POST",
+      body,
+    }),
 
   updateTemplate: (id: string, body: UpdateTemplateBody) =>
     request<ApiExitTemplate>(`/offboarding/templates/${id}`, {
@@ -582,8 +577,6 @@ export const offboardingApi = {
 export function formatKobo(kobo: number): string {
   return `₦${Math.round(kobo / 100).toLocaleString("en-NG")}`;
 }
-
-
 
 /**
  * Kinds, for a picker.

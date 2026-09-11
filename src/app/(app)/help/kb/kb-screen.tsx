@@ -70,7 +70,11 @@ export function KbScreen() {
         breadcrumb={[{ href: "/help", label: "Help desk" }]}
         action={
           <Can permission="MANAGE_SETTINGS">
-            <ButtonLink href="/settings/knowledge" variant="secondary" size="sm">
+            <ButtonLink
+              href="/settings/knowledge"
+              variant="secondary"
+              size="sm"
+            >
               Manage articles
             </ButtonLink>
           </Can>
@@ -120,7 +124,11 @@ export function KbScreen() {
 
             {articles.error && (
               <CardBody>
-                <LoadFailure subject="these articles" error={articles.error}  onRetry={articles.reload}/>
+                <LoadFailure
+                  subject="these articles"
+                  error={articles.error}
+                  onRetry={articles.reload}
+                />
               </CardBody>
             )}
 

@@ -85,7 +85,8 @@ export type ApiBandPosition = {
     jobTitle: string;
     grossMonthlyKobo: number;
   };
-  grade: (ApiGradeRef & Band & { archived: boolean; bandWidthKobo: number }) | null;
+  grade:
+    (ApiGradeRef & Band & { archived: boolean; bandWidthKobo: number }) | null;
   position: BandPlacement | null;
 };
 

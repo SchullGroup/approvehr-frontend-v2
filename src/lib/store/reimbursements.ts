@@ -115,7 +115,12 @@ export type ExpenseSummary = {
     amount: number;
     oldestIncurredOn: string | null;
   };
-  byType: { typeId: string; type: string; claimCount: number; amount: number }[];
+  byType: {
+    typeId: string;
+    type: string;
+    claimCount: number;
+    amount: number;
+  }[];
   /** A queue, not a liability. Never added to the figure above. */
   awaitingDecision: { claimCount: number; amount: number };
 };
@@ -267,68 +272,71 @@ const NAIRA = 100;
  * do not, because a keke fare and a recharge card do not produce one and
  * pretending otherwise means every claim arrives with a made-up reference.
  */
-const SEED_TYPES: ApiExpenseType[] = DEMO_ENABLED ? [
-  {
-    id: "demo-type-transport",
-    name: "Transport",
-    description: "Buses, keke and ride-hailing for work trips around town.",
-    requiresReceipt: false,
-    capAmountKobo: 25_000 * NAIRA,
-    active: true,
-    archived: false,
-    claimCount: 3,
-  },
-  {
-    id: "demo-type-fuel",
-    name: "Fuel",
-    description: "Petrol or diesel for a work journey, or for the generator.",
-    requiresReceipt: true,
-    capAmountKobo: 75_000 * NAIRA,
-    active: true,
-    archived: false,
-    claimCount: 2,
-  },
-  {
-    id: "demo-type-airtime",
-    name: "Airtime and data",
-    description: "Calls and data bought for work.",
-    requiresReceipt: false,
-    capAmountKobo: 15_000 * NAIRA,
-    active: true,
-    archived: false,
-    claimCount: 1,
-  },
-  {
-    id: "demo-type-meals",
-    name: "Meals",
-    description: "Feeding on a work trip, or while working late.",
-    requiresReceipt: true,
-    capAmountKobo: 20_000 * NAIRA,
-    active: true,
-    archived: false,
-    claimCount: 1,
-  },
-  {
-    id: "demo-type-travel",
-    name: "Travel and hotel",
-    description: "Flights, buses between cities, and a night in a hotel.",
-    requiresReceipt: true,
-    capAmountKobo: null,
-    active: true,
-    archived: false,
-    claimCount: 2,
-  },
-  {
-    id: "demo-type-medical",
-    name: "Medical",
-    description: "Treatment the company has agreed to cover.",
-    requiresReceipt: true,
-    capAmountKobo: null,
-    active: true,
-    archived: false,
-    claimCount: 0,
-  },
-] : [];
+const SEED_TYPES: ApiExpenseType[] = DEMO_ENABLED
+  ? [
+      {
+        id: "demo-type-transport",
+        name: "Transport",
+        description: "Buses, keke and ride-hailing for work trips around town.",
+        requiresReceipt: false,
+        capAmountKobo: 25_000 * NAIRA,
+        active: true,
+        archived: false,
+        claimCount: 3,
+      },
+      {
+        id: "demo-type-fuel",
+        name: "Fuel",
+        description:
+          "Petrol or diesel for a work journey, or for the generator.",
+        requiresReceipt: true,
+        capAmountKobo: 75_000 * NAIRA,
+        active: true,
+        archived: false,
+        claimCount: 2,
+      },
+      {
+        id: "demo-type-airtime",
+        name: "Airtime and data",
+        description: "Calls and data bought for work.",
+        requiresReceipt: false,
+        capAmountKobo: 15_000 * NAIRA,
+        active: true,
+        archived: false,
+        claimCount: 1,
+      },
+      {
+        id: "demo-type-meals",
+        name: "Meals",
+        description: "Feeding on a work trip, or while working late.",
+        requiresReceipt: true,
+        capAmountKobo: 20_000 * NAIRA,
+        active: true,
+        archived: false,
+        claimCount: 1,
+      },
+      {
+        id: "demo-type-travel",
+        name: "Travel and hotel",
+        description: "Flights, buses between cities, and a night in a hotel.",
+        requiresReceipt: true,
+        capAmountKobo: null,
+        active: true,
+        archived: false,
+        claimCount: 2,
+      },
+      {
+        id: "demo-type-medical",
+        name: "Medical",
+        description: "Treatment the company has agreed to cover.",
+        requiresReceipt: true,
+        capAmountKobo: null,
+        active: true,
+        archived: false,
+        claimCount: 0,
+      },
+    ]
+  : [];
 
 /** A demo claim, written as the wire shape so it goes through `toClaim`. */
 function seedClaim(input: {
@@ -366,11 +374,12 @@ function seedClaim(input: {
     status: input.status,
     editable: input.status === "SUBMITTED",
     approvedById: decided ? "p-02" : null,
-    approvedByName: decided ? (input.approvedBy ?? (DEMO_ENABLED ? "Tunde Bakare" : "")) : null,
+    approvedByName: decided
+      ? (input.approvedBy ?? (DEMO_ENABLED ? "Tunde Bakare" : ""))
+      : null,
     decidedAt: decided ? isoDaysAgo(Math.max(0, input.daysAgo - 2)) : null,
     declinedReason: input.declinedReason ?? null,
-    paidAt:
-      input.status === "PAID" ? isoDaysAgo(input.paidDaysAgo ?? 1) : null,
+    paidAt: input.status === "PAID" ? isoDaysAgo(input.paidDaysAgo ?? 1) : null,
     payslipId: null,
     settledThrough: input.status === "PAID" ? "direct" : null,
     submittedAt: isoDaysAgo(input.daysAgo),
@@ -385,84 +394,87 @@ function seedClaim(input: {
  * to show that the product refuses self-approval is to put a claim of their own
  * in the queue.
  */
-const SEED_CLAIMS: ApiClaim[] = DEMO_ENABLED ? [
-  seedClaim({
-    id: "demo-claim-01",
-    employeeId: "p-07",
-    typeId: "demo-type-travel",
-    typeName: "Travel and hotel",
-    amount: 184_500,
-    daysAgo: 21,
-    description: "Abuja trip for the Federal Ministry meeting, bus and one night",
-    receiptKey: "receipts/2026/abuja-hotel-folio.pdf",
-    status: "APPROVED",
-  }),
-  seedClaim({
-    id: "demo-claim-02",
-    employeeId: "p-08",
-    typeId: "demo-type-fuel",
-    typeName: "Fuel",
-    amount: 62_000,
-    daysAgo: 12,
-    description: "Diesel for the office generator during the outage",
-    receiptKey: "receipts/2026/total-filling-station-0912",
-    status: "APPROVED",
-  }),
-  seedClaim({
-    id: "demo-claim-03",
-    employeeId: "p-06",
-    typeId: "demo-type-transport",
-    typeName: "Transport",
-    amount: 18_400,
-    daysAgo: 6,
-    description: "Site visits in Ikeja and Yaba over three days",
-    status: "SUBMITTED",
-  }),
-  seedClaim({
-    id: "demo-claim-04",
-    employeeId: "p-03",
-    typeId: "demo-type-meals",
-    typeName: "Meals",
-    amount: 14_800,
-    daysAgo: 4,
-    description: "Feeding for the team during the Saturday deployment",
-    receiptKey: "receipts/2026/chicken-republic-4471",
-    status: "SUBMITTED",
-  }),
-  seedClaim({
-    id: "demo-claim-05",
-    employeeId: "p-10",
-    typeId: "demo-type-airtime",
-    typeName: "Airtime and data",
-    amount: 9_000,
-    daysAgo: 3,
-    description: "Data for the field team in Kano",
-    status: "SUBMITTED",
-  }),
-  seedClaim({
-    id: "demo-claim-06",
-    employeeId: "p-09",
-    typeId: "demo-type-transport",
-    typeName: "Transport",
-    amount: 7_200,
-    daysAgo: 30,
-    description: "Ride to the bank to sign the mandate",
-    status: "PAID",
-    paidDaysAgo: 20,
-  }),
-  seedClaim({
-    id: "demo-claim-07",
-    employeeId: "p-04",
-    typeId: "demo-type-travel",
-    typeName: "Travel and hotel",
-    amount: 96_000,
-    daysAgo: 45,
-    description: "Flight to Port Harcourt",
-    status: "DECLINED",
-    declinedReason:
-      "This one goes on the client's invoice, not ours. Send it to me and I will bill it.",
-  }),
-] : [];
+const SEED_CLAIMS: ApiClaim[] = DEMO_ENABLED
+  ? [
+      seedClaim({
+        id: "demo-claim-01",
+        employeeId: "p-07",
+        typeId: "demo-type-travel",
+        typeName: "Travel and hotel",
+        amount: 184_500,
+        daysAgo: 21,
+        description:
+          "Abuja trip for the Federal Ministry meeting, bus and one night",
+        receiptKey: "receipts/2026/abuja-hotel-folio.pdf",
+        status: "APPROVED",
+      }),
+      seedClaim({
+        id: "demo-claim-02",
+        employeeId: "p-08",
+        typeId: "demo-type-fuel",
+        typeName: "Fuel",
+        amount: 62_000,
+        daysAgo: 12,
+        description: "Diesel for the office generator during the outage",
+        receiptKey: "receipts/2026/total-filling-station-0912",
+        status: "APPROVED",
+      }),
+      seedClaim({
+        id: "demo-claim-03",
+        employeeId: "p-06",
+        typeId: "demo-type-transport",
+        typeName: "Transport",
+        amount: 18_400,
+        daysAgo: 6,
+        description: "Site visits in Ikeja and Yaba over three days",
+        status: "SUBMITTED",
+      }),
+      seedClaim({
+        id: "demo-claim-04",
+        employeeId: "p-03",
+        typeId: "demo-type-meals",
+        typeName: "Meals",
+        amount: 14_800,
+        daysAgo: 4,
+        description: "Feeding for the team during the Saturday deployment",
+        receiptKey: "receipts/2026/chicken-republic-4471",
+        status: "SUBMITTED",
+      }),
+      seedClaim({
+        id: "demo-claim-05",
+        employeeId: "p-10",
+        typeId: "demo-type-airtime",
+        typeName: "Airtime and data",
+        amount: 9_000,
+        daysAgo: 3,
+        description: "Data for the field team in Kano",
+        status: "SUBMITTED",
+      }),
+      seedClaim({
+        id: "demo-claim-06",
+        employeeId: "p-09",
+        typeId: "demo-type-transport",
+        typeName: "Transport",
+        amount: 7_200,
+        daysAgo: 30,
+        description: "Ride to the bank to sign the mandate",
+        status: "PAID",
+        paidDaysAgo: 20,
+      }),
+      seedClaim({
+        id: "demo-claim-07",
+        employeeId: "p-04",
+        typeId: "demo-type-travel",
+        typeName: "Travel and hotel",
+        amount: 96_000,
+        daysAgo: 45,
+        description: "Flight to Port Harcourt",
+        status: "DECLINED",
+        declinedReason:
+          "This one goes on the client's invoice, not ours. Send it to me and I will bill it.",
+      }),
+    ]
+  : [];
 
 type DemoState = { types: ApiExpenseType[]; claims: ApiClaim[] };
 
@@ -512,7 +524,11 @@ function useRevision(): number {
 }
 
 function useDemoState(): DemoState {
-  return useSyncExternalStore(demo.subscribe, demo.read, demo.getServerSnapshot);
+  return useSyncExternalStore(
+    demo.subscribe,
+    demo.read,
+    demo.getServerSnapshot,
+  );
 }
 
 /* ---------------------------------------------------------------- the types */
@@ -568,7 +584,8 @@ export function useExpenseTypes(includeArchived = false) {
     void (async () => {
       try {
         const rows = await api.types(includeArchived, controller.signal);
-        if (!cancelled) setRemote({ stamp, types: rows.map(toType), error: null });
+        if (!cancelled)
+          setRemote({ stamp, types: rows.map(toType), error: null });
       } catch (error) {
         if (cancelled || error instanceof DOMException) return;
         setRemote({
@@ -662,11 +679,16 @@ export function useExpenseTypes(includeArchived = false) {
 
       const state = demo.current();
       const existing = state.types.find((type) => type.id === id);
-      if (!existing) throw new ApiError(404, "not_found", "That expense type is gone.");
-      if (input.name && input.name.toLowerCase() !== existing.name.toLowerCase()) {
+      if (!existing)
+        throw new ApiError(404, "not_found", "That expense type is gone.");
+      if (
+        input.name &&
+        input.name.toLowerCase() !== existing.name.toLowerCase()
+      ) {
         const clash = state.types.find(
           (type) =>
-            type.id !== id && type.name.toLowerCase() === input.name?.toLowerCase(),
+            type.id !== id &&
+            type.name.toLowerCase() === input.name?.toLowerCase(),
         );
         if (clash) throw conflict(`"${input.name}" already exists.`);
       }
@@ -686,7 +708,8 @@ export function useExpenseTypes(includeArchived = false) {
                 ...(input.cap === undefined
                   ? {}
                   : {
-                      capAmountKobo: input.cap === null ? null : kobo(input.cap),
+                      capAmountKobo:
+                        input.cap === null ? null : kobo(input.cap),
                     }),
                 ...(input.active === undefined
                   ? {}
@@ -719,7 +742,8 @@ export function useExpenseTypes(includeArchived = false) {
 
       const state = demo.current();
       const type = state.types.find((row) => row.id === id);
-      if (!type) throw new ApiError(404, "not_found", "That expense type is gone.");
+      if (!type)
+        throw new ApiError(404, "not_found", "That expense type is gone.");
       if (type.archived) throw conflict("That is already archived.");
 
       const undecided = state.claims.filter(
@@ -733,7 +757,9 @@ export function useExpenseTypes(includeArchived = false) {
       }
       const outstanding = state.claims.filter(
         (claim) =>
-          claim.typeId === id && claim.status === "APPROVED" && claim.paidAt === null,
+          claim.typeId === id &&
+          claim.status === "APPROVED" &&
+          claim.paidAt === null,
       ).length;
 
       demo.commit({
@@ -842,7 +868,11 @@ export function useExpenseClaims(
 
     void (async () => {
       const read =
-        scope === "mine" ? api.mine : scope === "pending" ? api.pending : api.list;
+        scope === "mine"
+          ? api.mine
+          : scope === "pending"
+            ? api.pending
+            : api.list;
       try {
         const result = await read(
           JSON.parse(key) as ClaimListParams,
@@ -893,7 +923,8 @@ export function useExpenseClaims(
         if (scope === "mine" && claim.employeeId !== mineId) return false;
         if (scope === "pending" && claim.status !== "SUBMITTED") return false;
         if (params.status && claim.status !== params.status) return false;
-        if (params.employeeId && claim.employeeId !== params.employeeId) return false;
+        if (params.employeeId && claim.employeeId !== params.employeeId)
+          return false;
         if (params.typeId && claim.typeId !== params.typeId) return false;
         if (params.from && claim.incurredOn < params.from) return false;
         if (params.to && claim.incurredOn > params.to) return false;
@@ -1064,7 +1095,9 @@ export function useExpenseClaims(
       if (isConnected) {
         await api.update(id, {
           ...(input.typeId === undefined ? {} : { typeId: input.typeId }),
-          ...(input.amount === undefined ? {} : { amountKobo: kobo(input.amount) }),
+          ...(input.amount === undefined
+            ? {}
+            : { amountKobo: kobo(input.amount) }),
           ...(input.incurredOn === undefined
             ? {}
             : { incurredOn: input.incurredOn }),
@@ -1081,8 +1114,10 @@ export function useExpenseClaims(
 
       const state = demo.current();
       const existing = state.claims.find((claim) => claim.id === id);
-      if (!existing) throw new ApiError(404, "not_found", "That claim is gone.");
-      if (existing.status !== "SUBMITTED") throw conflict(alreadyDecided(existing));
+      if (!existing)
+        throw new ApiError(404, "not_found", "That claim is gone.");
+      if (existing.status !== "SUBMITTED")
+        throw conflict(alreadyDecided(existing));
 
       const type = state.types.find(
         (row) => row.id === (input.typeId ?? existing.typeId),
@@ -1144,7 +1179,8 @@ export function useExpenseClaims(
       const state = demo.current();
       const claim = state.claims.find((row) => row.id === id);
       if (!claim) throw new ApiError(404, "not_found", "That claim is gone.");
-      if (claim.status === "PAID") throw conflict("That claim has already been paid.");
+      if (claim.status === "PAID")
+        throw conflict("That claim has already been paid.");
       if (claim.status !== "SUBMITTED") {
         throw conflict(`That claim was already ${claim.status.toLowerCase()}.`);
       }
@@ -1254,11 +1290,7 @@ export function useExpenseClaims(
      * Not `?? 0`: a zero renders as "No claims" over a table that is loading,
      * and the reader cannot tell that from an empty register.
      */
-    total: !enabled
-      ? 0
-      : isConnected
-        ? remote?.total
-        : demoClaims.length,
+    total: !enabled ? 0 : isConnected ? remote?.total : demoClaims.length,
     awaitingDecision,
     outstanding,
     loading: enabled && isConnected && !answered,
@@ -1362,7 +1394,10 @@ export function useExpenseSummary(enabled = true) {
       (claim) => claim.status === "SUBMITTED",
     );
 
-    const byType = new Map<string, { type: string; claimCount: number; amount: number }>();
+    const byType = new Map<
+      string,
+      { type: string; claimCount: number; amount: number }
+    >();
     for (const claim of owed) {
       const row = byType.get(claim.typeId) ?? {
         type: claim.type,
@@ -1381,7 +1416,10 @@ export function useExpenseSummary(enabled = true) {
     return {
       outstanding: {
         claimCount: owed.length,
-        amount: owed.reduce((total, claim) => total + naira(claim.amountKobo), 0),
+        amount: owed.reduce(
+          (total, claim) => total + naira(claim.amountKobo),
+          0,
+        ),
         oldestIncurredOn: oldest ?? null,
       },
       byType: [...byType.entries()]
@@ -1398,10 +1436,17 @@ export function useExpenseSummary(enabled = true) {
   }, [demoState.claims]);
 
   if (!enabled) {
-    return { ...EMPTY_SUMMARY, loading: false, error: null, connected: isConnected };
+    return {
+      ...EMPTY_SUMMARY,
+      loading: false,
+      error: null,
+      connected: isConnected,
+    };
   }
 
-  const summary = isConnected ? (remote?.summary ?? EMPTY_SUMMARY) : demoSummary;
+  const summary = isConnected
+    ? (remote?.summary ?? EMPTY_SUMMARY)
+    : demoSummary;
   return {
     ...summary,
     loading: isConnected && !answered,

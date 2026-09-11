@@ -1,21 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Copy, Pencil, Plus, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { weightLabel } from "@/lib/api/performance";
 import {
   Badge,
   Button,
+  Callout,
   Checkbox,
   Field,
   IconButton,
   Input,
   Modal,
   Select,
+  Sortable,
+  SortableHandle,
   Spinner,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
+import { actionMessage } from "@/lib/use-action";
 import type {
   ApiQuestion,
   CreateQuestionBody,
@@ -30,6 +34,7 @@ import {
   useFrameworkActions,
   useSections,
 } from "@/lib/store/performance";
+import { NoticeLine } from "@/components/portal/notice-line";
 import { QUESTION_BANK } from "@/lib/performance/question-bank";
 
 /** Who a question is put to. `REPORT` exists in the enum and nothing reaches it. */
@@ -39,11 +44,31 @@ const AUDIENCES: { value: ReviewAudience; label: string }[] = [
   { value: "PEER", label: "Their colleagues (anonymous)" },
 ];
 
+/**
+ * Keep a chosen set in the order above rather than in click order.
+ *
+ * The list row renders `askedOf` joined with commas, so without this the same
+ * two audiences read "Manager, Self" or "Self, Manager" depending on which box
+ * somebody happened to tick first — two labels for one fact.
+ *
+ * Anything the picker does not offer (`REPORT` today) sorts last and is
+ * **kept**. Dropping a value the form cannot display is the defect this whole
+ * change is about, one level down.
+ */
+const audienceRank = new Map(AUDIENCES.map((a, index) => [a.value, index]));
+const inAudienceOrder = (chosen: readonly ReviewAudience[]): ReviewAudience[] =>
+  [...chosen].sort(
+    (a, b) =>
+      (audienceRank.get(a) ?? AUDIENCES.length) -
+      (audienceRank.get(b) ?? AUDIENCES.length),
+  );
+
 const KINDS: { value: ReviewQuestionKind; label: string }[] = [
   { value: "TEXT", label: "In their own words" },
-  { value: "RATING", label: "A mark out of five" },
+  { value: "RATING", label: "A rating on the company scale" },
   { value: "BOOLEAN", label: "Yes or no" },
   { value: "CHOICE", label: "Pick from a list" },
+  { value: "FILE", label: "A file — a report, a dashboard, a screenshot" },
 ];
 
 const AUDIENCE_LABEL: Record<ReviewAudience, string> = {
@@ -55,10 +80,45 @@ const AUDIENCE_LABEL: Record<ReviewAudience, string> = {
 
 const KIND_LABEL: Record<ReviewQuestionKind, string> = {
   TEXT: "Own words",
-  RATING: "Mark out of 5",
+  RATING: "Rating",
   BOOLEAN: "Yes or no",
   CHOICE: "Pick one",
+  FILE: "A file",
 };
+
+/**
+ * Why an evidence question cannot be asked of colleagues.
+ *
+ * Returns null when the set is fine, and the API's own rule otherwise, checked
+ * here so the refusal arrives while somebody is still writing the question
+ * rather than after they press save.
+ *
+ * The rule itself: a peer answer carries **no respondent** by design, and a
+ * file carries its author in its metadata and usually in its name. Anonymity a
+ * file quietly breaks is worse than none, because people answered believing
+ * it. And "everyone on the form" includes colleagues, so an evidence question
+ * has to say who it is for.
+ */
+function evidenceAudienceRefusal(
+  kind: ReviewQuestionKind,
+  narrowed: boolean,
+  audiences: readonly ReviewAudience[],
+): string | null {
+  if (kind !== "FILE") return null;
+  if (!narrowed) {
+    return (
+      "Say who is asked for a file. Left as everyone it would include " +
+      "colleagues, and peer feedback is anonymous."
+    );
+  }
+  if (audiences.includes("PEER")) {
+    return (
+      "A file cannot be asked of colleagues. Peer feedback is anonymous, and " +
+      "a document carries its author's name in ways we cannot strip out."
+    );
+  }
+  return null;
+}
 
 /**
  * The questions on one appraisal period.
@@ -89,7 +149,9 @@ export function QuestionsDialog({
   onAdd,
   onUpdate,
   onRemove,
+  onReorder,
   onCopyFrom,
+  onAddStandard,
 }: {
   cycleId: string;
   periodName: string;
@@ -97,64 +159,172 @@ export function QuestionsDialog({
   onAdd: (body: CreateQuestionBody) => Promise<void>;
   onUpdate: (id: string, body: UpdateQuestionBody) => Promise<void>;
   onRemove: (id: string) => Promise<void>;
+  /**
+   * Rearrange the form. Absent once the period is published, where the API
+   * refuses it — its form is a record by then. Every other stage may reorder,
+   * so this is not the same gate as `onCopyFrom`.
+   */
+  onReorder?: (ids: string[]) => Promise<void>;
   /** Absent on a period that has started — copying is refused there anyway. */
   onCopyFrom?: (sourceCycleId: string) => Promise<{ copied: number }>;
+  /**
+   * The testing doc's six standard self/manager questions — Key
+   * Achievements, Key Challenges, Reason for Rating; Achievements Observed,
+   * Areas for Improvement, Overall Assessment — added in one call. Absent
+   * once the period has started, same reason as `onCopyFrom`: the API
+   * refuses it there, so the button is not offered rather than offered and
+   * refused.
+   */
+  onAddStandard?: () => Promise<void>;
 }) {
   const { questions, loading, reload } = useCycleQuestions(cycleId);
   const framework = useFramework();
+
+  /**
+   * The arrangement somebody has just dragged, held until the server's own
+   * order says the same thing.
+   *
+   * Without it the row snaps back to where it started for as long as the
+   * request takes, which reads as the drag having failed — and then lands in
+   * the new place a moment later, which reads as a second, unasked-for move.
+   *
+   * It is reconciled against the live list on every render rather than cleared
+   * on success, so it needs no timing: a question added meanwhile appends
+   * (which is where the API puts it too, at `last.order + 1`) and a removed one
+   * drops out. On a refusal it is thrown away and the server's order stands.
+   */
+  const [dragged, setDragged] = useState<string[] | null>(null);
+  const [orderError, setOrderError] = useState<string | null>(null);
+
+  const ordered = useMemo(() => {
+    if (!dragged) return questions;
+    const byId = new Map(questions.map((q) => [q.id, q]));
+    const known = new Set(dragged);
+    return [
+      ...dragged.flatMap((id) => byId.get(id) ?? []),
+      ...questions.filter((q) => !known.has(q.id)),
+    ];
+  }, [questions, dragged]);
+
+  const reorder = async (ids: string[]) => {
+    if (!onReorder) return;
+    const before = dragged;
+    setDragged(ids);
+    setOrderError(null);
+    try {
+      await onReorder(ids);
+      reload();
+    } catch (caught) {
+      /* Put it back where it was. A list left in an order the server rejected
+         is a screen claiming a change that did not happen. */
+      setDragged(before);
+      setOrderError(
+        caught instanceof ApiError
+          ? caught.message
+          : "That new order was not saved. Try again.",
+      );
+    }
+  };
 
   /** The question being changed, or `null` while the form is adding a new one. */
   const [editing, setEditing] = useState<ApiQuestion | null>(null);
   const [prompt, setPrompt] = useState("");
   const [kind, setKind] = useState<ReviewQuestionKind>("TEXT");
-  const [audience, setAudience] = useState<ReviewAudience | "ALL">("ALL");
+  /**
+   * Whether the question is narrowed to particular audiences.
+   *
+   * Separate from `audiences` because an empty list is otherwise ambiguous:
+   * "everybody" and "narrowed, nothing ticked yet" are opposite intentions and
+   * only one of them is a question worth saving.
+   */
+  const [narrowed, setNarrowed] = useState(false);
+  const [audiences, setAudiences] = useState<ReviewAudience[]>([]);
   const [required, setRequired] = useState(true);
   const [competencyId, setCompetencyId] = useState("");
   const [options, setOptions] = useState<string[]>(["", ""]);
   const [allowCustom, setAllowCustom] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  /**
+   * Field errors and form errors, kept apart.
+   *
+   * One string carried both and was always rendered on **the question**, so
+   * choosing "A file" without saying who is asked marked the question text
+   * `aria-invalid` and printed the audience refusal under it — while the
+   * same sentence was already showing, correctly, under the audience picker.
+   * One refusal, two places, one of them accusing the wrong field.
+   */
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const fail = (field: string, message: string) => {
+    setErrors({ [field]: message });
+    setFormError(null);
+  };
+  const clearErrors = () => {
+    setErrors({});
+    setFormError(null);
+  };
   const [saving, setSaving] = useState(false);
 
   const startEdit = (question: ApiQuestion) => {
     setEditing(question);
     setPrompt(question.prompt);
     setKind(question.kind);
-    setAudience(question.askedOf[0] ?? "ALL");
+    /* The whole list, not `[0]`. Reading only the first is what let an edit
+       silently narrow a question asked of two people to one. */
+    setNarrowed(question.askedOf.length > 0);
+    setAudiences(inAudienceOrder(question.askedOf));
     setRequired(question.required);
     setCompetencyId(question.competencyId ?? "");
     setOptions(question.options.length > 0 ? question.options : ["", ""]);
     setAllowCustom(question.allowCustom);
-    setError(null);
+    clearErrors();
   };
 
   const cancelEdit = () => {
     setEditing(null);
     setPrompt("");
     setKind("TEXT");
-    setAudience("ALL");
+    setNarrowed(false);
+    setAudiences([]);
     setRequired(true);
     setCompetencyId("");
     setOptions(["", ""]);
     setAllowCustom(false);
-    setError(null);
+    clearErrors();
   };
 
   const save = async () => {
     if (prompt.trim().length < 5) {
-      setError("Write the question out.");
+      fail("prompt", "Write the question out.");
       return;
     }
     const cleanOptions = options
       .map((o) => o.trim())
       .filter((o) => o.length > 0);
     if (kind === "CHOICE" && cleanOptions.length < 2) {
-      setError("A pick-from-a-list question needs at least two choices.");
+      fail(
+        "options",
+        "A pick-from-a-list question needs at least two choices.",
+      );
       return;
     }
-    setError(null);
+    if (narrowed && audiences.length === 0) {
+      fail(
+        "audience",
+        "Choose who is asked, or set it back to everyone on the form. " +
+          "A question nobody is asked is never answered.",
+      );
+      return;
+    }
+    /* Refuses the save and says nothing new: the same sentence is already on
+       screen under the audience picker, from the same function, and has been
+       since the kind was set to a file. Repeating it on the question text
+       would be the defect this split is about. */
+    if (evidenceAudienceRefusal(kind, narrowed, audiences)) return;
+    clearErrors();
     setSaving(true);
     try {
-      const askedOf = audience === "ALL" ? [] : [audience];
+      const askedOf = narrowed ? inAudienceOrder(audiences) : [];
       const shared = {
         prompt: prompt.trim(),
         kind,
@@ -179,13 +349,8 @@ export function QuestionsDialog({
       }
       reload();
     } catch (caught) {
-      setError(
-        caught instanceof ApiError
-          ? caught.message
-          : editing
-            ? "Could not save that change."
-            : "Could not add that question.",
-      );
+      /* The whole form, so above the form rather than under the first field. */
+      setFormError(actionMessage(caught, "the question"));
     } finally {
       setSaving(false);
     }
@@ -197,27 +362,33 @@ export function QuestionsDialog({
       if (editing?.id === id) cancelEdit();
       reload();
     } catch (caught) {
-      setError(
-        caught instanceof ApiError
-          ? caught.message
-          : "Could not remove that one.",
-      );
+      setFormError(actionMessage(caught, "that question"));
     }
   };
 
   const copyFrom = async (sourceCycleId: string) => {
     if (!onCopyFrom) return;
-    setError(null);
+    clearErrors();
     setSaving(true);
     try {
       await onCopyFrom(sourceCycleId);
       reload();
     } catch (caught) {
-      setError(
-        caught instanceof ApiError
-          ? caught.message
-          : "Could not copy those questions.",
-      );
+      setFormError(actionMessage(caught, "those questions"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const addStandard = async () => {
+    if (!onAddStandard) return;
+    clearErrors();
+    setSaving(true);
+    try {
+      await onAddStandard();
+      reload();
+    } catch (caught) {
+      setFormError(actionMessage(caught, "the standard questions"));
     } finally {
       setSaving(false);
     }
@@ -253,75 +424,102 @@ export function QuestionsDialog({
             <CopyFromPeriod cycleId={cycleId} busy={saving} onCopy={copyFrom} />
           )
         ) : (
-          <ul className="flex flex-col gap-2">
-            {questions.map((question) => (
-              <li
-                key={question.id}
-                className={cn(
-                  "flex flex-wrap items-start justify-between gap-3 rounded-md border p-3",
-                  editing?.id === question.id
-                    ? "border-accent-line bg-accent-soft"
-                    : "border-line",
-                )}
+          <>
+            {orderError && (
+              <p className="text-body-sm text-danger-text">{orderError}</p>
+            )}
+            {onReorder ? (
+              <Sortable
+                items={ordered}
+                keyOf={(question) => question.id}
+                labelOf={(question) => question.prompt}
+                onReorder={(ids) => void reorder(ids)}
+                gap={8}
               >
-                <span className="min-w-0">
-                  <span className="block text-body-sm font-medium text-ink">
-                    {question.prompt}
-                  </span>
-                  <span className="mt-1.5 flex flex-wrap items-center gap-2">
-                    <Badge tone="neutral" size="sm">
-                      {KIND_LABEL[question.kind]}
-                    </Badge>
-                    <Badge tone="neutral" size="sm">
-                      {question.askedOf.length === 0
-                        ? "Everyone"
-                        : question.askedOf
-                            .map((who) => AUDIENCE_LABEL[who])
-                            .join(", ")}
-                    </Badge>
-                    {question.required && (
-                      <Badge tone="accent" size="sm">
-                        Must be answered
-                      </Badge>
+                {(question, args) => (
+                  <div
+                    className={cn(
+                      "flex flex-wrap items-start gap-3 rounded-md border p-3",
+                      editing?.id === question.id
+                        ? "border-accent-line bg-accent-soft"
+                        : "border-line",
                     )}
-                    {question.competencyId && (
-                      <Badge tone="neutral" size="sm">
-                        {competencyName(question.competencyId) ?? "Filed"}
-                      </Badge>
-                    )}
-                    {question.source === "MANAGER" && (
-                      <Badge tone="neutral" size="sm">
-                        Added by a manager
-                      </Badge>
-                    )}
-                  </span>
-                </span>
-                <span className="flex shrink-0 gap-1">
-                  <IconButton
-                    label={`Edit "${question.prompt}"`}
-                    disabled={saving}
-                    onClick={() => startEdit(question)}
                   >
-                    <Pencil aria-hidden="true" />
-                  </IconButton>
-                  <IconButton
-                    label={`Remove "${question.prompt}"`}
-                    disabled={saving}
-                    onClick={() => void remove(question.id)}
+                    <SortableHandle handleProps={args.handleProps} />
+                    <QuestionSummary
+                      question={question}
+                      competencyName={competencyName}
+                    />
+                    <QuestionRowActions
+                      question={question}
+                      disabled={saving}
+                      onEdit={() => startEdit(question)}
+                      onRemove={() => void remove(question.id)}
+                    />
+                  </div>
+                )}
+              </Sortable>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {ordered.map((question) => (
+                  <li
+                    key={question.id}
+                    className={cn(
+                      "flex flex-wrap items-start justify-between gap-3 rounded-md border p-3",
+                      editing?.id === question.id
+                        ? "border-accent-line bg-accent-soft"
+                        : "border-line",
+                    )}
                   >
-                    <Trash2 aria-hidden="true" />
-                  </IconButton>
-                </span>
-              </li>
-            ))}
-          </ul>
+                    <QuestionSummary
+                      question={question}
+                      competencyName={competencyName}
+                    />
+                    <QuestionRowActions
+                      question={question}
+                      disabled={saving}
+                      onEdit={() => startEdit(question)}
+                      onRemove={() => void remove(question.id)}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        )}
+
+        {onAddStandard && !editing && (
+          /* The testing doc's six, offered whether or not HR has already
+             typed questions of their own — unlike `onCopyFrom`, this is not
+             confined to a blank form. Pressing it twice is refused by the
+             API in words naming which of the six are already there, rather
+             than hidden pre-emptively, so this needs no "already added"
+             tracking of its own. */
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="self-start"
+            loading={saving}
+            onClick={() => void addStandard()}
+          >
+            Add the standard self/manager questions
+          </Button>
         )}
 
         <div className="flex flex-col gap-4 border-t border-line pt-5">
+          {/* Belongs to the whole form, so it sits above it rather than
+              accusing the first field. */}
+          {formError && (
+            <Callout tone="danger" title="That did not go through">
+              {formError}
+            </Callout>
+          )}
+
           <Field
             label={editing ? "Edit the question" : "Add a question"}
             required
-            {...(error ? { error } : {})}
+            {...(errors["prompt"] ? { error: errors["prompt"] } : {})}
           >
             <Input
               value={prompt}
@@ -347,31 +545,54 @@ export function QuestionsDialog({
             </Field>
             <Field label="Who is asked">
               <Select
-                value={audience}
-                onChange={(event) =>
-                  setAudience(event.target.value as ReviewAudience | "ALL")
-                }
+                value={narrowed ? "SOME" : "ALL"}
+                onChange={(event) => setNarrowed(event.target.value === "SOME")}
               >
                 <option value="ALL">Everyone on the form</option>
-                {AUDIENCES.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
+                <option value="SOME">Only certain people</option>
               </Select>
             </Field>
           </div>
 
+          {narrowed && (
+            <>
+              <AudiencePicker value={audiences} onChange={setAudiences} />
+              {/* Under the control it is about. It used to appear under the
+                  question text, which is a different field entirely. */}
+              {errors["audience"] && (
+                <p className="text-body-sm text-danger-text">
+                  {errors["audience"]}
+                </p>
+              )}
+            </>
+          )}
+
+          {/* The rule while somebody is choosing, not after they save.
+              `evidenceAudienceRefusal` is the same function `save` calls, so
+              the note and the refusal cannot come to say different things. */}
+          {evidenceAudienceRefusal(kind, narrowed, audiences) && (
+            <NoticeLine tone="warning">
+              <span>{evidenceAudienceRefusal(kind, narrowed, audiences)}</span>
+            </NoticeLine>
+          )}
+
           <SubsectionPicker value={competencyId} onChange={setCompetencyId} />
 
           {kind === "CHOICE" && (
-            <ChoiceEditor
-              options={options}
-              onChange={setOptions}
-              allowCustom={allowCustom}
-              onAllowCustomChange={setAllowCustom}
-              competencyId={competencyId}
-            />
+            <>
+              <ChoiceEditor
+                options={options}
+                onChange={setOptions}
+                allowCustom={allowCustom}
+                onAllowCustomChange={setAllowCustom}
+                competencyId={competencyId}
+              />
+              {errors["options"] && (
+                <p className="text-body-sm text-danger-text">
+                  {errors["options"]}
+                </p>
+              )}
+            </>
           )}
 
           <Checkbox
@@ -614,6 +835,133 @@ function SubsectionPicker({
  * hand-typed choice, because a bank of phrasing is a convenience, not a
  * fixed vocabulary.
  */
+/**
+ * One question as the list shows it: the prompt, and its settings as badges.
+ *
+ * Extracted because the list renders twice — dragging when the period is still
+ * open, plain when it is published and the API refuses a rearrangement. Two
+ * copies of sixty lines is how one of them quietly stops showing a badge.
+ */
+function QuestionSummary({
+  question,
+  competencyName,
+}: {
+  question: ApiQuestion;
+  competencyName: (id: string) => string | null;
+}) {
+  return (
+    <span className="min-w-0 flex-1">
+      <span className="block text-body-sm font-medium text-ink">
+        {question.prompt}
+      </span>
+      <span className="mt-1.5 flex flex-wrap items-center gap-2">
+        <Badge tone="neutral" size="sm">
+          {KIND_LABEL[question.kind]}
+        </Badge>
+        <Badge tone="neutral" size="sm">
+          {question.askedOf.length === 0
+            ? "Everyone"
+            : question.askedOf.map((who) => AUDIENCE_LABEL[who]).join(", ")}
+        </Badge>
+        {question.required && (
+          <Badge tone="accent" size="sm">
+            Must be answered
+          </Badge>
+        )}
+        {question.competencyId && (
+          <Badge tone="neutral" size="sm">
+            {competencyName(question.competencyId) ?? "Filed"}
+          </Badge>
+        )}
+        {question.source === "MANAGER" && (
+          <Badge tone="neutral" size="sm">
+            Added by a manager
+          </Badge>
+        )}
+      </span>
+    </span>
+  );
+}
+
+/** Edit and remove, labelled with the prompt so the two rows never sound alike. */
+function QuestionRowActions({
+  question,
+  disabled,
+  onEdit,
+  onRemove,
+}: {
+  question: ApiQuestion;
+  disabled: boolean;
+  onEdit: () => void;
+  onRemove: () => void;
+}) {
+  return (
+    <span className="flex shrink-0 gap-1">
+      <IconButton
+        label={`Edit "${question.prompt}"`}
+        disabled={disabled}
+        onClick={onEdit}
+      >
+        <Pencil aria-hidden="true" />
+      </IconButton>
+      <IconButton
+        label={`Remove "${question.prompt}"`}
+        disabled={disabled}
+        onClick={onRemove}
+      >
+        <Trash2 aria-hidden="true" />
+      </IconButton>
+    </span>
+  );
+}
+
+/**
+ * Which audiences a question is put to, when it is not put to everybody.
+ *
+ * Checkboxes rather than a second dropdown because the answer is a set: a
+ * question can be asked of the person and their manager but not their
+ * colleagues, and until this existed the form could only ever write one
+ * audience or none. A question created through the API with two would open
+ * here showing the first and save back having dropped the second.
+ *
+ * A value the list does not offer is left alone by the toggle rather than
+ * filtered out, so `REPORT` — in the enum, reached by nothing — survives an
+ * edit instead of being quietly discarded by a screen that cannot show it.
+ */
+function AudiencePicker({
+  value,
+  onChange,
+}: {
+  value: ReviewAudience[];
+  onChange: (next: ReviewAudience[]) => void;
+}) {
+  const toggle = (who: ReviewAudience, on: boolean) => {
+    onChange(
+      on ? inAudienceOrder([...value, who]) : value.filter((v) => v !== who),
+    );
+  };
+
+  return (
+    <div className="flex flex-col gap-3 rounded-md border border-line bg-canvas p-3">
+      <span className="text-body-sm font-medium text-ink">
+        Who is asked this one
+      </span>
+      {AUDIENCES.map((option) => (
+        <Checkbox
+          key={option.value}
+          label={option.label}
+          checked={value.includes(option.value)}
+          onChange={(event) => toggle(option.value, event.target.checked)}
+        />
+      ))}
+      <span className="text-meta text-muted">
+        A colleague only sees this if somebody has asked them for a peer review
+        on this period. Nobody is asked one by default.
+      </span>
+    </div>
+  );
+}
+
 function ChoiceEditor({
   options,
   onChange,
@@ -679,7 +1027,9 @@ function ChoiceEditor({
 
       {suggestions.length > 0 && (
         <div className="flex flex-col gap-1.5 border-t border-line pt-3">
-          <span className="text-meta text-muted">Suggested phrasing (click to add)</span>
+          <span className="text-meta text-muted">
+            Suggested phrasing (click to add)
+          </span>
           <div className="flex flex-wrap gap-1.5">
             {suggestions.slice(0, 8).map((phrase) => (
               <button

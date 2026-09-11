@@ -63,7 +63,8 @@ function useRead<T>(
         const data = await load(controller.signal);
         if (!cancelled) setFetched({ key: full, data, error: null });
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         if (!cancelled) {
           setFetched({
             key: full,
@@ -105,7 +106,10 @@ export function useReportCatalogue(): Read<ApiDataset[]> {
 /** Reports this caller owns, plus the shared ones. */
 export function useSavedReports(): Read<ApiSavedReport[]> {
   const { isConnected } = useSession();
-  const load = useCallback((signal: AbortSignal) => reportsApi.saved(signal), []);
+  const load = useCallback(
+    (signal: AbortSignal) => reportsApi.saved(signal),
+    [],
+  );
   return useRead("saved", isConnected, load);
 }
 
@@ -151,7 +155,15 @@ export function useReportRun() {
     setError(null);
   }, []);
 
-  return { result, running, error, run, clear, available: isConnected, refusal: OFFLINE };
+  return {
+    result,
+    running,
+    error,
+    run,
+    clear,
+    available: isConnected,
+    refusal: OFFLINE,
+  };
 }
 
 export function useReportMutations() {

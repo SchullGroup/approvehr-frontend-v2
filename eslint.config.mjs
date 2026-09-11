@@ -32,6 +32,13 @@ const eslintConfig = defineConfig([
      * same reason.
      */
     ".claude/**",
+    /*
+     * Throwaway browser-test harness. Playwright scripts driven by hand
+     * against a running dev server — not shipped, not built, gitignored. Same
+     * class as the two above: a gate that reports on scratch files is a gate
+     * people stop reading.
+     */
+    ".e2e-run/**",
   ]),
 ]);
 

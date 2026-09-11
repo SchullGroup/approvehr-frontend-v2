@@ -22,7 +22,11 @@ import {
   parseCsvRecords,
   toCsv,
 } from "../src/lib/csv";
-import { guessMapping, mapRow, reverseHeadings } from "../src/lib/imports/mapping";
+import {
+  guessMapping,
+  mapRow,
+  reverseHeadings,
+} from "../src/lib/imports/mapping";
 import { EMPLOYEES } from "../src/lib/imports/employees";
 import {
   checkMappedRows,
@@ -34,7 +38,7 @@ import { planParts } from "../src/lib/store/imports";
 type Check = { name: string; got: unknown; want: unknown };
 
 /** The message from a parser that refused, for asserting on what it said. */
-const said = <T,>(
+const said = <T>(
   parsed: { ok: true; value: T } | { ok: false; problem: string },
 ): string => (parsed.ok ? "" : parsed.problem);
 
@@ -44,11 +48,9 @@ const eq = (name: string, got: unknown, want: unknown) =>
 
 /* --- The state machine -------------------------------------------------- */
 
-eq(
-  "plain row splits on commas",
-  parseCsvRecords("a,b,c", ","),
-  [["a", "b", "c"]],
-);
+eq("plain row splits on commas", parseCsvRecords("a,b,c", ","), [
+  ["a", "b", "c"],
+]);
 
 eq(
   "quoted field keeps its comma",
@@ -65,7 +67,7 @@ eq(
 eq(
   "doubled quotes become one quote",
   parseCsvRecords('"Bola ""BJ"" Ahmed",Analyst', ","),
-  [["Bola \"BJ\" Ahmed", "Analyst"]],
+  [['Bola "BJ" Ahmed', "Analyst"]],
 );
 
 eq(
@@ -101,11 +103,9 @@ eq(
   ],
 );
 
-eq(
-  "an empty trailing cell is a cell",
-  parseCsvRecords("a,b,", ","),
-  [["a", "b", ""]],
-);
+eq("an empty trailing cell is a cell", parseCsvRecords("a,b,", ","), [
+  ["a", "b", ""],
+]);
 
 eq(
   "a row of only delimiters is three empty cells",
@@ -143,12 +143,12 @@ eq(
   detectDelimiter('a;"Ikeja, Lagos, Nigeria";c'),
   ";",
 );
-eq("one column has no evidence, so comma wins", detectDelimiter("employee_no"), ",");
 eq(
-  "only the first record votes",
-  detectDelimiter("a;b\n1,2,3,4,5,6,7"),
-  ";",
+  "one column has no evidence, so comma wins",
+  detectDelimiter("employee_no"),
+  ",",
 );
+eq("only the first record votes", detectDelimiter("a;b\n1,2,3,4,5,6,7"), ";");
 
 /* --- Whole files -------------------------------------------------------- */
 
@@ -174,7 +174,10 @@ eq(
 );
 
 const spacedHeaders = parseCsv(" Employee ID , First Name \nEMP-1, Ngozi \n");
-eq("headings are trimmed", spacedHeaders.headers, ["Employee ID", "First Name"]);
+eq("headings are trimmed", spacedHeaders.headers, [
+  "Employee ID",
+  "First Name",
+]);
 eq(
   "values are not trimmed — the parser keeps the file's bytes",
   spacedHeaders.rows[0]?.["First Name"],
@@ -219,7 +222,9 @@ eq("so neither column is lost", dupes.rows[0], {
   "phone (2)": "0805",
 });
 
-const multiline = parseCsv('name,address\nNgozi,"12 Awolowo Road\nIkeja, Lagos"\n');
+const multiline = parseCsv(
+  'name,address\nNgozi,"12 Awolowo Road\nIkeja, Lagos"\n',
+);
 eq("a two-line cell is one row, not two", multiline.rows.length, 1);
 eq(
   "and keeps both lines",
@@ -291,7 +296,11 @@ const guessed = guessMapping(EMPLOYEES, [
 ]);
 
 eq("employee_id is the staff number", guessed["employee_id"], "employeeNo");
-eq("a heading's spaces and case do not matter", guessed["First Name"], "firstName");
+eq(
+  "a heading's spaces and case do not matter",
+  guessed["First Name"],
+  "firstName",
+);
 eq("surname is the last name", guessed["surname"], "lastName");
 eq("job_title beats position", guessed["job_title"], "jobTitle");
 eq("so position is left for the person to decide", guessed["position"], "");
@@ -379,7 +388,11 @@ eq(
   parseImportDate("04/28/2021").ok,
   false,
 );
-eq("dots and dashes work as separators", parseImportDate("28.04.2021").ok, true);
+eq(
+  "dots and dashes work as separators",
+  parseImportDate("28.04.2021").ok,
+  true,
+);
 eq("words are not a date", parseImportDate("last April").ok, false);
 
 /* --- Money -------------------------------------------------------------- */
@@ -404,9 +417,17 @@ eq("one decimal place is tens of kobo", parseImportMoneyKobo("100.5"), {
   ok: true,
   value: 10_050,
 });
-eq("three decimal places are refused, not rounded", parseImportMoneyKobo("100.555").ok, false);
+eq(
+  "three decimal places are refused, not rounded",
+  parseImportMoneyKobo("100.555").ok,
+  false,
+);
 eq("a negative salary is refused", parseImportMoneyKobo("-5000").ok, false);
-eq("accounting parentheses are also negative", parseImportMoneyKobo("(5,000)").ok, false);
+eq(
+  "accounting parentheses are also negative",
+  parseImportMoneyKobo("(5,000)").ok,
+  false,
+);
 eq("zero is refused", parseImportMoneyKobo("0").ok, false);
 eq("a word is not an amount", parseImportMoneyKobo("competitive").ok, false);
 eq("an empty cell is refused", parseImportMoneyKobo("   ").ok, false);
@@ -611,7 +632,9 @@ for (const check of checks) {
 console.log(rows.join("\n"));
 
 if (failures.length) {
-  console.error(`\nCSV check failed:\n${failures.map((f) => "  " + f).join("\n")}`);
+  console.error(
+    `\nCSV check failed:\n${failures.map((f) => "  " + f).join("\n")}`,
+  );
   process.exit(1);
 }
 console.log(`\nCSV check passed. ${checks.length} assertions.`);

@@ -77,7 +77,9 @@ export function errorReportingConfigured(): boolean {
  */
 export function reportError(error: unknown, context: ErrorContext = {}): void {
   const real =
-    error instanceof Error ? error : new Error(String(error ?? "unknown error"));
+    error instanceof Error
+      ? error
+      : new Error(String(error ?? "unknown error"));
 
   console.error("Rendering failed:", real, context);
 

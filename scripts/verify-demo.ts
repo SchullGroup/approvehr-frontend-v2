@@ -48,6 +48,15 @@ const BANNED = [
   "Demo calendar",
   "demoRefusal",
   "demoLimits",
+  /* The sales-script layer — see `lib/sales-script.ts`. Same reasoning as
+     everything above it: this copy exists to say the assistant is scripted and
+     has no business surviving in a build where it is not. If it ever leaks into
+     a production bundle it is worse than the demo phrases, because it describes
+     the one place this product has ever shown a sentence a model did not
+     write. */
+  "prepared answers, not a live AI",
+  "Prepared examples — not a live AI",
+  "not one of the prepared questions",
   "Demo session",
   "Demo locations",
   "Read-only in demo",
@@ -81,13 +90,25 @@ const TRUE_IN_PRODUCTION = [
 ];
 
 const stripAllowed = (text: string): string =>
-  TRUE_IN_PRODUCTION.reduce((acc, allowed) => acc.split(allowed).join(""), text);
+  TRUE_IN_PRODUCTION.reduce(
+    (acc, allowed) => acc.split(allowed).join(""),
+    text,
+  );
 
 /**
- * The module that is allowed to hold the copy, because it is the module that
- * gates it. Anything here folds to a literal at build time.
+ * The modules allowed to hold the copy, because they are the modules that gate
+ * it. Anything in either folds to a literal at build time.
+ *
+ * Two, not one, since the scripted assistant arrived: `lib/demo.ts` owns the
+ * demo's own words behind `DEMO_ENABLED`, and `lib/sales-script.ts` owns the
+ * disclosure behind `SALES_SCRIPT_ENABLED`. Each is exempt only because the
+ * flag it reads folds its strings away — which is the thing this script proves
+ * rather than assumes.
  */
-const OWNS_THE_COPY = path.join(SRC, "lib", "demo.ts");
+const COPY_OWNERS = [
+  path.join(SRC, "lib", "demo.ts"),
+  path.join(SRC, "lib", "sales-script.ts"),
+];
 
 /** This file, which has to name the phrases in order to ban them. */
 const SELF = path.join(ROOT, "scripts", "verify-demo.ts");
@@ -123,20 +144,41 @@ type Offender = { file: string; phrase: string; reason: string };
 const offenders: Offender[] = [];
 let sourceFilesChecked = 0;
 
+/**
+ * Whether a piece of source is behind a flag that folds it away.
+ *
+ * `DEMO_ENABLED`, or `SALES_SCRIPT_ENABLED` — and the second is sound only
+ * because of one line in `next.config.ts`:
+ *
+ *     const SALES_SCRIPT_ENABLED = DEMO_ENABLED && process.env[…] === "on";
+ *
+ * `&& DEMO_ENABLED` makes the implication hold: there is no build where the
+ * scripted layer is on and the demo is off, so anything behind the narrower
+ * flag is transitively behind the broader one. If that `&&` is ever dropped,
+ * this function is quietly wrong and a fabricated name could ship — which is
+ * why it is written down here and not only there.
+ *
+ * Both are ambient compile-time literals, not imports (see `next.config.ts`),
+ * so the marker is the identifier itself.
+ */
+function foldedAway(code: string): boolean {
+  return code.includes("DEMO_ENABLED") || code.includes("SALES_SCRIPT_ENABLED");
+}
+
 for (const file of walk(SRC, (f) => /\.(ts|tsx|mts)$/.test(f))) {
-  if (file === OWNS_THE_COPY) continue;
+  if (COPY_OWNERS.includes(file)) continue;
   sourceFilesChecked += 1;
   const code = stripAllowed(withoutComments(fs.readFileSync(file, "utf8")));
-  /* `DEMO_ENABLED` is an ambient compile-time literal, not an import — see
-     `next.config.ts`. So the marker is the identifier itself. */
-  const gated = code.includes("DEMO_ENABLED");
+  const gated = foldedAway(code);
   for (const phrase of BANNED) {
     if (!code.includes(phrase)) continue;
     if (gated) continue;
     offenders.push({
       file: path.relative(ROOT, file),
       phrase,
-      reason: "does not mention DEMO_ENABLED, so nothing can be folding it away",
+      reason:
+        "does not mention DEMO_ENABLED or SALES_SCRIPT_ENABLED, so nothing " +
+        "can be folding it away",
     });
   }
 }
@@ -155,7 +197,7 @@ if (offenders.length > 0) {
       "or, for a source label, by calling sourceNote(connected) instead of\n" +
       "writing the two strings inline. Both fold to nothing in a production\n" +
       "build. If the sentence is true in production — a module with no API at\n" +
-      "all — reword it to say that instead of saying \"demo\".\n",
+      'all — reword it to say that instead of saying "demo".\n',
   );
   process.exit(1);
 }
@@ -193,16 +235,17 @@ if (!fs.existsSync(path.join(NEXT, "build-manifest.json"))) {
  * present — so that subtree is excluded rather than reported. A dev server
  * running beside a production build is the normal state on this machine.
  */
-const chunkDirs = [
-  path.join(NEXT, "static"),
-  path.join(NEXT, "server"),
-].filter((d) => fs.existsSync(d));
+const chunkDirs = [path.join(NEXT, "static"), path.join(NEXT, "server")].filter(
+  (d) => fs.existsSync(d),
+);
 
 const found: { file: string; phrase: string }[] = [];
 let chunksChecked = 0;
 
 for (const dir of chunkDirs) {
-  for (const file of walk(dir, (f) => /\.(js|mjs|cjs|json|html|rsc|txt)$/.test(f))) {
+  for (const file of walk(dir, (f) =>
+    /\.(js|mjs|cjs|json|html|rsc|txt)$/.test(f),
+  )) {
     if (file === SELF) continue;
     chunksChecked += 1;
     const built = stripAllowed(fs.readFileSync(file, "utf8"));
@@ -371,7 +414,7 @@ for (const file of walk(SRC, (f) => /\.(ts|tsx|mts)$/.test(f))) {
   for (const decl of code.split(
     /^(?=(?:export )?(?:const|let|function|class) )/m,
   )) {
-    const gated = decl.includes("DEMO_ENABLED");
+    const gated = foldedAway(decl);
     if (gated) continue;
     for (const name of NAMES) {
       if (decl.includes(name)) fabricated.push({ file, phrase: name });

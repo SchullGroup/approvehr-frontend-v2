@@ -1,22 +1,24 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarRange, Sparkles } from "lucide-react";
 import {
   Button,
-  ButtonLink,
   Callout,
   Checkbox,
   Disclosure,
   Field,
   Input,
   Modal,
+  Textarea,
   useToast,
   type ButtonSize,
   type ButtonVariant,
 } from "@/components/ui";
-import { ApiError } from "@/lib/api/client";
+import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
+import { actionMessage } from "@/lib/use-action";
 import { useCan } from "@/lib/permissions";
 import { useDepartments } from "@/lib/store/departments";
 import { useFeatures } from "@/lib/store/features";
@@ -74,6 +76,20 @@ export function StartPeriodDialog({
   const [name, setName] = useState("");
   const [dueDate, setDueDate] = useState("");
   /**
+   * The months being appraised — **not** the deadline.
+   *
+   * A half runs January to July and is answered in August, and a period that
+   * could only say when the form was owed left the months it covered to be
+   * inferred from its name. Asked here rather than behind a reveal, because it
+   * is the first line of every appraisal form a person reads: "for the period
+   * January to July 2026".
+   */
+  const [periodStart, setPeriodStart] = useState("");
+  const [periodEnd, setPeriodEnd] = useState("");
+  /** What to say above question 1, and where the company's guide is. */
+  const [instructions, setInstructions] = useState("");
+  const [guideUrl, setGuideUrl] = useState("");
+  /**
    * Who the period covers. **Empty is everybody**, and that is the default.
    *
    * Asked here rather than on the period screen because the API reads it once,
@@ -85,17 +101,53 @@ export function StartPeriodDialog({
   /** Days before the deadline to chase whoever still owes a form. */
   const [remind, setRemind] = useState("");
   /** Off by default. Lets a manager add their own questions, scoped to their team. */
-  const [managersCanAddQuestions, setManagersCanAddQuestions] =
-    useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [managersCanAddQuestions, setManagersCanAddQuestions] = useState(false);
+  /**
+   * Field errors and form errors, kept apart.
+   *
+   * One `error` string used to carry both and it was rendered on **What to
+   * call it**, so a failure belonging to the whole form — including a 500 from
+   * `POST /cycles` — appeared under the name field and sent somebody off to
+   * retype a name that was never the problem. A period whose dates were the
+   * wrong way round said so under the name too.
+   *
+   * An error under a label is a claim about that field. If it is not about
+   * that field it belongs above the form, where it does not accuse anything.
+   */
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const fail = (field: string, message: string) => {
+    setErrors({ [field]: message });
+    setFormError(null);
+  };
 
   const submit = async () => {
     if (name.trim().length < 3) {
-      setError("Name it: people will see this in their inbox.");
+      fail("name", "Name it: people will see this in their inbox.");
       return;
     }
-    setError(null);
+    /* Both or neither, and in order. Checked here so the answer arrives while
+       the dialog is open rather than as a server refusal after Create — the
+       API enforces the same rule, and these are its own sentences. */
+    if (Boolean(periodStart) !== Boolean(periodEnd)) {
+      fail(
+        "period",
+        "A period needs a start and an end. Set both, or clear both.",
+      );
+      return;
+    }
+    if (periodStart && periodEnd && periodStart > periodEnd) {
+      fail("period", "The period ends before it starts.");
+      return;
+    }
+    if (guideUrl.trim() && !/^https?:\/\//i.test(guideUrl.trim())) {
+      fail("guideUrl", "A guide link has to start with http:// or https://.");
+      return;
+    }
+    setErrors({});
+    setFormError(null);
     setSaving(true);
     try {
       const created = await periods.createCycle(
@@ -105,15 +157,17 @@ export function StartPeriodDialog({
           ...(scope.length > 0 ? { departmentIds: scope } : {}),
           ...(remind ? { remindDaysBefore: Number(remind) } : {}),
           ...(managersCanAddQuestions ? { managersCanAddQuestions: true } : {}),
+          ...(periodStart && periodEnd ? { periodStart, periodEnd } : {}),
+          ...(instructions.trim() ? { instructions: instructions.trim() } : {}),
+          ...(guideUrl.trim() ? { guideUrl: guideUrl.trim() } : {}),
         },
       );
       onCreated({ id: created.id, name: created.name });
     } catch (caught) {
-      setError(
-        caught instanceof ApiError
-          ? caught.message
-          : "Could not create that period.",
-      );
+      /* The whole form, so above the form. `actionMessage` is the one place
+         that turns a thrown thing into a sentence for a write — the API's own
+         words where it wrote them, and never a status code. */
+      setFormError(actionMessage(caught, "the period"));
     } finally {
       setSaving(false);
     }
@@ -147,40 +201,116 @@ export function StartPeriodDialog({
             description. Absent rather than disabled when no assistant is wired,
             because that screen would have nothing to do — same rule the Suggest
             buttons follow. */}
+        {/* A line above the first field, not a tinted pitch with a heading
+            and a paragraph inside a dialog somebody opened to type a name. */}
         {assistant.available && (
-          <Callout tone="accent" title="Not sure what to put in it?">
-            <p>
-              Describe the half in a sentence or two and get the company goals
-              and the review questions as a draft you edit. Nothing is created
-              until you have read it.
-            </p>
-            <p className="mt-2">
-              <ButtonLink
-                href="/performance/periods/new"
-                variant="secondary"
-                size="sm"
-              >
-                <Sparkles aria-hidden="true" className="size-3.5" />
-                Draft it from a description
-              </ButtonLink>
-            </p>
+          <NoticeLine tone="muted">
+            <Link href="/performance/periods/new" className={NOTICE_LINK}>
+              <Sparkles aria-hidden="true" className="mr-1 inline size-3.5" />
+              Draft it from a description
+            </Link>
+            <span>instead, and edit what comes back.</span>
+          </NoticeLine>
+        )}
+
+        {formError && (
+          <Callout tone="danger" title="That period was not created">
+            {formError}
           </Callout>
         )}
 
-        <Field label="What to call it" required {...(error ? { error } : {})}>
+        <Field
+          label="What to call it"
+          required
+          {...(errors["name"] ? { error: errors["name"] } : {})}
+        >
           <Input
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder="H2 2026 appraisal"
           />
         </Field>
-        <Field optional label="Answers due by">
+        {/* The period first, then the deadline. In that order because that is
+            the order they appear on the form itself, and because a screen that
+            asks for a deadline before it asks what is being appraised invites
+            somebody to put the appraisal months in the deadline box — which is
+            what only having `dueDate` used to force. */}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field
+            optional
+            label="Period covered — from"
+            {...(errors["period"] ? { error: errors["period"] } : {})}
+          >
+            <Input
+              type="date"
+              value={periodStart}
+              onChange={(event) => setPeriodStart(event.target.value)}
+            />
+          </Field>
+          <Field optional label="to">
+            <Input
+              type="date"
+              value={periodEnd}
+              onChange={(event) => setPeriodEnd(event.target.value)}
+            />
+          </Field>
+        </div>
+
+        <Field
+          optional
+          label="Answers due by"
+          help="When the form is owed, which is usually after the period ends."
+        >
           <Input
             type="date"
             value={dueDate}
             onChange={(event) => setDueDate(event.target.value)}
           />
         </Field>
+
+        {/* Behind a reveal: neither is a blocker, and the summary carries the
+            current answer so nobody has to open it to check. Same rule as the
+            two below — `PARITY.md` Rule 5. */}
+        <Disclosure
+          title="What to tell people"
+          meta={
+            instructions.trim()
+              ? `${String(instructions.trim().split(/\s+/).length)} words`
+              : "Nothing yet"
+          }
+          hint="Shown above the first question on everybody's form."
+        >
+          <div className="flex flex-col gap-3">
+            <Field optional label="Instructions">
+              <Textarea
+                rows={5}
+                value={instructions}
+                placeholder={
+                  "This is a mandatory mid-year appraisal covering January to July.\n\n" +
+                  "It exists to assess how the half went and agree what the next one is for."
+                }
+                onChange={(event) => setInstructions(event.target.value)}
+              />
+            </Field>
+            <p className="text-meta text-muted">
+              Plain text. Line breaks are kept, so a blank line makes a new
+              paragraph.
+            </p>
+            <Field
+              optional
+              label="A link to your own guide"
+              {...(errors["guideUrl"] ? { error: errors["guideUrl"] } : {})}
+            >
+              <Input
+                type="url"
+                inputMode="url"
+                value={guideUrl}
+                placeholder="https://…"
+                onChange={(event) => setGuideUrl(event.target.value)}
+              />
+            </Field>
+          </div>
+        </Disclosure>
 
         {/* Both closed by default. Neither is a blocker — a period with no
             scope covers everybody and a period with no reminder still works —

@@ -10,7 +10,6 @@ import {
   ShieldCheck,
   Trash2,
   TriangleAlert,
-  Users,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
@@ -232,7 +231,11 @@ export function RolesScreen({
         )}
 
         {roles.error && (
-          <LoadFailure subject="your roles" error={roles.error}  onRetry={roles.reload}/>
+          <LoadFailure
+            subject="your roles"
+            error={roles.error}
+            onRetry={roles.reload}
+          />
         )}
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -251,30 +254,6 @@ export function RolesScreen({
             hint="fixed, and cannot be deleted"
           />
         </div>
-
-        {roles.counts.peopleWhoCanManageAccess === 1 && (
-          <Callout tone="warning">
-            <p className="font-medium text-ink">
-              One person can manage access. If they leave, nobody can change
-              these roles.
-            </p>
-            <div className="mt-2.5">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => {
-                  const owner = roles.roles.find((role) =>
-                    role.permissions.includes("MANAGE_ROLES"),
-                  );
-                  if (owner) setOpenId(owner.id);
-                }}
-              >
-                <Users aria-hidden="true" className="size-3.5" />
-                Add somebody
-              </Button>
-            </div>
-          </Callout>
-        )}
 
         {conflicted.map((role) => (
           <Callout key={role.id} tone="warning">
@@ -609,8 +588,8 @@ function InvitationsCard({
         <CardHeader title="Invitations" level={3} />
         <CardBody>
           <p className="text-body-sm text-muted">
-            Nothing here works without a server. Sign in against the real API
-            to invite somebody to sign in.
+            Nothing here works without a server. Sign in against the real API to
+            invite somebody to sign in.
           </p>
         </CardBody>
       </Card>
@@ -762,8 +741,8 @@ function YourAccess({
 
         {held.length === 0 ? (
           <p className="text-body-sm leading-relaxed text-muted">
-            Nothing yet: you can see your own record, your own payslips and
-            your own requests.
+            Nothing yet: you can see your own record, your own payslips and your
+            own requests.
           </p>
         ) : (
           <ul className="flex flex-col gap-2">
