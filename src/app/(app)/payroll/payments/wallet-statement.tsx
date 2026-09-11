@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowDownLeft, ArrowUpRight, ChevronDown, ChevronRight, Wallet } from "lucide-react";
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  ChevronDown,
+  ChevronRight,
+  Wallet,
+} from "lucide-react";
 import {
   Badge,
   Button,
@@ -120,7 +126,10 @@ export function WalletStatement({
           not to trust as though it were checked. */}
       {held && !held.reconciled && (
         <CardBody>
-          <Callout tone="danger" title="This balance does not match its movements">
+          <Callout
+            tone="danger"
+            title="This balance does not match its movements"
+          >
             {/* `held.balance` is the API's own formatted string, and the
                 difference goes through <Money> — `naira()` returns a number,
                 so interpolating it into a sentence prints a bare 2000. */}
@@ -186,7 +195,9 @@ export function WalletStatement({
                   movement={movement}
                   open={openId === movement.id}
                   onToggle={() =>
-                    setOpenId((current) => (current === movement.id ? null : movement.id))
+                    setOpenId((current) =>
+                      current === movement.id ? null : movement.id,
+                    )
                   }
                 />
               ))}
@@ -265,7 +276,9 @@ function MovementRow({
   const incoming = movement.direction === "CREDIT";
   const expandable = movement.paymentBatchId !== null;
   /* Null until opened: that is what keeps this from firing a request per row. */
-  const batch = usePaymentBatch(open && movement.paymentBatchId ? movement.paymentBatchId : null);
+  const batch = usePaymentBatch(
+    open && movement.paymentBatchId ? movement.paymentBatchId : null,
+  );
 
   return (
     <>
@@ -419,11 +432,16 @@ function PayrollBreakdown({
     <div className="px-4 py-4">
       <p className="mb-3 text-body-sm text-muted">
         {rows.length} {rows.length === 1 ? "person" : "people"} in{" "}
-        <span className="font-medium text-ink">{reference ?? batch.batch.reference}</span>.
-        The status is per person: a payroll can leave the wallet in full and
+        <span className="font-medium text-ink">
+          {reference ?? batch.batch.reference}
+        </span>
+        . The status is per person: a payroll can leave the wallet in full and
         still fail for one of them.
       </p>
-      <TableWrap className="rounded-lg" caption={`People paid by ${reference ?? ""}`}>
+      <TableWrap
+        className="rounded-lg"
+        caption={`People paid by ${reference ?? ""}`}
+      >
         <THead>
           <TH>Name</TH>
           <TH>Bank</TH>
@@ -433,8 +451,10 @@ function PayrollBreakdown({
         </THead>
         <TBody>
           {rows.map((row) => {
-            const state =
-              INSTRUCTION_STATUS[row.status] ?? { label: row.status, tone: "neutral" as const };
+            const state = INSTRUCTION_STATUS[row.status] ?? {
+              label: row.status,
+              tone: "neutral" as const,
+            };
             return (
               <TR key={row.id}>
                 <TDPrimary
@@ -478,7 +498,9 @@ function PayrollBreakdown({
                     {/* The reason, where the provider gave one. A "Failed"
                         with nothing beside it sends somebody hunting. */}
                     {row.failureReason && (
-                      <span className="text-meta text-danger-text">{row.failureReason}</span>
+                      <span className="text-meta text-danger-text">
+                        {row.failureReason}
+                      </span>
                     )}
                   </span>
                 </TD>
