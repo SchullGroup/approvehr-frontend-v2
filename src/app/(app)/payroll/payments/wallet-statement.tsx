@@ -24,7 +24,10 @@ import {
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { naira, type ApiWalletMovement } from "@/lib/api/payments";
-import { usePaymentBatch, useWalletStatement } from "@/lib/store/payments";
+import {
+  usePaymentBatch,
+  type WalletStatementState,
+} from "@/lib/store/payments";
 import { longDate } from "./format";
 
 /**
@@ -55,21 +58,38 @@ import { longDate } from "./format";
  * "after"; where it does not, something moved the balance outside the service,
  * which is exactly what `reconciled` is reporting on.
  *
- * ## The pager owns the page, this component does not own the data
+ * ## The screen owns the page, and the fetch
  *
- * `page` is state here and passed *down* into `useWalletStatement`, because a
- * hook that held the page would reset it on revalidation — and revalidation is
- * precisely what a payroll run triggers. Being thrown back to page one while
- * reading page three, every time somebody approves a run, is the bug that
- * arrangement causes.
+ * Both are passed in. The balance in the header above is read from this same
+ * response, so fetching separately here would let the headline and the rows
+ * contradict each other — which is the bug that put two wrong and identical
+ * figures at the top of this screen to begin with.
+ *
+ * The page stays state in a component rather than inside the hook, because a
+ * hook that held it would reset on revalidation — and revalidation is exactly
+ * what approving a payroll triggers. Being thrown back to page one while
+ * reading page three is the bug that arrangement causes.
  */
-export function WalletStatement() {
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+export function WalletStatement({
+  statement,
+  page,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
+}: {
+  /* Handed in rather than fetched here. The screen shows the balance from
+     this same response, and a second request would let the headline figure
+     and these rows disagree with each other -- which is exactly the bug that
+     put two contradictory numbers on this screen in the first place. */
+  statement: WalletStatementState;
+  page: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (size: number) => void;
+}) {
   /* One at a time. Two open payrolls is two tables of names on a screen whose
      job is the balance, and the second is never the one being read. */
   const [openId, setOpenId] = useState<string | null>(null);
-  const statement = useWalletStatement({ page, pageSize });
 
   const held = statement.statement;
 
@@ -172,18 +192,13 @@ export function WalletStatement() {
 
           <CardBody className="border-t border-line">
             <Pagination
-              page={held.page}
-              pageSize={held.pageSize}
+              page={page}
+              pageSize={pageSize}
               /* The server's count, so the pager knows about movements this
                  page does not hold. */
               total={held.total}
-              onPageChange={setPage}
-              onPageSizeChange={(size) => {
-                setPageSize(size);
-                /* Page three of 25 is past the end of a 100-row page. Going
-                   back to the top is the only answer that always exists. */
-                setPage(1);
-              }}
+              onPageChange={onPageChange}
+              onPageSizeChange={onPageSizeChange}
               noun={["movement", "movements"]}
               loading={statement.loading}
             />

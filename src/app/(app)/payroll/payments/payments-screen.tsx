@@ -19,13 +19,13 @@ import {
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import {
-  availableFigure,
   naira,
 } from "@/lib/api/payments";
 import { usePermissions } from "@/lib/permissions";
 import {
   usePaymentsSummary,
   useWallet,
+  useWalletStatement,
 } from "@/lib/store/payments";
 import { FundingAccounts } from "../runs/new/pay-panel";
 import { LedgerPanel } from "./ledger-panel";
@@ -68,6 +68,11 @@ import { WalletStatement } from "./wallet-statement";
 export function PaymentsScreen() {
   const { can, loading: permissionsLoading } = usePermissions();
   const wallet = useWallet();
+  /* Owned here, not inside `WalletStatement`, so the headline figure and the
+     rows come from one request and cannot contradict each other. */
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const statement = useWalletStatement({ page, pageSize });
   const summary = usePaymentsSummary();
 
 
@@ -103,6 +108,7 @@ export function PaymentsScreen() {
   }
 
   const held = wallet.wallet;
+  const statementHeld = statement.statement;
   const primary = summary.summary?.primaryAccount;
 
   return (
@@ -130,46 +136,43 @@ export function PaymentsScreen() {
           />
         )}
 
-        {/* Three figures, and an em dash where one has not arrived.
+        {/* One figure, and an em dash where it has not arrived.
             -----------------------------------------------------------------
-            Never ₦0.00 for an unanswered request. `useWallet` returns null
-            while loading, on failure, and offline — and a confident zero
-            against any of those three is a claim about a company's money that
-            happens to be false. The ₦0 incident this codebase has a rule about
-            was exactly this shape one module along. */}
-        <div className="grid items-start gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {/* Label and hint move with the sign — see `availableFigure`. A
-              company that has approved more than it holds is short by an
-              amount, not in possession of a negative one. */}
+            Never ₦0.00 for an unanswered request. `useWalletStatement`
+            returns null while loading, on failure, and offline — and a
+            confident zero against any of those three is a claim about a
+            company's money that happens to be false. The ₦0 incident this
+            codebase has a rule about was exactly this shape one module
+            along. */}
+        <div className="grid items-start gap-4 sm:grid-cols-2">
+          {/* One balance, and it is the wallet's own.
+              -----------------------------------------------------------------
+              There were two tiles here -- "Available to pay with" and "In the
+              account" -- and they showed the same number, which was neither
+              of the things they claimed and not the wallet balance either.
+              Both came from `GET /payments/wallet`, which re-derives a
+              position by summing `LedgerEntry`. Nothing that moves the wallet
+              writes a ledger row, so after a payroll the tiles read
+              ₦15,012,300.55 while the wallet held ₦5,620,778.55 and said so
+              in the statement directly below them.
+
+              This reads the wallet. `GET /payments/wallet/account` returns the
+              stored balance -- the figure with a row lock behind it, both
+              sides recorded on every movement, and `reconcileWallet` checking
+              it against them -- and it is the *same request* the statement
+              below is drawn from, so the headline and the rows cannot
+              disagree. That is why `useWalletStatement` is called here and
+              passed down rather than called twice. */}
           <Stat
-            label={held ? availableFigure(held.availableKobo).label : "Available to pay with"}
+            label="Wallet balance"
             value={
-              held ? (
-                <Money
-                  amount={naira(availableFigure(held.availableKobo).kobo)}
-                  decimals
-                  size="xl"
-                />
+              statementHeld ? (
+                <Money amount={naira(statementHeld.balanceKobo)} decimals size="xl" />
               ) : (
                 <Unknown />
               )
             }
-            hint={
-              held
-                ? availableFigure(held.availableKobo).hint
-                : "after everything already promised"
-            }
-          />
-          <Stat
-            label="In the account"
-            value={
-              held ? (
-                <Money amount={naira(held.balanceKobo)} decimals size="xl" />
-              ) : (
-                <Unknown />
-              )
-            }
-            hint="on the bank statement"
+            hint="what the wallet holds right now"
           />
 
           {/* The account to pay into, beside the figures rather than in a card
@@ -185,7 +188,7 @@ export function PaymentsScreen() {
               it is on the batch where a payment is actually checked, and
               sitting it next to this one only ever invited money being sent to
               the wrong one of the two. */}
-          <Card className="sm:col-span-2 xl:col-span-1">
+          <Card>
             <CardHeader title="Putting money in" />
             <CardBody>
               {wallet.loading ? (
@@ -246,7 +249,17 @@ export function PaymentsScreen() {
           </Card>
         )}
 
-        <WalletStatement />
+        <WalletStatement
+          statement={statement}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            /* Page three of 25 is past the end of a 100-row page. */
+            setPage(1);
+          }}
+        />
 
         {/* The payments list was here, and is gone at the product owner's
           * request. It listed each batch a payroll built, with the batch page
