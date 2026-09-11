@@ -2,8 +2,7 @@
 
 import { sourceNote } from "@/lib/demo";
 import { useState } from "react";
-import Link from "next/link";
-import { ArrowDownToLine, Banknote, Landmark, ScrollText } from "lucide-react";
+import { Banknote, Landmark } from "lucide-react";
 import {
   Badge,
   Button,
@@ -16,34 +15,19 @@ import {
   Money,
   Spinner,
   Stat,
-  TBody,
-  TD,
-  TDPrimary,
-  TH,
-  THead,
-  TR,
-  TableWrap,
-  useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
-import { ApiError } from "@/lib/api/client";
 import {
   availableFigure,
   naira,
-  type ApiPaymentBatch,
 } from "@/lib/api/payments";
 import { usePermissions } from "@/lib/permissions";
 import {
-  BATCH_STATUS,
-  usePaymentActions,
-  usePaymentBatches,
   usePaymentsSummary,
   useWallet,
 } from "@/lib/store/payments";
-import { downloadCsv } from "@/lib/csv";
 import { FundingAccounts } from "../runs/new/pay-panel";
-import { longDate } from "./format";
 import { LedgerPanel } from "./ledger-panel";
 import { WalletStatement } from "./wallet-statement";
 
@@ -85,11 +69,7 @@ export function PaymentsScreen() {
   const { can, loading: permissionsLoading } = usePermissions();
   const wallet = useWallet();
   const summary = usePaymentsSummary();
-  const list = usePaymentBatches({ pageSize: 25 });
-  const actions = usePaymentActions();
-  const toast = useToast();
 
-  const [downloading, setDownloading] = useState<string | null>(null);
 
   if (permissionsLoading) {
     return (
@@ -122,28 +102,6 @@ export function PaymentsScreen() {
     );
   }
 
-  async function download(batch: ApiPaymentBatch) {
-    setDownloading(batch.id);
-    try {
-      const file = await actions.downloadFile(batch.id);
-      downloadCsv(file.filename, file.csv);
-      toast.push({
-        title: `${file.filename} saved`,
-        tone: "success",
-        detail: "Upload it to your bank to pay these people.",
-      });
-    } catch (error) {
-      toast.push({
-        title: "No file was produced",
-        tone: "danger",
-        detail:
-          error instanceof ApiError ? error.message : "Something went wrong. Try again.",
-      });
-    } finally {
-      setDownloading(null);
-    }
-  }
-
   const held = wallet.wallet;
   const primary = summary.summary?.primaryAccount;
 
@@ -152,22 +110,18 @@ export function PaymentsScreen() {
       <PageHeader
         title="Wallet"
         meta={
-          sourceNote(list.live) && (
+          /* The wallet's own `live`, now that the batch list this used to
+             read is gone. Same question — is this real data — asked of the
+             thing the screen is actually about. */
+          sourceNote(wallet.live) && (
             <Badge tone="warning" size="sm" dot>
-              {sourceNote(list.live)}
+              {sourceNote(wallet.live)}
             </Badge>
           )
         }
       />
 
       <PageBody className="flex flex-col gap-6">
-        {list.error && (
-          <LoadFailure
-            subject="the payments"
-            error={list.error}
-            onRetry={list.reload}
-          />
-        )}
         {wallet.error && (
           <LoadFailure
             subject="the wallet balance"
@@ -294,121 +248,16 @@ export function PaymentsScreen() {
 
         <WalletStatement />
 
-        <Card>
-          <CardHeader
-            title="Payments"
-            description="Prepared when a payroll is approved. Each one opens."
-          />
-          {list.loading ? (
-            <CardBody className="flex justify-center py-10">
-              <Spinner />
-            </CardBody>
-          ) : list.batches.length === 0 ? (
-            <EmptyState
-              icon={<Banknote aria-hidden="true" />}
-              title="Nothing has been paid yet"
-              description="A payment is prepared the moment a payroll is approved, and the run itself offers to send it or hand you the bank file. Approve this month's payroll and it shows up here."
-              action={<ButtonLink href="/payroll">Go to payroll</ButtonLink>}
-            />
-          ) : (
-            <TableWrap
-              className="rounded-none border-0"
-              caption="Payments, newest first"
-            >
-              <THead>
-                <TH>Reference</TH>
-                <TH>Pays</TH>
-                <TH align="right">People</TH>
-                <TH align="right">Total</TH>
-                <TH>From</TH>
-                <TH>Status</TH>
-                <TH align="right">
-                  <span className="sr-only">Actions</span>
-                </TH>
-              </THead>
-              <TBody>
-                {list.batches.map((batch) => {
-                  const status = BATCH_STATUS[batch.status];
-                  return (
-                    <TR key={batch.id}>
-                      <TDPrimary
-                        title={
-                          <Link
-                            href={`/payroll/payments/${batch.id}`}
-                            className="hover:text-accent-text hover:underline underline-offset-4"
-                          >
-                            {batch.reference}
-                          </Link>
-                        }
-                        subtitle={batch.narration ?? undefined}
-                      />
-                      <TD>{batch.payDate ? longDate(batch.payDate) : "—"}</TD>
-                      <TD align="right" className="tabular">
-                        {batch.itemCount}
-                      </TD>
-                      <TD align="right" className="tabular font-medium text-ink">
-                        <Money amount={naira(batch.computedTotalKobo)} decimals />
-                      </TD>
-                      <TD>
-                        <span className="text-body-sm">{batch.sourceBankName}</span>
-                        <span className="tabular mt-0.5 block text-meta text-muted">
-                          {batch.sourceAccountMasked}
-                        </span>
-                      </TD>
-                      <TD>
-                        <Badge tone={status.tone} size="sm" dot>
-                          {status.label}
-                        </Badge>
-                      </TD>
-                      <TD align="right">
-                        <div className="flex justify-end gap-2">
-                          {/* Still here, and it is not a leftover of the old
-                              console: somebody who downloaded a file and lost
-                              it needs it again, and the run it came from is
-                              months back by then. `can.downloadFile` is the
-                              server's own view of the state machine, so this
-                              cannot offer what the endpoint would refuse. */}
-                          {batch.can.downloadFile && (
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              loading={downloading === batch.id}
-                              onClick={() => void download(batch)}
-                            >
-                              <ArrowDownToLine aria-hidden="true" className="size-3.5" />
-                              Bank file
-                            </Button>
-                          )}
-                          <ButtonLink
-                            href={`/payroll/payments/${batch.id}`}
-                            variant="ghost"
-                            size="sm"
-                          >
-                            Open
-                          </ButtonLink>
-                        </div>
-                      </TD>
-                    </TR>
-                  );
-                })}
-              </TBody>
-            </TableWrap>
-          )}
-        </Card>
-
+        {/* The payments list was here, and is gone at the product owner's
+          * request. It listed each batch a payroll built, with the batch page
+          * behind an "Open" and the bank file behind a download.
+          *
+          * Two things went with it and are worth knowing: this was the only
+          * route on this screen to `/payroll/payments/<id>`, and the only
+          * place a company could fetch an approved batch's bank file again
+          * after losing the first download. Both still exist; nothing here
+          * points at them any more. */}
         <LedgerPanel canRecordFunding={can("MANAGE_SETTINGS")} />
-
-        <p className="flex items-center gap-2 text-body-sm text-muted">
-          <ScrollText aria-hidden="true" className="size-4 shrink-0" />
-          Every bank file download is recorded in the{" "}
-          <Link
-            href="/settings/audit"
-            className="text-accent-text hover:underline underline-offset-4"
-          >
-            audit trail
-          </Link>
-          .
-        </p>
       </PageBody>
     </>
   );
