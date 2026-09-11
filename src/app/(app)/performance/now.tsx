@@ -213,11 +213,11 @@ export function WhatNeedsYouTab({
    * answered.
    *
    * The other half of `toFinalise`, and it belongs in the other tab: once a
-   * rating is final the next move is not the appraiser's, it is the subject's —
-   * they acknowledge it or they formally dispute it, and until one of those
-   * happens the sign-off is open. That is the definition of waiting on somebody
-   * else, and it was the one thing genuinely of this person's that had nowhere
-   * on this screen to be.
+   * rating is final the next move is not the appraiser's — the subject
+   * acknowledges it, or HR records a dispute if they do not accept it, and
+   * until one of those happens the sign-off is open. That is the definition
+   * of waiting on somebody else, and it was the one thing genuinely of this
+   * person's that had nowhere on this screen to be.
    *
    * All three flags, never `!acknowledged` alone. Not acknowledged usually
    * means nobody has been asked yet, which is a third state and the common one
@@ -504,7 +504,7 @@ export function WhatNeedsYouTab({
         <Card>
           <CardHeader
             title="Your rating is final"
-            description="Read it, then acknowledge that you have seen it or say formally that you do not accept it. Acknowledging is not agreeing."
+            description="Read it, then acknowledge that you have seen it. If you do not accept it, say so to HR — recording a formal dispute is theirs to do, not yours. Acknowledging is not agreeing."
             action={
               <Badge
                 tone="accent"
@@ -783,7 +783,7 @@ export function WhatNeedsYouTab({
                       review.finalisedAt
                         ? `Final on ${dayOf(review.finalisedAt)}. `
                         : ""
-                    }They either acknowledge it or formally dispute it, and the sign-off stays open until one of those.`}
+                    }They can acknowledge it. If they do not accept it, HR records a dispute — the sign-off stays open until one of those happens.`}
                     href={`/performance/reviews/${review.id}`}
                     action="Open it"
                   />

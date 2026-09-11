@@ -130,11 +130,13 @@ import { useRevalidation } from "@/lib/revalidate";
  *
  * ## Acknowledging is not agreeing, and the copy has to keep them apart
  *
- * `acknowledge` records "I have seen this". It is not consent, and a screen that
- * lets it read as consent is worth less than nothing to a company defending a
- * decision. `dispute` records "I do not accept this" and **changes no mark** —
- * the rating stands with the dispute beside it, because rewriting it would
- * destroy the evidence of what was originally decided.
+ * `acknowledge` records "I have seen this", and only the subject may send it. It
+ * is not consent, and a screen that lets it read as consent is worth less than
+ * nothing to a company defending a decision. `dispute` records "they do not
+ * accept this" — HR's to file, not the subject's, for the identical reason the
+ * subject cannot finalise their own rating — and **changes no mark**: the
+ * rating stands with the dispute beside it, because rewriting it would destroy
+ * the evidence of what was originally decided.
  *
  * ## `percent` is never computed on this side when connected
  *
@@ -2380,14 +2382,22 @@ const FINALISE_OFFLINE =
  * - **Finalising is somebody else's act.** The author, the person's manager, or
  *   `EDIT_RECORDS`. It refuses offline, because a mark of record written in one
  *   browser is not a mark of record.
- * - **Acknowledging and disputing are the subject's own act**, so they work in
- *   both modes — the same line `useReviewMutations` sits on. Only the person a
- *   rating is about may send either, and the demo refuses anybody else in the
- *   API's own words.
+ * - **Acknowledging is the subject's own act; disputing is HR's.** The person a
+ *   rating is about may acknowledge it and nobody else. Disputing moved the
+ *   other way deliberately — the subject is exactly who should not also be the
+ *   one deciding a disagreement becomes a formal record — so it is gated on
+ *   `isHr` instead, matching `assertMayDispute` on the API. Both refuse offline
+ *   in the API's own words when the guard fails.
  * - **One answer, not both.** Whichever arrives first is the record; the second
  *   is refused rather than overwriting the first.
+ *
+ * `isHr` is a parameter, not a `useCan("EDIT_RECORDS")` call in here — the same
+ * reason `useCycleRegister`'s `enabled` is a parameter: the caller already
+ * holds this (`review-screen.tsx`'s own `canSeeCompany`), and asking for it a
+ * second time would be a second permissions fetch for every consumer whether
+ * or not they render the dispute control.
  */
-export function useSignOff() {
+export function useSignOff(isHr: boolean) {
   const { isConnected, actingId } = useSession();
 
   const answer = useCallback((id: string, next: DemoSignOff) => {
@@ -2398,31 +2408,46 @@ export function useSignOff() {
     });
   }, []);
 
-  /** The guard both employee answers share, in the API's words. */
-  const assertMayAnswer = useCallback(
+  /** The state check both answers share, in the API's words. */
+  const assertSignOffIsOpen = useCallback((review: ApiReview) => {
+    if (!review.finalised) {
+      offline(
+        "That rating is not final yet, so there is nothing to answer. You will " +
+          "be told when it is.",
+      );
+    }
+    if (review.acknowledged) {
+      offline("This rating has already been acknowledged.");
+    }
+    if (review.disputed) {
+      offline(
+        "This rating has already been disputed. It is on the record and " +
+          "somebody has to answer it.",
+      );
+    }
+  }, []);
+
+  const assertMayAcknowledge = useCallback(
     (review: ApiReview) => {
       if (review.subjectId !== actingId) {
-        offline(
-          "Only the person a rating is about can acknowledge or dispute it.",
-        );
+        offline("Only the person a rating is about can acknowledge it.");
       }
-      if (!review.finalised) {
-        offline(
-          "That rating is not final yet, so there is nothing to answer. You will " +
-            "be told when it is.",
-        );
-      }
-      if (review.acknowledged) {
-        offline("You have already acknowledged this rating.");
-      }
-      if (review.disputed) {
-        offline(
-          "You have already disputed this rating. It is on the record and " +
-            "somebody has to answer it.",
-        );
-      }
+      assertSignOffIsOpen(review);
     },
-    [actingId],
+    [actingId, assertSignOffIsOpen],
+  );
+
+  const assertMayDispute = useCallback(
+    (review: ApiReview) => {
+      if (!isHr) {
+        offline(
+          "Disputing a rating is recorded by HR, not by the person it is " +
+            "about. Tell them what you disagree with and ask them to record it.",
+        );
+      }
+      assertSignOffIsOpen(review);
+    },
+    [isHr, assertSignOffIsOpen],
   );
 
   return {
@@ -2448,35 +2473,36 @@ export function useSignOff() {
       async (review: ApiReview, comment?: string) => {
         if (isConnected)
           return performanceApi.acknowledgeReview(review.id, comment);
-        assertMayAnswer(review);
+        assertMayAcknowledge(review);
         answer(review.id, {
           acknowledgedAt: new Date().toISOString(),
           disputedAt: null,
           comment: comment ?? null,
         });
       },
-      [isConnected, assertMayAnswer, answer],
+      [isConnected, assertMayAcknowledge, answer],
     ),
 
     /**
-     * "I do not accept this." The rating **does not move**.
+     * "This is disputed." The rating **does not move**.
      *
      * Rewriting the mark on a dispute would leave no evidence of what was
      * originally decided, which makes the trail worse rather than better. The
-     * comment is required — HR cannot answer grounds nobody gave.
+     * comment is required — a dispute with no grounds gives nobody anything to
+     * answer. Recorded by HR, never by the subject — see the header above.
      */
     dispute: useCallback(
       async (review: ApiReview, comment: string) => {
         if (isConnected)
           return performanceApi.disputeReview(review.id, comment);
-        assertMayAnswer(review);
+        assertMayDispute(review);
         answer(review.id, {
           acknowledgedAt: null,
           disputedAt: new Date().toISOString(),
           comment,
         });
       },
-      [isConnected, assertMayAnswer, answer],
+      [isConnected, assertMayDispute, answer],
     ),
   };
 }

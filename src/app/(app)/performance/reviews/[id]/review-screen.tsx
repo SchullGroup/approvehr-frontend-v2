@@ -55,9 +55,9 @@ import { SignOffDialog, type SignOffAct } from "./sign-off-dialog";
  *
  * | Reader | What is different |
  * |---|---|
- * | The person it is about | the answer they owe: acknowledge or dispute |
+ * | The person it is about | the answer they owe: acknowledge it |
  * | The person who wrote it | the form, and finalising it into the mark of record |
- * | Records permission | both of the above, read-only, plus the employee's answer |
+ * | Records permission | both of the above, read-only, plus recording a dispute if the subject does not accept it |
  *
  * Everything else — the mark, the answers, what the mark is made of — is the same
  * document for all three. The incumbent ships `self-appraisal`,
@@ -91,7 +91,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
   const ratingWords = ratingWordsFrom(scale.levels);
   const { actingId } = useSession();
   const canSeeCompany = useCan("EDIT_RECORDS");
-  const signOff = useSignOff();
+  const signOff = useSignOff(canSeeCompany);
   const toast = useToast();
 
   const [answering, setAnswering] = useState(false);
@@ -182,9 +182,22 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
     !review.finalised &&
     (review.mine || canSeeCompany);
 
-  /* The subject owes an answer only once the mark is theirs, and only once. */
-  const owesAnswer =
+  /* The subject owes an acknowledgement only once the mark is theirs, and
+     only once. Disputing is no longer something they do here — see the
+     callout below and `assertMayDispute` on the API, which is the actual
+     gate this mirrors. */
+  const owesAcknowledgement =
     isSubject && review.finalised && !review.acknowledged && !review.disputed;
+
+  /* Never for their own rating — `!isSubject` is doing the same job here
+     `assertMayDispute` does on the API: the person a rating is about is
+     exactly who should not also be the one filing a formal dispute over it. */
+  const hrMayDispute =
+    canSeeCompany &&
+    !isSubject &&
+    review.finalised &&
+    !review.acknowledged &&
+    !review.disputed;
 
   const answered = review.acknowledged || review.disputed;
 
@@ -257,22 +270,22 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
             </p>
           )}
 
-          {owesAnswer && (
+          {owesAcknowledgement && (
             <Callout
               tone="accent"
               title="This rating is final. It needs your answer"
             >
               <p>
                 You have been told your rating for {review.cycleName}.
-                Acknowledge that you have seen it, or say formally that you do
-                not accept it. Both are recorded; leaving it unanswered is not
-                one of the two.
+                Acknowledge that you have seen it. If you do not accept it, say
+                so to HR — recording a formal dispute is theirs to do, not
+                yours.
               </p>
               <p className="mt-2">
                 <strong>Acknowledging is not agreeing.</strong> It records that
                 you were shown this and nothing more.
               </p>
-              <p className="mt-3 flex flex-wrap gap-2">
+              <p className="mt-3">
                 <Button
                   variant="accent"
                   size="sm"
@@ -280,8 +293,20 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
                 >
                   I have seen this
                 </Button>
+              </p>
+            </Callout>
+          )}
+
+          {hrMayDispute && (
+            <Callout tone="neutral" title="Nobody has answered this rating yet">
+              <p>
+                {review.subjectName} has not acknowledged or disputed this
+                rating. If they have told you they do not accept it, record the
+                dispute here — that is not something they can do themselves.
+              </p>
+              <p className="mt-3">
                 <Button size="sm" onClick={() => setSigningOff("dispute")}>
-                  I do not accept it
+                  Record a dispute
                 </Button>
               </p>
             </Callout>
