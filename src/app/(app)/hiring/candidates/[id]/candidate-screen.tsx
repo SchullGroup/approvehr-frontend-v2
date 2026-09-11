@@ -49,7 +49,8 @@ import {
 import { usePermissions } from "@/lib/permissions";
 import { useApplicantRecord, useOfferBands } from "@/lib/store/hiring";
 import { useRealPipelineApplication } from "@/lib/store/recruitment";
-import { useSession } from "@/lib/store/session";
+import { useOrgTimezone, useSession } from "@/lib/store/session";
+import { formatDate, formatDateTime } from "@/lib/time";
 import { STAGES, fullName, type PipelineCard } from "@/lib/types";
 import { daysInStage } from "@/lib/mock/hiring";
 import { employeeById } from "@/lib/mock/people";
@@ -768,12 +769,13 @@ const RECOMMENDATION = {
 
 /** Stage, offer, screening answers, scorecards, interviews. Seeded throughout. */
 function Pipeline({ card }: { card: PipelineCard }) {
+  const timeZone = useOrgTimezone();
   const submitted = card.scorecards.filter((s) => s.submittedAt);
   const pending = card.scorecards.filter((s) => !s.submittedAt);
   const stageDef = STAGES.find((s) => s.id === card.stage);
   /* Once, because the collapsed summary counts it and the open panel renders
      it. Two calls would be two arrays that can disagree. */
-  const activity = activityFor(card);
+  const activity = activityFor(card, timeZone);
 
   const avg =
     submitted.length > 0
@@ -979,14 +981,8 @@ function Pipeline({ card }: { card: PipelineCard }) {
                   {INTERVIEW_LABEL[iv.kind] ?? iv.kind}
                 </p>
                 <p className="tabular mt-0.5 text-meta text-muted">
-                  {new Date(iv.scheduledFor).toLocaleString("en-NG", {
-                    weekday: "short",
-                    day: "numeric",
-                    month: "short",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}{" "}
-                  · {iv.durationMins} mins ·{" "}
+                  {formatDateTime(iv.scheduledFor, timeZone)} ·{" "}
+                  {iv.durationMins} mins ·{" "}
                   {iv.interviewerIds
                     .map((x) => employeeById(x)?.firstName ?? "?")
                     .join(", ")}
@@ -1070,7 +1066,7 @@ function OfferAgainstBand({ grossMonthly }: { grossMonthly: number }) {
   );
 }
 
-function activityFor(card: PipelineCard): TimelineEntry[] {
+function activityFor(card: PipelineCard, timeZone: string): TimelineEntry[] {
   const entries: TimelineEntry[] = [];
 
   if (card.offer) {
@@ -1087,10 +1083,7 @@ function activityFor(card: PipelineCard): TimelineEntry[] {
     entries.push({
       id: iv.id,
       title: `${INTERVIEW_LABEL[iv.kind] ?? iv.kind} ${iv.status}`,
-      timestamp: new Date(iv.scheduledFor).toLocaleDateString("en-NG", {
-        day: "numeric",
-        month: "short",
-      }),
+      timestamp: formatDate(iv.scheduledFor, timeZone),
       tone: iv.status === "completed" ? "success" : "neutral",
     });
   }
