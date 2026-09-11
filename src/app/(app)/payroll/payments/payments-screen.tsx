@@ -225,12 +225,21 @@ export function PaymentsScreen() {
               batch, which is where somebody checking a payment looks. */}
         </div>
 
+        {/* Not an explanation of a figure this screen shows.
+            -----------------------------------------------------------------
+            This said what "Available" meant, and arrived with a merge after
+            that tile had been removed — so it explained something no longer
+            on the page. Deleting it outright would have hidden the fact it
+            was carrying, though: when a payroll is approved and its wallet
+            debit is refused for want of funds, money is promised out of this
+            balance and the single figure above cannot show it.
+
+            So it names the amount instead, and only when there is one. */}
         {held && held.committedKobo > 0 && (
           <p className="text-body-sm text-muted">
-            &ldquo;Available&rdquo; is the balance less what is already
-            promised. Two payrolls approved in one morning must not both be told
-            the same money is theirs, which is what a single balance figure
-            would do.
+            <Money amount={naira(held.committedKobo)} decimals /> of this is
+            already promised to an approved payroll the wallet has not paid out.
+            Approving another one does not make that money available twice.
           </p>
         )}
 
