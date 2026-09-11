@@ -31,21 +31,29 @@ import { describe, expect, it } from "vitest";
  * A name is treated as a Date if the source shows any of:
  * - `const x = new Date(...)` / `let x = new Date(...)`, anywhere in the file;
  * - `x: Date` as a type annotation — a typed parameter (`(x: Date) => …`), a
- *   typed prop (`{ x }: { x: Date }`), or an annotated local (`let x: Date`);
+ *   typed prop (`{ x }: { x: Date }`), or an annotated local (`let x: Date`) —
+ *   but only when `Date` is not itself followed by `.`, since `word:
+ *   Date.now()` / `Date.UTC(...)` / `Date.parse(...)` is a static member
+ *   access on a value (typically a `number`), not a type annotation, and
+ *   `\bDate\b` alone cannot otherwise tell the two apart;
  * - `new Date(...)` chained straight into `.toLocaleString(` on the same line;
  * - `(... as Date)` chained straight into `.toLocaleString(` on the same line.
  *
- * This is regex over text, not a type checker, and it has a real remaining
- * gap: a value that is a `Date` only by *inference* — assigned from an
- * untyped destructure, returned from a hook or helper with no `Date` spelled
- * out at the call site, or reached a few properties deep off something typed
- * elsewhere (`props.session.expiresAt` where only `session`'s own type says
- * `expiresAt: Date`, not this file) — slips through. Closing that fully needs
- * the TypeScript compiler's own type checker, not a regex; this is the
- * practical middle ground, tightened to the shapes every real site on this
- * branch actually took, not a claim that it is airtight. A reviewer who finds
- * a new evasion should tighten `dateVars` further rather than trust this
- * comment's list as exhaustive.
+ * This is regex over text, not a type checker, and it has real remaining
+ * gaps in both directions. Under-matching: a value that is a `Date` only by
+ * *inference* — assigned from an untyped destructure, returned from a hook
+ * or helper with no `Date` spelled out at the call site, or reached a few
+ * properties deep off something typed elsewhere (`props.session.expiresAt`
+ * where only `session`'s own type says `expiresAt: Date`, not this file) —
+ * slips through. Over-matching: two *different* variables sharing one name
+ * in the same file, one a genuine `Date` and one not, are not distinguished
+ * — `dateVars` is file-wide, not scope-aware. Closing either fully needs the
+ * TypeScript compiler's own type checker, not a regex; this is the practical
+ * middle ground, tightened to the shapes every real site on this branch
+ * actually took (and the false-positive shapes a re-review actually found),
+ * not a claim that it is airtight in either direction. A reviewer who finds
+ * a new evasion or a new false positive should tighten `dateVars` further
+ * rather than trust this comment's list as exhaustive.
  *
  * Comments are stripped before matching (same as
  * `org-chart-has-no-pay.test.ts`'s `withoutComments`), so a doc comment that
@@ -100,8 +108,18 @@ function dateVarsIn(source: string): Set<string> {
 
     /* Typed as `Date`, wherever that appears: a parameter (`(x: Date) => …`),
        a destructured prop's type (`{ x }: { x: Date }`), or an annotated
-       local (`let x: Date`). A line can carry more than one. */
-    for (const match of line.matchAll(/\b(\w+)\s*:\s*Date\b/g)) {
+       local (`let x: Date`). A line can carry more than one.
+
+       The trailing `(?!\s*\.)` matters: `Date` immediately followed by `.`
+       is a static member access — `Date.now()`, `Date.UTC(...)`,
+       `Date.parse(...)` — not a type annotation, and without it `\bDate\b`
+       cannot tell the two apart (`.` is a non-word character, so it
+       satisfies the boundary exactly like the end of a bare `x: Date`
+       does). `at: Date.now()` is a real object-literal value in
+       `day-timer.tsx` — without this guard it wrongly marked `at` as a
+       Date, so an unrelated `at: number` elsewhere calling
+       `at.toLocaleString(` was misread as a date violation. */
+    for (const match of line.matchAll(/\b(\w+)\s*:\s*Date\b(?!\s*\.)/g)) {
       dateVars.add(match[1]);
     }
   }
@@ -243,6 +261,26 @@ describe("the detector itself", () => {
        cannot; the assertion records that honestly rather than silently. */
     const hits = violationsIn(
       `function label(d) {\n  return d.toLocaleString("en-GB");\n}`,
+      "sample.ts",
+    );
+    expect(hits).toEqual([]);
+  });
+
+  it("does not mistake `word: Date.something(...)` for a type annotation", () => {
+    /* `Date` followed by `.` is a static member access (`Date.now()`,
+       `Date.UTC(...)`, `Date.parse(...)`), never a type annotation — but
+       `\bDate\b` alone cannot tell the two apart, since `.` is a
+       non-word character and satisfies the trailing word boundary exactly
+       like the end of a bare `x: Date`. `at: Date.now()` (a real object
+       literal in src/app/(app)/people/attendance/day-timer.tsx) put `at`
+       into `dateVars` even though `Date.now()` returns a `number`, so an
+       unrelated `at.toLocaleString("en-NG")` formatting a plain number
+       elsewhere in the same file was misread as a date violation. */
+    const hits = violationsIn(
+      [
+        "const anchor = { at: Date.now() };",
+        'function formatRowCount(at: number) { return at.toLocaleString("en-NG"); }',
+      ].join("\n"),
       "sample.ts",
     );
     expect(hits).toEqual([]);
