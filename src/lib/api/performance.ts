@@ -622,7 +622,9 @@ export type ApiReviewFinalised = ApiReview & {
 export type ApiReviewAcknowledged = ApiReview & { acknowledged: true };
 
 /** The rating does not move. `note` is the API's sentence saying so. */
-export type ApiReviewDisputed = ApiReview & { disputed: true; note: string };
+/* `ApiReviewDisputed` was here — the response shape of the dispute endpoint,
+   which this product no longer calls. The `disputed` and `disputedAt` fields
+   on `ApiReview` itself stay: they are how an existing dispute is read. */
 
 export type ApiFormQuestion = {
   id: string;
@@ -2527,19 +2529,20 @@ export const performanceApi = {
       body: comment === undefined ? {} : { comment },
     }),
 
-  /**
-   * A formal dispute. **The rating stands and the dispute is recorded beside
-   * it** — rewriting the mark would leave no evidence of what was decided.
-   *
-   * The comment is required, at ten characters: HR cannot answer "I disagree"
-   * with no grounds, and a dispute nobody can act on helps the employee least of
-   * all.
-   */
-  disputeReview: (id: string, comment: string) =>
-    request<ApiReviewDisputed>(`/performance/reviews/${id}/dispute`, {
-      method: "POST",
-      body: { comment },
-    }),
+  /* `disputeReview` was here, wrapping POST /performance/reviews/:id/dispute.
+     Removed at the product owner's instruction: an employee can no longer
+     raise a dispute from this product.
+
+     **The endpoint is still live and still accepts one.** A wrapper deleted
+     here closes nothing — anybody holding a token can call it directly, and
+     the reviews this product shows would then carry a dispute nothing in the
+     product could have produced. Closing it is the API's to do; the request is
+     written up in docs/backend/no-employee-dispute.md.
+
+     The read side is untouched on purpose. `ApiReview.disputed`, `disputedAt`
+     and the disputed counts on the register and the cycle report all stay,
+     because reviews disputed before this change exist and a record of what
+     somebody formally refused to accept is the last thing to stop showing. */
 };
 
 export type PagedGoals = Paged<ApiGoal>;

@@ -7,7 +7,12 @@ import { Bell, ChevronDown, ChevronLeft, Menu, Search, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useCanGoBack } from "@/lib/nav-history";
 import { Logo } from "@/components/brand/logo";
-import { Avatar, Badge, MoneyPrivacyToggle } from "@/components/ui";
+import {
+  Avatar,
+  Badge,
+  MoneyPrivacyToggle,
+  ThemeToggle,
+} from "@/components/ui";
 import { CommandPalette } from "./command-palette";
 import { GuidedTour, openTour } from "./tour/guided-tour";
 import {
@@ -197,6 +202,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 the row somebody forgot is the one that matters. It hides; what
                 decides who may *know* a salary is `VIEW_SALARIES` on the
                 server, which does not send the number at all. */}
+            {/* Light or dark. The preference and both halves that apply it
+                already existed; the only way to reach it was Settings →
+                Appearance, which is a page load away from wherever somebody
+                notices the room has got dark. The Appearance screen keeps the
+                explanation — including that this is per-browser and not synced
+                — and this is the same one setting, in the chrome. */}
+            <ThemeToggle />
+
             <MoneyPrivacyToggle />
 
             {/* Was a button that did nothing, labelled "3 unread" whatever the
