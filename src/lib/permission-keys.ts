@@ -40,6 +40,7 @@ export const PERMISSION_KEYS = [
   "APPROVE_EXPENSES",
   /* People */
   "EDIT_RECORDS",
+  "EDIT_RECORDS_DEPARTMENT",
   "MANAGE_HIRING",
   "APPROVE_HIRING",
   /* Time off */
@@ -69,6 +70,8 @@ export const PERMISSION_KEYS = [
   "VIEW_REPAIRS_OWN",
   "UPDATE_REPAIR_STATUS",
   "CONFIRM_EQUIPMENT_RETURN",
+  /* Starting an exit, at the same department scope as the two above. */
+  "START_EXIT_DEPARTMENT",
   /* Leave's middle tier: a department, which is not the same set as a
      manager's direct reports. */
   "APPROVE_LEAVE_DEPARTMENT",
@@ -80,6 +83,7 @@ export type PermissionModule =
   | "people"
   | "equipment"
   | "repairs"
+  | "exits"
   | "hiring"
   | "leave"
   | "payroll"
@@ -99,6 +103,7 @@ export type PermissionAction =
   | "approve"
   | "assign"
   | "report"
+  | "start"
   | "update"
   | "confirm"
   | "run"
@@ -144,6 +149,11 @@ export const PERMISSION_SHAPE: Record<
   APPROVE_LOANS: { module: "loans", action: "approve" },
   APPROVE_EXPENSES: { module: "expenses", action: "approve" },
   EDIT_RECORDS: { module: "people", action: "edit" },
+  EDIT_RECORDS_DEPARTMENT: {
+    module: "people",
+    action: "edit",
+    scope: "department",
+  },
   MANAGE_HIRING: { module: "hiring", action: "manage" },
   APPROVE_HIRING: { module: "hiring", action: "approve" },
   APPROVE_LEAVE: { module: "leave", action: "approve", scope: "team" },
@@ -180,4 +190,9 @@ export const PERMISSION_SHAPE: Record<
   VIEW_REPAIRS_OWN: { module: "repairs", action: "view", scope: "own" },
   UPDATE_REPAIR_STATUS: { module: "repairs", action: "update" },
   CONFIRM_EQUIPMENT_RETURN: { module: "repairs", action: "confirm" },
+  START_EXIT_DEPARTMENT: {
+    module: "exits",
+    action: "start",
+    scope: "department",
+  },
 };
