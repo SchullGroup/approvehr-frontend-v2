@@ -46,7 +46,7 @@ import {
   ReadAnswer,
   draftFrom,
 } from "../../review-parts";
-import { SignOffDialog, type SignOffAct } from "./sign-off-dialog";
+import { SignOffDialog } from "./sign-off-dialog";
 
 /**
  * One appraisal, projected by who is reading it.
@@ -55,7 +55,7 @@ import { SignOffDialog, type SignOffAct } from "./sign-off-dialog";
  *
  * | Reader | What is different |
  * |---|---|
- * | The person it is about | the answer they owe: acknowledge or dispute |
+ * | The person it is about | the answer they owe: acknowledge it |
  * | The person who wrote it | the form, and finalising it into the mark of record |
  * | Records permission | both of the above, read-only, plus the employee's answer |
  *
@@ -132,7 +132,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
   const { review, loading, error, reload } = useReview(reviewId);
   /* The company's own words. A record of a mark is the last place that should
      be quoting a scale the company renamed — it is the screen somebody reads
-     when they are deciding whether to dispute it. */
+     when they are being told what they were marked. */
   const { scale } = useRatingScale();
   const ratingWords = ratingWordsFrom(scale.levels);
   const { actingId } = useSession();
@@ -141,7 +141,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
   const toast = useToast();
 
   const [answering, setAnswering] = useState(false);
-  const [signingOff, setSigningOff] = useState<SignOffAct | null>(null);
+  const [signingOff, setSigningOff] = useState(false);
   const [finalising, setFinalising] = useState(false);
 
   const isSubject = review !== null && review.subjectId === actingId;
@@ -310,9 +310,8 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
             >
               <p>
                 You have been told your rating for {review.cycleName}.
-                Acknowledge that you have seen it, or say formally that you do
-                not accept it. Both are recorded; leaving it unanswered is not
-                one of the two.
+                Acknowledge that you have seen it. It is recorded with the date,
+                and leaving it unanswered is not the same thing.
               </p>
               <p className="mt-2">
                 <strong>Acknowledging is not agreeing.</strong> It records that
@@ -322,12 +321,9 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
                 <Button
                   variant="accent"
                   size="sm"
-                  onClick={() => setSigningOff("acknowledge")}
+                  onClick={() => setSigningOff(true)}
                 >
                   I have seen this
-                </Button>
-                <Button size="sm" onClick={() => setSigningOff("dispute")}>
-                  I do not accept it
                 </Button>
               </p>
             </Callout>
@@ -546,20 +542,14 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
 
       {signingOff && (
         <SignOffDialog
-          act={signingOff}
           review={review}
-          onClose={() => setSigningOff(null)}
+          onClose={() => setSigningOff(false)}
           onConfirm={async (comment) => {
             const ok = await run(
-              () =>
-                signingOff === "acknowledge"
-                  ? signOff.acknowledge(review, comment)
-                  : signOff.dispute(review, comment ?? ""),
-              signingOff === "acknowledge"
-                ? "Acknowledgement recorded"
-                : "Dispute recorded. The rating stands beside it",
+              () => signOff.acknowledge(review, comment),
+              "Acknowledgement recorded",
             );
-            if (ok) setSigningOff(null);
+            if (ok) setSigningOff(false);
           }}
         />
       )}
@@ -719,8 +709,8 @@ function FinaliseDialog({
       tone="primary"
       body={
         <span>
-          {review.subjectName} will be told, and will be asked to acknowledge it
-          or dispute it.{" "}
+          {review.subjectName} will be told, and will be asked to acknowledge
+          it.{" "}
           {review.rating === null
             ? "This form carries no overall mark, so what they read is the answers."
             : `The mark of record becomes "${ratingWords(review.rating)}".`}{" "}
