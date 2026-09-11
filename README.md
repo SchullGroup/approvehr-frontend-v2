@@ -42,6 +42,8 @@ card per role, and a twenty-minute demo script. Every button label in it is quot
 rather than paraphrased, so the two cannot drift apart. If a label there stops matching the product,
 the document is what is wrong.
 
+The same walkthrough is also a **PDF with a photograph of every screen** — [`docs/walkthroughs/running-an-appraisal.pdf`](docs/walkthroughs/running-an-appraisal.pdf), 63 pages, every screenshot captioned with the address it was taken from. That one is for somebody who will not open a repository. It is a snapshot rather than a build of the markdown, so where the two disagree the markdown is right.
+
 ## Layout
 
 ```
