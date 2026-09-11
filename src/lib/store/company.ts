@@ -63,6 +63,11 @@ export type LeaveTypePolicy = {
   requiresEvidence: boolean;
   /** Days of notice required before the start date. */
   minNoticeDays: number;
+  /** Null is everyone. Mirrors `EligibleGender` in `lib/api/leave.ts` — kept
+      as a plain union rather than imported, matching how this file already
+      keeps `accrual` as its own lowercase union next to the wire's uppercase
+      one, since this type is the settings *store's* shape, not the wire's. */
+  eligibleGender?: "female" | "male" | "other" | null;
 };
 
 export type LeavePolicy = {
@@ -267,6 +272,7 @@ export const DEFAULT_COMPANY: {
         carryOverExpiresMonths: 0,
         requiresEvidence: true,
         minNoticeDays: 30,
+        eligibleGender: "female",
       },
       {
         name: "Paternity",
@@ -276,6 +282,7 @@ export const DEFAULT_COMPANY: {
         carryOverExpiresMonths: 0,
         requiresEvidence: false,
         minNoticeDays: 14,
+        eligibleGender: "male",
       },
     ],
     allowNegativeBalance: false,

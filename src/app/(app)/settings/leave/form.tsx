@@ -73,7 +73,44 @@ type TypeRow = {
   carryOverMax: number;
   minNoticeDays: number;
   requiresEvidence: boolean;
+  /** Null is everyone. See `EligibleGender` in `lib/api/leave.ts`. */
+  eligibleGender: "female" | "male" | "other" | null;
 };
+
+/** The three words a company can restrict a type to, alongside "everyone". */
+const ELIGIBILITY_LABEL: Record<"female" | "male" | "other", string> = {
+  female: "Women",
+  male: "Men",
+  other: "Neither",
+};
+
+/** One copy shared by the desktop cell and the mobile card, so the option
+    list and the null-vs-string mapping cannot drift between them. */
+function EligibilitySelect({
+  type,
+  onChange,
+}: {
+  type: TypeRow;
+  onChange: (value: TypeRow["eligibleGender"]) => void;
+}) {
+  return (
+    <Select
+      value={type.eligibleGender ?? ""}
+      aria-label={`Who ${type.name} is for`}
+      onChange={(e) => {
+        const next = e.target.value;
+        onChange(next === "" ? null : (next as "female" | "male" | "other"));
+      }}
+    >
+      <option value="">Everyone</option>
+      {(["female", "male", "other"] as const).map((gender) => (
+        <option key={gender} value={gender}>
+          {ELIGIBILITY_LABEL[gender]}
+        </option>
+      ))}
+    </Select>
+  );
+}
 
 /**
  * Leave policy.
@@ -235,6 +272,7 @@ function Policy() {
               carryOverMax: row.carryOverMax,
               minNoticeDays: row.minNoticeDays,
               requiresEvidence: row.requiresEvidence,
+              eligibleGender: row.eligibleGender,
             })),
             error: null,
           });
@@ -261,6 +299,7 @@ function Policy() {
     carryOverMax: type.carryOverMax,
     minNoticeDays: type.minNoticeDays,
     requiresEvidence: type.requiresEvidence,
+    eligibleGender: type.eligibleGender ?? null,
   }));
 
   const types = isConnected ? (fetched?.rows ?? []) : demoRows;
@@ -303,6 +342,13 @@ function Policy() {
           : {}),
         ...(patch.requiresEvidence !== undefined
           ? { requiresEvidence: patch.requiresEvidence }
+          : {}),
+        /* `!== undefined`, not truthy: `null` is a real, meaningful value
+           here — it is what clears the restriction back to "everyone" — and
+           this is the only shape that can say so rather than leaving it
+           alone. */
+        ...(patch.eligibleGender !== undefined
+          ? { eligibleGender: patch.eligibleGender }
           : {}),
       });
       markSaved();
@@ -470,6 +516,7 @@ function Policy() {
                     <TH align="right">Carry over</TH>
                     <TH align="right">Notice</TH>
                     <TH>Evidence</TH>
+                    <TH>Who</TH>
                     {isConnected && (
                       <TH>
                         <span className="sr-only">Actions</span>
@@ -554,6 +601,14 @@ function Policy() {
                               void editType(type, {
                                 requiresEvidence: e.target.checked,
                               })
+                            }
+                          />
+                        </TD>
+                        <TD>
+                          <EligibilitySelect
+                            type={type}
+                            onChange={(eligibleGender) =>
+                              void editType(type, { eligibleGender })
                             }
                           />
                         </TD>
@@ -672,6 +727,15 @@ function Policy() {
                         }
                       />
                     </div>
+
+                    <Field label="Who">
+                      <EligibilitySelect
+                        type={type}
+                        onChange={(eligibleGender) =>
+                          void editType(type, { eligibleGender })
+                        }
+                      />
+                    </Field>
 
                     {isConnected && (
                       <Button

@@ -183,7 +183,11 @@ type WireType = {
   requiresEvidence: boolean;
   minNoticeDays: number;
   isPaid: boolean;
+  eligibleGender: EligibleGender;
 };
+
+/** Null is everyone — the ordinary case. One of `GENDER_OPTIONS` narrows it. */
+export type EligibleGender = "female" | "male" | "other" | null;
 
 /* ---------------------------------------------------------------- the shapes */
 
@@ -275,6 +279,7 @@ export type LeaveTypeRow = {
   requiresEvidence: boolean;
   minNoticeDays: number;
   isPaid: boolean;
+  eligibleGender: EligibleGender;
 };
 
 /**
@@ -293,6 +298,7 @@ export type NewLeaveType = {
   requiresEvidence?: boolean;
   minNoticeDays?: number;
   isPaid?: boolean;
+  eligibleGender?: EligibleGender;
 };
 
 /** Every field optional — `PATCH /leave/types/:id` accepts any subset. */
@@ -472,6 +478,7 @@ const toType = (wire: WireType): LeaveTypeRow => ({
   requiresEvidence: wire.requiresEvidence,
   minNoticeDays: wire.minNoticeDays,
   isPaid: wire.isPaid,
+  eligibleGender: wire.eligibleGender,
 });
 
 /* ------------------------------------------------------------------- the api */

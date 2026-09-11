@@ -1,8 +1,23 @@
 "use client";
 
-import { createContext, useContext, useId } from "react";
+import {
+  createContext,
+  useContext,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { AlertCircle, Info } from "lucide-react";
 import { cn } from "@/lib/cn";
+
+/** The panel's own width — `w-64` below, kept as a number so the placement
+    check can do the same arithmetic the browser is about to. */
+const TOOLTIP_PANEL_WIDTH = 256;
+
+/** Clear of the true screen edge on either side, so the panel never lands
+    flush against it. */
+const TOOLTIP_SAFE_MARGIN = 16;
 
 /**
  * The label-line info icon that replaced help text sitting under every field.
@@ -22,22 +37,74 @@ import { cn } from "@/lib/cn";
  * tabbing to the trigger focuses it, which is also what happens when a touch
  * screen taps a button, so no separate touch handling was needed.
  *
- * ## Left-anchored, not centred
+ * ## Which side it opens on is measured, not fixed
  *
- * This used to centre the panel over the icon (`left-1/2 -translate-x-1/2`),
- * which is fine for an icon with room on both sides and breaks for one that
- * is not — the per-line "What it is for" field in a hand-entered payroll
- * line sits in the leftmost column of a dialog, so half of a centred,
- * 256px-wide panel landed off the left edge and rendered as an empty box with
- * a sliver of border. Anchoring the panel's own left edge to the icon's
- * means it always grows rightward, which every real trigger in this app has
- * room for — a label's icon is never the last thing in a line running off
- * the right of its container the way it can be the first thing running off
- * the left.
+ * This used to always anchor its own left edge to the icon's, on the
+ * reasoning that "a label's icon is never the last thing in a line running
+ * off the right of its container" — true of a full-width page, and false of
+ * a field inside a narrow `size="sm"` modal, where an icon can sit close
+ * enough to the dialog's own right edge that a fixed-rightward 256px panel
+ * has nowhere to grow into.
+ *
+ * That was not a cosmetic miss: on a phone, the panel's own right edge
+ * landing past the true viewport width is genuine overflowing content, and
+ * this app's mobile layout responds to genuine overflow by widening the
+ * whole page's layout viewport to fit it — which then re-resolves every
+ * percentage-sized box on the page, including an unrelated `size="sm"`
+ * `Modal` sitting at `width:100%`, against that wider viewport. The dialog
+ * measurably grew from 375px to its 448px cap while the tooltip was open,
+ * on a page with nothing else acting on it — traced to exactly this.
+ *
+ * `offset` is a pixel `left` value, in the panel's own positioning space
+ * (relative to the trigger's wrapper span), rather than a plain `left-0` /
+ * `right-0` choice. A binary side flip is not enough: a trigger sitting
+ * anywhere near the *middle* of a narrow viewport has room for the panel on
+ * neither pure side — growing right overflows the right edge, growing left
+ * overflows the left just as the original bug did. `offset` instead starts
+ * from "grow rightward from the icon" (the original, still-correct default
+ * for most triggers) and is clamped so the panel's own edges never cross
+ * `TOOLTIP_SAFE_MARGIN` in from the true screen edges, on either side —
+ * correct for a trigger anywhere, not only the two ends.
+ *
+ * ## Measured once at mount, in a layout effect — not on hover or focus
+ *
+ * The first version measured when the pointer entered or the trigger gained
+ * focus, in a plain event handler. That reopened the exact bug it was
+ * fixing, intermittently: `group-focus-within` is a CSS pseudo-class, so the
+ * browser can make the panel visible in the *same* paint the focus event
+ * fires in, while the event handler's `setState` is a React update that is
+ * not guaranteed to land before that paint. On a freshly mounted field the
+ * race was frequently lost — the panel painted once at its default offset,
+ * wide enough to overflow, and the viewport had already widened to fit it
+ * by the time React caught up and corrected it. `useLayoutEffect` runs
+ * synchronously after the DOM commits and before the browser paints, so the
+ * correct offset is already settled — with the panel still `hidden`, since
+ * nothing has been hovered or focused yet — long before a user could reach
+ * it. There is nothing left to race.
  */
 function InfoTooltip({ id, text }: { id: string; text: string }) {
+  const wrapperRef = useRef<HTMLSpanElement>(null);
+  const [offset, setOffset] = useState(0);
+
+  useLayoutEffect(() => {
+    const wrapperRect = wrapperRef.current?.getBoundingClientRect();
+    if (!wrapperRect) return;
+    /* Where the panel's left edge would land, viewport-relative, if it grew
+       rightward from the trigger as it always used to — then pulled back
+       just far enough that neither of its own edges crosses the safe
+       margin, whichever edge that turns out to be. */
+    const desired = wrapperRect.left;
+    const clamped = Math.min(
+      Math.max(desired, TOOLTIP_SAFE_MARGIN),
+      window.innerWidth - TOOLTIP_PANEL_WIDTH - TOOLTIP_SAFE_MARGIN,
+    );
+    /* Back into the panel's own coordinate space: `position: absolute`
+       resolves `left` against `wrapperRef`, not the viewport. */
+    setOffset(clamped - wrapperRect.left);
+  }, []);
+
   return (
-    <span className="group relative inline-flex">
+    <span ref={wrapperRef} className="group relative inline-flex">
       <span id={id} className="sr-only">
         {text}
       </span>
@@ -51,6 +118,7 @@ function InfoTooltip({ id, text }: { id: string; text: string }) {
       <span
         aria-hidden="true"
         role="presentation"
+        style={{ left: `${offset}px` }}
         className={cn(
           /* `hidden`, not `invisible`: a `visibility:hidden` panel still
              occupies its absolutely-positioned box, and a 256px-wide one
@@ -59,7 +127,7 @@ function InfoTooltip({ id, text }: { id: string; text: string }) {
              narrow card this read as horizontal overflow with nothing
              visible causing it. `display:none` removes it from layout
              entirely until it is actually shown. */
-          "hidden absolute bottom-full left-0 z-50 mb-2 w-64",
+          "hidden absolute bottom-full z-50 mb-2 w-64",
           "rounded-md border border-line bg-surface p-2.5 text-body-sm leading-relaxed text-body shadow-lg",
           "opacity-0 transition-opacity duration-100",
           "group-hover:block group-hover:opacity-100 group-focus-within:block group-focus-within:opacity-100",
