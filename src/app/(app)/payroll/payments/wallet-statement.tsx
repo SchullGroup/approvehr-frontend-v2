@@ -333,16 +333,20 @@ function MovementRow({
 /**
  * What each instruction's status means to somebody asking "did they get it?".
  *
- * The same words the batch page uses, because two screens describing one
- * instruction differently is how a reader ends up believing both. `PENDING`
- * is "Not sent" rather than "Pending" for the same reason: pending reads as
- * in-flight, and it is not — nothing has been handed to anybody yet.
+ * `PENDING` reads "Pending": nothing has been asked of the provider yet, so
+ * any wording that implies an outcome — sent, not sent — claims more than is
+ * known about somebody's pay. The batch detail page still says "Not sent" for
+ * the same status and the two should be brought together.
  */
 const INSTRUCTION_STATUS: Record<
   string,
   { label: string; tone: "neutral" | "warning" | "success" | "danger" }
 > = {
-  PENDING: { label: "Not sent", tone: "neutral" },
+  /* "Pending", not "Not sent". Nothing has been checked with the provider
+     yet, and "not sent" asserts more than we know — it reads as a decision
+     already taken about this person's money. Pending is the honest default
+     until an outcome comes back. */
+  PENDING: { label: "Pending", tone: "neutral" },
   SUBMITTED: { label: "Sent", tone: "warning" },
   SETTLED: { label: "Paid", tone: "success" },
   FAILED: { label: "Failed", tone: "danger" },
@@ -390,6 +394,7 @@ function PayrollBreakdown({
         <THead>
           <TH>Name</TH>
           <TH>Bank</TH>
+          <TH>Account</TH>
           <TH align="right">Amount</TH>
           <TH>Status</TH>
         </THead>
@@ -411,6 +416,20 @@ function PayrollBreakdown({
                 />
                 <TD className="text-body-sm">
                   {row.bankName.trim().length > 0 ? row.bankName : "—"}
+                </TD>
+                {/* Masked, as the API sends it. `accountNumberOk` is the same
+                    test the payment gate uses, so a number that cannot be paid
+                    says so here rather than looking fine until it fails. */}
+                <TD className="tabular text-body-sm">
+                  {row.accountNumberOk ? (
+                    row.accountNumberMasked
+                  ) : (
+                    <span className="text-danger-text">
+                      {row.accountNumberMasked === ""
+                        ? "None on file"
+                        : `${row.accountNumberMasked} (not ten digits)`}
+                    </span>
+                  )}
                 </TD>
                 <TD align="right" className="tabular font-medium text-ink">
                   <Money amount={naira(row.amountKobo)} decimals />

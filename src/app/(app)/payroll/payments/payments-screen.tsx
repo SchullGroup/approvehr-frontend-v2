@@ -183,7 +183,7 @@ export function PaymentsScreen() {
             against any of those three is a claim about a company's money that
             happens to be false. The ₦0 incident this codebase has a rule about
             was exactly this shape one module along. */}
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2">
           {/* Label and hint move with the sign — see `availableFigure`. A
               company that has approved more than it holds is short by an
               amount, not in possession of a negative one. */}
@@ -229,26 +229,10 @@ export function PaymentsScreen() {
               The underlying disagreement between the ledger-derived position
               and the stored wallet is a separate, open piece of work. This
               only stops the screen asserting something it cannot support. */}
-          <Stat
-            label="Paying from"
-            value={
-              primary ? (
-                <span className="text-body-sm font-medium text-ink">
-                  {primary.bankName}
-                </span>
-              ) : (
-                <span className="text-body-sm font-medium text-muted">Not set</span>
-              )
-            }
-            hint={
-              primary
-                ? /* Digits first: the masked number is what somebody checks a
-                     payout account by, and it was the half `truncate` was
-                     eating -- "Schull Technologies Limited - ***..." */
-                  `${primary.accountNumberMasked} · ${primary.accountName}`
-                : undefined
-            }
-          />
+          {/* "Paying from" was here. The account salaries leave from is a
+              settings fact, not a figure about the money, and it sat in a row
+              of amounts reading as though it were one. It is still on the
+              batch, which is where somebody checking a payment looks. */}
         </div>
 
         {held && held.committedKobo > 0 && (
