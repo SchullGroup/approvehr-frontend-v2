@@ -80,7 +80,9 @@ exactly.
 
 Performance is seven separate items in the left-hand nav, not one page with tabs. Some are hidden
 from some people — the right-hand column says who sees each one. If a door is missing for the
-account you are signed in as, that is the product working, not a bug.
+account you are signed in as, that is the product working, not a bug. Two of the seven are open to
+everybody but **narrowed by what they contain** rather than hidden — the queue an ordinary employee
+opens is empty, and says so in a sentence.
 
 | Sidebar item | Route | What it is for | Who sees it |
 |---|---|---|---|
@@ -89,7 +91,7 @@ account you are signed in as, that is the product working, not a bug.
 | **Weekly tasks** | `/performance/review-tasks` | Staff log what they did each week against an objective; managers grade it. This is the evidence a delivery score is built from. | Everyone |
 | **Competency ratings** | `/performance/skills` | Record a level against a skill for one person. Also shows who is below target, and a department heatmap. | Everyone |
 | **Appraisal periods** | `/performance/periods` | The list of periods. Open one to set it up, start it, move it along, and read the register of everybody in it. | HR / Owner |
-| **Objectives to agree** | `/performance/approvals` | The queue. Somebody sent you a target; you agree it, send it back, or refuse it. | Line manager · HR / Owner |
+| **Objectives to agree** | `/performance/approvals` | The queue. Somebody sent you a target; you agree it, send it back, or refuse it. | Everyone — but the queue is narrowed to what you may answer, so most people find it empty and are told why |
 | **Who appraises whom** | `/performance/appraisers` | Only appears if the company has switched multiple appraisers on. Maps who marks whom, and for what share of the mark. | HR / Owner |
 
 Four more screens exist but have no sidebar item, because you reach them from something specific:
@@ -722,7 +724,8 @@ card and nothing else.
 
 ### The person — every employee
 
-Sees three sidebar items. Never sees a period, a register or a report.
+Sees five sidebar items — Overview, KPIs, Weekly tasks, Competency ratings and Objectives to
+agree. Never sees a period, a register or a report.
 
 1. Set your own objectives on **KPIs** and press **Send to be agreed**.
 2. Log what you did each week on **Weekly tasks**, if your company uses it.
