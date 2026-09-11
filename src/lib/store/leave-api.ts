@@ -411,6 +411,7 @@ export function useLeaveTypes(): LeaveTypesState {
         requiresEvidence: type.requiresEvidence,
         minNoticeDays: type.minNoticeDays,
         isPaid: true,
+        eligibleGender: type.eligibleGender ?? null,
       })),
     [settings.leave.types],
   );
