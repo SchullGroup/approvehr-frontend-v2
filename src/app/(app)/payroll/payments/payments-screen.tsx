@@ -16,6 +16,7 @@ import {
   Money,
   Spinner,
   Stat,
+  Tabs,
   TBody,
   TD,
   TDPrimary,
@@ -90,6 +91,7 @@ export function PaymentsScreen() {
   const toast = useToast();
 
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [accountsTab, setAccountsTab] = useState("in");
 
   if (permissionsLoading) {
     return (
@@ -259,37 +261,64 @@ export function PaymentsScreen() {
           </Card>
         )}
 
+        {/*
+          * One card, two accounts, and they are not the same account.
+          * ---------------------------------------------------------------
+          * Money goes *in* to a collection account at the provider, and
+          * salaries go *out* from the company's own bank account. Two
+          * separate cards invited the reading that either would do, and
+          * money sent to the wrong one of those is money nobody in the
+          * company can find. Tabs put them side by side and make you pick.
+          *
+          * "Money in" leads because it is the one somebody comes to this
+          * screen needing — the account to fund. "Paying from" is a
+          * settings fact that used to sit in the row of figures above,
+          * reading as though it were an amount.
+          */}
         <Card>
-          {/*
-            * No description, deliberately: `FundingAccounts` opens with this
-            * card's sentence already.
-            *
-            * There were two of them, one line apart -- "Transfers into any of
-            * these accounts credit the wallet." here, and "Transfer into any of
-            * these accounts and the wallet is credited automatically." from the
-            * component -- which read as the page repeating itself. Making the
-            * two agree about plurality, which is what happened first, was
-            * fixing the wrong half.
-            *
-            * The component's copy is the one that survives, because it travels
-            * with the accounts: the component states its own terms wherever it
-            * is placed, and a card description cannot. It also already handles
-            * both the singular and the empty case.
-            */}
-          <CardHeader title="Putting money in" />
+          <CardHeader title="Accounts" />
+          <CardBody className="pb-0">
+            <Tabs
+              items={[
+                { id: "in", label: "Money in" },
+                { id: "from", label: "Paying from" },
+              ]}
+              value={accountsTab}
+              onChange={setAccountsTab}
+            />
+          </CardBody>
           <CardBody>
-            {wallet.loading ? (
-              <div className="flex items-center gap-2 text-body-sm text-muted">
-                <Spinner size="sm" />
-                Reading the account
+            {accountsTab === "in" ? (
+              wallet.loading ? (
+                <div className="flex items-center gap-2 text-body-sm text-muted">
+                  <Spinner size="sm" />
+                  Reading the account
+                </div>
+              ) : held ? (
+                <FundingAccounts accounts={held.fundingAccounts} />
+              ) : (
+                <Callout tone="info" title="Not available here">
+                  The wallet is a live balance from the API. There is no ledger
+                  to read offline, and a figure invented here would be a claim
+                  about a company&rsquo;s money.
+                </Callout>
+              )
+            ) : primary ? (
+              <div className="space-y-1">
+                <p className="text-body font-medium text-ink">
+                  {primary.bankName}
+                </p>
+                <p className="tabular text-body-sm text-muted">
+                  {primary.accountNumberMasked} · {primary.accountName}
+                </p>
+                <p className="pt-2 text-body-sm text-muted">
+                  Salaries leave from here. Paying money <em>in</em> to it does
+                  not credit the wallet — that is the account on the other tab.
+                </p>
               </div>
-            ) : held ? (
-              <FundingAccounts accounts={held.fundingAccounts} />
             ) : (
-              <Callout tone="info" title="Not available here">
-                The wallet is a live balance from the API. There is no ledger to
-                read offline, and a figure invented here would be a claim about
-                a company&rsquo;s money.
+              <Callout tone="warning" title="No account to pay from">
+                A payroll cannot build its payment without one.
               </Callout>
             )}
           </CardBody>
