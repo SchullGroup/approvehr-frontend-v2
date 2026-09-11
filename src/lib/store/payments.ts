@@ -78,11 +78,13 @@ import { useRevalidation } from "@/lib/revalidate";
 /**
  * A payee in the demo book.
  *
- * Carries the full account number, which `ApiPaymentInstruction` deliberately
- * does not: the file needs it and no screen may show it. Everything read by a
- * component goes through `strip()` below.
  */
-type DemoInstruction = ApiPaymentInstruction & { accountNumberFull: string };
+/* Was `ApiPaymentInstruction & { accountNumberFull: string }`, back when the
+   API masked every account number and the demo book kept the real one to
+   itself. The API carries `accountNumber` now, so the extension and the
+   stripping it required are gone — the demo instruction is just an
+   instruction. */
+type DemoInstruction = ApiPaymentInstruction;
 
 /** A batch in the demo book. `can`, `balanced` and `check` are derived on read. */
 type DemoBatch = Omit<ApiPaymentBatch, "can" | "balanced"> & {
@@ -190,7 +192,7 @@ function demoInstruction(
     payslipId: null,
     payeeName: name,
     bankName: broken === "no-account" ? "" : (person?.bankName ?? ""),
-    accountNumberFull: full,
+    accountNumber: full,
     accountNumberMasked: mask(full),
     accountNumberOk: /^\d{10}$/.test(full),
     bankCode: null,
@@ -514,7 +516,7 @@ function evaluateDemo(
      on file" is one they can fix. */
   const seen = new Map<string, string>();
   for (const row of rows) {
-    const digits = row.accountNumberFull.replace(/\D/g, "");
+    const digits = row.accountNumber.replace(/\D/g, "");
 
     if (row.bankName.trim().length === 0) {
       found.push({
@@ -592,12 +594,10 @@ function demoAffordances(status: PaymentBatchStatus): BatchAffordances {
   };
 }
 
-/** Drops the full account number. Nothing a component sees ever carries one. */
-function strip(row: DemoInstruction): ApiPaymentInstruction {
-  const { accountNumberFull, ...rest } = row;
-  void accountNumberFull;
-  return rest;
-}
+/* `strip` was here. It removed the full account number on the way out, when
+   the API masked it and the demo book had to match. The API sends the whole
+   number now, so there is nothing to remove and a demo instruction is already
+   what a component expects. */
 
 function toBatch(batch: DemoBatch): ApiPaymentBatch {
   const { instructions, ...rest } = batch;
@@ -613,7 +613,7 @@ function toDetail(batch: DemoBatch, accounts: ApiBankAccount[]): ApiBatchDetail 
   const gate = evaluateDemo(batch, accounts);
   return {
     ...toBatch(batch),
-    instructions: batch.instructions.map(strip),
+    instructions: batch.instructions,
     check: {
       ok: gate.ok,
       discrepancies: gate.discrepancies,
@@ -1285,7 +1285,7 @@ function demoHistoryRows(book: DemoBook): ApiPaymentHistoryRow[] {
     .flatMap((batch) =>
       batch.instructions.map(
         (row): ApiPaymentHistoryRow => ({
-          ...strip(row),
+          ...row,
           batchId: batch.id,
           batchReference: batch.reference,
           batchStatus: batch.status,
@@ -2233,7 +2233,7 @@ function buildDemoBankFile(batch: DemoBatch): string {
     lines.push(
       [
         String(index + 1),
-        row.accountNumberFull,
+        row.accountNumber,
         cell(row.payeeName),
         cell(row.bankName),
         cell(row.bankCode),

@@ -450,17 +450,20 @@ function PayrollBreakdown({
                 <TD className="text-body-sm">
                   {row.bankName.trim().length > 0 ? row.bankName : "—"}
                 </TD>
-                {/* Masked, as the API sends it. `accountNumberOk` is the same
-                    test the payment gate uses, so a number that cannot be paid
-                    says so here rather than looking fine until it fails. */}
+                {/* The whole number, not the masked one. This table is read
+                    when somebody's pay has not arrived, and `******0001`
+                    cannot answer whether it went to the right account.
+                    `accountNumberOk` is the same test the payment gate uses,
+                    so a number that cannot be paid says so here rather than
+                    looking fine until it fails. */}
                 <TD className="tabular text-body-sm">
                   {row.accountNumberOk ? (
-                    row.accountNumberMasked
+                    row.accountNumber
                   ) : (
                     <span className="text-danger-text">
-                      {row.accountNumberMasked === ""
+                      {row.accountNumber === ""
                         ? "None on file"
-                        : `${row.accountNumberMasked} (not ten digits)`}
+                        : `${row.accountNumber} (not ten digits)`}
                     </span>
                   )}
                 </TD>

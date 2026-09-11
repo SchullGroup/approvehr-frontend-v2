@@ -194,6 +194,15 @@ export type ApiPaymentInstruction = {
   payeeName: string;
   bankName: string;
   accountNumberMasked: string;
+  /**
+   * The whole number, beside the masked one.
+   *
+   * A masked row cannot answer the question that brings somebody to a payment
+   * list — did this go to the right account. Reading it needs RUN_PAYROLL or
+   * APPROVE_PAYROLL, and the bank file the same reader can download carries
+   * every digit anyway.
+   */
+  accountNumber: string;
   /** Whether this row can be paid at all. The gate uses the same test. */
   accountNumberOk: boolean;
   bankCode: string | null;
