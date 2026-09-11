@@ -37,6 +37,7 @@ import {
   type UpdateAccountBody,
   type ApiBatchRecordedPaid,
   type ApiWallet,
+  type ApiWalletAccount,
 } from "@/lib/api/payments";
 import { EMPLOYEES } from "@/lib/mock/people";
 import { createPersistedState } from "./persisted";
@@ -869,6 +870,114 @@ export function useWallet(): WalletState {
     loading: !matched,
     error: matched ? fetched.error : null,
     live: true,
+    reload: bumpRevision,
+  };
+}
+
+/* ------------------------------------------------- the wallet's own statement */
+
+export type WalletAccountState = {
+  /**
+   * Null while loading, on a failure, **and offline** — never a zeroed wallet,
+   * for the same reason `WalletState.wallet` is. Same rule, one endpoint along.
+   */
+  account: ApiWalletAccount | null;
+  loading: boolean;
+  error: ApiError | null;
+  live: boolean;
+  /** The page being shown. 1-based, and 1 until the API can serve another. */
+  page: number;
+  setPage: (page: number) => void;
+  reload: () => void;
+};
+
+/**
+ * The wallet's stored balance and the movements behind it.
+ *
+ * ## Why this is a second request and not part of `useWallet`
+ *
+ * They answer different questions and fail independently. The headline figures
+ * are three integers; the statement is a hundred rows that will page. Folding
+ * them together would make a screen wait on the rows to show the balance, and
+ * would make a failed statement read as a failed balance.
+ *
+ * ## Paging that does nothing yet, on purpose
+ *
+ * `setPage` works and the request carries the parameter. The endpoint serves a
+ * hardcoded most-recent 100 and ignores it until
+ * `feat/wallet-movements-paginated` merges, at which point this hook needs no
+ * change and neither does the screen. What the screen must not do meanwhile is
+ * render a pager: `total` is absent, and inventing one from `transactions
+ * .length` would tell a wallet of three hundred movements that it has a
+ * hundred. Absent is not a count of zero and it is not a count of what arrived.
+ */
+export function useWalletAccount(): WalletAccountState {
+  const { isConnected, can } = useSession();
+  const mayRead = can("VIEW_SALARIES");
+  const rev = useRevision();
+  const revalidation = useRevalidation();
+  const [page, setPage] = useState(1);
+
+  const [fetched, setFetched] = useState<{
+    rev: number;
+    page: number;
+    account: ApiWalletAccount | null;
+    error: ApiError | null;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!isConnected || !mayRead) return;
+    let cancelled = false;
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const account = await paymentsApi.walletAccount(
+          { page },
+          controller.signal,
+        );
+        if (!cancelled) setFetched({ rev, page, account, error: null });
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
+        if (!cancelled) {
+          setFetched({
+            rev,
+            page,
+            account: null,
+            error: error instanceof ApiError ? error : null,
+          });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [isConnected, mayRead, rev, revalidation, page]);
+
+  if (!isConnected || !mayRead) {
+    return {
+      account: null,
+      loading: false,
+      error: null,
+      live: false,
+      page,
+      setPage,
+      reload: bumpRevision,
+    };
+  }
+
+  /* Matched on the page as well as the revision, so moving to page 2 shows a
+     loading state rather than page 1's rows under a "page 2" pager. */
+  const matched =
+    fetched !== null && fetched.rev === rev && fetched.page === page;
+  return {
+    account: matched ? fetched.account : null,
+    loading: !matched,
+    error: matched ? fetched.error : null,
+    live: true,
+    page,
+    setPage,
     reload: bumpRevision,
   };
 }

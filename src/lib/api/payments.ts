@@ -458,6 +458,76 @@ export function availableFigure(availableKobo: number): {
   };
 }
 
+/**
+ * The sentence under the reconciliation state, and nothing stronger than true.
+ *
+ * The API compares the stored balance against the sum of the movements it has
+ * recorded. That is a real check and it is worth showing — it is what makes a
+ * stored balance defensible rather than merely convenient. It is also strictly
+ * narrower than "this balance is correct", and the gap is not theoretical:
+ * `payroll.approve` debits the wallet inside a `try`/`catch` that logs and
+ * carries on, precisely so a failed balance write cannot undo an approval. A
+ * debit lost that way writes no movement, so the sum still matches the stored
+ * figure and this still reports agreement.
+ *
+ * So the words are *matches its movements*, never *is correct*. Written once,
+ * here, because the wallet screen and the admin view both say it and a second
+ * copy of a claim about money is how the two come to claim different things.
+ */
+export function reconciliationLine(account: {
+  reconciled: boolean;
+  reconciliation?: { differenceKobo: number };
+}): { label: string; detail: string; tone: "neutral" | "danger" } {
+  if (account.reconciled) {
+    return {
+      label: "Balance matches its movements",
+      detail:
+        "The stored figure equals every credit less every debit on the statement below. " +
+        "It is a check that the number was not written around the service, not a proof that " +
+        "every movement that should exist does.",
+      tone: "neutral",
+    };
+  }
+  return {
+    label: "Balance does not match its movements",
+    detail:
+      "Something wrote this balance without going through the wallet. It is reported and never " +
+      "repaired automatically, because correcting the number would hide whatever did it.",
+    tone: "danger",
+  };
+}
+
+/**
+ * Why the two balances on this screen are different numbers.
+ *
+ * They are not a figure and a stale copy of it. They count different events —
+ * the ledger debits when money settles, the wallet debits when a payroll is
+ * approved — so between those two moments they disagree *by design*, and the
+ * amount they disagree by is the money a company has committed and not yet
+ * sent.
+ *
+ * Returns null when there is nothing to explain, so the screen renders a line
+ * only when a reader would otherwise be looking at two numbers wondering which
+ * one is their money.
+ */
+export function walletBalanceComparison(
+  storedKobo: number,
+  derived: { balanceKobo: number; committedKobo: number },
+): { differenceKobo: number; sentence: string } | null {
+  const difference = derived.balanceKobo - storedKobo;
+  if (difference === 0) return null;
+  return {
+    differenceKobo: Math.abs(difference),
+    sentence:
+      difference > 0
+        ? "The bank still holds more than the wallet says, because a payroll has been approved " +
+          "and its money has not left yet. The wallet takes it out at approval; the bank takes " +
+          "it out when the transfers go."
+        : "The wallet reads higher than what the bank has settled. That happens when money has " +
+          "arrived and nothing has drawn on it yet, or when a payment failed and never left.",
+  };
+}
+
 export function paymentOutcome(row: {
   status: PaymentInstructionStatus;
   batchStatus: PaymentBatchStatus;
@@ -659,6 +729,129 @@ export type ApiWallet = {
      */
     isDefault: boolean;
   }[];
+};
+
+/**
+ * One movement in or out of the wallet.
+ *
+ * Not a `LedgerEntry`. The two records overlap and are not the same thing, and
+ * the difference is the whole reason this type exists separately — see
+ * `ApiWalletAccount` below.
+ *
+ * `amountKobo` is always **positive**; `direction` carries the sign. Rendering
+ * it signed is the caller's job and the caller has to read `direction` to do
+ * it, which is the point.
+ */
+export type ApiWalletMovement = {
+  id: string;
+  direction: "CREDIT" | "DEBIT";
+  /**
+   * What caused it.
+   *
+   * `PROVIDER_INFLOW` was confirmed by a provider and `MANUAL_FUNDING` was
+   * typed by a person off a bank statement — only one of those can be proved
+   * afterwards, which is why they are kept apart rather than both reading
+   * "money in".
+   *
+   * `PAYROLL_REVERSAL` exists in the enum and **nothing on the API writes it**.
+   * That is deliberate rather than unfinished: the wallet is debited at
+   * approval and `payroll.cancel` refuses an approved run outright, so no path
+   * leaves a debit needing reversal. It is handled here anyway, because an
+   * unhandled enum member is a blank cell the day somebody adds the writer.
+   */
+  source:
+    "PROVIDER_INFLOW" | "MANUAL_FUNDING" | "PAYROLL_RUN" | "PAYROLL_REVERSAL";
+  amountKobo: number;
+  /** The API's own formatting of `amountKobo`. Not re-derived here. */
+  amount: string;
+  /**
+   * The balance either side of this movement, so the statement reads like a
+   * bank statement and drift has somewhere to show itself.
+   *
+   * **`balanceBefore` is optional and usually absent.** The column has always
+   * been written; the endpoint did not select it until
+   * `feat/wallet-movements-paginated`, which is pushed and unmerged at the time
+   * of writing. A client could subtract `amountKobo` from `balanceAfterKobo`
+   * and *usually* be right — and "usually" is not good enough for the one
+   * figure whose entire job is to show the balance was not tampered with, so
+   * this renders it only when the server sends it.
+   */
+  balanceBeforeKobo?: number;
+  balanceBefore?: string;
+  balanceAfterKobo: number;
+  balanceAfter: string;
+  /**
+   * The idempotency key that made this movement safe to retry — a provider
+   * event id, a payroll run id, a ledger entry id.
+   *
+   * Shown, because it is what somebody quotes to a provider when a deposit is
+   * missing, and there is nowhere else in the product to read it.
+   */
+  reference: string;
+  note: string | null;
+  /** Set where this debit paid for a run, so it can be traced back to one. */
+  payrollRunId: string | null;
+  createdAt: string;
+};
+
+/**
+ * The wallet proper: a balance somebody can name, and the movements behind it.
+ *
+ * ## This is NOT the same balance as `ApiWallet`, and they are meant to differ
+ *
+ * Both are real and neither is wrong. They count different events:
+ *
+ * | | `ApiWallet` (`/payments/wallet`) | this (`/payments/wallet/account`) |
+ * |---|---|---|
+ * | Source | sums `LedgerEntry` | a stored running total |
+ * | Credited by | inflows and manual funding | the same three |
+ * | **Debited by** | **settlement** — money that has left | **payroll approval** — money committed |
+ *
+ * So this figure tracks `ApiWallet.availableKobo`, **not** `balanceKobo`.
+ * Between approving a run and the money settling they are supposed to
+ * disagree, and a screen that puts both under the word "balance" is making two
+ * mutually exclusive claims — the defect this codebase has already paid for on
+ * the weights page and the adjustment sheet.
+ *
+ * `walletBalanceComparison` below is the one place that difference is worded.
+ *
+ * ## What `reconciled` does and does not promise
+ *
+ * It compares the stored balance against the sum of the **movements recorded**.
+ * It does not, and cannot, say the balance matches what actually happened: the
+ * debit at payroll approval sits behind a `try`/`catch` on the API that logs
+ * and carries on, so a swallowed debit writes no movement and this still
+ * agrees.
+ *
+ * Word it as *the balance matches its movements*. Never as *the balance is
+ * correct*. `reconciliationLine` below is the only place that sentence exists.
+ */
+export type ApiWalletAccount = {
+  balanceKobo: number;
+  /** The API's own formatting. */
+  balance: string;
+  transactions: ApiWalletMovement[];
+  /**
+   * Every movement the wallet has, not just this page.
+   *
+   * **Optional, and absent today.** The endpoint serves a hardcoded most-recent
+   * 100 until `feat/wallet-movements-paginated` merges. Absent means "no idea
+   * how many there are", which is a different fact from zero — so the pager
+   * renders only when this arrives, and until then the screen says it is
+   * showing the most recent hundred rather than implying it is showing all.
+   */
+  total?: number;
+  page?: number;
+  pageSize?: number;
+  /** Whether the stored balance agrees with the movements recorded. */
+  reconciled: boolean;
+  /** Present only when it does not. */
+  reconciliation?: {
+    storedKobo: number;
+    computedKobo: number;
+    agrees: boolean;
+    differenceKobo: number;
+  };
 };
 
 export type ApiPaymentsSummary = {
@@ -987,6 +1180,30 @@ export const paymentsApi = {
   /** The wallet: what is in it, what is spoken for, and where money goes in. */
   wallet: (signal?: AbortSignal) =>
     request<ApiWallet>("/payments/wallet", { ...(signal ? { signal } : {}) }),
+
+  /**
+   * The wallet's own balance and its statement.
+   *
+   * Deliberately a second request rather than folded into `wallet` above: the
+   * two answer different questions, one of them pages and the other does not,
+   * and a screen showing the headline figures should not wait on a hundred
+   * rows of statement to render them.
+   *
+   * `page` and `pageSize` are sent as soon as a caller asks for a page other
+   * than the first. The endpoint ignores unknown query parameters today and
+   * validates them once `feat/wallet-movements-paginated` merges, so sending
+   * them early costs nothing and means no call site changes on the day it
+   * lands. Page size is capped at 200 server-side.
+   */
+  walletAccount: (
+    params: { page?: number; pageSize?: number } = {},
+    signal?: AbortSignal,
+  ) =>
+    request<ApiWalletAccount>("/payments/wallet/account", {
+      /* `buildUrl` drops undefined, so these two need no spreading. */
+      query: { page: params.page, pageSize: params.pageSize },
+      ...(signal ? { signal } : {}),
+    }),
 
   summary: (signal?: AbortSignal) =>
     request<ApiPaymentsSummary>("/payments/summary", {
