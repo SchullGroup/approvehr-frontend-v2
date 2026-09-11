@@ -28,7 +28,6 @@ import {
   useWalletStatement,
 } from "@/lib/store/payments";
 import { FundingAccounts } from "../runs/new/pay-panel";
-import { LedgerPanel } from "./ledger-panel";
 import { WalletStatement } from "./wallet-statement";
 
 /**
@@ -270,7 +269,17 @@ export function PaymentsScreen() {
           * place a company could fetch an approved batch's bank file again
           * after losing the first download. Both still exist; nothing here
           * points at them any more. */}
-        <LedgerPanel />
+        {/* Account activity was here — `LedgerEntry`, what the bank did.
+          * Removed because it was a second table about the same money that
+          * disagreed with the first: the ledger held two provider deposits the
+          * wallet never received (₦8,750), while the payroll debit that left
+          * the wallet wrote no ledger row, so it reported "Out ₦0.00" after a
+          * payroll had gone out. Its balances were null unless somebody typed
+          * them off a statement, and its own comment forbade computing them.
+          *
+          * The wallet statement is the honest record and it is the one that
+          * stayed. `GET /payments/ledger` still exists and the entries are
+          * still written; nothing displays them. */}
       </PageBody>
     </>
   );

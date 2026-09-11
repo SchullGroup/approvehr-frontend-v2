@@ -33,13 +33,16 @@ import { longDate } from "./format";
 /**
  * The wallet's own statement — every movement, and the balance either side.
  *
- * ## Why this is not the ledger panel below it
+ * ## Why this, and not the ledger
  *
- * `LedgerPanel` reads `LedgerEntry`: what the *bank* did. Its balance column
- * is null unless somebody typed a figure off a statement, and its own doc
- * comment explains why it must never compute the missing ones — a running
- * total derived from the rows we happen to hold looks reconciled without
- * being reconciled.
+ * `LedgerEntry` records what the *bank* did, and a panel used to show it
+ * beneath this one. Its balance column was null unless somebody typed a
+ * figure off a statement, and it was forbidden from computing the missing
+ * ones — a running total derived from the rows we happen to hold looks
+ * reconciled without being reconciled. The two tables also disagreed: the
+ * ledger held deposits the wallet never received, and the payroll debit that
+ * left the wallet wrote no ledger row. That panel is gone; this is the record
+ * that stayed.
  *
  * This table is the opposite case and that is the whole reason it exists. A
  * wallet movement's `balanceBefore` and `balanceAfter` are *written by the
@@ -270,9 +273,9 @@ function MovementRow({
         <TD>{longDate(movement.createdAt)}</TD>
         <TDPrimary
           title={
-            /* Badge with an icon, matching `LedgerPanel` one card down. Two
-               statements side by side that mark direction differently would
-               read as two unrelated tables. */
+            /* Badge with an icon rather than a bare arrow: direction is a
+               fact about the row, and a badge reads as one where a loose
+               glyph reads as decoration. */
             <Badge
               tone={incoming ? "accent" : "neutral"}
               size="sm"
