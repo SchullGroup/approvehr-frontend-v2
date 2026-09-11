@@ -5,6 +5,8 @@ import { Check, Copy, Link2 } from "lucide-react";
 import { Button, Callout, useToast } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { invitesApi } from "@/lib/api/invites";
+import { useOrgTimezone } from "@/lib/store/session";
+import { formatDateTime } from "@/lib/time";
 
 /**
  * The invitation link, when no email can carry it.
@@ -47,6 +49,7 @@ export function InviteLinkButton({
   hint?: string;
 }) {
   const toast = useToast();
+  const timeZone = useOrgTimezone();
   const [link, setLink] = useState<{ url: string; expiresAt: string } | null>(
     null,
   );
@@ -106,16 +109,8 @@ export function InviteLinkButton({
     );
   }
 
-  const expires = new Date(link.expiresAt);
-  const when = Number.isNaN(expires.getTime())
-    ? null
-    : expires.toLocaleString([], {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
+  const formatted = formatDateTime(link.expiresAt, timeZone);
+  const when = formatted === "—" ? null : formatted;
 
   return (
     <Callout tone="warning" title={`Send this to ${name} yourself`}>
