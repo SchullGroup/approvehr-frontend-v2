@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowDownLeft, ArrowUpRight, Wallet } from "lucide-react";
+import Link from "next/link";
+import { ArrowDownLeft, ArrowUpRight, ChevronDown, ChevronRight, Wallet } from "lucide-react";
 import {
   Badge,
+  Button,
   Callout,
   Card,
   CardBody,
@@ -22,7 +24,7 @@ import {
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { naira, type ApiWalletMovement } from "@/lib/api/payments";
-import { useWalletStatement } from "@/lib/store/payments";
+import { usePaymentBatch, useWalletStatement } from "@/lib/store/payments";
 import { longDate } from "./format";
 
 /**
@@ -64,6 +66,9 @@ import { longDate } from "./format";
 export function WalletStatement() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
+  /* One at a time. Two open payrolls is two tables of names on a screen whose
+     job is the balance, and the second is never the one being read. */
+  const [openId, setOpenId] = useState<string | null>(null);
   const statement = useWalletStatement({ page, pageSize });
 
   const held = statement.statement;
@@ -147,10 +152,20 @@ export function WalletStatement() {
               <TH align="right">Out</TH>
               <TH align="right">Balance before</TH>
               <TH align="right">Balance after</TH>
+              <TH align="right">
+                <span className="sr-only">Details</span>
+              </TH>
             </THead>
             <TBody>
               {held.transactions.map((movement) => (
-                <MovementRow key={movement.id} movement={movement} />
+                <MovementRow
+                  key={movement.id}
+                  movement={movement}
+                  open={openId === movement.id}
+                  onToggle={() =>
+                    setOpenId((current) => (current === movement.id ? null : movement.id))
+                  }
+                />
               ))}
             </TBody>
           </TableWrap>
@@ -197,57 +212,226 @@ const SOURCE_LABEL: Record<ApiWalletMovement["source"], string> = {
   ADJUSTMENT: "Adjustment",
 };
 
-function MovementRow({ movement }: { movement: ApiWalletMovement }) {
+/**
+ * One movement, and — for a payroll — the people it paid.
+ *
+ * ## Why the row opens rather than links away
+ *
+ * "Payroll paid, ₦9,382,772.00" is a figure nobody can take apart. The
+ * question it raises is who got paid and whether it reached them, and those
+ * are two different questions: a batch stays open until every instruction in
+ * it resolves, so "the payroll went out" and "everybody was paid" can easily
+ * disagree. The per-person status is the only thing that settles it.
+ *
+ * The batch page at `/payroll/payments/<id>` shows the same instructions with
+ * bank details and the file download beside them. This is deliberately the
+ * shorter read: name, amount, status, in place, without losing the balance
+ * you were looking at.
+ *
+ * ## Fetched on open, not with the page
+ *
+ * `usePaymentBatch(null)` fetches nothing, so a statement of twenty-five
+ * movements makes no batch requests until somebody asks for one. The button
+ * says "View details" rather than relying on the row being quietly clickable
+ * — an expandable row that looks like every other row is one nobody expands.
+ */
+function MovementRow({
+  movement,
+  open,
+  onToggle,
+}: {
+  movement: ApiWalletMovement;
+  open: boolean;
+  onToggle: () => void;
+}) {
   const incoming = movement.direction === "CREDIT";
+  const expandable = movement.paymentBatchId !== null;
+  /* Null until opened: that is what keeps this from firing a request per row. */
+  const batch = usePaymentBatch(open && movement.paymentBatchId ? movement.paymentBatchId : null);
 
   return (
-    <TR>
-      <TD>{longDate(movement.createdAt)}</TD>
-      <TDPrimary
-        title={
-          /* Badge with an icon, matching `LedgerPanel` one card down. Two
-             statements side by side that mark direction differently would
-             read as two unrelated tables. */
-          <Badge
-            tone={incoming ? "accent" : "neutral"}
-            size="sm"
-            icon={
-              incoming ? (
-                <ArrowDownLeft aria-hidden="true" />
+    <>
+      <TR>
+        <TD>{longDate(movement.createdAt)}</TD>
+        <TDPrimary
+          title={
+            /* Badge with an icon, matching `LedgerPanel` one card down. Two
+               statements side by side that mark direction differently would
+               read as two unrelated tables. */
+            <Badge
+              tone={incoming ? "accent" : "neutral"}
+              size="sm"
+              icon={
+                incoming ? (
+                  <ArrowDownLeft aria-hidden="true" />
+                ) : (
+                  <ArrowUpRight aria-hidden="true" />
+                )
+              }
+            >
+              {SOURCE_LABEL[movement.source]}
+            </Badge>
+          }
+          subtitle={movement.note ?? movement.reference}
+        />
+        <TD align="right" className="tabular">
+          {incoming ? (
+            <Money amount={naira(movement.amountKobo)} decimals />
+          ) : (
+            <span className="text-muted">—</span>
+          )}
+        </TD>
+        <TD align="right" className="tabular">
+          {incoming ? (
+            <span className="text-muted">—</span>
+          ) : (
+            <Money amount={naira(movement.amountKobo)} decimals />
+          )}
+        </TD>
+        {/* Both from the row, never computed here. See this file's header. */}
+        <TD align="right" className="tabular text-muted">
+          <Money amount={naira(movement.balanceBeforeKobo)} decimals />
+        </TD>
+        <TD align="right" className="tabular font-medium text-ink">
+          <Money amount={naira(movement.balanceAfterKobo)} decimals />
+        </TD>
+        <TD align="right">
+          {expandable && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onToggle}
+              aria-expanded={open}
+            >
+              {open ? (
+                <ChevronDown aria-hidden="true" className="size-4" />
               ) : (
-                <ArrowUpRight aria-hidden="true" />
-              )
-            }
-          >
-            {SOURCE_LABEL[movement.source]}
-          </Badge>
-        }
-        /* The note if somebody left one, the reference otherwise. The
-           reference is an idempotency key rather than prose, but it is what
-           ties a row to a provider event when somebody is chasing one. */
-        subtitle={movement.note ?? movement.reference}
-      />
-      <TD align="right" className="tabular">
-        {incoming ? (
-          <Money amount={naira(movement.amountKobo)} decimals />
-        ) : (
-          <span className="text-muted">—</span>
-        )}
-      </TD>
-      <TD align="right" className="tabular">
-        {incoming ? (
-          <span className="text-muted">—</span>
-        ) : (
-          <Money amount={naira(movement.amountKobo)} decimals />
-        )}
-      </TD>
-      {/* Both from the row, never computed here. See this file's header. */}
-      <TD align="right" className="tabular text-muted">
-        <Money amount={naira(movement.balanceBeforeKobo)} decimals />
-      </TD>
-      <TD align="right" className="tabular font-medium text-ink">
-        <Money amount={naira(movement.balanceAfterKobo)} decimals />
-      </TD>
-    </TR>
+                <ChevronRight aria-hidden="true" className="size-4" />
+              )}
+              {open ? "Hide details" : "View details"}
+            </Button>
+          )}
+        </TD>
+      </TR>
+
+      {open && expandable && (
+        <TR>
+          {/* Seven, matching the header. A short colSpan leaves a ragged
+              table the moment a column is added. */}
+          <TD colSpan={7} className="bg-raised p-0">
+            <PayrollBreakdown
+              reference={movement.paymentBatchReference}
+              batch={batch}
+            />
+          </TD>
+        </TR>
+      )}
+    </>
+  );
+}
+
+/**
+ * What each instruction's status means to somebody asking "did they get it?".
+ *
+ * The same words the batch page uses, because two screens describing one
+ * instruction differently is how a reader ends up believing both. `PENDING`
+ * is "Not sent" rather than "Pending" for the same reason: pending reads as
+ * in-flight, and it is not — nothing has been handed to anybody yet.
+ */
+const INSTRUCTION_STATUS: Record<
+  string,
+  { label: string; tone: "neutral" | "warning" | "success" | "danger" }
+> = {
+  PENDING: { label: "Not sent", tone: "neutral" },
+  SUBMITTED: { label: "Sent", tone: "warning" },
+  SETTLED: { label: "Paid", tone: "success" },
+  FAILED: { label: "Failed", tone: "danger" },
+  REVERSED: { label: "Came back", tone: "danger" },
+};
+
+function PayrollBreakdown({
+  reference,
+  batch,
+}: {
+  reference: string | null;
+  batch: ReturnType<typeof usePaymentBatch>;
+}) {
+  if (batch.loading) {
+    return (
+      <div className="flex items-center gap-2 px-4 py-5 text-body-sm text-muted">
+        <Spinner size="sm" />
+        Reading who this paid
+      </div>
+    );
+  }
+
+  if (batch.error || !batch.batch) {
+    return (
+      <div className="px-4 py-5">
+        <Callout tone="info" title="The breakdown could not be read">
+          The movement above is what left the wallet. Who it paid is on the
+          batch, and that could not be loaded just now.
+        </Callout>
+      </div>
+    );
+  }
+
+  const rows = batch.batch.instructions;
+
+  return (
+    <div className="px-4 py-4">
+      <p className="mb-3 text-body-sm text-muted">
+        {rows.length} {rows.length === 1 ? "person" : "people"} in{" "}
+        <span className="font-medium text-ink">{reference ?? batch.batch.reference}</span>.
+        The status is per person: a payroll can leave the wallet in full and
+        still fail for one of them.
+      </p>
+      <TableWrap className="rounded-lg" caption={`People paid by ${reference ?? ""}`}>
+        <THead>
+          <TH>Name</TH>
+          <TH>Bank</TH>
+          <TH align="right">Amount</TH>
+          <TH>Status</TH>
+        </THead>
+        <TBody>
+          {rows.map((row) => {
+            const state =
+              INSTRUCTION_STATUS[row.status] ?? { label: row.status, tone: "neutral" as const };
+            return (
+              <TR key={row.id}>
+                <TDPrimary
+                  title={
+                    <Link
+                      href={`/people/${row.employeeId}`}
+                      className="hover:text-accent-text hover:underline underline-offset-4"
+                    >
+                      {row.payeeName}
+                    </Link>
+                  }
+                />
+                <TD className="text-body-sm">
+                  {row.bankName.trim().length > 0 ? row.bankName : "—"}
+                </TD>
+                <TD align="right" className="tabular font-medium text-ink">
+                  <Money amount={naira(row.amountKobo)} decimals />
+                </TD>
+                <TD>
+                  <span className="flex flex-col gap-1">
+                    <Badge tone={state.tone} size="sm" dot>
+                      {state.label}
+                    </Badge>
+                    {/* The reason, where the provider gave one. A "Failed"
+                        with nothing beside it sends somebody hunting. */}
+                    {row.failureReason && (
+                      <span className="text-meta text-danger-text">{row.failureReason}</span>
+                    )}
+                  </span>
+                </TD>
+              </TR>
+            );
+          })}
+        </TBody>
+      </TableWrap>
+    </div>
   );
 }

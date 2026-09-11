@@ -696,6 +696,16 @@ export type ApiWalletMovement = {
   note: string | null;
   /** Set on movements a payroll run caused, so a row can link to its run. */
   payrollRunId: string | null;
+  /**
+   * The batch this movement paid, where there is one.
+   *
+   * Null on everything but a payroll debit — money arriving was paid by
+   * nobody. Present so a statement row can be opened into the people it paid
+   * and the state of each: "the payroll went out" and "everybody was paid"
+   * are different claims, and only the instructions tell them apart.
+   */
+  paymentBatchId: string | null;
+  paymentBatchReference: string | null;
   createdAt: string;
 };
 

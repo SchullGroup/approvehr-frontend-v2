@@ -183,7 +183,7 @@ export function PaymentsScreen() {
             against any of those three is a claim about a company's money that
             happens to be false. The ₦0 incident this codebase has a rule about
             was exactly this shape one module along. */}
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {/* Label and hint move with the sign — see `availableFigure`. A
               company that has approved more than it holds is short by an
               amount, not in possession of a negative one. */}
@@ -217,17 +217,18 @@ export function PaymentsScreen() {
             }
             hint="on the bank statement"
           />
-          <Stat
-            label="Already promised"
-            value={
-              held ? (
-                <Money amount={naira(held.committedKobo)} decimals size="xl" />
-              ) : (
-                <Unknown />
-              )
-            }
-            hint="approved or sent, not yet gone"
-          />
+          {/* "Already promised" was here, and it is gone on purpose.
+              -----------------------------------------------------------------
+              It rendered `committedKobo`, which counts instructions inside
+              APPROVED or SUBMITTED batches. Approving a payroll debits the
+              wallet at approval and leaves the batch it builds in DRAFT, so
+              the figure read ₦0.00 for the one case it exists to describe.
+              A tile that is always zero teaches a reader to stop looking at
+              it, and this one sits beside figures about the same money.
+
+              The underlying disagreement between the ledger-derived position
+              and the stored wallet is a separate, open piece of work. This
+              only stops the screen asserting something it cannot support. */}
           <Stat
             label="Paying from"
             value={
