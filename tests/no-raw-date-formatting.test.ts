@@ -32,28 +32,45 @@ import { describe, expect, it } from "vitest";
  * - `const x = new Date(...)` / `let x = new Date(...)`, anywhere in the file;
  * - `x: Date` as a type annotation — a typed parameter (`(x: Date) => …`), a
  *   typed prop (`{ x }: { x: Date }`), or an annotated local (`let x: Date`) —
- *   but only when `Date` is not itself followed by `.`, since `word:
- *   Date.now()` / `Date.UTC(...)` / `Date.parse(...)` is a static member
- *   access on a value (typically a `number`), not a type annotation, and
- *   `\bDate\b` alone cannot otherwise tell the two apart;
+ *   except when `Date` is followed, later on the *same physical line*, by
+ *   `.`, since `word: Date.now()` / `Date.UTC(...)` / `Date.parse(...)` is a
+ *   static member access on a value (typically a `number`), not a type
+ *   annotation, and `\bDate\b` alone cannot otherwise tell the two apart;
  * - `new Date(...)` chained straight into `.toLocaleString(` on the same line;
  * - `(... as Date)` chained straight into `.toLocaleString(` on the same line.
  *
- * This is regex over text, not a type checker, and it has real remaining
- * gaps in both directions. Under-matching: a value that is a `Date` only by
- * *inference* — assigned from an untyped destructure, returned from a hook
- * or helper with no `Date` spelled out at the call site, or reached a few
- * properties deep off something typed elsewhere (`props.session.expiresAt`
- * where only `session`'s own type says `expiresAt: Date`, not this file) —
- * slips through. Over-matching: two *different* variables sharing one name
- * in the same file, one a genuine `Date` and one not, are not distinguished
- * — `dateVars` is file-wide, not scope-aware. Closing either fully needs the
- * TypeScript compiler's own type checker, not a regex; this is the practical
- * middle ground, tightened to the shapes every real site on this branch
- * actually took (and the false-positive shapes a re-review actually found),
- * not a claim that it is airtight in either direction. A reviewer who finds
- * a new evasion or a new false positive should tighten `dateVars` further
- * rather than trust this comment's list as exhaustive.
+ * This is regex over text, standing in for a type checker, and it is known
+ * to be evadable *and* provokable — three separate ways, all found by
+ * mutation testing rather than by inspection, which is the honest way to
+ * read this list: as a record of what has actually gone wrong here twice
+ * already, not a closed set.
+ *
+ * 1. **Under-matching.** A value that is a `Date` only by *inference* —
+ *    assigned from an untyped destructure, returned from a hook or helper
+ *    with no `Date` spelled out at the call site, or reached a few
+ *    properties deep off something typed elsewhere (`props.session.expiresAt`
+ *    where only `session`'s own type says `expiresAt: Date`, not this file) —
+ *    is never tracked, and slips through.
+ * 2. **Over-matching, name collisions.** `dateVars` is file-wide, not
+ *    scope-aware: a name used for a genuine `Date` in one function and for
+ *    something else (typically a `number`) in another, unrelated function in
+ *    the *same file*, gets the second one flagged too.
+ * 3. **Over-matching, the same-line lookahead.** The `Date.` exception above
+ *    only inspects the rest of the line `Date` itself appears on — a
+ *    line-wrapped member access, `Date\n  .now()`, still reads as a bare
+ *    annotation and adds the name to `dateVars` regardless. This needs both
+ *    a name collision *and* a line-wrapped `Date.now()`/`.UTC()`/`.parse()`
+ *    to actually misfire, which is why it can sit unnoticed rather than
+ *    failing outright — the same shape gap 2 already describes, just with a
+ *    line break inserted before the deciding character.
+ *
+ * Closing any of these fully needs the TypeScript compiler's own type
+ * checker, not a regex. Widening the regex further has, twice now, traded
+ * one false-positive shape for another (limit 2's fix is what created limit
+ * 3) rather than closing the underlying problem — so this is a deliberate
+ * stopping point, not an oversight left for the next reviewer to tidy up. A
+ * reviewer who hits one of these three should rename the colliding variable
+ * or reformat the offending line, not reach for a fourth regex widening.
  *
  * Comments are stripped before matching (same as
  * `org-chart-has-no-pay.test.ts`'s `withoutComments`), so a doc comment that
