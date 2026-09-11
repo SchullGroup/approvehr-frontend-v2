@@ -896,6 +896,11 @@ function monthLabel(period: string): string {
   const [year, month] = period.split("-");
   if (!year || !month) return period;
   const date = new Date(Date.UTC(Number(year), Number(month) - 1, 1));
+  /* NaN-guarded before formatDate, not after: formatDate returns "—" for an
+     unparseable date, and "—".split(" ") is a one-element array, so reading
+     [1] and calling .slice on it would throw instead of degrading — the
+     same shape format.ts's monthLabel guards against. */
+  if (Number.isNaN(date.getTime())) return period;
   const [, longMonth, y] = formatDate(date, "UTC").split(" ");
   return `${longMonth.slice(0, 3)} ${y}`;
 }
