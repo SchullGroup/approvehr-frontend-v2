@@ -22,10 +22,30 @@ import { describe, expect, it } from "vitest";
  * countries, a scheduled interview does. So this bans exactly the APIs that
  * format a *date*: `toLocaleDateString`, `toLocaleTimeString`,
  * `Intl.DateTimeFormat`, and `toLocaleString` — but only where the receiver
- * is traceably a `Date`, found by tracing it back to a `new Date(...)`
- * (chained directly, or through a `const x = new Date(...)` a few lines
- * up — the shape every real site converted on this branch actually took).
- * `Number.prototype.toLocaleString` never looks like that.
+ * is traceably a `Date`. `toLocaleDateString`, `toLocaleTimeString` and
+ * `Intl.DateTimeFormat` need no tracing at all: `Number` has no such methods,
+ * so any call to them is already unambiguous.
+ *
+ * ## How "traceably a Date" is decided for `toLocaleString`, and where that stops working
+ *
+ * A name is treated as a Date if the source shows any of:
+ * - `const x = new Date(...)` / `let x = new Date(...)`, anywhere in the file;
+ * - `x: Date` as a type annotation — a typed parameter (`(x: Date) => …`), a
+ *   typed prop (`{ x }: { x: Date }`), or an annotated local (`let x: Date`);
+ * - `new Date(...)` chained straight into `.toLocaleString(` on the same line;
+ * - `(... as Date)` chained straight into `.toLocaleString(` on the same line.
+ *
+ * This is regex over text, not a type checker, and it has a real remaining
+ * gap: a value that is a `Date` only by *inference* — assigned from an
+ * untyped destructure, returned from a hook or helper with no `Date` spelled
+ * out at the call site, or reached a few properties deep off something typed
+ * elsewhere (`props.session.expiresAt` where only `session`'s own type says
+ * `expiresAt: Date`, not this file) — slips through. Closing that fully needs
+ * the TypeScript compiler's own type checker, not a regex; this is the
+ * practical middle ground, tightened to the shapes every real site on this
+ * branch actually took, not a claim that it is airtight. A reviewer who finds
+ * a new evasion should tighten `dateVars` further rather than trust this
+ * comment's list as exhaustive.
  *
  * Comments are stripped before matching (same as
  * `org-chart-has-no-pay.test.ts`'s `withoutComments`), so a doc comment that
@@ -65,16 +85,32 @@ function collectSourceFiles(dir: string, out: string[] = []): string[] {
   return out;
 }
 
+/**
+ * Every name in `source` traceable to a `Date` — see the header comment for
+ * exactly which shapes count and which do not. A named function (not a
+ * closure inside `violationsIn`) so a test below can assert directly on it,
+ * rather than only on whether some file somewhere happens to exhibit a given
+ * shape today.
+ */
+function dateVarsIn(source: string): Set<string> {
+  const dateVars = new Set<string>();
+  for (const line of source.split("\n")) {
+    const assigned = line.match(/\b(?:const|let)\s+(\w+)\s*=\s*new Date\(/);
+    if (assigned) dateVars.add(assigned[1]);
+
+    /* Typed as `Date`, wherever that appears: a parameter (`(x: Date) => …`),
+       a destructured prop's type (`{ x }: { x: Date }`), or an annotated
+       local (`let x: Date`). A line can carry more than one. */
+    for (const match of line.matchAll(/\b(\w+)\s*:\s*Date\b/g)) {
+      dateVars.add(match[1]);
+    }
+  }
+  return dateVars;
+}
+
 function violationsIn(source: string, relPath: string): string[] {
   const lines = source.split("\n");
-
-  /* Locals assigned straight from `new Date(...)`, so `x.toLocaleString(` a
-     few lines later is still traceable to a Date rather than a Number. */
-  const dateVars = new Set<string>();
-  for (const line of lines) {
-    const match = line.match(/\b(?:const|let)\s+(\w+)\s*=\s*new Date\(/);
-    if (match) dateVars.add(match[1]);
-  }
+  const dateVars = dateVarsIn(source);
 
   const hits: string[] = [];
   lines.forEach((line, i) => {
@@ -89,10 +125,13 @@ function violationsIn(source: string, relPath: string): string[] {
       const chainedOffDate = /new Date\([^()]*\)\s*\.\s*toLocaleString\(/.test(
         line,
       );
+      const chainedOffCast = /as\s+Date\s*\)?\s*\.\s*toLocaleString\(/.test(
+        line,
+      );
       const offDateVariable = [...dateVars].some((name) =>
         new RegExp(`\\b${name}\\b\\s*\\.\\s*toLocaleString\\(`).test(line),
       );
-      if (chainedOffDate || offDateVariable) flag();
+      if (chainedOffDate || chainedOffCast || offDateVariable) flag();
     }
   });
 
@@ -125,5 +164,87 @@ describe("date formatting goes through lib/time", () => {
 
     const timeDotTs = readFileSync(path.resolve(SRC, "lib/time.ts"), "utf8");
     expect(timeDotTs).toMatch(/Intl\.DateTimeFormat/);
+  });
+});
+
+/**
+ * `violationsIn` against synthetic snippets rather than real files.
+ *
+ * The suite above only proves the *codebase* is clean today — it cannot
+ * prove the *detector* would catch a regression, since a clean codebase and
+ * a blind detector produce the same empty result. These assert the
+ * detection logic itself, against small fixtures built to exercise exactly
+ * the shapes the header comment claims to catch (and the one it admits it
+ * does not).
+ */
+describe("the detector itself", () => {
+  it("catches a Date chained straight into toLocaleDateString", () => {
+    const hits = violationsIn(
+      `new Date(iv.scheduledFor).toLocaleDateString("en-NG", { day: "numeric" });`,
+      "sample.ts",
+    );
+    expect(hits).toHaveLength(1);
+  });
+
+  it("catches a Date-typed parameter — the gap this round closed", () => {
+    const hits = violationsIn(
+      `function label(when: Date): string {\n  return when.toLocaleString("en-GB");\n}`,
+      "sample.ts",
+    );
+    expect(hits).toHaveLength(1);
+  });
+
+  it("catches a Date-typed destructured prop — also part of that gap", () => {
+    const hits = violationsIn(
+      `function Row({ when }: { when: Date }) {\n  return when.toLocaleString("en-GB");\n}`,
+      "sample.ts",
+    );
+    expect(hits).toHaveLength(1);
+  });
+
+  it("catches a Date reached through an intermediate variable", () => {
+    const hits = violationsIn(
+      `const expires = new Date(hint.expiresAt);\nconst clock = expires.toLocaleString([], { hour: "2-digit" });`,
+      "sample.ts",
+    );
+    expect(hits).toHaveLength(1);
+  });
+
+  it("catches a `toLocaleString` call reached via an `as Date` cast", () => {
+    const hits = violationsIn(
+      `const clock = (value as Date).toLocaleString("en-GB");`,
+      "sample.ts",
+    );
+    expect(hits).toHaveLength(1);
+  });
+
+  it("does not flag Number.prototype.toLocaleString", () => {
+    const hits = violationsIn(
+      `const label = rows.toLocaleString("en-NG");`,
+      "sample.ts",
+    );
+    expect(hits).toEqual([]);
+  });
+
+  it("does not flag a doc comment that only mentions the banned name", () => {
+    /* This module strips comments before calling `violationsIn` — see
+       `withoutComments` above — so this asserts the input this function
+       receives is already comment-free, not that it strips them itself. */
+    const stripped = withoutComments(
+      "/** Not `toLocaleDateString`: renders on the server too. */\nconst x = 1;",
+    );
+    expect(violationsIn(stripped, "sample.ts")).toEqual([]);
+  });
+
+  it("admits the gap the header comment describes: an untyped inferred Date", () => {
+    /* No `new Date(`, no `: Date` annotation anywhere in this snippet — `d`
+       is a Date only because whatever called `label` happens to pass one.
+       This is the residual gap a real type checker would close and a regex
+       cannot; the assertion records that honestly rather than silently. */
+    const hits = violationsIn(
+      `function label(d) {\n  return d.toLocaleString("en-GB");\n}`,
+      "sample.ts",
+    );
+    expect(hits).toEqual([]);
   });
 });

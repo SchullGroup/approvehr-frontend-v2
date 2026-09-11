@@ -461,6 +461,14 @@ function Message({
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <Avatar name={authorName} size="xs" />
         <span className="text-body-sm font-medium text-ink">{authorName}</span>
+        {/* This used to be the reader's own browser clock on purpose ("a
+            thread is read now" — the removed `when()` helper's own words) —
+            unlike every other site on this branch, which was formatting
+            nothing on purpose and just missing a zone. Overridden anyway: a
+            help ticket is company correspondence somebody may need to point
+            back to precisely ("we told them at 14:32"), the same category
+            of shared record as a payslip or a loan decision, not a personal
+            chat log — so the company's zone wins here too. */}
         <span className="text-meta text-muted">
           {formatDateTime(at, timeZone)}
         </span>
