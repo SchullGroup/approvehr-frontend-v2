@@ -37,11 +37,18 @@ import { request, requestPaged, type Paged } from "@/lib/api/client";
  * | Action | Needs |
  * |---|---|
  * | Reading shifts, patterns, the rota, your own rota | nothing — a rota is pinned to the wall, not salary data |
- * | Defining a shift, writing a pattern, rostering, taking a day off | `EDIT_RECORDS` |
+ * | Defining a shift, writing a pattern | `MANAGE_SHIFTS` |
+ * | Rostering, taking a day off the rota | `MANAGE_ROTA` |
  * | Asking a colleague to take *your* shift | nothing |
- * | Asking on somebody else's behalf | `EDIT_RECORDS` |
- * | Agreeing to take a shift | **only the colleague asked** — `EDIT_RECORDS` cannot do it for them |
- * | Approving an agreed swap | `EDIT_RECORDS` |
+ * | Asking on somebody else's behalf | `MANAGE_ROTA` |
+ * | Turning down or withdrawing somebody else's swap | `MANAGE_ROTA` |
+ * | Agreeing to take a shift | **only the colleague asked** — no grant does it for them |
+ * | Approving an agreed swap | `APPROVE_SHIFT_SWAP` |
+ *
+ * All three used to be `EDIT_RECORDS`, which meant letting somebody build next
+ * week's rota meant letting them edit everybody's salary and bank account.
+ * `LEGACY_EXPANSION` on the API resolves all three from it, so a role nobody
+ * has touched still does everything on this screen.
  *
  * The accept rule is the one that surprises people. It is deliberate: a swap the
  * colleague never agreed to is a rota somebody else wrote for them.
@@ -320,7 +327,7 @@ export type BulkAssignBody = {
 };
 
 export type SwapRequestBody = {
-  /** The shift being given up. Somebody else's needs `EDIT_RECORDS`. */
+  /** The shift being given up. Somebody else's needs `MANAGE_ROTA`. */
   assignmentId: string;
   counterpartyId: string;
   /** Omit for a give-away: the colleague simply takes the shift. */
