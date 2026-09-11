@@ -28,7 +28,8 @@ import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
 import { formatWorkingMinutes, type TicketPriority } from "@/lib/api/helpdesk";
 import { useCan } from "@/lib/permissions";
-import { useSession } from "@/lib/store/session";
+import { useOrgTimezone, useSession } from "@/lib/store/session";
+import { formatDateTime } from "@/lib/time";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { useTicket } from "@/lib/store/helpdesk";
 import {
@@ -447,6 +448,7 @@ function Message({
   internal: boolean;
   opening?: boolean;
 }) {
+  const timeZone = useOrgTimezone();
   return (
     <article
       className={cn(
@@ -459,7 +461,9 @@ function Message({
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <Avatar name={authorName} size="xs" />
         <span className="text-body-sm font-medium text-ink">{authorName}</span>
-        <span className="text-meta text-muted">{when(at)}</span>
+        <span className="text-meta text-muted">
+          {formatDateTime(at, timeZone)}
+        </span>
         {opening && (
           <Badge tone="neutral" size="sm">
             What they asked
@@ -472,18 +476,6 @@ function Message({
       </p>
     </article>
   );
-}
-
-/** `2026-08-19T09:12:00Z` → `19 Aug, 10:12`. Local, because a thread is read now. */
-function when(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleString("en-GB", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
 
 /* ----------------------------------------------------------------- composing */
