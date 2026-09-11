@@ -121,6 +121,16 @@ export const MODULES: ModuleDef[] = [
         detail:
           "Confirmation letters, contract amendments and references, generated from templates that fill themselves in.",
       },
+      {
+        title: "Bulk import",
+        detail:
+          "Add a whole team from a spreadsheet, matched to your own column headings, with duplicates caught before anything is created.",
+      },
+      {
+        title: "Custom roles and permissions",
+        detail:
+          "Build a role from named permissions rather than a job title, so access matches what someone actually does.",
+      },
     ],
   },
   {
@@ -186,6 +196,16 @@ export const MODULES: ModuleDef[] = [
         title: "Offers",
         detail:
           "Generate the offer from the approved band, route it for sign-off, and track it to acceptance.",
+      },
+      {
+        title: "Interview scorecards",
+        detail:
+          "Every interviewer scores the same structured criteria, so a hiring decision compares like with like.",
+      },
+      {
+        title: "A public careers page",
+        detail:
+          "Open roles publish to a page candidates can apply to directly, with no separate job board to maintain.",
       },
     ],
   },
@@ -309,6 +329,11 @@ export const MODULES: ModuleDef[] = [
         title: "Knowledge base",
         detail:
           "Publish the answers people ask for repeatedly, so the queue shrinks as headcount grows.",
+      },
+      {
+        title: "Employees raise their own requests",
+        detail:
+          "Staff submit a request themselves and see where it stands, instead of chasing an answer over chat.",
       },
     ],
   },

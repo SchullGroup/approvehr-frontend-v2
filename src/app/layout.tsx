@@ -1,14 +1,28 @@
 import type { Metadata, Viewport } from "next";
 import { GeistSans } from "geist/font/sans";
+import { JsonLd } from "@/components/marketing/json-ld";
+import { SITE_URL, SOCIAL_PROFILES } from "@/lib/marketing/site";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: {
     default: "ApproveHR",
     template: "%s · ApproveHR",
   },
   description:
     "Your HR intelligence partner: one platform for people, payroll and hiring, built for teams across Africa.",
+  /* `images` is left unset here — Next resolves it on its own from the
+     `opengraph-image.tsx` file convention in this same directory, and any
+     route with its own such file overrides it for that route alone. */
+  openGraph: {
+    type: "website",
+    siteName: "ApproveHR",
+    url: SITE_URL,
+  },
+  twitter: {
+    card: "summary_large_image",
+  },
   icons: {
     icon: "/brand/mark.svg",
     /* iOS ignores the manifest's icons entirely and reads this. Without it an
@@ -92,6 +106,18 @@ export default function RootLayout({
        * these two, a mismatch is ours and the warning is the point.
        */}
       <body suppressHydrationWarning>
+        <JsonLd
+          data={{
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            name: "ApproveHR",
+            url: SITE_URL,
+            logo: `${SITE_URL}/brand/icon-512.png`,
+            description:
+              "HR, payroll and hiring intelligence for Nigerian companies.",
+            sameAs: Object.values(SOCIAL_PROFILES),
+          }}
+        />
         <a href="#main" className="skip-link focus:left-0">
           Skip to content
         </a>

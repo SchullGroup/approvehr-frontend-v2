@@ -104,7 +104,7 @@ export function PayrollMockup({ className }: { className?: string }) {
       <div className="p-5">
         <div className="flex items-start justify-between gap-4">
           <PayrollTotalFigure label="August payroll" value={93004500} />
-          <span className="rounded-full bg-success/20 px-2.5 py-1 text-meta font-medium text-success">
+          <span className="shrink-0 whitespace-nowrap rounded-full bg-success/20 px-2.5 py-1 text-meta font-medium text-success">
             Ready to approve
           </span>
         </div>
@@ -251,11 +251,11 @@ export function PayrollCardMockup({ className }: { className?: string }) {
             ₦93,004,500
           </p>
         </div>
-        <span className="relative h-5 w-24 shrink-0">
-          <span className="absolute inset-0 flex items-center justify-center rounded-full bg-wash-amber text-meta font-medium text-warning-text transition-opacity duration-300 group-hover:opacity-0">
+        <span className="relative h-5 w-36 shrink-0">
+          <span className="absolute inset-0 flex items-center justify-center whitespace-nowrap rounded-full bg-wash-amber text-meta font-medium text-warning-text transition-opacity duration-300 group-hover:opacity-0">
             Ready to approve
           </span>
-          <span className="absolute inset-0 flex items-center justify-center rounded-full bg-success text-meta font-medium text-slate opacity-0 transition-opacity delay-200 duration-300 group-hover:opacity-100">
+          <span className="absolute inset-0 flex items-center justify-center whitespace-nowrap rounded-full bg-success text-meta font-medium text-slate opacity-0 transition-opacity delay-200 duration-300 group-hover:opacity-100">
             ✓ Approved
           </span>
         </span>

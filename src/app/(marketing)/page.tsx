@@ -9,6 +9,7 @@ import { ClientLogos, Testimonials } from "@/components/marketing/social-proof";
 import { PayrollMockup, StatutoryMockup } from "@/components/marketing/mockups";
 import { liveProductCta, newTabIfApp } from "@/lib/marketing/links";
 import { quote } from "@/lib/marketing/pricing";
+import { SITE_URL } from "@/lib/marketing/site";
 
 /* Secondary CTAs. Both promise a running product, so both degrade to something
    that exists when the app isn't deployed alongside the site. */
@@ -25,6 +26,7 @@ export const metadata: Metadata = {
   title: "HR payroll intelligence for Nigerian companies",
   description:
     "Your HR intelligence partner: employee records, payroll, recruitment, leave and approvals in one system that checks its own arithmetic, tracks Nigerian statutory law automatically, and drafts the busywork so your team reviews instead of starting from nothing.",
+  alternates: { canonical: SITE_URL },
 };
 
 /**
