@@ -10,7 +10,6 @@ it appears.
 | **Who this is for** | Anyone walking the product — no engineering knowledge assumed |
 | **How to read it** | Every step says Where, Who, Click, and what you should see |
 | **How long a full walk takes** | About 40 minutes on seeded data, switching between accounts |
-| **Would rather have pictures?** | [`running-an-appraisal.pdf`](running-an-appraisal.pdf) — these same thirty steps with a photograph of every screen, 63 pages. A snapshot: if it disagrees with this file, this file is right. |
 
 **Contents** — [Five words](#1-five-words-and-then-everything-else-makes-sense) ·
 [The seven doors](#2-the-seven-doors-in-the-sidebar) ·
