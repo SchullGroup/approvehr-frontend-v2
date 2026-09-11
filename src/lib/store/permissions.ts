@@ -283,6 +283,24 @@ const DEMO_COPY: Record<
       "Decide requests from anybody in a department they head — including people who do not report to them directly.",
     section: "timeOff",
   },
+  MANAGE_SHIFTS: {
+    label: "Set up shifts and patterns",
+    description:
+      "Define what a shift is and which sequence of them makes a rotation. Changing a shift's hours moves every rota built on it.",
+    section: "timeOff",
+  },
+  MANAGE_ROTA: {
+    label: "Build the rota",
+    description:
+      "Put people on days, take them off, and raise a swap for a colleague who phoned in.",
+    section: "timeOff",
+  },
+  APPROVE_SHIFT_SWAP: {
+    label: "Approve shift swaps",
+    description:
+      "Sign off a swap the two employees have already agreed between themselves.",
+    section: "timeOff",
+  },
 };
 
 /** Reported, never blocked — a two-person company genuinely has one person doing both. */
@@ -315,6 +333,7 @@ const DEMO_MODULE_TITLES: Record<PermissionModule, string> = {
   repairs: "Equipment repairs",
   hiring: "Recruitment",
   leave: "Leave",
+  shifts: "Shifts and the rota",
   payroll: "Payroll",
   paySetup: "Pay setup",
   loans: "Staff loans",
