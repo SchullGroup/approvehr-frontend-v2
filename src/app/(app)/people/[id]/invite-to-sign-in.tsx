@@ -13,6 +13,8 @@ import {
 import { ApiError } from "@/lib/api/client";
 import { invitesApi } from "@/lib/api/invites";
 import { permissionsApi } from "@/lib/api/permissions";
+import { useOrgTimezone } from "@/lib/store/session";
+import { formatDate } from "@/lib/time";
 import { DeliveryNote } from "@/components/portal/delivery-note";
 import { InviteLinkButton } from "@/components/portal/invite-link";
 import type { PendingInvite, SentInvite } from "@/lib/api/invites";
@@ -76,6 +78,7 @@ export function InviteToSignIn({
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
   const [sent, setSent] = useState<SentInvite | null>(null);
+  const timeZone = useOrgTimezone();
   /**
    * The invitation already outstanding for this person.
    *
@@ -352,11 +355,8 @@ export function InviteToSignIn({
             <p className="text-body-sm leading-relaxed text-body">
               An invitation went to{" "}
               <span className="font-medium text-ink">{pending.email}</span> on{" "}
-              {new Date(pending.invitedAt).toLocaleDateString("en-GB", {
-                day: "numeric",
-                month: "long",
-              })}
-              , and they have not set a password yet.
+              {formatDate(pending.invitedAt, timeZone)}, and they have not set a
+              password yet.
             </p>
             {pending.expired && (
               <Callout tone="warning" title="That link has expired">
