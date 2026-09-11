@@ -16,7 +16,6 @@ import {
   Money,
   Spinner,
   Stat,
-  Tabs,
   TBody,
   TD,
   TDPrimary,
@@ -91,7 +90,6 @@ export function PaymentsScreen() {
   const toast = useToast();
 
   const [downloading, setDownloading] = useState<string | null>(null);
-  const [accountsTab, setAccountsTab] = useState("in");
 
   if (permissionsLoading) {
     return (
@@ -185,7 +183,7 @@ export function PaymentsScreen() {
             against any of those three is a claim about a company's money that
             happens to be false. The ₦0 incident this codebase has a rule about
             was exactly this shape one module along. */}
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid items-start gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {/* Label and hint move with the sign — see `availableFigure`. A
               company that has approved more than it holds is short by an
               amount, not in possession of a negative one. */}
@@ -219,6 +217,39 @@ export function PaymentsScreen() {
             }
             hint="on the bank statement"
           />
+
+          {/* The account to pay into, beside the figures rather than in a card
+              of its own further down.
+              -----------------------------------------------------------------
+              It answers the question the two figures raise. Somebody reading
+              "available ₦15,012,300.55" and finding it short needs the account
+              number next, and it used to be a scroll away under a heading that
+              did not say "account number".
+
+              "Paying from" — the company's own bank account — is deliberately
+              not here and not anywhere on this screen. It is a settings fact,
+              it is on the batch where a payment is actually checked, and
+              sitting it next to this one only ever invited money being sent to
+              the wrong one of the two. */}
+          <Card className="sm:col-span-2 xl:col-span-1">
+            <CardHeader title="Putting money in" />
+            <CardBody>
+              {wallet.loading ? (
+                <div className="flex items-center gap-2 text-body-sm text-muted">
+                  <Spinner size="sm" />
+                  Reading the account
+                </div>
+              ) : held ? (
+                <FundingAccounts accounts={held.fundingAccounts} />
+              ) : (
+                <Callout tone="info" title="Not available here">
+                  The wallet is a live balance from the API. There is no ledger
+                  to read offline, and a figure invented here would be a claim
+                  about a company&rsquo;s money.
+                </Callout>
+              )}
+            </CardBody>
+          </Card>
           {/* "Already promised" was here, and it is gone on purpose.
               -----------------------------------------------------------------
               It rendered `committedKobo`, which counts instructions inside
@@ -260,69 +291,6 @@ export function PaymentsScreen() {
             </CardBody>
           </Card>
         )}
-
-        {/*
-          * One card, two accounts, and they are not the same account.
-          * ---------------------------------------------------------------
-          * Money goes *in* to a collection account at the provider, and
-          * salaries go *out* from the company's own bank account. Two
-          * separate cards invited the reading that either would do, and
-          * money sent to the wrong one of those is money nobody in the
-          * company can find. Tabs put them side by side and make you pick.
-          *
-          * "Money in" leads because it is the one somebody comes to this
-          * screen needing — the account to fund. "Paying from" is a
-          * settings fact that used to sit in the row of figures above,
-          * reading as though it were an amount.
-          */}
-        <Card>
-          <CardHeader title="Accounts" />
-          <CardBody className="pb-0">
-            <Tabs
-              items={[
-                { id: "in", label: "Money in" },
-                { id: "from", label: "Paying from" },
-              ]}
-              value={accountsTab}
-              onChange={setAccountsTab}
-            />
-          </CardBody>
-          <CardBody>
-            {accountsTab === "in" ? (
-              wallet.loading ? (
-                <div className="flex items-center gap-2 text-body-sm text-muted">
-                  <Spinner size="sm" />
-                  Reading the account
-                </div>
-              ) : held ? (
-                <FundingAccounts accounts={held.fundingAccounts} />
-              ) : (
-                <Callout tone="info" title="Not available here">
-                  The wallet is a live balance from the API. There is no ledger
-                  to read offline, and a figure invented here would be a claim
-                  about a company&rsquo;s money.
-                </Callout>
-              )
-            ) : primary ? (
-              <div className="space-y-1">
-                <p className="text-body font-medium text-ink">
-                  {primary.bankName}
-                </p>
-                <p className="tabular text-body-sm text-muted">
-                  {primary.accountNumberMasked} · {primary.accountName}
-                </p>
-                <p className="pt-2 text-body-sm text-muted">
-                  Salaries leave from here. Paying money <em>in</em> to it does
-                  not credit the wallet — that is the account on the other tab.
-                </p>
-              </div>
-            ) : (
-              <Callout tone="warning" title="No account to pay from">
-                A payroll cannot build its payment without one.
-              </Callout>
-            )}
-          </CardBody>
-        </Card>
 
         <WalletStatement />
 
