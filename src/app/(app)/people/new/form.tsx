@@ -35,6 +35,7 @@ import {
   type Step,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
+import type { ApiCreateInviteOutcome } from "@/lib/api/endpoints";
 import { useCan } from "@/lib/permissions";
 import {
   nextIdentity,
@@ -224,6 +225,46 @@ const OWNER: Record<string, string> = {
   bankAccount: "extras",
 };
 
+/**
+ * One sentence about the invitation a create just tried, or `null` when there
+ * is nothing to say.
+ *
+ * Module-level and exported — a pure function of the outcome the API
+ * returned, with no closure over the form's own state — precisely so it can
+ * be tested without mounting the wizard.
+ *
+ * `POST /employees` attempts the invite and reports exactly what happened —
+ * `sent`, `noEmail`, `alreadyHadLogin`, `failed`, `skippedEntirely` — and the
+ * wizard used to keep only the created record and discard all of it. That is
+ * the exact shape of bug this codebase's own history is full of: a screen
+ * that says "Added!" while the one follow-on action it promised — "they'll
+ * get an email" — silently did not happen. `useEmployeeMutations` now carries
+ * the outcome on the returned record for exactly this reader.
+ *
+ * `noEmail` is never checked: this form only asks to invite when an email was
+ * typed, so a response from this specific call can never report one. Every
+ * other case is worth a sentence, in the server's own words wherever it
+ * supplied one — paraphrasing here is how this screen and the server stop
+ * agreeing about what happened.
+ */
+export function inviteWarningFrom(
+  outcome: ApiCreateInviteOutcome | undefined,
+): string | null {
+  if (!outcome || outcome.sent > 0) return null;
+  if (outcome.skippedEntirely) return outcome.skippedEntirely;
+  if (outcome.alreadyHadLogin > 0) {
+    return (
+      "That email address already has an ApproveHR account somewhere, so " +
+      "no new invitation was sent. If that is a mistake, fix the address " +
+      "on their record and invite them from there."
+    );
+  }
+  const reason = outcome.failed[0]?.reason;
+  return reason
+    ? `They were not invited: ${reason}`
+    : "They were not invited, and the reason was not recorded. Try inviting them from their record.";
+}
+
 /* -------------------------------------------------------------------------- */
 
 export function NewEmployeeForm() {
@@ -342,6 +383,8 @@ export function NewEmployeeForm() {
     blocking: string[];
     /** Worth adding, but does not hold anything back — a PIN or a TIN. */
     advisory: string[];
+    /** See `inviteWarningFrom`. Null in demo mode, where nothing is ever sent. */
+    inviteWarning: string | null;
   } | null>(null);
 
   const set = <K extends keyof EmployeeDraft>(
@@ -684,12 +727,20 @@ export function NewEmployeeForm() {
     const name = `${draft.firstName.trim()} ${draft.lastName.trim()}`;
     setBusy(true);
     try {
-      const id = connected ? await createOnApi() : createLocally();
+      const { id, inviteWarning } = connected
+        ? await createOnApi()
+        : { id: createLocally(), inviteWarning: null };
 
       /* The page clears completely and the modal names the person. The old
          version pushed a toast and navigated, which read as nothing having
          happened at all. */
-      setAdded({ id, name, blocking: wouldBlock, advisory: wouldAdvise });
+      setAdded({
+        id,
+        name,
+        blocking: wouldBlock,
+        advisory: wouldAdvise,
+        inviteWarning,
+      });
       setDraft(BLANK_DRAFT);
       setOpen({ taxSetup: false, pensionSetup: false, bankDetails: false });
       setErrors([]);
@@ -739,7 +790,10 @@ export function NewEmployeeForm() {
   }
 
   /** Returns the new record's id, which is a uuid the server chose. */
-  async function createOnApi(): Promise<string> {
+  async function createOnApi(): Promise<{
+    id: string;
+    inviteWarning: string | null;
+  }> {
     const created = await mutations.create({
       firstName: draft.firstName.trim(),
       lastName: draft.lastName.trim(),
@@ -823,7 +877,10 @@ export function NewEmployeeForm() {
       ...(draft.religion.trim() ? { religion: draft.religion.trim() } : {}),
       ...(annualRentKobo === null ? {} : { annualRentKobo }),
     });
-    return created.id;
+    return {
+      id: created.id,
+      inviteWarning: inviteWarningFrom(created.invited),
+    };
   }
 
   /** Demo mode. A `p-NN` id in this browser, and the screen says so. */
@@ -2004,6 +2061,12 @@ export function NewEmployeeForm() {
               ? "Their record is saved and they are in the directory."
               : "Their record is saved in this browser. It will not reach payroll or another device."}
           </p>
+
+          {added && added.inviteWarning && (
+            <p className="w-full rounded-md bg-warning-soft p-3 text-left text-meta leading-relaxed text-warning-text">
+              {added.inviteWarning}
+            </p>
+          )}
 
           {added &&
             (added.blocking.length > 0 || added.advisory.length > 0) && (

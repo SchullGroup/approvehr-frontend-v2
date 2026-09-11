@@ -992,11 +992,24 @@ function KnowledgeBase() {
 type Mockup = () => React.ReactElement;
 
 /**
- * Indexed by module, then by capability position. The module page walks its
- * own `capabilities` array and pulls the matching illustration, so adding a
- * capability without art degrades to text rather than breaking the layout.
+ * Indexed by module, then by **capability position**. The module page walks its
+ * own `capabilities` array and reads `CAPABILITY_MOCKUPS[mod.id]?.[i]`, so a
+ * capability with no art degrades to text rather than breaking the layout.
+ *
+ * That graceful degradation is also how this drifted for months. A capability
+ * *appended* to `modules.ts` costs nothing, but one **inserted** shifts every
+ * illustration after it onto the wrong bullet — and the page still renders, so
+ * nothing complains. `733c4b7` added "Review-language check" as the third
+ * performance bullet and this array was never given a hole for it, which put
+ * the competency-scores art under the language check and left Calibration with
+ * none. `time` had the same defect independently.
+ *
+ * So every bullet gets a slot, and a bullet with no art gets an explicit
+ * `undefined` with a comment naming it. `npm run verify-capability-mockups`
+ * enforces the count, which is what turns an insertion into a failed check on
+ * the commit that causes it rather than a wrong picture somebody notices later.
  */
-export const CAPABILITY_MOCKUPS: Record<ModuleId, Mockup[]> = {
+export const CAPABILITY_MOCKUPS: Record<ModuleId, (Mockup | undefined)[]> = {
   "core-hr": [EmployeeRecord, SelfServiceChange, OrgChart, LetterTemplate],
   payroll: [
     DeductionBreakdown,
@@ -1006,7 +1019,17 @@ export const CAPABILITY_MOCKUPS: Record<ModuleId, Mockup[]> = {
     Payslip,
   ],
   hiring: [RequisitionApproval, StageConfig, ScreeningAnswers, OfferStatus],
-  time: [ClockIn, LeavePolicy, LeaveApproval, Holidays],
-  performance: [GoalCascade, ReviewCycle, CompetencyScores, Calibration],
+  /* index 3 is timesheets payroll can use, which has no illustration. */
+  time: [ClockIn, LeavePolicy, LeaveApproval, undefined, Holidays],
+  /* Indices 2 and 5 are the review-language check and AI-assisted drafting,
+     neither of which has an illustration. */
+  performance: [
+    GoalCascade,
+    ReviewCycle,
+    undefined,
+    CompetencyScores,
+    Calibration,
+    undefined,
+  ],
   desk: [TicketThread, SlaBoard, KnowledgeBase],
 };

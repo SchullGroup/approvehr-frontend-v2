@@ -194,6 +194,52 @@ function Reports() {
     operationalLoad,
     workforce,
   } = data;
+
+  /**
+   * A report that arrived without one of its sections.
+   *
+   * Refused as a whole rather than rendered around the gap, and **not**
+   * defaulted to zeros: "0 approvals pending" and "we were not told how many"
+   * are different facts, and this screen exists to be read as a figure
+   * somebody acts on. Absent is not zero — the rule this codebase applies to
+   * an unrated competency and an unscored week applies to a report section.
+   *
+   * It happens when the API is older than this bundle, which a browser cannot
+   * pin: a deploy puts new code in front of people while the API behind it is
+   * whatever it is. The dashboard hit the same skew and threw
+   * `Cannot read properties of undefined (reading 'trend')` from inside a
+   * render, because its sections were typed as always present. They are
+   * optional now — see `ReportsData` — and this is the honest end of that.
+   */
+  if (!headcount || !operationalLoad || !workforce) {
+    return (
+      <>
+        <PageHeader title="Reports" />
+        <PageBody>
+          <Card>
+            <CardBody className="flex flex-col items-start gap-3">
+              <p className="text-body text-ink">
+                This report came back without all of its figures, so it is not
+                shown rather than shown with gaps in it. Nothing is wrong with
+                your data.
+              </p>
+              <p className="text-body-sm text-muted">
+                It usually means the server is mid-deploy. Try again in a
+                minute; if it keeps happening, it needs looking at.
+              </p>
+              <button
+                type="button"
+                onClick={reload}
+                className="text-body-sm font-medium text-accent-text underline"
+              >
+                Try again
+              </button>
+            </CardBody>
+          </Card>
+        </PageBody>
+      </>
+    );
+  }
   const totalPeople = headcount.byDepartment.reduce((s, d) => s + d.count, 0);
   /* The employment-mix whole, which is not necessarily `totalPeople` — see the
      donut below. */

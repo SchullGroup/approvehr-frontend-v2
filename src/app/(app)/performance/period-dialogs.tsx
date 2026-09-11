@@ -7,6 +7,7 @@ import { weightLabel } from "@/lib/api/performance";
 import {
   Badge,
   Button,
+  Callout,
   Checkbox,
   Field,
   IconButton,
@@ -18,6 +19,7 @@ import {
   Spinner,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
+import { actionMessage } from "@/lib/use-action";
 import type {
   ApiQuestion,
   CreateQuestionBody,
@@ -32,6 +34,7 @@ import {
   useFrameworkActions,
   useSections,
 } from "@/lib/store/performance";
+import { NoticeLine } from "@/components/portal/notice-line";
 import { QUESTION_BANK } from "@/lib/performance/question-bank";
 
 /** Who a question is put to. `REPORT` exists in the enum and nothing reaches it. */
@@ -65,6 +68,7 @@ const KINDS: { value: ReviewQuestionKind; label: string }[] = [
   { value: "RATING", label: "A rating on the company scale" },
   { value: "BOOLEAN", label: "Yes or no" },
   { value: "CHOICE", label: "Pick from a list" },
+  { value: "FILE", label: "A file — a report, a dashboard, a screenshot" },
 ];
 
 const AUDIENCE_LABEL: Record<ReviewAudience, string> = {
@@ -79,7 +83,42 @@ const KIND_LABEL: Record<ReviewQuestionKind, string> = {
   RATING: "Rating",
   BOOLEAN: "Yes or no",
   CHOICE: "Pick one",
+  FILE: "A file",
 };
+
+/**
+ * Why an evidence question cannot be asked of colleagues.
+ *
+ * Returns null when the set is fine, and the API's own rule otherwise, checked
+ * here so the refusal arrives while somebody is still writing the question
+ * rather than after they press save.
+ *
+ * The rule itself: a peer answer carries **no respondent** by design, and a
+ * file carries its author in its metadata and usually in its name. Anonymity a
+ * file quietly breaks is worse than none, because people answered believing
+ * it. And "everyone on the form" includes colleagues, so an evidence question
+ * has to say who it is for.
+ */
+function evidenceAudienceRefusal(
+  kind: ReviewQuestionKind,
+  narrowed: boolean,
+  audiences: readonly ReviewAudience[],
+): string | null {
+  if (kind !== "FILE") return null;
+  if (!narrowed) {
+    return (
+      "Say who is asked for a file. Left as everyone it would include " +
+      "colleagues, and peer feedback is anonymous."
+    );
+  }
+  if (audiences.includes("PEER")) {
+    return (
+      "A file cannot be asked of colleagues. Peer feedback is anonymous, and " +
+      "a document carries its author's name in ways we cannot strip out."
+    );
+  }
+  return null;
+}
 
 /**
  * The questions on one appraisal period.
@@ -112,6 +151,7 @@ export function QuestionsDialog({
   onRemove,
   onReorder,
   onCopyFrom,
+  onAddStandard,
 }: {
   cycleId: string;
   periodName: string;
@@ -127,6 +167,15 @@ export function QuestionsDialog({
   onReorder?: (ids: string[]) => Promise<void>;
   /** Absent on a period that has started — copying is refused there anyway. */
   onCopyFrom?: (sourceCycleId: string) => Promise<{ copied: number }>;
+  /**
+   * The testing doc's six standard self/manager questions — Key
+   * Achievements, Key Challenges, Reason for Rating; Achievements Observed,
+   * Areas for Improvement, Overall Assessment — added in one call. Absent
+   * once the period has started, same reason as `onCopyFrom`: the API
+   * refuses it there, so the button is not offered rather than offered and
+   * refused.
+   */
+  onAddStandard?: () => Promise<void>;
 }) {
   const { questions, loading, reload } = useCycleQuestions(cycleId);
   const framework = useFramework();
@@ -194,7 +243,26 @@ export function QuestionsDialog({
   const [competencyId, setCompetencyId] = useState("");
   const [options, setOptions] = useState<string[]>(["", ""]);
   const [allowCustom, setAllowCustom] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  /**
+   * Field errors and form errors, kept apart.
+   *
+   * One string carried both and was always rendered on **the question**, so
+   * choosing "A file" without saying who is asked marked the question text
+   * `aria-invalid` and printed the audience refusal under it — while the
+   * same sentence was already showing, correctly, under the audience picker.
+   * One refusal, two places, one of them accusing the wrong field.
+   */
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const fail = (field: string, message: string) => {
+    setErrors({ [field]: message });
+    setFormError(null);
+  };
+  const clearErrors = () => {
+    setErrors({});
+    setFormError(null);
+  };
   const [saving, setSaving] = useState(false);
 
   const startEdit = (question: ApiQuestion) => {
@@ -209,7 +277,7 @@ export function QuestionsDialog({
     setCompetencyId(question.competencyId ?? "");
     setOptions(question.options.length > 0 ? question.options : ["", ""]);
     setAllowCustom(question.allowCustom);
-    setError(null);
+    clearErrors();
   };
 
   const cancelEdit = () => {
@@ -222,29 +290,38 @@ export function QuestionsDialog({
     setCompetencyId("");
     setOptions(["", ""]);
     setAllowCustom(false);
-    setError(null);
+    clearErrors();
   };
 
   const save = async () => {
     if (prompt.trim().length < 5) {
-      setError("Write the question out.");
+      fail("prompt", "Write the question out.");
       return;
     }
     const cleanOptions = options
       .map((o) => o.trim())
       .filter((o) => o.length > 0);
     if (kind === "CHOICE" && cleanOptions.length < 2) {
-      setError("A pick-from-a-list question needs at least two choices.");
+      fail(
+        "options",
+        "A pick-from-a-list question needs at least two choices.",
+      );
       return;
     }
     if (narrowed && audiences.length === 0) {
-      setError(
+      fail(
+        "audience",
         "Choose who is asked, or set it back to everyone on the form. " +
           "A question nobody is asked is never answered.",
       );
       return;
     }
-    setError(null);
+    /* Refuses the save and says nothing new: the same sentence is already on
+       screen under the audience picker, from the same function, and has been
+       since the kind was set to a file. Repeating it on the question text
+       would be the defect this split is about. */
+    if (evidenceAudienceRefusal(kind, narrowed, audiences)) return;
+    clearErrors();
     setSaving(true);
     try {
       const askedOf = narrowed ? inAudienceOrder(audiences) : [];
@@ -272,13 +349,8 @@ export function QuestionsDialog({
       }
       reload();
     } catch (caught) {
-      setError(
-        caught instanceof ApiError
-          ? caught.message
-          : editing
-            ? "Could not save that change."
-            : "Could not add that question.",
-      );
+      /* The whole form, so above the form rather than under the first field. */
+      setFormError(actionMessage(caught, "the question"));
     } finally {
       setSaving(false);
     }
@@ -290,27 +362,33 @@ export function QuestionsDialog({
       if (editing?.id === id) cancelEdit();
       reload();
     } catch (caught) {
-      setError(
-        caught instanceof ApiError
-          ? caught.message
-          : "Could not remove that one.",
-      );
+      setFormError(actionMessage(caught, "that question"));
     }
   };
 
   const copyFrom = async (sourceCycleId: string) => {
     if (!onCopyFrom) return;
-    setError(null);
+    clearErrors();
     setSaving(true);
     try {
       await onCopyFrom(sourceCycleId);
       reload();
     } catch (caught) {
-      setError(
-        caught instanceof ApiError
-          ? caught.message
-          : "Could not copy those questions.",
-      );
+      setFormError(actionMessage(caught, "those questions"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const addStandard = async () => {
+    if (!onAddStandard) return;
+    clearErrors();
+    setSaving(true);
+    try {
+      await onAddStandard();
+      reload();
+    } catch (caught) {
+      setFormError(actionMessage(caught, "the standard questions"));
     } finally {
       setSaving(false);
     }
@@ -410,11 +488,38 @@ export function QuestionsDialog({
           </>
         )}
 
+        {onAddStandard && !editing && (
+          /* The testing doc's six, offered whether or not HR has already
+             typed questions of their own — unlike `onCopyFrom`, this is not
+             confined to a blank form. Pressing it twice is refused by the
+             API in words naming which of the six are already there, rather
+             than hidden pre-emptively, so this needs no "already added"
+             tracking of its own. */
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="self-start"
+            loading={saving}
+            onClick={() => void addStandard()}
+          >
+            Add the standard self/manager questions
+          </Button>
+        )}
+
         <div className="flex flex-col gap-4 border-t border-line pt-5">
+          {/* Belongs to the whole form, so it sits above it rather than
+              accusing the first field. */}
+          {formError && (
+            <Callout tone="danger" title="That did not go through">
+              {formError}
+            </Callout>
+          )}
+
           <Field
             label={editing ? "Edit the question" : "Add a question"}
             required
-            {...(error ? { error } : {})}
+            {...(errors["prompt"] ? { error: errors["prompt"] } : {})}
           >
             <Input
               value={prompt}
@@ -450,19 +555,44 @@ export function QuestionsDialog({
           </div>
 
           {narrowed && (
-            <AudiencePicker value={audiences} onChange={setAudiences} />
+            <>
+              <AudiencePicker value={audiences} onChange={setAudiences} />
+              {/* Under the control it is about. It used to appear under the
+                  question text, which is a different field entirely. */}
+              {errors["audience"] && (
+                <p className="text-body-sm text-danger-text">
+                  {errors["audience"]}
+                </p>
+              )}
+            </>
+          )}
+
+          {/* The rule while somebody is choosing, not after they save.
+              `evidenceAudienceRefusal` is the same function `save` calls, so
+              the note and the refusal cannot come to say different things. */}
+          {evidenceAudienceRefusal(kind, narrowed, audiences) && (
+            <NoticeLine tone="warning">
+              <span>{evidenceAudienceRefusal(kind, narrowed, audiences)}</span>
+            </NoticeLine>
           )}
 
           <SubsectionPicker value={competencyId} onChange={setCompetencyId} />
 
           {kind === "CHOICE" && (
-            <ChoiceEditor
-              options={options}
-              onChange={setOptions}
-              allowCustom={allowCustom}
-              onAllowCustomChange={setAllowCustom}
-              competencyId={competencyId}
-            />
+            <>
+              <ChoiceEditor
+                options={options}
+                onChange={setOptions}
+                allowCustom={allowCustom}
+                onAllowCustomChange={setAllowCustom}
+                competencyId={competencyId}
+              />
+              {errors["options"] && (
+                <p className="text-body-sm text-danger-text">
+                  {errors["options"]}
+                </p>
+              )}
+            </>
           )}
 
           <Checkbox

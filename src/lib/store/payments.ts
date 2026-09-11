@@ -37,6 +37,7 @@ import {
   type UpdateAccountBody,
   type ApiBatchRecordedPaid,
   type ApiWallet,
+  type ApiWalletStatement,
 } from "@/lib/api/payments";
 import { EMPLOYEES } from "@/lib/mock/people";
 import { createPersistedState } from "./persisted";
@@ -83,11 +84,13 @@ import { useRevalidation } from "@/lib/revalidate";
 /**
  * A payee in the demo book.
  *
- * Carries the full account number, which `ApiPaymentInstruction` deliberately
- * does not: the file needs it and no screen may show it. Everything read by a
- * component goes through `strip()` below.
  */
-type DemoInstruction = ApiPaymentInstruction & { accountNumberFull: string };
+/* Was `ApiPaymentInstruction & { accountNumberFull: string }`, back when the
+   API masked every account number and the demo book kept the real one to
+   itself. The API carries `accountNumber` now, so the extension and the
+   stripping it required are gone — the demo instruction is just an
+   instruction. */
+type DemoInstruction = ApiPaymentInstruction;
 
 /** A batch in the demo book. `can`, `balanced` and `check` are derived on read. */
 type DemoBatch = Omit<ApiPaymentBatch, "can" | "balanced"> & {
@@ -205,7 +208,7 @@ function demoInstruction(
     payslipId: null,
     payeeName: name,
     bankName: broken === "no-account" ? "" : (person?.bankName ?? ""),
-    accountNumberFull: full,
+    accountNumber: full,
     accountNumberMasked: mask(full),
     accountNumberOk: /^\d{10}$/.test(full),
     bankCode: null,
@@ -556,7 +559,7 @@ function evaluateDemo(
      on file" is one they can fix. */
   const seen = new Map<string, string>();
   for (const row of rows) {
-    const digits = row.accountNumberFull.replace(/\D/g, "");
+    const digits = row.accountNumber.replace(/\D/g, "");
 
     if (row.bankName.trim().length === 0) {
       found.push({
@@ -634,12 +637,10 @@ function demoAffordances(status: PaymentBatchStatus): BatchAffordances {
   };
 }
 
-/** Drops the full account number. Nothing a component sees ever carries one. */
-function strip(row: DemoInstruction): ApiPaymentInstruction {
-  const { accountNumberFull, ...rest } = row;
-  void accountNumberFull;
-  return rest;
-}
+/* `strip` was here. It removed the full account number on the way out, when
+   the API masked it and the demo book had to match. The API sends the whole
+   number now, so there is nothing to remove and a demo instruction is already
+   what a component expects. */
 
 function toBatch(batch: DemoBatch): ApiPaymentBatch {
   const { instructions, ...rest } = batch;
@@ -658,7 +659,7 @@ function toDetail(
   const gate = evaluateDemo(batch, accounts);
   return {
     ...toBatch(batch),
-    instructions: batch.instructions.map(strip),
+    instructions: batch.instructions,
     check: {
       ok: gate.ok,
       discrepancies: gate.discrepancies,
@@ -866,6 +867,114 @@ export function useWallet(): WalletState {
   const matched = fetched !== null && fetched.rev === rev;
   return {
     wallet: matched ? fetched.wallet : null,
+    loading: !matched,
+    error: matched ? fetched.error : null,
+    live: true,
+    reload: bumpRevision,
+  };
+}
+
+/* ------------------------------------------------------- the wallet statement */
+
+export type WalletStatementState = {
+  /**
+   * Null while loading, on a failure, and offline — never an empty statement.
+   *
+   * Same rule as `WalletState.wallet` above and for a sharper reason: an empty
+   * array renders as "no movements yet", which is a statement about a
+   * company's money and would be the wrong one. A wallet that has never moved
+   * and a wallet whose statement failed to load must not look alike.
+   */
+  statement: ApiWalletStatement | null;
+  loading: boolean;
+  error: ApiError | null;
+  live: boolean;
+  reload: () => void;
+};
+
+/**
+ * A page of the wallet's movements.
+ *
+ * Separate hook from `useWallet` rather than more fields on it, matching the
+ * split at the API: turning a page must not re-fetch the four headline figures
+ * and make them flicker.
+ *
+ * `page` is a parameter rather than state held here, so the screen owns it. A
+ * hook that owned the page would reset it on every revalidation, which is
+ * exactly what happens after a payroll run credits or debits the wallet —
+ * you would be thrown back to page one while reading page three.
+ */
+export function useWalletStatement(params: {
+  page: number;
+  pageSize: number;
+}): WalletStatementState {
+  const { page, pageSize } = params;
+  const { isConnected, can } = useSession();
+  const mayRead = can("VIEW_SALARIES");
+  const rev = useRevision();
+  const revalidation = useRevalidation();
+
+  const [fetched, setFetched] = useState<{
+    rev: number;
+    page: number;
+    pageSize: number;
+    statement: ApiWalletStatement | null;
+    error: ApiError | null;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!isConnected || !mayRead) return;
+    let cancelled = false;
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const statement = await paymentsApi.walletStatement(
+          { page, pageSize },
+          controller.signal,
+        );
+        if (!cancelled)
+          setFetched({ rev, page, pageSize, statement, error: null });
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
+        if (!cancelled) {
+          setFetched({
+            rev,
+            page,
+            pageSize,
+            statement: null,
+            error: error instanceof ApiError ? error : null,
+          });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [isConnected, mayRead, rev, revalidation, page, pageSize]);
+
+  if (!isConnected || !mayRead) {
+    return {
+      statement: null,
+      loading: false,
+      error: null,
+      live: false,
+      reload: bumpRevision,
+    };
+  }
+
+  /* The page is part of the match, not just the revision. Without it, asking
+     for page two renders page one's rows as though they were the answer until
+     the new request lands — the rows would be wrong rather than merely
+     stale. */
+  const matched =
+    fetched !== null &&
+    fetched.rev === rev &&
+    fetched.page === page &&
+    fetched.pageSize === pageSize;
+  return {
+    statement: matched ? fetched.statement : null,
     loading: !matched,
     error: matched ? fetched.error : null,
     live: true,
@@ -1260,7 +1369,7 @@ function demoHistoryRows(book: DemoBook): ApiPaymentHistoryRow[] {
   return book.batches
     .flatMap((batch) =>
       batch.instructions.map((row): ApiPaymentHistoryRow => ({
-        ...strip(row),
+        ...row,
         batchId: batch.id,
         batchReference: batch.reference,
         batchStatus: batch.status,
@@ -2245,7 +2354,7 @@ function buildDemoBankFile(batch: DemoBatch): string {
     lines.push(
       [
         String(index + 1),
-        row.accountNumberFull,
+        row.accountNumber,
         cell(row.payeeName),
         cell(row.bankName),
         cell(row.bankCode),

@@ -69,7 +69,17 @@ export function SwapPanel({
 }) {
   const toast = useToast();
   const { employeeId } = useSession();
-  const canEdit = useCan("EDIT_RECORDS");
+  /**
+   * Two grants, because the API refuses them separately.
+   *
+   * Approving a swap is `APPROVE_SHIFT_SWAP` — a checker act, deliberately
+   * apart from writing the rota for the same reason `APPROVE_PAYROLL` is apart
+   * from `RUN_PAYROLL`. Turning one down or withdrawing it on somebody else's
+   * behalf is an override on their rota, so it is `MANAGE_ROTA`. Gating both on
+   * one flag would put a button in front of somebody the server refuses.
+   */
+  const canApprove = useCan("APPROVE_SHIFT_SWAP");
+  const canManageRota = useCan("MANAGE_ROTA");
   const [filter, setFilter] = useState<Filter>("open");
   /**
    * Two requests, by status, rather than one unfiltered list filtered here.
@@ -248,35 +258,39 @@ export function SwapPanel({
                       </>
                     )}
 
-                    {swap.status === "ACCEPTED" && canEdit && (
-                      <>
-                        <Button
-                          variant="approve"
-                          size="sm"
-                          loading={working}
-                          onClick={() =>
-                            void run(
-                              swap.id,
-                              () => approveSwap(swap.id),
-                              "Rota updated for both of them.",
-                            )
-                          }
-                        >
-                          Approve
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => setDeclining(swap)}
-                          disabled={working}
-                        >
-                          Turn down
-                        </Button>
-                      </>
+                    {swap.status === "ACCEPTED" && canApprove && (
+                      <Button
+                        variant="approve"
+                        size="sm"
+                        loading={working}
+                        onClick={() =>
+                          void run(
+                            swap.id,
+                            () => approveSwap(swap.id),
+                            "Rota updated for both of them.",
+                          )
+                        }
+                      >
+                        Approve
+                      </Button>
+                    )}
+
+                    {/* Turning down a swap the colleague already accepted is an
+                        override on their rota, not an approval, so it follows
+                        MANAGE_ROTA rather than the button beside it. */}
+                    {swap.status === "ACCEPTED" && canManageRota && (
+                      <Button
+                        size="sm"
+                        onClick={() => setDeclining(swap)}
+                        disabled={working}
+                      >
+                        Turn down
+                      </Button>
                     )}
 
                     {(swap.status === "PENDING" ||
                       swap.status === "ACCEPTED") &&
-                      (isRequester || canEdit) &&
+                      (isRequester || canManageRota) &&
                       !isCounterparty && (
                         <Button
                           size="sm"
