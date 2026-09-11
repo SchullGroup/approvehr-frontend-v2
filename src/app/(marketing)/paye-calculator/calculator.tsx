@@ -134,27 +134,21 @@ export function TaxCalculator() {
           screen the eye starts left, so the controls take that column and
           the result takes the larger one. This is the reverse of the
           original split, which gave the inputs the wide track and squeezed
-          the answer into a fixed 400px rail. */}
-      <div className="grid lg:grid-cols-[minmax(0,22rem)_1fr]">
+          the answer into a fixed 400px rail.
+
+          25rem, not 22rem: at 22rem the Monthly/Annual toggle and the salary
+          input were fighting for the same row, and the input — the one with
+          `min-w-0` — always lost, shrinking narrower than the digits it held
+          and clipping them rather than wrapping. Moving the toggle up beside
+          the label is the actual fix for that; the extra three rem is real
+          headroom on top of it, so a seven-figure annual salary never comes
+          close to the same fight again. */}
+      <div className="grid lg:grid-cols-[minmax(0,25rem)_1fr]">
         <div className="min-w-0 border-sand-line p-6 sm:p-8 lg:border-r">
-          <label htmlFor="gross" className="block font-medium text-slate">
-            Gross salary
-          </label>
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            <div className="relative min-w-0 flex-1">
-              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-body-sm text-slate-muted">
-                ₦
-              </span>
-              <input
-                id="gross"
-                type="text"
-                inputMode="numeric"
-                value={grossInput}
-                onChange={(e) => setGrossInput(e.currentTarget.value)}
-                placeholder="500,000"
-                className="h-12 w-full min-w-0 rounded-xl border border-sand-line bg-white pl-8 pr-4 text-[1.25rem] font-medium tabular-nums text-slate focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate"
-              />
-            </div>
+          <div className="flex items-center justify-between gap-3">
+            <label htmlFor="gross" className="font-medium text-slate">
+              Gross salary
+            </label>
             <div className="flex shrink-0 items-center gap-1 rounded-full bg-sand p-1">
               {(["Monthly", "Annual"] as const).map((label, i) => (
                 <button
@@ -172,6 +166,20 @@ export function TaxCalculator() {
                 </button>
               ))}
             </div>
+          </div>
+          <div className="relative mt-3 min-w-0">
+            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-body-sm text-slate-muted">
+              ₦
+            </span>
+            <input
+              id="gross"
+              type="text"
+              inputMode="numeric"
+              value={grossInput}
+              onChange={(e) => setGrossInput(e.currentTarget.value)}
+              placeholder="500,000"
+              className="h-12 w-full min-w-0 rounded-xl border border-sand-line bg-white pl-8 pr-4 text-[1.25rem] font-medium tabular-nums text-slate focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate"
+            />
           </div>
 
           <div className="mt-6 flex flex-col gap-3">

@@ -58,7 +58,6 @@ export default function PayeCalculatorPage() {
             <SectionHeading
               as="h1"
               align="center"
-              eyebrow="Free tool"
               title="Nigeria PAYE calculator"
               lead="Free. No signup. Updated for the Nigeria Tax Act 2025 — the same engine that runs real payroll on this platform, not a spreadsheet copy of it."
             />
@@ -229,7 +228,7 @@ export default function PayeCalculatorPage() {
                 <Pill href="/demo" variant="solid" size="lg" arrow>
                   Book a demo
                 </Pill>
-                <Pill href="/pricing" variant="quiet" size="lg">
+                <Pill href="/pricing" variant="ghost" size="lg">
                   See what it costs
                 </Pill>
               </div>
