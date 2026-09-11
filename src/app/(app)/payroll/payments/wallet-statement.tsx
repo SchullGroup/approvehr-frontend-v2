@@ -319,10 +319,25 @@ function MovementRow({
           {/* Seven, matching the header. A short colSpan leaves a ragged
               table the moment a column is added. */}
           <TD colSpan={7} className="bg-raised p-0">
-            <PayrollBreakdown
-              reference={movement.paymentBatchReference}
-              batch={batch}
-            />
+            {/* Pinned to the left edge of the scrolling table on a phone.
+                ---------------------------------------------------------
+                This sits in a cell of a table that is ~1080px wide and
+                scrolls sideways inside a 390px screen. Without the pin, the
+                breakdown inherits that width and rides the same scroll — so
+                the Name and Bank columns, which are the whole point of
+                opening the row, end up off-screen to the left while Amount
+                and Status are what you see.
+
+                `sticky left-0` holds it against the viewport while the
+                statement's own columns scroll past behind it, and the width
+                is the screen rather than the table. Released at `sm`, where
+                the table fits and the cell is the right width already. */}
+            <div className="sticky left-0 w-[calc(100vw-3rem)] max-w-full sm:w-auto">
+              <PayrollBreakdown
+                reference={movement.paymentBatchReference}
+                batch={batch}
+              />
+            </div>
           </TD>
         </TR>
       )}
