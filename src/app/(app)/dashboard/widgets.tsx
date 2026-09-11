@@ -40,6 +40,7 @@ import {
   type ReportsData,
 } from "@/lib/api/insights";
 import { useCan } from "@/lib/permissions";
+import { formatDate } from "@/lib/time";
 
 /**
  * One component per catalogue entry.
@@ -884,15 +885,17 @@ function Owed({
   );
 }
 
-/** `2026-08` as `Aug 2026`. Short, because it is an axis label as often as prose. */
+/**
+ * `2026-08` as `Aug 2026`. Short, because it is an axis label as often as
+ * prose. Always UTC: a `YYYY-MM` period has no time-of-day, so there is no
+ * moment for the company's zone to relocate — the day/month/year that
+ * `formatDate` gives is sliced down to month+year rather than reached for
+ * with a fresh Intl call, so this stays covered by the guardrail too.
+ */
 function monthLabel(period: string): string {
   const [year, month] = period.split("-");
   if (!year || !month) return period;
-  return new Date(
-    Date.UTC(Number(year), Number(month) - 1, 1),
-  ).toLocaleDateString("en-GB", {
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  });
+  const date = new Date(Date.UTC(Number(year), Number(month) - 1, 1));
+  const [, longMonth, y] = formatDate(date, "UTC").split(" ");
+  return `${longMonth.slice(0, 3)} ${y}`;
 }
