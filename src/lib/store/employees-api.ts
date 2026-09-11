@@ -713,7 +713,12 @@ export function useEmployeeMutations() {
           ? { employmentType: draft.employmentType.toUpperCase() }
           : {}),
       });
-      return toEmployee(created);
+      /* `created.invited` rides on the same response as the record — see
+         `ApiCreateInviteOutcome`. Attached onto the mapped `Employee` rather
+         than returned alongside it in a tuple, because the one caller that
+         reads it (the add-employee wizard) wants exactly this: the record it
+         already knew how to use, plus one more fact it can choose to check. */
+      return Object.assign(toEmployee(created), { invited: created.invited });
     },
     [isConnected],
   );
