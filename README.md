@@ -29,6 +29,20 @@ one that admits it. The API lives in
 | **`HANDOVER.md`** | The working brief. Design-system rules, the payroll engine's traps, the store patterns, and a list of bugs that `tsc` and `lint` cannot see. Several entries contradict what you would guess from first principles. |
 | **`PARITY.md`** | What the incumbent system does that this does not, and the phased plan to close it. Start here for *what to build next*. |
 | **`AGENTS.md`** | A Next.js version-drift warning that `next dev` regenerates. Normal, not a bug. |
+| **[`docs/pages/`](docs/pages/index.md)** | Every page on every platform — 113 routes here, 152 on the platform frontend, 14 on the landing site. Generated from the routing source, so a row exists because the code puts it there. |
+| **[`docs/components/`](docs/components/index.md)** | Every exported component, hook and function, grouped by what it is for. Also all 644 API endpoints. **Check this before adding anything** — the three most expensive bugs in `HANDOVER.md` were second copies of something that already existed. |
+
+## Walking the product
+
+For anybody who has to *use* ApproveHR rather than change it — a PM, a new joiner, somebody running
+a demo — there is a click-by-click walkthrough of the Performance module:
+**[`docs/walkthroughs/performance.md`](docs/walkthroughs/performance.md)**. Thirty numbered steps
+from setting the scoring up to publishing the marks, a relay diagram of who hands what to whom, a
+card per role, and a twenty-minute demo script. Every button label in it is quoted from the screen
+rather than paraphrased, so the two cannot drift apart. If a label there stops matching the product,
+the document is what is wrong.
+
+The same walkthrough is also a **PDF with a photograph of every screen** — [`docs/walkthroughs/running-an-appraisal.pdf`](docs/walkthroughs/running-an-appraisal.pdf), 63 pages, every screenshot captioned with the address it was taken from. That one is for somebody who will not open a repository. It is a snapshot rather than a build of the markdown, so where the two disagree the markdown is right.
 
 ## Layout
 
