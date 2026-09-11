@@ -1,19 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { ArrowDownLeft, ArrowUpRight, Plus, ScrollText } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, ScrollText } from "lucide-react";
 import {
   Badge,
-  Button,
   Card,
   CardBody,
   CardHeader,
   EmptyState,
-  Field,
-  Input,
-  Modal,
   Money,
-  Select,
   Spinner,
   TBody,
   TD,
@@ -22,17 +16,9 @@ import {
   THead,
   TR,
   TableWrap,
-  Textarea,
-  useToast,
 } from "@/components/ui";
-import { ApiError } from "@/lib/api/client";
-import { kobo, naira } from "@/lib/api/payments";
-import {
-  LEDGER_KIND_LABEL,
-  useBankAccounts,
-  useLedger,
-  usePaymentActions,
-} from "@/lib/store/payments";
+import { naira } from "@/lib/api/payments";
+import { LEDGER_KIND_LABEL, useLedger } from "@/lib/store/payments";
 import { longDate } from "./format";
 
 /**
@@ -57,24 +43,23 @@ import { longDate } from "./format";
  * here because there is no edit endpoint, and that is what makes this a ledger
  * rather than a balance column somebody can tidy.
  */
-export function LedgerPanel({ canRecordFunding }: { canRecordFunding: boolean }) {
+/**
+ * Recording money in was removed from this panel at the product owner's
+ * request, along with the form behind it. `POST /payments/ledger/funding`
+ * still exists; nothing in the product calls it any more.
+ *
+ * Worth knowing what went with it: this was the only way, inside the app, to
+ * tell the system that money had arrived by a route the provider does not
+ * see. A company funded by ordinary bank transfer now has no way to say so,
+ * and the wallet is credited only by the provider webhooks.
+ */
+export function LedgerPanel() {
   const ledger = useLedger({ pageSize: 25 });
-  const [recording, setRecording] = useState(false);
 
   return (
     <>
       <Card>
-        <CardHeader
-          title="Account activity"
-          action={
-            canRecordFunding ? (
-              <Button variant="secondary" size="sm" onClick={() => setRecording(true)}>
-                <Plus aria-hidden="true" className="size-4" />
-                Record money in
-              </Button>
-            ) : undefined
-          }
-        />
+        <CardHeader title="Account activity" />
 
         {ledger.loading ? (
           <CardBody className="flex justify-center py-10">
@@ -186,186 +171,6 @@ export function LedgerPanel({ canRecordFunding }: { canRecordFunding: boolean })
         )}
       </Card>
 
-      {recording && (
-        <RecordFundingModal
-          onClose={() => setRecording(false)}
-          onDone={() => {
-            setRecording(false);
-            ledger.reload();
-          }}
-        />
-      )}
     </>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-
-/**
- * Money arriving, off a bank statement.
- *
- * The balance is optional and stays empty when it is not to hand. That is the
- * point of asking for it separately: it is a fact from the statement, not
- * something this form can work out.
- */
-function RecordFundingModal({
-  onClose,
-  onDone,
-}: {
-  onClose: () => void;
-  onDone: () => void;
-}) {
-  const accounts = useBankAccounts();
-  const actions = usePaymentActions();
-  const toast = useToast();
-
-  const [accountId, setAccountId] = useState("");
-  const [amount, setAmount] = useState("");
-  const [occurredAt, setOccurredAt] = useState("");
-  const [balanceAfter, setBalanceAfter] = useState("");
-  const [reference, setReference] = useState("");
-  const [note, setNote] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const usable = accounts.accounts.filter((account) => !account.archived);
-  const chosen = accountId || usable.find((account) => account.isPrimary)?.id || "";
-  const amountValue = Number(amount.replace(/,/g, ""));
-  const valid = chosen !== "" && Number.isFinite(amountValue) && amountValue > 0;
-
-  async function save() {
-    setBusy(true);
-    setError(null);
-    try {
-      await actions.recordFunding({
-        bankAccountId: chosen,
-        amountKobo: kobo(amountValue),
-        ...(occurredAt ? { occurredAt } : {}),
-        ...(reference.trim() ? { reference: reference.trim() } : {}),
-        ...(note.trim() ? { note: note.trim() } : {}),
-        ...(balanceAfter.trim()
-          ? { balanceAfterKobo: kobo(Number(balanceAfter.replace(/,/g, ""))) }
-          : {}),
-      });
-      toast.push({ title: "Recorded", tone: "success" });
-      onDone();
-    } catch (caught) {
-      setError(
-        caught instanceof ApiError ? caught.message : "That did not save. Try again.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      title="Record money in"
-      description="A transfer into the account salaries come from, as it appears on your statement."
-      footer={
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            variant="accent"
-            disabled={!valid || busy}
-            loading={busy}
-            onClick={() => void save()}
-          >
-            Record it
-          </Button>
-        </div>
-      }
-    >
-      <div className="flex flex-col gap-4">
-        {error && (
-          <p className="rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-body-sm text-danger-text">
-            {error}
-          </p>
-        )}
-
-        <Field label="Which account" required>
-          <Select
-            value={chosen}
-            onChange={(e) => {
-              const value = e.target.value;
-              setAccountId(value);
-            }}
-          >
-            {usable.map((account) => (
-              <option key={account.id} value={account.id}>
-                {account.bankName} {account.accountNumberMasked}
-                {account.isPrimary ? " (salaries come from here)" : ""}
-              </option>
-            ))}
-          </Select>
-        </Field>
-
-        <Field label="Amount in naira" required help="For example 95000000.00">
-          <Input
-            value={amount}
-            autoFocus
-            inputMode="decimal"
-            placeholder="0.00"
-            onChange={(e) => {
-              const value = e.target.value;
-              setAmount(value);
-            }}
-          />
-        </Field>
-
-        <Field label="Date on the statement" help="Leave empty for today.">
-          <Input
-            type="date"
-            value={occurredAt}
-            onChange={(e) => {
-              const value = e.target.value;
-              setOccurredAt(value);
-            }}
-          />
-        </Field>
-
-        <Field
-          label="Balance after, from the statement"
-          help="Leave it empty if you do not have it. It stays blank rather than being worked out."
-        >
-          <Input
-            value={balanceAfter}
-            inputMode="decimal"
-            placeholder="0.00"
-            onChange={(e) => {
-              const value = e.target.value;
-              setBalanceAfter(value);
-            }}
-          />
-        </Field>
-
-        <Field label="Bank reference">
-          <Input
-            value={reference}
-            placeholder="FT26081800194"
-            onChange={(e) => {
-              const value = e.target.value;
-              setReference(value);
-            }}
-          />
-        </Field>
-
-        <Field label="Note">
-          <Textarea
-            rows={2}
-            value={note}
-            placeholder="Transfer from the operations account"
-            onChange={(e) => {
-              const value = e.target.value;
-              setNote(value);
-            }}
-          />
-        </Field>
-      </div>
-    </Modal>
   );
 }

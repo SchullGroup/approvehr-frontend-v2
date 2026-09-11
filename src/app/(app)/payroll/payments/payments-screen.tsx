@@ -270,7 +270,7 @@ export function PaymentsScreen() {
           * place a company could fetch an approved batch's bank file again
           * after losing the first download. Both still exist; nothing here
           * points at them any more. */}
-        <LedgerPanel canRecordFunding={can("MANAGE_SETTINGS")} />
+        <LedgerPanel />
       </PageBody>
     </>
   );
