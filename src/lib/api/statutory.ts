@@ -87,7 +87,10 @@ export function dueIn(dueDate: string, timeZone: string): string {
   const due = new Date(`${dueDate}T00:00:00.000Z`);
   const start = new Date(`${todayIn(timeZone)}T00:00:00.000Z`);
   const days = Math.round((due.getTime() - start.getTime()) / 86_400_000);
-  if (days < 0) return `${String(Math.abs(days))} days overdue`;
+  if (days < 0) {
+    const overdue = Math.abs(days);
+    return `${String(overdue)} ${overdue === 1 ? "day" : "days"} overdue`;
+  }
   if (days === 0) return "Due today";
   if (days === 1) return "Due tomorrow";
   return `Due in ${String(days)} days`;
