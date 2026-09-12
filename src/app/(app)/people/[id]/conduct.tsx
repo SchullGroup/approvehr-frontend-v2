@@ -33,7 +33,7 @@ import {
   useConductRecord,
 } from "@/lib/store/conduct";
 import { useOrgTimezone, useSession } from "@/lib/store/session";
-import { todayIn } from "@/lib/time";
+import { formatDateShort, todayIn } from "@/lib/time";
 
 /**
  * Somebody's conduct record, for the employee record page.
@@ -273,7 +273,8 @@ export function ConductPanel({
 
 /* -------------------------------------------------------------------------- */
 
-function ActionRow({
+/** Exported for `tests/conduct-acknowledgement.test.tsx` — see that file. */
+export function ActionRow({
   action,
   canEdit,
   isSubject,
@@ -287,6 +288,7 @@ function ActionRow({
   onEdit: () => void;
 }) {
   const status = actionStatus(action);
+  const timeZone = useOrgTimezone();
 
   return (
     <li className="rounded-md border border-line p-3">
@@ -343,7 +345,10 @@ function ActionRow({
             {lapseLabel(action)}
             {action.issuedByName && <> · given by {action.issuedByName}</>}
             {action.acknowledgedAt && (
-              <> · confirmed {dayLabel(action.acknowledgedAt.slice(0, 10))}</>
+              <>
+                {" "}
+                · confirmed {formatDateShort(action.acknowledgedAt, timeZone)}
+              </>
             )}
           </p>
         </div>
@@ -825,8 +830,7 @@ function EditActionModal({
                 {LEVEL_LABEL[action.level]}
               </Badge>
               <Badge tone="neutral" size="sm">
-                Confirmed{" "}
-                {dayLabel(action.acknowledgedAt?.slice(0, 10) ?? null)}
+                Confirmed {formatDateShort(action.acknowledgedAt, timeZone)}
               </Badge>
             </p>
             <p className="mt-1 text-body leading-relaxed text-ink">
