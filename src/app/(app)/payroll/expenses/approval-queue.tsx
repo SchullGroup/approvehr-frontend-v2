@@ -24,6 +24,7 @@ import {
   type Claim,
   type ExpenseType,
 } from "@/lib/store/reimbursements";
+import { useOrgTimezone } from "@/lib/store/session";
 
 /**
  * The approval queue.
@@ -64,6 +65,7 @@ export function ApprovalQueue({
   onApprove: (claim: Claim) => Promise<void>;
   onDecline: (claim: Claim, reason: string) => Promise<void>;
 }) {
+  const timeZone = useOrgTimezone();
   const [declining, setDeclining] = useState<Claim | null>(null);
   const [working, setWorking] = useState<string | null>(null);
 
@@ -126,7 +128,7 @@ export function ApprovalQueue({
             </THead>
             <TBody>
               {claims.map((claim) => {
-                const waiting = daysSince(claim.incurredOn);
+                const waiting = daysSince(claim.incurredOn, timeZone);
                 const mine = claim.employeeId === myEmployeeId;
                 const busy = working === claim.id;
 

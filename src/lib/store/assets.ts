@@ -26,8 +26,9 @@ import {
   type SettableStatus,
 } from "@/lib/api/assets";
 import { CURRENT_USER, employeeById } from "@/lib/mock/people";
+import { todayIn } from "@/lib/time";
 import { createPersistedState } from "./persisted";
-import { useSession } from "./session";
+import { useOrgTimezone, useSession } from "./session";
 import { useRevalidation } from "@/lib/revalidate";
 
 /**
@@ -305,18 +306,21 @@ export function dayLabel(iso: string | null): string {
   return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
 }
 
-/** `YYYY-MM-DD` for today, in the local calendar a date input works in. */
-export function today(): string {
-  const now = new Date();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${now.getFullYear()}-${month}-${day}`;
+/**
+ * `YYYY-MM-DD` for today, in the company's zone.
+ *
+ * Not a hook: this is called from plain event handlers as well as render
+ * (a `useState` default, a `max=` bound), so the caller reads the zone via
+ * `useOrgTimezone()` and passes it in.
+ */
+export function today(timeZone: string): string {
+  return todayIn(timeZone);
 }
 
 /** Whole days a date is behind today. For "has had it 120 days". */
-export function daysSince(iso: string): number {
+export function daysSince(iso: string, timeZone: string): number {
   const then = new Date(`${iso.slice(0, 10)}T12:00:00`).getTime();
-  const now = new Date(`${today()}T12:00:00`).getTime();
+  const now = new Date(`${today(timeZone)}T12:00:00`).getTime();
   return Math.max(0, Math.round((now - then) / 86_400_000));
 }
 
@@ -1182,6 +1186,7 @@ const EMPTY_ITEMS: EquipmentItem[] = [];
  */
 export function useEquipment(params: AssetListParams = {}, enabled = true) {
   const { isConnected } = useSession();
+  const timeZone = useOrgTimezone();
   const revisionValue = useRevision();
   const demoState = useDemoState();
 
@@ -1638,8 +1643,8 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
       if (!taker)
         throw unprocessable("That employee does not exist, or has left.");
 
-      const assignedOn = input.assignedOn ?? today();
-      if (assignedOn > today()) {
+      const assignedOn = input.assignedOn ?? today(timeZone);
+      if (assignedOn > today(timeZone)) {
         throw unprocessable("You cannot hand something over in the future.");
       }
 
@@ -1669,7 +1674,7 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
         ],
       });
     },
-    [isConnected],
+    [isConnected, timeZone],
   );
 
   /**
@@ -1700,8 +1705,8 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
         );
       }
 
-      const returnedOn = input.returnedOn ?? today();
-      if (returnedOn > today()) {
+      const returnedOn = input.returnedOn ?? today(timeZone);
+      if (returnedOn > today(timeZone)) {
         throw unprocessable("You cannot take something back in the future.");
       }
       if (returnedOn < open.assignedOn) {
@@ -1748,7 +1753,7 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
 
       return open.id;
     },
-    [isConnected],
+    [isConnected, timeZone],
   );
 
   /**
@@ -1774,7 +1779,7 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
       const asset = state.assets.find((row) => row.id === id);
       if (!asset) throw missing("That piece of equipment");
 
-      const startedOn = input.startedOn ?? today();
+      const startedOn = input.startedOn ?? today(timeZone);
       if (input.completedOn && input.completedOn < startedOn) {
         throw unprocessable("It cannot be finished before it was started.");
       }
@@ -1806,7 +1811,7 @@ export function useEquipment(params: AssetListParams = {}, enabled = true) {
         ],
       });
     },
-    [isConnected],
+    [isConnected, timeZone],
   );
 
   return {
@@ -2340,6 +2345,7 @@ export function useEquipmentSummary(enabled = true) {
  */
 export function useMyEquipment(employeeId: string | null) {
   const { isConnected } = useSession();
+  const timeZone = useOrgTimezone();
   const revisionValue = useRevision();
   const demoState = useDemoState();
 
@@ -2524,12 +2530,12 @@ export function useMyEquipment(employeeId: string | null) {
         ...state,
         assignments: state.assignments.map((entry) =>
           entry.id === assignmentId
-            ? { ...entry, acknowledgedAt: today() }
+            ? { ...entry, acknowledgedAt: today(timeZone) }
             : entry,
         ),
       });
     },
-    [isConnected],
+    [isConnected, timeZone],
   );
 
   return {

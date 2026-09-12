@@ -27,6 +27,7 @@ import {
   type EquipmentItem,
 } from "@/lib/store/assets";
 import { STATUS_TONE } from "./item-panel";
+import { useOrgTimezone } from "@/lib/store/session";
 
 /**
  * The register: what it is, its tag, who has it, what state it is in, and when
@@ -83,6 +84,8 @@ export function RegisterTable({
   onOpen: (item: EquipmentItem) => void;
   emptyAction?: React.ReactNode;
 }) {
+  const timeZone = useOrgTimezone();
+
   /** A sortable header when the caller passes a query, a plain one otherwise. */
   const column = (
     key: string,
@@ -203,7 +206,7 @@ export function RegisterTable({
                         {dayLabel(item.holder.assignedOn)}
                       </span>
                       <span className="block text-meta text-muted">
-                        {daysSince(item.holder.assignedOn)} days
+                        {daysSince(item.holder.assignedOn, timeZone)} days
                       </span>
                     </>
                   ) : (

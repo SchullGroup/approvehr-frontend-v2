@@ -24,7 +24,7 @@ import { FeatureOffLine } from "@/components/portal/feature-off-line";
 import { ApiError } from "@/lib/api/client";
 import { usePermissions } from "@/lib/permissions";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
-import { useSession } from "@/lib/store/session";
+import { useOrgTimezone, useSession } from "@/lib/store/session";
 import {
   daysSince,
   useExpenseClaims,
@@ -82,6 +82,7 @@ const money = (amount: number) =>
 
 export function ExpensesScreen() {
   const { mode } = useSession();
+  const timeZone = useOrgTimezone();
   const { can } = usePermissions();
   const toast = useToast();
 
@@ -308,7 +309,7 @@ export function ExpensesScreen() {
                         owed.claimCount === 1 ? "claim" : "claims"
                       }, not paid yet.${
                         owed.oldestIncurredOn
-                          ? ` The oldest money went out ${daysSince(owed.oldestIncurredOn)} days ago.`
+                          ? ` The oldest money went out ${daysSince(owed.oldestIncurredOn, timeZone)} days ago.`
                           : ""
                       }`}
                 </p>

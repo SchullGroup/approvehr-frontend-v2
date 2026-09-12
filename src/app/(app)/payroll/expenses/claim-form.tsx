@@ -20,6 +20,7 @@ import {
   type ExpenseType,
   type SubmitClaimInput,
 } from "@/lib/store/reimbursements";
+import { useOrgTimezone } from "@/lib/store/session";
 
 /**
  * The claim form. Four questions and a receipt reference.
@@ -86,12 +87,15 @@ export function ClaimForm({
   onEdit?: (id: string, input: EditClaimInput) => Promise<void>;
 }) {
   const editing = claim !== undefined;
+  const timeZone = useOrgTimezone();
 
   const [typeId, setTypeId] = useState(claim?.typeId ?? "");
   const [amountText, setAmountText] = useState(
     claim ? claim.amount.toFixed(2) : "",
   );
-  const [incurredOn, setIncurredOn] = useState(claim?.incurredOn ?? today());
+  const [incurredOn, setIncurredOn] = useState(
+    claim?.incurredOn ?? today(timeZone),
+  );
   const [description, setDescription] = useState(claim?.description ?? "");
   const [receiptKey, setReceiptKey] = useState(claim?.receiptKey ?? "");
   const [forWhom, setForWhom] = useState(
@@ -124,7 +128,7 @@ export function ClaimForm({
 
   const needsReceipt =
     type?.requiresReceipt === true && receiptKey.trim() === "";
-  const futureDated = incurredOn > today();
+  const futureDated = incurredOn > today(timeZone);
 
   /* The one reason the button is dead, in words, shown beside it. Ordered so
      the first thing to fix is the first thing named. */
@@ -373,7 +377,7 @@ export function ClaimForm({
           <Input
             type="date"
             className="w-48"
-            max={today()}
+            max={today(timeZone)}
             value={incurredOn}
             onChange={(e) => setIncurredOn(e.target.value)}
           />
