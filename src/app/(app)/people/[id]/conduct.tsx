@@ -404,9 +404,10 @@ function RecordWarningModal({
   }) => Promise<void>;
 }) {
   const timeZone = useOrgTimezone();
-  /* The real clock, not the demo's `TODAY`: the API refuses a future incident
-     against the wall clock, and this modal only ever mounts on a click, so
-     there is no server render to disagree with. */
+  /* The real clock, in the company's zone, not the demo's `TODAY`: an
+     incident is dated against the company's own day, not whichever browser
+     is filing it, and this modal only ever mounts on a click, so there is no
+     server render to disagree with. */
   const today = todayIn(timeZone);
 
   const [level, setLevel] = useState<DisciplinaryLevel | "">("");
