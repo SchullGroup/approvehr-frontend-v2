@@ -407,6 +407,14 @@ export type RowContext<Field extends string> = {
    * and records this one when there is none.
    */
   seen: (name: string, key: string) => number | undefined;
+  /**
+   * The company's zone, for the rare row rule that has to know today's date —
+   * `equipment.ts`'s "not purchased in the future" check is the one that does.
+   * Not read off the browser: this check-in-the-browser path is demo-only (see
+   * `check.ts`'s header comment), and a demo has a company just like a
+   * connected instance does.
+   */
+  timeZone: string;
 };
 
 export type RowRules<Field extends string> = (ctx: RowContext<Field>) => void;
