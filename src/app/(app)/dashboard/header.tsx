@@ -1,7 +1,8 @@
 "use client";
 
 import { PageHeader } from "@/components/portal/shell";
-import { useSession } from "@/lib/store/session";
+import { hourIn } from "@/lib/time";
+import { useOrgTimezone, useSession } from "@/lib/store/session";
 
 /**
  * The dashboard's greeting, split out as a client component purely so it can
@@ -19,7 +20,10 @@ import { useSession } from "@/lib/store/session";
  *
  * The hour is safe to read here: `AuthGate` renders a spinner until the session
  * has loaded, so the dashboard never appears in server-rendered HTML and there
- * is no first render for the client to disagree with.
+ * is no first render for the client to disagree with. It is the *company's*
+ * hour, not the reader's — the zone comes off the same session, via
+ * `useOrgTimezone()` — so somebody dialling in from another timezone gets
+ * "Good evening" at the company's evening, not their own.
  */
 function greeting(hour: number): string {
   if (hour < 12) return "Good morning";
@@ -29,8 +33,9 @@ function greeting(hour: number): string {
 
 export function DashboardHeader({ action }: { action?: React.ReactNode }) {
   const { displayName } = useSession();
+  const timeZone = useOrgTimezone();
   const firstName = displayName?.split(" ")[0];
-  const hello = greeting(new Date().getHours());
+  const hello = greeting(hourIn(new Date(), timeZone));
 
   return (
     <PageHeader
