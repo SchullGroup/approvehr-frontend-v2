@@ -70,11 +70,6 @@ const KINDS: ApiBenefitKind[] = [
   "OTHER",
 ];
 
-const thisMonth = (): string => {
-  const now = new Date();
-  return `${String(now.getUTCFullYear())}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
-};
-
 /**
  * Benefits, as a panel inside Pay setup rather than a route of its own.
  *
@@ -108,6 +103,7 @@ export function BenefitsPanel() {
   const canPrice = useCan("MANAGE_PAY_STRUCTURE");
   const canEnrol = useCan("EDIT_RECORDS");
   const canSeeMoney = useCan("VIEW_SALARIES");
+  const timeZone = useOrgTimezone();
 
   const [tab, setTab] = useState<"plans" | "people">("plans");
   const [creating, setCreating] = useState(false);
@@ -116,7 +112,7 @@ export function BenefitsPanel() {
   const plans = useBenefitPlans(true);
   const enrolments = useBenefitEnrolments({ includeEnded: true });
   const notices = useBenefitNotices();
-  const cost = useBenefitCost(thisMonth(), canSeeMoney);
+  const cost = useBenefitCost(todayIn(timeZone).slice(0, 7), canSeeMoney);
 
   return (
     <>

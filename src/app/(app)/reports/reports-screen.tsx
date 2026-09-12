@@ -18,6 +18,8 @@ import {
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { usePermissions } from "@/lib/permissions";
 import { useReports } from "@/lib/store/insights";
+import { useOrgTimezone } from "@/lib/store/session";
+import { todayIn } from "@/lib/time";
 import { employmentTypeLabel, naira } from "@/lib/api/insights";
 import { monthLabel } from "@/lib/api/overtime";
 import { Field, Select } from "@/components/ui";
@@ -28,13 +30,20 @@ function monthKey(date: Date): string {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
-/** This month first, then back a year. Anything older is a different feature. */
-function recentMonths(count = 13): string[] {
-  const now = new Date();
+/**
+ * This month first, then back a year. Anything older is a different feature.
+ *
+ * "This month" is the company's, via `timeZone` — `todayIn` rather than a
+ * bare `new Date()`, which named October's report September for the last
+ * ninety minutes of every month in Africa/Lagos.
+ */
+function recentMonths(timeZone: string, count = 13): string[] {
+  const [year, month] = todayIn(timeZone)
+    .slice(0, 7)
+    .split("-")
+    .map(Number) as [number, number];
   return Array.from({ length: count }, (_, i) =>
-    monthKey(
-      new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1)),
-    ),
+    monthKey(new Date(Date.UTC(year, month - 1 - i, 1))),
   );
 }
 
@@ -126,7 +135,8 @@ function Reports() {
    * or an error is a control that cannot answer, and this screen already has
    * three states that render neither figure nor filter.
    */
-  const months = useMemo(() => recentMonths(), []);
+  const timeZone = useOrgTimezone();
+  const months = useMemo(() => recentMonths(timeZone), [timeZone]);
   const [period, setPeriod] = useState<string>(() => months[0] ?? "");
   const { data, loading, error, reload } = useReports(period);
 

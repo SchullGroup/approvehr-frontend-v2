@@ -2,6 +2,7 @@
 
 import { request } from "@/lib/api/client";
 import { fetchFile, type FileDownload } from "@/lib/api/download";
+import { todayIn } from "@/lib/time";
 
 /**
  * Remittance schedules — what an approved payroll owes each body.
@@ -77,12 +78,14 @@ export const KIND_LABEL: Record<StatutoryKind, string> = {
  *
  * Written once so the table and any future reminder cannot describe the same
  * date differently.
+ *
+ * `dueDate` is a calendar fact — a date with no time on it — so it is parsed
+ * at UTC midnight and never read through a zone; only "today", which the
+ * company reads off its own clock via `timeZone`, needs one.
  */
-export function dueIn(dueDate: string, today = new Date()): string {
+export function dueIn(dueDate: string, timeZone: string): string {
   const due = new Date(`${dueDate}T00:00:00.000Z`);
-  const start = new Date(
-    Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()),
-  );
+  const start = new Date(`${todayIn(timeZone)}T00:00:00.000Z`);
   const days = Math.round((due.getTime() - start.getTime()) / 86_400_000);
   if (days < 0) return `${String(Math.abs(days))} days overdue`;
   if (days === 0) return "Due today";

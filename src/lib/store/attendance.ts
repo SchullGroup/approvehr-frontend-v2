@@ -339,6 +339,7 @@ export type RosterState = {
  */
 export function useAttendanceRoster(date?: string): RosterState {
   const { isConnected } = useSession();
+  const timeZone = useOrgTimezone();
   const local = useAttendanceStore();
   const { directory } = useEmployeeStore();
   const leave = useLeaveStore();
@@ -456,10 +457,12 @@ export function useAttendanceRoster(date?: string): RosterState {
 
     return {
       date: on,
-      /* The browser's own clock, which is the right answer offline: the demo's
-         clock-ins were made by this browser, so there is no offset to correct
-         for and no server to ask. */
-      time: new Date().toTimeString().slice(0, 5),
+      /* No server to ask offline, so this reads the clock locally — but the
+         company's zone, not the browser's, via the same `nowTime` a clock-in
+         defaults through above: the demo's clock-ins are recorded in the
+         company's time, and a live "now" reading the browser's would disagree
+         with the entries it sits beside for any reader outside that zone. */
+      time: nowTime(timeZone),
       policy: toApiPolicy(local.policy),
       rows,
       recorded: local.forDate(on).filter((entry) => entry.clockIn).length,
