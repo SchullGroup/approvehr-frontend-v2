@@ -409,10 +409,11 @@ export type RowContext<Field extends string> = {
   seen: (name: string, key: string) => number | undefined;
   /**
    * The company's zone, for the rare row rule that has to know today's date —
-   * `equipment.ts`'s "not purchased in the future" check is the one that does.
-   * Not read off the browser: this check-in-the-browser path is demo-only (see
-   * `check.ts`'s header comment), and a demo has a company just like a
-   * connected instance does.
+   * `equipment.ts`'s "not purchased in the future" check, and
+   * `attendance.ts`'s equivalent, are the two that do. Not read off the
+   * browser: this check-in-the-browser path is demo-only (see `check.ts`'s
+   * header comment), and a demo has a company just like a connected instance
+   * does.
    */
   timeZone: string;
 };
