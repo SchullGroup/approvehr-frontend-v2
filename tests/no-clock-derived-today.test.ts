@@ -120,12 +120,19 @@ import { describe, expect, it } from "vitest";
  *   reason it gives is still true of the code beneath it, or was ever true.
  *   A wrong marker (one was found and corrected in round 2 of review) reads
  *   as authoritative and is *harder* to notice than no marker at all.
- * - **Every product site this file currently green-lights was, in fact,
- *   verified by hand** — the four live instances of the one safe `Date`
- *   shape were each individually read and confirmed correct in round 3 of
- *   review, and every marker in the codebase was read against the line it
- *   sits on and found true. This file did not do that verification; it
- *   only stopped being wrong about the shapes it happened to check.
+ * - **A green run does not mean every site it green-lights was read.** The
+ *   one safe `Date` shape (a whole, unreduced `new Date().toISOString()`) is
+ *   common — a `grep -rcP` for it counts in the dozens across `src/` today,
+ *   forty-plus sites, not a handful — and none of them were individually
+ *   read as part of building this file. Every marker, by contrast, *was*
+ *   read against the line it sits on and found true, because a marker is a
+ *   deliberate, singular claim someone wrote down; the safe shape is not a
+ *   claim at all, just a pattern this file happens to recognise as
+ *   provably fine from its text alone. An earlier draft of this paragraph
+ *   claimed a specific count of hand-verified instances; that count was
+ *   itself unverified and wrong, which is the failure this bullet exists to
+ *   name — a false claim of thoroughness is worse than admitting there was
+ *   none.
  *
  * None of this is closable by widening the pattern further — that has
  * traded one blind spot for another twice already in this exact file, which
