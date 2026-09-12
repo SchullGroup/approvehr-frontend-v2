@@ -44,7 +44,8 @@ import {
 } from "@/lib/api/shifts";
 import { Can, useCan } from "@/lib/permissions";
 import { useFeatures } from "@/lib/store/features";
-import { useSession } from "@/lib/store/session";
+import { useOrgTimezone, useSession } from "@/lib/store/session";
+import { todayIn } from "@/lib/time";
 import {
   useRota,
   useShiftCatalogue,
@@ -103,6 +104,7 @@ const TABS: TabItem[] = SHIFT_TABS.map((id) => ({ id, label: LABELS[id] }));
 export function ShiftsScreen({ initialTab }: { initialTab: ShiftTab }) {
   const features = useFeatures();
   const { employeeId, isConnected } = useSession();
+  const timeZone = useOrgTimezone();
   const canEdit = useCan("EDIT_RECORDS");
 
   /* Connected, the data is real and so is the date. In demo mode the seed is a
@@ -111,7 +113,7 @@ export function ShiftsScreen({ initialTab }: { initialTab: ShiftTab }) {
      `TODAY` in both modes, so a connected rota opened on the demo dataset's
      week and "This week" reset to that same wrong week rather than to this
      one, which made it a dead control. */
-  const anchor = isConnected ? new Date().toISOString().slice(0, 10) : TODAY;
+  const anchor = isConnected ? todayIn(timeZone) : TODAY;
 
   const [tab, setTab] = useState<ShiftTab>(initialTab);
   const [weekOf, setWeekOf] = useState(() => weekStart(anchor));

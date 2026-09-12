@@ -38,8 +38,9 @@ import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { useCompanySettings } from "@/lib/store/company";
 import { FEATURE_COPY, useFeatureSettings } from "@/lib/store/features";
 import { useLeaveBalances } from "@/lib/store/leave-balances";
-import { useSession } from "@/lib/store/session";
+import { useOrgTimezone, useSession } from "@/lib/store/session";
 import { TODAY } from "@/lib/today";
+import { todayIn } from "@/lib/time";
 import { remainingDays } from "@/lib/workflows/leave";
 import { fullName } from "@/lib/types";
 import { HolidaysPanel } from "./holidays-panel";
@@ -148,6 +149,7 @@ function Policy() {
      calling it only sometimes. Its result is simply not rendered connected. */
   const demoBalances = useLeaveBalances();
   const { isConnected } = useSession();
+  const timeZone = useOrgTimezone();
   const toast = useToast();
 
   /**
@@ -190,7 +192,7 @@ function Policy() {
   /* Demo mode runs on `TODAY`; the real clock would open the calendar on a year
      the seed has nothing in. Same reasoning as `/people/leave`. */
   const calendarYear = Number(
-    (isConnected ? new Date().toISOString().slice(0, 10) : TODAY).slice(0, 4),
+    (isConnected ? todayIn(timeZone) : TODAY).slice(0, 4),
   );
 
   const policy = settings.leave;

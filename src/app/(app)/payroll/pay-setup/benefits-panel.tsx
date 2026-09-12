@@ -36,8 +36,10 @@ import {
   useBenefitPlans,
 } from "@/lib/store/benefits";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
+import { useOrgTimezone } from "@/lib/store/session";
 import { useCan } from "@/lib/permissions";
 import { fullName } from "@/lib/types";
+import { todayIn } from "@/lib/time";
 
 /**
  * Benefits: the plans, who is on them, and what they cost.
@@ -374,6 +376,7 @@ function People({
 }) {
   const mutations = useBenefitMutations();
   const toast = useToast();
+  const timeZone = useOrgTimezone();
 
   if (read.error) {
     return (
@@ -461,7 +464,7 @@ function People({
                         try {
                           await mutations.endEnrolment(
                             row.id,
-                            new Date().toISOString().slice(0, 10),
+                            todayIn(timeZone),
                           );
                           toast.push({ tone: "success", title: "Cover ended" });
                           read.reload();
@@ -662,10 +665,9 @@ function EnrolDialog({
   const mutations = useBenefitMutations();
   const directory = useEmployeeDirectory({ pageSize: 200 });
   const toast = useToast();
+  const timeZone = useOrgTimezone();
   const [employeeId, setEmployeeId] = useState("");
-  const [startedOn, setStartedOn] = useState(
-    new Date().toISOString().slice(0, 10),
-  );
+  const [startedOn, setStartedOn] = useState(todayIn(timeZone));
   const [dependants, setDependants] = useState("0");
   const [priceThem, setPriceThem] = useState(false);
   const [employer, setEmployer] = useState("");

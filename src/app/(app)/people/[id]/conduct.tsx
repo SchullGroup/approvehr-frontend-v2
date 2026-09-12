@@ -32,7 +32,8 @@ import {
   lapseLabel,
   useConductRecord,
 } from "@/lib/store/conduct";
-import { useSession } from "@/lib/store/session";
+import { useOrgTimezone, useSession } from "@/lib/store/session";
+import { todayIn } from "@/lib/time";
 
 /**
  * Somebody's conduct record, for the employee record page.
@@ -402,10 +403,11 @@ function RecordWarningModal({
     expiresOn?: string;
   }) => Promise<void>;
 }) {
+  const timeZone = useOrgTimezone();
   /* The real clock, not the demo's `TODAY`: the API refuses a future incident
      against the wall clock, and this modal only ever mounts on a click, so
      there is no server render to disagree with. */
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIn(timeZone);
 
   const [level, setLevel] = useState<DisciplinaryLevel | "">("");
   const [incidentOn, setIncidentOn] = useState(today);
@@ -697,7 +699,8 @@ function EditActionModal({
   }) => Promise<void>;
 }) {
   const open = action.awaitingConfirmation;
-  const today = new Date().toISOString().slice(0, 10);
+  const timeZone = useOrgTimezone();
+  const today = todayIn(timeZone);
 
   const [level, setLevel] = useState<DisciplinaryLevel>(action.level);
   const [incidentOn, setIncidentOn] = useState(action.incidentOn);

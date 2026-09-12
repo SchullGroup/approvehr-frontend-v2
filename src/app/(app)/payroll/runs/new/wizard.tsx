@@ -103,8 +103,10 @@ import {
   usePayrollRuns,
 } from "@/lib/store/payroll";
 import { useSetupChecklist } from "@/lib/store/setup-checklist";
+import { useOrgTimezone } from "@/lib/store/session";
 import { fullName } from "@/lib/types";
 import { TODAY } from "@/lib/today";
+import { todayIn } from "@/lib/time";
 
 /**
  * Running a payroll period.
@@ -181,8 +183,10 @@ function shiftPeriod(period: string, months: number): string {
  *
  * **The real clock, not `TODAY`.** `TODAY` is pinned to the demo dataset's day
  * so the seed stays coherent; whether a month has ended is not a question
- * about the seed. The API decides this against `new Date()`, and this sentence
- * describes what the API is about to do.
+ * about the seed. The real clock is the *company's*, via `timeZone` — a
+ * payroll period is a calendar concept the whole company shares, and reading
+ * it against whichever browser happens to be open would tell two colleagues
+ * in different countries two different things about the same run.
  *
  * **No day count here.** The first draft worked one out and would have read
  * "12 days to come" beside the API's own "2 days are still to come" — one
@@ -190,7 +194,10 @@ function shiftPeriod(period: string, months: number): string {
  * different clocks. `period_not_finished` carries the figure; this carries the
  * consequence. Same rule as never re-implementing a score on this side.
  */
-function periodStanding(period: string): {
+function periodStanding(
+  period: string,
+  timeZone: string,
+): {
   tone: "finished" | "running" | "ahead";
   line: string;
 } {
@@ -201,7 +208,7 @@ function periodStanding(period: string): {
      prerendered HTML, so there is nothing for hydration to disagree with. If
      that boundary or that hook ever goes, this becomes a build-time date
      baked into the page. `page.tsx` says the same thing from its end. */
-  const thisMonth = new Date().toISOString().slice(0, 7);
+  const thisMonth = todayIn(timeZone).slice(0, 7);
 
   if (period < thisMonth) {
     return { tone: "finished", line: "This month is over: the usual case." };
@@ -228,6 +235,7 @@ export function PayrollRunWizard() {
   const toast = useToast();
   const stepUp = useStepUp();
   const params = useSearchParams();
+  const timeZone = useOrgTimezone();
 
   /* A period in the URL means somebody came from the dashboard to look at a run
      that already exists, so the rail opens on the checks rather than on a form
@@ -307,7 +315,7 @@ export function PayrollRunWizard() {
   const moveMonth = (months: number) =>
     patch(withPayDate(shiftPeriod(period, months)));
 
-  const standing = periodStanding(period);
+  const standing = periodStanding(period, timeZone);
 
   const [prepared, setPrepared] = useState<PreparedRun | null>(null);
   /**
