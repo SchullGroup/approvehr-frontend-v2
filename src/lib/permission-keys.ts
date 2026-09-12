@@ -72,6 +72,14 @@ export const PERMISSION_KEYS = [
   /* Leave's middle tier: a department, which is not the same set as a
      manager's direct reports. */
   "APPROVE_LEAVE_DEPARTMENT",
+  /* Shifts and the rota. Three grants where there used to be one: this module
+     was gated entirely on EDIT_RECORDS, so the only way to let a supervisor
+     build next week's rota was to let them edit everybody's personnel record.
+     Defining a shift, rostering against it, and signing off a swap two
+     employees agreed are three different jobs done by three different people. */
+  "MANAGE_SHIFTS",
+  "MANAGE_ROTA",
+  "APPROVE_SHIFT_SWAP",
 ] as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
@@ -82,6 +90,7 @@ export type PermissionModule =
   | "repairs"
   | "hiring"
   | "leave"
+  | "shifts"
   | "payroll"
   | "paySetup"
   | "loans"
@@ -153,6 +162,9 @@ export const PERMISSION_SHAPE: Record<
     scope: "department",
   },
   APPROVE_LEAVE_ALL: { module: "leave", action: "approve", scope: "all" },
+  MANAGE_SHIFTS: { module: "shifts", action: "manage" },
+  MANAGE_ROTA: { module: "shifts", action: "assign" },
+  APPROVE_SHIFT_SWAP: { module: "shifts", action: "approve" },
   MANAGE_SETTINGS: { module: "settings", action: "manage" },
   MANAGE_ROLES: { module: "access", action: "manage" },
   INVITE_STAFF: { module: "access", action: "invite" },

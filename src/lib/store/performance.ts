@@ -2391,7 +2391,7 @@ const FINALISE_OFFLINE =
   "record rather than in a browser.";
 
 /**
- * Finalise, then acknowledge **or** dispute. In that order, once each.
+ * Finalise, then acknowledge. In that order, once each.
  *
  * Nobody in this market records the employee's answer, and the exposure is real:
  * without a stored acknowledgement there is no evidence the employee was ever
@@ -2403,12 +2403,12 @@ const FINALISE_OFFLINE =
  * - **Finalising is somebody else's act.** The author, the person's manager, or
  *   `EDIT_RECORDS`. It refuses offline, because a mark of record written in one
  *   browser is not a mark of record.
- * - **Acknowledging and disputing are the subject's own act**, so they work in
- *   both modes — the same line `useReviewMutations` sits on. Only the person a
- *   rating is about may send either, and the demo refuses anybody else in the
- *   API's own words.
- * - **One answer, not both.** Whichever arrives first is the record; the second
- *   is refused rather than overwriting the first.
+ * - **Acknowledging is the subject's own act**, so it works in both modes —
+ *   the same line `useReviewMutations` sits on. Only the person a rating is
+ *   about may send it, and the demo refuses anybody else in the API's own
+ *   words.
+ * - **One answer, once.** A review already answered — acknowledged, or
+ *   disputed before disputing was removed — refuses a second.
  */
 export function useSignOff() {
   const { isConnected, actingId } = useSession();
@@ -2481,26 +2481,15 @@ export function useSignOff() {
       [isConnected, assertMayAnswer, answer],
     ),
 
-    /**
-     * "I do not accept this." The rating **does not move**.
-     *
-     * Rewriting the mark on a dispute would leave no evidence of what was
-     * originally decided, which makes the trail worse rather than better. The
-     * comment is required — HR cannot answer grounds nobody gave.
-     */
-    dispute: useCallback(
-      async (review: ApiReview, comment: string) => {
-        if (isConnected)
-          return performanceApi.disputeReview(review.id, comment);
-        assertMayAnswer(review);
-        answer(review.id, {
-          acknowledgedAt: null,
-          disputedAt: new Date().toISOString(),
-          comment,
-        });
-      },
-      [isConnected, assertMayAnswer, answer],
-    ),
+    /* `dispute` was here: "I do not accept this", comment required, recorded
+       beside a mark that did not move. Removed at the product owner's
+       instruction along with the dialog and the button that reached it.
+
+       `assertMayAnswer` below still refuses an already-disputed review, and
+       must keep doing so — a review disputed before this change has been
+       answered, and offering its subject an acknowledgement would let one
+       review carry both answers. The API still exposes the endpoint; nothing
+       here calls it. */
   };
 }
 
