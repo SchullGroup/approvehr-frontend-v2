@@ -3,9 +3,9 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
- * The 22nd call site.
+ * One more call site.
  *
- * Converting 21 of these was a day's work; letting one back in is a moment's,
+ * Converting the others was a day's work; letting one back in is a moment's,
  * and the symptom — one screen in company time and another in whoever is
  * looking's browser time — is worse than the original bug because it looks
  * deliberate. `src/lib/time.ts` is the one place allowed to reach for
