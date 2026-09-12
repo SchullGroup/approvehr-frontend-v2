@@ -663,7 +663,17 @@ function EnrolDialog({
   const toast = useToast();
   const timeZone = useOrgTimezone();
   const [employeeId, setEmployeeId] = useState("");
-  const [startedOn, setStartedOn] = useState(todayIn(timeZone));
+  /**
+   * `null` until somebody picks a date, not `todayIn(timeZone)` snapshotted
+   * at mount: `useOrgTimezone()` answers the `"Africa/Lagos"` fallback until
+   * the session hydrates, so a company in another zone opening this modal
+   * before that finishes would freeze the default on the wrong day for the
+   * rest of the modal's life, the same shape `reports-screen.tsx`'s `period`
+   * had. Falling back to `todayIn(timeZone)` at the point of use instead
+   * keeps the default current for as long as nobody has picked a date.
+   */
+  const [startedOn, setStartedOn] = useState<string | null>(null);
+  const effectiveStartedOn = startedOn ?? todayIn(timeZone);
   const [dependants, setDependants] = useState("0");
   const [priceThem, setPriceThem] = useState(false);
   const [employer, setEmployer] = useState("");
@@ -681,7 +691,7 @@ function EnrolDialog({
           <Button
             variant="accent"
             loading={busy}
-            disabled={employeeId === "" || startedOn === ""}
+            disabled={employeeId === "" || effectiveStartedOn === ""}
             onClick={() => {
               void (async () => {
                 setBusy(true);
@@ -689,7 +699,7 @@ function EnrolDialog({
                 try {
                   await mutations.enrol(plan.id, {
                     employeeId,
-                    startedOn,
+                    startedOn: effectiveStartedOn,
                     dependants: Number(dependants) || 0,
                     /* Omitted entirely unless somebody priced them. Sending 0
                        would mean "this person's cover is free", which is a
@@ -740,7 +750,7 @@ function EnrolDialog({
         <Field label="Cover starts" help={wholeMonthNotice ?? undefined}>
           <Input
             type="date"
-            value={startedOn}
+            value={effectiveStartedOn}
             onChange={(event) => setStartedOn(event.target.value)}
           />
         </Field>
