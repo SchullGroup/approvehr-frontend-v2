@@ -73,6 +73,37 @@ function shortDateFormat(timeZone: string): Intl.DateTimeFormat {
   return made;
 }
 
+/**
+ * `19 Aug 2026` — `shortDateFormat`'s parts, with the month truncated to
+ * three characters.
+ *
+ * `en-GB`'s CLDR short month for September is `"Sept"` — four letters,
+ * the only one of the twelve that isn't three. `lib/audit/language.ts`'s
+ * `MONTHS` array says `"Sep"` for all twelve, and backs `readableDate`,
+ * which reads a `@db.Date` calendar value and is deliberately untouched by
+ * this file. Left alone, a change dated in September rendered two ways on
+ * the same audit-entry panel: `readableDate` printing "15 Sep 2026" beside
+ * `fullStamp` printing "15 Sept 2026, 11:00" for the same day.
+ *
+ * Ruled out: switching this formatter to a US locale instead.
+ * `en-US`/`en-CA` do give the three-letter `"Sep"`, but they also put the
+ * month before the day — `"Sep 15, 2026"` — the wrong order for every
+ * other date this app renders. Truncating keeps `en-GB`'s day-month-year
+ * order and only touches the one month CLDR spells differently, via
+ * `formatToParts` rather than string-slicing the formatted output (which
+ * would also cut into the day or year on a locale/width combination this
+ * function doesn't use today, but might if `shortDateFormat`'s options
+ * ever change).
+ */
+function shortDateString(date: Date, timeZone: string): string {
+  return shortDateFormat(timeZone)
+    .formatToParts(date)
+    .map((part) =>
+      part.type === "month" ? part.value.slice(0, 3) : part.value,
+    )
+    .join("");
+}
+
 function weekdayFormat(timeZone: string): Intl.DateTimeFormat {
   const cached = WEEKDAY.get(timeZone);
   if (cached) return cached;
@@ -135,7 +166,7 @@ export function formatDateShort(
   timeZone: string,
 ): string {
   const date = parse(value);
-  return date ? shortDateFormat(timeZone).format(date) : "—";
+  return date ? shortDateString(date, timeZone) : "—";
 }
 
 /** `19 Aug 2026, 14:30`. `"—"` when unparseable. */
@@ -145,7 +176,7 @@ export function formatDateTimeShort(
 ): string {
   const date = parse(value);
   if (!date) return "—";
-  return `${shortDateFormat(timeZone).format(date)}, ${timeFormat(timeZone).format(date)}`;
+  return `${shortDateString(date, timeZone)}, ${timeFormat(timeZone).format(date)}`;
 }
 
 /** `YYYY-MM-DD` for an instant, in the given zone. `null` when unparseable. */
@@ -170,6 +201,12 @@ export function todayIn(timeZone: string): string {
  * never through a local `new Date(y, m, d)` constructor, which would read the
  * parts back out in the *browser's* zone and reintroduce the exact bug this
  * function exists to close.
+ *
+ * Returns `0` if either side is unparseable — the same answer as "no time
+ * has passed", not a distinguishable "invalid" sentinel. `dayHeading` already
+ * guards this with `isValidInstant` before calling in, and any new caller
+ * that cannot guarantee valid input must do the same rather than trust a `0`
+ * here to mean "same day".
  */
 export function daysBetweenIn(
   from: string | Date,
@@ -208,6 +245,12 @@ export function isValidInstant(
  *
  * For the dashboard greeting, which has to pick "Good morning" against the
  * company's clock rather than the reader's — see `dashboard/header.tsx`.
+ *
+ * Returns `0` (midnight) if `value` is unparseable — the same answer as a
+ * real midnight instant, not a distinguishable "invalid" sentinel. Only
+ * safe to call with a value already known to be valid; `dashboard/
+ * header.tsx` only ever passes `new Date()`. A caller that cannot make
+ * that guarantee must check `isValidInstant` first.
  */
 export function hourIn(value: string | Date, timeZone: string): number {
   const date = parse(value);

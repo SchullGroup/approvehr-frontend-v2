@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   dayIn,
   daysBetweenIn,
@@ -88,6 +88,32 @@ describe("todayIn", () => {
     const now = new Date();
     expect(todayIn("Africa/Lagos")).toBe(dayIn(now, "Africa/Lagos"));
   });
+
+  /*
+   * Neither case above actually discriminates on the zone parameter: the
+   * first only checks the output's shape, and the second compares
+   * `todayIn` against a fresh `dayIn(new Date(), ...)` call made with the
+   * *same* zone string — an implementation that ignored its argument
+   * entirely and read the machine's own clock would still pass both,
+   * since both calls would agree with each other trivially.
+   *
+   * `Pacific/Kiritimati` (UTC+14) and `Pacific/Niue` (UTC−11) are 25 hours
+   * apart with no daylight saving on either side, so for almost any real
+   * instant — including the one pinned here — they disagree about which
+   * calendar day it is. Fixing the clock and asserting literal, independent
+   * expected strings is what makes this a genuine test of the parameter
+   * rather than of the machine running it.
+   */
+  it("actually reads the given zone, not the machine's own clock", () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-08-19T12:00:00Z"));
+      expect(todayIn("Pacific/Kiritimati")).toBe("2026-08-20");
+      expect(todayIn("Pacific/Niue")).toBe("2026-08-19");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe("daysBetweenIn", () => {
@@ -111,6 +137,22 @@ describe("daysBetweenIn", () => {
       daysBetweenIn("2026-08-19T08:00:00Z", "2026-08-19T20:00:00Z", "UTC"),
     ).toBe(0);
   });
+
+  it("counts 2 days across a DST transition, where millisecond maths says 1", () => {
+    /* UK clocks go forward on the last Sunday of March — 2026-03-29, at
+       01:00 UTC. `2026-03-28T23:30Z` is 23:30 GMT on the 28th; exactly 24
+       hours later, `2026-03-29T23:30Z` is already 00:30 BST on the 30th,
+       because the clock skipped an hour in between. Elapsed time is
+       exactly 24 hours either way — this is the case a `startOfDay`-style
+       local-constructor or a bare millisecond division would get wrong. */
+    expect(
+      daysBetweenIn(
+        "2026-03-28T23:30:00Z",
+        "2026-03-29T23:30:00Z",
+        "Europe/London",
+      ),
+    ).toBe(2);
+  });
 });
 
 describe("weekdayIn", () => {
@@ -128,6 +170,41 @@ describe("formatDateShort", () => {
     expect(formatDateShort("2026-08-19T23:30:00Z", "Africa/Lagos")).toBe(
       "20 Aug 2026",
     );
+    /* A second zone — "Africa/Lagos" alone is also this machine's own
+       system zone, so a regression back to browser-local getters would
+       pass that case by coincidence. */
+    expect(formatDateShort("2026-08-19T23:30:00Z", "UTC")).toBe("19 Aug 2026");
+  });
+
+  /*
+   * `en-GB`'s CLDR short month for September is "Sept" (four letters) —
+   * the only one of the twelve that isn't three. `lib/audit/language.ts`'s
+   * `MONTHS` array (which backs `readableDate`, untouched and byte-identical
+   * since it's a calendar-only value) says "Sep" for all twelve, so this
+   * function truncates the month part to three characters — see the
+   * comment on `shortDateString` in `lib/time.ts` for why, and for the
+   * locales that were ruled out. This checks every month against that same
+   * `MONTHS` array so the two can never quietly drift apart again.
+   */
+  it("agrees with lib/audit/language.ts's three-letter month abbreviations, for all twelve months", () => {
+    const MONTHS = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+    for (let month = 0; month < 12; month++) {
+      const iso = new Date(Date.UTC(2026, month, 15)).toISOString();
+      expect(formatDateShort(iso, "UTC")).toBe(`15 ${MONTHS[month]} 2026`);
+    }
   });
 
   it("renders an em dash for null, empty and unparseable input", () => {
@@ -139,12 +216,12 @@ describe("formatDateShort", () => {
 
 describe("formatDateTimeShort", () => {
   it("renders the short date with the time", () => {
-    /* en-GB's CLDR short month for September is "Sept" (four letters), not
-       the American "Sep" — consistent with `dateFormat`/`timeFormat` above,
-       which are en-GB throughout the rest of this file. */
+    /* Truncated to three letters, matching lib/audit/language.ts's MONTHS
+       — see formatDateShort's tests above for the full twelve-month check
+       and lib/time.ts's shortDateString for why. */
     expect(
       formatDateTimeShort("2026-09-11T23:30:00.000Z", "Africa/Lagos"),
-    ).toBe("12 Sept 2026, 00:30");
+    ).toBe("12 Sep 2026, 00:30");
   });
 
   it("renders an em dash for null, empty and unparseable input", () => {

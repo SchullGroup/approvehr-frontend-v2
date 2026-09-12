@@ -35,8 +35,12 @@ describe("dayKey", () => {
 describe("fullStamp", () => {
   it("renders the exact moment in the company's zone", () => {
     const iso = "2026-09-11T23:30:00.000Z";
-    expect(fullStamp(iso, "Africa/Lagos")).toBe("12 Sept 2026, 00:30");
-    expect(fullStamp(iso, "UTC")).toBe("11 Sept 2026, 23:30");
+    /* "Sep", not "Sept" — see fullStamp's fix round 1 notes: en-GB's raw
+       CLDR short month for September is four letters, the only one of the
+       twelve that differs from lib/audit/language.ts's MONTHS, and
+       lib/time.ts's formatDateTimeShort now truncates it to three. */
+    expect(fullStamp(iso, "Africa/Lagos")).toBe("12 Sep 2026, 00:30");
+    expect(fullStamp(iso, "UTC")).toBe("11 Sep 2026, 23:30");
   });
 
   it("echoes the input on a bad date rather than throwing", () => {
@@ -62,6 +66,17 @@ describe("dayHeading", () => {
     const now = new Date("2026-08-24T12:00:00Z");
     expect(dayHeading(iso, now, "Africa/Lagos")).toBe("Thursday");
     expect(dayHeading(iso, now, "UTC")).toBe("Wednesday");
+  });
+
+  it("falls back to the short date beyond a week, in the company's zone", () => {
+    /* 18-19 calendar days apart either way, well past the weekday-name
+       cutoff — and the two zones still land on different calendar days
+       for both `iso` and `now`, so a browser-local implementation would
+       not coincidentally produce the same fallback string in both cases. */
+    const iso = "2026-08-01T23:30:00Z";
+    const now = new Date("2026-08-20T12:00:00Z");
+    expect(dayHeading(iso, now, "Africa/Lagos")).toBe("2 Aug 2026");
+    expect(dayHeading(iso, now, "UTC")).toBe("1 Aug 2026");
   });
 
   it("echoes the input on a bad date rather than throwing", () => {
