@@ -50,7 +50,7 @@ import { usePermissions } from "@/lib/permissions";
 import { useApplicantRecord, useOfferBands } from "@/lib/store/hiring";
 import { useRealPipelineApplication } from "@/lib/store/recruitment";
 import { useOrgTimezone, useSession } from "@/lib/store/session";
-import { formatDate, formatDateTime } from "@/lib/time";
+import { formatDateShort, formatWeekdayTime } from "@/lib/time";
 import { STAGES, fullName, type PipelineCard } from "@/lib/types";
 import { daysInStage } from "@/lib/mock/hiring";
 import { employeeById } from "@/lib/mock/people";
@@ -981,7 +981,7 @@ function Pipeline({ card }: { card: PipelineCard }) {
                   {INTERVIEW_LABEL[iv.kind] ?? iv.kind}
                 </p>
                 <p className="tabular mt-0.5 text-meta text-muted">
-                  {formatDateTime(iv.scheduledFor, timeZone)} ·{" "}
+                  {formatWeekdayTime(iv.scheduledFor, timeZone)} ·{" "}
                   {iv.durationMins} mins ·{" "}
                   {iv.interviewerIds
                     .map((x) => employeeById(x)?.firstName ?? "?")
@@ -1083,7 +1083,7 @@ function activityFor(card: PipelineCard, timeZone: string): TimelineEntry[] {
     entries.push({
       id: iv.id,
       title: `${INTERVIEW_LABEL[iv.kind] ?? iv.kind} ${iv.status}`,
-      timestamp: formatDate(iv.scheduledFor, timeZone),
+      timestamp: formatDateShort(iv.scheduledFor, timeZone),
       tone: iv.status === "completed" ? "success" : "neutral",
     });
   }

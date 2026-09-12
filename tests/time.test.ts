@@ -7,6 +7,7 @@ import {
   formatDateTime,
   formatDateTimeShort,
   formatTime,
+  formatWeekdayTime,
   hourIn,
   isValidInstant,
   todayIn,
@@ -35,9 +36,14 @@ describe("formatting an instant in a company's zone", () => {
   });
 
   it("puts the two together", () => {
+    /* Both zones, not just this machine's own Africa/Lagos: the two agree
+       neither on the day nor the time for this instant, so a version that
+       silently dropped the timeZone argument and read the runner's own
+       clock would still pass the Lagos half by coincidence. */
     expect(formatDateTime(lateEvening, "Africa/Lagos")).toBe(
       "12 September 2026, 00:30",
     );
+    expect(formatDateTime(lateEvening, "UTC")).toBe("11 September 2026, 23:30");
   });
 
   it("takes a Date as readily as a string", () => {
@@ -218,16 +224,47 @@ describe("formatDateTimeShort", () => {
   it("renders the short date with the time", () => {
     /* Truncated to three letters, matching lib/audit/language.ts's MONTHS
        — see formatDateShort's tests above for the full twelve-month check
-       and lib/time.ts's shortDateString for why. */
+       and lib/time.ts's shortDateString for why. Both zones, not just this
+       machine's own Africa/Lagos: they disagree on both the day and the
+       time for this instant. */
     expect(
       formatDateTimeShort("2026-09-11T23:30:00.000Z", "Africa/Lagos"),
     ).toBe("12 Sep 2026, 00:30");
+    expect(formatDateTimeShort("2026-09-11T23:30:00.000Z", "UTC")).toBe(
+      "11 Sep 2026, 23:30",
+    );
   });
 
   it("renders an em dash for null, empty and unparseable input", () => {
     expect(formatDateTimeShort(null, "Africa/Lagos")).toBe("—");
     expect(formatDateTimeShort("", "Africa/Lagos")).toBe("—");
     expect(formatDateTimeShort("not-a-date", "Africa/Lagos")).toBe("—");
+  });
+});
+
+describe("formatWeekdayTime", () => {
+  it("renders the weekday, day, short month and time — no year", () => {
+    /* Both zones: 2026-09-11T23:30:00.000Z is Friday the 11th in UTC and
+       already Saturday the 12th in Africa/Lagos, so the two must disagree
+       on the weekday as well as the day and the time. */
+    expect(formatWeekdayTime("2026-09-11T23:30:00.000Z", "Africa/Lagos")).toBe(
+      "Sat 12 Sep, 00:30",
+    );
+    expect(formatWeekdayTime("2026-09-11T23:30:00.000Z", "UTC")).toBe(
+      "Fri 11 Sep, 23:30",
+    );
+  });
+
+  it("truncates September's four-letter CLDR short month the same way formatDateShort does", () => {
+    expect(formatWeekdayTime("2026-09-05T09:00:00Z", "UTC")).toBe(
+      "Sat 5 Sep, 09:00",
+    );
+  });
+
+  it("renders an em dash for null, empty and unparseable input", () => {
+    expect(formatWeekdayTime(null, "Africa/Lagos")).toBe("—");
+    expect(formatWeekdayTime("", "Africa/Lagos")).toBe("—");
+    expect(formatWeekdayTime("not-a-date", "Africa/Lagos")).toBe("—");
   });
 });
 

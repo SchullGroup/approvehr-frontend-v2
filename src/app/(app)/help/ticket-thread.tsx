@@ -29,7 +29,7 @@ import { ApiError } from "@/lib/api/client";
 import { formatWorkingMinutes, type TicketPriority } from "@/lib/api/helpdesk";
 import { useCan } from "@/lib/permissions";
 import { useOrgTimezone, useSession } from "@/lib/store/session";
-import { formatDateTime } from "@/lib/time";
+import { formatDateTimeShort } from "@/lib/time";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { useTicket } from "@/lib/store/helpdesk";
 import {
@@ -470,7 +470,7 @@ function Message({
             of shared record as a payslip or a loan decision, not a personal
             chat log — so the company's zone wins here too. */}
         <span className="text-meta text-muted">
-          {formatDateTime(at, timeZone)}
+          {formatDateTimeShort(at, timeZone)}
         </span>
         {opening && (
           <Badge tone="neutral" size="sm">

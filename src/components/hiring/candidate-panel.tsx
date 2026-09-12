@@ -44,7 +44,7 @@ import { daysInStage } from "@/lib/mock/hiring";
 import { employeeById } from "@/lib/mock/people";
 import { REJECTION_REASONS as REJECTION_REASON_OPTIONS } from "@/lib/reference/lists";
 import { useOrgTimezone } from "@/lib/store/session";
-import { formatDate, formatDateTime } from "@/lib/time";
+import { formatDateShort, formatWeekdayTime } from "@/lib/time";
 import { StagePill, stageLabel } from "./stage-pill";
 
 /*
@@ -385,7 +385,7 @@ export function CandidatePanel({
                       {INTERVIEW_LABEL[iv.kind]}
                     </p>
                     <p className="mt-0.5 text-meta text-muted">
-                      {formatDateTime(iv.scheduledFor, timeZone)} ·{" "}
+                      {formatWeekdayTime(iv.scheduledFor, timeZone)} ·{" "}
                       {iv.durationMins} mins
                     </p>
                     <p className="mt-1 text-meta text-muted">
@@ -618,7 +618,7 @@ function activityFor(card: PipelineCard, timeZone: string): TimelineEntry[] {
     entries.push({
       id: iv.id,
       title: `${INTERVIEW_LABEL[iv.kind]} ${iv.status}`,
-      timestamp: formatDate(iv.scheduledFor, timeZone),
+      timestamp: formatDateShort(iv.scheduledFor, timeZone),
       tone: iv.status === "completed" ? "success" : "neutral",
     });
   }

@@ -37,7 +37,7 @@ import {
   useStages,
 } from "@/lib/store/recruitment";
 import { useOrgTimezone } from "@/lib/store/session";
-import { formatDateTime } from "@/lib/time";
+import { formatWeekdayTime } from "@/lib/time";
 
 const OUTCOME_TONE = {
   IN_PROGRESS: "info",
@@ -281,7 +281,7 @@ export function RealPipeline({
                     {INTERVIEW_KIND_LABEL[iv.kind]}
                   </p>
                   <p className="tabular mt-0.5 text-meta text-muted">
-                    {formatDateTime(iv.scheduledFor, timeZone)} ·{" "}
+                    {formatWeekdayTime(iv.scheduledFor, timeZone)} ·{" "}
                     {iv.durationMins} mins
                     {iv.location ? ` · ${iv.location}` : ""}
                   </p>

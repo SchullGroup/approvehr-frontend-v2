@@ -3,10 +3,11 @@
  *
  * ## Why one module
  *
- * There were 45 formatting call sites and they disagreed. Some passed
- * `timeZone: "UTC"`; the rest passed no zone at all, which formats in the
- * *viewer's browser* — so two colleagues in different countries read
- * different dates off the same payslip. Neither showed the company's own day.
+ * There were dozens of formatting call sites across the app and they
+ * disagreed. Some passed `timeZone: "UTC"`; the rest passed no zone at all,
+ * which formats in the *viewer's browser* — so two colleagues in different
+ * countries read different dates off the same payslip. Neither showed the
+ * company's own day.
  *
  * The zone is a parameter rather than something read from a store inside
  * here, so these stay pure and testable, and so a later per-location zone is
@@ -19,6 +20,7 @@ const DAY = new Map<string, Intl.DateTimeFormat>();
 const SHORT_DATE = new Map<string, Intl.DateTimeFormat>();
 const WEEKDAY = new Map<string, Intl.DateTimeFormat>();
 const HOUR = new Map<string, Intl.DateTimeFormat>();
+const WEEKDAY_TIME = new Map<string, Intl.DateTimeFormat>();
 
 function dateFormat(timeZone: string): Intl.DateTimeFormat {
   const cached = DATE.get(timeZone);
@@ -115,6 +117,27 @@ function weekdayFormat(timeZone: string): Intl.DateTimeFormat {
   return made;
 }
 
+/**
+ * `Wed 19 Aug, 10:32` — weekday, day, short month, time. No year: this
+ * matters for a value stripped of it, `en-GB`'s `"Sept"` truncated the same
+ * way `shortDateString` truncates it.
+ */
+function weekdayTimeFormat(timeZone: string): Intl.DateTimeFormat {
+  const cached = WEEKDAY_TIME.get(timeZone);
+  if (cached) return cached;
+  const made = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  WEEKDAY_TIME.set(timeZone, made);
+  return made;
+}
+
 /** Matches `timeFormat`'s `hour12: false`, so midnight reads `0`, not `24`. */
 function hourFormat(timeZone: string): Intl.DateTimeFormat {
   const cached = HOUR.get(timeZone);
@@ -179,6 +202,27 @@ export function formatDateTimeShort(
   return `${shortDateString(date, timeZone)}, ${timeFormat(timeZone).format(date)}`;
 }
 
+/**
+ * `Wed 19 Aug, 10:32` — for a near-term scheduled moment (an interview slot),
+ * where the weekday is the load-bearing half of the date — it is what
+ * somebody checks against their own week — and the year is not, since
+ * nothing shown this way is scheduled far enough out to need one.
+ * `"—"` when unparseable.
+ */
+export function formatWeekdayTime(
+  value: string | Date | null | undefined,
+  timeZone: string,
+): string {
+  const date = parse(value);
+  if (!date) return "—";
+  return weekdayTimeFormat(timeZone)
+    .formatToParts(date)
+    .map((part) =>
+      part.type === "month" ? part.value.slice(0, 3) : part.value,
+    )
+    .join("");
+}
+
 /** `YYYY-MM-DD` for an instant, in the given zone. `null` when unparseable. */
 export function dayIn(
   value: string | Date | null | undefined,
@@ -203,10 +247,11 @@ export function todayIn(timeZone: string): string {
  * function exists to close.
  *
  * Returns `0` if either side is unparseable — the same answer as "no time
- * has passed", not a distinguishable "invalid" sentinel. `dayHeading` already
- * guards this with `isValidInstant` before calling in, and any new caller
- * that cannot guarantee valid input must do the same rather than trust a `0`
- * here to mean "same day".
+ * has passed", not a distinguishable "invalid" sentinel. Both current
+ * callers already guard against this — `dayHeading` with `isValidInstant`,
+ * `lib/api/approvals.ts`'s `deadlineLabel` with its own `Number.isNaN` check
+ * — and any new caller that cannot guarantee valid input must do the same
+ * rather than trust a `0` here to mean "same day".
  */
 export function daysBetweenIn(
   from: string | Date,
