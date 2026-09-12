@@ -76,7 +76,7 @@ function shortDateFormat(timeZone: string): Intl.DateTimeFormat {
 function weekdayFormat(timeZone: string): Intl.DateTimeFormat {
   const cached = WEEKDAY.get(timeZone);
   if (cached) return cached;
-  const made = new Intl.DateTimeFormat("en-US", {
+  const made = new Intl.DateTimeFormat("en-GB", {
     timeZone,
     weekday: "long",
   });
