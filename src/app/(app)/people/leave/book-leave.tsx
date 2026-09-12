@@ -27,9 +27,10 @@ import {
 } from "@/lib/store/leave";
 import { useAttendancePolicy } from "@/lib/store/attendance";
 import { usePublicHolidays } from "@/lib/store/holidays";
-import { useSession } from "@/lib/store/session";
+import { useOrgTimezone, useSession } from "@/lib/store/session";
 import { useCan } from "@/lib/permissions";
 import { fullName } from "@/lib/types";
+import { todayIn } from "@/lib/time";
 
 type Draft = {
   employeeId: string;
@@ -83,14 +84,18 @@ export function BookLeaveDialog({
   requests: readonly LeaveRow[];
 }) {
   const session = useSession();
+  const timeZone = useOrgTimezone();
   const { employees } = useEmployeeDirectory({ pageSize: 200 });
   const { types } = useLeaveTypes();
   const mutations = useLeaveMutations();
   const toast = useToast();
   const { policy: attendancePolicy } = useAttendancePolicy();
   /* Load the current and next year's holidays so a leave range spanning
-     Dec–Jan still nets off public holidays correctly. */
-  const currentYear = new Date().getFullYear();
+     Dec–Jan still nets off public holidays correctly. The company's year,
+     not the browser's: someone booking leave from another timezone close to
+     31 December could otherwise have their own "current year" disagree with
+     the company's, and load the wrong pair of holiday calendars. */
+  const currentYear = Number(todayIn(timeZone).slice(0, 4));
   const cal0 = usePublicHolidays(currentYear);
   const cal1 = usePublicHolidays(currentYear + 1);
   const confirmedHolidays = [
