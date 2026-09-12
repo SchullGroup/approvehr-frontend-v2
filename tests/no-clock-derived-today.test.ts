@@ -5,114 +5,135 @@ import { describe, expect, it } from "vitest";
 /**
  * The clock, read raw, outside `lib/time.ts`.
  *
- * ## Why this is an invariant and not a list of shapes
+ * ## What this is, honestly
  *
- * Task 7d found five distinct spellings of "read the clock and derive a day,
- * month or wall-clock time without asking which zone" across three batches
- * and two review rounds — `toLocaleDateString`-family formatting (7b), a
- * hand-rolled `getFullYear()`/`getMonth()`/`getDate()` getter (7c), and, in
- * this batch, `new Date().toISOString().slice(0, 10)`,
- * `Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())`, and
- * `new Date().toTimeString().slice(0, 5)` — each found only after a check
- * written for the previous ones missed it. A sixth is not a hypothetical; it
- * is the pattern so far.
+ * This is a textual speed bump, not a dataflow analysis. It stands in for
+ * the tool that would actually settle this — a typed ESLint rule built on
+ * the TypeScript compiler API, which can follow a value through an
+ * assignment, a function boundary, a file — because that tool does not
+ * exist here yet. A regex cannot win an argument about dataflow, and after
+ * three rounds of widening this one to close a real escape and finding the
+ * next one already open, the answer is not a fourth round: it is to stop,
+ * say plainly what a green run does and does not prove, and leave the rest
+ * to the tool built for it. **This file is frozen** — read what follows as
+ * the boundary of what it promises, not a todo list.
  *
- * So this does not enumerate reductions. It states the invariant every one of
- * them breaks: **outside `lib/time.ts`, "the clock, right now" — a zero-
- * argument `new Date()`, a bare `Date.now()`, or a `new Date(...)` built from
- * either — is safe in exactly one shape, and every other use of it needs a
- * zone or a written reason at the site.**
+ * ## Why an invariant, not a list of shapes
+ *
+ * Five distinct spellings of "read the clock and derive a day, month or
+ * wall-clock time without asking which zone" have been found across three
+ * batches and three review rounds — `toLocaleDateString`-family formatting
+ * (7b), a hand-rolled `getFullYear()`/`getMonth()`/`getDate()` getter (7c),
+ * and, in this batch, `new Date().toISOString().slice(0, 10)`,
+ * `Date.UTC(now.getUTCFullYear(), ...)`, and `new
+ * Date().toTimeString().slice(0, 5)` — each found only after a check
+ * written for the previous ones missed it. So this does not enumerate
+ * reductions; it states the invariant every one of them breaks: **outside
+ * `lib/time.ts`, "the clock, right now" — a zero-argument `new Date()`, a
+ * bare `Date.now()`, a bare `Date()` call, or a `new Date(...)` built from
+ * any of those — is safe in exactly one shape, and every other use needs a
+ * marker naming a reason, on the exact line it appears on.**
  *
  * ## What counts as "the clock"
  *
- * Three forms, all treated the same way:
- *
  * - `new Date()` — no arguments.
  * - `Date.now()` — bare, anywhere it appears.
- * - `new Date(<expr>)` where `<expr>` itself contains either of the above,
- *   however deeply nested. Round 2 of review found this is not optional:
- *   `new Date(new Date().toISOString())` reconstructs a fresh, clock-anchored
- *   `Date` object that is then free to be reduced with local getters
- *   anywhere — including a different file — and a check that only looked at
- *   the *innermost* `new Date()` would call that safe, because the text
- *   immediately after it (`.toISOString())`) looks exactly like the one safe
- *   shape below. The fix is structural: a `new Date(...)` whose argument
- *   contains a clock read is itself a clock read, full stop, and its own
- *   safety is judged by what follows *its* closing parenthesis — not the
- *   inner expression's.
- *
- *   The same round found `Date.now()` was entirely outside the previous
- *   version of this invariant — its regex only matched `new Date()` — so
- *   `new Date(Date.now())` and `new Date(Date.now()).toISOString().slice(0,
- *   10)` (character-for-character the batch's original bug) both passed.
- *   `Date.now()` is "the clock, right now" exactly as much as `new Date()`
- *   is, and is checked identically now.
+ * - `Date()` — called without `new`. Legacy JavaScript: this ignores
+ *   whatever arguments it is given and always returns the current moment as
+ *   a browser-local string, unlike `new Date()`, which stays zone-agnostic
+ *   until something formats it. Zero instances exist in `src/` today, so
+ *   there is nothing this addition could newly misclassify.
+ * - `new Date(<expr>)` where `<expr>` itself contains any of the above,
+ *   however deeply nested — because `new Date(new Date().toISOString())`
+ *   reconstructs a fresh, clock-anchored `Date` free to be reduced with
+ *   local getters anywhere afterward, and only the *outer* call's own tail
+ *   (not the inner expression's) can say whether that happens here.
  *
  * ## The one safe shape, for each form
  *
- * A `Date`-shaped clock read (`new Date()`, or a `new Date(...)` built from
- * one) is safe used **whole**, with nothing chained onto
- * `.toISOString()`'s result: `toISOString()` always serialises in UTC, so the
- * string it returns names one specific instant unambiguously. The moment
- * anything is chained onto that string, a *day* has been asked for, and a
- * day needs a zone.
+ * A `Date`-shaped clock read is safe used **whole**, with nothing chained
+ * onto `.toISOString()`'s result: that method always serialises in UTC, so
+ * the string it returns names one specific instant unambiguously. The
+ * moment anything is chained onto that string, a *day* has been asked for,
+ * and a day needs a zone.
  *
- * A bare `Date.now()` has no equivalent — a number carries no proof of zone-
- * safety the way a UTC-anchored string does — except one shape that cannot
- * derive a calendar concept from a number no matter what: `.toString(...)`,
- * a radix conversion. Anything else — assigned, compared, subtracted,
- * divided, or interpolated bare — needs a marker.
+ * A bare `Date.now()` has one safe shape for the same reason a number can
+ * offer no UTC-anchored string: `.toString(...)`, a radix conversion, which
+ * cannot produce a calendar concept no matter what. Bare `Date()` has none —
+ * the string it returns is already zone-committed the instant it is called.
  *
- * ## Everything else needs a marker, at the site
+ * ## Everything else needs a marker, on its own line
  *
- * The previous version of this test kept exceptions in a `file, snippet,
- * reason` array here, and round 2 of review found the two most generic
- * entries (`assets.ts` and `reimbursements.ts`, both exempting the single
- * line `const date = new Date();`) would have silently exempted a *second*,
- * unrelated, unjustified clock read added anywhere else in either of those
- * 500–800-line files — both of which also hold real user-facing mutations.
- * The fix is to stop keeping the exemption at a distance. An occurrence is
- * exempt only if the line it is on, or one of the five lines immediately
- * before it, contains the literal substring `reads-the-clock:` followed by
- * a real reason, not just a comment's own closing punctuation — written at
- * the call site itself, the way `no-raw-date-formatting.test.ts` already asks a
- * reviewer to rename a colliding variable rather than widen a regex.
+ * An occurrence is exempt only if the *exact line it appears on* — nowhere
+ * else — contains, inside an actual comment (not a string literal; see
+ * below), the literal substring `reads-the-clock:` followed by a real
+ * reason, not just a comment's own closing punctuation.
+ *
+ * "Its own line" is deliberately the whole rule, with two rounds of review
+ * behind why a wider one keeps failing in both directions at once. A
+ * lookback window (tried in round 2) fails *open* the moment a line is
+ * inserted between the marker and the code it was meant to cover — a
+ * second, unrelated clock read lands inside the same window and reads as
+ * exempted — and fails *closed*, oppositely, the moment enough lines are
+ * inserted *before* the marker to push the original, legitimate site back
+ * outside it, so the guardrail reports the wrong line and stays silent on
+ * the real one. Scoping to one line removes the window rather than resizing
+ * it again: an insertion anywhere else cannot change what a given line's
+ * own marker does or doesn't cover. When a clock read is one part of a
+ * wrapped, multi-line expression, the marker goes on whichever physical
+ * line the clock-reading token itself sits on — a trailing comment, not a
+ * comment on the line before — which is why several sites in this codebase
+ * were reformatted (a function signature split across lines, a `useMemo`'s
+ * callback body) rather than left as a leading block comment: there was no
+ * other way to put the marker on the token's own line without doing so.
+ *
+ * The marker is checked against the line's comment content specifically —
+ * extracted the same way `withoutComments` recognises a comment in the
+ * first place — not the raw line, so the phrase sitting inside an ordinary
+ * string literal (`"reads-the-clock: not a real marker"`) cannot exempt
+ * anything: a plain string matches neither the block- nor line-comment
+ * shape, so nothing is extracted from it to test the marker against.
+ *
  * Every marker in this codebase today was written while fixing this exact
  * finding; grep for `reads-the-clock:` to read all of them at once.
  *
- * ## What this still does not catch
+ * ## What this cannot promise — the class, not today's list
  *
- * A line-by-line substring search, not a type checker or a data-flow
- * analysis:
+ * A textual, per-line check cannot follow a *value*, only recognise a
+ * *shape* written directly at one spot. Concretely, and permanently:
  *
- * 1. **A line-wrapped safe shape.** `new Date()\n  .toISOString()` is the
- *    safe shape, spread across lines; this only looks at what follows a
- *    match on the *same* line, so a reformatted safe call could misread as
- *    unsafe (a false positive, the safer direction to fail in, but still
- *    worth a reviewer's eye).
- * 2. **A value laundered through an intermediate variable, function, or
- *    file.** `const now = new Date(); /* ...no marker... *\/ elsewhere(now)`
- *    is still refused here, because `now` itself is never immediately
- *    reduced — but if `elsewhere` is a *different function* that itself
- *    reads a parameter and reduces it locally, nothing connects that
- *    reduction back to this call. This is the same gap the very first
- *    version of this test admitted for `insights.ts`; nesting `new
- *    Date(...)` detection narrows it without closing it.
- * 3. **A marker that has stopped being true.** Nothing checks that the
- *    reason still describes the code beneath it after an edit — only that
- *    the words are present.
- * 4. **Unbalanced parentheses inside a string or template literal passed to
- *    `new Date(...)`.** The argument-matching below counts `(`/`)` textually
- *    to find where a call's arguments end; a literal `)` inside a string
- *    argument would close the count early. No such argument exists in this
- *    codebase today.
+ * - **Any clock value that passes through an intermediate — a variable, a
+ *   parameter, a return, a store, a second file — is invisible the moment
+ *   it is reduced somewhere other than where it was captured.**
+ *   `const stamp = new Date().toISOString();` two lines above
+ *   `stamp.slice(0, 10)` is exactly this: the first line is the one
+ *   textually safe shape this file knows, and the second line contains no
+ *   clock-reading token at all, so there is nothing here to flag on either
+ *   line — the same class of gap `insights.ts` demonstrated for real in this
+ *   batch's first round, now demonstrated again by a mutation the reviewer
+ *   invented in round 3. Wrapping the clock read across a `String(...)` or a
+ *   template literal, or across a `new Date(\n  ...\n)` that prettier has
+ *   reformatted onto several lines, are the same gap wearing different
+ *   clothes: the read and the reduction are not on one line together, and
+ *   this only ever looks at one line at a time.
+ * - **A marker is trusted on its word.** Nothing here checks that the
+ *   reason it gives is still true of the code beneath it, or was ever true.
+ *   A wrong marker (one was found and corrected in round 2 of review) reads
+ *   as authoritative and is *harder* to notice than no marker at all.
+ * - **Every product site this file currently green-lights was, in fact,
+ *   verified by hand** — the four live instances of the one safe `Date`
+ *   shape were each individually read and confirmed correct in round 3 of
+ *   review, and every marker in the codebase was read against the line it
+ *   sits on and found true. This file did not do that verification; it
+ *   only stopped being wrong about the shapes it happened to check.
  *
- * Closing any of these needs the TypeScript compiler's own data-flow
- * analysis, not a string search — the same conclusion
- * `no-raw-date-formatting.test.ts`'s header reaches about its own three
- * gaps, and for the same reason: widening a regex has repeatedly traded one
- * blind spot for another in this repo rather than closing the underlying
- * one.
+ * None of this is closable by widening the pattern further — that has
+ * traded one blind spot for another twice already in this exact file, which
+ * is the reason it is frozen rather than extended a fourth time. The actual
+ * fix is a typed lint rule with real dataflow, which is follow-up work, not
+ * this one. A green run here means: no *textually direct* clock read was
+ * found unmarked. It does not mean no clock value is ever misused, and it
+ * should not be read as though it does.
  */
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..");
@@ -121,21 +142,28 @@ const SRC = path.resolve(REPO_ROOT, "src");
 const EXCLUDED = new Set([path.resolve(SRC, "lib/time.ts")]);
 
 /**
- * Comments out, code in — but a block comment is replaced with the same
- * number of newlines it contained, not with nothing, so a match after it
- * still reports the line it is actually on. The previous version collapsed
- * every block comment to `""`, so a violation appended after a multi-line
- * doc comment reported a line number from a shorter, post-strip file — a
- * `:66` that was nowhere near line 66 of the real thing, exactly the kind of
- * "the file said so" mistake this suite otherwise exists to catch. Also the
- * mechanism `reads-the-clock:` markers depend on staying accurate: the
- * marker check re-reads the *original*, uncommented lines by the same index
- * this produces.
+ * Comments out, code in — a block comment is replaced with the same number
+ * of newlines it contained (not with nothing), so a match after it still
+ * reports the line it is actually on.
  */
 const withoutComments = (code: string): string =>
   code
     .replace(/\/\*[\s\S]*?\*\//g, (block) => block.replace(/[^\n]/g, ""))
     .replace(/(^|[^:])\/\/.*$/gm, "$1");
+
+/**
+ * The inverse of `withoutComments`, and only ever applied one line at a
+ * time: whatever a block or line comment on `line` contains, concatenated —
+ * nothing else. A marker is checked against this, not against `line`
+ * itself, so a string literal that happens to contain the marker phrase
+ * (`"reads-the-clock: not real"`) is not mistaken for one: it matches
+ * neither comment shape, so nothing is extracted from it at all.
+ */
+function commentsOnlyOnLine(line: string): string {
+  const blocks = [...line.matchAll(/\/\*[\s\S]*?\*\//g)].map((m) => m[0]);
+  const lineComment = /(^|[^:])(\/\/.*)$/.exec(line);
+  return [...blocks, lineComment ? lineComment[2] : ""].join(" ");
+}
 
 function collectSourceFiles(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
@@ -192,9 +220,13 @@ function findNewDateSpans(text: string): NewDateSpan[] {
   return spans;
 }
 
+/** A bare `Date()` call — no `new`. Always unsafe; see the header. */
+const BARE_DATE_CALL = /(?<!new )\bDate\(\)/;
+
 /** Does `text` read the clock anywhere — bare, or nested in `new Date(...)`? */
 function containsClockRead(text: string): boolean {
   if (/\bDate\.now\(\)/.test(text)) return true;
+  if (BARE_DATE_CALL.test(text)) return true;
   return findNewDateSpans(text).some(
     (span) => span.args === "" || containsClockRead(span.args),
   );
@@ -207,28 +239,24 @@ const SAFE_TAIL_NUMBER = /^\.toString\([^()]*\)(?!\s*\.)/;
 
 /**
  * The marker itself: the phrase, plus at least one real character of a
- * reason — not just a comment's own closing punctuation, which `\S` alone
- * would accept as "a reason".
+ * reason — not just a comment's own closing punctuation, which a bare
+ * "one more character" test would accept as "a reason".
  */
 const MARKER = /reads-the-clock:\s*[^\s*/]/;
-/** How many lines *before* a hit a marker may sit on — see the header. */
-const MARKER_LOOKBACK = 5;
 
-function isMarked(originalLines: string[], lineIndex: number): boolean {
-  const from = Math.max(0, lineIndex - MARKER_LOOKBACK);
-  for (let i = from; i <= lineIndex; i++) {
-    if (MARKER.test(originalLines[i] ?? "")) return true;
-  }
-  return false;
+/** Only the exact line an occurrence is on may exempt it — see the header. */
+function isMarked(originalLine: string): boolean {
+  return MARKER.test(commentsOnlyOnLine(originalLine));
 }
 
 /**
  * `strippedLines` and `originalLines` must be the same length, line for
  * line — `withoutComments` guarantees that. Violations are detected against
  * `strippedLines` (so a comment merely mentioning a banned shape is not
- * mistaken for a call) and reported, and exempted, against `originalLines`
- * (so a marker, which lives inside a comment, is not stripped away before
- * this ever sees it).
+ * mistaken for a call) and exempted against `originalLines` (so a marker,
+ * which lives inside a comment, is not stripped away before this ever sees
+ * it) — but only the comment content of that same original line, via
+ * `isMarked`, never a neighbouring one.
  */
 function violationsIn(
   strippedLines: string[],
@@ -259,7 +287,14 @@ function violationsIn(
       flagged = true;
     }
 
-    if (flagged && !isMarked(originalLines, i)) {
+    const bareDate = /(?<!new )\bDate\(\)/g;
+    while ((match = bareDate.exec(line))) {
+      const idx = match.index;
+      if (consumed.some(([s, e]) => idx >= s && idx < e)) continue;
+      flagged = true; // no safe shape at all — see the header
+    }
+
+    if (flagged && !isMarked(originalLines[i] ?? "")) {
       hits.push(`${relPath}:${i + 1}: ${line.trim()}`);
     }
   });
@@ -300,8 +335,8 @@ describe("the clock is read raw only where lib/time.ts is allowed to", () => {
  *
  * The suite above only proves the *codebase* is clean today — a clean
  * codebase and a blind detector produce the same empty result. These assert
- * the detection logic itself, including the shapes round 2 of review found
- * the previous version could not see at all.
+ * the detection logic itself, including the shapes each review round found
+ * a previous version could not see.
  */
 describe("the detector itself", () => {
   const run = (source: string, relPath = "sample.ts"): string[] => {
@@ -364,10 +399,6 @@ describe("the detector itself", () => {
   });
 
   it("catches new Date(new Date().toISOString()) — round 2's other escape: a relaunder that hands back a fresh, clock-anchored Date", () => {
-    /* The old detector saw only the inner new Date(), whose own tail
-       (`.toISOString())`) looked exactly like the safe shape. The outer
-       call is what actually matters: nothing follows *its* closing paren
-       here, so it is refused, not laundered through. */
     expect(
       run(`const relaunched = new Date(new Date().toISOString());`),
     ).toHaveLength(1);
@@ -386,11 +417,17 @@ describe("the detector itself", () => {
   });
 
   it("does not flag new Date(...) built entirely from a stored constant, even nested", () => {
-    /* Neither level here is Date.now() or a bare new Date() — TODAY is a
-       frozen string, so nothing reads the clock at all. */
     expect(
       run(`until: new Date(new Date(TODAY).getTime() + days * 86_400_000),`),
     ).toEqual([]);
+  });
+
+  it("catches a bare Date() call — round 3's addition, zero instances in this repo today", () => {
+    expect(run(`const stamp = Date();`)).toHaveLength(1);
+  });
+
+  it("does not mistake new Date() for a bare Date() call", () => {
+    expect(run(`const now = new Date();`)).toHaveLength(1); // one hit, not two
   });
 
   it("passes a marker on the same line", () => {
@@ -401,31 +438,22 @@ describe("the detector itself", () => {
     ).toEqual([]);
   });
 
-  it("passes a marker up to five lines above — real markers in this repo sit as far as a preceding doc comment's own wording puts them", () => {
+  it("does not honour a marker on the line before — round 3 scoped this to one line, not a window", () => {
     expect(
       run(
         [
-          "/* reads-the-clock: an elapsed-time anchor, compared only to",
-          "   another instant below, never read as a calendar day. */",
-          "",
-          "",
-          "",
+          "// reads-the-clock: this no longer reaches the line below.",
           "const at = Date.now();",
         ].join("\n"),
       ),
-    ).toEqual([]);
+    ).toHaveLength(1);
   });
 
-  it("does not honour a marker six lines above — the window has an edge", () => {
+  it("does not honour a marker phrase sitting inside a string literal — round 3's other fix", () => {
     expect(
       run(
         [
-          "/* reads-the-clock: too far away to count. */",
-          "",
-          "",
-          "",
-          "",
-          "",
+          'const msg = "reads-the-clock: not a real marker";',
           "const at = Date.now();",
         ].join("\n"),
       ),
@@ -453,7 +481,7 @@ describe("the detector itself", () => {
     ).toEqual([]);
   });
 
-  it("preserves line numbers across a multi-line comment — the bug round 2 found in withoutComments itself", () => {
+  it("preserves line numbers across a multi-line comment", () => {
     const source = [
       "/**",
       " * A doc comment spanning",
@@ -468,5 +496,19 @@ describe("the detector itself", () => {
     expect(hits).toEqual([
       "sample.ts:5: const today = new Date().toISOString().slice(0, 10);",
     ]);
+  });
+
+  it("admits the gap the header names: a stamp captured safely, reduced two lines later", () => {
+    /* This is the exact mutation round 3 of review invented. Recorded here,
+       not to close it — the header explains why that would mean another
+       special case — but so a future reader sees this is a known,
+       deliberate blind spot rather than an oversight. */
+    const hits = run(
+      [
+        "const stamp = new Date().toISOString();",
+        "const today = stamp.slice(0, 10);",
+      ].join("\n"),
+    );
+    expect(hits).toEqual([]);
   });
 });
