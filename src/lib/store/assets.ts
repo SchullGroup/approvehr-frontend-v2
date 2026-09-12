@@ -402,6 +402,9 @@ const missing = (what: string) =>
 
 /** Days back from today as `YYYY-MM-DD`. Keeps the seed plausible on any day. */
 function daysAgo(days: number): string {
+  /* reads-the-clock: makes the static demo catalogue's dates look plausible
+     whenever the app happens to load. No real user reads this exact day —
+     see task-7d's report. */
   const date = new Date();
   date.setDate(date.getDate() - days);
   const month = String(date.getMonth() + 1).padStart(2, "0");

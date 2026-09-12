@@ -188,6 +188,8 @@ export function createSharedResource<T>(
   function load(key: string) {
     const entry = entryFor(key);
     if (entry.loaded || entry.pending) return;
+    /* reads-the-clock: a retry backoff, one instant measured against
+       another — an elapsed duration, never a calendar day. */
     if (entry.failedAt !== null && Date.now() - entry.failedAt < RETRY_AFTER_MS)
       return;
 
@@ -200,7 +202,8 @@ export function createSharedResource<T>(
       } catch {
         /* Left `null`. Every caller already has a fallback for "not known yet"
            — `usePermissions` keeps the access token's own claims — and blanking
-           an interface because one read failed is the larger failure. */
+           an interface because one read failed is the larger failure.
+           reads-the-clock: stamps the retry backoff above, not a day. */
         entry.failedAt = Date.now();
       } finally {
         entry.pending = null;

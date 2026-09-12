@@ -35,6 +35,8 @@ export function DashboardHeader({ action }: { action?: React.ReactNode }) {
   const { displayName } = useSession();
   const timeZone = useOrgTimezone();
   const firstName = displayName?.split(" ")[0];
+  /* reads-the-clock: passed straight into the zone-aware hourIn alongside
+     timeZone — never reduced to an hour locally. */
   const hello = greeting(hourIn(new Date(), timeZone));
 
   return (

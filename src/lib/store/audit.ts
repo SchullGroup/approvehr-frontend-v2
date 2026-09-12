@@ -607,7 +607,9 @@ export function useAuditTrail(filters: AuditListParams) {
   /* Memoised so it is one reference per mode rather than a new `Date` on every
      render, which would defeat every `useMemo` downstream that groups by day.
      Frozen at mount is also what the notification inbox does: relative labels
-     that tick on their own are motion nobody asked for. */
+     that tick on their own are motion nobody asked for.
+     reads-the-clock: a raw instant, consumed downstream (dayHeading)
+     alongside timeZone rather than reduced here. */
   const now = useMemo(
     () => (isConnected ? new Date() : DEMO_NOW),
     [isConnected],
@@ -780,6 +782,8 @@ export function useRecordTimeline(
     return { rows: matched.slice(0, limit), total: matched.length };
   }, [entityType, entityId, limit, includeReads]);
 
+  /* reads-the-clock: same shape as useAuditTrail above — a raw instant,
+     consumed downstream (dayHeading) alongside timeZone. */
   const now = useMemo(
     () => (isConnected ? new Date() : DEMO_NOW),
     [isConnected],

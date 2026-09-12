@@ -2198,6 +2198,7 @@ export function usePaymentActions(): PaymentActions {
       );
       if (!account) refuse("That bank account is not on file.");
       const entry: ApiLedgerEntry = {
+        /* reads-the-clock: entropy for a locally-unique id, not a day. */
         id: `led-${Date.now()}`,
         occurredAt: body.occurredAt ?? todayIn(timeZone),
         kind: "FUNDING",

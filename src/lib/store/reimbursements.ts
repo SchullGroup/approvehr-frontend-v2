@@ -252,6 +252,8 @@ function alreadyDecided(claim: ApiClaim): string {
 
 /** Days back from today as `YYYY-MM-DD`. Keeps the seed plausible on any day. */
 function daysAgo(days: number): string {
+  /* reads-the-clock: the same seed-only daysAgo() as assets.ts, for the
+     seeded expense-claims catalogue. No real user reads this exact day. */
   const date = new Date();
   date.setDate(date.getDate() - days);
   const month = String(date.getMonth() + 1).padStart(2, "0");

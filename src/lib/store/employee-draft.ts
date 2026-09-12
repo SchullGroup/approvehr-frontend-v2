@@ -242,7 +242,12 @@ export function useEmployeeDraft(): EmployeeDraftState {
   };
 }
 
-/** "2 minutes ago", for the resume banner. Coarse on purpose. */
+/**
+ * "2 minutes ago", for the resume banner. Coarse on purpose.
+ *
+ * reads-the-clock: `now`'s default is an elapsed-time anchor, subtracted
+ * from `iso` below to get a duration in minutes — never a calendar day.
+ */
 export function savedAgo(iso: string, now: number = Date.now()): string {
   const minutes = Math.floor((now - new Date(iso).getTime()) / 60_000);
   if (minutes < 1) return "just now";

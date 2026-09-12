@@ -284,6 +284,9 @@ export function MarketingFooter() {
         <div className="mt-14 flex flex-wrap items-center justify-between gap-4 border-t border-sand-line pt-6">
           <div className="flex items-center gap-2.5">
             <LogoMark size={18} className="text-slate" />
+            {/* reads-the-clock: a copyright year on a public page with no
+                signed-in company to read a zone from — not an operational
+                value. */}
             <p className="text-meta text-slate-muted">
               © {new Date().getFullYear()} ApproveHR, a Schull Technologies
               company. Lagos, Nigeria.

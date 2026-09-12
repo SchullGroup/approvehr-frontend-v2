@@ -108,7 +108,9 @@ export function DayTimer({
 }) {
   /* Thirty seconds, not one. The readout is in minutes, so a per-second timer
      would re-render sixty times to change the display twice — and this sits on
-     a screen that also holds a roster and a timesheet. */
+     a screen that also holds a roster and a timesheet.
+     reads-the-clock: `tick` only ever measures elapsed milliseconds against
+     `anchor.at` below, never a calendar day. */
   const [tick, setTick] = useState(() => Date.now());
   useEffect(() => {
     const id = setInterval(() => setTick(Date.now()), 30_000);
@@ -117,7 +119,9 @@ export function DayTimer({
 
   /* The browser's clock at the moment the server told us its own. Everything
      after this is a difference between two browser readings, which is sound
-     however far the browser is from the truth in absolute terms. */
+     however far the browser is from the truth in absolute terms.
+     reads-the-clock: `at` is an elapsed-time anchor, compared only to `tick`
+     above — never read as a calendar day. */
   const [anchor] = useState(() => ({
     server: minutesOf(serverTime),
     at: Date.now(),
