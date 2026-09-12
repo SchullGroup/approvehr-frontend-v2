@@ -102,9 +102,7 @@ const store = createPersistedState<AttendanceState>({
  * `getMinutes()` off the browser's own idea of the time.
  */
 export function nowTime(timeZone: string): string {
-  /* reads-the-clock: passed straight into the zone-aware formatTime
-     alongside timeZone — never reduced locally. */
-  return formatTime(new Date(), timeZone);
+  return formatTime(new Date(), timeZone); // reads-the-clock: straight into formatTime with timeZone
 }
 
 const entryId = (employeeId: string, date: string) =>

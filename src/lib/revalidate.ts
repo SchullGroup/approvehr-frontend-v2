@@ -97,9 +97,7 @@ const listeners = new Set<() => void>();
 
 function publish(): void {
   generation += 1;
-  /* reads-the-clock: an elapsed-time anchor for the debounce below, never
-     read as a calendar day. */
-  lastBumpAt = Date.now();
+  lastBumpAt = Date.now(); // reads-the-clock: an elapsed-time anchor for the debounce, never a calendar day
   for (const listener of listeners) listener();
 }
 
@@ -111,9 +109,8 @@ function engaged(): boolean {
 function onLeave(): void {
   /* Only the first departure counts — `blur` and `visibilitychange` both fire
      when a window is minimised, and the second must not reset the clock the
-     first one started. reads-the-clock: an elapsed-time anchor, compared
-     only to another instant below, never read as a calendar day. */
-  if (awaySince === null) awaySince = Date.now();
+     first one started. */
+  if (awaySince === null) awaySince = Date.now(); // reads-the-clock: an elapsed-time anchor, compared to another instant below
 }
 
 function onReturn(): void {
@@ -122,9 +119,7 @@ function onReturn(): void {
   awaySince = null;
   if (departedAt === null) return;
 
-  /* reads-the-clock: both comparisons below are one instant against
-     another — an elapsed duration, never a calendar day. */
-  const now = Date.now();
+  const now = Date.now(); // reads-the-clock: an elapsed-time anchor for the two comparisons below
   if (now - departedAt < AWAY_MS) return;
   if (now - lastBumpAt < MIN_INTERVAL_MS) return;
   publish();

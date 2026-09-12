@@ -606,12 +606,12 @@ export function useNotifications(tab: InboxTab) {
    * connected; the demo dataset's own day otherwise, so seeded rows read
    * "Today" instead of drifting further into the past every morning.
    *
-   * reads-the-clock: captured once as a raw instant; every consumer
-   * (groupByDay, timeLabel, dayHeading in notifications/inbox.tsx) reads it
-   * together with timeZone rather than this file reducing it to a day.
+   * Captured once as a raw instant; every consumer (groupByDay, timeLabel,
+   * dayHeading in notifications/inbox.tsx) reads it together with timeZone
+   * rather than this file reducing it to a day.
    */
   const now = useMemo(
-    () => (isConnected ? new Date() : DEMO_NOW),
+    () => (isConnected ? new Date() : DEMO_NOW), // reads-the-clock: a raw instant, consumed with timeZone downstream
     [isConnected],
   );
 

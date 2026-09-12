@@ -388,9 +388,7 @@ export function deadlineLabel(
   const due = new Date(iso);
   if (Number.isNaN(due.getTime())) return null;
 
-  /* reads-the-clock: passed straight into the zone-aware daysBetweenIn
-     alongside timeZone — never reduced locally. */
-  const day = daysBetweenIn(new Date(), due, timeZone);
+  const day = daysBetweenIn(new Date(), due, timeZone); // reads-the-clock: straight into daysBetweenIn with timeZone
 
   if (day < -1) return `${Math.abs(day)} days past the deadline`;
   if (day === -1) return "A day past the deadline";
@@ -405,9 +403,9 @@ export function deadlineLabel(
 export function isPastDeadline(iso: string | null): boolean {
   if (!iso) return false;
   const due = new Date(iso);
-  /* reads-the-clock: one instant compared against another, never reduced to
-     a calendar day — unlike `deadlineLabel` above, which has to name one. */
-  return !Number.isNaN(due.getTime()) && due.getTime() < Date.now();
+  return (
+    !Number.isNaN(due.getTime()) && due.getTime() < Date.now() // reads-the-clock: instant vs instant, never reduced to a day
+  );
 }
 
 /**
