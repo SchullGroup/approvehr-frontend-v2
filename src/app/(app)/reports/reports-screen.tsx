@@ -137,14 +137,24 @@ function Reports() {
    */
   const timeZone = useOrgTimezone();
   const months = useMemo(() => recentMonths(timeZone), [timeZone]);
-  const [period, setPeriod] = useState<string>(() => months[0] ?? "");
-  const { data, loading, error, reload } = useReports(period);
+  /**
+   * `null` until somebody picks a month, not `months[0]` snapshotted at
+   * mount: `useOrgTimezone()` answers `"Africa/Lagos"` until the session
+   * hydrates, so a company in another zone would otherwise have its first
+   * render freeze `period` on the wrong month's list — for the whole rest of
+   * the session, not just the loading flicker — with no re-sync once the
+   * real zone arrives. Falling back to `months[0]` at the point of use keeps
+   * this current with `months` for as long as nobody has chosen otherwise.
+   */
+  const [period, setPeriod] = useState<string | null>(null);
+  const effectivePeriod = period ?? months[0] ?? "";
+  const { data, loading, error, reload } = useReports(effectivePeriod);
 
   const monthPicker = (
     <div className="min-w-44">
       <Field label="Month">
         <Select
-          value={period}
+          value={effectivePeriod}
           onChange={(event) => setPeriod(event.target.value)}
         >
           {months.map((month) => (
