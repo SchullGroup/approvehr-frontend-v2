@@ -64,8 +64,22 @@ import { longDate } from "./format";
  * Showing only `balanceAfter` would leave the reader subtracting to check the
  * arithmetic, and the point of recording both is that nobody has to. Read down
  * the two columns and each row's "before" should equal the row above's
- * "after"; where it does not, something moved the balance outside the service,
- * which is exactly what `reconciled` is reporting on.
+ * "after"; where it does not, something moved the balance outside the service.
+ *
+ * ## The drift banner, and why it is gone
+ *
+ * This screen used to carry a red callout when the API reported the stored
+ * balance disagreeing with the sum of its movements. It was removed on
+ * request. The two columns above still show the disagreement to anybody
+ * reading them, and `GET /payments/wallet` still returns `reconciled` and
+ * `reconciliation` — nothing about the check itself changed, only whether
+ * this screen shouts about it.
+ *
+ * Worth knowing if the banner is ever wanted back: the state it warned about
+ * is now much harder to reach. A balance could be typed straight into
+ * `Wallet` through the platform admin dashboard, with no movement written;
+ * `Wallet`, `WalletTransaction` and `LedgerEntry` are read-only there now, so
+ * the wallet service is the only thing that can move a balance.
  *
  * ## The screen owns the page, and the fetch
  *
@@ -116,37 +130,6 @@ export function WalletStatement({
             error={statement.error}
             onRetry={statement.reload}
           />
-        </CardBody>
-      )}
-
-      {/* Reported, never hidden. The API sums the movements and compares them
-          to the stored balance on every read; when they disagree something
-          wrote the balance without going through the wallet service. Rendering
-          the rows without saying so would present a figure we have been told
-          not to trust as though it were checked. */}
-      {held && !held.reconciled && (
-        <CardBody>
-          <Callout
-            tone="danger"
-            title="This balance does not match its movements"
-          >
-            {/* `held.balance` is the API's own formatted string, and the
-                difference goes through <Money> — `naira()` returns a number,
-                so interpolating it into a sentence prints a bare 2000. */}
-            The stored balance is {held.balance} and the movements below add up
-            to something else
-            {held.reconciliation && (
-              <>
-                {" — a difference of "}
-                <Money
-                  amount={naira(Math.abs(held.reconciliation.differenceKobo))}
-                  decimals
-                />
-              </>
-            )}
-            . Nothing here has been corrected, on purpose: adjusting the figure
-            would hide whatever caused it. Tell whoever runs the platform.
-          </Callout>
         </CardBody>
       )}
 
