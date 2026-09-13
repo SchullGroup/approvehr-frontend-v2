@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { Check, Info, Lock, ThumbsDown } from "lucide-react";
 import {
   Avatar,
@@ -19,6 +18,7 @@ import {
   Money,
   Skeleton,
   Textarea,
+  TextLink,
   useToast,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -317,12 +317,9 @@ function OfferCard({
     <Card>
       <CardHeader
         title={
-          <Link
-            href={`/hiring/candidates/${card.id}`}
-            className="hover:text-accent-text hover:underline underline-offset-4"
-          >
+          <TextLink href={`/hiring/candidates/${card.id}`}>
             {fullName(card.candidate)}
-          </Link>
+          </TextLink>
         }
         description={`${card.requisition.title} · ${card.requisition.reference}`}
         action={
@@ -400,12 +397,12 @@ function OfferCard({
             <ThumbsDown aria-hidden="true" className="size-4" />
             Decline
           </Button>
-          <Link
+          <TextLink
             href={`/hiring/candidates/${card.id}`}
-            className="ml-auto text-body-sm text-accent-text hover:underline underline-offset-4"
+            className="ml-auto text-body-sm"
           >
             Read the full record
-          </Link>
+          </TextLink>
         </div>
       </CardBody>
     </Card>

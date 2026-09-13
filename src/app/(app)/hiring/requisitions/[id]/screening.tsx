@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import {
   ArrowRight,
   Inbox,
@@ -19,6 +18,7 @@ import {
   CardHeader,
   EmptyState,
   Skeleton,
+  TextLink,
   useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
@@ -314,13 +314,13 @@ function ApplicantRow({
               </Badge>
             )}
             {row.cvUrl ? (
-              <a
+              <TextLink
                 href={row.cvUrl}
-                className="inline-flex items-center gap-1 text-body-sm font-medium text-accent-text hover:underline underline-offset-4"
+                className="inline-flex items-center gap-1 text-body-sm"
               >
                 <Paperclip aria-hidden="true" className="size-3.5" />
                 Open CV
-              </a>
+              </TextLink>
             ) : (
               <Badge
                 tone="neutral"
@@ -332,21 +332,21 @@ function ApplicantRow({
             )}
           </p>
           <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
-            <a
+            <TextLink
               href={`mailto:${row.email}`}
-              className="inline-flex items-center gap-1 hover:text-accent-text hover:underline underline-offset-4"
+              className="inline-flex items-center gap-1 font-normal"
             >
               <Mail aria-hidden="true" className="size-3.5" />
               {row.email}
-            </a>
+            </TextLink>
             {row.phone && (
-              <a
+              <TextLink
                 href={`tel:${row.phone}`}
-                className="tabular inline-flex items-center gap-1 hover:text-accent-text hover:underline underline-offset-4"
+                className="tabular inline-flex items-center gap-1 font-normal"
               >
                 <Phone aria-hidden="true" className="size-3.5" />
                 {row.phone}
-              </a>
+              </TextLink>
             )}
             <span className="tabular">Applied {row.appliedOn}</span>
             {row.source && <span>Heard: {row.source}</span>}
@@ -355,13 +355,13 @@ function ApplicantRow({
 
         <div className="flex shrink-0 flex-wrap items-center gap-1.5">
           {!row.waiting && row.candidateId && (
-            <Link
+            <TextLink
               href={`/hiring/candidates/${row.candidateId}`}
-              className="inline-flex items-center gap-1 text-body-sm font-medium text-accent-text hover:underline underline-offset-4"
+              className="inline-flex items-center gap-1 text-body-sm"
             >
               See their record
               <ArrowRight aria-hidden="true" className="size-3.5" />
-            </Link>
+            </TextLink>
           )}
           {editable && row.waiting && (
             <>
