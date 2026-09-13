@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import {
   Badge,
   Button,
@@ -10,6 +9,7 @@ import {
   Select,
   Spinner,
   Textarea,
+  TextLink,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { LanguageCheck } from "@/components/performance/language-check";
@@ -306,12 +306,9 @@ export function ReviewFormModal({
           screen should be about that job. */}
       {review.submitted && (
         <p className="mb-4 text-body-sm text-muted">
-          <Link
-            href={`/performance/reviews/${review.id}`}
-            className="font-medium text-accent-text underline-offset-2 hover:underline"
-          >
+          <TextLink href={`/performance/reviews/${review.id}`}>
             See what came of this
-          </Link>{" "}
+          </TextLink>{" "}
           , the mark, and whether it has been signed off.
         </p>
       )}
