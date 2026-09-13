@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import {
   CheckCheck,
   LineChart,
@@ -27,6 +26,7 @@ import {
   THead,
   TR,
   TableWrap,
+  TextLink,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -433,12 +433,9 @@ function TopPerformers({ register }: { register: ApiScoreRegister | null }) {
                 <TR key={row.employeeId}>
                   <TD>
                     <span className="tabular text-muted">{index + 1}.</span>{" "}
-                    <Link
-                      href={`/performance/history/${row.employeeId}`}
-                      className="font-medium text-ink underline-offset-2 hover:text-accent-text hover:underline"
-                    >
+                    <TextLink href={`/performance/history/${row.employeeId}`}>
                       {row.employeeName}
-                    </Link>
+                    </TextLink>
                   </TD>
                   <TD>{row.departmentName ?? "—"}</TD>
                   <TD align="right">
@@ -878,13 +875,13 @@ function PersonRow({
         <p className="mt-1.5 text-body-sm text-body">{row.note}</p>
         {children}
       </div>
-      <Link
+      <TextLink
         href={`/performance/history/${row.employeeId}`}
-        className="flex shrink-0 items-center gap-1.5 text-body-sm font-medium text-accent-text underline-offset-2 hover:underline"
+        className="flex shrink-0 items-center gap-1.5 text-body-sm"
       >
         <LineChart aria-hidden="true" className="size-4" />
         Their trend
-      </Link>
+      </TextLink>
     </div>
   );
 }
@@ -928,12 +925,12 @@ function Disputes({ report }: { report: ApiCycleReport }) {
               </p>
             )}
             {row.reviewId && (
-              <Link
+              <TextLink
                 href={`/performance/reviews/${row.reviewId}`}
-                className="mt-1.5 inline-block text-body-sm font-medium text-accent-text underline-offset-2 hover:underline"
+                className="mt-1.5 inline-block text-body-sm"
               >
                 Open the rating
-              </Link>
+              </TextLink>
             )}
           </PersonRow>
         ))}

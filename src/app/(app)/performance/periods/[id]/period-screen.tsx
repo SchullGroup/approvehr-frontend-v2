@@ -39,6 +39,7 @@ import {
   TR,
   TableWrap,
   Textarea,
+  TextLink,
   useToast,
 } from "@/components/ui";
 import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
@@ -1245,12 +1246,12 @@ function Outstanding({
                 className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3"
               >
                 <span className="text-body-sm text-ink">{row.what}</span>
-                <Link
+                <TextLink
                   href={`/performance/reviews/${row.reviewId}`}
-                  className="text-body-sm font-medium text-accent-text underline-offset-2 hover:underline"
+                  className="text-body-sm"
                 >
                   Open it
-                </Link>
+                </TextLink>
               </li>
             ))}
           </ul>
@@ -1319,16 +1320,16 @@ function MultiAppraiserReviews({
                     : ""}
                 </p>
               </div>
-              <Link
+              <TextLink
                 href={`/performance/reviews/${manager.reviewId}`}
-                className="text-body-sm font-medium text-accent-text underline-offset-2 hover:underline"
+                className="text-body-sm"
               >
                 {manager.finalised
                   ? "Open"
                   : manager.submitted
                     ? "Finalise"
                     : "Open"}
-              </Link>
+              </TextLink>
             </div>
           )),
         )}
@@ -1478,12 +1479,9 @@ function RegisterRow({
         {/* The name is the link to their trend across periods. One mark is a
             snapshot; the argument about a rating is almost always about whether
             it moved. */}
-        <Link
-          href={`/performance/history/${row.employeeId}`}
-          className="font-medium text-ink underline-offset-2 hover:text-accent-text hover:underline"
-        >
+        <TextLink href={`/performance/history/${row.employeeId}`}>
           {row.employeeName}
-        </Link>
+        </TextLink>
         <span className="mt-0.5 block text-meta text-muted">
           {row.jobTitle}
           {row.departmentName ? ` · ${row.departmentName}` : ""}
@@ -1645,12 +1643,12 @@ function SignOffCell({ row }: { row: ApiScoreRow }) {
           Not answered yet
         </Badge>
         {signOff.reviewId && (
-          <Link
+          <TextLink
             href={`/performance/reviews/${signOff.reviewId}`}
-            className="text-meta font-medium text-accent-text underline-offset-2 hover:underline"
+            className="text-meta"
           >
             Open
-          </Link>
+          </TextLink>
         )}
       </span>
     );
@@ -1662,12 +1660,12 @@ function SignOffCell({ row }: { row: ApiScoreRow }) {
           Written, not final
         </Badge>
         {signOff.reviewId && (
-          <Link
+          <TextLink
             href={`/performance/reviews/${signOff.reviewId}`}
-            className="text-meta font-medium text-accent-text underline-offset-2 hover:underline"
+            className="text-meta"
           >
             Finalise
-          </Link>
+          </TextLink>
         )}
       </span>
     );

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { CalendarRange } from "lucide-react";
 import {
   Badge,
@@ -11,6 +10,7 @@ import {
   Disclosure,
   EmptyState,
   Spinner,
+  TextLink,
 } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { LoadFailure } from "@/components/portal/load-failure";
@@ -122,13 +122,8 @@ export function PeriodsTab() {
 
       <p className="text-body-sm text-muted">
         How much each part of an appraisal counts towards a mark is set in{" "}
-        <Link
-          href="/settings/performance"
-          className="font-medium text-accent-text underline-offset-2 hover:underline"
-        >
-          settings
-        </Link>
-        , and frozen onto a period the moment it starts.
+        <TextLink href="/settings/performance">settings</TextLink>, and frozen
+        onto a period the moment it starts.
       </p>
     </div>
   );
