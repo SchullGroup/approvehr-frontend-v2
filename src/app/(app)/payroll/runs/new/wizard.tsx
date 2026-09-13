@@ -10,7 +10,6 @@ import {
   useRef,
   useState,
 } from "react";
-import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
@@ -2378,12 +2377,9 @@ function PayslipTable({
                 <TR>
                   <TDPrimary
                     title={
-                      <Link
-                        href={`/payroll/payslips/${slip.id}`}
-                        className="hover:text-accent-text hover:underline underline-offset-4"
-                      >
+                      <TextLink href={`/payroll/payslips/${slip.id}`}>
                         {slip.name}
-                      </Link>
+                      </TextLink>
                     }
                     subtitle={slip.employeeNo}
                   />

@@ -2,7 +2,6 @@
 
 import { useMemo } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { CalendarClock, Play, Receipt, ShieldAlert } from "lucide-react";
 import type { Point } from "@/components/ui";
 import {
@@ -24,6 +23,7 @@ import {
   THead,
   TR,
   TableWrap,
+  TextLink,
   rowClick,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
@@ -452,12 +452,11 @@ export function PayrollScreen() {
                   >
                     <TDPrimary
                       title={
-                        <Link
+                        <TextLink
                           href={`/payroll/runs/new?period=${run.period}`}
-                          className="hover:text-accent-text hover:underline underline-offset-4"
                         >
                           {periodLabel(run.period)}
-                        </Link>
+                        </TextLink>
                       }
                       subtitle={run.label ?? undefined}
                     />

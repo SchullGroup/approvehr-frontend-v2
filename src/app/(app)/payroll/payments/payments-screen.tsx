@@ -2,7 +2,6 @@
 
 import { sourceNote } from "@/lib/demo";
 import { useState } from "react";
-import Link from "next/link";
 import { ArrowDownToLine, Banknote, Landmark, ScrollText } from "lucide-react";
 import {
   Badge,
@@ -23,6 +22,7 @@ import {
   THead,
   TR,
   TableWrap,
+  TextLink,
   useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
@@ -360,12 +360,9 @@ export function PaymentsScreen() {
                     <TR key={batch.id}>
                       <TDPrimary
                         title={
-                          <Link
-                            href={`/payroll/payments/${batch.id}`}
-                            className="hover:text-accent-text hover:underline underline-offset-4"
-                          >
+                          <TextLink href={`/payroll/payments/${batch.id}`}>
                             {batch.reference}
-                          </Link>
+                          </TextLink>
                         }
                         subtitle={batch.narration ?? undefined}
                       />
@@ -439,12 +436,9 @@ export function PaymentsScreen() {
         <p className="flex items-center gap-2 text-body-sm text-muted">
           <ScrollText aria-hidden="true" className="size-4 shrink-0" />
           Every bank file download is recorded in the{" "}
-          <Link
-            href="/settings/audit"
-            className="text-accent-text hover:underline underline-offset-4"
-          >
+          <TextLink href="/settings/audit" className="font-normal">
             audit trail
-          </Link>
+          </TextLink>
           .
         </p>
       </PageBody>

@@ -4,7 +4,6 @@ import { useState } from "react";
 import { payslipsCsv } from "@/lib/api/exports";
 import { useCan } from "@/lib/permissions";
 import { ExportButton } from "@/components/portal/export-button";
-import Link from "next/link";
 import { CalendarClock, Mail } from "lucide-react";
 import {
   Badge,
@@ -28,6 +27,7 @@ import {
   THead,
   TR,
   TableWrap,
+  TextLink,
   type AppliedFilter,
   type BadgeTone,
 } from "@/components/ui";
@@ -515,12 +515,12 @@ function PayslipIndex() {
                     <TR key={slip.id} interactive className="relative">
                       <TDPrimary
                         title={
-                          <Link
+                          <TextLink
                             href={href}
-                            className="after:absolute after:inset-0 hover:text-accent-text hover:underline underline-offset-4"
+                            className="after:absolute after:inset-0"
                           >
                             {slip.name}
-                          </Link>
+                          </TextLink>
                         }
                         subtitle={slip.employeeNo}
                       />
