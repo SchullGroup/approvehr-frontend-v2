@@ -226,6 +226,29 @@ export const auth = {
 
 /* ---------------------------------------------------------------- employees */
 
+/**
+ * What `POST /employees` says about the invitation it just tried, when the
+ * request asked for one at all — `approvehr-api/src/modules/invites/on-join.ts#InviteOutcome`.
+ *
+ * Absent when the create did not ask to invite anybody, which is most
+ * creates: a payroll record for somebody with no work email carries no
+ * `invite`, and nothing here is worth a caller checking.
+ *
+ * Present and worth reading whenever it is: `sent === 0` alongside a present
+ * `email` on the record means an invitation was attempted and did not go
+ * out, and `failed`/`skippedEntirely` say why. A caller that discards this —
+ * keeping only the created record — is the exact shape of bug this type
+ * exists to stop: a screen that says "Added!" while nobody was actually
+ * invited.
+ */
+export type ApiCreateInviteOutcome = {
+  sent: number;
+  noEmail: number;
+  alreadyHadLogin: number;
+  failed: { name: string; reason: string }[];
+  skippedEntirely?: string;
+};
+
 export type ApiEmployee = {
   id: string;
   employeeNo: string;
@@ -505,8 +528,16 @@ export const employees = {
       { method: "POST", body: input },
     ),
 
+  /**
+   * `invited` rides on the same object as the created record — see
+   * `ApiCreateInviteOutcome` for why a caller must not discard it the way
+   * `toEmployee` alone would.
+   */
   create: (body: Record<string, unknown>) =>
-    request<ApiEmployee>("/employees", { method: "POST", body }),
+    request<ApiEmployee & { invited?: ApiCreateInviteOutcome }>("/employees", {
+      method: "POST",
+      body,
+    }),
 
   update: (id: string, body: Record<string, unknown>) =>
     request<ApiEmployee>(`/employees/${id}`, { method: "PATCH", body }),

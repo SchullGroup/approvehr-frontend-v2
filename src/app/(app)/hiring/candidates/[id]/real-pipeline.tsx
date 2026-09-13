@@ -32,6 +32,7 @@ import {
 import { useCan } from "@/lib/permissions";
 import {
   useApplicationMutations,
+  useCandidateMutations,
   useInterviewMutations,
   useOfferMutations,
   useStages,
@@ -844,3 +845,364 @@ function RejectDialog({
 }
 
 export type { ApiStage };
+
+/* ------------------------------------------------------- screening answers */
+
+/**
+ * What the screener asked, and what they were told.
+ *
+ * ## These five facts were written and could not be read
+ *
+ * `advance` on the screening queue collects a notice period, a current salary,
+ * an expected salary, right to work and a CV, and writes them onto `Candidate`.
+ * `ApiApplicationDetail.candidate` has carried every one of them since the
+ * recruitment module shipped. **Nothing rendered any of them**, and
+ * `useCandidateMutations().update` — the PATCH that corrects them — had no
+ * consumer at all.
+ *
+ * So a recruiter typed somebody's salary expectation into a dialog, pressed
+ * Screen in, and the candidate's own record never mentioned it again. The
+ * figure that decides whether an offer is worth making was in the database and
+ * unreachable from the one screen built to decide it.
+ *
+ * That is the fifth instance of this shape in this codebase — a capability
+ * present, correct, and findable by nobody — and the second where somebody had
+ * already entered the data.
+ *
+ * ## Not the same thing as the demo's "Screening answers"
+ *
+ * The seeded pipeline renders a per-role **questionnaire**:
+ * `requisition.screeningQuestions` with a free-text answer each and a knockout
+ * flag. There is no such model on the API — `Requisition` has no questions and
+ * `Application` has no answers — so that panel cannot be wired, and pretending
+ * otherwise would mean inventing questions nobody set. This panel is the five
+ * facts the API does hold, which the demo does not show.
+ *
+ * ## Absent is never zero, and two of the five are money
+ *
+ * `currentSalaryKobo: null` means nobody asked. Rendering it as ₦0.00 would
+ * claim a person earns nothing — the same wrong claim as the payroll that paid
+ * a company ₦0 because no attendance row existed, on the figure an offer is
+ * negotiated against. `Money` takes `number | null` for exactly this and
+ * carries its own absent copy.
+ *
+ * `rightToWork` is three states, not two: yes, no, and **not asked**. A `null`
+ * shown as "No" would reject somebody for a question nobody put to them.
+ */
+export function RealScreening({
+  application,
+  onChanged,
+}: {
+  application: ApiApplicationDetail;
+  onChanged: () => void;
+}) {
+  const candidate = application.candidate;
+  const canManage = useCan("MANAGE_HIRING");
+  const [editing, setEditing] = useState(false);
+
+  const asked =
+    candidate.noticeDays !== null ||
+    candidate.currentSalaryKobo !== null ||
+    candidate.expectedSalaryKobo !== null ||
+    candidate.rightToWork !== null;
+
+  return (
+    <Card>
+      <CardHeader
+        title="What the screener asked"
+        description={
+          asked
+            ? "Recorded when they were screened in. Correct anything that has changed."
+            : undefined
+        }
+        {...(canManage
+          ? {
+              action: (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setEditing(true)}
+                >
+                  {asked ? "Update" : "Fill these in"}
+                </Button>
+              ),
+            }
+          : {})}
+      />
+      <CardBody className="flex flex-col gap-3">
+        {!asked && (
+          <p className="text-body-sm text-muted">
+            Nothing was recorded when this person was screened in. None of it is
+            required — an offer can be made without any of it — but a notice
+            period and a salary expectation are what a hiring manager asks for
+            first.
+          </p>
+        )}
+
+        <DescriptionList
+          columns={2}
+          items={[
+            {
+              term: "Notice period",
+              /* "Not asked" rather than "0 days". Somebody on no notice and
+                 somebody nobody asked are different facts, and the first is a
+                 reason to move fast. */
+              value:
+                candidate.noticeDays === null ? (
+                  <span className="text-faint">Not asked</span>
+                ) : candidate.noticeDays === 0 ? (
+                  "Available immediately"
+                ) : (
+                  `${String(candidate.noticeDays)} ${candidate.noticeDays === 1 ? "day" : "days"}`
+                ),
+            },
+            {
+              term: "Right to work",
+              value:
+                candidate.rightToWork === null ? (
+                  <span className="text-faint">Not asked</span>
+                ) : (
+                  <Badge
+                    tone={candidate.rightToWork ? "success" : "warning"}
+                    size="sm"
+                  >
+                    {candidate.rightToWork ? "Confirmed" : "Not confirmed"}
+                  </Badge>
+                ),
+            },
+            {
+              term: "Earning now",
+              value: (
+                <Money
+                  amount={
+                    candidate.currentSalaryKobo === null
+                      ? null
+                      : naira(candidate.currentSalaryKobo)
+                  }
+                  decimals
+                  per="month"
+                  absent="Not asked"
+                />
+              ),
+            },
+            {
+              term: "Expecting",
+              value: (
+                <Money
+                  amount={
+                    candidate.expectedSalaryKobo === null
+                      ? null
+                      : naira(candidate.expectedSalaryKobo)
+                  }
+                  decimals
+                  per="month"
+                  absent="Not asked"
+                />
+              ),
+            },
+          ]}
+        />
+
+        <CvLine storageKey={candidate.cvStorageKey} source={candidate.source} />
+      </CardBody>
+
+      {editing && (
+        <ScreeningDialog
+          candidate={candidate}
+          onClose={() => setEditing(false)}
+          onSaved={() => {
+            setEditing(false);
+            onChanged();
+          }}
+        />
+      )}
+    </Card>
+  );
+}
+
+/**
+ * The CV, and the honest thing to say about it.
+ *
+ * `cvStorageKey` is a **key**, not a file. No deployment has ever had
+ * `S3_BUCKET` set, so the bytes are not there to serve and the API says so at
+ * boot. A download button here would be a control whose only outcome is a
+ * refusal — so the key is named as a record that one was attached, and where it
+ * has to be fetched from until object storage is wired.
+ */
+function CvLine({
+  storageKey,
+  source,
+}: {
+  storageKey: string | null;
+  source: string | null;
+}) {
+  if (!storageKey && !source) return null;
+  return (
+    <div className="flex flex-col gap-1 border-t border-line pt-3">
+      {storageKey && (
+        <p className="text-meta text-muted">
+          A CV was attached on screening.{" "}
+          <span className="text-faint">
+            It is recorded as a storage key and cannot be downloaded until file
+            storage is configured.
+          </span>
+        </p>
+      )}
+      {source && (
+        <p className="text-meta text-muted">
+          Heard about the role through{" "}
+          <span className="text-body">{source}</span>.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Correcting the five.
+ *
+ * Sent as a **whole set**, and an emptied field clears the fact rather than
+ * leaving it: that is the only way somebody can take back an expectation that
+ * was noted wrong, and `UpdateCandidateBody` accepts `null` for each. A form
+ * that only ever added would make a mistyped salary permanent.
+ */
+function ScreeningDialog({
+  candidate,
+  onClose,
+  onSaved,
+}: {
+  candidate: ApiApplicationDetail["candidate"];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const candidates = useCandidateMutations();
+  const [notice, setNotice] = useState(
+    candidate.noticeDays === null ? "" : String(candidate.noticeDays),
+  );
+  const [current, setCurrent] = useState(
+    candidate.currentSalaryKobo === null
+      ? ""
+      : String(naira(candidate.currentSalaryKobo)),
+  );
+  const [expected, setExpected] = useState(
+    candidate.expectedSalaryKobo === null
+      ? ""
+      : String(naira(candidate.expectedSalaryKobo)),
+  );
+  const [right, setRight] = useState(
+    candidate.rightToWork === null ? "" : candidate.rightToWork ? "yes" : "no",
+  );
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
+
+  /* A blank box is a cleared fact, so an empty string maps to null rather than
+     being dropped from the body. `Number("")` is 0, which is why this parses
+     explicitly instead. */
+  const numberOrNull = (raw: string): number | null => {
+    const trimmed = raw.trim();
+    if (trimmed === "") return null;
+    const value = Number(trimmed);
+    return Number.isFinite(value) ? value : null;
+  };
+
+  const save = async () => {
+    setBusy(true);
+    setFailure(null);
+    try {
+      const days = numberOrNull(notice);
+      const now = numberOrNull(current);
+      const want = numberOrNull(expected);
+      await candidates.update(candidate.id, {
+        noticeDays: days === null ? null : Math.round(days),
+        currentSalaryKobo: now === null ? null : kobo(now),
+        expectedSalaryKobo: want === null ? null : kobo(want),
+        rightToWork: right === "" ? null : right === "yes",
+      });
+      onSaved();
+    } catch (error) {
+      setFailure(
+        error instanceof ApiError
+          ? error.message
+          : "Something went wrong. Try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title="What the screener asked"
+      description="Leave anything blank that was never asked. Clearing a box removes what was recorded."
+      footer={
+        <div className="flex items-center gap-2">
+          <Button variant="accent" loading={busy} onClick={() => void save()}>
+            Save
+          </Button>
+          <Button variant="ghost" onClick={onClose} disabled={busy}>
+            Cancel
+          </Button>
+        </div>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <Field
+          label="Notice period"
+          optional
+          help="In days. Zero means they can start immediately, which is a different answer from leaving it blank."
+        >
+          <Input
+            type="number"
+            min={0}
+            value={notice}
+            onChange={(event) => setNotice(event.target.value)}
+            placeholder="30"
+          />
+        </Field>
+        <Field label="Earning now" optional help="Monthly, in naira.">
+          <Input
+            type="number"
+            min={0}
+            value={current}
+            onChange={(event) => setCurrent(event.target.value)}
+            placeholder="400000"
+          />
+        </Field>
+        <Field
+          label="Expecting"
+          optional
+          help="Monthly, in naira. This is the figure an offer gets measured against."
+        >
+          <Input
+            type="number"
+            min={0}
+            value={expected}
+            onChange={(event) => setExpected(event.target.value)}
+            placeholder="550000"
+          />
+        </Field>
+        <Field
+          label="Right to work"
+          optional
+          help="Blank means nobody asked — which is not the same as being told no."
+        >
+          <Select
+            value={right}
+            onChange={(event) => setRight(event.target.value)}
+          >
+            <option value="">Not asked</option>
+            <option value="yes">Confirmed</option>
+            <option value="no">Not confirmed</option>
+          </Select>
+        </Field>
+        {failure && (
+          <Callout tone="danger" title="That was refused">
+            {failure}
+          </Callout>
+        )}
+      </div>
+    </Modal>
+  );
+}

@@ -54,7 +54,12 @@ import { formatDateShort, formatWeekdayTime } from "@/lib/time";
 import { STAGES, fullName, type PipelineCard } from "@/lib/types";
 import { daysInStage } from "@/lib/mock/hiring";
 import { employeeById } from "@/lib/mock/people";
-import { RealPipeline, RealRole, realOutcomeBadge } from "./real-pipeline";
+import {
+  RealPipeline,
+  RealRole,
+  RealScreening,
+  realOutcomeBadge,
+} from "./real-pipeline";
 import type { ApiApplicationDetail } from "@/lib/api/recruitment";
 
 /**
@@ -68,10 +73,20 @@ import type { ApiApplicationDetail } from "@/lib/api/recruitment";
  * it.
  *
  * The **pipeline record** — the stage they are in, their interviews, their
- * scorecards, the offer — is seeded in both modes, because `Candidate`, the
- * pipeline `Application`, `Interview`, `Scorecard` and `Offer` are Prisma models
- * with no route. `POST /applications/:id/advance` writes into them and nothing
- * reads them back.
+ * scorecards, the offer, and what the screener asked — is live too, and this
+ * comment used to say it could not be. It read: *"`Candidate`, the pipeline
+ * `Application`, `Interview`, `Scorecard` and `Offer` are Prisma models with no
+ * route… nothing reads them back."* That was true when it was written and the
+ * recruitment module shipped afterwards, so `RealRole`, `RealScreening` and
+ * `RealPipeline` answer all of it now. The seeded `Pipeline` and `SeededRole`
+ * below are the demo half and nothing else.
+ *
+ * **One thing genuinely has no API and is not wired**: the demo's per-role
+ * screening *questionnaire* — `requisition.screeningQuestions` with an answer
+ * each and a knockout flag. `Requisition` has no questions and `Application` has
+ * no answers, so there is nothing to read; inventing them would mean showing
+ * questions nobody set. `RealScreening` renders the five facts the API does
+ * hold, which the demo does not show.
  *
  * So each panel carries its own badge. A page-level "Live from the API" over a
  * seeded scorecard would be the exact failure the badges exist to prevent, and a
@@ -337,6 +352,10 @@ function Record({ id }: { id: string }) {
                   </p>
                 </CardBody>
               </Card>
+            )}
+
+            {realApp && (
+              <RealScreening application={realApp} onChanged={real.reload} />
             )}
 
             {realApp ? (
@@ -1142,7 +1161,11 @@ function NotFoundHere({
             description={
               error
                 ? error.message
-                : "No careers-page application and no seeded pipeline candidate carries this id. If they were screened in from another browser, open the applications queue and find them by name."
+                : /* Names all three lookups, because the message is read by
+                     somebody holding a link that did not work and the useful
+                     thing is knowing what was tried. It used to name two, and
+                     an id in the URL is now also tried as a candidate. */
+                  "Nothing carries this id: not a pipeline application, not a candidate, and not a careers-page application. If they were screened in from another browser, open the applications queue and find them by name."
             }
             action={
               <div className="flex flex-wrap items-center gap-2">

@@ -83,13 +83,23 @@ const TABS: TabItem[] = SHIFT_TABS.map((id) => ({ id, label: LABELS[id] }));
  * explaining what shifts are. A sentence explaining why the product is refusing
  * should have been a button doing the thing.
  *
- * ## Reading is ungated; every control needs `EDIT_RECORDS`
+ * ## Reading is ungated; the controls are three grants, not one
  *
  * A rota is pinned to the wall in every factory and clinic that has one, so
  * nobody needs a permission to look at it — and "who is on nights tonight, I
- * need to call somebody" is the question it exists to answer. Deciding when a
- * named person works is one act, so defining a shift, writing a cycle, putting
- * somebody on a day and approving a swap all sit behind the one permission.
+ * need to call somebody" is the question it exists to answer.
+ *
+ * The controls used to sit behind `EDIT_RECORDS`, on the argument that
+ * deciding when a named person works is one act. That argument was wrong about
+ * *who*: it meant the only way to let a supervisor build next week's rota was
+ * to let them edit everybody's salary and bank account. So:
+ *
+ * - `MANAGE_ROTA` — putting somebody on a day, taking them off, asking a
+ *   colleague to cover somebody else's shift. Everything on the grid.
+ * - `MANAGE_SHIFTS` — defining a shift or a pattern, which is company setup:
+ *   changing a shift's hours moves every rota already built on it.
+ * - `APPROVE_SHIFT_SWAP` — on the cover-requests tab, in `swaps.tsx`.
+ *
  * Controls the reader cannot use are absent rather than disabled.
  *
  * The one exception, and it is deliberate: **asking a colleague to cover your
@@ -105,7 +115,9 @@ export function ShiftsScreen({ initialTab }: { initialTab: ShiftTab }) {
   const features = useFeatures();
   const { employeeId, isConnected } = useSession();
   const timeZone = useOrgTimezone();
-  const canEdit = useCan("EDIT_RECORDS");
+  /* The grid is rota work. Defining a shift is not — see the note above. */
+  const canEdit = useCan("MANAGE_ROTA");
+  const canManageShifts = useCan("MANAGE_SHIFTS");
 
   /* Connected, the data is real and so is the date. In demo mode the seed is a
      fixed snapshot and `TODAY` is its "now". Mirrors `leave-screen.tsx`, which
@@ -206,7 +218,7 @@ export function ShiftsScreen({ initialTab }: { initialTab: ShiftTab }) {
           ) : undefined
         }
         action={
-          <Can permission="EDIT_RECORDS">
+          <Can permission="MANAGE_SHIFTS">
             {noShiftsYet ? (
               <Button
                 variant="accent"
@@ -375,7 +387,7 @@ export function ShiftsScreen({ initialTab }: { initialTab: ShiftTab }) {
               <ShiftCatalogue
                 shifts={catalogue.shifts}
                 patterns={catalogue.patterns}
-                editable={canEdit}
+                editable={canManageShifts}
                 onChanged={reload}
               />
             )}
