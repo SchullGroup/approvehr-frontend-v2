@@ -2,7 +2,6 @@
 
 import { sourceNote } from "@/lib/demo";
 import { useState } from "react";
-import Link from "next/link";
 import { Info, Lock, RotateCcw } from "lucide-react";
 import {
   Badge,
@@ -15,6 +14,7 @@ import {
   Field,
   Input,
   Spinner,
+  TextLink,
   useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
@@ -367,13 +367,8 @@ export function ScoringWeightsForm() {
                     className="mt-0.5 size-4 shrink-0 text-faint"
                   />
                   A period screen says whether its weights are frozen, and{" "}
-                  <Link
-                    href="/performance"
-                    className="font-medium text-accent-text underline-offset-2 hover:underline"
-                  >
-                    the appraisals tab
-                  </Link>{" "}
-                  is where appraisal periods are started.
+                  <TextLink href="/performance">the appraisals tab</TextLink> is
+                  where appraisal periods are started.
                 </p>
               </CardBody>
             </Card>

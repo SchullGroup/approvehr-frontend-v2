@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import {
   ArrowRight,
   Bell,
@@ -32,6 +31,7 @@ import {
   LinkCard,
   ProgressMeter,
   Spinner,
+  TextLink,
   type BadgeTone,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -410,13 +410,7 @@ export function SettingsScreen() {
                 <>
                   Everything a payroll needs is in place. No logo yet: it goes
                   on every payslip and on the emails the platform sends.{" "}
-                  <Link
-                    href="/settings/company"
-                    className="font-medium text-accent-text underline-offset-2 hover:underline"
-                  >
-                    Add one
-                  </Link>
-                  .
+                  <TextLink href="/settings/company">Add one</TextLink>.
                 </>
               ) : (
                 "Everything a payroll needs is in place."

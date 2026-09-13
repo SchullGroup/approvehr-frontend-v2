@@ -21,6 +21,7 @@ import {
   TBody,
   TD,
   TDPrimary,
+  TextLink,
   TH,
   THead,
   TR,
@@ -500,12 +501,9 @@ export function BankAccountsScreen() {
 
         <p className="text-body-sm text-muted">
           Every change here is recorded in the{" "}
-          <Link
-            href="/settings/audit"
-            className="text-accent-text hover:underline underline-offset-4"
-          >
+          <TextLink href="/settings/audit" className="font-normal">
             audit trail
-          </Link>{" "}
+          </TextLink>{" "}
           and whoever can release money is told. Account numbers are never
           written into the trail.
         </p>
