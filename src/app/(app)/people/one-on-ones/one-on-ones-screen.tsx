@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import { CalendarClock, Lock, Plus } from "lucide-react";
 import {
@@ -23,6 +22,7 @@ import {
   THead,
   TR,
   TableWrap,
+  TextLink,
   useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
@@ -263,13 +263,13 @@ function Mine({
           />
           <CardBody className="flex flex-wrap gap-2">
             {stopped.map((series) => (
-              <Link
+              <TextLink
                 key={series.id}
                 href={`/people/one-on-ones/${series.id}`}
-                className="text-body-sm text-accent-text hover:underline underline-offset-4"
+                className="text-body-sm font-normal"
               >
                 {series.employeeName}
-              </Link>
+              </TextLink>
             ))}
           </CardBody>
         </Card>
@@ -284,12 +284,9 @@ function SeriesCard({ series }: { series: ApiOneOnOne }) {
       <CardHeader
         level={2}
         title={
-          <Link
-            href={`/people/one-on-ones/${series.id}`}
-            className="hover:text-accent-text hover:underline underline-offset-4"
-          >
+          <TextLink href={`/people/one-on-ones/${series.id}`}>
             {series.employeeName}
-          </Link>
+          </TextLink>
         }
         description={`with ${series.managerName} · ${series.cadenceLabel}`}
         action={<Due series={series} />}

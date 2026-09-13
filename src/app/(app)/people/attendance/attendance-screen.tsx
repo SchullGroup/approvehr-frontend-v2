@@ -26,6 +26,7 @@ import {
   THead,
   TR,
   TableWrap,
+  TextLink,
   formatMoney,
   useToast,
 } from "@/components/ui";
@@ -428,12 +429,9 @@ function TodayView({
                 <TR key={row.employeeId} interactive>
                   <TDPrimary
                     title={
-                      <Link
-                        href={`/people/${row.employeeId}`}
-                        className="hover:text-accent-text hover:underline underline-offset-4"
-                      >
+                      <TextLink href={`/people/${row.employeeId}`}>
                         {row.employeeName}
-                      </Link>
+                      </TextLink>
                     }
                     subtitle={row.jobTitle}
                   />
@@ -472,12 +470,9 @@ function TodayView({
                       row.clockIn ? (
                         <span className="mt-0.5 block text-meta text-muted">
                           Worked a rest day on their rota,{" "}
-                          <Link
-                            href="/people/overtime"
-                            className="font-medium text-accent-text underline underline-offset-4"
-                          >
+                          <TextLink href="/people/overtime">
                             check overtime
-                          </Link>
+                          </TextLink>
                         </span>
                       ) : (
                         <span className="mt-0.5 block text-meta text-muted">
@@ -680,12 +675,9 @@ function TimesheetView({ sheet }: { sheet: TimesheetState }) {
                 <TR key={row.employeeId} interactive>
                   <TDPrimary
                     title={
-                      <Link
-                        href={`/people/${row.employeeId}`}
-                        className="hover:text-accent-text hover:underline underline-offset-4"
-                      >
+                      <TextLink href={`/people/${row.employeeId}`}>
                         {row.employeeName}
-                      </Link>
+                      </TextLink>
                     }
                     subtitle={
                       onRota
@@ -750,12 +742,9 @@ function TimesheetView({ sheet }: { sheet: TimesheetState }) {
                     {rota.loading ? (
                       <Skeleton className="ml-auto h-4 w-20" />
                     ) : onRota ? (
-                      <Link
-                        href="/people/shifts"
-                        className="text-body-sm font-medium text-accent-text underline underline-offset-4"
-                      >
+                      <TextLink href="/people/shifts" className="text-body-sm">
                         From their rota
-                      </Link>
+                      </TextLink>
                     ) : (row.proration.amount ?? 0) > 0 ? (
                       <span className="inline-flex flex-col items-end">
                         <span className="inline-flex items-center gap-1.5 font-medium text-danger-text">
