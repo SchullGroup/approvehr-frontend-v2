@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { History } from "lucide-react";
-import { Badge, Disclosure, Skeleton } from "@/components/ui";
+import { Badge, Disclosure, Skeleton, TextLink } from "@/components/ui";
 import { usePermissions } from "@/lib/permissions";
 import { useRecordTimeline } from "@/lib/store/audit";
 import { TrailEntry } from "./entry";
@@ -154,12 +153,9 @@ function Panel({
           </ol>
           {/* Moved out of the header: a summary button cannot contain a link. */}
           {timeline.total > timeline.entries.length && (
-            <Link
-              href={href}
-              className="mt-3 inline-block text-body-sm font-medium text-accent-text hover:underline"
-            >
+            <TextLink href={href} className="mt-3 inline-block text-body-sm">
               All {timeline.total}
-            </Link>
+            </TextLink>
           )}
         </>
       )}

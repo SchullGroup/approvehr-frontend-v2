@@ -12,6 +12,7 @@ import {
   EmptyState,
   Spinner,
   Stat,
+  Tag,
   TBody,
   TD,
   TDPrimary,
@@ -450,14 +451,8 @@ function Legend() {
   return (
     <ul className="flex flex-wrap items-center gap-2">
       {bands.map((band) => (
-        <li
-          key={band.label}
-          className={cn(
-            "rounded-sm border border-line px-2 py-0.5 text-meta font-medium",
-            band.className,
-          )}
-        >
-          {band.label}
+        <li key={band.label}>
+          <Tag className={band.className}>{band.label}</Tag>
         </li>
       ))}
     </ul>

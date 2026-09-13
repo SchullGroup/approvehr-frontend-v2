@@ -45,6 +45,7 @@ import {
   TBody,
   TD,
   TDPrimary,
+  TextLink,
   TH,
   THead,
   TR,
@@ -1570,12 +1571,9 @@ const MissingPayTable = forwardRef<
       {!grades.loading && grades.rows.length === 0 && (
         <p className="px-5 pb-3 text-meta text-muted">
           No salary grades yet.{" "}
-          <Link
-            href="/payroll/pay-setup?tab=grades"
-            className="text-accent hover:underline"
-          >
+          <TextLink href="/payroll/pay-setup?tab=grades">
             Add one in Pay setup
-          </Link>{" "}
+          </TextLink>{" "}
           to pick a band per person and prefill pay from its mid-point.
         </p>
       )}

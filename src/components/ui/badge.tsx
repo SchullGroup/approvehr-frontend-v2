@@ -35,6 +35,7 @@ export function Badge({
   icon,
   className,
   children,
+  ...props
 }: {
   tone?: BadgeTone;
   size?: "sm" | "md";
@@ -43,7 +44,7 @@ export function Badge({
   icon?: React.ReactNode;
   className?: string;
   children: React.ReactNode;
-}) {
+} & React.HTMLAttributes<HTMLSpanElement>) {
   return (
     <span
       className={cn(
@@ -52,6 +53,7 @@ export function Badge({
         TONES[tone],
         className,
       )}
+      {...props}
     >
       {dot && (
         <span
@@ -76,11 +78,12 @@ export function Tag({
   className,
   icon,
   children,
+  ...props
 }: {
   className?: string;
   icon?: React.ReactNode;
   children: React.ReactNode;
-}) {
+} & React.HTMLAttributes<HTMLSpanElement>) {
   return (
     <span
       className={cn(
@@ -88,6 +91,7 @@ export function Tag({
         "px-2 py-1 text-meta font-medium text-body whitespace-nowrap",
         className,
       )}
+      {...props}
     >
       {icon && (
         <span aria-hidden="true" className="shrink-0 [&>svg]:size-3 text-faint">
