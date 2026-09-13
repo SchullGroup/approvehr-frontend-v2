@@ -43,11 +43,15 @@ export type SignOffAct = "acknowledge" | "dispute";
 export function SignOffDialog({
   act,
   review,
+  open,
   onClose,
   onConfirm,
 }: {
-  act: SignOffAct;
+  /** `null` while closed. Degrades to the "acknowledge" copy below — see the
+   *  parent call site for why that is safe. */
+  act: SignOffAct | null;
   review: ApiReview;
+  open: boolean;
   onClose: () => void;
   onConfirm: (comment?: string) => Promise<void>;
 }) {
@@ -78,7 +82,7 @@ export function SignOffDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={
         disputing ? "Say you do not accept this" : "Acknowledge this rating"

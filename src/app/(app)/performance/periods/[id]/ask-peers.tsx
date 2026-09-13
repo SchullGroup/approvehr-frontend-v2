@@ -40,12 +40,14 @@ import { useEmployeeDirectory } from "@/lib/store/employees-api";
  * is what makes it safe to reopen this and add one more name later.
  */
 export function AskPeersDialog({
+  open,
   cycleId,
   subjectId,
   subjectName,
   onClose,
   onAsked,
 }: {
+  open: boolean;
   cycleId: string;
   subjectId: string;
   subjectName: string;
@@ -112,7 +114,7 @@ export function AskPeersDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={`Who should give feedback on ${subjectName}?`}
       size="lg"
@@ -218,18 +220,17 @@ export function AskPeersButton({
         <Users aria-hidden="true" className="size-3.5" />
         Ask colleagues
       </Button>
-      {open && (
-        <AskPeersDialog
-          cycleId={cycleId}
-          subjectId={subjectId}
-          subjectName={subjectName}
-          onClose={() => setOpen(false)}
-          onAsked={() => {
-            setOpen(false);
-            onAsked();
-          }}
-        />
-      )}
+      <AskPeersDialog
+        open={open}
+        cycleId={cycleId}
+        subjectId={subjectId}
+        subjectName={subjectName}
+        onClose={() => setOpen(false)}
+        onAsked={() => {
+          setOpen(false);
+          onAsked();
+        }}
+      />
     </>
   );
 }

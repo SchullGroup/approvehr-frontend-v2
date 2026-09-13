@@ -1039,13 +1039,12 @@ export function WhatNeedsYouTab({
           task. `/performance/skills` shows them their own actual levels, which
           is the version of that question with an answer in it. */}
 
-      {opened && (
-        <ReviewFormModal
-          reviewId={opened}
-          onClose={() => setOpened(null)}
-          onDone={appraisals.reload}
-        />
-      )}
+      <ReviewFormModal
+        reviewId={opened}
+        open={opened !== null}
+        onClose={() => setOpened(null)}
+        onDone={appraisals.reload}
+      />
 
       {/* The same dialog the period screen uses, on the screen where the
           problem was noticed. One implementation of "who appraises this
