@@ -10,6 +10,7 @@ import {
   Modal,
   Select,
   Spinner,
+  TextLink,
 } from "@/components/ui";
 import type { BulkInviteResult } from "@/lib/api/invites";
 import { DeliveryNote } from "@/components/portal/delivery-note";
@@ -361,12 +362,12 @@ export function InviteStaffDialog({
 
         <p className="text-body-sm text-muted">
           Can&rsquo;t find somebody?{" "}
-          <a
+          <TextLink
             href={`/people/new?from=${encodeURIComponent("/people/attendance")}`}
-            className="text-accent-text hover:underline underline-offset-4"
+            className="font-normal"
           >
             Add them to the company first
-          </a>
+          </TextLink>
           , then come back here.
         </p>
       </div>

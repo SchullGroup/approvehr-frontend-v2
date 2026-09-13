@@ -47,6 +47,7 @@ import {
   THead,
   TR,
   TableWrap,
+  TextLink,
   useToast,
   type AppliedFilter,
   type BadgeTone,
@@ -690,12 +691,9 @@ export function Directory({
                     )}
                     <TDPrimary
                       title={
-                        <Link
-                          href={`/people/${e.id}`}
-                          className="hover:text-accent-text hover:underline underline-offset-4"
-                        >
+                        <TextLink href={`/people/${e.id}`}>
                           {fullName(e)}
-                        </Link>
+                        </TextLink>
                       }
                       subtitle={`${e.jobTitle} · ${e.employeeNo}`}
                     />

@@ -15,6 +15,7 @@ import {
   THead,
   TR,
   TableWrap,
+  TextLink,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
@@ -125,12 +126,9 @@ export function IncompleteRecordsScreen() {
                   <TR key={employee.id}>
                     <TDPrimary
                       title={
-                        <Link
-                          href={`/people/${employee.id}`}
-                          className="hover:text-accent-text hover:underline underline-offset-4"
-                        >
+                        <TextLink href={`/people/${employee.id}`}>
                           {fullName(employee)}
-                        </Link>
+                        </TextLink>
                       }
                       subtitle={`${employee.jobTitle} · ${employee.employeeNo}`}
                     />

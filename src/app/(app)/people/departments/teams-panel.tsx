@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import {
   Building2,
   RotateCcw,
@@ -27,6 +26,7 @@ import {
   Select,
   Spinner,
   Stat,
+  TextLink,
   useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
@@ -402,12 +402,9 @@ function TeamRow({
           {team.leadName ? (
             <>
               Led by{" "}
-              <Link
-                href={`/people/${team.leadId}`}
-                className="hover:text-accent-text hover:underline underline-offset-4"
-              >
+              <TextLink href={`/people/${team.leadId}`} className="font-normal">
                 {team.leadName}
-              </Link>
+              </TextLink>
             </>
           ) : (
             <span className="text-faint">No lead assigned</span>
@@ -597,12 +594,9 @@ function TeamDrawer({
                   >
                     <div className="min-w-0">
                       <p className="text-body-sm font-medium text-ink">
-                        <Link
-                          href={`/people/${member.employeeId}`}
-                          className="hover:text-accent-text hover:underline underline-offset-4"
-                        >
+                        <TextLink href={`/people/${member.employeeId}`}>
                           {member.name}
-                        </Link>
+                        </TextLink>
                       </p>
                       <p className="mt-0.5 flex flex-wrap items-center gap-2 text-meta text-muted">
                         <span>{member.jobTitle}</span>

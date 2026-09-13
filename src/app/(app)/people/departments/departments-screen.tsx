@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import {
   Building2,
   ChevronRight,
@@ -32,6 +31,7 @@ import {
   Select,
   Stat,
   Tabs,
+  TextLink,
   useToast,
   type TabItem,
 } from "@/components/ui";
@@ -689,12 +689,9 @@ function DepartmentRow({
                 *do* to a unit — assign, add a sub-unit, edit — and none of them
                 answered "who is in Procurement and what does it cost", which is
                 what somebody clicking a row is asking. */}
-            <Link
-              href={`/people/departments/${node.id}`}
-              className="hover:underline"
-            >
+            <TextLink href={`/people/departments/${node.id}`}>
               {node.name}
-            </Link>
+            </TextLink>
             <Badge tone={isNested ? "neutral" : "accent"} size="sm">
               {isNested ? "Sub-department" : "Department"}
             </Badge>
@@ -708,12 +705,12 @@ function DepartmentRow({
             {node.headName ? (
               <>
                 Led by{" "}
-                <Link
+                <TextLink
                   href={`/people/${node.headId}`}
-                  className="hover:text-accent-text hover:underline underline-offset-4"
+                  className="font-normal"
                 >
                   {node.headName}
-                </Link>
+                </TextLink>
               </>
             ) : (
               <span className="text-faint">No head assigned</span>

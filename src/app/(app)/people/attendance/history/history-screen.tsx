@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import type { Point } from "@/components/ui";
-import Link from "next/link";
 import { CalendarOff, Lock, MapPin, Umbrella } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
@@ -23,6 +22,7 @@ import {
   THead,
   TR,
   TableWrap,
+  TextLink,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -495,12 +495,9 @@ function DayTable({
                       aria-hidden="true"
                       className="size-3.5 shrink-0 text-faint"
                     />
-                    <Link
-                      href={`/people/${row.employeeId}`}
-                      className="font-medium text-ink hover:text-accent-text hover:underline underline-offset-4"
-                    >
+                    <TextLink href={`/people/${row.employeeId}`}>
                       {row.employeeName}
-                    </Link>
+                    </TextLink>
                     {row.leave && (
                       <span className="text-muted">
                         {row.leave.type}, to {shortDate(row.leave.endDate)}
@@ -559,12 +556,9 @@ function DayTable({
                   key={row.employeeId}
                   className="flex flex-wrap items-center gap-2 text-body-sm text-body"
                 >
-                  <Link
-                    href={`/people/${row.employeeId}`}
-                    className="font-medium text-ink hover:text-accent-text hover:underline underline-offset-4"
-                  >
+                  <TextLink href={`/people/${row.employeeId}`}>
                     {row.employeeName}
-                  </Link>
+                  </TextLink>
                   <span className="tabular text-muted">
                     in {row.clockIn}
                     {row.clockOut ? `, out ${row.clockOut}` : ""}
@@ -621,12 +615,9 @@ function DayTable({
               <TR key={row.employeeId}>
                 <TDPrimary
                   title={
-                    <Link
-                      href={`/people/${row.employeeId}`}
-                      className="hover:text-accent-text hover:underline underline-offset-4"
-                    >
+                    <TextLink href={`/people/${row.employeeId}`}>
                       {row.employeeName}
-                    </Link>
+                    </TextLink>
                   }
                   subtitle={row.jobTitle}
                 />
