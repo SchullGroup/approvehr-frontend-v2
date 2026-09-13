@@ -84,7 +84,9 @@ import { useCan } from "@/lib/permissions";
  * `SIGNATURE_KIND` stays wherever a signature is explained.
  */
 
-const TONE: Record<
+/** Also used by `people/documents/employee-file.tsx`, so a signature's status
+    badge cannot read one colour on that drawer and another here. */
+export const TONE: Record<
   ApiSignatureStatus,
   "warning" | "success" | "danger" | "neutral"
 > = {
@@ -105,8 +107,11 @@ const TONE: Record<
  * it against a timestamp makes a document due today read as overdue from one
  * minute past midnight, and the reader is looking at a calendar rather than a
  * clock.
+ *
+ * Exported for the same reason `TONE` is — `employee-file.tsx`'s signature
+ * rows show the same overdue badge this screen does.
  */
-function overdueBy(record: ApiSignature): number | null {
+export function overdueBy(record: ApiSignature): number | null {
   if (record.status !== "PENDING" || !record.dueDate) return null;
   const due = Date.parse(`${record.dueDate}T00:00:00Z`);
   if (Number.isNaN(due)) return null;
