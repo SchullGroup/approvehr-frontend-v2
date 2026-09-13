@@ -7,7 +7,7 @@ import { SITE_URL } from "@/lib/marketing/site";
 import { TaxCalculator } from "./calculator";
 
 export const metadata: Metadata = {
-  title: "Nigeria PAYE Calculator (2026) — Free Salary Tax Calculator",
+  title: "Nigeria PAYE Calculator (2026): Free Salary Tax Calculator",
   description:
     "Calculate your take-home pay under the Nigeria Tax Act 2025 for free. PAYE, pension, NHF and rent relief, worked out by the same engine that runs real payroll.",
   alternates: { canonical: `${SITE_URL}/paye-calculator` },
@@ -20,7 +20,7 @@ const FAQ = [
   },
   {
     q: "What changed under the Nigeria Tax Act 2025?",
-    a: "The Consolidated Relief Allowance is gone. In its place is rent relief — 20% of the rent you actually pay each year, capped at ₦500,000 — so somebody who has not declared their rent gets no relief at all, where the old regime granted one to everybody automatically.",
+    a: "The Consolidated Relief Allowance is gone. In its place is rent relief: 20% of the rent you actually pay each year, capped at ₦500,000. Somebody who has not declared their rent gets no relief at all, where the old regime granted one to everybody automatically.",
   },
   {
     q: "Is pension deducted before or after tax?",
@@ -28,11 +28,11 @@ const FAQ = [
   },
   {
     q: "Does PAYE differ by state?",
-    a: "The bands are set nationally and are identical in every state. What differs is who you remit to — your own State Internal Revenue Service, or the FCT-IRS in Abuja.",
+    a: "The bands are set nationally and are identical in every state. What differs is who you remit to: your own State Internal Revenue Service, or the FCT-IRS in Abuja.",
   },
   {
     q: "Is this figure exact?",
-    a: "It is the same calculation a real payslip on this platform runs, to the kobo, for the inputs you gave it. It is not tax advice, and it cannot see anything about your situation you did not enter — a professional can.",
+    a: "It is the same calculation a real payslip on this platform runs, to the kobo, for the inputs you gave it. It is not tax advice, and it cannot see anything about your situation you did not enter. A professional can.",
   },
 ];
 
@@ -60,7 +60,7 @@ export default function PayeCalculatorPage() {
               align="center"
               eyebrow="Free tool"
               title="Nigeria PAYE calculator"
-              lead="Free. No signup. Updated for the Nigeria Tax Act 2025 — the same engine that runs real payroll on this platform, not a spreadsheet copy of it."
+              lead="Free. No signup. Updated for the Nigeria Tax Act 2025, using the same engine that runs real payroll on this platform, not a spreadsheet copy of it."
             />
           </Reveal>
 
@@ -84,7 +84,7 @@ export default function PayeCalculatorPage() {
           <Reveal delay={60}>
             <div className="mt-8 flex flex-col gap-6 text-body leading-relaxed text-slate-soft">
               <p>
-                Personal income tax in Nigeria is Pay As You Earn — PAYE — and
+                Personal income tax in Nigeria is Pay As You Earn, or PAYE, and
                 since 1 January 2026 it runs on the bands set by the Nigeria Tax
                 Act 2025, not the 2011 schedule most guides online still quote.
                 Getting the order of operations right matters more than the
@@ -105,7 +105,7 @@ export default function PayeCalculatorPage() {
                     2. Deduct pension and NHF.
                   </strong>{" "}
                   8% employee pension and 2.5% National Housing Fund come off
-                  first — both are statutory, and both reduce what PAYE is
+                  first. Both are statutory, and both reduce what PAYE is
                   charged on.
                 </li>
                 <li>
@@ -116,14 +116,14 @@ export default function PayeCalculatorPage() {
                   This is new: the Act abolished the old Consolidated Relief
                   Allowance, which every employee received automatically
                   regardless of what they paid in rent. Rent relief only applies
-                  to rent that has actually been declared — nothing is assumed.
+                  to rent that has actually been declared. Nothing is assumed.
                 </li>
                 <li>
                   <strong className="text-slate">
                     4. Tax what is left, band by band.
                   </strong>{" "}
                   The bands are progressive, so earning ₦1 above a threshold
-                  does not push the whole income into the next rate — only that
+                  does not push the whole income into the next rate. Only that
                   ₦1 is taxed at it.
                 </li>
               </ol>
@@ -160,7 +160,7 @@ export default function PayeCalculatorPage() {
 
               <p>
                 A worked example: someone on ₦500,000 a month, with no rent
-                declared, pays ₦63,950.00 in PAYE — a figure worth knowing
+                declared, pays ₦63,950.00 in PAYE, a figure worth knowing
                 because a widely used tool got this exact salary wrong by
                 ₦683.33 in 2026, having been left on the old 2011 bands after
                 the law changed. The calculator above runs the current bands
@@ -200,7 +200,7 @@ export default function PayeCalculatorPage() {
               <p className="mt-3 text-body-sm leading-relaxed text-slate-muted">
                 This calculator is not tax advice, and ApproveHR is not liable
                 for any decision made from its figures. It computes statutory
-                PAYE, pension and NHF from what you enter, and nothing else — it
+                PAYE, pension and NHF from what you enter, and nothing else. It
                 cannot see your full tax position, any other income, or a
                 state&apos;s own local levies. For a decision that matters,
                 consult a licensed tax professional or the Federal Inland
@@ -222,7 +222,7 @@ export default function PayeCalculatorPage() {
               </h2>
               <p className="mx-auto mt-5 max-w-lg text-body-lg leading-relaxed text-white/60">
                 ApproveHR runs this same calculation for your whole team, every
-                month — payslips, remittance schedules and approvals included,
+                month: payslips, remittance schedules and approvals included,
                 not just the arithmetic.
               </p>
               <div className="mt-9 flex flex-wrap justify-center gap-3">

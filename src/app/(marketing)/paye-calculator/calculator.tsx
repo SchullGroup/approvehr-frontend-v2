@@ -225,7 +225,7 @@ export function TaxCalculator() {
           <p className="mt-2 text-meta leading-relaxed text-slate-muted">
             You would remit PAYE through the {state === "FCT" ? "FCT" : state}{" "}
             State Internal Revenue Service. The bands themselves are set
-            nationally and do not change by state — only who collects the money
+            nationally and do not change by state. Only who collects the money
             does.
           </p>
         </div>
@@ -342,7 +342,7 @@ export function TaxCalculator() {
 
             <p className="mt-5 text-meta leading-relaxed text-white/40">
               Sourced from the same engine that runs real payroll on this
-              platform — Nigeria Tax Act 2025, effective{" "}
+              platform: Nigeria Tax Act 2025, effective{" "}
               {current.taxSchedule.effectiveFrom}.
             </p>
           </>
