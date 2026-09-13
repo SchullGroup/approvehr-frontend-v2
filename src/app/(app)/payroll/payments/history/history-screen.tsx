@@ -2,7 +2,6 @@
 
 import { sourceNote } from "@/lib/demo";
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { Banknote, History, Receipt } from "lucide-react";
 import {
   Badge,
@@ -25,6 +24,7 @@ import {
   THead,
   TR,
   TableWrap,
+  TextLink,
   type PickerOption,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
@@ -360,12 +360,9 @@ export function PaymentHistoryScreen() {
                                `employeeId` is nullable — and a link to
                                `/people/null` is worse than plain text. */
                             row.employeeId ? (
-                              <Link
-                                href={`/people/${row.employeeId}`}
-                                className="hover:text-accent-text hover:underline underline-offset-4"
-                              >
+                              <TextLink href={`/people/${row.employeeId}`}>
                                 {row.payeeName}
-                              </Link>
+                              </TextLink>
                             ) : (
                               row.payeeName
                             )
@@ -406,12 +403,12 @@ export function PaymentHistoryScreen() {
                           )}
                         </TD>
                         <TD>
-                          <Link
+                          <TextLink
                             href={`/payroll/payments/${row.batchId}`}
-                            className="text-body-sm text-accent-text hover:underline underline-offset-4"
+                            className="text-body-sm font-normal"
                           >
                             {row.batchReference}
-                          </Link>
+                          </TextLink>
                           {row.payDate && (
                             <span className="mt-0.5 block text-meta text-muted">
                               Due {longDate(row.payDate)}
@@ -456,12 +453,9 @@ export function PaymentHistoryScreen() {
           <span>
             This is money. For what somebody earned and what was deducted, open
             their{" "}
-            <Link
-              href="/payroll/payslips"
-              className="text-accent-text hover:underline underline-offset-4"
-            >
+            <TextLink href="/payroll/payslips" className="font-normal">
               payslip
-            </Link>
+            </TextLink>
             .
           </span>
         </p>

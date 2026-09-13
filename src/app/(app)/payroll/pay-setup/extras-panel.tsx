@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import {
   Callout,
   Card,
@@ -9,6 +8,7 @@ import {
   CardHeader,
   Spinner,
   Switch,
+  TextLink,
   useToast,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
@@ -82,12 +82,9 @@ export function ExtrasPanel() {
           level={3}
         />
         <CardBody>
-          <Link
-            href="/settings/payroll"
-            className="text-body-sm font-medium text-accent-text hover:underline underline-offset-4"
-          >
+          <TextLink href="/settings/payroll" className="text-body-sm">
             Open payroll settings
-          </Link>
+          </TextLink>
         </CardBody>
       </Card>
     </div>
@@ -181,13 +178,7 @@ function OvertimeSwitch({ canEdit }: { canEdit: boolean }) {
         <p className="mt-3 text-body-sm text-muted">
           The grace period, the weekday and weekend multipliers and the hourly
           basis are on{" "}
-          <Link
-            href="/settings/overtime"
-            className="font-medium text-accent-text hover:underline underline-offset-4"
-          >
-            the overtime settings
-          </Link>
-          .
+          <TextLink href="/settings/overtime">the overtime settings</TextLink>.
         </p>
       </CardBody>
     </Card>

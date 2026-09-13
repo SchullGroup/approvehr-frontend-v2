@@ -2,7 +2,6 @@
 
 import { sourceNote } from "@/lib/demo";
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { CreditCard, Plus, Wallet } from "lucide-react";
 import {
   Badge,
@@ -19,6 +18,7 @@ import {
   TBody,
   TD,
   TDPrimary,
+  TextLink,
   TH,
   THead,
   TR,
@@ -390,14 +390,11 @@ export function LoansScreen() {
                     <TR key={loan.id}>
                       <TDPrimary
                         title={
-                          <Link
-                            href={`/payroll/loans/${loan.id}`}
-                            className="text-ink hover:text-accent-text hover:underline"
-                          >
+                          <TextLink href={`/payroll/loans/${loan.id}`}>
                             {seeEverybody
                               ? loan.employeeName
                               : (loan.reason ?? "Staff loan")}
-                          </Link>
+                          </TextLink>
                         }
                         subtitle={
                           seeEverybody

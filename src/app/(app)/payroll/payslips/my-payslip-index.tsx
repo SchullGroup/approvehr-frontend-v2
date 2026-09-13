@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FileQuestion } from "lucide-react";
 import {
@@ -17,6 +16,7 @@ import {
   THead,
   TR,
   TableWrap,
+  TextLink,
   rowClick,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
@@ -91,12 +91,9 @@ export function MyPayslipIndex() {
                   >
                     <TDPrimary
                       title={
-                        <Link
-                          href={href}
-                          className="hover:text-accent-text hover:underline underline-offset-4"
-                        >
+                        <TextLink href={href}>
                           {periodLabel(slip.run.period)}
-                        </Link>
+                        </TextLink>
                       }
                       subtitle={STATUS_LABEL[slip.run.status]}
                     />
