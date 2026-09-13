@@ -222,26 +222,25 @@ export function ExpenseTypes({
         )}
       </Card>
 
-      {creating && (
-        <TypeDialog
-          onClose={() => setCreating(false)}
-          onSave={async (input) => {
-            const ok = await onCreate(input);
-            if (ok) setCreating(false);
-          }}
-        />
-      )}
+      <TypeDialog
+        open={creating}
+        onClose={() => setCreating(false)}
+        onSave={async (input) => {
+          const ok = await onCreate(input);
+          if (ok) setCreating(false);
+        }}
+      />
 
-      {editing && (
-        <TypeDialog
-          type={editing}
-          onClose={() => setEditing(null)}
-          onSave={async (input) => {
-            const ok = await onUpdate(editing.id, input);
-            if (ok) setEditing(null);
-          }}
-        />
-      )}
+      <TypeDialog
+        open={editing !== null}
+        type={editing ?? undefined}
+        onClose={() => setEditing(null)}
+        onSave={async (input) => {
+          if (!editing) return;
+          const ok = await onUpdate(editing.id, input);
+          if (ok) setEditing(null);
+        }}
+      />
 
       <ConfirmDialog
         open={archiving !== null}
@@ -268,10 +267,12 @@ export function ExpenseTypes({
 /* -------------------------------------------------------------------------- */
 
 function TypeDialog({
+  open,
   type,
   onClose,
   onSave,
 }: {
+  open: boolean;
   type?: ExpenseType;
   onClose: () => void;
   onSave: (input: CreateTypeInput) => Promise<void>;
@@ -292,7 +293,7 @@ function TypeDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       size="sm"
       title={type ? `Edit ${type.name}` : "Add an expense type"}
