@@ -37,6 +37,7 @@ import {
   Pagination,
   Select,
   SegmentedControl,
+  Skeleton,
   SortableTH,
   Stat,
   TBody,
@@ -538,7 +539,20 @@ export function Directory({
         </Field>
       </FilterBar>
 
-      {rows.length === 0 && !loading ? (
+      {rows.length === 0 && loading ? (
+        <Card>
+          {/* Shape-matched, same pattern as record-history.tsx — the header
+              row above already carries a "Loading…" text cue, but that is
+              easy to miss above a blank table; this is what the content area
+              itself shows while there is genuinely nothing to render yet. */}
+          <div className="flex flex-col gap-2 p-1">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <span className="sr-only">Loading the employee directory</span>
+          </div>
+        </Card>
+      ) : rows.length === 0 && !loading ? (
         <Card>
           <EmptyState
             icon={<Search aria-hidden="true" />}
