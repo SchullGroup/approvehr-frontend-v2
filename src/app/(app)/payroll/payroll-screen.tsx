@@ -15,6 +15,7 @@ import {
   CardHeader,
   EmptyState,
   Money,
+  Skeleton,
   Stat,
   TBody,
   TD,
@@ -212,10 +213,22 @@ export function PayrollScreen() {
 
         {error && <LoadFailure subject="payroll" error={error} />}
 
-        {/* An error is not an empty state. "No run yet" beside "you need
+        {/* Shape-matched, same pattern as record-history.tsx. `SourceBadge`
+            above already says "Loading…" in words, but that is easy to miss
+            above blank space — this is what fills the gap while `current`
+            is still null. */}
+        {loading && !error && runs.length === 0 ? (
+          <Card>
+            <CardBody className="flex flex-col gap-2">
+              <Skeleton className="h-24 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <span className="sr-only">Loading this period’s payroll</span>
+            </CardBody>
+          </Card>
+        ) : /* An error is not an empty state. "No run yet" beside "you need
             VIEW_SALARIES" tells somebody to prepare a run they would not be
-            allowed to see, which is two wrong answers rather than one. */}
-        {!loading && !error && runs.length === 0 ? (
+            allowed to see, which is two wrong answers rather than one. */
+        !loading && !error && runs.length === 0 ? (
           <EmptyState
             icon={<CalendarClock aria-hidden="true" />}
             title={`No payroll run for ${periodLabel(currentPeriod)} yet`}

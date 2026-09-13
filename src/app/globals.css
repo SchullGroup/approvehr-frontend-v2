@@ -448,6 +448,26 @@
    Utilities
    ========================================================================== */
 
+/* Stacking order. There is no custom `z-*` utility below — every layer in the
+   product already uses Tailwind's own `z-0`/`z-10`/... scale directly in the
+   component that needs it, and the values in use already form one ascending
+   convention. This is that convention written down, so the next stacking
+   decision has somewhere to check rather than picking a number that happens
+   to work:
+
+     z-0    decorative background elements that must stay behind their siblings
+     z-10   sticky-in-place within a scroll container (a table header, a drag
+            item lifted above its own neighbours)
+     z-20   sticky banners (an announcement bar, an install prompt)
+     z-30   the app's own sticky header
+     z-40   the invisible click-away layer that closes a dropdown or menu
+     z-50   the dropdown/menu/modal layer itself
+     z-[60] the two things meant to sit above everything else at once: toasts
+            and the guided tour's spotlight
+
+   Reach for the tier that matches what the element is doing, not the highest
+   number that "definitely works" — that is how `z-[9999]` accumulates. */
+
 /* A conventional 1200px measure with real margin either side.
    This was 1440px (stepping to 1520px above 1600px) to fill a 27" monitor, and
    it read as too wide — a wall of content edge to edge with nothing framing it.
