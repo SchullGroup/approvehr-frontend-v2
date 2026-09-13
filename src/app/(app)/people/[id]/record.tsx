@@ -76,6 +76,7 @@ import { EditableSection } from "@/components/people/editable-section";
 import { AccountVerificationHint } from "@/components/payments/account-verification";
 import { NIGERIAN_STATES } from "@/lib/reference/lists";
 import { ConductPanel } from "./conduct";
+import { EmploymentHistoryPanel } from "./employment-history";
 
 /**
  * Employment status, as a chip.
@@ -648,6 +649,7 @@ export function EmployeeRecord({
             { id: "pay", label: "Pay & statutory" },
             { id: "leave", label: "Leave" },
             { id: "conduct", label: "Conduct" },
+            { id: "history", label: "History" },
           ]}
         />
 
@@ -1481,6 +1483,14 @@ export function EmployeeRecord({
             fill the trail that answers "who has been looking at this person's
             warnings" with reads nobody made. */}
         {tab === "conduct" && <ConductPanel employeeId={employee.id} />}
+
+        {/* Its own tab rather than a section under Employment, because it
+            answers a different question. Employment says what is true now and
+            offers to change it; this says how it came to be true and offers
+            nothing — which is exactly why a dispute is read here. */}
+        {tab === "history" && (
+          <EmploymentHistoryPanel employeeId={employee.id} />
+        )}
       </div>
 
       {/* The same file, and the same upload and request flow, as the documents
@@ -1508,7 +1518,14 @@ export function EmployeeRecord({
 }
 
 /** The record's tabs. One list, so URL validation and the tab strip agree. */
-const TAB_IDS = ["personal", "employment", "pay", "leave", "conduct"];
+const TAB_IDS = [
+  "personal",
+  "employment",
+  "pay",
+  "leave",
+  "conduct",
+  "history",
+];
 
 /** Shared by the desktop `<TD>` and the mobile `<li>` so a request's badge
  *  colour cannot read differently on the two. */

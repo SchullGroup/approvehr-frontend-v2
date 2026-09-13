@@ -7144,3 +7144,662 @@ one cannot be added here. Switch bonuses on under Pay setup → Extras first.
 Nothing in the file was applied, so the payroll is exactly as it was."*
 Confirmed in the database that no bonus row and no payslip line were written.
 
+
+---
+
+# Probation is a thing the product can see now
+
+First of four gaps the SeamlessHR audit named. `Employee` had `startDate` and
+nothing between it and `offboarding` — so a probation ended, or did not, and
+the only record of the decision was whether somebody remembered to change a
+status. `PARITY.md` has the analysis; this is what was built.
+
+## `EmploymentChange` is deliberately wider than probation
+
+One table, one row per decision: kind, effective date, who decided it, when,
+a note, and `fromValue`/`toValue` as JSON. `EmploymentChangeKind` has three
+members today — `CONFIRMATION`, `PROBATION_EXTENDED`, `PROBATION_FAILED` — and
+the shape was chosen for the **next** gap rather than this one. A promotion and
+a redeployment are the same sentence with a different pair of values in it, and
+building `ProbationDecision` now would mean a second history table a month
+later with the same five columns and no way to render one timeline.
+
+`decidedById` is a `User` id with **no foreign key**, matching `Review` and the
+payroll snapshot: the row has to keep explaining itself after the account that
+made the decision is gone, and a cascade would delete the evidence.
+
+## Not confirming somebody ends nothing, and the dialog says so
+
+The one decision in here a reasonable person would make differently.
+`PROBATION_FAILED` records the decision and **changes no status, ends no
+employment and starts no exit**. Three reasons, in order of weight:
+
+1. An exit has a notice period, a final payslip, equipment to collect and a
+   statutory process attached to it. `offboarding` is where all of that lives,
+   and a dialog that quietly terminated somebody would be performing the most
+   consequential act in the product on the strength of a click that did not say
+   so.
+2. "Did not pass" and "is leaving" are genuinely different in Nigerian
+   practice — an extension, a redeployment and a negotiated exit are all
+   ordinary outcomes, and only one of them is a termination.
+3. The decision is the thing that needs a record. Whether it ends in an exit is
+   a separate decision somebody makes afterwards, and the trail should show
+   both.
+
+The dialog's consequence callout changes with the outcome and says this in as
+many words, **above** the button rather than after it: *"This ends nothing on
+its own."* It then names where the exit does start.
+
+Confirming moves `ONBOARDING` → `ACTIVE` and **leaves `SUSPENDED` and
+`ON_LEAVE` alone**. Somebody confirmed while suspended is confirmed and still
+suspended; overwriting that would silently lift a suspension nobody lifted.
+
+## `probationEndsAt: null` does not mean "no probation"
+
+It means nobody wrote a date down, and the distinction is the whole of the
+second table on the screen. `modules/imports/employees.ts` maps a spreadsheet's
+"probation" onto `status: ONBOARDING` and has never had a column for the end
+date, so every company that imported its staff has a population of people on a
+probation nothing will ever prompt a decision about. Reading null as "not on
+probation" would leave them exactly where they were.
+
+So `GET /employees/probation/due` returns **two lists**: `due`, the queue, and
+`needsADate`, that inherited population with how long each has been going. The
+screen renders both, and the second one is why it exists.
+
+**Overdue rows are never dropped from `due`.** `dueSoon(db, withinDays = 30)`
+takes everything up to 30 days out *and everything already past*, and the screen
+counts and orders them separately — a probation that ended four months ago is a
+different problem from one ending on Friday, and a single "12 due" hides which
+kind you have.
+
+## `probationTracking` is off by default and the screen is not behind it
+
+`OrgFeatures.probationTracking` (false) and `probationMonths` (6). The flag
+decides whether a new hire is **given** an end date on creation and whether the
+daily sweep raises anything. It is in `WORKFLOW_FEATURE_KEYS`, beside
+`leaveTwoStepApproval`, because it configures a module's workflow rather than
+adding a screen or hiding a field.
+
+**The nav item and the screen carry no `feature` key, on purpose.** A company
+with the flag off is precisely the company accumulating undated probations, so
+gating the screen on the flag would hide the list from the only people it is
+for — and hide the switch that stops it happening again along with them. Same
+shape as the performance module's no-appraiser exception, which is behind no
+flag while its mapping interface is behind `multiAppraiser`.
+
+The switch itself lives **on the probation screen**, because there is no
+`/settings/probation` and there should not be: this is the module's only
+surface, so it is also its settings page. The same relationship `/settings/leave`
+has with `leaveTwoStepApproval`.
+
+**Demo mode refuses that switch**, unlike every other feature flag, and the
+reason is specific: what `probationTracking` does is make `employees/service.ts`
+put a date on a new record, which happens on the API and nowhere else. A demo
+company with it switched on would read *"Somebody joining is given an end date
+6 months out"* while no person created in that browser ever got one — a switch
+that persists and changes nothing, which is the green "Paid" over money nobody
+moved, one module along.
+
+Changing `probationMonths` moves **nobody already on a probation**. Their date
+is a column on their own record from the day they were created, and re-dating
+it from a setting would move a decision somebody is owed notice of. The field
+says so; so does the callout when the flag is off and the undated list is not
+empty — *"Switching this on changes nothing above."*
+
+## The sweep is idempotent and only runs for companies that asked
+
+`probation-scheduler.ts`, daily plus once on startup, shaped on
+`leave/rollover-scheduler.ts`. It only visits organisations with
+`probationTracking: true`, and `raiseDueConfirmations` creates an
+`ApprovalRequest` of the new `ApprovalKind.CONFIRMATION` only where one does not
+already exist — `ApprovalRequest` is unique on `(subjectType, subjectId)`
+globally, which is the same shape that locked `tests/insights.test.ts` out once
+and is worth remembering.
+
+## One thing found in the browser that nothing else could see
+
+`THead` renders its own `<tr>`. Both tables wrapped a `<TR>` inside it, which
+produced `<thead><tr><tr>` — a hydration error, in the same family as the
+nested `<a>` this file already has a scar from. `tsc`, ESLint, all nineteen
+verify scripts and `npm run build` were green with it on the page; only the
+console said anything. There is a comment on the fixed markup.
+
+## Verified
+
+Backend: `tests/probation.test.ts`, **22 passing** — the month-overflow pullback
+(31 January plus one month is 28 February, not 3 March), the two-list read,
+overdue never dropped, all three outcomes, the status rules including
+`SUSPENDED` being left alone, the refusals, the sweep being idempotent, and
+tenant isolation. 154 adjacent assertions (employees, onboarding,
+tenant-isolation, setup) unchanged.
+
+Frontend: `npm run check` exit **0** (the 9 lint warnings are pre-existing and
+identical on a clean tree), `npm run build` exit **0** with
+`/people/probation` prerendered.
+
+In the browser, **demo mode**: the nav item between Onboarding and Exit
+management; the demo refusal; the "no probations ending" empty state; the
+undated table naming the demo's two `ONBOARDING` staff with their day counts;
+the policy card in its demo state with the switch disabled and the months field
+correctly absent; no horizontal scroll; and, after the fix, zero nested `<tr>`.
+
+**Connected**, as an account without `EDIT_RECORDS`: the route answers, enforces
+its gate, and the screen renders the API's own 403 sentence verbatim rather than
+a local paraphrase.
+
+**Not exercised connected: the queue with real rows, and a decision against a
+real 200.** Signing in needs a password this session cannot enter. The `due`
+table, the three badge states, the decision dialog's three outcomes, its
+conditional date field and its required-reason gating were all rendered instead
+against a temporary fixture in the demo branch of `lib/store/probation.ts`,
+which was then restored from a byte-for-byte copy — `grep` confirms no fixture
+and no marker survives. Somebody with credentials should confirm one person
+once and watch the row leave the queue.
+
+---
+
+# A promotion is a date, not a button
+
+Second of the four gaps. The inputs all existed — nine-box placement, grade
+neighbours, salary bands, department and team membership — and no *act* did: a
+promotion was somebody editing two fields on a record page with nothing
+remembering why. `PARITY.md` §2 has the analysis.
+
+It reuses `EmploymentChange`, which gap 1 created and deliberately shaped wider
+than probation needed. That paid off: this gap added a status, four kinds, three
+columns and an approval path to an existing table rather than a second history
+nobody could render beside the first.
+
+## `SCHEDULED` is the entire feature
+
+Approving a change **writes nothing**. The row moves to `SCHEDULED`, and a daily
+sweep writes it onto the employee record on its effective date and not before.
+
+The obvious implementation — write it when somebody approves it — is the one
+thing here that can move money nobody decided to move. A promotion agreed on 28
+September and effective 1 October lands on **September's** payroll if that run
+is prepared on the 29th, silently, with the arithmetic reconciling at every step.
+That is the ₦0 defect's shape exactly, and `tests/employment-changes.test.ts`
+opens with it: the sequence stated as a test, before anything about approvals or
+forms.
+
+`EmploymentChangeStatus` therefore has five members and not an `approved`
+boolean. "Agreed" and "in effect" are different facts about the same row and a
+boolean cannot hold them apart.
+
+Three timestamps, all kept: `decidedAt` (agreed on the 28th), `effectiveOn` (the
+1st), `appliedAt` (02:00 on the 1st, or later if the sweep was down). A dispute
+about somebody's pay needs all three, and deriving any from the others is a
+guess — a sweep that missed a day applies late, and the row should say so rather
+than claim it landed on time.
+
+## The payroll run is told, and is never refused
+
+`pay_changes_mid_period`, a WARNING naming each person. Two sentences, because
+two genuinely different situations arrive:
+
+- **Still scheduled** — the run was prepared before the date, so the payslip
+  carries the old figure for a month that will end on the new one. Nobody is
+  wrong yet; calculating again after the date changes the answer.
+- **Already applied** — the new figure is on the payslip for the whole month,
+  including the days before it took effect. That is what the engine does with
+  one contractual salary, it may well be what the company intends, and it is not
+  something to discover from a total.
+
+Both readings are defensible and the company picks; refusing the payroll over a
+question about one person would stop everybody being paid. What is not
+acceptable is silence, which is what there was.
+
+**Only changes that move pay are raised.** A transfer moves a cost centre and
+not a payslip, and naming departmental moves on the list somebody reads before
+releasing money is how people learn to skip the list — same argument as
+`missing_pension_pin` being gated on pension being operated.
+
+## A direct edit is recorded, never refused
+
+This is what stops `APPROVE_EMPLOYMENT_CHANGE` being theatre. `EDIT_RECORDS` can
+still change a job title or a salary straight on the record page, because a typo
+in a salary has to be fixable without a ceremony and a product that refuses is
+one people work around in a spreadsheet.
+
+What it cannot do is change one **unrecorded**. `recordDirectEdit` runs inside
+`employees/service.ts#update`'s own transaction and writes an `EmploymentChange`
+for any tracked field that moved — `APPLIED`, named to whoever made it, with no
+approver on it, which is exactly what happened. An audit trail that only records
+the acts that went through the polite door has a hole in it the shape of
+everything anybody wanted to hide.
+
+The kind is inferred bluntly: job title anywhere in the change is a `PROMOTION`,
+grade alone a `GRADE_CHANGE`, pay alone a `PAY_CHANGE`, otherwise a `TRANSFER`.
+It will occasionally be wrong — a job title corrected for a typo is not a
+promotion — and that is the right trade for a label sitting next to the before
+and after. Asking somebody to classify every edit means a modal on every save,
+which is how people stop editing records.
+
+## The permission, and the maker/checker rule
+
+`APPROVE_EMPLOYMENT_CHANGE`, separate from `EDIT_RECORDS` (which proposes) and
+from `MANAGE_PAY_STRUCTURE` (which decides what Grade 5 *pays*, not who is on
+it). The proposer is very often the person who gains by it.
+
+Segregation is counted from the database at the moment of approval, the same
+shape payroll and hiring use: somebody cannot approve their own proposal —
+**unless nobody else could have**, because refusing a lone owner would push the
+whole thing into a spreadsheet, and then nothing in the trail is true either.
+Only accounts with a password count.
+
+Declining your own proposal is deliberately **allowed**. Declining is how the
+conflict resolves itself; blocking it would leave a proposal nobody can clear.
+
+## Refusals worth not removing
+
+- **Nothing actually moves** — a "promotion" whose every field already equals
+  the record is not a promotion, and letting it through puts a row on a timeline
+  saying a decision was taken that changed nothing anybody can see.
+- **A second change in flight** — two would apply in whatever order the sweep
+  read them, and the second's `fromValue` was snapshotted before the first
+  landed. The refusal names the one in the way.
+- **A back-dated effective date** — the payslips already issued for those months
+  were worked out on figures the record would no longer hold, and nothing here
+  reissues them. The message says that rather than quoting the rule.
+- **Withdrawing an applied change** — the way back is a change in the other
+  direction, so the history keeps both. A record that can be rewritten backwards
+  is not a record.
+
+## The screens
+
+| | |
+|---|---|
+| `/people/changes` | Two tables: waiting on a decision, and **agreed but not yet in effect** with the sentence that nothing on those records has moved. Applied changes are not here at all — they are history. |
+| `/people/[id]` → **History** | The timeline. Its own tab rather than a section under Employment, because Employment says what is true now and offers to change it; this says how it came to be true and offers nothing, which is why a dispute is read here. |
+
+`PARITY.md` says "that history *is* the feature", and it is: it answers *why is
+she on Grade 5*, *who confirmed him*, *when did this department change and on
+whose say-so* — the three questions an employment record is kept for and the
+three `Employee` cannot answer.
+
+The propose form defaults its effective date to **the first of next month**,
+never today. A date left at today's applies the moment it is approved, which is
+the behaviour this whole design exists to avoid doing by accident.
+
+Demo mode refuses every write **and the list**, with the reason: there is no
+sweep in a browser, so a change agreed there would never take effect. The list
+refuses rather than showing an empty queue, because empty and unavailable render
+identically and mean opposite things — "nobody is waiting on you" is a claim
+this mode cannot make.
+
+## Two things found by looking
+
+- **A one-segment literal route after `/:id`.** `GET /employment-changes` was
+  registered after `GET /:id`, which takes any single segment — so the request
+  landed on the detail handler with `id: "employment-changes"` and came back a
+  422 about a malformed uuid. Moved above it, with a comment. Same trap
+  `imports/router.ts` records for `/template/employees`, and the reason
+  `/org-chart` and `/summary` sit where they do.
+- **`THead` renders its own `<tr>`** — carried over from gap 1 and fixed there;
+  worth repeating because both new tables were written the same wrong way first.
+
+## Verified
+
+Backend: `tests/employment-changes.test.ts` — **29 passing**. The effective-date
+block leads: the record untouched after approval, the sweep passing over a
+future date, applying on the day, applying **exactly once** across two sweeps, a
+same-day change applying immediately without waiting, and an unapproved change
+never applying however long it sits. Then the payroll warning (scheduled,
+applied, transfer excluded, outside the window excluded), maker/checker in both
+directions, six refusals, withdrawal, the direct-edit trail, and three tenancy
+cases including a sweep run as one organisation leaving another's scheduled
+change alone.
+
+`npm run check` on the API is otherwise green — typecheck, lint, format,
+migrations-match-schema, and the legacy-permission ratchet, whose baseline moved
+110 → 121 with the reason written into the script rather than into a commit
+message nobody re-reads.
+
+**Nine tests fail in that run and none of them are from this work.** Four in
+`tests/employees-directory-privacy.test.ts`, three in `tests/ai-chat.test.ts`,
+one in `tests/leave-approvals.test.ts`, and they are **assertion** failures, not
+timeouts — so by this file's own rule they are defects rather than contention.
+They reproduce with every tracked modification stashed, which is as close to a
+clean tree as this machine can get while other sessions hold uncommitted work.
+The shape is a directory row reading `undefined` where a figure or a null
+belongs. Somebody should chase it; it is not this change's.
+
+Frontend: `npm run check` exit 0 (the 9 lint warnings are pre-existing and
+identical on a clean tree), `npm run build` exit 0 with `/people/changes` and
+`/people/probation` both prerendered.
+
+In the browser, demo mode: `/people/changes` with the refusal, the empty queue
+saying it *cannot answer* rather than claiming nothing is waiting, and the
+History tab on a record rendering its empty state. A fresh tab on `/help`,
+`/dashboard` and the record page is console-clean.
+
+**Not exercised connected: any of it.** Signing in needs a password this session
+cannot enter. Every wire shape is pinned by the 29 backend assertions instead.
+Somebody with credentials should propose one change, approve it, and watch the
+record **not** move — that last part is the one that matters.
+
+## One callout defect, and the rule behind it
+
+The demo refusal read *"Promotions and transfers need the API"* as its heading
+and then began its body with the same sentence. That is the exact restatement
+the product owner has raised more than once. `DEMO_CHANGE_HEADING` and
+`DEMO_CHANGE_REASON` are now separate exports composed into
+`DEMO_CHANGE_REFUSAL` — the callout takes the two apart, a thrown error takes
+them joined, and neither is written twice.
+
+## Deliberately not done
+
+- **No mid-period proration for a pay change.** The engine takes one contractual
+  figure; taking two would be a real engine change and out of scope here. The
+  warning names the person instead, which is the honest answer to a question the
+  company has to settle.
+- **No "propose a change" button on `/people/[id]`.** The record page is where
+  somebody usually is when the thought occurs, and it is the obvious next entry
+  point. Left out only for time.
+- **`alignMemberDepartments` is not called by a transfer.** PARITY §2.5 suggests
+  reusing it; a transfer moves `Employee.departmentId` directly and team
+  membership is a separate table with its own rule. Worth a look when somebody
+  transfers a person who is on a departmental team.
+
+---
+
+# There is a catalogue of what jobs this company has
+
+Third of the four gaps. `Employee.jobTitle` was free text and
+`Requisition.jobTitle` was free text again, so "Senior Software Engineer",
+"Snr. Software Engineer" and "Software Engineer II" were three jobs as far as
+this product was concerned — and there was nowhere at all to record what any of
+them involved. `SalaryGrade` carried the money and nothing carried the job.
+
+## The two columns are not duplicates, and this is the assertion to keep
+
+`Employee.jobRoleId` and `Requisition.jobRoleId` are **optional for ever**, and
+`jobTitle` stays a required column on both. It reads like duplication and is
+not:
+
+> The id says which catalogue row this **is**. The text says what it was
+> **called at the time**.
+
+So renaming a role from "Officer" to "Analyst" does not retitle anybody, and
+does not retitle an offer sent last year. `tests/job-roles.test.ts` has that as
+its own block, because it is the thing somebody would most easily break while
+tidying up what looks like redundancy — and the damage would be invisible until
+somebody read an old letter.
+
+Two more reasons the id is optional: every company that existed before this
+table has titles on every record, and a migration that guessed which catalogue
+row each one meant would be inventing job architecture nobody signed off; and a
+one-person business should not have to build one to add somebody.
+
+**The service never writes one from the other.** A company with a role called
+"Analyst" and somebody whose title reads "Analyst" has not thereby said they are
+the same thing.
+
+## What having one makes possible
+
+1. **A competency set per role.** `Competency.isCore` could say "expected of
+   everybody" and nothing could say "expected of a Software Engineer".
+   `JobRoleCompetency` carries a `targetLevel`, so the same competency means
+   different things at different levels — which is what it does in any company
+   that has thought about it. `GET /job-roles/expected/:employeeId` is the join
+   `modules/performance` has been doing without: the core set plus the role's,
+   with **the role's target winning** where both name the same competency. The
+   core figure is the floor, not the answer.
+2. **A requisition stops re-typing a title**, and an offer stops re-typing it a
+   second time.
+3. **Headcount by role becomes a question somebody can ask**, which it was not
+   when the answer depended on spelling.
+
+`targetLevel` is **null** on a core competency and a number on a role's, because
+`Competency` has no target column. Null, never 0 — a 0 would be a standard
+nobody set, which is the same rule as everywhere else in this file.
+
+## The target is validated against the competency's own ceiling
+
+A target of 7 on a 1–5 scale is a standard nobody can meet, and **nothing
+downstream would notice**: the bar renders unreachable and the score sits
+permanently below target, which reads as a performance problem rather than a
+configuration one. So `setCompetencies` reads each competency's real `scaleMax`
+and names it in the refusal — *"Judgement is rated 1 to 5, so 7 is not a target
+anybody could reach."*
+
+Deliberately **not** in the zod schema: `scaleMax` is a column, a schema sees
+only the body, and a `max(5)` written into the file would be a guess that
+silently refuses a legitimate 1–10 scale. There is a test for 10-on-a-10.
+
+Whole-set-at-once (`PUT`), for the reason the appraiser weights are: removing
+one cannot be expressed as a partial list, and an empty array is the only way to
+say "the core set alone".
+
+## Three smaller decisions
+
+- **Titles are unique per company, case-insensitively.** Postgres compares
+  exactly, so "Analyst" and "analyst" would be two catalogue rows for one job —
+  the exact defect this table exists to fix, reintroduced by the table. The
+  refusal points at a switched-off clash rather than offering a duplicate.
+- **Reading needs no permission**, the same call `departments/router.ts` makes
+  about the org chart. Somebody reading the description of the job they hold, or
+  the one they want next, is what a catalogue is for. `MANAGE_SETTINGS` to
+  change it.
+- **Archiving a role people are still on is allowed**, unlike a department. A
+  role nobody hires into any more is exactly the thing somebody wants to switch
+  off while the last two people on it are still employed, and refusing would
+  make the catalogue something people route around. The count travels back and
+  the toast names it. The one refusal is an **open requisition** — archiving
+  mid-hire leaves a pipeline pointed at a job the company says it no longer has.
+
+`JobRoleCompetency` carries no `organizationId` and cannot: it is a join between
+two already-scoped tables. `requireRole` is the door, and the test asserts
+**both halves** — that a bare `jobRoleCompetency.findFirst` genuinely crosses
+tenants, and that starting at the scoped parent closes it. A test that only
+asserted the door would pass just as well if the extension silently started
+scoping the join, and then nobody would notice the day it stopped.
+
+## The screen
+
+`/settings/job-roles`, linked from the Settings hub. **Settings and not People**
+because a catalogue is job architecture — configured once, then used — which is
+where the pay side of the same question already lives.
+
+Named **"Job roles"**, never "Roles": `/settings/roles` is permissions, and two
+things called Roles in one menu is the ambiguity the departments/sub-departments
+rename already had to fix once.
+
+Demo mode shows three generic roles so the shape of a catalogue is visible, and
+refuses every write with the reason. That is a different call from departments,
+which write locally now: a job role decides **what people are judged on**, and a
+locally invented role with locally invented targets would put a standard on
+screen that no review in that browser was scored against.
+
+## Verified
+
+Backend: `tests/job-roles.test.ts` — **20 passing**, first run. The
+case-insensitive duplicate, the archived-clash pointer, the rename not
+retitling, whole-set replacement including emptying it, the scale ceiling in
+both directions, the duplicate-in-one-set refusal, core-alone for somebody with
+no role, the role target overriding the core one, derived headcount, archive
+with people on it, restore, a permissionless account reading and being refused
+the write, and three tenancy cases.
+
+Frontend: `npm run check` exit 0, `npm run build` exit 0 with
+`/settings/job-roles` prerendered. In the browser, demo mode: the catalogue with
+its three roles, the counts, the open-requisition badge, and the refusal —
+console clean.
+
+**The nine pre-existing API failures recorded in the previous entry are
+unchanged.** This work added 20 tests and none of the failures.
+
+## Deliberately not done
+
+- **No bulk import.** PARITY §3.4 asks for one from day one and it is the right
+  instinct — a company arrives with a spreadsheet of roles. The importer is a
+  framework now (`ImportEntity` + a column dictionary), so this is a dictionary
+  and a surface rather than a new checker, but it is a separate piece of work
+  with a product conversation about which columns.
+- **The requisition and offer do not read it yet.** `Requisition.jobRoleId`
+  exists and is wired through the schema; nothing in `modules/recruitment` sets
+  or reads it, and the ATS has no frontend at all. That is where reason 2 above
+  gets cashed in.
+- **No role picker on `/people/[id]` or `/people/new`.** `jobRoleId` is accepted
+  on both the create and update schemas and refused if the role does not exist;
+  what is missing is the control. A company can build its catalogue and cannot
+  yet attach anybody to it from the interface — the next thing to do here.
+- **`expectedOf` is not read by the review form.** The endpoint exists and
+  `modules/performance` still builds its question set the old way. Wiring it is
+  the point of reason 1 and is a performance-module change.
+
+---
+
+# Surveys, and an anonymity promise that is a fact rather than a convention
+
+Last of the four gaps. `PARITY.md` §4 argues for it mostly because **two things
+already shipped are surveys wearing other names** — `ExitInterview`, whose five
+questions are columns nobody can change, and `ReviewQuestion` in performance —
+so a company that wants to ask an engagement question, or a sixth thing on the
+way out, has nowhere to put it.
+
+## The one decision everything else follows from
+
+> On an anonymous survey, `SurveyResponse.employeeId` is **never written**.
+
+Not written and then hidden by every read. Not written at all. That difference
+is the whole module: a nullable column that is sometimes populated and which
+every query is expected to respect is a **convention**, and a convention is one
+reasonable-looking report away from being broken by somebody who did not know it
+existed. A column that is never written is a fact about the database.
+
+An "anonymous" survey whose answers can be joined back to a person is worse than
+no survey, because people answer it honestly believing otherwise.
+
+`tests/surveys.test.ts` therefore asserts against the **database**, not against
+the API's response. A read that merely hid the link would pass a payload test
+and fail this one.
+
+### Chasing still works, because there are two tables
+
+`SurveyInvitation` records **that** somebody answered. `SurveyResponse` records
+**what** was said. Nothing joins them. A survey nobody can chase is a survey
+nobody completes, so the counts — invited, responded — are on every surface,
+and they are safe precisely because they come from the table that is allowed to
+name people.
+
+### Three gaps that separation alone leaves, and what closes each
+
+1. **Timing.** An invitation stamped at 14:32:07 and the only response at
+   14:32:07 are the same person. An anonymous response's `submittedAt` is
+   rounded to the day — `startOfDay`, the one place that happens, with a test
+   asserting the hours, minutes and seconds are zero **and** that the
+   invitation keeps its real stamp.
+2. **Small numbers.** `minResponses` (default 3) withholds the results
+   **entirely** below the threshold. Nothing partial: no per-question counts, no
+   average with a caveat. A report that shows some of the answer is a report
+   somebody completes by subtraction. The refusal says how many more are
+   needed. It applies to an **attributed** survey too, deliberately — three
+   named responses about somebody's manager is a survey whose subject can work
+   out who said what just as easily.
+3. **Free text.** A written answer carries somebody's own words about their own
+   situation and can identify them however the table is shaped. Nothing here can
+   fix that, so it is **said** — `ANONYMITY_LIMIT` renders in the same callout
+   as `ANONYMITY_PROMISE`, never without it. A promise that omits its limit is
+   worse than no promise, because people write more honestly under it.
+
+### And the promise cannot be changed afterwards
+
+`anonymous` is refused once anybody has answered, in **both** directions, with
+different sentences because they are different wrongs: turning it off exposes
+answers given on a promise, turning it on claims a protection the existing
+answers do not have. Close it and start another.
+
+### Answering is not audited, and that is deliberate
+
+An audit row saying *"Ada submitted a response to the anonymous engagement
+survey at 14:32:07"* rebuilds exactly the link this module exists to break — in
+the one table somebody with `VIEW_AUDIT` is expected to read. Creating, opening,
+closing and re-questioning a survey are all audited; answering one is not. There
+is a test asserting the absence **and** asserting that `surveys.opened` is still
+there, so it reads as a decision rather than the auditor being off.
+
+The invite audit records a **count**, never the list of names, for the same
+reason.
+
+## Other rules worth keeping
+
+- **Questions freeze when the survey opens.** Adding one after some people have
+  answered gives the report two populations for it with no way to tell them
+  apart; removing one strands the answers already given. The only honest change
+  to a running survey is no change.
+- **A rating question must carry its ceiling**, and a choice question at least
+  two options. A 4 means nothing without knowing whether the top is 5 or 10 —
+  the same reason `Competency.scaleMax` exists, and the answer form names the
+  ceiling in every option label.
+- **Opening refuses** a survey with no questions or nobody invited. The second
+  one matters: opening a survey nobody was asked sends it to no one and looks
+  like it worked.
+- **`average` is null when nobody answered a question**, never 0. A 0 on a
+  1-to-5 scale is not a rating anybody gave. `answered` is per question rather
+  than per response, because an optional question can be skipped and averaging
+  over the whole population when half said nothing is the absent-is-not-zero
+  rule wearing a chart.
+
+## One route, two readers
+
+`/surveys`, behind `OrgFeatures.surveys` (off by default) and **no permission**.
+An employee sees what they have been asked; `MANAGE_SETTINGS` adds the surveys
+the company is running and the results. PARITY Rule 1 — the incumbent ships
+these as separate pages, which is how you get a hundred and twenty routes.
+
+The "waiting on you" half is first for everybody including the administrator: a
+survey waiting on *you* is a thing to do, and a list of surveys you are running
+is a thing you are looking at.
+
+**Demo mode has none at all**, unlike every other module, and the refusal says
+why: a demo survey would need demo responses to show a result, and demo
+responses to an anonymous survey are fabricated opinions attributed to a
+fabricated workforce. Everything else the demo invents is a fact about a record;
+this would be an invented sentence somebody supposedly wrote about their
+employer. Showing the refusal is also the honest demonstration — what is being
+sold is that answers cannot be traced, and a version running entirely in the
+reader's browser cannot demonstrate that.
+
+## Verified
+
+Backend: `tests/surveys.test.ts` — **30 passing**. Seven of them are the
+anonymity block, asserted against the database: no employee id written, the
+timestamp not joinable, chasing still working, the attributed control, both
+change refusals, the allowed change while nobody has answered, and the absent
+audit entry. Then four on suppression, six on answering, six on running one,
+three on who may see what, and three on tenancy including the response table's
+hole and its door.
+
+`npm run check` in both repos. Web: exit **0**, build exit **0** at **126
+routes**. API: the same nine pre-existing failures recorded two entries ago, plus
+one transport error in `tests/employment-changes.test.ts` during the full run —
+which passes **29/29 alone**, so by this file's own rule it is contention rather
+than a defect. Four API dev servers were running on this machine throughout.
+
+In the browser, demo mode: `/surveys` rendering the refusal, console clean.
+
+## Deliberately not done
+
+- **The exit interview is not re-pointed.** §4.3 asks for it and it is right.
+  `ExitInterview`'s five columns hold live data in every company using the
+  product, and migrating them is a data change that deserves its own review
+  rather than riding along inside a new module. What exists now is the
+  destination: `SurveyKind.EXIT` and a configurable question set, so a company
+  that wants to ask a sixth thing on the way out can, while the hardcoded five
+  keep working. Two question engines, temporarily, and named as such.
+- **No survey builder in the interface.** `POST /surveys`, `PUT
+  /surveys/:id/questions` and `POST /surveys/:id/invitations` all exist and are
+  tested; the screen reads, answers and reports but does not compose. A company
+  can run one over `curl` today and not from the product. That is the next thing
+  to build here.
+- **No reminder sweep.** A survey that closes with half the company unanswered
+  is the ordinary outcome and nothing chases it. `probation-scheduler.ts` is the
+  shape to copy, and `SurveyInvitation.respondedAt` is already the query.
+- **Results are not broken down by department or team.** That is the most asked
+  next question and it is also where the small-numbers problem gets sharp — a
+  breakdown re-introduces exactly the subtraction the threshold prevents, and
+  needs the threshold applied **per slice** rather than per survey. Worth doing
+  carefully rather than quickly.
