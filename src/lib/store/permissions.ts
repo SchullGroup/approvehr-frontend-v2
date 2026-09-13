@@ -159,6 +159,13 @@ const DEMO_COPY: Record<
       "Approve a requisition before it opens, and an offer before it goes out.",
     section: "people",
   },
+  APPROVE_EMPLOYMENT_CHANGE: {
+    label: "Approve promotions and transfers",
+    description:
+      "Sign off a promotion, transfer, regrade or pay change — the point somebody's job, department or salary actually moves.",
+    section: "money",
+    sensitive: true,
+  },
   APPROVE_LEAVE: {
     label: "Approve leave for their team",
     description: "Decide requests from the people who report to them.",
