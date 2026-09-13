@@ -445,24 +445,23 @@ export function DepartmentsScreen() {
         />
       )}
 
-      {creating && (
-        <CreateDialog
-          parentId={creating.parentId}
-          parentName={
-            creating.parentId
-              ? departments.flat.find((d) => d.id === creating.parentId)?.name
-              : undefined
-          }
-          onClose={() => setCreating(null)}
-          onCreate={async (body) => {
-            const ok = await run(
-              () => departments.create(body),
-              body.parentId ? "Sub-department added" : "Department added",
-            );
-            if (ok) setCreating(null);
-          }}
-        />
-      )}
+      <CreateDialog
+        open={creating !== null}
+        parentId={creating?.parentId}
+        parentName={
+          creating?.parentId
+            ? departments.flat.find((d) => d.id === creating?.parentId)?.name
+            : undefined
+        }
+        onClose={() => setCreating(null)}
+        onCreate={async (body) => {
+          const ok = await run(
+            () => departments.create(body),
+            body.parentId ? "Sub-department added" : "Department added",
+          );
+          if (ok) setCreating(null);
+        }}
+      />
 
       {editing && (
         <EditDialog
@@ -844,11 +843,15 @@ function DepartmentRow({
 /* -------------------------------------------------------------------------- */
 
 function CreateDialog({
+  open,
   parentId,
   parentName,
   onClose,
   onCreate,
 }: {
+  /* Controlled by `DepartmentsScreen`. Stays mounted at all times so its own
+     exit animation can run when `open` goes false. */
+  open: boolean;
   parentId?: string;
   parentName?: string;
   onClose: () => void;
@@ -864,7 +867,7 @@ function CreateDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={
         parentId ? `Add a sub-department in ${parentName}` : "Add a department"

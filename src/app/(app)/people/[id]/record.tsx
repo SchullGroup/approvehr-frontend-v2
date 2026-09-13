@@ -1425,14 +1425,13 @@ export function EmployeeRecord({
           named — nobody should have to pick out of two hundred the one whose
           record they are standing on. It navigates to the new checklist itself,
           so there is nothing to reload here. */}
-      {exitOpen && (
-        <StartExitDialog
-          employeeId={employee.id}
-          employeeName={name}
-          onClose={() => setExitOpen(false)}
-          onStarted={() => setExitOpen(false)}
-        />
-      )}
+      <StartExitDialog
+        open={exitOpen}
+        employeeId={employee.id}
+        employeeName={name}
+        onClose={() => setExitOpen(false)}
+        onStarted={() => setExitOpen(false)}
+      />
     </div>
   );
 }
