@@ -67,17 +67,20 @@ import {
  * against it is how the same ticket comes back next week.
  */
 export function TicketThread({
+  open,
   id,
   onClose,
   onChanged,
   minutesPerDay,
 }: {
+  /** Controlled by the caller, which also owns the row/notification that opens this. */
+  open: boolean;
   /**
-   * The ticket to show. The caller mounts this component only when there is
-   * one, rather than passing null — so nothing here fetches until a reader has
-   * actually opened something.
+   * The ticket to show, or `null` while closed. `useTicket` already treats a
+   * null id as "nothing to fetch", so this stays mounted between opens rather
+   * than fetching only once a reader had already opened something.
    */
-  id: string;
+  id: string | null;
   onClose: () => void;
   /** Called after any write, so the list behind can pull itself forward. */
   onChanged: () => void;
@@ -124,8 +127,11 @@ export function TicketThread({
 
   return (
     <>
+      {/* No early return on `open` here — `Drawer` decides whether to render,
+          from the real `open` prop passed through below, so it can see the
+          value go false and play its own exit animation. */}
       <Drawer
-        open
+        open={open}
         onClose={onClose}
         title={detail ? detail.subject : "Request"}
         {...(detail
@@ -339,33 +345,37 @@ export function TicketThread({
         )}
       </Drawer>
 
-      {resolving && detail && (
-        <ResolveModal
-          busy={busy}
-          onClose={() => setResolving(false)}
-          onResolve={async (resolution) => {
-            const ok = await run(
-              () => ticket.resolve(resolution),
-              `${detail.reference} is sorted`,
-            );
-            if (ok) setResolving(false);
-          }}
-        />
-      )}
+      {/* Unconditionally mounted, like `Drawer` above — `open` folds in
+          `detail !== null` because these two never had anything to act on
+          without it (the buttons that set `resolving`/`reopening` only ever
+          render once `detail` exists), not because of anything Modal-related. */}
+      <ResolveModal
+        open={resolving && detail !== null}
+        busy={busy}
+        onClose={() => setResolving(false)}
+        onResolve={async (resolution) => {
+          if (!detail) return;
+          const ok = await run(
+            () => ticket.resolve(resolution),
+            `${detail.reference} is sorted`,
+          );
+          if (ok) setResolving(false);
+        }}
+      />
 
-      {reopening && detail && (
-        <ReopenModal
-          busy={busy}
-          onClose={() => setReopening(false)}
-          onReopen={async (reason) => {
-            const ok = await run(
-              () => ticket.reopen(reason),
-              `${detail.reference} is open again`,
-            );
-            if (ok) setReopening(false);
-          }}
-        />
-      )}
+      <ReopenModal
+        open={reopening && detail !== null}
+        busy={busy}
+        onClose={() => setReopening(false)}
+        onReopen={async (reason) => {
+          if (!detail) return;
+          const ok = await run(
+            () => ticket.reopen(reason),
+            `${detail.reference} is open again`,
+          );
+          if (ok) setReopening(false);
+        }}
+      />
     </>
   );
 }
@@ -580,10 +590,12 @@ function Composer({
 /* ------------------------------------------------------------------- resolving */
 
 function ResolveModal({
+  open,
   busy,
   onClose,
   onResolve,
 }: {
+  open: boolean;
   busy: boolean;
   onClose: () => void;
   onResolve: (resolution: string) => Promise<void>;
@@ -593,7 +605,7 @@ function ResolveModal({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title="Resolve it"
       size="md"
@@ -633,10 +645,12 @@ function ResolveModal({
 }
 
 function ReopenModal({
+  open,
   busy,
   onClose,
   onReopen,
 }: {
+  open: boolean;
   busy: boolean;
   onClose: () => void;
   onReopen: (reason?: string) => Promise<void>;
@@ -645,7 +659,7 @@ function ReopenModal({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title="Still not fixed"
       description="It goes back to whoever had it, with everything already written on it."

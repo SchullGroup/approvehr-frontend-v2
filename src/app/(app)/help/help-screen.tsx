@@ -319,21 +319,24 @@ function QueueView() {
         </Card>
       </PageBody>
 
-      {openId !== null && (
-        <TicketThread
-          id={openId}
-          onClose={() => setOpenId(null)}
-          onChanged={refresh}
-          minutesPerDay={workingDay.minutesPerDay}
-        />
-      )}
+      {/* Always mounted: `TicketThread`'s own `Drawer` decides whether to
+          render, from the `open` prop passed here. Unmounting this whenever
+          `openId` goes back to null would remove the Drawer before it could
+          play its close animation — the same reasoning applies to
+          `RaiseRequestModal` below. */}
+      <TicketThread
+        open={openId !== null}
+        id={openId}
+        onClose={() => setOpenId(null)}
+        onChanged={refresh}
+        minutesPerDay={workingDay.minutesPerDay}
+      />
 
-      {raising && (
-        <RaiseRequestModal
-          onClose={() => setRaising(false)}
-          onRaised={refresh}
-        />
-      )}
+      <RaiseRequestModal
+        open={raising}
+        onClose={() => setRaising(false)}
+        onRaised={refresh}
+      />
     </>
   );
 }
@@ -434,21 +437,19 @@ function MyRequestsView() {
         </Card>
       </PageBody>
 
-      {openId !== null && (
-        <TicketThread
-          id={openId}
-          onClose={() => setOpenId(null)}
-          onChanged={() => setBump((n) => n + 1)}
-          minutesPerDay={workingDay.minutesPerDay}
-        />
-      )}
+      <TicketThread
+        open={openId !== null}
+        id={openId}
+        onClose={() => setOpenId(null)}
+        onChanged={() => setBump((n) => n + 1)}
+        minutesPerDay={workingDay.minutesPerDay}
+      />
 
-      {raising && (
-        <RaiseRequestModal
-          onClose={() => setRaising(false)}
-          onRaised={() => setBump((n) => n + 1)}
-        />
-      )}
+      <RaiseRequestModal
+        open={raising}
+        onClose={() => setRaising(false)}
+        onRaised={() => setBump((n) => n + 1)}
+      />
     </>
   );
 }
@@ -661,9 +662,11 @@ function Pager({
  * is not late by Monday.
  */
 function RaiseRequestModal({
+  open,
   onClose,
   onRaised,
 }: {
+  open: boolean;
   onClose: () => void;
   onRaised: () => void;
 }) {
@@ -739,7 +742,7 @@ function RaiseRequestModal({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title="Get help"
       description="Three things and it is on somebody's desk."
