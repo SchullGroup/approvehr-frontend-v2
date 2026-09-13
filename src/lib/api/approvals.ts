@@ -1,6 +1,7 @@
 "use client";
 
 import { request, requestPaged } from "@/lib/api/client";
+import { dayIn, daysBetweenIn } from "@/lib/time";
 /* A type-only import: erased at build time, so this module carries no
    dependency on the seed data. The union is the app's own vocabulary for a
    kind, and duplicating it here is how the two drift apart. */
@@ -371,35 +372,40 @@ const MONTHS = [
  * from the database is a real date, and comparing it against the demo's frozen
  * "now" would report the wrong number of days. Returns null for a row with no
  * deadline so a caller can leave the badge out entirely.
+ *
+ * `deadlineAt` is a full instant, not a date-only value (see its own
+ * comment), so *which calendar day* it falls on is itself a question with a
+ * zone in it — an evening deadline in UTC can already be tomorrow in
+ * Africa/Lagos. `daysBetweenIn` resolves both today and the deadline to a
+ * `YYYY-MM-DD` in the company's zone before comparing them, rather than
+ * reducing either one through UTC getters.
  */
-export function deadlineLabel(iso: string | null): string | null {
+export function deadlineLabel(
+  iso: string | null,
+  timeZone: string,
+): string | null {
   if (!iso) return null;
   const due = new Date(iso);
   if (Number.isNaN(due.getTime())) return null;
 
-  const day = Math.round(
-    (Date.UTC(due.getUTCFullYear(), due.getUTCMonth(), due.getUTCDate()) -
-      startOfToday()) /
-      86_400_000,
-  );
+  const day = daysBetweenIn(new Date(), due, timeZone); // reads-the-clock: straight into daysBetweenIn with timeZone
 
   if (day < -1) return `${Math.abs(day)} days past the deadline`;
   if (day === -1) return "A day past the deadline";
   if (day === 0) return "Due today";
   if (day === 1) return "Due tomorrow";
-  return `Due ${due.getUTCDate()} ${MONTHS[due.getUTCMonth()]}`;
-}
-
-function startOfToday(): number {
-  const now = new Date();
-  return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const dueDay = dayIn(due, timeZone) ?? "";
+  const [, month, date] = dueDay.split("-").map(Number);
+  return `Due ${date} ${MONTHS[(month ?? 1) - 1]}`;
 }
 
 /** True once a deadline has passed. Drives the danger treatment, not the copy. */
 export function isPastDeadline(iso: string | null): boolean {
   if (!iso) return false;
   const due = new Date(iso);
-  return !Number.isNaN(due.getTime()) && due.getTime() < Date.now();
+  return (
+    !Number.isNaN(due.getTime()) && due.getTime() < Date.now() // reads-the-clock: instant vs instant, never reduced to a day
+  );
 }
 
 /**

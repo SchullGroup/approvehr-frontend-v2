@@ -243,7 +243,10 @@ export function useEmployeeDraft(): EmployeeDraftState {
 }
 
 /** "2 minutes ago", for the resume banner. Coarse on purpose. */
-export function savedAgo(iso: string, now: number = Date.now()): string {
+export function savedAgo(
+  iso: string,
+  now: number = Date.now(), // reads-the-clock: an elapsed-time anchor, never a calendar day
+): string {
   const minutes = Math.floor((now - new Date(iso).getTime()) / 60_000);
   if (minutes < 1) return "just now";
   if (minutes === 1) return "a minute ago";

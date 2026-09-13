@@ -37,8 +37,9 @@ import {
   type RosterState,
 } from "@/lib/store/attendance";
 import { useAttendanceMonth } from "@/lib/store/attendance-history";
-import { useSession } from "@/lib/store/session";
+import { useOrgTimezone, useSession } from "@/lib/store/session";
 import { TODAY, shortDate } from "@/lib/today";
+import { todayIn } from "@/lib/time";
 import { DayHoliday } from "./day-holiday";
 import { CalendarLegend, MonthCalendar } from "./month-calendar";
 
@@ -109,6 +110,7 @@ import { CalendarLegend, MonthCalendar } from "./month-calendar";
  */
 export function HistoryScreen() {
   const { isConnected } = useSession();
+  const timeZone = useOrgTimezone();
   /* Two separate hook calls, never short-circuited into one expression — see
      `attendance-screen.tsx`'s identical comment: a conditional `||` would skip
      `useCan` on whichever render `useIsManager` answers true first, and the
@@ -121,7 +123,7 @@ export function HistoryScreen() {
      would open the calendar on a month it has nothing in. Same line as
      `people/leave/leave-screen.tsx`. The authoritative "today" for marking and
      for refusing a future day is `month.today`, which is the server's. */
-  const today = isConnected ? new Date().toISOString().slice(0, 10) : TODAY;
+  const today = isConnected ? todayIn(timeZone) : TODAY;
 
   const [selected, setSelected] = useState(today);
   const [month, setMonth] = useState(today.slice(0, 7));

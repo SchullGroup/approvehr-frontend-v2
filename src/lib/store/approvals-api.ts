@@ -17,7 +17,7 @@ import {
 } from "@/lib/workflows/queue";
 import { useApprovalStore } from "./approvals";
 import { useLeaveStore } from "./leave";
-import { useSession } from "./session";
+import { useOrgTimezone, useSession } from "./session";
 import { useRevalidation } from "@/lib/revalidate";
 
 /**
@@ -132,6 +132,7 @@ const isRoutine = (item: QueueItem) => !item.deadline && item.waitingDays < 5;
 
 export function useApprovalQueue(filter: QueueFilter = "all"): QueueState {
   const { isConnected } = useSession();
+  const timeZone = useOrgTimezone();
   const leave = useLeaveStore();
   const approvals = useApprovalStore();
 
@@ -170,7 +171,7 @@ export function useApprovalQueue(filter: QueueFilter = "all"): QueueState {
       ]);
       if (ticket !== latest.current) return;
       setState({
-        items: list.rows.map(queueItemFromApproval),
+        items: list.rows.map((row) => queueItemFromApproval(row, timeZone)),
         counts: {
           pending: summary.pending,
           withDeadline: summary.withDeadline,
@@ -188,7 +189,7 @@ export function useApprovalQueue(filter: QueueFilter = "all"): QueueState {
         error: error instanceof ApiError ? error : null,
       }));
     }
-  }, [isConnected, key]);
+  }, [isConnected, key, timeZone]);
 
   /* Re-ask when somebody comes back to the window. Not in the key below,
      so the answer is replaced without the screen flashing a skeleton. */

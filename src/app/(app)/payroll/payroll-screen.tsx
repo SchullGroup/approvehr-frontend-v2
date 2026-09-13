@@ -45,7 +45,9 @@ import {
   usePayrollRun,
   usePayrollRuns,
 } from "@/lib/store/payroll";
+import { useOrgTimezone } from "@/lib/store/session";
 import { TODAY } from "@/lib/today";
+import { todayIn } from "@/lib/time";
 
 /**
  * The payroll home.
@@ -79,6 +81,7 @@ export function PayrollScreen() {
   const router = useRouter();
   const canView = useCan("VIEW_SALARIES");
   const { runs, loading, error, connected } = usePayrollRuns();
+  const timeZone = useOrgTimezone();
 
   /**
    * Net pay per calendar month, with a hole where nothing was run.
@@ -135,11 +138,11 @@ export function PayrollScreen() {
 
   /* `TODAY` is pinned to the demo dataset's day, not a question about a real
      company's calendar — same reasoning `periodStanding` in the run wizard
-     gives for reading `new Date()` instead. Connected, the real clock decides
-     what "no run yet" means; demo mode keeps the fixture's own day so the
-     seed stays coherent. */
+     gives for reading the company's own clock instead. Connected, the
+     company's clock decides what "no run yet" means; demo mode keeps the
+     fixture's own day so the seed stays coherent. */
   const currentPeriod = connected
-    ? new Date().toISOString().slice(0, 7)
+    ? todayIn(timeZone).slice(0, 7)
     : TODAY.slice(0, 7);
   const hasCurrentPeriod = runs.some((run) => run.period === currentPeriod);
   const counts = countBySeverity(detail.run?.exceptions ?? []);

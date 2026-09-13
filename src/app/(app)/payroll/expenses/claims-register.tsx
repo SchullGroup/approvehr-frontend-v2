@@ -29,6 +29,7 @@ import {
   type Claim,
   type ExpenseType,
 } from "@/lib/store/reimbursements";
+import { useOrgTimezone } from "@/lib/store/session";
 import { ReceiptCell } from "./approval-queue";
 
 /**
@@ -292,7 +293,8 @@ function MarkPaidDialog({
   onClose: () => void;
   onConfirm: (paidOn: string) => Promise<void>;
 }) {
-  const [paidOn, setPaidOn] = useState(today());
+  const timeZone = useOrgTimezone();
+  const [paidOn, setPaidOn] = useState(today(timeZone));
   const [busy, setBusy] = useState(false);
 
   return (
@@ -309,7 +311,7 @@ function MarkPaidDialog({
           <Button
             variant="accent"
             loading={busy}
-            disabled={busy || paidOn > today()}
+            disabled={busy || paidOn > today(timeZone)}
             onClick={() => {
               setBusy(true);
               void onConfirm(paidOn).finally(() => setBusy(false));
@@ -334,7 +336,7 @@ function MarkPaidDialog({
           <Input
             type="date"
             className="w-48"
-            max={today()}
+            max={today(timeZone)}
             value={paidOn}
             onChange={(e) => setPaidOn(e.target.value)}
           />

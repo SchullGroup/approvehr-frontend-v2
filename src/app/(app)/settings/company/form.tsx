@@ -51,6 +51,42 @@ import { NIGERIAN_STATES } from "@/lib/reference/lists";
 const STATES = NIGERIAN_STATES;
 
 /**
+ * A working set of IANA zones for the settings picker.
+ *
+ * `Intl.supportedValuesOf("timeZone")` returns 417 names, and this repo has no
+ * searchable/combobox control yet (checked: `src/components/ui`) — a plain
+ * `<select>` with all 417 is not usable. This is Nigeria, its immediate West
+ * African neighbours, the other African business hubs, and the international
+ * time zones a Nigerian company most often deals with for clients, offices or
+ * remote staff. It is a working set, not a claim about which countries the
+ * product supports.
+ *
+ * The render below always adds whatever is already stored to this list, even
+ * when it falls outside this set — a zone set through `PATCH /company` (or by
+ * a future country this list has not caught up with yet) must never become
+ * invisible or get silently replaced just because this form opened.
+ */
+const TIMEZONE_OPTIONS = [
+  "Africa/Lagos",
+  "Africa/Accra",
+  "Africa/Abidjan",
+  "Africa/Cairo",
+  "Africa/Nairobi",
+  "Africa/Johannesburg",
+  "Africa/Casablanca",
+  "Europe/London",
+  "Europe/Paris",
+  "America/New_York",
+  "America/Chicago",
+  "America/Los_Angeles",
+  "Asia/Dubai",
+  "Asia/Kolkata",
+  "Asia/Shanghai",
+  "Australia/Sydney",
+  "UTC",
+];
+
+/**
  * Company profile.
  *
  * The entity table is the part that matters. A Nigerian group files PAYE per
@@ -186,6 +222,7 @@ function Form() {
         address: live.profile?.addressLine ?? "",
         city: live.profile?.city ?? "",
         state: live.profile?.taxState ?? "",
+        timezone: live.profile?.timezone ?? "",
         entities: (live.profile?.entities ?? []).map((e) => ({
           id: e.id,
           name: e.name,
@@ -254,6 +291,7 @@ function Form() {
       if (draft.address !== undefined) body["addressLine"] = draft.address;
       if (draft.city !== undefined) body["city"] = draft.city;
       if (draft.state !== undefined) body["taxState"] = draft.state;
+      if (draft.timezone !== undefined) body["timezone"] = draft.timezone;
 
       await companyApi.updateProfile(body);
       live.reload();
@@ -276,6 +314,13 @@ function Form() {
       setSaving(false);
     }
   }
+
+  /* The working set, plus whatever this company already has stored — see the
+     comment on `TIMEZONE_OPTIONS` for why the list is filtered at all. */
+  const timezoneOptions =
+    profile.timezone && !TIMEZONE_OPTIONS.includes(profile.timezone)
+      ? [profile.timezone, ...TIMEZONE_OPTIONS]
+      : TIMEZONE_OPTIONS;
 
   /* Live headcount per tax state, so an entity row means something. */
   const headcountByState = directory.reduce<Record<string, number>>(
@@ -391,6 +436,28 @@ function Form() {
                     </Select>
                   </Field>
                 </div>
+
+                <Field
+                  label="Timezone"
+                  help="Every date, time and clock-in in the product is shown and filed in this zone."
+                >
+                  <Select
+                    value={value("timezone")}
+                    onChange={(e) => set("timezone", e.target.value)}
+                  >
+                    <option value="" disabled>
+                      {isConnected && !live.profile ? "Loading…" : "Not set"}
+                    </option>
+                    {/* The whole tz database is 417 names and a plain select is unusable at
+                        that length. This is the working set, plus whatever is already stored
+                        so a zone set through the API is never silently dropped by this form. */}
+                    {timezoneOptions.map((tz) => (
+                      <option key={tz} value={tz}>
+                        {tz}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
               </div>
             </CardBody>
           </Card>

@@ -45,6 +45,7 @@ export type CompanyProfile = {
   address: string;
   city: string;
   state: string;
+  timezone: string;
   entities: LegalEntity[];
 };
 
@@ -197,6 +198,7 @@ export const DEFAULT_COMPANY: {
         address: "12B Adeola Odeku Street, Victoria Island",
         city: "Lagos",
         state: "Lagos",
+        timezone: "Africa/Lagos",
         entities: [
           {
             id: "ent-01",
@@ -228,6 +230,7 @@ export const DEFAULT_COMPANY: {
         address: "",
         city: "",
         state: "",
+        timezone: "",
         entities: [],
       },
   leave: {

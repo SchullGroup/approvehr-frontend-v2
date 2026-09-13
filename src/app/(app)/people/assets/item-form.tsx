@@ -25,6 +25,7 @@ import {
 } from "@/lib/store/assets";
 import { useDepartments } from "@/lib/store/departments";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
+import { useOrgTimezone } from "@/lib/store/session";
 import { useWorkLocations } from "@/lib/store/work-locations";
 
 /**
@@ -84,6 +85,7 @@ export function ItemForm({
   onSave?: (patch: ItemPatch) => Promise<void>;
 }) {
   const editing = item !== undefined;
+  const timeZone = useOrgTimezone();
 
   const departments = useDepartments();
   const locations = useWorkLocations();
@@ -418,7 +420,7 @@ export function ItemForm({
                 <Input
                   type="date"
                   value={purchasedOn}
-                  max={today()}
+                  max={today(timeZone)}
                   onChange={(e) => {
                     const value = e.target.value;
                     setPurchasedOn(value);

@@ -2,6 +2,8 @@
 
 import { ButtonLink, Callout } from "@/components/ui";
 import type { DeliveryHint } from "@/lib/api/account";
+import { useOrgTimezone } from "@/lib/store/session";
+import { formatDateTime } from "@/lib/time";
 
 /**
  * The link that should have arrived by email.
@@ -26,28 +28,22 @@ export function DeliveryNote({
   href: (token: string) => string;
   action: string;
 }) {
+  const timeZone = useOrgTimezone();
+
   if (!hint) return null;
 
-  /* A time alone reads as "today", and a verification token lasts a day —
-     "stops working at 4:42 PM" on a link good until tomorrow afternoon is worse
-     than saying nothing. The weekday appears only when it is needed, which is
-     also the longest any of these tokens lives. */
-  const expires = new Date(hint.expiresAt);
-  const clock = Number.isNaN(expires.getTime())
-    ? null
-    : expires.toDateString() === new Date().toDateString()
-      ? expires.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-      : expires.toLocaleString([], {
-          weekday: "long",
-          hour: "2-digit",
-          minute: "2-digit",
-        });
+  /* A time alone used to read as "today" — but "today" was decided by
+     comparing against the *browser's* clock, the same bug this whole feature
+     exists to fix, and it could disagree with the company's own day near
+     midnight. The full date and time, always, in the company's zone, is
+     unambiguous regardless of whose laptop is reading it. */
+  const clock = formatDateTime(hint.expiresAt, timeZone);
 
   return (
     <Callout tone="warning" title="No email was sent" className="mt-5">
       <p>
         This server cannot send email yet, so use the link here instead.
-        {clock ? ` It stops working at ${clock}.` : ""}
+        {clock !== "—" ? ` It stops working at ${clock}.` : ""}
       </p>
       <ButtonLink
         href={href(hint.token)}

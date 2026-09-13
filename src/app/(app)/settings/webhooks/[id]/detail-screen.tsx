@@ -24,6 +24,7 @@ import { ApiError } from "@/lib/api/client";
 import { hostOf, retryWindowLabel } from "@/lib/api/webhooks";
 import { fullStamp } from "@/lib/audit/language";
 import { usePermissions } from "@/lib/permissions";
+import { useOrgTimezone } from "@/lib/store/session";
 import {
   useDeliveryLog,
   useWebhook,
@@ -107,6 +108,7 @@ export function WebhookDetailScreen({ id }: { id: string }) {
 function Endpoint({ id }: { id: string }) {
   const router = useRouter();
   const toast = useToast();
+  const timeZone = useOrgTimezone();
 
   const webhook = useWebhook(id);
   const { catalogue } = useWebhookCatalogue();
@@ -409,7 +411,7 @@ function Endpoint({ id }: { id: string }) {
                 {
                   term: "Last delivered",
                   value: detail.health.lastDeliveredAt
-                    ? fullStamp(detail.health.lastDeliveredAt)
+                    ? fullStamp(detail.health.lastDeliveredAt, timeZone)
                     : "Never",
                 },
                 {
@@ -422,7 +424,10 @@ function Endpoint({ id }: { id: string }) {
                       ? "Automatic"
                       : "Manual only (press Retry on a delivery)",
                 },
-                { term: "Added", value: fullStamp(detail.createdAt) },
+                {
+                  term: "Added",
+                  value: fullStamp(detail.createdAt, timeZone),
+                },
               ]}
             />
 
@@ -447,6 +452,7 @@ function Endpoint({ id }: { id: string }) {
           editable={editable}
           retriesRunning={detail.delivery.retriesRunning}
           onRetry={retry}
+          timeZone={timeZone}
         />
 
         <Card>

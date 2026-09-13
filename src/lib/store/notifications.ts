@@ -605,9 +605,13 @@ export function useNotifications(tab: InboxTab) {
    * What "now" is, for day grouping and relative times. The wall clock when
    * connected; the demo dataset's own day otherwise, so seeded rows read
    * "Today" instead of drifting further into the past every morning.
+   *
+   * Captured once as a raw instant; every consumer (groupByDay, timeLabel,
+   * dayHeading in notifications/inbox.tsx) reads it together with timeZone
+   * rather than this file reducing it to a day.
    */
   const now = useMemo(
-    () => (isConnected ? new Date() : DEMO_NOW),
+    () => (isConnected ? new Date() : DEMO_NOW), // reads-the-clock: a raw instant, consumed with timeZone downstream
     [isConnected],
   );
 

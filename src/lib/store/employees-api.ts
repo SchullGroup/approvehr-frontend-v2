@@ -15,8 +15,9 @@ import {
 import { demoDepartmentName } from "./demo-structure";
 import { demoWorkLocationName } from "./work-locations";
 import { useEmployeeStore } from "./employees";
-import { useSession } from "./session";
+import { useOrgTimezone, useSession } from "./session";
 import { useRevalidation } from "@/lib/revalidate";
+import { todayIn } from "@/lib/time";
 
 /**
  * The employee directory, from whichever source is available.
@@ -625,6 +626,7 @@ export type EmployeePatch = Partial<Employee> & {
  */
 export function useEmployeeMutations() {
   const { isConnected } = useSession();
+  const timeZone = useOrgTimezone();
   const local = useEmployeeStore();
 
   /**
@@ -664,7 +666,7 @@ export function useEmployeeMutations() {
         firstName: draft.firstName,
         lastName: draft.lastName,
         jobTitle: draft.jobTitle ?? "Not set",
-        startDate: draft.startDate ?? new Date().toISOString().slice(0, 10),
+        startDate: draft.startDate ?? todayIn(timeZone),
         /* Omitted when nobody has agreed a figure. It used to be
            `toKobo(draft.grossMonthly ?? 0)`, which created the person on ₦0 a
            month — a figure the payroll run would then have prorated. */
@@ -720,7 +722,7 @@ export function useEmployeeMutations() {
          already knew how to use, plus one more fact it can choose to check. */
       return Object.assign(toEmployee(created), { invited: created.invited });
     },
-    [isConnected],
+    [isConnected, timeZone],
   );
 
   const update = useCallback(

@@ -34,6 +34,7 @@ import {
 } from "@/lib/mock/attendance";
 import { usePayrollSettings } from "@/lib/payroll/use-settings";
 import { TODAY } from "@/lib/today";
+import { formatTime } from "@/lib/time";
 import { fullName } from "@/lib/types";
 import {
   employedOn,
@@ -47,7 +48,7 @@ import { useEmployeeStore } from "./employees";
 import { useLeaveStore } from "./leave";
 import { createPersistedState, patched } from "./persisted";
 import { useRota } from "./shifts";
-import { useSession } from "./session";
+import { useOrgTimezone, useSession } from "./session";
 import { useRevalidation } from "@/lib/revalidate";
 import { useCan } from "@/lib/permissions";
 
@@ -93,12 +94,15 @@ const store = createPersistedState<AttendanceState>({
  * the *time* is real, because clocking in at whatever time it happens to be is
  * the entire behaviour being demonstrated. Pinning both would mean every
  * clock-in landed at the same minute.
+ *
+ * Real, and in the company's zone: somebody travelling clocks in at 09:00
+ * their own time, and the timesheet has to record the company's 09:00, not
+ * theirs. `formatTime` already renders `HH:MM` in a given zone, so this is
+ * that rather than a second hand-rolled clock reading `getHours()`/
+ * `getMinutes()` off the browser's own idea of the time.
  */
-export function nowTime(): string {
-  const now = new Date();
-  return `${String(now.getHours()).padStart(2, "0")}:${String(
-    now.getMinutes(),
-  ).padStart(2, "0")}`;
+export function nowTime(timeZone: string): string {
+  return formatTime(new Date(), timeZone); // reads-the-clock: straight into formatTime with timeZone
 }
 
 const entryId = (employeeId: string, date: string) =>
@@ -110,6 +114,7 @@ export function useAttendanceStore() {
     store.read,
     store.getServerSnapshot,
   );
+  const timeZone = useOrgTimezone();
 
   const policy: AttendancePolicy = { ...DEFAULT_POLICY, ...state.policy };
 
@@ -143,17 +148,22 @@ export function useAttendanceStore() {
   );
 
   const clockIn = useCallback(
-    (employeeId: string, locationId: string, at = nowTime(), date = TODAY) => {
+    (
+      employeeId: string,
+      locationId: string,
+      at = nowTime(timeZone),
+      date = TODAY,
+    ) => {
       upsert(employeeId, date, { clockIn: at, locationId });
     },
-    [upsert],
+    [upsert, timeZone],
   );
 
   const clockOut = useCallback(
-    (employeeId: string, at = nowTime(), date = TODAY) => {
+    (employeeId: string, at = nowTime(timeZone), date = TODAY) => {
       upsert(employeeId, date, { clockOut: at });
     },
-    [upsert],
+    [upsert, timeZone],
   );
 
   /**
@@ -329,6 +339,7 @@ export type RosterState = {
  */
 export function useAttendanceRoster(date?: string): RosterState {
   const { isConnected } = useSession();
+  const timeZone = useOrgTimezone();
   const local = useAttendanceStore();
   const { directory } = useEmployeeStore();
   const leave = useLeaveStore();
@@ -446,10 +457,12 @@ export function useAttendanceRoster(date?: string): RosterState {
 
     return {
       date: on,
-      /* The browser's own clock, which is the right answer offline: the demo's
-         clock-ins were made by this browser, so there is no offset to correct
-         for and no server to ask. */
-      time: new Date().toTimeString().slice(0, 5),
+      /* No server to ask offline, so this reads the clock locally — but the
+         company's zone, not the browser's, via the same `nowTime` a clock-in
+         defaults through above: the demo's clock-ins are recorded in the
+         company's time, and a live "now" reading the browser's would disagree
+         with the entries it sits beside for any reader outside that zone. */
+      time: nowTime(timeZone),
       policy: toApiPolicy(local.policy),
       rows,
       recorded: local.forDate(on).filter((entry) => entry.clockIn).length,
@@ -1115,6 +1128,7 @@ export type ClockInLocation = {
 export function useAttendanceMutations() {
   const { isConnected, actingId } = useSession();
   const local = useAttendanceStore();
+  const timeZone = useOrgTimezone();
 
   const clockIn = useCallback(
     async (location?: ClockInLocation | null) => {
@@ -1127,7 +1141,7 @@ export function useAttendanceMutations() {
             `Already clocked in at ${entry.clockIn}. Use a correction to change it.`,
           );
         }
-        const at = nowTime();
+        const at = nowTime(timeZone);
         local.clockIn(actingId, location?.id ?? "", at);
         /* No position asked for, and none used. A demo fence is drawn and not
            enforced — there is no server here to judge it — and `store/
@@ -1147,7 +1161,7 @@ export function useAttendanceMutations() {
         ...(position ? { position } : {}),
       });
     },
-    [isConnected, actingId, local],
+    [isConnected, actingId, local, timeZone],
   );
 
   const clockOut = useCallback(async () => {
@@ -1167,12 +1181,12 @@ export function useAttendanceMutations() {
           `Already clocked out at ${entry.clockOut}.`,
         );
       }
-      const at = nowTime();
+      const at = nowTime(timeZone);
       local.clockOut(actingId, at);
       return { employeeId: actingId, date: TODAY, time: at };
     }
     return attendanceApi.clockOut();
-  }, [isConnected, actingId, local]);
+  }, [isConnected, actingId, local, timeZone]);
 
   /**
    * Undo your own clock-out, just after making it.

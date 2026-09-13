@@ -41,8 +41,9 @@ import {
 } from "@/lib/api/payments";
 import { EMPLOYEES } from "@/lib/mock/people";
 import { createPersistedState } from "./persisted";
-import { useSession } from "./session";
+import { useOrgTimezone, useSession } from "./session";
 import { useRevalidation } from "@/lib/revalidate";
+import { todayIn } from "@/lib/time";
 
 /**
  * Payments, from whichever source is available.
@@ -1698,6 +1699,7 @@ export type BankAccountsState = {
 
 export function useBankAccounts(includeArchived = false): BankAccountsState {
   const { isConnected, can } = useSession();
+  const timeZone = useOrgTimezone();
   /*
    * `GET /payments/accounts` is `requirePermissions(MANAGE_SETTINGS)` —
    * checked in `modules/payments/router.ts`, not guessed, because a gate here
@@ -1776,10 +1778,10 @@ export function useBankAccounts(includeArchived = false): BankAccountsState {
         bumpRevision();
         return;
       }
-      demoCreateAccount(body);
+      demoCreateAccount(body, timeZone);
       bumpRevision();
     },
-    [isConnected],
+    [isConnected, timeZone],
   );
 
   const update = useCallback(
@@ -1879,7 +1881,7 @@ function refuse(message: string): never {
   throw new ApiError(409, "conflict", message);
 }
 
-function demoCreateAccount(body: CreateAccountBody) {
+function demoCreateAccount(body: CreateAccountBody, timeZone: string) {
   const book = currentBook();
   const digits = body.accountNumber.replace(/\D/g, "");
   const clash = book.accounts.find(
@@ -1911,7 +1913,7 @@ function demoCreateAccount(body: CreateAccountBody) {
     isPrimary,
     active: true,
     archived: false,
-    addedOn: new Date().toISOString().slice(0, 10),
+    addedOn: todayIn(timeZone),
   };
 
   commitBook({
@@ -2070,6 +2072,7 @@ export type PaymentActions = {
 
 export function usePaymentActions(): PaymentActions {
   const { isConnected, displayName } = useSession();
+  const timeZone = useOrgTimezone();
 
   const check = useCallback(
     async (id: string) => {
@@ -2304,8 +2307,8 @@ export function usePaymentActions(): PaymentActions {
       );
       if (!account) refuse("That bank account is not on file.");
       const entry: ApiLedgerEntry = {
-        id: `led-${Date.now()}`,
-        occurredAt: body.occurredAt ?? new Date().toISOString().slice(0, 10),
+        id: `led-${Date.now()}`, // reads-the-clock: entropy for a locally-unique id, not a day
+        occurredAt: body.occurredAt ?? todayIn(timeZone),
         kind: "FUNDING",
         direction: "CREDIT",
         amountKobo: body.amountKobo,
@@ -2322,7 +2325,7 @@ export function usePaymentActions(): PaymentActions {
       commitBook({ ...book, ledger: [entry, ...book.ledger] });
       bumpRevision();
     },
-    [isConnected],
+    [isConnected, timeZone],
   );
 
   return {

@@ -19,6 +19,17 @@ import {
 } from "@/lib/api/leave";
 import { useCan } from "@/lib/permissions";
 import { useHolidayMutations, usePublicHolidays } from "@/lib/store/holidays";
+import { formatDate } from "@/lib/time";
+
+const WEEKDAYS = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
 
 /**
  * Making a date a public holiday, from the calendar you are looking at.
@@ -250,12 +261,17 @@ function AddHolidayDialog({
     }
   };
 
-  const readable = new Date(`${date}T00:00:00`).toLocaleDateString("en-GB", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  /*
+   * A public holiday is a calendar day, not a moment, so it is always UTC —
+   * the company's zone has nothing to relocate here, the same reasoning
+   * `src/lib/marketing/careers.ts` uses for its own date-only value.
+   * `getUTCDay()` (not a locale/Intl call) supplies the weekday that
+   * formatDate's fixed day/month/year shape does not.
+   */
+  const holidayDate = new Date(`${date}T00:00:00Z`);
+  const readable = Number.isNaN(holidayDate.getTime())
+    ? date
+    : `${WEEKDAYS[holidayDate.getUTCDay()]}, ${formatDate(holidayDate, "UTC")}`;
 
   return (
     <Modal

@@ -122,11 +122,13 @@ function markFor(entry: AuditEntry) {
 export function TrailEntry({
   entry,
   now,
+  timeZone,
   /** Draws the hairline down to the next row. False on the last one. */
   rail = true,
 }: {
   entry: AuditEntry;
   now: Date;
+  timeZone: string;
   rail?: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -165,8 +167,8 @@ export function TrailEntry({
               {sentence.text}
             </span>
             <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-meta text-muted">
-              <time dateTime={entry.at} title={fullStamp(entry.at)}>
-                {timeLabel(entry.at, now)}
+              <time dateTime={entry.at} title={fullStamp(entry.at, timeZone)}>
+                {timeLabel(entry.at, now, timeZone)}
               </time>
               <span aria-hidden="true" className="text-line-strong">
                 ·
@@ -195,7 +197,7 @@ export function TrailEntry({
 
         {open && (
           <div id={panelId} className="mt-2.5 px-1">
-            <EventDetail id={entry.id} />
+            <EventDetail id={entry.id} timeZone={timeZone} />
           </div>
         )}
       </div>
@@ -212,7 +214,7 @@ export function TrailEntry({
  * writes its own event, which is the API's design and not something to work
  * around by prefetching every row.
  */
-function EventDetail({ id }: { id: string }) {
+function EventDetail({ id, timeZone }: { id: string; timeZone: string }) {
   const { detail, loading, error } = useAuditEvent(id);
 
   if (loading) {
@@ -231,10 +233,16 @@ function EventDetail({ id }: { id: string }) {
     );
   }
 
-  return <Changes detail={detail} />;
+  return <Changes detail={detail} timeZone={timeZone} />;
 }
 
-export function Changes({ detail }: { detail: AuditEntryDetail }) {
+export function Changes({
+  detail,
+  timeZone,
+}: {
+  detail: AuditEntryDetail;
+  timeZone: string;
+}) {
   const facts = detail.diff.details.filter((fact) => fact.field !== "note");
   const note = detail.diff.details.find((fact) => fact.field === "note");
   const nothing =
@@ -276,10 +284,18 @@ export function Changes({ detail }: { detail: AuditEntryDetail }) {
                 ) : (
                   <>
                     <TD>
-                      <Value field={change.field} value={change.from} />
+                      <Value
+                        field={change.field}
+                        value={change.from}
+                        timeZone={timeZone}
+                      />
                     </TD>
                     <TD className="text-ink">
-                      <Value field={change.field} value={change.to} />
+                      <Value
+                        field={change.field}
+                        value={change.to}
+                        timeZone={timeZone}
+                      />
                     </TD>
                   </>
                 )}
@@ -295,7 +311,13 @@ export function Changes({ detail }: { detail: AuditEntryDetail }) {
             columns={2}
             items={facts.map((fact) => ({
               term: prettyField(fact.label),
-              value: <Value field={fact.field} value={fact.value} />,
+              value: (
+                <Value
+                  field={fact.field}
+                  value={fact.value}
+                  timeZone={timeZone}
+                />
+              ),
             }))}
           />
         </div>
@@ -303,13 +325,13 @@ export function Changes({ detail }: { detail: AuditEntryDetail }) {
 
       {note && (
         <p className="text-body-sm leading-relaxed text-body">
-          {formatFieldValue(note.field, note.value).text}
+          {formatFieldValue(note.field, note.value, timeZone).text}
         </p>
       )}
 
       {detail.diff.raw !== undefined && (
         <p className="rounded-md border border-line bg-canvas px-4 py-3 text-body-sm text-body">
-          {formatFieldValue("raw", detail.diff.raw).text}
+          {formatFieldValue("raw", detail.diff.raw, timeZone).text}
         </p>
       )}
 
@@ -320,7 +342,7 @@ export function Changes({ detail }: { detail: AuditEntryDetail }) {
       )}
 
       <p className="text-meta leading-relaxed text-muted">
-        {fullStamp(detail.at)}
+        {fullStamp(detail.at, timeZone)}
         {detail.actorEmail ? ` · ${detail.actorEmail}` : ""}
         {detail.ipAddress ? ` · from ${detail.ipAddress}` : ""}
       </p>
@@ -328,8 +350,16 @@ export function Changes({ detail }: { detail: AuditEntryDetail }) {
   );
 }
 
-function Value({ field, value }: { field: string; value: unknown }) {
-  const formatted = formatFieldValue(field, value);
+function Value({
+  field,
+  value,
+  timeZone,
+}: {
+  field: string;
+  value: unknown;
+  timeZone: string;
+}) {
+  const formatted = formatFieldValue(field, value, timeZone);
   return (
     <span
       className={cn(

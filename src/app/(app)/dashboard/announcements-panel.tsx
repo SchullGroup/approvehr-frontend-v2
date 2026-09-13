@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Megaphone, Pin } from "lucide-react";
 import { Badge, Button, Card, CardBody, CardHeader } from "@/components/ui";
 import type { ApiBoard, ApiBoardNotice } from "@/lib/api/announcements";
+import { useOrgTimezone } from "@/lib/store/session";
+import { formatDateShort } from "@/lib/time";
 
 /**
  * The noticeboard on the dashboard.
@@ -97,6 +99,8 @@ export function AnnouncementsPanel({ board }: { board: ApiBoard }) {
 /* -------------------------------------------------------------------------- */
 
 function Notice({ notice }: { notice: ApiBoardNotice }) {
+  const timeZone = useOrgTimezone();
+
   return (
     <article className="border-l-2 border-line pl-3.5">
       <div className="flex flex-wrap items-center gap-2">
@@ -133,37 +137,9 @@ function Notice({ notice }: { notice: ApiBoardNotice }) {
 
       <p className="mt-1.5 text-meta text-muted">
         {notice.postedByName
-          ? `${notice.postedByName} · ${dayLabel(notice.publishedAt)}`
-          : dayLabel(notice.publishedAt)}
+          ? `${notice.postedByName} · ${formatDateShort(notice.publishedAt, timeZone)}`
+          : formatDateShort(notice.publishedAt, timeZone)}
       </p>
     </article>
   );
-}
-
-const MONTHS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
-
-/**
- * `19 Aug 2026`, formatted by hand.
- *
- * Not `toLocaleDateString`: this tree renders on the server as well, and a
- * server in one locale and a browser in another produce two different strings
- * for the same date, which React reports as a hydration mismatch.
- */
-function dayLabel(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "—";
-  return `${date.getUTCDate()} ${MONTHS[date.getUTCMonth()] ?? ""} ${date.getUTCFullYear()}`;
 }

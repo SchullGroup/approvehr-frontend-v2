@@ -387,6 +387,12 @@ export function useSession() {
     isConnected: state.mode === "api" && state.status === "signed_in",
     user: state.user,
     /**
+     * The company this account belongs to. Only `/auth/me` populates it — see
+     * `ApiUser.organization` for why sign-in and refresh leave it absent — so a
+     * reader must handle the gap the same way that field's own doc says.
+     */
+    organization: state.user?.organization,
+    /**
      * The roles on the *account*, named. Empty in demo mode, where there is no
      * account — `useSessionRoles()` in `lib/roles.ts` is the hook that answers
      * for both modes and the one screens should use.
@@ -451,6 +457,21 @@ export function useSession() {
     signInOffline,
     signOut,
   };
+}
+
+/**
+ * The company's timezone, for formatting every date on every screen.
+ *
+ * Defaults to Africa/Lagos while the session is loading and when offline,
+ * rather than falling back to the browser's zone. A browser fallback is how
+ * two colleagues in different countries end up reading different dates off
+ * the same record, which is the bug this whole feature exists to fix — and a
+ * default that is wrong for one company is better than one that is wrong
+ * differently for every reader.
+ */
+export function useOrgTimezone(): string {
+  const { organization } = useSession();
+  return organization?.timezone ?? "Africa/Lagos";
 }
 
 /**

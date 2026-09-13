@@ -15,6 +15,7 @@ import {
   type EquipmentItem,
   type RepairInput,
 } from "@/lib/store/assets";
+import { useOrgTimezone } from "@/lib/store/session";
 
 /**
  * Log a repair.
@@ -44,8 +45,9 @@ export function RepairDialog({
   onClose: () => void;
   onLog: (input: RepairInput) => Promise<void>;
 }) {
+  const timeZone = useOrgTimezone();
   const [description, setDescription] = useState("");
-  const [startedOn, setStartedOn] = useState(today());
+  const [startedOn, setStartedOn] = useState(today(timeZone));
   const [completedOn, setCompletedOn] = useState("");
   const [cost, setCost] = useState("");
   const [vendor, setVendor] = useState("");
@@ -136,7 +138,7 @@ export function RepairDialog({
             <Input
               type="date"
               value={startedOn}
-              max={today()}
+              max={today(timeZone)}
               onChange={(e) => {
                 const value = e.target.value;
                 setStartedOn(value);
@@ -156,7 +158,7 @@ export function RepairDialog({
               type="date"
               value={completedOn}
               min={startedOn}
-              max={today()}
+              max={today(timeZone)}
               onChange={(e) => {
                 const value = e.target.value;
                 setCompletedOn(value);

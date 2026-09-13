@@ -19,8 +19,9 @@ import {
   type SettledThrough,
 } from "@/lib/api/reimbursements";
 import { CURRENT_USER, employeeById } from "@/lib/mock/people";
+import { todayIn } from "@/lib/time";
 import { createPersistedState } from "./persisted";
-import { useSession } from "./session";
+import { useOrgTimezone, useSession } from "./session";
 import { useRevalidation } from "@/lib/revalidate";
 
 /**
@@ -187,12 +188,15 @@ function unprocessable(
 
 const conflict = (message: string) => new ApiError(409, "conflict", message);
 
-/** `YYYY-MM-DD` for today, in the local calendar the date input uses. */
-export function today(): string {
-  const now = new Date();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${now.getFullYear()}-${month}-${day}`;
+/**
+ * `YYYY-MM-DD` for today, in the company's zone.
+ *
+ * Not a hook: called from plain event handlers as well as render (a
+ * `useState` default, a `max=` bound), so the caller reads the zone via
+ * `useOrgTimezone()` and passes it in.
+ */
+export function today(timeZone: string): string {
+  return todayIn(timeZone);
 }
 
 /**
@@ -248,7 +252,7 @@ function alreadyDecided(claim: ApiClaim): string {
 
 /** Days back from today as `YYYY-MM-DD`. Keeps the seed plausible on any day. */
 function daysAgo(days: number): string {
-  const date = new Date();
+  const date = new Date(); // reads-the-clock: the same seed-only daysAgo() as assets.ts, for seeded claims
   date.setDate(date.getDate() - days);
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
@@ -839,6 +843,7 @@ export function useExpenseClaims(
   enabled = true,
 ) {
   const { isConnected, employeeId, actingId } = useSession();
+  const timeZone = useOrgTimezone();
   const revisionValue = useRevision();
   const demoState = useDemoState();
 
@@ -1041,7 +1046,7 @@ export function useExpenseClaims(
           `${type.name} is switched off, so nothing new can be claimed against it.`,
         );
       }
-      if (input.incurredOn > today()) {
+      if (input.incurredOn > today(timeZone)) {
         throw unprocessable(
           "That date is in the future. Claim it once the money has gone out.",
         );
@@ -1087,7 +1092,7 @@ export function useExpenseClaims(
         ],
       });
     },
-    [isConnected, employeeId, actingId],
+    [isConnected, employeeId, actingId, timeZone],
   );
 
   const edit = useCallback(
@@ -1128,7 +1133,7 @@ export function useExpenseClaims(
           `${type.name} is switched off, so nothing new can be claimed against it.`,
         );
       }
-      if (input.incurredOn && input.incurredOn > today()) {
+      if (input.incurredOn && input.incurredOn > today(timeZone)) {
         throw unprocessable(
           "That date is in the future. Claim it once the money has gone out.",
         );
@@ -1160,7 +1165,7 @@ export function useExpenseClaims(
         ),
       });
     },
-    [isConnected],
+    [isConnected, timeZone],
   );
 
   const decide = useCallback(
@@ -1456,8 +1461,8 @@ export function useExpenseSummary(enabled = true) {
 }
 
 /** How many days a date is behind today. For "waiting since" on the queue. */
-export function daysSince(isoDate: string): number {
+export function daysSince(isoDate: string, timeZone: string): number {
   const then = new Date(`${isoDate.slice(0, 10)}T12:00:00`).getTime();
-  const now = new Date(`${today()}T12:00:00`).getTime();
+  const now = new Date(`${today(timeZone)}T12:00:00`).getTime();
   return Math.max(0, Math.round((now - then) / 86_400_000));
 }

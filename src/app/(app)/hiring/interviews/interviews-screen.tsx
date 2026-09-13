@@ -23,7 +23,8 @@ import { pipelineSnapshot, useScreeningBacklog } from "@/lib/store/hiring";
 import { cardById } from "@/lib/mock/hiring";
 import { employeeById } from "@/lib/mock/people";
 import { fullName } from "@/lib/types";
-import { useSession } from "@/lib/store/session";
+import { useOrgTimezone, useSession } from "@/lib/store/session";
+import { formatDate, formatTime } from "@/lib/time";
 import { RealDiary } from "./real-diary";
 
 /**
@@ -102,6 +103,7 @@ const KIND_LABEL: Record<string, string> = {
 function Diary() {
   const backlog = useScreeningBacklog();
   const { isConnected } = useSession();
+  const timeZone = useOrgTimezone();
   const pipeline = pipelineSnapshot();
   const toast = useToast();
 
@@ -257,7 +259,17 @@ function Diary() {
                 {scheduled.map((iv) => {
                   const card = cardById(iv.applicationId);
                   if (!card) return null;
-                  const when = new Date(iv.scheduledFor);
+                  /* `formatDate` gives "5 September 2026" — day and month
+                     split off it rather than a fresh Intl call, so the chip
+                     and the time below agree on which zone's day this is.
+                     Before this, the month came from a browser-local Intl
+                     call and the day number from a raw `getDate()` (also
+                     browser-local) — consistent with each other, but never
+                     with the company's own clock. */
+                  const [day, month] = formatDate(
+                    iv.scheduledFor,
+                    timeZone,
+                  ).split(" ");
                   return (
                     /* A plain wrapper. The two links are siblings, never nested —
                        an outer link wrapping an inner one breaks hydration and
@@ -268,10 +280,10 @@ function Diary() {
                     >
                       <div className="flex w-16 shrink-0 flex-col items-center rounded-md bg-sunken px-2 py-1.5">
                         <span className="text-meta text-muted">
-                          {when.toLocaleDateString("en-NG", { month: "short" })}
+                          {month ? month.slice(0, 3) : ""}
                         </span>
                         <span className="tabular text-h4 leading-none text-ink">
-                          {when.getDate()}
+                          {day}
                         </span>
                       </div>
 
@@ -294,11 +306,8 @@ function Diary() {
                           </Link>
                         </p>
                         <p className="tabular mt-0.5 text-meta text-muted">
-                          {when.toLocaleTimeString("en-NG", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}{" "}
-                          · {iv.durationMins} mins ·{" "}
+                          {formatTime(iv.scheduledFor, timeZone)} ·{" "}
+                          {iv.durationMins} mins ·{" "}
                           {iv.interviewerIds
                             .map((id) => {
                               const person = employeeById(id);
