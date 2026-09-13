@@ -24,6 +24,7 @@ import {
   type ReturnOutcome,
   type TakeBackInput,
 } from "@/lib/store/assets";
+import { useOrgTimezone } from "@/lib/store/session";
 
 /**
  * Take a piece of equipment back.
@@ -54,11 +55,12 @@ export function TakeBackDialog({
   onClose: () => void;
   onTakeBack: (input: TakeBackInput) => Promise<void>;
 }) {
+  const timeZone = useOrgTimezone();
   const [outcome, setOutcome] = useState<ReturnOutcome>("RETURNED");
   const [condition, setCondition] = useState<AssetCondition>(
     item.holder?.conditionOut ?? item.condition,
   );
-  const [returnedOn, setReturnedOn] = useState(today());
+  const [returnedOn, setReturnedOn] = useState(today(timeZone));
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [refusal, setRefusal] = useState<string | null>(null);
@@ -150,7 +152,7 @@ export function TakeBackDialog({
             <Input
               type="date"
               value={returnedOn}
-              max={today()}
+              max={today(timeZone)}
               {...(item.holder ? { min: item.holder.assignedOn } : {})}
               onChange={(e) => {
                 const value = e.target.value;

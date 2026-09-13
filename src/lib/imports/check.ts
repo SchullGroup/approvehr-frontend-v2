@@ -79,9 +79,11 @@ export function checkMappedRows(
     presentFields: ReadonlySet<string>;
     /** Row numbers as the file has them, so a multi-part check still lines up. */
     firstRowNumber?: number;
+    /** The company's zone. See `RowContext.timeZone`. */
+    timeZone: string;
   },
 ): LocalCheckResult {
-  const { presentFields, firstRowNumber = 1 } = options;
+  const { presentFields, firstRowNumber = 1, timeZone } = options;
   const reports: ApiRowReport[] = [];
   const heading = dictionary.heading;
 
@@ -184,6 +186,7 @@ export function checkMappedRows(
         memo.set(key, rowNumber);
         return undefined;
       },
+      timeZone,
     };
     dictionary.rowRules?.(context);
 

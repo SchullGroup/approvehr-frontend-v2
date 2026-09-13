@@ -609,7 +609,7 @@ export function useAuditTrail(filters: AuditListParams) {
      Frozen at mount is also what the notification inbox does: relative labels
      that tick on their own are motion nobody asked for. */
   const now = useMemo(
-    () => (isConnected ? new Date() : DEMO_NOW),
+    () => (isConnected ? new Date() : DEMO_NOW), // reads-the-clock: a raw instant, consumed with timeZone in dayHeading (audit-screen.tsx)
     [isConnected],
   );
 
@@ -781,7 +781,7 @@ export function useRecordTimeline(
   }, [entityType, entityId, limit, includeReads]);
 
   const now = useMemo(
-    () => (isConnected ? new Date() : DEMO_NOW),
+    () => (isConnected ? new Date() : DEMO_NOW), // reads-the-clock: a raw instant, consumed with timeZone in timeLabel (record-history.tsx -> entry.tsx)
     [isConnected],
   );
 

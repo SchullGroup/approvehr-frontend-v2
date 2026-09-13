@@ -256,10 +256,15 @@ describe("the styling", () => {
 
 describe("overdue is a date question, not a timestamp one", () => {
   it("does not call something due today overdue", () => {
-    /* `dueDate` has no time on it. Comparing it against `Date.now()` makes a
+    /* `dueDate` has no time on it. Comparing it against a raw instant makes a
        document due today read as overdue from one minute past midnight, and
-       the reader is looking at a calendar rather than a clock. */
-    expect(screen).toMatch(/Date\.UTC\(/);
+       the reader is looking at a calendar rather than a clock — so both
+       `dueDate` and "today" are pinned to midnight before they are compared,
+       and neither is `Date.now()`. Task 7d moved "today" from the reader's
+       clock to `todayIn(timeZone)`, which is what changed this from
+       `Date.UTC(...)` to a second `T00:00:00Z` parse of the same shape. */
+    expect(screen).not.toMatch(/Date\.now\(\)/);
+    expect(screen).toMatch(/T00:00:00Z/);
     expect(screen).toMatch(/Due today/);
   });
 
