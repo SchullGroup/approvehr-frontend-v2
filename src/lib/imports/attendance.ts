@@ -1,3 +1,4 @@
+import { todayIn } from "@/lib/time";
 import {
   buildDictionary,
   parseImportTime,
@@ -189,12 +190,6 @@ const minutesOf = (time: string): number => {
   return Number(hour) * 60 + Number(minute);
 };
 
-/** Midnight today, UTC — the same boundary the API compares against. */
-const todayUtc = (): number => {
-  const now = new Date();
-  return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-};
-
 /**
  * Read a date cell the way `parseImportDate` does, for the two rules that need
  * the resolved day rather than the text.
@@ -223,6 +218,7 @@ function attendanceRowRules({
   error,
   tally,
   seen,
+  timeZone,
 }: RowContext<AttendanceField>): void {
   const rawIn = text("clockIn");
   const rawOut = text("clockOut");
@@ -266,9 +262,15 @@ function attendanceRowRules({
   const day = isoDayOf(text("date"));
   if (day) {
     /* A day that has not happened is not a day somebody attended. The same rule
-       `countTo` applies in `assemble.ts`, and one a browser can answer for
-       itself — the only date question here that does not need the database. */
-    if (Date.parse(`${day}T00:00:00.000Z`) > todayUtc()) {
+       `countTo` applies in `assemble.ts`, and one this file can answer for
+       itself without the database — but only once "today" is read from the
+       company's own zone rather than whatever clock the check is running on.
+       This path is demo-only (see `check.ts`'s header), so there is no API
+       boundary to match either way. */
+    if (
+      Date.parse(`${day}T00:00:00.000Z`) >
+      Date.parse(`${todayIn(timeZone)}T00:00:00.000Z`)
+    ) {
       error("date", `${day} has not happened yet.`);
     }
 

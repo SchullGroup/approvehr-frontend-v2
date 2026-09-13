@@ -17,6 +17,8 @@ import {
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
+import { dayHeading, dayKey, fullStamp, timeLabel } from "@/lib/audit/language";
+import { useOrgTimezone } from "@/lib/store/session";
 import {
   useNotifications,
   type InboxItem,
@@ -127,10 +129,11 @@ export function NotificationsInbox() {
   const notifications = useNotifications(tab);
   const toast = useToast();
   const [busy, setBusy] = useState(false);
+  const timeZone = useOrgTimezone();
 
   const groups = useMemo(
-    () => groupByDay(notifications.items, notifications.now),
-    [notifications.items, notifications.now],
+    () => groupByDay(notifications.items, notifications.now, timeZone),
+    [notifications.items, notifications.now, timeZone],
   );
 
   /* Mutations report their own failure — the API's message is the useful part. */
@@ -230,6 +233,7 @@ export function NotificationsInbox() {
                       key={item.id}
                       item={item}
                       now={notifications.now}
+                      timeZone={timeZone}
                       busy={busy}
                       onOpen={() => {
                         /* Following the action is reading it. Fire and forget:
@@ -273,6 +277,7 @@ export function NotificationsInbox() {
 function Row({
   item,
   now,
+  timeZone,
   busy,
   onOpen,
   onMarkRead,
@@ -280,6 +285,7 @@ function Row({
 }: {
   item: InboxItem;
   now: Date;
+  timeZone: string;
   busy: boolean;
   onOpen: () => void;
   onMarkRead: () => void;
@@ -331,10 +337,10 @@ function Row({
 
         <time
           dateTime={item.createdAt}
-          title={fullStamp(item.createdAt)}
+          title={fullStamp(item.createdAt, timeZone)}
           className="mt-1.5 block text-meta text-faint"
         >
-          {whenLabel(item.createdAt, now)}
+          {timeLabel(item.createdAt, now, timeZone)}
         </time>
       </div>
 
@@ -374,79 +380,6 @@ function Row({
 
 /* ------------------------------------------------------------ day grouping */
 
-const WEEKDAYS = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-];
-
-const MONTHS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
-
-const pad = (n: number) => String(n).padStart(2, "0");
-
-/**
- * Local day parts, not UTC.
- *
- * `createdAt` is a timestamp rather than a calendar date, so "which day was
- * that" is a question about the reader's day and not the server's. Nigeria is
- * UTC+1 with no daylight saving, which is exactly the hour that would move a
- * late-evening notification into tomorrow if this used UTC getters the way
- * `lib/today.ts` does for date-only values.
- */
-const dayKey = (d: Date) =>
-  `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-
-const startOfDay = (d: Date) =>
-  new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-
-function dayHeading(date: Date, now: Date): string {
-  const days = Math.round((startOfDay(now) - startOfDay(date)) / 86_400_000);
-  if (days <= 0) return "Today";
-  if (days === 1) return "Yesterday";
-  /* A weekday name is only unambiguous inside the last week. */
-  if (days < 7) return WEEKDAYS[date.getDay()];
-  return `${date.getDate()} ${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
-}
-
-/** Relative while it is still news, then the clock time — the day is in the heading. */
-function whenLabel(iso: string, now: Date): string {
-  const then = new Date(iso);
-  const minutes = Math.max(
-    0,
-    Math.round((now.getTime() - then.getTime()) / 60_000),
-  );
-  if (minutes < 1) return "Just now";
-  if (minutes < 60) return `${minutes} min ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return hours === 1 ? "1 hour ago" : `${hours} hours ago`;
-  return `${pad(then.getHours())}:${pad(then.getMinutes())}`;
-}
-
-/** The exact moment, for the tooltip and for anyone who needs to be sure. */
-function fullStamp(iso: string): string {
-  const d = new Date(iso);
-  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}, ${pad(
-    d.getHours(),
-  )}:${pad(d.getMinutes())}`;
-}
-
 type DayGroup = { key: string; heading: string; items: InboxItem[] };
 
 /**
@@ -464,15 +397,18 @@ type DayGroup = { key: string; heading: string; items: InboxItem[] };
  * anyone who wants only those. A heading that appears twice is a bug; a heading
  * that appears once with the unread rows at its top is an inbox.
  */
-function groupByDay(items: InboxItem[], now: Date): DayGroup[] {
+function groupByDay(
+  items: InboxItem[],
+  now: Date,
+  timeZone: string,
+): DayGroup[] {
   const groups = new Map<string, DayGroup>();
 
   /* Days in reverse-chronological order, whatever order the rows arrived in. */
   for (const item of [...items].sort((a, b) =>
     b.createdAt.localeCompare(a.createdAt),
   )) {
-    const date = new Date(item.createdAt);
-    const day = dayKey(date);
+    const day = dayKey(item.createdAt, timeZone);
     const group = groups.get(day);
     if (group) {
       group.items.push(item);
@@ -480,7 +416,7 @@ function groupByDay(items: InboxItem[], now: Date): DayGroup[] {
     }
     groups.set(day, {
       key: day,
-      heading: dayHeading(date, now),
+      heading: dayHeading(item.createdAt, now, timeZone),
       items: [item],
     });
   }

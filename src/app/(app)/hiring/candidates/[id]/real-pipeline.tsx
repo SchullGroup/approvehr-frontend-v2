@@ -37,6 +37,8 @@ import {
   useOfferMutations,
   useStages,
 } from "@/lib/store/recruitment";
+import { useOrgTimezone } from "@/lib/store/session";
+import { formatWeekdayTime } from "@/lib/time";
 
 const OUTCOME_TONE = {
   IN_PROGRESS: "info",
@@ -137,6 +139,7 @@ export function RealPipeline({
   const offers = useOfferMutations();
   const canApprove = useCan("APPROVE_HIRING");
   const canManage = useCan("MANAGE_HIRING");
+  const timeZone = useOrgTimezone();
 
   const [scheduling, setScheduling] = useState(false);
   const [scoring, setScoring] = useState<string | null>(null);
@@ -279,14 +282,8 @@ export function RealPipeline({
                     {INTERVIEW_KIND_LABEL[iv.kind]}
                   </p>
                   <p className="tabular mt-0.5 text-meta text-muted">
-                    {new Date(iv.scheduledFor).toLocaleString("en-NG", {
-                      weekday: "short",
-                      day: "numeric",
-                      month: "short",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}{" "}
-                    · {iv.durationMins} mins
+                    {formatWeekdayTime(iv.scheduledFor, timeZone)} ·{" "}
+                    {iv.durationMins} mins
                     {iv.location ? ` · ${iv.location}` : ""}
                   </p>
                 </div>
