@@ -27,6 +27,7 @@ import {
   rowClick,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
+import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import {
   RunStatusBadge,
@@ -315,22 +316,19 @@ export function PayrollScreen() {
                 detail.run.exceptions.length > 0 &&
                 current.status !== "APPROVED" &&
                 current.status !== "PAID" && (
-                  <Callout tone={counts.blockers > 0 ? "danger" : "warning"}>
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <span>
-                        {counts.blockers > 0
-                          ? `${counts.blockers} ${counts.blockers === 1 ? "thing" : "things"} to fix before this can be approved${counts.warnings > 0 ? `, ${counts.warnings} more worth a look` : ""}.`
-                          : `${counts.warnings} ${counts.warnings === 1 ? "thing" : "things"} worth a look before approving. Nothing stops the run.`}
-                      </span>
-                      <ButtonLink
-                        href={`/payroll/runs/new?period=${current.period}`}
-                        size="sm"
-                        variant={counts.blockers > 0 ? "accent" : "secondary"}
-                      >
-                        Open the run
-                      </ButtonLink>
-                    </div>
-                  </Callout>
+                  <NoticeLine tone={counts.blockers > 0 ? "danger" : "warning"}>
+                    <span>
+                      {counts.blockers > 0
+                        ? `${counts.blockers} ${counts.blockers === 1 ? "thing" : "things"} to fix before this can be approved${counts.warnings > 0 ? `, ${counts.warnings} more worth a look` : ""}.`
+                        : `${counts.warnings} ${counts.warnings === 1 ? "thing" : "things"} worth a look before approving. Nothing stops the run.`}
+                    </span>
+                    <Link
+                      href={`/payroll/runs/new?period=${current.period}`}
+                      className={NOTICE_LINK}
+                    >
+                      Open the run
+                    </Link>
+                  </NoticeLine>
                 )}
 
               {/* The last thing anybody does, and the easiest to forget.

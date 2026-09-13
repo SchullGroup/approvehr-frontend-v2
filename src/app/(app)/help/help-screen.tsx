@@ -2,14 +2,7 @@
 
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
-import {
-  AlertTriangle,
-  Inbox,
-  LifeBuoy,
-  Search,
-  Send,
-  UserPlus,
-} from "lucide-react";
+import { Inbox, LifeBuoy, Search, Send, UserPlus } from "lucide-react";
 import {
   Avatar,
   Badge,
@@ -38,6 +31,7 @@ import {
   useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
+import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -224,25 +218,25 @@ function QueueView() {
         )}
 
         {/*
-          A count and a button, not a paragraph. The number is the whole point
-          and pressing it filters the queue down to exactly those tickets.
+          A line, not a panel. A broken reply-time promise is a real failure —
+          `danger` still means that — but it is a count sitting in the queue
+          below, not a decision to make right here. See `NoticeLine`.
         */}
         {pulse.overdue > 0 && (
-          <Callout
-            tone="danger"
-            title={`${pulse.overdue} ${
-              pulse.overdue === 1 ? "person has" : "people have"
-            } had no reply in the time you promised`}
-            icon={<AlertTriangle aria-hidden="true" />}
-          >
-            <Button
-              variant="secondary"
-              size="sm"
+          <NoticeLine tone="danger">
+            <span>
+              {pulse.overdue === 1
+                ? "1 person has had no reply in the time you promised"
+                : `${pulse.overdue} people have had no reply in the time you promised`}
+            </span>
+            <button
+              type="button"
+              className={NOTICE_LINK}
               onClick={() => setChoice("queue:overdue")}
             >
               Show me those
-            </Button>
-          </Callout>
+            </button>
+          </NoticeLine>
         )}
 
         <Card>
