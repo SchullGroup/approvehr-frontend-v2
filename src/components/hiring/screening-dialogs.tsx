@@ -39,12 +39,14 @@ import type { ScreenInInput } from "@/lib/api/hiring";
  * into kobo — nothing on this screen multiplies by 100.
  */
 export function ScreenInDialog({
-  applicantName,
-  appliedFor,
-  roleName,
+  open,
+  applicantName: applicantNameProp,
+  appliedFor: appliedForProp,
+  roleName: roleNameProp,
   onClose,
   onConfirm,
 }: {
+  open: boolean;
   applicantName: string;
   /** The advert they applied through. */
   appliedFor: string;
@@ -53,6 +55,25 @@ export function ScreenInDialog({
   onClose: () => void;
   onConfirm: (input: ScreenInInput) => Promise<void>;
 }) {
+  /* Freezes the last real applicant this was showing. Its two callers differ
+     — one clears its record to null the instant it closes this, the other
+     clears the row itself to null — but either way these strings would go
+     blank the same render `open` turns false, and Modal needs the real ones
+     in place to play its own exit animation. */
+  const [applicantName, setApplicantName] = useState(applicantNameProp);
+  const [appliedFor, setAppliedFor] = useState(appliedForProp);
+  const [roleName, setRoleName] = useState(roleNameProp);
+  if (
+    applicantNameProp &&
+    (applicantNameProp !== applicantName ||
+      appliedForProp !== appliedFor ||
+      roleNameProp !== roleName)
+  ) {
+    setApplicantName(applicantNameProp);
+    setAppliedFor(appliedForProp);
+    setRoleName(roleNameProp);
+  }
+
   const [noticeDays, setNoticeDays] = useState("");
   const [current, setCurrent] = useState("");
   const [expected, setExpected] = useState("");
@@ -84,7 +105,7 @@ export function ScreenInDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       size="md"
       title={`Screen ${applicantName} in for ${roleName}`}
@@ -152,20 +173,29 @@ export function ScreenInDialog({
 /* -------------------------------------------------------------------------- */
 
 export function DeclineDialog({
-  applicantName,
+  open,
+  applicantName: applicantNameProp,
   onClose,
   onConfirm,
 }: {
+  open: boolean;
   applicantName: string;
   onClose: () => void;
   onConfirm: (reason: string) => Promise<void>;
 }) {
+  /* Freezes the last real applicant this was showing — see `ScreenInDialog`
+     for why. */
+  const [applicantName, setApplicantName] = useState(applicantNameProp);
+  if (applicantNameProp && applicantNameProp !== applicantName) {
+    setApplicantName(applicantNameProp);
+  }
+
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       size="md"
       title={`Turn down ${applicantName}?`}
